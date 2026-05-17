@@ -1,0 +1,935 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { templates, packages } from "../data/library.js";
+
+const photoLibrary = templates.map((t) => {
+  const photo = t.elements.find((e) => e.id === "bg-photo");
+  return { id: t.id, name: t.name, src: photo ? photo.src : t.thumb };
+});
+
+const templateData = templates.map((t) => ({
+  id: t.id,
+  name: t.name,
+  category: t.category,
+  thumb: t.thumb,
+  canvas: t.canvas,
+  elements: t.elements,
+}));
+---
+
+<BaseLayout
+  title="Editor — TMKE"
+  description="Edit your purchased templates in the TMKE design studio."
+  hideNav={true}
+  hideFooter={true}
+>
+  <div class="editor" id="editor">
+    <!-- =================== TOP BAR =================== -->
+    <header class="ed-topbar">
+      <div class="ed-topbar-left">
+        <a href="/account" class="ed-back" title="Back to library">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </a>
+        <a href="/" class="ed-logo">TMKE <em>Studio</em></a>
+        <span class="ed-divider"></span>
+        <input id="ed-filename" class="ed-filename" value="Untitled design" />
+      </div>
+
+      <div class="ed-topbar-mid">
+        <button class="ed-icon-btn" id="ed-undo" title="Undo (Ctrl+Z)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M3.51 13a9 9 0 1 0 2.13-9.36L3 6"/></svg>
+        </button>
+        <button class="ed-icon-btn" id="ed-redo" title="Redo (Ctrl+Shift+Z)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M20.49 13A9 9 0 1 1 18.36 3.64L21 6"/></svg>
+        </button>
+        <span class="ed-divider"></span>
+        <button class="ed-icon-btn" id="ed-zoom-out" title="Zoom out (-)">−</button>
+        <button class="ed-zoom-display" id="ed-zoom-display">100%</button>
+        <button class="ed-icon-btn" id="ed-zoom-in" title="Zoom in (+)">+</button>
+        <button class="ed-icon-btn ed-fit" id="ed-zoom-fit" title="Fit to screen (0)">Fit</button>
+      </div>
+
+      <div class="ed-topbar-right">
+        <button class="ed-btn-ghost" id="ed-save">Save</button>
+        <button class="ed-btn-ghost" id="ed-export-jpg">Export JPG</button>
+        <button class="ed-btn-solid" id="ed-export-png">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download
+        </button>
+      </div>
+    </header>
+
+    <!-- =================== LEFT TOOL RAIL =================== -->
+    <aside class="ed-rail" role="tablist">
+      <button class="ed-rail-btn is-active" data-tool="templates" title="Templates">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Designs</span>
+      </button>
+      <button class="ed-rail-btn" data-tool="elements" title="Elements">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="5"/><rect x="13" y="13" width="8" height="8" rx="1"/><path d="M3 21l5-8 5 8z"/></svg>
+        <span>Elements</span>
+      </button>
+      <button class="ed-rail-btn" data-tool="text" title="Text">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6V4h16v2"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+        <span>Text</span>
+      </button>
+      <button class="ed-rail-btn" data-tool="photos" title="Photos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span>Photos</span>
+      </button>
+      <button class="ed-rail-btn" data-tool="uploads" title="Uploads">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Uploads</span>
+      </button>
+      <button class="ed-rail-btn" data-tool="background" title="Background">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 16l5-5 4 4 5-5 4 4"/></svg>
+        <span>Background</span>
+      </button>
+      <button class="ed-rail-btn" data-tool="layers" title="Layers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l10 6-10 6L2 8z"/><path d="M2 12l10 6 10-6"/><path d="M2 16l10 6 10-6"/></svg>
+        <span>Layers</span>
+      </button>
+      <div class="ed-rail-spacer"></div>
+      <button class="ed-rail-btn" data-tool="resize" title="Resize">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 3h-7M21 3v7M3 21h7M3 21v-7"/><path d="M3 3l7 7M21 21l-7-7"/></svg>
+        <span>Resize</span>
+      </button>
+    </aside>
+
+    <!-- =================== TOOL FLYOUT PANEL =================== -->
+    <aside class="ed-panel" id="ed-panel">
+      <!-- Templates -->
+      <section class="ed-panel-pane is-active" data-pane="templates">
+        <div class="ed-pane-header">
+          <h3>Designs from your pack</h3>
+          <p>Tap a design to load it onto the canvas.</p>
+        </div>
+        <div class="ed-template-grid" id="ed-template-grid"></div>
+      </section>
+
+      <!-- Elements -->
+      <section class="ed-panel-pane" data-pane="elements">
+        <div class="ed-pane-header"><h3>Elements</h3><p>Drop shapes, lines and frames onto the canvas.</p></div>
+        <div class="ed-section-title">Shapes</div>
+        <div class="ed-shape-grid">
+          <button class="ed-shape" data-shape="rect"><div class="sh sh-rect"></div><span>Rectangle</span></button>
+          <button class="ed-shape" data-shape="ellipse"><div class="sh sh-circle"></div><span>Circle</span></button>
+          <button class="ed-shape" data-shape="triangle"><div class="sh sh-tri"></div><span>Triangle</span></button>
+          <button class="ed-shape" data-shape="line"><div class="sh sh-line"></div><span>Line</span></button>
+          <button class="ed-shape" data-shape="rounded"><div class="sh sh-round"></div><span>Pill</span></button>
+          <button class="ed-shape" data-shape="star"><div class="sh sh-star">★</div><span>Star</span></button>
+        </div>
+        <div class="ed-section-title">Lines &amp; rules</div>
+        <div class="ed-shape-grid ed-shape-grid--lines">
+          <button class="ed-shape" data-shape="hr-thin"><div class="sh sh-hr"></div><span>Thin rule</span></button>
+          <button class="ed-shape" data-shape="hr-thick"><div class="sh sh-hr sh-hr-thick"></div><span>Thick rule</span></button>
+        </div>
+      </section>
+
+      <!-- Text -->
+      <section class="ed-panel-pane" data-pane="text">
+        <div class="ed-pane-header"><h3>Text</h3><p>Click to add a text block to your design.</p></div>
+        <button class="ed-text-add" data-text="heading">
+          <div class="ed-text-preview ed-text-h">Add a heading</div>
+        </button>
+        <button class="ed-text-add" data-text="subheading">
+          <div class="ed-text-preview ed-text-sh">Add a subheading</div>
+        </button>
+        <button class="ed-text-add" data-text="body">
+          <div class="ed-text-preview ed-text-b">Add body text</div>
+        </button>
+        <div class="ed-section-title">Brand kit</div>
+        <button class="ed-text-add" data-text="brand-eyebrow">
+          <div class="ed-text-preview ed-text-eyebrow">CHAPTER MARKER</div>
+        </button>
+        <button class="ed-text-add" data-text="brand-quote">
+          <div class="ed-text-preview ed-text-quote">"A pulled quote — italic Cormorant."</div>
+        </button>
+      </section>
+
+      <!-- Photos -->
+      <section class="ed-panel-pane" data-pane="photos">
+        <div class="ed-pane-header"><h3>Photos</h3><p>Royalty-free imagery from your library.</p></div>
+        <div class="ed-photo-grid" id="ed-photo-grid"></div>
+      </section>
+
+      <!-- Uploads -->
+      <section class="ed-panel-pane" data-pane="uploads">
+        <div class="ed-pane-header"><h3>Uploads</h3><p>Drop in your own logos and imagery.</p></div>
+        <label class="ed-upload-drop">
+          <input type="file" id="ed-upload-input" accept="image/*" multiple hidden />
+          <strong>Click to upload</strong>
+          <span>or drag images here</span>
+        </label>
+        <div class="ed-photo-grid" id="ed-upload-grid"></div>
+      </section>
+
+      <!-- Background -->
+      <section class="ed-panel-pane" data-pane="background">
+        <div class="ed-pane-header"><h3>Background</h3><p>A solid colour, a brand swatch or a gradient.</p></div>
+        <div class="ed-section-title">Brand</div>
+        <div class="ed-swatches" data-swatch-target="canvas">
+          <button class="ed-sw" data-color="#1c1d22" style="background:#1c1d22"></button>
+          <button class="ed-sw" data-color="#474254" style="background:#474254"></button>
+          <button class="ed-sw" data-color="#333747" style="background:#333747"></button>
+          <button class="ed-sw" data-color="#B9826A" style="background:#B9826A"></button>
+          <button class="ed-sw" data-color="#BCB3B9" style="background:#BCB3B9"></button>
+          <button class="ed-sw" data-color="#DFDCDE" style="background:#DFDCDE"></button>
+          <button class="ed-sw" data-color="#F0EEEB" style="background:#F0EEEB"></button>
+          <button class="ed-sw" data-color="#F2EFE9" style="background:#F2EFE9"></button>
+          <button class="ed-sw" data-color="#FFFFFF" style="background:#FFFFFF; border:1px solid rgba(0,0,0,0.1)"></button>
+        </div>
+        <div class="ed-section-title">Custom</div>
+        <input type="color" id="ed-bg-color" value="#F2EFE9" class="ed-color-input" />
+        <div class="ed-section-title">Gradients</div>
+        <div class="ed-grad-grid">
+          <button class="ed-grad" data-grad="linear-gradient(135deg, #474254, #B9826A)" style="background:linear-gradient(135deg, #474254, #B9826A)"></button>
+          <button class="ed-grad" data-grad="linear-gradient(135deg, #1c1d22, #474254)" style="background:linear-gradient(135deg, #1c1d22, #474254)"></button>
+          <button class="ed-grad" data-grad="linear-gradient(180deg, #F2EFE9, #DFDCDE)" style="background:linear-gradient(180deg, #F2EFE9, #DFDCDE)"></button>
+          <button class="ed-grad" data-grad="linear-gradient(135deg, #B9826A, #F2EFE9)" style="background:linear-gradient(135deg, #B9826A, #F2EFE9)"></button>
+          <button class="ed-grad" data-grad="radial-gradient(circle at 30% 30%, #BCB3B9, #474254)" style="background:radial-gradient(circle at 30% 30%, #BCB3B9, #474254)"></button>
+          <button class="ed-grad" data-grad="linear-gradient(180deg, #333747, #BCB3B9)" style="background:linear-gradient(180deg, #333747, #BCB3B9)"></button>
+        </div>
+      </section>
+
+      <!-- Layers -->
+      <section class="ed-panel-pane" data-pane="layers">
+        <div class="ed-pane-header"><h3>Layers</h3><p>Drag to reorder. Top of list = top of canvas.</p></div>
+        <ul class="ed-layers" id="ed-layers"></ul>
+      </section>
+
+      <!-- Resize -->
+      <section class="ed-panel-pane" data-pane="resize">
+        <div class="ed-pane-header"><h3>Resize design</h3><p>Switch the canvas to another format.</p></div>
+        <div class="ed-resize-grid">
+          <button class="ed-resize-card" data-size="1080,1350">
+            <div class="ed-resize-vis" style="aspect-ratio:4/5"></div>
+            <strong>Instagram Portrait</strong><span>1080 × 1350</span>
+          </button>
+          <button class="ed-resize-card" data-size="1080,1080">
+            <div class="ed-resize-vis" style="aspect-ratio:1/1"></div>
+            <strong>Instagram Square</strong><span>1080 × 1080</span>
+          </button>
+          <button class="ed-resize-card" data-size="1080,1920">
+            <div class="ed-resize-vis" style="aspect-ratio:9/16"></div>
+            <strong>Story / Reel</strong><span>1080 × 1920</span>
+          </button>
+          <button class="ed-resize-card" data-size="1920,1080">
+            <div class="ed-resize-vis" style="aspect-ratio:16/9"></div>
+            <strong>Landscape</strong><span>1920 × 1080</span>
+          </button>
+          <button class="ed-resize-card" data-size="1200,628">
+            <div class="ed-resize-vis" style="aspect-ratio:1200/628"></div>
+            <strong>Facebook Link</strong><span>1200 × 628</span>
+          </button>
+          <button class="ed-resize-card" data-size="2480,3508">
+            <div class="ed-resize-vis" style="aspect-ratio:1/1.414"></div>
+            <strong>A4 Portrait</strong><span>2480 × 3508</span>
+          </button>
+        </div>
+        <div class="ed-section-title">Custom</div>
+        <div class="ed-resize-custom">
+          <label>Width<input type="number" id="ed-resize-w" value="1080" min="100" max="6000" /></label>
+          <label>Height<input type="number" id="ed-resize-h" value="1350" min="100" max="6000" /></label>
+          <button class="ed-btn-solid" id="ed-resize-apply">Apply</button>
+        </div>
+      </section>
+    </aside>
+
+    <!-- =================== CONTEXTUAL TOOLBAR =================== -->
+    <div class="ed-context" id="ed-context" hidden>
+      <!-- populated by JS based on selection -->
+    </div>
+
+    <!-- =================== CANVAS STAGE =================== -->
+    <main class="ed-stage" id="ed-stage">
+      <div class="ed-canvas-shadow" id="ed-canvas-shadow">
+        <div class="ed-canvas" id="ed-canvas">
+          <!-- elements rendered here -->
+        </div>
+        <div class="ed-guides" id="ed-guides"></div>
+        <div class="ed-handles" id="ed-handles"></div>
+      </div>
+    </main>
+
+    <!-- =================== RIGHT PROPERTIES =================== -->
+    <aside class="ed-props" id="ed-props">
+      <div class="ed-props-empty">
+        <div class="ed-props-empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
+        </div>
+        <p>Select an element to edit its properties.</p>
+        <p class="ed-props-hint">Tip: press <kbd>?</kbd> for keyboard shortcuts.</p>
+      </div>
+    </aside>
+
+    <!-- Toast -->
+    <div class="ed-toast" id="ed-toast" hidden></div>
+
+    <!-- Shortcut modal -->
+    <div class="ed-modal" id="ed-shortcuts" hidden>
+      <div class="ed-modal-card">
+        <header><h3>Keyboard shortcuts</h3><button class="ed-modal-close" id="ed-shortcuts-close">×</button></header>
+        <ul>
+          <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> Redo</li>
+          <li><kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate</li>
+          <li><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>V</kbd> Copy / Paste</li>
+          <li><kbd>Ctrl</kbd>+<kbd>S</kbd> Save</li>
+          <li><kbd>Del</kbd> Delete</li>
+          <li><kbd>↑↓←→</kbd> Nudge 1px (<kbd>Shift</kbd> +10px)</li>
+          <li><kbd>Space</kbd> + drag → Pan canvas</li>
+          <li><kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd> Zoom in / out / fit</li>
+          <li><kbd>[</kbd> / <kbd>]</kbd> Send back / bring forward</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script id="ed-templates-data" type="application/json" set:html={JSON.stringify(templateData)}></script>
+  <script id="ed-photos-data" type="application/json" set:html={JSON.stringify(photoLibrary)}></script>
+
+  <style is:global>
+    body { background: #f5f4f1; overflow: hidden; }
+
+    .editor {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-columns: 80px 320px 1fr 300px;
+      grid-template-rows: 56px 44px 1fr;
+      grid-template-areas:
+        "top   top   top   top"
+        "rail  panel ctx   props"
+        "rail  panel stage props";
+      background: #f5f4f1;
+      font-family: var(--sans);
+      color: var(--ink);
+    }
+
+    /* ===== Top bar ===== */
+    .ed-topbar {
+      grid-area: top;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      padding: 0 18px;
+      background: #fff;
+      border-bottom: 1px solid rgba(28,29,34,0.08);
+      z-index: 30;
+    }
+    .ed-topbar-left { display: flex; align-items: center; gap: 14px; justify-self: start; }
+    .ed-topbar-mid { display: flex; align-items: center; gap: 4px; justify-self: center; }
+    .ed-topbar-right { display: flex; align-items: center; gap: 8px; justify-self: end; }
+
+    .ed-back {
+      width: 32px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 4px;
+      color: rgba(28,29,34,0.7);
+    }
+    .ed-back:hover { background: rgba(28,29,34,0.06); color: var(--ink); }
+
+    .ed-logo {
+      font-family: var(--serif); font-size: 20px; font-weight: 500;
+      letter-spacing: 0.04em; color: var(--ink);
+    }
+    .ed-logo em { font-style: italic; color: var(--english-violet); font-size: 14px; margin-left: 4px; }
+
+    .ed-divider { width: 1px; height: 22px; background: rgba(28,29,34,0.12); }
+
+    .ed-filename {
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 6px 10px;
+      font-size: 14px;
+      font-family: var(--sans);
+      color: var(--ink);
+      border-radius: 4px;
+      min-width: 200px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .ed-filename:hover { background: rgba(28,29,34,0.04); }
+    .ed-filename:focus { outline: none; background: #fff; border-color: var(--english-violet); }
+
+    .ed-icon-btn, .ed-zoom-display, .ed-btn-ghost, .ed-btn-solid, .ed-fit {
+      font-family: var(--sans); cursor: pointer; border: none;
+    }
+    .ed-icon-btn {
+      width: 32px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      color: rgba(28,29,34,0.7);
+      border-radius: 4px;
+      font-size: 18px; font-weight: 500;
+    }
+    .ed-icon-btn:hover { background: rgba(28,29,34,0.07); color: var(--ink); }
+    .ed-icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .ed-icon-btn.ed-fit { width: auto; padding: 0 10px; font-size: 12px; font-weight: 600; }
+
+    .ed-zoom-display {
+      background: transparent;
+      padding: 4px 8px; font-size: 12px; min-width: 56px;
+      border-radius: 4px; color: rgba(28,29,34,0.7);
+    }
+    .ed-zoom-display:hover { background: rgba(28,29,34,0.07); }
+
+    .ed-btn-ghost {
+      background: transparent;
+      padding: 8px 14px;
+      font-size: 13px; font-weight: 600;
+      color: var(--ink);
+      border-radius: 4px;
+    }
+    .ed-btn-ghost:hover { background: rgba(28,29,34,0.07); }
+
+    .ed-btn-solid {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--english-violet);
+      color: var(--paper);
+      padding: 8px 16px;
+      font-size: 13px; font-weight: 600;
+      border-radius: 4px;
+    }
+    .ed-btn-solid:hover { background: var(--ink); }
+
+    /* ===== Left rail ===== */
+    .ed-rail {
+      grid-area: rail;
+      background: #fff;
+      border-right: 1px solid rgba(28,29,34,0.08);
+      display: flex;
+      flex-direction: column;
+      padding: 8px 0;
+      gap: 2px;
+      z-index: 25;
+    }
+    .ed-rail-spacer { flex: 1; }
+    .ed-rail-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px;
+      width: 100%; padding: 12px 4px;
+      background: transparent; border: none; cursor: pointer;
+      color: rgba(28,29,34,0.65);
+      border-left: 2px solid transparent;
+      font-family: var(--sans);
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .ed-rail-btn svg { width: 22px; height: 22px; }
+    .ed-rail-btn span {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+    }
+    .ed-rail-btn:hover { color: var(--ink); background: rgba(28,29,34,0.04); }
+    .ed-rail-btn.is-active {
+      color: var(--english-violet);
+      background: rgba(71, 66, 84, 0.08);
+      border-left-color: var(--english-violet);
+    }
+
+    /* ===== Tool panel (flyout) ===== */
+    .ed-panel {
+      grid-area: panel;
+      background: #fff;
+      border-right: 1px solid rgba(28,29,34,0.08);
+      overflow-y: auto;
+      padding: 20px;
+      z-index: 20;
+    }
+    .ed-panel-pane { display: none; }
+    .ed-panel-pane.is-active { display: block; }
+
+    .ed-pane-header { margin-bottom: 18px; }
+    .ed-pane-header h3 {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin: 0 0 4px;
+    }
+    .ed-pane-header p {
+      font-size: 12px;
+      color: rgba(28,29,34,0.55);
+      margin: 0;
+    }
+    .ed-section-title {
+      font-family: var(--sans);
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+      margin: 22px 0 10px;
+    }
+
+    /* Template + photo grids */
+    .ed-template-grid, .ed-photo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .ed-template-grid button, .ed-photo-grid button {
+      position: relative;
+      padding: 0; border: none; background: rgba(28,29,34,0.06);
+      border-radius: 4px; overflow: hidden; cursor: pointer;
+      aspect-ratio: 4/5;
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .ed-template-grid button img, .ed-photo-grid button img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .ed-template-grid button:hover, .ed-photo-grid button:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 16px -8px rgba(28,29,34,0.4);
+    }
+    .ed-template-grid button.is-current::after {
+      content: ""; position: absolute; inset: 0;
+      border: 2px solid var(--english-violet); border-radius: 4px;
+      pointer-events: none;
+    }
+
+    /* Shapes */
+    .ed-shape-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .ed-shape-grid--lines { grid-template-columns: repeat(2, 1fr); }
+    .ed-shape {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px;
+      padding: 14px 8px;
+      background: rgba(28,29,34,0.04);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--sans); font-size: 11px;
+      color: rgba(28,29,34,0.7);
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .ed-shape:hover { background: rgba(71,66,84,0.1); border-color: rgba(71,66,84,0.3); }
+    .ed-shape .sh { width: 36px; height: 36px; background: var(--english-violet); display: flex; align-items: center; justify-content: center; color: #fff; }
+    .ed-shape .sh-circle { border-radius: 50%; }
+    .ed-shape .sh-round { border-radius: 18px; }
+    .ed-shape .sh-tri {
+      width: 0; height: 0; background: transparent;
+      border-left: 18px solid transparent; border-right: 18px solid transparent;
+      border-bottom: 32px solid var(--english-violet);
+    }
+    .ed-shape .sh-line { height: 4px; width: 36px; }
+    .ed-shape .sh-hr { width: 100%; height: 1px; background: var(--english-violet); }
+    .ed-shape .sh-hr-thick { height: 4px; }
+    .ed-shape .sh-star { background: transparent; color: var(--english-violet); font-size: 28px; }
+
+    /* Text adders */
+    .ed-text-add {
+      display: block;
+      width: 100%; padding: 14px 16px;
+      background: rgba(28,29,34,0.04);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: left;
+      margin-bottom: 8px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .ed-text-add:hover { background: rgba(71,66,84,0.1); border-color: rgba(71,66,84,0.3); }
+    .ed-text-preview { color: var(--ink); }
+    .ed-text-h { font-family: var(--serif); font-size: 24px; font-weight: 500; }
+    .ed-text-sh { font-family: var(--serif); font-size: 17px; font-weight: 400; font-style: italic; color: rgba(28,29,34,0.7); }
+    .ed-text-b { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.7); }
+    .ed-text-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; color: var(--english-violet); }
+    .ed-text-quote { font-family: var(--serif); font-style: italic; font-size: 16px; }
+
+    /* Uploads */
+    .ed-upload-drop {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px;
+      padding: 28px;
+      border: 1.5px dashed rgba(71,66,84,0.35);
+      border-radius: 4px;
+      background: rgba(71,66,84,0.04);
+      cursor: pointer;
+      text-align: center;
+      margin-bottom: 16px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .ed-upload-drop strong { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--english-violet); }
+    .ed-upload-drop span { font-size: 12px; color: rgba(28,29,34,0.55); }
+    .ed-upload-drop:hover, .ed-upload-drop.is-drag {
+      background: rgba(71,66,84,0.1);
+      border-color: var(--english-violet);
+    }
+
+    /* Background swatches */
+    .ed-swatches {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .ed-sw {
+      aspect-ratio: 1;
+      border: none; cursor: pointer; border-radius: 4px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .ed-sw:hover { transform: scale(1.08); box-shadow: 0 4px 10px -4px rgba(28,29,34,0.3); }
+    .ed-color-input { width: 100%; height: 40px; border: 1px solid rgba(28,29,34,0.1); border-radius: 4px; cursor: pointer; }
+
+    .ed-grad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .ed-grad {
+      aspect-ratio: 1; border: none; cursor: pointer; border-radius: 4px;
+      transition: transform 0.2s;
+    }
+    .ed-grad:hover { transform: scale(1.05); }
+
+    /* Layers */
+    .ed-layers {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .ed-layer {
+      display: grid;
+      grid-template-columns: 40px 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      background: rgba(28,29,34,0.04);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .ed-layer:hover { background: rgba(71,66,84,0.08); }
+    .ed-layer.is-selected { border-color: var(--english-violet); background: rgba(71,66,84,0.12); }
+    .ed-layer-thumb {
+      width: 32px; height: 32px;
+      background: rgba(28,29,34,0.08);
+      border-radius: 2px;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--serif); font-size: 14px; color: var(--english-violet);
+    }
+    .ed-layer-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .ed-layer-name { font-family: var(--sans); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ed-layer-action {
+      width: 22px; height: 22px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; border: none; cursor: pointer;
+      color: rgba(28,29,34,0.45);
+      border-radius: 3px;
+    }
+    .ed-layer-action:hover { background: rgba(28,29,34,0.08); color: var(--ink); }
+    .ed-layer-action.is-on { color: var(--english-violet); }
+
+    /* Resize */
+    .ed-resize-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .ed-resize-card {
+      display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+      padding: 12px;
+      background: rgba(28,29,34,0.04);
+      border: 1px solid transparent;
+      border-radius: 4px; cursor: pointer; text-align: left;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .ed-resize-card:hover { background: rgba(71,66,84,0.1); border-color: rgba(71,66,84,0.3); }
+    .ed-resize-vis { background: rgba(71,66,84,0.2); border-radius: 2px; margin-bottom: 6px; max-height: 80px; }
+    .ed-resize-card strong { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ink); }
+    .ed-resize-card span { font-size: 11px; color: rgba(28,29,34,0.55); }
+    .ed-resize-custom {
+      display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end;
+    }
+    .ed-resize-custom label {
+      display: flex; flex-direction: column; gap: 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+    }
+    .ed-resize-custom input {
+      padding: 8px 10px;
+      font-family: var(--sans); font-size: 13px;
+      border: 1px solid rgba(28,29,34,0.15); border-radius: 4px;
+    }
+
+    /* ===== Contextual toolbar ===== */
+    .ed-context {
+      grid-area: ctx;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 14px;
+      background: #fff;
+      border-bottom: 1px solid rgba(28,29,34,0.08);
+      overflow-x: auto;
+      z-index: 22;
+    }
+    .ed-context[hidden] { display: none; }
+    .ed-ctx-group {
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 8px;
+      border-right: 1px solid rgba(28,29,34,0.08);
+      height: 28px;
+    }
+    .ed-ctx-group:last-child { border-right: none; }
+    .ed-ctx-btn {
+      height: 28px; min-width: 28px; padding: 0 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; border: 1px solid transparent;
+      border-radius: 4px; cursor: pointer;
+      font-family: var(--sans); font-size: 13px; color: var(--ink);
+    }
+    .ed-ctx-btn:hover { background: rgba(28,29,34,0.07); }
+    .ed-ctx-btn.is-on { background: rgba(71,66,84,0.15); color: var(--english-violet); }
+    .ed-ctx-btn svg { width: 14px; height: 14px; }
+
+    .ed-ctx-select {
+      padding: 4px 8px;
+      font-family: var(--sans); font-size: 13px;
+      border: 1px solid rgba(28,29,34,0.15);
+      border-radius: 4px; background: #fff;
+      min-width: 130px;
+    }
+    .ed-ctx-num {
+      width: 56px; padding: 4px 8px;
+      font-family: var(--sans); font-size: 13px;
+      border: 1px solid rgba(28,29,34,0.15);
+      border-radius: 4px; background: #fff;
+    }
+    .ed-ctx-color {
+      width: 28px; height: 28px;
+      padding: 2px;
+      border: 1px solid rgba(28,29,34,0.15);
+      border-radius: 4px; cursor: pointer; background: #fff;
+    }
+    .ed-ctx-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5);
+      margin-right: 4px;
+    }
+
+    /* ===== Canvas stage ===== */
+    .ed-stage {
+      grid-area: stage;
+      position: relative;
+      overflow: auto;
+      background: #f5f4f1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 40px;
+    }
+    .ed-canvas-shadow {
+      position: relative;
+      box-shadow: 0 30px 90px -30px rgba(28,29,34,0.35), 0 4px 12px -6px rgba(28,29,34,0.18);
+      transform-origin: center center;
+    }
+    .ed-canvas {
+      position: relative;
+      overflow: hidden;
+      background: #fff;
+    }
+    .ed-element {
+      position: absolute;
+      box-sizing: border-box;
+      transform-origin: center center;
+      user-select: none;
+    }
+    .ed-element[data-type="text"] {
+      display: flex; align-items: flex-start;
+      cursor: move;
+      overflow: visible;
+    }
+    .ed-element[data-type="text"] .ed-text-inner {
+      width: 100%;
+      outline: none;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      cursor: move;
+    }
+    .ed-element[data-type="text"].is-editing .ed-text-inner { cursor: text; }
+    .ed-element[data-type="image"] img {
+      width: 100%; height: 100%; object-fit: cover; pointer-events: none;
+      display: block;
+    }
+    .ed-element.is-locked { pointer-events: none; }
+    .ed-element.is-hidden { display: none; }
+
+    .ed-element.is-selected::after {
+      content: "";
+      position: absolute; inset: -2px;
+      border: 1.5px solid var(--english-violet);
+      pointer-events: none;
+    }
+    .ed-element.is-multiselected::after {
+      content: "";
+      position: absolute; inset: -2px;
+      border: 1.5px dashed rgba(71,66,84,0.7);
+      pointer-events: none;
+    }
+
+    .ed-handles {
+      position: absolute; inset: 0;
+      pointer-events: none;
+      transform-origin: center center;
+    }
+    .ed-handle {
+      position: absolute;
+      width: 10px; height: 10px;
+      background: #fff;
+      border: 1.5px solid var(--english-violet);
+      border-radius: 50%;
+      pointer-events: auto;
+      cursor: nwse-resize;
+      z-index: 50;
+    }
+    .ed-handle[data-h="n"], .ed-handle[data-h="s"] { cursor: ns-resize; }
+    .ed-handle[data-h="e"], .ed-handle[data-h="w"] { cursor: ew-resize; }
+    .ed-handle[data-h="ne"], .ed-handle[data-h="sw"] { cursor: nesw-resize; }
+    .ed-handle[data-h="rot"] {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--english-violet);
+      border-color: #fff;
+      cursor: grab;
+    }
+    .ed-bounds {
+      position: absolute;
+      border: 1.5px solid var(--english-violet);
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+
+    .ed-guides {
+      position: absolute; inset: 0; pointer-events: none; z-index: 49;
+    }
+    .ed-guide {
+      position: absolute; background: #ff3b6b;
+    }
+    .ed-guide-v { width: 1px; }
+    .ed-guide-h { height: 1px; }
+
+    /* ===== Right properties ===== */
+    .ed-props {
+      grid-area: props;
+      background: #fff;
+      border-left: 1px solid rgba(28,29,34,0.08);
+      overflow-y: auto;
+      padding: 20px;
+      z-index: 15;
+    }
+    .ed-props-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%;
+      text-align: center;
+      color: rgba(28,29,34,0.45);
+    }
+    .ed-props-empty p { margin: 12px 0 4px; font-size: 13px; }
+    .ed-props-hint { font-size: 11px; color: rgba(28,29,34,0.35); }
+    .ed-props-hint kbd {
+      font-family: var(--sans);
+      background: rgba(28,29,34,0.08);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+    }
+
+    .ed-props-section { margin-bottom: 22px; }
+    .ed-props-section h4 {
+      font-family: var(--sans);
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+      margin: 0 0 10px;
+    }
+    .ed-props-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .ed-props-field { display: flex; flex-direction: column; gap: 4px; }
+    .ed-props-field > label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(28,29,34,0.45);
+    }
+    .ed-props-field input, .ed-props-field select {
+      padding: 7px 10px;
+      font-family: var(--sans); font-size: 13px;
+      border: 1px solid rgba(28,29,34,0.15);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+    }
+    .ed-props-field input[type="color"] { padding: 2px; height: 32px; cursor: pointer; }
+    .ed-props-field input[type="range"] { padding: 0; }
+
+    .ed-props-actions {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+      margin-top: 12px;
+    }
+    .ed-props-actions button {
+      padding: 8px;
+      font-family: var(--sans); font-size: 12px; font-weight: 600;
+      background: rgba(28,29,34,0.05);
+      border: 1px solid transparent;
+      border-radius: 4px; cursor: pointer;
+      color: var(--ink);
+    }
+    .ed-props-actions button:hover { background: rgba(28,29,34,0.1); }
+    .ed-props-actions .danger:hover { background: rgba(160, 90, 60, 0.15); color: #a05a3c; }
+
+    /* Toast */
+    .ed-toast {
+      position: fixed;
+      bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(28,29,34,0.92);
+      color: var(--paper);
+      padding: 10px 18px;
+      border-radius: 4px;
+      font-size: 13px; font-weight: 500;
+      z-index: 200;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+    }
+    .ed-toast.is-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Modal */
+    .ed-modal {
+      position: fixed; inset: 0;
+      background: rgba(28,29,34,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 300;
+    }
+    .ed-modal[hidden] { display: none; }
+    .ed-modal-card {
+      background: #fff;
+      border-radius: 6px;
+      padding: 28px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 40px 80px -20px rgba(0,0,0,0.4);
+    }
+    .ed-modal-card header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .ed-modal-card h3 {
+      font-family: var(--serif); font-size: 24px; font-weight: 500;
+      margin: 0;
+    }
+    .ed-modal-close {
+      background: transparent; border: none;
+      font-size: 24px; cursor: pointer; color: rgba(28,29,34,0.5);
+      width: 32px; height: 32px;
+    }
+    .ed-modal-close:hover { color: var(--ink); }
+    .ed-modal-card ul {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 10px;
+      font-size: 13px;
+    }
+    .ed-modal-card kbd {
+      font-family: var(--sans);
+      background: rgba(28,29,34,0.08);
+      padding: 2px 6px; border-radius: 3px;
+      font-size: 11px; font-weight: 600;
+      margin: 0 2px;
+    }
+  </style>
+
+  <script src="/scripts/editor.js" is:inline type="module"></script>
+</BaseLayout>

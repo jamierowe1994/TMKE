@@ -1,6 +1,10 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHero from "../components/PageHero.astro";
+import { packages, templates } from "../data/library.js";
+
+const pkg = packages[0];
+const pkgTemplates = templates.filter((t) => pkg.templateIds.includes(t.id));
 ---
 
 <BaseLayout
@@ -15,9 +19,9 @@ import PageHero from "../components/PageHero.astro";
 
   <section class="account-grid wrap">
     <aside class="account-side">
-      <div class="account-tag">Signed in <em>(placeholder)</em></div>
-      <h3 class="account-name">[Account Name]</h3>
-      <div class="account-email">[email&#64;agency.co.uk]</div>
+      <div class="account-tag" id="session-tag">Signed in <em>(demo)</em></div>
+      <h3 class="account-name" id="session-name">[Account Name]</h3>
+      <div class="account-email" id="session-email">[email&#64;agency.co.uk]</div>
 
       <nav class="account-nav" aria-label="Account">
         <a href="#library" class="is-active">Library</a>
@@ -25,7 +29,7 @@ import PageHero from "../components/PageHero.astro";
         <a href="#downloads">Downloads</a>
         <a href="#profile">Profile</a>
         <a href="#billing">Billing</a>
-        <a href="#" class="account-signout">Sign out</a>
+        <a href="#" id="signout-link" class="account-signout">Sign out</a>
       </nav>
     </aside>
 
@@ -34,22 +38,56 @@ import PageHero from "../components/PageHero.astro";
         <div class="eyebrow">Your Library</div>
         <h2 class="account-heading">Purchased packs</h2>
 
-        <div class="account-empty">
-          <p>You haven't purchased any packs yet.</p>
-          <p class="account-empty-sub">When you check out from The Edit, your packs land here with one-click downloads.</p>
-          <a href="/edit" class="btn btn--solid">Browse The Edit <span class="btn-arrow">&rarr;</span></a>
+        <article class="pack-row">
+          <div class="pack-cover" style={`background-image: url(${pkg.cover})`}>
+            <div class="pack-cover-tag">{pkgTemplates.length} templates</div>
+          </div>
+          <div class="pack-body">
+            <div class="pack-meta">
+              <span>Purchased {pkg.purchased}</span>
+              <span>·</span>
+              <span>v{pkg.version}</span>
+            </div>
+            <h3 class="pack-title">{pkg.title}</h3>
+            <p class="pack-sub">{pkg.subtitle}</p>
+            <div class="pack-actions">
+              <a href="#templates" class="btn btn--solid">Open pack <span class="btn-arrow">&rarr;</span></a>
+              <a href="#" class="pack-secondary">Download all (.zip)</a>
+            </div>
+          </div>
+        </article>
+
+        <div class="templates-toolbar" id="templates">
+          <div>
+            <div class="eyebrow">Inside this pack</div>
+            <h3 class="templates-heading">{pkgTemplates.length} editable templates</h3>
+          </div>
+          <div class="templates-filters">
+            <button class="filter is-active" data-filter="all">All</button>
+            {Array.from(new Set(pkgTemplates.map((t) => t.category))).map((cat) => (
+              <button class="filter" data-filter={cat}>{cat}</button>
+            ))}
+          </div>
         </div>
 
-        <!-- Placeholder grid: hidden until a real purchase model is wired up -->
-        <div class="account-library hidden">
-          <article class="library-card">
-            <div class="library-card-img"></div>
-            <div class="library-card-body">
-              <h4>[Pack title]</h4>
-              <div class="library-card-meta">Purchased [date] · v[version]</div>
-              <a href="#" class="library-card-cta">Download &darr;</a>
-            </div>
-          </article>
+        <div class="template-grid">
+          {pkgTemplates.map((t, i) => (
+            <a href={`/editor?template=${t.id}`} class="template-card" data-category={t.category}>
+              <div class="template-thumb">
+                <img src={t.thumb} alt={t.name} loading="lazy" />
+                <div class="template-overlay">
+                  <span class="template-cta">Open in editor <em>&rarr;</em></span>
+                </div>
+              </div>
+              <div class="template-info">
+                <div class="template-num">{String(i + 1).padStart(2, "0")}</div>
+                <div class="template-text">
+                  <div class="template-name">{t.name}</div>
+                  <div class="template-cat">{t.category}</div>
+                </div>
+              </div>
+            </a>
+          ))}
         </div>
       </section>
     </div>
@@ -58,8 +96,8 @@ import PageHero from "../components/PageHero.astro";
   <style>
     .account-grid {
       display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: 80px;
+      grid-template-columns: 260px 1fr;
+      gap: 64px;
       max-width: 1360px;
       margin: 0 auto;
       padding: 40px 36px 200px;
@@ -94,12 +132,14 @@ import PageHero from "../components/PageHero.astro";
       letter-spacing: -0.015em;
       margin: 0 0 4px;
       color: var(--ink);
+      text-transform: capitalize;
     }
     .account-email {
       font-family: var(--sans);
       font-size: 14px;
       color: rgba(28, 29, 34, 0.55);
       margin-bottom: 32px;
+      word-break: break-all;
     }
     .account-nav {
       display: flex;
@@ -128,6 +168,7 @@ import PageHero from "../components/PageHero.astro";
       font-size: 12px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
+      cursor: pointer;
     }
 
     .account-main .eyebrow { margin-bottom: 16px; }
@@ -140,60 +181,241 @@ import PageHero from "../components/PageHero.astro";
       margin: 0 0 40px;
     }
 
-    .account-empty {
-      max-width: 600px;
-      padding: 64px;
-      border: 1px dashed rgba(71, 66, 84, 0.35);
+    /* Pack hero row */
+    .pack-row {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 36px;
+      align-items: stretch;
+      padding: 28px;
+      background: #fff;
+      border: 1px solid rgba(28, 29, 34, 0.08);
       border-radius: 4px;
-      text-align: center;
+      margin-bottom: 80px;
     }
-    .account-empty p {
-      margin: 0 0 12px;
-      color: rgba(28, 29, 34, 0.72);
-      font-size: 17px;
-      line-height: 1.55;
-    }
-    .account-empty p:first-child {
-      font-family: var(--serif);
-      font-size: 22px;
-      font-style: italic;
-      color: var(--ink);
-      margin-bottom: 8px;
-    }
-    .account-empty-sub {
-      font-size: 14px !important;
-      margin-bottom: 32px !important;
-    }
-
-    .account-library { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; }
-    .account-library.hidden { display: none; }
-    .library-card { background: var(--platinum); }
-    .library-card-img {
+    .pack-cover {
+      position: relative;
       aspect-ratio: 4/5;
-      background: rgba(71, 66, 84, 0.18);
+      background-size: cover;
+      background-position: center;
+      border-radius: 2px;
     }
-    .library-card-body { padding: 18px 18px 22px; }
-    .library-card-body h4 { font-family: var(--serif); font-size: 22px; margin: 0 0 6px; }
-    .library-card-meta {
+    .pack-cover-tag {
+      position: absolute;
+      top: 14px; left: 14px;
+      padding: 6px 12px;
+      background: rgba(28, 29, 34, 0.78);
+      color: var(--paper);
       font-family: var(--sans);
       font-size: 11px;
-      letter-spacing: 0.18em;
+      font-weight: 700;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: rgba(28, 29, 34, 0.5);
-      margin-bottom: 14px;
+      border-radius: 999px;
     }
-    .library-card-cta {
+    .pack-body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+    }
+    .pack-meta {
+      display: flex; gap: 10px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: rgba(28, 29, 34, 0.5);
+    }
+    .pack-title {
+      font-family: var(--serif);
+      font-size: 38px;
+      letter-spacing: -0.015em;
+      margin: 0;
+      color: var(--ink);
+    }
+    .pack-sub {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 19px;
+      color: rgba(28, 29, 34, 0.62);
+      margin: 0 0 12px;
+    }
+    .pack-actions { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .pack-secondary {
       font-family: var(--sans);
       font-size: 12px;
       font-weight: 700;
-      letter-spacing: 0.22em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--english-violet);
+      border-bottom: 1px solid currentColor;
+      padding-bottom: 2px;
+    }
+
+    .templates-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    .templates-heading {
+      font-family: var(--serif);
+      font-size: 32px;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    .templates-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+    .filter {
+      background: transparent;
+      border: 1px solid rgba(28,29,34,0.18);
+      padding: 8px 14px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.65);
+      cursor: pointer;
+      border-radius: 999px;
+      transition: background 0.25s, color 0.25s, border-color 0.25s;
+    }
+    .filter:hover { color: var(--ink); }
+    .filter.is-active {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 20px;
+    }
+    .template-card {
+      display: block;
+      background: var(--platinum);
+      border-radius: 3px;
+      overflow: hidden;
+      transition: transform 0.45s cubic-bezier(.2,.7,.2,1), box-shadow 0.45s;
+    }
+    .template-card.is-hidden { display: none; }
+    .template-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 18px 40px -20px rgba(28,29,34,0.35);
+    }
+    .template-thumb {
+      position: relative;
+      aspect-ratio: 4/5;
+      overflow: hidden;
+      background: rgba(71, 66, 84, 0.18);
+    }
+    .template-thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 1.4s cubic-bezier(.2,.7,.2,1);
+    }
+    .template-card:hover .template-thumb img { transform: scale(1.06); }
+    .template-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: end;
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.7) 100%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .template-card:hover .template-overlay { opacity: 1; }
+    .template-cta {
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .template-cta em { font-style: italic; margin-left: 6px; }
+
+    .template-info {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 4px;
+      padding: 14px 16px 16px;
+      background: #fff;
+    }
+    .template-num {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      color: var(--english-violet);
+      padding-top: 4px;
+    }
+    .template-name {
+      font-family: var(--serif);
+      font-size: 17px;
+      color: var(--ink);
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .template-cat {
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: rgba(28,29,34,0.5);
     }
 
     @media (max-width: 980px) {
       .account-grid { grid-template-columns: 1fr; gap: 40px; }
       .account-side { position: static; }
+      .pack-row { grid-template-columns: 1fr; }
     }
   </style>
+
+  <script is:inline>
+    (function () {
+      // Hydrate sidebar with session info from login
+      try {
+        const raw = localStorage.getItem("tmke.session");
+        if (raw) {
+          const s = JSON.parse(raw);
+          const nameEl = document.getElementById("session-name");
+          const emailEl = document.getElementById("session-email");
+          const tagEl = document.getElementById("session-tag");
+          if (nameEl && s.name) nameEl.textContent = s.name;
+          if (emailEl && s.email) emailEl.textContent = s.email;
+          if (tagEl) tagEl.innerHTML = "Signed in";
+        }
+      } catch (e) { /* ignore */ }
+
+      // Sign out
+      const out = document.getElementById("signout-link");
+      if (out) out.addEventListener("click", function (e) {
+        e.preventDefault();
+        try { localStorage.removeItem("tmke.session"); } catch (_) {}
+        window.location.href = "/login";
+      });
+
+      // Category filters
+      const filters = document.querySelectorAll(".filter");
+      const cards = document.querySelectorAll(".template-card");
+      filters.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          filters.forEach(function (b) { b.classList.remove("is-active"); });
+          btn.classList.add("is-active");
+          const want = btn.getAttribute("data-filter");
+          cards.forEach(function (card) {
+            const cat = card.getAttribute("data-category");
+            const show = want === "all" || cat === want;
+            card.classList.toggle("is-hidden", !show);
+          });
+        });
+      });
+    })();
+  </script>
 </BaseLayout>
