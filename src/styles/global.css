@@ -201,6 +201,159 @@ body.theme-dark .nav-cta { color: var(--paper); border-color: rgba(255,255,255,0
 body.theme-dark .nav-cta:hover { background: var(--paper); }
 body.theme-dark .nav-cta:hover span { color: #0a0908; }
 
+/* ============ Sign-in splash ============ */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0c0b0a;
+  color: var(--paper);
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transition: opacity 0.45s cubic-bezier(.2,.7,.2,1);
+}
+.splash.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.splash-grain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch' seed='3'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 280px 280px;
+  opacity: 0.10;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+.splash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(70% 60% at 50% 45%, rgba(71, 66, 84, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+}
+.splash-inner {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 0 36px;
+  max-width: 1200px;
+}
+.splash-eyebrow {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(240, 238, 235, 0.6);
+  margin-bottom: 64px;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  opacity: 0;
+  transform: translateY(8px);
+}
+.splash-eyebrow span {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--paper);
+}
+.splash-eyebrow::before, .splash-eyebrow::after {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.45;
+}
+.splash.is-on .splash-eyebrow {
+  animation: splashFadeUp 0.9s 0.15s cubic-bezier(.2,.7,.2,1) forwards;
+}
+.splash-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(64px, 9vw, 156px);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin: 0 0 32px;
+  color: var(--paper);
+}
+.splash-title em { font-style: italic; color: var(--french-grey); }
+.splash-word {
+  display: block;
+  overflow: hidden;
+}
+.splash-word > span {
+  display: inline-block;
+  transform: translateY(110%);
+  opacity: 0;
+}
+.splash.is-on .splash-word:nth-child(1) > span {
+  animation: splashWord 1s 0.35s cubic-bezier(.2,.7,.2,1) forwards;
+}
+.splash.is-on .splash-word:nth-child(2) > span {
+  animation: splashWord 1s 0.55s cubic-bezier(.2,.7,.2,1) forwards;
+}
+.splash-sub {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(18px, 1.6vw, 22px);
+  color: rgba(240, 238, 235, 0.6);
+  margin: 0 0 56px;
+  opacity: 0;
+}
+.splash.is-on .splash-sub {
+  animation: splashFadeUp 0.9s 0.85s cubic-bezier(.2,.7,.2,1) forwards;
+}
+.splash-bar {
+  width: 240px;
+  height: 1px;
+  margin: 0 auto;
+  background: rgba(240, 238, 235, 0.18);
+  overflow: hidden;
+  opacity: 0;
+}
+.splash.is-on .splash-bar {
+  animation: splashFadeUp 0.6s 0.95s cubic-bezier(.2,.7,.2,1) forwards;
+}
+.splash-bar-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--paper);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+.splash.is-on .splash-bar-fill {
+  animation: splashBar 1.6s 0.95s cubic-bezier(.4, 0, .2, 1) forwards;
+}
+
+@keyframes splashFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes splashWord {
+  from { opacity: 0; transform: translateY(110%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes splashBar {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-eyebrow, .splash-sub, .splash-bar,
+  .splash-word > span { opacity: 1 !important; transform: none !important; animation: none !important; }
+  .splash-bar-fill { transform: scaleX(1) !important; animation: none !important; }
+}
+
 /* ============ Hero — cinematic ============ */
 .hero {
   position: relative;

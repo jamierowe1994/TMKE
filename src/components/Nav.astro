@@ -33,10 +33,10 @@ const links: { label: string; href: string }[] = [
 <script is:inline>
   (function () {
     // Temporary auth shortcut: clicking Login auto-creates a demo session
-    // so the client view (with fake purchases) loads in one click.
+    // and shows the brand splash whilst we navigate to the library.
     const btn = document.getElementById("nav-login");
     if (!btn) return;
-    btn.addEventListener("click", function () {
+    btn.addEventListener("click", function (e) {
       try {
         if (!localStorage.getItem("tmke.session")) {
           localStorage.setItem("tmke.session", JSON.stringify({
@@ -45,7 +45,11 @@ const links: { label: string; href: string }[] = [
             signedInAt: Date.now(),
           }));
         }
-      } catch (e) { /* ignore */ }
+      } catch (err) { /* ignore */ }
+      if (typeof window.tmkeSplash === "function") {
+        e.preventDefault();
+        window.tmkeSplash("/account");
+      }
     });
   })();
 </script>
