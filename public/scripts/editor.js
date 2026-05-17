@@ -68,10 +68,31 @@
     document.head.appendChild(link);
   }
 
+  // Custom brand fonts uploaded via /admin/fonts. The page-level inline
+  // script in editor.astro fetches them from Supabase and exposes the rows
+  // as `window.__TMKE_BRAND_FONTS__`. They're already loaded into
+  // document.fonts there, so we just need to surface them in the picker.
+  const BRAND_FONTS = (function readBrandFonts() {
+    const rows = (typeof window !== "undefined" && window.__TMKE_BRAND_FONTS__) || [];
+    const seen = new Set();
+    const out = [];
+    rows.forEach(function (r) {
+      if (!r || !r.family || seen.has(r.family)) return;
+      seen.add(r.family);
+      out.push({
+        name: r.family,
+        stack: '"' + r.family + '", sans-serif',
+        category: "Brand · Custom",
+        isBrandFont: true,
+      });
+    });
+    return out;
+  })();
+
   // BASE_FONTS retained as a name so the rest of the code (export canvas,
   // brand kit logic) keeps working — it now points at the combined catalogue:
-  // brand kit fonts (pinned) > system fonts > Google Fonts.
-  const BASE_FONTS = SYSTEM_FONTS.concat(GOOGLE_FONTS);
+  // custom brand fonts (pinned first) > system fonts > Google Fonts.
+  const BASE_FONTS = BRAND_FONTS.concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
 
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   function loadBrand() {

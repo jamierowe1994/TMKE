@@ -1,0 +1,481 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHero from "../../components/PageHero.astro";
+---
+
+<BaseLayout
+  title="Brand fonts — Admin · TMKE"
+  description="Upload custom fonts that appear in the design studio's font picker."
+>
+  <PageHero
+    chapter="Admin — Brand fonts"
+    title="Custom <em>brand fonts.</em>"
+    sub="Upload your own typefaces and they'll appear at the top of every font picker in the studio."
+  />
+
+  <section class="admin-bar wrap">
+    <a href="/admin" class="admin-back">&larr; Dashboard</a>
+    <div class="admin-bar-actions">
+      <span class="admin-bar-count" id="font-count">…</span>
+      <button type="button" id="upload-btn" class="admin-btn admin-btn-primary">+ Upload font</button>
+      <input type="file" id="font-input" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2,application/font-sfnt,application/x-font-ttf,application/x-font-otf,application/vnd.ms-fontobject" hidden />
+    </div>
+  </section>
+
+  <section class="font-list wrap">
+    <p class="font-loading" id="font-loading">Loading custom fonts…</p>
+    <p class="font-empty" id="font-empty" hidden>
+      No custom fonts yet — click <strong>+ Upload font</strong> to add your brand typeface. Accepts <code>.ttf</code>, <code>.otf</code>, <code>.woff</code>, <code>.woff2</code>.
+    </p>
+    <div class="font-grid" id="font-grid"></div>
+  </section>
+
+  <!-- Modal: optional metadata after picking a file -->
+  <div class="modal-backdrop" id="meta-modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="meta-title">
+      <header class="modal-head">
+        <h2 id="meta-title">New font</h2>
+        <button type="button" class="modal-close" id="meta-close" aria-label="Close">&times;</button>
+      </header>
+      <form id="meta-form" class="meta-form" novalidate>
+        <label class="field">
+          <span>Font family name</span>
+          <input type="text" name="family" required maxlength="80" />
+          <small>The CSS family. Use the exact name marketing types into design tools (e.g. <em>TMKE Sans</em>).</small>
+        </label>
+        <label class="field">
+          <span>Display name (optional)</span>
+          <input type="text" name="display_name" maxlength="80" />
+          <small>How it appears in the font picker. Defaults to the family above.</small>
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Weight</span>
+            <select name="weight">
+              <option value="100">Thin · 100</option>
+              <option value="200">Extra Light · 200</option>
+              <option value="300">Light · 300</option>
+              <option value="400" selected>Regular · 400</option>
+              <option value="500">Medium · 500</option>
+              <option value="600">Semibold · 600</option>
+              <option value="700">Bold · 700</option>
+              <option value="800">Extra Bold · 800</option>
+              <option value="900">Black · 900</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Style</span>
+            <select name="style">
+              <option value="normal" selected>Normal</option>
+              <option value="italic">Italic</option>
+            </select>
+          </label>
+        </div>
+        <p class="form-error" id="meta-error" hidden></p>
+        <footer class="modal-foot">
+          <button type="button" class="admin-btn admin-btn-ghost" id="meta-cancel">Cancel</button>
+          <button type="submit" class="admin-btn admin-btn-primary" id="meta-save">Save font</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <style is:global>
+    .admin-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 12px 36px 0;
+    }
+    .admin-back {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .admin-back:hover { color: var(--ink); }
+    .admin-bar-actions { display: flex; align-items: center; gap: 12px; }
+    .admin-bar-count {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.6);
+      font-weight: 600;
+    }
+
+    .admin-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 2px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+      text-decoration: none;
+    }
+    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
+    .admin-btn-primary:hover { background: var(--ink); }
+    .admin-btn-ghost { background: transparent; border-color: rgba(71, 66, 84, 0.4); color: var(--english-violet); }
+    .admin-btn-ghost:hover { background: rgba(71, 66, 84, 0.06); }
+    .admin-btn-danger { background: transparent; border-color: #a05a3c; color: #a05a3c; }
+    .admin-btn-danger:hover { background: #a05a3c; color: var(--paper); }
+    .admin-btn[disabled] { opacity: 0.55; cursor: progress; }
+
+    .font-list {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px 36px 200px;
+    }
+    .font-loading {
+      font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5);
+      padding: 24px 0;
+    }
+    .font-empty {
+      padding: 32px;
+      border: 1px dashed rgba(71,66,84,0.4);
+      border-radius: 2px;
+      font-family: var(--sans);
+      color: rgba(28,29,34,0.7);
+      max-width: 620px;
+    }
+    .font-empty strong { color: var(--ink); }
+    .font-empty code {
+      background: rgba(28,29,34,0.06);
+      padding: 2px 6px; border-radius: 2px;
+      font-size: 12px;
+    }
+
+    .font-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 720px) { .font-grid { grid-template-columns: 1fr; } }
+
+    .font-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 20px 22px;
+      border: 1px solid rgba(71,66,84,0.3);
+      border-radius: 2px;
+      background: rgba(255,255,255,0.5);
+    }
+    .font-preview {
+      font-size: 28px;
+      line-height: 1.1;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .font-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+      font-family: var(--sans);
+      font-size: 11px;
+      color: rgba(28,29,34,0.55);
+      letter-spacing: 0.04em;
+    }
+    .font-meta-name {
+      font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--english-violet);
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(28,29,34,0.55);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 8vh 16px;
+      z-index: 100;
+      overflow-y: auto;
+    }
+    .modal-backdrop[hidden] { display: none; }
+    .modal {
+      width: 100%; max-width: 520px;
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.25);
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 18px 22px;
+      border-bottom: 1px solid rgba(71,66,84,0.18);
+    }
+    .modal-head h2 {
+      font-family: var(--serif); font-size: 24px; font-weight: 500; margin: 0;
+    }
+    .modal-close {
+      background: none; border: none; font-size: 26px;
+      color: var(--english-violet); cursor: pointer; line-height: 1;
+    }
+    .meta-form {
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 18px 22px 4px;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field > span {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+    }
+    .field input,
+    .field select {
+      font-family: var(--sans);
+      font-size: 14px;
+      padding: 9px 12px;
+      border: 1px solid rgba(71, 66, 84, 0.3);
+      border-radius: 2px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .field small { font-size: 11px; color: rgba(28,29,34,0.55); }
+    .field-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .form-error {
+      margin: 0;
+      padding: 8px 10px;
+      background: rgba(160, 90, 60, 0.1);
+      border-left: 3px solid #a05a3c;
+      color: #a05a3c;
+      font-size: 13px;
+      font-family: var(--sans);
+    }
+    .modal-foot {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 18px 22px 22px;
+      border-top: 1px solid rgba(71,66,84,0.15);
+      margin-top: 8px;
+    }
+  </style>
+
+  <script>
+    import { requireAdmin } from '../../lib/admin-gate.js';
+    import { supabase } from '../../lib/supabase.js';
+
+    const BUCKET = 'brand-fonts';
+
+    const els = {
+      grid: document.getElementById('font-grid'),
+      loading: document.getElementById('font-loading'),
+      empty: document.getElementById('font-empty'),
+      count: document.getElementById('font-count'),
+      uploadBtn: document.getElementById('upload-btn'),
+      fileInput: document.getElementById('font-input'),
+      modal: document.getElementById('meta-modal'),
+      modalClose: document.getElementById('meta-close'),
+      modalCancel: document.getElementById('meta-cancel'),
+      metaForm: document.getElementById('meta-form'),
+      metaError: document.getElementById('meta-error'),
+      metaSave: document.getElementById('meta-save'),
+    };
+
+    let pendingFile = null;
+    const _registered = new Set();
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+    }
+
+    function registerFontFace(f) {
+      // Register the font with the document so the preview row paints in
+      // the correct typeface and editor pages downstream pick it up too.
+      if (_registered.has(f.id)) return;
+      _registered.add(f.id);
+      try {
+        const face = new FontFace(f.family, `url("${f.file_url}")`, {
+          weight: String(f.weight || 400),
+          style: f.style || 'normal',
+          display: 'swap',
+        });
+        face.load().then((loaded) => document.fonts.add(loaded)).catch(() => {});
+      } catch (_) {}
+    }
+
+    function renderCard(f) {
+      const label = f.display_name || f.family;
+      const weightLabel = ({
+        100: 'Thin', 200: 'Extra Light', 300: 'Light', 400: 'Regular',
+        500: 'Medium', 600: 'Semibold', 700: 'Bold', 800: 'Extra Bold', 900: 'Black',
+      })[f.weight] || ('Weight ' + f.weight);
+      return `
+        <article class="font-card" data-id="${f.id}">
+          <div>
+            <div class="font-preview" style="font-family: '${escapeHtml(f.family)}', sans-serif; font-weight: ${f.weight || 400}; font-style: ${f.style || 'normal'};">
+              The quick brown fox jumps over the lazy dog.
+            </div>
+            <div class="font-meta">
+              <span class="font-meta-name">${escapeHtml(label)}</span>
+              <span>${escapeHtml(f.family)} · ${weightLabel} · ${escapeHtml(f.style || 'normal')}</span>
+            </div>
+          </div>
+          <button class="admin-btn admin-btn-danger" data-delete="${f.id}" data-path="${escapeHtml(f.file_url)}">Delete</button>
+        </article>
+      `;
+    }
+
+    async function loadFonts() {
+      els.loading.hidden = false;
+      const { data, error } = await supabase
+        .from('brand_fonts')
+        .select('*')
+        .order('family', { ascending: true })
+        .order('weight', { ascending: true });
+
+      els.loading.hidden = true;
+
+      if (error) {
+        els.grid.innerHTML = `<p>Could not load fonts: ${escapeHtml(error.message)}</p>`;
+        return;
+      }
+
+      const fonts = data ?? [];
+      fonts.forEach(registerFontFace);
+      els.count.textContent = `${fonts.length} font${fonts.length === 1 ? '' : 's'}`;
+      els.empty.hidden = fonts.length !== 0;
+      els.grid.innerHTML = fonts.map(renderCard).join('');
+    }
+
+    function openModal(file) {
+      pendingFile = file;
+      els.metaError.hidden = true;
+      els.metaForm.reset();
+      // Prefill family with filename stem
+      const stem = (file.name || '').replace(/\.(ttf|otf|woff2?|TTF|OTF|WOFF2?)$/, '');
+      els.metaForm.elements.family.value = stem || 'Custom font';
+      els.modal.hidden = false;
+      els.metaForm.elements.family.focus();
+    }
+    function closeModal() {
+      els.modal.hidden = true;
+      pendingFile = null;
+    }
+
+    async function uploadFont(e) {
+      e.preventDefault();
+      if (!pendingFile) return;
+      els.metaError.hidden = true;
+      els.metaSave.setAttribute('disabled', 'true');
+      els.metaSave.textContent = 'Uploading…';
+
+      try {
+        const fd = new FormData(els.metaForm);
+        const family = String(fd.get('family') || '').trim();
+        const displayName = String(fd.get('display_name') || '').trim();
+        const weight = parseInt(fd.get('weight'), 10) || 400;
+        const style = String(fd.get('style') || 'normal');
+
+        if (!family) throw new Error('Family name is required.');
+
+        const ext = (pendingFile.name.split('.').pop() || 'ttf').toLowerCase();
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+        const { error: upErr } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, pendingFile, {
+            cacheControl: '31536000', // 1 year — fonts rarely change once uploaded
+            contentType: pendingFile.type || `font/${ext}`,
+            upsert: false,
+          });
+        if (upErr) throw upErr;
+
+        const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
+        const file_url = pub.publicUrl;
+
+        const row = {
+          family,
+          display_name: displayName || null,
+          file_url,
+          weight,
+          style,
+        };
+        const { error: insErr } = await supabase.from('brand_fonts').insert(row);
+        if (insErr) throw insErr;
+
+        closeModal();
+        await loadFonts();
+      } catch (err) {
+        els.metaError.textContent = err.message || 'Upload failed.';
+        els.metaError.hidden = false;
+      } finally {
+        els.metaSave.removeAttribute('disabled');
+        els.metaSave.textContent = 'Save font';
+      }
+    }
+
+    async function deleteFont(id, fileUrl) {
+      if (!confirm('Delete this font? Designs that use it will lose their typeface.')) return;
+      try {
+        // Best-effort delete from storage too — extract path from public URL.
+        // Public URLs look like .../storage/v1/object/public/brand-fonts/<path>
+        const m = (fileUrl || '').match(/\/object\/public\/brand-fonts\/(.+)$/);
+        const path = m ? decodeURIComponent(m[1]) : null;
+        if (path) await supabase.storage.from(BUCKET).remove([path]);
+        const { error } = await supabase.from('brand_fonts').delete().eq('id', id);
+        if (error) throw error;
+        await loadFonts();
+      } catch (err) {
+        alert(`Delete failed: ${err.message || err}`);
+      }
+    }
+
+    // ===== Wire-up =====
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+      await loadFonts();
+    })();
+
+    els.uploadBtn.addEventListener('click', () => els.fileInput.click());
+    els.fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      els.fileInput.value = '';
+      if (!file) return;
+      openModal(file);
+    });
+
+    els.modalClose.addEventListener('click', closeModal);
+    els.modalCancel.addEventListener('click', closeModal);
+    els.modal.addEventListener('click', (e) => {
+      if (e.target === els.modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !els.modal.hidden) closeModal();
+    });
+
+    els.metaForm.addEventListener('submit', uploadFont);
+
+    els.grid.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const id = t.getAttribute('data-delete');
+      const path = t.getAttribute('data-path');
+      if (id) deleteFont(id, path);
+    });
+  </script>
+</BaseLayout>
