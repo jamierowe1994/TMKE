@@ -1,181 +1,168 @@
-// ============================================================== reveal on scroll
-(()=>{
-  const els = document.querySelectorAll('.reveal, .calendar, .around, .quote, .scroll, .tiles, .soon');
-  els.forEach(e=>e.classList.add('reveal'));
-  if('IntersectionObserver' in window){
-    const io = new IntersectionObserver((entries)=>{
-      entries.forEach(e=>{
-        if(e.isIntersecting){ e.target.classList.add('is-in'); io.unobserve(e.target); }
+/* TMKE — editorial home behaviours */
+(function () {
+  'use strict';
+
+  // ---------- Lenis: floaty smooth scrolling ----------
+  // easeOutExpo — strong deceleration, glides past then settles.
+  const easeOutExpo = (x) => (x === 1 ? 1 : 1 - Math.pow(2, -10 * x));
+
+  if (typeof Lenis !== 'undefined') {
+    const lenis = new Lenis({
+      duration: 1.6,
+      easing: easeOutExpo,
+      smoothWheel: true,
+      wheelMultiplier: 1.05,
+      touchMultiplier: 1.6,
+      lerp: 0.08,
+    });
+
+    const raf = (time) => {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    };
+    requestAnimationFrame(raf);
+
+    // Anchor links — let Lenis handle the glide instead of native smooth-scroll.
+    document.querySelectorAll('a[href^="#"]').forEach((a) => {
+      a.addEventListener('click', (e) => {
+        const id = a.getAttribute('href');
+        if (!id || id === '#') return;
+        const target = document.querySelector(id);
+        if (!target) return;
+        e.preventDefault();
+        lenis.scrollTo(target, { offset: 0, duration: 2.0, easing: easeOutExpo });
       });
-    }, {threshold:.12, rootMargin:'0px 0px -8% 0px'});
-    els.forEach(e=>io.observe(e));
-  } else {
-    els.forEach(e=>e.classList.add('is-in'));
+    });
+
+    window.__lenis = lenis;
   }
-})();
 
-// build calendar tape with multiple months
-(()=>{
-  const tape = document.getElementById('ptape-inner');
-  if(!tape) return;
-  const months = [
-    {name:'May', year:2026, start:5, days:31, style:'Contemporary'},
-    {name:'June', year:2026, start:1, days:30, style:'Classic'},
-    {name:'July', year:2026, start:3, days:31, style:'Contemporary'},
-    {name:'August', year:2026, start:6, days:31, style:'Classic'},
-  ];
-  const palette = ['#7a6e5c','#9a8c79','#8c7a64','#3d3a48','#5a5466','#a8a09a','#867c70','#c2b8a8','#7d6f5e','#4e4856','#8a7e6a','#6e6470','#a99f93','#574f5e','#9a8e7e','#b6ac9c','#3f3b48','#7d7286','#a89e90','#615968','#8e8478','#4a4452','#bfb5a4'];
-  const types=['Educ.','Reel','Carousel','Static','Post','Promo','Service','Local'];
+  // ---------- Nav scrolled state ----------
+  const nav = document.getElementById('nav');
+  const onScroll = () => {
+    if (!nav) return;
+    nav.classList.toggle('scrolled', window.scrollY > 60);
+  };
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
 
-  const html = (m)=>{
-    let tiles = '';
-    for(let i=0;i<m.start-1;i++) tiles += '<div class="ptile" style="background:#5b5566;opacity:.35"></div>';
-    for(let d=1; d<=m.days; d++){
-      const c = palette[(d*3)%palette.length];
-      const isNum = d===1 || d%7===2;
-      const inner = isNum
-        ? `<span class="ptile__num">${d}</span>`
-        : `<span class="ptile__type">${types[(d*2)%types.length]}</span>`;
-      tiles += `<div class="ptile" style="--bg:${c}">${inner}</div>`;
+  // ---------- Reveal on scroll ----------
+  const revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.15 }
+  );
+  document.querySelectorAll('[data-reveal]').forEach((el) => revealObserver.observe(el));
+
+  // Section-level "in" for hero / feature / news (drives bg motion).
+  const rootObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          rootObserver.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0 }
+  );
+  document.querySelectorAll('[data-reveal-root]').forEach((el) => rootObserver.observe(el));
+
+  // Hero plays its opening sequence immediately.
+  const hero = document.querySelector('.hero');
+  if (hero) requestAnimationFrame(() => hero.classList.add('in'));
+
+  // ---------- Scroll-driven typewriter for "Edit" ----------
+  const tw = document.getElementById('edit-typewriter');
+  if (tw) {
+    const word = 'Edit';
+    const textEl = tw.querySelector('.typewriter-text');
+    const section = tw.closest('section');
+    let lastCount = -1;
+    const update = () => {
+      const rect = section.getBoundingClientRect();
+      const vh = window.innerHeight;
+      // Type as the top of the section moves from ~vh down to ~vh*0.35 (about 65% travel).
+      const start = vh * 0.9;     // start typing when section is near the bottom of viewport
+      const end   = vh * 0.35;    // finish typing as section reaches mid-viewport
+      const range = start - end;
+      const progress = Math.max(0, Math.min(1, (start - rect.top) / range));
+      const count = Math.round(progress * word.length);
+      if (count !== lastCount) {
+        textEl.textContent = word.slice(0, count);
+        lastCount = count;
+      }
+    };
+    if (window.__lenis && typeof window.__lenis.on === 'function') {
+      window.__lenis.on('scroll', update);
+    } else {
+      window.addEventListener('scroll', update, { passive: true });
     }
-    return `<div class="pmonth"><div class="pmonth__head"><span class="pmonth__name">${m.name} ${m.year}</span><span class="pmonth__sub">${m.style}</span></div><div class="pmonth__grid">${tiles}</div></div>`;
-  };
-  // duplicated for seamless loop
-  const oneSet = months.map(html).join('');
-  tape.innerHTML = oneSet + oneSet;
-})();
+    window.addEventListener('resize', update);
+    update();
+  }
 
-(()=>{
-  const screens = [...document.querySelectorAll('.pscreen')];
-  const dots = [...document.querySelectorAll('#phone-pager .pager__dot')];
-  if(!screens.length) return;
+  // ---------- Approach: pinned cinematic stages ----------
+  const approach = document.querySelector('.approach');
+  if (approach) {
+    const stages = approach.querySelectorAll('.approach-stage');
+    const dots = approach.querySelectorAll('.approach-rail-dot');
+    const fill = approach.querySelector('#approach-rail-fill');
+    const N = stages.length;
 
-  // assign --i to tiles for stagger
-  document.querySelectorAll('.pscreen__grid').forEach(g=>{
-    [...g.children].forEach((c,i)=>c.style.setProperty('--i', i));
-  });
+    let activeIdx = -1;
+    const setStage = (idx) => {
+      if (idx === activeIdx) return;
+      activeIdx = idx;
+      stages.forEach((el, i) => {
+        el.classList.toggle('is-active', i === idx);
+        el.classList.toggle('is-leaving', i < idx);
+      });
+      dots.forEach((el, i) => el.classList.toggle('is-active', i === idx));
+    };
 
-  // animate counters
-  const animateNumbers = (root)=>{
-    root.querySelectorAll('.pstat__n').forEach(el=>{
-      const target = +el.dataset.target;
-      let n = 0; const dur = 900; const start = performance.now();
-      const tick = (t)=>{
-        const k = Math.min(1, (t-start)/dur);
-        const eased = 1 - Math.pow(1-k, 3);
-        el.textContent = Math.round(target*eased);
-        if(k<1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
+    const updateApproach = () => {
+      const rect = approach.getBoundingClientRect();
+      const total = approach.offsetHeight - window.innerHeight;
+      const scrolled = Math.max(0, Math.min(total, -rect.top));
+      const progress = total > 0 ? scrolled / total : 0;
+      // 5 stages spread over progress 0–1, each slot 1/N wide.
+      // Add 0.5 / N offset so a stage is centered in its slot.
+      const idx = Math.max(0, Math.min(N - 1, Math.floor(progress * N + 0.0001)));
+      setStage(idx);
+      if (fill) fill.style.height = (progress * 100) + '%';
+    };
+
+    // Hook into Lenis if available for smoothest updates, else fall back to scroll.
+    if (window.__lenis && typeof window.__lenis.on === 'function') {
+      window.__lenis.on('scroll', updateApproach);
+    } else {
+      window.addEventListener('scroll', updateApproach, { passive: true });
+    }
+    window.addEventListener('resize', updateApproach);
+    updateApproach();
+  }
+
+  // ---------- News subscribe (placeholder) ----------
+  const form = document.getElementById('news-form');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = form.querySelector('input');
+      const btn = form.querySelector('button');
+      if (!input || !input.value) return;
+      const original = btn.textContent;
+      btn.textContent = "You're in ✓";
+      setTimeout(() => {
+        btn.textContent = original;
+        input.value = '';
+      }, 2400);
     });
-  };
-
-  let i = 0;
-  let timer;
-  const setActive = (idx, fromUser)=>{
-    i = (idx+screens.length)%screens.length;
-    screens.forEach((s,n)=>s.classList.toggle('pscreen--active', n===i));
-    dots.forEach((d,n)=>d.classList.toggle('is-active', n===i));
-    if(screens[i].dataset.i==='2') animateNumbers(screens[i]);
-    // restart any per-screen tile animation
-    screens[i].querySelectorAll('.ptile:not(.ptile--empty)').forEach(t=>{
-      t.style.animation = 'none'; t.offsetHeight; t.style.animation = '';
-    });
-    if(timer) clearTimeout(timer);
-    if(!fromUser) timer = setTimeout(()=>setActive(i+1), 4200);
-    else timer = setTimeout(()=>setActive(i+1), 6200);
-  };
-  dots.forEach((d,n)=>d.addEventListener('click', ()=>setActive(n, true)));
-  // start auto cycle once visible
-  const phone = document.getElementById('phone');
-  const start = ()=>{ setActive(0); io.disconnect(); };
-  const io = new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting) start(); }), {threshold:.3});
-  io.observe(phone);
-})();
-
-// ============================================================== Stop the Scroll: tabs + drag
-(()=>{
-  const pages = [...document.querySelectorAll('.rail__page')];
-  const tabs = [...document.querySelectorAll('#scroll-tabs .tab')];
-  const dots = [...document.querySelectorAll('#rail-pager .pager__dot')];
-  if(!pages.length) return;
-
-  // duplicate cards for seamless marquee
-  pages.forEach(p=>{
-    const track = p.querySelector('.rail__track');
-    const clone = track.cloneNode(true);
-    [...clone.children].forEach(c=>track.appendChild(c.cloneNode(true)));
-    // remove the empty cloned wrapper
-  });
-
-  let active = 0;
-  const setActive = (idx)=>{
-    active = (idx+pages.length)%pages.length;
-    pages.forEach((p,n)=>p.classList.toggle('is-active', n===active));
-    tabs.forEach((t,n)=>t.setAttribute('aria-selected', n===active ? 'true':'false'));
-    dots.forEach((d,n)=>d.classList.toggle('is-active', n===active));
-  };
-  tabs.forEach((t,n)=>t.addEventListener('click', ()=>setActive(n)));
-  dots.forEach((d,n)=>d.addEventListener('click', ()=>setActive(n)));
-
-  // drag-to-scrub on each track: when dragging, switch to manual translateX
-  pages.forEach(page=>{
-    const track = page.querySelector('.rail__track');
-    let down=false, startX=0, baseX=0, ax=0;
-
-    const getCurrentX = ()=>{
-      const t = getComputedStyle(track).transform;
-      if(t === 'none') return 0;
-      const m = t.match(/matrix.*\((.+)\)/);
-      if(!m) return 0;
-      const vals = m[1].split(',').map(Number);
-      return vals[vals.length-2] || 0;
-    };
-
-    const onDown = (e)=>{
-      down=true;
-      startX = (e.touches?e.touches[0].clientX:e.clientX);
-      baseX = getCurrentX();
-      // freeze animation, switch to transform-based control
-      track.style.animation='none';
-      track.style.transform = `translateX(${baseX}px)`;
-      ax = baseX;
-      track.style.transition='none';
-    };
-    const onMove = (e)=>{
-      if(!down) return;
-      const x = (e.touches?e.touches[0].clientX:e.clientX);
-      ax = baseX + (x-startX);
-      // clamp to half (since duplicated)
-      const max = -track.scrollWidth/2;
-      if(ax < max) ax = max + (ax - max)*.3;
-      if(ax > 0) ax = ax*.3;
-      track.style.transform = `translateX(${ax}px)`;
-    };
-    const onUp = ()=>{
-      if(!down) return;
-      down=false;
-      // smoothly resume marquee from current position by animating remaining distance
-      const trackW = track.scrollWidth/2;
-      const cur = ax;
-      // figure out remaining time at marquee speed (60s for full -trackW)
-      const speed = trackW/60; // px per s
-      const dist = trackW + cur; // distance left to travel to -trackW (since cur is negative)
-      const dur = Math.max(2, dist/speed);
-      track.style.transition=`transform ${dur}s linear`;
-      track.style.transform=`translateX(${-trackW}px)`;
-      track.addEventListener('transitionend', ()=>{
-        track.style.transition='none';
-        track.style.transform='';
-        track.style.animation='';
-      }, {once:true});
-    };
-
-    track.addEventListener('mousedown', onDown);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    track.addEventListener('touchstart', onDown, {passive:true});
-    window.addEventListener('touchmove', onMove, {passive:true});
-    window.addEventListener('touchend', onUp);
-  });
+  }
 })();
