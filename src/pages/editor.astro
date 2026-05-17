@@ -15,6 +15,13 @@ const templateData = templates.map((t) => ({
   canvas: t.canvas,
   elements: t.elements,
 }));
+
+// Stock photo API keys read at SSG/build time, then injected into the inline
+// stock-search script via Astro's `define:vars` directive — Astro/Vite only
+// substitute `import.meta.env.*` references inside scripts that have at least
+// one `import` statement, and our search script doesn't need any.
+const PEXELS_KEY = import.meta.env.PUBLIC_PEXELS_API_KEY ?? "";
+const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY ?? "";
 ---
 
 <BaseLayout
@@ -1170,10 +1177,8 @@ const templateData = templates.map((t) => ({
     superseded. Actual API calls fire on user input; clicking a result
     calls `window.__TMKE_ADD_PHOTO__` (exposed by editor.js).
   -->
-  <script type="module">
-    const PEXELS_KEY = import.meta.env.PUBLIC_PEXELS_API_KEY;
-    const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY;
-
+  <script type="module" define:vars={{ PEXELS_KEY, UNSPLASH_KEY }}>
+    // PEXELS_KEY / UNSPLASH_KEY are injected by Astro via define:vars above.
     // Tell editor.js to skip its bundled library — this panel drives the grid.
     window.__TMKE_STOCK_SEARCH_ACTIVE__ = true;
 
