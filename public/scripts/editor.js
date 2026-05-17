@@ -9,7 +9,7 @@
   const TEMPLATES = JSON.parse(document.getElementById("ed-templates-data").textContent || "[]");
   const PHOTOS = JSON.parse(document.getElementById("ed-photos-data").textContent || "[]");
 
-  const FONTS = [
+  const BASE_FONTS = [
     { name: "Cormorant Garamond", stack: '"Cormorant Garamond", serif', category: "Serif" },
     { name: "Darker Grotesque", stack: '"Darker Grotesque", sans-serif', category: "Sans" },
     { name: "Georgia", stack: 'Georgia, serif', category: "Serif" },
@@ -21,6 +21,39 @@
     { name: "Trebuchet", stack: '"Trebuchet MS", sans-serif', category: "Sans" },
     { name: "Verdana", stack: 'Verdana, sans-serif', category: "Sans" },
   ];
+
+  // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
+  function loadBrand() {
+    try { return JSON.parse(localStorage.getItem("tmke.brand") || "null"); }
+    catch (_) { return null; }
+  }
+  let BRAND = loadBrand();
+
+  // Pin brand fonts to the top of the font list (deduped, marked as brand).
+  function buildFonts() {
+    const seen = new Set();
+    const out = [];
+    if (BRAND && BRAND.fonts) {
+      ["heading", "body"].forEach(function (role) {
+        const name = BRAND.fonts[role];
+        if (!name || seen.has(name)) return;
+        const base = BASE_FONTS.find((f) => f.name === name);
+        out.push({
+          name: name,
+          stack: base ? base.stack : '"' + name + '", sans-serif',
+          category: "Brand · " + role.charAt(0).toUpperCase() + role.slice(1),
+        });
+        seen.add(name);
+      });
+    }
+    BASE_FONTS.forEach(function (f) {
+      if (seen.has(f.name)) return;
+      out.push(f);
+      seen.add(f.name);
+    });
+    return out;
+  }
+  let FONTS = buildFonts();
 
   // ---------- DOM refs ----------
   const $ = (id) => document.getElementById(id);
@@ -1311,6 +1344,122 @@
     });
   }
 
+  // ---------- Brand pane ----------
+  function applyBrandColour(hex) {
+    const sel = selectedElements();
+    if (!sel.length) {
+      state.canvas.background = hex;
+      pushHistory();
+      fullRender();
+      return;
+    }
+    sel.forEach(function (el) {
+      if (el.type === "text") el.color = hex;
+      else if (el.type === "image") { /* skip — colour doesn't apply */ }
+      else el.fill = hex;
+    });
+    pushHistory();
+    fullRender();
+  }
+
+  function renderBrandPane() {
+    const empty = $("brand-empty");
+    const loaded = $("brand-loaded");
+    const companyEl = $("brand-company");
+    const swatchGrid = $("brand-colour-grid");
+    const fontList = $("brand-font-list");
+    const logoGrid = $("brand-logo-grid");
+    if (!swatchGrid) return;
+
+    BRAND = loadBrand();
+    FONTS = buildFonts();
+
+    if (!BRAND || ((!BRAND.colors || !BRAND.colors.length) && (!BRAND.logos || !BRAND.logos.length) && (!BRAND.fonts || (!BRAND.fonts.heading && !BRAND.fonts.body)))) {
+      if (empty) empty.hidden = false;
+      if (loaded) loaded.hidden = true;
+      return;
+    }
+    if (empty) empty.hidden = true;
+    if (loaded) loaded.hidden = false;
+    if (companyEl) companyEl.textContent = BRAND.company || "Your brand kit";
+
+    // Colours
+    swatchGrid.innerHTML = "";
+    (BRAND.colors || []).forEach(function (c) {
+      const b = document.createElement("button");
+      b.className = "ed-sw";
+      b.style.background = c.hex;
+      b.title = c.name + " — " + c.hex;
+      if (/^#(f|F){3,6}$/.test(c.hex) || c.hex.toUpperCase() === "#FFFFFF") {
+        b.style.border = "1px solid rgba(0,0,0,0.1)";
+      }
+      b.addEventListener("click", function () { applyBrandColour(c.hex); });
+      swatchGrid.appendChild(b);
+    });
+    if (!BRAND.colors || !BRAND.colors.length) {
+      swatchGrid.innerHTML = '<p class="ed-brand-hint" style="grid-column:1/-1">No brand colours yet. <a href="/profile" style="color:var(--english-violet); border-bottom:1px solid currentColor">Add some</a>.</p>';
+    }
+
+    // Fonts
+    fontList.innerHTML = "";
+    if (BRAND.fonts) {
+      [["heading", "Heading"], ["body", "Body"]].forEach(function (pair) {
+        const key = pair[0], label = pair[1];
+        const name = BRAND.fonts[key];
+        if (!name) return;
+        const btn = document.createElement("button");
+        btn.className = "ed-brand-font";
+        btn.innerHTML = '<div><div class="ed-brand-font-role">' + label + '</div><div class="ed-brand-font-name">' + name + '</div></div><span class="ed-brand-font-role">Apply</span>';
+        btn.querySelector(".ed-brand-font-name").style.fontFamily = '"' + name + '", sans-serif';
+        btn.addEventListener("click", function () {
+          const sel = selectedElements().filter(function (e) { return e.type === "text"; });
+          if (!sel.length) { toast("Select a text element first"); return; }
+          sel.forEach(function (e) { e.font = name; });
+          pushHistory();
+          fullRender();
+        });
+        fontList.appendChild(btn);
+      });
+    }
+
+    // Logos
+    logoGrid.innerHTML = "";
+    (BRAND.logos || []).forEach(function (lg) {
+      const b = document.createElement("button");
+      b.title = lg.name;
+      const img = document.createElement("img");
+      img.src = lg.src;
+      img.style.objectFit = "contain";
+      img.style.background = "#fff";
+      b.appendChild(img);
+      b.addEventListener("click", function () {
+        // Add at canvas centre, preserving aspect ratio via natural image dimensions.
+        const tmp = new Image();
+        tmp.onload = function () {
+          const max = 480;
+          const ratio = tmp.naturalWidth / tmp.naturalHeight || 1;
+          let w, h;
+          if (ratio >= 1) { w = max; h = max / ratio; }
+          else { h = max; w = max * ratio; }
+          addElement({
+            type: "image",
+            x: state.canvas.width / 2 - w / 2,
+            y: state.canvas.height / 2 - h / 2,
+            w: Math.round(w), h: Math.round(h),
+            src: lg.src,
+            opacity: 1, rotation: 0,
+          });
+        };
+        tmp.onerror = function () { addImage(lg.src); };
+        tmp.src = lg.src;
+      });
+      logoGrid.appendChild(b);
+    });
+    if (!BRAND.logos || !BRAND.logos.length) {
+      logoGrid.innerHTML = '<p class="ed-brand-hint" style="grid-column:1/-1">No logos yet. <a href="/profile" style="color:var(--english-violet); border-bottom:1px solid currentColor">Upload some</a>.</p>';
+    }
+  }
+
   // ---------- Tool rail / panel switching ----------
   document.querySelectorAll(".ed-rail-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1469,6 +1618,8 @@
 
   // ---------- Init ----------
   renderPhotoGrid();
+  renderBrandPane();
+  seedBrandIntoBackgroundPane();
   window.addEventListener("resize", () => fitZoom());
 
   // Read template ID from URL
@@ -1478,4 +1629,49 @@
 
   // Persist filename changes
   filenameEl.addEventListener("blur", save);
+
+  // Re-pull brand kit if user updates it in another tab.
+  window.addEventListener("storage", function (e) {
+    if (e.key === "tmke.brand") {
+      BRAND = loadBrand();
+      FONTS = buildFonts();
+      renderBrandPane();
+      seedBrandIntoBackgroundPane();
+      if (state.selectedIds.length === 1) renderContextBar();
+    }
+  });
+
+  function seedBrandIntoBackgroundPane() {
+    if (!BRAND || !BRAND.colors || !BRAND.colors.length) return;
+    const bgPane = document.querySelector('.ed-panel-pane[data-pane="background"]');
+    if (!bgPane) return;
+    let existing = bgPane.querySelector(".ed-brand-injected");
+    if (existing) existing.remove();
+    const wrap = document.createElement("div");
+    wrap.className = "ed-brand-injected";
+    const title = document.createElement("div");
+    title.className = "ed-section-title";
+    title.textContent = "Your brand";
+    wrap.appendChild(title);
+    const row = document.createElement("div");
+    row.className = "ed-swatches";
+    BRAND.colors.forEach(function (c) {
+      const b = document.createElement("button");
+      b.className = "ed-sw";
+      b.style.background = c.hex;
+      b.title = c.name + " — " + c.hex;
+      if (c.hex.toUpperCase() === "#FFFFFF") b.style.border = "1px solid rgba(0,0,0,0.1)";
+      b.addEventListener("click", function () {
+        state.canvas.background = c.hex;
+        pushHistory();
+        fullRender();
+      });
+      row.appendChild(b);
+    });
+    wrap.appendChild(row);
+    // Insert right after pane header
+    const header = bgPane.querySelector(".ed-pane-header");
+    if (header && header.nextSibling) bgPane.insertBefore(wrap, header.nextSibling);
+    else bgPane.appendChild(wrap);
+  }
 })();

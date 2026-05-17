@@ -288,13 +288,27 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     const errorEl = document.getElementById("login-error");
     const demoBtn = document.getElementById("login-demo");
 
-    // If already signed in, go straight to the library.
+    // Route a freshly-authed user to their destination, taking them through
+    // the brand-kit setup on first sign-in and fronting it with the splash.
+    function routeAfterSignIn() {
+      const nextParam = new URLSearchParams(location.search).get("next");
+      let firstTime = false;
+      try {
+        firstTime = !localStorage.getItem("tmke.brand") && !localStorage.getItem("tmke.brand.skipped");
+      } catch (_) { /* ignore */ }
+      const fallback = firstTime ? "/profile?next=/account" : "/account";
+      const dest = nextParam || fallback;
+      if (typeof window.tmkeSplash === "function") {
+        window.tmkeSplash(dest);
+      } else {
+        window.location.href = dest;
+      }
+    }
+
+    // If already signed in, skip the form.
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const next = new URLSearchParams(location.search).get("next") || "/account";
-        location.replace(next);
-      }
+      if (session) routeAfterSignIn();
     })();
 
     function showError(msg) {
@@ -317,12 +331,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         showError(error.message);
         return;
       }
-      const next = new URLSearchParams(location.search).get("next") || "/account";
-      window.location.href = next;
+      routeAfterSignIn();
     });
 
-    // Demo button preserved for non-logged-in visitors browsing the UI.
-    // Drops a localStorage marker only; for real library access they need a real account.
+    // No account yet — point people at The Edit so they can purchase first.
     demoBtn.addEventListener("click", () => {
       window.location.href = "/edit";
     });

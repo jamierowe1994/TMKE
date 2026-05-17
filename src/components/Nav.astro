@@ -31,17 +31,30 @@ const links: { label: string; href: string }[] = [
 </nav>
 
 <script>
-  // If the user already has a Supabase session, the Login button takes them
-  // straight to their library instead of bouncing through the sign-in form.
+  // If the user already has a Supabase session, swap the Login button to take
+  // them to their library. First-time logins (no brand kit yet) get routed via
+  // the brand-kit profile, fronted by the brand splash overlay.
   import { supabase } from "../lib/supabase.js";
   (async () => {
     const btn = document.getElementById("nav-login");
     if (!btn) return;
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      btn.setAttribute("href", "/account");
-      const label = btn.querySelector("span");
-      if (label) label.textContent = "Library";
-    }
+    if (!session) return;
+
+    const label = btn.querySelector("span");
+    if (label) label.textContent = "Library";
+    btn.setAttribute("href", "/account");
+
+    btn.addEventListener("click", function (e) {
+      let firstTime = false;
+      try {
+        firstTime = !localStorage.getItem("tmke.brand") && !localStorage.getItem("tmke.brand.skipped");
+      } catch (_) { /* ignore */ }
+      const dest = firstTime ? "/profile?next=/account" : "/account";
+      if (typeof window.tmkeSplash === "function") {
+        e.preventDefault();
+        window.tmkeSplash(dest);
+      }
+    });
   })();
 </script>
