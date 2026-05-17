@@ -1,0 +1,28 @@
+---
+const pathname = Astro.url.pathname;
+const isActive = (href: string) => {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
+};
+
+const links: { label: string; href: string }[] = [
+  { label: "About", href: "/about" },
+  { label: "The Edit", href: "/edit" },
+  { label: "Social Media", href: "/services" },
+  { label: "Insights", href: "/blog" },
+];
+---
+
+<nav class="nav" id="nav">
+  <a href="/" class="nav-logo">TMKE</a>
+  <div class="nav-links">
+    {
+      links.map((l) => (
+        <a href={l.href} class:list={["nav-link", isActive(l.href) && "is-active"]}>
+          {l.label}
+        </a>
+      ))
+    }
+  </div>
+  <a href="/contact" class="nav-cta"><span>Let&rsquo;s Chat</span></a>
+</nav>
