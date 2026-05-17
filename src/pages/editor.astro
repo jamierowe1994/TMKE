@@ -572,22 +572,40 @@ const googleFonts = [
       opacity: 0.5;
     }
     .ed-font-trigger:hover { border-color: var(--english-violet); }
+    /* `position: fixed` (vs absolute) is critical — the context bar parent
+       uses overflow-x: auto, which implicitly clips overflow-y too. With
+       absolute positioning the popover gets cropped to the 28px-tall bar
+       and you see nothing. Fixed positioning escapes ancestor overflow. */
     .ed-font-pop {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      width: 260px;
-      max-width: 320px;
+      position: fixed;
+      width: 280px;
+      max-width: 90vw;
       background: #fff;
       border: 1px solid rgba(28,29,34,0.12);
       border-radius: 6px;
       box-shadow: 0 14px 40px -8px rgba(0,0,0,0.2);
       padding: 6px;
-      z-index: 95;
+      z-index: 200;
       display: flex; flex-direction: column;
       gap: 6px;
     }
     .ed-font-pop[hidden] { display: none; }
+
+    /* Inline variant for the right properties panel: search + scrollable
+       list always visible, no popover needed (the right panel has the
+       vertical room for it). */
+    .ed-font-picker.is-inline { min-width: 0; }
+    .ed-font-picker.is-inline .ed-font-trigger { display: none; }
+    .ed-font-picker.is-inline .ed-font-pop {
+      position: static;
+      width: 100%;
+      max-width: none;
+      box-shadow: none;
+      border-color: rgba(28,29,34,0.15);
+      padding: 6px;
+      z-index: auto;
+    }
+    .ed-font-picker.is-inline .ed-font-list { max-height: 220px; }
     .ed-font-search {
       padding: 8px 10px;
       border: 1px solid rgba(28,29,34,0.15);
