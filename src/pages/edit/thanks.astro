@@ -1,0 +1,597 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Thank you — your TMKE order · The Edit"
+  description="Your TMKE pack purchase is confirmed. Set a password to access your library and download your invoice."
+  hideFooter={true}
+>
+  <main class="thanks-shell">
+    <header class="thanks-mark">
+      <a href="/" class="thanks-logo">TMKE</a>
+      <span class="thanks-eyebrow">The Edit — Order confirmation</span>
+    </header>
+
+    <section class="thanks-hero">
+      <p class="thanks-chapter">Order #<span id="thanks-invoice">…</span></p>
+      <h1 class="thanks-h1">
+        Thank you, <em id="thanks-name">friend</em>.
+      </h1>
+      <p class="thanks-sub">
+        Your purchase is confirmed — a receipt has been emailed to
+        <strong id="thanks-email">you</strong>. Below, set a password to unlock your library and download your invoice.
+      </p>
+    </section>
+
+    <section class="thanks-grid">
+      <!-- Left: receipt + invoice -->
+      <article class="thanks-receipt">
+        <header class="thanks-receipt-head">
+          <div>
+            <div class="thanks-receipt-eyebrow">Invoice</div>
+            <div class="thanks-receipt-no" id="thanks-invoice-2">—</div>
+          </div>
+          <div class="thanks-receipt-meta">
+            <span>TMKE — The Marketing Experts</span>
+            <span id="thanks-date">—</span>
+          </div>
+        </header>
+
+        <div class="thanks-receipt-row">
+          <div class="thanks-receipt-thumb" id="thanks-cover"></div>
+          <div class="thanks-receipt-info">
+            <h3 id="thanks-pack-title">…</h3>
+            <p id="thanks-pack-desc"></p>
+          </div>
+          <div class="thanks-receipt-amount" id="thanks-amount">£299</div>
+        </div>
+
+        <dl class="thanks-receipt-list">
+          <div><dt>Billed to</dt><dd id="thanks-billto">—</dd></div>
+          <div><dt>Company</dt><dd id="thanks-company">—</dd></div>
+          <div><dt>Email</dt><dd id="thanks-email-2">—</dd></div>
+          <div><dt>Phone</dt><dd id="thanks-phone">—</dd></div>
+          <div><dt>Payment</dt><dd id="thanks-method">—</dd></div>
+          <div><dt>Status</dt><dd><span class="pill" id="thanks-status">Paid</span></dd></div>
+        </dl>
+
+        <footer class="thanks-receipt-foot">
+          <div>
+            <div class="thanks-receipt-eyebrow">Total paid</div>
+            <div class="thanks-receipt-total" id="thanks-total">£299.00</div>
+          </div>
+          <button type="button" class="btn btn--solid" id="download-invoice">
+            Download invoice <span class="btn-arrow">&rarr;</span>
+          </button>
+        </footer>
+      </article>
+
+      <!-- Right: account setup -->
+      <article class="thanks-setup">
+        <div class="eyebrow">Last step</div>
+        <h2 class="thanks-setup-h">Set a password to access your library.</h2>
+        <p class="thanks-setup-sub">
+          We've created your account with the email above. Choose a password and
+          you'll go straight to your library where your new pack is waiting.
+        </p>
+
+        <form id="password-form" class="thanks-form" novalidate>
+          <label class="ck-field">
+            <span>Password</span>
+            <input type="password" name="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters" />
+          </label>
+          <label class="ck-field">
+            <span>Confirm password</span>
+            <input type="password" name="confirm" autocomplete="new-password" minlength="8" required />
+          </label>
+          <p class="ck-error" id="password-error" hidden></p>
+          <button type="submit" class="ck-cta" id="password-submit">
+            Create my library <em>&rarr;</em>
+          </button>
+        </form>
+
+        <div class="thanks-success" id="password-success" hidden>
+          <div class="thanks-success-mark">✓</div>
+          <h3>Your library is ready.</h3>
+          <p id="thanks-success-msg">Welcome to TMKE — you're signed in.</p>
+          <a href="/account" class="ck-cta">
+            Open your library <em>&rarr;</em>
+          </a>
+        </div>
+
+        <p class="thanks-setup-foot">
+          Already have an account?
+          <a href="/login" class="thanks-link">Sign in instead</a>.
+        </p>
+      </article>
+    </section>
+  </main>
+
+  <style>
+    .thanks-shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 36px 120px;
+    }
+    .thanks-mark {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 60px;
+    }
+    .thanks-logo {
+      font-family: var(--serif);
+      font-size: 22px;
+      letter-spacing: 0.06em;
+      color: var(--ink);
+    }
+    .thanks-eyebrow {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+
+    .thanks-hero {
+      max-width: 760px;
+      margin-bottom: 64px;
+    }
+    .thanks-chapter {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+      margin: 0 0 18px;
+    }
+    .thanks-h1 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(48px, 6vw, 88px);
+      line-height: 1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin: 0 0 22px;
+    }
+    .thanks-h1 em { font-style: italic; color: var(--english-violet); }
+    .thanks-sub {
+      font-size: 17px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.7);
+      max-width: 620px;
+    }
+    .thanks-sub strong { color: var(--ink); font-weight: 600; }
+
+    .thanks-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 36px;
+      align-items: start;
+    }
+    @media (max-width: 980px) { .thanks-grid { grid-template-columns: 1fr; } }
+
+    /* ============ Receipt ============ */
+    .thanks-receipt {
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 4px;
+      padding: 32px 32px 28px;
+      display: flex; flex-direction: column; gap: 24px;
+      box-shadow: 0 24px 60px -32px rgba(28,29,34,0.25);
+    }
+    .thanks-receipt-head {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding-bottom: 22px;
+      border-bottom: 1px solid rgba(28,29,34,0.08);
+    }
+    .thanks-receipt-eyebrow {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+      margin-bottom: 4px;
+    }
+    .thanks-receipt-no {
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .thanks-receipt-meta {
+      text-align: right;
+      display: flex; flex-direction: column; gap: 4px;
+      font-family: var(--sans);
+      font-size: 12px;
+      color: rgba(28,29,34,0.55);
+    }
+
+    .thanks-receipt-row {
+      display: grid;
+      grid-template-columns: 96px 1fr auto;
+      gap: 18px;
+      align-items: center;
+      padding-bottom: 22px;
+      border-bottom: 1px solid rgba(28,29,34,0.06);
+    }
+    .thanks-receipt-thumb {
+      aspect-ratio: 1 / 1;
+      background: var(--platinum);
+      background-size: cover;
+      background-position: center;
+      border-radius: 2px;
+    }
+    .thanks-receipt-info h3 {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 500;
+      margin: 0 0 4px;
+      color: var(--ink);
+    }
+    .thanks-receipt-info p {
+      font-size: 13px;
+      color: rgba(28,29,34,0.6);
+      line-height: 1.5;
+      margin: 0;
+      max-width: 50ch;
+    }
+    .thanks-receipt-amount {
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--english-violet);
+    }
+
+    .thanks-receipt-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 28px;
+      margin: 0;
+    }
+    .thanks-receipt-list > div { display: flex; flex-direction: column; gap: 2px; }
+    .thanks-receipt-list dt {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28,29,34,0.5);
+      margin: 0;
+    }
+    .thanks-receipt-list dd {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink);
+      margin: 0;
+      word-break: break-word;
+    }
+    .pill {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px;
+      background: #e6efe5;
+      color: #2e6a4a;
+      border-radius: 999px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .thanks-receipt-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 22px;
+      border-top: 1px solid rgba(28,29,34,0.06);
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .thanks-receipt-total {
+      font-family: var(--serif);
+      font-size: 36px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+    /* ============ Setup ============ */
+    .thanks-setup {
+      padding: 6px 0 0;
+    }
+    .thanks-setup-h {
+      font-family: var(--serif);
+      font-size: clamp(28px, 3vw, 38px);
+      font-weight: 500;
+      letter-spacing: -0.015em;
+      line-height: 1.1;
+      margin: 12px 0 14px;
+    }
+    .thanks-setup-sub {
+      font-size: 15px;
+      color: rgba(28,29,34,0.65);
+      line-height: 1.55;
+      margin: 0 0 24px;
+    }
+    .thanks-form { display: flex; flex-direction: column; gap: 14px; }
+    .thanks-setup-foot {
+      margin-top: 26px;
+      font-size: 13px;
+      color: rgba(28,29,34,0.55);
+    }
+    .thanks-link {
+      color: var(--english-violet);
+      border-bottom: 1px solid currentColor;
+      font-weight: 600;
+    }
+
+    .thanks-success {
+      display: flex; flex-direction: column; gap: 12px;
+      align-items: flex-start;
+      padding: 24px;
+      background: rgba(46, 106, 74, 0.06);
+      border: 1px solid rgba(46, 106, 74, 0.22);
+      border-radius: 4px;
+    }
+    .thanks-success-mark {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: #2e6a4a;
+      color: var(--paper);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .thanks-success h3 {
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 500;
+      margin: 0;
+    }
+    .thanks-success p { font-size: 14px; color: rgba(28,29,34,0.65); margin: 0; }
+
+    /* Reuse small bits of checkout look */
+    .ck-field { display: flex; flex-direction: column; gap: 6px; }
+    .ck-field > span {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
+    }
+    .ck-field input {
+      font-family: var(--sans); font-size: 15px;
+      padding: 12px 14px;
+      border: 1px solid rgba(71,66,84,0.28);
+      border-radius: 2px;
+      background: #fff;
+      color: var(--ink);
+    }
+    .ck-field input:focus {
+      outline: none; border-color: var(--english-violet);
+      box-shadow: 0 0 0 3px rgba(71,66,84,0.12);
+    }
+    .ck-error {
+      margin: 0; padding: 10px 12px;
+      background: rgba(160,90,60,0.1);
+      border-left: 3px solid #a05a3c;
+      color: #a05a3c;
+      font-size: 13px;
+      font-family: var(--sans);
+    }
+    .ck-cta {
+      appearance: none;
+      background: var(--ink);
+      color: var(--paper);
+      border: 0;
+      padding: 14px 22px;
+      border-radius: 2px;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.24em; text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background 0.25s;
+    }
+    .ck-cta:hover { background: var(--english-violet); }
+    .ck-cta em { font-family: var(--serif); font-style: italic; font-size: 16px; letter-spacing: 0; text-transform: none; margin-left: 8px; }
+    .ck-cta[disabled] { opacity: 0.55; cursor: progress; }
+  </style>
+
+  <script>
+    import { supabase, gbpFromPence } from '../../lib/supabase.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('order');
+
+    const elInvoice = document.getElementById('thanks-invoice');
+    const elInvoice2 = document.getElementById('thanks-invoice-2');
+    const elName = document.getElementById('thanks-name');
+    const elEmail = document.getElementById('thanks-email');
+    const elEmail2 = document.getElementById('thanks-email-2');
+    const elBillTo = document.getElementById('thanks-billto');
+    const elCompany = document.getElementById('thanks-company');
+    const elPhone = document.getElementById('thanks-phone');
+    const elMethod = document.getElementById('thanks-method');
+    const elAmount = document.getElementById('thanks-amount');
+    const elTotal = document.getElementById('thanks-total');
+    const elDate = document.getElementById('thanks-date');
+    const elCover = document.getElementById('thanks-cover');
+    const elPackTitle = document.getElementById('thanks-pack-title');
+    const elPackDesc = document.getElementById('thanks-pack-desc');
+    const form = document.getElementById('password-form');
+    const formError = document.getElementById('password-error');
+    const submitBtn = document.getElementById('password-submit');
+    const successEl = document.getElementById('password-success');
+    const successMsg = document.getElementById('thanks-success-msg');
+    const dlBtn = document.getElementById('download-invoice');
+
+    function formatMethod(m) {
+      return { apple_pay: 'Apple Pay', google_pay: 'Google Pay', card: 'Card' }[m] || m;
+    }
+    function formatDate(iso) {
+      try {
+        return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+      } catch (_) { return ''; }
+    }
+
+    let orderRow = null;
+    let packRow = null;
+
+    async function loadOrder() {
+      if (!orderId) {
+        document.querySelector('.thanks-hero').innerHTML =
+          `<h1 class="thanks-h1">Order not found</h1>
+           <p class="thanks-sub">We couldn't find that order. <a class="thanks-link" href="/edit">Return to The Edit</a>.</p>`;
+        document.querySelector('.thanks-grid').hidden = true;
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (error || !data) {
+        document.querySelector('.thanks-hero').innerHTML =
+          `<h1 class="thanks-h1">Order not found</h1>
+           <p class="thanks-sub">We couldn't load that order. <a class="thanks-link" href="/edit">Return to The Edit</a>.</p>`;
+        document.querySelector('.thanks-grid').hidden = true;
+        return;
+      }
+
+      orderRow = data;
+
+      // Hydrate
+      elInvoice.textContent = data.invoice_number ?? '—';
+      elInvoice2.textContent = data.invoice_number ?? '—';
+      elName.textContent = (data.buyer_name || 'friend').split(' ')[0];
+      elEmail.textContent = data.buyer_email;
+      elEmail2.textContent = data.buyer_email;
+      elBillTo.textContent = data.buyer_name;
+      elCompany.textContent = data.buyer_company || '—';
+      elPhone.textContent = data.buyer_phone || '—';
+      elMethod.textContent = formatMethod(data.payment_method);
+      elAmount.textContent = gbpFromPence(data.amount_pence);
+      elTotal.textContent = gbpFromPence(data.amount_pence);
+      elDate.textContent = formatDate(data.created_at);
+      elPackTitle.textContent = data.pack_title;
+
+      // Pull description + cover from the pack record so the receipt shows context.
+      if (data.pack_id) {
+        const { data: pack } = await supabase
+          .from('packs')
+          .select('description, cover_image_url')
+          .eq('id', data.pack_id)
+          .single();
+        if (pack) {
+          packRow = pack;
+          elPackDesc.textContent = pack.description || '';
+          if (pack.cover_image_url) elCover.style.backgroundImage = `url('${pack.cover_image_url}')`;
+        }
+      }
+
+      // Pre-fill the form email is implicit (already shown above).
+      form.elements.password.focus();
+    }
+
+    // ============== Password setup ==============
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      formError.hidden = true;
+      if (!orderRow) return;
+
+      const password = String(form.elements.password.value || '');
+      const confirm = String(form.elements.confirm.value || '');
+      if (password.length < 8) {
+        formError.textContent = 'Use at least 8 characters.';
+        formError.hidden = false;
+        return;
+      }
+      if (password !== confirm) {
+        formError.textContent = "Passwords don't match.";
+        formError.hidden = false;
+        return;
+      }
+
+      submitBtn.setAttribute('disabled', 'true');
+      submitBtn.textContent = 'Creating account…';
+
+      // Create the auth account against the email captured at checkout.
+      const { data, error } = await supabase.auth.signUp({
+        email: orderRow.buyer_email,
+        password,
+        options: {
+          data: {
+            name: orderRow.buyer_name,
+            company: orderRow.buyer_company,
+            phone: orderRow.buyer_phone,
+          },
+        },
+      });
+
+      submitBtn.removeAttribute('disabled');
+      submitBtn.innerHTML = 'Create my library <em>&rarr;</em>';
+
+      if (error) {
+        // Most common: account already exists. Offer sign-in route.
+        formError.innerHTML = error.message
+          + ' &nbsp; <a class="thanks-link" href="/login">Sign in instead</a>.';
+        formError.hidden = false;
+        return;
+      }
+
+      // If a session was returned, link the order to the new user id.
+      if (data?.user?.id) {
+        await supabase
+          .from('orders')
+          .update({ user_id: data.user.id })
+          .eq('id', orderRow.id);
+      }
+
+      // Show the success card. If we have a session, send them to /account.
+      form.hidden = true;
+      successEl.hidden = false;
+      if (data?.session) {
+        successMsg.textContent = "You're signed in and your library is ready.";
+      } else {
+        successMsg.textContent =
+          'Check your inbox to verify your email, then sign in to open your library.';
+      }
+    });
+
+    // Browser-side invoice "download" — opens print dialog scoped to the
+    // receipt block; users can save to PDF. Real email-sent PDF lands when
+    // we wire up Resend/SendGrid behind an edge function.
+    dlBtn.addEventListener('click', () => {
+      const w = window.open('', '_blank', 'width=800,height=900');
+      if (!w) return;
+      const receipt = document.querySelector('.thanks-receipt')?.outerHTML ?? '';
+      const styles = `
+        body { font-family: 'Cormorant Garamond', Georgia, serif; padding: 40px; color: #1c1d22; }
+        .thanks-receipt { background: #fff; max-width: 720px; margin: 0 auto; padding: 0; box-shadow: none; border: 1px solid #ddd; }
+        .thanks-receipt-head, .thanks-receipt-row, .thanks-receipt-list, .thanks-receipt-foot { padding: 16px 24px; }
+        .thanks-receipt-head, .thanks-receipt-row, .thanks-receipt-foot { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+        .thanks-receipt-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+        .thanks-receipt-list dt { font-family: 'Darker Grotesque', sans-serif; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: #777; margin: 0; }
+        .thanks-receipt-list dd { font-family: 'Darker Grotesque', sans-serif; font-size: 14px; margin: 0; }
+        .thanks-receipt-thumb { width: 72px; height: 72px; background-size: cover; background-position: center; border-radius: 2px; }
+        h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 22px; margin: 0; }
+        .thanks-receipt-info p { font-family: 'Darker Grotesque', sans-serif; font-size: 13px; color: #555; }
+        .thanks-receipt-amount, .thanks-receipt-total { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: #474254; }
+        .pill { background: #e6efe5; color: #2e6a4a; padding: 2px 10px; border-radius: 99px; font-size: 11px; }
+        .btn { display: none; }
+        @media print { .btn { display: none; } }
+      `;
+      const SCRIPT_OPEN = '<' + 'script>';
+      const SCRIPT_CLOSE = '<' + '/script>';
+      w.document.write(
+        `<!doctype html><html><head><title>Invoice — ${orderRow?.invoice_number || ''}</title><style>${styles}</style></head><body>` +
+          receipt +
+          `${SCRIPT_OPEN}window.onload=function(){setTimeout(function(){window.print();},120);};${SCRIPT_CLOSE}` +
+          `</body></html>`
+      );
+      w.document.close();
+    });
+
+    loadOrder();
+  </script>
+</BaseLayout>
