@@ -1632,7 +1632,14 @@
   });
 
   // ---------- Init ----------
-  renderPhotoGrid();
+  // Expose addImage so the stock-photo search panel (set up in editor.astro)
+  // can drop search results onto the canvas with the same flow as the bundled
+  // library buttons.
+  window.__TMKE_ADD_PHOTO__ = addImage;
+
+  // If a stock-photo search panel is taking over the Photos tab, skip
+  // rendering the bundled library — its results will fill the grid instead.
+  if (!window.__TMKE_STOCK_SEARCH_ACTIVE__) renderPhotoGrid();
   renderBrandPane();
   seedBrandIntoBackgroundPane();
   window.addEventListener("resize", () => fitZoom());
