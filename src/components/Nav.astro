@@ -24,5 +24,28 @@ const links: { label: string; href: string }[] = [
       ))
     }
   </div>
-  <a href="/login" class="nav-cta" aria-label="Login to your TMKE account"><span>Login</span></a>
+  <div class="nav-actions">
+    <a href="/admin" class="nav-admin" aria-label="TMKE admin dashboard">Admin</a>
+    <a href="/account" id="nav-login" class="nav-cta" aria-label="Login to your TMKE account"><span>Login</span></a>
+  </div>
 </nav>
+
+<script is:inline>
+  (function () {
+    // Temporary auth shortcut: clicking Login auto-creates a demo session
+    // so the client view (with fake purchases) loads in one click.
+    const btn = document.getElementById("nav-login");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      try {
+        if (!localStorage.getItem("tmke.session")) {
+          localStorage.setItem("tmke.session", JSON.stringify({
+            email: "demo@agency.co.uk",
+            name: "demo",
+            signedInAt: Date.now(),
+          }));
+        }
+      } catch (e) { /* ignore */ }
+    });
+  })();
+</script>
