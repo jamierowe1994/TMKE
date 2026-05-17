@@ -1004,8 +1004,12 @@ const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY ?? "";
       grid-template-columns: 1fr 1fr;
       gap: 8px;
       margin-bottom: 8px;
+      align-items: end;
     }
-    .ed-props-field { display: flex; flex-direction: column; gap: 4px; }
+    /* min-width: 0 is what lets grid items shrink below their content's
+       natural min-width — without it, number/range inputs overflow and
+       sit on top of their neighbour. */
+    .ed-props-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .ed-props-field > label {
       font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
       color: rgba(28,29,34,0.45);
@@ -1017,9 +1021,13 @@ const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY ?? "";
       border-radius: 4px;
       background: #fff;
       color: var(--ink);
+      /* Constrain to the grid cell so opacity/range no longer overlaps line height. */
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
     .ed-props-field input[type="color"] { padding: 2px; height: 32px; cursor: pointer; }
-    .ed-props-field input[type="range"] { padding: 0; }
+    .ed-props-field input[type="range"] { padding: 0; min-height: 32px; }
 
     .ed-props-actions {
       display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
