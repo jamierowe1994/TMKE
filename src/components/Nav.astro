@@ -37,6 +37,7 @@ const links: { label: string; href: string }[] = [
     const btn = document.getElementById("nav-login");
     if (!btn) return;
     btn.addEventListener("click", function (e) {
+      let firstTime = false;
       try {
         if (!localStorage.getItem("tmke.session")) {
           localStorage.setItem("tmke.session", JSON.stringify({
@@ -45,10 +46,17 @@ const links: { label: string; href: string }[] = [
             signedInAt: Date.now(),
           }));
         }
+        const hasBrand = localStorage.getItem("tmke.brand");
+        const skipped = localStorage.getItem("tmke.brand.skipped");
+        firstTime = !hasBrand && !skipped;
       } catch (err) { /* ignore */ }
+      const dest = firstTime ? "/profile?next=/account" : "/account";
       if (typeof window.tmkeSplash === "function") {
         e.preventDefault();
-        window.tmkeSplash("/account");
+        window.tmkeSplash(dest);
+      } else {
+        e.preventDefault();
+        window.location.href = dest;
       }
     });
   })();

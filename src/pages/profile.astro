@@ -1,0 +1,602 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHero from "../components/PageHero.astro";
+
+const FONTS = [
+  "Cormorant Garamond",
+  "Darker Grotesque",
+  "Georgia",
+  "Times New Roman",
+  "Helvetica",
+  "Arial",
+  "Inter",
+  "Trebuchet MS",
+  "Verdana",
+  "Courier New",
+];
+---
+
+<BaseLayout
+  title="Brand kit — TMKE"
+  description="Set up your brand colours, fonts and logos so the editor opens with your kit ready to go."
+>
+  <PageHero
+    chapter="Members — Brand kit"
+    title="Set up your <em>brand kit.</em>"
+    sub="Your colours, fonts and logos — saved once, ready on every design."
+  />
+
+  <form id="brand-form" class="profile-wrap wrap">
+    <p class="profile-firstrun" id="profile-firstrun" hidden>
+      First time in? Take a minute to load your brand. You can change any of it later from this page.
+    </p>
+
+    <!-- Company -->
+    <section class="profile-section">
+      <header class="profile-section-head">
+        <div>
+          <div class="eyebrow">01</div>
+          <h2>Company</h2>
+        </div>
+        <p>Used on internal exports and inside the editor.</p>
+      </header>
+      <div class="profile-row">
+        <label class="profile-field profile-field--full">
+          <span>Company name</span>
+          <input type="text" name="company" placeholder="The Agency Co." />
+        </label>
+      </div>
+    </section>
+
+    <!-- Colours -->
+    <section class="profile-section">
+      <header class="profile-section-head">
+        <div>
+          <div class="eyebrow">02</div>
+          <h2>Brand colours</h2>
+        </div>
+        <p>Pick up to six. These appear as quick-swatches inside the editor.</p>
+      </header>
+
+      <div class="colour-grid" id="colour-grid">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div class="colour-slot" data-i={i}>
+            <label class="colour-tile">
+              <input type="color" data-colour-picker={i} value={["#1c1d22","#474254","#B9826A","#DFDCDE","#F2EFE9","#FFFFFF"][i]} />
+              <span class="colour-tile-fill" data-colour-fill={i} style={`background:${["#1c1d22","#474254","#B9826A","#DFDCDE","#F2EFE9","#FFFFFF"][i]}`}></span>
+            </label>
+            <input type="text" class="colour-hex" data-colour-hex={i} maxlength="7" value={["#1c1d22","#474254","#B9826A","#DFDCDE","#F2EFE9","#FFFFFF"][i]} />
+            <input type="text" class="colour-name" data-colour-name={i} placeholder={`Colour 0${i+1}`} />
+            <button type="button" class="colour-clear" data-colour-clear={i} title="Clear">&times;</button>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Typography -->
+    <section class="profile-section">
+      <header class="profile-section-head">
+        <div>
+          <div class="eyebrow">03</div>
+          <h2>Typography</h2>
+        </div>
+        <p>Your heading and body fonts. The editor pins these to the top of the font menu.</p>
+      </header>
+
+      <div class="profile-row">
+        <label class="profile-field">
+          <span>Heading font</span>
+          <select name="headingFont">
+            {FONTS.map((f) => <option value={f} selected={f === "Cormorant Garamond"}>{f}</option>)}
+          </select>
+        </label>
+        <label class="profile-field">
+          <span>Body font</span>
+          <select name="bodyFont">
+            {FONTS.map((f) => <option value={f} selected={f === "Darker Grotesque"}>{f}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <div class="type-preview" id="type-preview">
+        <div class="type-preview-h">Headline goes here.</div>
+        <div class="type-preview-b">A short paragraph in your body face — used for captions, CTAs and the readable bits.</div>
+      </div>
+    </section>
+
+    <!-- Logos -->
+    <section class="profile-section">
+      <header class="profile-section-head">
+        <div>
+          <div class="eyebrow">04</div>
+          <h2>Logos</h2>
+        </div>
+        <p>Drop your wordmark, monogram, and any variants. PNGs with transparent backgrounds work best.</p>
+      </header>
+
+      <label class="logo-drop" id="logo-drop">
+        <input type="file" id="logo-input" accept="image/*" multiple hidden />
+        <strong>Click to upload</strong>
+        <span>or drag your logo files here</span>
+      </label>
+
+      <div class="logo-grid" id="logo-grid"></div>
+    </section>
+
+    <!-- Actions -->
+    <div class="profile-actions">
+      <button type="button" class="profile-skip" id="profile-skip">Skip for now</button>
+      <button type="submit" class="btn btn--solid">Save brand kit <span class="btn-arrow">&rarr;</span></button>
+    </div>
+  </form>
+
+  <style>
+    .profile-wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 36px 200px;
+      display: flex;
+      flex-direction: column;
+      gap: 80px;
+    }
+    .profile-firstrun {
+      background: rgba(71, 66, 84, 0.08);
+      border: 1px solid rgba(71, 66, 84, 0.2);
+      color: var(--english-violet);
+      padding: 14px 18px;
+      border-radius: 3px;
+      font-size: 14px;
+      margin: 0;
+    }
+    .profile-section { display: flex; flex-direction: column; gap: 28px; }
+    .profile-section-head {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(28, 29, 34, 0.12);
+      align-items: end;
+    }
+    .profile-section-head .eyebrow { margin-bottom: 6px; }
+    .profile-section-head h2 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(32px, 3.4vw, 44px);
+      letter-spacing: -0.015em;
+      margin: 0;
+    }
+    .profile-section-head p {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 17px;
+      color: rgba(28,29,34,0.6);
+      margin: 0;
+      max-width: 40ch;
+      justify-self: end;
+      text-align: right;
+    }
+
+    .profile-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+    .profile-field { display: flex; flex-direction: column; gap: 8px; }
+    .profile-field--full { grid-column: 1 / -1; }
+    .profile-field > span {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.55);
+    }
+    .profile-field input, .profile-field select {
+      padding: 14px 16px;
+      font-family: var(--sans);
+      font-size: 15px;
+      border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 2px;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .profile-field input:focus, .profile-field select:focus {
+      outline: none;
+      border-color: var(--english-violet);
+      box-shadow: 0 0 0 3px rgba(71, 66, 84, 0.12);
+    }
+
+    /* Colour grid */
+    .colour-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    .colour-slot {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 3px;
+    }
+    .colour-slot.is-empty { opacity: 0.5; }
+    .colour-tile {
+      position: relative;
+      display: block;
+      aspect-ratio: 5/3;
+      border-radius: 2px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .colour-tile input[type="color"] {
+      position: absolute; inset: 0;
+      opacity: 0; width: 100%; height: 100%; cursor: pointer;
+    }
+    .colour-tile-fill {
+      position: absolute; inset: 0;
+      display: block;
+      box-shadow: inset 0 0 0 1px rgba(28,29,34,0.08);
+    }
+    .colour-hex {
+      padding: 8px 10px;
+      font-family: var(--sans);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      border: 1px solid rgba(28,29,34,0.12);
+      border-radius: 2px;
+      background: rgba(28,29,34,0.03);
+      color: var(--ink);
+    }
+    .colour-name {
+      padding: 6px 10px;
+      font-family: var(--sans);
+      font-size: 12px;
+      border: 1px solid transparent;
+      border-radius: 2px;
+      background: transparent;
+      color: rgba(28,29,34,0.6);
+    }
+    .colour-name:focus, .colour-hex:focus {
+      outline: none;
+      border-color: var(--english-violet);
+      background: #fff;
+    }
+    .colour-clear {
+      position: absolute; top: 8px; right: 8px;
+      width: 22px; height: 22px;
+      border: none;
+      background: rgba(28,29,34,0.55);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 18px; line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s, background 0.2s;
+    }
+    .colour-slot:hover .colour-clear { opacity: 1; }
+    .colour-clear:hover { background: var(--ink); }
+
+    /* Typography preview */
+    .type-preview {
+      padding: 36px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 3px;
+    }
+    .type-preview-h {
+      font-family: "Cormorant Garamond", serif;
+      font-size: clamp(36px, 4vw, 56px);
+      line-height: 1.05;
+      letter-spacing: -0.015em;
+      margin-bottom: 14px;
+      color: var(--ink);
+    }
+    .type-preview-b {
+      font-family: "Darker Grotesque", sans-serif;
+      font-size: 16px;
+      color: rgba(28,29,34,0.65);
+      max-width: 50ch;
+    }
+
+    /* Logos */
+    .logo-drop {
+      display: flex;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px;
+      padding: 44px;
+      border: 1.5px dashed rgba(71,66,84,0.35);
+      border-radius: 3px;
+      background: rgba(71,66,84,0.04);
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .logo-drop:hover, .logo-drop.is-drag {
+      background: rgba(71,66,84,0.1);
+      border-color: var(--english-violet);
+    }
+    .logo-drop strong { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--english-violet); }
+    .logo-drop span { font-size: 13px; color: rgba(28,29,34,0.55); }
+
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .logo-tile {
+      position: relative;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .logo-tile.is-primary { border-color: var(--english-violet); box-shadow: 0 0 0 2px rgba(71,66,84,0.15); }
+    .logo-tile-img {
+      aspect-ratio: 4/3;
+      background-color: #f5f4f1;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    .logo-tile-meta {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 6px;
+      align-items: center;
+      padding: 8px 10px;
+      border-top: 1px solid rgba(28,29,34,0.06);
+    }
+    .logo-tile-name {
+      padding: 4px 6px;
+      font-family: var(--sans);
+      font-size: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--ink);
+      min-width: 0;
+    }
+    .logo-tile-name:focus { outline: none; border-color: var(--english-violet); background: rgba(71,66,84,0.05); }
+    .logo-tile-action {
+      width: 24px; height: 24px;
+      background: transparent; border: none; cursor: pointer;
+      color: rgba(28,29,34,0.45);
+      font-size: 14px;
+      border-radius: 3px;
+    }
+    .logo-tile-action:hover { color: var(--ink); background: rgba(28,29,34,0.06); }
+    .logo-tile-action.is-on { color: var(--english-violet); }
+
+    .profile-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 24px;
+      border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    .profile-skip {
+      background: transparent; border: none; cursor: pointer;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+      padding: 14px 0;
+    }
+    .profile-skip:hover { color: var(--ink); }
+
+    @media (max-width: 760px) {
+      .profile-section-head { grid-template-columns: 1fr; gap: 12px; }
+      .profile-section-head p { justify-self: start; text-align: left; }
+      .colour-grid { grid-template-columns: repeat(2, 1fr); }
+      .profile-row { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <script is:inline>
+    (function () {
+      const form = document.getElementById("brand-form");
+      const firstrun = document.getElementById("profile-firstrun");
+      const grid = document.getElementById("colour-grid");
+      const logoInput = document.getElementById("logo-input");
+      const logoDrop = document.getElementById("logo-drop");
+      const logoGrid = document.getElementById("logo-grid");
+      const preview = document.getElementById("type-preview");
+      const previewH = preview.querySelector(".type-preview-h");
+      const previewB = preview.querySelector(".type-preview-b");
+
+      // ---- Load existing brand or seed defaults ----
+      const DEFAULT_COLOURS = [
+        { hex: "#1c1d22", name: "Ink" },
+        { hex: "#474254", name: "Violet" },
+        { hex: "#B9826A", name: "Accent" },
+        { hex: "#DFDCDE", name: "Platinum" },
+        { hex: "#F2EFE9", name: "Paper" },
+        { hex: "#FFFFFF", name: "White" },
+      ];
+      let brand = null;
+      try { brand = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+      if (!brand) firstrun.hidden = false;
+
+      const initialColours = (brand && brand.colors && brand.colors.length)
+        ? brand.colors.concat(Array(Math.max(0, 6 - brand.colors.length)).fill(null)).slice(0, 6)
+        : DEFAULT_COLOURS.slice(0, 6);
+
+      // Hydrate company / fonts
+      if (brand) {
+        form.elements["company"].value = brand.company || "";
+        if (brand.fonts) {
+          if (brand.fonts.heading) form.elements["headingFont"].value = brand.fonts.heading;
+          if (brand.fonts.body) form.elements["bodyFont"].value = brand.fonts.body;
+        }
+      }
+
+      // Hydrate colour slots
+      initialColours.forEach(function (c, i) {
+        const slot = grid.querySelector('.colour-slot[data-i="' + i + '"]');
+        const picker = slot.querySelector('[data-colour-picker]');
+        const fill = slot.querySelector('[data-colour-fill]');
+        const hex = slot.querySelector('[data-colour-hex]');
+        const name = slot.querySelector('[data-colour-name]');
+        if (c) {
+          picker.value = c.hex || "#1c1d22";
+          fill.style.background = c.hex || "transparent";
+          hex.value = c.hex || "";
+          name.value = c.name || "";
+          slot.classList.remove("is-empty");
+        } else {
+          fill.style.background = "transparent";
+          hex.value = "";
+          name.value = "";
+          slot.classList.add("is-empty");
+        }
+      });
+
+      // Colour picker → updates hex + tile
+      grid.addEventListener("input", function (e) {
+        const t = e.target;
+        const slot = t.closest(".colour-slot");
+        if (!slot) return;
+        const i = slot.dataset.i;
+        const fill = slot.querySelector('[data-colour-fill]');
+        const hex = slot.querySelector('[data-colour-hex]');
+        if (t.matches('[data-colour-picker]')) {
+          fill.style.background = t.value;
+          hex.value = t.value.toUpperCase();
+          slot.classList.remove("is-empty");
+        } else if (t.matches('[data-colour-hex]')) {
+          const val = t.value.trim();
+          if (/^#?[0-9a-f]{6}$/i.test(val)) {
+            const norm = (val.startsWith("#") ? val : "#" + val).toUpperCase();
+            slot.querySelector('[data-colour-picker]').value = norm;
+            fill.style.background = norm;
+            slot.classList.remove("is-empty");
+          }
+        }
+      });
+
+      // Clear a colour slot
+      grid.addEventListener("click", function (e) {
+        if (!e.target.matches('[data-colour-clear]')) return;
+        const slot = e.target.closest(".colour-slot");
+        slot.querySelector('[data-colour-hex]').value = "";
+        slot.querySelector('[data-colour-name]').value = "";
+        slot.querySelector('[data-colour-fill]').style.background = "transparent";
+        slot.classList.add("is-empty");
+      });
+
+      // Typography preview
+      function syncPreview() {
+        previewH.style.fontFamily = '"' + form.elements["headingFont"].value + '", serif';
+        previewB.style.fontFamily = '"' + form.elements["bodyFont"].value + '", sans-serif';
+      }
+      form.elements["headingFont"].addEventListener("change", syncPreview);
+      form.elements["bodyFont"].addEventListener("change", syncPreview);
+      syncPreview();
+
+      // ---- Logos ----
+      let logos = (brand && Array.isArray(brand.logos)) ? brand.logos.slice() : [];
+      function renderLogos() {
+        logoGrid.innerHTML = "";
+        logos.forEach(function (lg, i) {
+          const tile = document.createElement("div");
+          tile.className = "logo-tile" + (lg.primary ? " is-primary" : "");
+          tile.innerHTML =
+            '<div class="logo-tile-img" style="background-image:url(' + JSON.stringify(lg.src) + ')"></div>' +
+            '<div class="logo-tile-meta">' +
+              '<input class="logo-tile-name" value="' + (lg.name || "").replace(/"/g, "&quot;") + '" data-i="' + i + '" placeholder="Logo name">' +
+              '<button type="button" class="logo-tile-action ' + (lg.primary ? "is-on" : "") + '" data-primary="' + i + '" title="Set primary">★</button>' +
+              '<button type="button" class="logo-tile-action" data-remove="' + i + '" title="Remove">&times;</button>' +
+            '</div>';
+          logoGrid.appendChild(tile);
+        });
+      }
+      renderLogos();
+
+      logoGrid.addEventListener("click", function (e) {
+        const p = e.target.getAttribute("data-primary");
+        const r = e.target.getAttribute("data-remove");
+        if (p !== null) {
+          logos = logos.map(function (lg, idx) { return Object.assign({}, lg, { primary: idx === parseInt(p, 10) }); });
+          renderLogos();
+        } else if (r !== null) {
+          logos.splice(parseInt(r, 10), 1);
+          renderLogos();
+        }
+      });
+      logoGrid.addEventListener("input", function (e) {
+        const i = e.target.getAttribute("data-i");
+        if (i !== null) logos[parseInt(i, 10)].name = e.target.value;
+      });
+
+      function handleLogoFiles(files) {
+        Array.from(files || []).forEach(function (f) {
+          if (!f.type.startsWith("image/")) return;
+          const reader = new FileReader();
+          reader.onload = function () {
+            logos.push({
+              name: f.name.replace(/\.[a-z0-9]+$/i, ""),
+              src: reader.result,
+              primary: logos.length === 0,
+            });
+            renderLogos();
+          };
+          reader.readAsDataURL(f);
+        });
+      }
+      logoInput.addEventListener("change", function () { handleLogoFiles(logoInput.files); logoInput.value = ""; });
+      logoDrop.addEventListener("dragover", function (e) { e.preventDefault(); logoDrop.classList.add("is-drag"); });
+      logoDrop.addEventListener("dragleave", function () { logoDrop.classList.remove("is-drag"); });
+      logoDrop.addEventListener("drop", function (e) {
+        e.preventDefault();
+        logoDrop.classList.remove("is-drag");
+        handleLogoFiles(e.dataTransfer.files);
+      });
+
+      // ---- Save / skip ----
+      function collect() {
+        const colours = [];
+        for (let i = 0; i < 6; i++) {
+          const slot = grid.querySelector('.colour-slot[data-i="' + i + '"]');
+          if (!slot || slot.classList.contains("is-empty")) continue;
+          const hex = slot.querySelector('[data-colour-hex]').value.trim();
+          if (!/^#?[0-9a-f]{6}$/i.test(hex)) continue;
+          colours.push({
+            hex: (hex.startsWith("#") ? hex : "#" + hex).toUpperCase(),
+            name: slot.querySelector('[data-colour-name]').value.trim() || ("Colour " + (i + 1)),
+          });
+        }
+        return {
+          company: form.elements["company"].value.trim(),
+          colors: colours,
+          fonts: {
+            heading: form.elements["headingFont"].value,
+            body: form.elements["bodyFont"].value,
+          },
+          logos: logos,
+          updatedAt: Date.now(),
+        };
+      }
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const kit = collect();
+        try { localStorage.setItem("tmke.brand", JSON.stringify(kit)); } catch (_) {}
+        const next = new URLSearchParams(location.search).get("next") || "/account";
+        location.href = next;
+      });
+
+      document.getElementById("profile-skip").addEventListener("click", function () {
+        // Mark as visited so we don't redirect them here again
+        try { localStorage.setItem("tmke.brand.skipped", "1"); } catch (_) {}
+        location.href = "/account";
+      });
+    })();
+  </script>
+</BaseLayout>

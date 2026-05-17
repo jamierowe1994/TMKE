@@ -65,6 +65,10 @@ const templateData = templates.map((t) => ({
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         <span>Designs</span>
       </button>
+      <button class="ed-rail-btn" data-tool="brand" title="Your brand kit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+        <span>Brand</span>
+      </button>
       <button class="ed-rail-btn" data-tool="elements" title="Elements">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="5"/><rect x="13" y="13" width="8" height="8" rx="1"/><path d="M3 21l5-8 5 8z"/></svg>
         <span>Elements</span>
@@ -105,6 +109,32 @@ const templateData = templates.map((t) => ({
           <p>Tap a design to load it onto the canvas.</p>
         </div>
         <div class="ed-template-grid" id="ed-template-grid"></div>
+      </section>
+
+      <!-- Brand kit -->
+      <section class="ed-panel-pane" data-pane="brand">
+        <div class="ed-pane-header">
+          <h3 id="brand-company">Your brand kit</h3>
+          <p>Colours, fonts and logos saved in your profile. <a href="/profile" id="brand-edit-link">Edit&nbsp;&rarr;</a></p>
+        </div>
+
+        <div class="ed-brand-empty" id="brand-empty" hidden>
+          <p>You haven't set up your brand kit yet.</p>
+          <a href="/profile?next=/editor" class="ed-btn-solid">Set up brand kit</a>
+        </div>
+
+        <div id="brand-loaded">
+          <div class="ed-section-title">Brand colours</div>
+          <p class="ed-brand-hint">Select an element first, then click a colour. Or click any swatch on its own to recolour the canvas background.</p>
+          <div class="ed-swatches" id="brand-colour-grid"></div>
+
+          <div class="ed-section-title">Brand fonts</div>
+          <div id="brand-font-list"></div>
+
+          <div class="ed-section-title">Logos</div>
+          <p class="ed-brand-hint">Click a logo to drop it onto the canvas.</p>
+          <div class="ed-photo-grid" id="brand-logo-grid"></div>
+        </div>
       </section>
 
       <!-- Elements -->
@@ -457,6 +487,54 @@ const templateData = templates.map((t) => ({
       letter-spacing: 0.22em; text-transform: uppercase;
       color: rgba(28,29,34,0.5);
       margin: 22px 0 10px;
+    }
+    .ed-brand-hint {
+      font-size: 11px;
+      color: rgba(28,29,34,0.5);
+      margin: 0 0 10px;
+      line-height: 1.5;
+    }
+    .ed-brand-empty {
+      padding: 24px;
+      background: rgba(71,66,84,0.06);
+      border: 1px dashed rgba(71,66,84,0.3);
+      border-radius: 4px;
+      text-align: center;
+    }
+    .ed-brand-empty p {
+      margin: 0 0 14px;
+      font-size: 13px;
+      color: rgba(28,29,34,0.65);
+    }
+    #brand-company { font-family: var(--serif); }
+    #brand-edit-link {
+      color: var(--english-violet);
+      border-bottom: 1px solid currentColor;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
+    .ed-brand-font {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 8px;
+      padding: 12px 14px;
+      background: rgba(28,29,34,0.04);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 6px;
+      text-align: left;
+      width: 100%;
+    }
+    .ed-brand-font:hover { background: rgba(71,66,84,0.1); border-color: rgba(71,66,84,0.3); }
+    .ed-brand-font-name {
+      font-size: 18px; color: var(--ink); line-height: 1.1;
+    }
+    .ed-brand-font-role {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
     }
 
     /* Template + photo grids */

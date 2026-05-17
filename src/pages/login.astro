@@ -294,13 +294,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           name: (email || "demo").split("@")[0].replace(/\./g, " "),
           signedInAt: Date.now(),
         };
+        let firstTime = false;
         try {
           localStorage.setItem("tmke.session", JSON.stringify(session));
+          firstTime = !localStorage.getItem("tmke.brand") && !localStorage.getItem("tmke.brand.skipped");
         } catch (e) { /* ignore */ }
+        const dest = firstTime ? "/profile?next=/account" : "/account";
         if (typeof window.tmkeSplash === "function") {
-          window.tmkeSplash("/account");
+          window.tmkeSplash(dest);
         } else {
-          window.location.href = "/account";
+          window.location.href = dest;
         }
       }
 
