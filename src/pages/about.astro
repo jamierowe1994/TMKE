@@ -1,9 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 
-const heroImage =
-  "https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&w=2000&q=80";
-
 const team = [
   {
     name: "Danni Law",
@@ -37,12 +34,19 @@ const togetherImage =
   description="TMKE is a marketing agency built specifically for estate agents who are tired of inconsistent, rushed, and underwhelming social media."
 >
   <section class="about-hero">
-    <div
-      class="about-hero-bg"
-      style={`background-image: url('${heroImage}')`}
+    <video
+      class="about-hero-video"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+      aria-hidden="true"
     >
-    </div>
+      <source src="/assets/laptop.mp4" type="video/mp4" />
+    </video>
     <div class="about-hero-overlay"></div>
+    <div class="about-hero-vignette"></div>
 
     <div class="about-hero-inner">
       <div class="about-hero-chapter">/ TMKE /</div>
@@ -196,23 +200,45 @@ const togetherImage =
     justify-content: center;
     overflow: hidden;
     color: var(--paper);
+    background: #0e0d12;
   }
-  .about-hero-bg {
+  .about-hero-video {
     position: absolute;
     inset: 0;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transform: scale(1.06);
+    animation: hero-cinematic-drift 22s ease-in-out infinite alternate;
+    will-change: transform;
+    filter: saturate(0.9) contrast(1.05);
+    pointer-events: none;
   }
   .about-hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(20, 18, 26, 0.45) 0%,
-      rgba(20, 18, 26, 0.55) 50%,
-      rgba(20, 18, 26, 0.65) 100%
-    );
+    z-index: 1;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(14, 13, 18, 0.55) 0%,
+        rgba(14, 13, 18, 0.45) 45%,
+        rgba(14, 13, 18, 0.7) 100%
+      );
+  }
+  .about-hero-vignette {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse at center,
+        rgba(14, 13, 18, 0) 28%,
+        rgba(14, 13, 18, 0.5) 80%,
+        rgba(14, 13, 18, 0.9) 100%
+      );
   }
   .about-hero-inner {
     position: relative;
@@ -220,6 +246,7 @@ const togetherImage =
     text-align: center;
     padding: 180px 28px 140px;
     max-width: 880px;
+    text-shadow: 0 1px 30px rgba(14, 13, 18, 0.55);
   }
   .about-hero-chapter {
     font-family: var(--serif);
@@ -229,19 +256,20 @@ const togetherImage =
     letter-spacing: 0.02em;
     color: var(--paper);
     margin-bottom: 18px;
+    text-shadow: 0 2px 24px rgba(14, 13, 18, 0.6);
   }
   .about-hero-phonetic {
     font-family: var(--serif);
     font-size: clamp(14px, 1.1vw, 16px);
     letter-spacing: 0.04em;
-    color: rgba(242, 239, 233, 0.75);
+    color: rgba(242, 239, 233, 0.78);
     margin-bottom: 4px;
   }
   .about-hero-pos {
     font-family: var(--serif);
     font-style: italic;
     font-size: clamp(13px, 1vw, 15px);
-    color: rgba(242, 239, 233, 0.7);
+    color: rgba(242, 239, 233, 0.72);
     margin-bottom: 40px;
   }
   .about-hero-text {
@@ -249,7 +277,7 @@ const togetherImage =
     font-size: clamp(15px, 1.3vw, 18px);
     font-weight: 400;
     line-height: 1.85;
-    color: rgba(242, 239, 233, 0.92);
+    color: rgba(242, 239, 233, 0.95);
     margin: 0 0 28px;
   }
   .about-hero-text strong {
@@ -262,8 +290,10 @@ const togetherImage =
   .about-hero-btn {
     display: inline-block;
     padding: 14px 30px;
-    border: 1px solid rgba(242, 239, 233, 0.85);
-    background: transparent;
+    border: 1px solid rgba(242, 239, 233, 0.9);
+    background: rgba(14, 13, 18, 0.25);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     color: var(--paper);
     font-family: var(--sans);
     font-size: 12px;
@@ -271,11 +301,19 @@ const togetherImage =
     letter-spacing: 0.22em;
     text-transform: uppercase;
     transition: background 0.3s, color 0.3s, border-color 0.3s;
+    text-shadow: none;
   }
   .about-hero-btn:hover {
     background: var(--paper);
     color: var(--ink);
     border-color: var(--paper);
+  }
+  @keyframes hero-cinematic-drift {
+    0%   { transform: scale(1.06) translate3d(0, 0, 0); }
+    100% { transform: scale(1.12) translate3d(-1.5%, -1%, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .about-hero-video { animation: none; transform: scale(1.04); }
   }
 
   /* ============ About — intro split ============ */

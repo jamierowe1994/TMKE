@@ -1,9 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 
-const heroImage =
-  "https://images.unsplash.com/photo-1567333539892-4ab0c5b5c9c5?auto=format&fit=crop&w=2000&q=80";
-
 const industries = [
   "Estate Agency",
   "Lettings",
@@ -21,12 +18,19 @@ const industries = [
   description="Not sure what you need or where to start? Send us a message and we'll help you figure out the right next step."
 >
   <section class="contact-hero">
-    <div
-      class="contact-hero-bg"
-      style={`background-image: url('${heroImage}')`}
+    <video
+      class="contact-hero-video"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+      aria-hidden="true"
     >
-    </div>
+      <source src="/assets/phone.mp4" type="video/mp4" />
+    </video>
     <div class="contact-hero-overlay"></div>
+    <div class="contact-hero-vignette"></div>
     <div class="contact-hero-inner">
       <div class="contact-hero-chapter">/ Contact /</div>
       <p class="contact-hero-text">
@@ -220,25 +224,45 @@ const industries = [
     justify-content: center;
     overflow: hidden;
     color: var(--paper);
+    background: #0e0d12;
   }
-  .contact-hero-bg {
+  .contact-hero-video {
     position: absolute;
     inset: 0;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    transform: scale(1.04);
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transform: scale(1.06);
+    animation: hero-cinematic-drift 22s ease-in-out infinite alternate;
     will-change: transform;
+    filter: saturate(0.92) contrast(1.04);
+    pointer-events: none;
   }
   .contact-hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(20, 18, 26, 0.45) 0%,
-      rgba(20, 18, 26, 0.55) 50%,
-      rgba(20, 18, 26, 0.65) 100%
-    );
+    z-index: 1;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(14, 13, 18, 0.55) 0%,
+        rgba(14, 13, 18, 0.45) 45%,
+        rgba(14, 13, 18, 0.65) 100%
+      );
+  }
+  .contact-hero-vignette {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse at center,
+        rgba(14, 13, 18, 0) 30%,
+        rgba(14, 13, 18, 0.45) 80%,
+        rgba(14, 13, 18, 0.85) 100%
+      );
   }
   .contact-hero-inner {
     position: relative;
@@ -246,6 +270,7 @@ const industries = [
     text-align: center;
     padding: 160px 28px 120px;
     max-width: 760px;
+    text-shadow: 0 1px 30px rgba(14, 13, 18, 0.55);
   }
   .contact-hero-chapter {
     font-family: var(--serif);
@@ -255,13 +280,14 @@ const industries = [
     letter-spacing: 0.02em;
     margin-bottom: 36px;
     color: var(--paper);
+    text-shadow: 0 2px 24px rgba(14, 13, 18, 0.6);
   }
   .contact-hero-text {
     font-family: var(--sans);
     font-size: clamp(16px, 1.4vw, 19px);
     font-weight: 400;
     line-height: 1.75;
-    color: rgba(242, 239, 233, 0.92);
+    color: rgba(242, 239, 233, 0.95);
     margin: 0 0 44px;
   }
   .contact-hero-text strong {
@@ -271,8 +297,10 @@ const industries = [
   .contact-hero-btn {
     display: inline-block;
     padding: 14px 30px;
-    border: 1px solid rgba(242, 239, 233, 0.85);
-    background: rgba(20, 18, 26, 0.35);
+    border: 1px solid rgba(242, 239, 233, 0.9);
+    background: rgba(14, 13, 18, 0.25);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     color: var(--paper);
     font-family: var(--sans);
     font-size: 12px;
@@ -280,11 +308,19 @@ const industries = [
     letter-spacing: 0.22em;
     text-transform: uppercase;
     transition: background 0.3s, color 0.3s, border-color 0.3s;
+    text-shadow: none;
   }
   .contact-hero-btn:hover {
     background: var(--paper);
     color: var(--ink);
     border-color: var(--paper);
+  }
+  @keyframes hero-cinematic-drift {
+    0%   { transform: scale(1.06) translate3d(0, 0, 0); }
+    100% { transform: scale(1.12) translate3d(-1.5%, -1%, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .contact-hero-video { animation: none; transform: scale(1.04); }
   }
 
   /* ============ Contact — form ============ */
