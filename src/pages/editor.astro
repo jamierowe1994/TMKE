@@ -1426,6 +1426,35 @@ const googleFonts = [
         };
       }
     }
+
+    // Custom brand fonts — fetched for BOTH admin and customer modes so the
+    // canvas renders templates that reference them correctly. Each row is
+    // registered with the document via Font Face API; editor.js picks them
+    // up via `window.__TMKE_BRAND_FONTS__` and adds to the picker.
+    try {
+      const { data: bf, error: bfErr } = await supabase
+        .from('brand_fonts')
+        .select('id, family, display_name, file_url, weight, style')
+        .order('family', { ascending: true });
+
+      if (!bfErr && bf && bf.length) {
+        const registered = new Set();
+        for (const f of bf) {
+          if (registered.has(f.family + '|' + f.weight + '|' + f.style)) continue;
+          registered.add(f.family + '|' + f.weight + '|' + f.style);
+          try {
+            const face = new FontFace(f.family, `url("${f.file_url}")`, {
+              weight: String(f.weight || 400),
+              style: f.style || 'normal',
+              display: 'swap',
+            });
+            face.load().then((l) => document.fonts.add(l)).catch(() => {});
+          } catch (_) { /* ignore individual font failures */ }
+        }
+        // Editor.js reads this on init to populate the font picker.
+        window.__TMKE_BRAND_FONTS__ = bf;
+      }
+    } catch (_) { /* fonts are optional — keep editor usable if fetch fails */ }
   </script>
 
   <!--
