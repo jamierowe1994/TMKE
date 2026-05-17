@@ -33,6 +33,7 @@ On Railway → **Variables**: add the same two keys.
 In the Supabase dashboard → **SQL Editor** → **New query**, paste and run:
 
 1. The contents of [`supabase/schema.sql`](supabase/schema.sql) — creates the `packs` table and locks it down with RLS.
+2. The contents of [`supabase/templates.sql`](supabase/templates.sql) — creates the `templates` table for the in-house design studio (read by `/editor`, edited from `/admin/templates`).
 
 ## 4. Create the storage bucket
 

@@ -1009,5 +1009,84 @@ const templateData = templates.map((t) => ({
     }
   </style>
 
+  <!--
+    Admin-mode bootstrap. If the URL says ?mode=admin AND the user is signed in
+    as an admin, we:
+      • fetch templates from Supabase (overriding the baked-in mock library)
+      • install a save hook that writes back to the templates table
+    The top-level `await` here blocks the next module script (editor.js) until
+    bootstrap is done, so when the editor reads its templates JSON it sees the
+    Supabase data instead of the seed.
+  -->
+  <script type="module">
+    import { supabase } from '../lib/supabase.js';
+
+    const params = new URLSearchParams(location.search);
+    const wantAdmin = params.get('mode') === 'admin';
+
+    if (wantAdmin) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Not signed in — bounce to admin login, preserve where we wanted to go.
+        const next = encodeURIComponent(location.pathname + location.search);
+        location.replace(`/admin/login?next=${next}`);
+      } else {
+        // Pull all admin-visible templates and replace the static JSON blob.
+        const { data: rows, error } = await supabase
+          .from('templates')
+          .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
+          .order('status', { ascending: true })
+          .order('sort_order', { ascending: true });
+
+        if (!error && rows) {
+          const shaped = rows.map((r) => ({
+            id: r.id,
+            name: r.name,
+            category: r.category,
+            thumb: r.thumb_url,
+            canvas: r.canvas || { width: 1080, height: 1350, background: '#F2EFE9' },
+            elements: r.elements || [],
+          }));
+          const tag = document.getElementById('ed-templates-data');
+          if (tag) tag.textContent = JSON.stringify(shaped);
+        }
+
+        // If a specific template id is requested, make sure it loads first by
+        // ensuring it's at index 0 (the editor falls back to TEMPLATES[0]).
+        const requestedId = params.get('id');
+        if (requestedId) {
+          const tag = document.getElementById('ed-templates-data');
+          if (tag) {
+            try {
+              const arr = JSON.parse(tag.textContent || '[]');
+              const idx = arr.findIndex((t) => t.id === requestedId);
+              if (idx > 0) {
+                const [hit] = arr.splice(idx, 1);
+                arr.unshift(hit);
+                tag.textContent = JSON.stringify(arr);
+              }
+            } catch (_) {}
+          }
+        }
+
+        // Install the save hook the editor will pick up. Editor.js passes
+        // its current `state.templateId` in `payload.templateId`, which is
+        // also the Supabase row id (we keep ids stable end-to-end).
+        window.__TMKE_ADMIN_SAVE__ = async (payload) => {
+          if (!payload?.templateId) return false;
+          const { error: saveErr } = await supabase
+            .from('templates')
+            .update({
+              name: payload.filename,
+              canvas: payload.canvas,
+              elements: payload.elements,
+            })
+            .eq('id', payload.templateId);
+          return !saveErr;
+        };
+      }
+    }
+  </script>
+
   <script src="/scripts/editor.js" is:inline type="module"></script>
 </BaseLayout>
