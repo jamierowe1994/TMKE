@@ -102,12 +102,77 @@
     return state.selectedIds.map(getEl).filter(Boolean);
   }
 
-  function toast(msg) {
+  function toast(msg, durationMs) {
     toastEl.textContent = msg;
     toastEl.hidden = false;
     toastEl.classList.add("is-show");
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => { toastEl.classList.remove("is-show"); toastEl.hidden = true; }, 1800);
+    toast._t = setTimeout(() => { toastEl.classList.remove("is-show"); toastEl.hidden = true; }, durationMs || 1800);
+  }
+
+  // ---------- Background removal (@imgly, runs in-browser) ----------
+  // editor.js is served as a public/ asset (not bundled by Vite), so we
+  // can't use a bare "@imgly/background-removal" specifier — the browser
+  // wouldn't know how to resolve it. Loading the ESM build from JSDelivr
+  // works in any browser that supports dynamic import. ~700KB of JS plus
+  // a ~30MB ONNX model on first run, both cached after.
+  let _bgRemoveModule = null;
+  async function getBgRemover() {
+    if (_bgRemoveModule) return _bgRemoveModule;
+    _bgRemoveModule = await import(
+      /* @vite-ignore */
+      "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm"
+    );
+    return _bgRemoveModule;
+  }
+
+  async function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async function fetchAsBlob(src) {
+    // Already a data URL or blob URL — convert via fetch.
+    const res = await fetch(src, { mode: "cors" });
+    if (!res.ok) throw new Error("Could not load source image (status " + res.status + ").");
+    return await res.blob();
+  }
+
+  async function runBackgroundRemoval(el, button) {
+    if (!el || el.type !== "image" || !el.src) return;
+    const originalLabel = button ? button.textContent : null;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Loading model…";
+    }
+    toast("Loading background remover (first run downloads ~30MB)…", 4000);
+
+    try {
+      const { removeBackground } = await getBgRemover();
+      if (button) button.textContent = "Cutting out…";
+
+      const srcBlob = await fetchAsBlob(el.src);
+      const resultBlob = await removeBackground(srcBlob);
+      const dataUrl = await blobToDataUrl(resultBlob);
+
+      el.src = dataUrl;
+      pushHistory();
+      fullRender();
+      toast("Background removed");
+    } catch (err) {
+      console.error("[bg-remove]", err);
+      const msg = err && err.message ? err.message : "Background removal failed";
+      toast(msg.slice(0, 80), 3500);
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalLabel || "Remove background";
+      }
+    }
   }
 
   // ---------- History ----------
@@ -1162,6 +1227,7 @@
       g4.appendChild(color);
       ctxEl.appendChild(g4);
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
+      // Fill
       const g = group();
       const fill = document.createElement("input");
       fill.type = "color"; fill.className = "ed-ctx-color"; fill.value = rgbHex(el.fill);
@@ -1171,6 +1237,31 @@
       g.appendChild(fill);
       ctxEl.appendChild(g);
 
+      // Stroke colour + thickness — visible on the top bar for every shape
+      // so the user doesn't have to scroll to the right panel for line work.
+      const gs = group();
+      const stroke = document.createElement("input");
+      stroke.type = "color"; stroke.className = "ed-ctx-color";
+      stroke.value = rgbHex(el.stroke && el.stroke !== "transparent" ? el.stroke : "#000000");
+      stroke.addEventListener("input", () => { el.stroke = stroke.value; fullRender(); });
+      stroke.addEventListener("change", () => pushHistory());
+      gs.appendChild(label("Stroke"));
+      gs.appendChild(stroke);
+      const strokeW = document.createElement("input");
+      strokeW.type = "number"; strokeW.className = "ed-ctx-num";
+      strokeW.min = 0; strokeW.max = 40; strokeW.value = el.strokeWidth || 0;
+      strokeW.title = "Line thickness";
+      strokeW.addEventListener("change", () => {
+        el.strokeWidth = parseInt(strokeW.value, 10) || 0;
+        // If user starts giving a width, make sure stroke isn't transparent.
+        if (el.strokeWidth > 0 && (!el.stroke || el.stroke === "transparent")) el.stroke = stroke.value;
+        fullRender(); pushHistory();
+      });
+      gs.appendChild(strokeW);
+      ctxEl.appendChild(gs);
+
+      // Corner radius — available on rectangles. Surfacing on the top bar
+      // makes "rounded corners" a one-click affordance.
       if (el.type === "rect") {
         const gr = group();
         gr.appendChild(label("Radius"));
@@ -1184,6 +1275,17 @@
       }
     } else if (el.type === "image") {
       const g = group();
+
+      // Background remover — runs in the browser via @imgly. First click on
+      // any session downloads ~30MB of model (cached after), then 1-3s per
+      // image to process. Replaces el.src with a transparent PNG data URL.
+      const bgBtn = document.createElement("button");
+      bgBtn.className = "ed-ctx-btn";
+      bgBtn.textContent = "Remove background";
+      bgBtn.title = "Cut out the subject — works best on people / products against a clear background.";
+      bgBtn.addEventListener("click", () => runBackgroundRemoval(el, bgBtn));
+      g.appendChild(bgBtn);
+
       const btn = document.createElement("button");
       btn.className = "ed-ctx-btn";
       btn.textContent = "Replace image";
