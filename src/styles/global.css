@@ -245,45 +245,75 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   max-width: 1200px;
 }
 
-/* ===== Doors: split the photo into two halves that slide apart ===== */
+/* ===== Doors: full scene stays still, only the door panels slide apart ===== */
+/* Approximate door geometry within the Doors.png image:
+   - horizontally: 28%–72% of image width (44% wide, centred)
+   - vertically:    8%–86% of image height
+   Translated to viewport coords under object-fit:cover/center this lands at
+   roughly the same percentages on most screen aspects. */
+.splash-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 1;
+  filter: brightness(0.85) contrast(1.05);
+  user-select: none;
+  pointer-events: none;
+}
+/* Dark void revealed where the doors used to be. Sits above the background
+   image but below the door panels, so when the doors slide off this is what
+   shows in their place. */
+.splash-void {
+  position: absolute;
+  left: 28%;
+  width: 44%;
+  top: 8%;
+  height: 78%;
+  background:
+    radial-gradient(60% 80% at 50% 50%, rgba(8,7,6,0.6) 0%, rgba(0,0,0,0.95) 70%, rgba(0,0,0,1) 100%);
+  box-shadow: inset 0 0 80px 20px rgba(0,0,0,0.9);
+  z-index: 2;
+}
+.splash-grain { z-index: 3; }
+.splash-inner { z-index: 4; }
+
+/* The two door panels. Each is full-viewport but clip-pathed to only the
+   relevant door slice, so the surrounding architecture in the photo is never
+   covered (and never moves). Each panel uses the same Doors.png positioned
+   identically to the background, so visually they blend in until they slide. */
 .splash-door {
   position: absolute;
-  top: 0;
-  width: 50%;
-  height: 100%;
-  overflow: hidden;
+  inset: 0;
+  background-image: url("/assets/Doors.png");
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.85) contrast(1.05);
   z-index: 5;
   transform: translateX(0);
   will-change: transform;
-  transition: transform 1.8s cubic-bezier(.7, 0, .15, 1) 0.35s;
+  transition: transform 1.9s cubic-bezier(.7, 0, .15, 1) 0.35s;
 }
-.splash-door--left  { left: 0; }
-.splash-door--right { right: 0; }
-.splash-door img {
-  position: absolute;
-  top: 0;
-  width: 200%;          /* image is twice the door width = full viewport width */
-  height: 100%;
-  object-fit: cover;
-  user-select: none;
-  pointer-events: none;
-  filter: brightness(0.78) contrast(1.05);
-}
-.splash-door--left img  { left: 0;   }   /* shows the left half of the full image */
-.splash-door--right img { right: 0;  }   /* shows the right half */
-.splash.is-on .splash-door--left  { transform: translateX(-100%); }
-.splash.is-on .splash-door--right { transform: translateX(100%); }
-/* Soft inner shadow on the meeting edge so the "crack" between doors reads as depth */
+.splash-door--left  { clip-path: inset(8% 50% 14% 28%); }
+.splash-door--right { clip-path: inset(8% 28% 14% 50%); }
+
+/* Slide each panel just past the door region so it goes fully off-screen. */
+.splash.is-on .splash-door--left  { transform: translateX(-50vw); }
+.splash.is-on .splash-door--right { transform: translateX(50vw); }
+
+/* Soft inner shadow on the meeting edge so the parting crack reads as depth. */
 .splash-door::after {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 60px;
+  top: 8%;
+  bottom: 14%;
+  width: 80px;
   pointer-events: none;
 }
-.splash-door--left::after  { right: 0; background: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 100%); }
-.splash-door--right::after { left: 0;  background: linear-gradient(to left,  rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 100%); }
+.splash-door--left::after  { left: calc(50% - 80px); background: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.9) 100%); }
+.splash-door--right::after { right: calc(50% - 80px); background: linear-gradient(to left,  rgba(0,0,0,0) 0%, rgba(0,0,0,0.9) 100%); }
 .splash-eyebrow {
   font-family: var(--sans);
   font-size: 12px;
