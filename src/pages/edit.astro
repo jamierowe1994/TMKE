@@ -182,23 +182,26 @@ import PageHero from "../components/PageHero.astro";
     .edit-empty p { max-width: 520px; line-height: 1.6; }
 
     /* ============ Editorial mosaic ============
-       6 column grid, cards span 2 or 3 columns, alternating heights — the result
-       is a magazine spread, never a uniform grid of tiles. */
+       12-column grid with a bespoke layout for the 10 packs — column widths
+       AND aspect ratios both vary so two cards in the same row never feel
+       like a pair. Big cards intentionally jump sides (right → left → right)
+       and a few small squares break up the rhythm. The last card finishes
+       full-width as a finale.
+
+         Row 1:  [#1  span 5,  4:5]  [#2  span 7,  5:4]     big-right
+         Row 2:  [#3  span 8,  5:4]  [#4  span 4,  1:1]     big-left
+         Row 3:  [#5  span 3,  1:1]  [#6  span 6,  5:4]  [#7  span 3, 4:5]
+         Row 4:  [#8  span 5,  1:1]  [#9  span 7,  4:5]     big-right (tall)
+         Row 5:  [#10 span 12, 21:8 finale]                                  */
     .edit-mosaic {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(12, 1fr);
       gap: 36px 28px;
-    }
-    @media (max-width: 1080px) {
-      .edit-mosaic { grid-template-columns: repeat(4, 1fr); gap: 32px 22px; }
-    }
-    @media (max-width: 720px)  {
-      .edit-mosaic { grid-template-columns: repeat(2, 1fr); gap: 28px 18px; }
     }
 
     .edit-card {
       position: relative;
-      grid-column: span 3;
+      grid-column: span 6;
       display: flex;
       flex-direction: column;
       background: transparent;
@@ -206,27 +209,33 @@ import PageHero from "../components/PageHero.astro";
       cursor: pointer;
       isolation: isolate;
     }
-    /* The "mosaic" is created by giving certain children a different span/aspect.
-       At 6 cols: pattern is 3-3 / 2-4 / 4-2 / 3-3 / 2-4. */
-    .edit-card:nth-child(3n+2) { grid-column: span 2; }
-    .edit-card:nth-child(3n+3) { grid-column: span 4; }
-    .edit-card:nth-child(6n+4) { grid-column: span 4; }
-    .edit-card:nth-child(6n+5) { grid-column: span 2; }
+
+    .edit-card:nth-child(1)  { grid-column: span 5; }
+    .edit-card:nth-child(2)  { grid-column: span 7; }
+    .edit-card:nth-child(3)  { grid-column: span 8; }
+    .edit-card:nth-child(4)  { grid-column: span 4; }
+    .edit-card:nth-child(5)  { grid-column: span 3; }
+    .edit-card:nth-child(6)  { grid-column: span 6; }
+    .edit-card:nth-child(7)  { grid-column: span 3; }
+    .edit-card:nth-child(8)  { grid-column: span 5; }
+    .edit-card:nth-child(9)  { grid-column: span 7; }
+    .edit-card:nth-child(10) { grid-column: span 12; }
+
     @media (max-width: 1080px) {
+      .edit-mosaic { grid-template-columns: repeat(6, 1fr); gap: 32px 22px; }
       .edit-card,
-      .edit-card:nth-child(3n+2),
-      .edit-card:nth-child(3n+3),
-      .edit-card:nth-child(6n+4),
-      .edit-card:nth-child(6n+5) { grid-column: span 2; }
-      .edit-card:nth-child(5n+1) { grid-column: span 4; }
+      .edit-card:nth-child(n) { grid-column: span 3; }
+      .edit-card:nth-child(3),
+      .edit-card:nth-child(8),
+      .edit-card:nth-child(10) { grid-column: span 6; }
+      .edit-card:nth-child(5),
+      .edit-card:nth-child(7) { grid-column: span 2; }
+      .edit-card:nth-child(6) { grid-column: span 4; }
     }
     @media (max-width: 720px) {
+      .edit-mosaic { grid-template-columns: 1fr; gap: 28px 0; }
       .edit-card,
-      .edit-card:nth-child(3n+2),
-      .edit-card:nth-child(3n+3),
-      .edit-card:nth-child(6n+4),
-      .edit-card:nth-child(6n+5),
-      .edit-card:nth-child(5n+1) { grid-column: span 2; }
+      .edit-card:nth-child(n) { grid-column: span 1; }
     }
 
     .edit-card-cover {
@@ -237,9 +246,19 @@ import PageHero from "../components/PageHero.astro";
       overflow: hidden;
       transition: transform 0.7s cubic-bezier(.2,.7,.2,1);
     }
-    .edit-card:nth-child(3n+3) .edit-card-cover,
-    .edit-card:nth-child(6n+4) .edit-card-cover { aspect-ratio: 5 / 4; }
-    .edit-card:nth-child(3n+2) .edit-card-cover { aspect-ratio: 3 / 4; }
+    /* Bespoke aspect ratio per card — square / portrait / landscape / hero */
+    .edit-card:nth-child(2)  .edit-card-cover { aspect-ratio: 5 / 4; }   /* landscape */
+    .edit-card:nth-child(3)  .edit-card-cover { aspect-ratio: 5 / 4; }   /* wide landscape */
+    .edit-card:nth-child(4)  .edit-card-cover { aspect-ratio: 1 / 1; }   /* square */
+    .edit-card:nth-child(5)  .edit-card-cover { aspect-ratio: 1 / 1; }   /* small square */
+    .edit-card:nth-child(6)  .edit-card-cover { aspect-ratio: 5 / 4; }   /* landscape */
+    .edit-card:nth-child(8)  .edit-card-cover { aspect-ratio: 1 / 1; }   /* square */
+    .edit-card:nth-child(10) .edit-card-cover { aspect-ratio: 21 / 8; }  /* full-width finale */
+    @media (max-width: 720px) {
+      .edit-card .edit-card-cover,
+      .edit-card:nth-child(n) .edit-card-cover { aspect-ratio: 4 / 5; }
+      .edit-card:nth-child(10) .edit-card-cover { aspect-ratio: 4 / 5; }
+    }
     .edit-card-cover::after {
       content: "";
       position: absolute; inset: 0;
@@ -391,6 +410,11 @@ import PageHero from "../components/PageHero.astro";
       text-transform: none;
       margin-left: 8px;
     }
+
+    /* Finale card — give the wide one room to breathe with bigger type. */
+    .edit-card:nth-child(10) .edit-card-title { font-size: clamp(34px, 3vw, 48px); }
+    .edit-card:nth-child(10) .edit-card-price { font-size: 30px; }
+    .edit-card:nth-child(10) .edit-card-body { padding-top: 26px; }
 
     /* ============ Checkout modal ============ */
     .checkout-backdrop[hidden] { display: none !important; }
