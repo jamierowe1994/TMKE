@@ -177,10 +177,22 @@ const templateData = templates.map((t) => ({
         </button>
       </section>
 
-      <!-- Photos -->
+      <!-- Photos — Pexels + Unsplash search -->
       <section class="ed-panel-pane" data-pane="photos">
-        <div class="ed-pane-header"><h3>Photos</h3><p>Royalty-free imagery from your library.</p></div>
+        <div class="ed-pane-header">
+          <h3>Photos</h3>
+          <p>Search royalty-free imagery from Pexels &amp; Unsplash.</p>
+        </div>
+        <div class="ed-stock-search">
+          <input type="search" id="ed-stock-input" placeholder='Try "kitchen", "garden", "interior"…' autocomplete="off" />
+          <div class="ed-stock-sources">
+            <label><input type="checkbox" data-stock-src="pexels" checked /> Pexels</label>
+            <label><input type="checkbox" data-stock-src="unsplash" checked /> Unsplash</label>
+          </div>
+        </div>
+        <p class="ed-stock-status" id="ed-stock-status">Type to search — results from both sources appear here.</p>
         <div class="ed-photo-grid" id="ed-photo-grid"></div>
+        <p class="ed-stock-credit">Photos via <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> &amp; <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>. Hover an image to credit the photographer.</p>
       </section>
 
       <!-- Uploads -->
@@ -562,6 +574,70 @@ const templateData = templates.map((t) => ({
       border: 2px solid var(--english-violet); border-radius: 4px;
       pointer-events: none;
     }
+
+    /* Stock photo search (Pexels + Unsplash) */
+    .ed-stock-search {
+      display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .ed-stock-search input[type="search"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 4px;
+      font: inherit;
+      font-size: 13px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .ed-stock-search input[type="search"]:focus {
+      border-color: var(--english-violet);
+    }
+    .ed-stock-sources {
+      display: flex; gap: 12px;
+      font-size: 11px;
+      color: rgba(28,29,34,0.65);
+      font-weight: 600;
+    }
+    .ed-stock-sources label {
+      display: inline-flex; align-items: center; gap: 5px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .ed-stock-sources input[type="checkbox"] { accent-color: var(--english-violet); }
+    .ed-stock-status {
+      margin: 0 0 10px;
+      font-size: 11px; color: rgba(28,29,34,0.5);
+      font-style: italic;
+    }
+    .ed-stock-status.is-error { color: #a05a3c; font-style: normal; }
+    .ed-stock-credit {
+      margin: 12px 0 0;
+      font-size: 10px;
+      color: rgba(28,29,34,0.45);
+      letter-spacing: 0.04em;
+    }
+    .ed-stock-credit a { color: var(--english-violet); text-decoration: none; }
+    .ed-stock-credit a:hover { text-decoration: underline; }
+    .ed-photo-grid button[data-stock-source] {
+      position: relative;
+    }
+    .ed-photo-grid button[data-stock-source]::after {
+      content: attr(data-stock-source);
+      position: absolute;
+      bottom: 4px; right: 4px;
+      padding: 1px 5px;
+      background: rgba(28,29,34,0.72);
+      color: #fff;
+      font-size: 8px; font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border-radius: 2px;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .ed-photo-grid button[data-stock-source]:hover::after { opacity: 1; }
 
     /* Shapes */
     .ed-shape-grid {
@@ -1084,6 +1160,193 @@ const templateData = templates.map((t) => ({
             .eq('id', payload.templateId);
           return !saveErr;
         };
+      }
+    }
+  </script>
+
+  <!--
+    Stock photo search — Pexels + Unsplash.
+    Runs before editor.js so it can flag the bundled Photos grid as
+    superseded. Actual API calls fire on user input; clicking a result
+    calls `window.__TMKE_ADD_PHOTO__` (exposed by editor.js).
+  -->
+  <script type="module">
+    const PEXELS_KEY = import.meta.env.PUBLIC_PEXELS_API_KEY;
+    const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY;
+
+    // Tell editor.js to skip its bundled library — this panel drives the grid.
+    window.__TMKE_STOCK_SEARCH_ACTIVE__ = true;
+
+    const inputEl = document.getElementById('ed-stock-input');
+    const statusEl = document.getElementById('ed-stock-status');
+    const gridEl = document.getElementById('ed-photo-grid');
+    const srcCheckboxes = document.querySelectorAll('[data-stock-src]');
+
+    if (!inputEl) {
+      // Page didn't render the Photos pane (shouldn't happen). Bail quietly.
+    } else {
+      function activeSources() {
+        return Array.from(srcCheckboxes)
+          .filter((c) => c.checked)
+          .map((c) => c.getAttribute('data-stock-src'));
+      }
+
+      function setStatus(msg, isError = false) {
+        if (!statusEl) return;
+        statusEl.textContent = msg;
+        statusEl.classList.toggle('is-error', !!isError);
+      }
+
+      async function searchPexels(query) {
+        if (!PEXELS_KEY) return [];
+        try {
+          const res = await fetch(
+            `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=24&orientation=portrait`,
+            { headers: { Authorization: PEXELS_KEY } }
+          );
+          if (!res.ok) throw new Error(`Pexels ${res.status}`);
+          const json = await res.json();
+          return (json.photos || []).map((p) => ({
+            source: 'pexels',
+            id: String(p.id),
+            thumb: p.src.medium,
+            full: p.src.large2x || p.src.large || p.src.original,
+            credit: `${p.photographer} on Pexels`,
+            creditUrl: p.url,
+          }));
+        } catch (e) {
+          console.warn('Pexels search failed', e);
+          return [];
+        }
+      }
+
+      async function searchUnsplash(query) {
+        if (!UNSPLASH_KEY) return [];
+        try {
+          const res = await fetch(
+            `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=24&orientation=portrait`,
+            { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` } }
+          );
+          if (!res.ok) throw new Error(`Unsplash ${res.status}`);
+          const json = await res.json();
+          return (json.results || []).map((r) => ({
+            source: 'unsplash',
+            id: r.id,
+            thumb: r.urls.small,
+            full: r.urls.regular,
+            credit: `${r.user.name} on Unsplash`,
+            creditUrl: r.links.html,
+            // Unsplash asks integrators to ping this URL when a photo is "used".
+            downloadLocation: r.links.download_location,
+          }));
+        } catch (e) {
+          console.warn('Unsplash search failed', e);
+          return [];
+        }
+      }
+
+      // Interleave two arrays so results from both sources are mixed.
+      function interleave(a, b) {
+        const out = [];
+        const len = Math.max(a.length, b.length);
+        for (let i = 0; i < len; i++) {
+          if (a[i]) out.push(a[i]);
+          if (b[i]) out.push(b[i]);
+        }
+        return out;
+      }
+
+      function renderResults(results) {
+        gridEl.innerHTML = '';
+        results.forEach((r) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.title = `Photo by ${r.credit}`;
+          btn.setAttribute('data-stock-source', r.source);
+          const img = document.createElement('img');
+          img.src = r.thumb;
+          img.alt = r.credit;
+          img.loading = 'lazy';
+          btn.appendChild(img);
+          btn.addEventListener('click', () => addPhoto(r));
+          gridEl.appendChild(btn);
+        });
+      }
+
+      async function addPhoto(r) {
+        // Fire and forget — Unsplash wants this hit when a photo gets used.
+        if (r.source === 'unsplash' && r.downloadLocation && UNSPLASH_KEY) {
+          fetch(r.downloadLocation, {
+            headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` },
+          }).catch(() => {});
+        }
+        if (typeof window.__TMKE_ADD_PHOTO__ === 'function') {
+          window.__TMKE_ADD_PHOTO__(r.full);
+        } else {
+          console.warn('Editor not ready — __TMKE_ADD_PHOTO__ missing');
+        }
+      }
+
+      let lastQuery = '';
+      let debounceTimer = null;
+
+      async function runSearch() {
+        const q = inputEl.value.trim();
+        if (q.length < 2) {
+          gridEl.innerHTML = '';
+          setStatus('Type to search — results from both sources appear here.');
+          return;
+        }
+        if (q === lastQuery) return;
+        lastQuery = q;
+
+        const sources = activeSources();
+        if (sources.length === 0) {
+          setStatus('Pick at least one source (Pexels / Unsplash).', true);
+          return;
+        }
+
+        setStatus(`Searching for "${q}"…`);
+        const calls = [];
+        if (sources.includes('pexels')) calls.push(searchPexels(q));
+        if (sources.includes('unsplash')) calls.push(searchUnsplash(q));
+
+        const [a = [], b = []] = await Promise.all(calls);
+        const merged = sources.length === 2 ? interleave(a, b) : [...a, ...b];
+
+        if (merged.length === 0) {
+          gridEl.innerHTML = '';
+          setStatus(`No results for "${q}". Try a different word.`, true);
+          return;
+        }
+
+        renderResults(merged);
+        setStatus(`${merged.length} result${merged.length === 1 ? '' : 's'} for "${q}".`);
+      }
+
+      inputEl.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(runSearch, 350);
+      });
+
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          clearTimeout(debounceTimer);
+          runSearch();
+        }
+      });
+
+      srcCheckboxes.forEach((c) =>
+        c.addEventListener('change', () => {
+          // Force re-run when toggling sources.
+          lastQuery = '';
+          runSearch();
+        })
+      );
+
+      if (!PEXELS_KEY && !UNSPLASH_KEY) {
+        setStatus('No stock photo API keys configured. Set PUBLIC_PEXELS_API_KEY / PUBLIC_UNSPLASH_ACCESS_KEY.', true);
+        inputEl.disabled = true;
       }
     }
   </script>
