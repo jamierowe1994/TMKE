@@ -13,16 +13,211 @@ import PageHero from "../components/PageHero.astro";
     sub="Premium, ready-to-edit social media templates for estate agents and property brands."
   />
 
-  <section class="page-placeholder">
-    <span class="placeholder-tag">Work in progress</span>
-    <p>This page will host the full Edit catalogue. To be built next:</p>
-    <ul class="placeholder-list">
-      <li>Grid of 6–10 curated pack listings (Contemporary / Classic / Seasonal / Lifestyle / Planning / Free)</li>
-      <li>Filter + category navigation</li>
-      <li>Free Resources rail including <em>Five &amp; Live</em></li>
-      <li>SMM cross-sell module beneath the listings</li>
-      <li>Per-pack product pages with previews + add-to-cart</li>
-      <li>Stripe Checkout (Apple Pay + Google Pay) wiring</li>
-    </ul>
+  <section class="edit-wrap wrap" id="edit-catalogue" aria-busy="true">
+    <div class="edit-loading" id="edit-loading">Loading the catalogue…</div>
+    <div class="edit-empty" id="edit-empty" hidden>
+      <p>The shop is opening soon — packs will appear here as they're added to The Edit.</p>
+    </div>
+    <div class="edit-grid" id="edit-grid"></div>
   </section>
+
+  <style>
+    .edit-wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 40px 36px 200px;
+    }
+    .edit-loading,
+    .edit-empty {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: rgba(28,29,34,0.55);
+      padding: 32px 0;
+    }
+    .edit-empty p {
+      max-width: 520px;
+      line-height: 1.6;
+    }
+    .edit-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+    }
+    @media (max-width: 1080px) { .edit-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 720px)  { .edit-grid { grid-template-columns: 1fr; } }
+
+    .edit-card {
+      display: flex;
+      flex-direction: column;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(71,66,84,0.25);
+      border-radius: 2px;
+      overflow: hidden;
+      transition: transform 0.5s cubic-bezier(.2,.7,.2,1), border-color 0.4s;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .edit-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(71,66,84,0.55);
+    }
+    .edit-card-cover {
+      aspect-ratio: 4 / 3;
+      background: var(--platinum);
+      background-size: cover;
+      background-position: center;
+    }
+    .edit-card-body {
+      padding: 22px 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    .edit-card-eyebrow {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+    }
+    .edit-card-title {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin: 4px 0 6px;
+    }
+    .edit-card-desc {
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.7);
+      flex: 1;
+    }
+    .edit-card-contents {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+      color: rgba(28,29,34,0.65);
+    }
+    .edit-card-contents li {
+      padding-left: 16px;
+      position: relative;
+    }
+    .edit-card-contents li::before {
+      content: "—";
+      position: absolute;
+      left: 0;
+      color: var(--english-violet);
+    }
+    .edit-card-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 22px 18px;
+      border-top: 1px solid rgba(71,66,84,0.15);
+      margin-top: auto;
+    }
+    .edit-card-price {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .edit-card-price.is-free {
+      font-style: italic;
+      color: var(--english-violet);
+    }
+    .edit-card-cta {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+    }
+    .edit-card-cta em {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 15px;
+      letter-spacing: 0;
+      text-transform: none;
+      margin-left: 6px;
+    }
+  </style>
+
+  <script>
+    import { supabase, gbpFromPence } from '../lib/supabase.js';
+
+    const grid = document.getElementById('edit-grid');
+    const loading = document.getElementById('edit-loading');
+    const empty = document.getElementById('edit-empty');
+    const wrap = document.getElementById('edit-catalogue');
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+    }
+
+    function renderCard(p) {
+      const cover = p.cover_image_url
+        ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"`
+        : '';
+      const contents = (p.contents ?? [])
+        .slice(0, 4)
+        .map((c) => `<li>${escapeHtml(c)}</li>`)
+        .join('');
+      const isFree = (p.price_pence ?? 0) === 0;
+      const priceLabel = isFree ? 'Free' : gbpFromPence(p.price_pence);
+      const href = `/edit/${encodeURIComponent(p.slug)}`;
+
+      return `
+        <a class="edit-card" href="${href}" data-slug="${escapeHtml(p.slug)}">
+          <div class="edit-card-cover" ${cover}></div>
+          <div class="edit-card-body">
+            ${p.category ? `<div class="edit-card-eyebrow">${escapeHtml(p.category)}</div>` : ''}
+            <h3 class="edit-card-title">${escapeHtml(p.title)}</h3>
+            ${p.description ? `<p class="edit-card-desc">${escapeHtml(p.description)}</p>` : ''}
+            ${contents ? `<ul class="edit-card-contents">${contents}</ul>` : ''}
+          </div>
+          <div class="edit-card-foot">
+            <span class="edit-card-price ${isFree ? 'is-free' : ''}">${priceLabel}</span>
+            <span class="edit-card-cta">View pack <em>&rarr;</em></span>
+          </div>
+        </a>
+      `;
+    }
+
+    (async () => {
+      const { data, error } = await supabase
+        .from('packs')
+        .select('id, slug, title, description, price_pence, cover_image_url, contents, category, sort_order')
+        .eq('status', 'active')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      loading.hidden = true;
+      wrap.setAttribute('aria-busy', 'false');
+
+      if (error) {
+        empty.hidden = false;
+        empty.innerHTML = `<p>Could not load the catalogue right now — please try again shortly.</p>`;
+        return;
+      }
+
+      const packs = data ?? [];
+      if (packs.length === 0) {
+        empty.hidden = false;
+        return;
+      }
+
+      grid.innerHTML = packs.map(renderCard).join('');
+    })();
+  </script>
 </BaseLayout>

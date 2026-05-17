@@ -1,0 +1,140 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHero from "../../components/PageHero.astro";
+---
+
+<BaseLayout
+  title="Admin sign in — TMKE"
+  description="Sign in to the TMKE admin centre."
+  hideFooter
+>
+  <PageHero
+    chapter="Backstage — Admin"
+    title="Sign <em>in.</em>"
+    sub="Marketing team access only."
+  />
+
+  <section class="login-wrap wrap">
+    <form id="login-form" class="login-form" novalidate>
+      <label class="login-field">
+        <span>Email</span>
+        <input type="email" name="email" autocomplete="username" required />
+      </label>
+      <label class="login-field">
+        <span>Password</span>
+        <input type="password" name="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit" class="login-submit">
+        <span data-label>Sign in</span>
+      </button>
+      <p class="login-error" id="login-error" hidden></p>
+    </form>
+  </section>
+
+  <style>
+    .login-wrap {
+      max-width: 460px;
+      margin: 0 auto;
+      padding: 20px 24px 200px;
+    }
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .login-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .login-field span {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+    }
+    .login-field input {
+      font-family: var(--sans);
+      font-size: 16px;
+      padding: 12px 14px;
+      border: 1px solid rgba(71, 66, 84, 0.35);
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.5);
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .login-field input:focus { border-color: var(--english-violet); }
+    .login-submit {
+      margin-top: 6px;
+      padding: 14px 18px;
+      border: none;
+      border-radius: 2px;
+      background: var(--english-violet);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.25s;
+    }
+    .login-submit:hover { background: var(--ink); }
+    .login-submit[disabled] { opacity: 0.55; cursor: progress; }
+    .login-error {
+      margin: 0;
+      font-size: 13px;
+      color: #a05a3c;
+      font-family: var(--sans);
+    }
+  </style>
+
+  <script>
+    import { supabase } from '../../lib/supabase.js';
+
+    const form = document.getElementById('login-form');
+    const errEl = document.getElementById('login-error');
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    const labelEl = submitBtn?.querySelector('[data-label]');
+
+    // Already signed in? Bounce to next or /admin.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        const params = new URLSearchParams(location.search);
+        location.replace(params.get('next') || '/admin');
+      }
+    });
+
+    function showError(msg) {
+      if (!errEl) return;
+      errEl.textContent = msg;
+      errEl.hidden = false;
+    }
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.hidden = true;
+      submitBtn.setAttribute('disabled', 'true');
+      labelEl.textContent = 'Signing in…';
+
+      const fd = new FormData(form);
+      const email = String(fd.get('email') || '').trim();
+      const password = String(fd.get('password') || '');
+
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        submitBtn.removeAttribute('disabled');
+        labelEl.textContent = 'Sign in';
+        showError(error.message || 'Could not sign in.');
+        return;
+      }
+
+      const params = new URLSearchParams(location.search);
+      location.replace(params.get('next') || '/admin');
+    });
+  </script>
+</BaseLayout>
