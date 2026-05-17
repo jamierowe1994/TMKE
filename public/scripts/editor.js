@@ -248,24 +248,28 @@
   }
 
   // ---------- Font picker (searchable, lazy CSS load) ----------
-  // Returns a DOM element that replaces a plain <select>. Click the trigger
-  // to open a popover with a search input and a scrollable list of every
-  // available font. Clicking a font loads its CSS (if it's a Google Font)
-  // and fires onChange. Used in the context bar and the right props panel.
-  function createFontPicker(currentName, onChange) {
+  // Returns a DOM element. Two modes:
+  //   options.inline = false (default)  → trigger button + popover. Used in
+  //     the context bar where vertical room is constrained.
+  //   options.inline = true             → search + scrollable list always
+  //     visible inline. Used in the right properties panel.
+  function createFontPicker(currentName, onChange, options) {
+    const opts = options || {};
+    const inline = !!opts.inline;
     let current = currentName;
+
     const wrap = document.createElement("div");
-    wrap.className = "ed-font-picker";
+    wrap.className = "ed-font-picker" + (inline ? " is-inline" : "");
 
     const trigger = document.createElement("button");
     trigger.type = "button";
     trigger.className = "ed-font-trigger";
-    trigger.textContent = current || FONTS[0].name;
+    trigger.textContent = current || (FONTS[0] && FONTS[0].name) || "Pick a font";
     wrap.appendChild(trigger);
 
     const pop = document.createElement("div");
     pop.className = "ed-font-pop";
-    pop.hidden = true;
+    if (!inline) pop.hidden = true;
 
     const search = document.createElement("input");
     search.type = "search";
@@ -292,38 +296,67 @@
           current = f.name;
           trigger.textContent = f.name;
           onChange(f.name);
-          close();
+          if (!inline) close();
         });
         list.appendChild(b);
       });
       if (!list.children.length) {
         const empty = document.createElement("div");
         empty.className = "ed-font-empty";
-        empty.textContent = "No fonts matching \"" + q + "\".";
+        empty.textContent = q
+          ? "No fonts matching \"" + q + "\"."
+          : "Loading fonts…";
         list.appendChild(empty);
       }
     }
     renderList("");
 
+    function position() {
+      // For the popover variant, compute viewport-fixed coordinates from the
+      // trigger button. Necessary because the ancestor (.ed-context) uses
+      // overflow-x: auto which clips position: absolute children.
+      if (inline) return;
+      const r = trigger.getBoundingClientRect();
+      const width = Math.max(r.width, 280);
+      pop.style.top = (r.bottom + 4) + "px";
+      pop.style.left = Math.min(r.left, window.innerWidth - width - 8) + "px";
+      pop.style.width = width + "px";
+    }
+
     function open() {
+      if (inline) return; // already visible
       pop.hidden = false;
+      position();
       search.value = "";
       renderList("");
       setTimeout(function () { search.focus(); }, 0);
     }
-    function close() { pop.hidden = true; }
+    function close() {
+      if (inline) return;
+      pop.hidden = true;
+    }
 
-    trigger.addEventListener("click", function (e) {
-      e.stopPropagation();
-      pop.hidden ? open() : close();
-    });
+    if (!inline) {
+      trigger.addEventListener("click", function (e) {
+        e.stopPropagation();
+        pop.hidden ? open() : close();
+      });
+      // Close on outside click / scroll / resize / Escape.
+      document.addEventListener("click", function (e) {
+        if (!pop.hidden && !wrap.contains(e.target) && !pop.contains(e.target)) close();
+      });
+      document.addEventListener("keydown", function (e) {
+        if (!pop.hidden && e.key === "Escape") close();
+      });
+      window.addEventListener("scroll", function () {
+        if (!pop.hidden) close();
+      }, true);
+      window.addEventListener("resize", function () {
+        if (!pop.hidden) position();
+      });
+    }
+
     search.addEventListener("input", function () { renderList(search.value); });
-    document.addEventListener("click", function (e) {
-      if (!pop.hidden && !wrap.contains(e.target)) close();
-    });
-    document.addEventListener("keydown", function (e) {
-      if (!pop.hidden && e.key === "Escape") close();
-    });
 
     wrap.appendChild(pop);
     return wrap;
@@ -1306,13 +1339,14 @@
     propsEl.innerHTML = html.join("");
 
     // Mount the font picker into its placeholder (text elements only).
+    // Inline mode: search + scrollable list always visible, no popover.
     const fontMount = propsEl.querySelector('[data-mount="font-picker"]');
     if (fontMount && el.type === "text") {
       fontMount.appendChild(createFontPicker(el.font, function (name) {
         el.font = name;
         fullRender();
         pushHistory();
-      }));
+      }, { inline: true }));
     }
 
     // Bind prop inputs
