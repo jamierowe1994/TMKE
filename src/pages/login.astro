@@ -297,7 +297,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         try {
           localStorage.setItem("tmke.session", JSON.stringify(session));
         } catch (e) { /* ignore */ }
-        window.location.href = "/account";
+        if (typeof window.tmkeSplash === "function") {
+          window.tmkeSplash("/account");
+        } else {
+          window.location.href = "/account";
+        }
       }
 
       form.addEventListener("submit", function (e) {
