@@ -1,0 +1,109 @@
+---
+interface Props {
+  chapter: string;
+  title: string;
+  /** Optional standfirst / subtitle paragraph. */
+  sub?: string;
+  /** Optional eyebrow row (small label above the chapter marker). */
+  eyebrow?: string;
+}
+const { chapter, title, sub, eyebrow } = Astro.props;
+---
+
+<header class="page-hero wrap">
+  {eyebrow && <div class="page-hero-eyebrow eyebrow">{eyebrow}</div>}
+  <div class="chapter">{chapter}</div>
+  <h1 class="page-hero-title" set:html={title}></h1>
+  {sub && <p class="page-hero-sub" set:html={sub}></p>}
+  <slot />
+</header>
+
+<style is:global>
+  .page-hero {
+    padding: 160px 36px 80px;
+    max-width: 1360px;
+    margin: 0 auto;
+  }
+  .page-hero-eyebrow {
+    margin-bottom: 24px;
+  }
+  .page-hero .chapter {
+    margin-bottom: 56px;
+  }
+  .page-hero-title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(48px, 6.5vw, 108px);
+    line-height: 1.02;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+    margin: 0 0 28px;
+    max-width: 18ch;
+  }
+  .page-hero-title em {
+    font-style: italic;
+    color: var(--english-violet);
+  }
+  .page-hero-sub {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(20px, 1.8vw, 28px);
+    line-height: 1.4;
+    color: rgba(28, 29, 34, 0.65);
+    max-width: 740px;
+    margin: 0;
+  }
+
+  /* Generic placeholder block for pages still being built */
+  .page-placeholder {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 40px 36px 200px;
+    color: rgba(28, 29, 34, 0.65);
+    line-height: 1.6;
+  }
+  .page-placeholder .placeholder-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    background: rgba(71, 66, 84, 0.08);
+    color: var(--english-violet);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    margin-bottom: 32px;
+  }
+  .page-placeholder .placeholder-tag::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--english-violet);
+  }
+  .page-placeholder ul.placeholder-list {
+    list-style: none;
+    padding: 0;
+    margin: 24px 0 0;
+    display: grid;
+    gap: 14px;
+    max-width: 720px;
+  }
+  .page-placeholder ul.placeholder-list li {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 14px;
+    align-items: baseline;
+    font-size: 16px;
+  }
+  .page-placeholder ul.placeholder-list li::before {
+    content: "→";
+    font-family: var(--serif);
+    font-style: italic;
+    color: var(--english-violet);
+    font-size: 18px;
+  }
+</style>
