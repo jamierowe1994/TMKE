@@ -234,8 +234,6 @@ import PageHero from "../components/PageHero.astro";
       width: 100%;
       aspect-ratio: 4 / 5;
       background: var(--platinum);
-      background-size: cover;
-      background-position: center;
       overflow: hidden;
       transition: transform 0.7s cubic-bezier(.2,.7,.2,1);
     }
@@ -248,9 +246,47 @@ import PageHero from "../components/PageHero.astro";
       background: linear-gradient(180deg, rgba(28,29,34,0) 55%, rgba(28,29,34,0.55) 100%);
       opacity: 0;
       transition: opacity 0.6s;
+      z-index: 3;
+      pointer-events: none;
     }
     .edit-card:hover .edit-card-cover::after { opacity: 1; }
     .edit-card:hover .edit-card-cover { transform: scale(1.012); }
+
+    /* Stacked preview slides — first is visible at rest, hover cycles the rest in */
+    .edit-card-slide {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transition: opacity 0.55s ease-out;
+    }
+    .edit-card-slide.is-active { opacity: 1; }
+
+    /* Slide indicator pips, sit above the gradient overlay */
+    .edit-card-pips {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+      z-index: 4;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .edit-card:hover .edit-card-pips { opacity: 1; }
+    .edit-card-pip {
+      width: 18px;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.45);
+      transition: background 0.3s, width 0.3s;
+    }
+    .edit-card-pip.is-active {
+      background: var(--paper);
+      width: 26px;
+    }
 
     .edit-card-num {
       position: absolute;
@@ -792,9 +828,22 @@ import PageHero from "../components/PageHero.astro";
     }
 
     function renderCard(p, i) {
-      const cover = p.cover_image_url
-        ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"`
+      // Build the slide list: main cover first, then preview_images. Filter
+      // out empties so we never render a blank slide.
+      const slideUrls = [p.cover_image_url, ...(p.preview_images ?? [])]
+        .filter((u) => typeof u === 'string' && u.length > 0);
+      const slides = slideUrls
+        .map((url, idx) => `
+          <div class="edit-card-slide${idx === 0 ? ' is-active' : ''}"
+               style="background-image:url('${escapeHtml(url)}')"></div>
+        `)
+        .join('');
+      const pips = slideUrls.length > 1
+        ? `<div class="edit-card-pips">${
+            slideUrls.map((_, idx) => `<span class="edit-card-pip${idx === 0 ? ' is-active' : ''}"></span>`).join('')
+          }</div>`
         : '';
+
       const isFree = (p.price_pence ?? 0) === 0;
       const priceLabel = isFree ? 'Free' : gbpFromPence(p.price_pence);
       const num = String(i + 1).padStart(2, '0');
@@ -802,8 +851,10 @@ import PageHero from "../components/PageHero.astro";
       const tag = contentsCount ? `${contentsCount} items inside` : '';
 
       return `
-        <article class="edit-card" data-id="${p.id}">
-          <div class="edit-card-cover" ${cover}>
+        <article class="edit-card" data-id="${p.id}" data-slides="${slideUrls.length}">
+          <div class="edit-card-cover">
+            ${slides}
+            ${pips}
             <span class="edit-card-num">№ ${num}</span>
             ${p.category ? `<span class="edit-card-cat">${escapeHtml(p.category)}</span>` : ''}
           </div>
@@ -822,12 +873,42 @@ import PageHero from "../components/PageHero.astro";
       `;
     }
 
+    // Cycle the preview slides while a card is being hovered. We start at index 0
+    // (the main cover), advance every 900ms, and reset on mouseleave so the card
+    // always returns to its hero shot.
+    const HOVER_INTERVAL = 900;
+    function wireHoverGallery(root) {
+      root.querySelectorAll('.edit-card').forEach((card) => {
+        const slides = card.querySelectorAll('.edit-card-slide');
+        const pips = card.querySelectorAll('.edit-card-pip');
+        if (slides.length <= 1) return;
+        let timer = null;
+        let i = 0;
+        const setActive = (idx) => {
+          slides.forEach((s, n) => s.classList.toggle('is-active', n === idx));
+          pips.forEach((p, n) => p.classList.toggle('is-active', n === idx));
+        };
+        card.addEventListener('mouseenter', () => {
+          if (timer) return;
+          timer = setInterval(() => {
+            i = (i + 1) % slides.length;
+            setActive(i);
+          }, HOVER_INTERVAL);
+        });
+        card.addEventListener('mouseleave', () => {
+          if (timer) { clearInterval(timer); timer = null; }
+          i = 0;
+          setActive(0);
+        });
+      });
+    }
+
     let packsById = new Map();
 
     (async () => {
       const { data, error } = await supabase
         .from('packs')
-        .select('id, slug, title, description, price_pence, cover_image_url, contents, category, sort_order')
+        .select('id, slug, title, description, price_pence, cover_image_url, preview_images, contents, category, sort_order')
         .eq('status', 'active')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
@@ -845,6 +926,7 @@ import PageHero from "../components/PageHero.astro";
 
       packsById = new Map(packs.map((p) => [p.id, p]));
       grid.innerHTML = packs.map((p, i) => renderCard(p, i)).join('');
+      wireHoverGallery(grid);
     })();
 
     // ============== Modal helpers ==============
