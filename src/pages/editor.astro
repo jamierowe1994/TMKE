@@ -22,6 +22,82 @@ const templateData = templates.map((t) => ({
 // one `import` statement, and our search script doesn't need any.
 const PEXELS_KEY = import.meta.env.PUBLIC_PEXELS_API_KEY ?? "";
 const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY ?? "";
+
+// Curated Google Fonts catalogue (~150 popular families). Each entry's CSS
+// gets loaded on-demand when a user picks the font in the editor's font
+// picker, so the page doesn't blow its budget at startup.
+//   c = category (sans | serif | display | mono | handwriting)
+const googleFonts = [
+  // Sans-serif staples
+  { f: "Inter", c: "sans" }, { f: "Roboto", c: "sans" }, { f: "Open Sans", c: "sans" },
+  { f: "Lato", c: "sans" }, { f: "Montserrat", c: "sans" }, { f: "Poppins", c: "sans" },
+  { f: "Raleway", c: "sans" }, { f: "Nunito", c: "sans" }, { f: "Nunito Sans", c: "sans" },
+  { f: "Source Sans 3", c: "sans" }, { f: "PT Sans", c: "sans" }, { f: "Oswald", c: "sans" },
+  { f: "Bebas Neue", c: "display" }, { f: "Anton", c: "display" },
+  { f: "Work Sans", c: "sans" }, { f: "Rubik", c: "sans" }, { f: "Quicksand", c: "sans" },
+  { f: "Karla", c: "sans" }, { f: "Mulish", c: "sans" }, { f: "Heebo", c: "sans" },
+  { f: "Hind", c: "sans" }, { f: "Asap", c: "sans" }, { f: "Cabin", c: "sans" },
+  { f: "Barlow", c: "sans" }, { f: "Saira", c: "sans" }, { f: "Manrope", c: "sans" },
+  { f: "DM Sans", c: "sans" }, { f: "Outfit", c: "sans" }, { f: "Plus Jakarta Sans", c: "sans" },
+  { f: "Sora", c: "sans" }, { f: "Figtree", c: "sans" }, { f: "Space Grotesk", c: "sans" },
+  { f: "Lexend", c: "sans" }, { f: "Albert Sans", c: "sans" }, { f: "Onest", c: "sans" },
+  { f: "Public Sans", c: "sans" }, { f: "IBM Plex Sans", c: "sans" },
+  { f: "Hanken Grotesk", c: "sans" }, { f: "Fira Sans", c: "sans" },
+  { f: "Josefin Sans", c: "sans" }, { f: "Kanit", c: "sans" }, { f: "Prompt", c: "sans" },
+  { f: "Roboto Condensed", c: "sans" }, { f: "Roboto Flex", c: "sans" },
+  { f: "Maven Pro", c: "sans" }, { f: "Be Vietnam Pro", c: "sans" },
+  { f: "Archivo", c: "sans" }, { f: "Archivo Black", c: "display" },
+  { f: "Archivo Narrow", c: "sans" }, { f: "Mukta", c: "sans" },
+  { f: "Catamaran", c: "sans" }, { f: "Noto Sans", c: "sans" },
+  { f: "Encode Sans", c: "sans" }, { f: "Tajawal", c: "sans" },
+  { f: "Ubuntu", c: "sans" }, { f: "Yantramanav", c: "sans" }, { f: "Mali", c: "handwriting" },
+  // Serif staples
+  { f: "Cormorant Garamond", c: "serif" }, { f: "Cormorant", c: "serif" },
+  { f: "Cormorant Infant", c: "serif" }, { f: "Playfair Display", c: "serif" },
+  { f: "Merriweather", c: "serif" }, { f: "Lora", c: "serif" }, { f: "PT Serif", c: "serif" },
+  { f: "Roboto Slab", c: "serif" }, { f: "Slabo 27px", c: "serif" },
+  { f: "Source Serif 4", c: "serif" }, { f: "Crimson Pro", c: "serif" },
+  { f: "Crimson Text", c: "serif" }, { f: "EB Garamond", c: "serif" },
+  { f: "Libre Baskerville", c: "serif" }, { f: "Bitter", c: "serif" },
+  { f: "DM Serif Display", c: "serif" }, { f: "DM Serif Text", c: "serif" },
+  { f: "Spectral", c: "serif" }, { f: "Newsreader", c: "serif" },
+  { f: "Frank Ruhl Libre", c: "serif" }, { f: "Cardo", c: "serif" },
+  { f: "Vollkorn", c: "serif" }, { f: "Yeseva One", c: "display" },
+  { f: "Cinzel", c: "serif" }, { f: "Italiana", c: "serif" }, { f: "Tinos", c: "serif" },
+  { f: "Volkhov", c: "serif" }, { f: "Bree Serif", c: "serif" }, { f: "Arvo", c: "serif" },
+  { f: "Domine", c: "serif" }, { f: "Alice", c: "serif" }, { f: "Gelasio", c: "serif" },
+  { f: "Literata", c: "serif" }, { f: "Tenor Sans", c: "sans" },
+  { f: "Marcellus", c: "serif" }, { f: "Prata", c: "serif" }, { f: "Forum", c: "serif" },
+  { f: "Old Standard TT", c: "serif" }, { f: "Abril Fatface", c: "display" },
+  // Handwriting / script
+  { f: "Caveat", c: "handwriting" }, { f: "Dancing Script", c: "handwriting" },
+  { f: "Pacifico", c: "handwriting" }, { f: "Sacramento", c: "handwriting" },
+  { f: "Great Vibes", c: "handwriting" }, { f: "Allura", c: "handwriting" },
+  { f: "Tangerine", c: "handwriting" }, { f: "Cookie", c: "handwriting" },
+  { f: "Satisfy", c: "handwriting" }, { f: "Kaushan Script", c: "handwriting" },
+  { f: "Yellowtail", c: "handwriting" }, { f: "Berkshire Swash", c: "handwriting" },
+  { f: "Patrick Hand", c: "handwriting" }, { f: "Indie Flower", c: "handwriting" },
+  { f: "Amatic SC", c: "handwriting" }, { f: "Architects Daughter", c: "handwriting" },
+  { f: "Homemade Apple", c: "handwriting" }, { f: "Reenie Beanie", c: "handwriting" },
+  { f: "Gloria Hallelujah", c: "handwriting" }, { f: "Kalam", c: "handwriting" },
+  { f: "Just Another Hand", c: "handwriting" }, { f: "Shadows Into Light", c: "handwriting" },
+  { f: "Permanent Marker", c: "handwriting" }, { f: "Marck Script", c: "handwriting" },
+  { f: "Playball", c: "handwriting" },
+  // Display / decorative
+  { f: "Lobster", c: "display" }, { f: "Bungee", c: "display" },
+  { f: "Press Start 2P", c: "display" }, { f: "Bowlby One", c: "display" },
+  { f: "Black Ops One", c: "display" }, { f: "Faster One", c: "display" },
+  { f: "Monoton", c: "display" }, { f: "Audiowide", c: "display" },
+  { f: "Russo One", c: "display" }, { f: "Rock Salt", c: "handwriting" },
+  // Mono
+  { f: "JetBrains Mono", c: "mono" }, { f: "Fira Code", c: "mono" },
+  { f: "Source Code Pro", c: "mono" }, { f: "Inconsolata", c: "mono" },
+  { f: "Roboto Mono", c: "mono" }, { f: "Space Mono", c: "mono" },
+  { f: "IBM Plex Mono", c: "mono" }, { f: "Courier Prime", c: "mono" },
+  { f: "Cousine", c: "mono" }, { f: "Cutive Mono", c: "mono" },
+  // TMKE house picks (already loaded globally via BaseLayout)
+  { f: "Darker Grotesque", c: "sans" },
+];
 ---
 
 <BaseLayout
@@ -58,11 +134,31 @@ const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY ?? "";
 
       <div class="ed-topbar-right">
         <button class="ed-btn-ghost" id="ed-save">Save</button>
-        <button class="ed-btn-ghost" id="ed-export-jpg">Export JPG</button>
-        <button class="ed-btn-solid" id="ed-export-png">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download
-        </button>
+        <div class="ed-download" id="ed-download">
+          <button class="ed-btn-solid" id="ed-download-trigger" aria-haspopup="menu" aria-expanded="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download
+            <span class="ed-download-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="ed-download-menu" id="ed-download-menu" role="menu" hidden>
+            <button class="ed-download-item" data-export="png-transparent" role="menuitem">
+              <strong>PNG · transparent</strong>
+              <span>Cut-outs &amp; overlays. No background.</span>
+            </button>
+            <button class="ed-download-item" data-export="png" role="menuitem">
+              <strong>PNG</strong>
+              <span>Highest quality. With background.</span>
+            </button>
+            <button class="ed-download-item" data-export="jpg" role="menuitem">
+              <strong>JPG</strong>
+              <span>Smaller file. With background.</span>
+            </button>
+            <button class="ed-download-item" data-export="pdf" role="menuitem">
+              <strong>PDF</strong>
+              <span>Print-ready, single page.</span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -275,6 +371,30 @@ const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY ?? "";
             <div class="ed-resize-vis" style="aspect-ratio:1/1.414"></div>
             <strong>A4 Portrait</strong><span>2480 × 3508</span>
           </button>
+          <button class="ed-resize-card" data-size="1080,1920">
+            <div class="ed-resize-vis" style="aspect-ratio:9/16"></div>
+            <strong>TikTok</strong><span>1080 × 1920</span>
+          </button>
+          <button class="ed-resize-card" data-size="1200,627">
+            <div class="ed-resize-vis" style="aspect-ratio:1200/627"></div>
+            <strong>LinkedIn Post</strong><span>1200 × 627</span>
+          </button>
+          <button class="ed-resize-card" data-size="1200,675">
+            <div class="ed-resize-vis" style="aspect-ratio:1200/675"></div>
+            <strong>X (Twitter)</strong><span>1200 × 675</span>
+          </button>
+          <button class="ed-resize-card" data-size="1000,1500">
+            <div class="ed-resize-vis" style="aspect-ratio:2/3"></div>
+            <strong>Pinterest</strong><span>1000 × 1500</span>
+          </button>
+          <button class="ed-resize-card" data-size="1280,720">
+            <div class="ed-resize-vis" style="aspect-ratio:16/9"></div>
+            <strong>YouTube Thumb</strong><span>1280 × 720</span>
+          </button>
+          <button class="ed-resize-card" data-size="820,312">
+            <div class="ed-resize-vis" style="aspect-ratio:820/312"></div>
+            <strong>FB Cover</strong><span>820 × 312</span>
+          </button>
         </div>
         <div class="ed-section-title">Custom</div>
         <div class="ed-resize-custom">
@@ -337,6 +457,7 @@ const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY ?? "";
 
   <script id="ed-templates-data" type="application/json" set:html={JSON.stringify(templateData)}></script>
   <script id="ed-photos-data" type="application/json" set:html={JSON.stringify(photoLibrary)}></script>
+  <script id="ed-google-fonts-data" type="application/json" set:html={JSON.stringify(googleFonts)}></script>
 
   <style is:global>
     body { background: #f5f4f1; overflow: hidden; }
@@ -422,6 +543,134 @@ const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY ?? "";
       border-radius: 4px; color: rgba(28,29,34,0.7);
     }
     .ed-zoom-display:hover { background: rgba(28,29,34,0.07); }
+
+    /* Searchable Google Fonts picker. Replaces native <select> in both the
+       context bar and the right props panel — same widget, two contexts. */
+    .ed-font-picker { position: relative; min-width: 180px; }
+    .ed-font-trigger {
+      width: 100%;
+      padding: 7px 28px 7px 10px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 4px;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink);
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      position: relative;
+    }
+    .ed-font-trigger::after {
+      content: "▾";
+      position: absolute;
+      right: 10px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      opacity: 0.5;
+    }
+    .ed-font-trigger:hover { border-color: var(--english-violet); }
+    .ed-font-pop {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      width: 260px;
+      max-width: 320px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.12);
+      border-radius: 6px;
+      box-shadow: 0 14px 40px -8px rgba(0,0,0,0.2);
+      padding: 6px;
+      z-index: 95;
+      display: flex; flex-direction: column;
+      gap: 6px;
+    }
+    .ed-font-pop[hidden] { display: none; }
+    .ed-font-search {
+      padding: 8px 10px;
+      border: 1px solid rgba(28,29,34,0.15);
+      border-radius: 4px;
+      font: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+    .ed-font-search:focus { border-color: var(--english-violet); }
+    .ed-font-list {
+      max-height: 280px;
+      overflow-y: auto;
+      display: flex; flex-direction: column;
+      gap: 1px;
+    }
+    .ed-font-item {
+      text-align: left;
+      padding: 7px 10px;
+      background: transparent;
+      border: none;
+      border-radius: 3px;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .ed-font-item:hover { background: rgba(28,29,34,0.06); }
+    .ed-font-item.is-current { background: rgba(71,66,84,0.1); font-weight: 600; }
+    .ed-font-empty {
+      padding: 12px;
+      font-size: 12px;
+      color: rgba(28,29,34,0.5);
+      text-align: center;
+    }
+
+    /* Download dropdown (top right). Replaces the old standalone export
+       buttons with a single trigger + menu listing PNG / PNG transparent
+       / JPG / PDF. */
+    .ed-download { position: relative; }
+    .ed-download-caret {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 10px;
+      transform: translateY(-1px);
+      opacity: 0.7;
+    }
+    .ed-download-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      width: 260px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.12);
+      border-radius: 6px;
+      box-shadow: 0 14px 40px -8px rgba(0,0,0,0.18);
+      padding: 6px;
+      z-index: 90;
+      display: flex; flex-direction: column;
+    }
+    .ed-download-menu[hidden] { display: none; }
+    .ed-download-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 10px 12px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      text-align: left;
+      cursor: pointer;
+      font-family: var(--sans);
+      color: var(--ink);
+    }
+    .ed-download-item strong {
+      font-size: 13px; font-weight: 700;
+    }
+    .ed-download-item span {
+      font-size: 11px;
+      color: rgba(28,29,34,0.55);
+    }
+    .ed-download-item:hover {
+      background: rgba(28,29,34,0.05);
+    }
 
     .ed-btn-ghost {
       background: transparent;

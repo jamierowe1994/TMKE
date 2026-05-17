@@ -9,18 +9,69 @@
   const TEMPLATES = JSON.parse(document.getElementById("ed-templates-data").textContent || "[]");
   const PHOTOS = JSON.parse(document.getElementById("ed-photos-data").textContent || "[]");
 
-  const BASE_FONTS = [
-    { name: "Cormorant Garamond", stack: '"Cormorant Garamond", serif', category: "Serif" },
-    { name: "Darker Grotesque", stack: '"Darker Grotesque", sans-serif', category: "Sans" },
-    { name: "Georgia", stack: 'Georgia, serif', category: "Serif" },
-    { name: "Times New Roman", stack: '"Times New Roman", serif', category: "Serif" },
-    { name: "Helvetica", stack: 'Helvetica, Arial, sans-serif', category: "Sans" },
-    { name: "Arial", stack: 'Arial, sans-serif', category: "Sans" },
-    { name: "Courier", stack: '"Courier New", monospace', category: "Mono" },
-    { name: "Inter", stack: 'Inter, sans-serif', category: "Sans" },
-    { name: "Trebuchet", stack: '"Trebuchet MS", sans-serif', category: "Sans" },
-    { name: "Verdana", stack: 'Verdana, sans-serif', category: "Sans" },
+  // System fonts that are always available without any web-font load.
+  const SYSTEM_FONTS = [
+    { name: "Georgia", stack: 'Georgia, serif', category: "System" },
+    { name: "Times New Roman", stack: '"Times New Roman", serif', category: "System" },
+    { name: "Helvetica", stack: 'Helvetica, Arial, sans-serif', category: "System" },
+    { name: "Arial", stack: 'Arial, sans-serif', category: "System" },
+    { name: "Trebuchet", stack: '"Trebuchet MS", sans-serif', category: "System" },
+    { name: "Verdana", stack: 'Verdana, sans-serif', category: "System" },
+    { name: "Courier", stack: '"Courier New", monospace', category: "System" },
   ];
+
+  // Google Fonts catalogue baked into editor.astro and injected as JSON.
+  // We don't load any of the actual CSS yet — `loadGoogleFont` does that on
+  // demand the first time a user picks one (or a template uses one).
+  const GOOGLE_CATEGORY_FALLBACK = {
+    sans: "sans-serif",
+    serif: "serif",
+    display: "serif",
+    mono: "monospace",
+    handwriting: "cursive",
+  };
+  const GOOGLE_CATEGORY_LABEL = {
+    sans: "Google · Sans",
+    serif: "Google · Serif",
+    display: "Google · Display",
+    mono: "Google · Mono",
+    handwriting: "Google · Script",
+  };
+  const GOOGLE_FONTS = (function readGoogleFontsJson() {
+    const tag = document.getElementById("ed-google-fonts-data");
+    if (!tag) return [];
+    try { return JSON.parse(tag.textContent || "[]"); }
+    catch (_) { return []; }
+  })().map(function (g) {
+    return {
+      name: g.f,
+      stack: '"' + g.f + '", ' + (GOOGLE_CATEGORY_FALLBACK[g.c] || "sans-serif"),
+      category: GOOGLE_CATEGORY_LABEL[g.c] || "Google",
+      isGoogle: true,
+    };
+  });
+
+  // Lazy-load a Google Font's CSS. Idempotent — only the first call per font
+  // adds a <link>; subsequent calls are no-ops.
+  const _loadedGoogleFonts = new Set();
+  function loadGoogleFont(name) {
+    if (!name) return;
+    if (_loadedGoogleFonts.has(name)) return;
+    const known = GOOGLE_FONTS.find(function (f) { return f.name === name; });
+    if (!known) return; // not in our catalogue — leave to browser fallback
+    _loadedGoogleFonts.add(name);
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=" +
+      encodeURIComponent(name).replace(/%20/g, "+") +
+      ":ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap";
+    document.head.appendChild(link);
+  }
+
+  // BASE_FONTS retained as a name so the rest of the code (export canvas,
+  // brand kit logic) keeps working — it now points at the combined catalogue:
+  // brand kit fonts (pinned) > system fonts > Google Fonts.
+  const BASE_FONTS = SYSTEM_FONTS.concat(GOOGLE_FONTS);
 
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   function loadBrand() {
@@ -175,6 +226,97 @@
     }
   }
 
+  // ---------- Font picker (searchable, lazy CSS load) ----------
+  // Returns a DOM element that replaces a plain <select>. Click the trigger
+  // to open a popover with a search input and a scrollable list of every
+  // available font. Clicking a font loads its CSS (if it's a Google Font)
+  // and fires onChange. Used in the context bar and the right props panel.
+  function createFontPicker(currentName, onChange) {
+    let current = currentName;
+    const wrap = document.createElement("div");
+    wrap.className = "ed-font-picker";
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "ed-font-trigger";
+    trigger.textContent = current || FONTS[0].name;
+    wrap.appendChild(trigger);
+
+    const pop = document.createElement("div");
+    pop.className = "ed-font-pop";
+    pop.hidden = true;
+
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "ed-font-search";
+    search.placeholder = "Search fonts…";
+    pop.appendChild(search);
+
+    const list = document.createElement("div");
+    list.className = "ed-font-list";
+    pop.appendChild(list);
+
+    function renderList(query) {
+      const q = (query || "").trim().toLowerCase();
+      list.innerHTML = "";
+      FONTS.forEach(function (f) {
+        if (q && f.name.toLowerCase().indexOf(q) === -1) return;
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "ed-font-item" + (f.name === current ? " is-current" : "");
+        b.textContent = f.name;
+        b.title = f.category || "";
+        b.addEventListener("click", function () {
+          loadGoogleFont(f.name);
+          current = f.name;
+          trigger.textContent = f.name;
+          onChange(f.name);
+          close();
+        });
+        list.appendChild(b);
+      });
+      if (!list.children.length) {
+        const empty = document.createElement("div");
+        empty.className = "ed-font-empty";
+        empty.textContent = "No fonts matching \"" + q + "\".";
+        list.appendChild(empty);
+      }
+    }
+    renderList("");
+
+    function open() {
+      pop.hidden = false;
+      search.value = "";
+      renderList("");
+      setTimeout(function () { search.focus(); }, 0);
+    }
+    function close() { pop.hidden = true; }
+
+    trigger.addEventListener("click", function (e) {
+      e.stopPropagation();
+      pop.hidden ? open() : close();
+    });
+    search.addEventListener("input", function () { renderList(search.value); });
+    document.addEventListener("click", function (e) {
+      if (!pop.hidden && !wrap.contains(e.target)) close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (!pop.hidden && e.key === "Escape") close();
+    });
+
+    wrap.appendChild(pop);
+    return wrap;
+  }
+
+  // Make sure any Google Fonts referenced in a template/design are loaded as
+  // soon as we encounter them, so the canvas renders in the right typeface.
+  function preloadFontsForElements(elements) {
+    if (!elements) return;
+    elements.forEach(function (el) {
+      if (el && el.type === "text" && el.font) loadGoogleFont(el.font);
+    });
+  }
+
   // ---------- History ----------
   function pushHistory() {
     // Drop forward history
@@ -233,6 +375,7 @@
           filenameEl.value = saved.filename || tpl.name;
           state.history = [];
           state.historyIndex = -1;
+          preloadFontsForElements(state.elements);
           pushHistory();
           fullRender();
           fitZoom();
@@ -241,6 +384,7 @@
       } catch (e) {}
     }
 
+    preloadFontsForElements(tpl.elements);
     state.canvas = deep(tpl.canvas);
     state.elements = deep(tpl.elements);
     state.selectedIds = [];
@@ -861,13 +1005,19 @@
   }
 
   // ---------- Export ----------
+  // type can be: "png" | "jpg" | "png-transparent" | "pdf"
   async function exportImage(type) {
     const c = document.createElement("canvas");
     c.width = state.canvas.width;
     c.height = state.canvas.height;
     const ctx = c.getContext("2d");
-    ctx.fillStyle = state.canvas.background || "#fff";
-    ctx.fillRect(0, 0, c.width, c.height);
+    // PNG-transparent skips the background fill so cut-out designs can sit
+    // on any colour. JPG always needs a background since JPG can't be
+    // transparent. PDF/regular PNG fill with the canvas background colour.
+    if (type !== "png-transparent") {
+      ctx.fillStyle = state.canvas.background || "#fff";
+      ctx.fillRect(0, 0, c.width, c.height);
+    }
 
     for (const el of state.elements) {
       if (el.hidden) continue;
@@ -931,13 +1081,56 @@
       ctx.restore();
     }
 
+    if (type === "pdf") {
+      await exportToPdf(c);
+      return;
+    }
+
     const mime = type === "jpg" ? "image/jpeg" : "image/png";
+    const ext = type === "png-transparent" ? "png" : type;
     const url = c.toDataURL(mime, 0.95);
     const a = document.createElement("a");
     a.href = url;
-    a.download = (filenameEl.value || "design") + "." + type;
+    a.download = (filenameEl.value || "design") + "." + ext;
     a.click();
-    toast("Exported " + type.toUpperCase());
+    toast("Exported " + ext.toUpperCase() + (type === "png-transparent" ? " (transparent)" : ""));
+  }
+
+  // Lazy-loaded so the jsPDF library only downloads when the user actually
+  // exports a PDF. Loaded from CDN (editor.js is a public/ asset, not
+  // bundled by Vite, so we can't use a bare specifier).
+  let _jspdfModule = null;
+  async function getJsPdf() {
+    if (_jspdfModule) return _jspdfModule;
+    _jspdfModule = await import(
+      /* @vite-ignore */
+      "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm"
+    );
+    return _jspdfModule;
+  }
+
+  async function exportToPdf(canvas) {
+    toast("Building PDF…");
+    try {
+      const mod = await getJsPdf();
+      const jsPDF = mod.jsPDF || mod.default;
+      const w = canvas.width, h = canvas.height;
+      // Pixels at 72 DPI translate roughly 1:1 to PDF points, so this preserves
+      // the on-screen aspect ratio without surprising the user with margins.
+      const pdf = new jsPDF({
+        orientation: w >= h ? "landscape" : "portrait",
+        unit: "px",
+        format: [w, h],
+        hotfixes: ["px_scaling"],
+      });
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+      pdf.addImage(dataUrl, "JPEG", 0, 0, w, h);
+      pdf.save((filenameEl.value || "design") + ".pdf");
+      toast("Exported PDF");
+    } catch (err) {
+      console.error("[pdf-export]", err);
+      toast("PDF export failed", 3500);
+    }
   }
 
   function loadImage(src) {
@@ -1023,11 +1216,10 @@
     </div>`);
 
     if (el.type === "text") {
+      // Font picker mounts here (placeholder div, populated after render).
       html.push(`<div class="ed-props-section"><h4>Type</h4>
         <div class="ed-props-field"><label>Font</label>
-          <select data-prop="font">
-            ${FONTS.map(f => `<option value="${f.name}" ${f.name===el.font?"selected":""}>${f.name} — ${f.category}</option>`).join("")}
-          </select>
+          <div data-mount="font-picker"></div>
         </div>
         <div class="ed-props-row">
           <div class="ed-props-field"><label>Size</label><input type="number" data-prop="size" min="6" max="500" value="${el.size}"></div>
@@ -1091,6 +1283,16 @@
     </div>`);
 
     propsEl.innerHTML = html.join("");
+
+    // Mount the font picker into its placeholder (text elements only).
+    const fontMount = propsEl.querySelector('[data-mount="font-picker"]');
+    if (fontMount && el.type === "text") {
+      fontMount.appendChild(createFontPicker(el.font, function (name) {
+        el.font = name;
+        fullRender();
+        pushHistory();
+      }));
+    }
 
     // Bind prop inputs
     propsEl.querySelectorAll("[data-prop]").forEach((input) => {
@@ -1174,18 +1376,14 @@
     ctxEl.innerHTML = "";
 
     if (el.type === "text") {
-      // Font
+      // Font — custom searchable picker (replaces native <select>).
       const g1 = group();
-      const fontSel = document.createElement("select");
-      fontSel.className = "ed-ctx-select";
-      FONTS.forEach((f) => {
-        const o = document.createElement("option");
-        o.value = f.name; o.textContent = f.name;
-        if (f.name === el.font) o.selected = true;
-        fontSel.appendChild(o);
+      const picker = createFontPicker(el.font, function (name) {
+        el.font = name;
+        fullRender();
+        pushHistory();
       });
-      fontSel.addEventListener("change", () => { el.font = fontSel.value; fullRender(); pushHistory(); });
-      g1.appendChild(fontSel);
+      g1.appendChild(picker);
 
       const sizeIn = document.createElement("input");
       sizeIn.type = "number"; sizeIn.className = "ed-ctx-num";
@@ -1673,8 +1871,40 @@
   $("ed-zoom-fit").addEventListener("click", fitZoom);
   zoomDisplayEl.addEventListener("click", () => setZoom(1));
   $("ed-save").addEventListener("click", save);
-  $("ed-export-png").addEventListener("click", () => exportImage("png"));
-  $("ed-export-jpg").addEventListener("click", () => exportImage("jpg"));
+  // Download dropdown — replaces the old PNG/JPG buttons. Click trigger to
+  // toggle; click outside or pick an item to close.
+  (function wireDownload() {
+    const wrap = $("ed-download");
+    const trigger = $("ed-download-trigger");
+    const menu = $("ed-download-menu");
+    if (!wrap || !trigger || !menu) return;
+
+    function close() {
+      menu.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+    }
+    function open() {
+      menu.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+    }
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu.hidden ? open() : close();
+    });
+    document.addEventListener("click", (e) => {
+      if (!menu.hidden && !wrap.contains(e.target)) close();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (!menu.hidden && e.key === "Escape") close();
+    });
+    menu.querySelectorAll("[data-export]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const type = btn.getAttribute("data-export");
+        close();
+        exportImage(type);
+      });
+    });
+  })();
   filenameEl.addEventListener("change", save);
 
   // Shortcut modal
