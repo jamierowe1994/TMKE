@@ -10,67 +10,97 @@ import PageHero from "../components/PageHero.astro";
   <PageHero
     chapter="Backstage — Admin"
     title="Admin <em>dashboard.</em>"
-    sub="Behind-the-scenes controls for managing the catalogue, orders, members, and content. Login will be added before launch."
+    sub="Behind-the-scenes controls for the catalogue, orders, members, and content."
   />
 
+  <section class="admin-bar wrap">
+    <div class="admin-bar-user">
+      Signed in as <strong id="admin-email">…</strong>
+    </div>
+    <button type="button" id="admin-signout" class="admin-signout">Sign out</button>
+  </section>
+
   <section class="admin-grid wrap">
-    <a href="#" class="admin-card">
+    <a href="/admin/packs" class="admin-card">
       <div class="admin-card-num">01</div>
       <h3 class="admin-card-title">Catalogue</h3>
       <p>Manage Edit packs — add, edit, archive. Set pricing, preview images, pack contents.</p>
-      <div class="admin-card-meta"><span>0 packs</span><span class="admin-card-arrow">&rarr;</span></div>
+      <div class="admin-card-meta">
+        <span><span data-stat="packs">0</span> active packs</span>
+        <span class="admin-card-arrow">&rarr;</span>
+      </div>
     </a>
-    <a href="#" class="admin-card">
+    <a href="#" class="admin-card is-disabled" aria-disabled="true">
       <div class="admin-card-num">02</div>
       <h3 class="admin-card-title">Orders</h3>
       <p>View Stripe transactions, refund, resend download links, segment by pack type.</p>
-      <div class="admin-card-meta"><span>0 orders</span><span class="admin-card-arrow">&rarr;</span></div>
+      <div class="admin-card-meta"><span>Coming soon</span><span class="admin-card-arrow">&rarr;</span></div>
     </a>
-    <a href="#" class="admin-card">
+    <a href="#" class="admin-card is-disabled" aria-disabled="true">
       <div class="admin-card-num">03</div>
       <h3 class="admin-card-title">Members</h3>
       <p>Account list, library access, manual entitlement grants.</p>
-      <div class="admin-card-meta"><span>0 members</span><span class="admin-card-arrow">&rarr;</span></div>
+      <div class="admin-card-meta"><span>Coming soon</span><span class="admin-card-arrow">&rarr;</span></div>
     </a>
-    <a href="#" class="admin-card">
+    <a href="#" class="admin-card is-disabled" aria-disabled="true">
       <div class="admin-card-num">04</div>
       <h3 class="admin-card-title">Subscribers</h3>
       <p>Mailerlite list overview, tags, recent signups, Five &amp; Live downloads.</p>
-      <div class="admin-card-meta"><span>0 subscribers</span><span class="admin-card-arrow">&rarr;</span></div>
+      <div class="admin-card-meta"><span>Coming soon</span><span class="admin-card-arrow">&rarr;</span></div>
     </a>
-    <a href="#" class="admin-card">
+    <a href="#" class="admin-card is-disabled" aria-disabled="true">
       <div class="admin-card-num">05</div>
-      <h3 class="admin-card-title">Insights (Blog)</h3>
-      <p>Posts in <code>src/content/blog/*.md</code>. Add, edit, publish drafts, categorise.</p>
-      <div class="admin-card-meta"><span>0 published</span><span class="admin-card-arrow">&rarr;</span></div>
+      <h3 class="admin-card-title">Stock photos</h3>
+      <p>Upload reusable imagery for templates and Edit packs.</p>
+      <div class="admin-card-meta"><span>Coming soon</span><span class="admin-card-arrow">&rarr;</span></div>
     </a>
-    <a href="#" class="admin-card">
+    <a href="#" class="admin-card is-disabled" aria-disabled="true">
       <div class="admin-card-num">06</div>
       <h3 class="admin-card-title">Enquiries</h3>
       <p>Contact form submissions, Find Your Fit results, Discovery Call bookings.</p>
-      <div class="admin-card-meta"><span>0 new</span><span class="admin-card-arrow">&rarr;</span></div>
+      <div class="admin-card-meta"><span>Coming soon</span><span class="admin-card-arrow">&rarr;</span></div>
     </a>
   </section>
 
-  <section class="admin-warning wrap">
-    <div class="admin-warning-tag">
-      <span class="admin-warning-dot"></span>
-      Open access &middot; auth pending
-    </div>
-    <p>
-      This page is currently <strong>unauthenticated</strong>. A login wall will be added before launch.
-      Do not share the URL publicly.
-    </p>
-  </section>
-
   <style>
+    .admin-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 12px 36px 0;
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.65);
+    }
+    .admin-bar-user strong { color: var(--ink); font-weight: 700; }
+    .admin-signout {
+      background: transparent;
+      border: 1px solid rgba(71, 66, 84, 0.4);
+      border-radius: 2px;
+      padding: 8px 14px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      cursor: pointer;
+      transition: background 0.25s, color 0.25s;
+    }
+    .admin-signout:hover { background: var(--english-violet); color: var(--paper); }
+
     .admin-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 18px;
       max-width: 1360px;
       margin: 0 auto;
-      padding: 40px 36px 60px;
+      padding: 24px 36px 200px;
     }
     .admin-card {
       position: relative;
@@ -84,11 +114,10 @@ import PageHero from "../components/PageHero.astro";
       color: var(--ink);
       transition: background 0.4s cubic-bezier(.2,.7,.2,1), border-color 0.4s, transform 0.4s cubic-bezier(.2,.7,.2,1);
       min-height: 220px;
+      text-decoration: none;
     }
-    .admin-card:hover {
-      background: rgba(71, 66, 84, 0.04);
-      transform: translateY(-2px);
-    }
+    .admin-card:hover { background: rgba(71, 66, 84, 0.04); transform: translateY(-2px); }
+    .admin-card.is-disabled { opacity: 0.45; pointer-events: none; }
     .admin-card-num {
       font-family: var(--sans);
       font-size: 11px;
@@ -134,45 +163,35 @@ import PageHero from "../components/PageHero.astro";
       text-transform: none;
       transition: transform 0.5s cubic-bezier(.2,.7,.2,1);
     }
-    .admin-card:hover .admin-card-arrow {
-      transform: translateX(6px);
-    }
-
-    .admin-warning {
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 0 36px 200px;
-    }
-    .admin-warning-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: #a05a3c;
-      margin-bottom: 10px;
-    }
-    .admin-warning-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #a05a3c;
-      box-shadow: 0 0 0 4px rgba(160, 90, 60, 0.18);
-    }
-    .admin-warning p {
-      font-size: 14px;
-      color: rgba(28, 29, 34, 0.6);
-      max-width: 720px;
-      line-height: 1.55;
-      margin: 0;
-    }
-    .admin-warning strong { color: var(--ink); }
+    .admin-card:hover .admin-card-arrow { transform: translateX(6px); }
 
     @media (max-width: 980px) {
       .admin-grid { grid-template-columns: 1fr; }
     }
   </style>
+
+  <script>
+    import { requireAdmin, signOut } from '../lib/admin-gate.js';
+    import { supabase } from '../lib/supabase.js';
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+
+      const emailEl = document.getElementById('admin-email');
+      if (emailEl) emailEl.textContent = session.user.email ?? 'admin';
+
+      document.getElementById('admin-signout')?.addEventListener('click', () => signOut());
+
+      const { count, error } = await supabase
+        .from('packs')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
+
+      if (!error && typeof count === 'number') {
+        const el = document.querySelector('[data-stat="packs"]');
+        if (el) el.textContent = String(count);
+      }
+    })();
+  </script>
 </BaseLayout>
