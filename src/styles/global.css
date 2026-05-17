@@ -235,6 +235,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   inset: 0;
   background: radial-gradient(70% 60% at 50% 45%, rgba(71, 66, 84, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
   pointer-events: none;
+  z-index: 1;
 }
 .splash-inner {
   position: relative;
@@ -243,6 +244,46 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   padding: 0 36px;
   max-width: 1200px;
 }
+
+/* ===== Doors: split the photo into two halves that slide apart ===== */
+.splash-door {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 5;
+  transform: translateX(0);
+  will-change: transform;
+  transition: transform 1.8s cubic-bezier(.7, 0, .15, 1) 0.35s;
+}
+.splash-door--left  { left: 0; }
+.splash-door--right { right: 0; }
+.splash-door img {
+  position: absolute;
+  top: 0;
+  width: 200%;          /* image is twice the door width = full viewport width */
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
+  filter: brightness(0.78) contrast(1.05);
+}
+.splash-door--left img  { left: 0;   }   /* shows the left half of the full image */
+.splash-door--right img { right: 0;  }   /* shows the right half */
+.splash.is-on .splash-door--left  { transform: translateX(-100%); }
+.splash.is-on .splash-door--right { transform: translateX(100%); }
+/* Soft inner shadow on the meeting edge so the "crack" between doors reads as depth */
+.splash-door::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  pointer-events: none;
+}
+.splash-door--left::after  { right: 0; background: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 100%); }
+.splash-door--right::after { left: 0;  background: linear-gradient(to left,  rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 100%); }
 .splash-eyebrow {
   font-family: var(--sans);
   font-size: 12px;
@@ -274,7 +315,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   opacity: 0.45;
 }
 .splash.is-on .splash-eyebrow {
-  animation: splashFadeUp 0.9s 0.15s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashFadeUp 0.9s 0.75s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash-title {
   font-family: var(--serif);
@@ -296,10 +337,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   opacity: 0;
 }
 .splash.is-on .splash-word:nth-child(1) > span {
-  animation: splashWord 1s 0.35s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashWord 1.05s 0.95s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash.is-on .splash-word:nth-child(2) > span {
-  animation: splashWord 1s 0.55s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashWord 1.05s 1.15s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash-sub {
   font-family: var(--serif);
@@ -310,7 +351,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   opacity: 0;
 }
 .splash.is-on .splash-sub {
-  animation: splashFadeUp 0.9s 0.85s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashFadeUp 0.9s 1.45s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash-bar {
   width: 240px;
@@ -321,7 +362,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   opacity: 0;
 }
 .splash.is-on .splash-bar {
-  animation: splashFadeUp 0.6s 0.95s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashFadeUp 0.6s 1.6s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash-bar-fill {
   display: block;
@@ -332,7 +373,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   transform: scaleX(0);
 }
 .splash.is-on .splash-bar-fill {
-  animation: splashBar 1.6s 0.95s cubic-bezier(.4, 0, .2, 1) forwards;
+  animation: splashBar 1.0s 1.7s cubic-bezier(.4, 0, .2, 1) forwards;
 }
 
 @keyframes splashFadeUp {
