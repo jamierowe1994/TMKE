@@ -50,7 +50,9 @@ const {
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="image" href="/assets/Door%20Closed.png" />
     <link rel="preload" as="image" href="/assets/Doors.png" />
+    <link rel="preload" as="video" href="/assets/door%20open.mp4" type="video/mp4" />
     <link
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Darker+Grotesque:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
@@ -68,8 +70,11 @@ const {
 
     <!-- Sign-in splash overlay — fired by window.tmkeSplash() -->
     <div class="splash" id="tmke-splash" aria-hidden="true">
-      <img class="splash-bg" src="/assets/Doors.png" alt="" />
-      <div class="splash-void"></div>
+      <img class="splash-bg splash-bg--closed" src="/assets/Door%20Closed.png" alt="" />
+      <video class="splash-video" id="tmke-splash-video" muted playsinline preload="auto" poster="/assets/Door%20Closed.png">
+        <source src="/assets/door%20open.mp4" type="video/mp4" />
+      </video>
+      <img class="splash-bg splash-bg--open" src="/assets/Doors.png" alt="" />
       <div class="splash-grain"></div>
       <div class="splash-inner">
         <div class="splash-eyebrow"><span>TMKE</span> &mdash; Members</div>
@@ -80,21 +85,65 @@ const {
         <p class="splash-sub">Opening your library&hellip;</p>
         <div class="splash-bar"><div class="splash-bar-fill"></div></div>
       </div>
-      <div class="splash-door splash-door--left" aria-hidden="true"></div>
-      <div class="splash-door splash-door--right" aria-hidden="true"></div>
     </div>
 
     <script is:inline>
       window.tmkeSplash = function (destination, opts) {
         opts = opts || {};
-        const duration = opts.duration || 2800;
+        // ~5s video runtime + a short beat on the open-doors still.
+        // If anything stalls, we settle on the open still by VIDEO_FALLBACK
+        // and navigate by HARD_CAP — so the user is never stuck on a frozen
+        // splash. HARD_CAP is the absolute backstop the user asked for.
+        const HARD_CAP = opts.duration || 5800;
+        const VIDEO_FALLBACK = 5200;
+        const POST_HOLD = 500;
         const splash = document.getElementById("tmke-splash");
         if (!splash) { window.location.href = destination; return; }
+        const video = document.getElementById("tmke-splash-video");
+
         splash.classList.add("is-on");
         document.documentElement.style.overflow = "hidden";
-        setTimeout(function () {
+
+        let navigated = false;
+        function navigate() {
+          if (navigated) return;
+          navigated = true;
           window.location.href = destination;
-        }, duration);
+        }
+
+        // Hard cap — splash never holds longer than HARD_CAP, no matter what
+        const hardTimer = setTimeout(navigate, HARD_CAP);
+
+        function settleToOpen() {
+          if (splash.classList.contains("is-open")) return;
+          splash.classList.add("is-open");
+          // The open still is crossfading in; pause the video so it stops
+          // burning frames while it's being covered.
+          try { video && video.pause && video.pause(); } catch (_) {}
+          // hold briefly on the open-doors still + text, then go
+          setTimeout(function () {
+            clearTimeout(hardTimer);
+            navigate();
+          }, POST_HOLD);
+        }
+
+        if (video && video.canPlayType && video.canPlayType("video/mp4")) {
+          // Kick off playback as soon as the splash shows
+          requestAnimationFrame(function () { splash.classList.add("is-playing"); });
+          try { video.currentTime = 0; } catch (_) {}
+          const p = video.play();
+          if (p && p.catch) p.catch(function () {
+            // Autoplay blocked / video failed — go straight to the open still
+            settleToOpen();
+          });
+          video.addEventListener("ended", settleToOpen, { once: true });
+          // Safety: if the video never fires "ended" (load issue, slow connection),
+          // settle on the open still after VIDEO_FALLBACK
+          setTimeout(settleToOpen, VIDEO_FALLBACK);
+        } else {
+          // No video support — skip straight to the open still
+          settleToOpen();
+        }
       };
     </script>
 
