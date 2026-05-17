@@ -766,14 +766,29 @@
   });
 
   // ---------- Save / load ----------
-  function save() {
+  async function save() {
     if (!state.templateId) return;
     const payload = {
+      templateId: state.templateId,
       filename: filenameEl.value,
       canvas: state.canvas,
       elements: state.elements,
       savedAt: Date.now(),
     };
+    // Admin hook (set by editor.astro when ?mode=admin and signed in) — writes
+    // back to the Supabase `templates` table instead of localStorage. Falls
+    // through to the local save if the hook isn't installed or rejects.
+    if (typeof window.__TMKE_ADMIN_SAVE__ === "function") {
+      try {
+        const ok = await window.__TMKE_ADMIN_SAVE__(payload);
+        if (ok) { toast("Template saved"); return; }
+        toast("Save failed");
+        return;
+      } catch (e) {
+        toast("Save failed");
+        return;
+      }
+    }
     try {
       localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify(payload));
       toast("Design saved");

@@ -48,11 +48,14 @@ import PageHero from "../components/PageHero.astro";
       <p>Mailerlite list overview, tags, recent signups, Five &amp; Live downloads.</p>
       <div class="admin-card-meta"><span>Coming soon</span><span class="admin-card-arrow">&rarr;</span></div>
     </a>
-    <a href="#" class="admin-card is-disabled" aria-disabled="true">
+    <a href="/admin/templates" class="admin-card">
       <div class="admin-card-num">05</div>
-      <h3 class="admin-card-title">Stock photos</h3>
-      <p>Upload reusable imagery for templates and Edit packs.</p>
-      <div class="admin-card-meta"><span>Coming soon</span><span class="admin-card-arrow">&rarr;</span></div>
+      <h3 class="admin-card-title">Design studio</h3>
+      <p>Edit the template library that powers the customer-facing studio. Built in-house, fully ours.</p>
+      <div class="admin-card-meta">
+        <span><span data-stat="templates">0</span> active templates</span>
+        <span class="admin-card-arrow">&rarr;</span>
+      </div>
     </a>
     <a href="#" class="admin-card is-disabled" aria-disabled="true">
       <div class="admin-card-num">06</div>
@@ -183,14 +186,18 @@ import PageHero from "../components/PageHero.astro";
 
       document.getElementById('admin-signout')?.addEventListener('click', () => signOut());
 
-      const { count, error } = await supabase
-        .from('packs')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active');
+      const [packs, templates] = await Promise.all([
+        supabase.from('packs').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('templates').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      ]);
 
-      if (!error && typeof count === 'number') {
+      if (!packs.error && typeof packs.count === 'number') {
         const el = document.querySelector('[data-stat="packs"]');
-        if (el) el.textContent = String(count);
+        if (el) el.textContent = String(packs.count);
+      }
+      if (!templates.error && typeof templates.count === 'number') {
+        const el = document.querySelector('[data-stat="templates"]');
+        if (el) el.textContent = String(templates.count);
       }
     })();
   </script>
