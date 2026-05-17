@@ -26,26 +26,22 @@ const links: { label: string; href: string }[] = [
   </div>
   <div class="nav-actions">
     <a href="/admin" class="nav-admin" aria-label="TMKE admin dashboard">Admin</a>
-    <a href="/account" id="nav-login" class="nav-cta" aria-label="Login to your TMKE account"><span>Login</span></a>
+    <a href="/login" id="nav-login" class="nav-cta" aria-label="Login to your TMKE account"><span>Login</span></a>
   </div>
 </nav>
 
-<script is:inline>
-  (function () {
-    // Temporary auth shortcut: clicking Login auto-creates a demo session
-    // so the client view (with fake purchases) loads in one click.
+<script>
+  // If the user already has a Supabase session, the Login button takes them
+  // straight to their library instead of bouncing through the sign-in form.
+  import { supabase } from "../lib/supabase.js";
+  (async () => {
     const btn = document.getElementById("nav-login");
     if (!btn) return;
-    btn.addEventListener("click", function () {
-      try {
-        if (!localStorage.getItem("tmke.session")) {
-          localStorage.setItem("tmke.session", JSON.stringify({
-            email: "demo@agency.co.uk",
-            name: "demo",
-            signedInAt: Date.now(),
-          }));
-        }
-      } catch (e) { /* ignore */ }
-    });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      btn.setAttribute("href", "/account");
+      const label = btn.querySelector("span");
+      if (label) label.textContent = "Library";
+    }
   })();
 </script>

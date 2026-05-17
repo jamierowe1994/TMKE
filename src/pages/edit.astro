@@ -10,7 +10,7 @@ import PageHero from "../components/PageHero.astro";
   <PageHero
     chapter="Shop — The Edit"
     title="A curated shop, <em>built for property.</em>"
-    sub="Premium, ready-to-edit social media templates for estate agents and property brands."
+    sub="Ten signature packs. Ready-to-edit social templates for estate agents and property brands. £299 each."
   />
 
   <section class="edit-wrap wrap" id="edit-catalogue" aria-busy="true">
@@ -18,14 +18,157 @@ import PageHero from "../components/PageHero.astro";
     <div class="edit-empty" id="edit-empty" hidden>
       <p>The shop is opening soon — packs will appear here as they're added to The Edit.</p>
     </div>
-    <div class="edit-grid" id="edit-grid"></div>
+    <div class="edit-mosaic" id="edit-grid"></div>
   </section>
+
+  <!-- =========================================================
+       Checkout modal — three steps: contact → payment → processing
+       ========================================================= -->
+  <div class="checkout-backdrop" id="checkout" hidden>
+    <div class="checkout" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
+      <button type="button" class="checkout-close" id="checkout-close" aria-label="Close">&times;</button>
+
+      <aside class="checkout-aside">
+        <div class="checkout-aside-cover" id="checkout-cover"></div>
+        <div class="checkout-aside-body">
+          <div class="checkout-aside-eyebrow">You're buying</div>
+          <h3 class="checkout-aside-title" id="checkout-pack-title">Pack title</h3>
+          <p class="checkout-aside-desc" id="checkout-pack-desc"></p>
+          <ul class="checkout-aside-list" id="checkout-pack-contents"></ul>
+          <div class="checkout-aside-foot">
+            <span class="checkout-aside-label">Total today</span>
+            <span class="checkout-aside-total" id="checkout-pack-price">£299</span>
+          </div>
+        </div>
+      </aside>
+
+      <section class="checkout-main">
+        <header class="checkout-steps">
+          <span class="checkout-step is-active" data-step-pip="contact">
+            <em>01</em> Your details
+          </span>
+          <span class="checkout-step" data-step-pip="payment">
+            <em>02</em> Payment
+          </span>
+          <span class="checkout-step" data-step-pip="done">
+            <em>03</em> Confirmation
+          </span>
+        </header>
+
+        <!-- Step 1: contact details -->
+        <form class="checkout-pane is-active" id="checkout-contact" data-step="contact" novalidate>
+          <h2 id="checkout-title" class="checkout-h">Tell us where to send it.</h2>
+          <p class="checkout-sub">Your library link and invoice will be emailed to the address below.</p>
+
+          <label class="ck-field">
+            <span>Full name</span>
+            <input name="name" type="text" required autocomplete="name" />
+          </label>
+          <label class="ck-field">
+            <span>Email</span>
+            <input name="email" type="email" required autocomplete="email" />
+          </label>
+          <div class="ck-row">
+            <label class="ck-field">
+              <span>Phone</span>
+              <input name="phone" type="tel" required autocomplete="tel" />
+            </label>
+            <label class="ck-field">
+              <span>Company / Brand</span>
+              <input name="company" type="text" required autocomplete="organization" />
+            </label>
+          </div>
+
+          <p class="ck-error" id="ck-contact-error" hidden></p>
+          <button type="submit" class="ck-cta">Continue to payment <em>&rarr;</em></button>
+          <p class="ck-mini">By continuing you agree to our terms. Card details are entered securely on the next step.</p>
+        </form>
+
+        <!-- Step 2: payment -->
+        <form class="checkout-pane" id="checkout-payment" data-step="payment" novalidate>
+          <h2 class="checkout-h">How would you like to pay?</h2>
+          <p class="checkout-sub">All transactions are in GBP. You can pay using Apple Pay, Google Pay, or a card.</p>
+
+          <div class="ck-paytabs" role="tablist" aria-label="Payment method">
+            <button type="button" class="ck-paytab is-active" data-pay="apple_pay" role="tab" aria-selected="true">
+              <span class="ck-paytab-logo" aria-hidden="true"></span>
+              <span>Apple Pay</span>
+            </button>
+            <button type="button" class="ck-paytab" data-pay="google_pay" role="tab" aria-selected="false">
+              <span class="ck-paytab-logo ck-paytab-logo--g" aria-hidden="true"></span>
+              <span>Google Pay</span>
+            </button>
+            <button type="button" class="ck-paytab" data-pay="card" role="tab" aria-selected="false">
+              <span class="ck-paytab-logo ck-paytab-logo--card" aria-hidden="true"></span>
+              <span>Card</span>
+            </button>
+          </div>
+
+          <!-- Apple / Google Pay panel -->
+          <div class="ck-wallet" data-paypane="wallet">
+            <div class="ck-wallet-frame">
+              <div class="ck-wallet-row">
+                <span>Pay TMKE</span>
+                <span class="ck-wallet-amount" data-bind="amount">£299</span>
+              </div>
+              <button type="button" class="ck-wallet-btn" id="ck-wallet-btn">
+                <span class="ck-wallet-btn-glyph" aria-hidden="true"></span>
+                <span class="ck-wallet-btn-label">Pay with <strong>Apple Pay</strong></span>
+              </button>
+              <p class="ck-wallet-note">Authentication will appear on your device.</p>
+            </div>
+          </div>
+
+          <!-- Card panel -->
+          <div class="ck-card" data-paypane="card" hidden>
+            <label class="ck-field">
+              <span>Card number</span>
+              <input name="card_number" inputmode="numeric" autocomplete="cc-number" placeholder="1234 1234 1234 1234" maxlength="23" />
+            </label>
+            <div class="ck-row">
+              <label class="ck-field">
+                <span>Expiry</span>
+                <input name="card_exp" autocomplete="cc-exp" placeholder="MM / YY" maxlength="7" />
+              </label>
+              <label class="ck-field">
+                <span>CVC</span>
+                <input name="card_cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" />
+              </label>
+              <label class="ck-field">
+                <span>Postcode</span>
+                <input name="card_postcode" autocomplete="postal-code" placeholder="SW1A 1AA" maxlength="8" />
+              </label>
+            </div>
+            <button type="submit" class="ck-cta" id="ck-card-submit">
+              Pay <span data-bind="amount">£299</span> <em>&rarr;</em>
+            </button>
+          </div>
+
+          <p class="ck-error" id="ck-payment-error" hidden></p>
+          <button type="button" class="ck-back" id="ck-back-to-contact">&larr; Back to your details</button>
+        </form>
+
+        <!-- Step 3: processing / done -->
+        <div class="checkout-pane" data-step="done">
+          <div class="ck-done">
+            <div class="ck-done-spinner" id="ck-done-spinner">
+              <span class="ck-done-ring"></span>
+              <span class="ck-done-ring"></span>
+              <span class="ck-done-ring"></span>
+            </div>
+            <h2 class="checkout-h" id="ck-done-h">Processing payment…</h2>
+            <p class="checkout-sub" id="ck-done-sub">Authenticating with your wallet. Please don't refresh.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
 
   <style>
     .edit-wrap {
-      max-width: 1360px;
+      max-width: 1480px;
       margin: 0 auto;
-      padding: 40px 36px 200px;
+      padding: 24px 36px 180px;
     }
     .edit-loading,
     .edit-empty {
@@ -34,121 +177,573 @@ import PageHero from "../components/PageHero.astro";
       color: rgba(28,29,34,0.55);
       padding: 32px 0;
     }
-    .edit-empty p {
-      max-width: 520px;
-      line-height: 1.6;
-    }
-    .edit-grid {
+    .edit-empty p { max-width: 520px; line-height: 1.6; }
+
+    /* ============ Editorial mosaic ============
+       6 column grid, cards span 2 or 3 columns, alternating heights — the result
+       is a magazine spread, never a uniform grid of tiles. */
+    .edit-mosaic {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 28px;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 36px 28px;
     }
-    @media (max-width: 1080px) { .edit-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 720px)  { .edit-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 1080px) {
+      .edit-mosaic { grid-template-columns: repeat(4, 1fr); gap: 32px 22px; }
+    }
+    @media (max-width: 720px)  {
+      .edit-mosaic { grid-template-columns: repeat(2, 1fr); gap: 28px 18px; }
+    }
 
     .edit-card {
+      position: relative;
+      grid-column: span 3;
       display: flex;
       flex-direction: column;
-      background: rgba(255,255,255,0.5);
-      border: 1px solid rgba(71,66,84,0.25);
-      border-radius: 2px;
-      overflow: hidden;
-      transition: transform 0.5s cubic-bezier(.2,.7,.2,1), border-color 0.4s;
+      background: transparent;
       color: var(--ink);
-      text-decoration: none;
+      cursor: pointer;
+      isolation: isolate;
     }
-    .edit-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(71,66,84,0.55);
+    /* The "mosaic" is created by giving certain children a different span/aspect.
+       At 6 cols: pattern is 3-3 / 2-4 / 4-2 / 3-3 / 2-4. */
+    .edit-card:nth-child(3n+2) { grid-column: span 2; }
+    .edit-card:nth-child(3n+3) { grid-column: span 4; }
+    .edit-card:nth-child(6n+4) { grid-column: span 4; }
+    .edit-card:nth-child(6n+5) { grid-column: span 2; }
+    @media (max-width: 1080px) {
+      .edit-card,
+      .edit-card:nth-child(3n+2),
+      .edit-card:nth-child(3n+3),
+      .edit-card:nth-child(6n+4),
+      .edit-card:nth-child(6n+5) { grid-column: span 2; }
+      .edit-card:nth-child(5n+1) { grid-column: span 4; }
     }
+    @media (max-width: 720px) {
+      .edit-card,
+      .edit-card:nth-child(3n+2),
+      .edit-card:nth-child(3n+3),
+      .edit-card:nth-child(6n+4),
+      .edit-card:nth-child(6n+5),
+      .edit-card:nth-child(5n+1) { grid-column: span 2; }
+    }
+
     .edit-card-cover {
-      aspect-ratio: 4 / 3;
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 5;
       background: var(--platinum);
       background-size: cover;
       background-position: center;
+      overflow: hidden;
+      transition: transform 0.7s cubic-bezier(.2,.7,.2,1);
     }
-    .edit-card-body {
-      padding: 22px 22px 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      flex: 1;
+    .edit-card:nth-child(3n+3) .edit-card-cover,
+    .edit-card:nth-child(6n+4) .edit-card-cover { aspect-ratio: 5 / 4; }
+    .edit-card:nth-child(3n+2) .edit-card-cover { aspect-ratio: 3 / 4; }
+    .edit-card-cover::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(28,29,34,0) 55%, rgba(28,29,34,0.55) 100%);
+      opacity: 0;
+      transition: opacity 0.6s;
     }
-    .edit-card-eyebrow {
+    .edit-card:hover .edit-card-cover::after { opacity: 1; }
+    .edit-card:hover .edit-card-cover { transform: scale(1.012); }
+
+    .edit-card-num {
+      position: absolute;
+      top: 16px; left: 16px;
       font-family: var(--sans);
       font-size: 11px;
-      letter-spacing: 0.28em;
+      letter-spacing: 0.32em;
+      font-weight: 700;
+      color: var(--paper);
+      mix-blend-mode: difference;
+      z-index: 2;
+    }
+    .edit-card-cat {
+      position: absolute;
+      top: 16px; right: 16px;
+      padding: 5px 11px;
+      background: rgba(242, 239, 233, 0.86);
+      backdrop-filter: blur(6px);
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.24em;
       text-transform: uppercase;
       font-weight: 700;
       color: var(--english-violet);
+      border-radius: 2px;
+      z-index: 2;
+    }
+
+    .edit-card-body {
+      padding: 22px 4px 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 24px;
+      align-items: end;
     }
     .edit-card-title {
       font-family: var(--serif);
-      font-size: 28px;
+      font-size: clamp(26px, 2.2vw, 34px);
       font-weight: 500;
-      letter-spacing: -0.01em;
-      margin: 4px 0 6px;
+      letter-spacing: -0.015em;
+      line-height: 1.05;
+      margin: 0;
+      grid-column: 1;
+    }
+    .edit-card-price {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      align-self: start;
+      padding-top: 4px;
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--english-violet);
+      letter-spacing: 0;
+      white-space: nowrap;
     }
     .edit-card-desc {
+      grid-column: 1;
       font-size: 14px;
       line-height: 1.55;
-      color: rgba(28,29,34,0.7);
-      flex: 1;
-    }
-    .edit-card-contents {
-      list-style: none;
-      padding: 0;
-      margin: 8px 0 0;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 13px;
       color: rgba(28,29,34,0.65);
-    }
-    .edit-card-contents li {
-      padding-left: 16px;
-      position: relative;
-    }
-    .edit-card-contents li::before {
-      content: "—";
-      position: absolute;
-      left: 0;
-      color: var(--english-violet);
+      margin: 0;
     }
     .edit-card-foot {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 14px 22px 18px;
-      border-top: 1px solid rgba(71,66,84,0.15);
-      margin-top: auto;
+      gap: 12px;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(28, 29, 34, 0.18);
     }
-    .edit-card-price {
-      font-family: var(--serif);
-      font-size: 22px;
-      font-weight: 500;
-      color: var(--ink);
-    }
-    .edit-card-price.is-free {
-      font-style: italic;
-      color: var(--english-violet);
-    }
-    .edit-card-cta {
+    .edit-card-meta {
       font-family: var(--sans);
       font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: rgba(28,29,34,0.55);
+    }
+    .edit-card-buy {
+      appearance: none;
+      background: var(--ink);
+      color: var(--paper);
+      border: 0;
+      padding: 11px 18px;
+      border-radius: 2px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
       letter-spacing: 0.24em;
       text-transform: uppercase;
-      font-weight: 700;
-      color: var(--english-violet);
+      cursor: pointer;
+      transition: background 0.3s, transform 0.4s cubic-bezier(.2,.7,.2,1);
     }
-    .edit-card-cta em {
+    .edit-card-buy:hover { background: var(--english-violet); transform: translateX(2px); }
+    .edit-card-buy em {
       font-family: var(--serif);
       font-style: italic;
       font-size: 15px;
       letter-spacing: 0;
       text-transform: none;
-      margin-left: 6px;
+      margin-left: 8px;
     }
+
+    /* ============ Checkout modal ============ */
+    .checkout-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(28, 29, 34, 0.65);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-y: auto;
+    }
+    .checkout {
+      position: relative;
+      width: min(1080px, 100%);
+      max-height: calc(100vh - 48px);
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      background: var(--paper);
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.35);
+    }
+    @media (max-width: 860px) {
+      .checkout { grid-template-columns: 1fr; max-height: calc(100vh - 48px); overflow-y: auto; }
+    }
+    .checkout-close {
+      position: absolute;
+      top: 14px; right: 16px;
+      background: rgba(242,239,233,0.85);
+      border: 1px solid rgba(71,66,84,0.2);
+      border-radius: 999px;
+      width: 36px; height: 36px;
+      font-size: 22px;
+      color: var(--ink);
+      cursor: pointer;
+      z-index: 5;
+      line-height: 1;
+    }
+    .checkout-close:hover { background: var(--paper); }
+
+    .checkout-aside {
+      background: linear-gradient(180deg, var(--english-violet), #2f2b39);
+      color: var(--paper);
+      display: flex;
+      flex-direction: column;
+    }
+    .checkout-aside-cover {
+      aspect-ratio: 4 / 3;
+      background-size: cover;
+      background-position: center;
+      background-color: var(--platinum);
+    }
+    .checkout-aside-body { padding: 28px 28px 32px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+    .checkout-aside-eyebrow {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(242,239,233,0.6);
+    }
+    .checkout-aside-title {
+      font-family: var(--serif);
+      font-size: 30px;
+      font-weight: 500;
+      line-height: 1.05;
+      letter-spacing: -0.015em;
+      color: var(--paper);
+      margin: 0;
+    }
+    .checkout-aside-desc {
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(242,239,233,0.7);
+      margin: 6px 0 4px;
+    }
+    .checkout-aside-list {
+      list-style: none; padding: 0; margin: 12px 0 0;
+      display: flex; flex-direction: column; gap: 6px;
+      font-size: 13px;
+      color: rgba(242,239,233,0.75);
+    }
+    .checkout-aside-list li { padding-left: 18px; position: relative; }
+    .checkout-aside-list li::before {
+      content: "—";
+      position: absolute; left: 0; color: rgba(242,239,233,0.45);
+    }
+    .checkout-aside-foot {
+      margin-top: auto;
+      padding-top: 22px;
+      border-top: 1px solid rgba(242,239,233,0.18);
+      display: flex; justify-content: space-between; align-items: baseline;
+    }
+    .checkout-aside-label {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(242,239,233,0.6);
+    }
+    .checkout-aside-total {
+      font-family: var(--serif);
+      font-size: 36px;
+      font-weight: 500;
+      color: var(--paper);
+    }
+
+    .checkout-main {
+      padding: 40px 44px 44px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    @media (max-width: 860px) { .checkout-main { padding: 32px 24px 32px; } }
+
+    .checkout-steps {
+      display: flex;
+      gap: 22px;
+      margin-bottom: 26px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(28,29,34,0.1);
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28,29,34,0.4);
+    }
+    .checkout-step { display: inline-flex; align-items: center; gap: 8px; }
+    .checkout-step em {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 16px;
+      letter-spacing: 0;
+      color: rgba(28,29,34,0.3);
+    }
+    .checkout-step.is-active { color: var(--english-violet); }
+    .checkout-step.is-active em { color: var(--english-violet); }
+    .checkout-step.is-done { color: var(--ink); }
+
+    .checkout-pane { display: none; flex-direction: column; gap: 16px; }
+    .checkout-pane.is-active { display: flex; }
+    .checkout-h {
+      font-family: var(--serif);
+      font-size: clamp(28px, 3vw, 38px);
+      font-weight: 500;
+      letter-spacing: -0.015em;
+      line-height: 1.1;
+      margin: 0;
+    }
+    .checkout-sub {
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.65);
+      margin: -6px 0 12px;
+    }
+
+    .ck-field { display: flex; flex-direction: column; gap: 6px; }
+    .ck-field > span {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .ck-field input {
+      font-family: var(--sans);
+      font-size: 15px;
+      padding: 12px 14px;
+      border: 1px solid rgba(71,66,84,0.28);
+      border-radius: 2px;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .ck-field input:focus {
+      outline: none;
+      border-color: var(--english-violet);
+      box-shadow: 0 0 0 3px rgba(71,66,84,0.12);
+    }
+    .ck-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+    .ck-row:has(> :nth-child(2):last-child) { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 640px) { .ck-row { grid-template-columns: 1fr; } }
+
+    .ck-cta {
+      appearance: none;
+      background: var(--ink);
+      color: var(--paper);
+      border: 0;
+      padding: 16px 22px;
+      border-radius: 2px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.25s;
+    }
+    .ck-cta:hover { background: var(--english-violet); }
+    .ck-cta em {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 16px;
+      letter-spacing: 0;
+      text-transform: none;
+      margin-left: 8px;
+    }
+    .ck-cta[disabled] { opacity: 0.55; cursor: progress; }
+
+    .ck-back {
+      background: transparent;
+      border: 0;
+      color: rgba(28,29,34,0.55);
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-weight: 700;
+      padding: 6px 0;
+      margin-top: 6px;
+      cursor: pointer;
+      align-self: flex-start;
+    }
+    .ck-back:hover { color: var(--english-violet); }
+    .ck-mini { font-size: 11px; color: rgba(28,29,34,0.45); margin: 6px 0 0; line-height: 1.5; }
+    .ck-error {
+      margin: 0;
+      padding: 10px 12px;
+      background: rgba(160,90,60,0.1);
+      border-left: 3px solid #a05a3c;
+      color: #a05a3c;
+      font-size: 13px;
+      font-family: var(--sans);
+    }
+
+    /* Payment tabs */
+    .ck-paytabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 4px 0 12px;
+    }
+    @media (max-width: 520px) { .ck-paytabs { grid-template-columns: 1fr; } }
+    .ck-paytab {
+      appearance: none;
+      background: #fff;
+      border: 1px solid rgba(71,66,84,0.25);
+      border-radius: 2px;
+      padding: 14px 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      cursor: pointer;
+      transition: border-color 0.25s, background 0.25s;
+    }
+    .ck-paytab:hover { border-color: var(--english-violet); }
+    .ck-paytab.is-active {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .ck-paytab-logo {
+      width: 22px; height: 22px;
+      background: #000;
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M16.4 12.6c0-2.7 2.2-3.9 2.3-4-1.2-1.8-3.2-2-3.9-2-1.6-.2-3.2 1-4.1 1-.9 0-2.2-1-3.6-1-1.9 0-3.6 1.1-4.6 2.8-2 3.4-.5 8.4 1.4 11.1.9 1.3 2 2.8 3.4 2.8 1.4-.1 1.9-.9 3.6-.9 1.7 0 2.1.9 3.6.9 1.5 0 2.4-1.3 3.3-2.7 1-1.5 1.5-3 1.5-3 0-.1-2.9-1.1-2.9-4z M14.1 4.4c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.2 0 2.4-.6 3-1.4z'/></svg>");
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M16.4 12.6c0-2.7 2.2-3.9 2.3-4-1.2-1.8-3.2-2-3.9-2-1.6-.2-3.2 1-4.1 1-.9 0-2.2-1-3.6-1-1.9 0-3.6 1.1-4.6 2.8-2 3.4-.5 8.4 1.4 11.1.9 1.3 2 2.8 3.4 2.8 1.4-.1 1.9-.9 3.6-.9 1.7 0 2.1.9 3.6.9 1.5 0 2.4-1.3 3.3-2.7 1-1.5 1.5-3 1.5-3 0-.1-2.9-1.1-2.9-4z M14.1 4.4c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.2 0 2.4-.6 3-1.4z'/></svg>");
+      mask-size: contain; -webkit-mask-size: contain;
+      mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat;
+    }
+    .ck-paytab.is-active .ck-paytab-logo { background: var(--paper); }
+    .ck-paytab-logo--g {
+      /* Letter G in the same monochrome treatment */
+      mask: none; -webkit-mask: none;
+      background: transparent;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: var(--sans); font-weight: 800; font-size: 16px;
+      color: inherit;
+    }
+    .ck-paytab-logo--g::before { content: "G"; }
+    .ck-paytab-logo--card {
+      mask: none; -webkit-mask: none;
+      background: transparent;
+      border: 1.6px solid currentColor;
+      border-radius: 3px;
+      position: relative;
+    }
+    .ck-paytab-logo--card::after {
+      content: ""; position: absolute; left: 1px; right: 1px; top: 6px;
+      height: 3px; background: currentColor;
+    }
+
+    /* Wallet pane */
+    .ck-wallet { margin: 6px 0 14px; }
+    .ck-wallet-frame {
+      border: 1px solid rgba(71,66,84,0.2);
+      border-radius: 4px;
+      padding: 22px;
+      background: #fff;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .ck-wallet-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-family: var(--sans);
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: rgba(28,29,34,0.55);
+    }
+    .ck-wallet-amount {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--ink);
+    }
+    .ck-wallet-btn {
+      appearance: none;
+      background: #000;
+      color: #fff;
+      border: 0;
+      border-radius: 6px;
+      padding: 16px 22px;
+      font-family: -apple-system, "Helvetica Neue", var(--sans);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background 0.25s, transform 0.25s;
+    }
+    .ck-wallet-btn:hover { background: #1a1a1a; transform: translateY(-1px); }
+    .ck-wallet-btn-glyph {
+      width: 18px; height: 22px;
+      background: #fff;
+      mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M16.4 12.6c0-2.7 2.2-3.9 2.3-4-1.2-1.8-3.2-2-3.9-2-1.6-.2-3.2 1-4.1 1-.9 0-2.2-1-3.6-1-1.9 0-3.6 1.1-4.6 2.8-2 3.4-.5 8.4 1.4 11.1.9 1.3 2 2.8 3.4 2.8 1.4-.1 1.9-.9 3.6-.9 1.7 0 2.1.9 3.6.9 1.5 0 2.4-1.3 3.3-2.7 1-1.5 1.5-3 1.5-3 0-.1-2.9-1.1-2.9-4z M14.1 4.4c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.2 0 2.4-.6 3-1.4z'/></svg>");
+      -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M16.4 12.6c0-2.7 2.2-3.9 2.3-4-1.2-1.8-3.2-2-3.9-2-1.6-.2-3.2 1-4.1 1-.9 0-2.2-1-3.6-1-1.9 0-3.6 1.1-4.6 2.8-2 3.4-.5 8.4 1.4 11.1.9 1.3 2 2.8 3.4 2.8 1.4-.1 1.9-.9 3.6-.9 1.7 0 2.1.9 3.6.9 1.5 0 2.4-1.3 3.3-2.7 1-1.5 1.5-3 1.5-3 0-.1-2.9-1.1-2.9-4z M14.1 4.4c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.2 0 2.4-.6 3-1.4z'/></svg>");
+      mask-size: contain; -webkit-mask-size: contain;
+      mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat;
+    }
+    .ck-wallet-btn[data-wallet="google_pay"] {
+      background: #fff;
+      color: #3c4043;
+      border: 1px solid #dadce0;
+    }
+    .ck-wallet-btn[data-wallet="google_pay"] .ck-wallet-btn-glyph {
+      mask: none; -webkit-mask: none; background: transparent;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: auto; height: auto;
+      font-weight: 700; font-size: 18px;
+    }
+    .ck-wallet-btn[data-wallet="google_pay"] .ck-wallet-btn-glyph::before {
+      content: "G"; color: #4285F4;
+    }
+    .ck-wallet-note { font-size: 12px; color: rgba(28,29,34,0.5); margin: 0; text-align: center; }
+
+    .ck-card { display: flex; flex-direction: column; gap: 14px; }
+
+    /* Done pane */
+    .ck-done {
+      padding: 40px 0;
+      display: flex; flex-direction: column; align-items: center; text-align: center; gap: 18px;
+    }
+    .ck-done-spinner {
+      position: relative; width: 70px; height: 70px; margin-bottom: 8px;
+    }
+    .ck-done-ring {
+      position: absolute; inset: 0;
+      border: 2px solid transparent;
+      border-top-color: var(--english-violet);
+      border-radius: 50%;
+      animation: ck-spin 1.4s cubic-bezier(.5,.1,.5,.9) infinite;
+    }
+    .ck-done-ring:nth-child(2) { inset: 10px; border-top-color: rgba(71,66,84,0.4); animation-duration: 1.7s; animation-direction: reverse; }
+    .ck-done-ring:nth-child(3) { inset: 20px; border-top-color: rgba(71,66,84,0.2); animation-duration: 2.1s; }
+    @keyframes ck-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
   </style>
 
   <script>
@@ -159,40 +754,70 @@ import PageHero from "../components/PageHero.astro";
     const empty = document.getElementById('edit-empty');
     const wrap = document.getElementById('edit-catalogue');
 
+    const modal = document.getElementById('checkout');
+    const modalClose = document.getElementById('checkout-close');
+    const stepPanes = modal.querySelectorAll('.checkout-pane');
+    const stepPips = modal.querySelectorAll('.checkout-step');
+    const coverEl = document.getElementById('checkout-cover');
+    const pkgTitleEl = document.getElementById('checkout-pack-title');
+    const pkgDescEl = document.getElementById('checkout-pack-desc');
+    const pkgListEl = document.getElementById('checkout-pack-contents');
+    const pkgPriceEl = document.getElementById('checkout-pack-price');
+
+    const contactForm = document.getElementById('checkout-contact');
+    const paymentForm = document.getElementById('checkout-payment');
+    const contactErr = document.getElementById('ck-contact-error');
+    const paymentErr = document.getElementById('ck-payment-error');
+    const walletBtn = document.getElementById('ck-wallet-btn');
+    const cardSubmit = document.getElementById('ck-card-submit');
+    const backBtn = document.getElementById('ck-back-to-contact');
+    const doneH = document.getElementById('ck-done-h');
+    const doneSub = document.getElementById('ck-done-sub');
+
+    const state = {
+      pack: null,
+      contact: null,
+      payMethod: 'apple_pay',
+    };
+
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
       }[c]));
     }
 
-    function renderCard(p) {
+    function renderCard(p, i) {
       const cover = p.cover_image_url
         ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"`
         : '';
-      const contents = (p.contents ?? [])
-        .slice(0, 4)
-        .map((c) => `<li>${escapeHtml(c)}</li>`)
-        .join('');
       const isFree = (p.price_pence ?? 0) === 0;
       const priceLabel = isFree ? 'Free' : gbpFromPence(p.price_pence);
-      const href = `/edit/${encodeURIComponent(p.slug)}`;
+      const num = String(i + 1).padStart(2, '0');
+      const contentsCount = (p.contents ?? []).length;
+      const tag = contentsCount ? `${contentsCount} items inside` : '';
 
       return `
-        <a class="edit-card" href="${href}" data-slug="${escapeHtml(p.slug)}">
-          <div class="edit-card-cover" ${cover}></div>
+        <article class="edit-card" data-id="${p.id}">
+          <div class="edit-card-cover" ${cover}>
+            <span class="edit-card-num">№ ${num}</span>
+            ${p.category ? `<span class="edit-card-cat">${escapeHtml(p.category)}</span>` : ''}
+          </div>
           <div class="edit-card-body">
-            ${p.category ? `<div class="edit-card-eyebrow">${escapeHtml(p.category)}</div>` : ''}
             <h3 class="edit-card-title">${escapeHtml(p.title)}</h3>
-            ${p.description ? `<p class="edit-card-desc">${escapeHtml(p.description)}</p>` : ''}
-            ${contents ? `<ul class="edit-card-contents">${contents}</ul>` : ''}
+            <span class="edit-card-price">${priceLabel}</span>
+            ${p.description ? `<p class="edit-card-desc">${escapeHtml(p.description)}</p>` : '<p class="edit-card-desc"></p>'}
           </div>
           <div class="edit-card-foot">
-            <span class="edit-card-price ${isFree ? 'is-free' : ''}">${priceLabel}</span>
-            <span class="edit-card-cta">View pack <em>&rarr;</em></span>
+            <span class="edit-card-meta">${escapeHtml(tag)}</span>
+            <button type="button" class="edit-card-buy" data-buy="${p.id}">
+              Buy pack <em>&rarr;</em>
+            </button>
           </div>
-        </a>
+        </article>
       `;
     }
+
+    let packsById = new Map();
 
     (async () => {
       const { data, error } = await supabase
@@ -210,14 +835,193 @@ import PageHero from "../components/PageHero.astro";
         empty.innerHTML = `<p>Could not load the catalogue right now — please try again shortly.</p>`;
         return;
       }
-
       const packs = data ?? [];
-      if (packs.length === 0) {
-        empty.hidden = false;
+      if (packs.length === 0) { empty.hidden = false; return; }
+
+      packsById = new Map(packs.map((p) => [p.id, p]));
+      grid.innerHTML = packs.map((p, i) => renderCard(p, i)).join('');
+    })();
+
+    // ============== Modal helpers ==============
+    function showStep(step) {
+      stepPanes.forEach((p) => p.classList.toggle('is-active', p.dataset.step === step));
+      const order = ['contact', 'payment', 'done'];
+      const idx = order.indexOf(step);
+      stepPips.forEach((pip) => {
+        const i = order.indexOf(pip.dataset.stepPip);
+        pip.classList.toggle('is-active', i === idx);
+        pip.classList.toggle('is-done', i < idx);
+      });
+    }
+
+    function openCheckout(pack) {
+      state.pack = pack;
+      state.contact = null;
+      state.payMethod = 'apple_pay';
+
+      pkgTitleEl.textContent = pack.title;
+      pkgDescEl.textContent = pack.description ?? '';
+      pkgListEl.innerHTML = (pack.contents ?? []).slice(0, 4).map((c) => `<li>${escapeHtml(c)}</li>`).join('');
+      pkgPriceEl.textContent = gbpFromPence(pack.price_pence);
+      coverEl.style.backgroundImage = pack.cover_image_url ? `url('${pack.cover_image_url}')` : '';
+
+      // Update £ amount on payment step in two places
+      modal.querySelectorAll('[data-bind="amount"]').forEach((el) => {
+        el.textContent = gbpFromPence(pack.price_pence);
+      });
+
+      // Reset form state
+      contactForm.reset();
+      paymentForm.reset();
+      contactErr.hidden = true; paymentErr.hidden = true;
+      selectPayMethod('apple_pay');
+
+      showStep('contact');
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => contactForm.elements.name.focus(), 60);
+    }
+
+    function closeCheckout() {
+      modal.hidden = true;
+      document.body.style.overflow = '';
+    }
+
+    grid.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      const buyEl = target.closest('[data-buy]');
+      const card = target.closest('.edit-card');
+      const id = buyEl?.getAttribute('data-buy') ?? card?.getAttribute('data-id');
+      if (!id) return;
+      const pack = packsById.get(id);
+      if (pack) openCheckout(pack);
+    });
+
+    modalClose.addEventListener('click', closeCheckout);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeCheckout(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.hidden) closeCheckout();
+    });
+
+    // ============== Step 1: contact ==============
+    contactForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      contactErr.hidden = true;
+      const fd = new FormData(contactForm);
+      const name = String(fd.get('name') || '').trim();
+      const email = String(fd.get('email') || '').trim();
+      const phone = String(fd.get('phone') || '').trim();
+      const company = String(fd.get('company') || '').trim();
+      if (!name || !email || !phone || !company) {
+        contactErr.textContent = 'Please complete every field so we can email your library link.';
+        contactErr.hidden = false;
+        return;
+      }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        contactErr.textContent = 'That email doesn’t look quite right — double-check it?';
+        contactErr.hidden = false;
+        return;
+      }
+      state.contact = { name, email, phone, company };
+      showStep('payment');
+    });
+
+    // ============== Step 2: payment ==============
+    function selectPayMethod(method) {
+      state.payMethod = method;
+      modal.querySelectorAll('.ck-paytab').forEach((tab) => {
+        const active = tab.dataset.pay === method;
+        tab.classList.toggle('is-active', active);
+        tab.setAttribute('aria-selected', String(active));
+      });
+      const wallet = modal.querySelector('[data-paypane="wallet"]');
+      const card = modal.querySelector('[data-paypane="card"]');
+      const isWallet = method !== 'card';
+      wallet.hidden = !isWallet;
+      card.hidden = isWallet;
+      if (isWallet) {
+        const label = walletBtn.querySelector('.ck-wallet-btn-label');
+        label.innerHTML = method === 'apple_pay'
+          ? 'Pay with <strong> Pay</strong>'
+          : 'Pay with <strong>G Pay</strong>';
+        walletBtn.dataset.wallet = method;
+      }
+    }
+
+    modal.querySelectorAll('.ck-paytab').forEach((tab) => {
+      tab.addEventListener('click', () => selectPayMethod(tab.dataset.pay));
+    });
+
+    backBtn.addEventListener('click', () => showStep('contact'));
+
+    walletBtn.addEventListener('click', () => processPayment());
+
+    paymentForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (state.payMethod !== 'card') { processPayment(); return; }
+      paymentErr.hidden = true;
+      const fd = new FormData(paymentForm);
+      const num = String(fd.get('card_number') || '').replace(/\s+/g, '');
+      const exp = String(fd.get('card_exp') || '').trim();
+      const cvc = String(fd.get('card_cvc') || '').trim();
+      const postcode = String(fd.get('card_postcode') || '').trim();
+      if (num.length < 12 || exp.length < 4 || cvc.length < 3 || !postcode) {
+        paymentErr.textContent = 'Please complete your card details before paying.';
+        paymentErr.hidden = false;
+        return;
+      }
+      processPayment();
+    });
+
+    // ============== Step 3: processing → redirect ==============
+    async function processPayment() {
+      showStep('done');
+      doneH.textContent = state.payMethod === 'card' ? 'Charging your card…' : 'Authenticating with your wallet…';
+      doneSub.textContent = "This usually takes a few seconds. Please don't refresh.";
+
+      // STUB: simulate the network round-trip. Real Stripe wiring lives behind
+      // a Supabase edge function that exchanges this for a PaymentIntent.
+      await new Promise((r) => setTimeout(r, 1400));
+
+      const { pack, contact, payMethod } = state;
+      const payment_ref = 'stub_' + Math.random().toString(36).slice(2, 12);
+
+      const { data, error } = await supabase
+        .from('orders')
+        .insert({
+          pack_id: pack.id,
+          pack_slug: pack.slug,
+          pack_title: pack.title,
+          amount_pence: pack.price_pence,
+          buyer_name: contact.name,
+          buyer_email: contact.email,
+          buyer_phone: contact.phone,
+          buyer_company: contact.company,
+          payment_method: payMethod,
+          payment_ref,
+          status: 'paid',
+        })
+        .select('id, invoice_number')
+        .single();
+
+      if (error || !data) {
+        doneH.textContent = 'Something went wrong';
+        doneSub.textContent = error?.message || 'Could not record the order. Please try again.';
         return;
       }
 
-      grid.innerHTML = packs.map(renderCard).join('');
-    })();
+      // Stash a temporary handle so /edit/thanks can show the receipt while
+      // also being reachable via the email link (?order=ID).
+      try {
+        sessionStorage.setItem('tmke.lastOrder', JSON.stringify({
+          id: data.id,
+          invoice_number: data.invoice_number,
+          email: contact.email,
+        }));
+      } catch (_) { /* ignore */ }
+
+      window.location.href = `/edit/thanks?order=${encodeURIComponent(data.id)}`;
+    }
   </script>
 </BaseLayout>

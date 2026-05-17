@@ -60,12 +60,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <div class="login-divider"><span>or</span></div>
 
           <button type="button" class="login-sso" id="login-demo">
-            Continue as demo client
+            Browse The Edit instead
           </button>
 
           <p class="login-hint">
-            <strong>Demo:</strong> use any email + password, or click
-            <em>continue as demo client</em>.
+            New here? <em>Buy a pack on The Edit and you'll be prompted to set a password — that's your account.</em>
           </p>
         </form>
       </div>
@@ -282,40 +281,50 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
   </style>
 
-  <script is:inline>
-    (function () {
-      const form = document.getElementById("login-form");
-      const errorEl = document.getElementById("login-error");
-      const demoBtn = document.getElementById("login-demo");
+  <script>
+    import { supabase } from "../lib/supabase.js";
 
-      function signIn(email) {
-        const session = {
-          email: email || "demo@agency.co.uk",
-          name: (email || "demo").split("@")[0].replace(/\./g, " "),
-          signedInAt: Date.now(),
-        };
-        try {
-          localStorage.setItem("tmke.session", JSON.stringify(session));
-        } catch (e) { /* ignore */ }
-        window.location.href = "/account";
+    const form = document.getElementById("login-form");
+    const errorEl = document.getElementById("login-error");
+    const demoBtn = document.getElementById("login-demo");
+
+    // If already signed in, go straight to the library.
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const next = new URLSearchParams(location.search).get("next") || "/account";
+        location.replace(next);
       }
-
-      form.addEventListener("submit", function (e) {
-        e.preventDefault();
-        const data = new FormData(form);
-        const email = String(data.get("email") || "").trim();
-        const password = String(data.get("password") || "").trim();
-        if (!email || !password) {
-          errorEl.textContent = "Enter an email and password to sign in.";
-          errorEl.hidden = false;
-          return;
-        }
-        signIn(email);
-      });
-
-      demoBtn.addEventListener("click", function () {
-        signIn("demo@agency.co.uk");
-      });
     })();
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.hidden = true;
+      const data = new FormData(form);
+      const email = String(data.get("email") || "").trim();
+      const password = String(data.get("password") || "").trim();
+      if (!email || !password) {
+        showError("Enter an email and password to sign in.");
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        showError(error.message);
+        return;
+      }
+      const next = new URLSearchParams(location.search).get("next") || "/account";
+      window.location.href = next;
+    });
+
+    // Demo button preserved for non-logged-in visitors browsing the UI.
+    // Drops a localStorage marker only; for real library access they need a real account.
+    demoBtn.addEventListener("click", () => {
+      window.location.href = "/edit";
+    });
   </script>
 </BaseLayout>

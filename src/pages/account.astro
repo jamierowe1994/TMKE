@@ -1,10 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHero from "../components/PageHero.astro";
-import { packages, templates } from "../data/library.js";
-
-const pkg = packages[0];
-const pkgTemplates = templates.filter((t) => pkg.templateIds.includes(t.id));
 ---
 
 <BaseLayout
@@ -19,16 +15,14 @@ const pkgTemplates = templates.filter((t) => pkg.templateIds.includes(t.id));
 
   <section class="account-grid wrap">
     <aside class="account-side">
-      <div class="account-tag" id="session-tag">Signed in <em>(demo)</em></div>
-      <h3 class="account-name" id="session-name">[Account Name]</h3>
-      <div class="account-email" id="session-email">[email&#64;agency.co.uk]</div>
+      <div class="account-tag" id="session-tag">Signed in</div>
+      <h3 class="account-name" id="session-name">…</h3>
+      <div class="account-email" id="session-email">…</div>
 
       <nav class="account-nav" aria-label="Account">
         <a href="#library" class="is-active">Library</a>
         <a href="#orders">Orders</a>
-        <a href="#downloads">Downloads</a>
         <a href="#profile">Profile</a>
-        <a href="#billing">Billing</a>
         <a href="#" id="signout-link" class="account-signout">Sign out</a>
       </nav>
     </aside>
@@ -38,56 +32,21 @@ const pkgTemplates = templates.filter((t) => pkg.templateIds.includes(t.id));
         <div class="eyebrow">Your Library</div>
         <h2 class="account-heading">Purchased packs</h2>
 
-        <article class="pack-row">
-          <div class="pack-cover" style={`background-image: url(${pkg.cover})`}>
-            <div class="pack-cover-tag">{pkgTemplates.length} templates</div>
-          </div>
-          <div class="pack-body">
-            <div class="pack-meta">
-              <span>Purchased {pkg.purchased}</span>
-              <span>·</span>
-              <span>v{pkg.version}</span>
-            </div>
-            <h3 class="pack-title">{pkg.title}</h3>
-            <p class="pack-sub">{pkg.subtitle}</p>
-            <div class="pack-actions">
-              <a href="#templates" class="btn btn--solid">Open pack <span class="btn-arrow">&rarr;</span></a>
-              <a href="#" class="pack-secondary">Download all (.zip)</a>
-            </div>
-          </div>
-        </article>
+        <div id="library-loading" class="lib-state">Loading your library…</div>
 
-        <div class="templates-toolbar" id="templates">
-          <div>
-            <div class="eyebrow">Inside this pack</div>
-            <h3 class="templates-heading">{pkgTemplates.length} editable templates</h3>
-          </div>
-          <div class="templates-filters">
-            <button class="filter is-active" data-filter="all">All</button>
-            {Array.from(new Set(pkgTemplates.map((t) => t.category))).map((cat) => (
-              <button class="filter" data-filter={cat}>{cat}</button>
-            ))}
-          </div>
+        <div id="library-empty" class="lib-empty" hidden>
+          <h3>Nothing here yet.</h3>
+          <p>You haven't purchased a pack yet. <a class="lib-link" href="/edit">Browse The Edit</a> to find one.</p>
         </div>
 
-        <div class="template-grid">
-          {pkgTemplates.map((t, i) => (
-            <a href={`/editor?template=${t.id}`} class="template-card" data-category={t.category}>
-              <div class="template-thumb">
-                <img src={t.thumb} alt={t.name} loading="lazy" />
-                <div class="template-overlay">
-                  <span class="template-cta">Open in editor <em>&rarr;</em></span>
-                </div>
-              </div>
-              <div class="template-info">
-                <div class="template-num">{String(i + 1).padStart(2, "0")}</div>
-                <div class="template-text">
-                  <div class="template-name">{t.name}</div>
-                  <div class="template-cat">{t.category}</div>
-                </div>
-              </div>
-            </a>
-          ))}
+        <div id="library-grid" class="library-grid"></div>
+      </section>
+
+      <section id="orders" class="orders-section">
+        <div class="eyebrow">Order history</div>
+        <h2 class="account-heading">Your invoices</h2>
+        <div id="orders-list" class="orders-list">
+          <div class="lib-state">…</div>
         </div>
       </section>
     </div>
@@ -118,14 +77,6 @@ const pkgTemplates = templates.filter((t) => pkg.templateIds.includes(t.id));
       color: var(--english-violet);
       margin-bottom: 12px;
     }
-    .account-tag em {
-      font-style: italic;
-      font-weight: 400;
-      letter-spacing: 0;
-      text-transform: none;
-      color: rgba(28, 29, 34, 0.45);
-      margin-left: 6px;
-    }
     .account-name {
       font-family: var(--serif);
       font-size: 28px;
@@ -142,32 +93,22 @@ const pkgTemplates = templates.filter((t) => pkg.templateIds.includes(t.id));
       word-break: break-all;
     }
     .account-nav {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+      display: flex; flex-direction: column; gap: 14px;
       padding-top: 24px;
       border-top: 1px solid rgba(28, 29, 34, 0.12);
     }
     .account-nav a {
-      font-family: var(--sans);
-      font-size: 13px;
-      font-weight: 600;
+      font-family: var(--sans); font-size: 13px; font-weight: 600;
       letter-spacing: 0.04em;
       color: rgba(28, 29, 34, 0.65);
       transition: color 0.3s;
     }
-    .account-nav a:hover,
-    .account-nav a.is-active {
-      color: var(--english-violet);
-    }
+    .account-nav a:hover, .account-nav a.is-active { color: var(--english-violet); }
     .account-nav .account-signout {
-      margin-top: 18px;
-      padding-top: 18px;
+      margin-top: 18px; padding-top: 18px;
       border-top: 1px solid rgba(28, 29, 34, 0.12);
       color: rgba(28, 29, 34, 0.45);
-      font-size: 12px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
+      font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
       cursor: pointer;
     }
 
@@ -181,45 +122,70 @@ const pkgTemplates = templates.filter((t) => pkg.templateIds.includes(t.id));
       margin: 0 0 40px;
     }
 
-    /* Pack hero row */
+    .lib-state {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28, 29, 34, 0.5);
+      padding: 24px 0;
+    }
+    .lib-empty {
+      padding: 36px 32px;
+      background: rgba(255,255,255,0.55);
+      border: 1px dashed rgba(71,66,84,0.3);
+      border-radius: 3px;
+    }
+    .lib-empty h3 {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 500;
+      margin: 0 0 8px;
+    }
+    .lib-empty p { color: rgba(28,29,34,0.65); font-size: 15px; line-height: 1.6; margin: 0; }
+    .lib-link { color: var(--english-violet); border-bottom: 1px solid currentColor; font-weight: 600; }
+
+    .library-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 22px;
+    }
+    @media (max-width: 980px) { .library-grid { grid-template-columns: 1fr; } }
+
     .pack-row {
       display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: 36px;
+      grid-template-columns: 160px 1fr;
+      gap: 22px;
       align-items: stretch;
-      padding: 28px;
+      padding: 20px;
       background: #fff;
-      border: 1px solid rgba(28, 29, 34, 0.08);
+      border: 1px solid rgba(28,29,34,0.08);
       border-radius: 4px;
-      margin-bottom: 80px;
     }
-    .pack-cover {
+    .pack-row-cover {
       position: relative;
-      aspect-ratio: 4/5;
+      aspect-ratio: 4 / 5;
       background-size: cover;
       background-position: center;
+      background-color: var(--platinum);
       border-radius: 2px;
     }
-    .pack-cover-tag {
-      position: absolute;
-      top: 14px; left: 14px;
-      padding: 6px 12px;
+    .pack-row-cover-tag {
+      position: absolute; top: 10px; left: 10px;
+      padding: 4px 10px;
       background: rgba(28, 29, 34, 0.78);
       color: var(--paper);
       font-family: var(--sans);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       border-radius: 999px;
     }
-    .pack-body {
+    .pack-row-body {
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 12px;
+      gap: 6px;
     }
-    .pack-meta {
+    .pack-row-meta {
       display: flex; gap: 10px;
       font-family: var(--sans);
       font-size: 11px;
@@ -228,194 +194,246 @@ const pkgTemplates = templates.filter((t) => pkg.templateIds.includes(t.id));
       font-weight: 600;
       color: rgba(28, 29, 34, 0.5);
     }
-    .pack-title {
+    .pack-row-title {
       font-family: var(--serif);
-      font-size: 38px;
+      font-size: 26px;
       letter-spacing: -0.015em;
       margin: 0;
       color: var(--ink);
     }
-    .pack-sub {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 19px;
-      color: rgba(28, 29, 34, 0.62);
-      margin: 0 0 12px;
-    }
-    .pack-actions { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-    .pack-secondary {
+    .pack-row-desc {
       font-family: var(--sans);
-      font-size: 12px;
+      font-size: 13px;
+      color: rgba(28,29,34,0.6);
+      line-height: 1.55;
+      margin: 4px 0 10px;
+      flex: 1;
+    }
+    .pack-row-actions {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .lib-btn {
+      appearance: none;
+      background: var(--ink);
+      color: var(--paper);
+      border: 0;
+      padding: 10px 16px;
+      border-radius: 2px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .lib-btn[disabled] { opacity: 0.55; cursor: not-allowed; background: rgba(28,29,34,0.5); }
+    .lib-btn-ghost {
+      background: transparent;
+      color: var(--english-violet);
+      border: 1px solid rgba(71,66,84,0.4);
+    }
+    .lib-btn-ghost:hover { background: rgba(71,66,84,0.06); }
+
+    .lib-soon-tag {
+      display: inline-flex; align-items: center;
+      padding: 4px 10px;
+      background: rgba(184, 130, 106, 0.12);
+      color: #8a4d33;
+      font-family: var(--sans);
+      font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: var(--english-violet);
-      border-bottom: 1px solid currentColor;
-      padding-bottom: 2px;
-    }
-
-    .templates-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: end;
-      gap: 24px;
-      flex-wrap: wrap;
-      margin-bottom: 28px;
-    }
-    .templates-heading {
-      font-family: var(--serif);
-      font-size: 32px;
-      letter-spacing: -0.01em;
-      margin: 0;
-    }
-    .templates-filters { display: flex; flex-wrap: wrap; gap: 6px; }
-    .filter {
-      background: transparent;
-      border: 1px solid rgba(28,29,34,0.18);
-      padding: 8px 14px;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: rgba(28,29,34,0.65);
-      cursor: pointer;
       border-radius: 999px;
-      transition: background 0.25s, color 0.25s, border-color 0.25s;
-    }
-    .filter:hover { color: var(--ink); }
-    .filter.is-active {
-      background: var(--ink);
-      color: var(--paper);
-      border-color: var(--ink);
     }
 
-    .template-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 20px;
-    }
-    .template-card {
-      display: block;
-      background: var(--platinum);
-      border-radius: 3px;
+    /* Orders */
+    .orders-section { margin-top: 100px; }
+    .orders-list {
+      display: flex; flex-direction: column;
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 4px;
       overflow: hidden;
-      transition: transform 0.45s cubic-bezier(.2,.7,.2,1), box-shadow 0.45s;
-    }
-    .template-card.is-hidden { display: none; }
-    .template-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 18px 40px -20px rgba(28,29,34,0.35);
-    }
-    .template-thumb {
-      position: relative;
-      aspect-ratio: 4/5;
-      overflow: hidden;
-      background: rgba(71, 66, 84, 0.18);
-    }
-    .template-thumb img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      display: block;
-      transition: transform 1.4s cubic-bezier(.2,.7,.2,1);
-    }
-    .template-card:hover .template-thumb img { transform: scale(1.06); }
-    .template-overlay {
-      position: absolute; inset: 0;
-      display: flex; align-items: end;
-      padding: 18px;
-      background: linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.7) 100%);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .template-card:hover .template-overlay { opacity: 1; }
-    .template-cta {
-      color: var(--paper);
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-    }
-    .template-cta em { font-style: italic; margin-left: 6px; }
-
-    .template-info {
-      display: grid;
-      grid-template-columns: 36px 1fr;
-      gap: 4px;
-      padding: 14px 16px 16px;
       background: #fff;
     }
-    .template-num {
+    .order-row {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr 0.6fr 0.9fr 0.6fr;
+      gap: 18px;
+      padding: 18px 22px;
+      align-items: center;
+      border-bottom: 1px solid rgba(28,29,34,0.06);
       font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      color: var(--english-violet);
-      padding-top: 4px;
+      font-size: 13px;
     }
-    .template-name {
+    .order-row:last-child { border-bottom: 0; }
+    .order-row-head {
+      background: rgba(71,66,84,0.05);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28,29,34,0.55);
+    }
+    .order-row .order-invoice {
       font-family: var(--serif);
       font-size: 17px;
       color: var(--ink);
-      line-height: 1.2;
-      margin-bottom: 4px;
     }
-    .template-cat {
-      font-family: var(--sans);
-      font-size: 10px;
+    .order-row a {
+      color: var(--english-violet);
+      font-weight: 700;
+      font-size: 11px;
       letter-spacing: 0.22em;
       text-transform: uppercase;
-      font-weight: 600;
-      color: rgba(28,29,34,0.5);
+    }
+    .pill {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px;
+      background: #e6efe5;
+      color: #2e6a4a;
+      border-radius: 999px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
     }
 
     @media (max-width: 980px) {
       .account-grid { grid-template-columns: 1fr; gap: 40px; }
       .account-side { position: static; }
       .pack-row { grid-template-columns: 1fr; }
+      .order-row { grid-template-columns: 1fr 1fr; }
+      .order-row-head { display: none; }
     }
   </style>
 
-  <script is:inline>
-    (function () {
-      // Hydrate sidebar with session info from login
-      try {
-        const raw = localStorage.getItem("tmke.session");
-        if (raw) {
-          const s = JSON.parse(raw);
-          const nameEl = document.getElementById("session-name");
-          const emailEl = document.getElementById("session-email");
-          const tagEl = document.getElementById("session-tag");
-          if (nameEl && s.name) nameEl.textContent = s.name;
-          if (emailEl && s.email) emailEl.textContent = s.email;
-          if (tagEl) tagEl.innerHTML = "Signed in";
-        }
-      } catch (e) { /* ignore */ }
+  <script>
+    import { supabase, gbpFromPence } from '../lib/supabase.js';
 
-      // Sign out
-      const out = document.getElementById("signout-link");
-      if (out) out.addEventListener("click", function (e) {
+    const $name = document.getElementById('session-name');
+    const $email = document.getElementById('session-email');
+    const $tag = document.getElementById('session-tag');
+    const $signout = document.getElementById('signout-link');
+    const $loading = document.getElementById('library-loading');
+    const $empty = document.getElementById('library-empty');
+    const $grid = document.getElementById('library-grid');
+    const $orders = document.getElementById('orders-list');
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+    }
+    function formatDate(iso) {
+      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+      catch (_) { return ''; }
+    }
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        location.replace('/login?next=' + encodeURIComponent('/account'));
+        return;
+      }
+
+      const email = session.user.email ?? '';
+      const meta = session.user.user_metadata ?? {};
+      $email.textContent = email;
+      $name.textContent = meta.name || email.split('@')[0].replace(/\./g, ' ');
+
+      $signout.addEventListener('click', async (e) => {
         e.preventDefault();
-        try { localStorage.removeItem("tmke.session"); } catch (_) {}
-        window.location.href = "/login";
+        await supabase.auth.signOut();
+        location.replace('/login');
       });
 
-      // Category filters
-      const filters = document.querySelectorAll(".filter");
-      const cards = document.querySelectorAll(".template-card");
-      filters.forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          filters.forEach(function (b) { b.classList.remove("is-active"); });
-          btn.classList.add("is-active");
-          const want = btn.getAttribute("data-filter");
-          cards.forEach(function (card) {
-            const cat = card.getAttribute("data-category");
-            const show = want === "all" || cat === want;
-            card.classList.toggle("is-hidden", !show);
-          });
-        });
+      // Pull orders linked to this user (by id) OR matching the email
+      // (covers checkout flows that landed before user_id was set).
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('id, pack_id, pack_slug, pack_title, amount_pence, invoice_number, status, payment_method, created_at, buyer_company')
+        .or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        $loading.textContent = `Couldn't load your library: ${error.message}`;
+        return;
+      }
+
+      $loading.hidden = true;
+
+      if (!orders || orders.length === 0) {
+        $empty.hidden = false;
+        $orders.innerHTML = `<div class="lib-state" style="padding:18px 22px;">No invoices yet.</div>`;
+        return;
+      }
+
+      // Group by pack_id so a user who bought the same pack twice sees one tile.
+      const byPack = new Map();
+      orders.forEach((o) => {
+        if (!byPack.has(o.pack_id)) byPack.set(o.pack_id, { order: o, count: 1 });
+        else byPack.get(o.pack_id).count += 1;
       });
+
+      // Fetch pack details for cover + description in one round-trip.
+      const packIds = [...byPack.keys()].filter(Boolean);
+      const { data: packs } = await supabase
+        .from('packs')
+        .select('id, cover_image_url, description, contents, category')
+        .in('id', packIds);
+      const packMap = new Map((packs ?? []).map((p) => [p.id, p]));
+
+      $grid.innerHTML = [...byPack.values()].map(({ order, count }) => {
+        const pack = packMap.get(order.pack_id);
+        const cover = pack?.cover_image_url
+          ? `style="background-image:url('${escapeHtml(pack.cover_image_url)}')"`
+          : '';
+        const desc = pack?.description ?? '';
+        const itemCount = (pack?.contents ?? []).length;
+        const tag = itemCount ? `${itemCount} items` : 'Purchased';
+        return `
+          <article class="pack-row">
+            <div class="pack-row-cover" ${cover}>
+              <span class="pack-row-cover-tag">${escapeHtml(tag)}</span>
+            </div>
+            <div class="pack-row-body">
+              <div class="pack-row-meta">
+                <span>Purchased ${formatDate(order.created_at)}</span>
+                ${count > 1 ? `<span>·</span><span>${count} copies</span>` : ''}
+              </div>
+              <h3 class="pack-row-title">${escapeHtml(order.pack_title)}</h3>
+              <p class="pack-row-desc">${escapeHtml(desc)}</p>
+              <div class="pack-row-actions">
+                <button type="button" class="lib-btn" disabled>
+                  Download (.zip)
+                </button>
+                <span class="lib-soon-tag">Assets land soon</span>
+                <a href="/edit/thanks?order=${encodeURIComponent(order.id)}" class="lib-btn lib-btn-ghost">View receipt</a>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      $orders.innerHTML = `
+        <div class="order-row order-row-head">
+          <span>Invoice</span>
+          <span>Pack</span>
+          <span>Method</span>
+          <span>Date</span>
+          <span>Status</span>
+        </div>
+        ${orders.map((o) => `
+          <div class="order-row">
+            <span class="order-invoice"><a href="/edit/thanks?order=${encodeURIComponent(o.id)}">${escapeHtml(o.invoice_number || '—')}</a></span>
+            <span>${escapeHtml(o.pack_title)}</span>
+            <span>${({ apple_pay: 'Apple Pay', google_pay: 'Google Pay', card: 'Card' }[o.payment_method] || o.payment_method)}</span>
+            <span>${formatDate(o.created_at)}</span>
+            <span><span class="pill">${escapeHtml(o.status)}</span></span>
+          </div>
+        `).join('')}
+      `;
     })();
   </script>
 </BaseLayout>
