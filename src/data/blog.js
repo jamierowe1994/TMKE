@@ -30,7 +30,7 @@ export const STATIC_POSTS = [
     category: "Branding",
     standfirst:
       "Buyers and sellers don't pick agencies the way they used to. They pick agents — by name, by face, by feed. Here's why the personal brand has become the most valuable asset on a property professional's balance sheet.",
-    hero: UNSPLASH("1573497019940-1c28c88b4f3e", 1800, 1000),
+    hero: "/assets/personal-brand.jpg",
     date: "2026-05-12",
     readTime: 6,
     keywords: [
@@ -79,7 +79,7 @@ export const STATIC_POSTS = [
     category: "Strategy",
     standfirst:
       "Engagement isn't dying because the algorithm hates you. It's dying because of five very specific, very fixable things — most of which estate agents are doing without realising.",
-    hero: UNSPLASH("1611162616475-46b635cb6868", 1800, 1000),
+    hero: "/assets/home%20window.jpg",
     date: "2026-05-08",
     readTime: 7,
     keywords: [
@@ -132,7 +132,7 @@ export const STATIC_POSTS = [
     category: "Content",
     standfirst:
       "Reach isn't luck. It's a stack of small, deliberate choices about how you write, where you tag, and what you post. Here's the visibility playbook for property professionals who want to be found before they reach out.",
-    hero: UNSPLASH("1556761175-5973dc0f32e7", 1800, 1000),
+    hero: "/assets/coming-soon.png",
     date: "2026-05-05",
     readTime: 6,
     keywords: [
@@ -188,7 +188,7 @@ export const STATIC_POSTS = [
     category: "Industry",
     standfirst:
       "The high-street model isn't dying. But the version of it that survives the next decade looks very different to the one most agencies are still operating. A clear-eyed look at what's broken — and what replaces it.",
-    hero: UNSPLASH("1568605114967-8130f3a36994", 1800, 1000),
+    hero: "/assets/vibes.jpg",
     date: "2026-04-29",
     readTime: 8,
     keywords: [

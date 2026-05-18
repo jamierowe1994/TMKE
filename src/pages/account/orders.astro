@@ -1,0 +1,220 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import "../../styles/workspace.css";
+---
+
+<BaseLayout
+  title="Orders — TMKE workspace"
+  description="Your full order history, invoices and receipts."
+  hideNav
+  hideFooter
+>
+  <header class="app-header">
+    <a href="/account" class="app-logo">TMKE</a>
+    <nav class="app-header-nav" aria-label="Workspace">
+      <a href="/account" class="app-header-link">Workspace</a>
+      <a href="/editor" class="app-header-link">Studio</a>
+      <a href="/edit" class="app-header-link">Browse packs</a>
+      <a href="/account/orders" class="app-header-link is-active">Orders</a>
+      <div class="app-header-dd">
+        <button type="button" class="app-header-link app-header-btn" aria-haspopup="menu" aria-expanded="false">
+          Resources <span aria-hidden="true">▾</span>
+        </button>
+        <div class="app-dd-menu" role="menu">
+          <a href="/services" role="menuitem">
+            <strong>Managed Socials</strong>
+            <span>Hand the channel over.</span>
+          </a>
+          <a href="/blog" role="menuitem">
+            <strong>The Blog</strong>
+            <span>Insights for property marketers.</span>
+          </a>
+          <a href="/contact" role="menuitem">
+            <strong>Contact the team</strong>
+            <span>Get a same-day reply.</span>
+          </a>
+        </div>
+      </div>
+      <a href="/profile" class="app-header-link">Brand kit</a>
+    </nav>
+    <button type="button" id="app-signout" class="app-signout">Sign out</button>
+  </header>
+
+  <main class="app-main">
+    <section class="welcome">
+      <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
+      <h1 class="welcome-h">Your <em>orders.</em></h1>
+      <p class="welcome-sub">Every purchase, invoice and receipt — sortable, downloadable.</p>
+    </section>
+
+    <!-- Summary strip -->
+    <section class="orders-summary">
+      <div class="o-stat">
+        <div class="o-stat-label">Total orders</div>
+        <div class="o-stat-value" id="o-count">—</div>
+      </div>
+      <div class="o-stat">
+        <div class="o-stat-label">Lifetime spend</div>
+        <div class="o-stat-value" id="o-spend">£0</div>
+      </div>
+      <div class="o-stat">
+        <div class="o-stat-label">Last purchase</div>
+        <div class="o-stat-value" id="o-last">—</div>
+      </div>
+    </section>
+
+    <!-- Orders table -->
+    <section class="orders-section">
+      <header class="section-head">
+        <h2 class="section-h">All orders</h2>
+        <p class="section-sub">Click any invoice number to view the full receipt.</p>
+      </header>
+      <div id="orders-list" class="orders-list">
+        <div class="lib-state" style="padding:18px 22px;">Loading orders…</div>
+      </div>
+    </section>
+
+    <footer class="app-foot">
+      <div class="app-foot-block">
+        <div class="app-foot-tag">Signed in as</div>
+        <strong id="footer-email">…</strong>
+      </div>
+      <div class="app-foot-block">
+        <div class="app-foot-tag">Help</div>
+        <a href="/contact">hello@tmke.co.uk</a>
+      </div>
+      <div class="app-foot-block app-foot-block--right">
+        <button type="button" id="app-signout-foot" class="app-signout">Sign out</button>
+      </div>
+    </footer>
+  </main>
+
+  <style is:global>
+    /* Shared workspace shell (header, footer, welcome, section heads,
+       order rows, etc.) lives in src/styles/workspace.css. Only the
+       orders-page-specific summary cards stay here. */
+
+    .orders-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 720px) { .orders-summary { grid-template-columns: 1fr; } }
+    .o-stat {
+      padding: 22px 24px 18px;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 3px;
+    }
+    .o-stat-label {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28,29,34,0.55);
+    }
+    .o-stat-value {
+      font-family: var(--serif);
+      font-size: 36px;
+      letter-spacing: -0.015em;
+      margin-top: 6px;
+      color: var(--ink);
+    }
+  </style>
+
+  <script>
+    import { supabase, gbpFromPence } from '../../lib/supabase.js';
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+    }
+    function formatDate(iso) {
+      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+      catch (_) { return ''; }
+    }
+
+    async function signOut() {
+      await supabase.auth.signOut();
+      location.replace('/login');
+    }
+    document.getElementById('app-signout')?.addEventListener('click', signOut);
+    document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        location.replace('/login?next=' + encodeURIComponent('/account/orders'));
+        return;
+      }
+
+      const email = session.user.email ?? '';
+      document.getElementById('footer-email').textContent = email;
+
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('id, pack_slug, pack_title, amount_pence, invoice_number, status, payment_method, created_at, buyer_company')
+        .or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`)
+        .order('created_at', { ascending: false });
+
+      const $list = document.getElementById('orders-list');
+
+      if (error) {
+        $list.innerHTML = `<div class="lib-state" style="padding:18px 22px;">Couldn't load orders: ${escapeHtml(error.message)}</div>`;
+        return;
+      }
+
+      const list = orders || [];
+      const paid = list.filter((o) => o.status === 'paid');
+      const totalSpend = paid.reduce((a, o) => a + (o.amount_pence || 0), 0);
+      const last = list[0];
+
+      document.getElementById('o-count').textContent = String(list.length);
+      document.getElementById('o-spend').textContent = gbpFromPence(totalSpend) || '£0';
+      document.getElementById('o-last').textContent = last ? formatDate(last.created_at) : '—';
+
+      if (list.length === 0) {
+        $list.innerHTML = `
+          <div class="lib-state" style="padding:32px;">
+            <strong style="display:block;font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:6px;">No orders yet.</strong>
+            <p style="margin:0;line-height:1.6;">When you purchase a pack from The Edit, the invoice will live here.</p>
+          </div>`;
+        return;
+      }
+
+      $list.innerHTML = `
+        <div class="order-row order-row-head">
+          <span>Invoice</span>
+          <span>Pack</span>
+          <span>Method</span>
+          <span>Date</span>
+          <span>Amount</span>
+          <span>Status</span>
+        </div>
+        ${list.map((o) => `
+          <div class="order-row">
+            <span class="order-invoice"><a href="/edit/thanks?order=${encodeURIComponent(o.id)}">${escapeHtml(o.invoice_number || '—')}</a></span>
+            <span>${escapeHtml(o.pack_title)}</span>
+            <span>${({ apple_pay: 'Apple Pay', google_pay: 'Google Pay', card: 'Card' }[o.payment_method] || o.payment_method)}</span>
+            <span>${formatDate(o.created_at)}</span>
+            <span>${gbpFromPence(o.amount_pence)}</span>
+            <span><span class="pill">${escapeHtml(o.status)}</span></span>
+          </div>
+        `).join('')}
+      `;
+
+      // Update the order-row grid for the extra Amount column.
+      const style = document.createElement('style');
+      style.textContent = `
+        .order-row { grid-template-columns: 1.1fr 1.2fr 0.8fr 0.9fr 0.7fr 0.6fr; }
+        @media (max-width: 720px) {
+          .order-row { grid-template-columns: 1fr 1fr; }
+          .order-row-head { display: none; }
+        }
+      `;
+      document.head.appendChild(style);
+    })();
+  </script>
+</BaseLayout>
