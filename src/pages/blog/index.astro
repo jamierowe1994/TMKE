@@ -1,344 +1,419 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHero from "../../components/PageHero.astro";
+import { posts, categories } from "../../data/blog.js";
+
+// Sort newest first
+const sorted = [...posts].sort((a, b) => (a.date < b.date ? 1 : -1));
+const featured = sorted[0];
+const rest = sorted.slice(1);
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
 ---
 
 <BaseLayout
-  title="The Blog — TMKE"
-  description="Insights on social media, brand positioning and content systems for the UK property sector. Fortnightly, no fluff."
+  title="Insights — TMKE"
+  description="Structured insights on social media, brand positioning, content systems, and the future of estate agency marketing — written for UK property professionals."
 >
   <PageHero
     chapter="Insights"
     title="I'm an Estate Agent, <em>not a content creator.</em>"
-    sub="Fortnightly writing on social media, brand positioning, and content systems for the UK property sector."
+    sub="Structured insights on social media, brand positioning, and content systems built for the property sector."
   />
 
-  <!-- Coming soon — but honest and useful. -->
-  <section class="blog-hero wrap">
-    <div class="blog-hero-grid">
-      <div>
-        <p class="blog-eyebrow">Launching August 2026</p>
-        <h2 class="blog-h">The first issue is being written right now.</h2>
-        <p class="blog-lead">
-          We're a small team writing slowly and on purpose. The first cornerstone piece —
-          <em>"What estate agents get wrong about Instagram"</em> — lands in your inbox the moment it's published.
-        </p>
-        <p class="blog-lead">
-          Until then, here's what's coming.
-        </p>
+  <!-- ============================== FEATURED -->
+  <section class="insights-featured wrap">
+    <a class="feat" href={`/blog/${featured.slug}`}>
+      <div class="feat-media">
+        <img src={featured.hero} alt={featured.title} loading="eager" />
       </div>
-
-      <aside class="blog-signup">
-        <div class="blog-signup-tag">Get notified</div>
-        <h3>One email per issue. No tracking pixels.</h3>
-        <p>Drop your email and we'll send the first piece the day it goes live. Unsubscribe in one click, no questions asked.</p>
-        <form id="blog-signup-form" class="blog-form" novalidate>
-          <label class="blog-field">
-            <span>Email</span>
-            <input type="email" name="email" required autocomplete="email" placeholder="you@agency.co.uk" />
-          </label>
-          <label class="blog-field">
-            <span>Company (optional)</span>
-            <input type="text" name="company" autocomplete="organization" placeholder="The Agency Co." />
-          </label>
-          <button type="submit" class="blog-submit">
-            <span data-label>Notify me</span>
-          </button>
-          <p class="blog-form-error" id="blog-form-error" hidden></p>
-          <p class="blog-form-ok" id="blog-form-ok" hidden>
-            You're on the list — first issue lands soon.
-          </p>
-        </form>
-      </aside>
-    </div>
+      <div class="feat-body">
+        <div class="feat-meta">
+          <span class="feat-cat">{featured.category}</span>
+          <span class="feat-dot">·</span>
+          <span>{fmtDate(featured.date)}</span>
+          <span class="feat-dot">·</span>
+          <span>{featured.readTime} min read</span>
+        </div>
+        <h2 class="feat-title">{featured.title}</h2>
+        <p class="feat-stand">{featured.standfirst}</p>
+        <span class="feat-cta">Read the article <em>&rarr;</em></span>
+      </div>
+    </a>
   </section>
 
-  <!-- Topics planned -->
-  <section class="blog-section wrap">
-    <header class="blog-section-head">
-      <p class="blog-eyebrow">Topics in the queue</p>
-      <h2 class="blog-h">What we'll be writing about.</h2>
-      <p class="blog-section-sub">Five themes we keep coming back to in client work — turned into proper, long-form pieces.</p>
+  <!-- ============================== FILTER + GRID -->
+  <section class="insights-grid-wrap wrap">
+    <header class="insights-grid-head">
+      <div>
+        <div class="eyebrow">More from the desk</div>
+        <h3 class="insights-grid-title">Every insight, ordered freshly.</h3>
+      </div>
+      <div class="insights-filters" id="insights-filters">
+        <button class="ifilter is-active" data-filter="all">All</button>
+        {categories.map((c) => (
+          <button class="ifilter" data-filter={c}>{c}</button>
+        ))}
+      </div>
     </header>
 
-    <div class="blog-topics">
-      <article class="blog-topic">
-        <div class="blog-topic-num">01</div>
-        <h3>Strategy</h3>
-        <p>Why most property social fails before the first post — and the planning frameworks that turn the channel into a listing driver.</p>
-      </article>
-      <article class="blog-topic">
-        <div class="blog-topic-num">02</div>
-        <h3>Content systems</h3>
-        <p>Templates, calendars and processes the busiest agencies use to stay consistent without burning out a junior.</p>
-      </article>
-      <article class="blog-topic">
-        <div class="blog-topic-num">03</div>
-        <h3>Branding</h3>
-        <p>The visual mistakes that make agents look the same as everyone else — and the cheap fixes that don't.</p>
-      </article>
-      <article class="blog-topic">
-        <div class="blog-topic-num">04</div>
-        <h3>Industry</h3>
-        <p>What the data really says about social-driven instructions, viewing-day conversions and vendor decision making.</p>
-      </article>
-      <article class="blog-topic">
-        <div class="blog-topic-num">05</div>
-        <h3>Tools</h3>
-        <p>Honest reviews of the platforms property marketers actually use — Reapit, Jupix, Canva, Pretzel — when they help, when they hurt.</p>
-      </article>
+    <div class="insights-grid">
+      {rest.map((p) => (
+        <a class="icard" href={`/blog/${p.slug}`} data-category={p.category}>
+          <div class="icard-media">
+            <img src={p.hero} alt={p.title} loading="lazy" />
+            <span class="icard-cat">{p.category}</span>
+          </div>
+          <div class="icard-body">
+            <h4 class="icard-title">{p.title}</h4>
+            <p class="icard-stand">{p.standfirst}</p>
+            <div class="icard-meta">
+              <span>{fmtDate(p.date)}</span>
+              <span class="icard-dot">·</span>
+              <span>{p.readTime} min read</span>
+            </div>
+          </div>
+        </a>
+      ))}
     </div>
   </section>
 
-  <section class="blog-foot wrap">
-    <p>Already signed up? Forward the first issue when it lands — and tell us what you wish we'd cover next.</p>
-    <a href="/contact" class="blog-foot-link">Suggest a topic &rarr;</a>
+  <!-- ============================== NEWSLETTER -->
+  <section class="insights-news wrap">
+    <div class="news-box">
+      <div class="news-eyebrow">/ Newsletter /</div>
+      <h3 class="news-title">Get the next insight <em>in your inbox.</em></h3>
+      <p class="news-sub">One considered email every other Friday. No filler, no automation — written by the TMKE desk for UK property professionals.</p>
+      <form class="news-form" id="insights-news-form" novalidate>
+        <input type="email" name="email" placeholder="you@agency.co.uk" required autocomplete="email" />
+        <button type="submit" class="btn btn--solid">Subscribe <span class="btn-arrow">&rarr;</span></button>
+      </form>
+      <p class="news-fine">No spam. Unsubscribe in one click.</p>
+    </div>
   </section>
 
-  <style is:global>
-    .blog-hero {
-      max-width: 1280px;
+  <style>
+    /* ============== FEATURED ============== */
+    .insights-featured {
+      max-width: 1360px;
       margin: 0 auto;
-      padding: 80px 36px;
+      padding: 0 36px 80px;
     }
-    .blog-hero-grid {
+    .feat {
       display: grid;
-      grid-template-columns: 1.4fr 1fr;
+      grid-template-columns: 1.15fr 1fr;
       gap: 80px;
-      align-items: start;
+      align-items: center;
+      color: var(--ink);
     }
     @media (max-width: 980px) {
-      .blog-hero { padding: 56px 22px; }
-      .blog-hero-grid { grid-template-columns: 1fr; gap: 40px; }
+      .feat { grid-template-columns: 1fr; gap: 32px; }
     }
-    .blog-eyebrow {
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-      margin: 0 0 12px;
+    .feat-media {
+      aspect-ratio: 5 / 4;
+      overflow: hidden;
+      background: rgba(28,29,34,0.06);
     }
-    .blog-h {
-      font-family: var(--serif);
-      font-size: clamp(36px, 4.5vw, 60px);
-      line-height: 1.04;
-      letter-spacing: -0.02em;
-      margin: 0 0 24px;
-      color: var(--ink);
-      font-weight: 500;
+    .feat-media img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 1.6s cubic-bezier(.2,.7,.2,1);
     }
-    .blog-h em { color: var(--english-violet); font-style: italic; }
-    .blog-lead {
-      font-family: var(--serif);
-      font-size: 19px;
-      line-height: 1.6;
-      color: rgba(28,29,34,0.78);
-      margin: 0 0 16px;
-      max-width: 56ch;
-    }
-    .blog-lead em { font-style: italic; color: var(--english-violet); }
+    .feat:hover .feat-media img { transform: scale(1.04); }
 
-    .blog-signup {
-      padding: 32px;
-      background: rgba(71, 66, 84, 0.05);
-      border: 1px solid rgba(71, 66, 84, 0.2);
-      border-radius: 3px;
-    }
-    .blog-signup-tag {
-      font-family: var(--sans);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-      margin-bottom: 16px;
-    }
-    .blog-signup h3 {
-      font-family: var(--serif);
-      font-size: 26px;
-      font-weight: 500;
-      letter-spacing: -0.015em;
-      margin: 0 0 12px;
-    }
-    .blog-signup p {
-      font-size: 14px;
-      line-height: 1.55;
-      color: rgba(28,29,34,0.65);
-      margin: 0 0 20px;
-    }
-    .blog-form { display: flex; flex-direction: column; gap: 14px; }
-    .blog-field { display: flex; flex-direction: column; gap: 6px; }
-    .blog-field span {
+    .feat-meta {
+      display: flex; align-items: center; gap: 10px;
       font-family: var(--sans);
       font-size: 11px;
-      font-weight: 700;
       letter-spacing: 0.22em;
       text-transform: uppercase;
-      color: rgba(28,29,34,0.6);
-    }
-    .blog-field input {
-      padding: 12px 14px;
-      font-family: var(--sans);
-      font-size: 14px;
-      border: 1px solid rgba(28,29,34,0.18);
-      border-radius: 2px;
-      background: #fff;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .blog-field input:focus { border-color: var(--english-violet); }
-    .blog-submit {
-      margin-top: 8px;
-      padding: 14px;
-      background: var(--ink);
-      color: var(--paper);
-      border: 0;
-      border-radius: 2px;
-      font-family: var(--sans);
-      font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.24em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: background 0.25s;
+      color: rgba(28,29,34,0.55);
+      margin-bottom: 24px;
     }
-    .blog-submit:hover { background: var(--english-violet); }
-    .blog-submit[disabled] { opacity: 0.55; cursor: progress; }
-    .blog-form-error {
-      margin: 0;
-      font-size: 13px;
-      color: #a05a3c;
-      font-family: var(--sans);
-    }
-    .blog-form-ok {
-      margin: 0;
-      padding: 10px 12px;
-      background: #e6efe5;
-      color: #2e6a4a;
-      border-radius: 2px;
-      font-family: var(--sans);
-      font-size: 13px;
-    }
+    .feat-cat { color: var(--english-violet); }
+    .feat-dot { opacity: 0.5; }
 
-    .blog-section {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 80px 36px;
-      border-top: 1px solid rgba(28,29,34,0.1);
-    }
-    @media (max-width: 980px) { .blog-section { padding: 56px 22px; } }
-    .blog-section-head {
-      max-width: 720px;
-      margin: 0 auto 60px;
-      text-align: center;
-    }
-    .blog-section-sub {
+    .feat-title {
       font-family: var(--serif);
-      font-size: 17px;
-      color: rgba(28,29,34,0.6);
-      margin: 14px 0 0;
-      line-height: 1.55;
+      font-weight: 400;
+      font-size: clamp(36px, 4.4vw, 60px);
+      line-height: 1.04;
+      letter-spacing: -0.018em;
+      color: var(--ink);
+      margin: 0 0 22px;
+      max-width: 22ch;
     }
-
-    .blog-topics {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 22px;
-    }
-    @media (max-width: 1080px) { .blog-topics { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 720px) { .blog-topics { grid-template-columns: 1fr; } }
-    .blog-topic {
-      padding: 24px 22px;
-      background: rgba(255,255,255,0.55);
-      border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 3px;
-      min-height: 200px;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .blog-topic-num {
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.32em;
-      color: var(--english-violet);
-    }
-    .blog-topic h3 {
-      font-family: var(--serif);
-      font-size: 22px;
-      font-weight: 500;
-      letter-spacing: -0.015em;
-      margin: 4px 0 6px;
-    }
-    .blog-topic p {
-      font-family: var(--sans);
-      font-size: 13px;
-      line-height: 1.6;
-      color: rgba(28,29,34,0.65);
-      margin: 0;
-      flex: 1;
-    }
-
-    .blog-foot {
-      max-width: 880px;
-      margin: 0 auto;
-      padding: 60px 36px 200px;
-      text-align: center;
-    }
-    .blog-foot p {
+    .feat-stand {
       font-family: var(--serif);
       font-style: italic;
-      font-size: 18px;
-      color: rgba(28,29,34,0.65);
-      margin: 0 0 18px;
+      font-size: clamp(18px, 1.7vw, 22px);
+      line-height: 1.5;
+      color: rgba(28,29,34,0.7);
+      max-width: 50ch;
+      margin: 0 0 36px;
     }
-    .blog-foot-link {
+    .feat-cta {
+      display: inline-flex; align-items: center; gap: 10px;
       font-family: var(--sans);
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.24em;
       text-transform: uppercase;
       color: var(--english-violet);
-      text-decoration: none;
       border-bottom: 1px solid currentColor;
+      padding-bottom: 4px;
     }
-    .blog-foot-link:hover { color: var(--ink); }
+    .feat-cta em {
+      font-style: italic;
+      font-family: var(--serif);
+      font-size: 16px;
+      letter-spacing: 0;
+      text-transform: none;
+      transition: transform 0.3s ease;
+    }
+    .feat:hover .feat-cta em { transform: translateX(4px); }
+
+    /* ============== GRID HEAD ============== */
+    .insights-grid-wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 80px 36px 80px;
+      border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    .insights-grid-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+    .insights-grid-head .eyebrow { margin-bottom: 10px; }
+    .insights-grid-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(28px, 3vw, 40px);
+      letter-spacing: -0.012em;
+      color: var(--ink);
+      margin: 0;
+    }
+
+    .insights-filters {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .ifilter {
+      background: transparent;
+      border: 1px solid rgba(28,29,34,0.18);
+      padding: 8px 14px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.65);
+      cursor: pointer;
+      border-radius: 999px;
+      transition: background 0.25s, color 0.25s, border-color 0.25s;
+    }
+    .ifilter:hover { color: var(--ink); }
+    .ifilter.is-active {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+
+    /* ============== CARDS ============== */
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 36px 28px;
+    }
+    @media (max-width: 980px) { .insights-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .insights-grid { grid-template-columns: 1fr; } }
+
+    .icard {
+      display: block;
+      color: var(--ink);
+      transition: transform 0.4s cubic-bezier(.2,.7,.2,1);
+    }
+    .icard.is-hidden { display: none; }
+    .icard:hover { transform: translateY(-4px); }
+
+    .icard-media {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      background: rgba(28,29,34,0.06);
+      margin-bottom: 22px;
+    }
+    .icard-media img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 1.4s cubic-bezier(.2,.7,.2,1);
+    }
+    .icard:hover .icard-media img { transform: scale(1.06); }
+
+    .icard-cat {
+      position: absolute;
+      top: 14px; left: 14px;
+      padding: 5px 10px;
+      background: rgba(28,29,34,0.85);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      border-radius: 999px;
+    }
+
+    .icard-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(20px, 1.8vw, 26px);
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0 0 12px;
+      max-width: 22ch;
+    }
+    .icard-stand {
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.62);
+      margin: 0 0 16px;
+      max-width: 42ch;
+    }
+    .icard-meta {
+      display: flex; gap: 8px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: rgba(28,29,34,0.5);
+    }
+    .icard-dot { opacity: 0.5; }
+
+    /* ============== NEWSLETTER ============== */
+    .insights-news {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 80px 36px 160px;
+    }
+    .news-box {
+      background: var(--ink);
+      color: var(--paper);
+      padding: 80px 64px;
+      text-align: center;
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+    @media (max-width: 720px) { .news-box { padding: 56px 28px; } }
+    .news-eyebrow {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 16px;
+      color: rgba(240,238,235,0.6);
+      margin-bottom: 18px;
+    }
+    .news-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(32px, 3.4vw, 48px);
+      letter-spacing: -0.015em;
+      color: var(--paper);
+      margin: 0 0 14px;
+    }
+    .news-title em { font-style: italic; color: var(--french-grey); }
+    .news-sub {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(16px, 1.4vw, 19px);
+      line-height: 1.5;
+      color: rgba(240,238,235,0.7);
+      max-width: 52ch;
+      margin: 0 auto 28px;
+    }
+    .news-form {
+      display: flex;
+      gap: 8px;
+      max-width: 480px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .news-form input {
+      flex: 1;
+      min-width: 220px;
+      padding: 14px 18px;
+      font-family: var(--sans);
+      font-size: 15px;
+      background: transparent;
+      border: 1px solid rgba(240,238,235,0.3);
+      color: var(--paper);
+      border-radius: 1px;
+    }
+    .news-form input::placeholder { color: rgba(240,238,235,0.4); }
+    .news-form input:focus {
+      outline: none;
+      border-color: var(--paper);
+    }
+    .news-form .btn--solid {
+      background: var(--paper);
+      color: var(--ink);
+      border-color: var(--paper);
+    }
+    .news-form .btn--solid:hover {
+      background: var(--accent);
+      color: var(--paper);
+      border-color: var(--accent);
+    }
+    .news-fine {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(240,238,235,0.4);
+      margin-top: 18px;
+    }
   </style>
 
-  <script>
-    // Lightweight client-side signup with localStorage persistence. Wire to
-    // a real mailing list (Mailerlite / Buttondown) in a later pass.
-    const form = document.getElementById('blog-signup-form');
-    const err = document.getElementById('blog-form-error');
-    const ok = document.getElementById('blog-form-ok');
-    const submit = form?.querySelector('button[type="submit"]');
-    const label = submit?.querySelector('[data-label]');
+  <script is:inline>
+    (function () {
+      const filters = document.querySelectorAll(".ifilter");
+      const cards = document.querySelectorAll(".icard");
+      filters.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          filters.forEach(function (b) { b.classList.remove("is-active"); });
+          btn.classList.add("is-active");
+          const want = btn.getAttribute("data-filter");
+          cards.forEach(function (c) {
+            const cat = c.getAttribute("data-category");
+            c.classList.toggle("is-hidden", want !== "all" && cat !== want);
+          });
+        });
+      });
 
-    form?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      err.hidden = true;
-      const fd = new FormData(form);
-      const email = String(fd.get('email') || '').trim();
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        err.textContent = 'Drop a valid email and we’ll do the rest.';
-        err.hidden = false;
-        return;
+      const form = document.getElementById("insights-news-form");
+      if (form) {
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          const input = form.querySelector("input");
+          const btn = form.querySelector("button");
+          if (!input.value) return;
+          const original = btn.innerHTML;
+          btn.textContent = "You're in ✓";
+          setTimeout(function () {
+            btn.innerHTML = original;
+            input.value = "";
+          }, 2400);
+        });
       }
-      submit.setAttribute('disabled', 'true');
-      label.textContent = 'Adding…';
-      try {
-        const existing = JSON.parse(localStorage.getItem('tmke.blog.signups') || '[]');
-        existing.push({ email, company: fd.get('company') || '', at: Date.now() });
-        localStorage.setItem('tmke.blog.signups', JSON.stringify(existing));
-      } catch (_) {}
-      // Pretend latency so the success state doesn't pop instantly.
-      await new Promise((r) => setTimeout(r, 350));
-      form.querySelectorAll('input').forEach((i) => i.value = '');
-      submit.removeAttribute('disabled');
-      label.textContent = 'Notify me';
-      ok.hidden = false;
-      setTimeout(() => (ok.hidden = true), 6000);
-    });
+    })();
   </script>
 </BaseLayout>
