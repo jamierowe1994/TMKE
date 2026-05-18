@@ -15,7 +15,27 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     <nav class="app-header-nav" aria-label="Workspace">
       <a href="/account" class="app-header-link is-active">Workspace</a>
       <a href="/editor" class="app-header-link">Studio</a>
-      <a href="/edit" class="app-header-link">The Edit</a>
+      <button type="button" class="app-header-link app-header-btn" id="open-shop" aria-haspopup="dialog">Browse packs</button>
+      <a href="/account/orders" class="app-header-link">Orders</a>
+      <div class="app-header-dd">
+        <button type="button" class="app-header-link app-header-btn" aria-haspopup="menu" aria-expanded="false">
+          Resources <span aria-hidden="true">▾</span>
+        </button>
+        <div class="app-dd-menu" role="menu">
+          <a href="/services" role="menuitem">
+            <strong>Managed Socials</strong>
+            <span>Hand the channel over.</span>
+          </a>
+          <a href="/blog" role="menuitem">
+            <strong>The Blog</strong>
+            <span>Insights for property marketers.</span>
+          </a>
+          <a href="/contact" role="menuitem">
+            <strong>Contact the team</strong>
+            <span>Get a same-day reply.</span>
+          </a>
+        </div>
+      </div>
       <a href="/profile" class="app-header-link">Brand kit</a>
     </nav>
     <button type="button" id="app-signout" class="app-signout">Sign out</button>
@@ -53,52 +73,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </article>
     </section>
 
-    <!-- Quick actions -->
-    <section class="quick" aria-labelledby="quick-h">
-      <header class="section-head">
-        <h2 id="quick-h" class="section-h">Quick start</h2>
-        <p class="section-sub">Jump straight to the thing you need.</p>
-      </header>
-      <div class="quick-grid">
-        <a href="/editor" class="quick-card quick-card--solid">
-          <div class="quick-card-num">01</div>
-          <h3 class="quick-card-h"><em>New design</em></h3>
-          <p>Open the studio with a fresh canvas — text, images, photos, your brand kit ready to go.</p>
-          <span class="quick-card-arrow">Open studio &rarr;</span>
-        </a>
-        <a href="/edit" class="quick-card">
-          <div class="quick-card-num">02</div>
-          <h3 class="quick-card-h">Browse <em>The Edit</em></h3>
-          <p>Ten signature packs of templates, ready to drop your branding into.</p>
-          <span class="quick-card-arrow">Shop packs &rarr;</span>
-        </a>
-        <a href="/profile" class="quick-card">
-          <div class="quick-card-num">03</div>
-          <h3 class="quick-card-h">Your <em>brand kit</em></h3>
-          <p>Colours, fonts, logos — saved once, pinned to the top of every picker in the studio.</p>
-          <span class="quick-card-arrow">Edit kit &rarr;</span>
-        </a>
-        <a href="/contact" class="quick-card">
-          <div class="quick-card-num">04</div>
-          <h3 class="quick-card-h">Need a <em>hand?</em></h3>
-          <p>Book a 30-minute call with the team or send a question — we'll come back same working day.</p>
-          <span class="quick-card-arrow">Talk to us &rarr;</span>
-        </a>
-      </div>
-    </section>
-
     <!-- Library -->
     <section id="library" class="library" aria-labelledby="library-h">
       <header class="section-head">
         <h2 id="library-h" class="section-h">Your library</h2>
-        <p class="section-sub">Packs you've purchased from The Edit.</p>
+        <p class="section-sub">Packs you've purchased from The Edit. <button type="button" class="inline-link" data-shop>Add another pack &rarr;</button></p>
       </header>
 
       <div id="library-loading" class="lib-state">Loading your library…</div>
 
       <div id="library-empty" class="lib-empty" hidden>
         <h3>Nothing here yet.</h3>
-        <p>You haven't purchased a pack yet. <a class="lib-link" href="/edit">Browse The Edit</a> to find one.</p>
+        <p>You haven't purchased a pack yet. <button type="button" class="lib-link" data-shop>Browse The Edit</button> to find one.</p>
       </div>
 
       <div id="library-grid" class="library-grid"></div>
@@ -111,42 +97,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <p class="section-sub">Drafts saved in this browser. Open one to keep going.</p>
       </header>
       <div id="drafts-grid" class="drafts-grid"></div>
-    </section>
-
-    <!-- Orders -->
-    <section id="orders" class="orders" aria-labelledby="orders-h">
-      <header class="section-head">
-        <h2 id="orders-h" class="section-h">Order history</h2>
-        <p class="section-sub">Receipts and invoices for every purchase.</p>
-      </header>
-      <div id="orders-list" class="orders-list">
-        <div class="lib-state" style="padding:18px 22px;">…</div>
-      </div>
-    </section>
-
-    <!-- Resources -->
-    <section class="resources" aria-labelledby="res-h">
-      <header class="section-head">
-        <h2 id="res-h" class="section-h">Resources</h2>
-        <p class="section-sub">Helpful reads to get the most out of TMKE.</p>
-      </header>
-      <div class="resources-grid">
-        <a class="resource" href="/blog">
-          <span class="resource-eyebrow">Insights</span>
-          <h3 class="resource-h">The blog</h3>
-          <p>Marketing playbooks, listing-day workflows and case studies from the UK property sector.</p>
-        </a>
-        <a class="resource" href="/services">
-          <span class="resource-eyebrow">Done-for-you</span>
-          <h3 class="resource-h">Managed social</h3>
-          <p>Hand the whole channel to us — content calendar, post production, monthly reporting.</p>
-        </a>
-        <a class="resource" href="/contact">
-          <span class="resource-eyebrow">Support</span>
-          <h3 class="resource-h">Contact the team</h3>
-          <p>Stuck on a design or chasing an invoice? We reply same working day.</p>
-        </a>
-      </div>
     </section>
 
     <!-- Account footer -->
@@ -165,6 +115,33 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </footer>
   </main>
 
+  <!-- Browse packs modal — triggered from the header. Stays inside the
+       workspace so customers don't bounce out to the marketing storefront. -->
+  <div class="shop-backdrop" id="shop-modal" hidden role="dialog" aria-modal="true" aria-labelledby="shop-h">
+    <div class="shop">
+      <header class="shop-head">
+        <div>
+          <p class="shop-eyebrow">Shop — The Edit</p>
+          <h2 id="shop-h" class="shop-h">Browse <em>packs.</em></h2>
+        </div>
+        <button type="button" class="shop-close" id="shop-close" aria-label="Close">&times;</button>
+      </header>
+
+      <!-- Pack grid view -->
+      <section class="shop-view" data-view="grid">
+        <p class="shop-state" id="shop-loading">Loading packs…</p>
+        <p class="shop-state" id="shop-empty" hidden>No packs available yet. Check back soon.</p>
+        <div class="shop-grid" id="shop-grid"></div>
+      </section>
+
+      <!-- Pack detail view (single pack) -->
+      <section class="shop-view" data-view="detail" hidden>
+        <button type="button" class="shop-back" id="shop-back">&larr; All packs</button>
+        <div class="shop-detail" id="shop-detail"></div>
+      </section>
+    </div>
+  </div>
+
   <style is:global>
     /* ---------- Logged-in header ---------- */
     .app-header {
@@ -173,7 +150,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       grid-template-columns: auto 1fr auto;
       align-items: center;
       gap: 32px;
-      padding: 18px 40px;
+      padding: 16px 36px;
       background: rgba(242, 239, 233, 0.92);
       backdrop-filter: saturate(140%) blur(10px);
       border-bottom: 1px solid rgba(28,29,34,0.08);
@@ -187,8 +164,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       text-decoration: none;
     }
     .app-header-nav {
-      display: flex; gap: 32px;
+      display: flex; gap: 4px;
       justify-content: center;
+      align-items: center;
     }
     .app-header-link {
       font-family: var(--sans);
@@ -197,10 +175,62 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       letter-spacing: 0.02em;
       color: rgba(28,29,34,0.6);
       text-decoration: none;
-      transition: color 0.25s;
+      padding: 8px 14px;
+      border-radius: 3px;
+      transition: color 0.25s, background 0.25s;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
     }
-    .app-header-link:hover { color: var(--ink); }
+    .app-header-link:hover { color: var(--ink); background: rgba(28,29,34,0.05); }
     .app-header-link.is-active { color: var(--english-violet); }
+    .app-header-btn { font: inherit; }
+
+    /* Resources dropdown */
+    .app-header-dd { position: relative; }
+    .app-header-dd:hover > .app-dd-menu,
+    .app-header-dd:focus-within > .app-dd-menu {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .app-dd-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-6px);
+      min-width: 260px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.1);
+      border-radius: 4px;
+      box-shadow: 0 18px 40px -8px rgba(0,0,0,0.18);
+      padding: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 60;
+    }
+    .app-dd-menu a {
+      display: flex; flex-direction: column;
+      gap: 2px;
+      padding: 10px 12px;
+      border-radius: 3px;
+      text-decoration: none;
+      color: var(--ink);
+    }
+    .app-dd-menu a:hover { background: rgba(28,29,34,0.05); }
+    .app-dd-menu strong {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .app-dd-menu span {
+      font-size: 11px;
+      color: rgba(28,29,34,0.55);
+      font-family: var(--sans);
+    }
+
     .app-signout {
       appearance: none;
       background: transparent;
@@ -218,7 +248,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
     .app-signout:hover { background: var(--english-violet); color: var(--paper); }
 
-    @media (max-width: 780px) {
+    @media (max-width: 980px) {
       .app-header { grid-template-columns: auto auto; padding: 14px 20px; gap: 14px; }
       .app-header-nav { display: none; }
     }
@@ -335,80 +365,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       font-size: 15px;
       color: rgba(28,29,34,0.55);
     }
-
-    /* ---------- Quick actions ---------- */
-    .quick-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 18px;
-    }
-    @media (max-width: 720px) { .quick-grid { grid-template-columns: 1fr; } }
-    .quick-card {
-      display: flex; flex-direction: column;
-      gap: 8px;
-      padding: 32px 28px 28px;
-      background: rgba(255,255,255,0.55);
-      border: 1px solid rgba(28,29,34,0.1);
-      border-radius: 3px;
+    .section-sub .inline-link,
+    .lib-empty .lib-link {
+      background: none;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      color: var(--english-violet);
+      font-weight: 700;
+      cursor: pointer;
       text-decoration: none;
-      color: var(--ink);
-      transition: transform 0.4s cubic-bezier(.2,.7,.2,1), border-color 0.3s, background 0.3s;
-      min-height: 200px;
+      border-bottom: 1px solid currentColor;
     }
-    .quick-card:hover {
-      transform: translateY(-3px);
-      border-color: rgba(71, 66, 84, 0.5);
-      background: rgba(255,255,255,0.85);
-    }
-    .quick-card--solid {
-      background: var(--ink);
-      color: var(--paper);
-      border-color: var(--ink);
-    }
-    .quick-card--solid:hover {
-      background: var(--english-violet);
-      border-color: var(--english-violet);
-    }
-    .quick-card-num {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.32em;
-      font-weight: 700;
-      color: var(--english-violet);
-    }
-    .quick-card--solid .quick-card-num { color: var(--accent); }
-    .quick-card-h {
-      font-family: var(--serif);
-      font-size: 30px;
-      font-weight: 500;
-      letter-spacing: -0.015em;
-      margin: 4px 0 6px;
-    }
-    .quick-card-h em { font-style: italic; color: var(--english-violet); }
-    .quick-card--solid .quick-card-h em { color: var(--accent); }
-    .quick-card p {
-      flex: 1;
-      font-size: 14px;
-      line-height: 1.55;
-      color: rgba(28,29,34,0.65);
-      margin: 0;
-    }
-    .quick-card--solid p { color: rgba(240,238,235,0.7); }
-    .quick-card-arrow {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(28,29,34,0.12);
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.24em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-    }
-    .quick-card--solid .quick-card-arrow {
-      border-top-color: rgba(240,238,235,0.18);
-      color: var(--accent);
-    }
+    .section-sub .inline-link:hover,
+    .lib-empty .lib-link:hover { color: var(--ink); }
 
     /* ---------- Library ---------- */
     .lib-state {
@@ -430,7 +400,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       margin: 0 0 8px;
     }
     .lib-empty p { color: rgba(28,29,34,0.65); font-size: 15px; line-height: 1.6; margin: 0; }
-    .lib-link { color: var(--english-violet); border-bottom: 1px solid currentColor; font-weight: 600; }
 
     .library-grid {
       display: grid;
@@ -521,7 +490,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       border: 1px solid rgba(71,66,84,0.4);
     }
     .lib-btn-ghost:hover { background: rgba(71,66,84,0.06); }
-
     .lib-soon-tag {
       display: inline-flex; align-items: center;
       padding: 4px 10px;
@@ -575,105 +543,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       letter-spacing: 0.04em;
     }
 
-    /* ---------- Orders ---------- */
-    .orders-list {
-      display: flex; flex-direction: column;
-      border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 4px;
-      overflow: hidden;
-      background: #fff;
-    }
-    .order-row {
-      display: grid;
-      grid-template-columns: 1.3fr 0.9fr 0.6fr 0.9fr 0.6fr;
-      gap: 18px;
-      padding: 18px 22px;
-      align-items: center;
-      border-bottom: 1px solid rgba(28,29,34,0.06);
-      font-family: var(--sans);
-      font-size: 13px;
-    }
-    .order-row:last-child { border-bottom: 0; }
-    .order-row-head {
-      background: rgba(71,66,84,0.05);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: rgba(28,29,34,0.55);
-    }
-    .order-row .order-invoice {
-      font-family: var(--serif);
-      font-size: 17px;
-      color: var(--ink);
-    }
-    .order-row a {
-      color: var(--english-violet);
-      font-weight: 700;
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-    }
-    .pill {
-      display: inline-flex; align-items: center;
-      padding: 3px 10px;
-      background: #e6efe5;
-      color: #2e6a4a;
-      border-radius: 999px;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-    }
-
-    @media (max-width: 720px) {
-      .pack-row { grid-template-columns: 1fr; }
-      .order-row { grid-template-columns: 1fr 1fr; }
-      .order-row-head { display: none; }
-    }
-
-    /* ---------- Resources ---------- */
-    .resources-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
-    }
-    @media (max-width: 880px) { .resources-grid { grid-template-columns: 1fr; } }
-    .resource {
-      display: flex; flex-direction: column;
-      gap: 6px;
-      padding: 26px 28px;
-      background: rgba(255,255,255,0.55);
-      border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 3px;
-      text-decoration: none;
-      color: var(--ink);
-      transition: border-color 0.25s, transform 0.3s, background 0.3s;
-    }
-    .resource:hover {
-      border-color: rgba(71, 66, 84, 0.5);
-      background: rgba(255,255,255,0.85);
-      transform: translateY(-2px);
-    }
-    .resource-eyebrow {
-      font-family: var(--sans);
-      font-size: 10px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--english-violet);
-    }
-    .resource-h {
-      font-family: var(--serif);
-      font-size: 24px;
-      font-weight: 500;
-      letter-spacing: -0.015em;
-      margin: 6px 0 4px;
-    }
-    .resource p {
-      font-size: 14px;
-      line-height: 1.55;
-      color: rgba(28,29,34,0.6);
-      margin: 0;
-    }
-
     /* ---------- Account footer ---------- */
     .app-foot {
       display: grid;
@@ -704,6 +573,219 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       text-decoration: none;
     }
     .app-foot-block a:hover { color: var(--english-violet); }
+
+    /* ---------- Shop modal ---------- */
+    .shop-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(28,29,34,0.55);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 5vh 20px;
+      z-index: 100;
+      overflow-y: auto;
+    }
+    .shop-backdrop[hidden] { display: none; }
+    .shop {
+      width: 100%;
+      max-width: 1100px;
+      background: var(--paper);
+      border-radius: 4px;
+      box-shadow: 0 40px 100px -20px rgba(0,0,0,0.45);
+    }
+    .shop-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 24px 32px;
+      border-bottom: 1px solid rgba(28,29,34,0.1);
+    }
+    .shop-head h2 {
+      font-family: var(--serif);
+      font-size: 36px;
+      font-weight: 500;
+      letter-spacing: -0.015em;
+      margin: 6px 0 0;
+    }
+    .shop-head h2 em { font-style: italic; color: var(--english-violet); }
+    .shop-eyebrow {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .shop-close {
+      background: transparent;
+      border: none;
+      font-size: 30px;
+      width: 38px; height: 38px;
+      cursor: pointer;
+      color: var(--english-violet);
+      line-height: 1;
+    }
+    .shop-view { padding: 32px; }
+    .shop-state {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: rgba(28,29,34,0.55);
+      padding: 24px 0;
+      margin: 0;
+    }
+    .shop-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+    }
+    @media (max-width: 880px) { .shop-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .shop-grid { grid-template-columns: 1fr; } }
+    .shop-card {
+      cursor: pointer;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid rgba(28,29,34,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      transition: border-color 0.25s, transform 0.3s;
+      text-align: left;
+      padding: 0;
+      font: inherit;
+      color: var(--ink);
+    }
+    .shop-card:hover { border-color: rgba(71, 66, 84, 0.55); transform: translateY(-3px); }
+    .shop-card-cover {
+      aspect-ratio: 4 / 5;
+      background-size: cover;
+      background-position: center;
+      background-color: var(--platinum);
+    }
+    .shop-card-body {
+      padding: 16px 18px 18px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .shop-card-cat {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .shop-card-title {
+      font-family: var(--serif);
+      font-size: 22px;
+      letter-spacing: -0.015em;
+      margin: 2px 0 4px;
+    }
+    .shop-card-price {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+      margin-top: 2px;
+    }
+
+    .shop-back {
+      background: transparent; border: none;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      cursor: pointer;
+      padding: 0 0 18px;
+    }
+    .shop-detail {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+    @media (max-width: 780px) {
+      .shop-detail { grid-template-columns: 1fr; gap: 24px; }
+    }
+    .shop-detail-cover {
+      aspect-ratio: 4 / 5;
+      background-size: cover;
+      background-position: center;
+      background-color: var(--platinum);
+      border-radius: 3px;
+    }
+    .shop-detail-body { display: flex; flex-direction: column; gap: 14px; }
+    .shop-detail-cat {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .shop-detail-title {
+      font-family: var(--serif);
+      font-size: 40px;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin: 0;
+      font-weight: 500;
+    }
+    .shop-detail-desc {
+      font-size: 16px;
+      line-height: 1.6;
+      color: rgba(28,29,34,0.7);
+    }
+    .shop-detail ul {
+      margin: 0;
+      padding: 0 0 0 18px;
+      font-family: var(--sans);
+      font-size: 14px;
+      color: rgba(28,29,34,0.7);
+      line-height: 1.7;
+    }
+    .shop-detail-foot {
+      display: flex; align-items: center; gap: 18px;
+      margin-top: 12px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    .shop-detail-price {
+      font-family: var(--serif);
+      font-size: 32px;
+      letter-spacing: -0.015em;
+    }
+    .shop-buy {
+      appearance: none;
+      background: var(--ink);
+      color: var(--paper);
+      border: 0;
+      padding: 14px 22px;
+      border-radius: 2px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .shop-buy:hover { background: var(--english-violet); }
+    .shop-already {
+      display: inline-flex; align-items: center;
+      padding: 4px 10px;
+      background: #e6efe5;
+      color: #2e6a4a;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border-radius: 999px;
+    }
+
+    @media (max-width: 720px) {
+      .pack-row { grid-template-columns: 1fr; }
+    }
   </style>
 
   <script>
@@ -720,18 +802,23 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     const $loading = document.getElementById('library-loading');
     const $empty = document.getElementById('library-empty');
     const $grid = document.getElementById('library-grid');
-    const $orders = document.getElementById('orders-list');
     const $draftsSection = document.getElementById('drafts');
     const $draftsGrid = document.getElementById('drafts-grid');
+
+    // Shop modal refs
+    const $shopModal = document.getElementById('shop-modal');
+    const $shopClose = document.getElementById('shop-close');
+    const $shopGrid = document.getElementById('shop-grid');
+    const $shopLoading = document.getElementById('shop-loading');
+    const $shopEmpty = document.getElementById('shop-empty');
+    const $shopDetail = document.getElementById('shop-detail');
+    const $shopBack = document.getElementById('shop-back');
+    const $shopOpen = document.getElementById('open-shop');
 
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
       }[c]));
-    }
-    function formatDate(iso) {
-      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
-      catch (_) { return ''; }
     }
     function titleCase(s) {
       return String(s || '').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -755,11 +842,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           try {
             const v = JSON.parse(localStorage.getItem(key) || 'null');
             if (!v) continue;
-            drafts.push({
-              id,
-              filename: v.filename || id,
-              savedAt: v.savedAt || 0,
-            });
+            drafts.push({ id, filename: v.filename || id, savedAt: v.savedAt || 0 });
           } catch (_) {}
         }
       } catch (_) {}
@@ -790,7 +873,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         if (!brand) { $statBrand.textContent = 'Not set'; return; }
         const parts = [];
         const colourCount = (brand.colors || []).filter((c) => c && c.hex).length;
-        const fontCount = (brand.fonts ? [brand.fonts.heading, brand.fonts.body].filter(Boolean).length : 0);
+        const fontCount = brand.fonts ? [brand.fonts.heading, brand.fonts.body].filter(Boolean).length : 0;
         const logoCount = (brand.logos || []).length;
         if (colourCount) parts.push(colourCount + ' colour' + (colourCount === 1 ? '' : 's'));
         if (fontCount) parts.push(fontCount + ' font' + (fontCount === 1 ? '' : 's'));
@@ -802,6 +885,104 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
     }
 
+    // ====== Shop modal ======
+    let cachedPacks = null;
+    let ownedPackIds = new Set();
+
+    function setView(name) {
+      document.querySelectorAll('.shop-view').forEach((v) => {
+        v.hidden = v.getAttribute('data-view') !== name;
+      });
+    }
+
+    async function openShop() {
+      $shopModal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      setView('grid');
+      if (!cachedPacks) {
+        $shopLoading.hidden = false;
+        const { data, error } = await supabase
+          .from('packs')
+          .select('id, slug, title, description, price_pence, cover_image_url, contents, category, sort_order')
+          .eq('status', 'active')
+          .order('sort_order', { ascending: true });
+        $shopLoading.hidden = true;
+        if (error || !data || !data.length) {
+          $shopEmpty.hidden = false;
+          return;
+        }
+        cachedPacks = data;
+      }
+      renderGrid();
+    }
+
+    function closeShop() {
+      $shopModal.hidden = true;
+      document.body.style.overflow = '';
+    }
+
+    function renderGrid() {
+      $shopGrid.innerHTML = cachedPacks.map((p) => {
+        const cover = p.cover_image_url ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : '';
+        return `
+          <button type="button" class="shop-card" data-slug="${escapeHtml(p.slug)}">
+            <div class="shop-card-cover" ${cover}></div>
+            <div class="shop-card-body">
+              ${p.category ? `<span class="shop-card-cat">${escapeHtml(p.category)}</span>` : ''}
+              <h3 class="shop-card-title">${escapeHtml(p.title)}</h3>
+              <span class="shop-card-price">${gbpFromPence(p.price_pence)}${ownedPackIds.has(p.id) ? ' &middot; Owned' : ''}</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function showDetail(slug) {
+      const p = cachedPacks.find((x) => x.slug === slug);
+      if (!p) return;
+      const cover = p.cover_image_url ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : '';
+      const owned = ownedPackIds.has(p.id);
+      const contentsHtml = (p.contents || []).map((c) => `<li>${escapeHtml(c)}</li>`).join('');
+      $shopDetail.innerHTML = `
+        <div class="shop-detail-cover" ${cover}></div>
+        <div class="shop-detail-body">
+          ${p.category ? `<span class="shop-detail-cat">${escapeHtml(p.category)}</span>` : ''}
+          <h2 class="shop-detail-title">${escapeHtml(p.title)}</h2>
+          <p class="shop-detail-desc">${escapeHtml(p.description || '')}</p>
+          ${contentsHtml ? `<ul>${contentsHtml}</ul>` : ''}
+          <div class="shop-detail-foot">
+            <span class="shop-detail-price">${gbpFromPence(p.price_pence)}</span>
+            ${owned
+              ? `<span class="shop-already">Already in your library</span>`
+              : `<a class="shop-buy" href="/edit?buy=${encodeURIComponent(p.slug)}">Purchase &rarr;</a>`}
+          </div>
+        </div>
+      `;
+      setView('detail');
+    }
+
+    $shopOpen?.addEventListener('click', openShop);
+    $shopClose?.addEventListener('click', closeShop);
+    $shopModal?.addEventListener('click', (e) => { if (e.target === $shopModal) closeShop(); });
+    $shopBack?.addEventListener('click', () => setView('grid'));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$shopModal.hidden) closeShop();
+    });
+    $shopGrid?.addEventListener('click', (e) => {
+      const card = e.target.closest('.shop-card');
+      if (!card) return;
+      showDetail(card.getAttribute('data-slug'));
+    });
+    // "Add another pack" / "Browse The Edit" inline links open the same modal.
+    document.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t instanceof HTMLElement && t.hasAttribute('data-shop')) {
+        e.preventDefault();
+        openShop();
+      }
+    });
+
+    // ====== Bootstrap ======
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -817,11 +998,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       $welcomeSub.textContent = 'Your designs, packs and account in one place.';
       $footerEmail.textContent = email;
 
-      // Local drafts + brand stats run independent of network.
       renderDrafts(readLocalDrafts());
       renderBrandStat();
 
-      // Pull orders linked to this user (by id) OR matching the email.
       const { data: orders, error } = await supabase
         .from('orders')
         .select('id, pack_id, pack_slug, pack_title, amount_pence, invoice_number, status, payment_method, created_at, buyer_company')
@@ -835,28 +1014,28 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       $loading.hidden = true;
 
-      // Stats: packs + lifetime spend
       const uniquePacks = new Set();
       let totalSpend = 0;
       (orders || []).forEach((o) => {
         if (o.status === 'paid') {
-          if (o.pack_id) uniquePacks.add(o.pack_id);
+          if (o.pack_id) {
+            uniquePacks.add(o.pack_id);
+            ownedPackIds.add(o.pack_id);
+          }
           totalSpend += (o.amount_pence || 0);
         }
       });
       $statPacks.textContent = String(uniquePacks.size);
       $statSpend.textContent = gbpFromPence(totalSpend) || '£0';
-      $statSpendFoot.textContent = orders && orders.length
-        ? `Across ${orders.length} order${orders.length === 1 ? '' : 's'}`
+      $statSpendFoot.innerHTML = orders && orders.length
+        ? `Across ${orders.length} order${orders.length === 1 ? '' : 's'} &middot; <a href="/account/orders">View all</a>`
         : 'No orders yet';
 
       if (!orders || orders.length === 0) {
         $empty.hidden = false;
-        $orders.innerHTML = `<div class="lib-state" style="padding:18px 22px;">No invoices yet.</div>`;
         return;
       }
 
-      // Group by pack_id so a user who bought the same pack twice sees one tile.
       const byPack = new Map();
       orders.forEach((o) => {
         if (!byPack.has(o.pack_id)) byPack.set(o.pack_id, { order: o, count: 1 });
@@ -878,6 +1057,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const desc = pack?.description ?? '';
         const itemCount = (pack?.contents ?? []).length;
         const tag = itemCount ? `${itemCount} items` : 'Purchased';
+        const fmtDate = new Date(order.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         return `
           <article class="pack-row">
             <div class="pack-row-cover" ${cover}>
@@ -885,7 +1065,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             </div>
             <div class="pack-row-body">
               <div class="pack-row-meta">
-                <span>Purchased ${formatDate(order.created_at)}</span>
+                <span>Purchased ${fmtDate}</span>
                 ${count > 1 ? `<span>·</span><span>${count} copies</span>` : ''}
               </div>
               <h3 class="pack-row-title">${escapeHtml(order.pack_title)}</h3>
@@ -899,25 +1079,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </article>
         `;
       }).join('');
-
-      $orders.innerHTML = `
-        <div class="order-row order-row-head">
-          <span>Invoice</span>
-          <span>Pack</span>
-          <span>Method</span>
-          <span>Date</span>
-          <span>Status</span>
-        </div>
-        ${orders.map((o) => `
-          <div class="order-row">
-            <span class="order-invoice"><a href="/edit/thanks?order=${encodeURIComponent(o.id)}">${escapeHtml(o.invoice_number || '—')}</a></span>
-            <span>${escapeHtml(o.pack_title)}</span>
-            <span>${({ apple_pay: 'Apple Pay', google_pay: 'Google Pay', card: 'Card' }[o.payment_method] || o.payment_method)}</span>
-            <span>${formatDate(o.created_at)}</span>
-            <span><span class="pill">${escapeHtml(o.status)}</span></span>
-          </div>
-        `).join('')}
-      `;
     })();
   </script>
 </BaseLayout>
