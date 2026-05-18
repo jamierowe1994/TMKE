@@ -1,0 +1,548 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHero from "../../components/PageHero.astro";
+---
+
+<BaseLayout
+  title="Enquiries — Admin · TMKE"
+  description="Review contact form submissions, reply, and triage."
+>
+  <div class="admin-hero-pad">
+    <PageHero
+      chapter="Admin — Enquiries"
+      title="Contact <em>enquiries.</em>"
+      sub="Every submission from the contact form lands here. Reply, triage, or close."
+    />
+  </div>
+
+  <section class="admin-bar wrap">
+    <a href="/admin" class="admin-back">&larr; Dashboard</a>
+    <div class="admin-bar-actions">
+      <div class="enquiry-filters" id="enquiry-filters" role="tablist">
+        <button type="button" class="enquiry-chip is-active" data-filter="all">All</button>
+        <button type="button" class="enquiry-chip" data-filter="new">New <span class="enquiry-chip-count" data-count="new">0</span></button>
+        <button type="button" class="enquiry-chip" data-filter="replied">Replied</button>
+        <button type="button" class="enquiry-chip" data-filter="closed">Closed</button>
+        <button type="button" class="enquiry-chip" data-filter="spam">Spam</button>
+      </div>
+      <span class="admin-bar-count" id="enquiry-count">…</span>
+    </div>
+  </section>
+
+  <section class="enquiry-list wrap" id="enquiry-list" aria-busy="true">
+    <p class="enquiry-loading" id="enquiry-loading">Loading enquiries…</p>
+    <p class="enquiry-empty" id="enquiry-empty" hidden>No enquiries match this filter.</p>
+    <div class="enquiry-table" id="enquiry-table" role="table"></div>
+  </section>
+
+  <div class="modal-backdrop" id="enquiry-modal" hidden>
+    <div class="modal enquiry-modal" role="dialog" aria-modal="true" aria-labelledby="enquiry-modal-title">
+      <header class="modal-head">
+        <h2 id="enquiry-modal-title">Enquiry</h2>
+        <button type="button" class="modal-close" id="enquiry-modal-close" aria-label="Close">&times;</button>
+      </header>
+
+      <div class="enquiry-detail" id="enquiry-detail"></div>
+
+      <footer class="modal-foot enquiry-modal-foot">
+        <button type="button" class="admin-btn admin-btn-danger" data-action="spam">Mark spam</button>
+        <button type="button" class="admin-btn admin-btn-ghost" data-action="closed">Close</button>
+        <div class="spacer"></div>
+        <button type="button" class="admin-btn admin-btn-ghost" data-action="replied">Mark replied</button>
+        <a href="#" class="admin-btn admin-btn-primary" id="enquiry-reply">Reply via email</a>
+      </footer>
+    </div>
+  </div>
+
+  <style is:global>
+    .admin-hero-pad { padding-top: 100px; }
+    @media (max-width: 720px) { .admin-hero-pad { padding-top: 56px; } }
+
+    .admin-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 12px 36px 0;
+      flex-wrap: wrap;
+    }
+    .admin-back {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      font-weight: 700;
+    }
+    .admin-back:hover { color: var(--ink); }
+    .admin-bar-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .admin-bar-count {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.6);
+      font-weight: 600;
+    }
+
+    .enquiry-filters { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .enquiry-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      background: transparent;
+      border: 1px solid rgba(71, 66, 84, 0.3);
+      border-radius: 999px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .enquiry-chip:hover { background: rgba(71, 66, 84, 0.06); }
+    .enquiry-chip.is-active {
+      background: var(--english-violet);
+      color: var(--paper);
+      border-color: var(--english-violet);
+    }
+    .enquiry-chip-count {
+      display: inline-block;
+      min-width: 18px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(28, 29, 34, 0.12);
+      font-size: 10px;
+      letter-spacing: 0;
+    }
+    .enquiry-chip.is-active .enquiry-chip-count { background: rgba(242, 239, 233, 0.2); }
+
+    .enquiry-list {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px 36px 200px;
+    }
+    .enquiry-loading, .enquiry-empty {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: rgba(28, 29, 34, 0.55);
+      padding: 40px 0;
+    }
+    .enquiry-table {
+      display: grid;
+      gap: 1px;
+      background: rgba(71, 66, 84, 0.18);
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .enquiry-row {
+      display: grid;
+      grid-template-columns: 110px 1.4fr 1.4fr 1.2fr 110px 24px;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--paper);
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .enquiry-row.is-header {
+      cursor: default;
+      background: rgba(71, 66, 84, 0.04);
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28, 29, 34, 0.55);
+    }
+    .enquiry-row:not(.is-header):hover { background: rgba(71, 66, 84, 0.04); }
+    .enquiry-when { font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.7); }
+    .enquiry-who { font-family: var(--sans); font-size: 14px; color: var(--ink); }
+    .enquiry-who-name { font-weight: 700; }
+    .enquiry-who-meta { font-size: 12px; color: rgba(28, 29, 34, 0.55); margin-top: 2px; }
+    .enquiry-snippet {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28, 29, 34, 0.7);
+      line-height: 1.5;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .enquiry-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .enquiry-status-pill::before {
+      content: "";
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .enquiry-status-pill.is-new      { color: #2c7a4b; background: rgba(44, 122, 75, 0.1); }
+    .enquiry-status-pill.is-replied  { color: var(--english-violet); background: rgba(71, 66, 84, 0.1); }
+    .enquiry-status-pill.is-closed   { color: rgba(28, 29, 34, 0.55); background: rgba(28, 29, 34, 0.06); }
+    .enquiry-status-pill.is-spam     { color: #a05a3c; background: rgba(160, 90, 60, 0.1); }
+    .enquiry-row-arrow {
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--english-violet);
+      justify-self: end;
+      font-size: 16px;
+    }
+
+    /* ----- Modal ----- */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(20, 18, 26, 0.55);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .modal-backdrop[hidden] { display: none; }
+    .modal.enquiry-modal {
+      background: var(--paper);
+      max-width: 720px;
+      width: 100%;
+      max-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(20, 18, 26, 0.35);
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 28px;
+      border-bottom: 1px solid rgba(71, 66, 84, 0.12);
+    }
+    .modal-head h2 {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 500;
+      margin: 0;
+      color: var(--ink);
+    }
+    .modal-close {
+      background: transparent;
+      border: none;
+      font-size: 28px;
+      line-height: 1;
+      color: var(--english-violet);
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .enquiry-detail {
+      padding: 24px 28px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .enquiry-detail dl {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 6px 18px;
+      margin: 0 0 24px;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .enquiry-detail dt {
+      color: rgba(28, 29, 34, 0.55);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .enquiry-detail dd { margin: 0; color: var(--ink); word-break: break-word; }
+    .enquiry-detail dd a { color: var(--english-violet); text-decoration: underline; }
+    .enquiry-message {
+      background: rgba(71, 66, 84, 0.04);
+      border-left: 3px solid var(--english-violet);
+      padding: 16px 18px;
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--ink);
+      white-space: pre-wrap;
+      border-radius: 2px;
+      margin-bottom: 20px;
+    }
+    .enquiry-notes-label {
+      display: block;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28, 29, 34, 0.6);
+      margin: 0 0 8px;
+    }
+    .enquiry-notes {
+      width: 100%;
+      min-height: 80px;
+      padding: 12px 14px;
+      border: 1px solid rgba(71, 66, 84, 0.3);
+      border-radius: 2px;
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink);
+      background: var(--paper);
+      resize: vertical;
+    }
+    .enquiry-notes:focus { outline: none; border-color: var(--english-violet); }
+    .enquiry-notes-save {
+      margin-top: 8px;
+      font-family: var(--sans);
+      font-size: 12px;
+      color: rgba(28, 29, 34, 0.55);
+    }
+    .modal-foot {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 16px 28px;
+      border-top: 1px solid rgba(71, 66, 84, 0.12);
+      flex-wrap: wrap;
+    }
+    .modal-foot .spacer { flex: 1; }
+
+    .admin-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 2px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      text-decoration: none;
+    }
+    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
+    .admin-btn-primary:hover { background: var(--ink); color: var(--paper); }
+    .admin-btn-ghost { background: transparent; border-color: rgba(71, 66, 84, 0.4); color: var(--english-violet); }
+    .admin-btn-ghost:hover { background: rgba(71, 66, 84, 0.06); }
+    .admin-btn-danger { background: transparent; border-color: #a05a3c; color: #a05a3c; }
+    .admin-btn-danger:hover { background: #a05a3c; color: var(--paper); }
+
+    @media (max-width: 860px) {
+      .enquiry-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        padding: 14px 16px;
+      }
+      .enquiry-row.is-header { display: none; }
+      .enquiry-row-arrow { display: none; }
+    }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase } from "../../lib/supabase.js";
+
+    const STATUS_LABEL = { new: "New", replied: "Replied", closed: "Closed", spam: "Spam" };
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function fmtWhen(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = (now - d) / 1000;
+      if (diff < 60) return "just now";
+      if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+      if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+      if (diff < 86400 * 7) return Math.floor(diff / 86400) + "d ago";
+      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    }
+
+    let all = [];
+    let activeFilter = "all";
+
+    function applyFilter() {
+      const grid = document.getElementById("enquiry-table");
+      const emptyEl = document.getElementById("enquiry-empty");
+      if (!grid) return;
+      const rows = activeFilter === "all" ? all : all.filter((r) => r.status === activeFilter);
+      const countEl = document.getElementById("enquiry-count");
+      if (countEl) countEl.textContent = `${rows.length} ${rows.length === 1 ? "enquiry" : "enquiries"}`;
+      if (rows.length === 0) {
+        grid.innerHTML = "";
+        if (emptyEl) emptyEl.hidden = false;
+        return;
+      }
+      if (emptyEl) emptyEl.hidden = true;
+      grid.innerHTML =
+        `<div class="enquiry-row is-header">
+          <div>When</div><div>Who</div><div>Message</div><div>Business</div><div>Status</div><div></div>
+        </div>` +
+        rows
+          .map(
+            (r) => `
+            <div class="enquiry-row" data-id="${r.id}">
+              <div class="enquiry-when">${fmtWhen(r.created_at)}</div>
+              <div class="enquiry-who">
+                <div class="enquiry-who-name">${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}</div>
+                <div class="enquiry-who-meta">${escapeHtml(r.email)}</div>
+              </div>
+              <div class="enquiry-snippet">${escapeHtml(r.message || "—")}</div>
+              <div class="enquiry-who">
+                ${escapeHtml(r.business_name || "—")}
+                ${r.industry ? `<div class="enquiry-who-meta">${escapeHtml(r.industry)}</div>` : ""}
+              </div>
+              <div><span class="enquiry-status-pill is-${r.status}">${STATUS_LABEL[r.status] || r.status}</span></div>
+              <div class="enquiry-row-arrow">&rarr;</div>
+            </div>`
+          )
+          .join("");
+
+      grid.querySelectorAll("[data-id]").forEach((el) => {
+        el.addEventListener("click", () => openDetail(el.getAttribute("data-id")));
+      });
+    }
+
+    function refreshCounts() {
+      const newCount = all.filter((r) => r.status === "new").length;
+      const cEl = document.querySelector('[data-count="new"]');
+      if (cEl) cEl.textContent = String(newCount);
+    }
+
+    let current = null;
+
+    function openDetail(id) {
+      const row = all.find((r) => r.id === id);
+      if (!row) return;
+      current = row;
+      const modal = document.getElementById("enquiry-modal");
+      const detail = document.getElementById("enquiry-detail");
+      const reply = document.getElementById("enquiry-reply");
+      const title = document.getElementById("enquiry-modal-title");
+      if (!modal || !detail || !reply || !title) return;
+      title.textContent = `${row.first_name} ${row.last_name}`;
+      const subject = encodeURIComponent("Re: Your enquiry to TMKE");
+      const body = encodeURIComponent(
+        `Hi ${row.first_name},\n\nThanks for getting in touch about ${row.business_name || "your business"}.\n\n`
+      );
+      reply.setAttribute("href", `mailto:${row.email}?subject=${subject}&body=${body}`);
+
+      detail.innerHTML = `
+        <dl>
+          <dt>Received</dt><dd>${new Date(row.created_at).toLocaleString("en-GB")}</dd>
+          <dt>Email</dt><dd><a href="mailto:${row.email}">${escapeHtml(row.email)}</a></dd>
+          <dt>Phone</dt><dd>${row.phone ? `<a href="tel:${row.phone}">${escapeHtml(row.phone)}</a>` : "—"}</dd>
+          <dt>Business</dt><dd>${escapeHtml(row.business_name || "—")}</dd>
+          <dt>Industry</dt><dd>${escapeHtml(row.industry || "—")}</dd>
+          <dt>Status</dt><dd><span class="enquiry-status-pill is-${row.status}">${STATUS_LABEL[row.status] || row.status}</span></dd>
+        </dl>
+        <div class="enquiry-message">${escapeHtml(row.message || "(no message)")}</div>
+        <label class="enquiry-notes-label" for="enquiry-notes">Internal notes</label>
+        <textarea class="enquiry-notes" id="enquiry-notes" placeholder="Anything worth remembering…">${escapeHtml(row.notes || "")}</textarea>
+        <div class="enquiry-notes-save" id="enquiry-notes-save"></div>
+      `;
+      modal.hidden = false;
+
+      const notesEl = document.getElementById("enquiry-notes");
+      const notesSave = document.getElementById("enquiry-notes-save");
+      let saveTimer = null;
+      notesEl?.addEventListener("input", () => {
+        if (saveTimer) clearTimeout(saveTimer);
+        if (notesSave) notesSave.textContent = "Saving…";
+        saveTimer = setTimeout(async () => {
+          const value = notesEl.value;
+          const { error } = await supabase.from("enquiries").update({ notes: value }).eq("id", row.id);
+          if (notesSave) notesSave.textContent = error ? "Couldn't save." : "Saved.";
+          row.notes = value;
+        }, 600);
+      });
+    }
+
+    function closeDetail() {
+      const modal = document.getElementById("enquiry-modal");
+      if (modal) modal.hidden = true;
+      current = null;
+    }
+
+    async function changeStatus(status) {
+      if (!current) return;
+      const id = current.id;
+      const { error } = await supabase.from("enquiries").update({ status }).eq("id", id);
+      if (error) {
+        alert("Couldn't update status: " + error.message);
+        return;
+      }
+      const row = all.find((r) => r.id === id);
+      if (row) row.status = status;
+      applyFilter();
+      refreshCounts();
+      closeDetail();
+    }
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from("enquiries")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      const loading = document.getElementById("enquiry-loading");
+      if (loading) loading.hidden = true;
+      const listEl = document.getElementById("enquiry-list");
+      if (listEl) listEl.removeAttribute("aria-busy");
+
+      if (error) {
+        if (loading) {
+          loading.hidden = false;
+          loading.textContent = "Could not load enquiries: " + error.message;
+        }
+        return;
+      }
+
+      all = data || [];
+      refreshCounts();
+      applyFilter();
+
+      document.getElementById("enquiry-filters")?.addEventListener("click", (e) => {
+        const btn = e.target.closest(".enquiry-chip");
+        if (!btn) return;
+        document.querySelectorAll(".enquiry-chip").forEach((c) => c.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        activeFilter = btn.getAttribute("data-filter") || "all";
+        applyFilter();
+      });
+
+      document.getElementById("enquiry-modal-close")?.addEventListener("click", closeDetail);
+      document.getElementById("enquiry-modal")?.addEventListener("click", (e) => {
+        if (e.target instanceof HTMLElement && e.target.id === "enquiry-modal") closeDetail();
+      });
+      document.querySelectorAll(".modal-foot [data-action]").forEach((btn) => {
+        btn.addEventListener("click", () => changeStatus(btn.getAttribute("data-action")));
+      });
+    })();
+  </script>
+</BaseLayout>
