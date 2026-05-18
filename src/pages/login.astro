@@ -25,48 +25,99 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <a href="/" class="login-mark">TMKE</a>
 
       <div class="login-card">
-        <div class="eyebrow">Welcome back</div>
-        <h1 class="login-title">Sign in to your library</h1>
-        <p class="login-sub">
-          Enter your details below. Don't have an account?
-          <a href="/edit" class="login-inline-link">Browse The Edit</a>.
-        </p>
+        <div class="login-tabs" role="tablist">
+          <button type="button" class="login-tab is-active" data-tab="signin" role="tab" aria-selected="true">Sign in</button>
+          <button type="button" class="login-tab" data-tab="signup" role="tab" aria-selected="false">Create account</button>
+        </div>
 
-        <form id="login-form" class="login-form" novalidate>
-          <label class="login-field">
-            <span>Email</span>
-            <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" />
-          </label>
-
-          <label class="login-field">
-            <span>Password</span>
-            <input type="password" name="password" autocomplete="current-password" required placeholder="••••••••" />
-          </label>
-
-          <div class="login-row">
-            <label class="login-check">
-              <input type="checkbox" name="remember" checked />
-              <span>Keep me signed in</span>
-            </label>
-            <a href="#" class="login-forgot">Forgot password?</a>
-          </div>
-
-          <button type="submit" class="btn btn--solid login-submit">
-            Sign in <span class="btn-arrow">&rarr;</span>
-          </button>
-
-          <p id="login-error" class="login-error" hidden></p>
-
-          <div class="login-divider"><span>or</span></div>
-
-          <button type="button" class="login-sso" id="login-demo">
-            Browse The Edit instead
-          </button>
-
-          <p class="login-hint">
-            New here? <em>Buy a pack on The Edit and you'll be prompted to set a password — that's your account.</em>
+        <!-- Sign in -->
+        <div class="login-pane is-active" data-pane="signin">
+          <div class="eyebrow">Welcome back</div>
+          <h1 class="login-title">Sign in to your library</h1>
+          <p class="login-sub">
+            Enter your details below. New here?
+            <button type="button" class="login-inline-link" data-go="signup">Create an account</button>.
           </p>
-        </form>
+
+          <form id="login-form" class="login-form" novalidate>
+            <label class="login-field">
+              <span>Email</span>
+              <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" />
+            </label>
+
+            <label class="login-field">
+              <span>Password</span>
+              <input type="password" name="password" autocomplete="current-password" required placeholder="••••••••" />
+            </label>
+
+            <div class="login-row">
+              <label class="login-check">
+                <input type="checkbox" name="remember" checked />
+                <span>Keep me signed in</span>
+              </label>
+              <a href="/forgot-password" class="login-forgot">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="btn btn--solid login-submit">
+              <span data-label>Sign in</span> <span class="btn-arrow">&rarr;</span>
+            </button>
+
+            <p id="login-error" class="login-error" hidden></p>
+          </form>
+        </div>
+
+        <!-- Sign up -->
+        <div class="login-pane" data-pane="signup" hidden>
+          <div class="eyebrow">Welcome to TMKE</div>
+          <h1 class="login-title">Create your account</h1>
+          <p class="login-sub">
+            Set up your library so it's ready when you make a purchase.
+            Already have one?
+            <button type="button" class="login-inline-link" data-go="signin">Sign in</button>.
+          </p>
+
+          <form id="signup-form" class="login-form" novalidate>
+            <label class="login-field">
+              <span>Full name</span>
+              <input type="text" name="name" autocomplete="name" required placeholder="Jamie Rowe" />
+            </label>
+
+            <label class="login-field">
+              <span>Email</span>
+              <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" />
+            </label>
+
+            <label class="login-field">
+              <span>Password</span>
+              <input type="password" name="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" />
+            </label>
+
+            <label class="login-check login-check--terms">
+              <input type="checkbox" name="terms" required />
+              <span>I agree to the <a href="#" class="login-inline-anchor">terms</a> and <a href="#" class="login-inline-anchor">privacy policy</a>.</span>
+            </label>
+
+            <button type="submit" class="btn btn--solid login-submit">
+              <span data-label>Create account</span> <span class="btn-arrow">&rarr;</span>
+            </button>
+
+            <p id="signup-error" class="login-error" hidden></p>
+          </form>
+        </div>
+
+        <!-- Post-signup confirmation state -->
+        <div class="login-pane" data-pane="check-email" hidden>
+          <div class="eyebrow">Almost there</div>
+          <h1 class="login-title">Check your inbox.</h1>
+          <p class="login-sub">
+            We've sent a confirmation link to <strong id="signup-email-out"></strong>.
+            Click it to verify your address and finish setting up your account.
+          </p>
+          <p class="login-hint">
+            Didn't get it? Check spam — or
+            <button type="button" class="login-inline-link" id="resend-confirm">resend the email</button>.
+          </p>
+        </div>
       </div>
 
       <p class="login-meta">© 2026 TMKE — The Marketing Experts</p>
@@ -144,6 +195,59 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       max-width: 440px;
     }
     .login-card .eyebrow { margin-bottom: 14px; }
+
+    .login-tabs {
+      display: inline-flex;
+      gap: 0;
+      margin-bottom: 36px;
+      border-bottom: 1px solid rgba(28, 29, 34, 0.12);
+    }
+    .login-tab {
+      padding: 10px 0;
+      margin-right: 28px;
+      background: transparent;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.45);
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .login-tab:hover { color: var(--ink); }
+    .login-tab.is-active {
+      color: var(--english-violet);
+      border-bottom-color: var(--english-violet);
+    }
+
+    .login-pane[hidden] { display: none; }
+    .login-pane.is-active { display: block; }
+
+    .login-inline-link {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      color: var(--english-violet);
+      border-bottom: 1px solid currentColor;
+      cursor: pointer;
+    }
+    .login-inline-anchor {
+      color: var(--english-violet);
+      border-bottom: 1px solid currentColor;
+    }
+    .login-check--terms {
+      font-size: 13px;
+      line-height: 1.55;
+      align-items: flex-start;
+      color: rgba(28, 29, 34, 0.7);
+    }
+    .login-check--terms input {
+      margin-top: 3px;
+    }
     .login-title {
       font-family: var(--serif);
       font-weight: 400;
@@ -284,12 +388,38 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <script>
     import { supabase } from "../lib/supabase.js";
 
-    const form = document.getElementById("login-form");
-    const errorEl = document.getElementById("login-error");
-    const demoBtn = document.getElementById("login-demo");
+    const signinForm = document.getElementById("login-form");
+    const signupForm = document.getElementById("signup-form");
+    const signinError = document.getElementById("login-error");
+    const signupError = document.getElementById("signup-error");
+    const signupEmailOut = document.getElementById("signup-email-out");
+    const resendBtn = document.getElementById("resend-confirm");
 
-    // Route a freshly-authed user to their destination, taking them through
-    // the brand-kit setup on first sign-in and fronting it with the splash.
+    // ---- Tab switching ----
+    function showPane(name) {
+      document.querySelectorAll(".login-pane").forEach((p) => {
+        const active = p.getAttribute("data-pane") === name;
+        p.hidden = !active;
+        p.classList.toggle("is-active", active);
+      });
+      document.querySelectorAll(".login-tab").forEach((b) => {
+        const active = b.getAttribute("data-tab") === name;
+        b.classList.toggle("is-active", active);
+        b.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+    document.querySelectorAll(".login-tab").forEach((b) =>
+      b.addEventListener("click", () => showPane(b.getAttribute("data-tab")))
+    );
+    document.querySelectorAll("[data-go]").forEach((el) =>
+      el.addEventListener("click", () => showPane(el.getAttribute("data-go")))
+    );
+
+    // Honour ?mode=signup link parameter (e.g. from /edit "create account first" CTA)
+    const params = new URLSearchParams(location.search);
+    if (params.get("mode") === "signup") showPane("signup");
+
+    // ---- Post-auth routing ----
     function routeAfterSignIn() {
       const nextParam = new URLSearchParams(location.search).get("next");
       let firstTime = false;
@@ -311,32 +441,109 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (session) routeAfterSignIn();
     })();
 
-    function showError(msg) {
-      errorEl.textContent = msg;
-      errorEl.hidden = false;
+    function showError(el, msg) {
+      el.textContent = msg;
+      el.hidden = false;
+    }
+    function setBtnLoading(btn, isLoading, loadingText) {
+      const label = btn.querySelector("[data-label]");
+      if (!btn._origText) btn._origText = label ? label.textContent : btn.textContent;
+      if (isLoading) {
+        btn.setAttribute("disabled", "true");
+        if (label) label.textContent = loadingText;
+      } else {
+        btn.removeAttribute("disabled");
+        if (label) label.textContent = btn._origText;
+      }
     }
 
-    form.addEventListener("submit", async (e) => {
+    // ---- Sign in ----
+    signinForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      errorEl.hidden = true;
-      const data = new FormData(form);
+      signinError.hidden = true;
+      const data = new FormData(signinForm);
       const email = String(data.get("email") || "").trim();
       const password = String(data.get("password") || "").trim();
       if (!email || !password) {
-        showError("Enter an email and password to sign in.");
+        showError(signinError, "Enter an email and password to sign in.");
         return;
       }
+      const btn = signinForm.querySelector('button[type="submit"]');
+      setBtnLoading(btn, true, "Signing in…");
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        showError(error.message);
+        setBtnLoading(btn, false);
+        showError(signinError, error.message);
         return;
       }
       routeAfterSignIn();
     });
 
-    // No account yet — point people at The Edit so they can purchase first.
-    demoBtn.addEventListener("click", () => {
-      window.location.href = "/edit";
+    // ---- Sign up ----
+    let lastSignupEmail = null;
+    signupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      signupError.hidden = true;
+      const data = new FormData(signupForm);
+      const name = String(data.get("name") || "").trim();
+      const email = String(data.get("email") || "").trim();
+      const password = String(data.get("password") || "");
+      const terms = signupForm.querySelector('input[name="terms"]').checked;
+      if (!name || !email || !password) {
+        showError(signupError, "Please fill in every field.");
+        return;
+      }
+      if (password.length < 8) {
+        showError(signupError, "Choose a password with at least 8 characters.");
+        return;
+      }
+      if (!terms) {
+        showError(signupError, "Please agree to the terms and privacy policy.");
+        return;
+      }
+      const btn = signupForm.querySelector('button[type="submit"]');
+      setBtnLoading(btn, true, "Creating account…");
+      const { data: signupData, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name },
+          emailRedirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent("/profile?next=/account")}`,
+        },
+      });
+      if (error) {
+        setBtnLoading(btn, false);
+        showError(signupError, error.message);
+        return;
+      }
+      lastSignupEmail = email;
+      // If the project has email confirmation OFF, Supabase returns a session
+      // immediately — route them straight into the library.
+      if (signupData.session) {
+        routeAfterSignIn();
+        return;
+      }
+      // Otherwise: show the "check your inbox" pane.
+      if (signupEmailOut) signupEmailOut.textContent = email;
+      showPane("check-email");
     });
+
+    // ---- Resend confirmation ----
+    if (resendBtn) {
+      resendBtn.addEventListener("click", async () => {
+        if (!lastSignupEmail) return;
+        resendBtn.setAttribute("disabled", "true");
+        resendBtn.textContent = "Sending…";
+        const { error } = await supabase.auth.resend({
+          type: "signup",
+          email: lastSignupEmail,
+          options: {
+            emailRedirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent("/profile?next=/account")}`,
+          },
+        });
+        resendBtn.removeAttribute("disabled");
+        resendBtn.textContent = error ? "Try again" : "Resent ✓";
+      });
+    }
   </script>
 </BaseLayout>
