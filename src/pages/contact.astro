@@ -110,6 +110,7 @@ const industries = [
             <p class="contact-form-thanks" hidden>
               Thanks — your message is on its way. We'll be in touch shortly.
             </p>
+            <p class="contact-form-error" role="alert" hidden></p>
           </div>
         </div>
       </form>
@@ -221,23 +222,65 @@ const industries = [
       }
     }
   })();
-  (function () {
-    const form = document.getElementById("tmke-contact-form");
-    if (!form) return;
-    form.addEventListener("submit", function (e) {
+</script>
+
+<script>
+  import { supabase } from "../lib/supabase.js";
+
+  const form = document.getElementById("tmke-contact-form");
+  if (form) {
+    const card = form.querySelector(".contact-form-card");
+    const thanks = form.querySelector(".contact-form-thanks");
+    const error = form.querySelector(".contact-form-error");
+    const btn = form.querySelector(".contact-submit");
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const card = form.querySelector(".contact-form-card");
-      const thanks = form.querySelector(".contact-form-thanks");
-      const btn = form.querySelector(".contact-submit");
       if (!form.checkValidity()) {
         form.reportValidity();
         return;
       }
-      if (btn) btn.setAttribute("disabled", "true");
+      if (error) error.hidden = true;
+      if (btn) {
+        btn.setAttribute("disabled", "true");
+        btn.textContent = "Sending…";
+      }
+
+      const fd = new FormData(form);
+      const payload = {
+        first_name: String(fd.get("first_name") || "").trim(),
+        last_name: String(fd.get("last_name") || "").trim(),
+        phone: String(fd.get("phone") || "").trim() || null,
+        email: String(fd.get("email") || "").trim(),
+        business_name: String(fd.get("business_name") || "").trim() || null,
+        industry: String(fd.get("industry") || "").trim() || null,
+        message: String(fd.get("message") || "").trim() || null,
+        source: "contact_form",
+      };
+
+      const { error: insertError } = await supabase
+        .from("enquiries")
+        .insert(payload);
+
+      if (insertError) {
+        console.error("[TMKE] enquiry insert failed", insertError);
+        if (btn) {
+          btn.removeAttribute("disabled");
+          btn.textContent = "Send Message";
+        }
+        if (error) {
+          error.textContent =
+            "Sorry — we couldn't send that. Please try again, or email hello@tmke.co.uk.";
+          error.hidden = false;
+        }
+        return;
+      }
+
       if (thanks) thanks.hidden = false;
       if (card) card.classList.add("is-sent");
+      form.reset();
     });
-  })();
+  }
 </script>
 
 <style is:global>
@@ -482,6 +525,12 @@ const industries = [
     font-family: var(--sans);
     font-size: 14px;
     color: var(--english-violet);
+  }
+  .contact-form-error {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: #b03a2e;
+    margin: 0;
   }
   .contact-form-card.is-sent .contact-field:not(.contact-submit-row) {
     opacity: 0.45;

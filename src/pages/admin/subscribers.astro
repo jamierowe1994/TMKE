@@ -1,0 +1,283 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHero from "../../components/PageHero.astro";
+---
+
+<BaseLayout
+  title="Subscribers — Admin · TMKE"
+  description="Active TMKE customers — anyone who has placed a paid Edit pack order in the last 60 days."
+>
+  <div class="admin-hero-pad">
+    <PageHero
+      chapter="Admin — Subscribers"
+      title="Active <em>customers.</em>"
+      sub="People who have placed a paid order in the last 60 days. Aggregated by email — total spend, packs bought, and last activity."
+    />
+  </div>
+
+  <section class="admin-bar wrap">
+    <a href="/admin" class="admin-back">&larr; Dashboard</a>
+    <div class="admin-bar-actions">
+      <div class="enquiry-filters" id="sub-filters" role="tablist">
+        <button type="button" class="enquiry-chip is-active" data-window="60">Last 60 days</button>
+        <button type="button" class="enquiry-chip" data-window="30">Last 30 days</button>
+        <button type="button" class="enquiry-chip" data-window="90">Last 90 days</button>
+        <button type="button" class="enquiry-chip" data-window="all">All time</button>
+      </div>
+      <input
+        type="search"
+        id="sub-search"
+        class="admin-search"
+        placeholder="Search name, email, company…"
+      />
+      <span class="admin-bar-count" id="sub-count">…</span>
+    </div>
+  </section>
+
+  <section class="order-stats wrap" id="sub-stats">
+    <div class="order-stat">
+      <div class="order-stat-label">Active subscribers</div>
+      <div class="order-stat-value" data-stat="subs">…</div>
+    </div>
+    <div class="order-stat">
+      <div class="order-stat-label">Revenue (window)</div>
+      <div class="order-stat-value" data-stat="rev">…</div>
+    </div>
+    <div class="order-stat">
+      <div class="order-stat-label">Orders (window)</div>
+      <div class="order-stat-value" data-stat="ord">…</div>
+    </div>
+    <div class="order-stat">
+      <div class="order-stat-label">Avg spend per subscriber</div>
+      <div class="order-stat-value" data-stat="avg">…</div>
+    </div>
+  </section>
+
+  <section class="order-list wrap" id="sub-list" aria-busy="true">
+    <p class="enquiry-loading" id="sub-loading">Loading subscribers…</p>
+    <p class="enquiry-empty" id="sub-empty" hidden>No active subscribers in this window.</p>
+    <div class="enquiry-table" id="sub-table" role="table"></div>
+  </section>
+
+  <style is:global>
+    .admin-hero-pad { padding-top: 100px; }
+    @media (max-width: 720px) { .admin-hero-pad { padding-top: 56px; } }
+
+    .sub-row {
+      display: grid;
+      grid-template-columns: 1.4fr 1.6fr 1fr 110px 130px 130px;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--paper);
+      align-items: center;
+      transition: background 0.15s;
+    }
+    .sub-row.is-header {
+      background: rgba(71, 66, 84, 0.04);
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28, 29, 34, 0.55);
+    }
+    .sub-row:not(.is-header):hover { background: rgba(71, 66, 84, 0.04); }
+    .sub-name { font-family: var(--sans); font-size: 14px; color: var(--ink); font-weight: 700; }
+    .sub-email {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28, 29, 34, 0.7);
+      word-break: break-word;
+    }
+    .sub-company {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink);
+    }
+    .sub-count {
+      font-family: var(--serif);
+      font-size: 20px;
+      color: var(--ink);
+      font-weight: 500;
+    }
+    .sub-spend {
+      font-family: var(--serif);
+      font-size: 18px;
+      color: var(--ink);
+      font-weight: 500;
+    }
+    .sub-last {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28, 29, 34, 0.7);
+    }
+
+    @media (max-width: 980px) {
+      .sub-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        padding: 14px 16px;
+      }
+      .sub-row.is-header { display: none; }
+    }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase, gbpFromPence } from "../../lib/supabase.js";
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+    function fmtWhen(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = (now - d) / 1000;
+      if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+      if (diff < 86400 * 7) return Math.floor(diff / 86400) + "d ago";
+      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    }
+
+    let allOrders = [];
+    let windowDays = 60;
+    let search = "";
+
+    function aggregate() {
+      const cutoff = windowDays === "all"
+        ? -Infinity
+        : Date.now() - Number(windowDays) * 24 * 60 * 60 * 1000;
+      const map = new Map();
+      for (const o of allOrders) {
+        if (o.status !== "paid") continue;
+        const ts = new Date(o.created_at).getTime();
+        if (ts < cutoff) continue;
+        const key = (o.buyer_email || "").toLowerCase();
+        if (!key) continue;
+        const existing = map.get(key);
+        if (existing) {
+          existing.count += 1;
+          existing.spend += o.amount_pence || 0;
+          if (ts > existing.lastTs) {
+            existing.lastTs = ts;
+            existing.lastAt = o.created_at;
+          }
+          if (!existing.company && o.buyer_company) existing.company = o.buyer_company;
+        } else {
+          map.set(key, {
+            email: o.buyer_email,
+            name: o.buyer_name,
+            company: o.buyer_company || "",
+            count: 1,
+            spend: o.amount_pence || 0,
+            lastTs: ts,
+            lastAt: o.created_at,
+          });
+        }
+      }
+      return Array.from(map.values()).sort((a, b) => b.lastTs - a.lastTs);
+    }
+
+    function visibleRows() {
+      let rows = aggregate();
+      const q = search.trim().toLowerCase();
+      if (q) {
+        rows = rows.filter((r) =>
+          [r.name, r.email, r.company].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+        );
+      }
+      return rows;
+    }
+
+    function render() {
+      const rows = visibleRows();
+      const totalRev = rows.reduce((s, r) => s + r.spend, 0);
+      const totalOrd = rows.reduce((s, r) => s + r.count, 0);
+      const avg = rows.length ? Math.round(totalRev / rows.length) : 0;
+      const set = (k, v) => {
+        const el = document.querySelector(`[data-stat="${k}"]`);
+        if (el) el.textContent = v;
+      };
+      set("subs", String(rows.length));
+      set("rev", gbpFromPence(totalRev));
+      set("ord", String(totalOrd));
+      set("avg", rows.length ? gbpFromPence(avg) : "—");
+
+      const countEl = document.getElementById("sub-count");
+      if (countEl) countEl.textContent = `${rows.length} ${rows.length === 1 ? "subscriber" : "subscribers"}`;
+
+      const grid = document.getElementById("sub-table");
+      const emptyEl = document.getElementById("sub-empty");
+      if (!grid) return;
+      if (rows.length === 0) {
+        grid.innerHTML = "";
+        if (emptyEl) emptyEl.hidden = false;
+        return;
+      }
+      if (emptyEl) emptyEl.hidden = true;
+      grid.innerHTML =
+        `<div class="sub-row is-header">
+          <div>Name</div><div>Email</div><div>Company</div>
+          <div>Packs</div><div>Total spend</div><div>Last order</div>
+        </div>` +
+        rows
+          .map(
+            (r) => `
+            <div class="sub-row">
+              <div class="sub-name">${escapeHtml(r.name)}</div>
+              <div class="sub-email"><a href="mailto:${r.email}">${escapeHtml(r.email)}</a></div>
+              <div class="sub-company">${escapeHtml(r.company || "—")}</div>
+              <div class="sub-count">${r.count}</div>
+              <div class="sub-spend">${gbpFromPence(r.spend)}</div>
+              <div class="sub-last">${fmtWhen(r.lastAt)}</div>
+            </div>`
+          )
+          .join("");
+    }
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("buyer_name, buyer_email, buyer_company, amount_pence, status, created_at")
+        .order("created_at", { ascending: false });
+
+      const loading = document.getElementById("sub-loading");
+      if (loading) loading.hidden = true;
+      const listEl = document.getElementById("sub-list");
+      if (listEl) listEl.removeAttribute("aria-busy");
+
+      if (error) {
+        if (loading) {
+          loading.hidden = false;
+          loading.textContent = "Could not load subscribers: " + error.message;
+        }
+        return;
+      }
+
+      allOrders = data || [];
+      render();
+
+      document.getElementById("sub-filters")?.addEventListener("click", (e) => {
+        const btn = e.target.closest(".enquiry-chip");
+        if (!btn) return;
+        document.querySelectorAll("#sub-filters .enquiry-chip").forEach((c) => c.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        const w = btn.getAttribute("data-window");
+        windowDays = w === "all" ? "all" : Number(w);
+        render();
+      });
+
+      document.getElementById("sub-search")?.addEventListener("input", (e) => {
+        search = e.target.value || "";
+        render();
+      });
+    })();
+  </script>
+</BaseLayout>
