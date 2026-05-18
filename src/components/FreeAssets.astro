@@ -1,0 +1,505 @@
+---
+/**
+ * Floating lead-capture tab. Sits fixed on the left edge from the second
+ * section down. Three states driven by `data-state`:
+ *   - collapsed: small vertical tab (just "Free Assets")
+ *   - expanded:  pill panel listing 3 free assets
+ *   - form:      morphs into a square asking for name + email
+ *
+ * Made-up asset titles for now — swap in the real PDFs by setting
+ * data-asset / data-title on each .fa-item and wiring the submit to
+ * Mailerlite (or whatever sends the file).
+ */
+---
+
+<aside class="fa" id="free-assets" data-state="collapsed" aria-label="Free assets">
+  <!-- Collapsed: thin vertical tab poking out of the left edge -->
+  <button type="button" class="fa-tab" aria-label="Show free assets" aria-expanded="false">
+    <span>Free Assets</span>
+  </button>
+
+  <!-- Expanded: pill listing the three assets -->
+  <div class="fa-panel" aria-hidden="true">
+    <header class="fa-head">
+      <div>
+        <p class="fa-eyebrow">On the house</p>
+        <h3>Free assets</h3>
+      </div>
+      <button type="button" class="fa-x" aria-label="Close">&times;</button>
+    </header>
+    <p class="fa-sub">Pick one — we'll email it over. Quick.</p>
+    <ul class="fa-list" role="list">
+      <li>
+        <button type="button" class="fa-item" data-asset="brand-audit" data-title="The Property Brand Audit">
+          <span class="fa-item-num">01</span>
+          <span class="fa-item-body">
+            <span class="fa-item-h">The Property Brand Audit</span>
+            <span class="fa-item-d">A 12-point checklist. 5 minutes. Brutally honest.</span>
+          </span>
+          <span class="fa-item-arrow" aria-hidden="true">&rarr;</span>
+        </button>
+      </li>
+      <li>
+        <button type="button" class="fa-item" data-asset="five-and-live" data-title="Five &amp; Live — A week of posts">
+          <span class="fa-item-num">02</span>
+          <span class="fa-item-body">
+            <span class="fa-item-h">Five &amp; Live</span>
+            <span class="fa-item-d">Five ready-to-edit posts. Drop in your logo, post.</span>
+          </span>
+          <span class="fa-item-arrow" aria-hidden="true">&rarr;</span>
+        </button>
+      </li>
+      <li>
+        <button type="button" class="fa-item" data-asset="listing-day" data-title="The Listing Day Playbook">
+          <span class="fa-item-num">03</span>
+          <span class="fa-item-body">
+            <span class="fa-item-h">The Listing Day Playbook</span>
+            <span class="fa-item-d">Pre, during &amp; post-launch. The exact sequence.</span>
+          </span>
+          <span class="fa-item-arrow" aria-hidden="true">&rarr;</span>
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Form: square panel with name + email -->
+  <div class="fa-form" aria-hidden="true">
+    <header class="fa-head">
+      <button type="button" class="fa-back" aria-label="Back">&larr;</button>
+      <div>
+        <p class="fa-eyebrow">Send it over</p>
+        <h3 id="fa-form-title">Free asset</h3>
+      </div>
+      <button type="button" class="fa-x" aria-label="Close">&times;</button>
+    </header>
+    <p class="fa-sub">Drop your details and we'll email the file in the next few minutes.</p>
+    <form id="fa-submit" class="fa-fields" novalidate>
+      <label class="fa-field">
+        <span>First name</span>
+        <input name="name" type="text" autocomplete="given-name" required maxlength="60" />
+      </label>
+      <label class="fa-field">
+        <span>Email</span>
+        <input name="email" type="email" autocomplete="email" required placeholder="you@agency.co.uk" />
+      </label>
+      <button type="submit" class="fa-submit">
+        <span data-label>Send it over &rarr;</span>
+      </button>
+      <p class="fa-error" id="fa-form-error" hidden></p>
+      <p class="fa-ok" id="fa-form-ok" hidden>
+        On its way — check your inbox in the next few minutes.
+      </p>
+      <p class="fa-fine">No spam. Unsubscribe in one click.</p>
+    </form>
+  </div>
+</aside>
+
+<style is:global>
+  /* ============================================================
+     FreeAssets floating tab — fixed to the left edge.
+     Hidden by default; the inline script flips data-shown="true"
+     once the hero is out of view.
+     ============================================================ */
+  .fa {
+    position: fixed;
+    left: 0;
+    top: 38vh;
+    z-index: 80;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(.2,.7,.2,1);
+  }
+  .fa[data-shown="true"] {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  /* ===== Collapsed tab ===== */
+  .fa-tab {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--english-violet);
+    color: var(--paper);
+    border: 0;
+    margin: 0;
+    padding: 14px 6px;
+    border-radius: 0 6px 6px 0;
+    cursor: pointer;
+    box-shadow: 4px 4px 16px -4px rgba(28,29,34,0.3);
+    transition: background 0.25s, padding 0.3s, box-shadow 0.3s;
+  }
+  .fa-tab:hover {
+    background: var(--ink);
+    padding-right: 10px;
+    box-shadow: 6px 4px 20px -4px rgba(28,29,34,0.4);
+  }
+  .fa-tab span {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+  }
+
+  /* ===== Expanded panel ===== */
+  .fa-panel,
+  .fa-form {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: var(--english-violet);
+    color: var(--paper);
+    border-radius: 0 6px 6px 0;
+    box-shadow: 12px 18px 50px -10px rgba(28,29,34,0.45);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-12px);
+    transition: opacity 0.32s ease, transform 0.4s cubic-bezier(.2,.7,.2,1);
+    overflow: hidden;
+  }
+  .fa-panel {
+    width: 320px;
+    padding: 22px 22px 24px;
+  }
+  .fa-form {
+    width: 340px;
+    padding: 22px 24px 24px;
+  }
+
+  /* State machine — only one of {tab | panel | form} is interactive at a time. */
+  .fa[data-state="expanded"] .fa-tab,
+  .fa[data-state="form"]     .fa-tab {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-30px);
+  }
+  .fa[data-state="expanded"] .fa-panel,
+  .fa[data-state="form"]     .fa-form {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+  .fa-tab {
+    transition: background 0.25s, padding 0.3s, box-shadow 0.3s,
+                opacity 0.32s ease, transform 0.4s cubic-bezier(.2,.7,.2,1);
+  }
+
+  /* ===== Heads (shared) ===== */
+  .fa-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .fa-head > div {
+    flex: 1;
+    min-width: 0;
+  }
+  .fa-eyebrow {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(240,238,235,0.55);
+  }
+  .fa-head h3 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    margin: 4px 0 0;
+  }
+  .fa-sub {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(240,238,235,0.75);
+    margin: 4px 0 16px;
+  }
+  .fa-x, .fa-back {
+    appearance: none;
+    background: transparent;
+    border: 1px solid rgba(240,238,235,0.25);
+    border-radius: 50%;
+    width: 30px; height: 30px;
+    color: var(--paper);
+    font-family: var(--sans);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .fa-x:hover, .fa-back:hover { background: rgba(240,238,235,0.12); border-color: rgba(240,238,235,0.5); }
+
+  /* ===== Asset list ===== */
+  .fa-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .fa-item {
+    appearance: none;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 28px 1fr 18px;
+    align-items: start;
+    gap: 12px;
+    padding: 12px 12px;
+    background: rgba(240,238,235,0.06);
+    border: 1px solid rgba(240,238,235,0.12);
+    border-radius: 4px;
+    color: var(--paper);
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: background 0.2s, border-color 0.2s, transform 0.25s;
+  }
+  .fa-item:hover {
+    background: rgba(240,238,235,0.12);
+    border-color: rgba(240,238,235,0.3);
+    transform: translateX(2px);
+  }
+  .fa-item-num {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    color: rgba(240,238,235,0.55);
+    padding-top: 3px;
+  }
+  .fa-item-body {
+    display: flex; flex-direction: column; gap: 3px;
+    min-width: 0;
+  }
+  .fa-item-h {
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: -0.005em;
+  }
+  .fa-item-d {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: rgba(240,238,235,0.7);
+    line-height: 1.45;
+  }
+  .fa-item-arrow {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 16px;
+    color: rgba(240,238,235,0.65);
+    align-self: center;
+  }
+
+  /* ===== Form ===== */
+  .fa-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .fa-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .fa-field > span {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(240,238,235,0.7);
+  }
+  .fa-field input {
+    appearance: none;
+    background: rgba(240,238,235,0.08);
+    border: 1px solid rgba(240,238,235,0.2);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--paper);
+    outline: none;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .fa-field input::placeholder { color: rgba(240,238,235,0.4); }
+  .fa-field input:focus {
+    background: rgba(240,238,235,0.12);
+    border-color: rgba(240,238,235,0.5);
+  }
+  .fa-submit {
+    appearance: none;
+    background: var(--paper);
+    color: var(--english-violet);
+    border: 0;
+    margin-top: 4px;
+    padding: 12px 16px;
+    border-radius: 3px;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .fa-submit:hover { background: var(--ink); color: var(--paper); }
+  .fa-submit[disabled] { opacity: 0.6; cursor: progress; }
+  .fa-error {
+    margin: 0;
+    padding: 8px 10px;
+    background: rgba(184, 130, 106, 0.18);
+    color: #f5d3c5;
+    border-radius: 3px;
+    font-family: var(--sans);
+    font-size: 12px;
+  }
+  .fa-ok {
+    margin: 0;
+    padding: 8px 10px;
+    background: rgba(80, 160, 100, 0.18);
+    color: #c7e9d2;
+    border-radius: 3px;
+    font-family: var(--sans);
+    font-size: 12px;
+  }
+  .fa-fine {
+    margin: 4px 0 0;
+    font-family: var(--sans);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: rgba(240,238,235,0.5);
+  }
+
+  /* ===== Mobile: collapse to bottom-left, smaller panel ===== */
+  @media (max-width: 640px) {
+    .fa { top: auto; bottom: 14px; }
+    .fa-tab { padding: 10px 6px; }
+    .fa-tab span { font-size: 10px; }
+    .fa-panel,
+    .fa-form {
+      width: calc(100vw - 28px);
+      max-width: 320px;
+    }
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    const wrap = document.getElementById("free-assets");
+    if (!wrap) return;
+    const tab = wrap.querySelector(".fa-tab");
+    const panel = wrap.querySelector(".fa-panel");
+    const formBox = wrap.querySelector(".fa-form");
+    const xButtons = wrap.querySelectorAll(".fa-x");
+    const backBtn = wrap.querySelector(".fa-back");
+    const items = wrap.querySelectorAll(".fa-item");
+    const form = wrap.querySelector("#fa-submit");
+    const formTitle = wrap.querySelector("#fa-form-title");
+    const errEl = wrap.querySelector("#fa-form-error");
+    const okEl = wrap.querySelector("#fa-form-ok");
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    const label = submitBtn?.querySelector("[data-label]");
+
+    let currentAsset = null;
+
+    function setState(s) {
+      wrap.setAttribute("data-state", s);
+      tab.setAttribute("aria-expanded", s === "collapsed" ? "false" : "true");
+      panel.setAttribute("aria-hidden", s === "expanded" ? "false" : "true");
+      formBox.setAttribute("aria-hidden", s === "form" ? "false" : "true");
+    }
+
+    tab.addEventListener("click", function () { setState("expanded"); });
+    backBtn.addEventListener("click", function () { setState("expanded"); });
+    xButtons.forEach(function (btn) {
+      btn.addEventListener("click", function () { setState("collapsed"); });
+    });
+
+    items.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        currentAsset = btn.getAttribute("data-asset");
+        const title = btn.getAttribute("data-title") || "Free asset";
+        formTitle.innerHTML = title;
+        errEl.hidden = true;
+        okEl.hidden = true;
+        form.reset();
+        setState("form");
+        setTimeout(function () {
+          const nameInput = form.querySelector('input[name="name"]');
+          if (nameInput) nameInput.focus();
+        }, 220);
+      });
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && wrap.getAttribute("data-state") !== "collapsed") {
+        setState("collapsed");
+      }
+    });
+
+    form?.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      errEl.hidden = true;
+      okEl.hidden = true;
+      const fd = new FormData(form);
+      const name = String(fd.get("name") || "").trim();
+      const email = String(fd.get("email") || "").trim();
+      if (!name || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errEl.textContent = "Drop a name and a valid email and we'll do the rest.";
+        errEl.hidden = false;
+        return;
+      }
+      submitBtn.setAttribute("disabled", "true");
+      label.textContent = "Sending…";
+      try {
+        const log = JSON.parse(localStorage.getItem("tmke.leads") || "[]");
+        log.push({ asset: currentAsset, name: name, email: email, at: Date.now() });
+        localStorage.setItem("tmke.leads", JSON.stringify(log));
+      } catch (_) { /* ignore */ }
+      // Fake latency so the success state doesn't pop instantly.
+      await new Promise(function (r) { setTimeout(r, 450); });
+      submitBtn.removeAttribute("disabled");
+      label.textContent = "Send it over →";
+      okEl.hidden = false;
+      // Auto-collapse after a beat so they get visual confirmation.
+      setTimeout(function () { setState("collapsed"); }, 2200);
+    });
+
+    // ===== Show only past the hero =====
+    // Watches the first .hero section on the page; the tab fades in once
+    // the hero is off-screen (or there's no hero at all).
+    const hero = document.querySelector(".hero, .contact-hero, .smm-hero, .page-hero");
+    function show() { wrap.setAttribute("data-shown", "true"); }
+    function hide() { wrap.setAttribute("data-shown", "false"); setState("collapsed"); }
+
+    if (!hero) {
+      show();
+    } else if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          // When the hero leaves the viewport, show the tab. When it's
+          // back in view (user scrolled to top), hide it.
+          if (entry.isIntersecting) hide();
+          else show();
+        });
+      }, { rootMargin: "-100px 0px 0px 0px", threshold: 0 });
+      io.observe(hero);
+    } else {
+      // Fallback for ancient browsers — just always show.
+      show();
+    }
+  })();
+</script>
