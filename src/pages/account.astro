@@ -43,15 +43,27 @@ import "../styles/workspace.css";
   </header>
 
   <main class="app-main">
-    <!-- Welcome -->
-    <section class="welcome">
-      <p class="welcome-eyebrow">Workspace</p>
-      <h1 class="welcome-h" id="welcome-h">Welcome back, <em>let's get to work.</em></h1>
-      <p class="welcome-sub" id="welcome-sub">Your designs, packs and account in one place.</p>
+    <!-- Welcome hero — 2-column with decorative photo on the right.
+         The greeting line below is set client-side based on the
+         current hour (Good morning / afternoon / evening). -->
+    <section class="welcome welcome--hero fade-up" data-delay="1">
+      <div class="welcome-content">
+        <p class="welcome-eyebrow">Workspace</p>
+        <h1 class="welcome-h" id="welcome-h">Welcome back, <em>let's get to work.</em></h1>
+        <p class="welcome-sub" id="welcome-sub">Your designs, packs and account in one place.</p>
+        <div class="welcome-pills" id="welcome-pills" hidden>
+          <span class="welcome-pill"><strong id="pill-packs">0</strong> active packs</span>
+          <span class="welcome-pill"><strong id="pill-designs">0</strong> designs in progress</span>
+          <span class="welcome-pill"><strong id="pill-spend">£0</strong> lifetime spend</span>
+        </div>
+      </div>
+      <div class="welcome-art" aria-hidden="true">
+        <img src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
+      </div>
     </section>
 
     <!-- Stats row -->
-    <section class="stats" aria-label="Your TMKE at a glance">
+    <section class="stats fade-up" data-delay="2" aria-label="Your TMKE at a glance">
       <article class="stat">
         <div class="stat-label">Active packs</div>
         <div class="stat-value" id="stat-packs">—</div>
@@ -75,7 +87,7 @@ import "../styles/workspace.css";
     </section>
 
     <!-- Library -->
-    <section id="library" class="library" aria-labelledby="library-h">
+    <section id="library" class="library fade-up" data-delay="3" aria-labelledby="library-h">
       <header class="section-head">
         <h2 id="library-h" class="section-h">Your library</h2>
         <p class="section-sub">Packs you've purchased from The Edit. <button type="button" class="inline-link" data-shop>Add another pack &rarr;</button></p>
@@ -92,7 +104,7 @@ import "../styles/workspace.css";
     </section>
 
     <!-- Drafts (from localStorage) -->
-    <section id="drafts" class="drafts" aria-labelledby="drafts-h" hidden>
+    <section id="drafts" class="drafts fade-up" data-delay="4" aria-labelledby="drafts-h" hidden>
       <header class="section-head">
         <h2 id="drafts-h" class="section-h">Designs in progress</h2>
         <p class="section-sub">Drafts saved in this browser. Open one to keep going.</p>
@@ -773,9 +785,22 @@ import "../styles/workspace.css";
       const meta = session.user.user_metadata ?? {};
       const firstName = (meta.name || email.split('@')[0]).split(' ')[0].split('.')[0];
 
-      $welcomeH.innerHTML = `Welcome back, <em>${escapeHtml(titleCase(firstName))}.</em>`;
-      $welcomeSub.textContent = 'Your designs, packs and account in one place.';
+      // Time-of-day greeting feels warmer than the generic "Welcome back".
+      const hour = new Date().getHours();
+      let greeting = 'Welcome back';
+      if (hour >= 5 && hour < 12)       greeting = 'Good morning';
+      else if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+      else if (hour >= 17 && hour < 22) greeting = 'Good evening';
+      else                              greeting = 'Burning the midnight oil';
+
+      $welcomeH.innerHTML = `${greeting}, <em>${escapeHtml(titleCase(firstName))}.</em>`;
+      $welcomeSub.textContent = 'Your studio. Your library. Pick something up where you left off.';
       $footerEmail.textContent = email;
+
+      // Kick off the entrance animation. Adding the class on the next
+      // frame ensures the .fade-up elements have laid out before the
+      // animation starts (so transforms read smoothly).
+      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
 
       renderDrafts(readLocalDrafts());
       renderBrandStat();
@@ -809,6 +834,22 @@ import "../styles/workspace.css";
       $statSpendFoot.innerHTML = orders && orders.length
         ? `Across ${orders.length} order${orders.length === 1 ? '' : 's'} &middot; <a href="/account/orders">View all</a>`
         : 'No orders yet';
+
+      // Mirror the headline stats into the welcome hero pills. Hide the
+      // pill strip entirely if everything is zero (no orders, no drafts) —
+      // a row of "0 ... 0 ... £0" pills reads sadder than no pills at all.
+      const pillsEl = document.getElementById('welcome-pills');
+      const draftCount = parseInt($statDesigns.textContent, 10) || 0;
+      const hasAny = uniquePacks.size > 0 || draftCount > 0 || totalSpend > 0;
+      if (hasAny && pillsEl) {
+        const pp = document.getElementById('pill-packs');
+        const pd = document.getElementById('pill-designs');
+        const ps = document.getElementById('pill-spend');
+        if (pp) pp.textContent = String(uniquePacks.size);
+        if (pd) pd.textContent = String(draftCount);
+        if (ps) ps.textContent = gbpFromPence(totalSpend) || '£0';
+        pillsEl.hidden = false;
+      }
 
       if (!orders || orders.length === 0) {
         $empty.hidden = false;
