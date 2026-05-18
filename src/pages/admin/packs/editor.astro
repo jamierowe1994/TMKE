@@ -79,7 +79,54 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
                 <option value="archived">Archived</option>
               </select>
             </label>
+            <label class="editor-field">
+              <span>Public preview</span>
+              <input type="number" name="preview_reveal_count" min="0" max="24" step="1" value="3" />
+              <small>How many templates customers see unlocked before "Buy to unlock". 3 is a good default.</small>
+            </label>
           </div>
+        </section>
+
+        <!-- ============= TEMPLATES IN THIS PACK ============= -->
+        <section class="editor-card">
+          <div class="tpl-pick-head">
+            <div>
+              <h2 class="editor-section-title">Templates in this pack</h2>
+              <p class="editor-help">
+                Tick every design that ships with this pack. Selected templates get locked
+                behind the paywall — public visitors only see the first
+                <strong id="tpl-pick-preview-mirror">3</strong>.
+              </p>
+            </div>
+            <div class="tpl-pick-meta">
+              <span class="tpl-pick-count" id="tpl-pick-count">0 selected</span>
+              <a href="/admin/templates" class="admin-btn admin-btn-ghost admin-btn-sm" target="_blank" rel="noopener">
+                + Make more in the studio
+              </a>
+            </div>
+          </div>
+
+          <div class="tpl-pick-controls">
+            <input
+              type="search"
+              id="tpl-pick-search"
+              class="tpl-pick-search"
+              placeholder="Search by name, category…"
+              autocomplete="off"
+            />
+            <div class="tpl-pick-bulk">
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="tpl-pick-select-visible">Select visible</button>
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="tpl-pick-deselect-all">Deselect all</button>
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="tpl-pick-show-selected">Show selected only</button>
+            </div>
+          </div>
+
+          <p class="tpl-pick-state" id="tpl-pick-loading">Loading templates from the studio…</p>
+          <p class="tpl-pick-state" id="tpl-pick-empty" hidden>
+            No templates yet. <a href="/admin/templates">Build some in the studio</a>, then come back.
+          </p>
+          <div class="tpl-pick-grid" id="tpl-pick-grid" hidden></div>
+          <input type="hidden" name="selected_template_ids" value="[]" />
         </section>
       </div>
 
@@ -109,10 +156,15 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
             <div class="gallery-grid" id="gallery-grid">
               <p class="gallery-empty" id="gallery-empty">No hover images yet.</p>
             </div>
-            <label class="admin-btn admin-btn-ghost">
-              <input type="file" id="gallery-file" accept="image/*" multiple hidden />
-              <span>+ Add photos</span>
-            </label>
+            <div class="gallery-actions">
+              <label class="admin-btn admin-btn-ghost admin-btn-sm">
+                <input type="file" id="gallery-file" accept="image/*" multiple hidden />
+                <span>+ Upload photos</span>
+              </label>
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="gallery-from-template">
+                + Pull from a template
+              </button>
+            </div>
             <input type="hidden" name="preview_images" value="[]" />
             <small id="gallery-status"></small>
           </div>
@@ -135,6 +187,27 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       <button type="submit" id="save-pack" class="admin-btn admin-btn-primary">Save pack</button>
     </footer>
   </form>
+
+  <!-- Modal: pick a template thumb to drop into the gallery -->
+  <div class="tpl-picker-backdrop" id="tpl-picker" hidden>
+    <div class="tpl-picker" role="dialog" aria-modal="true" aria-labelledby="tpl-picker-title">
+      <header class="tpl-picker-head">
+        <h2 id="tpl-picker-title">Pull a thumbnail from a template</h2>
+        <button type="button" class="tpl-picker-close" id="tpl-picker-close" aria-label="Close">&times;</button>
+      </header>
+      <input
+        type="search"
+        id="tpl-picker-search"
+        class="tpl-pick-search"
+        placeholder="Search templates…"
+        autocomplete="off"
+      />
+      <div class="tpl-picker-grid" id="tpl-picker-grid"></div>
+      <p class="tpl-pick-state" id="tpl-picker-empty" hidden>
+        No templates match that search.
+      </p>
+    </div>
+  </div>
 
   <style is:global>
     body:has(.editor-form) { background: var(--paper); }
@@ -316,6 +389,165 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       backdrop-filter: blur(4px);
     }
     #gallery-status { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
+    .gallery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    /* ============ Template multi-select ============ */
+    .tpl-pick-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 18px; flex-wrap: wrap; margin-bottom: 14px;
+    }
+    .tpl-pick-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .tpl-pick-count {
+      font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      background: rgba(71,66,84,0.1);
+      padding: 6px 12px; border-radius: 999px;
+    }
+    .tpl-pick-controls {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin-bottom: 16px;
+    }
+    .tpl-pick-search {
+      flex: 1; min-width: 220px;
+      font-family: var(--sans); font-size: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(71,66,84,0.3);
+      border-radius: 3px; background: var(--paper);
+      outline: none; transition: border-color 0.2s;
+    }
+    .tpl-pick-search:focus { border-color: var(--english-violet); }
+    .tpl-pick-bulk { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tpl-pick-state {
+      font-family: var(--sans); font-size: 13px;
+      color: rgba(28,29,34,0.55);
+      padding: 14px 0;
+    }
+    .tpl-pick-state a { color: var(--english-violet); text-decoration: underline; }
+    .tpl-pick-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      max-height: 560px;
+      overflow-y: auto;
+      padding: 4px;
+      border: 1px solid rgba(71,66,84,0.12);
+      border-radius: 3px;
+      background: rgba(71,66,84,0.03);
+    }
+    .tpl-pick-card {
+      position: relative;
+      aspect-ratio: 4/5;
+      background-color: rgba(71,66,84,0.08);
+      background-size: cover;
+      background-position: center;
+      border: 2px solid transparent;
+      border-radius: 3px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .tpl-pick-card:hover { transform: translateY(-2px); border-color: rgba(71,66,84,0.4); }
+    .tpl-pick-card.is-selected {
+      border-color: var(--english-violet);
+      box-shadow: 0 0 0 2px rgba(71, 66, 84, 0.18);
+    }
+    .tpl-pick-card.is-locked-elsewhere {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .tpl-pick-card.is-locked-elsewhere::after {
+      content: "In another pack";
+      position: absolute; top: 8px; left: 8px;
+      padding: 3px 8px; border-radius: 999px;
+      background: rgba(28,29,34,0.78);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .tpl-pick-tick {
+      position: absolute; top: 8px; right: 8px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--paper);
+      border: 2px solid rgba(28,29,34,0.25);
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .tpl-pick-card.is-selected .tpl-pick-tick {
+      background: var(--english-violet);
+      border-color: var(--english-violet);
+    }
+    .tpl-pick-card.is-selected .tpl-pick-tick::after {
+      content: "✓";
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--paper);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .tpl-pick-name {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      padding: 8px 10px;
+      background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .tpl-pick-cat {
+      font-size: 9px;
+      font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0.8;
+      display: block;
+    }
+
+    /* ============ Template picker modal (gallery thumb) ============ */
+    .tpl-picker-backdrop {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(28,29,34,0.65);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .tpl-picker-backdrop[hidden] { display: none; }
+    .tpl-picker {
+      background: var(--paper);
+      border-radius: 4px;
+      max-width: 880px; width: 100%;
+      max-height: 80vh;
+      display: flex; flex-direction: column;
+      padding: 24px;
+      box-shadow: 0 40px 80px -20px rgba(0,0,0,0.5);
+    }
+    .tpl-picker-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .tpl-picker-head h2 {
+      font-family: var(--serif); font-weight: 400;
+      font-size: 22px; margin: 0; color: var(--ink);
+    }
+    .tpl-picker-close {
+      background: transparent; border: 0; cursor: pointer;
+      font-size: 26px; line-height: 1;
+      color: rgba(28,29,34,0.5);
+      width: 32px; height: 32px;
+      border-radius: 4px;
+    }
+    .tpl-picker-close:hover { background: rgba(28,29,34,0.08); color: var(--ink); }
+    .tpl-picker .tpl-pick-search { margin-bottom: 16px; }
+    .tpl-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 4px;
+    }
 
     .editor-card-tip { background: rgba(71, 66, 84, 0.04); }
     .editor-card-tip p {
@@ -440,6 +672,26 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     const galleryGrid = document.getElementById("gallery-grid");
     const galleryFile = document.getElementById("gallery-file");
     const galleryStatus = document.getElementById("gallery-status");
+    const galleryFromTplBtn = document.getElementById("gallery-from-template");
+
+    // Template multi-select
+    const tplLoading = document.getElementById("tpl-pick-loading");
+    const tplEmpty = document.getElementById("tpl-pick-empty");
+    const tplGrid = document.getElementById("tpl-pick-grid");
+    const tplCount = document.getElementById("tpl-pick-count");
+    const tplSearch = document.getElementById("tpl-pick-search");
+    const tplSelectVisible = document.getElementById("tpl-pick-select-visible");
+    const tplDeselectAll = document.getElementById("tpl-pick-deselect-all");
+    const tplShowSelected = document.getElementById("tpl-pick-show-selected");
+    const previewMirror = document.getElementById("tpl-pick-preview-mirror");
+    const previewInput = form.elements.preview_reveal_count;
+
+    // Picker modal (gallery thumb)
+    const pickerBackdrop = document.getElementById("tpl-picker");
+    const pickerGrid = document.getElementById("tpl-picker-grid");
+    const pickerSearch = document.getElementById("tpl-picker-search");
+    const pickerEmpty = document.getElementById("tpl-picker-empty");
+    const pickerClose = document.getElementById("tpl-picker-close");
 
     let editingId = null;
     let slugTouched = false;
@@ -447,6 +699,16 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     let galleryUrls = [];
     /** @type {any} */
     let gallerySortable = null;
+
+    // Template pool
+    /** @type {Array<{ id:string, name:string, category:string|null, thumb_url:string|null, pack_id:string|null, status:string }>} */
+    let allTemplates = [];
+    /** @type {Set<string>} */
+    const selectedTplIds = new Set();
+    /** @type {Set<string>} */
+    let originallyInThisPack = new Set();
+    let tplSearchTerm = "";
+    let tplShowSelectedOnly = false;
 
     function setCover(url) {
       if (url) {
@@ -524,6 +786,110 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       });
     }
 
+    // ============ Template multi-select ============
+    async function loadTemplates() {
+      const { data, error } = await supabase
+        .from("templates")
+        .select("id, name, category, thumb_url, pack_id, status")
+        .neq("status", "archived")
+        .order("sort_order", { ascending: true });
+      if (error) {
+        tplLoading.textContent = `Couldn't load templates: ${error.message}`;
+        return;
+      }
+      allTemplates = data || [];
+
+      // If editing, seed selection from any templates already linked to this pack
+      if (editingId) {
+        originallyInThisPack = new Set(
+          allTemplates.filter((t) => t.pack_id === editingId).map((t) => t.id),
+        );
+        originallyInThisPack.forEach((id) => selectedTplIds.add(id));
+      }
+
+      tplLoading.hidden = true;
+      if (allTemplates.length === 0) {
+        tplEmpty.hidden = false;
+      } else {
+        tplGrid.hidden = false;
+        renderTemplatePool();
+        renderTemplatePicker();
+      }
+    }
+
+    function renderTemplatePool() {
+      const q = tplSearchTerm.toLowerCase();
+      const visible = allTemplates.filter((t) => {
+        if (tplShowSelectedOnly && !selectedTplIds.has(t.id)) return false;
+        if (!q) return true;
+        return (
+          (t.name || "").toLowerCase().includes(q) ||
+          (t.category || "").toLowerCase().includes(q)
+        );
+      });
+
+      tplGrid.innerHTML = visible.map((t) => {
+        const isSel = selectedTplIds.has(t.id);
+        const lockedElsewhere = t.pack_id && t.pack_id !== editingId && !isSel;
+        const bg = t.thumb_url ? `style="background-image:url('${escapeHtml(t.thumb_url)}')"` : "";
+        return `
+          <div class="tpl-pick-card ${isSel ? "is-selected" : ""} ${lockedElsewhere ? "is-locked-elsewhere" : ""}"
+               data-id="${escapeHtml(t.id)}" ${bg} role="button" tabindex="0"
+               aria-pressed="${isSel ? "true" : "false"}">
+            <span class="tpl-pick-tick" aria-hidden="true"></span>
+            <span class="tpl-pick-name">
+              ${t.category ? `<span class="tpl-pick-cat">${escapeHtml(t.category)}</span>` : ""}
+              ${escapeHtml(t.name || "(untitled)")}
+            </span>
+          </div>`;
+      }).join("");
+
+      tplCount.textContent = `${selectedTplIds.size} selected`;
+      form.elements.selected_template_ids.value = JSON.stringify(Array.from(selectedTplIds));
+    }
+
+    function toggleTpl(id) {
+      const t = allTemplates.find((x) => x.id === id);
+      if (!t) return;
+      // Can't grab a template that's already in another pack
+      if (t.pack_id && t.pack_id !== editingId && !selectedTplIds.has(id)) {
+        alert("This template is already locked to another pack. Open that pack and deselect it first.");
+        return;
+      }
+      if (selectedTplIds.has(id)) selectedTplIds.delete(id);
+      else selectedTplIds.add(id);
+      renderTemplatePool();
+    }
+
+    // ============ Picker modal (gallery thumbnails) ============
+    function openPicker() {
+      pickerBackdrop.hidden = false;
+      document.body.style.overflow = "hidden";
+      pickerSearch.value = "";
+      renderTemplatePicker();
+      setTimeout(() => pickerSearch.focus(), 60);
+    }
+    function closePicker() {
+      pickerBackdrop.hidden = true;
+      document.body.style.overflow = "";
+    }
+    function renderTemplatePicker() {
+      const q = pickerSearch.value.toLowerCase();
+      const visible = allTemplates
+        .filter((t) => t.thumb_url) // can only pull a thumb if one exists
+        .filter((t) => !q
+          || (t.name || "").toLowerCase().includes(q)
+          || (t.category || "").toLowerCase().includes(q));
+      pickerEmpty.hidden = visible.length > 0;
+      pickerGrid.innerHTML = visible.map((t) => `
+        <div class="tpl-pick-card" data-pull="${escapeHtml(t.id)}"
+             style="background-image:url('${escapeHtml(t.thumb_url)}')"
+             role="button" tabindex="0">
+          <span class="tpl-pick-name">${escapeHtml(t.name || "(untitled)")}</span>
+        </div>
+      `).join("");
+    }
+
     async function handleGalleryFiles(files) {
       if (!files || !files.length) return;
       galleryStatus.textContent = `Uploading ${files.length} image${files.length > 1 ? "s" : ""}…`;
@@ -560,6 +926,8 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       form.elements.status.value = data.status || "active";
       form.elements.description.value = data.description || "";
       form.elements.contents.value = (data.contents || []).join("\n");
+      previewInput.value = data.preview_reveal_count ?? 3;
+      previewMirror.textContent = String(previewInput.value);
       setCover(data.cover_image_url || "");
       galleryUrls = Array.isArray(data.preview_images)
         ? data.preview_images.filter((u) => typeof u === "string" && u.length > 0)
@@ -615,6 +983,8 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         if (!/^[a-z0-9-]+$/.test(slug)) throw new Error("Slug must be lowercase letters, numbers, and hyphens.");
         if (Number.isNaN(priceGbp) || priceGbp < 0) throw new Error("Price must be 0 or more.");
 
+        const previewCount = Math.max(0, Math.min(24, Number(fd.get("preview_reveal_count") || 3)));
+
         const payload = {
           title,
           slug,
@@ -625,6 +995,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
           contents,
           cover_image_url: String(fd.get("cover_image_url") || "").trim() || null,
           preview_images: galleryUrls,
+          preview_reveal_count: previewCount,
         };
 
         let result;
@@ -635,6 +1006,29 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
           result = await supabase.from("packs").insert(payload).select().single();
         }
         if (result.error) throw result.error;
+
+        const savedPackId = result.data?.id || editingId;
+
+        // Sync templates ↔ pack
+        //   1. Templates newly selected → set pack_id = savedPackId
+        //   2. Templates that used to belong to this pack but aren't selected now → clear pack_id
+        const toAttach = Array.from(selectedTplIds).filter((id) => !originallyInThisPack.has(id));
+        const toDetach = Array.from(originallyInThisPack).filter((id) => !selectedTplIds.has(id));
+
+        if (toAttach.length) {
+          const { error: attachErr } = await supabase
+            .from("templates")
+            .update({ pack_id: savedPackId })
+            .in("id", toAttach);
+          if (attachErr) throw new Error(`Pack saved but couldn't link templates: ${attachErr.message}`);
+        }
+        if (toDetach.length) {
+          const { error: detachErr } = await supabase
+            .from("templates")
+            .update({ pack_id: null })
+            .in("id", toDetach);
+          if (detachErr) throw new Error(`Pack saved but couldn't unlink some templates: ${detachErr.message}`);
+        }
 
         location.href = "/admin/packs";
       } catch (err) {
@@ -658,6 +1052,9 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       const url = new URL(location.href);
       const id = url.searchParams.get("id");
       if (id) await loadForEdit(id);
+      // Always load the studio's templates so the pool grid renders
+      // (we need editingId set first so we can highlight already-linked ones).
+      await loadTemplates();
     })();
 
     form.addEventListener("submit", savePack);
@@ -693,6 +1090,74 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       if (!url) return;
       galleryUrls = galleryUrls.filter((u) => u !== url);
       renderGallery();
+    });
+
+    // ============ Template multi-select handlers ============
+    tplGrid?.addEventListener("click", (e) => {
+      const card = e.target instanceof HTMLElement ? e.target.closest(".tpl-pick-card") : null;
+      if (!card) return;
+      const id = card.getAttribute("data-id");
+      if (id) toggleTpl(id);
+    });
+    tplGrid?.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const card = e.target instanceof HTMLElement ? e.target.closest(".tpl-pick-card") : null;
+      if (!card) return;
+      e.preventDefault();
+      const id = card.getAttribute("data-id");
+      if (id) toggleTpl(id);
+    });
+    tplSearch?.addEventListener("input", () => {
+      tplSearchTerm = tplSearch.value || "";
+      renderTemplatePool();
+    });
+    tplSelectVisible?.addEventListener("click", () => {
+      const q = tplSearchTerm.toLowerCase();
+      const visible = allTemplates.filter((t) => {
+        if (q && !(t.name || "").toLowerCase().includes(q) && !(t.category || "").toLowerCase().includes(q)) return false;
+        return !t.pack_id || t.pack_id === editingId || selectedTplIds.has(t.id);
+      });
+      visible.forEach((t) => selectedTplIds.add(t.id));
+      renderTemplatePool();
+    });
+    tplDeselectAll?.addEventListener("click", () => {
+      selectedTplIds.clear();
+      renderTemplatePool();
+    });
+    tplShowSelected?.addEventListener("click", () => {
+      tplShowSelectedOnly = !tplShowSelectedOnly;
+      tplShowSelected.textContent = tplShowSelectedOnly ? "Show all" : "Show selected only";
+      renderTemplatePool();
+    });
+
+    previewInput?.addEventListener("input", () => {
+      previewMirror.textContent = String(previewInput.value || 0);
+    });
+
+    // ============ "Pull from a template" picker (gallery thumbnails) ============
+    galleryFromTplBtn?.addEventListener("click", openPicker);
+    pickerClose?.addEventListener("click", closePicker);
+    pickerBackdrop?.addEventListener("click", (e) => {
+      if (e.target === pickerBackdrop) closePicker();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && pickerBackdrop && !pickerBackdrop.hidden) closePicker();
+    });
+    pickerSearch?.addEventListener("input", renderTemplatePicker);
+    pickerGrid?.addEventListener("click", (e) => {
+      const card = e.target instanceof HTMLElement ? e.target.closest("[data-pull]") : null;
+      if (!card) return;
+      const id = card.getAttribute("data-pull");
+      const t = allTemplates.find((x) => x.id === id);
+      if (!t || !t.thumb_url) return;
+      if (galleryUrls.includes(t.thumb_url)) {
+        galleryStatus.textContent = "Already in the gallery.";
+      } else {
+        galleryUrls = [...galleryUrls, t.thumb_url];
+        renderGallery();
+        galleryStatus.textContent = `Added "${t.name}".`;
+      }
+      closePicker();
     });
 
     renderGallery();

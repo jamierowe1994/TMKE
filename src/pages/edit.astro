@@ -214,8 +214,17 @@ import PageHero from "../components/PageHero.astro";
       flex-direction: column;
       background: transparent;
       color: var(--ink);
-      cursor: pointer;
       isolation: isolate;
+    }
+    /* Wrap the cover + body in a real <a> so the whole top of the card
+       routes to the detail page. The Buy button below sits outside it
+       and is the only click that opens checkout. */
+    .edit-card-link {
+      display: flex;
+      flex-direction: column;
+      color: inherit;
+      text-decoration: none;
+      cursor: pointer;
     }
 
     .edit-card:nth-child(1)  { grid-column: span 5; }
@@ -883,18 +892,20 @@ import PageHero from "../components/PageHero.astro";
       const tag = contentsCount ? `${contentsCount} items inside` : '';
 
       return `
-        <article class="edit-card" data-id="${p.id}" data-slides="${slideUrls.length}">
-          <div class="edit-card-cover">
-            ${slides}
-            ${pips}
-            <span class="edit-card-num">№ ${num}</span>
-            ${p.category ? `<span class="edit-card-cat">${escapeHtml(p.category)}</span>` : ''}
-          </div>
-          <div class="edit-card-body">
-            <h3 class="edit-card-title">${escapeHtml(p.title)}</h3>
-            <span class="edit-card-price">${priceLabel}</span>
-            ${p.description ? `<p class="edit-card-desc">${escapeHtml(p.description)}</p>` : '<p class="edit-card-desc"></p>'}
-          </div>
+        <article class="edit-card" data-id="${p.id}" data-slug="${escapeHtml(p.slug)}" data-slides="${slideUrls.length}">
+          <a class="edit-card-link" href="/edit/${encodeURIComponent(p.slug)}" aria-label="See inside ${escapeHtml(p.title)}">
+            <div class="edit-card-cover">
+              ${slides}
+              ${pips}
+              <span class="edit-card-num">№ ${num}</span>
+              ${p.category ? `<span class="edit-card-cat">${escapeHtml(p.category)}</span>` : ''}
+            </div>
+            <div class="edit-card-body">
+              <h3 class="edit-card-title">${escapeHtml(p.title)}</h3>
+              <span class="edit-card-price">${priceLabel}</span>
+              ${p.description ? `<p class="edit-card-desc">${escapeHtml(p.description)}</p>` : '<p class="edit-card-desc"></p>'}
+            </div>
+          </a>
           <div class="edit-card-foot">
             <span class="edit-card-meta">${escapeHtml(tag)}</span>
             <button type="button" class="edit-card-buy" data-buy="${p.id}">
@@ -959,6 +970,7 @@ import PageHero from "../components/PageHero.astro";
       packsById = new Map(packs.map((p) => [p.id, p]));
       grid.innerHTML = packs.map((p, i) => renderCard(p, i)).join('');
       wireHoverGallery(grid);
+      maybeOpenFromQuery();
     })();
 
     // ============== Modal helpers ==============
@@ -1009,13 +1021,31 @@ import PageHero from "../components/PageHero.astro";
     grid.addEventListener('click', (e) => {
       const target = e.target;
       if (!(target instanceof HTMLElement)) return;
+      // Only the explicit Buy button opens checkout. Clicking elsewhere on
+      // the card follows the wrapping <a> to the pack-detail page.
       const buyEl = target.closest('[data-buy]');
-      const card = target.closest('.edit-card');
-      const id = buyEl?.getAttribute('data-buy') ?? card?.getAttribute('data-id');
+      if (!buyEl) return;
+      e.preventDefault();
+      const id = buyEl.getAttribute('data-buy');
       if (!id) return;
       const pack = packsById.get(id);
       if (pack) openCheckout(pack);
     });
+
+    // ?buy=<id> deep-link: pack-detail page sends users back here to
+    // trigger the checkout modal for a specific pack.
+    function maybeOpenFromQuery() {
+      const want = new URLSearchParams(location.search).get('buy');
+      if (!want) return;
+      const pack = packsById.get(want);
+      if (pack) {
+        openCheckout(pack);
+        // Clean the URL so refreshes don't re-open the modal
+        const u = new URL(location.href);
+        u.searchParams.delete('buy');
+        history.replaceState({}, '', u.toString());
+      }
+    }
 
     modalClose.addEventListener('click', closeCheckout);
     modal.addEventListener('click', (e) => { if (e.target === modal) closeCheckout(); });
