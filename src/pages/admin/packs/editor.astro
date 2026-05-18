@@ -1,0 +1,508 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Edit pack — Admin · TMKE"
+  description="Create or edit a pack in The Edit catalogue."
+  hideNav
+  hideFooter
+>
+  <header class="catalogue-top">
+    <div class="catalogue-top-left">
+      <a href="/admin/packs" class="catalogue-back" aria-label="Back to catalogue">&larr; Catalogue</a>
+      <div>
+        <h1 class="catalogue-title" id="editor-title">New <em>Pack</em></h1>
+        <p class="catalogue-sub" id="editor-sub">Set up the pack and save to publish it.</p>
+      </div>
+    </div>
+    <div class="catalogue-top-right" id="editor-actions"></div>
+  </header>
+
+  <form id="pack-form" class="editor-form" novalidate>
+    <input type="hidden" name="id" />
+
+    <p class="editor-error" id="editor-error" hidden></p>
+
+    <div class="editor-grid">
+      <div class="editor-main">
+        <section class="editor-card">
+          <h2 class="editor-section-title">Basics</h2>
+          <div class="editor-row">
+            <label class="editor-field">
+              <span>Title <em>*</em></span>
+              <input type="text" name="title" required maxlength="120" placeholder="e.g. Spring Living" />
+            </label>
+            <label class="editor-field">
+              <span>Slug <em>*</em></span>
+              <input type="text" name="slug" required maxlength="80" pattern="[a-z0-9-]+" placeholder="spring-living" />
+              <small>Lowercase, hyphens only. Used in URLs.</small>
+            </label>
+          </div>
+
+          <label class="editor-field">
+            <span>Description</span>
+            <textarea name="description" rows="3" maxlength="500" placeholder="One short paragraph shown on the storefront card."></textarea>
+          </label>
+
+          <label class="editor-field">
+            <span>Contents (one bullet per line)</span>
+            <textarea name="contents" rows="6" placeholder="20 Instagram post templates&#10;6 reel cover designs&#10;Story templates"></textarea>
+            <small>These render as the bullet list on the customer-facing pack detail.</small>
+          </label>
+        </section>
+
+        <section class="editor-card">
+          <h2 class="editor-section-title">Pricing &amp; classification</h2>
+          <div class="editor-row">
+            <label class="editor-field">
+              <span>Price (£) <em>*</em></span>
+              <input type="number" name="price_gbp" min="0" step="0.01" required placeholder="299.00" />
+            </label>
+            <label class="editor-field">
+              <span>Category</span>
+              <select name="category">
+                <option value="">—</option>
+                <option value="contemporary">Contemporary</option>
+                <option value="classic">Classic</option>
+                <option value="seasonal">Seasonal</option>
+                <option value="lifestyle">Lifestyle</option>
+                <option value="planning">Planning</option>
+                <option value="free">Free</option>
+              </select>
+            </label>
+            <label class="editor-field">
+              <span>Status</span>
+              <select name="status">
+                <option value="active">Active (live)</option>
+                <option value="draft">Draft (hidden)</option>
+                <option value="archived">Archived</option>
+              </select>
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <aside class="editor-side">
+        <section class="editor-card">
+          <h2 class="editor-section-title">Cover image</h2>
+          <div class="cover-uploader">
+            <div class="cover-preview" id="cover-preview"></div>
+            <label class="admin-btn admin-btn-ghost">
+              <input type="file" id="cover-file" accept="image/*" hidden />
+              <span>Upload image</span>
+            </label>
+            <input type="hidden" name="cover_image_url" />
+            <button type="button" id="cover-clear" class="admin-btn admin-btn-ghost admin-btn-sm" hidden>Remove image</button>
+            <small id="cover-status"></small>
+          </div>
+        </section>
+
+        <section class="editor-card editor-card-tip">
+          <h2 class="editor-section-title">Position</h2>
+          <p>
+            New packs land at the <strong>top</strong> of the catalogue by default.
+            To reorder, go back to <a href="/admin/packs">the catalogue</a> and drag a card to a new position.
+          </p>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="editor-sticky-foot">
+      <button type="button" id="delete-pack" class="admin-btn admin-btn-danger" hidden>Delete pack</button>
+      <div class="editor-foot-spacer"></div>
+      <a href="/admin/packs" class="admin-btn admin-btn-ghost">Cancel</a>
+      <button type="submit" id="save-pack" class="admin-btn admin-btn-primary">Save pack</button>
+    </footer>
+  </form>
+
+  <style is:global>
+    body:has(.editor-form) { background: var(--paper); }
+
+    .editor-form {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 36px 160px;
+    }
+    .editor-error {
+      margin: 16px 0 0;
+      padding: 12px 16px;
+      background: rgba(160, 90, 60, 0.1);
+      border-left: 3px solid #a05a3c;
+      color: #a05a3c;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 2.1fr 1fr;
+      gap: 24px;
+      margin-top: 28px;
+    }
+    .editor-main, .editor-side { display: flex; flex-direction: column; gap: 24px; }
+
+    .editor-card {
+      background: var(--paper);
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      border-radius: 3px;
+      padding: 24px 26px;
+    }
+    .editor-section-title {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+      margin: 0 0 18px;
+    }
+    .editor-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .editor-row:last-child { margin-bottom: 0; }
+
+    .editor-field { display: flex; flex-direction: column; gap: 6px; }
+    .editor-field > span {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .editor-field > span em { font-style: normal; color: #a05a3c; }
+    .editor-field small { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.55); }
+    .editor-field input,
+    .editor-field select,
+    .editor-field textarea {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid rgba(71, 66, 84, 0.3);
+      border-radius: 3px;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    .editor-field input:focus,
+    .editor-field select:focus,
+    .editor-field textarea:focus { border-color: var(--english-violet); }
+    .editor-field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+    /* Cover */
+    .cover-uploader { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .cover-preview {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: var(--platinum);
+      background-size: cover;
+      background-position: center;
+      border: 1px solid rgba(71, 66, 84, 0.25);
+      border-radius: 3px;
+    }
+    .cover-preview:not([data-loaded]) {
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(28, 29, 34, 0.4);
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .cover-preview:not([data-loaded])::after { content: "No image yet"; }
+    #cover-status { color: rgba(28,29,34,0.55); font-size: 12px; }
+
+    .editor-card-tip { background: rgba(71, 66, 84, 0.04); }
+    .editor-card-tip p {
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.6;
+      color: rgba(28, 29, 34, 0.7);
+      margin: 0;
+    }
+    .editor-card-tip a { color: var(--english-violet); text-decoration: underline; }
+    .editor-card-tip strong { color: var(--ink); font-weight: 700; }
+
+    /* Sticky foot */
+    .editor-sticky-foot {
+      position: sticky;
+      bottom: 0;
+      margin-top: 24px;
+      background: var(--paper);
+      border-top: 1px solid rgba(71, 66, 84, 0.18);
+      padding: 16px 0;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      z-index: 10;
+    }
+    .editor-foot-spacer { flex: 1; }
+
+    /* Shared admin button & top styles re-used from packs.astro;
+       redeclared here in case of independent navigation. */
+    .catalogue-top {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 48px 36px 16px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid rgba(71, 66, 84, 0.12);
+    }
+    .catalogue-top-left { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+    .catalogue-top-right { display: flex; align-items: center; gap: 10px; }
+    .catalogue-back {
+      display: inline-block;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      font-weight: 700;
+      padding-bottom: 8px;
+    }
+    .catalogue-back:hover { color: var(--ink); }
+    .catalogue-title {
+      font-family: var(--serif);
+      font-size: clamp(36px, 4.6vw, 56px);
+      font-weight: 500;
+      margin: 0;
+      line-height: 1;
+      color: var(--ink);
+    }
+    .catalogue-title em { font-style: italic; color: var(--english-violet); }
+    .catalogue-sub {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28, 29, 34, 0.6);
+      margin: 8px 0 0;
+    }
+    .admin-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 14px;
+      border-radius: 3px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      text-decoration: none;
+      color: inherit;
+    }
+    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
+    .admin-btn-primary:hover { background: var(--ink); }
+    .admin-btn-ghost { background: transparent; border-color: rgba(71, 66, 84, 0.35); color: var(--english-violet); }
+    .admin-btn-ghost:hover { background: rgba(71, 66, 84, 0.08); }
+    .admin-btn-danger { background: transparent; border-color: #a05a3c; color: #a05a3c; }
+    .admin-btn-danger:hover { background: #a05a3c; color: var(--paper); }
+    .admin-btn-sm { padding: 6px 10px; font-size: 10px; letter-spacing: 0.16em; }
+    .admin-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+    @media (max-width: 900px) {
+      .editor-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .catalogue-top { padding: 32px 22px 12px; }
+      .editor-form { padding: 0 22px 120px; }
+    }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { supabase, slugify } from "../../../lib/supabase.js";
+
+    const PACK_IMAGES_BUCKET = "pack-images";
+
+    const form = document.getElementById("pack-form");
+    const errorEl = document.getElementById("editor-error");
+    const titleEl = document.getElementById("editor-title");
+    const subEl = document.getElementById("editor-sub");
+    const saveBtn = document.getElementById("save-pack");
+    const deleteBtn = document.getElementById("delete-pack");
+    const coverPreview = document.getElementById("cover-preview");
+    const coverFile = document.getElementById("cover-file");
+    const coverClear = document.getElementById("cover-clear");
+    const coverStatus = document.getElementById("cover-status");
+
+    let editingId = null;
+    let slugTouched = false;
+
+    function setCover(url) {
+      if (url) {
+        coverPreview.style.backgroundImage = `url('${url}')`;
+        coverPreview.setAttribute("data-loaded", "true");
+        coverClear.hidden = false;
+        form.elements.cover_image_url.value = url;
+      } else {
+        coverPreview.style.backgroundImage = "";
+        coverPreview.removeAttribute("data-loaded");
+        coverClear.hidden = true;
+        form.elements.cover_image_url.value = "";
+      }
+    }
+
+    async function uploadCover(file) {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `covers/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      coverStatus.textContent = "Uploading…";
+
+      const { error } = await supabase.storage
+        .from(PACK_IMAGES_BUCKET)
+        .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+
+      if (error) {
+        coverStatus.textContent = `Upload failed: ${error.message}`;
+        return null;
+      }
+
+      const { data } = supabase.storage.from(PACK_IMAGES_BUCKET).getPublicUrl(path);
+      coverStatus.textContent = "Uploaded.";
+      return data.publicUrl;
+    }
+
+    async function loadForEdit(id) {
+      const { data, error } = await supabase
+        .from("packs")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error || !data) {
+        showError(`Couldn't load pack: ${error?.message || "not found"}`);
+        return;
+      }
+      editingId = data.id;
+      form.elements.id.value = data.id;
+      form.elements.title.value = data.title || "";
+      form.elements.slug.value = data.slug || "";
+      form.elements.price_gbp.value = ((data.price_pence || 0) / 100).toFixed(2);
+      form.elements.category.value = data.category || "";
+      form.elements.status.value = data.status || "active";
+      form.elements.description.value = data.description || "";
+      form.elements.contents.value = (data.contents || []).join("\n");
+      setCover(data.cover_image_url || "");
+      slugTouched = true;
+      titleEl.innerHTML = `Edit: <em>${escapeHtml(data.title || "pack")}</em>`;
+      subEl.textContent = `Editing ${data.slug} · created ${new Date(data.created_at).toLocaleDateString("en-GB")}.`;
+      deleteBtn.hidden = false;
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    function hideError() { errorEl.hidden = true; }
+
+    async function nextTopSortOrder() {
+      const { data, error } = await supabase
+        .from("packs")
+        .select("sort_order")
+        .order("sort_order", { ascending: true })
+        .limit(1);
+      if (error || !data || !data.length) return 0;
+      return (data[0].sort_order ?? 0) - 1;
+    }
+
+    async function savePack(e) {
+      e.preventDefault();
+      hideError();
+      saveBtn.setAttribute("disabled", "true");
+      saveBtn.textContent = "Saving…";
+
+      try {
+        const fd = new FormData(form);
+        const title = String(fd.get("title") || "").trim();
+        const slug = String(fd.get("slug") || "").trim();
+        const priceGbp = Number(fd.get("price_gbp") || 0);
+        const contents = String(fd.get("contents") || "")
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+
+        if (!title) throw new Error("Title is required.");
+        if (!slug) throw new Error("Slug is required.");
+        if (!/^[a-z0-9-]+$/.test(slug)) throw new Error("Slug must be lowercase letters, numbers, and hyphens.");
+        if (Number.isNaN(priceGbp) || priceGbp < 0) throw new Error("Price must be 0 or more.");
+
+        const payload = {
+          title,
+          slug,
+          price_pence: Math.round(priceGbp * 100),
+          category: String(fd.get("category") || "") || null,
+          status: String(fd.get("status") || "active"),
+          description: String(fd.get("description") || "").trim() || null,
+          contents,
+          cover_image_url: String(fd.get("cover_image_url") || "").trim() || null,
+        };
+
+        let result;
+        if (editingId) {
+          result = await supabase.from("packs").update(payload).eq("id", editingId).select().single();
+        } else {
+          payload.sort_order = await nextTopSortOrder();
+          result = await supabase.from("packs").insert(payload).select().single();
+        }
+        if (result.error) throw result.error;
+
+        location.href = "/admin/packs";
+      } catch (err) {
+        showError(err.message || "Could not save pack.");
+        saveBtn.removeAttribute("disabled");
+        saveBtn.textContent = "Save pack";
+      }
+    }
+
+    async function deletePack() {
+      if (!editingId) return;
+      if (!confirm("Permanently delete this pack? This cannot be undone.")) return;
+      const { error } = await supabase.from("packs").delete().eq("id", editingId);
+      if (error) return alert(`Delete failed: ${error.message}`);
+      location.href = "/admin/packs";
+    }
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+      const url = new URL(location.href);
+      const id = url.searchParams.get("id");
+      if (id) await loadForEdit(id);
+    })();
+
+    form.addEventListener("submit", savePack);
+    deleteBtn.addEventListener("click", deletePack);
+
+    // Auto-slug from title until user edits slug manually
+    form.elements.title.addEventListener("input", () => {
+      if (!slugTouched) form.elements.slug.value = slugify(form.elements.title.value);
+    });
+    form.elements.slug.addEventListener("input", () => { slugTouched = true; });
+    form.elements.slug.addEventListener("blur", () => {
+      form.elements.slug.value = slugify(form.elements.slug.value);
+    });
+
+    coverFile.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const url = await uploadCover(file);
+      if (url) setCover(url);
+    });
+    coverClear.addEventListener("click", () => setCover(""));
+  </script>
+</BaseLayout>
