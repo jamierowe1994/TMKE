@@ -18,18 +18,17 @@ const industries = [
   description="Not sure what you need or where to start? Send us a message and we'll help you figure out the right next step."
 >
   <section class="contact-hero">
-    <video
+    <!-- Was an mp4 — swapped for a still image to keep the page light.
+         Keeps the same `.contact-hero-video` class so existing CSS
+         (object-fit, cinematic drift animation) still applies. -->
+    <img
       class="contact-hero-video"
-      data-hero-video
-      muted
-      loop
-      playsinline
-      preload="metadata"
-      poster="/assets/hero-poster-dark.svg"
+      src="/assets/contact-phone.png"
+      alt=""
+      loading="eager"
+      decoding="async"
       aria-hidden="true"
-    >
-      <source data-src="/assets/phone.mp4" type="video/mp4" />
-    </video>
+    />
     <div class="contact-hero-overlay"></div>
     <div class="contact-hero-vignette"></div>
     <div class="contact-hero-inner">
@@ -196,33 +195,9 @@ const industries = [
   </section>
 </BaseLayout>
 
-<script is:inline>
-  (function () {
-    const video = document.querySelector("[data-hero-video]");
-    if (video) {
-      const source = video.querySelector("source[data-src]");
-      let armed = false;
-      const arm = function () {
-        if (armed || !source) return;
-        armed = true;
-        source.setAttribute("src", source.getAttribute("data-src"));
-        video.load();
-        const playPromise = video.play();
-        if (playPromise && playPromise.catch) playPromise.catch(function () {});
-      };
-      if ("IntersectionObserver" in window) {
-        const io = new IntersectionObserver(function (entries) {
-          for (const e of entries) {
-            if (e.isIntersecting) { arm(); io.disconnect(); break; }
-          }
-        }, { rootMargin: "200px" });
-        io.observe(video);
-      } else {
-        arm();
-      }
-    }
-  })();
-</script>
+<!-- Hero-video lazy-loader removed — the hero is now a still image
+     and doesn't need the intersection-observer arm-on-scroll dance. -->
+
 
 <script>
   import { supabase } from "../lib/supabase.js";
