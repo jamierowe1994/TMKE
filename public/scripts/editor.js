@@ -182,6 +182,211 @@
     toast._t = setTimeout(() => { toastEl.classList.remove("is-show"); toastEl.hidden = true; }, durationMs || 1800);
   }
 
+  // ---------- Context-bar helpers ----------
+  // Admin mode detection: the page-level admin-mode bootstrap (in
+  // editor.astro) installs `window.__TMKE_ADMIN_SAVE__` when a signed-in
+  // admin opens /editor?mode=admin. Customer flows don't get this hook,
+  // so it's a reliable signal for "hide admin-only affordances".
+  function isAdminMode() {
+    return typeof window.__TMKE_ADMIN_SAVE__ === "function";
+  }
+
+  // Generic icon button that opens a popover when clicked. The `render`
+  // callback gets a `close` function and should return a DOM element to
+  // populate the popover. Closes on outside click, Escape, scroll.
+  function popoverIconButton(opts) {
+    const wrap = document.createElement("div");
+    wrap.className = "ed-pop-wrap";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ed-ctx-btn ed-pop-trigger";
+    btn.title = opts.title || "";
+    btn.innerHTML = opts.icon;
+    wrap.appendChild(btn);
+
+    const pop = document.createElement("div");
+    pop.className = "ed-pop";
+    pop.hidden = true;
+    document.body.appendChild(pop);
+
+    function position() {
+      const r = btn.getBoundingClientRect();
+      pop.style.top = (r.bottom + 6) + "px";
+      pop.style.left = Math.min(r.left, window.innerWidth - 280 - 12) + "px";
+    }
+    function open() {
+      pop.innerHTML = "";
+      pop.appendChild(opts.render(close));
+      pop.hidden = false;
+      position();
+    }
+    function close() { pop.hidden = true; }
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      pop.hidden ? open() : close();
+    });
+    document.addEventListener("click", function (e) {
+      if (!pop.hidden && !pop.contains(e.target) && !wrap.contains(e.target)) close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (!pop.hidden && e.key === "Escape") close();
+    });
+    window.addEventListener("resize", function () { if (!pop.hidden) position(); });
+
+    return wrap;
+  }
+
+  // Circular colour swatch — clicking it triggers the native colour picker.
+  // Used in place of square `<input type="color">` with a "Colour" label.
+  // onChange is called on every input event with the new hex string.
+  function circleColorInput(initialHex, onChange, title) {
+    const wrap = document.createElement("label");
+    wrap.className = "ed-circle-swatch";
+    wrap.title = title || "Colour";
+    wrap.style.background = initialHex || "#000000";
+
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = rgbHex(initialHex || "#000000");
+    wrap.appendChild(input);
+
+    input.addEventListener("input", function () {
+      wrap.style.background = input.value;
+      onChange(input.value);
+      fullRender();
+    });
+    input.addEventListener("change", function () { pushHistory(); });
+    return wrap;
+  }
+
+  // ---------- Right-click context menu ----------
+  // Replaces the in-toolbar Bring forward / Send back buttons. Right-click
+  // any selected element (or anywhere on the canvas; we'll try to hit-test)
+  // and a small floating menu appears at the cursor with z-order + duplicate
+  // / delete + (text only) link options.
+  const ctxMenu = document.createElement("div");
+  ctxMenu.className = "ed-rclick";
+  ctxMenu.hidden = true;
+  document.body.appendChild(ctxMenu);
+
+  function hideContextMenu() { ctxMenu.hidden = true; }
+
+  function showContextMenu(x, y, el) {
+    if (!el) return;
+    // Make sure the right-clicked element is selected so subsequent actions
+    // (which read state.selectedIds) target it.
+    if (!state.selectedIds.includes(el.id)) {
+      state.selectedIds = [el.id];
+      fullRender();
+    }
+
+    const items = [
+      { label: "Bring forward",   action: function () { bringForward(); } },
+      { label: "Send back",       action: function () { sendBack(); } },
+      { label: "Bring to front",  action: function () { bringToFront(); } },
+      { label: "Send to back",    action: function () { sendToBack(); } },
+      { divider: true },
+      { label: "Duplicate",       hint: "Ctrl+D", action: function () { duplicateSelected(); } },
+      { label: "Delete",          hint: "Del", action: function () { deleteSelected(); }, danger: true },
+    ];
+
+    if (el.type === "text") {
+      items.push({ divider: true });
+      if (el.link) {
+        items.push({ label: "Edit link…", action: function () { promptLink(el); } });
+        items.push({ label: "Remove link", action: function () { el.link = null; pushHistory(); fullRender(); } });
+      } else {
+        items.push({ label: "Add link…", action: function () { promptLink(el); } });
+      }
+    }
+
+    ctxMenu.innerHTML = items.map(function (it) {
+      if (it.divider) return '<div class="ed-rclick-divider"></div>';
+      return (
+        '<button type="button" class="ed-rclick-item' + (it.danger ? ' is-danger' : '') + '">' +
+          '<span>' + it.label + '</span>' +
+          (it.hint ? '<span class="ed-rclick-hint">' + it.hint + '</span>' : '') +
+        '</button>'
+      );
+    }).join("");
+
+    // Position with a small offset; if it would overflow the viewport, flip.
+    const w = 220;
+    const h = items.length * 32 + 16;
+    const px = Math.min(x + 2, window.innerWidth - w - 8);
+    const py = Math.min(y + 2, window.innerHeight - h - 8);
+    ctxMenu.style.left = px + "px";
+    ctxMenu.style.top = py + "px";
+    ctxMenu.hidden = false;
+
+    // Wire up — re-query because we just innerHTML'd.
+    const buttons = ctxMenu.querySelectorAll(".ed-rclick-item");
+    let i = 0;
+    items.forEach(function (it) {
+      if (it.divider) return;
+      const btn = buttons[i++];
+      btn.addEventListener("click", function () {
+        hideContextMenu();
+        it.action();
+      });
+    });
+  }
+
+  // Simple prompt-based link editor. Could become a popover later.
+  function promptLink(el) {
+    const current = el.link || "";
+    const next = prompt("Link URL (leave blank to remove)", current);
+    if (next === null) return; // cancelled
+    const trimmed = String(next).trim();
+    el.link = trimmed || null;
+    pushHistory();
+    fullRender();
+  }
+
+  document.addEventListener("click", function () { hideContextMenu(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !ctxMenu.hidden) hideContextMenu();
+  });
+
+  // Hook the contextmenu event on the canvas. Resolves which element was
+  // clicked by hit-testing against state.elements (top-most first).
+  if (canvasEl) {
+    canvasEl.addEventListener("contextmenu", function (e) {
+      // Find which element was clicked by walking back-to-front so the
+      // top-most layer wins.
+      const target = e.target.closest(".ed-element");
+      if (!target) return;
+      e.preventDefault();
+      const id = target.getAttribute("data-id");
+      const el = getEl(id);
+      if (!el) return;
+      showContextMenu(e.clientX, e.clientY, el);
+    });
+  }
+
+  // SVG icons used in the context bar.
+  const ICONS = {
+    opacity:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="12" cy="12" r="9"/>' +
+      '<path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>' +
+      '</svg>',
+    stroke:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">' +
+      '<path d="M4 12h16"/>' +
+      '</svg>',
+    radius:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M4 20V10a6 6 0 0 1 6-6h10"/>' +
+      '</svg>',
+    delete:
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/>' +
+      '</svg>',
+  };
+
   // ---------- Background removal (@imgly, runs in-browser) ----------
   // editor.js is served as a public/ asset (not bundled by Vite), so we
   // can't use a bare "@imgly/background-removal" specifier — the browser
@@ -1334,9 +1539,10 @@
       </div>
     </div>`);
 
+    // Lock is admin-only — customer flow doesn't get the affordance.
     html.push(`<div class="ed-props-section">
       <div class="ed-props-actions">
-        <button data-action="lock">${el.locked ? "Unlock" : "Lock"}</button>
+        ${isAdminMode() ? `<button data-action="lock">${el.locked ? "Unlock" : "Lock"}</button>` : ""}
         <button data-action="duplicate">Duplicate</button>
         <button data-action="delete" class="danger">Delete</button>
       </div>
@@ -1474,63 +1680,86 @@
       });
       ctxEl.appendChild(g3);
 
-      // Color
+      // Colour — circular swatch, no label (Canva-style).
       const g4 = group();
-      const color = document.createElement("input");
-      color.type = "color";
-      color.className = "ed-ctx-color";
-      color.value = rgbHex(el.color);
-      color.addEventListener("input", () => { el.color = color.value; fullRender(); });
-      color.addEventListener("change", () => pushHistory());
-      g4.appendChild(label("Colour"));
-      g4.appendChild(color);
+      g4.appendChild(circleColorInput(el.color, function (hex) { el.color = hex; }, "Text colour"));
       ctxEl.appendChild(g4);
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
-      // Fill
+      // Fill — circle swatch
       const g = group();
-      const fill = document.createElement("input");
-      fill.type = "color"; fill.className = "ed-ctx-color"; fill.value = rgbHex(el.fill);
-      fill.addEventListener("input", () => { el.fill = fill.value; fullRender(); });
-      fill.addEventListener("change", () => pushHistory());
-      g.appendChild(label("Fill"));
-      g.appendChild(fill);
+      g.appendChild(circleColorInput(el.fill, function (hex) { el.fill = hex; }, "Fill"));
       ctxEl.appendChild(g);
 
-      // Stroke colour + thickness — visible on the top bar for every shape
-      // so the user doesn't have to scroll to the right panel for line work.
-      const gs = group();
-      const stroke = document.createElement("input");
-      stroke.type = "color"; stroke.className = "ed-ctx-color";
-      stroke.value = rgbHex(el.stroke && el.stroke !== "transparent" ? el.stroke : "#000000");
-      stroke.addEventListener("input", () => { el.stroke = stroke.value; fullRender(); });
-      stroke.addEventListener("change", () => pushHistory());
-      gs.appendChild(label("Stroke"));
-      gs.appendChild(stroke);
-      const strokeW = document.createElement("input");
-      strokeW.type = "number"; strokeW.className = "ed-ctx-num";
-      strokeW.min = 0; strokeW.max = 40; strokeW.value = el.strokeWidth || 0;
-      strokeW.title = "Line thickness";
-      strokeW.addEventListener("change", () => {
-        el.strokeWidth = parseInt(strokeW.value, 10) || 0;
-        // If user starts giving a width, make sure stroke isn't transparent.
-        if (el.strokeWidth > 0 && (!el.stroke || el.stroke === "transparent")) el.stroke = stroke.value;
-        fullRender(); pushHistory();
+      // Stroke — icon-only trigger; click opens a popover with colour
+      // + width. Same UX shape as opacity below.
+      const strokeWrap = popoverIconButton({
+        icon: ICONS.stroke,
+        title: "Stroke",
+        render: function () {
+          const panel = document.createElement("div");
+          panel.className = "ed-pop-panel";
+          panel.innerHTML =
+            '<div class="ed-pop-row"><span>Stroke colour</span></div>' +
+            '<div class="ed-pop-row" data-mount="stroke-color"></div>' +
+            '<div class="ed-pop-row"><span>Width</span></div>' +
+            '<div class="ed-pop-row">' +
+              '<input type="range" min="0" max="40" step="1" value="' + (el.strokeWidth || 0) + '" data-stroke-w />' +
+              '<output data-stroke-out>' + (el.strokeWidth || 0) + 'px</output>' +
+            '</div>';
+          const mount = panel.querySelector('[data-mount="stroke-color"]');
+          mount.appendChild(circleColorInput(
+            el.stroke && el.stroke !== "transparent" ? el.stroke : "#000000",
+            function (hex) {
+              el.stroke = hex;
+              // If user picks a colour but has no width, give it 2px so the change is visible.
+              if (!el.strokeWidth) {
+                el.strokeWidth = 2;
+                panel.querySelector("[data-stroke-w]").value = "2";
+                panel.querySelector("[data-stroke-out]").textContent = "2px";
+              }
+            }, "Stroke colour"
+          ));
+          const r = panel.querySelector("[data-stroke-w]");
+          const o = panel.querySelector("[data-stroke-out]");
+          r.addEventListener("input", function () {
+            el.strokeWidth = parseInt(r.value, 10) || 0;
+            if (el.strokeWidth > 0 && (!el.stroke || el.stroke === "transparent")) el.stroke = "#000000";
+            o.textContent = el.strokeWidth + "px";
+            fullRender();
+          });
+          r.addEventListener("change", function () { pushHistory(); });
+          return panel;
+        },
       });
-      gs.appendChild(strokeW);
-      ctxEl.appendChild(gs);
+      ctxEl.appendChild(strokeWrap);
 
-      // Corner radius — available on rectangles. Surfacing on the top bar
-      // makes "rounded corners" a one-click affordance.
+      // Corner radius — same popover pattern for rectangles only.
       if (el.type === "rect") {
-        const gr = group();
-        gr.appendChild(label("Radius"));
-        const r = document.createElement("input");
-        r.type = "range"; r.min = 0; r.max = Math.min(el.w, el.h) / 2; r.value = el.radius || 0;
-        r.style.width = "100px";
-        r.addEventListener("input", () => { el.radius = parseInt(r.value, 10); fullRender(); });
-        r.addEventListener("change", () => pushHistory());
-        gr.appendChild(r);
-        ctxEl.appendChild(gr);
+        const radiusWrap = popoverIconButton({
+          icon: ICONS.radius,
+          title: "Corner radius",
+          render: function () {
+            const panel = document.createElement("div");
+            panel.className = "ed-pop-panel";
+            const max = Math.min(el.w, el.h) / 2;
+            panel.innerHTML =
+              '<div class="ed-pop-row"><span>Corner radius</span></div>' +
+              '<div class="ed-pop-row">' +
+                '<input type="range" min="0" max="' + max + '" step="1" value="' + (el.radius || 0) + '" data-radius />' +
+                '<output data-radius-out>' + (el.radius || 0) + 'px</output>' +
+              '</div>';
+            const r = panel.querySelector("[data-radius]");
+            const o = panel.querySelector("[data-radius-out]");
+            r.addEventListener("input", function () {
+              el.radius = parseInt(r.value, 10) || 0;
+              o.textContent = el.radius + "px";
+              fullRender();
+            });
+            r.addEventListener("change", function () { pushHistory(); });
+            return panel;
+          },
+        });
+        ctxEl.appendChild(radiusWrap);
       }
     } else if (el.type === "image") {
       const g = group();
@@ -1563,25 +1792,64 @@
       ctxEl.appendChild(g);
     }
 
-    // Common: opacity, lock, duplicate, delete
-    const gC = group();
-    gC.appendChild(label("Opacity"));
-    const op = document.createElement("input");
-    op.type = "range"; op.min = 0; op.max = 1; op.step = 0.05;
-    op.value = el.opacity != null ? el.opacity : 1;
-    op.style.width = "80px";
-    op.addEventListener("input", () => { el.opacity = parseFloat(op.value); partialRenderElement(el); });
-    op.addEventListener("change", () => pushHistory());
-    gC.appendChild(op);
-    ctxEl.appendChild(gC);
+    // ===== Common controls — opacity (icon), duplicate, delete =====
+    // Z-order (bring forward / send back) moved to the right-click menu.
+    // Lock is admin-only — hidden in the customer flow.
 
-    const gZ = group();
-    gZ.appendChild(toggleBtn("⌃", false, bringForward, "Bring forward"));
-    gZ.appendChild(toggleBtn("⌄", false, sendBack, "Send back"));
-    gZ.appendChild(toggleBtn(el.locked ? "🔒" : "🔓", el.locked, () => { el.locked = !el.locked; pushHistory(); fullRender(); }, "Lock"));
-    gZ.appendChild(toggleBtn("⎘", false, duplicateSelected, "Duplicate"));
-    gZ.appendChild(toggleBtn("✕", false, deleteSelected, "Delete"));
-    ctxEl.appendChild(gZ);
+    // Opacity — icon trigger, popover with a transparency slider.
+    const opacityWrap = popoverIconButton({
+      icon: ICONS.opacity,
+      title: "Transparency",
+      render: function () {
+        const panel = document.createElement("div");
+        panel.className = "ed-pop-panel";
+        const val = Math.round((el.opacity != null ? el.opacity : 1) * 100);
+        panel.innerHTML =
+          '<div class="ed-pop-row"><span>Transparency</span></div>' +
+          '<div class="ed-pop-row">' +
+            '<input type="range" min="0" max="100" step="1" value="' + val + '" data-opacity />' +
+            '<output data-opacity-out>' + val + '</output>' +
+          '</div>';
+        const r = panel.querySelector("[data-opacity]");
+        const o = panel.querySelector("[data-opacity-out]");
+        r.addEventListener("input", function () {
+          el.opacity = parseInt(r.value, 10) / 100;
+          o.textContent = r.value;
+          partialRenderElement(el);
+        });
+        r.addEventListener("change", function () { pushHistory(); });
+        return panel;
+      },
+    });
+    ctxEl.appendChild(opacityWrap);
+
+    // Duplicate — labelled button (user explicitly asked for text, not icon).
+    const gA = group();
+    const dupBtn = document.createElement("button");
+    dupBtn.type = "button";
+    dupBtn.className = "ed-ctx-btn ed-ctx-btn-text";
+    dupBtn.textContent = "Duplicate";
+    dupBtn.title = "Duplicate (Ctrl+D)";
+    dupBtn.addEventListener("click", duplicateSelected);
+    gA.appendChild(dupBtn);
+
+    // Lock — admin only.
+    if (isAdminMode()) {
+      gA.appendChild(toggleBtn(el.locked ? "🔒" : "🔓", el.locked, function () {
+        el.locked = !el.locked; pushHistory(); fullRender();
+      }, "Lock"));
+    }
+
+    // Delete — icon (universal trash-can affordance).
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "ed-ctx-btn ed-ctx-btn-danger";
+    delBtn.innerHTML = ICONS.delete;
+    delBtn.title = "Delete (Del)";
+    delBtn.addEventListener("click", deleteSelected);
+    gA.appendChild(delBtn);
+
+    ctxEl.appendChild(gA);
 
     function group() {
       const g = document.createElement("div");
