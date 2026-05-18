@@ -341,15 +341,21 @@
         e.stopPropagation();
         pop.hidden ? open() : close();
       });
-      // Close on outside click / scroll / resize / Escape.
+      // Close on outside click / page-level scroll / resize / Escape.
       document.addEventListener("click", function (e) {
         if (!pop.hidden && !wrap.contains(e.target) && !pop.contains(e.target)) close();
       });
       document.addEventListener("keydown", function (e) {
         if (!pop.hidden && e.key === "Escape") close();
       });
-      window.addEventListener("scroll", function () {
-        if (!pop.hidden) close();
+      // Scroll handler uses capture so it sees scrolls on any element. We
+      // only want to close when something OUTSIDE the popover scrolls
+      // (so the popover doesn't follow a stale anchor). Scrolling the
+      // font list itself is fine and should not close.
+      window.addEventListener("scroll", function (e) {
+        if (pop.hidden) return;
+        if (pop.contains(e.target)) return;
+        close();
       }, true);
       window.addEventListener("resize", function () {
         if (!pop.hidden) position();
