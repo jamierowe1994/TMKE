@@ -104,13 +104,28 @@ const industries = [
 
           <div class="contact-field contact-field--full contact-submit-row">
             <button type="submit" class="btn btn--solid contact-submit">
-              Send Message
+              <span class="contact-submit-label">Send Message</span>
+              <span class="contact-submit-spinner" aria-hidden="true"></span>
             </button>
-            <p class="contact-form-thanks" hidden>
-              Thanks — your message is on its way. We'll be in touch shortly.
-            </p>
             <p class="contact-form-error" role="alert" hidden></p>
           </div>
+        </div>
+
+        <!-- Success state. Hidden by default; revealed (and the form
+             card hidden) once the enquiry has been written to Supabase. -->
+        <div class="contact-form-success" id="contact-form-success" hidden>
+          <div class="contact-form-success-tick" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M8 12.5l3 3 5-6"></path>
+            </svg>
+          </div>
+          <h3 class="contact-form-success-h">Thank you.</h3>
+          <p class="contact-form-success-p">
+            We've received your enquiry and will get back to you within
+            <strong>48 hours</strong>. If it's urgent, drop us an email at
+            <a href="mailto:hello@tmke.co.uk">hello@tmke.co.uk</a>.
+          </p>
         </div>
       </form>
     </div>
@@ -205,9 +220,23 @@ const industries = [
   const form = document.getElementById("tmke-contact-form");
   if (form) {
     const card = form.querySelector(".contact-form-card");
-    const thanks = form.querySelector(".contact-form-thanks");
+    const success = form.querySelector("#contact-form-success");
     const error = form.querySelector(".contact-form-error");
     const btn = form.querySelector(".contact-submit");
+    const btnLabel = btn?.querySelector(".contact-submit-label");
+
+    function setSending(on) {
+      if (!btn) return;
+      if (on) {
+        btn.setAttribute("disabled", "true");
+        btn.classList.add("is-sending");
+        if (btnLabel) btnLabel.textContent = "Sending…";
+      } else {
+        btn.removeAttribute("disabled");
+        btn.classList.remove("is-sending");
+        if (btnLabel) btnLabel.textContent = "Send Message";
+      }
+    }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -216,10 +245,7 @@ const industries = [
         return;
       }
       if (error) error.hidden = true;
-      if (btn) {
-        btn.setAttribute("disabled", "true");
-        btn.textContent = "Sending…";
-      }
+      setSending(true);
 
       const fd = new FormData(form);
       const payload = {
@@ -239,10 +265,7 @@ const industries = [
 
       if (insertError) {
         console.error("[TMKE] enquiry insert failed", insertError);
-        if (btn) {
-          btn.removeAttribute("disabled");
-          btn.textContent = "Send Message";
-        }
+        setSending(false);
         if (error) {
           error.textContent =
             "Sorry — we couldn't send that. Please try again, or email hello@tmke.co.uk.";
@@ -251,9 +274,23 @@ const industries = [
         return;
       }
 
-      if (thanks) thanks.hidden = false;
-      if (card) card.classList.add("is-sent");
+      // Success — drop the form card, fade the success panel in. Two-step
+      // animation: fade the card out, swap displays, fade the success panel
+      // in. Keeps the button transition feeling intentional instead of an
+      // abrupt jump.
+      if (card) {
+        card.classList.add("is-leaving");
+        await new Promise((r) => setTimeout(r, 260));
+        card.hidden = true;
+      }
+      if (success) {
+        success.hidden = false;
+        // Force a paint, then add the visible class so the fade-in animates.
+        requestAnimationFrame(() => success.classList.add("is-visible"));
+        success.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
       form.reset();
+      setSending(false);
     });
   }
 </script>
@@ -496,20 +533,90 @@ const industries = [
   .contact-submit {
     align-self: flex-start;
   }
-  .contact-form-thanks {
-    font-family: var(--sans);
-    font-size: 14px;
-    color: var(--english-violet);
-  }
   .contact-form-error {
     font-family: var(--sans);
     font-size: 14px;
     color: #b03a2e;
     margin: 0;
   }
-  .contact-form-card.is-sent .contact-field:not(.contact-submit-row) {
-    opacity: 0.45;
+
+  /* Submit button spinner — shown when .is-sending is set on the button. */
+  .contact-submit { position: relative; }
+  .contact-submit-spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    margin-left: 10px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    vertical-align: middle;
+    animation: contact-spin 0.7s linear infinite;
+  }
+  .contact-submit.is-sending .contact-submit-spinner { display: inline-block; }
+  @keyframes contact-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Card fade-out before the success panel takes over. */
+  .contact-form-card {
+    transition: opacity 0.25s ease, transform 0.32s cubic-bezier(.2,.7,.2,1);
+  }
+  .contact-form-card.is-leaving {
+    opacity: 0;
+    transform: translateY(-12px);
     pointer-events: none;
+  }
+
+  /* Success panel. Hidden by default; fades + lifts into place once the
+     enquiry lands in Supabase. */
+  .contact-form-success {
+    margin-top: 36px;
+    padding: 56px 48px;
+    background: rgba(71, 66, 84, 0.05);
+    border: 1px solid rgba(71, 66, 84, 0.2);
+    border-radius: 4px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.45s ease, transform 0.5s cubic-bezier(.2,.7,.2,1);
+  }
+  .contact-form-success.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .contact-form-success-tick {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 24px;
+    color: var(--english-violet);
+  }
+  .contact-form-success-tick svg {
+    width: 100%; height: 100%;
+  }
+  .contact-form-success-h {
+    font-family: var(--serif);
+    font-size: clamp(32px, 3vw, 44px);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 0 0 14px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .contact-form-success-p {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    line-height: 1.55;
+    color: rgba(28, 29, 34, 0.7);
+    max-width: 540px;
+    margin: 0 auto;
+  }
+  .contact-form-success-p strong { color: var(--ink); font-style: normal; }
+  .contact-form-success-p a { color: var(--english-violet); border-bottom: 1px solid currentColor; }
+  @media (max-width: 720px) {
+    .contact-form-success { padding: 40px 24px; }
+    .contact-form-success-tick { width: 52px; height: 52px; margin-bottom: 18px; }
   }
 
   /* ============ Contact — channel cards (Email / LinkedIn / Instagram) ============ */
