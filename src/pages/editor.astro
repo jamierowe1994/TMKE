@@ -126,6 +126,13 @@ const googleFonts = [
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M20.49 13A9 9 0 1 1 18.36 3.64L21 6"/></svg>
         </button>
         <span class="ed-divider"></span>
+        <button class="ed-icon-btn" id="ed-crop" title="Crop image">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
+        </button>
+        <button class="ed-icon-btn" id="ed-flip" title="Flip horizontal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        </button>
+        <span class="ed-divider"></span>
         <button class="ed-icon-btn" id="ed-zoom-out" title="Zoom out (-)">−</button>
         <button class="ed-zoom-display" id="ed-zoom-display">100%</button>
         <button class="ed-icon-btn" id="ed-zoom-in" title="Zoom in (+)">+</button>
@@ -134,6 +141,16 @@ const googleFonts = [
 
       <div class="ed-topbar-right">
         <button class="ed-btn-ghost" id="ed-save">Save</button>
+        <button class="ed-btn-ghost" id="ed-share" title="Share to your socials">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Share
+        </button>
         <div class="ed-download" id="ed-download">
           <button class="ed-btn-solid" id="ed-download-trigger" aria-haspopup="menu" aria-expanded="false">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -164,11 +181,9 @@ const googleFonts = [
 
     <!-- =================== LEFT TOOL RAIL =================== -->
     <aside class="ed-rail" role="tablist">
-      <button class="ed-rail-btn is-active" data-tool="templates" title="Templates">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        <span>Designs</span>
-      </button>
-      <button class="ed-rail-btn" data-tool="brand" title="Your brand kit">
+      <!-- "Designs" tab removed — users rarely jump between templates
+           mid-session, and dropping it gives the rail more breathing room. -->
+      <button class="ed-rail-btn is-active" data-tool="brand" title="Your brand kit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
         <span>Brand</span>
       </button>
@@ -205,8 +220,20 @@ const googleFonts = [
 
     <!-- =================== TOOL FLYOUT PANEL =================== -->
     <aside class="ed-panel" id="ed-panel">
-      <!-- Templates -->
-      <section class="ed-panel-pane is-active" data-pane="templates">
+      <!-- Selection — auto-opens when an element is selected, replacing
+           the right-hand properties panel that used to live in this layout. -->
+      <section class="ed-panel-pane" data-pane="selection">
+        <div class="ed-pane-header">
+          <h3>Selection</h3>
+          <p>Edit the element you're currently working on.</p>
+        </div>
+        <div class="ed-selection-body" id="ed-selection-body"></div>
+      </section>
+
+      <!-- Templates pane kept in the DOM (the admin /admin/templates page
+           still navigates here with ?template=...) but the rail tab that
+           opened it has been removed. -->
+      <section class="ed-panel-pane" data-pane="templates">
         <div class="ed-pane-header">
           <h3>Designs from your pack</h3>
           <p>Tap a design to load it onto the canvas.</p>
@@ -215,7 +242,7 @@ const googleFonts = [
       </section>
 
       <!-- Brand kit -->
-      <section class="ed-panel-pane" data-pane="brand">
+      <section class="ed-panel-pane is-active" data-pane="brand">
         <div class="ed-pane-header">
           <h3 id="brand-company">Your brand kit</h3>
           <p>Colours, fonts and logos saved in your profile. <a href="/profile" id="brand-edit-link">Edit&nbsp;&rarr;</a></p>
@@ -421,16 +448,12 @@ const googleFonts = [
       </div>
     </main>
 
-    <!-- =================== RIGHT PROPERTIES =================== -->
-    <aside class="ed-props" id="ed-props">
-      <div class="ed-props-empty">
-        <div class="ed-props-empty-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
-        </div>
-        <p>Select an element to edit its properties.</p>
-        <p class="ed-props-hint">Tip: press <kbd>?</kbd> for keyboard shortcuts.</p>
-      </div>
-    </aside>
+    <!-- Right properties panel removed — its controls now live inside
+         the "Selection" pane on the left, which auto-opens when an
+         element is selected. The #ed-props node is kept as an empty
+         placeholder so any existing JS that queried it doesn't NPE
+         while we transition; renderProps now targets the new pane. -->
+    <aside class="ed-props" id="ed-props" hidden></aside>
 
     <!-- Toast -->
     <div class="ed-toast" id="ed-toast" hidden></div>
@@ -466,26 +489,33 @@ const googleFonts = [
       position: fixed;
       inset: 0;
       display: grid;
-      grid-template-columns: 80px 320px 1fr 300px;
-      grid-template-rows: 56px 44px 1fr;
+      /* Right properties column gone — its controls live inside the
+         left panel's "Selection" pane now. Rail bumped 80→100,
+         panel bumped 320→360 for more room. */
+      grid-template-columns: 100px 360px 1fr;
+      grid-template-rows: 64px 44px 1fr;
       grid-template-areas:
-        "top   top   top   top"
-        "rail  panel ctx   props"
-        "rail  panel stage props";
+        "top   top   top"
+        "rail  panel ctx"
+        "rail  panel stage";
       background: #f5f4f1;
       font-family: var(--sans);
       color: var(--ink);
     }
 
-    /* ===== Top bar ===== */
+    /* ===== Top bar — floating pill, detached from the page edges ===== */
     .ed-topbar {
       grid-area: top;
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
       padding: 0 18px;
+      margin: 10px 12px 0;
+      height: 52px;
       background: #fff;
-      border-bottom: 1px solid rgba(28,29,34,0.08);
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 8px;
+      box-shadow: 0 6px 22px -10px rgba(28,29,34,0.18);
       z-index: 30;
     }
     .ed-topbar-left { display: flex; align-items: center; gap: 14px; justify-self: start; }
@@ -753,6 +783,17 @@ const googleFonts = [
     }
     .ed-panel-pane { display: none; }
     .ed-panel-pane.is-active { display: block; }
+
+    /* Selection pane = the property editor that used to live on the right.
+       Re-uses the .ed-props-* class names so the existing CSS still applies
+       to fields, rows, sections, actions. */
+    .ed-selection-empty {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28,29,34,0.5);
+      padding: 16px 4px;
+      margin: 0;
+    }
 
     .ed-pane-header { margin-bottom: 18px; }
     .ed-pane-header h3 {

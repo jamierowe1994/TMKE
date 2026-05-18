@@ -283,11 +283,25 @@
     }
 
     const items = [
+      // Z-order
       { label: "Bring forward",   action: function () { bringForward(); } },
       { label: "Send back",       action: function () { sendBack(); } },
       { label: "Bring to front",  action: function () { bringToFront(); } },
       { label: "Send to back",    action: function () { sendToBack(); } },
       { divider: true },
+      // Align (snaps the element to a canvas edge / centre, not a sibling)
+      { label: "Align left",      action: function () { alignSelected("left"); } },
+      { label: "Align centre",    action: function () { alignSelected("centerX"); } },
+      { label: "Align right",     action: function () { alignSelected("right"); } },
+      { label: "Align top",       action: function () { alignSelected("top"); } },
+      { label: "Align middle",    action: function () { alignSelected("centerY"); } },
+      { label: "Align bottom",    action: function () { alignSelected("bottom"); } },
+      { divider: true },
+      // Flip — works on any element but is most useful for images.
+      { label: "Flip horizontal", action: function () { flipSelected("h"); } },
+      { label: "Flip vertical",   action: function () { flipSelected("v"); } },
+      { divider: true },
+      { label: "Copy",            hint: "Ctrl+C", action: function () { copySelectedToClipboard(); } },
       { label: "Duplicate",       hint: "Ctrl+D", action: function () { duplicateSelected(); } },
       { label: "Delete",          hint: "Del", action: function () { deleteSelected(); }, danger: true },
     ];
@@ -332,6 +346,42 @@
         it.action();
       });
     });
+  }
+
+  // Align the currently-selected element relative to the canvas bounds.
+  // mode: "left" | "centerX" | "right" | "top" | "centerY" | "bottom"
+  function alignSelected(mode) {
+    const el = getEl(state.selectedIds[0]);
+    if (!el) return;
+    const cw = state.canvas.width;
+    const ch = state.canvas.height;
+    if (mode === "left")     el.x = 0;
+    if (mode === "centerX")  el.x = Math.round((cw - el.w) / 2);
+    if (mode === "right")    el.x = cw - el.w;
+    if (mode === "top")      el.y = 0;
+    if (mode === "centerY")  el.y = Math.round((ch - el.h) / 2);
+    if (mode === "bottom")   el.y = ch - el.h;
+    pushHistory();
+    fullRender();
+  }
+
+  // Toggle a flip flag on the element. Render + export both honour it.
+  function flipSelected(axis) {
+    const el = getEl(state.selectedIds[0]);
+    if (!el) return;
+    if (axis === "h") el.flipX = !el.flipX;
+    if (axis === "v") el.flipY = !el.flipY;
+    pushHistory();
+    fullRender();
+  }
+
+  // Copy the current selection to an in-memory clipboard. Paste behaviour
+  // is already wired in keyboard shortcuts further down (state.clipboard).
+  function copySelectedToClipboard() {
+    const els = selectedElements();
+    if (!els.length) return;
+    state.clipboard = els.map(deep);
+    toast(els.length + " copied");
   }
 
   // Simple prompt-based link editor. Could become a popover later.
@@ -748,7 +798,9 @@
     node.style.top = el.y + "px";
     node.style.width = el.w + "px";
     node.style.height = el.h + "px";
-    node.style.transform = "rotate(" + (el.rotation || 0) + "deg)";
+    const sx = el.flipX ? -1 : 1;
+    const sy = el.flipY ? -1 : 1;
+    node.style.transform = "rotate(" + (el.rotation || 0) + "deg) scale(" + sx + ", " + sy + ")";
     node.style.opacity = el.opacity != null ? el.opacity : 1;
 
     if (el.type === "rect" || el.type === "ellipse") {
@@ -1291,6 +1343,11 @@
       const cy = el.y + el.h / 2;
       ctx.translate(cx, cy);
       ctx.rotate((el.rotation || 0) * Math.PI / 180);
+      // Honour flipX / flipY on export so the downloaded image matches
+      // what the user sees on the canvas.
+      if (el.flipX || el.flipY) {
+        ctx.scale(el.flipX ? -1 : 1, el.flipY ? -1 : 1);
+      }
       ctx.translate(-el.w / 2, -el.h / 2);
       ctx.globalAlpha = el.opacity != null ? el.opacity : 1;
 
@@ -1449,18 +1506,30 @@
   }
 
   // ---------- Property panel ----------
+  // Targets `#ed-selection-body` inside the left "Selection" pane (the right
+  // properties panel was removed in favour of a unified left rail). On
+  // selection change this either populates the pane and switches to it, or
+  // empties it and switches back to the user's last-active tool tab.
   function renderProps() {
+    const body = document.getElementById("ed-selection-body");
+    if (!body) return;
+
     if (state.selectedIds.length !== 1) {
-      propsEl.innerHTML = `
-        <div class="ed-props-empty">
-          <div class="ed-props-empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
-          </div>
-          <p>${state.selectedIds.length === 0 ? "Select an element to edit its properties." : state.selectedIds.length + " elements selected"}</p>
-          <p class="ed-props-hint">Tip: press <kbd>?</kbd> for keyboard shortcuts.</p>
-        </div>`;
+      body.innerHTML = state.selectedIds.length > 1
+        ? '<p class="ed-selection-empty">' + state.selectedIds.length + ' elements selected.</p>'
+        : '';
+      if (state.selectedIds.length === 0) {
+        // Nothing selected — go back to whatever tool tab the rail is on.
+        if (typeof showPane === "function" && typeof activeToolPane === "string") {
+          showPane(activeToolPane);
+        }
+      }
       return;
     }
+
+    // Selected element — surface its controls and switch to Selection pane.
+    if (typeof showPane === "function") showPane("selection");
+
     const el = getEl(state.selectedIds[0]);
     if (!el) return;
 
@@ -1548,11 +1617,11 @@
       </div>
     </div>`);
 
-    propsEl.innerHTML = html.join("");
+    body.innerHTML = html.join("");
 
     // Mount the font picker into its placeholder (text elements only).
     // Inline mode: search + scrollable list always visible, no popover.
-    const fontMount = propsEl.querySelector('[data-mount="font-picker"]');
+    const fontMount = body.querySelector('[data-mount="font-picker"]');
     if (fontMount && el.type === "text") {
       fontMount.appendChild(createFontPicker(el.font, function (name) {
         el.font = name;
@@ -1562,7 +1631,7 @@
     }
 
     // Bind prop inputs
-    propsEl.querySelectorAll("[data-prop]").forEach((input) => {
+    body.querySelectorAll("[data-prop]").forEach((input) => {
       const prop = input.dataset.prop;
       const ev = (input.type === "range" || input.type === "color") ? "input" : "change";
       input.addEventListener(ev, () => {
@@ -1578,7 +1647,7 @@
       }
     });
 
-    propsEl.querySelectorAll("[data-arrange]").forEach((btn) => {
+    body.querySelectorAll("[data-arrange]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const a = btn.dataset.arrange;
         if (a === "up") bringForward();
@@ -1587,7 +1656,7 @@
         else if (a === "back") sendToBack();
       });
     });
-    propsEl.querySelectorAll("[data-action]").forEach((btn) => {
+    body.querySelectorAll("[data-action]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const a = btn.dataset.action;
         if (a === "lock") {
@@ -1601,7 +1670,7 @@
       });
     });
 
-    const replaceBtn = propsEl.querySelector("#ed-replace-img");
+    const replaceBtn = body.querySelector("#ed-replace-img");
     if (replaceBtn) {
       replaceBtn.addEventListener("click", () => {
         const input = document.createElement("input");
@@ -2105,14 +2174,23 @@
   }
 
   // ---------- Tool rail / panel switching ----------
+  // The left panel now serves double duty: when an element is selected it
+  // shows that element's properties (the "selection" pane), and when
+  // nothing's selected it falls back to whichever tool tab the user
+  // last clicked on the rail. `activeToolPane` remembers that fallback.
+  let activeToolPane = "brand";
+  function showPane(name) {
+    document.querySelectorAll(".ed-panel-pane").forEach((p) => {
+      p.classList.toggle("is-active", p.dataset.pane === name);
+    });
+  }
   document.querySelectorAll(".ed-rail-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.remove("is-active"));
       btn.classList.add("is-active");
       const tool = btn.dataset.tool;
-      document.querySelectorAll(".ed-panel-pane").forEach((p) => {
-        p.classList.toggle("is-active", p.dataset.pane === tool);
-      });
+      activeToolPane = tool;
+      showPane(tool);
     });
   });
 
@@ -2200,6 +2278,113 @@
   $("ed-zoom-fit").addEventListener("click", fitZoom);
   zoomDisplayEl.addEventListener("click", () => setZoom(1));
   $("ed-save").addEventListener("click", save);
+
+  // Crop — placeholder for the moment. The full drag-resize crop UI is
+  // deferred; this just checks the user has an image selected so we can
+  // wire the real flow into the same button later.
+  $("ed-crop")?.addEventListener("click", function () {
+    const el = getEl(state.selectedIds[0]);
+    if (!el || el.type !== "image") {
+      toast("Select an image to crop it", 2400);
+      return;
+    }
+    toast("Crop tool coming soon — use Replace image for now", 3000);
+  });
+
+  // Flip — works on any selected element. Toggles flipX (horizontal).
+  // The right-click menu has both axes; this top-bar button is the
+  // common-case fast path.
+  $("ed-flip")?.addEventListener("click", function () {
+    if (!state.selectedIds.length) {
+      toast("Select something to flip", 2400);
+      return;
+    }
+    flipSelected("h");
+  });
+
+  // Share — uses the Web Share API where available (mobile, modern desktop
+  // Chromium). Falls back to a PNG download so the user can post manually.
+  $("ed-share")?.addEventListener("click", async function () {
+    try {
+      // Re-use the export pipeline. We need a Blob for navigator.share.
+      const c = document.createElement("canvas");
+      c.width = state.canvas.width;
+      c.height = state.canvas.height;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = state.canvas.background || "#fff";
+      ctx.fillRect(0, 0, c.width, c.height);
+      // Lean draw loop — same shape as exportImage but inline. Keeping it
+      // duplicated for now until we refactor a shared renderer.
+      for (const el of state.elements) {
+        if (el.hidden) continue;
+        ctx.save();
+        const cx = el.x + el.w / 2;
+        const cy = el.y + el.h / 2;
+        ctx.translate(cx, cy);
+        ctx.rotate((el.rotation || 0) * Math.PI / 180);
+        if (el.flipX || el.flipY) ctx.scale(el.flipX ? -1 : 1, el.flipY ? -1 : 1);
+        ctx.translate(-el.w / 2, -el.h / 2);
+        ctx.globalAlpha = el.opacity != null ? el.opacity : 1;
+        if (el.type === "image") {
+          try { const img = await loadImage(el.src); ctx.drawImage(img, 0, 0, el.w, el.h); } catch (_) {}
+        } else if (el.type === "rect") {
+          ctx.fillStyle = el.fill || "transparent";
+          if (el.radius) { roundedRect(ctx, 0, 0, el.w, el.h, el.radius); ctx.fill(); }
+          else ctx.fillRect(0, 0, el.w, el.h);
+          if (el.strokeWidth && el.stroke !== "transparent") {
+            ctx.lineWidth = el.strokeWidth; ctx.strokeStyle = el.stroke; ctx.stroke();
+          }
+        } else if (el.type === "ellipse") {
+          ctx.fillStyle = el.fill;
+          ctx.beginPath();
+          ctx.ellipse(el.w / 2, el.h / 2, el.w / 2, el.h / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (el.type === "triangle") {
+          ctx.fillStyle = el.fill;
+          ctx.beginPath(); ctx.moveTo(el.w / 2, 0); ctx.lineTo(el.w, el.h); ctx.lineTo(0, el.h); ctx.closePath(); ctx.fill();
+        } else if (el.type === "star") {
+          ctx.fillStyle = el.fill; drawStar(ctx, el.w, el.h);
+        } else if (el.type === "line") {
+          ctx.fillStyle = el.fill; ctx.fillRect(0, 0, el.w, el.h);
+        } else if (el.type === "text") {
+          const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+          ctx.fillStyle = el.color;
+          ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
+          ctx.textBaseline = "top"; ctx.textAlign = el.align;
+          const lh = el.size * (el.lineHeight || 1.3);
+          const lines = wrapText(ctx, el.text || "", el.w);
+          let yy = 0, tx = 0;
+          if (el.align === "center") tx = el.w / 2;
+          else if (el.align === "right") tx = el.w;
+          for (const ln of lines) { ctx.fillText(ln, tx, yy); yy += lh; }
+        }
+        ctx.restore();
+      }
+      const blob = await new Promise(function (r) { c.toBlob(r, "image/png"); });
+      if (!blob) throw new Error("Could not encode design");
+      const filename = (filenameEl.value || "design").replace(/[^a-z0-9-_]+/gi, "-") + ".png";
+      const file = new File([blob], filename, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: filenameEl.value || "TMKE design",
+            text: "Made with TMKE Studio",
+          });
+        } catch (e) { /* user cancelled — ignore */ }
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        toast("Saved — drop it into Instagram, LinkedIn or TikTok", 3500);
+      }
+    } catch (err) {
+      console.error("[share]", err);
+      toast("Couldn't share — try Download instead", 3000);
+    }
+  });
+
   // Download dropdown — replaces the old PNG/JPG buttons. Click trigger to
   // toggle; click outside or pick an item to close.
   (function wireDownload() {
