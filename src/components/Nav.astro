@@ -31,6 +31,32 @@ const links: { label: string; href: string }[] = [
 </nav>
 
 <script>
+  // On hover/focus of the Login button, prefetch the splash assets so the
+  // doors-opening sequence is ready when the user clicks. Saves ~11 MB of
+  // upfront cost on every page while keeping the splash snappy.
+  function warmSplashAssets() {
+    if (warmSplashAssets._done) return;
+    warmSplashAssets._done = true;
+    const links = [
+      { as: "image", href: "/assets/door-closed.png" },
+      { as: "image", href: "/assets/doors-open.png" },
+      { as: "video", href: "/assets/door-open.mp4" },
+    ];
+    for (const l of links) {
+      const el = document.createElement("link");
+      el.rel = "prefetch";
+      el.as = l.as;
+      el.href = l.href;
+      document.head.appendChild(el);
+    }
+  }
+  const navLoginBtn = document.getElementById("nav-login");
+  if (navLoginBtn) {
+    ["mouseenter", "focus", "touchstart"].forEach((ev) =>
+      navLoginBtn.addEventListener(ev, warmSplashAssets, { once: true, passive: true })
+    );
+  }
+
   // If the user already has a Supabase session, swap the Login button to take
   // them to their library. First-time logins (no brand kit yet) get routed via
   // the brand-kit profile, fronted by the brand splash overlay.
