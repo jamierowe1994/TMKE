@@ -1099,39 +1099,164 @@ const googleFonts = [
     }
     .ed-ctx-group:last-child { border-right: none; }
     .ed-ctx-btn {
-      height: 28px; min-width: 28px; padding: 0 8px;
+      height: 32px; min-width: 32px; padding: 0 10px;
       display: inline-flex; align-items: center; justify-content: center;
       background: transparent; border: 1px solid transparent;
       border-radius: 4px; cursor: pointer;
-      font-family: var(--sans); font-size: 13px; color: var(--ink);
+      font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink);
+      transition: background 0.15s, color 0.15s;
     }
     .ed-ctx-btn:hover { background: rgba(28,29,34,0.07); }
     .ed-ctx-btn.is-on { background: rgba(71,66,84,0.15); color: var(--english-violet); }
-    .ed-ctx-btn svg { width: 14px; height: 14px; }
+    .ed-ctx-btn svg { width: 16px; height: 16px; }
+    .ed-ctx-btn-text {
+      padding: 0 14px;
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+    .ed-ctx-btn-danger { color: #a05a3c; }
+    .ed-ctx-btn-danger:hover { background: rgba(160,90,60,0.12); color: #a05a3c; }
 
     .ed-ctx-select {
-      padding: 4px 8px;
-      font-family: var(--sans); font-size: 13px;
+      padding: 5px 10px;
+      font-family: var(--sans); font-size: 14px; font-weight: 500;
       border: 1px solid rgba(28,29,34,0.15);
       border-radius: 4px; background: #fff;
-      min-width: 130px;
+      min-width: 140px;
     }
     .ed-ctx-num {
-      width: 56px; padding: 4px 8px;
-      font-family: var(--sans); font-size: 13px;
-      border: 1px solid rgba(28,29,34,0.15);
+      width: 64px; padding: 6px 10px;
+      font-family: var(--sans); font-size: 14px; font-weight: 600;
+      border: 1px solid rgba(28,29,34,0.18);
       border-radius: 4px; background: #fff;
+      text-align: center;
     }
+    /* Legacy square colour input — kept for any callers we haven't migrated
+       to the circular swatch yet. New code should use .ed-circle-swatch. */
     .ed-ctx-color {
-      width: 28px; height: 28px;
+      width: 32px; height: 32px;
       padding: 2px;
       border: 1px solid rgba(28,29,34,0.15);
       border-radius: 4px; cursor: pointer; background: #fff;
     }
     .ed-ctx-label {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
-      text-transform: uppercase; color: rgba(28,29,34,0.5);
-      margin-right: 4px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: rgba(28,29,34,0.6);
+      margin-right: 6px;
+    }
+
+    /* Circular colour swatch — Canva-style. Clicking opens the native
+       colour picker via a transparent <input type="color"> on top. */
+    .ed-circle-swatch {
+      position: relative;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2px solid rgba(28,29,34,0.18);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .ed-circle-swatch:hover {
+      transform: scale(1.08);
+      border-color: var(--english-violet);
+    }
+    .ed-circle-swatch input[type="color"] {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      opacity: 0;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    /* Popover triggered from a .ed-pop-trigger button. The trigger lives
+       in the context bar; the popover itself is appended to <body> so
+       overflow on the context bar can't clip it. */
+    .ed-pop {
+      position: fixed;
+      z-index: 200;
+      min-width: 240px;
+      max-width: 320px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.12);
+      border-radius: 6px;
+      box-shadow: 0 18px 50px -10px rgba(28,29,34,0.25);
+      padding: 14px;
+    }
+    .ed-pop[hidden] { display: none; }
+    .ed-pop-panel {
+      display: flex; flex-direction: column;
+      gap: 6px;
+    }
+    .ed-pop-row {
+      display: flex; align-items: center; gap: 12px;
+      min-height: 24px;
+    }
+    .ed-pop-row > span {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.55);
+    }
+    .ed-pop-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--english-violet);
+    }
+    .ed-pop-row output {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      min-width: 44px;
+      text-align: right;
+    }
+
+    /* Right-click context menu */
+    .ed-rclick {
+      position: fixed;
+      z-index: 250;
+      min-width: 220px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.12);
+      border-radius: 6px;
+      box-shadow: 0 18px 50px -10px rgba(28,29,34,0.3);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+    }
+    .ed-rclick[hidden] { display: none; }
+    .ed-rclick-item {
+      appearance: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 8px 12px;
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+      cursor: pointer;
+      text-align: left;
+    }
+    .ed-rclick-item:hover { background: rgba(28,29,34,0.06); }
+    .ed-rclick-item.is-danger { color: #a05a3c; }
+    .ed-rclick-item.is-danger:hover { background: rgba(160,90,60,0.1); }
+    .ed-rclick-hint {
+      font-size: 11px;
+      color: rgba(28,29,34,0.45);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .ed-rclick-divider {
+      height: 1px;
+      margin: 6px 8px;
+      background: rgba(28,29,34,0.08);
     }
 
     /* ===== Canvas stage ===== */
@@ -1258,13 +1383,13 @@ const googleFonts = [
       font-size: 10px;
     }
 
-    .ed-props-section { margin-bottom: 22px; }
+    .ed-props-section { margin-bottom: 24px; }
     .ed-props-section h4 {
       font-family: var(--sans);
-      font-size: 10px; font-weight: 700;
-      letter-spacing: 0.22em; text-transform: uppercase;
-      color: rgba(28,29,34,0.5);
-      margin: 0 0 10px;
+      font-size: 12px; font-weight: 800;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--ink);
+      margin: 0 0 12px;
     }
     .ed-props-row {
       display: grid;
@@ -1278,8 +1403,8 @@ const googleFonts = [
        sit on top of their neighbour. */
     .ed-props-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .ed-props-field > label {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-      color: rgba(28,29,34,0.45);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(28,29,34,0.6);
     }
     .ed-props-field input, .ed-props-field select {
       padding: 7px 10px;
