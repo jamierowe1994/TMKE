@@ -86,15 +86,35 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       <aside class="editor-side">
         <section class="editor-card">
           <h2 class="editor-section-title">Cover image</h2>
+          <p class="editor-help">The first thing buyers see on the storefront card.</p>
           <div class="cover-uploader">
             <div class="cover-preview" id="cover-preview"></div>
             <label class="admin-btn admin-btn-ghost">
               <input type="file" id="cover-file" accept="image/*" hidden />
-              <span>Upload image</span>
+              <span>Upload cover</span>
             </label>
             <input type="hidden" name="cover_image_url" />
-            <button type="button" id="cover-clear" class="admin-btn admin-btn-ghost admin-btn-sm" hidden>Remove image</button>
+            <button type="button" id="cover-clear" class="admin-btn admin-btn-ghost admin-btn-sm" hidden>Remove cover</button>
             <small id="cover-status"></small>
+          </div>
+        </section>
+
+        <section class="editor-card">
+          <h2 class="editor-section-title">Hover gallery</h2>
+          <p class="editor-help">
+            Extra photos that cycle behind the cover when a buyer hovers the card.
+            Add as many as you like — drag the thumbnails to reorder.
+          </p>
+          <div class="gallery">
+            <div class="gallery-grid" id="gallery-grid">
+              <p class="gallery-empty" id="gallery-empty">No hover images yet.</p>
+            </div>
+            <label class="admin-btn admin-btn-ghost">
+              <input type="file" id="gallery-file" accept="image/*" multiple hidden />
+              <span>+ Add photos</span>
+            </label>
+            <input type="hidden" name="preview_images" value="[]" />
+            <small id="gallery-status"></small>
           </div>
         </section>
 
@@ -216,6 +236,87 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     .cover-preview:not([data-loaded])::after { content: "No image yet"; }
     #cover-status { color: rgba(28,29,34,0.55); font-size: 12px; }
 
+    .editor-help {
+      font-family: var(--sans);
+      font-size: 12px;
+      line-height: 1.55;
+      color: rgba(28, 29, 34, 0.6);
+      margin: -8px 0 16px;
+    }
+
+    /* Gallery */
+    .gallery { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .gallery-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 8px;
+      min-height: 96px;
+      padding: 8px;
+      background: rgba(71, 66, 84, 0.04);
+      border: 1px dashed rgba(71, 66, 84, 0.25);
+      border-radius: 3px;
+    }
+    .gallery-empty {
+      grid-column: 1 / -1;
+      font-family: var(--sans);
+      font-size: 12px;
+      color: rgba(28, 29, 34, 0.4);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin: 0;
+      align-self: center;
+      justify-self: center;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .gallery-thumb {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      background-color: var(--platinum);
+      background-size: cover;
+      background-position: center;
+      border-radius: 3px;
+      cursor: grab;
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      overflow: hidden;
+    }
+    .gallery-thumb:hover { border-color: var(--english-violet); }
+    .gallery-thumb-remove {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(20, 18, 26, 0.7);
+      color: var(--paper);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .gallery-thumb:hover .gallery-thumb-remove { opacity: 1; }
+    .gallery-thumb-remove:hover { background: #a05a3c; }
+    .gallery-thumb-order {
+      position: absolute;
+      left: 4px; bottom: 4px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(20, 18, 26, 0.7);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      backdrop-filter: blur(4px);
+    }
+    #gallery-status { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
+
     .editor-card-tip { background: rgba(71, 66, 84, 0.04); }
     .editor-card-tip p {
       font-family: var(--sans);
@@ -318,6 +419,8 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     }
   </style>
 
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" is:inline></script>
+
   <script>
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase, slugify } from "../../../lib/supabase.js";
@@ -334,9 +437,16 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     const coverFile = document.getElementById("cover-file");
     const coverClear = document.getElementById("cover-clear");
     const coverStatus = document.getElementById("cover-status");
+    const galleryGrid = document.getElementById("gallery-grid");
+    const galleryFile = document.getElementById("gallery-file");
+    const galleryStatus = document.getElementById("gallery-status");
 
     let editingId = null;
     let slugTouched = false;
+    /** @type {string[]} */
+    let galleryUrls = [];
+    /** @type {any} */
+    let gallerySortable = null;
 
     function setCover(url) {
       if (url) {
@@ -352,23 +462,83 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       }
     }
 
-    async function uploadCover(file) {
+    async function uploadFile(file, folder, statusEl) {
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `covers/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      coverStatus.textContent = "Uploading…";
+      const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      if (statusEl) statusEl.textContent = "Uploading…";
 
       const { error } = await supabase.storage
         .from(PACK_IMAGES_BUCKET)
         .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
 
       if (error) {
-        coverStatus.textContent = `Upload failed: ${error.message}`;
+        if (statusEl) statusEl.textContent = `Upload failed: ${error.message}`;
         return null;
       }
 
       const { data } = supabase.storage.from(PACK_IMAGES_BUCKET).getPublicUrl(path);
-      coverStatus.textContent = "Uploaded.";
+      if (statusEl) statusEl.textContent = "Uploaded.";
       return data.publicUrl;
+    }
+
+    function uploadCover(file) { return uploadFile(file, "covers", coverStatus); }
+
+    function renderGallery() {
+      if (!galleryGrid) return;
+      form.elements.preview_images.value = JSON.stringify(galleryUrls);
+      if (galleryUrls.length === 0) {
+        galleryGrid.innerHTML = `<p class="gallery-empty">No hover images yet.</p>`;
+      } else {
+        galleryGrid.innerHTML = galleryUrls
+          .map(
+            (url, idx) => `
+            <div class="gallery-thumb" data-url="${escapeHtml(url)}" style="background-image:url('${escapeHtml(url)}')">
+              <span class="gallery-thumb-order">${idx + 1}</span>
+              <button type="button" class="gallery-thumb-remove" aria-label="Remove image">&times;</button>
+            </div>`,
+          )
+          .join("");
+      }
+      wireGallerySortable();
+    }
+
+    function wireGallerySortable() {
+      if (gallerySortable && typeof gallerySortable.destroy === "function") {
+        gallerySortable.destroy();
+        gallerySortable = null;
+      }
+      const Sortable = /** @type {any} */ (window).Sortable;
+      if (!Sortable || !galleryGrid || galleryUrls.length < 2) return;
+      gallerySortable = Sortable.create(galleryGrid, {
+        animation: 180,
+        ghostClass: "sortable-ghost",
+        dragClass: "sortable-drag",
+        draggable: ".gallery-thumb",
+        onEnd: () => {
+          const newOrder = Array.from(galleryGrid.querySelectorAll(".gallery-thumb"))
+            .map((el) => el.getAttribute("data-url"))
+            .filter(Boolean);
+          galleryUrls = newOrder;
+          renderGallery();
+        },
+      });
+    }
+
+    async function handleGalleryFiles(files) {
+      if (!files || !files.length) return;
+      galleryStatus.textContent = `Uploading ${files.length} image${files.length > 1 ? "s" : ""}…`;
+      const uploaded = [];
+      for (const file of files) {
+        const url = await uploadFile(file, "previews", null);
+        if (url) uploaded.push(url);
+      }
+      if (uploaded.length === 0) {
+        galleryStatus.textContent = "Upload failed.";
+        return;
+      }
+      galleryUrls = [...galleryUrls, ...uploaded];
+      renderGallery();
+      galleryStatus.textContent = `${uploaded.length} added.`;
     }
 
     async function loadForEdit(id) {
@@ -391,6 +561,10 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       form.elements.description.value = data.description || "";
       form.elements.contents.value = (data.contents || []).join("\n");
       setCover(data.cover_image_url || "");
+      galleryUrls = Array.isArray(data.preview_images)
+        ? data.preview_images.filter((u) => typeof u === "string" && u.length > 0)
+        : [];
+      renderGallery();
       slugTouched = true;
       titleEl.innerHTML = `Edit: <em>${escapeHtml(data.title || "pack")}</em>`;
       subEl.textContent = `Editing ${data.slug} · created ${new Date(data.created_at).toLocaleDateString("en-GB")}.`;
@@ -450,6 +624,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
           description: String(fd.get("description") || "").trim() || null,
           contents,
           cover_image_url: String(fd.get("cover_image_url") || "").trim() || null,
+          preview_images: galleryUrls,
         };
 
         let result;
@@ -504,5 +679,22 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       if (url) setCover(url);
     });
     coverClear.addEventListener("click", () => setCover(""));
+
+    galleryFile?.addEventListener("change", async (e) => {
+      await handleGalleryFiles(e.target.files);
+      e.target.value = "";
+    });
+
+    galleryGrid?.addEventListener("click", (e) => {
+      const btn = e.target instanceof HTMLElement ? e.target.closest(".gallery-thumb-remove") : null;
+      if (!btn) return;
+      const thumb = btn.closest(".gallery-thumb");
+      const url = thumb?.getAttribute("data-url");
+      if (!url) return;
+      galleryUrls = galleryUrls.filter((u) => u !== url);
+      renderGallery();
+    });
+
+    renderGallery();
   </script>
 </BaseLayout>
