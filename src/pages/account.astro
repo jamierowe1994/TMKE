@@ -1,129 +1,416 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import PageHero from "../components/PageHero.astro";
 ---
 
 <BaseLayout
-  title="Your Library — TMKE"
-  description="Access your purchased templates, downloads, and account details."
+  title="Your TMKE — workspace"
+  description="Your purchased packs, designs in progress, and account details — all in one place."
+  hideNav
+  hideFooter
 >
-  <PageHero
-    chapter="Members — Your Library"
-    title="Welcome back, <em>let's get to work.</em>"
-    sub="Your purchased packs, downloads, and account details — all in one place."
-  />
+  <!-- Logged-in header. Replaces the global nav once a user has signed in
+       so /account feels like an app surface, not a marketing page. -->
+  <header class="app-header">
+    <a href="/account" class="app-logo">TMKE</a>
+    <nav class="app-header-nav" aria-label="Workspace">
+      <a href="/account" class="app-header-link is-active">Workspace</a>
+      <a href="/editor" class="app-header-link">Studio</a>
+      <a href="/edit" class="app-header-link">The Edit</a>
+      <a href="/profile" class="app-header-link">Brand kit</a>
+    </nav>
+    <button type="button" id="app-signout" class="app-signout">Sign out</button>
+  </header>
 
-  <section class="account-grid wrap">
-    <aside class="account-side">
-      <div class="account-tag" id="session-tag">Signed in</div>
-      <h3 class="account-name" id="session-name">…</h3>
-      <div class="account-email" id="session-email">…</div>
+  <main class="app-main">
+    <!-- Welcome -->
+    <section class="welcome">
+      <p class="welcome-eyebrow">Workspace</p>
+      <h1 class="welcome-h" id="welcome-h">Welcome back, <em>let's get to work.</em></h1>
+      <p class="welcome-sub" id="welcome-sub">Your designs, packs and account in one place.</p>
+    </section>
 
-      <nav class="account-nav" aria-label="Account">
-        <a href="#library" class="is-active">Library</a>
-        <a href="#orders">Orders</a>
-        <a href="/profile">Brand kit</a>
-        <a href="#" id="signout-link" class="account-signout">Sign out</a>
-      </nav>
-    </aside>
+    <!-- Stats row -->
+    <section class="stats" aria-label="Your TMKE at a glance">
+      <article class="stat">
+        <div class="stat-label">Active packs</div>
+        <div class="stat-value" id="stat-packs">—</div>
+        <div class="stat-foot">From The Edit</div>
+      </article>
+      <article class="stat">
+        <div class="stat-label">Designs in progress</div>
+        <div class="stat-value" id="stat-designs">—</div>
+        <div class="stat-foot">Saved locally</div>
+      </article>
+      <article class="stat">
+        <div class="stat-label">Lifetime spend</div>
+        <div class="stat-value" id="stat-spend">£0</div>
+        <div class="stat-foot" id="stat-spend-foot">No orders yet</div>
+      </article>
+      <article class="stat stat--brand">
+        <div class="stat-label">Brand kit</div>
+        <div class="stat-value" id="stat-brand">—</div>
+        <div class="stat-foot"><a href="/profile">Edit kit &rarr;</a></div>
+      </article>
+    </section>
 
-    <div class="account-main">
-      <section id="library">
-        <div class="eyebrow">Your Library</div>
-        <h2 class="account-heading">Purchased packs</h2>
+    <!-- Quick actions -->
+    <section class="quick" aria-labelledby="quick-h">
+      <header class="section-head">
+        <h2 id="quick-h" class="section-h">Quick start</h2>
+        <p class="section-sub">Jump straight to the thing you need.</p>
+      </header>
+      <div class="quick-grid">
+        <a href="/editor" class="quick-card quick-card--solid">
+          <div class="quick-card-num">01</div>
+          <h3 class="quick-card-h"><em>New design</em></h3>
+          <p>Open the studio with a fresh canvas — text, images, photos, your brand kit ready to go.</p>
+          <span class="quick-card-arrow">Open studio &rarr;</span>
+        </a>
+        <a href="/edit" class="quick-card">
+          <div class="quick-card-num">02</div>
+          <h3 class="quick-card-h">Browse <em>The Edit</em></h3>
+          <p>Ten signature packs of templates, ready to drop your branding into.</p>
+          <span class="quick-card-arrow">Shop packs &rarr;</span>
+        </a>
+        <a href="/profile" class="quick-card">
+          <div class="quick-card-num">03</div>
+          <h3 class="quick-card-h">Your <em>brand kit</em></h3>
+          <p>Colours, fonts, logos — saved once, pinned to the top of every picker in the studio.</p>
+          <span class="quick-card-arrow">Edit kit &rarr;</span>
+        </a>
+        <a href="/contact" class="quick-card">
+          <div class="quick-card-num">04</div>
+          <h3 class="quick-card-h">Need a <em>hand?</em></h3>
+          <p>Book a 30-minute call with the team or send a question — we'll come back same working day.</p>
+          <span class="quick-card-arrow">Talk to us &rarr;</span>
+        </a>
+      </div>
+    </section>
 
-        <div id="library-loading" class="lib-state">Loading your library…</div>
+    <!-- Library -->
+    <section id="library" class="library" aria-labelledby="library-h">
+      <header class="section-head">
+        <h2 id="library-h" class="section-h">Your library</h2>
+        <p class="section-sub">Packs you've purchased from The Edit.</p>
+      </header>
 
-        <div id="library-empty" class="lib-empty" hidden>
-          <h3>Nothing here yet.</h3>
-          <p>You haven't purchased a pack yet. <a class="lib-link" href="/edit">Browse The Edit</a> to find one.</p>
-        </div>
+      <div id="library-loading" class="lib-state">Loading your library…</div>
 
-        <div id="library-grid" class="library-grid"></div>
-      </section>
+      <div id="library-empty" class="lib-empty" hidden>
+        <h3>Nothing here yet.</h3>
+        <p>You haven't purchased a pack yet. <a class="lib-link" href="/edit">Browse The Edit</a> to find one.</p>
+      </div>
 
-      <section id="orders" class="orders-section">
-        <div class="eyebrow">Order history</div>
-        <h2 class="account-heading">Your invoices</h2>
-        <div id="orders-list" class="orders-list">
-          <div class="lib-state">…</div>
-        </div>
-      </section>
-    </div>
-  </section>
+      <div id="library-grid" class="library-grid"></div>
+    </section>
+
+    <!-- Drafts (from localStorage) -->
+    <section id="drafts" class="drafts" aria-labelledby="drafts-h" hidden>
+      <header class="section-head">
+        <h2 id="drafts-h" class="section-h">Designs in progress</h2>
+        <p class="section-sub">Drafts saved in this browser. Open one to keep going.</p>
+      </header>
+      <div id="drafts-grid" class="drafts-grid"></div>
+    </section>
+
+    <!-- Orders -->
+    <section id="orders" class="orders" aria-labelledby="orders-h">
+      <header class="section-head">
+        <h2 id="orders-h" class="section-h">Order history</h2>
+        <p class="section-sub">Receipts and invoices for every purchase.</p>
+      </header>
+      <div id="orders-list" class="orders-list">
+        <div class="lib-state" style="padding:18px 22px;">…</div>
+      </div>
+    </section>
+
+    <!-- Resources -->
+    <section class="resources" aria-labelledby="res-h">
+      <header class="section-head">
+        <h2 id="res-h" class="section-h">Resources</h2>
+        <p class="section-sub">Helpful reads to get the most out of TMKE.</p>
+      </header>
+      <div class="resources-grid">
+        <a class="resource" href="/blog">
+          <span class="resource-eyebrow">Insights</span>
+          <h3 class="resource-h">The blog</h3>
+          <p>Marketing playbooks, listing-day workflows and case studies from the UK property sector.</p>
+        </a>
+        <a class="resource" href="/services">
+          <span class="resource-eyebrow">Done-for-you</span>
+          <h3 class="resource-h">Managed social</h3>
+          <p>Hand the whole channel to us — content calendar, post production, monthly reporting.</p>
+        </a>
+        <a class="resource" href="/contact">
+          <span class="resource-eyebrow">Support</span>
+          <h3 class="resource-h">Contact the team</h3>
+          <p>Stuck on a design or chasing an invoice? We reply same working day.</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- Account footer -->
+    <footer class="app-foot">
+      <div class="app-foot-block">
+        <div class="app-foot-tag">Signed in as</div>
+        <strong id="footer-email">…</strong>
+      </div>
+      <div class="app-foot-block">
+        <div class="app-foot-tag">Help</div>
+        <a href="/contact">hello@tmke.co.uk</a>
+      </div>
+      <div class="app-foot-block app-foot-block--right">
+        <button type="button" id="app-signout-foot" class="app-signout">Sign out</button>
+      </div>
+    </footer>
+  </main>
 
   <style is:global>
-    /* Global so the JS-injected library cards + order rows inherit the styles —
-       Astro scopes by data-attribute which dynamic innerHTML never gets. */
-    .account-grid {
+    /* ---------- Logged-in header ---------- */
+    .app-header {
+      position: sticky; top: 0; z-index: 50;
       display: grid;
-      grid-template-columns: 260px 1fr;
-      gap: 64px;
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 40px 36px 200px;
-      align-items: start;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 32px;
+      padding: 18px 40px;
+      background: rgba(242, 239, 233, 0.92);
+      backdrop-filter: saturate(140%) blur(10px);
+      border-bottom: 1px solid rgba(28,29,34,0.08);
     }
-    .account-side {
-      position: sticky;
-      top: 100px;
-      padding: 28px 0;
-      border-top: 1px solid rgba(28, 29, 34, 0.12);
+    .app-logo {
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      text-decoration: none;
     }
-    .account-tag {
+    .app-header-nav {
+      display: flex; gap: 32px;
+      justify-content: center;
+    }
+    .app-header-link {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: rgba(28,29,34,0.6);
+      text-decoration: none;
+      transition: color 0.25s;
+    }
+    .app-header-link:hover { color: var(--ink); }
+    .app-header-link.is-active { color: var(--english-violet); }
+    .app-signout {
+      appearance: none;
+      background: transparent;
+      border: 1px solid rgba(71, 66, 84, 0.4);
+      border-radius: 2px;
+      padding: 9px 16px;
       font-family: var(--sans);
       font-size: 11px;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
       font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
       color: var(--english-violet);
-      margin-bottom: 12px;
-    }
-    .account-name {
-      font-family: var(--serif);
-      font-size: 28px;
-      letter-spacing: -0.015em;
-      margin: 0 0 4px;
-      color: var(--ink);
-      text-transform: capitalize;
-    }
-    .account-email {
-      font-family: var(--sans);
-      font-size: 14px;
-      color: rgba(28, 29, 34, 0.55);
-      margin-bottom: 32px;
-      word-break: break-all;
-    }
-    .account-nav {
-      display: flex; flex-direction: column; gap: 14px;
-      padding-top: 24px;
-      border-top: 1px solid rgba(28, 29, 34, 0.12);
-    }
-    .account-nav a {
-      font-family: var(--sans); font-size: 13px; font-weight: 600;
-      letter-spacing: 0.04em;
-      color: rgba(28, 29, 34, 0.65);
-      transition: color 0.3s;
-    }
-    .account-nav a:hover, .account-nav a.is-active { color: var(--english-violet); }
-    .account-nav .account-signout {
-      margin-top: 18px; padding-top: 18px;
-      border-top: 1px solid rgba(28, 29, 34, 0.12);
-      color: rgba(28, 29, 34, 0.45);
-      font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
       cursor: pointer;
+      transition: background 0.25s, color 0.25s;
+    }
+    .app-signout:hover { background: var(--english-violet); color: var(--paper); }
+
+    @media (max-width: 780px) {
+      .app-header { grid-template-columns: auto auto; padding: 14px 20px; gap: 14px; }
+      .app-header-nav { display: none; }
     }
 
-    .account-main .eyebrow { margin-bottom: 16px; }
-    .account-heading {
+    /* ---------- Main column ---------- */
+    .app-main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 80px 40px 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 96px;
+    }
+    @media (max-width: 780px) {
+      .app-main { padding: 48px 22px 80px; gap: 64px; }
+    }
+
+    /* ---------- Welcome ---------- */
+    .welcome { display: flex; flex-direction: column; gap: 14px; }
+    .welcome-eyebrow {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .welcome-h {
       font-family: var(--serif);
-      font-size: clamp(36px, 4vw, 56px);
+      font-size: clamp(40px, 5vw, 72px);
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+      margin: 0;
+      color: var(--ink);
+      font-weight: 500;
+    }
+    .welcome-h em {
+      font-style: italic;
+      color: var(--english-violet);
+    }
+    .welcome-sub {
+      margin: 4px 0 0;
+      max-width: 560px;
+      font-size: 17px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.6);
+    }
+
+    /* ---------- Stats ---------- */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 980px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .stats { grid-template-columns: 1fr; } }
+    .stat {
+      display: flex; flex-direction: column; gap: 6px;
+      padding: 22px 24px 18px;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 3px;
+      min-height: 140px;
+    }
+    .stat--brand { background: rgba(71, 66, 84, 0.05); border-color: rgba(71,66,84,0.2); }
+    .stat-label {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28,29,34,0.55);
+    }
+    .stat-value {
+      font-family: var(--serif);
+      font-size: 44px;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      margin-top: 8px;
+      color: var(--ink);
+    }
+    .stat-foot {
+      margin-top: auto;
+      font-family: var(--sans);
+      font-size: 12px;
+      color: rgba(28,29,34,0.55);
+    }
+    .stat-foot a {
+      color: var(--english-violet);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+    }
+    .stat-foot a:hover { text-decoration: underline; }
+
+    /* ---------- Section heads ---------- */
+    .section-head {
+      display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 32px;
+    }
+    .section-h {
+      font-family: var(--serif);
+      font-size: clamp(28px, 3vw, 42px);
       line-height: 1.05;
       letter-spacing: -0.015em;
       color: var(--ink);
-      margin: 0 0 40px;
+      margin: 0;
+      font-weight: 500;
+    }
+    .section-sub {
+      margin: 0;
+      max-width: 560px;
+      font-size: 15px;
+      color: rgba(28,29,34,0.55);
     }
 
+    /* ---------- Quick actions ---------- */
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 720px) { .quick-grid { grid-template-columns: 1fr; } }
+    .quick-card {
+      display: flex; flex-direction: column;
+      gap: 8px;
+      padding: 32px 28px 28px;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(28,29,34,0.1);
+      border-radius: 3px;
+      text-decoration: none;
+      color: var(--ink);
+      transition: transform 0.4s cubic-bezier(.2,.7,.2,1), border-color 0.3s, background 0.3s;
+      min-height: 200px;
+    }
+    .quick-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(71, 66, 84, 0.5);
+      background: rgba(255,255,255,0.85);
+    }
+    .quick-card--solid {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+    .quick-card--solid:hover {
+      background: var(--english-violet);
+      border-color: var(--english-violet);
+    }
+    .quick-card-num {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.32em;
+      font-weight: 700;
+      color: var(--english-violet);
+    }
+    .quick-card--solid .quick-card-num { color: var(--accent); }
+    .quick-card-h {
+      font-family: var(--serif);
+      font-size: 30px;
+      font-weight: 500;
+      letter-spacing: -0.015em;
+      margin: 4px 0 6px;
+    }
+    .quick-card-h em { font-style: italic; color: var(--english-violet); }
+    .quick-card--solid .quick-card-h em { color: var(--accent); }
+    .quick-card p {
+      flex: 1;
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.65);
+      margin: 0;
+    }
+    .quick-card--solid p { color: rgba(240,238,235,0.7); }
+    .quick-card-arrow {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(28,29,34,0.12);
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .quick-card--solid .quick-card-arrow {
+      border-top-color: rgba(240,238,235,0.18);
+      color: var(--accent);
+    }
+
+    /* ---------- Library ---------- */
     .lib-state {
       font-family: var(--sans);
       font-size: 13px;
@@ -132,7 +419,7 @@ import PageHero from "../components/PageHero.astro";
     }
     .lib-empty {
       padding: 36px 32px;
-      background: rgba(255,255,255,0.55);
+      background: rgba(255,255,255,0.6);
       border: 1px dashed rgba(71,66,84,0.3);
       border-radius: 3px;
     }
@@ -182,11 +469,7 @@ import PageHero from "../components/PageHero.astro";
       text-transform: uppercase;
       border-radius: 999px;
     }
-    .pack-row-body {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+    .pack-row-body { display: flex; flex-direction: column; gap: 6px; }
     .pack-row-meta {
       display: flex; gap: 10px;
       font-family: var(--sans);
@@ -252,8 +535,47 @@ import PageHero from "../components/PageHero.astro";
       border-radius: 999px;
     }
 
-    /* Orders */
-    .orders-section { margin-top: 100px; }
+    /* ---------- Drafts ---------- */
+    .drafts-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 880px) { .drafts-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .drafts-grid { grid-template-columns: 1fr; } }
+    .draft-card {
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 18px 20px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 3px;
+      text-decoration: none;
+      color: var(--ink);
+      transition: border-color 0.25s, transform 0.3s;
+    }
+    .draft-card:hover { border-color: rgba(71, 66, 84, 0.5); transform: translateY(-2px); }
+    .draft-card-meta {
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+    }
+    .draft-card-title {
+      font-family: var(--serif);
+      font-size: 22px;
+      letter-spacing: -0.015em;
+      margin: 4px 0;
+    }
+    .draft-card-foot {
+      font-family: var(--sans);
+      font-size: 11px;
+      color: rgba(28,29,34,0.5);
+      letter-spacing: 0.04em;
+    }
+
+    /* ---------- Orders ---------- */
     .orders-list {
       display: flex; flex-direction: column;
       border: 1px solid rgba(28,29,34,0.08);
@@ -301,26 +623,106 @@ import PageHero from "../components/PageHero.astro";
       font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
     }
 
-    @media (max-width: 980px) {
-      .account-grid { grid-template-columns: 1fr; gap: 40px; }
-      .account-side { position: static; }
+    @media (max-width: 720px) {
       .pack-row { grid-template-columns: 1fr; }
       .order-row { grid-template-columns: 1fr 1fr; }
       .order-row-head { display: none; }
     }
+
+    /* ---------- Resources ---------- */
+    .resources-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 880px) { .resources-grid { grid-template-columns: 1fr; } }
+    .resource {
+      display: flex; flex-direction: column;
+      gap: 6px;
+      padding: 26px 28px;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 3px;
+      text-decoration: none;
+      color: var(--ink);
+      transition: border-color 0.25s, transform 0.3s, background 0.3s;
+    }
+    .resource:hover {
+      border-color: rgba(71, 66, 84, 0.5);
+      background: rgba(255,255,255,0.85);
+      transform: translateY(-2px);
+    }
+    .resource-eyebrow {
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+    }
+    .resource-h {
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 500;
+      letter-spacing: -0.015em;
+      margin: 6px 0 4px;
+    }
+    .resource p {
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.6);
+      margin: 0;
+    }
+
+    /* ---------- Account footer ---------- */
+    .app-foot {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 32px;
+      align-items: center;
+      padding-top: 40px;
+      border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    @media (max-width: 720px) {
+      .app-foot { grid-template-columns: 1fr; gap: 14px; }
+    }
+    .app-foot-block { display: flex; flex-direction: column; gap: 4px; }
+    .app-foot-block--right { align-items: flex-end; }
+    @media (max-width: 720px) { .app-foot-block--right { align-items: flex-start; } }
+    .app-foot-tag {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.4);
+    }
+    .app-foot-block strong, .app-foot-block a {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .app-foot-block a:hover { color: var(--english-violet); }
   </style>
 
   <script>
     import { supabase, gbpFromPence } from '../lib/supabase.js';
 
-    const $name = document.getElementById('session-name');
-    const $email = document.getElementById('session-email');
-    const $tag = document.getElementById('session-tag');
-    const $signout = document.getElementById('signout-link');
+    const $welcomeH = document.getElementById('welcome-h');
+    const $welcomeSub = document.getElementById('welcome-sub');
+    const $footerEmail = document.getElementById('footer-email');
+    const $statPacks = document.getElementById('stat-packs');
+    const $statDesigns = document.getElementById('stat-designs');
+    const $statSpend = document.getElementById('stat-spend');
+    const $statSpendFoot = document.getElementById('stat-spend-foot');
+    const $statBrand = document.getElementById('stat-brand');
     const $loading = document.getElementById('library-loading');
     const $empty = document.getElementById('library-empty');
     const $grid = document.getElementById('library-grid');
     const $orders = document.getElementById('orders-list');
+    const $draftsSection = document.getElementById('drafts');
+    const $draftsGrid = document.getElementById('drafts-grid');
 
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -330,6 +732,74 @@ import PageHero from "../components/PageHero.astro";
     function formatDate(iso) {
       try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
       catch (_) { return ''; }
+    }
+    function titleCase(s) {
+      return String(s || '').replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+
+    async function signOut() {
+      await supabase.auth.signOut();
+      location.replace('/login');
+    }
+    document.getElementById('app-signout')?.addEventListener('click', signOut);
+    document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
+
+    // Local drafts — anything in localStorage under `tmke.editor.<id>`.
+    function readLocalDrafts() {
+      const drafts = [];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || !key.startsWith('tmke.editor.')) continue;
+          const id = key.replace('tmke.editor.', '');
+          try {
+            const v = JSON.parse(localStorage.getItem(key) || 'null');
+            if (!v) continue;
+            drafts.push({
+              id,
+              filename: v.filename || id,
+              savedAt: v.savedAt || 0,
+            });
+          } catch (_) {}
+        }
+      } catch (_) {}
+      drafts.sort((a, b) => b.savedAt - a.savedAt);
+      return drafts;
+    }
+
+    function renderDrafts(drafts) {
+      if (!drafts.length) {
+        $draftsSection.hidden = true;
+        $statDesigns.textContent = '0';
+        return;
+      }
+      $draftsSection.hidden = false;
+      $statDesigns.textContent = String(drafts.length);
+      $draftsGrid.innerHTML = drafts.slice(0, 6).map((d) => `
+        <a class="draft-card" href="/editor?template=${encodeURIComponent(d.id)}">
+          <span class="draft-card-meta">Draft</span>
+          <h3 class="draft-card-title">${escapeHtml(d.filename)}</h3>
+          <span class="draft-card-foot">${d.savedAt ? 'Saved ' + new Date(d.savedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Saved locally'}</span>
+        </a>
+      `).join('');
+    }
+
+    function renderBrandStat() {
+      try {
+        const brand = JSON.parse(localStorage.getItem('tmke.brand') || 'null');
+        if (!brand) { $statBrand.textContent = 'Not set'; return; }
+        const parts = [];
+        const colourCount = (brand.colors || []).filter((c) => c && c.hex).length;
+        const fontCount = (brand.fonts ? [brand.fonts.heading, brand.fonts.body].filter(Boolean).length : 0);
+        const logoCount = (brand.logos || []).length;
+        if (colourCount) parts.push(colourCount + ' colour' + (colourCount === 1 ? '' : 's'));
+        if (fontCount) parts.push(fontCount + ' font' + (fontCount === 1 ? '' : 's'));
+        if (logoCount) parts.push(logoCount + ' logo' + (logoCount === 1 ? '' : 's'));
+        $statBrand.textContent = parts.length ? parts.join(' · ') : 'Empty';
+        $statBrand.style.fontSize = '20px';
+      } catch (_) {
+        $statBrand.textContent = 'Not set';
+      }
     }
 
     (async () => {
@@ -341,17 +811,17 @@ import PageHero from "../components/PageHero.astro";
 
       const email = session.user.email ?? '';
       const meta = session.user.user_metadata ?? {};
-      $email.textContent = email;
-      $name.textContent = meta.name || email.split('@')[0].replace(/\./g, ' ');
+      const firstName = (meta.name || email.split('@')[0]).split(' ')[0].split('.')[0];
 
-      $signout.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await supabase.auth.signOut();
-        location.replace('/login');
-      });
+      $welcomeH.innerHTML = `Welcome back, <em>${escapeHtml(titleCase(firstName))}.</em>`;
+      $welcomeSub.textContent = 'Your designs, packs and account in one place.';
+      $footerEmail.textContent = email;
 
-      // Pull orders linked to this user (by id) OR matching the email
-      // (covers checkout flows that landed before user_id was set).
+      // Local drafts + brand stats run independent of network.
+      renderDrafts(readLocalDrafts());
+      renderBrandStat();
+
+      // Pull orders linked to this user (by id) OR matching the email.
       const { data: orders, error } = await supabase
         .from('orders')
         .select('id, pack_id, pack_slug, pack_title, amount_pence, invoice_number, status, payment_method, created_at, buyer_company')
@@ -364,6 +834,21 @@ import PageHero from "../components/PageHero.astro";
       }
 
       $loading.hidden = true;
+
+      // Stats: packs + lifetime spend
+      const uniquePacks = new Set();
+      let totalSpend = 0;
+      (orders || []).forEach((o) => {
+        if (o.status === 'paid') {
+          if (o.pack_id) uniquePacks.add(o.pack_id);
+          totalSpend += (o.amount_pence || 0);
+        }
+      });
+      $statPacks.textContent = String(uniquePacks.size);
+      $statSpend.textContent = gbpFromPence(totalSpend) || '£0';
+      $statSpendFoot.textContent = orders && orders.length
+        ? `Across ${orders.length} order${orders.length === 1 ? '' : 's'}`
+        : 'No orders yet';
 
       if (!orders || orders.length === 0) {
         $empty.hidden = false;
@@ -378,7 +863,6 @@ import PageHero from "../components/PageHero.astro";
         else byPack.get(o.pack_id).count += 1;
       });
 
-      // Fetch pack details for cover + description in one round-trip.
       const packIds = [...byPack.keys()].filter(Boolean);
       const { data: packs } = await supabase
         .from('packs')
@@ -407,9 +891,7 @@ import PageHero from "../components/PageHero.astro";
               <h3 class="pack-row-title">${escapeHtml(order.pack_title)}</h3>
               <p class="pack-row-desc">${escapeHtml(desc)}</p>
               <div class="pack-row-actions">
-                <button type="button" class="lib-btn" disabled>
-                  Download (.zip)
-                </button>
+                <button type="button" class="lib-btn" disabled>Download (.zip)</button>
                 <span class="lib-soon-tag">Assets land soon</span>
                 <a href="/edit/thanks?order=${encodeURIComponent(order.id)}" class="lib-btn lib-btn-ghost">View receipt</a>
               </div>
