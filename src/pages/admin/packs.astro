@@ -1,680 +1,780 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import PageHero from "../../components/PageHero.astro";
 ---
 
 <BaseLayout
   title="Catalogue — Admin · TMKE"
-  description="Manage The Edit catalogue — add, edit, archive purchasable packs."
+  description="Manage The Edit catalogue — every pack, drag to reorder, switch view modes."
+  hideNav
+  hideFooter
 >
-  <PageHero
-    chapter="Admin — Catalogue"
-    title="The <em>Edit catalogue.</em>"
-    sub="Add, edit, swap, archive. Changes go live the second you save."
-  />
+  <header class="catalogue-top">
+    <div class="catalogue-top-left">
+      <a href="/admin" class="catalogue-back" aria-label="Back to dashboard">&larr; Dashboard</a>
+      <div>
+        <h1 class="catalogue-title">The Edit <em>Catalogue</em></h1>
+        <p class="catalogue-sub" id="catalogue-sub">Loading…</p>
+      </div>
+    </div>
+    <div class="catalogue-top-right">
+      <a href="/admin/packs/editor" class="admin-btn admin-btn-primary">+ New pack</a>
+    </div>
+  </header>
 
-  <section class="admin-bar wrap">
-    <a href="/admin" class="admin-back">&larr; Dashboard</a>
-    <div class="admin-bar-actions">
-      <span class="admin-bar-count" id="pack-count">…</span>
-      <button type="button" id="new-pack" class="admin-btn admin-btn-primary">+ New pack</button>
+  <section class="catalogue-controls">
+    <div class="catalogue-controls-group" role="group" aria-label="Status filter">
+      <button type="button" class="catalogue-chip is-active" data-filter="all">All</button>
+      <button type="button" class="catalogue-chip" data-filter="active">Active</button>
+      <button type="button" class="catalogue-chip" data-filter="draft">Draft</button>
+      <button type="button" class="catalogue-chip" data-filter="archived">Archived</button>
+    </div>
+
+    <div class="catalogue-controls-spacer"></div>
+
+    <label class="catalogue-select">
+      <span>Sort</span>
+      <select id="catalogue-sort">
+        <option value="manual">Manual (drag to reorder)</option>
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="price-desc">Price (high → low)</option>
+        <option value="price-asc">Price (low → high)</option>
+        <option value="title">Title A → Z</option>
+      </select>
+    </label>
+
+    <div class="catalogue-controls-group" role="group" aria-label="View mode">
+      <button type="button" class="catalogue-view-btn is-active" data-view="grid" aria-label="Grid view">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="1" y="1" width="5" height="5" /><rect x="8" y="1" width="5" height="5" />
+          <rect x="1" y="8" width="5" height="5" /><rect x="8" y="8" width="5" height="5" />
+        </svg>
+      </button>
+      <button type="button" class="catalogue-view-btn" data-view="list" aria-label="List view">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="1" y1="3" x2="13" y2="3" /><line x1="1" y1="7" x2="13" y2="7" /><line x1="1" y1="11" x2="13" y2="11" />
+        </svg>
+      </button>
     </div>
   </section>
 
-  <section class="pack-list wrap" id="pack-list" aria-busy="true">
-    <p class="pack-empty" id="pack-empty" hidden>No packs yet — click <strong>New pack</strong> to add the first one.</p>
-    <div class="pack-loading" id="pack-loading">Loading catalogue…</div>
-    <div class="pack-grid" id="pack-grid"></div>
+  <section class="catalogue-body" id="catalogue-body" aria-busy="true">
+    <p class="catalogue-loading" id="catalogue-loading">Loading catalogue…</p>
+    <p class="catalogue-empty" id="catalogue-empty" hidden>
+      No packs yet — click <strong>+ New pack</strong> to add the first one.
+    </p>
+    <div class="catalogue-grid is-view-grid" id="catalogue-grid"></div>
   </section>
 
-  <!-- Modal: add / edit pack -->
-  <div class="modal-backdrop" id="modal" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <header class="modal-head">
-        <h2 id="modal-title">New pack</h2>
-        <button type="button" class="modal-close" id="modal-close" aria-label="Close">&times;</button>
-      </header>
-      <form id="pack-form" class="pack-form" novalidate>
-        <input type="hidden" name="id" />
+  <div class="catalogue-toast" id="catalogue-toast" hidden></div>
 
-        <div class="field-row">
-          <label class="field">
-            <span>Title</span>
-            <input type="text" name="title" required maxlength="120" />
-          </label>
-          <label class="field">
-            <span>Slug</span>
-            <input type="text" name="slug" required maxlength="80" pattern="[a-z0-9-]+" />
-            <small>Lowercase, hyphens. Used in URLs.</small>
-          </label>
-        </div>
+  <style is:global>
+    /* ============ Catalogue (admin) ============ */
+    body:has(.catalogue-top) { background: var(--paper); }
 
-        <div class="field-row">
-          <label class="field">
-            <span>Price (£)</span>
-            <input type="number" name="price_gbp" min="0" step="0.01" required />
-          </label>
-          <label class="field">
-            <span>Category</span>
-            <select name="category">
-              <option value="">—</option>
-              <option value="contemporary">Contemporary</option>
-              <option value="classic">Classic</option>
-              <option value="seasonal">Seasonal</option>
-              <option value="lifestyle">Lifestyle</option>
-              <option value="planning">Planning</option>
-              <option value="free">Free</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Status</span>
-            <select name="status">
-              <option value="active">Active (live)</option>
-              <option value="draft">Draft (hidden)</option>
-              <option value="archived">Archived</option>
-            </select>
-          </label>
-        </div>
-
-        <label class="field">
-          <span>Description</span>
-          <textarea name="description" rows="3" maxlength="500"></textarea>
-        </label>
-
-        <label class="field">
-          <span>Contents (one bullet per line)</span>
-          <textarea name="contents" rows="5" placeholder="20 Instagram post templates&#10;6 reel cover designs&#10;Story templates"></textarea>
-        </label>
-
-        <div class="field-row">
-          <label class="field">
-            <span>Sort order</span>
-            <input type="number" name="sort_order" step="1" value="0" />
-            <small>Lower numbers appear first on the storefront.</small>
-          </label>
-          <div class="field">
-            <span>Cover image</span>
-            <div class="cover-uploader">
-              <img id="cover-preview" alt="" />
-              <label class="cover-upload-btn">
-                <input type="file" id="cover-file" accept="image/*" hidden />
-                <span>Upload image</span>
-              </label>
-              <input type="hidden" name="cover_image_url" />
-              <small id="cover-status"></small>
-            </div>
-          </div>
-        </div>
-
-        <p class="form-error" id="form-error" hidden></p>
-
-        <footer class="modal-foot">
-          <button type="button" id="delete-pack" class="admin-btn admin-btn-danger" hidden>Delete</button>
-          <div class="spacer"></div>
-          <button type="button" class="admin-btn admin-btn-ghost" id="modal-cancel">Cancel</button>
-          <button type="submit" class="admin-btn admin-btn-primary" id="save-pack">Save pack</button>
-        </footer>
-      </form>
-    </div>
-  </div>
-
-  <style>
-    .admin-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      max-width: 1360px;
+    .catalogue-top {
+      max-width: 1400px;
       margin: 0 auto;
-      padding: 12px 36px 0;
+      padding: 48px 36px 16px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
     }
-    .admin-back {
-      font-family: var(--sans);
-      font-size: 12px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-      text-decoration: none;
-      font-weight: 700;
-    }
-    .admin-back:hover { color: var(--ink); }
-    .admin-bar-actions { display: flex; align-items: center; gap: 16px; }
-    .admin-bar-count {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: rgba(28, 29, 34, 0.6);
-      font-weight: 600;
-    }
-
-    .admin-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      border-radius: 2px;
+    .catalogue-top-left { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+    .catalogue-top-right { display: flex; align-items: center; gap: 12px; }
+    .catalogue-back {
+      display: inline-block;
       font-family: var(--sans);
       font-size: 11px;
       letter-spacing: 0.24em;
       text-transform: uppercase;
+      color: var(--english-violet);
       font-weight: 700;
-      cursor: pointer;
-      border: 1px solid transparent;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      padding-bottom: 8px;
     }
-    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
-    .admin-btn-primary:hover { background: var(--ink); }
-    .admin-btn-ghost { background: transparent; border-color: rgba(71, 66, 84, 0.4); color: var(--english-violet); }
-    .admin-btn-ghost:hover { background: rgba(71, 66, 84, 0.06); }
-    .admin-btn-danger { background: transparent; border-color: #a05a3c; color: #a05a3c; }
-    .admin-btn-danger:hover { background: #a05a3c; color: var(--paper); }
-    .admin-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
-
-    .pack-list {
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 24px 36px 200px;
+    .catalogue-back:hover { color: var(--ink); }
+    .catalogue-title {
+      font-family: var(--serif);
+      font-size: clamp(36px, 4.6vw, 56px);
+      font-weight: 500;
+      margin: 0;
+      line-height: 1;
+      color: var(--ink);
     }
-    .pack-loading {
+    .catalogue-title em { font-style: italic; color: var(--english-violet); }
+    .catalogue-sub {
       font-family: var(--sans);
       font-size: 13px;
-      color: rgba(28,29,34,0.5);
-      padding: 24px 0;
+      color: rgba(28, 29, 34, 0.6);
+      margin: 8px 0 0;
     }
-    .pack-empty {
-      padding: 32px;
-      border: 1px dashed rgba(71,66,84,0.4);
-      border-radius: 2px;
+
+    .catalogue-controls {
+      max-width: 1400px;
+      margin: 16px auto 0;
+      padding: 18px 36px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-top: 1px solid rgba(71, 66, 84, 0.12);
+      border-bottom: 1px solid rgba(71, 66, 84, 0.12);
+      flex-wrap: wrap;
+    }
+    .catalogue-controls-spacer { flex: 1; }
+
+    .catalogue-controls-group {
+      display: inline-flex;
+      gap: 2px;
+      padding: 2px;
+      background: rgba(71, 66, 84, 0.06);
+      border-radius: 4px;
+    }
+    .catalogue-chip,
+    .catalogue-view-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 7px 14px;
+      border-radius: 3px;
       font-family: var(--sans);
-      color: rgba(28,29,34,0.7);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+      transition: background 0.15s, color 0.15s;
     }
-    .pack-empty strong { color: var(--ink); }
-    .pack-grid {
+    .catalogue-view-btn {
+      padding: 7px 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .catalogue-chip:hover,
+    .catalogue-view-btn:hover { background: rgba(71, 66, 84, 0.08); }
+    .catalogue-chip.is-active,
+    .catalogue-view-btn.is-active {
+      background: var(--english-violet);
+      color: var(--paper);
+    }
+
+    .catalogue-select {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28, 29, 34, 0.6);
+    }
+    .catalogue-select select {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid rgba(71, 66, 84, 0.3);
+      border-radius: 3px;
+      padding: 7px 10px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .catalogue-select select:focus { outline: none; border-color: var(--english-violet); }
+
+    /* ----- Body ----- */
+    .catalogue-body {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 28px 36px 200px;
+    }
+    .catalogue-loading, .catalogue-empty {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: rgba(28, 29, 34, 0.55);
+      padding: 60px 0;
+      text-align: center;
+    }
+
+    /* ----- Grid view ----- */
+    .catalogue-grid.is-view-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 18px;
     }
-    @media (max-width: 1080px) { .pack-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 720px)  { .pack-grid { grid-template-columns: 1fr; } }
-
-    .pack-card {
+    .catalogue-grid.is-view-grid .pack-card {
       display: flex;
       flex-direction: column;
-      border: 1px solid rgba(71, 66, 84, 0.4);
-      border-radius: 2px;
+      background: var(--paper);
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      border-radius: 3px;
       overflow: hidden;
-      background: rgba(255, 255, 255, 0.4);
+      transition: transform 0.2s cubic-bezier(.2,.7,.2,1), box-shadow 0.2s, border-color 0.2s;
+      cursor: grab;
     }
-    .pack-card.is-archived { opacity: 0.55; }
-    .pack-card.is-draft { border-style: dashed; }
-    .pack-cover {
+    .catalogue-grid.is-view-grid .pack-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 32px rgba(28, 29, 34, 0.08);
+      border-color: rgba(71, 66, 84, 0.35);
+    }
+    .catalogue-grid.is-view-grid .pack-card.is-archived { opacity: 0.55; }
+    .catalogue-grid.is-view-grid .pack-cover {
+      width: 100%;
       aspect-ratio: 4 / 3;
       background: var(--platinum);
       background-size: cover;
       background-position: center;
       position: relative;
     }
-    .pack-status {
+    .catalogue-grid.is-view-grid .pack-status {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      padding: 4px 10px;
-      background: rgba(28, 29, 34, 0.78);
-      color: var(--paper);
+      top: 10px; right: 10px;
+      padding: 4px 9px;
+      border-radius: 999px;
       font-family: var(--sans);
       font-size: 10px;
-      letter-spacing: 0.22em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
       font-weight: 700;
-      border-radius: 2px;
+      background: rgba(20, 18, 26, 0.7);
+      color: var(--paper);
+      backdrop-filter: blur(4px);
     }
-    .pack-status.is-draft { background: #8a7a36; }
-    .pack-status.is-archived { background: rgba(28,29,34,0.5); }
-    .pack-body { padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-    .pack-title {
+    .catalogue-grid.is-view-grid .pack-status.is-draft { background: #b78a2e; }
+    .catalogue-grid.is-view-grid .pack-status.is-archived { background: rgba(28,29,34,0.6); }
+    .catalogue-grid.is-view-grid .pack-handle {
+      position: absolute;
+      top: 10px; left: 10px;
+      width: 28px; height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(20, 18, 26, 0.5);
+      color: var(--paper);
+      border-radius: 4px;
+      backdrop-filter: blur(4px);
+      cursor: grab;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .catalogue-grid.is-view-grid .pack-card:hover .pack-handle { opacity: 1; }
+    .catalogue-grid.is-view-grid .pack-body { padding: 16px 18px 18px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .catalogue-grid.is-view-grid .pack-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28, 29, 34, 0.55);
+    }
+    .catalogue-grid.is-view-grid .pack-price {
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 500;
+      letter-spacing: 0;
+      color: var(--ink);
+      text-transform: none;
+    }
+    .catalogue-grid.is-view-grid .pack-title {
       font-family: var(--serif);
       font-size: 22px;
       font-weight: 500;
+      letter-spacing: -0.01em;
+      margin: 2px 0 4px;
+      color: var(--ink);
+    }
+    .catalogue-grid.is-view-grid .pack-desc {
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.5;
+      color: rgba(28, 29, 34, 0.65);
+      margin: 0 0 12px;
+      flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .catalogue-grid.is-view-grid .pack-actions {
+      display: flex;
+      gap: 6px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(71, 66, 84, 0.12);
+    }
+
+    /* ----- List view ----- */
+    .catalogue-grid.is-view-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: rgba(71, 66, 84, 0.18);
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .catalogue-grid.is-view-list .pack-card {
+      display: grid;
+      grid-template-columns: 24px 56px 1.4fr 110px 90px 100px auto;
+      gap: 14px;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--paper);
+      transition: background 0.15s;
+      cursor: grab;
+    }
+    .catalogue-grid.is-view-list .pack-card:hover { background: rgba(71, 66, 84, 0.04); }
+    .catalogue-grid.is-view-list .pack-card.is-archived { opacity: 0.55; }
+    .catalogue-grid.is-view-list .pack-handle {
+      color: rgba(28, 29, 34, 0.35);
+      cursor: grab;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .catalogue-grid.is-view-list .pack-card:hover .pack-handle { color: var(--english-violet); }
+    .catalogue-grid.is-view-list .pack-cover {
+      width: 56px; height: 56px;
+      background: var(--platinum);
+      background-size: cover;
+      background-position: center;
+      border-radius: 3px;
+      flex: 0 0 auto;
+    }
+    .catalogue-grid.is-view-list .pack-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .catalogue-grid.is-view-list .pack-title {
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 700;
       color: var(--ink);
       margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .pack-meta {
+    .catalogue-grid.is-view-list .pack-desc {
+      font-family: var(--sans);
+      font-size: 12px;
+      color: rgba(28, 29, 34, 0.6);
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .catalogue-grid.is-view-list .pack-meta {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28, 29, 34, 0.55);
+    }
+    .catalogue-grid.is-view-list .pack-price {
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--ink);
+      text-align: right;
+    }
+    .catalogue-grid.is-view-list .pack-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+      justify-self: start;
+    }
+    .catalogue-grid.is-view-list .pack-status.is-active   { color: #2c7a4b; background: rgba(44, 122, 75, 0.1); }
+    .catalogue-grid.is-view-list .pack-status.is-draft    { color: #b78a2e; background: rgba(183, 138, 46, 0.12); }
+    .catalogue-grid.is-view-list .pack-status.is-archived { color: rgba(28,29,34,0.6); background: rgba(28, 29, 34, 0.06); }
+    .catalogue-grid.is-view-list .pack-actions {
       display: flex;
-      justify-content: space-between;
+      gap: 6px;
+      justify-self: end;
+    }
+
+    /* ----- Drag-only-when-manual ----- */
+    .catalogue-grid.is-locked .pack-card { cursor: default; }
+    .catalogue-grid.is-locked .pack-handle { display: none !important; }
+
+    /* ----- SortableJS placeholder ----- */
+    .sortable-ghost {
+      opacity: 0.4;
+      background: rgba(71, 66, 84, 0.08) !important;
+    }
+    .sortable-drag {
+      box-shadow: 0 24px 50px rgba(20, 18, 26, 0.25);
+      cursor: grabbing !important;
+    }
+
+    /* ----- Buttons (admin) ----- */
+    .admin-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 14px;
+      border-radius: 3px;
       font-family: var(--sans);
       font-size: 11px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: rgba(28,29,34,0.55);
-      margin-bottom: 4px;
-    }
-    .pack-price { color: var(--english-violet); font-weight: 700; }
-    .pack-desc {
-      font-size: 13px;
-      line-height: 1.55;
-      color: rgba(28,29,34,0.65);
-      flex: 1;
-    }
-    .pack-actions {
-      display: flex;
-      gap: 8px;
-      padding: 12px 18px 16px;
-      border-top: 1px solid rgba(71, 66, 84, 0.18);
-    }
-
-    /* Modal */
-    .modal-backdrop {
-      position: fixed; inset: 0;
-      background: rgba(28, 29, 34, 0.55);
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 5vh 16px;
-      z-index: 100;
-      overflow-y: auto;
-    }
-    .modal {
-      width: 100%;
-      max-width: 760px;
-      background: var(--paper);
-      border-radius: 2px;
-      box-shadow: 0 30px 80px rgba(0,0,0,0.25);
-    }
-    .modal-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 20px 26px;
-      border-bottom: 1px solid rgba(71, 66, 84, 0.18);
-    }
-    .modal-head h2 {
-      font-family: var(--serif);
-      font-size: 26px;
-      font-weight: 500;
-      margin: 0;
-    }
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 28px;
-      color: var(--english-violet);
-      cursor: pointer;
-      line-height: 1;
-    }
-    .pack-form {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding: 22px 26px 4px;
-    }
-    .field-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-    }
-    .field-row:has(> :nth-child(2):last-child) { grid-template-columns: 1fr 1fr; }
-    @media (max-width: 640px) {
-      .field-row { grid-template-columns: 1fr; }
-    }
-    .field { display: flex; flex-direction: column; gap: 6px; }
-    .field > span {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
       font-weight: 700;
-      color: var(--english-violet);
-    }
-    .field input,
-    .field select,
-    .field textarea {
-      font-family: var(--sans);
-      font-size: 15px;
-      padding: 10px 12px;
-      border: 1px solid rgba(71, 66, 84, 0.3);
-      border-radius: 2px;
-      background: rgba(255,255,255,0.5);
-      color: var(--ink);
-      outline: none;
-      transition: border-color 0.2s;
-      font: inherit;
-      width: 100%;
-    }
-    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--english-violet); }
-    .field small { font-size: 11px; color: rgba(28,29,34,0.55); }
-    .field textarea { resize: vertical; min-height: 64px; }
-
-    .cover-uploader {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-    }
-    #cover-preview {
-      width: 100%;
-      max-width: 220px;
-      aspect-ratio: 4 / 3;
-      object-fit: cover;
-      background: var(--platinum);
-      border: 1px solid rgba(71, 66, 84, 0.25);
-      border-radius: 2px;
-      display: block;
-    }
-    #cover-preview:not([src]) { object-fit: contain; }
-    .cover-upload-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border: 1px solid rgba(71, 66, 84, 0.4);
-      border-radius: 2px;
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--english-violet);
       cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      text-decoration: none;
+      color: inherit;
     }
-    .cover-upload-btn:hover { background: rgba(71,66,84,0.06); }
-    #cover-status { color: rgba(28,29,34,0.55); font-size: 11px; }
-
-    .form-error {
-      margin: 0;
-      padding: 10px 12px;
-      background: rgba(160, 90, 60, 0.1);
-      border-left: 3px solid #a05a3c;
+    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
+    .admin-btn-primary:hover { background: var(--ink); }
+    .admin-btn-ghost {
+      background: transparent;
+      border-color: rgba(71, 66, 84, 0.35);
+      color: var(--english-violet);
+    }
+    .admin-btn-ghost:hover { background: rgba(71, 66, 84, 0.08); }
+    .admin-btn-danger {
+      background: transparent;
+      border-color: #a05a3c;
       color: #a05a3c;
-      font-size: 13px;
-      font-family: var(--sans);
     }
+    .admin-btn-danger:hover { background: #a05a3c; color: var(--paper); }
+    .admin-btn-sm { padding: 6px 10px; font-size: 10px; letter-spacing: 0.16em; }
 
-    .modal-foot {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 18px 26px 22px;
-      border-top: 1px solid rgba(71,66,84,0.15);
-      margin-top: 8px;
+    /* ----- Toast ----- */
+    .catalogue-toast {
+      position: fixed;
+      left: 50%; bottom: 24px;
+      transform: translateX(-50%);
+      background: var(--ink);
+      color: var(--paper);
+      padding: 10px 20px;
+      border-radius: 3px;
+      font-family: var(--sans);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      box-shadow: 0 20px 50px rgba(20, 18, 26, 0.35);
+      z-index: 200;
     }
-    .modal-foot .spacer { flex: 1; }
+    .catalogue-toast[hidden] { display: none; }
+
+    @media (max-width: 720px) {
+      .catalogue-top { padding: 32px 22px 12px; }
+      .catalogue-controls { padding: 14px 22px; }
+      .catalogue-body { padding: 20px 22px 120px; }
+      .catalogue-grid.is-view-list .pack-card {
+        grid-template-columns: 24px 56px 1fr auto;
+        row-gap: 6px;
+      }
+      .catalogue-grid.is-view-list .pack-meta,
+      .catalogue-grid.is-view-list .pack-status { display: none; }
+      .catalogue-grid.is-view-list .pack-price { grid-column: 3 / -1; text-align: left; font-size: 15px; }
+    }
   </style>
 
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" is:inline></script>
+
   <script>
-    import { requireAdmin } from '../../lib/admin-gate.js';
-    import { supabase, gbpFromPence, slugify } from '../../lib/supabase.js';
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase, gbpFromPence } from "../../lib/supabase.js";
 
-    const PACK_IMAGES_BUCKET = 'pack-images';
+    /** @type {any[]} */
+    let allPacks = [];
+    let filter = "all";
+    let sortBy = "manual";
+    let view = "grid";
 
-    const els = {
-      grid: document.getElementById('pack-grid'),
-      empty: document.getElementById('pack-empty'),
-      loading: document.getElementById('pack-loading'),
-      count: document.getElementById('pack-count'),
-      newBtn: document.getElementById('new-pack'),
-      modal: document.getElementById('modal'),
-      modalTitle: document.getElementById('modal-title'),
-      modalClose: document.getElementById('modal-close'),
-      modalCancel: document.getElementById('modal-cancel'),
-      form: document.getElementById('pack-form'),
-      formError: document.getElementById('form-error'),
-      saveBtn: document.getElementById('save-pack'),
-      deleteBtn: document.getElementById('delete-pack'),
-      coverPreview: document.getElementById('cover-preview'),
-      coverFile: document.getElementById('cover-file'),
-      coverStatus: document.getElementById('cover-status'),
-      titleInput: null, // resolved below
-      slugInput: null,
-    };
-    els.titleInput = els.form.elements.title;
-    els.slugInput = els.form.elements.slug;
+    // Persisted UI prefs
+    try {
+      const saved = JSON.parse(localStorage.getItem("tmke.admin.catalogue.prefs") || "{}");
+      if (saved.view === "grid" || saved.view === "list") view = saved.view;
+      if (typeof saved.sortBy === "string") sortBy = saved.sortBy;
+      if (typeof saved.filter === "string") filter = saved.filter;
+    } catch {}
 
-    let slugTouched = false;
+    function savePrefs() {
+      try {
+        localStorage.setItem(
+          "tmke.admin.catalogue.prefs",
+          JSON.stringify({ view, sortBy, filter }),
+        );
+      } catch {}
+    }
 
     function escapeHtml(s) {
-      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
       }[c]));
     }
 
-    function renderPack(p) {
-      const status = p.status === 'active' ? '' : `<span class="pack-status is-${p.status}">${p.status}</span>`;
-      const cover = p.cover_image_url ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : '';
+    function visiblePacks() {
+      let rows = allPacks.slice();
+      if (filter !== "all") rows = rows.filter((p) => p.status === filter);
+      switch (sortBy) {
+        case "newest":
+          rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          break;
+        case "oldest":
+          rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+          break;
+        case "price-desc":
+          rows.sort((a, b) => (b.price_pence || 0) - (a.price_pence || 0));
+          break;
+        case "price-asc":
+          rows.sort((a, b) => (a.price_pence || 0) - (b.price_pence || 0));
+          break;
+        case "title":
+          rows.sort((a, b) => String(a.title).localeCompare(String(b.title)));
+          break;
+        case "manual":
+        default:
+          rows.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      }
+      return rows;
+    }
+
+    function packCardHtml(p) {
+      const cover = p.cover_image_url
+        ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"`
+        : "";
+      const editHref = `/admin/packs/editor?id=${encodeURIComponent(p.id)}`;
+      const dragHandle = `
+        <span class="pack-handle" aria-hidden="true" title="Drag to reorder">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+            <circle cx="4" cy="3" r="1"/><circle cx="10" cy="3" r="1"/>
+            <circle cx="4" cy="7" r="1"/><circle cx="10" cy="7" r="1"/>
+            <circle cx="4" cy="11" r="1"/><circle cx="10" cy="11" r="1"/>
+          </svg>
+        </span>`;
+      const statusPill = `<span class="pack-status is-${p.status}">${p.status}</span>`;
+      const archiveOrRestore = p.status === "archived"
+        ? `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-restore="${p.id}">Restore</button>`
+        : `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-archive="${p.id}">Archive</button>`;
+      const editBtn = `<a href="${editHref}" class="admin-btn admin-btn-primary admin-btn-sm" data-edit="${p.id}">Edit</a>`;
+
+      if (view === "list") {
+        return `
+          <article class="pack-card is-${p.status}" data-id="${p.id}">
+            ${dragHandle}
+            <div class="pack-cover" ${cover}></div>
+            <div class="pack-body">
+              <h3 class="pack-title">${escapeHtml(p.title)}</h3>
+              <p class="pack-desc">${escapeHtml(p.description || "—")}</p>
+            </div>
+            <div class="pack-meta">${escapeHtml(p.category || "—")}</div>
+            ${statusPill}
+            <div class="pack-price">${gbpFromPence(p.price_pence)}</div>
+            <div class="pack-actions">${editBtn} ${archiveOrRestore}</div>
+          </article>
+        `;
+      }
       return `
         <article class="pack-card is-${p.status}" data-id="${p.id}">
-          <div class="pack-cover" ${cover}>${status}</div>
+          <div class="pack-cover" ${cover}>
+            ${dragHandle}
+            ${statusPill}
+          </div>
           <div class="pack-body">
             <div class="pack-meta">
-              <span>#${p.sort_order} · ${escapeHtml(p.category || '—')}</span>
+              <span>${escapeHtml(p.category || "—")}</span>
               <span class="pack-price">${gbpFromPence(p.price_pence)}</span>
             </div>
             <h3 class="pack-title">${escapeHtml(p.title)}</h3>
-            <p class="pack-desc">${escapeHtml(p.description || '')}</p>
-          </div>
-          <div class="pack-actions">
-            <button type="button" class="admin-btn admin-btn-ghost" data-edit="${p.id}">Edit</button>
-            ${p.status === 'archived'
-              ? `<button type="button" class="admin-btn admin-btn-ghost" data-restore="${p.id}">Restore</button>`
-              : `<button type="button" class="admin-btn admin-btn-ghost" data-archive="${p.id}">Archive</button>`}
+            <p class="pack-desc">${escapeHtml(p.description || "")}</p>
+            <div class="pack-actions">${editBtn} ${archiveOrRestore}</div>
           </div>
         </article>
       `;
     }
 
-    async function loadPacks() {
-      els.loading.hidden = false;
-      const { data, error } = await supabase
-        .from('packs')
-        .select('*')
-        .order('status', { ascending: true })
-        .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: false });
-
-      els.loading.hidden = true;
-
-      if (error) {
-        els.grid.innerHTML = `<p class="form-error">Failed to load packs: ${escapeHtml(error.message)}</p>`;
-        return;
+    function render() {
+      const grid = document.getElementById("catalogue-grid");
+      const emptyEl = document.getElementById("catalogue-empty");
+      const sub = document.getElementById("catalogue-sub");
+      if (!grid) return;
+      const rows = visiblePacks();
+      const active = allPacks.filter((p) => p.status === "active").length;
+      const draft = allPacks.filter((p) => p.status === "draft").length;
+      const archived = allPacks.filter((p) => p.status === "archived").length;
+      if (sub) {
+        sub.textContent =
+          `${active} active · ${draft} draft · ${archived} archived · ${rows.length} shown`;
       }
-
-      const packs = data ?? [];
-      const active = packs.filter((p) => p.status === 'active').length;
-      els.count.textContent = `${active} active · ${packs.length} total`;
-      els.empty.hidden = packs.length !== 0;
-      els.grid.innerHTML = packs.map(renderPack).join('');
-    }
-
-    function openModal(pack = null) {
-      els.form.reset();
-      els.formError.hidden = true;
-      els.coverStatus.textContent = '';
-      els.coverPreview.removeAttribute('src');
-      slugTouched = Boolean(pack);
-
-      if (pack) {
-        els.modalTitle.textContent = 'Edit pack';
-        els.form.elements.id.value = pack.id;
-        els.form.elements.title.value = pack.title;
-        els.form.elements.slug.value = pack.slug;
-        els.form.elements.price_gbp.value = (pack.price_pence / 100).toFixed(2);
-        els.form.elements.category.value = pack.category ?? '';
-        els.form.elements.status.value = pack.status;
-        els.form.elements.description.value = pack.description ?? '';
-        els.form.elements.contents.value = (pack.contents ?? []).join('\n');
-        els.form.elements.sort_order.value = pack.sort_order ?? 0;
-        els.form.elements.cover_image_url.value = pack.cover_image_url ?? '';
-        if (pack.cover_image_url) els.coverPreview.src = pack.cover_image_url;
-        els.deleteBtn.hidden = false;
+      grid.className = `catalogue-grid is-view-${view}` + (sortBy === "manual" ? "" : " is-locked");
+      if (rows.length === 0) {
+        grid.innerHTML = "";
+        if (emptyEl) emptyEl.hidden = false;
       } else {
-        els.modalTitle.textContent = 'New pack';
-        els.form.elements.id.value = '';
-        els.form.elements.status.value = 'active';
-        els.form.elements.sort_order.value = 0;
-        els.deleteBtn.hidden = true;
+        if (emptyEl) emptyEl.hidden = true;
+        grid.innerHTML = rows.map(packCardHtml).join("");
       }
 
-      els.modal.hidden = false;
-      els.form.elements.title.focus();
+      wireSortable(grid);
     }
 
-    function closeModal() {
-      els.modal.hidden = true;
-    }
-
-    async function uploadCover(file) {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const path = `covers/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      els.coverStatus.textContent = 'Uploading…';
-
-      const { error } = await supabase.storage
-        .from(PACK_IMAGES_BUCKET)
-        .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
-
-      if (error) {
-        els.coverStatus.textContent = `Upload failed: ${error.message}`;
-        return null;
+    /** @type {any} */
+    let currentSortable = null;
+    function wireSortable(grid) {
+      if (currentSortable && typeof currentSortable.destroy === "function") {
+        currentSortable.destroy();
+        currentSortable = null;
       }
-
-      const { data } = supabase.storage.from(PACK_IMAGES_BUCKET).getPublicUrl(path);
-      els.coverStatus.textContent = 'Uploaded.';
-      return data.publicUrl;
+      const Sortable = /** @type {any} */ (window).Sortable;
+      if (!Sortable || sortBy !== "manual" || filter !== "all") return;
+      currentSortable = Sortable.create(grid, {
+        animation: 180,
+        handle: ".pack-handle",
+        ghostClass: "sortable-ghost",
+        dragClass: "sortable-drag",
+        onEnd: persistOrder,
+      });
     }
 
-    async function savePack(e) {
-      e.preventDefault();
-      els.formError.hidden = true;
-      els.saveBtn.setAttribute('disabled', 'true');
-      els.saveBtn.textContent = 'Saving…';
+    let toastTimer = null;
+    function toast(msg) {
+      const el = document.getElementById("catalogue-toast");
+      if (!el) return;
+      el.textContent = msg;
+      el.hidden = false;
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.hidden = true; }, 1800);
+    }
 
-      try {
-        const fd = new FormData(els.form);
-        const id = String(fd.get('id') || '').trim();
-        const title = String(fd.get('title') || '').trim();
-        const slug = String(fd.get('slug') || '').trim();
-        const priceGbp = Number(fd.get('price_gbp') || 0);
-        const contentsRaw = String(fd.get('contents') || '');
-        const contents = contentsRaw
-          .split('\n')
-          .map((l) => l.trim())
-          .filter(Boolean);
+    async function persistOrder() {
+      const grid = document.getElementById("catalogue-grid");
+      if (!grid) return;
+      const ids = Array.from(grid.querySelectorAll("[data-id]"))
+        .map((el) => el.getAttribute("data-id"))
+        .filter(Boolean);
+      const updates = ids.map((id, idx) => ({ id, sort_order: idx }));
 
-        if (!title) throw new Error('Title is required.');
-        if (!slug) throw new Error('Slug is required.');
-        if (Number.isNaN(priceGbp) || priceGbp < 0) throw new Error('Price must be 0 or more.');
+      // Optimistically update local state
+      const map = new Map(updates.map((u) => [u.id, u.sort_order]));
+      allPacks.forEach((p) => {
+        if (map.has(p.id)) p.sort_order = map.get(p.id);
+      });
 
-        const payload = {
-          title,
-          slug,
-          price_pence: Math.round(priceGbp * 100),
-          category: String(fd.get('category') || '') || null,
-          status: String(fd.get('status') || 'active'),
-          description: String(fd.get('description') || '').trim() || null,
-          contents,
-          sort_order: Number(fd.get('sort_order') || 0),
-          cover_image_url: String(fd.get('cover_image_url') || '').trim() || null,
-        };
-
-        let result;
-        if (id) {
-          result = await supabase.from('packs').update(payload).eq('id', id).select().single();
-        } else {
-          result = await supabase.from('packs').insert(payload).select().single();
-        }
-
-        if (result.error) throw result.error;
-
-        closeModal();
-        await loadPacks();
-      } catch (err) {
-        els.formError.textContent = err.message || 'Could not save pack.';
-        els.formError.hidden = false;
-      } finally {
-        els.saveBtn.removeAttribute('disabled');
-        els.saveBtn.textContent = 'Save pack';
+      const promises = updates.map((u) =>
+        supabase.from("packs").update({ sort_order: u.sort_order }).eq("id", u.id),
+      );
+      const results = await Promise.all(promises);
+      const failures = results.filter((r) => r.error);
+      if (failures.length) {
+        console.error("[TMKE] reorder failures", failures);
+        toast(`Couldn't save order (${failures.length} failed). Refresh to reset.`);
+      } else {
+        toast("Order saved.");
       }
     }
 
     async function archivePack(id) {
-      if (!confirm('Archive this pack? It will be hidden from the storefront but kept in the database.')) return;
-      const { error } = await supabase.from('packs').update({ status: 'archived' }).eq('id', id);
-      if (error) return alert(`Archive failed: ${error.message}`);
-      await loadPacks();
+      const { error } = await supabase.from("packs").update({ status: "archived" }).eq("id", id);
+      if (error) { alert("Archive failed: " + error.message); return; }
+      const row = allPacks.find((p) => p.id === id);
+      if (row) row.status = "archived";
+      render();
+      toast("Pack archived.");
     }
 
     async function restorePack(id) {
-      const { error } = await supabase.from('packs').update({ status: 'active' }).eq('id', id);
-      if (error) return alert(`Restore failed: ${error.message}`);
-      await loadPacks();
+      const { error } = await supabase.from("packs").update({ status: "active" }).eq("id", id);
+      if (error) { alert("Restore failed: " + error.message); return; }
+      const row = allPacks.find((p) => p.id === id);
+      if (row) row.status = "active";
+      render();
+      toast("Pack restored.");
     }
 
-    async function deletePack(id) {
-      if (!confirm('Permanently delete this pack? This cannot be undone.')) return;
-      const { error } = await supabase.from('packs').delete().eq('id', id);
-      if (error) return alert(`Delete failed: ${error.message}`);
-      closeModal();
-      await loadPacks();
+    async function loadPacks() {
+      const { data, error } = await supabase
+        .from("packs")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false });
+
+      const loading = document.getElementById("catalogue-loading");
+      if (loading) loading.hidden = true;
+      const body = document.getElementById("catalogue-body");
+      if (body) body.removeAttribute("aria-busy");
+
+      if (error) {
+        if (loading) {
+          loading.hidden = false;
+          loading.textContent = "Failed to load catalogue: " + error.message;
+        }
+        return;
+      }
+
+      allPacks = data || [];
+      render();
     }
 
-    // --- Wire up ---
+    function syncInitialUI() {
+      document.querySelectorAll("[data-filter]").forEach((el) => {
+        el.classList.toggle("is-active", el.getAttribute("data-filter") === filter);
+      });
+      document.querySelectorAll("[data-view]").forEach((el) => {
+        el.classList.toggle("is-active", el.getAttribute("data-view") === view);
+      });
+      const sortEl = document.getElementById("catalogue-sort");
+      if (sortEl) sortEl.value = sortBy;
+    }
+
     (async () => {
       const session = await requireAdmin();
       if (!session) return;
+      syncInitialUI();
       await loadPacks();
     })();
 
-    els.newBtn.addEventListener('click', () => openModal(null));
-    els.modalClose.addEventListener('click', closeModal);
-    els.modalCancel.addEventListener('click', closeModal);
-    els.modal.addEventListener('click', (e) => {
-      if (e.target === els.modal) closeModal();
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !els.modal.hidden) closeModal();
-    });
-
-    els.form.addEventListener('submit', savePack);
-
-    els.deleteBtn.addEventListener('click', () => {
-      const id = els.form.elements.id.value;
-      if (id) deletePack(id);
+    // Filter chips
+    document.querySelectorAll("[data-filter]").forEach((el) => {
+      el.addEventListener("click", () => {
+        filter = el.getAttribute("data-filter") || "all";
+        document.querySelectorAll("[data-filter]").forEach((c) => c.classList.remove("is-active"));
+        el.classList.add("is-active");
+        savePrefs();
+        render();
+      });
     });
 
-    // Auto-slug from title until user edits slug manually
-    els.titleInput.addEventListener('input', () => {
-      if (!slugTouched) els.slugInput.value = slugify(els.titleInput.value);
-    });
-    els.slugInput.addEventListener('input', () => { slugTouched = true; });
-    els.slugInput.addEventListener('blur', () => {
-      els.slugInput.value = slugify(els.slugInput.value);
-    });
-
-    els.coverFile.addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const url = await uploadCover(file);
-      if (url) {
-        els.form.elements.cover_image_url.value = url;
-        els.coverPreview.src = url;
-      }
+    // View toggle
+    document.querySelectorAll("[data-view]").forEach((el) => {
+      el.addEventListener("click", () => {
+        view = el.getAttribute("data-view") || "grid";
+        document.querySelectorAll("[data-view]").forEach((c) => c.classList.remove("is-active"));
+        el.classList.add("is-active");
+        savePrefs();
+        render();
+      });
     });
 
-    // Delegated handlers for pack-card buttons
-    els.grid.addEventListener('click', async (e) => {
+    // Sort dropdown
+    document.getElementById("catalogue-sort")?.addEventListener("change", (e) => {
+      sortBy = e.target.value;
+      savePrefs();
+      render();
+    });
+
+    // Action delegation
+    document.getElementById("catalogue-grid")?.addEventListener("click", (e) => {
       const target = e.target;
       if (!(target instanceof HTMLElement)) return;
-
-      const editId = target.getAttribute('data-edit');
-      if (editId) {
-        const { data, error } = await supabase.from('packs').select('*').eq('id', editId).single();
-        if (error) return alert(`Load failed: ${error.message}`);
-        openModal(data);
-        return;
-      }
-      const archiveId = target.getAttribute('data-archive');
-      if (archiveId) return archivePack(archiveId);
-      const restoreId = target.getAttribute('data-restore');
-      if (restoreId) return restorePack(restoreId);
+      const archiveId = target.getAttribute("data-archive");
+      if (archiveId) { e.preventDefault(); archivePack(archiveId); return; }
+      const restoreId = target.getAttribute("data-restore");
+      if (restoreId) { e.preventDefault(); restorePack(restoreId); return; }
     });
   </script>
 </BaseLayout>
