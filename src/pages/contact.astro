@@ -20,14 +20,15 @@ const industries = [
   <section class="contact-hero">
     <video
       class="contact-hero-video"
-      autoplay
+      data-hero-video
       muted
       loop
       playsinline
-      preload="auto"
+      preload="metadata"
+      poster="/assets/hero-poster-dark.svg"
       aria-hidden="true"
     >
-      <source src="/assets/phone.mp4" type="video/mp4" />
+      <source data-src="/assets/phone.mp4" type="video/mp4" />
     </video>
     <div class="contact-hero-overlay"></div>
     <div class="contact-hero-vignette"></div>
@@ -195,6 +196,31 @@ const industries = [
 </BaseLayout>
 
 <script is:inline>
+  (function () {
+    const video = document.querySelector("[data-hero-video]");
+    if (video) {
+      const source = video.querySelector("source[data-src]");
+      let armed = false;
+      const arm = function () {
+        if (armed || !source) return;
+        armed = true;
+        source.setAttribute("src", source.getAttribute("data-src"));
+        video.load();
+        const playPromise = video.play();
+        if (playPromise && playPromise.catch) playPromise.catch(function () {});
+      };
+      if ("IntersectionObserver" in window) {
+        const io = new IntersectionObserver(function (entries) {
+          for (const e of entries) {
+            if (e.isIntersecting) { arm(); io.disconnect(); break; }
+          }
+        }, { rootMargin: "200px" });
+        io.observe(video);
+      } else {
+        arm();
+      }
+    }
+  })();
   (function () {
     const form = document.getElementById("tmke-contact-form");
     if (!form) return;
