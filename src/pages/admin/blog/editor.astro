@@ -1,0 +1,813 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Article editor — Admin · TMKE"
+  description="Write, edit, and publish a TMKE Insights article."
+  hideNav
+  hideFooter
+>
+  <header class="blog-editor-top">
+    <div class="blog-editor-top-left">
+      <a href="/admin/blog" class="blog-editor-back" aria-label="Back to articles">&larr; Articles</a>
+      <div>
+        <h1 class="blog-editor-title" id="be-title-display">New article</h1>
+        <p class="blog-editor-sub" id="be-sub">Draft &middot; not yet published</p>
+      </div>
+    </div>
+    <div class="blog-editor-top-right">
+      <button type="button" class="admin-btn admin-btn-ghost" id="be-preview">Preview</button>
+      <button type="button" class="admin-btn admin-btn-ghost" id="be-save">Save draft</button>
+      <button type="button" class="admin-btn admin-btn-primary" id="be-publish">Publish</button>
+    </div>
+  </header>
+
+  <form id="be-form" class="be-grid" novalidate>
+    <!-- ============================== LEFT COLUMN: content -->
+    <div class="be-col be-col-content">
+      <fieldset class="be-card">
+        <legend class="be-card-legend">Article</legend>
+
+        <label class="be-field be-field--lg">
+          <span class="be-label">Title</span>
+          <input type="text" name="title" id="be-title" required placeholder="e.g. Why personal branding has become so effective in estate agency" />
+          <span class="be-hint" id="be-title-count">0 chars</span>
+        </label>
+
+        <div class="be-row">
+          <label class="be-field">
+            <span class="be-label">Category</span>
+            <select name="category">
+              <option value="Branding">Branding</option>
+              <option value="Strategy">Strategy</option>
+              <option value="Content">Content</option>
+              <option value="Industry">Industry</option>
+              <option value="Insights">Insights</option>
+            </select>
+          </label>
+          <label class="be-field">
+            <span class="be-label">Eyebrow (small caps above title)</span>
+            <input type="text" name="eyebrow" placeholder="e.g. Personal brand · UK property" />
+          </label>
+        </div>
+
+        <label class="be-field">
+          <span class="be-label">Standfirst (italic intro paragraph)</span>
+          <textarea name="standfirst" rows="3" placeholder="One or two sentences that sit beneath the title, italic. Sets the hook for the article."></textarea>
+        </label>
+      </fieldset>
+
+      <fieldset class="be-card">
+        <legend class="be-card-legend">Body</legend>
+        <div class="be-body-tabs">
+          <button type="button" class="be-body-tab is-active" data-bodytab="write">Write</button>
+          <button type="button" class="be-body-tab" data-bodytab="preview">Preview</button>
+          <span class="be-body-hint">Markdown — use <code>##</code> for subheadings, <code>**bold**</code>, <code>*italic*</code>, lists with <code>-</code>, and <code>&gt;</code> for blockquotes.</span>
+        </div>
+        <div class="be-body-pane is-active" data-bodypane="write">
+          <textarea name="body_markdown" id="be-body" rows="22" placeholder="## A subheading
+A short paragraph. Use **bold** to lean on a phrase, *italic* for emphasis.
+
+- A bulleted point
+- Another bulleted point
+
+&gt; A pull quote that sits between two paragraphs.
+
+Another paragraph follows the quote naturally."></textarea>
+        </div>
+        <div class="be-body-pane" data-bodypane="preview" hidden>
+          <div class="be-preview" id="be-preview-out"></div>
+        </div>
+      </fieldset>
+    </div>
+
+    <!-- ============================== RIGHT COLUMN: settings + SEO -->
+    <aside class="be-col be-col-side">
+      <fieldset class="be-card">
+        <legend class="be-card-legend">Status</legend>
+        <div class="be-status-row">
+          <label class="be-field">
+            <span class="be-label">Publish state</span>
+            <select name="status" id="be-status">
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+          </label>
+          <label class="be-field">
+            <span class="be-label">Publish date</span>
+            <input type="date" name="publish_date" id="be-publish-date" />
+          </label>
+        </div>
+        <div class="be-row">
+          <label class="be-field">
+            <span class="be-label">Read time (minutes)</span>
+            <input type="number" name="read_time_minutes" id="be-read-time" min="1" max="60" placeholder="Auto" />
+          </label>
+          <label class="be-field">
+            <span class="be-label">Author</span>
+            <input type="text" name="author_name" placeholder="The TMKE Desk" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="be-card">
+        <legend class="be-card-legend">Slug</legend>
+        <label class="be-field">
+          <span class="be-label">URL slug</span>
+          <div class="be-slug-row">
+            <span class="be-slug-prefix">/blog/</span>
+            <input type="text" name="slug" id="be-slug" required placeholder="auto-generated-from-title" />
+            <button type="button" class="be-slug-regen" id="be-slug-regen" title="Regenerate from title">⟳</button>
+          </div>
+          <span class="be-hint">Lowercase letters, numbers, and hyphens only. Pick something search-friendly.</span>
+        </label>
+      </fieldset>
+
+      <fieldset class="be-card">
+        <legend class="be-card-legend">Hero image</legend>
+        <div class="be-hero">
+          <div class="be-hero-preview" id="be-hero-preview">
+            <span class="be-hero-placeholder">No hero image yet</span>
+          </div>
+          <div class="be-hero-actions">
+            <label class="admin-btn admin-btn-ghost">
+              Upload
+              <input type="file" id="be-hero-file" accept="image/*" hidden />
+            </label>
+            <span class="be-or">or</span>
+            <input type="url" name="hero_image_url" id="be-hero-url" placeholder="Paste image URL" />
+          </div>
+          <label class="be-field">
+            <span class="be-label">Alt text (accessibility + SEO)</span>
+            <input type="text" name="hero_image_alt" id="be-hero-alt" placeholder="Describe the image briefly" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="be-card be-card--seo">
+        <legend class="be-card-legend">
+          SEO
+          <span class="be-card-score" id="be-seo-score">—</span>
+        </legend>
+
+        <label class="be-field">
+          <span class="be-label">Meta title (overrides article title in &lt;title&gt;)</span>
+          <input type="text" name="seo_title" id="be-seo-title" maxlength="65" placeholder="Defaults to article title" />
+          <span class="be-hint" id="be-seo-title-count">Aim for 50–60 characters.</span>
+        </label>
+
+        <label class="be-field">
+          <span class="be-label">Meta description</span>
+          <textarea name="seo_description" id="be-seo-desc" rows="3" maxlength="170" placeholder="One or two sentences that show up under the link in Google search results."></textarea>
+          <span class="be-hint" id="be-seo-desc-count">Aim for 140–160 characters.</span>
+        </label>
+
+        <label class="be-field">
+          <span class="be-label">Target keywords (one per line, or comma-separated)</span>
+          <textarea name="seo_keywords" id="be-seo-kw" rows="4" placeholder="estate agent social media\nproperty marketing UK\npersonal branding for agents"></textarea>
+          <span class="be-hint">These don't directly affect rankings any more, but they're useful for your own tracking and for related-content logic.</span>
+        </label>
+
+        <details class="be-advanced">
+          <summary>Advanced</summary>
+          <label class="be-field">
+            <span class="be-label">Override OG image URL (social-share preview)</span>
+            <input type="url" name="seo_og_image_url" placeholder="Defaults to hero image" />
+          </label>
+          <label class="be-field">
+            <span class="be-label">Canonical URL</span>
+            <input type="url" name="seo_canonical_url" placeholder="Leave blank to default to /blog/{slug}" />
+          </label>
+          <label class="be-check">
+            <input type="checkbox" name="seo_noindex" />
+            <span><strong>Hide from search engines</strong> (robots: noindex). Use only for unfinished or evergreen-pinned posts.</span>
+          </label>
+        </details>
+
+        <div class="be-google-preview" id="be-google-preview">
+          <div class="be-google-url">tmke.co.uk &rsaquo; blog &rsaquo; <span id="be-google-slug">your-slug</span></div>
+          <div class="be-google-title" id="be-google-title">Article title — TMKE Insights</div>
+          <div class="be-google-desc" id="be-google-desc">Your meta description will appear here, mid-grey, two lines, ~155 characters.</div>
+        </div>
+      </fieldset>
+
+      <fieldset class="be-card be-card--danger">
+        <legend class="be-card-legend">Danger zone</legend>
+        <button type="button" class="admin-btn admin-btn-danger" id="be-delete" disabled>Delete article</button>
+      </fieldset>
+    </aside>
+  </form>
+
+  <p class="be-toast" id="be-toast" hidden></p>
+
+  <style is:global>
+    :root { --be-line: rgba(28, 29, 34, 0.1); }
+
+    .blog-editor-top {
+      position: sticky; top: 0; z-index: 30;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 24px;
+      padding: 20px 36px;
+      background: rgba(242, 239, 233, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--be-line);
+    }
+    .blog-editor-top-left { display: flex; align-items: center; gap: 24px; min-width: 0; }
+    .blog-editor-top-right { display: flex; gap: 8px; flex-wrap: wrap; }
+    .blog-editor-back {
+      font-family: var(--sans); font-size: 12px;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: rgba(28,29,34,0.55);
+    }
+    .blog-editor-back:hover { color: var(--english-violet); }
+    .blog-editor-title {
+      font-family: var(--serif); font-weight: 400;
+      font-size: 26px; letter-spacing: -0.01em;
+      margin: 0; color: var(--ink);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 60ch;
+    }
+    .blog-editor-sub {
+      font-family: var(--sans); font-size: 11px;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      font-weight: 600; color: rgba(28,29,34,0.5);
+      margin: 4px 0 0;
+    }
+
+    .be-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 24px 36px 160px;
+    }
+    @media (max-width: 1080px) { .be-grid { grid-template-columns: 1fr; } }
+
+    .be-col { display: flex; flex-direction: column; gap: 18px; }
+
+    .be-card {
+      background: #fff;
+      border: 1px solid var(--be-line);
+      border-radius: 4px;
+      padding: 20px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .be-card-legend {
+      font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--english-violet);
+      padding: 0 8px;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .be-card-score {
+      font-size: 10px; font-weight: 600;
+      padding: 3px 8px; border-radius: 999px;
+      background: rgba(28,29,34,0.08);
+      color: rgba(28,29,34,0.6);
+      letter-spacing: 0.16em;
+    }
+    .be-card-score.is-good { background: rgba(60,130,80,0.14); color: #2d6a44; }
+    .be-card-score.is-ok { background: rgba(184,130,106,0.18); color: #8a4d33; }
+    .be-card-score.is-poor { background: rgba(160,90,60,0.18); color: #a05a3c; }
+    .be-card--danger {
+      background: rgba(160,90,60,0.04);
+      border-color: rgba(160,90,60,0.25);
+    }
+
+    .be-field {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .be-field--lg input { font-size: 20px !important; padding: 14px 14px !important; }
+    .be-label {
+      font-family: var(--sans); font-size: 10px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase; color: rgba(28,29,34,0.55);
+    }
+    .be-field input,
+    .be-field select,
+    .be-field textarea {
+      font-family: var(--sans); font-size: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(28,29,34,0.15);
+      border-radius: 2px;
+      background: var(--paper);
+      color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .be-field input:focus,
+    .be-field select:focus,
+    .be-field textarea:focus {
+      outline: none;
+      border-color: var(--english-violet);
+      box-shadow: 0 0 0 3px rgba(71,66,84,0.1);
+    }
+    .be-field textarea {
+      resize: vertical;
+      font-family: var(--sans);
+      line-height: 1.55;
+    }
+    .be-hint {
+      font-family: var(--sans); font-size: 11px;
+      color: rgba(28,29,34,0.5);
+    }
+
+    .be-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 720px) { .be-row { grid-template-columns: 1fr; } }
+
+    .be-check {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-family: var(--sans); font-size: 13px;
+      color: rgba(28,29,34,0.7);
+      line-height: 1.55;
+    }
+    .be-check input { margin-top: 3px; accent-color: var(--english-violet); }
+    .be-check strong { color: var(--ink); font-weight: 700; }
+
+    /* Body editor */
+    .be-body-tabs {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding-bottom: 10px; border-bottom: 1px solid var(--be-line);
+    }
+    .be-body-tab {
+      background: transparent; border: 0;
+      padding: 4px 0;
+      font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.45);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .be-body-tab.is-active {
+      color: var(--english-violet);
+      border-bottom-color: var(--english-violet);
+    }
+    .be-body-hint {
+      font-family: var(--sans); font-size: 11px;
+      color: rgba(28,29,34,0.5);
+      margin-left: auto;
+    }
+    .be-body-hint code {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 11px;
+      background: rgba(28,29,34,0.06);
+      padding: 1px 5px;
+      border-radius: 2px;
+      color: var(--english-violet);
+    }
+    .be-body-pane[hidden] { display: none; }
+    .be-body-pane textarea {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace !important;
+      font-size: 13.5px !important;
+      line-height: 1.6 !important;
+      min-height: 480px;
+      width: 100%;
+    }
+    .be-preview {
+      min-height: 480px;
+      padding: 8px 0;
+      color: var(--ink);
+    }
+    .be-preview h2 {
+      font-family: var(--serif); font-weight: 400;
+      font-size: 28px; margin: 22px 0 10px;
+      letter-spacing: -0.01em;
+    }
+    .be-preview h2:first-child { margin-top: 0; }
+    .be-preview p {
+      font-family: var(--sans); font-size: 15px;
+      line-height: 1.7;
+      color: rgba(28,29,34,0.82);
+      margin: 0 0 16px;
+    }
+    .be-preview strong { font-weight: 700; color: var(--ink); }
+    .be-preview ul { padding-left: 18px; margin: 0 0 16px; }
+    .be-preview li {
+      font-family: var(--sans); font-size: 14.5px;
+      line-height: 1.65;
+      color: rgba(28,29,34,0.78);
+      margin-bottom: 6px;
+    }
+    .be-preview blockquote {
+      font-family: var(--serif); font-style: italic;
+      font-size: 20px; line-height: 1.45;
+      color: var(--ink);
+      margin: 22px 0;
+      padding: 14px 0 14px 22px;
+      border-left: 2px solid var(--english-violet);
+    }
+
+    /* Status / publish date */
+    .be-status-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* Slug */
+    .be-slug-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 0;
+    }
+    .be-slug-prefix {
+      display: inline-flex; align-items: center;
+      padding: 0 12px;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 13px;
+      background: rgba(28,29,34,0.05);
+      border: 1px solid rgba(28,29,34,0.15);
+      border-right: 0;
+      border-radius: 2px 0 0 2px;
+      color: rgba(28,29,34,0.55);
+    }
+    .be-slug-row input {
+      border-radius: 0;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace !important;
+      font-size: 13px !important;
+    }
+    .be-slug-regen {
+      padding: 0 12px;
+      background: transparent;
+      border: 1px solid rgba(28,29,34,0.15);
+      border-left: 0;
+      border-radius: 0 2px 2px 0;
+      font-size: 16px;
+      color: var(--english-violet);
+      cursor: pointer;
+    }
+    .be-slug-regen:hover { background: rgba(71,66,84,0.06); }
+
+    /* Hero image */
+    .be-hero { display: flex; flex-direction: column; gap: 12px; }
+    .be-hero-preview {
+      aspect-ratio: 16 / 9;
+      background: rgba(28,29,34,0.06);
+      background-size: cover;
+      background-position: center;
+      border-radius: 2px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .be-hero-placeholder {
+      font-family: var(--sans); font-size: 12px;
+      letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700;
+      color: rgba(28,29,34,0.4);
+    }
+    .be-hero-actions {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .be-hero-actions input[type="url"] {
+      flex: 1;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace !important;
+      font-size: 12px !important;
+      padding: 8px 10px;
+      border: 1px solid rgba(28,29,34,0.15);
+      border-radius: 2px;
+      background: var(--paper);
+    }
+    .be-or {
+      font-family: var(--sans); font-size: 11px;
+      color: rgba(28,29,34,0.45);
+    }
+
+    /* SEO panel */
+    .be-card--seo { background: linear-gradient(180deg, #fff, rgba(71,66,84,0.02)); }
+    .be-advanced {
+      padding: 12px 0;
+      border-top: 1px dashed var(--be-line);
+    }
+    .be-advanced summary {
+      font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase; color: rgba(28,29,34,0.55);
+      cursor: pointer; padding: 6px 0;
+    }
+    .be-advanced[open] { padding-bottom: 0; }
+    .be-advanced .be-field { margin-top: 12px; }
+
+    .be-google-preview {
+      margin-top: 8px;
+      padding: 14px 16px;
+      background: rgba(28,29,34,0.04);
+      border-radius: 4px;
+      font-family: Arial, sans-serif;
+    }
+    .be-google-url {
+      font-size: 12px;
+      color: #006621;
+      margin-bottom: 2px;
+    }
+    .be-google-title {
+      font-size: 18px;
+      line-height: 1.3;
+      color: #1a0dab;
+      margin-bottom: 3px;
+    }
+    .be-google-desc {
+      font-size: 13px;
+      color: #545454;
+      line-height: 1.4;
+    }
+
+    .be-toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--ink); color: var(--paper);
+      padding: 10px 18px; border-radius: 4px;
+      font-family: var(--sans); font-size: 13px;
+      z-index: 100;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+  </style>
+
+  <script>
+    import { supabase, isConfigured, slugify } from "../../../lib/supabase.js";
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { marked } from "marked";
+
+    marked.setOptions({ gfm: true, breaks: false });
+
+    // ─── DOM refs ───
+    const $form = document.getElementById("be-form");
+    const $titleDisp = document.getElementById("be-title-display");
+    const $sub = document.getElementById("be-sub");
+    const $title = document.getElementById("be-title");
+    const $titleCount = document.getElementById("be-title-count");
+    const $slug = document.getElementById("be-slug");
+    const $slugRegen = document.getElementById("be-slug-regen");
+    const $body = document.getElementById("be-body");
+    const $preview = document.getElementById("be-preview-out");
+    const $bodyTabs = document.querySelectorAll(".be-body-tab");
+    const $bodyPanes = document.querySelectorAll(".be-body-pane");
+    const $heroFile = document.getElementById("be-hero-file");
+    const $heroUrl = document.getElementById("be-hero-url");
+    const $heroAlt = document.getElementById("be-hero-alt");
+    const $heroPrev = document.getElementById("be-hero-preview");
+    const $status = document.getElementById("be-status");
+    const $publishDate = document.getElementById("be-publish-date");
+    const $readTime = document.getElementById("be-read-time");
+    const $seoTitle = document.getElementById("be-seo-title");
+    const $seoTitleCount = document.getElementById("be-seo-title-count");
+    const $seoDesc = document.getElementById("be-seo-desc");
+    const $seoDescCount = document.getElementById("be-seo-desc-count");
+    const $seoKw = document.getElementById("be-seo-kw");
+    const $seoScore = document.getElementById("be-seo-score");
+    const $googleTitle = document.getElementById("be-google-title");
+    const $googleDesc = document.getElementById("be-google-desc");
+    const $googleSlug = document.getElementById("be-google-slug");
+    const $save = document.getElementById("be-save");
+    const $publishBtn = document.getElementById("be-publish");
+    const $previewBtn = document.getElementById("be-preview");
+    const $delete = document.getElementById("be-delete");
+    const $toast = document.getElementById("be-toast");
+
+    // ─── State ───
+    const params = new URLSearchParams(location.search);
+    let id = params.get("id");
+    if (id === "new") id = null;
+    let slugTouched = false;
+    let loaded = null;
+
+    function toast(msg) {
+      $toast.textContent = msg;
+      $toast.hidden = false;
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { $toast.hidden = true; }, 2400);
+    }
+
+    // ─── Tabs ───
+    $bodyTabs.forEach((tab) => tab.addEventListener("click", () => {
+      const name = tab.getAttribute("data-bodytab");
+      $bodyTabs.forEach((t) => t.classList.toggle("is-active", t === tab));
+      $bodyPanes.forEach((p) => {
+        const active = p.getAttribute("data-bodypane") === name;
+        p.hidden = !active;
+        p.classList.toggle("is-active", active);
+      });
+      if (name === "preview") renderPreview();
+    }));
+
+    // ─── Live updates ───
+    function renderPreview() {
+      try { $preview.innerHTML = marked.parse($body.value || ""); }
+      catch (_) { $preview.innerHTML = ""; }
+    }
+    function syncTitle() {
+      const val = $title.value || "New article";
+      $titleDisp.textContent = val;
+      $titleCount.textContent = `${$title.value.length} chars`;
+      if (!slugTouched && !id) $slug.value = slugify($title.value);
+      updateGooglePreview();
+      updateSeoScore();
+    }
+    function updateGooglePreview() {
+      const t = ($seoTitle.value || $title.value || "Article title") + " — TMKE Insights";
+      $googleTitle.textContent = t;
+      $googleSlug.textContent = $slug.value || "your-slug";
+      $googleDesc.textContent = $seoDesc.value || "Your meta description will appear here, mid-grey, two lines, ~155 characters.";
+    }
+    function updateSeoScore() {
+      let score = 0;
+      const tLen = ($seoTitle.value || $title.value || "").length;
+      if (tLen >= 30 && tLen <= 65) score++;
+      const dLen = $seoDesc.value.length;
+      if (dLen >= 120 && dLen <= 165) score++;
+      if ($heroUrl.value && $heroAlt.value) score++;
+      const kws = ($seoKw.value || "").split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+      if (kws.length >= 2) score++;
+      if ($slug.value && /^[a-z0-9-]+$/.test($slug.value)) score++;
+
+      const label = score >= 4 ? "Strong" : score >= 2 ? "OK" : "Needs work";
+      const klass = score >= 4 ? "is-good" : score >= 2 ? "is-ok" : "is-poor";
+      $seoScore.textContent = `${label} · ${score}/5`;
+      $seoScore.className = "be-card-score " + klass;
+    }
+
+    $title.addEventListener("input", syncTitle);
+    $body.addEventListener("input", renderPreview);
+    $slug.addEventListener("input", () => { slugTouched = true; updateGooglePreview(); updateSeoScore(); });
+    $slugRegen.addEventListener("click", () => { $slug.value = slugify($title.value); updateGooglePreview(); updateSeoScore(); });
+    $heroUrl.addEventListener("input", () => {
+      const u = $heroUrl.value.trim();
+      $heroPrev.style.backgroundImage = u ? `url(${JSON.stringify(u).replace(/^"|"$/g, '')})` : "";
+      $heroPrev.querySelector(".be-hero-placeholder")?.style.setProperty("display", u ? "none" : "");
+      updateSeoScore();
+    });
+    $heroAlt.addEventListener("input", updateSeoScore);
+    $seoTitle.addEventListener("input", () => {
+      $seoTitleCount.textContent = `${$seoTitle.value.length}/65 · aim for 50–60.`;
+      updateGooglePreview();
+      updateSeoScore();
+    });
+    $seoDesc.addEventListener("input", () => {
+      $seoDescCount.textContent = `${$seoDesc.value.length}/165 · aim for 140–160.`;
+      updateGooglePreview();
+      updateSeoScore();
+    });
+    $seoKw.addEventListener("input", updateSeoScore);
+
+    // ─── Hero file upload (Supabase storage) ───
+    $heroFile.addEventListener("change", async () => {
+      const file = $heroFile.files[0];
+      if (!file) return;
+      if (!isConfigured) { alert("Connect Supabase before uploading images. See AUTH_SETUP.md."); return; }
+      const path = `${Date.now()}-${file.name.replace(/[^a-z0-9.-]/gi, "_")}`;
+      toast("Uploading…");
+      const { data, error } = await supabase.storage.from("blog-images")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+      if (error) { toast(`Upload failed: ${error.message}`); return; }
+      const { data: pub } = supabase.storage.from("blog-images").getPublicUrl(data.path);
+      $heroUrl.value = pub.publicUrl;
+      $heroUrl.dispatchEvent(new Event("input"));
+      toast("Uploaded ✓");
+    });
+
+    // ─── Save / publish ───
+    function gather() {
+      const fd = new FormData($form);
+      const kws = String(fd.get("seo_keywords") || "")
+        .split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+      const body_markdown = String(fd.get("body_markdown") || "");
+      const body_html = marked.parse(body_markdown);
+      return {
+        slug: ($slug.value || slugify($title.value)).trim(),
+        title: ($title.value || "").trim(),
+        eyebrow: String(fd.get("eyebrow") || "").trim() || null,
+        category: String(fd.get("category") || "Insights"),
+        standfirst: String(fd.get("standfirst") || "").trim() || null,
+        body_markdown,
+        body_html,
+        hero_image_url: ($heroUrl.value || "").trim() || null,
+        hero_image_alt: ($heroAlt.value || "").trim() || null,
+        read_time_minutes: $readTime.value ? Number($readTime.value) : null,
+        author_name: String(fd.get("author_name") || "").trim() || "The TMKE Desk",
+        status: $status.value,
+        publish_date: $publishDate.value || null,
+        seo_title: ($seoTitle.value || "").trim() || null,
+        seo_description: ($seoDesc.value || "").trim() || null,
+        seo_keywords: kws,
+        seo_og_image_url: String(fd.get("seo_og_image_url") || "").trim() || null,
+        seo_canonical_url: String(fd.get("seo_canonical_url") || "").trim() || null,
+        seo_noindex: $form.querySelector('[name="seo_noindex"]').checked,
+      };
+    }
+
+    async function save(opts = {}) {
+      if (!isConfigured) { alert("Connect Supabase before saving. See AUTH_SETUP.md."); return; }
+      const payload = gather();
+      if (opts.publish) {
+        payload.status = "published";
+        if (!payload.publish_date) {
+          payload.publish_date = new Date().toISOString().slice(0, 10);
+        }
+        $status.value = "published";
+        $publishDate.value = payload.publish_date;
+      }
+      if (!payload.title) { alert("Give the article a title."); return; }
+      if (!payload.slug) { alert("Give the article a slug."); return; }
+
+      toast(opts.publish ? "Publishing…" : "Saving…");
+      const tableQuery = id
+        ? supabase.from("blog_posts").update(payload).eq("id", id).select().single()
+        : supabase.from("blog_posts").insert(payload).select().single();
+      const { data, error } = await tableQuery;
+      if (error) { toast(`Save failed: ${error.message}`); return; }
+      if (data) {
+        id = data.id;
+        loaded = data;
+        $delete.removeAttribute("disabled");
+        if (!params.get("id") || params.get("id") === "new") {
+          // Replace the URL so reloads/back-buttons land on the persistent edit URL
+          const u = new URL(location.href);
+          u.searchParams.set("id", id);
+          history.replaceState({}, "", u.toString());
+        }
+        updateSub();
+        toast(opts.publish ? "Published ✓" : "Saved ✓");
+      }
+    }
+    $save.addEventListener("click", () => save());
+    $publishBtn.addEventListener("click", () => save({ publish: true }));
+    $previewBtn.addEventListener("click", async () => {
+      await save(); // ensure the latest draft is persisted
+      if ($slug.value) window.open(`/blog/${$slug.value}`, "_blank");
+    });
+
+    // ─── Delete ───
+    $delete.addEventListener("click", async () => {
+      if (!id || !confirm(`Delete "${$title.value || "this article"}"? Can't be undone.`)) return;
+      const { error } = await supabase.from("blog_posts").delete().eq("id", id);
+      if (error) { toast(`Delete failed: ${error.message}`); return; }
+      location.replace("/admin/blog");
+    });
+
+    function updateSub() {
+      if (!loaded) { $sub.textContent = "Draft · not yet saved"; return; }
+      const bits = [];
+      bits.push(loaded.status === "published" ? "Published" : loaded.status === "archived" ? "Archived" : "Draft");
+      if (loaded.updated_at) {
+        bits.push("last saved " + new Date(loaded.updated_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }));
+      }
+      $sub.textContent = bits.join(" · ");
+    }
+
+    // ─── Load ───
+    (async () => {
+      const session = await requireAdmin("/admin/login");
+      if (!session) return;
+
+      if (id) {
+        const { data, error } = await supabase
+          .from("blog_posts").select("*").eq("id", id).maybeSingle();
+        if (error || !data) { alert("Couldn't load article. Returning to list."); location.replace("/admin/blog"); return; }
+        loaded = data;
+        // Populate fields
+        $title.value = data.title || "";
+        $form.querySelector('[name="eyebrow"]').value = data.eyebrow || "";
+        $form.querySelector('[name="category"]').value = data.category || "Insights";
+        $form.querySelector('[name="standfirst"]').value = data.standfirst || "";
+        $body.value = data.body_markdown || "";
+        $slug.value = data.slug || "";
+        $heroUrl.value = data.hero_image_url || "";
+        $heroAlt.value = data.hero_image_alt || "";
+        $status.value = data.status || "draft";
+        $publishDate.value = data.publish_date || "";
+        $readTime.value = data.read_time_minutes || "";
+        $form.querySelector('[name="author_name"]').value = data.author_name || "";
+        $seoTitle.value = data.seo_title || "";
+        $seoDesc.value = data.seo_description || "";
+        $seoKw.value = (data.seo_keywords || []).join("\n");
+        $form.querySelector('[name="seo_og_image_url"]').value = data.seo_og_image_url || "";
+        $form.querySelector('[name="seo_canonical_url"]').value = data.seo_canonical_url || "";
+        $form.querySelector('[name="seo_noindex"]').checked = !!data.seo_noindex;
+        slugTouched = true;
+        $delete.removeAttribute("disabled");
+        updateSub();
+      } else {
+        $publishDate.value = new Date().toISOString().slice(0, 10);
+      }
+      syncTitle();
+      renderPreview();
+      $heroUrl.dispatchEvent(new Event("input"));
+      $seoTitle.dispatchEvent(new Event("input"));
+      $seoDesc.dispatchEvent(new Event("input"));
+    })();
+
+    // ─── Ctrl/Cmd+S to save ───
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        save();
+      }
+    });
+  </script>
+</BaseLayout>

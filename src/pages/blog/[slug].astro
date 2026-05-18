@@ -1,12 +1,13 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { posts } from "../../data/blog.js";
+import { getPublishedPosts } from "../../data/blog.js";
 
-export function getStaticPaths() {
-  return posts.map((p) => ({ params: { slug: p.slug }, props: { post: p } }));
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts();
+  return posts.map((p) => ({ params: { slug: p.slug }, props: { post: p, posts } }));
 }
 
-const { post } = Astro.props;
+const { post, posts } = Astro.props;
 
 function fmtDate(iso) {
   const d = new Date(iso);
@@ -25,9 +26,10 @@ const related = posts
 ---
 
 <BaseLayout
-  title={`${post.title} — TMKE Insights`}
-  description={post.standfirst}
-  ogImage={post.hero}
+  title={(post.seo?.title) || `${post.title} — TMKE Insights`}
+  description={(post.seo?.description) || post.standfirst}
+  ogImage={(post.seo?.ogImage) || post.hero}
+  canonical={(post.seo?.canonical) || undefined}
 >
   <article class="post">
     <!-- ============================== HERO -->

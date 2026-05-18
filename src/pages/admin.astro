@@ -76,6 +76,15 @@ import PageHero from "../components/PageHero.astro";
         <span class="admin-card-arrow">&rarr;</span>
       </div>
     </a>
+    <a href="/admin/blog" class="admin-card">
+      <div class="admin-card-num">07</div>
+      <h3 class="admin-card-title">Insights (Blog)</h3>
+      <p>Write, edit, and publish articles. SEO fields, hero images, and live Google preview built in.</p>
+      <div class="admin-card-meta">
+        <span><span data-stat="blog-published">0</span> published &middot; <span data-stat="blog-drafts">0</span> drafts</span>
+        <span class="admin-card-arrow">&rarr;</span>
+      </div>
+    </a>
   </section>
 
   <style>
@@ -209,7 +218,7 @@ import PageHero from "../components/PageHero.astro";
 
       const SIXTY_DAYS_AGO = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [packs, templates, enquiriesNew, enquiriesTotal, paidOrders, subOrders] =
+      const [packs, templates, enquiriesNew, enquiriesTotal, paidOrders, subOrders, blogPublished, blogDrafts] =
         await Promise.all([
           supabase.from('packs').select('*', { count: 'exact', head: true }).eq('status', 'active'),
           supabase.from('templates').select('*', { count: 'exact', head: true }).eq('status', 'active'),
@@ -221,6 +230,8 @@ import PageHero from "../components/PageHero.astro";
             .select('buyer_email')
             .eq('status', 'paid')
             .gte('created_at', SIXTY_DAYS_AGO),
+          supabase.from('blog_posts').select('*', { count: 'exact', head: true }).eq('status', 'published'),
+          supabase.from('blog_posts').select('*', { count: 'exact', head: true }).eq('status', 'draft'),
         ]);
 
       if (!packs.error && typeof packs.count === 'number') setStat('packs', String(packs.count));
@@ -243,6 +254,11 @@ import PageHero from "../components/PageHero.astro";
         );
         setStat('subs', String(unique.size));
       }
+
+      if (!blogPublished.error && typeof blogPublished.count === 'number')
+        setStat('blog-published', String(blogPublished.count));
+      if (!blogDrafts.error && typeof blogDrafts.count === 'number')
+        setStat('blog-drafts', String(blogDrafts.count));
     })();
   </script>
 </BaseLayout>

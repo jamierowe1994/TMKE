@@ -1,12 +1,27 @@
-// Insights — SEO-driven blog posts for estate agency / property marketing.
-// Each post is self-contained: front-matter style metadata + HTML body.
+// Insights — blog posts for estate agency / property marketing.
+//
+// Posts can live in either of two places:
+//   1. The admin (Supabase `blog_posts` table) — what the marketing team
+//      actually uses day-to-day. Queried at build time via getStaticPaths.
+//   2. The STATIC_POSTS array below — fallback used when Supabase isn't
+//      configured (e.g. local dev without an .env), so the site never
+//      ships with an empty /blog.
+//
+// All public-facing reads should go through the async helpers at the
+// bottom of this file (getPublishedPosts / getPost / getCategories).
+
+import { marked } from "marked";
+import { supabase, isConfigured } from "../lib/supabase.js";
 
 const UNSPLASH = (id, w = 1600, h = 900) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
 
 export const categories = ["Branding", "Strategy", "Content", "Industry"];
 
-export const posts = [
+// Pre-configure marked for clean, semantic HTML
+marked.setOptions({ gfm: true, breaks: false });
+
+export const STATIC_POSTS = [
   // ──────────────────────────────────────────────────────────────────
   {
     slug: "why-personal-branding-works-in-estate-agency",
@@ -323,11 +338,90 @@ export const posts = [
   },
 ];
 
-export function getPost(slug) {
-  return posts.find((p) => p.slug === slug) || null;
+// Back-compat — pages that haven't been moved to the async helpers yet.
+// New code should use getPublishedPosts() instead.
+export const posts = STATIC_POSTS;
+
+// ───────────────────────────────────────────────────────────────────
+// Markdown → HTML rendering
+// ───────────────────────────────────────────────────────────────────
+export function renderMarkdown(md) {
+  if (!md) return "";
+  try { return marked.parse(md); } catch (e) { return ""; }
 }
 
-export function postsByCategory(category) {
-  if (!category || category === "all") return posts;
-  return posts.filter((p) => p.category === category);
+// Estimate read time from markdown / HTML body (≈200 wpm)
+export function estimateReadTime(body) {
+  if (!body) return 1;
+  const text = String(body).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  return Math.max(1, Math.round(words / 200));
+}
+
+// ───────────────────────────────────────────────────────────────────
+// Normalise a Supabase row into the shape the public pages expect.
+// ───────────────────────────────────────────────────────────────────
+function rowToPost(row) {
+  const html = row.body_html && row.body_html.trim()
+    ? row.body_html
+    : renderMarkdown(row.body_markdown);
+  return {
+    slug: row.slug,
+    title: row.title,
+    eyebrow: row.eyebrow || "",
+    category: row.category || "Insights",
+    standfirst: row.standfirst || "",
+    hero: row.hero_image_url || "",
+    heroAlt: row.hero_image_alt || row.title,
+    date: row.publish_date || row.published_at || row.created_at,
+    readTime: row.read_time_minutes || estimateReadTime(html || row.body_markdown),
+    keywords: Array.isArray(row.seo_keywords) ? row.seo_keywords : [],
+    author: row.author_name || "The TMKE Desk",
+    body: html,
+    seo: {
+      title: row.seo_title || null,
+      description: row.seo_description || row.standfirst || "",
+      ogImage: row.seo_og_image_url || row.hero_image_url || "",
+      canonical: row.seo_canonical_url || null,
+      noindex: !!row.seo_noindex,
+    },
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────
+// Public read API — Supabase-first, falls back to STATIC_POSTS so the
+// site still works with no env vars (dev / first-run on Railway).
+// ───────────────────────────────────────────────────────────────────
+export async function getPublishedPosts() {
+  if (isConfigured) {
+    const { data, error } = await supabase
+      .from("blog_posts")
+      .select("*")
+      .eq("status", "published")
+      .order("publish_date", { ascending: false });
+    if (!error && Array.isArray(data) && data.length) {
+      return data.map(rowToPost);
+    }
+  }
+  return STATIC_POSTS;
+}
+
+export async function getPost(slug) {
+  if (!slug) return null;
+  if (isConfigured) {
+    const { data, error } = await supabase
+      .from("blog_posts")
+      .select("*")
+      .eq("slug", slug)
+      .eq("status", "published")
+      .maybeSingle();
+    if (!error && data) return rowToPost(data);
+  }
+  return STATIC_POSTS.find((p) => p.slug === slug) || null;
+}
+
+export async function postsByCategory(category) {
+  const all = await getPublishedPosts();
+  if (!category || category === "all") return all;
+  return all.filter((p) => p.category === category);
 }

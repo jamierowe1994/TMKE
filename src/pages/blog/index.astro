@@ -1,10 +1,11 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHero from "../../components/PageHero.astro";
-import { posts, categories } from "../../data/blog.js";
+import { getPublishedPosts, categories } from "../../data/blog.js";
 
-// Sort newest first
-const sorted = [...posts].sort((a, b) => (a.date < b.date ? 1 : -1));
+// Pulled from Supabase if configured, otherwise from the static fallback.
+const allPosts = await getPublishedPosts();
+const sorted = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
 const featured = sorted[0];
 const rest = sorted.slice(1);
 
