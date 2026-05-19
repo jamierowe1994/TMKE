@@ -78,6 +78,22 @@
   const hero = document.querySelector('.hero');
   if (hero) requestAnimationFrame(() => hero.classList.add('in'));
 
+  // Hero video — only fade in once the browser has frames to render, so the
+  // video never pops in once it finishes buffering. Falls back to a 2-second
+  // safety reveal in case the events never fire (e.g. autoplay blocked).
+  const heroVideo = document.querySelector('.hero-video');
+  if (heroVideo) {
+    const markReady = () => heroVideo.classList.add('is-ready');
+    if (heroVideo.readyState >= 3) {
+      markReady();
+    } else {
+      ['playing', 'canplaythrough', 'loadeddata'].forEach((ev) =>
+        heroVideo.addEventListener(ev, markReady, { once: true })
+      );
+      setTimeout(markReady, 2000);
+    }
+  }
+
   // ---------- Scroll-driven typewriter for "Edit" ----------
   const tw = document.getElementById('edit-typewriter');
   if (tw) {
