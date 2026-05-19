@@ -106,7 +106,24 @@ const googleFonts = [
   hideNav={true}
   hideFooter={true}
 >
-  <div class="editor" id="editor">
+  <!-- =================== ONBOARDING OVERLAY =================== -->
+  <div class="ed-onboard" id="ed-onboard">
+    <div class="ed-onboard-inner">
+      <div class="ed-onboard-eyebrow">Welcome to the Studio</div>
+      <h1 class="ed-onboard-title">Pick a pack <em>to open.</em></h1>
+      <p class="ed-onboard-sub">Choose one of your design packs to load into the editor — you can switch any time from the left rail. Prefer to start clean? Skip below.</p>
+
+      <div class="ed-onboard-loading" id="ed-onboard-loading">Loading your packs…</div>
+      <div class="ed-onboard-grid" id="ed-onboard-grid" hidden></div>
+      <div class="ed-onboard-error" id="ed-onboard-error" hidden></div>
+
+      <button type="button" class="ed-onboard-skip" id="ed-onboard-skip">
+        Start with a blank canvas <em>&rarr;</em>
+      </button>
+    </div>
+  </div>
+
+  <div class="editor is-onboarding" id="editor" data-stage="0">
     <!-- =================== TOP BAR =================== -->
     <header class="ed-topbar">
       <div class="ed-topbar-left">
@@ -1531,6 +1548,164 @@ const googleFonts = [
       font-size: 11px; font-weight: 600;
       margin: 0 2px;
     }
+
+    /* ============ Studio entry: staged build-in ============
+       On first load the editor parts are off-screen. As the user picks a pack
+       (or skips), each part slides into place in sequence — left rail, then
+       top bar, then canvas, then panel + props. */
+    .ed-rail, .ed-topbar, .ed-stage, .ed-props, .ed-panel {
+      transition:
+        transform 0.75s cubic-bezier(.2,.75,.2,1),
+        opacity 0.55s ease-out;
+    }
+    .editor.is-onboarding .ed-rail   { transform: translateX(-110%); opacity: 0; }
+    .editor.is-onboarding .ed-topbar { transform: translateY(-100%); opacity: 0; }
+    .editor.is-onboarding .ed-stage  { transform: translateX(80px); opacity: 0; }
+    .editor.is-onboarding .ed-props  { transform: translateX(80px); opacity: 0; }
+    .editor.is-onboarding .ed-panel  { transform: translateX(-40px); opacity: 0; }
+
+    .editor.show-rail  .ed-rail   { transform: none; opacity: 1; }
+    .editor.show-top   .ed-topbar { transform: none; opacity: 1; }
+    .editor.show-stage .ed-stage  { transform: none; opacity: 1; }
+    .editor.show-props .ed-props  { transform: none; opacity: 1; }
+    .editor.show-panel .ed-panel  { transform: none; opacity: 1; }
+
+    /* ============ Onboarding overlay ============ */
+    .ed-onboard {
+      position: fixed; inset: 0;
+      z-index: 200;
+      background:
+        radial-gradient(120% 80% at 20% 0%, rgba(71,66,84,0.12), transparent 60%),
+        linear-gradient(180deg, #f7f6f2, #efece6);
+      display: flex; align-items: center; justify-content: center;
+      padding: 60px 36px;
+      overflow-y: auto;
+      opacity: 1;
+      transition: opacity 0.45s ease-out, transform 0.55s cubic-bezier(.7,0,.3,1);
+    }
+    .ed-onboard.is-leaving {
+      opacity: 0;
+      transform: translateY(-30px);
+      pointer-events: none;
+    }
+    .ed-onboard.is-gone { display: none; }
+    .ed-onboard-inner {
+      width: 100%;
+      max-width: 1100px;
+      animation: edOnboardIn 0.7s 0.05s cubic-bezier(.2,.75,.2,1) backwards;
+    }
+    @keyframes edOnboardIn {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .ed-onboard-eyebrow {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+      margin-bottom: 18px;
+    }
+    .ed-onboard-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(40px, 5vw, 78px);
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin: 0 0 18px;
+      max-width: 16ch;
+    }
+    .ed-onboard-title em { font-style: italic; color: var(--english-violet); }
+    .ed-onboard-sub {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(18px, 1.4vw, 22px);
+      color: rgba(28,29,34,0.65);
+      max-width: 620px;
+      margin: 0 0 40px;
+      line-height: 1.5;
+    }
+    .ed-onboard-loading,
+    .ed-onboard-error {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: rgba(28,29,34,0.55);
+      padding: 28px 0;
+    }
+    .ed-onboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 18px;
+      margin-bottom: 36px;
+    }
+    .ed-onboard-card {
+      appearance: none;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid rgba(71,66,84,0.18);
+      border-radius: 3px;
+      padding: 0;
+      cursor: pointer;
+      text-align: left;
+      overflow: hidden;
+      transition: transform 0.45s cubic-bezier(.2,.7,.2,1), border-color 0.3s, box-shadow 0.4s;
+      display: flex; flex-direction: column;
+    }
+    .ed-onboard-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--english-violet);
+      box-shadow: 0 18px 40px -22px rgba(28,29,34,0.35);
+    }
+    .ed-onboard-card-cover {
+      aspect-ratio: 4 / 3;
+      background-color: var(--platinum);
+      background-size: cover;
+      background-position: center;
+    }
+    .ed-onboard-card-body {
+      padding: 14px 16px 16px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .ed-onboard-card-cat {
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+    }
+    .ed-onboard-card-title {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0;
+    }
+    .ed-onboard-skip {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.55);
+      cursor: pointer;
+      transition: color 0.25s;
+    }
+    .ed-onboard-skip em {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 16px;
+      letter-spacing: 0;
+      text-transform: none;
+      margin-left: 8px;
+    }
+    .ed-onboard-skip:hover { color: var(--english-violet); }
   </style>
 
   <!--
@@ -1827,4 +2002,93 @@ const googleFonts = [
   </script>
 
   <script src="/scripts/editor.js" is:inline type="module"></script>
+
+  <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
+  <script>
+    import { supabase } from "../lib/supabase.js";
+
+    const overlay = document.getElementById("ed-onboard");
+    const grid = document.getElementById("ed-onboard-grid");
+    const loading = document.getElementById("ed-onboard-loading");
+    const error = document.getElementById("ed-onboard-error");
+    const skipBtn = document.getElementById("ed-onboard-skip");
+    const editor = document.getElementById("editor");
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    // Sequence: rail → top bar → canvas → panel → props. Total ~1.7s.
+    function playBuildIn() {
+      requestAnimationFrame(() => {
+        setTimeout(() => editor.classList.add("show-rail"),  120);
+        setTimeout(() => editor.classList.add("show-top"),   520);
+        setTimeout(() => editor.classList.add("show-stage"), 920);
+        setTimeout(() => editor.classList.add("show-panel"), 1320);
+        setTimeout(() => {
+          editor.classList.add("show-props");
+          editor.classList.remove("is-onboarding");
+        }, 1720);
+      });
+    }
+
+    function closeOverlayAndBuild(selectedPack) {
+      if (selectedPack) {
+        try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify(selectedPack)); }
+        catch (_) { /* ignore */ }
+      }
+      overlay.classList.add("is-leaving");
+      // Wait for fade, then hide entirely and start the sequence.
+      setTimeout(() => {
+        overlay.classList.add("is-gone");
+        playBuildIn();
+      }, 420);
+    }
+
+    skipBtn.addEventListener("click", () => closeOverlayAndBuild(null));
+
+    (async () => {
+      const { data, error: err } = await supabase
+        .from("packs")
+        .select("id, slug, title, category, cover_image_url")
+        .eq("status", "active")
+        .order("sort_order", { ascending: true });
+
+      loading.hidden = true;
+
+      if (err) {
+        error.textContent = "Couldn't load your packs — start blank or refresh to retry.";
+        error.hidden = false;
+        return;
+      }
+
+      const packs = (data ?? []).slice(0, 8);
+      if (packs.length === 0) {
+        error.textContent = "No packs available yet — start blank to explore the studio.";
+        error.hidden = false;
+        return;
+      }
+
+      grid.innerHTML = packs.map((p) => `
+        <button type="button" class="ed-onboard-card" data-pack-id="${p.id}">
+          <div class="ed-onboard-card-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></div>
+          <div class="ed-onboard-card-body">
+            ${p.category ? `<span class="ed-onboard-card-cat">${escapeHtml(p.category)}</span>` : ""}
+            <h3 class="ed-onboard-card-title">${escapeHtml(p.title)}</h3>
+          </div>
+        </button>
+      `).join("");
+      grid.hidden = false;
+
+      grid.addEventListener("click", (e) => {
+        const btn = e.target instanceof Element ? e.target.closest("[data-pack-id]") : null;
+        if (!btn) return;
+        const id = btn.getAttribute("data-pack-id");
+        const pack = packs.find((p) => p.id === id);
+        closeOverlayAndBuild(pack);
+      });
+    })();
+  </script>
 </BaseLayout>

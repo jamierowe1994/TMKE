@@ -7,6 +7,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   description="Sign in to access your purchased template packs and downloads."
   hideFooter={true}
 >
+  <!-- Slide-up curtain that animates the user from /login to /edit -->
+  <div class="login-curtain" id="login-curtain" aria-hidden="true">
+    <div class="login-curtain-inner">
+      <div class="login-curtain-eyebrow">Now opening</div>
+      <div class="login-curtain-title">The Edit<span>.</span></div>
+    </div>
+  </div>
+
   <main class="login-shell">
     <div class="login-art" aria-hidden="true">
       <div class="login-art-overlay"></div>
@@ -279,6 +287,64 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       main.login-shell { grid-template-columns: 1fr; }
       .login-art { display: none; }
     }
+
+    /* ============ Browse-packs slide-up curtain ============ */
+    .login-curtain {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: var(--paper);
+      transform: translateY(100%);
+      transition: transform 0.85s cubic-bezier(.7,0,.2,1);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-curtain::before {
+      content: "";
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(180deg, rgba(28,29,34,0.18), rgba(28,29,34,0.55)),
+        url("https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=2000&q=80") center/cover;
+      opacity: 0;
+      transition: opacity 0.6s 0.2s ease-out;
+    }
+    .login-curtain.is-up {
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .login-curtain.is-up::before { opacity: 1; }
+    .login-curtain-inner {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      color: var(--paper);
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.6s 0.45s ease-out, transform 0.6s 0.45s cubic-bezier(.2,.7,.2,1);
+    }
+    .login-curtain.is-up .login-curtain-inner {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .login-curtain-eyebrow {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 24px;
+      opacity: 0.7;
+    }
+    .login-curtain-title {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(56px, 9vw, 132px);
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .login-curtain-title span { color: var(--english-violet); }
   </style>
 
   <script>
@@ -344,6 +410,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         return;
       }
       routeAfterSignIn();
+    });
+
+    // Slide-up curtain when the user taps a "Browse The Edit" inline link.
+    // Gives the hand-off from sign-in to shop a deliberate theatrical feel.
+    const curtain = document.getElementById("login-curtain");
+    document.querySelectorAll('a[href="/edit"].login-inline-anchor').forEach((a) => {
+      a.addEventListener("click", (e) => {
+        if (!curtain) return; // graceful fallback to normal navigation
+        e.preventDefault();
+        curtain.classList.add("is-up");
+        document.documentElement.style.overflow = "hidden";
+        setTimeout(() => { window.location.href = "/edit"; }, 1100);
+      });
     });
   </script>
 </BaseLayout>
