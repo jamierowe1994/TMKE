@@ -1,0 +1,467 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getPublishedPosts } from "../../data/blog.js";
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts();
+  return posts.map((p) => ({ params: { slug: p.slug }, props: { post: p, posts } }));
+}
+
+const { post, posts } = Astro.props;
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
+// Related posts — same category first, then newest others. Cap at 3.
+const related = posts
+  .filter((p) => p.slug !== post.slug)
+  .sort((a, b) => {
+    if (a.category === post.category && b.category !== post.category) return -1;
+    if (b.category === post.category && a.category !== post.category) return 1;
+    return a.date < b.date ? 1 : -1;
+  })
+  .slice(0, 3);
+---
+
+<BaseLayout
+  title={(post.seo?.title) || `${post.title} — TMKE Insights`}
+  description={(post.seo?.description) || post.standfirst}
+  ogImage={(post.seo?.ogImage) || post.hero}
+  canonical={(post.seo?.canonical) || undefined}
+>
+  <article class="post">
+    <!-- ============================== HERO -->
+    <header class="post-hero wrap">
+      <a href="/blog" class="post-back">&larr; All insights</a>
+      <div class="post-eyebrow">
+        <span class="post-cat">{post.category}</span>
+        <span class="post-dot">·</span>
+        <span>{post.eyebrow}</span>
+      </div>
+      <h1 class="post-title">{post.title}</h1>
+      <p class="post-stand">{post.standfirst}</p>
+      <div class="post-meta">
+        <div class="post-meta-author">
+          <span class="post-avatar" aria-hidden="true">TMKE</span>
+          <div>
+            <div class="post-author-name">The TMKE Desk</div>
+            <div class="post-author-role">{fmtDate(post.date)} · {post.readTime} min read</div>
+          </div>
+        </div>
+        <div class="post-share" aria-label="Share">
+          <button class="post-share-btn" data-share="copy" title="Copy link">Copy link</button>
+          <a class="post-share-btn" target="_blank" rel="noopener" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}`}>Share</a>
+        </div>
+      </div>
+    </header>
+
+    <figure class="post-cover wrap">
+      <img src={post.hero} alt={post.title} loading="eager" />
+    </figure>
+
+    <!-- ============================== BODY -->
+    <div class="post-body wrap" set:html={post.body}></div>
+
+    <!-- ============================== AUTHOR / OUTRO -->
+    <section class="post-outro wrap">
+      <div class="post-outro-card">
+        <div class="post-outro-avatar" aria-hidden="true">TMKE</div>
+        <div>
+          <div class="post-outro-eyebrow">Written by</div>
+          <h3>The TMKE Desk</h3>
+          <p>
+            We're a specialist social media and content studio for the UK
+            property sector. We write what we see — across the agents we
+            work with, the market we watch, and the things they're getting
+            right and wrong.
+          </p>
+          <a href="/services" class="post-outro-cta">See how we work <em>&rarr;</em></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== RELATED -->
+    <section class="post-related wrap">
+      <div class="eyebrow">Keep reading</div>
+      <h3 class="post-related-title">Three more from the desk.</h3>
+      <div class="post-related-grid">
+        {related.map((p) => (
+          <a class="ricard" href={`/blog/${p.slug}`}>
+            <div class="ricard-media">
+              <img src={p.hero} alt={p.title} loading="lazy" />
+            </div>
+            <div class="ricard-body">
+              <div class="ricard-cat">{p.category}</div>
+              <h4 class="ricard-title">{p.title}</h4>
+              <div class="ricard-meta">{fmtDate(p.date)} · {p.readTime} min read</div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  </article>
+
+  <style>
+    .post {
+      color: var(--ink);
+    }
+    /* Hero, cover image, body, and author outro all share this max-width
+       so their left/right edges line up vertically down the page. */
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 36px;
+    }
+
+    /* ============== POST HERO ============== */
+    .post-hero {
+      padding-top: 140px;
+      padding-bottom: 56px;
+    }
+    .post-back {
+      display: inline-block;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.55);
+      margin-bottom: 56px;
+      transition: color 0.25s;
+    }
+    .post-back:hover { color: var(--english-violet); }
+
+    .post-eyebrow {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.55);
+      margin-bottom: 28px;
+    }
+    .post-cat { color: var(--english-violet); }
+    .post-dot { opacity: 0.5; }
+
+    .post-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(40px, 5.4vw, 76px);
+      line-height: 1.03;
+      letter-spacing: -0.018em;
+      color: var(--ink);
+      margin: 0 0 28px;
+      max-width: 22ch;
+    }
+    .post-stand {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(20px, 2vw, 26px);
+      line-height: 1.45;
+      color: rgba(28,29,34,0.7);
+      max-width: 55ch;
+      margin: 0 0 44px;
+    }
+
+    .post-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      padding: 24px 0;
+      border-top: 1px solid rgba(28,29,34,0.12);
+      border-bottom: 1px solid rgba(28,29,34,0.12);
+    }
+    .post-meta-author { display: flex; align-items: center; gap: 14px; }
+    .post-avatar {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--english-violet);
+      color: var(--paper);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--serif);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      font-weight: 500;
+    }
+    .post-author-name {
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .post-author-role {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.55);
+    }
+    .post-share { display: flex; gap: 8px; }
+    .post-share-btn {
+      padding: 8px 14px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      background: transparent;
+      border: 1px solid rgba(28,29,34,0.18);
+      color: var(--ink);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .post-share-btn:hover { background: rgba(28,29,34,0.06); border-color: rgba(28,29,34,0.4); }
+
+    /* ============== COVER ============== */
+    .post-cover {
+      /* Inherits max-width from .wrap so it aligns with the hero + body. */
+      margin: 0 auto 64px;
+    }
+    .post-cover img {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      display: block;
+      border-radius: 2px;
+    }
+
+    /* ============== BODY ============== */
+    .post-body {
+      /* Inherits max-width from .wrap — same width as the cover image
+         above so the article body lines up visually with the photo. */
+      padding-bottom: 80px;
+    }
+    .post-body :global(.lede) {
+      font-family: var(--serif);
+      font-size: clamp(20px, 1.9vw, 24px);
+      line-height: 1.55;
+      font-style: italic;
+      color: var(--ink);
+      margin: 0 0 36px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid rgba(28,29,34,0.12);
+    }
+    .post-body :global(h2) {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(26px, 2.6vw, 34px);
+      line-height: 1.2;
+      letter-spacing: -0.012em;
+      color: var(--ink);
+      margin: 48px 0 18px;
+    }
+    .post-body :global(h2:first-child) { margin-top: 0; }
+    .post-body :global(p) {
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.75;
+      color: rgba(28,29,34,0.82);
+      margin: 0 0 22px;
+    }
+    .post-body :global(p:last-child) { margin-bottom: 0; }
+    .post-body :global(strong) {
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .post-body :global(em) {
+      font-style: italic;
+    }
+    .post-body :global(ul) {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .post-body :global(li) {
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.7;
+      color: rgba(28,29,34,0.82);
+      padding-left: 28px;
+      position: relative;
+    }
+    .post-body :global(li::before) {
+      content: "→";
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--english-violet);
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+    .post-body :global(blockquote) {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(22px, 2.2vw, 28px);
+      line-height: 1.4;
+      color: var(--ink);
+      margin: 40px 0;
+      padding: 32px 0 32px 32px;
+      border-left: 2px solid var(--english-violet);
+      max-width: 28ch;
+    }
+
+    /* ============== OUTRO AUTHOR ============== */
+    .post-outro {
+      max-width: 1280px;
+      margin: 0 auto 80px;
+      padding: 0 36px;
+    }
+    .post-outro-card {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 28px;
+      align-items: start;
+      padding: 40px;
+      background: rgba(71,66,84,0.06);
+      border-radius: 2px;
+    }
+    @media (max-width: 640px) {
+      .post-outro-card { grid-template-columns: 1fr; gap: 18px; padding: 28px; }
+    }
+    .post-outro-avatar {
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: var(--english-violet);
+      color: var(--paper);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--serif);
+      font-size: 22px;
+      letter-spacing: 0.04em;
+    }
+    .post-outro-eyebrow {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+      margin-bottom: 6px;
+    }
+    .post-outro-card h3 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 28px;
+      letter-spacing: -0.012em;
+      color: var(--ink);
+      margin: 0 0 12px;
+    }
+    .post-outro-card p {
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.7;
+      color: rgba(28,29,34,0.72);
+      margin: 0 0 16px;
+    }
+    .post-outro-cta {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      border-bottom: 1px solid currentColor;
+      padding-bottom: 3px;
+    }
+    .post-outro-cta em {
+      font-family: var(--serif);
+      font-style: italic;
+      letter-spacing: 0;
+      text-transform: none;
+      font-size: 14px;
+      margin-left: 4px;
+    }
+
+    /* ============== RELATED ============== */
+    .post-related {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 80px 36px 160px;
+      border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    .post-related .eyebrow { margin-bottom: 14px; }
+    .post-related-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(28px, 3vw, 40px);
+      letter-spacing: -0.012em;
+      color: var(--ink);
+      margin: 0 0 40px;
+    }
+    .post-related-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+    }
+    @media (max-width: 980px) { .post-related-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .post-related-grid { grid-template-columns: 1fr; } }
+
+    .ricard {
+      color: var(--ink);
+      transition: transform 0.4s cubic-bezier(.2,.7,.2,1);
+    }
+    .ricard:hover { transform: translateY(-4px); }
+    .ricard-media {
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      background: rgba(28,29,34,0.06);
+      margin-bottom: 18px;
+    }
+    .ricard-media img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 1.4s cubic-bezier(.2,.7,.2,1);
+    }
+    .ricard:hover .ricard-media img { transform: scale(1.05); }
+    .ricard-cat {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      margin-bottom: 8px;
+    }
+    .ricard-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(18px, 1.5vw, 22px);
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0 0 10px;
+    }
+    .ricard-meta {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: rgba(28,29,34,0.5);
+    }
+  </style>
+
+  <script is:inline>
+    (function () {
+      const btn = document.querySelector('[data-share="copy"]');
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        navigator.clipboard.writeText(window.location.href).then(function () {
+          const o = btn.textContent;
+          btn.textContent = "Copied ✓";
+          setTimeout(function () { btn.textContent = o; }, 1800);
+        });
+      });
+    })();
+  </script>
+</BaseLayout>

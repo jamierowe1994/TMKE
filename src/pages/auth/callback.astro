@@ -1,0 +1,142 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Signing you in… — TMKE"
+  description="Finishing your TMKE sign-in."
+  hideNav={true}
+  hideFooter={true}
+>
+  <main class="cb-wrap">
+    <div class="cb-card">
+      <div class="cb-eyebrow">TMKE &middot; Members</div>
+      <h1 class="cb-title">
+        <span id="cb-headline">Confirming your email…</span>
+      </h1>
+      <p id="cb-sub" class="cb-sub">
+        One moment — we're verifying the link and signing you in.
+      </p>
+      <p id="cb-error" class="cb-error" hidden></p>
+      <a href="/login" id="cb-retry" class="cb-cta" hidden>Back to sign in <span>&rarr;</span></a>
+    </div>
+  </main>
+
+  <style>
+    main.cb-wrap {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--paper); padding: 24px;
+    }
+    .cb-card {
+      max-width: 520px; text-align: center;
+    }
+    .cb-eyebrow {
+      font-family: var(--sans);
+      font-size: 12px; font-weight: 600;
+      letter-spacing: 0.42em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+      margin-bottom: 28px;
+    }
+    .cb-title {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(36px, 4vw, 56px);
+      line-height: 1.05; letter-spacing: -0.015em;
+      color: var(--ink); margin: 0 0 16px;
+    }
+    .cb-sub {
+      font-family: var(--serif); font-style: italic;
+      font-size: clamp(16px, 1.4vw, 19px);
+      color: rgba(28,29,34,0.62);
+      margin: 0 0 24px;
+    }
+    .cb-error {
+      font-family: var(--sans); font-size: 14px;
+      color: #a05a3c;
+      background: rgba(160, 90, 60, 0.08);
+      padding: 12px 16px; border-radius: 2px;
+      margin: 0 0 18px;
+    }
+    .cb-cta {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--sans); font-size: 12px;
+      font-weight: 700; letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      border-bottom: 1px solid currentColor;
+      padding-bottom: 3px;
+    }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+
+    const $headline = document.getElementById("cb-headline");
+    const $sub = document.getElementById("cb-sub");
+    const $error = document.getElementById("cb-error");
+    const $retry = document.getElementById("cb-retry");
+
+    function fail(msg) {
+      $headline.textContent = "Couldn't sign you in.";
+      $sub.textContent = "The link may have expired or already been used.";
+      $error.textContent = msg;
+      $error.hidden = false;
+      $retry.hidden = false;
+    }
+
+    function routeAfter() {
+      const params = new URLSearchParams(location.search);
+      const next = params.get("next") || "/account";
+      if (typeof window.tmkeSplash === "function") {
+        window.tmkeSplash(next);
+      } else {
+        location.replace(next);
+      }
+    }
+
+    // The supabase-js client auto-handles tokens that appear in the URL
+    // fragment (e.g. ?code=... or #access_token=...). Wait for either an
+    // auth event or an existing session.
+    let routed = false;
+    const sub = supabase.auth.onAuthStateChange((event, session) => {
+      if (routed) return;
+      if (event === "SIGNED_IN" || (event === "PASSWORD_RECOVERY" && session)) {
+        routed = true;
+        if (event === "PASSWORD_RECOVERY") {
+          location.replace("/reset-password");
+          return;
+        }
+        routeAfter();
+      }
+    });
+
+    // Some flows return a `?code=` instead of a fragment — exchange it explicitly.
+    (async () => {
+      const params = new URLSearchParams(location.search);
+      const code = params.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) { fail(error.message); return; }
+        if (!routed) {
+          routed = true;
+          routeAfter();
+        }
+        return;
+      }
+      // Fallback: poll briefly for a session, then give up.
+      let tries = 0;
+      const id = setInterval(async () => {
+        tries++;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && !routed) {
+          routed = true;
+          clearInterval(id);
+          routeAfter();
+        } else if (tries > 12) {
+          clearInterval(id);
+          if (!routed) fail("The link is missing the auth token.");
+        }
+      }, 250);
+    })();
+  </script>
+</BaseLayout>

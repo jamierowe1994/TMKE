@@ -1,0 +1,402 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { supabase, isConfigured } from "../../lib/supabase.js";
+
+// Build-time enumeration of every active pack. New packs need a rebuild
+// to land on production; the catalogue at /edit also hydrates from
+// Supabase client-side so freshly-created packs still appear there.
+export async function getStaticPaths() {
+  if (!isConfigured) return [];
+
+  const { data: packs, error } = await supabase
+    .from("packs")
+    .select("*")
+    .in("status", ["active", "draft"]);
+  if (error || !packs) return [];
+
+  // Fetch templates per-pack in a single round-trip.
+  const packIds = packs.map((p) => p.id);
+  const { data: templates } = await supabase
+    .from("templates")
+    .select("id, name, category, thumb_url, pack_id, sort_order")
+    .in("pack_id", packIds)
+    .eq("status", "active")
+    .order("sort_order", { ascending: true });
+
+  const tplByPack = new Map();
+  (templates || []).forEach((t) => {
+    const list = tplByPack.get(t.pack_id) || [];
+    list.push(t);
+    tplByPack.set(t.pack_id, list);
+  });
+
+  return packs.map((pack) => ({
+    params: { slug: pack.slug },
+    props: {
+      pack,
+      templates: tplByPack.get(pack.id) || [],
+    },
+  }));
+}
+
+const { pack, templates } = Astro.props;
+const reveal = Math.max(0, Math.min(24, pack.preview_reveal_count ?? 3));
+const previewTpls = templates.slice(0, reveal);
+const lockedTpls = templates.slice(reveal);
+const contents = Array.isArray(pack.contents) ? pack.contents : [];
+
+function gbp(pence) {
+  if (pence == null) return "";
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency", currency: "GBP",
+    minimumFractionDigits: pence % 100 === 0 ? 0 : 2,
+  }).format(pence / 100);
+}
+---
+
+<BaseLayout
+  title={`${pack.title} — The Edit · TMKE`}
+  description={pack.description || `${pack.title} — a curated TMKE pack of editable templates for UK property professionals.`}
+  ogImage={pack.cover_image_url || undefined}
+>
+  <article class="pack-detail">
+    <!-- ============================== HERO -->
+    <header class="pack-hero wrap">
+      <a href="/edit" class="pack-back">&larr; The Edit</a>
+
+      <div class="pack-hero-grid">
+        <div class="pack-cover-frame">
+          {pack.cover_image_url ? (
+            <img class="pack-cover-img" src={pack.cover_image_url} alt={pack.title} />
+          ) : (
+            <div class="pack-cover-empty">No cover image yet.</div>
+          )}
+        </div>
+
+        <div class="pack-info">
+          {pack.category && <div class="pack-cat">{pack.category}</div>}
+          <h1 class="pack-title">{pack.title}</h1>
+          {pack.description && <p class="pack-stand">{pack.description}</p>}
+
+          <div class="pack-pricerow">
+            <span class="pack-price">{gbp(pack.price_pence)}</span>
+            <span class="pack-vat">One-time · VAT included</span>
+          </div>
+
+          <button type="button" class="btn btn--solid pack-buy" data-buy={pack.id}>
+            Buy this pack <span class="btn-arrow">&rarr;</span>
+          </button>
+
+          {contents.length > 0 && (
+            <div class="pack-contents">
+              <div class="eyebrow">What's inside</div>
+              <ul>
+                {contents.map((line) => <li>{line}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+
+    <!-- ============================== PREVIEWS -->
+    <section class="pack-previews wrap" id="pack-previews">
+      <header class="pack-previews-head">
+        <div>
+          <div class="eyebrow">Inside this pack</div>
+          <h2>{templates.length} editable templates</h2>
+        </div>
+        <p class="pack-previews-hint">
+          {lockedTpls.length > 0
+            ? `Showing ${previewTpls.length} previews · ${lockedTpls.length} more unlock when you buy.`
+            : `All ${templates.length} templates included.`}
+        </p>
+      </header>
+
+      <div class="pack-tpl-grid">
+        {previewTpls.map((t, i) => (
+          <figure class="pack-tpl pack-tpl--open">
+            {t.thumb_url
+              ? <img src={t.thumb_url} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
+              : <div class="pack-tpl-empty"></div>}
+            <figcaption>
+              {t.category && <span class="pack-tpl-cat">{t.category}</span>}
+              <span class="pack-tpl-name">{t.name}</span>
+            </figcaption>
+          </figure>
+        ))}
+
+        {lockedTpls.map((t) => (
+          <figure class="pack-tpl pack-tpl--locked" aria-label="Locked — buy the pack to unlock">
+            {t.thumb_url
+              ? <img src={t.thumb_url} alt="" loading="lazy" />
+              : <div class="pack-tpl-empty"></div>}
+            <div class="pack-tpl-lock-overlay">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
+            <figcaption>
+              {t.category && <span class="pack-tpl-cat">{t.category}</span>}
+              <span class="pack-tpl-name">Locked</span>
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+
+      {lockedTpls.length > 0 && (
+        <div class="pack-unlock-cta">
+          <div>
+            <h3>Unlock the full pack.</h3>
+            <p>Pay once. Edit everything inside the TMKE studio. Yours forever.</p>
+          </div>
+          <button type="button" class="btn btn--solid" data-buy={pack.id}>
+            Buy {pack.title} — {gbp(pack.price_pence)} <span class="btn-arrow">&rarr;</span>
+          </button>
+        </div>
+      )}
+    </section>
+  </article>
+
+  <style>
+    .pack-detail { color: var(--ink); }
+
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 36px;
+    }
+
+    .pack-hero { padding-top: 140px; padding-bottom: 64px; }
+    .pack-back {
+      display: inline-block;
+      font-family: var(--sans); font-size: 12px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.55);
+      margin-bottom: 56px;
+      transition: color 0.25s;
+    }
+    .pack-back:hover { color: var(--english-violet); }
+
+    .pack-hero-grid {
+      display: grid;
+      grid-template-columns: 5fr 4fr;
+      gap: 56px;
+      align-items: start;
+    }
+    @media (max-width: 980px) {
+      .pack-hero-grid { grid-template-columns: 1fr; gap: 32px; }
+    }
+
+    .pack-cover-frame {
+      aspect-ratio: 4 / 5;
+      background: rgba(71, 66, 84, 0.08);
+      overflow: hidden;
+      border-radius: 2px;
+    }
+    .pack-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pack-cover-empty {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--sans); font-size: 12px;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(28,29,34,0.4);
+    }
+
+    .pack-info { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; }
+    .pack-cat {
+      font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .pack-title {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(40px, 5vw, 64px);
+      line-height: 1.02; letter-spacing: -0.018em;
+      color: var(--ink); margin: 0;
+    }
+    .pack-stand {
+      font-family: var(--serif); font-style: italic;
+      font-size: clamp(18px, 1.7vw, 22px);
+      line-height: 1.5;
+      color: rgba(28,29,34,0.7);
+      margin: 4px 0 12px;
+    }
+
+    .pack-pricerow {
+      display: flex; align-items: baseline; gap: 14px;
+      padding: 18px 0;
+      border-top: 1px solid rgba(28,29,34,0.12);
+      border-bottom: 1px solid rgba(28,29,34,0.12);
+      margin: 12px 0;
+    }
+    .pack-price {
+      font-family: var(--serif); font-weight: 500;
+      font-size: 40px;
+      color: var(--ink);
+    }
+    .pack-vat {
+      font-family: var(--sans); font-size: 12px;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+    }
+    .pack-buy {
+      align-self: flex-start;
+      padding: 16px 28px;
+    }
+
+    .pack-contents {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(28,29,34,0.12);
+    }
+    .pack-contents .eyebrow { margin-bottom: 12px; }
+    .pack-contents ul {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .pack-contents li {
+      font-family: var(--sans); font-size: 14px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.78);
+      padding-left: 22px;
+      position: relative;
+    }
+    .pack-contents li::before {
+      content: "→";
+      font-family: var(--serif); font-style: italic;
+      color: var(--english-violet);
+      position: absolute; left: 0;
+    }
+
+    /* PREVIEWS */
+    .pack-previews { padding: 56px 36px 200px; }
+    .pack-previews-head {
+      display: flex; justify-content: space-between; align-items: end;
+      gap: 24px; flex-wrap: wrap;
+      padding-top: 32px;
+      border-top: 1px solid rgba(28,29,34,0.1);
+      margin-bottom: 36px;
+    }
+    .pack-previews-head .eyebrow { margin-bottom: 8px; }
+    .pack-previews-head h2 {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(28px, 3vw, 40px);
+      letter-spacing: -0.012em;
+      margin: 0; color: var(--ink);
+    }
+    .pack-previews-hint {
+      font-family: var(--serif); font-style: italic;
+      font-size: 17px; color: rgba(28,29,34,0.6);
+      margin: 0; max-width: 36ch; text-align: right;
+    }
+
+    .pack-tpl-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 20px;
+    }
+    .pack-tpl {
+      position: relative;
+      margin: 0;
+      background: rgba(71,66,84,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+      transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
+    }
+    .pack-tpl--open:hover { transform: translateY(-3px); }
+    .pack-tpl img {
+      width: 100%; aspect-ratio: 4/5;
+      object-fit: cover; display: block;
+    }
+    .pack-tpl-empty { width: 100%; aspect-ratio: 4/5; background: rgba(28,29,34,0.06); }
+    .pack-tpl figcaption {
+      padding: 12px 14px 16px;
+      background: var(--paper);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .pack-tpl-cat {
+      font-family: var(--sans); font-size: 10px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .pack-tpl-name {
+      font-family: var(--serif); font-size: 17px;
+      line-height: 1.2; color: var(--ink);
+    }
+
+    .pack-tpl--locked img { filter: blur(14px) saturate(0.7); transform: scale(1.08); }
+    .pack-tpl--locked .pack-tpl-empty { filter: none; }
+    .pack-tpl--locked::before {
+      content: "";
+      position: absolute; left: 0; right: 0; top: 0;
+      aspect-ratio: 4/5;
+      background: rgba(28,29,34,0.5);
+      pointer-events: none;
+    }
+    .pack-tpl-lock-overlay {
+      position: absolute;
+      top: 14px; right: 14px;
+      z-index: 2;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: rgba(28,29,34,0.78);
+      color: var(--paper);
+      backdrop-filter: blur(8px);
+    }
+    .pack-tpl--locked .pack-tpl-name {
+      color: rgba(28,29,34,0.5);
+      font-style: italic;
+    }
+
+    .pack-unlock-cta {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 32px;
+      margin-top: 48px;
+      padding: 36px 40px;
+      background: var(--ink);
+      color: var(--paper);
+      border-radius: 3px;
+    }
+    @media (max-width: 720px) {
+      .pack-unlock-cta { grid-template-columns: 1fr; padding: 28px 24px; }
+    }
+    .pack-unlock-cta h3 {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(24px, 2.6vw, 32px);
+      letter-spacing: -0.01em;
+      color: var(--paper); margin: 0 0 6px;
+    }
+    .pack-unlock-cta p {
+      font-family: var(--serif); font-style: italic;
+      font-size: 16px; color: rgba(240,238,235,0.7);
+      margin: 0;
+    }
+    .pack-unlock-cta .btn {
+      background: var(--paper); color: var(--ink);
+      border-color: var(--paper);
+    }
+    .pack-unlock-cta .btn:hover {
+      background: var(--accent); color: var(--paper);
+      border-color: var(--accent);
+    }
+  </style>
+
+  <script is:inline>
+    // Re-use the catalogue's checkout modal: clicking any [data-buy] sends
+    // the user back to /edit?buy=<id> which opens the modal for that pack.
+    document.querySelectorAll('[data-buy]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const id = btn.getAttribute('data-buy');
+        if (id) window.location.href = '/edit?buy=' + encodeURIComponent(id);
+      });
+    });
+  </script>
+</BaseLayout>

@@ -1,0 +1,1165 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Edit pack — Admin · TMKE"
+  description="Create or edit a pack in The Edit catalogue."
+  hideNav
+  hideFooter
+>
+  <header class="catalogue-top">
+    <div class="catalogue-top-left">
+      <a href="/admin/packs" class="catalogue-back" aria-label="Back to catalogue">&larr; Catalogue</a>
+      <div>
+        <h1 class="catalogue-title" id="editor-title">New <em>Pack</em></h1>
+        <p class="catalogue-sub" id="editor-sub">Set up the pack and save to publish it.</p>
+      </div>
+    </div>
+    <div class="catalogue-top-right" id="editor-actions"></div>
+  </header>
+
+  <form id="pack-form" class="editor-form" novalidate>
+    <input type="hidden" name="id" />
+
+    <p class="editor-error" id="editor-error" hidden></p>
+
+    <div class="editor-grid">
+      <div class="editor-main">
+        <section class="editor-card">
+          <h2 class="editor-section-title">Basics</h2>
+          <div class="editor-row">
+            <label class="editor-field">
+              <span>Title <em>*</em></span>
+              <input type="text" name="title" required maxlength="120" placeholder="e.g. Spring Living" />
+            </label>
+            <label class="editor-field">
+              <span>Slug <em>*</em></span>
+              <input type="text" name="slug" required maxlength="80" pattern="[a-z0-9-]+" placeholder="spring-living" />
+              <small>Lowercase, hyphens only. Used in URLs.</small>
+            </label>
+          </div>
+
+          <label class="editor-field">
+            <span>Description</span>
+            <textarea name="description" rows="3" maxlength="500" placeholder="One short paragraph shown on the storefront card."></textarea>
+          </label>
+
+          <label class="editor-field">
+            <span>Contents (one bullet per line)</span>
+            <textarea name="contents" rows="6" placeholder="20 Instagram post templates&#10;6 reel cover designs&#10;Story templates"></textarea>
+            <small>These render as the bullet list on the customer-facing pack detail.</small>
+          </label>
+        </section>
+
+        <section class="editor-card">
+          <h2 class="editor-section-title">Pricing &amp; classification</h2>
+          <div class="editor-row">
+            <label class="editor-field">
+              <span>Price (£) <em>*</em></span>
+              <input type="number" name="price_gbp" min="0" step="0.01" required placeholder="299.00" />
+            </label>
+            <label class="editor-field">
+              <span>Category</span>
+              <select name="category">
+                <option value="">—</option>
+                <option value="contemporary">Contemporary</option>
+                <option value="classic">Classic</option>
+                <option value="seasonal">Seasonal</option>
+                <option value="lifestyle">Lifestyle</option>
+                <option value="planning">Planning</option>
+                <option value="free">Free</option>
+              </select>
+            </label>
+            <label class="editor-field">
+              <span>Status</span>
+              <select name="status">
+                <option value="active">Active (live)</option>
+                <option value="draft">Draft (hidden)</option>
+                <option value="archived">Archived</option>
+              </select>
+            </label>
+            <label class="editor-field">
+              <span>Public preview</span>
+              <input type="number" name="preview_reveal_count" min="0" max="24" step="1" value="3" />
+              <small>How many templates customers see unlocked before "Buy to unlock". 3 is a good default.</small>
+            </label>
+          </div>
+        </section>
+
+        <!-- ============= TEMPLATES IN THIS PACK ============= -->
+        <section class="editor-card">
+          <div class="tpl-pick-head">
+            <div>
+              <h2 class="editor-section-title">Templates in this pack</h2>
+              <p class="editor-help">
+                Tick every design that ships with this pack. Selected templates get locked
+                behind the paywall — public visitors only see the first
+                <strong id="tpl-pick-preview-mirror">3</strong>.
+              </p>
+            </div>
+            <div class="tpl-pick-meta">
+              <span class="tpl-pick-count" id="tpl-pick-count">0 selected</span>
+              <a href="/admin/templates" class="admin-btn admin-btn-ghost admin-btn-sm" target="_blank" rel="noopener">
+                + Make more in the studio
+              </a>
+            </div>
+          </div>
+
+          <div class="tpl-pick-controls">
+            <input
+              type="search"
+              id="tpl-pick-search"
+              class="tpl-pick-search"
+              placeholder="Search by name, category…"
+              autocomplete="off"
+            />
+            <div class="tpl-pick-bulk">
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="tpl-pick-select-visible">Select visible</button>
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="tpl-pick-deselect-all">Deselect all</button>
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="tpl-pick-show-selected">Show selected only</button>
+            </div>
+          </div>
+
+          <p class="tpl-pick-state" id="tpl-pick-loading">Loading templates from the studio…</p>
+          <p class="tpl-pick-state" id="tpl-pick-empty" hidden>
+            No templates yet. <a href="/admin/templates">Build some in the studio</a>, then come back.
+          </p>
+          <div class="tpl-pick-grid" id="tpl-pick-grid" hidden></div>
+          <input type="hidden" name="selected_template_ids" value="[]" />
+        </section>
+      </div>
+
+      <aside class="editor-side">
+        <section class="editor-card">
+          <h2 class="editor-section-title">Cover image</h2>
+          <p class="editor-help">The first thing buyers see on the storefront card.</p>
+          <div class="cover-uploader">
+            <div class="cover-preview" id="cover-preview"></div>
+            <label class="admin-btn admin-btn-ghost">
+              <input type="file" id="cover-file" accept="image/*" hidden />
+              <span>Upload cover</span>
+            </label>
+            <input type="hidden" name="cover_image_url" />
+            <button type="button" id="cover-clear" class="admin-btn admin-btn-ghost admin-btn-sm" hidden>Remove cover</button>
+            <small id="cover-status"></small>
+          </div>
+        </section>
+
+        <section class="editor-card">
+          <h2 class="editor-section-title">Hover gallery</h2>
+          <p class="editor-help">
+            Extra photos that cycle behind the cover when a buyer hovers the card.
+            Add as many as you like — drag the thumbnails to reorder.
+          </p>
+          <div class="gallery">
+            <div class="gallery-grid" id="gallery-grid">
+              <p class="gallery-empty" id="gallery-empty">No hover images yet.</p>
+            </div>
+            <div class="gallery-actions">
+              <label class="admin-btn admin-btn-ghost admin-btn-sm">
+                <input type="file" id="gallery-file" accept="image/*" multiple hidden />
+                <span>+ Upload photos</span>
+              </label>
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="gallery-from-template">
+                + Pull from a template
+              </button>
+            </div>
+            <input type="hidden" name="preview_images" value="[]" />
+            <small id="gallery-status"></small>
+          </div>
+        </section>
+
+        <section class="editor-card editor-card-tip">
+          <h2 class="editor-section-title">Position</h2>
+          <p>
+            New packs land at the <strong>top</strong> of the catalogue by default.
+            To reorder, go back to <a href="/admin/packs">the catalogue</a> and drag a card to a new position.
+          </p>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="editor-sticky-foot">
+      <button type="button" id="delete-pack" class="admin-btn admin-btn-danger" hidden>Delete pack</button>
+      <div class="editor-foot-spacer"></div>
+      <a href="/admin/packs" class="admin-btn admin-btn-ghost">Cancel</a>
+      <button type="submit" id="save-pack" class="admin-btn admin-btn-primary">Save pack</button>
+    </footer>
+  </form>
+
+  <!-- Modal: pick a template thumb to drop into the gallery -->
+  <div class="tpl-picker-backdrop" id="tpl-picker" hidden>
+    <div class="tpl-picker" role="dialog" aria-modal="true" aria-labelledby="tpl-picker-title">
+      <header class="tpl-picker-head">
+        <h2 id="tpl-picker-title">Pull a thumbnail from a template</h2>
+        <button type="button" class="tpl-picker-close" id="tpl-picker-close" aria-label="Close">&times;</button>
+      </header>
+      <input
+        type="search"
+        id="tpl-picker-search"
+        class="tpl-pick-search"
+        placeholder="Search templates…"
+        autocomplete="off"
+      />
+      <div class="tpl-picker-grid" id="tpl-picker-grid"></div>
+      <p class="tpl-pick-state" id="tpl-picker-empty" hidden>
+        No templates match that search.
+      </p>
+    </div>
+  </div>
+
+  <style is:global>
+    body:has(.editor-form) { background: var(--paper); }
+
+    .editor-form {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 36px 160px;
+    }
+    .editor-error {
+      margin: 16px 0 0;
+      padding: 12px 16px;
+      background: rgba(160, 90, 60, 0.1);
+      border-left: 3px solid #a05a3c;
+      color: #a05a3c;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 2.1fr 1fr;
+      gap: 24px;
+      margin-top: 28px;
+    }
+    .editor-main, .editor-side { display: flex; flex-direction: column; gap: 24px; }
+
+    .editor-card {
+      background: var(--paper);
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      border-radius: 3px;
+      padding: 24px 26px;
+    }
+    .editor-section-title {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--english-violet);
+      margin: 0 0 18px;
+    }
+    .editor-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .editor-row:last-child { margin-bottom: 0; }
+
+    .editor-field { display: flex; flex-direction: column; gap: 6px; }
+    .editor-field > span {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .editor-field > span em { font-style: normal; color: #a05a3c; }
+    .editor-field small { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.55); }
+    .editor-field input,
+    .editor-field select,
+    .editor-field textarea {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid rgba(71, 66, 84, 0.3);
+      border-radius: 3px;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    .editor-field input:focus,
+    .editor-field select:focus,
+    .editor-field textarea:focus { border-color: var(--english-violet); }
+    .editor-field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+    /* Cover */
+    .cover-uploader { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .cover-preview {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: var(--platinum);
+      background-size: cover;
+      background-position: center;
+      border: 1px solid rgba(71, 66, 84, 0.25);
+      border-radius: 3px;
+    }
+    .cover-preview:not([data-loaded]) {
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(28, 29, 34, 0.4);
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .cover-preview:not([data-loaded])::after { content: "No image yet"; }
+    #cover-status { color: rgba(28,29,34,0.55); font-size: 12px; }
+
+    .editor-help {
+      font-family: var(--sans);
+      font-size: 12px;
+      line-height: 1.55;
+      color: rgba(28, 29, 34, 0.6);
+      margin: -8px 0 16px;
+    }
+
+    /* Gallery */
+    .gallery { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .gallery-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 8px;
+      min-height: 96px;
+      padding: 8px;
+      background: rgba(71, 66, 84, 0.04);
+      border: 1px dashed rgba(71, 66, 84, 0.25);
+      border-radius: 3px;
+    }
+    .gallery-empty {
+      grid-column: 1 / -1;
+      font-family: var(--sans);
+      font-size: 12px;
+      color: rgba(28, 29, 34, 0.4);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin: 0;
+      align-self: center;
+      justify-self: center;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .gallery-thumb {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      background-color: var(--platinum);
+      background-size: cover;
+      background-position: center;
+      border-radius: 3px;
+      cursor: grab;
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      overflow: hidden;
+    }
+    .gallery-thumb:hover { border-color: var(--english-violet); }
+    .gallery-thumb-remove {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(20, 18, 26, 0.7);
+      color: var(--paper);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .gallery-thumb:hover .gallery-thumb-remove { opacity: 1; }
+    .gallery-thumb-remove:hover { background: #a05a3c; }
+    .gallery-thumb-order {
+      position: absolute;
+      left: 4px; bottom: 4px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(20, 18, 26, 0.7);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      backdrop-filter: blur(4px);
+    }
+    #gallery-status { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
+    .gallery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    /* ============ Template multi-select ============ */
+    .tpl-pick-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 18px; flex-wrap: wrap; margin-bottom: 14px;
+    }
+    .tpl-pick-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .tpl-pick-count {
+      font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      background: rgba(71,66,84,0.1);
+      padding: 6px 12px; border-radius: 999px;
+    }
+    .tpl-pick-controls {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin-bottom: 16px;
+    }
+    .tpl-pick-search {
+      flex: 1; min-width: 220px;
+      font-family: var(--sans); font-size: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(71,66,84,0.3);
+      border-radius: 3px; background: var(--paper);
+      outline: none; transition: border-color 0.2s;
+    }
+    .tpl-pick-search:focus { border-color: var(--english-violet); }
+    .tpl-pick-bulk { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tpl-pick-state {
+      font-family: var(--sans); font-size: 13px;
+      color: rgba(28,29,34,0.55);
+      padding: 14px 0;
+    }
+    .tpl-pick-state a { color: var(--english-violet); text-decoration: underline; }
+    .tpl-pick-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      max-height: 560px;
+      overflow-y: auto;
+      padding: 4px;
+      border: 1px solid rgba(71,66,84,0.12);
+      border-radius: 3px;
+      background: rgba(71,66,84,0.03);
+    }
+    .tpl-pick-card {
+      position: relative;
+      aspect-ratio: 4/5;
+      background-color: rgba(71,66,84,0.08);
+      background-size: cover;
+      background-position: center;
+      border: 2px solid transparent;
+      border-radius: 3px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .tpl-pick-card:hover { transform: translateY(-2px); border-color: rgba(71,66,84,0.4); }
+    .tpl-pick-card.is-selected {
+      border-color: var(--english-violet);
+      box-shadow: 0 0 0 2px rgba(71, 66, 84, 0.18);
+    }
+    .tpl-pick-card.is-locked-elsewhere {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .tpl-pick-card.is-locked-elsewhere::after {
+      content: "In another pack";
+      position: absolute; top: 8px; left: 8px;
+      padding: 3px 8px; border-radius: 999px;
+      background: rgba(28,29,34,0.78);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .tpl-pick-tick {
+      position: absolute; top: 8px; right: 8px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--paper);
+      border: 2px solid rgba(28,29,34,0.25);
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .tpl-pick-card.is-selected .tpl-pick-tick {
+      background: var(--english-violet);
+      border-color: var(--english-violet);
+    }
+    .tpl-pick-card.is-selected .tpl-pick-tick::after {
+      content: "✓";
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--paper);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .tpl-pick-name {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      padding: 8px 10px;
+      background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .tpl-pick-cat {
+      font-size: 9px;
+      font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0.8;
+      display: block;
+    }
+
+    /* ============ Template picker modal (gallery thumb) ============ */
+    .tpl-picker-backdrop {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(28,29,34,0.65);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .tpl-picker-backdrop[hidden] { display: none; }
+    .tpl-picker {
+      background: var(--paper);
+      border-radius: 4px;
+      max-width: 880px; width: 100%;
+      max-height: 80vh;
+      display: flex; flex-direction: column;
+      padding: 24px;
+      box-shadow: 0 40px 80px -20px rgba(0,0,0,0.5);
+    }
+    .tpl-picker-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .tpl-picker-head h2 {
+      font-family: var(--serif); font-weight: 400;
+      font-size: 22px; margin: 0; color: var(--ink);
+    }
+    .tpl-picker-close {
+      background: transparent; border: 0; cursor: pointer;
+      font-size: 26px; line-height: 1;
+      color: rgba(28,29,34,0.5);
+      width: 32px; height: 32px;
+      border-radius: 4px;
+    }
+    .tpl-picker-close:hover { background: rgba(28,29,34,0.08); color: var(--ink); }
+    .tpl-picker .tpl-pick-search { margin-bottom: 16px; }
+    .tpl-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 4px;
+    }
+
+    .editor-card-tip { background: rgba(71, 66, 84, 0.04); }
+    .editor-card-tip p {
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.6;
+      color: rgba(28, 29, 34, 0.7);
+      margin: 0;
+    }
+    .editor-card-tip a { color: var(--english-violet); text-decoration: underline; }
+    .editor-card-tip strong { color: var(--ink); font-weight: 700; }
+
+    /* Sticky foot */
+    .editor-sticky-foot {
+      position: sticky;
+      bottom: 0;
+      margin-top: 24px;
+      background: var(--paper);
+      border-top: 1px solid rgba(71, 66, 84, 0.18);
+      padding: 16px 0;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      z-index: 10;
+    }
+    .editor-foot-spacer { flex: 1; }
+
+    /* Shared admin button & top styles re-used from packs.astro;
+       redeclared here in case of independent navigation. */
+    .catalogue-top {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 48px 36px 16px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid rgba(71, 66, 84, 0.12);
+    }
+    .catalogue-top-left { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+    .catalogue-top-right { display: flex; align-items: center; gap: 10px; }
+    .catalogue-back {
+      display: inline-block;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      font-weight: 700;
+      padding-bottom: 8px;
+    }
+    .catalogue-back:hover { color: var(--ink); }
+    .catalogue-title {
+      font-family: var(--serif);
+      font-size: clamp(36px, 4.6vw, 56px);
+      font-weight: 500;
+      margin: 0;
+      line-height: 1;
+      color: var(--ink);
+    }
+    .catalogue-title em { font-style: italic; color: var(--english-violet); }
+    .catalogue-sub {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28, 29, 34, 0.6);
+      margin: 8px 0 0;
+    }
+    .admin-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 14px;
+      border-radius: 3px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      text-decoration: none;
+      color: inherit;
+    }
+    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
+    .admin-btn-primary:hover { background: var(--ink); }
+    .admin-btn-ghost { background: transparent; border-color: rgba(71, 66, 84, 0.35); color: var(--english-violet); }
+    .admin-btn-ghost:hover { background: rgba(71, 66, 84, 0.08); }
+    .admin-btn-danger { background: transparent; border-color: #a05a3c; color: #a05a3c; }
+    .admin-btn-danger:hover { background: #a05a3c; color: var(--paper); }
+    .admin-btn-sm { padding: 6px 10px; font-size: 10px; letter-spacing: 0.16em; }
+    .admin-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+    @media (max-width: 900px) {
+      .editor-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .catalogue-top { padding: 32px 22px 12px; }
+      .editor-form { padding: 0 22px 120px; }
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" is:inline></script>
+
+  <script>
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { supabase, slugify } from "../../../lib/supabase.js";
+
+    const PACK_IMAGES_BUCKET = "pack-images";
+
+    const form = document.getElementById("pack-form");
+    const errorEl = document.getElementById("editor-error");
+    const titleEl = document.getElementById("editor-title");
+    const subEl = document.getElementById("editor-sub");
+    const saveBtn = document.getElementById("save-pack");
+    const deleteBtn = document.getElementById("delete-pack");
+    const coverPreview = document.getElementById("cover-preview");
+    const coverFile = document.getElementById("cover-file");
+    const coverClear = document.getElementById("cover-clear");
+    const coverStatus = document.getElementById("cover-status");
+    const galleryGrid = document.getElementById("gallery-grid");
+    const galleryFile = document.getElementById("gallery-file");
+    const galleryStatus = document.getElementById("gallery-status");
+    const galleryFromTplBtn = document.getElementById("gallery-from-template");
+
+    // Template multi-select
+    const tplLoading = document.getElementById("tpl-pick-loading");
+    const tplEmpty = document.getElementById("tpl-pick-empty");
+    const tplGrid = document.getElementById("tpl-pick-grid");
+    const tplCount = document.getElementById("tpl-pick-count");
+    const tplSearch = document.getElementById("tpl-pick-search");
+    const tplSelectVisible = document.getElementById("tpl-pick-select-visible");
+    const tplDeselectAll = document.getElementById("tpl-pick-deselect-all");
+    const tplShowSelected = document.getElementById("tpl-pick-show-selected");
+    const previewMirror = document.getElementById("tpl-pick-preview-mirror");
+    const previewInput = form.elements.preview_reveal_count;
+
+    // Picker modal (gallery thumb)
+    const pickerBackdrop = document.getElementById("tpl-picker");
+    const pickerGrid = document.getElementById("tpl-picker-grid");
+    const pickerSearch = document.getElementById("tpl-picker-search");
+    const pickerEmpty = document.getElementById("tpl-picker-empty");
+    const pickerClose = document.getElementById("tpl-picker-close");
+
+    let editingId = null;
+    let slugTouched = false;
+    /** @type {string[]} */
+    let galleryUrls = [];
+    /** @type {any} */
+    let gallerySortable = null;
+
+    // Template pool
+    /** @type {Array<{ id:string, name:string, category:string|null, thumb_url:string|null, pack_id:string|null, status:string }>} */
+    let allTemplates = [];
+    /** @type {Set<string>} */
+    const selectedTplIds = new Set();
+    /** @type {Set<string>} */
+    let originallyInThisPack = new Set();
+    let tplSearchTerm = "";
+    let tplShowSelectedOnly = false;
+
+    function setCover(url) {
+      if (url) {
+        coverPreview.style.backgroundImage = `url('${url}')`;
+        coverPreview.setAttribute("data-loaded", "true");
+        coverClear.hidden = false;
+        form.elements.cover_image_url.value = url;
+      } else {
+        coverPreview.style.backgroundImage = "";
+        coverPreview.removeAttribute("data-loaded");
+        coverClear.hidden = true;
+        form.elements.cover_image_url.value = "";
+      }
+    }
+
+    async function uploadFile(file, folder, statusEl) {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      if (statusEl) statusEl.textContent = "Uploading…";
+
+      const { error } = await supabase.storage
+        .from(PACK_IMAGES_BUCKET)
+        .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+
+      if (error) {
+        if (statusEl) statusEl.textContent = `Upload failed: ${error.message}`;
+        return null;
+      }
+
+      const { data } = supabase.storage.from(PACK_IMAGES_BUCKET).getPublicUrl(path);
+      if (statusEl) statusEl.textContent = "Uploaded.";
+      return data.publicUrl;
+    }
+
+    function uploadCover(file) { return uploadFile(file, "covers", coverStatus); }
+
+    function renderGallery() {
+      if (!galleryGrid) return;
+      form.elements.preview_images.value = JSON.stringify(galleryUrls);
+      if (galleryUrls.length === 0) {
+        galleryGrid.innerHTML = `<p class="gallery-empty">No hover images yet.</p>`;
+      } else {
+        galleryGrid.innerHTML = galleryUrls
+          .map(
+            (url, idx) => `
+            <div class="gallery-thumb" data-url="${escapeHtml(url)}" style="background-image:url('${escapeHtml(url)}')">
+              <span class="gallery-thumb-order">${idx + 1}</span>
+              <button type="button" class="gallery-thumb-remove" aria-label="Remove image">&times;</button>
+            </div>`,
+          )
+          .join("");
+      }
+      wireGallerySortable();
+    }
+
+    function wireGallerySortable() {
+      if (gallerySortable && typeof gallerySortable.destroy === "function") {
+        gallerySortable.destroy();
+        gallerySortable = null;
+      }
+      const Sortable = /** @type {any} */ (window).Sortable;
+      if (!Sortable || !galleryGrid || galleryUrls.length < 2) return;
+      gallerySortable = Sortable.create(galleryGrid, {
+        animation: 180,
+        ghostClass: "sortable-ghost",
+        dragClass: "sortable-drag",
+        draggable: ".gallery-thumb",
+        onEnd: () => {
+          const newOrder = Array.from(galleryGrid.querySelectorAll(".gallery-thumb"))
+            .map((el) => el.getAttribute("data-url"))
+            .filter(Boolean);
+          galleryUrls = newOrder;
+          renderGallery();
+        },
+      });
+    }
+
+    // ============ Template multi-select ============
+    async function loadTemplates() {
+      const { data, error } = await supabase
+        .from("templates")
+        .select("id, name, category, thumb_url, pack_id, status")
+        .neq("status", "archived")
+        .order("sort_order", { ascending: true });
+      if (error) {
+        tplLoading.textContent = `Couldn't load templates: ${error.message}`;
+        return;
+      }
+      allTemplates = data || [];
+
+      // If editing, seed selection from any templates already linked to this pack
+      if (editingId) {
+        originallyInThisPack = new Set(
+          allTemplates.filter((t) => t.pack_id === editingId).map((t) => t.id),
+        );
+        originallyInThisPack.forEach((id) => selectedTplIds.add(id));
+      }
+
+      tplLoading.hidden = true;
+      if (allTemplates.length === 0) {
+        tplEmpty.hidden = false;
+      } else {
+        tplGrid.hidden = false;
+        renderTemplatePool();
+        renderTemplatePicker();
+      }
+    }
+
+    function renderTemplatePool() {
+      const q = tplSearchTerm.toLowerCase();
+      const visible = allTemplates.filter((t) => {
+        if (tplShowSelectedOnly && !selectedTplIds.has(t.id)) return false;
+        if (!q) return true;
+        return (
+          (t.name || "").toLowerCase().includes(q) ||
+          (t.category || "").toLowerCase().includes(q)
+        );
+      });
+
+      tplGrid.innerHTML = visible.map((t) => {
+        const isSel = selectedTplIds.has(t.id);
+        const lockedElsewhere = t.pack_id && t.pack_id !== editingId && !isSel;
+        const bg = t.thumb_url ? `style="background-image:url('${escapeHtml(t.thumb_url)}')"` : "";
+        return `
+          <div class="tpl-pick-card ${isSel ? "is-selected" : ""} ${lockedElsewhere ? "is-locked-elsewhere" : ""}"
+               data-id="${escapeHtml(t.id)}" ${bg} role="button" tabindex="0"
+               aria-pressed="${isSel ? "true" : "false"}">
+            <span class="tpl-pick-tick" aria-hidden="true"></span>
+            <span class="tpl-pick-name">
+              ${t.category ? `<span class="tpl-pick-cat">${escapeHtml(t.category)}</span>` : ""}
+              ${escapeHtml(t.name || "(untitled)")}
+            </span>
+          </div>`;
+      }).join("");
+
+      tplCount.textContent = `${selectedTplIds.size} selected`;
+      form.elements.selected_template_ids.value = JSON.stringify(Array.from(selectedTplIds));
+    }
+
+    function toggleTpl(id) {
+      const t = allTemplates.find((x) => x.id === id);
+      if (!t) return;
+      // Can't grab a template that's already in another pack
+      if (t.pack_id && t.pack_id !== editingId && !selectedTplIds.has(id)) {
+        alert("This template is already locked to another pack. Open that pack and deselect it first.");
+        return;
+      }
+      if (selectedTplIds.has(id)) selectedTplIds.delete(id);
+      else selectedTplIds.add(id);
+      renderTemplatePool();
+    }
+
+    // ============ Picker modal (gallery thumbnails) ============
+    function openPicker() {
+      pickerBackdrop.hidden = false;
+      document.body.style.overflow = "hidden";
+      pickerSearch.value = "";
+      renderTemplatePicker();
+      setTimeout(() => pickerSearch.focus(), 60);
+    }
+    function closePicker() {
+      pickerBackdrop.hidden = true;
+      document.body.style.overflow = "";
+    }
+    function renderTemplatePicker() {
+      const q = pickerSearch.value.toLowerCase();
+      const visible = allTemplates
+        .filter((t) => t.thumb_url) // can only pull a thumb if one exists
+        .filter((t) => !q
+          || (t.name || "").toLowerCase().includes(q)
+          || (t.category || "").toLowerCase().includes(q));
+      pickerEmpty.hidden = visible.length > 0;
+      pickerGrid.innerHTML = visible.map((t) => `
+        <div class="tpl-pick-card" data-pull="${escapeHtml(t.id)}"
+             style="background-image:url('${escapeHtml(t.thumb_url)}')"
+             role="button" tabindex="0">
+          <span class="tpl-pick-name">${escapeHtml(t.name || "(untitled)")}</span>
+        </div>
+      `).join("");
+    }
+
+    async function handleGalleryFiles(files) {
+      if (!files || !files.length) return;
+      galleryStatus.textContent = `Uploading ${files.length} image${files.length > 1 ? "s" : ""}…`;
+      const uploaded = [];
+      for (const file of files) {
+        const url = await uploadFile(file, "previews", null);
+        if (url) uploaded.push(url);
+      }
+      if (uploaded.length === 0) {
+        galleryStatus.textContent = "Upload failed.";
+        return;
+      }
+      galleryUrls = [...galleryUrls, ...uploaded];
+      renderGallery();
+      galleryStatus.textContent = `${uploaded.length} added.`;
+    }
+
+    async function loadForEdit(id) {
+      const { data, error } = await supabase
+        .from("packs")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error || !data) {
+        showError(`Couldn't load pack: ${error?.message || "not found"}`);
+        return;
+      }
+      editingId = data.id;
+      form.elements.id.value = data.id;
+      form.elements.title.value = data.title || "";
+      form.elements.slug.value = data.slug || "";
+      form.elements.price_gbp.value = ((data.price_pence || 0) / 100).toFixed(2);
+      form.elements.category.value = data.category || "";
+      form.elements.status.value = data.status || "active";
+      form.elements.description.value = data.description || "";
+      form.elements.contents.value = (data.contents || []).join("\n");
+      previewInput.value = data.preview_reveal_count ?? 3;
+      previewMirror.textContent = String(previewInput.value);
+      setCover(data.cover_image_url || "");
+      galleryUrls = Array.isArray(data.preview_images)
+        ? data.preview_images.filter((u) => typeof u === "string" && u.length > 0)
+        : [];
+      renderGallery();
+      slugTouched = true;
+      titleEl.innerHTML = `Edit: <em>${escapeHtml(data.title || "pack")}</em>`;
+      subEl.textContent = `Editing ${data.slug} · created ${new Date(data.created_at).toLocaleDateString("en-GB")}.`;
+      deleteBtn.hidden = false;
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    function hideError() { errorEl.hidden = true; }
+
+    async function nextTopSortOrder() {
+      const { data, error } = await supabase
+        .from("packs")
+        .select("sort_order")
+        .order("sort_order", { ascending: true })
+        .limit(1);
+      if (error || !data || !data.length) return 0;
+      return (data[0].sort_order ?? 0) - 1;
+    }
+
+    async function savePack(e) {
+      e.preventDefault();
+      hideError();
+      saveBtn.setAttribute("disabled", "true");
+      saveBtn.textContent = "Saving…";
+
+      try {
+        const fd = new FormData(form);
+        const title = String(fd.get("title") || "").trim();
+        const slug = String(fd.get("slug") || "").trim();
+        const priceGbp = Number(fd.get("price_gbp") || 0);
+        const contents = String(fd.get("contents") || "")
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+
+        if (!title) throw new Error("Title is required.");
+        if (!slug) throw new Error("Slug is required.");
+        if (!/^[a-z0-9-]+$/.test(slug)) throw new Error("Slug must be lowercase letters, numbers, and hyphens.");
+        if (Number.isNaN(priceGbp) || priceGbp < 0) throw new Error("Price must be 0 or more.");
+
+        const previewCount = Math.max(0, Math.min(24, Number(fd.get("preview_reveal_count") || 3)));
+
+        const payload = {
+          title,
+          slug,
+          price_pence: Math.round(priceGbp * 100),
+          category: String(fd.get("category") || "") || null,
+          status: String(fd.get("status") || "active"),
+          description: String(fd.get("description") || "").trim() || null,
+          contents,
+          cover_image_url: String(fd.get("cover_image_url") || "").trim() || null,
+          preview_images: galleryUrls,
+          preview_reveal_count: previewCount,
+        };
+
+        let result;
+        if (editingId) {
+          result = await supabase.from("packs").update(payload).eq("id", editingId).select().single();
+        } else {
+          payload.sort_order = await nextTopSortOrder();
+          result = await supabase.from("packs").insert(payload).select().single();
+        }
+        if (result.error) throw result.error;
+
+        const savedPackId = result.data?.id || editingId;
+
+        // Sync templates ↔ pack
+        //   1. Templates newly selected → set pack_id = savedPackId
+        //   2. Templates that used to belong to this pack but aren't selected now → clear pack_id
+        const toAttach = Array.from(selectedTplIds).filter((id) => !originallyInThisPack.has(id));
+        const toDetach = Array.from(originallyInThisPack).filter((id) => !selectedTplIds.has(id));
+
+        if (toAttach.length) {
+          const { error: attachErr } = await supabase
+            .from("templates")
+            .update({ pack_id: savedPackId })
+            .in("id", toAttach);
+          if (attachErr) throw new Error(`Pack saved but couldn't link templates: ${attachErr.message}`);
+        }
+        if (toDetach.length) {
+          const { error: detachErr } = await supabase
+            .from("templates")
+            .update({ pack_id: null })
+            .in("id", toDetach);
+          if (detachErr) throw new Error(`Pack saved but couldn't unlink some templates: ${detachErr.message}`);
+        }
+
+        location.href = "/admin/packs";
+      } catch (err) {
+        showError(err.message || "Could not save pack.");
+        saveBtn.removeAttribute("disabled");
+        saveBtn.textContent = "Save pack";
+      }
+    }
+
+    async function deletePack() {
+      if (!editingId) return;
+      if (!confirm("Permanently delete this pack? This cannot be undone.")) return;
+      const { error } = await supabase.from("packs").delete().eq("id", editingId);
+      if (error) return alert(`Delete failed: ${error.message}`);
+      location.href = "/admin/packs";
+    }
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+      const url = new URL(location.href);
+      const id = url.searchParams.get("id");
+      if (id) await loadForEdit(id);
+      // Always load the studio's templates so the pool grid renders
+      // (we need editingId set first so we can highlight already-linked ones).
+      await loadTemplates();
+    })();
+
+    form.addEventListener("submit", savePack);
+    deleteBtn.addEventListener("click", deletePack);
+
+    // Auto-slug from title until user edits slug manually
+    form.elements.title.addEventListener("input", () => {
+      if (!slugTouched) form.elements.slug.value = slugify(form.elements.title.value);
+    });
+    form.elements.slug.addEventListener("input", () => { slugTouched = true; });
+    form.elements.slug.addEventListener("blur", () => {
+      form.elements.slug.value = slugify(form.elements.slug.value);
+    });
+
+    coverFile.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const url = await uploadCover(file);
+      if (url) setCover(url);
+    });
+    coverClear.addEventListener("click", () => setCover(""));
+
+    galleryFile?.addEventListener("change", async (e) => {
+      await handleGalleryFiles(e.target.files);
+      e.target.value = "";
+    });
+
+    galleryGrid?.addEventListener("click", (e) => {
+      const btn = e.target instanceof HTMLElement ? e.target.closest(".gallery-thumb-remove") : null;
+      if (!btn) return;
+      const thumb = btn.closest(".gallery-thumb");
+      const url = thumb?.getAttribute("data-url");
+      if (!url) return;
+      galleryUrls = galleryUrls.filter((u) => u !== url);
+      renderGallery();
+    });
+
+    // ============ Template multi-select handlers ============
+    tplGrid?.addEventListener("click", (e) => {
+      const card = e.target instanceof HTMLElement ? e.target.closest(".tpl-pick-card") : null;
+      if (!card) return;
+      const id = card.getAttribute("data-id");
+      if (id) toggleTpl(id);
+    });
+    tplGrid?.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const card = e.target instanceof HTMLElement ? e.target.closest(".tpl-pick-card") : null;
+      if (!card) return;
+      e.preventDefault();
+      const id = card.getAttribute("data-id");
+      if (id) toggleTpl(id);
+    });
+    tplSearch?.addEventListener("input", () => {
+      tplSearchTerm = tplSearch.value || "";
+      renderTemplatePool();
+    });
+    tplSelectVisible?.addEventListener("click", () => {
+      const q = tplSearchTerm.toLowerCase();
+      const visible = allTemplates.filter((t) => {
+        if (q && !(t.name || "").toLowerCase().includes(q) && !(t.category || "").toLowerCase().includes(q)) return false;
+        return !t.pack_id || t.pack_id === editingId || selectedTplIds.has(t.id);
+      });
+      visible.forEach((t) => selectedTplIds.add(t.id));
+      renderTemplatePool();
+    });
+    tplDeselectAll?.addEventListener("click", () => {
+      selectedTplIds.clear();
+      renderTemplatePool();
+    });
+    tplShowSelected?.addEventListener("click", () => {
+      tplShowSelectedOnly = !tplShowSelectedOnly;
+      tplShowSelected.textContent = tplShowSelectedOnly ? "Show all" : "Show selected only";
+      renderTemplatePool();
+    });
+
+    previewInput?.addEventListener("input", () => {
+      previewMirror.textContent = String(previewInput.value || 0);
+    });
+
+    // ============ "Pull from a template" picker (gallery thumbnails) ============
+    galleryFromTplBtn?.addEventListener("click", openPicker);
+    pickerClose?.addEventListener("click", closePicker);
+    pickerBackdrop?.addEventListener("click", (e) => {
+      if (e.target === pickerBackdrop) closePicker();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && pickerBackdrop && !pickerBackdrop.hidden) closePicker();
+    });
+    pickerSearch?.addEventListener("input", renderTemplatePicker);
+    pickerGrid?.addEventListener("click", (e) => {
+      const card = e.target instanceof HTMLElement ? e.target.closest("[data-pull]") : null;
+      if (!card) return;
+      const id = card.getAttribute("data-pull");
+      const t = allTemplates.find((x) => x.id === id);
+      if (!t || !t.thumb_url) return;
+      if (galleryUrls.includes(t.thumb_url)) {
+        galleryStatus.textContent = "Already in the gallery.";
+      } else {
+        galleryUrls = [...galleryUrls, t.thumb_url];
+        renderGallery();
+        galleryStatus.textContent = `Added "${t.name}".`;
+      }
+      closePicker();
+    });
+
+    renderGallery();
+  </script>
+</BaseLayout>

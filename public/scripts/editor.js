@@ -9,18 +9,90 @@
   const TEMPLATES = JSON.parse(document.getElementById("ed-templates-data").textContent || "[]");
   const PHOTOS = JSON.parse(document.getElementById("ed-photos-data").textContent || "[]");
 
-  const BASE_FONTS = [
-    { name: "Cormorant Garamond", stack: '"Cormorant Garamond", serif', category: "Serif" },
-    { name: "Darker Grotesque", stack: '"Darker Grotesque", sans-serif', category: "Sans" },
-    { name: "Georgia", stack: 'Georgia, serif', category: "Serif" },
-    { name: "Times New Roman", stack: '"Times New Roman", serif', category: "Serif" },
-    { name: "Helvetica", stack: 'Helvetica, Arial, sans-serif', category: "Sans" },
-    { name: "Arial", stack: 'Arial, sans-serif', category: "Sans" },
-    { name: "Courier", stack: '"Courier New", monospace', category: "Mono" },
-    { name: "Inter", stack: 'Inter, sans-serif', category: "Sans" },
-    { name: "Trebuchet", stack: '"Trebuchet MS", sans-serif', category: "Sans" },
-    { name: "Verdana", stack: 'Verdana, sans-serif', category: "Sans" },
+  // System fonts that are always available without any web-font load.
+  const SYSTEM_FONTS = [
+    { name: "Georgia", stack: 'Georgia, serif', category: "System" },
+    { name: "Times New Roman", stack: '"Times New Roman", serif', category: "System" },
+    { name: "Helvetica", stack: 'Helvetica, Arial, sans-serif', category: "System" },
+    { name: "Arial", stack: 'Arial, sans-serif', category: "System" },
+    { name: "Trebuchet", stack: '"Trebuchet MS", sans-serif', category: "System" },
+    { name: "Verdana", stack: 'Verdana, sans-serif', category: "System" },
+    { name: "Courier", stack: '"Courier New", monospace', category: "System" },
   ];
+
+  // Google Fonts catalogue baked into editor.astro and injected as JSON.
+  // We don't load any of the actual CSS yet — `loadGoogleFont` does that on
+  // demand the first time a user picks one (or a template uses one).
+  const GOOGLE_CATEGORY_FALLBACK = {
+    sans: "sans-serif",
+    serif: "serif",
+    display: "serif",
+    mono: "monospace",
+    handwriting: "cursive",
+  };
+  const GOOGLE_CATEGORY_LABEL = {
+    sans: "Google · Sans",
+    serif: "Google · Serif",
+    display: "Google · Display",
+    mono: "Google · Mono",
+    handwriting: "Google · Script",
+  };
+  const GOOGLE_FONTS = (function readGoogleFontsJson() {
+    const tag = document.getElementById("ed-google-fonts-data");
+    if (!tag) return [];
+    try { return JSON.parse(tag.textContent || "[]"); }
+    catch (_) { return []; }
+  })().map(function (g) {
+    return {
+      name: g.f,
+      stack: '"' + g.f + '", ' + (GOOGLE_CATEGORY_FALLBACK[g.c] || "sans-serif"),
+      category: GOOGLE_CATEGORY_LABEL[g.c] || "Google",
+      isGoogle: true,
+    };
+  });
+
+  // Lazy-load a Google Font's CSS. Idempotent — only the first call per font
+  // adds a <link>; subsequent calls are no-ops.
+  const _loadedGoogleFonts = new Set();
+  function loadGoogleFont(name) {
+    if (!name) return;
+    if (_loadedGoogleFonts.has(name)) return;
+    const known = GOOGLE_FONTS.find(function (f) { return f.name === name; });
+    if (!known) return; // not in our catalogue — leave to browser fallback
+    _loadedGoogleFonts.add(name);
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=" +
+      encodeURIComponent(name).replace(/%20/g, "+") +
+      ":ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap";
+    document.head.appendChild(link);
+  }
+
+  // Custom brand fonts uploaded via /admin/fonts. The page-level inline
+  // script in editor.astro fetches them from Supabase and exposes the rows
+  // as `window.__TMKE_BRAND_FONTS__`. They're already loaded into
+  // document.fonts there, so we just need to surface them in the picker.
+  const BRAND_FONTS = (function readBrandFonts() {
+    const rows = (typeof window !== "undefined" && window.__TMKE_BRAND_FONTS__) || [];
+    const seen = new Set();
+    const out = [];
+    rows.forEach(function (r) {
+      if (!r || !r.family || seen.has(r.family)) return;
+      seen.add(r.family);
+      out.push({
+        name: r.family,
+        stack: '"' + r.family + '", sans-serif',
+        category: "Brand · Custom",
+        isBrandFont: true,
+      });
+    });
+    return out;
+  })();
+
+  // BASE_FONTS retained as a name so the rest of the code (export canvas,
+  // brand kit logic) keeps working — it now points at the combined catalogue:
+  // custom brand fonts (pinned first) > system fonts > Google Fonts.
+  const BASE_FONTS = BRAND_FONTS.concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
 
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   function loadBrand() {
@@ -102,12 +174,462 @@
     return state.selectedIds.map(getEl).filter(Boolean);
   }
 
-  function toast(msg) {
+  function toast(msg, durationMs) {
     toastEl.textContent = msg;
     toastEl.hidden = false;
     toastEl.classList.add("is-show");
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => { toastEl.classList.remove("is-show"); toastEl.hidden = true; }, 1800);
+    toast._t = setTimeout(() => { toastEl.classList.remove("is-show"); toastEl.hidden = true; }, durationMs || 1800);
+  }
+
+  // ---------- Context-bar helpers ----------
+  // Admin mode detection: the page-level admin-mode bootstrap (in
+  // editor.astro) installs `window.__TMKE_ADMIN_SAVE__` when a signed-in
+  // admin opens /editor?mode=admin. Customer flows don't get this hook,
+  // so it's a reliable signal for "hide admin-only affordances".
+  function isAdminMode() {
+    return typeof window.__TMKE_ADMIN_SAVE__ === "function";
+  }
+
+  // Generic icon button that opens a popover when clicked. The `render`
+  // callback gets a `close` function and should return a DOM element to
+  // populate the popover. Closes on outside click, Escape, scroll.
+  function popoverIconButton(opts) {
+    const wrap = document.createElement("div");
+    wrap.className = "ed-pop-wrap";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ed-ctx-btn ed-pop-trigger";
+    btn.title = opts.title || "";
+    btn.innerHTML = opts.icon;
+    wrap.appendChild(btn);
+
+    const pop = document.createElement("div");
+    pop.className = "ed-pop";
+    pop.hidden = true;
+    document.body.appendChild(pop);
+
+    function position() {
+      const r = btn.getBoundingClientRect();
+      pop.style.top = (r.bottom + 6) + "px";
+      pop.style.left = Math.min(r.left, window.innerWidth - 280 - 12) + "px";
+    }
+    function open() {
+      pop.innerHTML = "";
+      pop.appendChild(opts.render(close));
+      pop.hidden = false;
+      position();
+    }
+    function close() { pop.hidden = true; }
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      pop.hidden ? open() : close();
+    });
+    document.addEventListener("click", function (e) {
+      if (!pop.hidden && !pop.contains(e.target) && !wrap.contains(e.target)) close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (!pop.hidden && e.key === "Escape") close();
+    });
+    window.addEventListener("resize", function () { if (!pop.hidden) position(); });
+
+    return wrap;
+  }
+
+  // Circular colour swatch — clicking it triggers the native colour picker.
+  // Used in place of square `<input type="color">` with a "Colour" label.
+  // onChange is called on every input event with the new hex string.
+  function circleColorInput(initialHex, onChange, title) {
+    const wrap = document.createElement("label");
+    wrap.className = "ed-circle-swatch";
+    wrap.title = title || "Colour";
+    wrap.style.background = initialHex || "#000000";
+
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = rgbHex(initialHex || "#000000");
+    wrap.appendChild(input);
+
+    input.addEventListener("input", function () {
+      wrap.style.background = input.value;
+      onChange(input.value);
+      fullRender();
+    });
+    input.addEventListener("change", function () { pushHistory(); });
+    return wrap;
+  }
+
+  // ---------- Right-click context menu ----------
+  // Replaces the in-toolbar Bring forward / Send back buttons. Right-click
+  // any selected element (or anywhere on the canvas; we'll try to hit-test)
+  // and a small floating menu appears at the cursor with z-order + duplicate
+  // / delete + (text only) link options.
+  const ctxMenu = document.createElement("div");
+  ctxMenu.className = "ed-rclick";
+  ctxMenu.hidden = true;
+  document.body.appendChild(ctxMenu);
+
+  function hideContextMenu() { ctxMenu.hidden = true; }
+
+  function showContextMenu(x, y, el) {
+    if (!el) return;
+    // Make sure the right-clicked element is selected so subsequent actions
+    // (which read state.selectedIds) target it.
+    if (!state.selectedIds.includes(el.id)) {
+      state.selectedIds = [el.id];
+      fullRender();
+    }
+
+    const items = [
+      // Z-order
+      { label: "Bring forward",   action: function () { bringForward(); } },
+      { label: "Send back",       action: function () { sendBack(); } },
+      { label: "Bring to front",  action: function () { bringToFront(); } },
+      { label: "Send to back",    action: function () { sendToBack(); } },
+      { divider: true },
+      // Align (snaps the element to a canvas edge / centre, not a sibling)
+      { label: "Align left",      action: function () { alignSelected("left"); } },
+      { label: "Align centre",    action: function () { alignSelected("centerX"); } },
+      { label: "Align right",     action: function () { alignSelected("right"); } },
+      { label: "Align top",       action: function () { alignSelected("top"); } },
+      { label: "Align middle",    action: function () { alignSelected("centerY"); } },
+      { label: "Align bottom",    action: function () { alignSelected("bottom"); } },
+      { divider: true },
+      // Flip — works on any element but is most useful for images.
+      { label: "Flip horizontal", action: function () { flipSelected("h"); } },
+      { label: "Flip vertical",   action: function () { flipSelected("v"); } },
+      { divider: true },
+      { label: "Copy",            hint: "Ctrl+C", action: function () { copySelectedToClipboard(); } },
+      { label: "Duplicate",       hint: "Ctrl+D", action: function () { duplicateSelected(); } },
+      { label: "Delete",          hint: "Del", action: function () { deleteSelected(); }, danger: true },
+    ];
+
+    if (el.type === "text") {
+      items.push({ divider: true });
+      if (el.link) {
+        items.push({ label: "Edit link…", action: function () { promptLink(el); } });
+        items.push({ label: "Remove link", action: function () { el.link = null; pushHistory(); fullRender(); } });
+      } else {
+        items.push({ label: "Add link…", action: function () { promptLink(el); } });
+      }
+    }
+
+    ctxMenu.innerHTML = items.map(function (it) {
+      if (it.divider) return '<div class="ed-rclick-divider"></div>';
+      return (
+        '<button type="button" class="ed-rclick-item' + (it.danger ? ' is-danger' : '') + '">' +
+          '<span>' + it.label + '</span>' +
+          (it.hint ? '<span class="ed-rclick-hint">' + it.hint + '</span>' : '') +
+        '</button>'
+      );
+    }).join("");
+
+    // Position with a small offset; if it would overflow the viewport, flip.
+    const w = 220;
+    const h = items.length * 32 + 16;
+    const px = Math.min(x + 2, window.innerWidth - w - 8);
+    const py = Math.min(y + 2, window.innerHeight - h - 8);
+    ctxMenu.style.left = px + "px";
+    ctxMenu.style.top = py + "px";
+    ctxMenu.hidden = false;
+
+    // Wire up — re-query because we just innerHTML'd.
+    const buttons = ctxMenu.querySelectorAll(".ed-rclick-item");
+    let i = 0;
+    items.forEach(function (it) {
+      if (it.divider) return;
+      const btn = buttons[i++];
+      btn.addEventListener("click", function () {
+        hideContextMenu();
+        it.action();
+      });
+    });
+  }
+
+  // Align the currently-selected element relative to the canvas bounds.
+  // mode: "left" | "centerX" | "right" | "top" | "centerY" | "bottom"
+  function alignSelected(mode) {
+    const el = getEl(state.selectedIds[0]);
+    if (!el) return;
+    const cw = state.canvas.width;
+    const ch = state.canvas.height;
+    if (mode === "left")     el.x = 0;
+    if (mode === "centerX")  el.x = Math.round((cw - el.w) / 2);
+    if (mode === "right")    el.x = cw - el.w;
+    if (mode === "top")      el.y = 0;
+    if (mode === "centerY")  el.y = Math.round((ch - el.h) / 2);
+    if (mode === "bottom")   el.y = ch - el.h;
+    pushHistory();
+    fullRender();
+  }
+
+  // Toggle a flip flag on the element. Render + export both honour it.
+  function flipSelected(axis) {
+    const el = getEl(state.selectedIds[0]);
+    if (!el) return;
+    if (axis === "h") el.flipX = !el.flipX;
+    if (axis === "v") el.flipY = !el.flipY;
+    pushHistory();
+    fullRender();
+  }
+
+  // Copy the current selection to an in-memory clipboard. Paste behaviour
+  // is already wired in keyboard shortcuts further down (state.clipboard).
+  function copySelectedToClipboard() {
+    const els = selectedElements();
+    if (!els.length) return;
+    state.clipboard = els.map(deep);
+    toast(els.length + " copied");
+  }
+
+  // Simple prompt-based link editor. Could become a popover later.
+  function promptLink(el) {
+    const current = el.link || "";
+    const next = prompt("Link URL (leave blank to remove)", current);
+    if (next === null) return; // cancelled
+    const trimmed = String(next).trim();
+    el.link = trimmed || null;
+    pushHistory();
+    fullRender();
+  }
+
+  document.addEventListener("click", function () { hideContextMenu(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !ctxMenu.hidden) hideContextMenu();
+  });
+
+  // Hook the contextmenu event on the canvas. Resolves which element was
+  // clicked by hit-testing against state.elements (top-most first).
+  if (canvasEl) {
+    canvasEl.addEventListener("contextmenu", function (e) {
+      // Find which element was clicked by walking back-to-front so the
+      // top-most layer wins.
+      const target = e.target.closest(".ed-element");
+      if (!target) return;
+      e.preventDefault();
+      const id = target.getAttribute("data-id");
+      const el = getEl(id);
+      if (!el) return;
+      showContextMenu(e.clientX, e.clientY, el);
+    });
+  }
+
+  // SVG icons used in the context bar.
+  const ICONS = {
+    opacity:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="12" cy="12" r="9"/>' +
+      '<path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>' +
+      '</svg>',
+    stroke:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">' +
+      '<path d="M4 12h16"/>' +
+      '</svg>',
+    radius:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M4 20V10a6 6 0 0 1 6-6h10"/>' +
+      '</svg>',
+    delete:
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/>' +
+      '</svg>',
+  };
+
+  // ---------- Background removal (@imgly, runs in-browser) ----------
+  // editor.js is served as a public/ asset (not bundled by Vite), so we
+  // can't use a bare "@imgly/background-removal" specifier — the browser
+  // wouldn't know how to resolve it. Loading the ESM build from JSDelivr
+  // works in any browser that supports dynamic import. ~700KB of JS plus
+  // a ~30MB ONNX model on first run, both cached after.
+  let _bgRemoveModule = null;
+  async function getBgRemover() {
+    if (_bgRemoveModule) return _bgRemoveModule;
+    _bgRemoveModule = await import(
+      /* @vite-ignore */
+      "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm"
+    );
+    return _bgRemoveModule;
+  }
+
+  async function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async function fetchAsBlob(src) {
+    // Already a data URL or blob URL — convert via fetch.
+    const res = await fetch(src, { mode: "cors" });
+    if (!res.ok) throw new Error("Could not load source image (status " + res.status + ").");
+    return await res.blob();
+  }
+
+  async function runBackgroundRemoval(el, button) {
+    if (!el || el.type !== "image" || !el.src) return;
+    const originalLabel = button ? button.textContent : null;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Loading model…";
+    }
+    toast("Loading background remover (first run downloads ~30MB)…", 4000);
+
+    try {
+      const { removeBackground } = await getBgRemover();
+      if (button) button.textContent = "Cutting out…";
+
+      const srcBlob = await fetchAsBlob(el.src);
+      const resultBlob = await removeBackground(srcBlob);
+      const dataUrl = await blobToDataUrl(resultBlob);
+
+      el.src = dataUrl;
+      pushHistory();
+      fullRender();
+      toast("Background removed");
+    } catch (err) {
+      console.error("[bg-remove]", err);
+      const msg = err && err.message ? err.message : "Background removal failed";
+      toast(msg.slice(0, 80), 3500);
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalLabel || "Remove background";
+      }
+    }
+  }
+
+  // ---------- Font picker (searchable, lazy CSS load) ----------
+  // Returns a DOM element. Two modes:
+  //   options.inline = false (default)  → trigger button + popover. Used in
+  //     the context bar where vertical room is constrained.
+  //   options.inline = true             → search + scrollable list always
+  //     visible inline. Used in the right properties panel.
+  function createFontPicker(currentName, onChange, options) {
+    const opts = options || {};
+    const inline = !!opts.inline;
+    let current = currentName;
+
+    const wrap = document.createElement("div");
+    wrap.className = "ed-font-picker" + (inline ? " is-inline" : "");
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "ed-font-trigger";
+    trigger.textContent = current || (FONTS[0] && FONTS[0].name) || "Pick a font";
+    wrap.appendChild(trigger);
+
+    const pop = document.createElement("div");
+    pop.className = "ed-font-pop";
+    if (!inline) pop.hidden = true;
+
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "ed-font-search";
+    search.placeholder = "Search fonts…";
+    pop.appendChild(search);
+
+    const list = document.createElement("div");
+    list.className = "ed-font-list";
+    pop.appendChild(list);
+
+    function renderList(query) {
+      const q = (query || "").trim().toLowerCase();
+      list.innerHTML = "";
+      FONTS.forEach(function (f) {
+        if (q && f.name.toLowerCase().indexOf(q) === -1) return;
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "ed-font-item" + (f.name === current ? " is-current" : "");
+        b.textContent = f.name;
+        b.title = f.category || "";
+        b.addEventListener("click", function () {
+          loadGoogleFont(f.name);
+          current = f.name;
+          trigger.textContent = f.name;
+          onChange(f.name);
+          if (!inline) close();
+        });
+        list.appendChild(b);
+      });
+      if (!list.children.length) {
+        const empty = document.createElement("div");
+        empty.className = "ed-font-empty";
+        empty.textContent = q
+          ? "No fonts matching \"" + q + "\"."
+          : "Loading fonts…";
+        list.appendChild(empty);
+      }
+    }
+    renderList("");
+
+    function position() {
+      // For the popover variant, compute viewport-fixed coordinates from the
+      // trigger button. Necessary because the ancestor (.ed-context) uses
+      // overflow-x: auto which clips position: absolute children.
+      if (inline) return;
+      const r = trigger.getBoundingClientRect();
+      const width = Math.max(r.width, 280);
+      pop.style.top = (r.bottom + 4) + "px";
+      pop.style.left = Math.min(r.left, window.innerWidth - width - 8) + "px";
+      pop.style.width = width + "px";
+    }
+
+    function open() {
+      if (inline) return; // already visible
+      pop.hidden = false;
+      position();
+      search.value = "";
+      renderList("");
+      setTimeout(function () { search.focus(); }, 0);
+    }
+    function close() {
+      if (inline) return;
+      pop.hidden = true;
+    }
+
+    if (!inline) {
+      trigger.addEventListener("click", function (e) {
+        e.stopPropagation();
+        pop.hidden ? open() : close();
+      });
+      // Close on outside click / page-level scroll / resize / Escape.
+      document.addEventListener("click", function (e) {
+        if (!pop.hidden && !wrap.contains(e.target) && !pop.contains(e.target)) close();
+      });
+      document.addEventListener("keydown", function (e) {
+        if (!pop.hidden && e.key === "Escape") close();
+      });
+      // Scroll handler uses capture so it sees scrolls on any element. We
+      // only want to close when something OUTSIDE the popover scrolls
+      // (so the popover doesn't follow a stale anchor). Scrolling the
+      // font list itself is fine and should not close.
+      window.addEventListener("scroll", function (e) {
+        if (pop.hidden) return;
+        if (pop.contains(e.target)) return;
+        close();
+      }, true);
+      window.addEventListener("resize", function () {
+        if (!pop.hidden) position();
+      });
+    }
+
+    search.addEventListener("input", function () { renderList(search.value); });
+
+    wrap.appendChild(pop);
+    return wrap;
+  }
+
+  // Make sure any Google Fonts referenced in a template/design are loaded as
+  // soon as we encounter them, so the canvas renders in the right typeface.
+  function preloadFontsForElements(elements) {
+    if (!elements) return;
+    elements.forEach(function (el) {
+      if (el && el.type === "text" && el.font) loadGoogleFont(el.font);
+    });
   }
 
   // ---------- History ----------
@@ -168,6 +690,7 @@
           filenameEl.value = saved.filename || tpl.name;
           state.history = [];
           state.historyIndex = -1;
+          preloadFontsForElements(state.elements);
           pushHistory();
           fullRender();
           fitZoom();
@@ -176,6 +699,7 @@
       } catch (e) {}
     }
 
+    preloadFontsForElements(tpl.elements);
     state.canvas = deep(tpl.canvas);
     state.elements = deep(tpl.elements);
     state.selectedIds = [];
@@ -274,7 +798,9 @@
     node.style.top = el.y + "px";
     node.style.width = el.w + "px";
     node.style.height = el.h + "px";
-    node.style.transform = "rotate(" + (el.rotation || 0) + "deg)";
+    const sx = el.flipX ? -1 : 1;
+    const sy = el.flipY ? -1 : 1;
+    node.style.transform = "rotate(" + (el.rotation || 0) + "deg) scale(" + sx + ", " + sy + ")";
     node.style.opacity = el.opacity != null ? el.opacity : 1;
 
     if (el.type === "rect" || el.type === "ellipse") {
@@ -766,14 +1292,29 @@
   });
 
   // ---------- Save / load ----------
-  function save() {
+  async function save() {
     if (!state.templateId) return;
     const payload = {
+      templateId: state.templateId,
       filename: filenameEl.value,
       canvas: state.canvas,
       elements: state.elements,
       savedAt: Date.now(),
     };
+    // Admin hook (set by editor.astro when ?mode=admin and signed in) — writes
+    // back to the Supabase `templates` table instead of localStorage. Falls
+    // through to the local save if the hook isn't installed or rejects.
+    if (typeof window.__TMKE_ADMIN_SAVE__ === "function") {
+      try {
+        const ok = await window.__TMKE_ADMIN_SAVE__(payload);
+        if (ok) { toast("Template saved"); return; }
+        toast("Save failed");
+        return;
+      } catch (e) {
+        toast("Save failed");
+        return;
+      }
+    }
     try {
       localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify(payload));
       toast("Design saved");
@@ -781,13 +1322,19 @@
   }
 
   // ---------- Export ----------
+  // type can be: "png" | "jpg" | "png-transparent" | "pdf"
   async function exportImage(type) {
     const c = document.createElement("canvas");
     c.width = state.canvas.width;
     c.height = state.canvas.height;
     const ctx = c.getContext("2d");
-    ctx.fillStyle = state.canvas.background || "#fff";
-    ctx.fillRect(0, 0, c.width, c.height);
+    // PNG-transparent skips the background fill so cut-out designs can sit
+    // on any colour. JPG always needs a background since JPG can't be
+    // transparent. PDF/regular PNG fill with the canvas background colour.
+    if (type !== "png-transparent") {
+      ctx.fillStyle = state.canvas.background || "#fff";
+      ctx.fillRect(0, 0, c.width, c.height);
+    }
 
     for (const el of state.elements) {
       if (el.hidden) continue;
@@ -796,6 +1343,11 @@
       const cy = el.y + el.h / 2;
       ctx.translate(cx, cy);
       ctx.rotate((el.rotation || 0) * Math.PI / 180);
+      // Honour flipX / flipY on export so the downloaded image matches
+      // what the user sees on the canvas.
+      if (el.flipX || el.flipY) {
+        ctx.scale(el.flipX ? -1 : 1, el.flipY ? -1 : 1);
+      }
       ctx.translate(-el.w / 2, -el.h / 2);
       ctx.globalAlpha = el.opacity != null ? el.opacity : 1;
 
@@ -851,13 +1403,56 @@
       ctx.restore();
     }
 
+    if (type === "pdf") {
+      await exportToPdf(c);
+      return;
+    }
+
     const mime = type === "jpg" ? "image/jpeg" : "image/png";
+    const ext = type === "png-transparent" ? "png" : type;
     const url = c.toDataURL(mime, 0.95);
     const a = document.createElement("a");
     a.href = url;
-    a.download = (filenameEl.value || "design") + "." + type;
+    a.download = (filenameEl.value || "design") + "." + ext;
     a.click();
-    toast("Exported " + type.toUpperCase());
+    toast("Exported " + ext.toUpperCase() + (type === "png-transparent" ? " (transparent)" : ""));
+  }
+
+  // Lazy-loaded so the jsPDF library only downloads when the user actually
+  // exports a PDF. Loaded from CDN (editor.js is a public/ asset, not
+  // bundled by Vite, so we can't use a bare specifier).
+  let _jspdfModule = null;
+  async function getJsPdf() {
+    if (_jspdfModule) return _jspdfModule;
+    _jspdfModule = await import(
+      /* @vite-ignore */
+      "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm"
+    );
+    return _jspdfModule;
+  }
+
+  async function exportToPdf(canvas) {
+    toast("Building PDF…");
+    try {
+      const mod = await getJsPdf();
+      const jsPDF = mod.jsPDF || mod.default;
+      const w = canvas.width, h = canvas.height;
+      // Pixels at 72 DPI translate roughly 1:1 to PDF points, so this preserves
+      // the on-screen aspect ratio without surprising the user with margins.
+      const pdf = new jsPDF({
+        orientation: w >= h ? "landscape" : "portrait",
+        unit: "px",
+        format: [w, h],
+        hotfixes: ["px_scaling"],
+      });
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+      pdf.addImage(dataUrl, "JPEG", 0, 0, w, h);
+      pdf.save((filenameEl.value || "design") + ".pdf");
+      toast("Exported PDF");
+    } catch (err) {
+      console.error("[pdf-export]", err);
+      toast("PDF export failed", 3500);
+    }
   }
 
   function loadImage(src) {
@@ -911,18 +1506,30 @@
   }
 
   // ---------- Property panel ----------
+  // Targets `#ed-selection-body` inside the left "Selection" pane (the right
+  // properties panel was removed in favour of a unified left rail). On
+  // selection change this either populates the pane and switches to it, or
+  // empties it and switches back to the user's last-active tool tab.
   function renderProps() {
+    const body = document.getElementById("ed-selection-body");
+    if (!body) return;
+
     if (state.selectedIds.length !== 1) {
-      propsEl.innerHTML = `
-        <div class="ed-props-empty">
-          <div class="ed-props-empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
-          </div>
-          <p>${state.selectedIds.length === 0 ? "Select an element to edit its properties." : state.selectedIds.length + " elements selected"}</p>
-          <p class="ed-props-hint">Tip: press <kbd>?</kbd> for keyboard shortcuts.</p>
-        </div>`;
+      body.innerHTML = state.selectedIds.length > 1
+        ? '<p class="ed-selection-empty">' + state.selectedIds.length + ' elements selected.</p>'
+        : '';
+      if (state.selectedIds.length === 0) {
+        // Nothing selected — go back to whatever tool tab the rail is on.
+        if (typeof showPane === "function" && typeof activeToolPane === "string") {
+          showPane(activeToolPane);
+        }
+      }
       return;
     }
+
+    // Selected element — surface its controls and switch to Selection pane.
+    if (typeof showPane === "function") showPane("selection");
+
     const el = getEl(state.selectedIds[0]);
     if (!el) return;
 
@@ -943,11 +1550,10 @@
     </div>`);
 
     if (el.type === "text") {
+      // Font picker mounts here (placeholder div, populated after render).
       html.push(`<div class="ed-props-section"><h4>Type</h4>
         <div class="ed-props-field"><label>Font</label>
-          <select data-prop="font">
-            ${FONTS.map(f => `<option value="${f.name}" ${f.name===el.font?"selected":""}>${f.name} — ${f.category}</option>`).join("")}
-          </select>
+          <div data-mount="font-picker"></div>
         </div>
         <div class="ed-props-row">
           <div class="ed-props-field"><label>Size</label><input type="number" data-prop="size" min="6" max="500" value="${el.size}"></div>
@@ -1002,18 +1608,30 @@
       </div>
     </div>`);
 
+    // Lock is admin-only — customer flow doesn't get the affordance.
     html.push(`<div class="ed-props-section">
       <div class="ed-props-actions">
-        <button data-action="lock">${el.locked ? "Unlock" : "Lock"}</button>
+        ${isAdminMode() ? `<button data-action="lock">${el.locked ? "Unlock" : "Lock"}</button>` : ""}
         <button data-action="duplicate">Duplicate</button>
         <button data-action="delete" class="danger">Delete</button>
       </div>
     </div>`);
 
-    propsEl.innerHTML = html.join("");
+    body.innerHTML = html.join("");
+
+    // Mount the font picker into its placeholder (text elements only).
+    // Inline mode: search + scrollable list always visible, no popover.
+    const fontMount = body.querySelector('[data-mount="font-picker"]');
+    if (fontMount && el.type === "text") {
+      fontMount.appendChild(createFontPicker(el.font, function (name) {
+        el.font = name;
+        fullRender();
+        pushHistory();
+      }, { inline: true }));
+    }
 
     // Bind prop inputs
-    propsEl.querySelectorAll("[data-prop]").forEach((input) => {
+    body.querySelectorAll("[data-prop]").forEach((input) => {
       const prop = input.dataset.prop;
       const ev = (input.type === "range" || input.type === "color") ? "input" : "change";
       input.addEventListener(ev, () => {
@@ -1029,7 +1647,7 @@
       }
     });
 
-    propsEl.querySelectorAll("[data-arrange]").forEach((btn) => {
+    body.querySelectorAll("[data-arrange]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const a = btn.dataset.arrange;
         if (a === "up") bringForward();
@@ -1038,7 +1656,7 @@
         else if (a === "back") sendToBack();
       });
     });
-    propsEl.querySelectorAll("[data-action]").forEach((btn) => {
+    body.querySelectorAll("[data-action]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const a = btn.dataset.action;
         if (a === "lock") {
@@ -1052,7 +1670,7 @@
       });
     });
 
-    const replaceBtn = propsEl.querySelector("#ed-replace-img");
+    const replaceBtn = body.querySelector("#ed-replace-img");
     if (replaceBtn) {
       replaceBtn.addEventListener("click", () => {
         const input = document.createElement("input");
@@ -1094,18 +1712,14 @@
     ctxEl.innerHTML = "";
 
     if (el.type === "text") {
-      // Font
+      // Font — custom searchable picker (replaces native <select>).
       const g1 = group();
-      const fontSel = document.createElement("select");
-      fontSel.className = "ed-ctx-select";
-      FONTS.forEach((f) => {
-        const o = document.createElement("option");
-        o.value = f.name; o.textContent = f.name;
-        if (f.name === el.font) o.selected = true;
-        fontSel.appendChild(o);
+      const picker = createFontPicker(el.font, function (name) {
+        el.font = name;
+        fullRender();
+        pushHistory();
       });
-      fontSel.addEventListener("change", () => { el.font = fontSel.value; fullRender(); pushHistory(); });
-      g1.appendChild(fontSel);
+      g1.appendChild(picker);
 
       const sizeIn = document.createElement("input");
       sizeIn.type = "number"; sizeIn.className = "ed-ctx-num";
@@ -1135,40 +1749,100 @@
       });
       ctxEl.appendChild(g3);
 
-      // Color
+      // Colour — circular swatch, no label (Canva-style).
       const g4 = group();
-      const color = document.createElement("input");
-      color.type = "color";
-      color.className = "ed-ctx-color";
-      color.value = rgbHex(el.color);
-      color.addEventListener("input", () => { el.color = color.value; fullRender(); });
-      color.addEventListener("change", () => pushHistory());
-      g4.appendChild(label("Colour"));
-      g4.appendChild(color);
+      g4.appendChild(circleColorInput(el.color, function (hex) { el.color = hex; }, "Text colour"));
       ctxEl.appendChild(g4);
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
+      // Fill — circle swatch
       const g = group();
-      const fill = document.createElement("input");
-      fill.type = "color"; fill.className = "ed-ctx-color"; fill.value = rgbHex(el.fill);
-      fill.addEventListener("input", () => { el.fill = fill.value; fullRender(); });
-      fill.addEventListener("change", () => pushHistory());
-      g.appendChild(label("Fill"));
-      g.appendChild(fill);
+      g.appendChild(circleColorInput(el.fill, function (hex) { el.fill = hex; }, "Fill"));
       ctxEl.appendChild(g);
 
+      // Stroke — icon-only trigger; click opens a popover with colour
+      // + width. Same UX shape as opacity below.
+      const strokeWrap = popoverIconButton({
+        icon: ICONS.stroke,
+        title: "Stroke",
+        render: function () {
+          const panel = document.createElement("div");
+          panel.className = "ed-pop-panel";
+          panel.innerHTML =
+            '<div class="ed-pop-row"><span>Stroke colour</span></div>' +
+            '<div class="ed-pop-row" data-mount="stroke-color"></div>' +
+            '<div class="ed-pop-row"><span>Width</span></div>' +
+            '<div class="ed-pop-row">' +
+              '<input type="range" min="0" max="40" step="1" value="' + (el.strokeWidth || 0) + '" data-stroke-w />' +
+              '<output data-stroke-out>' + (el.strokeWidth || 0) + 'px</output>' +
+            '</div>';
+          const mount = panel.querySelector('[data-mount="stroke-color"]');
+          mount.appendChild(circleColorInput(
+            el.stroke && el.stroke !== "transparent" ? el.stroke : "#000000",
+            function (hex) {
+              el.stroke = hex;
+              // If user picks a colour but has no width, give it 2px so the change is visible.
+              if (!el.strokeWidth) {
+                el.strokeWidth = 2;
+                panel.querySelector("[data-stroke-w]").value = "2";
+                panel.querySelector("[data-stroke-out]").textContent = "2px";
+              }
+            }, "Stroke colour"
+          ));
+          const r = panel.querySelector("[data-stroke-w]");
+          const o = panel.querySelector("[data-stroke-out]");
+          r.addEventListener("input", function () {
+            el.strokeWidth = parseInt(r.value, 10) || 0;
+            if (el.strokeWidth > 0 && (!el.stroke || el.stroke === "transparent")) el.stroke = "#000000";
+            o.textContent = el.strokeWidth + "px";
+            fullRender();
+          });
+          r.addEventListener("change", function () { pushHistory(); });
+          return panel;
+        },
+      });
+      ctxEl.appendChild(strokeWrap);
+
+      // Corner radius — same popover pattern for rectangles only.
       if (el.type === "rect") {
-        const gr = group();
-        gr.appendChild(label("Radius"));
-        const r = document.createElement("input");
-        r.type = "range"; r.min = 0; r.max = Math.min(el.w, el.h) / 2; r.value = el.radius || 0;
-        r.style.width = "100px";
-        r.addEventListener("input", () => { el.radius = parseInt(r.value, 10); fullRender(); });
-        r.addEventListener("change", () => pushHistory());
-        gr.appendChild(r);
-        ctxEl.appendChild(gr);
+        const radiusWrap = popoverIconButton({
+          icon: ICONS.radius,
+          title: "Corner radius",
+          render: function () {
+            const panel = document.createElement("div");
+            panel.className = "ed-pop-panel";
+            const max = Math.min(el.w, el.h) / 2;
+            panel.innerHTML =
+              '<div class="ed-pop-row"><span>Corner radius</span></div>' +
+              '<div class="ed-pop-row">' +
+                '<input type="range" min="0" max="' + max + '" step="1" value="' + (el.radius || 0) + '" data-radius />' +
+                '<output data-radius-out>' + (el.radius || 0) + 'px</output>' +
+              '</div>';
+            const r = panel.querySelector("[data-radius]");
+            const o = panel.querySelector("[data-radius-out]");
+            r.addEventListener("input", function () {
+              el.radius = parseInt(r.value, 10) || 0;
+              o.textContent = el.radius + "px";
+              fullRender();
+            });
+            r.addEventListener("change", function () { pushHistory(); });
+            return panel;
+          },
+        });
+        ctxEl.appendChild(radiusWrap);
       }
     } else if (el.type === "image") {
       const g = group();
+
+      // Background remover — runs in the browser via @imgly. First click on
+      // any session downloads ~30MB of model (cached after), then 1-3s per
+      // image to process. Replaces el.src with a transparent PNG data URL.
+      const bgBtn = document.createElement("button");
+      bgBtn.className = "ed-ctx-btn";
+      bgBtn.textContent = "Remove background";
+      bgBtn.title = "Cut out the subject — works best on people / products against a clear background.";
+      bgBtn.addEventListener("click", () => runBackgroundRemoval(el, bgBtn));
+      g.appendChild(bgBtn);
+
       const btn = document.createElement("button");
       btn.className = "ed-ctx-btn";
       btn.textContent = "Replace image";
@@ -1187,25 +1861,64 @@
       ctxEl.appendChild(g);
     }
 
-    // Common: opacity, lock, duplicate, delete
-    const gC = group();
-    gC.appendChild(label("Opacity"));
-    const op = document.createElement("input");
-    op.type = "range"; op.min = 0; op.max = 1; op.step = 0.05;
-    op.value = el.opacity != null ? el.opacity : 1;
-    op.style.width = "80px";
-    op.addEventListener("input", () => { el.opacity = parseFloat(op.value); partialRenderElement(el); });
-    op.addEventListener("change", () => pushHistory());
-    gC.appendChild(op);
-    ctxEl.appendChild(gC);
+    // ===== Common controls — opacity (icon), duplicate, delete =====
+    // Z-order (bring forward / send back) moved to the right-click menu.
+    // Lock is admin-only — hidden in the customer flow.
 
-    const gZ = group();
-    gZ.appendChild(toggleBtn("⌃", false, bringForward, "Bring forward"));
-    gZ.appendChild(toggleBtn("⌄", false, sendBack, "Send back"));
-    gZ.appendChild(toggleBtn(el.locked ? "🔒" : "🔓", el.locked, () => { el.locked = !el.locked; pushHistory(); fullRender(); }, "Lock"));
-    gZ.appendChild(toggleBtn("⎘", false, duplicateSelected, "Duplicate"));
-    gZ.appendChild(toggleBtn("✕", false, deleteSelected, "Delete"));
-    ctxEl.appendChild(gZ);
+    // Opacity — icon trigger, popover with a transparency slider.
+    const opacityWrap = popoverIconButton({
+      icon: ICONS.opacity,
+      title: "Transparency",
+      render: function () {
+        const panel = document.createElement("div");
+        panel.className = "ed-pop-panel";
+        const val = Math.round((el.opacity != null ? el.opacity : 1) * 100);
+        panel.innerHTML =
+          '<div class="ed-pop-row"><span>Transparency</span></div>' +
+          '<div class="ed-pop-row">' +
+            '<input type="range" min="0" max="100" step="1" value="' + val + '" data-opacity />' +
+            '<output data-opacity-out>' + val + '</output>' +
+          '</div>';
+        const r = panel.querySelector("[data-opacity]");
+        const o = panel.querySelector("[data-opacity-out]");
+        r.addEventListener("input", function () {
+          el.opacity = parseInt(r.value, 10) / 100;
+          o.textContent = r.value;
+          partialRenderElement(el);
+        });
+        r.addEventListener("change", function () { pushHistory(); });
+        return panel;
+      },
+    });
+    ctxEl.appendChild(opacityWrap);
+
+    // Duplicate — labelled button (user explicitly asked for text, not icon).
+    const gA = group();
+    const dupBtn = document.createElement("button");
+    dupBtn.type = "button";
+    dupBtn.className = "ed-ctx-btn ed-ctx-btn-text";
+    dupBtn.textContent = "Duplicate";
+    dupBtn.title = "Duplicate (Ctrl+D)";
+    dupBtn.addEventListener("click", duplicateSelected);
+    gA.appendChild(dupBtn);
+
+    // Lock — admin only.
+    if (isAdminMode()) {
+      gA.appendChild(toggleBtn(el.locked ? "🔒" : "🔓", el.locked, function () {
+        el.locked = !el.locked; pushHistory(); fullRender();
+      }, "Lock"));
+    }
+
+    // Delete — icon (universal trash-can affordance).
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "ed-ctx-btn ed-ctx-btn-danger";
+    delBtn.innerHTML = ICONS.delete;
+    delBtn.title = "Delete (Del)";
+    delBtn.addEventListener("click", deleteSelected);
+    gA.appendChild(delBtn);
+
+    ctxEl.appendChild(gA);
 
     function group() {
       const g = document.createElement("div");
@@ -1461,14 +2174,23 @@
   }
 
   // ---------- Tool rail / panel switching ----------
+  // The left panel now serves double duty: when an element is selected it
+  // shows that element's properties (the "selection" pane), and when
+  // nothing's selected it falls back to whichever tool tab the user
+  // last clicked on the rail. `activeToolPane` remembers that fallback.
+  let activeToolPane = "brand";
+  function showPane(name) {
+    document.querySelectorAll(".ed-panel-pane").forEach((p) => {
+      p.classList.toggle("is-active", p.dataset.pane === name);
+    });
+  }
   document.querySelectorAll(".ed-rail-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.remove("is-active"));
       btn.classList.add("is-active");
       const tool = btn.dataset.tool;
-      document.querySelectorAll(".ed-panel-pane").forEach((p) => {
-        p.classList.toggle("is-active", p.dataset.pane === tool);
-      });
+      activeToolPane = tool;
+      showPane(tool);
     });
   });
 
@@ -1556,8 +2278,147 @@
   $("ed-zoom-fit").addEventListener("click", fitZoom);
   zoomDisplayEl.addEventListener("click", () => setZoom(1));
   $("ed-save").addEventListener("click", save);
-  $("ed-export-png").addEventListener("click", () => exportImage("png"));
-  $("ed-export-jpg").addEventListener("click", () => exportImage("jpg"));
+
+  // Crop — placeholder for the moment. The full drag-resize crop UI is
+  // deferred; this just checks the user has an image selected so we can
+  // wire the real flow into the same button later.
+  $("ed-crop")?.addEventListener("click", function () {
+    const el = getEl(state.selectedIds[0]);
+    if (!el || el.type !== "image") {
+      toast("Select an image to crop it", 2400);
+      return;
+    }
+    toast("Crop tool coming soon — use Replace image for now", 3000);
+  });
+
+  // Flip — works on any selected element. Toggles flipX (horizontal).
+  // The right-click menu has both axes; this top-bar button is the
+  // common-case fast path.
+  $("ed-flip")?.addEventListener("click", function () {
+    if (!state.selectedIds.length) {
+      toast("Select something to flip", 2400);
+      return;
+    }
+    flipSelected("h");
+  });
+
+  // Share — uses the Web Share API where available (mobile, modern desktop
+  // Chromium). Falls back to a PNG download so the user can post manually.
+  $("ed-share")?.addEventListener("click", async function () {
+    try {
+      // Re-use the export pipeline. We need a Blob for navigator.share.
+      const c = document.createElement("canvas");
+      c.width = state.canvas.width;
+      c.height = state.canvas.height;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = state.canvas.background || "#fff";
+      ctx.fillRect(0, 0, c.width, c.height);
+      // Lean draw loop — same shape as exportImage but inline. Keeping it
+      // duplicated for now until we refactor a shared renderer.
+      for (const el of state.elements) {
+        if (el.hidden) continue;
+        ctx.save();
+        const cx = el.x + el.w / 2;
+        const cy = el.y + el.h / 2;
+        ctx.translate(cx, cy);
+        ctx.rotate((el.rotation || 0) * Math.PI / 180);
+        if (el.flipX || el.flipY) ctx.scale(el.flipX ? -1 : 1, el.flipY ? -1 : 1);
+        ctx.translate(-el.w / 2, -el.h / 2);
+        ctx.globalAlpha = el.opacity != null ? el.opacity : 1;
+        if (el.type === "image") {
+          try { const img = await loadImage(el.src); ctx.drawImage(img, 0, 0, el.w, el.h); } catch (_) {}
+        } else if (el.type === "rect") {
+          ctx.fillStyle = el.fill || "transparent";
+          if (el.radius) { roundedRect(ctx, 0, 0, el.w, el.h, el.radius); ctx.fill(); }
+          else ctx.fillRect(0, 0, el.w, el.h);
+          if (el.strokeWidth && el.stroke !== "transparent") {
+            ctx.lineWidth = el.strokeWidth; ctx.strokeStyle = el.stroke; ctx.stroke();
+          }
+        } else if (el.type === "ellipse") {
+          ctx.fillStyle = el.fill;
+          ctx.beginPath();
+          ctx.ellipse(el.w / 2, el.h / 2, el.w / 2, el.h / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (el.type === "triangle") {
+          ctx.fillStyle = el.fill;
+          ctx.beginPath(); ctx.moveTo(el.w / 2, 0); ctx.lineTo(el.w, el.h); ctx.lineTo(0, el.h); ctx.closePath(); ctx.fill();
+        } else if (el.type === "star") {
+          ctx.fillStyle = el.fill; drawStar(ctx, el.w, el.h);
+        } else if (el.type === "line") {
+          ctx.fillStyle = el.fill; ctx.fillRect(0, 0, el.w, el.h);
+        } else if (el.type === "text") {
+          const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+          ctx.fillStyle = el.color;
+          ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
+          ctx.textBaseline = "top"; ctx.textAlign = el.align;
+          const lh = el.size * (el.lineHeight || 1.3);
+          const lines = wrapText(ctx, el.text || "", el.w);
+          let yy = 0, tx = 0;
+          if (el.align === "center") tx = el.w / 2;
+          else if (el.align === "right") tx = el.w;
+          for (const ln of lines) { ctx.fillText(ln, tx, yy); yy += lh; }
+        }
+        ctx.restore();
+      }
+      const blob = await new Promise(function (r) { c.toBlob(r, "image/png"); });
+      if (!blob) throw new Error("Could not encode design");
+      const filename = (filenameEl.value || "design").replace(/[^a-z0-9-_]+/gi, "-") + ".png";
+      const file = new File([blob], filename, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: filenameEl.value || "TMKE design",
+            text: "Made with TMKE Studio",
+          });
+        } catch (e) { /* user cancelled — ignore */ }
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        toast("Saved — drop it into Instagram, LinkedIn or TikTok", 3500);
+      }
+    } catch (err) {
+      console.error("[share]", err);
+      toast("Couldn't share — try Download instead", 3000);
+    }
+  });
+
+  // Download dropdown — replaces the old PNG/JPG buttons. Click trigger to
+  // toggle; click outside or pick an item to close.
+  (function wireDownload() {
+    const wrap = $("ed-download");
+    const trigger = $("ed-download-trigger");
+    const menu = $("ed-download-menu");
+    if (!wrap || !trigger || !menu) return;
+
+    function close() {
+      menu.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+    }
+    function open() {
+      menu.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+    }
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu.hidden ? open() : close();
+    });
+    document.addEventListener("click", (e) => {
+      if (!menu.hidden && !wrap.contains(e.target)) close();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (!menu.hidden && e.key === "Escape") close();
+    });
+    menu.querySelectorAll("[data-export]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const type = btn.getAttribute("data-export");
+        close();
+        exportImage(type);
+      });
+    });
+  })();
   filenameEl.addEventListener("change", save);
 
   // Shortcut modal
@@ -1617,7 +2478,14 @@
   });
 
   // ---------- Init ----------
-  renderPhotoGrid();
+  // Expose addImage so the stock-photo search panel (set up in editor.astro)
+  // can drop search results onto the canvas with the same flow as the bundled
+  // library buttons.
+  window.__TMKE_ADD_PHOTO__ = addImage;
+
+  // If a stock-photo search panel is taking over the Photos tab, skip
+  // rendering the bundled library — its results will fill the grid instead.
+  if (!window.__TMKE_STOCK_SEARCH_ACTIVE__) renderPhotoGrid();
   renderBrandPane();
   seedBrandIntoBackgroundPane();
   window.addEventListener("resize", () => fitZoom());

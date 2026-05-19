@@ -33,19 +33,24 @@ On Railway → **Variables**: add the same two keys.
 In the Supabase dashboard → **SQL Editor** → **New query**, paste and run:
 
 1. The contents of [`supabase/schema.sql`](supabase/schema.sql) — creates the `packs` table and locks it down with RLS.
+2. The contents of [`supabase/templates.sql`](supabase/templates.sql) — creates the `templates` table for the in-house design studio (read by `/editor`, edited from `/admin/templates`).
+3. The contents of [`supabase/brand_fonts.sql`](supabase/brand_fonts.sql) — creates the `brand_fonts` table for custom uploaded typefaces (managed at `/admin/fonts`).
 
-## 4. Create the storage bucket
+## 4. Create the storage buckets
 
-In **Storage**:
+In **Storage**, create **two** public buckets:
 
-1. Click **New bucket**.
-2. Name it exactly `pack-images`.
-3. Toggle **Public bucket** **ON** (cover images need to be readable by visitors).
-4. Save.
+| Bucket name | Used for |
+| --- | --- |
+| `pack-images` | Pack cover images on the storefront |
+| `brand-fonts` | Custom font files (.ttf / .otf / .woff / .woff2) uploaded via `/admin/fonts` |
+
+For each: click **New bucket**, enter the exact name, toggle **Public bucket** **ON**, save.
 
 Then back in the **SQL Editor**, run:
 
-2. The contents of [`supabase/storage.sql`](supabase/storage.sql) — grants upload/update/delete to signed-in admins.
+3. The contents of [`supabase/storage.sql`](supabase/storage.sql) — `pack-images` policies.
+4. The contents of [`supabase/brand-fonts-storage.sql`](supabase/brand-fonts-storage.sql) — `brand-fonts` policies.
 
 ## 5. Create the admin user (the "shared password")
 

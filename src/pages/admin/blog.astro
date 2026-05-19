@@ -1,0 +1,359 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHero from "../../components/PageHero.astro";
+---
+
+<BaseLayout
+  title="Insights — Admin · TMKE"
+  description="Write, edit, and publish TMKE Insights articles."
+  hideNav
+  hideFooter
+>
+  <div class="admin-hero-pad">
+    <PageHero
+      chapter="Admin — Insights"
+      title="The <em>blog desk.</em>"
+      sub="Write, edit, schedule, and publish articles. SEO fields baked into every post."
+    />
+  </div>
+
+  <section class="admin-bar wrap">
+    <a href="/admin" class="admin-back">&larr; Dashboard</a>
+    <div class="admin-bar-actions">
+      <div class="enquiry-chips" role="tablist">
+        <button type="button" class="enquiry-chip is-active" data-filter="all">All</button>
+        <button type="button" class="enquiry-chip" data-filter="published">Published</button>
+        <button type="button" class="enquiry-chip" data-filter="draft">Drafts</button>
+        <button type="button" class="enquiry-chip" data-filter="archived">Archived</button>
+      </div>
+      <input
+        type="search"
+        id="blog-search"
+        class="admin-search"
+        placeholder="Search title, category, keyword…"
+      />
+      <span class="admin-bar-count" id="blog-count">…</span>
+      <a href="/admin/blog/editor?id=new" class="admin-btn admin-btn-primary">+ New article</a>
+    </div>
+  </section>
+
+  <section class="blog-list wrap" id="blog-list" aria-busy="true">
+    <p class="blog-state" id="blog-loading">Loading articles…</p>
+    <p class="blog-state" id="blog-empty" hidden>No articles match this filter.</p>
+    <div class="blog-table" id="blog-table" role="table"></div>
+  </section>
+
+  <style is:global>
+    .admin-hero-pad { padding-top: 100px; }
+    @media (max-width: 720px) { .admin-hero-pad { padding-top: 56px; } }
+
+    .admin-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 0 36px 16px;
+    }
+    .admin-bar-actions {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .admin-back {
+      font-family: var(--sans); font-size: 12px;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: rgba(28,29,34,0.55);
+    }
+    .admin-back:hover { color: var(--english-violet); }
+
+    .admin-search {
+      padding: 8px 12px;
+      border: 1px solid rgba(71, 66, 84, 0.3);
+      border-radius: 2px;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink);
+      background: var(--paper);
+      min-width: 240px;
+    }
+    .admin-search:focus { outline: none; border-color: var(--english-violet); }
+
+    .admin-bar-count {
+      font-family: var(--sans); font-size: 11px;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: rgba(28,29,34,0.5);
+    }
+
+    .enquiry-chips {
+      display: inline-flex; gap: 4px; align-items: center;
+    }
+    .enquiry-chip {
+      background: transparent;
+      border: 1px solid rgba(28,29,34,0.18);
+      padding: 7px 13px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.65);
+      cursor: pointer;
+      border-radius: 999px;
+      transition: background 0.25s, color 0.25s, border-color 0.25s;
+    }
+    .enquiry-chip:hover { color: var(--ink); }
+    .enquiry-chip.is-active {
+      background: var(--ink); color: var(--paper); border-color: var(--ink);
+    }
+
+    .admin-btn {
+      padding: 9px 16px;
+      font-family: var(--sans); font-size: 12px;
+      font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+      border-radius: 2px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .admin-btn-primary {
+      background: var(--english-violet); color: var(--paper);
+    }
+    .admin-btn-primary:hover { background: var(--ink); }
+    .admin-btn-ghost {
+      background: transparent; color: var(--english-violet);
+      border-color: rgba(71,66,84,0.35);
+    }
+    .admin-btn-ghost:hover { background: rgba(71,66,84,0.08); }
+    .admin-btn-danger {
+      background: transparent; color: #a05a3c;
+      border-color: rgba(160,90,60,0.35);
+    }
+    .admin-btn-danger:hover { background: rgba(160,90,60,0.08); }
+
+    .blog-list {
+      max-width: 1360px; margin: 32px auto 200px;
+      padding: 0 36px;
+    }
+    .blog-state {
+      font-family: var(--sans); font-size: 14px;
+      color: rgba(28,29,34,0.55);
+      padding: 32px 0;
+    }
+    .blog-table {
+      display: flex; flex-direction: column;
+      border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    .blog-row {
+      display: grid;
+      grid-template-columns: 80px 1fr 130px 110px 130px 100px;
+      gap: 16px;
+      align-items: center;
+      padding: 16px 12px;
+      border-bottom: 1px solid rgba(28,29,34,0.06);
+      transition: background 0.2s;
+    }
+    .blog-row:hover { background: rgba(71,66,84,0.04); }
+    .blog-row-thumb {
+      width: 64px; height: 48px;
+      background: rgba(28,29,34,0.06);
+      background-size: cover;
+      background-position: center;
+      border-radius: 2px;
+    }
+    .blog-row-info {
+      display: flex; flex-direction: column; gap: 4px;
+      min-width: 0;
+    }
+    .blog-row-title {
+      font-family: var(--serif); font-size: 18px;
+      color: var(--ink); line-height: 1.2;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .blog-row-meta {
+      font-family: var(--sans); font-size: 11px;
+      letter-spacing: 0.04em; color: rgba(28,29,34,0.55);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .blog-row-cat {
+      font-family: var(--sans); font-size: 10px;
+      font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--english-violet);
+    }
+    .blog-row-date {
+      font-family: var(--sans); font-size: 12px;
+      color: rgba(28,29,34,0.6);
+    }
+    .blog-status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-family: var(--sans); font-size: 10px;
+      font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .blog-status-pill::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+    }
+    .blog-status-published {
+      background: rgba(60, 130, 80, 0.12);
+      color: #2d6a44;
+    }
+    .blog-status-published::before { background: #2d6a44; }
+    .blog-status-draft {
+      background: rgba(71, 66, 84, 0.1);
+      color: var(--english-violet);
+    }
+    .blog-status-draft::before { background: var(--english-violet); }
+    .blog-status-archived {
+      background: rgba(28, 29, 34, 0.08);
+      color: rgba(28,29,34,0.55);
+    }
+    .blog-status-archived::before { background: rgba(28,29,34,0.55); }
+    .blog-row-actions {
+      display: flex; gap: 6px; justify-content: flex-end;
+    }
+    .blog-row-action {
+      padding: 5px 10px;
+      background: transparent;
+      border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 2px;
+      cursor: pointer;
+      font-family: var(--sans); font-size: 10px;
+      font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.7);
+      text-decoration: none;
+    }
+    .blog-row-action:hover { color: var(--ink); border-color: rgba(28,29,34,0.4); }
+    .blog-row-action.danger:hover { color: #a05a3c; border-color: rgba(160,90,60,0.5); }
+
+    @media (max-width: 980px) {
+      .blog-row {
+        grid-template-columns: 56px 1fr;
+        gap: 12px;
+      }
+      .blog-row-cat, .blog-row-date, .blog-row-status, .blog-row-actions { grid-column: 1 / -1; }
+    }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    import { requireAdmin } from "../../lib/admin-gate.js";
+
+    const $list = document.getElementById("blog-list");
+    const $loading = document.getElementById("blog-loading");
+    const $empty = document.getElementById("blog-empty");
+    const $table = document.getElementById("blog-table");
+    const $count = document.getElementById("blog-count");
+    const $search = document.getElementById("blog-search");
+    const chips = document.querySelectorAll(".enquiry-chip");
+
+    let all = [];
+    let activeFilter = "all";
+    let activeSearch = "";
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return "—";
+      try {
+        return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      } catch (_) { return "—"; }
+    }
+
+    function statusPill(status) {
+      const label = (status || "draft").toLowerCase();
+      const txt = label.charAt(0).toUpperCase() + label.slice(1);
+      return `<span class="blog-status-pill blog-status-${label}">${txt}</span>`;
+    }
+
+    function render() {
+      const q = activeSearch.trim().toLowerCase();
+      const filtered = all.filter((p) => {
+        if (activeFilter !== "all" && p.status !== activeFilter) return false;
+        if (q) {
+          const hay = [p.title, p.category, p.eyebrow, (p.seo_keywords || []).join(" ")]
+            .map((x) => String(x || "").toLowerCase()).join(" ");
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      $loading.hidden = true;
+      $empty.hidden = filtered.length > 0;
+      $count.textContent = `${filtered.length} of ${all.length}`;
+
+      $table.innerHTML = filtered.map((p) => `
+        <div class="blog-row" data-id="${p.id}" role="row">
+          <a href="/admin/blog/editor?id=${p.id}" class="blog-row-thumb-link" aria-label="Edit ${escapeHtml(p.title)}">
+            <div class="blog-row-thumb" style="background-image:url(${JSON.stringify(p.hero_image_url || "").replace(/^"|"$/g, '')})"></div>
+          </a>
+          <div class="blog-row-info">
+            <a href="/admin/blog/editor?id=${p.id}" class="blog-row-title">${escapeHtml(p.title || "(untitled)")}</a>
+            <span class="blog-row-meta">${escapeHtml(p.eyebrow || p.standfirst || "—")}</span>
+          </div>
+          <span class="blog-row-cat">${escapeHtml(p.category || "Insights")}</span>
+          <span class="blog-row-date">${fmtDate(p.publish_date || p.updated_at)}</span>
+          <span class="blog-row-status">${statusPill(p.status)}</span>
+          <div class="blog-row-actions">
+            <a href="/admin/blog/editor?id=${p.id}" class="blog-row-action">Edit</a>
+            <button type="button" class="blog-row-action danger" data-delete="${p.id}">Delete</button>
+          </div>
+        </div>
+      `).join("");
+
+      // Wire delete handlers
+      $table.querySelectorAll("[data-delete]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-delete");
+          const row = all.find((p) => p.id === id);
+          if (!row) return;
+          if (!confirm(`Delete "${row.title}"? This can't be undone.`)) return;
+          btn.setAttribute("disabled", "true");
+          btn.textContent = "Deleting…";
+          const { error } = await supabase.from("blog_posts").delete().eq("id", id);
+          if (error) {
+            btn.removeAttribute("disabled");
+            btn.textContent = "Delete";
+            alert(`Couldn't delete: ${error.message}`);
+            return;
+          }
+          all = all.filter((p) => p.id !== id);
+          render();
+        });
+      });
+    }
+
+    chips.forEach((c) => c.addEventListener("click", () => {
+      chips.forEach((b) => b.classList.remove("is-active"));
+      c.classList.add("is-active");
+      activeFilter = c.getAttribute("data-filter");
+      render();
+    }));
+    $search.addEventListener("input", () => {
+      activeSearch = $search.value || "";
+      render();
+    });
+
+    (async () => {
+      const session = await requireAdmin("/admin/login");
+      if (!session) return;
+      const { data, error } = await supabase
+        .from("blog_posts")
+        .select("id, slug, title, eyebrow, category, standfirst, status, publish_date, updated_at, hero_image_url, seo_keywords")
+        .order("updated_at", { ascending: false });
+      if (error) {
+        $loading.textContent = `Couldn't load articles: ${error.message}`;
+        return;
+      }
+      all = data || [];
+      render();
+    })();
+  </script>
+</BaseLayout>

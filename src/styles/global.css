@@ -241,6 +241,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   inset: 0;
   background: radial-gradient(70% 60% at 50% 45%, rgba(71, 66, 84, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
   pointer-events: none;
+  z-index: 1;
 }
 .splash-inner {
   position: relative;
@@ -249,6 +250,40 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   padding: 0 36px;
   max-width: 1200px;
 }
+
+/* ===== Doors: closed still → opening video → open still =====
+   Three stacked media layers. We crossfade between them via the .is-on /
+   .is-playing / .is-open classes added by window.tmkeSplash(). */
+.splash-bg,
+.splash-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: brightness(0.92) contrast(1.04);
+  user-select: none;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.45s ease-out;
+}
+.splash-bg--closed { z-index: 1; }
+.splash-video      { z-index: 2; }
+.splash-bg--open   { z-index: 3; }
+.splash-grain      { z-index: 4; }
+.splash-inner      { z-index: 5; }
+
+/* State machine
+   ─────────────────────────────────────────────────────────────────────
+   .splash               → everything hidden
+   .splash.is-on         → closed still visible (matches the login page bg)
+   .splash.is-playing    → video fades in over the closed still, then plays
+   .splash.is-open       → open still fades in over the (ended) video
+*/
+.splash.is-on   .splash-bg--closed { opacity: 1; }
+.splash.is-playing .splash-video   { opacity: 1; }
+.splash.is-open .splash-bg--open   { opacity: 1; }
 .splash-eyebrow {
   font-family: var(--sans);
   font-size: 12px;
@@ -280,7 +315,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   opacity: 0.45;
 }
 .splash.is-on .splash-eyebrow {
-  animation: splashFadeUp 0.9s 0.15s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashFadeUp 0.9s 0.6s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash-title {
   font-family: var(--serif);
@@ -302,10 +337,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   opacity: 0;
 }
 .splash.is-on .splash-word:nth-child(1) > span {
-  animation: splashWord 1s 0.35s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashWord 1.05s 0.85s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash.is-on .splash-word:nth-child(2) > span {
-  animation: splashWord 1s 0.55s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashWord 1.05s 1.05s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash-sub {
   font-family: var(--serif);
@@ -316,7 +351,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   opacity: 0;
 }
 .splash.is-on .splash-sub {
-  animation: splashFadeUp 0.9s 0.85s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashFadeUp 0.9s 1.35s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash-bar {
   width: 240px;
@@ -327,7 +362,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   opacity: 0;
 }
 .splash.is-on .splash-bar {
-  animation: splashFadeUp 0.6s 0.95s cubic-bezier(.2,.7,.2,1) forwards;
+  animation: splashFadeUp 0.6s 1.55s cubic-bezier(.2,.7,.2,1) forwards;
 }
 .splash-bar-fill {
   display: block;
@@ -338,7 +373,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   transform: scaleX(0);
 }
 .splash.is-on .splash-bar-fill {
-  animation: splashBar 1.6s 0.95s cubic-bezier(.4, 0, .2, 1) forwards;
+  animation: splashBar 3.6s 1.6s cubic-bezier(.4, 0, .2, 1) forwards;
 }
 
 @keyframes splashFadeUp {
@@ -775,7 +810,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .svc-card:hover .svc-arrow { transform: translateX(8px); }
 
 /* ============ Editorial intro ============ */
-.editorial { padding: 200px 0 180px; }
+.editorial { padding: 200px 0 40px; }
 .editorial-grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;

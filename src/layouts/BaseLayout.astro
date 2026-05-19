@@ -50,13 +50,20 @@ const {
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Splash assets are prefetched on-demand (Nav.astro warms them on
+         hover/focus of the Login button) so we don't burn ~11 MB on every
+         page load. /login preloads the closed still directly since it's
+         the page background. -->
     <link
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Darker+Grotesque:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
 
-    <!-- Lenis — smooth, momentum-based scrolling -->
+    <!-- Lenis — smooth, momentum-based scrolling.
+         `defer` makes the CDN fetch non-blocking; Lenis still runs after
+         DOMContentLoaded which is fine for scroll enhancement. -->
     <script
+      defer
       src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"
       is:inline></script>
   </head>
@@ -65,8 +72,13 @@ const {
     <slot />
     {!hideFooter && <Footer />}
 
-    <!-- Sign-in splash overlay — fired by window.tmkeSplash() -->
+    <!-- Sign-in splash overlay — fired by window.tmkeSplash().
+         Media has no src/preload by default; tmkeSplash() populates them
+         just before showing so we don't fetch ~11 MB on every page load. -->
     <div class="splash" id="tmke-splash" aria-hidden="true">
+      <img class="splash-bg splash-bg--closed" alt="" data-src="/assets/door-closed.png" />
+      <video class="splash-video" id="tmke-splash-video" muted playsinline preload="none" data-src="/assets/door-open.mp4" data-poster="/assets/door-closed.png"></video>
+      <img class="splash-bg splash-bg--open" alt="" data-src="/assets/doors-open.png" />
       <div class="splash-grain"></div>
       <div class="splash-inner">
         <div class="splash-eyebrow"><span>TMKE</span> &mdash; Members</div>
@@ -82,14 +94,76 @@ const {
     <script is:inline>
       window.tmkeSplash = function (destination, opts) {
         opts = opts || {};
-        const duration = opts.duration || 2200;
+        // ~5s video runtime + a short beat on the open-doors still.
+        // If anything stalls, we settle on the open still by VIDEO_FALLBACK
+        // and navigate by HARD_CAP — so the user is never stuck on a frozen
+        // splash. HARD_CAP is the absolute backstop the user asked for.
+        const HARD_CAP = opts.duration || 5800;
+        const VIDEO_FALLBACK = 5200;
+        const POST_HOLD = 500;
         const splash = document.getElementById("tmke-splash");
         if (!splash) { window.location.href = destination; return; }
+        const video = document.getElementById("tmke-splash-video");
+
+        // Hydrate media — the markup ships without src so we don't fetch
+        // ~11 MB of assets on every page load. They're populated only when
+        // the splash actually fires.
+        splash.querySelectorAll("img[data-src]").forEach(function (img) {
+          if (!img.getAttribute("src")) img.src = img.getAttribute("data-src");
+        });
+        if (video) {
+          if (!video.getAttribute("poster") && video.getAttribute("data-poster")) {
+            video.setAttribute("poster", video.getAttribute("data-poster"));
+          }
+          if (!video.getAttribute("src") && video.getAttribute("data-src")) {
+            video.setAttribute("src", video.getAttribute("data-src"));
+            video.load();
+          }
+        }
+
         splash.classList.add("is-on");
         document.documentElement.style.overflow = "hidden";
-        setTimeout(function () {
+
+        let navigated = false;
+        function navigate() {
+          if (navigated) return;
+          navigated = true;
           window.location.href = destination;
-        }, duration);
+        }
+
+        // Hard cap — splash never holds longer than HARD_CAP, no matter what
+        const hardTimer = setTimeout(navigate, HARD_CAP);
+
+        function settleToOpen() {
+          if (splash.classList.contains("is-open")) return;
+          splash.classList.add("is-open");
+          // The open still is crossfading in; pause the video so it stops
+          // burning frames while it's being covered.
+          try { video && video.pause && video.pause(); } catch (_) {}
+          // hold briefly on the open-doors still + text, then go
+          setTimeout(function () {
+            clearTimeout(hardTimer);
+            navigate();
+          }, POST_HOLD);
+        }
+
+        if (video && video.canPlayType && video.canPlayType("video/mp4")) {
+          // Kick off playback as soon as the splash shows
+          requestAnimationFrame(function () { splash.classList.add("is-playing"); });
+          try { video.currentTime = 0; } catch (_) {}
+          const p = video.play();
+          if (p && p.catch) p.catch(function () {
+            // Autoplay blocked / video failed — go straight to the open still
+            settleToOpen();
+          });
+          video.addEventListener("ended", settleToOpen, { once: true });
+          // Safety: if the video never fires "ended" (load issue, slow connection),
+          // settle on the open still after VIDEO_FALLBACK
+          setTimeout(settleToOpen, VIDEO_FALLBACK);
+        } else {
+          // No video support — skip straight to the open still
+          settleToOpen();
+        }
       };
     </script>
 

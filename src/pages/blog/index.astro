@@ -1,11 +1,23 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHero from "../../components/PageHero.astro";
+import { getPublishedPosts, categories } from "../../data/blog.js";
+
+// Pulled from Supabase if configured, otherwise from the static fallback.
+const allPosts = await getPublishedPosts();
+const sorted = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
+const featured = sorted[0];
+const rest = sorted.slice(1);
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
 ---
 
 <BaseLayout
   title="Insights — TMKE"
-  description="I’m an Estate Agent, Not a Content Creator — structured, insight-led writing for UK property marketing."
+  description="Structured insights on social media, brand positioning, content systems, and the future of estate agency marketing — written for UK property professionals."
 >
   <PageHero
     chapter="Insights"
@@ -13,17 +25,403 @@ import PageHero from "../../components/PageHero.astro";
     sub="Structured insights on social media, brand positioning, and content systems built for the property sector."
   />
 
-  <section class="page-placeholder">
-    <span class="placeholder-tag">Work in progress</span>
-    <p>This page will host the blog index. To be built next:</p>
-    <ul class="placeholder-list">
-      <li>Featured cornerstone article (fortnightly cadence)</li>
-      <li>Category filter (Strategy · Content · Branding · Industry · Tools)</li>
-      <li>Article cards with image, eyebrow, title, lead, read time</li>
-      <li>Newsletter capture inline + at end of every article</li>
-      <li>Lead magnet embeds — including Five &amp; Live</li>
-      <li>Search + related articles</li>
-      <li>Markdown-driven posts in <code>src/content/blog/*.md</code></li>
-    </ul>
+  <style is:global>
+    /* Insights hero sits further down the page than the default — gives
+       the headline more breathing room beneath the nav. Scoped to this
+       page only — Astro emits the style on /blog alone. */
+    .page-hero { padding-top: 220px; }
+  </style>
+
+  <!-- ============================== FEATURED -->
+  <section class="insights-featured wrap">
+    <a class="feat" href={`/blog/${featured.slug}`}>
+      <div class="feat-media">
+        <img src={featured.hero} alt={featured.title} loading="eager" />
+      </div>
+      <div class="feat-body">
+        <div class="feat-meta">
+          <span class="feat-cat">{featured.category}</span>
+          <span class="feat-dot">·</span>
+          <span>{fmtDate(featured.date)}</span>
+          <span class="feat-dot">·</span>
+          <span>{featured.readTime} min read</span>
+        </div>
+        <h2 class="feat-title">{featured.title}</h2>
+        <p class="feat-stand">{featured.standfirst}</p>
+        <span class="feat-cta">Read the article <em>&rarr;</em></span>
+      </div>
+    </a>
   </section>
+
+  <!-- ============================== FILTER + GRID -->
+  <section class="insights-grid-wrap wrap">
+    <header class="insights-grid-head">
+      <div>
+        <div class="eyebrow">More from the desk</div>
+        <h3 class="insights-grid-title">Every insight, ordered freshly.</h3>
+      </div>
+      <div class="insights-filters" id="insights-filters">
+        <button class="ifilter is-active" data-filter="all">All</button>
+        {categories.map((c) => (
+          <button class="ifilter" data-filter={c}>{c}</button>
+        ))}
+      </div>
+    </header>
+
+    <div class="insights-grid">
+      {rest.map((p) => (
+        <a class="icard" href={`/blog/${p.slug}`} data-category={p.category}>
+          <div class="icard-media">
+            <img src={p.hero} alt={p.title} loading="lazy" />
+            <span class="icard-cat">{p.category}</span>
+          </div>
+          <div class="icard-body">
+            <h4 class="icard-title">{p.title}</h4>
+            <p class="icard-stand">{p.standfirst}</p>
+            <div class="icard-meta">
+              <span>{fmtDate(p.date)}</span>
+              <span class="icard-dot">·</span>
+              <span>{p.readTime} min read</span>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <!-- ============================== NEWSLETTER -->
+  <section class="insights-news wrap">
+    <div class="news-box">
+      <div class="news-eyebrow">/ Newsletter /</div>
+      <h3 class="news-title">Get the next insight <em>in your inbox.</em></h3>
+      <p class="news-sub">One considered email every other Friday. No filler, no automation — written by the TMKE desk for UK property professionals.</p>
+      <form class="news-form" id="insights-news-form" novalidate>
+        <input type="email" name="email" placeholder="you@agency.co.uk" required autocomplete="email" />
+        <button type="submit" class="btn btn--solid">Subscribe <span class="btn-arrow">&rarr;</span></button>
+      </form>
+      <p class="news-fine">No spam. Unsubscribe in one click.</p>
+    </div>
+  </section>
+
+  <style>
+    /* ============== FEATURED ============== */
+    .insights-featured {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 0 36px 80px;
+    }
+    .feat {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 80px;
+      align-items: center;
+      color: var(--ink);
+    }
+    @media (max-width: 980px) {
+      .feat { grid-template-columns: 1fr; gap: 32px; }
+    }
+    .feat-media {
+      aspect-ratio: 5 / 4;
+      overflow: hidden;
+      background: rgba(28,29,34,0.06);
+    }
+    .feat-media img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 1.6s cubic-bezier(.2,.7,.2,1);
+    }
+    .feat:hover .feat-media img { transform: scale(1.04); }
+
+    .feat-meta {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(28,29,34,0.55);
+      margin-bottom: 24px;
+    }
+    .feat-cat { color: var(--english-violet); }
+    .feat-dot { opacity: 0.5; }
+
+    .feat-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(36px, 4.4vw, 60px);
+      line-height: 1.04;
+      letter-spacing: -0.018em;
+      color: var(--ink);
+      margin: 0 0 22px;
+      max-width: 22ch;
+    }
+    .feat-stand {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(18px, 1.7vw, 22px);
+      line-height: 1.5;
+      color: rgba(28,29,34,0.7);
+      max-width: 50ch;
+      margin: 0 0 36px;
+    }
+    .feat-cta {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      border-bottom: 1px solid currentColor;
+      padding-bottom: 4px;
+    }
+    .feat-cta em {
+      font-style: italic;
+      font-family: var(--serif);
+      font-size: 16px;
+      letter-spacing: 0;
+      text-transform: none;
+      transition: transform 0.3s ease;
+    }
+    .feat:hover .feat-cta em { transform: translateX(4px); }
+
+    /* ============== GRID HEAD ============== */
+    .insights-grid-wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 80px 36px 80px;
+      border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    .insights-grid-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+    .insights-grid-head .eyebrow { margin-bottom: 10px; }
+    .insights-grid-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(28px, 3vw, 40px);
+      letter-spacing: -0.012em;
+      color: var(--ink);
+      margin: 0;
+    }
+
+    .insights-filters {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .ifilter {
+      background: transparent;
+      border: 1px solid rgba(28,29,34,0.18);
+      padding: 8px 14px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.65);
+      cursor: pointer;
+      border-radius: 999px;
+      transition: background 0.25s, color 0.25s, border-color 0.25s;
+    }
+    .ifilter:hover { color: var(--ink); }
+    .ifilter.is-active {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+
+    /* ============== CARDS ============== */
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 36px 28px;
+    }
+    @media (max-width: 980px) { .insights-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .insights-grid { grid-template-columns: 1fr; } }
+
+    .icard {
+      display: block;
+      color: var(--ink);
+      transition: transform 0.4s cubic-bezier(.2,.7,.2,1);
+    }
+    .icard.is-hidden { display: none; }
+    .icard:hover { transform: translateY(-4px); }
+
+    .icard-media {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      background: rgba(28,29,34,0.06);
+      margin-bottom: 22px;
+    }
+    .icard-media img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 1.4s cubic-bezier(.2,.7,.2,1);
+    }
+    .icard:hover .icard-media img { transform: scale(1.06); }
+
+    .icard-cat {
+      position: absolute;
+      top: 14px; left: 14px;
+      padding: 5px 10px;
+      background: rgba(28,29,34,0.85);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      border-radius: 999px;
+    }
+
+    .icard-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(20px, 1.8vw, 26px);
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0 0 12px;
+      max-width: 22ch;
+    }
+    .icard-stand {
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.62);
+      margin: 0 0 16px;
+      max-width: 42ch;
+    }
+    .icard-meta {
+      display: flex; gap: 8px;
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: rgba(28,29,34,0.5);
+    }
+    .icard-dot { opacity: 0.5; }
+
+    /* ============== NEWSLETTER ============== */
+    .insights-news {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 80px 36px 160px;
+    }
+    .news-box {
+      background: var(--ink);
+      color: var(--paper);
+      padding: 80px 64px;
+      text-align: center;
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+    @media (max-width: 720px) { .news-box { padding: 56px 28px; } }
+    .news-eyebrow {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 16px;
+      color: rgba(240,238,235,0.6);
+      margin-bottom: 18px;
+    }
+    .news-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(32px, 3.4vw, 48px);
+      letter-spacing: -0.015em;
+      color: var(--paper);
+      margin: 0 0 14px;
+    }
+    .news-title em { font-style: italic; color: var(--french-grey); }
+    .news-sub {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(16px, 1.4vw, 19px);
+      line-height: 1.5;
+      color: rgba(240,238,235,0.7);
+      max-width: 52ch;
+      margin: 0 auto 28px;
+    }
+    .news-form {
+      display: flex;
+      gap: 8px;
+      max-width: 480px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .news-form input {
+      flex: 1;
+      min-width: 220px;
+      padding: 14px 18px;
+      font-family: var(--sans);
+      font-size: 15px;
+      background: transparent;
+      border: 1px solid rgba(240,238,235,0.3);
+      color: var(--paper);
+      border-radius: 1px;
+    }
+    .news-form input::placeholder { color: rgba(240,238,235,0.4); }
+    .news-form input:focus {
+      outline: none;
+      border-color: var(--paper);
+    }
+    .news-form .btn--solid {
+      background: var(--paper);
+      color: var(--ink);
+      border-color: var(--paper);
+    }
+    .news-form .btn--solid:hover {
+      background: var(--accent);
+      color: var(--paper);
+      border-color: var(--accent);
+    }
+    .news-fine {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(240,238,235,0.4);
+      margin-top: 18px;
+    }
+  </style>
+
+  <script is:inline>
+    (function () {
+      const filters = document.querySelectorAll(".ifilter");
+      const cards = document.querySelectorAll(".icard");
+      filters.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          filters.forEach(function (b) { b.classList.remove("is-active"); });
+          btn.classList.add("is-active");
+          const want = btn.getAttribute("data-filter");
+          cards.forEach(function (c) {
+            const cat = c.getAttribute("data-category");
+            c.classList.toggle("is-hidden", want !== "all" && cat !== want);
+          });
+        });
+      });
+
+      const form = document.getElementById("insights-news-form");
+      if (form) {
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          const input = form.querySelector("input");
+          const btn = form.querySelector("button");
+          if (!input.value) return;
+          const original = btn.innerHTML;
+          btn.textContent = "You're in ✓";
+          setTimeout(function () {
+            btn.innerHTML = original;
+            input.value = "";
+          }, 2400);
+        });
+      }
+    })();
+  </script>
 </BaseLayout>
