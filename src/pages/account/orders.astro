@@ -101,11 +101,38 @@ import "../../styles/workspace.css";
     }
     @media (max-width: 720px) { .orders-summary { grid-template-columns: 1fr; } }
     .o-stat {
-      padding: 22px 24px 18px;
-      background: rgba(255,255,255,0.6);
+      position: relative;
+      padding: 24px 26px 20px;
+      background: rgba(255,255,255,0.78);
       border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 3px;
+      border-radius: 14px;
+      overflow: hidden;
+      transition: transform 0.3s cubic-bezier(.2,.7,.2,1), border-color 0.25s, box-shadow 0.25s;
     }
+    .o-stat::before {
+      content: "";
+      position: absolute; inset: 0 0 auto 0;
+      height: 3px;
+      background: var(--o-accent, var(--gradient-violet));
+    }
+    .o-stat::after {
+      content: "";
+      position: absolute;
+      top: -50%; right: -30%;
+      width: 220px; height: 220px;
+      border-radius: 999px;
+      background: var(--o-glow, radial-gradient(circle, rgba(123,91,207,0.22) 0%, rgba(123,91,207,0) 70%));
+      pointer-events: none;
+    }
+    .o-stat > * { position: relative; z-index: 1; }
+    .o-stat:hover {
+      transform: translateY(-3px);
+      border-color: rgba(123,91,207,0.4);
+      box-shadow: 0 20px 40px -18px rgba(123,91,207,0.35);
+    }
+    .o-stat:nth-child(1) { --o-accent: var(--gradient-violet); --o-glow: radial-gradient(circle, rgba(123,91,207,0.28) 0%, rgba(123,91,207,0) 70%); }
+    .o-stat:nth-child(2) { --o-accent: linear-gradient(135deg, #E0B96A 0%, #C99A3E 100%); --o-glow: radial-gradient(circle, rgba(224,185,106,0.28) 0%, rgba(224,185,106,0) 70%); }
+    .o-stat:nth-child(3) { --o-accent: linear-gradient(135deg, #E89B7B 0%, #D7754F 100%); --o-glow: radial-gradient(circle, rgba(232,155,123,0.28) 0%, rgba(232,155,123,0) 70%); }
     .o-stat-label {
       font-family: var(--sans);
       font-size: 11px;
@@ -116,9 +143,9 @@ import "../../styles/workspace.css";
     }
     .o-stat-value {
       font-family: var(--serif);
-      font-size: 36px;
+      font-size: 40px;
       letter-spacing: -0.015em;
-      margin-top: 6px;
+      margin-top: 8px;
       color: var(--ink);
     }
   </style>

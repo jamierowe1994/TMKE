@@ -64,17 +64,17 @@ import "../styles/workspace.css";
 
     <!-- Stats row -->
     <section class="stats fade-up" data-delay="2" aria-label="Your TMKE at a glance">
-      <article class="stat">
+      <article class="stat stat--violet">
         <div class="stat-label">Active packs</div>
         <div class="stat-value" id="stat-packs">—</div>
         <div class="stat-foot">From The Edit</div>
       </article>
-      <article class="stat">
+      <article class="stat stat--coral">
         <div class="stat-label">Designs in progress</div>
         <div class="stat-value" id="stat-designs">—</div>
         <div class="stat-foot">Saved locally</div>
       </article>
-      <article class="stat">
+      <article class="stat stat--gold">
         <div class="stat-label">Lifetime spend</div>
         <div class="stat-value" id="stat-spend">£0</div>
         <div class="stat-foot" id="stat-spend-foot">No orders yet</div>
@@ -170,14 +170,43 @@ import "../styles/workspace.css";
     @media (max-width: 980px) { .stats { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 560px) { .stats { grid-template-columns: 1fr; } }
     .stat {
+      position: relative;
       display: flex; flex-direction: column; gap: 6px;
       padding: 22px 24px 18px;
-      background: rgba(255,255,255,0.6);
+      background: rgba(255,255,255,0.72);
       border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 3px;
-      min-height: 140px;
+      border-radius: 14px;
+      min-height: 150px;
+      overflow: hidden;
     }
-    .stat--brand { background: rgba(71, 66, 84, 0.05); border-color: rgba(71,66,84,0.2); }
+    /* Per-stat colored accent — top stripe + corner glow.
+       Adds tasteful colour without breaking the editorial calm. */
+    .stat::before {
+      content: "";
+      position: absolute; inset: 0 0 auto 0;
+      height: 3px;
+      background: var(--stat-accent, var(--gradient-violet));
+      opacity: 0.9;
+    }
+    .stat::after {
+      content: "";
+      position: absolute;
+      top: -40%; right: -25%;
+      width: 220px; height: 220px;
+      border-radius: 999px;
+      background: var(--stat-glow, radial-gradient(circle, rgba(123,91,207,0.22) 0%, rgba(123,91,207,0) 70%));
+      pointer-events: none;
+    }
+    .stat > * { position: relative; z-index: 1; }
+    .stat--violet  { --stat-accent: var(--gradient-violet); --stat-glow: radial-gradient(circle, rgba(123,91,207,0.28) 0%, rgba(123,91,207,0) 70%); }
+    .stat--coral   { --stat-accent: linear-gradient(135deg, #E89B7B 0%, #D7754F 100%); --stat-glow: radial-gradient(circle, rgba(232,155,123,0.28) 0%, rgba(232,155,123,0) 70%); }
+    .stat--gold    { --stat-accent: linear-gradient(135deg, #E0B96A 0%, #C99A3E 100%); --stat-glow: radial-gradient(circle, rgba(224,185,106,0.28) 0%, rgba(224,185,106,0) 70%); }
+    .stat--brand   {
+      --stat-accent: linear-gradient(135deg, #2E1F54 0%, #7B5BCF 100%);
+      --stat-glow: radial-gradient(circle, rgba(46,31,84,0.22) 0%, rgba(46,31,84,0) 70%);
+      background: linear-gradient(180deg, rgba(123, 91, 207, 0.07), rgba(123, 91, 207, 0.02));
+      border-color: rgba(123,91,207,0.25);
+    }
     .stat-label {
       font-family: var(--sans);
       font-size: 11px;
@@ -188,33 +217,47 @@ import "../styles/workspace.css";
     }
     .stat-value {
       font-family: var(--serif);
-      font-size: 44px;
+      font-size: 48px;
       line-height: 1;
       letter-spacing: -0.02em;
-      margin-top: 8px;
+      margin-top: 10px;
       color: var(--ink);
     }
     .stat-foot {
       margin-top: auto;
       font-family: var(--sans);
       font-size: 12px;
-      color: rgba(28,29,34,0.55);
+      color: rgba(28,29,34,0.6);
     }
     .stat-foot a {
-      color: var(--english-violet);
+      color: var(--violet);
       font-weight: 700;
       letter-spacing: 0.04em;
       text-decoration: none;
+      transition: color 0.2s;
     }
-    .stat-foot a:hover { text-decoration: underline; }
+    .stat-foot a:hover { color: var(--violet-deep); text-decoration: underline; }
 
     /* ---------- Library ---------- */
     .lib-empty {
-      padding: 36px 32px;
-      background: rgba(255,255,255,0.6);
-      border: 1px dashed rgba(71,66,84,0.3);
-      border-radius: 3px;
+      position: relative;
+      padding: 40px 36px;
+      background:
+        radial-gradient(80% 100% at 100% 0%, rgba(123,91,207,0.12) 0%, rgba(123,91,207,0) 70%),
+        rgba(255,255,255,0.75);
+      border: 1px dashed rgba(123,91,207,0.45);
+      border-radius: 14px;
+      overflow: hidden;
     }
+    .lib-empty::after {
+      content: "";
+      position: absolute;
+      bottom: -60%; left: -10%;
+      width: 320px; height: 320px;
+      background: radial-gradient(circle, rgba(232,155,123,0.18) 0%, rgba(232,155,123,0) 70%);
+      pointer-events: none;
+    }
+    .lib-empty > * { position: relative; }
     .lib-empty h3 {
       font-family: var(--serif);
       font-size: 28px;
@@ -231,6 +274,7 @@ import "../styles/workspace.css";
     @media (max-width: 980px) { .library-grid { grid-template-columns: 1fr; } }
 
     .pack-row {
+      position: relative;
       display: grid;
       grid-template-columns: 160px 1fr;
       gap: 22px;
@@ -238,20 +282,31 @@ import "../styles/workspace.css";
       padding: 20px;
       background: #fff;
       border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 4px;
+      border-radius: 14px;
+      overflow: hidden;
     }
+    .pack-row::before {
+      content: "";
+      position: absolute; inset: 0 0 auto 0;
+      height: 3px;
+      background: var(--gradient-violet);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .pack-row:hover::before { opacity: 1; }
     .pack-row-cover {
       position: relative;
       aspect-ratio: 4 / 5;
       background-size: cover;
       background-position: center;
       background-color: var(--platinum);
-      border-radius: 2px;
+      border-radius: 10px;
+      box-shadow: inset 0 0 0 1px rgba(123,91,207,0.10);
     }
     .pack-row-cover-tag {
       position: absolute; top: 10px; left: 10px;
-      padding: 4px 10px;
-      background: rgba(28, 29, 34, 0.78);
+      padding: 5px 11px;
+      background: var(--gradient-violet);
       color: var(--paper);
       font-family: var(--sans);
       font-size: 10px;
@@ -259,6 +314,7 @@ import "../styles/workspace.css";
       letter-spacing: 0.2em;
       text-transform: uppercase;
       border-radius: 999px;
+      box-shadow: 0 6px 16px -6px rgba(123,91,207,0.55);
     }
     .pack-row-body { display: flex; flex-direction: column; gap: 6px; }
     .pack-row-meta {
@@ -291,11 +347,11 @@ import "../styles/workspace.css";
     }
     .lib-btn {
       appearance: none;
-      background: var(--ink);
+      background: var(--gradient-violet);
       color: var(--paper);
       border: 0;
-      padding: 10px 16px;
-      border-radius: 2px;
+      padding: 11px 18px;
+      border-radius: 999px;
       font-family: var(--sans);
       font-size: 11px;
       font-weight: 700;
@@ -304,19 +360,34 @@ import "../styles/workspace.css";
       cursor: pointer;
       text-decoration: none;
       display: inline-flex; align-items: center; gap: 8px;
+      box-shadow: 0 10px 24px -10px rgba(123,91,207,0.55);
+      transition: transform 0.25s, box-shadow 0.25s;
     }
-    .lib-btn[disabled] { opacity: 0.55; cursor: not-allowed; background: rgba(28,29,34,0.5); }
+    .lib-btn:hover { transform: translateY(-1px); box-shadow: 0 16px 30px -12px rgba(123,91,207,0.7); }
+    .lib-btn[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+      background: rgba(28,29,34,0.45);
+      box-shadow: none;
+      transform: none;
+    }
     .lib-btn-ghost {
       background: transparent;
-      color: var(--english-violet);
-      border: 1px solid rgba(71,66,84,0.4);
+      color: var(--violet);
+      border: 1px solid rgba(123,91,207,0.4);
+      box-shadow: none;
     }
-    .lib-btn-ghost:hover { background: rgba(71,66,84,0.06); }
+    .lib-btn-ghost:hover {
+      background: rgba(123,91,207,0.08);
+      border-color: var(--violet);
+      box-shadow: 0 8px 18px -10px rgba(123,91,207,0.45);
+    }
     .lib-soon-tag {
       display: inline-flex; align-items: center;
-      padding: 4px 10px;
-      background: rgba(184, 130, 106, 0.12);
+      padding: 5px 11px;
+      background: linear-gradient(135deg, rgba(232,155,123,0.22), rgba(232,155,123,0.10));
       color: #8a4d33;
+      border: 1px solid rgba(232,155,123,0.35);
       font-family: var(--sans);
       font-size: 10px;
       font-weight: 700;
@@ -334,23 +405,34 @@ import "../styles/workspace.css";
     @media (max-width: 880px) { .drafts-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 560px) { .drafts-grid { grid-template-columns: 1fr; } }
     .draft-card {
+      position: relative;
       display: flex; flex-direction: column; gap: 8px;
       padding: 18px 20px;
       background: #fff;
       border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 3px;
+      border-radius: 12px;
       text-decoration: none;
       color: var(--ink);
+      overflow: hidden;
       transition: border-color 0.25s, transform 0.3s;
     }
-    .draft-card:hover { border-color: rgba(71, 66, 84, 0.5); transform: translateY(-2px); }
+    .draft-card::before {
+      content: "";
+      position: absolute; inset: 0 0 auto 0;
+      height: 2px;
+      background: var(--gradient-violet);
+      opacity: 0.7;
+    }
     .draft-card-meta {
       font-family: var(--sans);
       font-size: 10px;
       letter-spacing: 0.22em;
       text-transform: uppercase;
       font-weight: 700;
-      color: var(--english-violet);
+      background: var(--gradient-violet);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .draft-card-title {
       font-family: var(--serif);
@@ -368,7 +450,11 @@ import "../styles/workspace.css";
     /* ---------- Shop modal ---------- */
     .shop-backdrop {
       position: fixed; inset: 0;
-      background: rgba(28,29,34,0.55);
+      background:
+        radial-gradient(60% 50% at 20% 0%, rgba(123,91,207,0.32) 0%, rgba(123,91,207,0) 60%),
+        radial-gradient(50% 50% at 80% 100%, rgba(232,155,123,0.28) 0%, rgba(232,155,123,0) 60%),
+        rgba(15, 12, 30, 0.62);
+      backdrop-filter: blur(8px);
       display: flex;
       align-items: flex-start;
       justify-content: center;
@@ -378,16 +464,26 @@ import "../styles/workspace.css";
     }
     .shop-backdrop[hidden] { display: none; }
     .shop {
+      position: relative;
       width: 100%;
       max-width: 1100px;
       background: var(--paper);
-      border-radius: 4px;
-      box-shadow: 0 40px 100px -20px rgba(0,0,0,0.45);
+      border-radius: 18px;
+      border: 1px solid rgba(123,91,207,0.18);
+      box-shadow: 0 50px 120px -30px rgba(46, 31, 84, 0.55);
+      overflow: hidden;
+    }
+    .shop::before {
+      content: "";
+      position: absolute; inset: 0 0 auto 0;
+      height: 4px;
+      background: var(--gradient-brand);
     }
     .shop-head {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 24px 32px;
-      border-bottom: 1px solid rgba(28,29,34,0.1);
+      padding: 26px 32px;
+      border-bottom: 1px solid rgba(123,91,207,0.16);
+      background: linear-gradient(180deg, rgba(123,91,207,0.06), rgba(123,91,207,0));
     }
     .shop-head h2 {
       font-family: var(--serif);
@@ -396,7 +492,13 @@ import "../styles/workspace.css";
       letter-spacing: -0.015em;
       margin: 6px 0 0;
     }
-    .shop-head h2 em { font-style: italic; color: var(--english-violet); }
+    .shop-head h2 em {
+      font-style: italic;
+      background: var(--gradient-violet);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
     .shop-eyebrow {
       margin: 0;
       font-family: var(--sans);
@@ -404,17 +506,23 @@ import "../styles/workspace.css";
       font-weight: 700;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: var(--english-violet);
+      background: var(--gradient-violet);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .shop-close {
       background: transparent;
-      border: none;
-      font-size: 30px;
+      border: 1px solid rgba(123,91,207,0.3);
+      border-radius: 999px;
+      font-size: 22px;
       width: 38px; height: 38px;
       cursor: pointer;
-      color: var(--english-violet);
+      color: var(--violet);
       line-height: 1;
+      transition: background 0.25s, color 0.25s, border-color 0.25s;
     }
+    .shop-close:hover { background: var(--gradient-violet); color: var(--paper); border-color: transparent; }
     .shop-view { padding: 32px; }
     .shop-state {
       font-family: var(--sans);
@@ -432,17 +540,21 @@ import "../styles/workspace.css";
     @media (max-width: 560px) { .shop-grid { grid-template-columns: 1fr; } }
     .shop-card {
       cursor: pointer;
-      background: rgba(255,255,255,0.6);
-      border: 1px solid rgba(28,29,34,0.1);
-      border-radius: 3px;
+      background: rgba(255,255,255,0.78);
+      border: 1px solid rgba(123,91,207,0.16);
+      border-radius: 14px;
       overflow: hidden;
-      transition: border-color 0.25s, transform 0.3s;
+      transition: border-color 0.25s, transform 0.3s, box-shadow 0.3s;
       text-align: left;
       padding: 0;
       font: inherit;
       color: var(--ink);
     }
-    .shop-card:hover { border-color: rgba(71, 66, 84, 0.55); transform: translateY(-3px); }
+    .shop-card:hover {
+      border-color: rgba(123, 91, 207, 0.55);
+      transform: translateY(-4px);
+      box-shadow: 0 22px 40px -20px rgba(123, 91, 207, 0.45);
+    }
     .shop-card-cover {
       aspect-ratio: 4 / 5;
       background-size: cover;
@@ -459,7 +571,10 @@ import "../styles/workspace.css";
       font-weight: 700;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: var(--english-violet);
+      background: var(--gradient-violet);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .shop-card-title {
       font-family: var(--serif);
@@ -483,10 +598,12 @@ import "../styles/workspace.css";
       font-weight: 700;
       letter-spacing: 0.22em;
       text-transform: uppercase;
-      color: var(--english-violet);
+      color: var(--violet);
       cursor: pointer;
       padding: 0 0 18px;
+      transition: color 0.2s, transform 0.2s;
     }
+    .shop-back:hover { color: var(--violet-deep); transform: translateX(-3px); }
     .shop-detail {
       display: grid;
       grid-template-columns: 360px 1fr;
@@ -501,7 +618,8 @@ import "../styles/workspace.css";
       background-size: cover;
       background-position: center;
       background-color: var(--platinum);
-      border-radius: 3px;
+      border-radius: 14px;
+      box-shadow: 0 20px 50px -20px rgba(46,31,84,0.35);
     }
     .shop-detail-body { display: flex; flex-direction: column; gap: 14px; }
     .shop-detail-cat {
@@ -510,7 +628,10 @@ import "../styles/workspace.css";
       font-weight: 700;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: var(--english-violet);
+      background: var(--gradient-violet);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .shop-detail-title {
       font-family: var(--serif);
@@ -546,11 +667,11 @@ import "../styles/workspace.css";
     }
     .shop-buy {
       appearance: none;
-      background: var(--ink);
+      background: var(--gradient-violet);
       color: var(--paper);
       border: 0;
-      padding: 14px 22px;
-      border-radius: 2px;
+      padding: 14px 24px;
+      border-radius: 999px;
       font-family: var(--sans);
       font-size: 12px;
       font-weight: 700;
@@ -559,13 +680,19 @@ import "../styles/workspace.css";
       cursor: pointer;
       text-decoration: none;
       display: inline-flex; align-items: center; gap: 8px;
+      box-shadow: 0 14px 30px -12px rgba(123,91,207,0.6);
+      transition: transform 0.25s, box-shadow 0.25s;
     }
-    .shop-buy:hover { background: var(--english-violet); }
+    .shop-buy:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 22px 40px -14px rgba(123,91,207,0.75);
+    }
     .shop-already {
       display: inline-flex; align-items: center;
-      padding: 4px 10px;
-      background: #e6efe5;
-      color: #2e6a4a;
+      padding: 5px 12px;
+      background: linear-gradient(135deg, rgba(121,201,168,0.22), rgba(121,201,168,0.10));
+      border: 1px solid rgba(121,201,168,0.4);
+      color: #1f6149;
       font-family: var(--sans);
       font-size: 10px;
       font-weight: 700;

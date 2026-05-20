@@ -89,15 +89,50 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       position: relative;
       overflow: hidden;
       background:
-        linear-gradient(180deg, rgba(28,29,34,0.2), rgba(28,29,34,0.7)),
+        linear-gradient(135deg, rgba(46, 31, 84, 0.78) 0%, rgba(71, 66, 84, 0.55) 45%, rgba(123, 91, 207, 0.55) 100%),
         url("/assets/door-closed.png") center/cover no-repeat;
       color: var(--paper);
     }
     .login-art-overlay {
       position: absolute; inset: 0;
       background:
-        radial-gradient(80% 60% at 50% 40%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.35) 100%);
+        radial-gradient(55% 45% at 20% 25%, rgba(159, 122, 234, 0.55) 0%, rgba(159, 122, 234, 0) 60%),
+        radial-gradient(45% 40% at 85% 75%, rgba(232, 155, 123, 0.45) 0%, rgba(232, 155, 123, 0) 60%),
+        radial-gradient(80% 60% at 50% 40%, rgba(0,0,0,0) 30%, rgba(15, 12, 30, 0.4) 100%);
       pointer-events: none;
+      animation: artDrift 22s ease-in-out infinite alternate;
+    }
+    @keyframes artDrift {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to   { transform: translate3d(-30px, 30px, 0) scale(1.06); }
+    }
+    @media (prefers-reduced-motion: reduce) { .login-art-overlay { animation: none; } }
+    /* Floating gradient orbs — pure CSS, low cost, very playful. */
+    .login-art::before,
+    .login-art::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(40px);
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+    .login-art::before {
+      width: 360px; height: 360px;
+      top: -90px; left: -80px;
+      background: radial-gradient(circle, rgba(159, 122, 234, 0.85) 0%, rgba(159, 122, 234, 0) 70%);
+      animation: orbA 18s ease-in-out infinite alternate;
+    }
+    .login-art::after {
+      width: 460px; height: 460px;
+      bottom: -160px; right: -120px;
+      background: radial-gradient(circle, rgba(232, 155, 123, 0.7) 0%, rgba(232, 155, 123, 0) 70%);
+      animation: orbB 24s ease-in-out infinite alternate-reverse;
+    }
+    @keyframes orbA { from { transform: translate(0,0); } to { transform: translate(40px, 60px) scale(1.15); } }
+    @keyframes orbB { from { transform: translate(0,0); } to { transform: translate(-60px, -40px) scale(1.1); } }
+    @media (prefers-reduced-motion: reduce) {
+      .login-art::before, .login-art::after { animation: none; }
     }
     .login-art-quote {
       position: absolute;
@@ -115,7 +150,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       color: var(--paper);
       max-width: 12ch;
     }
-    .login-art-line em { font-style: italic; color: var(--french-grey); }
+    .login-art-line em {
+      font-style: italic;
+      background: linear-gradient(135deg, #E5DEFB 0%, #9F7AEA 60%, #E89B7B 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
     .login-art-sub {
       font-family: var(--serif);
       font-style: italic;
@@ -132,6 +173,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       align-items: center;
       justify-content: center;
       padding: 48px 36px;
+      overflow: hidden;
+      background:
+        radial-gradient(60% 40% at 80% 0%, rgba(123, 91, 207, 0.18) 0%, rgba(123, 91, 207, 0) 70%),
+        radial-gradient(50% 40% at 10% 100%, rgba(232, 155, 123, 0.18) 0%, rgba(232, 155, 123, 0) 70%),
+        var(--paper);
     }
     .login-mark {
       position: absolute;
@@ -141,17 +187,50 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       font-size: 24px;
       letter-spacing: 0.06em;
       color: var(--ink);
+      display: inline-flex; align-items: baseline; gap: 8px;
+    }
+    .login-mark::after {
+      content: "";
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 999px;
+      background: var(--gradient-violet);
+      box-shadow: 0 0 14px rgba(123,91,207,0.7);
     }
 
     .login-card {
+      position: relative;
       width: 100%;
-      max-width: 440px;
+      max-width: 460px;
+      padding: 40px 40px 36px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(123, 91, 207, 0.18);
+      border-radius: 18px;
+      box-shadow:
+        0 30px 70px -30px rgba(46, 31, 84, 0.35),
+        0 1px 0 rgba(255, 255, 255, 0.7) inset;
+      backdrop-filter: blur(6px);
+      overflow: hidden;
     }
-    .login-card .eyebrow { margin-bottom: 14px; }
+    .login-card::before {
+      content: "";
+      position: absolute; inset: 0 0 auto 0;
+      height: 3px;
+      background: var(--gradient-brand);
+    }
+    .login-card .eyebrow {
+      margin-bottom: 14px;
+      background: var(--gradient-violet);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
     .login-inline-anchor {
-      color: var(--english-violet);
-      border-bottom: 1px solid currentColor;
+      color: var(--violet);
+      border-bottom: 1px solid rgba(123,91,207,0.55);
+      transition: color 0.2s, border-color 0.2s;
     }
+    .login-inline-anchor:hover { color: var(--violet-deep); border-bottom-color: var(--violet-deep); }
     .login-title {
       font-family: var(--serif);
       font-weight: 400;
@@ -160,6 +239,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       letter-spacing: -0.015em;
       color: var(--ink);
       margin: 0 0 18px;
+    }
+    .login-title::after {
+      /* Decorative gradient stop next to the title — a tiny "live" dot. */
+      content: ".";
+      background: var(--gradient-violet);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .login-sub {
       font-size: 15px;
@@ -185,16 +272,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       font-family: var(--sans);
       font-size: 16px;
       padding: 14px 16px;
-      border: 1px solid rgba(28, 29, 34, 0.18);
-      border-radius: 2px;
+      border: 1px solid rgba(123, 91, 207, 0.22);
+      border-radius: 10px;
       background: #fff;
       color: var(--ink);
-      transition: border-color 0.25s, box-shadow 0.25s;
+      transition: border-color 0.25s, box-shadow 0.25s, transform 0.15s;
     }
+    .login-field input:hover { border-color: rgba(123, 91, 207, 0.4); }
     .login-field input:focus {
       outline: none;
-      border-color: var(--english-violet);
-      box-shadow: 0 0 0 3px rgba(71, 66, 84, 0.12);
+      border-color: var(--violet);
+      box-shadow: 0 0 0 4px rgba(123, 91, 207, 0.18), 0 8px 22px -10px rgba(123, 91, 207, 0.4);
     }
 
     .login-row {
@@ -205,19 +293,56 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       color: rgba(28, 29, 34, 0.7);
     }
     .login-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
-    .login-check input { accent-color: var(--english-violet); }
+    .login-check input { accent-color: var(--violet); }
     .login-forgot {
-      color: var(--english-violet);
+      color: var(--violet);
       font-weight: 600;
+      transition: color 0.2s;
     }
-    .login-forgot:hover { text-decoration: underline; }
+    .login-forgot:hover { color: var(--violet-deep); text-decoration: underline; }
 
+    /* Submit — gradient pill with a soft glow that lifts on hover. */
     .login-submit {
       width: 100%;
       justify-content: center;
       padding: 16px;
       margin-top: 8px;
+      background: var(--gradient-violet);
+      color: var(--paper);
+      border: 0;
+      border-radius: 999px;
+      letter-spacing: 0.22em;
+      box-shadow: 0 18px 36px -14px rgba(123, 91, 207, 0.6);
+      transition: transform 0.25s, box-shadow 0.25s, filter 0.25s;
+      position: relative;
+      overflow: hidden;
     }
+    .login-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 26px 48px -16px rgba(123, 91, 207, 0.75);
+      filter: brightness(1.06);
+    }
+    .login-submit::after {
+      /* slow sheen sweep — adds a "live" polished feel without dominating */
+      content: "";
+      position: absolute;
+      top: 0; bottom: 0;
+      left: -40%;
+      width: 40%;
+      background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+      transform: skewX(-20deg);
+      animation: loginSheen 5s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes loginSheen {
+      0%   { left: -40%; }
+      60%  { left: 120%; }
+      100% { left: 120%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .login-submit::after { animation: none; }
+    }
+    .login-submit[disabled] { filter: grayscale(0.4) brightness(0.92); transform: none; cursor: wait; }
 
     .login-divider {
       display: flex; align-items: center;
@@ -256,23 +381,27 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .login-error {
       font-size: 13px;
       color: #a05a3c;
-      background: rgba(160, 90, 60, 0.08);
+      background: linear-gradient(135deg, rgba(232,155,123,0.18), rgba(232,155,123,0.08));
+      border: 1px solid rgba(232,155,123,0.35);
       padding: 10px 14px;
-      border-radius: 2px;
+      border-radius: 10px;
       margin: 0;
     }
 
     .login-hint {
       font-size: 12px;
-      color: rgba(28, 29, 34, 0.5);
-      line-height: 1.5;
+      color: rgba(28, 29, 34, 0.6);
+      line-height: 1.55;
       margin: 8px 0 0;
       padding: 14px 16px;
-      background: rgba(71, 66, 84, 0.06);
-      border-radius: 2px;
+      background:
+        radial-gradient(80% 100% at 100% 0%, rgba(232,155,123,0.12) 0%, rgba(232,155,123,0) 70%),
+        linear-gradient(135deg, rgba(123, 91, 207, 0.10), rgba(123, 91, 207, 0.03));
+      border: 1px solid rgba(123, 91, 207, 0.18);
+      border-radius: 10px;
     }
-    .login-hint strong { color: var(--english-violet); font-weight: 700; }
-    .login-hint em { font-style: italic; color: rgba(28, 29, 34, 0.7); }
+    .login-hint strong { color: var(--violet); font-weight: 700; }
+    .login-hint em { font-style: italic; color: rgba(28, 29, 34, 0.72); }
 
     .login-meta {
       position: absolute;
@@ -344,7 +473,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       letter-spacing: -0.02em;
       line-height: 1;
     }
-    .login-curtain-title span { color: var(--english-violet); }
+    .login-curtain-title span {
+      background: var(--gradient-violet);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
   </style>
 
   <script>
