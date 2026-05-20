@@ -5,6 +5,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 <BaseLayout
   title="Sign in — TMKE"
   description="Sign in to access your purchased template packs and downloads."
+  hideNav={true}
   hideFooter={true}
 >
   <!-- Slide-up curtain that animates the user from /login to /edit -->
@@ -31,6 +32,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     <section class="login-panel">
       <a href="/" class="login-mark">TMKE</a>
+      <a href="/" id="login-back" class="login-back" aria-label="Go back">
+        <span aria-hidden="true">&larr;</span> Back
+      </a>
 
       <div class="login-card">
         <div class="eyebrow">Welcome back</div>
@@ -90,7 +94,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       overflow: hidden;
       background:
         linear-gradient(180deg, rgba(28,29,34,0.2), rgba(28,29,34,0.7)),
-        url("/assets/home-window.jpg") center/cover no-repeat;
+        url("/assets/Home-window.jpg") center/cover no-repeat;
       color: var(--paper);
     }
     .login-art-overlay {
@@ -155,6 +159,34 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       border-radius: 999px;
       background: var(--gradient-violet);
       box-shadow: 0 0 14px rgba(123,91,207,0.7);
+    }
+
+    /* Back link — mirrors the wordmark in the opposite corner. */
+    .login-back {
+      position: absolute;
+      top: 32px;
+      right: 36px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--violet-deep);
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid rgba(46, 31, 84, 0.22);
+      border-radius: 999px;
+      text-decoration: none;
+      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.25s;
+    }
+    .login-back:hover {
+      background: var(--violet-deep);
+      color: var(--paper);
+      border-color: var(--violet-deep);
+      transform: translateX(-2px);
     }
 
     .login-card {
@@ -505,6 +537,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
       routeAfterSignIn();
     });
+
+    // Back button — return to previous page if we have history,
+    // otherwise fall back to home. Avoids dead-ending on a fresh tab.
+    const backLink = document.getElementById("login-back");
+    if (backLink) {
+      backLink.addEventListener("click", (e) => {
+        if (history.length > 1 && document.referrer && new URL(document.referrer).origin === location.origin) {
+          e.preventDefault();
+          history.back();
+        }
+        // else: anchor's href="/" handles it
+      });
+    }
 
     // Slide-up curtain when the user taps a "Browse The Edit" inline link.
     // Gives the hand-off from sign-in to shop a deliberate theatrical feel.
