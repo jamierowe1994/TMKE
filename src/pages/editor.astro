@@ -158,6 +158,15 @@ const googleFonts = [
 
       <div class="ed-topbar-right">
         <button class="ed-btn-ghost" id="ed-save">Save</button>
+        <button class="ed-btn-ghost" id="ed-schedule" title="Schedule this post on your content calendar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Schedule
+        </button>
         <button class="ed-btn-ghost" id="ed-share" title="Share to your socials">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="18" cy="5" r="3"/>
@@ -507,6 +516,78 @@ const googleFonts = [
           <li><kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd> Zoom in / out / fit</li>
           <li><kbd>[</kbd> / <kbd>]</kbd> Send back / bring forward</li>
         </ul>
+      </div>
+    </div>
+
+    <!-- Schedule-to-calendar modal.
+         Opens from the top-bar Schedule button. Flattens the current canvas
+         to PNG, uploads to Supabase Storage, then writes a calendar_items
+         row so the post lands on /account/schedule. v1 just plans + emails
+         a reminder on the day; v2 (post-App-Review) will auto-publish to IG. -->
+    <div class="ed-modal" id="ed-schedule-modal" hidden>
+      <div class="ed-modal-card ed-sched-card">
+        <header>
+          <div>
+            <p class="ed-sched-eyebrow">Schedule</p>
+            <h3>Plan this post.</h3>
+          </div>
+          <button class="ed-modal-close" id="ed-schedule-close" aria-label="Close">×</button>
+        </header>
+
+        <form class="ed-sched-form" id="ed-schedule-form" novalidate>
+          <label class="ed-sched-field">
+            <span class="ed-sched-label">Title</span>
+            <input type="text" id="ed-sched-title" required maxlength="120" placeholder="Mid-week new build reveal" />
+            <span class="ed-sched-hint">Shown on the calendar day cell.</span>
+          </label>
+
+          <div class="ed-sched-row">
+            <label class="ed-sched-field">
+              <span class="ed-sched-label">Date</span>
+              <input type="date" id="ed-sched-date" required />
+            </label>
+            <label class="ed-sched-field">
+              <span class="ed-sched-label">Reminder time</span>
+              <input type="time" id="ed-sched-time" value="09:00" required />
+              <span class="ed-sched-hint">When we'll email you.</span>
+            </label>
+          </div>
+
+          <label class="ed-sched-field">
+            <span class="ed-sched-label">Caption <span class="ed-sched-optional">— optional</span></span>
+            <textarea id="ed-sched-caption" rows="4" maxlength="2200" placeholder="The copy you'll post alongside the image. Hashtags, mentions, calls to action — we'll bundle it into the reminder email."></textarea>
+          </label>
+
+          <fieldset class="ed-sched-field ed-sched-platform">
+            <span class="ed-sched-label">Platform</span>
+            <div class="ed-sched-platform-grid">
+              <label class="ed-sched-platform-opt is-active">
+                <input type="radio" name="ed-sched-platform" value="instagram" checked />
+                <span>Instagram</span>
+              </label>
+              <label class="ed-sched-platform-opt is-soon">
+                <input type="radio" name="ed-sched-platform" value="facebook" disabled />
+                <span>Facebook · soon</span>
+              </label>
+              <label class="ed-sched-platform-opt is-soon">
+                <input type="radio" name="ed-sched-platform" value="linkedin" disabled />
+                <span>LinkedIn · soon</span>
+              </label>
+              <label class="ed-sched-platform-opt is-soon">
+                <input type="radio" name="ed-sched-platform" value="tiktok" disabled />
+                <span>TikTok · soon</span>
+              </label>
+            </div>
+            <span class="ed-sched-hint">We'll auto-post once Meta App Review lands. Until then you'll get a reminder email with the asset attached.</span>
+          </fieldset>
+
+          <div class="ed-sched-error" id="ed-schedule-error" hidden></div>
+
+          <footer class="ed-sched-foot">
+            <button type="button" class="ed-sched-cancel" id="ed-schedule-cancel">Cancel</button>
+            <button type="submit" class="ed-sched-submit" id="ed-schedule-submit">Schedule post</button>
+          </footer>
+        </form>
       </div>
     </div>
   </div>
@@ -1682,6 +1763,176 @@ const googleFonts = [
       margin: 0 2px;
     }
 
+    /* ============ Schedule-to-calendar modal ============
+       Reuses .ed-modal / .ed-modal-card from the shortcuts modal for the
+       overlay shell. Form-specific styles live here. */
+    .ed-sched-card { max-width: 520px; padding: 28px 30px 26px; }
+    .ed-sched-eyebrow {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--english-violet, #2e1f54);
+    }
+    .ed-sched-card header { align-items: flex-start; }
+
+    .ed-sched-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .ed-sched-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 520px) {
+      .ed-sched-row { grid-template-columns: 1fr; }
+    }
+    .ed-sched-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ed-sched-label {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.65);
+    }
+    .ed-sched-optional {
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      color: rgba(28,29,34,0.4);
+    }
+    .ed-sched-hint {
+      font-family: var(--sans);
+      font-size: 11px;
+      color: rgba(28,29,34,0.5);
+    }
+    .ed-sched-form input[type="text"],
+    .ed-sched-form input[type="date"],
+    .ed-sched-form input[type="time"],
+    .ed-sched-form textarea {
+      appearance: none;
+      width: 100%;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 3px;
+      padding: 10px 12px;
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .ed-sched-form input:focus,
+    .ed-sched-form textarea:focus {
+      outline: none;
+      border-color: var(--english-violet, #2e1f54);
+      box-shadow: 0 0 0 3px rgba(46, 31, 84, 0.12);
+    }
+    .ed-sched-form textarea {
+      resize: vertical;
+      min-height: 84px;
+      line-height: 1.5;
+    }
+
+    .ed-sched-platform {
+      border: 0; padding: 0; margin: 0;
+    }
+    .ed-sched-platform-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .ed-sched-platform-opt {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .ed-sched-platform-opt input { margin: 0; accent-color: var(--english-violet, #2e1f54); }
+    .ed-sched-platform-opt:hover { border-color: var(--english-violet, #2e1f54); }
+    .ed-sched-platform-opt.is-active { border-color: var(--english-violet, #2e1f54); background: rgba(46, 31, 84, 0.06); }
+    .ed-sched-platform-opt.is-soon {
+      cursor: not-allowed;
+      opacity: 0.55;
+      color: rgba(28,29,34,0.55);
+    }
+    .ed-sched-platform-opt.is-soon:hover { border-color: rgba(28,29,34,0.18); }
+
+    .ed-sched-error {
+      padding: 10px 14px;
+      background: rgba(195, 65, 50, 0.08);
+      color: #a23023;
+      border: 1px solid rgba(195, 65, 50, 0.25);
+      border-radius: 3px;
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .ed-sched-error[hidden] { display: none; }
+
+    .ed-sched-foot {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 6px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(28,29,34,0.08);
+    }
+    .ed-sched-cancel {
+      appearance: none;
+      background: transparent;
+      border: 1px solid rgba(28,29,34,0.2);
+      border-radius: 3px;
+      padding: 10px 18px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.7);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .ed-sched-cancel:hover { background: rgba(28,29,34,0.06); color: var(--ink); }
+    .ed-sched-submit {
+      appearance: none;
+      background: var(--english-violet, #2e1f54);
+      color: #f2efe9;
+      border: 0;
+      border-radius: 3px;
+      padding: 11px 22px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 10px 22px -10px rgba(46, 31, 84, 0.55);
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s, opacity 0.2s;
+    }
+    .ed-sched-submit:hover:not(:disabled) {
+      transform: translateY(-1px);
+      background: #1c1d22;
+      box-shadow: 0 16px 30px -10px rgba(46, 31, 84, 0.7);
+    }
+    .ed-sched-submit:disabled { opacity: 0.65; cursor: progress; transform: none; box-shadow: none; }
+
     /* ============ Studio entry: staged build-in ============
        On first load the editor parts are off-screen. As the user picks a pack
        (or skips), each part slides into place in sequence — left rail, then
@@ -2145,6 +2396,215 @@ const googleFonts = [
   </script>
 
   <script src="/scripts/editor.js" is:inline type="module"></script>
+
+  <!--
+    Schedule-to-calendar wiring.
+    Opens the Schedule modal, validates the form, rasterizes the canvas via
+    the editor.js hook (window.__TMKE_RENDER_PNG_BLOB__), uploads the PNG
+    to the `calendar-assets` Storage bucket, and inserts a calendar_items
+    row. The deep-link param ?schedule=YYYY-MM-DD pre-fills the date when
+    the user clicks "Schedule a post for this day" from /account/schedule.
+  -->
+  <script>
+    import { supabase, isConfigured } from "../lib/supabase.js";
+
+    const $btn      = document.getElementById("ed-schedule");
+    const $modal    = document.getElementById("ed-schedule-modal");
+    const $close    = document.getElementById("ed-schedule-close");
+    const $cancel   = document.getElementById("ed-schedule-cancel");
+    const $form     = document.getElementById("ed-schedule-form");
+    const $title    = document.getElementById("ed-sched-title");
+    const $date     = document.getElementById("ed-sched-date");
+    const $time     = document.getElementById("ed-sched-time");
+    const $caption  = document.getElementById("ed-sched-caption");
+    const $submit   = document.getElementById("ed-schedule-submit");
+    const $error    = document.getElementById("ed-schedule-error");
+
+    // Bail quietly if the editor doesn't include the modal (e.g. an admin
+    // build that strips it). Wrap the rest in an IIFE so we can short-
+    // circuit without a top-level `return` (which is a SyntaxError in
+    // ES modules).
+    if ($btn && $modal && $form) wireSchedule();
+
+    function wireSchedule() {
+
+    // ----- helpers -----
+    function ymd(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const da = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${da}`;
+    }
+    function showError(msg) {
+      $error.textContent = msg;
+      $error.hidden = false;
+    }
+    function clearError() {
+      $error.hidden = true;
+      $error.textContent = "";
+    }
+
+    function defaultDate() {
+      // Allow ?schedule=YYYY-MM-DD deep-link from the calendar's day drawer.
+      const params = new URLSearchParams(location.search);
+      const pre = params.get("schedule");
+      if (pre && /^\d{4}-\d{2}-\d{2}$/.test(pre)) return pre;
+      // Fall back to tomorrow — scheduling for today by default feels
+      // panicked, and the reminder time defaults to 09:00 anyway.
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return ymd(d);
+    }
+
+    function openModal() {
+      clearError();
+      // Pull current editor state for sensible defaults.
+      const summary = (typeof window.__TMKE_EDITOR_SUMMARY__ === "function")
+        ? window.__TMKE_EDITOR_SUMMARY__()
+        : { filename: "design", templateId: null };
+      $title.value = summary.filename || "Design";
+      $date.value = defaultDate();
+      // Don't clobber a time the user may have set on a previous open.
+      if (!$time.value) $time.value = "09:00";
+
+      const today = new Date();
+      const todayYmd = ymd(today);
+      $date.min = todayYmd; // can't schedule in the past
+
+      $modal.hidden = false;
+      // Stash templateId for the submit handler to pick up.
+      $form.dataset.designRef = summary.templateId || "";
+      setTimeout(() => $title.focus(), 50);
+    }
+    function closeModal() {
+      $modal.hidden = true;
+      $submit.disabled = false;
+      $submit.textContent = "Schedule post";
+    }
+
+    // ----- open / close wiring -----
+    $btn.addEventListener("click", openModal);
+    $close.addEventListener("click", closeModal);
+    $cancel.addEventListener("click", closeModal);
+    $modal.addEventListener("click", (e) => { if (e.target === $modal) closeModal(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !$modal.hidden) closeModal();
+    });
+
+    // Auto-open the modal if we landed here via ?schedule=YYYY-MM-DD.
+    // Wait a beat so the editor has a chance to render its current state
+    // (so the title pre-fill picks up the right filename).
+    const params = new URLSearchParams(location.search);
+    if (params.get("schedule")) {
+      // Only auto-open after the user has dismissed the pack-picker
+      // onboarding — otherwise we'd cover it.
+      const tryOpen = () => {
+        const overlay = document.getElementById("ed-onboard");
+        if (!overlay || overlay.classList.contains("is-gone") || overlay.hidden) {
+          openModal();
+        } else {
+          setTimeout(tryOpen, 300);
+        }
+      };
+      setTimeout(tryOpen, 500);
+    }
+
+    // ----- submit -----
+    $form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      clearError();
+
+      const title    = ($title.value || "").trim();
+      const dateStr  = $date.value;
+      const timeStr  = $time.value || "09:00";
+      const caption  = ($caption.value || "").trim();
+      const platform = $form.querySelector('input[name="ed-sched-platform"]:checked')?.value || "instagram";
+      const designRef = $form.dataset.designRef || null;
+
+      if (!title)   return showError("Give the post a short title — it shows on your calendar.");
+      if (!dateStr) return showError("Pick a date for the post.");
+      if (!isConfigured) {
+        return showError("Supabase isn't configured in this environment — set PUBLIC_SUPABASE_URL / PUBLIC_SUPABASE_ANON_KEY to enable scheduling.");
+      }
+
+      // Auth check before we spend cycles rasterizing.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        return showError("You're signed out. Sign in again, then re-open Schedule.");
+      }
+
+      $submit.disabled = true;
+      $submit.textContent = "Scheduling…";
+
+      try {
+        // 1. Rasterize the current design via the editor's hook.
+        if (typeof window.__TMKE_RENDER_PNG_BLOB__ !== "function") {
+          throw new Error("Editor isn't ready yet. Give it a second and try again.");
+        }
+        const blob = await window.__TMKE_RENDER_PNG_BLOB__();
+        if (!blob || blob.size === 0) throw new Error("Couldn't render the canvas. Try again.");
+
+        // 2. Upload to Storage. Path layout: <user_id>/<random>.png so RLS
+        //    can scope by the leading path segment if we tighten later.
+        const id = crypto.randomUUID();
+        const path = `${session.user.id}/${id}.png`;
+        const { error: upErr } = await supabase.storage
+          .from("calendar-assets")
+          .upload(path, blob, { contentType: "image/png", upsert: false });
+        if (upErr) {
+          // The bucket may not exist yet. Give a precise hint.
+          if (/Bucket not found|404/i.test(upErr.message)) {
+            throw new Error('Storage bucket "calendar-assets" not found. Create it in Supabase (Storage → New bucket → public), then run supabase/calendar_storage.sql.');
+          }
+          throw new Error(upErr.message || "Upload failed.");
+        }
+        const { data: pub } = supabase.storage.from("calendar-assets").getPublicUrl(path);
+        const assetUrl = pub?.publicUrl || "";
+
+        // 3. Insert the calendar row.
+        const { error: insErr } = await supabase.from("calendar_items").insert({
+          user_id: session.user.id,
+          scheduled_date: dateStr,
+          scheduled_time: timeStr,
+          title,
+          caption: caption || null,
+          asset_url: assetUrl,
+          thumbnail_url: assetUrl, // same image until we generate a real thumb
+          design_ref: designRef,
+          platform_hint: platform,
+          status: "scheduled",
+        });
+        if (insErr) {
+          if (/relation .* does not exist/i.test(insErr.message)) {
+            throw new Error("calendar_items table is missing. Run supabase/calendar.sql in the SQL editor.");
+          }
+          throw new Error(insErr.message || "Couldn't save to your calendar.");
+        }
+
+        // 4. Done — close modal and bounce to the calendar so the user
+        //    sees their new entry in context.
+        closeModal();
+        location.href = `/account/schedule?scheduled=${encodeURIComponent(dateStr)}`;
+      } catch (err) {
+        console.error("[schedule]", err);
+        showError(err.message || "Something went wrong scheduling that post.");
+        $submit.disabled = false;
+        $submit.textContent = "Schedule post";
+      }
+    });
+
+    // Toggle the active style on the platform radio so the visible "card"
+    // matches the underlying selection (for when we light up the other
+    // platforms later).
+    $form.querySelectorAll('input[name="ed-sched-platform"]').forEach((r) => {
+      r.addEventListener("change", () => {
+        $form.querySelectorAll(".ed-sched-platform-opt").forEach((opt) => opt.classList.remove("is-active"));
+        r.closest(".ed-sched-platform-opt")?.classList.add("is-active");
+      });
+    });
+
+    } // end wireSchedule
+  </script>
 
   <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
   <script>

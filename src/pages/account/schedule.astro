@@ -1,0 +1,1009 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import "../../styles/workspace.css";
+---
+
+<BaseLayout
+  title="Content calendar — TMKE workspace"
+  description="Plan and schedule your social posts. A month-by-month diary of what's going out, with UK holidays and awareness days baked in."
+  hideNav
+  hideFooter
+>
+  <header class="app-header">
+    <a href="/account" class="app-logo">TMKE</a>
+    <nav class="app-header-nav" aria-label="Workspace">
+      <a href="/account" class="app-header-link">Workspace</a>
+      <a href="/editor" class="app-header-link">Studio</a>
+      <a href="/edit" class="app-header-link">Browse packs</a>
+      <a href="/account/schedule" class="app-header-link is-active">Schedule</a>
+      <a href="/account/orders" class="app-header-link">Orders</a>
+      <div class="app-header-dd">
+        <button type="button" class="app-header-link app-header-btn" aria-haspopup="menu" aria-expanded="false">
+          Resources <span aria-hidden="true">▾</span>
+        </button>
+        <div class="app-dd-menu" role="menu">
+          <a href="/services" role="menuitem">
+            <strong>Managed Socials</strong>
+            <span>Hand the channel over.</span>
+          </a>
+          <a href="/blog" role="menuitem">
+            <strong>The Blog</strong>
+            <span>Insights for property marketers.</span>
+          </a>
+          <a href="/contact" role="menuitem">
+            <strong>Contact the team</strong>
+            <span>Get a same-day reply.</span>
+          </a>
+        </div>
+      </div>
+      <a href="/profile" class="app-header-link">Brand kit</a>
+    </nav>
+    <button type="button" id="app-signout" class="app-signout">Sign out</button>
+  </header>
+
+  <main class="app-main">
+    <section class="welcome fade-up" data-delay="1">
+      <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
+      <h1 class="welcome-h">Your <em>content calendar.</em></h1>
+      <p class="welcome-sub">A month-by-month diary of what's going out — with UK bank holidays and key marketing dates so nothing sneaks up on you.</p>
+    </section>
+
+    <!-- Calendar shell -->
+    <section class="cal fade-up" data-delay="2" aria-labelledby="cal-title">
+      <header class="cal-bar">
+        <div class="cal-bar-l">
+          <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous month">&larr;</button>
+          <h2 id="cal-title" class="cal-title">—</h2>
+          <button type="button" class="cal-nav" id="cal-next" aria-label="Next month">&rarr;</button>
+          <button type="button" class="cal-today" id="cal-today">Today</button>
+        </div>
+        <div class="cal-bar-r">
+          <div class="cal-legend" aria-hidden="true">
+            <span class="cal-leg cal-leg--post">Scheduled</span>
+            <span class="cal-leg cal-leg--bank">Bank holiday</span>
+            <span class="cal-leg cal-leg--aware">Awareness day</span>
+          </div>
+          <a href="/editor" class="cal-new">+ New post</a>
+        </div>
+      </header>
+
+      <div class="cal-weekhead" aria-hidden="true">
+        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+      </div>
+
+      <div id="cal-grid" class="cal-grid" role="grid" aria-labelledby="cal-title">
+        <!-- Day cells injected by JS -->
+      </div>
+
+      <p id="cal-state" class="cal-state" hidden></p>
+    </section>
+
+    <footer class="app-foot">
+      <div class="app-foot-block">
+        <div class="app-foot-tag">Signed in as</div>
+        <strong id="footer-email">…</strong>
+      </div>
+      <div class="app-foot-block">
+        <div class="app-foot-tag">Help</div>
+        <a href="/contact">hello@tmke.co.uk</a>
+      </div>
+      <div class="app-foot-block app-foot-block--right">
+        <button type="button" id="app-signout-foot" class="app-signout">Sign out</button>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Day drawer — slides in from the right when a day cell is clicked.
+       Shows all scheduled items + holidays for that date, with quick
+       actions (open, edit, mark as posted, cancel) on each item. -->
+  <div class="day-backdrop" id="day-modal" hidden role="dialog" aria-modal="true" aria-labelledby="day-h">
+    <aside class="day-panel" aria-label="Day detail">
+      <header class="day-head">
+        <div>
+          <p class="day-eyebrow" id="day-eyebrow">—</p>
+          <h2 id="day-h" class="day-h">—</h2>
+        </div>
+        <button type="button" class="day-close" id="day-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="day-body" id="day-body">
+        <!-- Filled in by JS -->
+      </div>
+      <footer class="day-foot">
+        <a href="#" id="day-new" class="day-new-btn">+ Schedule a post for this day</a>
+      </footer>
+    </aside>
+  </div>
+
+  <style is:global>
+    /* ============================================================
+       /account/schedule — calendar UI
+       Shared workspace shell (header, footer, welcome, section heads)
+       comes from src/styles/workspace.css. Everything below is
+       calendar-specific.
+       ============================================================ */
+
+    .cal {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* ---------- Top bar: month label, prev/next, legend, new ---------- */
+    .cal-bar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 22px;
+      align-items: center;
+      padding: 18px 22px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 8px;
+      box-shadow:
+        0 10px 24px -14px rgba(46, 31, 84, 0.22),
+        0 2px 6px -3px rgba(28, 29, 34, 0.10);
+    }
+    .cal-bar-l { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .cal-bar-r { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .cal-title {
+      font-family: var(--serif);
+      font-size: clamp(22px, 2.4vw, 30px);
+      letter-spacing: -0.01em;
+      font-weight: 500;
+      margin: 0;
+      min-width: 220px;
+      color: var(--ink);
+    }
+    .cal-nav {
+      appearance: none;
+      background: transparent;
+      border: 1px solid rgba(46, 31, 84, 0.35);
+      border-radius: 999px;
+      width: 36px; height: 36px;
+      font-size: 16px;
+      color: var(--violet-deep);
+      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.2s;
+    }
+    .cal-nav:hover {
+      background: var(--violet-deep);
+      color: var(--paper);
+      border-color: var(--violet-deep);
+      transform: translateY(-1px);
+    }
+    .cal-today {
+      appearance: none;
+      background: transparent;
+      border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 2px;
+      padding: 7px 14px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.7);
+      cursor: pointer;
+      transition: background 0.25s, color 0.25s, border-color 0.25s;
+    }
+    .cal-today:hover { background: rgba(46, 31, 84, 0.08); color: var(--violet-deep); border-color: var(--violet-deep); }
+
+    .cal-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+    .cal-leg {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.55);
+    }
+    .cal-leg::before {
+      content: ""; width: 10px; height: 10px; border-radius: 2px;
+    }
+    .cal-leg--post::before  { background: var(--violet-deep); }
+    .cal-leg--bank::before  { background: #c97a3a; }   /* burnt orange — bank */
+    .cal-leg--aware::before { background: #6f8d65; }   /* sage — awareness */
+
+    .cal-new {
+      appearance: none;
+      background: var(--violet-deep);
+      color: var(--paper);
+      border: 0;
+      padding: 10px 18px;
+      border-radius: 4px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px;
+      box-shadow:
+        0 8px 18px -8px rgba(46, 31, 84, 0.45),
+        0 2px 4px -2px rgba(28, 29, 34, 0.18);
+      transition: transform 0.25s, box-shadow 0.25s, background 0.25s;
+    }
+    .cal-new:hover {
+      transform: translateY(-1px);
+      background: var(--ink);
+      box-shadow:
+        0 14px 28px -10px rgba(46, 31, 84, 0.55),
+        0 4px 8px -4px rgba(28, 29, 34, 0.25);
+    }
+
+    /* ---------- Day-of-week header strip ---------- */
+    .cal-weekhead {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0;
+      padding: 0 2px;
+    }
+    .cal-weekhead span {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.45);
+      padding: 6px 10px;
+      text-align: left;
+    }
+
+    /* ---------- The grid itself ---------- */
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-auto-rows: minmax(118px, 1fr);
+      gap: 8px;
+      background: rgba(28,29,34,0.05);
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(28,29,34,0.08);
+    }
+
+    .cal-day {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 11px 12px;
+      background: #fff;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      color: var(--ink);
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    }
+    .cal-day:hover {
+      border-color: rgba(46, 31, 84, 0.35);
+      box-shadow:
+        0 8px 18px -10px rgba(46, 31, 84, 0.25),
+        0 2px 6px -3px rgba(28, 29, 34, 0.10);
+      transform: translateY(-1px);
+    }
+    .cal-day.is-other-month {
+      background: rgba(255,255,255,0.55);
+      color: rgba(28,29,34,0.35);
+    }
+    .cal-day.is-other-month .cal-day-num { color: rgba(28,29,34,0.32); }
+    .cal-day.is-past   { background: rgba(255,255,255,0.78); }
+    .cal-day.is-today  {
+      border-color: var(--violet-deep);
+      box-shadow:
+        inset 0 0 0 1px var(--violet-deep),
+        0 10px 22px -12px rgba(46, 31, 84, 0.35);
+    }
+    .cal-day.is-today .cal-day-num {
+      color: var(--paper);
+      background: var(--violet-deep);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .cal-day.is-weekend { background: rgba(46, 31, 84, 0.02); }
+
+    .cal-day-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 6px;
+    }
+    .cal-day-num {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: var(--ink);
+      transition: color 0.2s;
+    }
+    .cal-day-dow {
+      font-family: var(--sans);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.35);
+      display: none;
+    }
+
+    /* Holiday + post chips inside a day cell */
+    .cal-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 7px;
+      border-radius: 3px;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.25;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cal-chip--bank {
+      background: rgba(201, 122, 58, 0.14);
+      color: #8a4d1f;
+      border: 1px solid rgba(201, 122, 58, 0.35);
+    }
+    .cal-chip--aware {
+      background: rgba(111, 141, 101, 0.14);
+      color: #3f5a36;
+      border: 1px solid rgba(111, 141, 101, 0.32);
+    }
+    .cal-chip--post {
+      background: var(--violet-deep);
+      color: var(--paper);
+      border: 1px solid var(--violet-deep);
+      padding: 4px 8px;
+    }
+    .cal-chip--post.is-done       { background: #2e6f4f; border-color: #2e6f4f; }
+    .cal-chip--post.is-sent       { background: var(--violet); border-color: var(--violet); }
+    .cal-chip--post.is-cancelled  { background: rgba(28,29,34,0.35); border-color: rgba(28,29,34,0.35); text-decoration: line-through; }
+
+    .cal-day-more {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--violet-deep);
+      margin-top: auto;
+    }
+
+    /* Empty-state hint on hover for blank days. We don't render a chip
+       so the calendar reads clean; the prompt only shows on hover. */
+    .cal-day.is-empty:hover::after {
+      content: "+ Schedule";
+      position: absolute;
+      bottom: 8px; left: 11px;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--violet-deep);
+      pointer-events: none;
+    }
+
+    .cal-state {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28,29,34,0.55);
+      padding: 12px 4px 0;
+      margin: 0;
+    }
+
+    /* Compact mode on mobile — drop the day-of-week strip into each
+       cell, shrink chips, collapse cells to fit. */
+    @media (max-width: 780px) {
+      .cal-bar { padding: 14px 16px; }
+      .cal-bar-r { width: 100%; justify-content: space-between; }
+      .cal-legend { display: none; }
+      .cal-grid { grid-auto-rows: minmax(82px, 1fr); gap: 4px; padding: 4px; }
+      .cal-weekhead { display: none; }
+      .cal-day { padding: 6px 7px 8px; }
+      .cal-day-dow { display: inline-block; }
+      .cal-chip { font-size: 9px; padding: 2px 5px; }
+    }
+
+    /* ============================================================
+       Day drawer — slides in from the right edge.
+       Same lifecycle as the shop drawer in /account.astro:
+       hidden -> next frame add .is-open -> on close remove .is-open
+       and re-set [hidden] after transitionend.
+       ============================================================ */
+    .day-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 12, 30, 0);
+      backdrop-filter: blur(0px);
+      -webkit-backdrop-filter: blur(0px);
+      display: flex;
+      align-items: stretch;
+      justify-content: flex-end;
+      z-index: 100;
+      pointer-events: none;
+      transition:
+        background 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+        backdrop-filter 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+        -webkit-backdrop-filter 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+    .day-backdrop.is-open {
+      background: rgba(15, 12, 30, 0.5);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      pointer-events: auto;
+    }
+    .day-backdrop[hidden] { display: none; }
+
+    .day-panel {
+      width: 100%;
+      max-width: 460px;
+      background: var(--paper);
+      border-left: 1px solid rgba(28,29,34,0.08);
+      box-shadow:
+        -24px 0 60px -20px rgba(0, 0, 0, 0.4),
+        -2px 0 8px -4px rgba(46, 31, 84, 0.2);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .day-backdrop.is-open .day-panel { transform: translateX(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .day-backdrop, .day-panel { transition: none; }
+    }
+
+    .day-head {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 28px 28px 18px;
+      border-bottom: 1px solid rgba(28,29,34,0.08);
+    }
+    .day-eyebrow {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--violet-deep);
+    }
+    .day-h {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin: 4px 0 0;
+      color: var(--ink);
+    }
+    .day-close {
+      background: transparent;
+      border: 1px solid rgba(46, 31, 84, 0.3);
+      border-radius: 999px;
+      font-size: 20px;
+      width: 34px; height: 34px;
+      cursor: pointer;
+      color: var(--violet-deep);
+      line-height: 1;
+      transition: background 0.25s, color 0.25s, border-color 0.25s;
+    }
+    .day-close:hover { background: var(--violet-deep); color: var(--paper); border-color: var(--violet-deep); }
+
+    .day-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 22px 28px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    .day-section-h {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+      margin: 0 0 8px;
+    }
+
+    .day-holiday {
+      display: flex; gap: 10px; align-items: center;
+      padding: 10px 14px;
+      border-radius: 4px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .day-holiday.is-bank {
+      background: rgba(201, 122, 58, 0.12);
+      color: #8a4d1f;
+      border: 1px solid rgba(201, 122, 58, 0.3);
+    }
+    .day-holiday.is-aware {
+      background: rgba(111, 141, 101, 0.12);
+      color: #3f5a36;
+      border: 1px solid rgba(111, 141, 101, 0.28);
+    }
+    .day-holiday::before {
+      content: ""; width: 6px; height: 6px; border-radius: 999px;
+      background: currentColor; opacity: 0.55;
+    }
+
+    .day-item {
+      display: flex;
+      gap: 14px;
+      padding: 14px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.08);
+      border-radius: 6px;
+      box-shadow: 0 4px 12px -8px rgba(46, 31, 84, 0.2);
+    }
+    .day-item-thumb {
+      width: 64px; height: 64px;
+      background: var(--platinum);
+      background-size: cover;
+      background-position: center;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .day-item-body { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .day-item-time {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--violet-deep);
+    }
+    .day-item-title {
+      font-family: var(--serif);
+      font-size: 18px;
+      letter-spacing: -0.01em;
+      margin: 0;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .day-item-caption {
+      font-family: var(--sans);
+      font-size: 12px;
+      color: rgba(28,29,34,0.6);
+      line-height: 1.5;
+      margin: 2px 0 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+    .day-item-status {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: var(--sans);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      width: fit-content;
+      margin-top: 4px;
+    }
+    .day-item-status.is-scheduled { background: rgba(46, 31, 84, 0.1);  color: var(--violet-deep); }
+    .day-item-status.is-sent      { background: rgba(123, 91, 207, 0.18); color: var(--violet-deep); }
+    .day-item-status.is-done      { background: rgba(46, 111, 79, 0.18); color: #2e6f4f; }
+    .day-item-status.is-cancelled { background: rgba(28, 29, 34, 0.1);  color: rgba(28,29,34,0.55); }
+
+    .day-empty {
+      padding: 20px 22px;
+      background: #fff;
+      border: 1px dashed rgba(46, 31, 84, 0.32);
+      border-radius: 6px;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28,29,34,0.6);
+      line-height: 1.55;
+    }
+
+    .day-foot {
+      padding: 18px 28px 24px;
+      border-top: 1px solid rgba(28,29,34,0.08);
+    }
+    .day-new-btn {
+      display: block;
+      text-align: center;
+      width: 100%;
+      padding: 12px 18px;
+      background: var(--violet-deep);
+      color: var(--paper);
+      border-radius: 4px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      text-decoration: none;
+      box-shadow:
+        0 10px 22px -10px rgba(46, 31, 84, 0.55),
+        0 3px 6px -3px rgba(28, 29, 34, 0.22);
+      transition: transform 0.25s, background 0.25s, box-shadow 0.25s;
+    }
+    .day-new-btn:hover {
+      transform: translateY(-1px);
+      background: var(--ink);
+      box-shadow:
+        0 16px 30px -10px rgba(46, 31, 84, 0.65),
+        0 6px 12px -6px rgba(28, 29, 34, 0.3);
+    }
+  </style>
+
+  <script>
+    import { supabase } from '../../lib/supabase.js';
+
+    // ====== Elements ======
+    const $title       = document.getElementById('cal-title');
+    const $grid        = document.getElementById('cal-grid');
+    const $state       = document.getElementById('cal-state');
+    const $prev        = document.getElementById('cal-prev');
+    const $next        = document.getElementById('cal-next');
+    const $today       = document.getElementById('cal-today');
+    const $footerEmail = document.getElementById('footer-email');
+
+    const $dayModal    = document.getElementById('day-modal');
+    const $dayClose    = document.getElementById('day-close');
+    const $dayEyebrow  = document.getElementById('day-eyebrow');
+    const $dayH        = document.getElementById('day-h');
+    const $dayBody     = document.getElementById('day-body');
+    const $dayNew      = document.getElementById('day-new');
+
+    // ====== State ======
+    // viewMonth always points at the 1st of the month being displayed,
+    // local time. Items + holidays are loaded in a window around it so
+    // that prev/next swaps feel instant.
+    let viewMonth = startOfMonth(new Date());
+    let items     = [];           // user's scheduled posts (in window)
+    let holidays  = [];           // uk_holidays rows (in window)
+
+    // ====== Date helpers ======
+    function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
+    function ymd(d) {
+      // YYYY-MM-DD in local time — matches how dates are stored in
+      // calendar_items.scheduled_date (Postgres `date`, no tz).
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${da}`;
+    }
+    function sameDay(a, b) {
+      return a.getFullYear() === b.getFullYear()
+        && a.getMonth() === b.getMonth()
+        && a.getDate() === b.getDate();
+    }
+    function fmtMonthYear(d) {
+      return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    }
+    function fmtFullDate(d) {
+      return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+    function fmtTime(t) {
+      // t is a "HH:MM:SS" string from Postgres; render as "HH:MM".
+      if (!t) return '09:00';
+      return String(t).slice(0, 5);
+    }
+
+    // ====== HTML helpers ======
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+    }
+
+    // ====== Calendar grid ======
+    // Build a 6-week grid (42 cells) starting on the Monday on or before
+    // the 1st of viewMonth. Locking to 6 rows keeps the layout from
+    // jumping by a row between months.
+    function buildGridDays() {
+      const first = startOfMonth(viewMonth);
+      const dow = (first.getDay() + 6) % 7; // 0 = Mon ... 6 = Sun
+      const start = new Date(first);
+      start.setDate(first.getDate() - dow);
+      const days = [];
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        days.push(d);
+      }
+      return days;
+    }
+
+    function renderCalendar() {
+      $title.textContent = fmtMonthYear(viewMonth);
+      const days = buildGridDays();
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      // Pre-bucket items + holidays by YMD for O(1) day lookups.
+      const itemsByDate    = bucketBy(items,    (i) => i.scheduled_date);
+      const holidaysByDate = bucketBy(holidays, (h) => h.date);
+
+      $grid.innerHTML = days.map((d) => {
+        const key       = ymd(d);
+        const isOther   = d.getMonth() !== viewMonth.getMonth();
+        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+        const isToday   = sameDay(d, todayStart);
+        const isPast    = d < todayStart && !isToday;
+        const dayItems  = itemsByDate.get(key) || [];
+        const dayHols   = holidaysByDate.get(key) || [];
+        const isEmpty   = dayItems.length === 0 && dayHols.length === 0;
+
+        const cls = [
+          'cal-day',
+          isOther   ? 'is-other-month' : '',
+          isWeekend ? 'is-weekend'     : '',
+          isToday   ? 'is-today'       : '',
+          isPast    ? 'is-past'        : '',
+          isEmpty   ? 'is-empty'       : '',
+        ].filter(Boolean).join(' ');
+
+        const dowLabel = d.toLocaleDateString('en-GB', { weekday: 'short' });
+
+        // What we show in the cell, in order of priority:
+        //   1. Holiday chips (max 2 visible)
+        //   2. Post chips (max 2 visible)
+        //   3. "+N more" if anything is hidden
+        const visibleHols  = dayHols.slice(0, 2);
+        const remainingPosts = Math.max(0, dayItems.length);
+        const visiblePosts = dayItems.slice(0, Math.max(0, 2 - visibleHols.length + (visibleHols.length === 2 ? 0 : 1)));
+        const hiddenCount  = (dayHols.length - visibleHols.length) + (dayItems.length - visiblePosts.length);
+
+        const holsHtml = visibleHols.map((h) =>
+          `<span class="cal-chip ${h.kind === 'bank' ? 'cal-chip--bank' : 'cal-chip--aware'}" title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</span>`
+        ).join('');
+        const postsHtml = visiblePosts.map((p) => {
+          const statusClass = p.status === 'done' ? 'is-done'
+            : p.status === 'reminder_sent' ? 'is-sent'
+            : p.status === 'cancelled' ? 'is-cancelled' : '';
+          return `<span class="cal-chip cal-chip--post ${statusClass}" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</span>`;
+        }).join('');
+        const moreHtml = hiddenCount > 0 ? `<span class="cal-day-more">+${hiddenCount} more</span>` : '';
+
+        return `
+          <button type="button" class="${cls}" data-date="${key}" role="gridcell">
+            <div class="cal-day-head">
+              <span class="cal-day-num">${d.getDate()}</span>
+              <span class="cal-day-dow">${escapeHtml(dowLabel)}</span>
+            </div>
+            ${holsHtml}
+            ${postsHtml}
+            ${moreHtml}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function bucketBy(rows, keyFn) {
+      const m = new Map();
+      for (const r of rows) {
+        const k = keyFn(r);
+        if (!m.has(k)) m.set(k, []);
+        m.get(k).push(r);
+      }
+      return m;
+    }
+
+    // ====== Day drawer ======
+    let dayCloseTimer = null;
+    function openDay(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const dayItems = items.filter((i) => i.scheduled_date === dateStr)
+        .sort((a, b) => (a.scheduled_time || '').localeCompare(b.scheduled_time || ''));
+      const dayHols  = holidays.filter((h) => h.date === dateStr);
+
+      $dayEyebrow.textContent = dayHols.length
+        ? dayHols.map((h) => h.name).join(' · ')
+        : 'No date markers';
+      $dayH.textContent = fmtFullDate(d);
+      $dayNew.href = `/editor?schedule=${encodeURIComponent(dateStr)}`;
+
+      const holsHtml = dayHols.length ? `
+        <div>
+          <h3 class="day-section-h">On this day</h3>
+          ${dayHols.map((h) => `
+            <div class="day-holiday ${h.kind === 'bank' ? 'is-bank' : 'is-aware'}">${escapeHtml(h.name)}</div>
+          `).join('')}
+        </div>
+      ` : '';
+
+      const itemsHtml = dayItems.length ? `
+        <div>
+          <h3 class="day-section-h">Scheduled posts</h3>
+          ${dayItems.map((p) => {
+            const thumb = p.thumbnail_url || p.asset_url || '';
+            const thumbStyle = thumb ? `style="background-image:url('${escapeHtml(thumb)}')"` : '';
+            const statusLabel = ({
+              scheduled:     'Scheduled',
+              reminder_sent: 'Reminder sent',
+              done:          'Posted',
+              cancelled:     'Cancelled',
+            })[p.status] || 'Scheduled';
+            const statusClass = ({
+              scheduled:     'is-scheduled',
+              reminder_sent: 'is-sent',
+              done:          'is-done',
+              cancelled:     'is-cancelled',
+            })[p.status] || 'is-scheduled';
+            return `
+              <div class="day-item">
+                <div class="day-item-thumb" ${thumbStyle}></div>
+                <div class="day-item-body">
+                  <span class="day-item-time">${escapeHtml(fmtTime(p.scheduled_time))} · ${escapeHtml(p.platform_hint || 'instagram')}</span>
+                  <h4 class="day-item-title">${escapeHtml(p.title)}</h4>
+                  ${p.caption ? `<p class="day-item-caption">${escapeHtml(p.caption)}</p>` : ''}
+                  <span class="day-item-status ${statusClass}">${escapeHtml(statusLabel)}</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : '';
+
+      const empty = (!dayHols.length && !dayItems.length) ? `
+        <div class="day-empty">
+          Nothing scheduled for this day yet. Use the button below to design and schedule a post — your calendar will fill up as you plan ahead.
+        </div>
+      ` : '';
+
+      $dayBody.innerHTML = holsHtml + itemsHtml + empty;
+
+      $dayModal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => $dayModal.classList.add('is-open'));
+      });
+    }
+
+    function closeDay() {
+      if (!$dayModal.classList.contains('is-open')) {
+        $dayModal.hidden = true;
+        document.body.style.overflow = '';
+        return;
+      }
+      $dayModal.classList.remove('is-open');
+      clearTimeout(dayCloseTimer);
+      dayCloseTimer = setTimeout(() => {
+        $dayModal.hidden = true;
+        document.body.style.overflow = '';
+      }, 540);
+    }
+
+    // ====== Data loaders ======
+    // Pull a 3-month window so prev/next feels instant. We re-fetch
+    // whenever the user navigates outside the loaded window.
+    let loadedWindow = null; // { fromYmd, toYmd }
+    async function loadWindow() {
+      const winStart = addMonths(viewMonth, -1);
+      const winEnd   = addMonths(viewMonth,  2);  // exclusive
+      const fromYmd  = ymd(winStart);
+      const toYmd    = ymd(new Date(winEnd.getFullYear(), winEnd.getMonth(), 0)); // last day of viewMonth+1
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        location.replace('/login?next=' + encodeURIComponent('/account/schedule'));
+        return;
+      }
+      $footerEmail.textContent = session.user.email ?? '';
+
+      const [itemsRes, holsRes] = await Promise.all([
+        supabase.from('calendar_items')
+          .select('id, scheduled_date, scheduled_time, title, caption, asset_url, thumbnail_url, design_ref, platform_hint, status, reminder_sent_at')
+          .gte('scheduled_date', fromYmd)
+          .lte('scheduled_date', toYmd)
+          .order('scheduled_date', { ascending: true })
+          .order('scheduled_time', { ascending: true }),
+        supabase.from('uk_holidays')
+          .select('date, name, kind, country')
+          .gte('date', fromYmd)
+          .lte('date', toYmd)
+          .order('date', { ascending: true }),
+      ]);
+
+      // If the calendar table hasn't been migrated yet (or RLS denies),
+      // surface a friendly hint rather than a silent empty grid.
+      if (itemsRes.error && /relation .* does not exist/i.test(itemsRes.error.message || '')) {
+        $state.hidden = false;
+        $state.textContent = "Calendar table not found — run supabase/calendar.sql in the Supabase SQL editor to enable scheduling.";
+        items = [];
+      } else {
+        items = itemsRes.data || [];
+        $state.hidden = true;
+      }
+
+      // Holidays — fall back silently to a small stub so the demo still
+      // looks alive if the table isn't seeded. The seed lives in the
+      // same SQL file, so once that runs this fallback is never hit.
+      if (holsRes.error || !(holsRes.data || []).length) {
+        holidays = stubHolidaysForWindow(fromYmd, toYmd);
+      } else {
+        holidays = holsRes.data;
+      }
+
+      loadedWindow = { fromYmd, toYmd };
+    }
+
+    // Tiny holiday stub so the page still demos before the seed has been
+    // applied. Returns whichever of these fall inside the loaded window.
+    function stubHolidaysForWindow(fromYmd, toYmd) {
+      const all = [
+        { date: '2026-05-04', name: 'Early May bank holiday', kind: 'bank',      country: 'england-and-wales' },
+        { date: '2026-05-25', name: 'Spring bank holiday',    kind: 'bank',      country: 'england-and-wales' },
+        { date: '2026-06-21', name: "Father's Day (UK)",     kind: 'awareness', country: 'uk' },
+        { date: '2026-08-31', name: 'Summer bank holiday',    kind: 'bank',      country: 'england-and-wales' },
+        { date: '2026-10-31', name: 'Halloween',              kind: 'awareness', country: 'uk' },
+        { date: '2026-11-05', name: 'Bonfire Night',          kind: 'awareness', country: 'uk' },
+        { date: '2026-11-27', name: 'Black Friday',           kind: 'awareness', country: 'uk' },
+        { date: '2026-12-25', name: 'Christmas Day',          kind: 'bank',      country: 'england-and-wales' },
+      ];
+      return all.filter((h) => h.date >= fromYmd && h.date <= toYmd);
+    }
+
+    // ====== Event wiring ======
+    $prev?.addEventListener('click', async () => {
+      viewMonth = addMonths(viewMonth, -1);
+      await ensureWindow();
+      renderCalendar();
+    });
+    $next?.addEventListener('click', async () => {
+      viewMonth = addMonths(viewMonth, 1);
+      await ensureWindow();
+      renderCalendar();
+    });
+    $today?.addEventListener('click', async () => {
+      viewMonth = startOfMonth(new Date());
+      await ensureWindow();
+      renderCalendar();
+    });
+    $grid?.addEventListener('click', (e) => {
+      const cell = e.target.closest('.cal-day');
+      if (!cell) return;
+      openDay(cell.getAttribute('data-date'));
+    });
+    $dayClose?.addEventListener('click', closeDay);
+    $dayModal?.addEventListener('click', (e) => { if (e.target === $dayModal) closeDay(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$dayModal.hidden) closeDay();
+    });
+
+    async function ensureWindow() {
+      // Reload only if the new viewMonth is outside the cached window
+      // (with 1-month buffer on each side).
+      if (!loadedWindow) { await loadWindow(); return; }
+      const monthYmd = ymd(viewMonth);
+      if (monthYmd < loadedWindow.fromYmd || monthYmd > loadedWindow.toYmd) {
+        await loadWindow();
+      }
+    }
+
+    // ====== Sign-out (shared with other workspace pages) ======
+    async function signOut() {
+      await supabase.auth.signOut();
+      location.replace('/login');
+    }
+    document.getElementById('app-signout')?.addEventListener('click', signOut);
+    document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
+
+    // ====== Bootstrap ======
+    (async () => {
+      await loadWindow();
+      renderCalendar();
+      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+    })();
+  </script>
+</BaseLayout>
