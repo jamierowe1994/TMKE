@@ -251,39 +251,100 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   max-width: 1200px;
 }
 
-/* ===== Doors: closed still → opening video → open still =====
-   Three stacked media layers. We crossfade between them via the .is-on /
-   .is-playing / .is-open classes added by window.tmkeSplash(). */
-.splash-bg,
-.splash-video {
+/* ===== Splash visuals: animated aurora + drifting confetti =====
+   No images, no video — runs entirely from CSS so it's instant on every
+   connection. Three layers stack inside .splash:
+     1. .splash-aurora  – four blurred gradient blobs drifting slowly
+     2. .splash-confetti – twelve small geometric pieces floating upward
+     3. .splash-grain   – fine noise texture (declared below)
+   The wordmark + typography sits above them all in .splash-inner. */
+.splash-aurora,
+.splash-confetti {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  filter: brightness(0.92) contrast(1.04);
-  user-select: none;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.45s ease-out;
 }
-.splash-bg--closed { z-index: 1; }
-.splash-video      { z-index: 2; }
-.splash-bg--open   { z-index: 3; }
-.splash-grain      { z-index: 4; }
-.splash-inner      { z-index: 5; }
+.splash-aurora { z-index: 1; opacity: 0; transition: opacity 0.6s ease-out; }
+.splash-confetti { z-index: 2; opacity: 0; transition: opacity 0.6s 0.15s ease-out; }
+.splash-grain  { z-index: 3; }
+.splash-inner  { z-index: 5; }
+.splash.is-on .splash-aurora,
+.splash.is-on .splash-confetti { opacity: 1; }
 
-/* State machine
-   ─────────────────────────────────────────────────────────────────────
-   .splash               → everything hidden
-   .splash.is-on         → closed still visible (matches the login page bg)
-   .splash.is-playing    → video fades in over the closed still, then plays
-   .splash.is-open       → open still fades in over the (ended) video
-*/
-.splash.is-on   .splash-bg--closed { opacity: 1; }
-.splash.is-playing .splash-video   { opacity: 1; }
-.splash.is-open .splash-bg--open   { opacity: 1; }
+/* Aurora blobs — large, blurred, slow drift. Colours pulled from the brand. */
+.splash-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  animation: splashBlobDrift 14s ease-in-out infinite alternate;
+}
+.splash-blob--1 {
+  width: 46vw; height: 46vw;
+  top: -8vw; left: -10vw;
+  background: radial-gradient(circle, #6a5d80 0%, transparent 70%);
+  animation-duration: 11s;
+}
+.splash-blob--2 {
+  width: 38vw; height: 38vw;
+  bottom: -6vw; right: -8vw;
+  background: radial-gradient(circle, #b9826a 0%, transparent 70%);
+  animation-duration: 13s;
+  animation-direction: alternate-reverse;
+}
+.splash-blob--3 {
+  width: 32vw; height: 32vw;
+  top: 38%; right: 18%;
+  background: radial-gradient(circle, #474254 0%, transparent 65%);
+  animation-duration: 16s;
+}
+.splash-blob--4 {
+  width: 28vw; height: 28vw;
+  bottom: 18%; left: 22%;
+  background: radial-gradient(circle, #969ab0 0%, transparent 65%);
+  animation-duration: 9s;
+  animation-direction: alternate-reverse;
+}
+@keyframes splashBlobDrift {
+  0%   { transform: translate(0, 0)        scale(1);    }
+  50%  { transform: translate(4vw, -3vw)   scale(1.08); }
+  100% { transform: translate(-3vw, 4vw)   scale(0.96); }
+}
+
+/* Confetti — dots, rings and bars rising up the screen, each with a
+   custom x position, animation delay and size set on the inline style. */
+.splash-shape {
+  position: absolute;
+  left: var(--x, 50%);
+  bottom: -10vh;
+  width: var(--s, 24px);
+  height: var(--s, 24px);
+  animation: splashShapeRise 7s linear infinite;
+  animation-delay: var(--d, 0s);
+  opacity: 0;
+}
+.splash-shape--dot {
+  background: var(--paper);
+  border-radius: 50%;
+}
+.splash-shape--ring {
+  border: 2px solid rgba(240, 238, 235, 0.7);
+  border-radius: 50%;
+  background: transparent;
+}
+.splash-shape--bar {
+  height: 3px;
+  background: var(--paper);
+  border-radius: 999px;
+  transform-origin: center;
+}
+@keyframes splashShapeRise {
+  0%   { transform: translateY(0)      rotate(0);   opacity: 0; }
+  10%  {                                           opacity: 0.7; }
+  85%  {                                           opacity: 0.6; }
+  100% { transform: translateY(-110vh) rotate(140deg); opacity: 0; }
+}
 .splash-eyebrow {
   font-family: var(--sans);
   font-size: 12px;
@@ -423,9 +484,14 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   filter: brightness(0.6) contrast(1.05) saturate(0.92);
   opacity: 0;
   transform: scale(1.04);
-  transition: opacity 2.4s ease-out, transform 22s linear;
+  /* Longer, gentler fade so the video doesn't pop in once it loads — feels
+     deliberate even when the network's slow. */
+  transition: opacity 2.6s ease-out, transform 22s linear;
 }
-.hero.in .hero-bg, .hero.in .hero-video { opacity: 1; transform: scale(1.0); }
+.hero.in .hero-bg { opacity: 1; transform: scale(1.0); }
+/* Video only fades up once it's actually got frames to show (.is-ready
+   added by app.js on the video element's 'playing' event). */
+.hero.in .hero-video.is-ready { opacity: 1; transform: scale(1.0); }
 .hero-vignette {
   position: absolute; inset: 0;
   z-index: 2;
@@ -879,7 +945,11 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   display: none;
 }
 
-/* Stages */
+/* Stages — vertical conveyor.
+   Inactive stages waiting their turn sit BELOW the viewport (translateY: +)
+   and active ones slide up into place, then continue up past the top as
+   the next one rises into view. Pronounced offsets so the scroll reads as
+   a continuous upward flow rather than a quick cross-fade. */
 .approach-stage {
   position: absolute;
   inset: 0;
@@ -888,12 +958,13 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   justify-content: center;
   padding: 0 8vw;
   opacity: 0;
-  transform: translateY(40px);
+  transform: translateY(28vh);
   transition:
-    opacity 0.9s cubic-bezier(.2,.7,.2,1),
-    transform 1.1s cubic-bezier(.2,.7,.2,1);
+    opacity 1.05s cubic-bezier(.2,.7,.2,1),
+    transform 1.25s cubic-bezier(.2,.7,.2,1);
   pointer-events: none;
   z-index: 2;
+  will-change: transform, opacity;
 }
 .approach-stage.is-active {
   opacity: 1;
@@ -902,7 +973,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .approach-stage.is-leaving {
   opacity: 0;
-  transform: translateY(-40px);
+  transform: translateY(-28vh);
 }
 
 /* ---- Intro stage ---- */
@@ -1088,7 +1159,9 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   aspect-ratio: auto;
   width: 100%;
   max-width: 1360px;
-  height: clamp(460px, 66vh, 740px);
+  /* Slimmer than before (was clamp(460,66vh,740)) — gives more breathing
+     room above and below each stage as it scrolls past. */
+  height: clamp(360px, 50vh, 560px);
   margin: 0 auto;
   background: #1a1410;
   box-shadow: 0 30px 60px -30px rgba(28, 29, 34, 0.25);

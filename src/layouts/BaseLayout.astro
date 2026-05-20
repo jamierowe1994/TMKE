@@ -73,12 +73,30 @@ const {
     {!hideFooter && <Footer />}
 
     <!-- Sign-in splash overlay — fired by window.tmkeSplash().
-         Media has no src/preload by default; tmkeSplash() populates them
-         just before showing so we don't fetch ~11 MB on every page load. -->
+         All-CSS animation: aurora gradient, drifting confetti shapes, and
+         a marquee wordmark. No video, no images — runs on any connection. -->
     <div class="splash" id="tmke-splash" aria-hidden="true">
-      <img class="splash-bg splash-bg--closed" alt="" data-src="/assets/door-closed.png" />
-      <video class="splash-video" id="tmke-splash-video" muted playsinline preload="none" data-src="/assets/door-open.mp4" data-poster="/assets/door-closed.png"></video>
-      <img class="splash-bg splash-bg--open" alt="" data-src="/assets/doors-open.png" />
+      <div class="splash-aurora">
+        <span class="splash-blob splash-blob--1"></span>
+        <span class="splash-blob splash-blob--2"></span>
+        <span class="splash-blob splash-blob--3"></span>
+        <span class="splash-blob splash-blob--4"></span>
+      </div>
+      <div class="splash-confetti" aria-hidden="true">
+        <!-- Twelve geometric pieces drifting up the screen -->
+        <span class="splash-shape splash-shape--dot"   style="--x:8%;  --d:0.0s; --s:18px;"></span>
+        <span class="splash-shape splash-shape--ring"  style="--x:18%; --d:0.5s; --s:34px;"></span>
+        <span class="splash-shape splash-shape--bar"   style="--x:28%; --d:0.2s; --s:42px;"></span>
+        <span class="splash-shape splash-shape--dot"   style="--x:38%; --d:0.9s; --s:14px;"></span>
+        <span class="splash-shape splash-shape--ring"  style="--x:48%; --d:0.0s; --s:54px;"></span>
+        <span class="splash-shape splash-shape--bar"   style="--x:55%; --d:0.7s; --s:60px;"></span>
+        <span class="splash-shape splash-shape--dot"   style="--x:64%; --d:0.3s; --s:24px;"></span>
+        <span class="splash-shape splash-shape--ring"  style="--x:72%; --d:1.1s; --s:30px;"></span>
+        <span class="splash-shape splash-shape--bar"   style="--x:82%; --d:0.4s; --s:48px;"></span>
+        <span class="splash-shape splash-shape--dot"   style="--x:90%; --d:0.0s; --s:20px;"></span>
+        <span class="splash-shape splash-shape--ring"  style="--x:96%; --d:0.6s; --s:38px;"></span>
+        <span class="splash-shape splash-shape--bar"   style="--x:13%; --d:1.2s; --s:36px;"></span>
+      </div>
       <div class="splash-grain"></div>
       <div class="splash-inner">
         <div class="splash-eyebrow"><span>TMKE</span> &mdash; Members</div>
@@ -94,76 +112,18 @@ const {
     <script is:inline>
       window.tmkeSplash = function (destination, opts) {
         opts = opts || {};
-        // ~5s video runtime + a short beat on the open-doors still.
-        // If anything stalls, we settle on the open still by VIDEO_FALLBACK
-        // and navigate by HARD_CAP — so the user is never stuck on a frozen
-        // splash. HARD_CAP is the absolute backstop the user asked for.
-        const HARD_CAP = opts.duration || 5800;
-        const VIDEO_FALLBACK = 5200;
-        const POST_HOLD = 500;
+        // CSS animation only — no video to wait on. Total runtime is short
+        // and predictable: HOLD is how long the splash holds on screen.
+        const HOLD = opts.duration || 2600;
         const splash = document.getElementById("tmke-splash");
         if (!splash) { window.location.href = destination; return; }
-        const video = document.getElementById("tmke-splash-video");
-
-        // Hydrate media — the markup ships without src so we don't fetch
-        // ~11 MB of assets on every page load. They're populated only when
-        // the splash actually fires.
-        splash.querySelectorAll("img[data-src]").forEach(function (img) {
-          if (!img.getAttribute("src")) img.src = img.getAttribute("data-src");
-        });
-        if (video) {
-          if (!video.getAttribute("poster") && video.getAttribute("data-poster")) {
-            video.setAttribute("poster", video.getAttribute("data-poster"));
-          }
-          if (!video.getAttribute("src") && video.getAttribute("data-src")) {
-            video.setAttribute("src", video.getAttribute("data-src"));
-            video.load();
-          }
-        }
 
         splash.classList.add("is-on");
         document.documentElement.style.overflow = "hidden";
 
-        let navigated = false;
-        function navigate() {
-          if (navigated) return;
-          navigated = true;
+        setTimeout(function () {
           window.location.href = destination;
-        }
-
-        // Hard cap — splash never holds longer than HARD_CAP, no matter what
-        const hardTimer = setTimeout(navigate, HARD_CAP);
-
-        function settleToOpen() {
-          if (splash.classList.contains("is-open")) return;
-          splash.classList.add("is-open");
-          // The open still is crossfading in; pause the video so it stops
-          // burning frames while it's being covered.
-          try { video && video.pause && video.pause(); } catch (_) {}
-          // hold briefly on the open-doors still + text, then go
-          setTimeout(function () {
-            clearTimeout(hardTimer);
-            navigate();
-          }, POST_HOLD);
-        }
-
-        if (video && video.canPlayType && video.canPlayType("video/mp4")) {
-          // Kick off playback as soon as the splash shows
-          requestAnimationFrame(function () { splash.classList.add("is-playing"); });
-          try { video.currentTime = 0; } catch (_) {}
-          const p = video.play();
-          if (p && p.catch) p.catch(function () {
-            // Autoplay blocked / video failed — go straight to the open still
-            settleToOpen();
-          });
-          video.addEventListener("ended", settleToOpen, { once: true });
-          // Safety: if the video never fires "ended" (load issue, slow connection),
-          // settle on the open still after VIDEO_FALLBACK
-          setTimeout(settleToOpen, VIDEO_FALLBACK);
-        } else {
-          // No video support — skip straight to the open still
-          settleToOpen();
-        }
+        }, HOLD);
       };
     </script>
 
