@@ -1468,309 +1468,362 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 
 /* ===================== Laptop mockup =====================
-   A clean MacBook-esque silhouette built entirely in CSS so it scales
-   with the column width. Brushed-aluminium body (soft gradient), matte
-   black bezel, slim hinge, tapered base. */
+   Matte black MacBook-esque silhouette. Slim 8px bezels, thin metallic
+   hinge, slightly wider base with a tapered front edge. Entirely CSS so
+   it scales fluidly with the column. */
 .laptop {
-  --laptop-radius: 14px;
+  --laptop-radius: 12px;
+  --laptop-bezel: 8px;
   width: 100%;
-  max-width: 640px;
+  max-width: 660px;
   font-size: 0;
-  filter: drop-shadow(0 30px 50px rgba(28, 29, 34, 0.18));
+  filter: drop-shadow(0 32px 56px rgba(8, 8, 10, 0.45))
+          drop-shadow(0 4px 10px rgba(8, 8, 10, 0.18));
 }
 .laptop-screen {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
-  background: linear-gradient(180deg, #d8d8db 0%, #c1c1c4 100%);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: var(--laptop-radius) var(--laptop-radius) 4px 4px;
-  padding: 14px 14px 14px;
+  background:
+    linear-gradient(180deg, #18181a 0%, #0c0c0e 60%, #0a0a0c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--laptop-radius) var(--laptop-radius) 2px 2px;
+  padding: var(--laptop-bezel);
   box-sizing: border-box;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
 }
 .laptop-bezel {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 14px;
+  height: var(--laptop-bezel);
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(180deg, #1c1d22 0%, #0f0f12 100%);
   border-radius: var(--laptop-radius) var(--laptop-radius) 0 0;
+  background: transparent;
 }
 .laptop-camera {
-  width: 4px; height: 4px;
+  width: 3px; height: 3px;
   border-radius: 50%;
-  background: #2a2b30;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  background: #2c2c30;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 .laptop-viewport {
   position: absolute;
-  top: 14px; left: 14px; right: 14px; bottom: 14px;
-  background: #0d0d10;
-  border-radius: 2px;
+  top: var(--laptop-bezel);
+  left: var(--laptop-bezel);
+  right: var(--laptop-bezel);
+  bottom: var(--laptop-bezel);
+  background: #ffffff;
+  border-radius: 1px;
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 0 30px rgba(0, 0, 0, 0.08);
 }
 .laptop-hinge {
   width: 100%;
-  height: 6px;
-  background: linear-gradient(180deg, #9a9a9d 0%, #b8b8bb 50%, #9a9a9d 100%);
-  border-left: 1px solid rgba(0, 0, 0, 0.18);
-  border-right: 1px solid rgba(0, 0, 0, 0.18);
+  height: 4px;
+  background:
+    linear-gradient(180deg, #1c1c1f 0%, #2a2a2e 50%, #1c1c1f 100%);
+  border-left: 1px solid rgba(0, 0, 0, 0.4);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
 }
 .laptop-base {
   position: relative;
-  width: 110%;
-  height: 14px;
-  margin-left: -5%;
-  background: linear-gradient(180deg, #cfcfd2 0%, #b4b4b7 100%);
-  border-radius: 0 0 24px 24px;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+  width: 108%;
+  height: 10px;
+  margin-left: -4%;
+  background:
+    linear-gradient(180deg, #15151a 0%, #0c0c0e 100%);
+  border-radius: 0 0 18px 18px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04),
+    0 6px 12px rgba(0, 0, 0, 0.4);
 }
 .laptop-base::after {
   content: "";
   position: absolute;
   left: 50%; top: 0;
   transform: translateX(-50%);
-  width: 16%;
-  height: 4px;
-  background: linear-gradient(180deg, #a5a5a8 0%, #c8c8cb 100%);
-  border-radius: 0 0 6px 6px;
+  width: 14%;
+  height: 2px;
+  background: linear-gradient(180deg, #1c1c1f 0%, #28282c 100%);
+  border-radius: 0 0 4px 4px;
 }
 
-/* ===================== Studio demo (lives inside the laptop) =====================
-   Migrated from /edit. All sizes are %-based / em-based so it scales
-   smoothly with the laptop viewport. */
+/* ===================== Studio demo (inside the laptop) =====================
+   Layout mirrors the real /editor: topbar across the top, then
+   rail / tool-panel / stage in the body. Paper/ink palette and
+   English-violet accents so it reads as the actual product.
+*/
 .ed-demo {
   font-size: 14px;
   position: absolute;
   inset: 0;
-  background: #f3f1ec;
-  color: #1c1d22;
-  display: flex;
-  flex-direction: column;
+  background: #f5f4f1;
+  color: var(--ink);
+  display: grid;
+  grid-template-rows: 36px 1fr;
   --demo-brand: #1c1d22;
   font-family: var(--sans);
 }
-.ed-demo-bar {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px;
-  background: #ecead4;
-  border-bottom: 1px solid rgba(28, 29, 34, 0.08);
-}
-.ed-demo-dots { display: inline-flex; gap: 5px; }
-.ed-demo-dots i {
-  display: inline-block;
-  width: 9px; height: 9px; border-radius: 50%;
-  background: #d0cec9;
-}
-.ed-demo-dots i:nth-child(1) { background: #e07b6c; }
-.ed-demo-dots i:nth-child(2) { background: #e5b75a; }
-.ed-demo-dots i:nth-child(3) { background: #7fb874; }
-.ed-demo-title {
-  flex: 1; text-align: center;
-  font-family: var(--serif);
-  font-size: 12px; font-style: italic;
-  color: rgba(28, 29, 34, 0.55);
-}
-.ed-demo-action {
-  font-size: 10px;
-  color: rgba(28, 29, 34, 0.45);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
 
-.ed-demo-body {
-  flex: 1; min-height: 0;
+/* ===== Topbar ===== */
+.ed-demo-top {
   display: grid;
-  grid-template-columns: 36px 1fr 150px;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 8px;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(28, 29, 34, 0.07);
+}
+.ed-demo-top-left  { display: flex; align-items: center; gap: 8px; justify-self: start; }
+.ed-demo-top-mid   { display: flex; align-items: center; gap: 4px; justify-self: center; }
+.ed-demo-top-right { display: flex; align-items: center; gap: 6px; justify-self: end; }
+.ed-demo-back {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: rgba(28, 29, 34, 0.5);
+  font-size: 13px;
+}
+.ed-demo-filename {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 11px;
+  color: rgba(28, 29, 34, 0.75);
+  letter-spacing: 0.01em;
+}
+.ed-demo-iconbtn {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 3px;
+  color: rgba(28, 29, 34, 0.6);
+  font-size: 11px;
+}
+.ed-demo-zoom {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: rgba(28, 29, 34, 0.55);
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+.ed-demo-share {
+  appearance: none;
+  background: var(--english-violet);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  cursor: default;
+  display: inline-flex; align-items: center; gap: 4px;
+  transition: background 0.3s, transform 0.25s;
+}
+.ed-demo-share em {
+  font-style: italic;
+  font-family: var(--serif);
+  font-size: 12px;
+  letter-spacing: normal;
+}
+.ed-demo[data-step="push"] .ed-demo-share { transform: scale(0.95); background: #2f2a3b; }
+
+/* ===== Body — three columns: rail · panel · stage ===== */
+.ed-demo-body {
+  display: grid;
+  grid-template-columns: 34px 130px 1fr;
+  min-height: 0;
   position: relative;
 }
 .ed-demo-rail {
+  background: #ffffff;
+  border-right: 1px solid rgba(28, 29, 34, 0.07);
   display: flex; flex-direction: column;
-  align-items: center; gap: 14px;
-  padding: 16px 0;
-  background: #1c1d22;
-  color: rgba(242, 239, 233, 0.55);
+  align-items: stretch;
+  padding: 4px 0;
+  gap: 2px;
 }
 .ed-demo-tool {
-  width: 22px; height: 22px;
+  height: 28px;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
+  color: rgba(28, 29, 34, 0.55);
+  border-left: 2px solid transparent;
+  font-family: var(--sans);
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
 }
 .ed-demo-tool.is-active {
-  background: rgba(242, 239, 233, 0.12);
-  color: var(--paper);
+  color: var(--english-violet);
+  background: rgba(71, 66, 84, 0.08);
+  border-left-color: var(--english-violet);
 }
 
-.ed-demo-stage {
-  display: flex; align-items: center; justify-content: center;
-  background: repeating-conic-gradient(rgba(28,29,34,0.04) 0% 25%, transparent 0% 50%) 0 0 / 12px 12px;
-  padding: 18px;
+.ed-demo-panel {
+  background: #ffffff;
+  border-right: 1px solid rgba(28, 29, 34, 0.07);
+  padding: 10px;
+  display: flex; flex-direction: column;
+  gap: 8px;
   min-width: 0;
 }
-.ed-demo-template {
-  width: 100%; max-width: 240px;
-  aspect-ratio: 4 / 5;
-  background: #fff;
-  border: 1px solid rgba(28, 29, 34, 0.08);
-  padding: 16px;
-  display: flex; flex-direction: column; gap: 8px;
+.ed-demo-panel-h {
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.ed-demo-panel-sub {
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(28, 29, 34, 0.42);
+  margin-top: 2px;
+}
+.ed-demo-input {
+  display: flex; align-items: center;
+  background: #fafaf7;
+  border: 1px solid rgba(28, 29, 34, 0.12);
+  border-radius: 3px;
+  padding: 5px 7px;
+  font-size: 10px;
+  min-height: 22px;
+  color: var(--ink);
+}
+.ed-demo-caret {
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--english-violet);
+  animation: caretBlink 1s steps(2, end) infinite;
+}
+@keyframes caretBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+.ed-demo-swatches { display: flex; gap: 5px; flex-wrap: wrap; }
+.ed-demo-swatches button {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: default;
+  appearance: none;
+  transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+}
+.ed-demo-swatches button.is-active {
+  border-color: var(--english-violet);
+  transform: scale(1.06);
+  box-shadow: 0 0 0 1px rgba(71, 66, 84, 0.18);
+}
+
+.ed-demo-formats { display: flex; gap: 4px; flex-wrap: wrap; }
+.ed-demo-formats span {
+  font-size: 9px;
+  padding: 3px 7px;
+  background: #fafaf7;
+  border: 1px solid rgba(28, 29, 34, 0.1);
+  border-radius: 3px;
+  color: rgba(28, 29, 34, 0.6);
+}
+.ed-demo-formats span.is-active {
+  background: var(--ink); color: #fff; border-color: var(--ink);
+}
+
+/* ===== Stage — canvas card centred on a soft grey field ===== */
+.ed-demo-stage {
+  background: #f5f4f1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 14px;
+  min-width: 0;
   position: relative;
-  transition: border-color 0.4s, box-shadow 0.4s;
-  box-shadow: 0 12px 28px rgba(28, 29, 34, 0.07);
+}
+.ed-demo-template {
+  width: 100%; max-width: 220px;
+  aspect-ratio: 4 / 5;
+  background: #ffffff;
+  border: 1px solid rgba(28, 29, 34, 0.04);
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative;
+  box-shadow:
+    0 18px 38px -16px rgba(28, 29, 34, 0.35),
+    0 3px 8px -4px rgba(28, 29, 34, 0.16);
+  transition: border-color 0.4s;
 }
 .ed-demo-tag {
   display: inline-block; align-self: flex-start;
-  font-size: 9px; letter-spacing: 0.28em;
+  font-size: 8px; letter-spacing: 0.28em;
   text-transform: uppercase;
   background: var(--demo-brand);
   color: #fff;
-  padding: 3px 8px;
+  padding: 3px 7px;
   transition: background 0.5s;
 }
 .ed-demo-name {
   font-family: var(--serif);
   font-weight: 500;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.05;
   margin: 6px 0 2px;
   color: var(--demo-brand);
   transition: color 0.5s;
 }
 .ed-demo-meta {
-  font-size: 10px;
+  font-size: 9px;
   color: rgba(28, 29, 34, 0.65);
 }
 .ed-demo-pill {
   display: inline-block; align-self: flex-start;
-  font-size: 9px; letter-spacing: 0.16em;
+  font-size: 8px; letter-spacing: 0.16em;
   text-transform: uppercase;
   border: 1px solid rgba(28, 29, 34, 0.18);
-  padding: 4px 8px; border-radius: 999px;
+  padding: 3px 7px; border-radius: 999px;
   color: rgba(28, 29, 34, 0.7);
 }
 .ed-demo-photo {
   margin-top: auto;
   flex: 1;
   background:
-    linear-gradient(135deg, rgba(0,0,0,0.25), rgba(0,0,0,0.05)),
+    linear-gradient(135deg, rgba(0,0,0,0.22), rgba(0,0,0,0.04)),
     linear-gradient(180deg, #c0b08a 0%, #837560 100%);
   border-radius: 2px;
-  min-height: 70px;
+  min-height: 60px;
 }
 
-.ed-demo-inspector {
-  padding: 12px;
-  background: #f9f7f1;
-  border-left: 1px solid rgba(28, 29, 34, 0.08);
-  display: flex; flex-direction: column; gap: 12px;
-  font-size: 11px;
-}
-.ed-demo-field { display: flex; flex-direction: column; gap: 4px; }
-.ed-demo-field > span,
-.ed-demo-label {
-  font-size: 9px; letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(28, 29, 34, 0.45);
-}
-.ed-demo-input {
-  display: flex; align-items: center;
-  background: #fff;
-  border: 1px solid rgba(28, 29, 34, 0.14);
-  padding: 6px 8px;
-  font-size: 11px;
-  min-height: 22px;
-}
-.ed-demo-caret {
-  display: inline-block;
-  margin-left: 2px;
-  color: rgba(28, 29, 34, 0.55);
-  animation: caretBlink 1s steps(2, end) infinite;
-}
-@keyframes caretBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-.ed-demo-swatches { display: flex; gap: 6px; }
-.ed-demo-swatches button {
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: default;
-  appearance: none;
-  transition: border-color 0.3s, transform 0.3s;
-}
-.ed-demo-swatches button.is-active {
-  border-color: #1c1d22;
-  transform: scale(1.05);
-}
-.ed-demo-formats { display: flex; gap: 4px; flex-wrap: wrap; }
-.ed-demo-formats span {
-  font-size: 9px;
-  padding: 4px 8px;
-  background: #fff;
-  border: 1px solid rgba(28, 29, 34, 0.12);
-  color: rgba(28, 29, 34, 0.65);
-}
-.ed-demo-formats span.is-active { background: #1c1d22; color: #fff; border-color: #1c1d22; }
-
-.ed-demo-foot {
-  padding: 8px 12px;
-  background: #ecead4;
-  border-top: 1px solid rgba(28, 29, 34, 0.08);
-  display: flex; justify-content: flex-end;
-}
-.ed-demo-push {
-  appearance: none;
-  background: var(--demo-brand);
-  color: #fff;
-  border: none;
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 8px 14px;
-  cursor: default;
-  display: inline-flex; align-items: center; gap: 6px;
-  transition: background 0.4s, transform 0.25s;
-}
-.ed-demo-push em {
-  font-style: italic;
-  font-family: var(--serif);
-  font-size: 14px;
-  letter-spacing: normal;
-}
-.ed-demo[data-step="push"] .ed-demo-push { transform: scale(0.96); }
-
+/* ===== Floating cursor — % positions match the new layout ===== */
 .ed-demo-cursor {
   position: absolute;
-  width: 14px; height: 14px;
-  background: #1c1d22;
+  width: 12px; height: 12px;
+  background: var(--ink);
   border: 2px solid #fff;
   border-radius: 50%;
   pointer-events: none;
-  z-index: 5;
-  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s;
-  top: 42%; left: 75%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 6;
+  top: 60%; left: 75%;
+  transition: top 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              left 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.4s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.32);
 }
-.ed-demo[data-step="rest"]      .ed-demo-cursor { transform: translate(-30px, -10px); }
-.ed-demo[data-step="typing"]    .ed-demo-cursor { transform: translate(-6px, -38px); }
-.ed-demo[data-step="recolor"]   .ed-demo-cursor { transform: translate(-30px, 5px); }
-.ed-demo[data-step="push"]      .ed-demo-cursor { transform: translate(-30px, 80px); }
-.ed-demo[data-step="platforms"] .ed-demo-cursor { transform: translate(-50px, 50px); opacity: 0.6; }
-.ed-demo[data-step="days"]      .ed-demo-cursor { transform: translate(-50px, 30px); opacity: 0.6; }
+.ed-demo[data-step="rest"]      .ed-demo-cursor { top: 60%; left: 75%; }
+.ed-demo[data-step="typing"]    .ed-demo-cursor { top: 23%; left: 30%; }
+.ed-demo[data-step="recolor"]   .ed-demo-cursor { top: 42%; left: 28%; }
+.ed-demo[data-step="push"]      .ed-demo-cursor { top: 12%; left: 92%; }
+.ed-demo[data-step="platforms"] .ed-demo-cursor { top: 38%; left: 88%; opacity: 0.7; }
+.ed-demo[data-step="days"]      .ed-demo-cursor { top: 50%; left: 88%; opacity: 0.7; }
 .ed-demo[data-step="success"]   .ed-demo-cursor { opacity: 0; }
 
+/* ===== Popovers — anchored under the Share button ===== */
 .ed-demo-pop {
   position: absolute;
-  z-index: 4;
-  background: #1c1d22;
+  z-index: 5;
+  background: var(--ink);
   color: var(--paper);
   padding: 10px 12px;
-  min-width: 150px;
+  min-width: 160px;
   border-radius: 4px;
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.4);
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.35s, transform 0.35s;
@@ -1782,25 +1835,32 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   color: rgba(242, 239, 233, 0.7);
   margin-bottom: 6px;
 }
-.ed-demo-pop--platform { right: 16px; bottom: 56px; }
-.ed-demo-pop--day      { right: 16px; bottom: 56px; min-width: 180px; }
+.ed-demo-pop--platform,
+.ed-demo-pop--day {
+  top: 42px;
+  right: 8px;
+}
+.ed-demo-pop--day { min-width: 200px; }
 .ed-demo[data-step="platforms"] .ed-demo-pop--platform,
 .ed-demo[data-step="days"]      .ed-demo-pop--day {
   opacity: 1; transform: translateY(0);
 }
-.ed-demo-platforms { display: flex; flex-direction: column; gap: 4px; }
+.ed-demo-platforms { display: flex; flex-direction: column; gap: 3px; }
 .ed-demo-platform {
   appearance: none; background: transparent;
   color: var(--paper);
   border: 1px solid transparent;
-  font-size: 11px;
-  padding: 5px 8px;
-  display: flex; align-items: center; gap: 8px;
+  border-radius: 3px;
+  font-family: var(--sans);
+  font-size: 10px;
+  padding: 5px 7px;
+  display: flex; align-items: center; gap: 7px;
   cursor: default; text-align: left;
+  transition: background 0.3s, border-color 0.3s;
 }
 .ed-demo-platform i {
   font-style: normal;
-  font-size: 9px; font-weight: 700;
+  font-size: 8px; font-weight: 700;
   width: 16px; height: 16px;
   display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid rgba(242, 239, 233, 0.4);
@@ -1822,49 +1882,56 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   background: rgba(242, 239, 233, 0.08);
   border: 1px solid rgba(242, 239, 233, 0.15);
   color: var(--paper);
-  font-size: 10px;
-  padding: 6px 0;
+  border-radius: 3px;
+  font-family: var(--sans);
+  font-size: 9px;
+  padding: 5px 0;
   cursor: default;
 }
 .ed-demo[data-step="days"] .ed-demo-days button[data-d="thu"] {
-  background: var(--english-violet); border-color: var(--english-violet);
+  background: var(--english-violet);
+  border-color: var(--english-violet);
 }
 .ed-demo-pop-sub {
   font-family: var(--serif); font-style: italic;
   font-size: 10px;
-  color: rgba(242, 239, 233, 0.7);
+  color: rgba(242, 239, 233, 0.72);
 }
 
+/* ===== Success banner — slides up from the bottom of the stage ===== */
 .ed-demo-success {
   position: absolute;
-  left: 16px; right: 16px; bottom: 16px;
-  display: flex; align-items: center; gap: 12px;
+  left: 50%;
+  bottom: 12px;
+  transform: translate(-50%, 12px);
+  display: flex; align-items: center; gap: 10px;
   background: #2c5240;
   color: var(--paper);
-  border-radius: 4px;
-  padding: 10px 14px;
-  z-index: 6;
+  border-radius: 6px;
+  padding: 8px 14px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.3);
+  z-index: 7;
   opacity: 0;
-  transform: translateY(8px);
   transition: opacity 0.4s, transform 0.4s;
+  max-width: 80%;
 }
 .ed-demo[data-step="success"] .ed-demo-success {
-  opacity: 1; transform: translateY(0);
+  opacity: 1; transform: translate(-50%, 0);
 }
 .ed-demo-success-mark {
-  width: 24px; height: 24px;
+  width: 22px; height: 22px;
   border-radius: 50%;
   background: rgba(242, 239, 233, 0.18);
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
+  font-size: 13px;
 }
 .ed-demo-success h4 {
   font-family: var(--serif); font-weight: 500;
-  font-size: 14px; margin: 0 0 1px; color: var(--paper);
+  font-size: 13px; margin: 0 0 1px; color: var(--paper);
 }
 .ed-demo-success p {
-  font-size: 10px;
-  color: rgba(242,239,233,0.78); margin: 0;
+  font-family: var(--sans); font-size: 10px;
+  color: rgba(242, 239, 233, 0.78); margin: 0;
 }
 
 
