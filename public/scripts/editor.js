@@ -1617,16 +1617,21 @@
   }
 
   // ---------- Export ----------
-  // type can be: "png" | "jpg" | "png-transparent" | "pdf"
-  async function exportImage(type) {
+  // Internal: rasterize the current design to a fresh offscreen canvas.
+  // Shared by exportImage (downloads) and the schedule-to-calendar hook
+  // (uploads). Keep this in sync if you add new element types — the Share
+  // button (further down) still inlines the same loop and will need
+  // updating too. TODO(refactor): collapse the Share button onto this
+  // helper as well once we're confident in the shape.
+  async function _renderDesignToCanvas({ transparent = false } = {}) {
     const c = document.createElement("canvas");
     c.width = state.canvas.width;
     c.height = state.canvas.height;
     const ctx = c.getContext("2d");
-    // PNG-transparent skips the background fill so cut-out designs can sit
-    // on any colour. JPG always needs a background since JPG can't be
-    // transparent. PDF/regular PNG fill with the canvas background colour.
-    if (type !== "png-transparent") {
+    // Skipping the background fill produces a cut-out PNG. JPG and the
+    // regular PNG both want a solid background — we always pass
+    // transparent=false for those paths.
+    if (!transparent) {
       ctx.fillStyle = state.canvas.background || "#fff";
       ctx.fillRect(0, 0, c.width, c.height);
     }
@@ -1653,7 +1658,7 @@
       const cy = el.y + el.h / 2;
       ctx.translate(cx, cy);
       ctx.rotate((el.rotation || 0) * Math.PI / 180);
-      // Honour flipX / flipY on export so the downloaded image matches
+      // Honour flipX / flipY on export so the rasterized image matches
       // what the user sees on the canvas.
       if (el.flipX || el.flipY) {
         ctx.scale(el.flipX ? -1 : 1, el.flipY ? -1 : 1);
@@ -1714,6 +1719,13 @@
 
       ctx.restore();
     }
+
+    return c;
+  }
+
+  // type can be: "png" | "jpg" | "png-transparent" | "pdf"
+  async function exportImage(type) {
+    const c = await _renderDesignToCanvas({ transparent: type === "png-transparent" });
 
     if (type === "pdf") {
       await exportToPdf(c);
@@ -2981,6 +2993,35 @@
   // can drop search results onto the canvas with the same flow as the bundled
   // library buttons.
   window.__TMKE_ADD_PHOTO__ = addImage;
+
+  // Schedule-to-calendar hook. The "Schedule" button in editor.astro
+  // (top-right toolbar) calls this to rasterize the current design,
+  // upload it to Supabase Storage, and insert a calendar_items row.
+  // Returns a Promise<Blob> of the PNG (with the canvas background).
+  // We always flatten to PNG-with-background because the v2 auto-poster
+  // (Instagram Graph API) requires a non-transparent image.
+  window.__TMKE_RENDER_PNG_BLOB__ = async function () {
+    const canvas = await _renderDesignToCanvas({ transparent: false });
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Could not encode PNG"));
+      }, "image/png");
+    });
+  };
+
+  // Lightweight read-only summary of the editor's current state. The
+  // schedule modal reads this for the default title (= filename) and
+  // for the design_ref (= templateId) it stores against the calendar
+  // row so "Edit" can later reopen the source design.
+  window.__TMKE_EDITOR_SUMMARY__ = function () {
+    return {
+      filename: (filenameEl && filenameEl.value) || "design",
+      templateId: state.templateId || null,
+      width: state.canvas && state.canvas.width,
+      height: state.canvas && state.canvas.height,
+    };
+  };
 
   // If a stock-photo search panel is taking over the Photos tab, skip
   // rendering the bundled library — its results will fill the grid instead.
