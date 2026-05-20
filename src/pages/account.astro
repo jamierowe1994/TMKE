@@ -365,24 +365,73 @@ import "../styles/workspace.css";
       letter-spacing: 0.04em;
     }
 
-    /* ---------- Shop modal ---------- */
+    /* ---------- Shop modal — slide-up drawer ----------
+       The modal sits anchored to the bottom of the viewport (drawer style,
+       like a mobile sheet). On open: backdrop fades in, panel slides up
+       from off-screen with an elastic ease, then the pack cards inside
+       stagger-pop. On close: cards fade quick, panel slides back down,
+       backdrop fades out. Total open ~0.95s, total close ~0.55s.
+       JS lifecycle: hidden -> remove [hidden] -> next frame add .is-open
+       -> on close remove .is-open -> after transitionend re-add [hidden]. */
     .shop-backdrop {
       position: fixed; inset: 0;
-      background: rgba(28,29,34,0.55);
+      background: rgba(28, 29, 34, 0);   /* faded to 0.55 once .is-open */
       display: flex;
-      align-items: flex-start;
+      align-items: flex-end;             /* drawer anchored to bottom */
       justify-content: center;
-      padding: 5vh 20px;
+      padding: 0;
       z-index: 100;
-      overflow-y: auto;
+      overflow: hidden;                  /* the inner .shop handles scroll */
+      pointer-events: none;
+      transition: background 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+    .shop-backdrop.is-open {
+      background: rgba(28, 29, 34, 0.55);
+      pointer-events: auto;
     }
     .shop-backdrop[hidden] { display: none; }
+
     .shop {
       width: 100%;
       max-width: 1100px;
+      max-height: 90vh;
       background: var(--paper);
+      border-radius: 18px 18px 0 0;       /* drawer-style top corners */
+      box-shadow: 0 -28px 80px -20px rgba(0, 0, 0, 0.5);
+      overflow-y: auto;
+      transform: translateY(100%);        /* off-screen until .is-open */
+      /* Slow elastic-ish ease — gives the "we spent time on this" feel */
+      transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .shop-backdrop.is-open .shop { transform: translateY(0); }
+
+    /* Subtle drag-handle hint at the top of the drawer */
+    .shop::before {
+      content: "";
+      display: block;
+      width: 44px;
+      height: 4px;
+      margin: 10px auto 4px;
+      background: rgba(28, 29, 34, 0.18);
       border-radius: 4px;
-      box-shadow: 0 40px 100px -20px rgba(0,0,0,0.45);
+    }
+
+    /* Above >=780px the drawer feels nicer if it's not edge-to-edge —
+       inset it slightly and round all corners. Still slides up from
+       the bottom. */
+    @media (min-width: 780px) {
+      .shop-backdrop {
+        padding: 0 24px 24px;
+        align-items: flex-end;
+      }
+      .shop {
+        border-radius: 14px;
+        max-height: 88vh;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .shop-backdrop,
+      .shop { transition: none; }
     }
     .shop-head {
       display: flex; justify-content: space-between; align-items: center;
@@ -436,13 +485,40 @@ import "../styles/workspace.css";
       border: 1px solid rgba(28,29,34,0.1);
       border-radius: 3px;
       overflow: hidden;
-      transition: border-color 0.25s, transform 0.3s;
+      transition: border-color 0.25s, transform 0.3s, box-shadow 0.3s;
       text-align: left;
       padding: 0;
       font: inherit;
       color: var(--ink);
+      /* Initial state for the staggered pop-in. .shop-backdrop.is-open
+         + the per-card animation-delay (set inline by renderGrid) drive
+         the entrance. Cards start invisible & nudged down + scaled a hair. */
+      opacity: 0;
+      transform: translateY(22px) scale(0.97);
     }
-    .shop-card:hover { border-color: rgba(71, 66, 84, 0.55); transform: translateY(-3px); }
+    .shop-card:hover {
+      border-color: rgba(71, 66, 84, 0.55);
+      transform: translateY(-3px);
+      box-shadow: 0 18px 36px -16px rgba(28, 29, 34, 0.25);
+    }
+    /* Slow, deliberate pop-in — runs only after the drawer finishes
+       sliding up. The drawer's slide is 720ms; cards start at 700ms
+       + per-card stagger (60ms each, set on the element). */
+    @keyframes shopCardPop {
+      0%   { opacity: 0; transform: translateY(22px) scale(0.97); }
+      60%  { opacity: 1; }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .shop-backdrop.is-open .shop-card {
+      animation: shopCardPop 0.68s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .shop-backdrop.is-open .shop-card {
+        animation: none;
+        opacity: 1;
+        transform: none;
+      }
+    }
     .shop-card-cover {
       aspect-ratio: 4 / 5;
       background-size: cover;
@@ -687,9 +763,16 @@ import "../styles/workspace.css";
     }
 
     async function openShop() {
+      // 2-step open: drop [hidden] so the modal is in the layout, then on
+      // the NEXT frame add .is-open so the CSS transition fires (going
+      // from "no transition target" to "with the class" is what kicks
+      // the slide-up + backdrop fade off the start line).
       $shopModal.hidden = false;
       document.body.style.overflow = 'hidden';
       setView('grid');
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => $shopModal.classList.add('is-open'));
+      });
       if (!cachedPacks) {
         $shopLoading.hidden = false;
         const { data, error } = await supabase
@@ -707,17 +790,39 @@ import "../styles/workspace.css";
       renderGrid();
     }
 
+    // Closing: drop .is-open so the slide-down + backdrop fade plays,
+    // THEN re-set [hidden] once the transition ends. We listen on the
+    // .shop transition (the longest of the two) to know when to hide.
+    let closeTimer = null;
     function closeShop() {
-      $shopModal.hidden = true;
-      document.body.style.overflow = '';
+      if (!$shopModal.classList.contains('is-open')) {
+        $shopModal.hidden = true;
+        document.body.style.overflow = '';
+        return;
+      }
+      $shopModal.classList.remove('is-open');
+      // Belt-and-braces: transitionend can be flaky if the element is
+      // mid-transition; a max-duration timeout guarantees we clean up.
+      clearTimeout(closeTimer);
+      closeTimer = setTimeout(() => {
+        $shopModal.hidden = true;
+        document.body.style.overflow = '';
+      }, 760);
     }
 
     function renderGrid() {
-      $shopGrid.innerHTML = cachedPacks.map((p) => {
-        const cover = p.cover_image_url ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : '';
+      // Per-card stagger delay — fires AFTER the drawer finishes sliding
+      // up (~720ms). 700ms head start, then 70ms between cards. Capped
+      // so a huge catalogue doesn't keep the user waiting forever.
+      const BASE_DELAY = 700;   // ms — drawer slide-up duration
+      const STEP       = 70;    // ms between cards
+      const MAX_STEPS  = 12;    // cap stagger after this many cards
+      $shopGrid.innerHTML = cachedPacks.map((p, i) => {
+        const cover = p.cover_image_url ? `background-image:url('${escapeHtml(p.cover_image_url)}')` : '';
+        const delay = BASE_DELAY + (Math.min(i, MAX_STEPS) * STEP);
         return `
-          <button type="button" class="shop-card" data-slug="${escapeHtml(p.slug)}">
-            <div class="shop-card-cover" ${cover}></div>
+          <button type="button" class="shop-card" data-slug="${escapeHtml(p.slug)}" style="animation-delay:${delay}ms">
+            <div class="shop-card-cover" style="${cover}"></div>
             <div class="shop-card-body">
               ${p.category ? `<span class="shop-card-cat">${escapeHtml(p.category)}</span>` : ''}
               <h3 class="shop-card-title">${escapeHtml(p.title)}</h3>
