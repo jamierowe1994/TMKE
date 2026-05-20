@@ -17,6 +17,7 @@ import "../styles/workspace.css";
       <a href="/account" class="app-header-link is-active">Workspace</a>
       <a href="/editor" class="app-header-link">Studio</a>
       <button type="button" class="app-header-link app-header-btn" id="open-shop" aria-haspopup="dialog">Browse packs</button>
+      <a href="/account/schedule" class="app-header-link">Schedule</a>
       <a href="/account/orders" class="app-header-link">Orders</a>
       <div class="app-header-dd">
         <button type="button" class="app-header-link app-header-btn" aria-haspopup="menu" aria-expanded="false">
@@ -86,8 +87,34 @@ import "../styles/workspace.css";
       </article>
     </section>
 
+    <!-- Upcoming this week — week-strip view of scheduled posts +
+         UK holidays. If today is Sunday we jump to next week's Monday
+         so this strip doesn't dwell on a near-empty current week.
+         Skip-forward / skip-back is week-by-week (month-by-month lives
+         in the left-edge pop-out drawer). -->
+    <section id="upcoming" class="upcoming fade-up" data-delay="3" aria-labelledby="upcoming-h">
+      <header class="section-head">
+        <h2 id="upcoming-h" class="section-h">Upcoming this week</h2>
+        <p class="section-sub">A peek ahead at what's going out — plus the dates that matter for property marketing this week. Need the full month? Use the <strong>Calendar</strong> tab on the left.</p>
+      </header>
+
+      <nav class="upcoming-nav" aria-label="Week navigation">
+        <div class="upcoming-nav-side">
+          <button type="button" class="upcoming-nav-btn" id="up-prev" aria-label="Previous week">&larr;</button>
+          <button type="button" class="upcoming-nav-today" id="up-today">This week</button>
+        </div>
+        <div class="upcoming-nav-label" id="up-label">—</div>
+        <div class="upcoming-nav-side" style="justify-content:flex-end;">
+          <button type="button" class="upcoming-nav-btn" id="up-next" aria-label="Next week">&rarr;</button>
+        </div>
+      </nav>
+
+      <div id="up-grid" class="upcoming-grid"></div>
+      <p id="up-state" class="lib-state" hidden></p>
+    </section>
+
     <!-- Library -->
-    <section id="library" class="library fade-up" data-delay="3" aria-labelledby="library-h">
+    <section id="library" class="library fade-up" data-delay="4" aria-labelledby="library-h">
       <header class="section-head">
         <h2 id="library-h" class="section-h">Your library</h2>
         <p class="section-sub">Packs you've purchased from The Edit. <button type="button" class="inline-link" data-shop>Add another pack &rarr;</button></p>
@@ -104,7 +131,7 @@ import "../styles/workspace.css";
     </section>
 
     <!-- Drafts (from localStorage) -->
-    <section id="drafts" class="drafts fade-up" data-delay="4" aria-labelledby="drafts-h" hidden>
+    <section id="drafts" class="drafts fade-up" data-delay="5" aria-labelledby="drafts-h" hidden>
       <header class="section-head">
         <h2 id="drafts-h" class="section-h">Designs in progress</h2>
         <p class="section-sub">Drafts saved in this browser. Open one to keep going.</p>
@@ -153,6 +180,42 @@ import "../styles/workspace.css";
         <div class="shop-detail" id="shop-detail"></div>
       </section>
     </div>
+  </div>
+
+  <!-- Left-edge "Calendar" tab. Persistent on workspace pages; click
+       to open the month-view drawer below. -->
+  <button type="button" class="cal-tab" id="cal-tab-trigger" aria-haspopup="dialog" aria-controls="cal-popup">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    <span class="cal-tab-label">Calendar</span>
+    <span class="cal-tab-count" id="cal-tab-count" hidden>0</span>
+  </button>
+
+  <!-- Month-view pop-out drawer. Slides in from the left when the
+       Calendar tab is clicked. Shares chip styling with the upcoming-
+       week strip so the two read as one feature. -->
+  <div class="cal-popup-backdrop" id="cal-popup" hidden role="dialog" aria-modal="true" aria-labelledby="cal-popup-title">
+    <aside class="cal-popup" aria-label="Content calendar">
+      <header class="cal-popup-head">
+        <h2 class="cal-popup-title" id="cal-popup-title">—</h2>
+        <div class="cal-popup-controls">
+          <button type="button" class="cal-popup-nav" id="cal-popup-prev" aria-label="Previous month">&larr;</button>
+          <button type="button" class="cal-popup-today" id="cal-popup-today">Today</button>
+          <button type="button" class="cal-popup-nav" id="cal-popup-next" aria-label="Next month">&rarr;</button>
+        </div>
+        <a href="/account/schedule" class="cal-popup-expand">Open full &rarr;</a>
+        <button type="button" class="cal-popup-close" id="cal-popup-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="cal-popup-weekhead" aria-hidden="true">
+        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+      </div>
+      <div id="cal-popup-grid" class="cal-popup-grid" role="grid" aria-labelledby="cal-popup-title"></div>
+      <p id="cal-popup-state" class="cal-popup-state" hidden></p>
+    </aside>
   </div>
 
   <style is:global>
@@ -740,6 +803,7 @@ import "../styles/workspace.css";
 
   <script>
     import { supabase, gbpFromPence } from '../lib/supabase.js';
+    import * as cal from '../lib/calendar.js';
 
     const $welcomeH = document.getElementById('welcome-h');
     const $welcomeSub = document.getElementById('welcome-sub');
@@ -1087,6 +1151,315 @@ import "../styles/workspace.css";
           </article>
         `;
       }).join('');
+    })();
+
+    // ====== Content calendar — upcoming-week strip + month drawer ======
+    // Separate IIFE so a calendar failure (missing table, RLS surprise)
+    // never blocks the library/orders flow above. Runs after the main
+    // bootstrap so the session is already established by then.
+    (async function calendarBootstrap() {
+      const $upGrid    = document.getElementById('up-grid');
+      const $upLabel   = document.getElementById('up-label');
+      const $upPrev    = document.getElementById('up-prev');
+      const $upNext    = document.getElementById('up-next');
+      const $upToday   = document.getElementById('up-today');
+      const $upState   = document.getElementById('up-state');
+
+      const $tab       = document.getElementById('cal-tab-trigger');
+      const $tabCount  = document.getElementById('cal-tab-count');
+      const $popup     = document.getElementById('cal-popup');
+      const $popupClose= document.getElementById('cal-popup-close');
+      const $popupPrev = document.getElementById('cal-popup-prev');
+      const $popupNext = document.getElementById('cal-popup-next');
+      const $popupToday= document.getElementById('cal-popup-today');
+      const $popupTitle= document.getElementById('cal-popup-title');
+      const $popupGrid = document.getElementById('cal-popup-grid');
+      const $popupState= document.getElementById('cal-popup-state');
+
+      if (!$upGrid || !$tab || !$popup) return;
+
+      // Auth check — reuse the session the main bootstrap already validated.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return; // main bootstrap will have already redirected
+
+      // ---------- State ----------
+      let weekStart   = cal.defaultUpcomingWeekStart(new Date());
+      let popupMonth  = cal.startOfMonth(new Date());
+      let items       = [];
+      let holidays    = [];
+      let loadedRange = null; // { fromYmd, toYmd }
+
+      // ---------- Data ----------
+      // Pull a window wide enough to cover the upcoming-week strip AND
+      // 2 months of drawer navigation either side. Re-fetches when the
+      // user navigates outside this window.
+      async function loadWindow() {
+        const winStart = cal.addDays(weekStart, -45);
+        const winEnd   = cal.addDays(weekStart, 90);
+        const fromYmd  = cal.ymd(winStart);
+        const toYmd    = cal.ymd(winEnd);
+
+        const { items: ii, holidays: hh, itemsError } = await cal.fetchCalendarWindow(supabase, fromYmd, toYmd);
+        items    = ii;
+        holidays = hh;
+        loadedRange = { fromYmd, toYmd };
+
+        if (itemsError && /relation .* does not exist/i.test(itemsError)) {
+          $upState.hidden = false;
+          $upState.textContent = "Calendar table not found — run supabase/calendar.sql in the Supabase SQL editor.";
+        } else {
+          $upState.hidden = true;
+        }
+      }
+
+      async function ensureLoaded() {
+        if (!loadedRange) { await loadWindow(); return; }
+        const refYmd = cal.ymd(weekStart);
+        const popupYmd = cal.ymd(popupMonth);
+        if (refYmd < loadedRange.fromYmd || refYmd > loadedRange.toYmd
+            || popupYmd < loadedRange.fromYmd || popupYmd > loadedRange.toYmd) {
+          await loadWindow();
+        }
+      }
+
+      // ---------- Upcoming-week render ----------
+      function renderWeek() {
+        const itemsByDate    = cal.bucketBy(items,    (i) => i.scheduled_date);
+        const holidaysByDate = cal.bucketBy(holidays, (h) => h.date);
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+        $upLabel.textContent = cal.fmtWeekRange(weekStart);
+
+        const cells = [];
+        for (let i = 0; i < 7; i++) {
+          const d = cal.addDays(weekStart, i);
+          const key = cal.ymd(d);
+          const isToday   = cal.sameDay(d, todayStart);
+          const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+          const isPast    = d < todayStart && !isToday;
+          const dayItems  = itemsByDate.get(key) || [];
+          const dayHols   = holidaysByDate.get(key) || [];
+          const isEmpty   = dayItems.length === 0 && dayHols.length === 0;
+
+          // Show up to 1 holiday + up to 2 posts, then "+N more". A day
+          // with both a bank holiday and 3 scheduled posts shows the
+          // holiday + 2 posts + "+1 more".
+          const visibleHols  = dayHols.slice(0, 1);
+          const visiblePosts = dayItems.slice(0, 2);
+          const hiddenCount  = (dayHols.length - visibleHols.length) + (dayItems.length - visiblePosts.length);
+
+          const cls = [
+            'upcoming-day',
+            isToday   ? 'is-today'   : '',
+            isWeekend ? 'is-weekend' : '',
+            isPast    ? 'is-past'    : '',
+            isEmpty   ? 'is-empty'   : '',
+          ].filter(Boolean).join(' ');
+
+          const dowLabel = d.toLocaleDateString('en-GB', { weekday: 'short' });
+          const holsHtml = visibleHols.map((h) =>
+            `<span class="upcoming-chip upcoming-chip--${h.kind === 'bank' ? 'bank' : 'aware'}" title="${cal.escapeHtml(h.name)}">${cal.escapeHtml(h.name)}</span>`
+          ).join('');
+          const postsHtml = visiblePosts.map((p) => {
+            const sClass = p.status === 'done' ? 'is-done'
+              : p.status === 'reminder_sent' ? 'is-sent'
+              : p.status === 'cancelled' ? 'is-cancelled' : '';
+            return `<span class="upcoming-chip upcoming-chip--post ${sClass}" title="${cal.escapeHtml(p.title)} · ${cal.escapeHtml(cal.fmtTime(p.scheduled_time))}">${cal.escapeHtml(p.title)}</span>`;
+          }).join('');
+          const moreHtml = hiddenCount > 0 ? `<span class="upcoming-day-more">+${hiddenCount} more</span>` : '';
+
+          cells.push(`
+            <button type="button" class="${cls}" data-date="${key}" aria-label="${cal.escapeHtml(cal.fmtFullDate(d))}">
+              <div class="upcoming-day-head">
+                <span class="upcoming-day-dow">${cal.escapeHtml(dowLabel)}</span>
+                <span class="upcoming-day-num">${d.getDate()}</span>
+              </div>
+              ${holsHtml}
+              ${postsHtml}
+              ${moreHtml}
+            </button>
+          `);
+        }
+        $upGrid.innerHTML = cells.join('');
+
+        // Refresh the tab badge with the count of upcoming posts in the
+        // current week (excludes done/cancelled/past — the count means
+        // "things waiting on you").
+        updateTabCount();
+      }
+
+      function updateTabCount() {
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const weekEnd = cal.addDays(weekStart, 7);
+        const weekStartYmd = cal.ymd(weekStart);
+        const weekEndYmd = cal.ymd(weekEnd);
+        const upcoming = items.filter((p) => {
+          if (p.status !== 'scheduled' && p.status !== 'reminder_sent') return false;
+          if (p.scheduled_date < weekStartYmd || p.scheduled_date >= weekEndYmd) return false;
+          // also exclude past-time today
+          const pTs = new Date(`${p.scheduled_date}T${p.scheduled_time || '09:00'}`);
+          return pTs >= todayStart;
+        });
+        if (upcoming.length === 0) {
+          $tabCount.hidden = true;
+        } else {
+          $tabCount.hidden = false;
+          $tabCount.textContent = String(upcoming.length);
+        }
+      }
+
+      // ---------- Month-drawer render ----------
+      function renderDrawer() {
+        $popupTitle.textContent = cal.fmtMonthYear(popupMonth);
+
+        const first = cal.startOfMonth(popupMonth);
+        const dow = (first.getDay() + 6) % 7;
+        const start = new Date(first);
+        start.setDate(first.getDate() - dow);
+
+        const itemsByDate    = cal.bucketBy(items,    (i) => i.scheduled_date);
+        const holidaysByDate = cal.bucketBy(holidays, (h) => h.date);
+
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+        const cells = [];
+        for (let i = 0; i < 42; i++) {
+          const d = new Date(start);
+          d.setDate(start.getDate() + i);
+          const key       = cal.ymd(d);
+          const isOther   = d.getMonth() !== popupMonth.getMonth();
+          const isToday   = cal.sameDay(d, todayStart);
+          const dayItems  = itemsByDate.get(key) || [];
+          const dayHols   = holidaysByDate.get(key) || [];
+
+          const visibleHols  = dayHols.slice(0, 1);
+          const visiblePosts = dayItems.slice(0, 2 - visibleHols.length);
+          const hiddenCount  = (dayHols.length - visibleHols.length) + (dayItems.length - visiblePosts.length);
+
+          const cls = [
+            'cal-popup-day',
+            isOther ? 'is-other-month' : '',
+            isToday ? 'is-today' : '',
+          ].filter(Boolean).join(' ');
+
+          const holsHtml = visibleHols.map((h) =>
+            `<span class="cal-popup-chip cal-popup-chip--${h.kind === 'bank' ? 'bank' : 'aware'}" title="${cal.escapeHtml(h.name)}">${cal.escapeHtml(h.name)}</span>`
+          ).join('');
+          const postsHtml = visiblePosts.map((p) => {
+            const sClass = p.status === 'done' ? 'is-done'
+              : p.status === 'reminder_sent' ? 'is-sent'
+              : p.status === 'cancelled' ? 'is-cancelled' : '';
+            return `<span class="cal-popup-chip cal-popup-chip--post ${sClass}" title="${cal.escapeHtml(p.title)}">${cal.escapeHtml(p.title)}</span>`;
+          }).join('');
+          const moreHtml = hiddenCount > 0 ? `<span class="cal-popup-day-more">+${hiddenCount}</span>` : '';
+
+          cells.push(`
+            <button type="button" class="${cls}" data-date="${key}" role="gridcell">
+              <span class="cal-popup-day-num">${d.getDate()}</span>
+              ${holsHtml}
+              ${postsHtml}
+              ${moreHtml}
+            </button>
+          `);
+        }
+        $popupGrid.innerHTML = cells.join('');
+      }
+
+      // ---------- Drawer open/close ----------
+      let popupCloseTimer = null;
+      function openPopup() {
+        renderDrawer();
+        $popup.hidden = false;
+        document.body.style.overflow = 'hidden';
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => $popup.classList.add('is-open'));
+        });
+      }
+      function closePopup() {
+        if (!$popup.classList.contains('is-open')) {
+          $popup.hidden = true;
+          document.body.style.overflow = '';
+          return;
+        }
+        $popup.classList.remove('is-open');
+        clearTimeout(popupCloseTimer);
+        popupCloseTimer = setTimeout(() => {
+          $popup.hidden = true;
+          document.body.style.overflow = '';
+        }, 580);
+      }
+
+      // ---------- Event wiring ----------
+      $upPrev?.addEventListener('click', async () => {
+        weekStart = cal.addDays(weekStart, -7);
+        await ensureLoaded();
+        renderWeek();
+      });
+      $upNext?.addEventListener('click', async () => {
+        weekStart = cal.addDays(weekStart, 7);
+        await ensureLoaded();
+        renderWeek();
+      });
+      $upToday?.addEventListener('click', async () => {
+        weekStart = cal.defaultUpcomingWeekStart(new Date());
+        await ensureLoaded();
+        renderWeek();
+      });
+      // Clicking a day on the week strip opens the drawer at that day's
+      // month — gives users a "see more" path without leaving /account.
+      $upGrid?.addEventListener('click', (e) => {
+        const cell = e.target.closest('.upcoming-day');
+        if (!cell) return;
+        const dateStr = cell.getAttribute('data-date');
+        if (dateStr) {
+          popupMonth = cal.startOfMonth(new Date(dateStr + 'T00:00:00'));
+        }
+        openPopup();
+      });
+
+      $tab?.addEventListener('click', openPopup);
+      $popupClose?.addEventListener('click', closePopup);
+      $popup?.addEventListener('click', (e) => { if (e.target === $popup) closePopup(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !$popup.hidden) closePopup();
+      });
+      $popupPrev?.addEventListener('click', async () => {
+        popupMonth = cal.addMonths(popupMonth, -1);
+        await ensureLoaded();
+        renderDrawer();
+      });
+      $popupNext?.addEventListener('click', async () => {
+        popupMonth = cal.addMonths(popupMonth, 1);
+        await ensureLoaded();
+        renderDrawer();
+      });
+      $popupToday?.addEventListener('click', async () => {
+        popupMonth = cal.startOfMonth(new Date());
+        await ensureLoaded();
+        renderDrawer();
+      });
+      // Clicking a day in the drawer deep-links to the full calendar
+      // page focused on that day, where the existing day-detail drawer
+      // can take over (edit/reschedule/cancel).
+      $popupGrid?.addEventListener('click', (e) => {
+        const cell = e.target.closest('.cal-popup-day');
+        if (!cell) return;
+        const dateStr = cell.getAttribute('data-date');
+        if (dateStr) location.href = '/account/schedule?focus=' + encodeURIComponent(dateStr);
+      });
+
+      // Bootstrap
+      try {
+        await loadWindow();
+        renderWeek();
+      } catch (err) {
+        console.warn('[calendar bootstrap]', err);
+        $upState.hidden = false;
+        $upState.textContent = "Couldn't load your calendar — refresh in a moment.";
+      }
     })();
   </script>
 </BaseLayout>

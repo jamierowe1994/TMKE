@@ -459,3 +459,499 @@ body.is-loaded .fade-up[data-delay="6"] { animation-delay: 0.48s; }
     0 18px 38px -14px rgba(46, 31, 84, 0.30),
     0 6px 14px -8px rgba(28, 29, 34, 0.18);
 }
+
+/* ============================================================
+   Upcoming-week strip
+   Lives on /account just above the library. Shows 7 day cells
+   horizontally with holidays + scheduled posts for the current
+   (or, if today is Sunday, next) week. Skip-by-week nav.
+   Click a day → opens the month-view pop-out drawer.
+   ============================================================ */
+.upcoming-nav {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: #fff;
+  border: 1px solid rgba(28,29,34,0.08);
+  border-radius: 8px;
+  box-shadow:
+    0 10px 24px -14px rgba(46, 31, 84, 0.22),
+    0 2px 6px -3px rgba(28, 29, 34, 0.10);
+  margin-bottom: 14px;
+}
+.upcoming-nav-label {
+  font-family: var(--serif);
+  font-size: 20px;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-align: center;
+}
+.upcoming-nav-side {
+  display: flex; gap: 8px; align-items: center;
+}
+.upcoming-nav-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(46, 31, 84, 0.3);
+  border-radius: 999px;
+  width: 32px; height: 32px;
+  font-size: 14px;
+  color: var(--violet-deep);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.2s;
+}
+.upcoming-nav-btn:hover {
+  background: var(--violet-deep);
+  color: var(--paper);
+  border-color: var(--violet-deep);
+  transform: translateY(-1px);
+}
+.upcoming-nav-today {
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(28,29,34,0.18);
+  border-radius: 2px;
+  padding: 6px 12px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(28,29,34,0.7);
+  cursor: pointer;
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
+}
+.upcoming-nav-today:hover {
+  background: rgba(46, 31, 84, 0.08);
+  color: var(--violet-deep);
+  border-color: var(--violet-deep);
+}
+
+.upcoming-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+@media (max-width: 880px) {
+  .upcoming-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 560px) {
+  .upcoming-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.upcoming-day {
+  position: relative;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 12px 14px;
+  min-height: 130px;
+  background: #fff;
+  border: 1px solid rgba(28,29,34,0.08);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.upcoming-day:hover {
+  border-color: rgba(46, 31, 84, 0.35);
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 24px -12px rgba(46, 31, 84, 0.28),
+    0 3px 8px -4px rgba(28, 29, 34, 0.12);
+}
+.upcoming-day.is-today {
+  border-color: var(--violet-deep);
+  box-shadow: inset 0 0 0 1px var(--violet-deep);
+}
+.upcoming-day.is-weekend { background: rgba(46, 31, 84, 0.025); }
+.upcoming-day.is-past { background: rgba(255,255,255,0.65); }
+
+.upcoming-day-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 6px;
+}
+.upcoming-day-dow {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(28,29,34,0.5);
+}
+.upcoming-day.is-today .upcoming-day-dow { color: var(--violet-deep); }
+.upcoming-day-num {
+  font-family: var(--serif);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.upcoming-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upcoming-chip--bank {
+  background: rgba(201, 122, 58, 0.14);
+  color: #8a4d1f;
+  border: 1px solid rgba(201, 122, 58, 0.35);
+}
+.upcoming-chip--aware {
+  background: rgba(111, 141, 101, 0.14);
+  color: #3f5a36;
+  border: 1px solid rgba(111, 141, 101, 0.32);
+}
+.upcoming-chip--post {
+  background: var(--violet-deep);
+  color: var(--paper);
+  border: 1px solid var(--violet-deep);
+  padding: 4px 7px;
+}
+.upcoming-chip--post.is-done       { background: #2e6f4f; border-color: #2e6f4f; }
+.upcoming-chip--post.is-sent       { background: var(--violet); border-color: var(--violet); }
+.upcoming-chip--post.is-cancelled  {
+  background: rgba(28,29,34,0.35);
+  border-color: rgba(28,29,34,0.35);
+  text-decoration: line-through;
+}
+.upcoming-day-more {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--violet-deep);
+  margin-top: auto;
+}
+.upcoming-day.is-empty:hover::after {
+  content: "+ Open";
+  position: absolute;
+  bottom: 10px; left: 12px;
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--violet-deep);
+  pointer-events: none;
+}
+
+/* ============================================================
+   Left-edge "Calendar" tab.
+   Persistent on every signed-in workspace page (except the
+   schedule page itself — adding the body class `no-cal-tab`
+   hides it there). Click → opens the month drawer.
+   Hidden on mobile, where vertical real-estate matters more.
+   ============================================================ */
+.cal-tab {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 8px 18px;
+  background: var(--violet-deep);
+  color: var(--paper);
+  border: 0;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  cursor: pointer;
+  font-family: var(--sans);
+  z-index: 90;
+  box-shadow:
+    8px 0 22px -10px rgba(46, 31, 84, 0.5),
+    2px 0 4px -1px rgba(28, 29, 34, 0.18);
+  transition: padding 0.22s, transform 0.22s, background 0.22s, box-shadow 0.22s;
+}
+.cal-tab:hover {
+  padding-left: 14px;
+  background: var(--ink);
+  box-shadow:
+    14px 0 28px -10px rgba(46, 31, 84, 0.6),
+    4px 0 8px -2px rgba(28, 29, 34, 0.25);
+}
+.cal-tab svg {
+  width: 16px; height: 16px;
+  stroke: var(--paper);
+  stroke-width: 1.8;
+  fill: none;
+}
+.cal-tab-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+.cal-tab-count {
+  position: absolute;
+  top: 6px;
+  right: -6px;
+  min-width: 18px; height: 18px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--violet-deep);
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  box-shadow: 0 4px 8px -3px rgba(0,0,0,0.25);
+}
+.cal-tab-count[hidden] { display: none; }
+
+body.no-cal-tab .cal-tab { display: none; }
+@media (max-width: 780px) {
+  .cal-tab { display: none; }
+}
+
+/* ============================================================
+   Month-view pop-out drawer.
+   Slides in from the left edge when the .cal-tab is clicked.
+   Reuses the same chip vocabulary as the upcoming-week strip so
+   the two read as one feature.
+   ============================================================ */
+.cal-popup-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(15, 12, 30, 0);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  z-index: 110;
+  pointer-events: none;
+  transition:
+    background 0.45s cubic-bezier(0.2, 0.7, 0.2, 1),
+    backdrop-filter 0.45s cubic-bezier(0.2, 0.7, 0.2, 1),
+    -webkit-backdrop-filter 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.cal-popup-backdrop.is-open {
+  background: rgba(15, 12, 30, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+.cal-popup-backdrop[hidden] { display: none; }
+
+.cal-popup {
+  width: 100%;
+  max-width: 760px;
+  background: var(--paper);
+  border-right: 1px solid rgba(28,29,34,0.08);
+  box-shadow:
+    24px 0 60px -20px rgba(0, 0, 0, 0.45),
+    2px 0 8px -4px rgba(46, 31, 84, 0.2);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cal-popup-backdrop.is-open .cal-popup { transform: translateX(0); }
+@media (prefers-reduced-motion: reduce) {
+  .cal-popup-backdrop, .cal-popup { transition: none; }
+}
+
+.cal-popup-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 28px;
+  border-bottom: 1px solid rgba(28,29,34,0.08);
+}
+.cal-popup-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--ink);
+}
+.cal-popup-controls {
+  display: flex; gap: 8px; align-items: center;
+}
+.cal-popup-nav {
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(46, 31, 84, 0.3);
+  border-radius: 999px;
+  width: 32px; height: 32px;
+  font-size: 14px;
+  color: var(--violet-deep);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
+}
+.cal-popup-nav:hover { background: var(--violet-deep); color: var(--paper); border-color: var(--violet-deep); }
+.cal-popup-today {
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(28,29,34,0.18);
+  border-radius: 2px;
+  padding: 6px 12px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(28,29,34,0.7);
+  cursor: pointer;
+}
+.cal-popup-today:hover { background: rgba(46, 31, 84, 0.08); color: var(--violet-deep); border-color: var(--violet-deep); }
+.cal-popup-expand {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--violet-deep);
+  text-decoration: none;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(46, 31, 84, 0.3);
+  transition: color 0.2s, border-color 0.2s;
+}
+.cal-popup-expand:hover { color: var(--ink); border-color: var(--ink); }
+.cal-popup-close {
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(46, 31, 84, 0.3);
+  border-radius: 999px;
+  font-size: 18px;
+  width: 32px; height: 32px;
+  cursor: pointer;
+  color: var(--violet-deep);
+  line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.cal-popup-close:hover { background: var(--violet-deep); color: var(--paper); border-color: var(--violet-deep); }
+
+.cal-popup-weekhead {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 8px 20px 0;
+}
+.cal-popup-weekhead span {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(28,29,34,0.4);
+  padding: 8px 8px;
+}
+
+.cal-popup-grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(88px, 1fr);
+  gap: 6px;
+  padding: 6px 20px 24px;
+}
+.cal-popup-day {
+  position: relative;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 9px 10px;
+  background: #fff;
+  border-radius: 5px;
+  border: 1px solid rgba(28,29,34,0.06);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.cal-popup-day:hover { border-color: rgba(46, 31, 84, 0.35); transform: translateY(-1px); }
+.cal-popup-day.is-other-month {
+  background: rgba(255,255,255,0.55);
+  color: rgba(28,29,34,0.35);
+}
+.cal-popup-day.is-other-month .cal-popup-day-num { color: rgba(28,29,34,0.32); }
+.cal-popup-day.is-today {
+  border-color: var(--violet-deep);
+  box-shadow: inset 0 0 0 1px var(--violet-deep);
+}
+.cal-popup-day.is-today .cal-popup-day-num {
+  background: var(--violet-deep);
+  color: var(--paper);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.cal-popup-day-num {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.cal-popup-chip {
+  display: inline-flex; align-items: center;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-popup-chip--bank {
+  background: rgba(201, 122, 58, 0.14);
+  color: #8a4d1f;
+  border: 1px solid rgba(201, 122, 58, 0.32);
+}
+.cal-popup-chip--aware {
+  background: rgba(111, 141, 101, 0.14);
+  color: #3f5a36;
+  border: 1px solid rgba(111, 141, 101, 0.3);
+}
+.cal-popup-chip--post {
+  background: var(--violet-deep);
+  color: var(--paper);
+  border: 1px solid var(--violet-deep);
+  padding: 3px 6px;
+}
+.cal-popup-chip--post.is-done       { background: #2e6f4f; border-color: #2e6f4f; }
+.cal-popup-chip--post.is-sent       { background: var(--violet); border-color: var(--violet); }
+.cal-popup-chip--post.is-cancelled  {
+  background: rgba(28,29,34,0.35);
+  border-color: rgba(28,29,34,0.35);
+  text-decoration: line-through;
+}
+.cal-popup-day-more {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--violet-deep);
+  margin-top: auto;
+}
+.cal-popup-state {
+  padding: 12px 20px;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: rgba(28,29,34,0.55);
+}
