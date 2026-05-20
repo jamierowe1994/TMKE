@@ -33,15 +33,19 @@ For dev testing, you *can* use Resend's `onboarding@resend.dev` from-address wit
 
 ---
 
-## 2. Deploy the Edge Function
+## 2. Deploy the Edge Functions
 
-From the repo root:
+Two functions to ship from the repo root:
 
 ```bash
 supabase functions deploy send-due-reminders --no-verify-jwt
+supabase functions deploy mark-post-status   --no-verify-jwt
 ```
 
-`--no-verify-jwt` is intentional: pg_cron authenticates with the service-role key as a Bearer, not a Supabase user JWT. The function checks the Bearer matches `SUPABASE_SERVICE_ROLE_KEY` itself, so unauthenticated traffic is rejected.
+`--no-verify-jwt` is intentional:
+
+- **`send-due-reminders`** is called by pg_cron, which authenticates with the service-role key as a Bearer (not a Supabase user JWT). The function checks the Bearer matches `SUPABASE_SERVICE_ROLE_KEY` itself, so unauthenticated traffic is rejected.
+- **`mark-post-status`** is the public endpoint the reminder email links to (the "✓ I've posted it" and "Cancel this post" buttons). Security comes from the row UUID being unguessable — same model as the order receipts at `/edit/thanks?order=<uuid>`.
 
 Then set the env vars (run once per project):
 
@@ -134,9 +138,20 @@ select net.http_post(
 ### Tail the function logs
 ```bash
 supabase functions logs send-due-reminders --tail
+supabase functions logs mark-post-status   --tail
 ```
 
-You'll see one log line per cron tick. Empty ticks (nothing due) return `{ ok: true, processed: 0 }`.
+You'll see one log line per cron tick for `send-due-reminders`. Empty ticks (nothing due) return `{ ok: true, processed: 0 }`. `mark-post-status` logs one line per email-link click.
+
+### Try the "Mark as posted" link without an email
+
+Open this URL in a browser (substitute a real row id):
+
+```
+https://YOUR-PROJECT-REF.supabase.co/functions/v1/mark-post-status?id=<row-uuid>&action=done
+```
+
+You should land on an on-brand confirmation page. The row's status flips to `done` immediately. Re-clicking the link shows "Already marked as posted" — idempotent by design so customers re-clicking old emails don't get an error. The `&action=cancelled` variant does the same thing for cancellation.
 
 ---
 

@@ -119,8 +119,10 @@ Deno.serve(async (req) => {
       const toEmail = userRes.user.email;
       const firstName = ((userRes.user.user_metadata as any)?.name || toEmail).split("@")[0].split(" ")[0];
 
-      // Compose + send.
-      const html = renderEmail({ row, firstName, siteUrl });
+      // Compose + send. supabaseUrl is needed so the email can deep-link
+      // back to the mark-post-status Edge Function (the "✓ Posted it"
+      // and "Cancel" buttons in the email body).
+      const html = renderEmail({ row, firstName, siteUrl, supabaseUrl: supabaseUrl! });
       const subject = `Time to post: ${row.title}`;
       const sendErr = await sendViaResend({
         apiKey: resendKey!,
@@ -260,8 +262,9 @@ function renderEmail(opts: {
   row: CalendarItem;
   firstName: string;
   siteUrl: string;
+  supabaseUrl: string;
 }): string {
-  const { row, firstName, siteUrl } = opts;
+  const { row, firstName, siteUrl, supabaseUrl } = opts;
   const platformLabel = (
     { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok" } as Record<string, string>
   )[row.platform_hint] || "your socials";
@@ -270,6 +273,10 @@ function renderEmail(opts: {
   const captionEsc = row.caption ? escapeHtml(row.caption).replace(/\n/g, "<br>") : "";
   const editUrl    = row.design_ref ? `${siteUrl}/editor?template=${encodeURIComponent(row.design_ref)}` : `${siteUrl}/editor`;
   const calUrl     = `${siteUrl}/account/schedule`;
+  // One-click action URLs that bypass auth (security is the row UUID).
+  // Same pattern the order receipts use at /edit/thanks?order=<uuid>.
+  const markDoneUrl   = `${supabaseUrl}/functions/v1/mark-post-status?id=${encodeURIComponent(row.id)}&action=done`;
+  const markCancelUrl = `${supabaseUrl}/functions/v1/mark-post-status?id=${encodeURIComponent(row.id)}&action=cancelled`;
   const fname      = escapeHtml(firstName.charAt(0).toUpperCase() + firstName.slice(1));
 
   return `<!doctype html>
@@ -318,10 +325,18 @@ function renderEmail(opts: {
           </ol>
         </td></tr>
 
-        <!-- Buttons -->
-        <tr><td style="padding:22px 36px 32px;" align="left">
-          <a href="${escapeHtml(calUrl)}" style="display:inline-block;background:#2e1f54;color:#f2efe9;text-decoration:none;padding:12px 22px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;margin-right:8px;">Open calendar →</a>
-          <a href="${escapeHtml(editUrl)}" style="display:inline-block;background:transparent;color:#2e1f54;text-decoration:none;padding:11px 20px;border:1px solid rgba(46,31,84,0.4);border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;">Edit design</a>
+        <!-- Buttons. Primary action is "Posted it" because that's what
+             the customer is most likely to do right after we email them.
+             "Open calendar" stays as a secondary; "Edit design" tucks in
+             smaller below since it's a rarer action. -->
+        <tr><td style="padding:22px 36px 12px;" align="left">
+          <a href="${escapeHtml(markDoneUrl)}" style="display:inline-block;background:#2e1f54;color:#f2efe9;text-decoration:none;padding:12px 22px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;margin-right:8px;">✓ I've posted it</a>
+          <a href="${escapeHtml(calUrl)}" style="display:inline-block;background:transparent;color:#2e1f54;text-decoration:none;padding:11px 20px;border:1px solid rgba(46,31,84,0.4);border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;">Open calendar →</a>
+        </td></tr>
+        <tr><td style="padding:0 36px 24px;font-size:12px;color:rgba(28,29,34,0.55);">
+          <a href="${escapeHtml(editUrl)}" style="color:#2e1f54;text-decoration:none;font-weight:600;">Edit the design</a>
+          <span style="color:rgba(28,29,34,0.25);margin:0 8px;">·</span>
+          <a href="${escapeHtml(markCancelUrl)}" style="color:rgba(28,29,34,0.55);text-decoration:none;border-bottom:1px solid rgba(28,29,34,0.2);">Cancel this post</a>
         </td></tr>
 
         <!-- Footer -->
