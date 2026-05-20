@@ -318,10 +318,19 @@
 
     // "Set as background" — available for any element with an image source.
     // Images carry it on .src; filled frames also carry it on .src.
+    // We also remove the source element when promoting it to background
+    // so the design doesn't end up with a duplicate of the image — the
+    // user expects the layer to migrate, not to be cloned.
     const photoSrc = (el.type === "image" || el.type === "frame") ? el.src : null;
     if (photoSrc) {
       items.push({ divider: true });
-      items.push({ label: "Set as background", action: function () { setCanvasBackgroundImage(photoSrc); } });
+      items.push({ label: "Set as background", action: function () {
+        if (el && el.id) {
+          state.elements = state.elements.filter(function (x) { return x.id !== el.id; });
+          state.selectedIds = state.selectedIds.filter(function (id) { return id !== el.id; });
+        }
+        setCanvasBackgroundImage(photoSrc);
+      } });
     }
     if (state.canvas.backgroundImage) {
       items.push({ label: "Clear background image", action: function () { setCanvasBackgroundImage(null); } });
@@ -411,14 +420,50 @@
     if (e.key === "Escape" && !ctxMenu.hidden) hideContextMenu();
   });
 
+  // Bare-canvas right-click — when no element was the target, surface a
+  // tiny menu that lets the user detach the background image. Without
+  // this, they'd have to dive into the Background tab to find the
+  // detach button, which is non-obvious when the image is taking up
+  // the whole canvas.
+  function showBgOnlyContextMenu(x, y) {
+    if (!state.canvas.backgroundImage) return;
+    const items = [{
+      label: "Detach background image",
+      action: function () { setCanvasBackgroundImage(null); },
+    }];
+    ctxMenu.innerHTML = items.map(function (it) {
+      return '<button type="button" class="ed-rclick-item"><span>' + it.label + '</span></button>';
+    }).join("");
+    const w = 220;
+    const h = items.length * 32 + 16;
+    const px = Math.min(x + 2, window.innerWidth - w - 8);
+    const py = Math.min(y + 2, window.innerHeight - h - 8);
+    ctxMenu.style.left = px + "px";
+    ctxMenu.style.top = py + "px";
+    ctxMenu.hidden = false;
+    const buttons = ctxMenu.querySelectorAll(".ed-rclick-item");
+    items.forEach(function (it, i) {
+      buttons[i].addEventListener("click", function () {
+        hideContextMenu();
+        it.action();
+      });
+    });
+  }
+
   // Hook the contextmenu event on the canvas. Resolves which element was
   // clicked by hit-testing against state.elements (top-most first).
+  // If nothing was hit, fall back to the bare-canvas menu (above) so
+  // the user can still detach the background.
   if (canvasEl) {
     canvasEl.addEventListener("contextmenu", function (e) {
-      // Find which element was clicked by walking back-to-front so the
-      // top-most layer wins.
       const target = e.target.closest(".ed-element");
-      if (!target) return;
+      if (!target) {
+        if (state.canvas.backgroundImage) {
+          e.preventDefault();
+          showBgOnlyContextMenu(e.clientX, e.clientY);
+        }
+        return;
+      }
       e.preventDefault();
       const id = target.getAttribute("data-id");
       const el = getEl(id);
@@ -1453,16 +1498,40 @@
     web:  { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round'><circle cx='12' cy='12' r='10'/><line x1='2' y1='12' x2='22' y2='12'/><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/></svg>` },
   };
 
+  // ----- SVG recolor helpers -----
+  // Every entry in SVG_SHAPES bakes #1c1d22 as the fill/stroke colour.
+  // When the customer picks a different colour in the selection panel,
+  // we regenerate the data-URI src by global-replacing that token.
+  // Cheap, no parser needed — and works for fill, stroke and any
+  // attribute that references the colour.
+  const SVG_DEFAULT_FILL = "#1c1d22";
+  function svgWithFill(key, fill) {
+    const def = SVG_SHAPES[key];
+    if (!def) return null;
+    const safe = (fill && /^#[0-9a-f]{3,8}$/i.test(fill)) ? fill : SVG_DEFAULT_FILL;
+    return def.svg.split(SVG_DEFAULT_FILL).join(safe);
+  }
+  function svgKeyToDataUri(key, fill) {
+    const svg = svgWithFill(key, fill);
+    if (!svg) return null;
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
   // Insert an SVG-as-image element. The SVG is encoded as a data URI so
   // it goes through the standard `image` element path — no changes to
   // renderer, history, export, or selection.
+  // We stamp the element with `svgKey` + `svgFill` so the selection
+  // panel can offer a colour picker that regenerates the src.
   function addSvgShape(key) {
     const def = SVG_SHAPES[key];
     if (!def) return;
-    const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(def.svg);
+    const fill = SVG_DEFAULT_FILL;
+    const src = svgKeyToDataUri(key, fill);
     const w = def.w, h = def.h;
     addElement({
       type: "image",
+      svgKey: key,
+      svgFill: fill,
       x: state.canvas.width / 2 - w / 2,
       y: state.canvas.height / 2 - h / 2,
       w, h, src,
@@ -2064,6 +2133,15 @@
     }
 
     if (el.type === "image") {
+      // SVG shapes/icons (added via the More-shapes / Social-icons
+      // grids) are recolourable — their `svgKey` references SVG_SHAPES
+      // and `svgFill` records the current colour. Raster images don't
+      // get this picker because we'd have nothing meaningful to recolour.
+      if (el.svgKey) {
+        html.push(`<div class="ed-props-section"><h4>Colour</h4>
+          <div class="ed-props-field"><input type="color" data-prop="svgFill" value="${rgbHex(el.svgFill || '#1c1d22')}"></div>
+        </div>`);
+      }
       html.push(`<div class="ed-props-section"><h4>Image</h4>
         <button class="ed-btn-ghost" id="ed-replace-img" style="background:rgba(28,29,34,0.06); width:100%">Replace image</button>
       </div>`);
@@ -2139,6 +2217,13 @@
         if (!tgt) return;
         const val = input.type === "number" || input.type === "range" ? parseFloat(input.value) : input.value;
         tgt[prop] = val;
+        // SVG shapes/icons: recompute the data-URI src whenever the
+        // colour changes so the visual updates in lockstep with the
+        // picker. Without this, only the stored `svgFill` would
+        // change — the rendered image would still be the old colour.
+        if (prop === "svgFill" && tgt.svgKey) {
+          tgt.src = svgKeyToDataUri(tgt.svgKey, val);
+        }
         fullRender();
         if (input.type !== "range") pushHistory();
       });
