@@ -316,6 +316,17 @@
       }
     }
 
+    // "Set as background" — available for any element with an image source.
+    // Images carry it on .src; filled frames also carry it on .src.
+    const photoSrc = (el.type === "image" || el.type === "frame") ? el.src : null;
+    if (photoSrc) {
+      items.push({ divider: true });
+      items.push({ label: "Set as background", action: function () { setCanvasBackgroundImage(photoSrc); } });
+    }
+    if (state.canvas.backgroundImage) {
+      items.push({ label: "Clear background image", action: function () { setCanvasBackgroundImage(null); } });
+    }
+
     ctxMenu.innerHTML = items.map(function (it) {
       if (it.divider) return '<div class="ed-rclick-divider"></div>';
       return (
@@ -718,6 +729,24 @@
     canvasEl.style.background = state.canvas.background;
 
     canvasEl.innerHTML = "";
+
+    // Background image layer — drawn first so all elements sit on top.
+    // Saved on state.canvas.backgroundImage by the right-click action.
+    if (state.canvas.backgroundImage) {
+      const bg = document.createElement("img");
+      bg.src = state.canvas.backgroundImage;
+      bg.className = "ed-canvas-bg";
+      bg.draggable = false;
+      bg.crossOrigin = "anonymous";
+      bg.style.position = "absolute";
+      bg.style.left = "0"; bg.style.top = "0";
+      bg.style.width = "100%"; bg.style.height = "100%";
+      bg.style.objectFit = "cover";
+      bg.style.pointerEvents = "none";
+      bg.style.userSelect = "none";
+      canvasEl.appendChild(bg);
+    }
+
     state.elements.forEach((el) => {
       canvasEl.appendChild(renderElement(el));
     });
@@ -729,10 +758,24 @@
     renderTemplateGrid();
   }
 
+  // Set or clear the canvas background image. Passing null clears it.
+  function setCanvasBackgroundImage(src) {
+    state.canvas.backgroundImage = src || null;
+    pushHistory();
+    fullRender();
+    toast(src ? "Set as background" : "Background image cleared");
+  }
+
   function partialRenderElement(el) {
     const node = canvasEl.querySelector('[data-id="' + el.id + '"]');
     if (!node) return;
     applyElementStyles(node, el);
+    // For frames, also re-apply the inner image transform — a resize
+    // changes the cover-fit base, and a viewpoint drag changes the offsets.
+    if (el.type === "frame") {
+      const img = node.querySelector(".fr-img");
+      if (img) applyFrameImageTransform(img, el);
+    }
   }
 
   function renderElement(el) {
@@ -757,6 +800,70 @@
       img.alt = "";
       img.crossOrigin = "anonymous";
       node.appendChild(img);
+    } else if (el.type === "frame") {
+      // Frame = masked container. The data-frame-shape attribute drives
+      // the clip-path / border-radius (see editor.astro styles).
+      node.dataset.frameShape = el.frameShape || "square";
+      if (el.src) {
+        node.classList.add("is-filled");
+        const img = document.createElement("img");
+        img.src = el.src;
+        img.draggable = false;
+        img.alt = "";
+        img.crossOrigin = "anonymous";
+        img.className = "fr-img";
+        applyFrameImageTransform(img, el);
+        // Capture natural dims if not yet known (e.g. after a hydrated load)
+        if (!el.imgNaturalW || !el.imgNaturalH) {
+          img.addEventListener("load", function () {
+            el.imgNaturalW = img.naturalWidth;
+            el.imgNaturalH = img.naturalHeight;
+            applyFrameImageTransform(img, el);
+          });
+        }
+        node.appendChild(img);
+      } else {
+        // Empty placeholder: friendly prompt to drop a photo.
+        const ph = document.createElement("div");
+        ph.className = "fr-placeholder";
+        ph.innerHTML =
+          '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+          '<rect x="3" y="3" width="18" height="18" rx="2"/>' +
+          '<circle cx="8.5" cy="8.5" r="1.5"/>' +
+          '<path d="M21 15l-5-5L5 21"/>' +
+          '</svg>' +
+          '<span>Drop a photo here</span>';
+        node.appendChild(ph);
+      }
+      // Drag-and-drop targets: a photo card from the Photos / Uploads
+      // panel can be dropped here to fill the frame.
+      node.addEventListener("dragover", function (e) {
+        if (!e.dataTransfer) return;
+        const hasUrl = (e.dataTransfer.types || []).indexOf("text/uri-list") !== -1
+                    || (e.dataTransfer.types || []).indexOf("text/plain") !== -1;
+        if (!hasUrl) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        node.classList.add("is-drop-target");
+      });
+      node.addEventListener("dragleave", function () { node.classList.remove("is-drop-target"); });
+      node.addEventListener("drop", function (e) {
+        node.classList.remove("is-drop-target");
+        if (!e.dataTransfer) return;
+        const src = e.dataTransfer.getData("text/uri-list")
+                 || e.dataTransfer.getData("text/plain");
+        if (!src) return;
+        e.preventDefault();
+        e.stopPropagation();
+        fillFrame(el, src);
+      });
+      // Double-click a filled frame → enter viewpoint edit mode
+      if (el.src) {
+        node.addEventListener("dblclick", function (ev) {
+          ev.stopPropagation();
+          enterViewpointEdit(el, node);
+        });
+      }
     } else if (el.type === "rect") {
       // styling on node directly
     } else if (el.type === "ellipse") {
@@ -823,6 +930,127 @@
     inner.style.letterSpacing = (el.letterSpacing || 0) + "px";
     inner.style.lineHeight = el.lineHeight || 1.3;
     inner.style.textDecoration = el.underline ? "underline" : "none";
+  }
+
+  // ---------- Frame helpers ----------
+  // Compute the "cover" base scale — the smallest scale that lets the
+  // photo fully cover the frame in both axes (mirrors CSS object-fit:cover).
+  function frameCoverFit(el) {
+    if (!el.imgNaturalW || !el.imgNaturalH) return { baseW: el.w, baseH: el.h };
+    const ar = el.imgNaturalW / el.imgNaturalH;
+    const frameAr = el.w / el.h;
+    if (ar > frameAr) {
+      // Image is wider than frame → height fills, width overflows
+      const h = el.h;
+      return { baseW: h * ar, baseH: h };
+    }
+    const w = el.w;
+    return { baseW: w, baseH: w / ar };
+  }
+
+  // Position the inner <img> within a frame based on viewpoint state.
+  // We size the img to "cover" the frame then translate from centre by
+  // the user's offsets, scaled by imgScale (zoom). Centre-origin transform
+  // means scale + translate compose intuitively for the user.
+  function applyFrameImageTransform(img, el) {
+    const fit = frameCoverFit(el);
+    img.style.width  = fit.baseW + "px";
+    img.style.height = fit.baseH + "px";
+    img.style.marginLeft = (-fit.baseW / 2) + "px";
+    img.style.marginTop  = (-fit.baseH / 2) + "px";
+    const s = el.imgScale || 1;
+    const tx = el.imgOffsetX || 0;
+    const ty = el.imgOffsetY || 0;
+    img.style.transform = "translate(" + tx + "px, " + ty + "px) scale(" + s + ")";
+  }
+
+  // Viewpoint edit mode — entered by dblclick on a filled frame. Lets the
+  // user pan the inner photo by dragging and zoom by scroll-wheel. Click
+  // anywhere outside the frame, press Esc, or hit Enter to exit.
+  let viewpointSession = null;
+  function enterViewpointEdit(el, node) {
+    if (!el.src) return;
+    // Tear down any previous session before starting a fresh one.
+    if (viewpointSession) exitViewpointEdit();
+    node.classList.add("is-editing-viewpoint");
+
+    const img = node.querySelector(".fr-img");
+    if (!img) return;
+
+    let dragging = false;
+    let lastX = 0, lastY = 0;
+    function onDown(ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      dragging = true;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      node.setPointerCapture && node.setPointerCapture(ev.pointerId);
+    }
+    function onMove(ev) {
+      if (!dragging) return;
+      const dx = (ev.clientX - lastX) / state.zoom;
+      const dy = (ev.clientY - lastY) / state.zoom;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      el.imgOffsetX = (el.imgOffsetX || 0) + dx;
+      el.imgOffsetY = (el.imgOffsetY || 0) + dy;
+      applyFrameImageTransform(img, el);
+    }
+    function onUp(ev) {
+      if (!dragging) return;
+      dragging = false;
+      try { node.releasePointerCapture && node.releasePointerCapture(ev.pointerId); } catch (_) {}
+      pushHistory();
+    }
+    function onWheel(ev) {
+      ev.preventDefault();
+      const step = ev.deltaY < 0 ? 1.06 : 1 / 1.06;
+      el.imgScale = Math.max(0.3, Math.min(6, (el.imgScale || 1) * step));
+      applyFrameImageTransform(img, el);
+      // Debounce history pushes — store on wheel-end via a small timer.
+      clearTimeout(viewpointSession && viewpointSession.wheelTimer);
+      if (viewpointSession) {
+        viewpointSession.wheelTimer = setTimeout(function () { pushHistory(); }, 200);
+      }
+    }
+    function onDocClick(ev) {
+      if (!node.contains(ev.target)) exitViewpointEdit();
+    }
+    function onKey(ev) {
+      if (ev.key === "Escape" || ev.key === "Enter") {
+        ev.preventDefault();
+        exitViewpointEdit();
+      }
+    }
+    node.addEventListener("pointerdown", onDown);
+    node.addEventListener("pointermove", onMove);
+    node.addEventListener("pointerup", onUp);
+    node.addEventListener("pointercancel", onUp);
+    node.addEventListener("wheel", onWheel, { passive: false });
+    // Delay outside-click listener by a tick so the originating dblclick
+    // doesn't immediately tear us back down.
+    setTimeout(function () { document.addEventListener("pointerdown", onDocClick, true); }, 0);
+    document.addEventListener("keydown", onKey);
+
+    viewpointSession = {
+      el, node, img, wheelTimer: null,
+      teardown: function () {
+        node.classList.remove("is-editing-viewpoint");
+        node.removeEventListener("pointerdown", onDown);
+        node.removeEventListener("pointermove", onMove);
+        node.removeEventListener("pointerup", onUp);
+        node.removeEventListener("pointercancel", onUp);
+        node.removeEventListener("wheel", onWheel);
+        document.removeEventListener("pointerdown", onDocClick, true);
+        document.removeEventListener("keydown", onKey);
+      },
+    };
+  }
+  function exitViewpointEdit() {
+    if (!viewpointSession) return;
+    viewpointSession.teardown();
+    viewpointSession = null;
   }
 
   // ---------- Handles ----------
@@ -1157,8 +1385,75 @@
   }
 
   function addImage(src) {
+    // If exactly one frame is selected, treat this as a "fill the frame"
+    // action rather than adding a new floating image. This matches the
+    // user's mental model: pick a frame, then pick a photo.
+    if (state.selectedIds.length === 1) {
+      const sel = getEl(state.selectedIds[0]);
+      if (sel && sel.type === "frame") {
+        fillFrame(sel, src);
+        return;
+      }
+    }
     const w = 500, h = 500;
     addElement({ type: "image", x: state.canvas.width / 2 - w / 2, y: state.canvas.height / 2 - h / 2, w, h, src, opacity: 1, rotation: 0 });
+  }
+
+  // ---------- Frames ----------
+  // Frame presets — w/h are starting sizes (px on the design canvas), and
+  // shape is the silhouette the photo will be cropped to.
+  const FRAME_PRESETS = {
+    square:    { w: 500, h: 500, shape: "square" },
+    portrait:  { w: 420, h: 560, shape: "portrait" },
+    landscape: { w: 600, h: 450, shape: "landscape" },
+    wide:      { w: 720, h: 320, shape: "wide" },
+    circle:    { w: 500, h: 500, shape: "circle" },
+    rounded:   { w: 500, h: 500, shape: "rounded" },
+    arch:      { w: 440, h: 560, shape: "arch" },
+    diamond:   { w: 500, h: 500, shape: "diamond" },
+  };
+
+  function addFrame(kind) {
+    const p = FRAME_PRESETS[kind] || FRAME_PRESETS.square;
+    addElement({
+      type: "frame",
+      frameShape: p.shape,
+      x: state.canvas.width / 2 - p.w / 2,
+      y: state.canvas.height / 2 - p.h / 2,
+      w: p.w,
+      h: p.h,
+      rotation: 0,
+      opacity: 1,
+      src: null,                // empty until filled
+      imgScale: 1,              // viewpoint zoom — 1 = "cover" fit
+      imgOffsetX: 0,            // viewpoint pan in px (centre-relative)
+      imgOffsetY: 0,
+      imgNaturalW: 0,           // populated when src loads — used to compute fit
+      imgNaturalH: 0,
+    });
+  }
+
+  // Fill (or replace) the photo inside a frame. Always resets the viewpoint
+  // so the new photo sits centred and "covers" the frame.
+  function fillFrame(frameEl, src) {
+    frameEl.src = src;
+    frameEl.imgScale = 1;
+    frameEl.imgOffsetX = 0;
+    frameEl.imgOffsetY = 0;
+    frameEl.imgNaturalW = 0;
+    frameEl.imgNaturalH = 0;
+    // Pre-load to capture natural dimensions so the cover fit can compute
+    // the correct base scale. We render again once they're known.
+    const probe = new Image();
+    probe.crossOrigin = "anonymous";
+    probe.onload = function () {
+      frameEl.imgNaturalW = probe.naturalWidth;
+      frameEl.imgNaturalH = probe.naturalHeight;
+      partialRenderElement(frameEl);
+    };
+    probe.src = src;
+    pushHistory();
+    fullRender();
   }
 
   // ---------- Delete / duplicate / clipboard ----------
@@ -1336,6 +1631,21 @@
       ctx.fillRect(0, 0, c.width, c.height);
     }
 
+    // Canvas background image (set via right-click → "Set as background")
+    if (state.canvas.backgroundImage) {
+      try {
+        const bg = await loadImage(state.canvas.backgroundImage);
+        // Cover the canvas, matching CSS object-fit: cover
+        const cw = state.canvas.width, ch = state.canvas.height;
+        const ar = bg.naturalWidth / bg.naturalHeight;
+        const cr = cw / ch;
+        let dw, dh;
+        if (ar > cr) { dh = ch; dw = ch * ar; }
+        else         { dw = cw; dh = cw / ar; }
+        ctx.drawImage(bg, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+      } catch (_) {}
+    }
+
     for (const el of state.elements) {
       if (el.hidden) continue;
       ctx.save();
@@ -1356,6 +1666,8 @@
           const img = await loadImage(el.src);
           ctx.drawImage(img, 0, 0, el.w, el.h);
         } catch (e) {}
+      } else if (el.type === "frame") {
+        await drawFrameToCanvas(ctx, el);
       } else if (el.type === "rect") {
         ctx.fillStyle = el.fill || "transparent";
         if (el.radius) roundedRect(ctx, 0, 0, el.w, el.h, el.radius);
@@ -1505,6 +1817,80 @@
     ctx.fill();
   }
 
+  // Build a Path2D matching a frame's silhouette. Mirrors the CSS clip-paths
+  // / border-radii used in the live DOM render so what you see is what
+  // exports. ctx is positioned at (0,0)-(w,h) for the frame.
+  function pathForFrame(ctx, el) {
+    const w = el.w, h = el.h;
+    const shape = el.frameShape || "square";
+    ctx.beginPath();
+    if (shape === "circle") {
+      ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    } else if (shape === "rounded") {
+      const r = Math.min(24, w / 2, h / 2);
+      ctx.moveTo(r, 0); ctx.lineTo(w - r, 0); ctx.quadraticCurveTo(w, 0, w, r);
+      ctx.lineTo(w, h - r); ctx.quadraticCurveTo(w, h, w - r, h);
+      ctx.lineTo(r, h); ctx.quadraticCurveTo(0, h, 0, h - r);
+      ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+      ctx.closePath();
+    } else if (shape === "arch") {
+      // Big arch on top corners (use width as radius), small bottom radius
+      const topR = Math.min(w / 2, h * 0.75);
+      const botR = Math.min(12, w / 2, h / 2);
+      ctx.moveTo(0, topR);
+      // Top arch sweeps from (0,topR) up over to (w,topR)
+      ctx.bezierCurveTo(0, 0, w, 0, w, topR);
+      ctx.lineTo(w, h - botR);
+      ctx.quadraticCurveTo(w, h, w - botR, h);
+      ctx.lineTo(botR, h);
+      ctx.quadraticCurveTo(0, h, 0, h - botR);
+      ctx.closePath();
+    } else if (shape === "diamond") {
+      ctx.moveTo(w / 2, 0);
+      ctx.lineTo(w, h / 2);
+      ctx.lineTo(w / 2, h);
+      ctx.lineTo(0, h / 2);
+      ctx.closePath();
+    } else {
+      // square / portrait / landscape / wide — plain rect
+      ctx.rect(0, 0, w, h);
+    }
+  }
+
+  // Draw a frame element (clipped image, or empty placeholder) into a 2D
+  // canvas context. Caller is responsible for the surrounding ctx.save()/
+  // translate/rotate/restore.
+  async function drawFrameToCanvas(ctx, el) {
+    ctx.save();
+    pathForFrame(ctx, el);
+    ctx.clip();
+    if (el.src) {
+      try {
+        const img = await loadImage(el.src);
+        // Re-compute fit using freshly-known natural dims (safer than relying
+        // on el.imgNaturalW which may not be populated for older templates).
+        const elClone = Object.assign({}, el, {
+          imgNaturalW: img.naturalWidth, imgNaturalH: img.naturalHeight,
+        });
+        const fit = frameCoverFit(elClone);
+        const s = el.imgScale || 1;
+        const tx = el.imgOffsetX || 0;
+        const ty = el.imgOffsetY || 0;
+        // Centre origin transform: translate to frame centre, then user offset,
+        // then scale, then draw the cover-sized image at its centre.
+        ctx.translate(el.w / 2 + tx, el.h / 2 + ty);
+        ctx.scale(s, s);
+        ctx.drawImage(img, -fit.baseW / 2, -fit.baseH / 2, fit.baseW, fit.baseH);
+      } catch (_) {}
+    } else {
+      // Empty frame — paint a soft striped placeholder so the silhouette
+      // is at least visible if someone exports without filling it.
+      ctx.fillStyle = "rgba(71,66,84,0.12)";
+      ctx.fillRect(0, 0, el.w, el.h);
+    }
+    ctx.restore();
+  }
+
   // ---------- Property panel ----------
   // Targets `#ed-selection-body` inside the left "Selection" pane (the right
   // properties panel was removed in favour of a unified left rail). On
@@ -1599,6 +1985,36 @@
       </div>`);
     }
 
+    if (el.type === "frame") {
+      // Shape picker — lets the user swap silhouette on the same frame
+      // without re-creating it (and without losing the contained photo).
+      const shapeOpts = ["square","portrait","landscape","wide","circle","rounded","arch","diamond"];
+      const shapeHtml = shapeOpts.map(function (s) {
+        return '<option value="' + s + '"' + (el.frameShape === s ? ' selected' : '') + '>' + s.charAt(0).toUpperCase() + s.slice(1) + '</option>';
+      }).join("");
+      html.push(
+        '<div class="ed-props-section"><h4>Frame</h4>' +
+          '<div class="ed-props-field"><label>Shape</label>' +
+            '<select data-prop="frameShape">' + shapeHtml + '</select>' +
+          '</div>' +
+          (el.src
+            ? ('<div class="ed-props-field"><label>Zoom</label>' +
+                '<input type="range" min="0.3" max="6" step="0.01" data-prop="imgScale" value="' + (el.imgScale || 1) + '">' +
+              '</div>' +
+              '<div class="ed-props-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+                '<div class="ed-props-field"><label>X offset</label><input type="number" data-prop="imgOffsetX" value="' + Math.round(el.imgOffsetX || 0) + '"></div>' +
+                '<div class="ed-props-field"><label>Y offset</label><input type="number" data-prop="imgOffsetY" value="' + Math.round(el.imgOffsetY || 0) + '"></div>' +
+              '</div>' +
+              '<div class="ed-props-actions" style="display:flex;gap:8px">' +
+                '<button type="button" id="ed-frame-reset" style="flex:1">Reset viewpoint</button>' +
+                '<button type="button" id="ed-frame-replace" style="flex:1">Replace photo</button>' +
+              '</div>' +
+              '<button type="button" id="ed-frame-clear" class="ed-btn-ghost" style="width:100%;margin-top:8px;background:rgba(28,29,34,0.06)">Empty frame</button>')
+            : '<p class="ed-section-hint" style="margin:6px 0">Drag a photo from the Photos or Uploads panel onto this frame to fill it.</p>') +
+        '</div>'
+      );
+    }
+
     html.push(`<div class="ed-props-section"><h4>Arrange</h4>
       <div class="ed-props-actions">
         <button data-arrange="up">Bring forward</button>
@@ -1687,6 +2103,47 @@
           reader.readAsDataURL(file);
         };
         input.click();
+      });
+    }
+
+    // Frame controls
+    const frameResetBtn = body.querySelector("#ed-frame-reset");
+    if (frameResetBtn) {
+      frameResetBtn.addEventListener("click", () => {
+        const tgt = getEl(state.selectedIds[0]);
+        if (!tgt || tgt.type !== "frame") return;
+        tgt.imgScale = 1; tgt.imgOffsetX = 0; tgt.imgOffsetY = 0;
+        pushHistory(); fullRender();
+      });
+    }
+    const frameReplaceBtn = body.querySelector("#ed-frame-replace");
+    if (frameReplaceBtn) {
+      frameReplaceBtn.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = () => {
+          const file = input.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const tgt = getEl(state.selectedIds[0]);
+            if (tgt && tgt.type === "frame") fillFrame(tgt, reader.result);
+          };
+          reader.readAsDataURL(file);
+        };
+        input.click();
+      });
+    }
+    const frameClearBtn = body.querySelector("#ed-frame-clear");
+    if (frameClearBtn) {
+      frameClearBtn.addEventListener("click", () => {
+        const tgt = getEl(state.selectedIds[0]);
+        if (!tgt || tgt.type !== "frame") return;
+        tgt.src = null;
+        tgt.imgScale = 1; tgt.imgOffsetX = 0; tgt.imgOffsetY = 0;
+        tgt.imgNaturalW = 0; tgt.imgNaturalH = 0;
+        pushHistory(); fullRender();
       });
     }
   }
@@ -2008,6 +2465,11 @@
   function layerName(el) {
     if (el.type === "text") return el.text ? (el.text.slice(0, 28) + (el.text.length > 28 ? "…" : "")) : "Text";
     if (el.type === "image") return "Image";
+    if (el.type === "frame") {
+      const shape = (el.frameShape || "square");
+      const cap = shape.charAt(0).toUpperCase() + shape.slice(1);
+      return cap + " frame" + (el.src ? "" : " (empty)");
+    }
     if (el.type === "rect") return el.radius >= Math.min(el.w, el.h) / 2 ? "Pill" : "Rectangle";
     if (el.type === "ellipse") return "Ellipse";
     if (el.type === "triangle") return "Triangle";
@@ -2053,6 +2515,15 @@
       img.loading = "lazy";
       b.appendChild(img);
       b.addEventListener("click", () => addImage(p.src));
+      // Drag the photo onto a frame to fill it. We also set text/plain
+      // for browsers that won't accept text/uri-list (Firefox quirk).
+      b.draggable = true;
+      b.addEventListener("dragstart", (e) => {
+        if (!e.dataTransfer) return;
+        e.dataTransfer.setData("text/uri-list", p.src);
+        e.dataTransfer.setData("text/plain", p.src);
+        e.dataTransfer.effectAllowed = "copy";
+      });
       photoGridEl.appendChild(b);
     });
   }
@@ -2195,8 +2666,13 @@
   });
 
   // ---------- Shapes / text / bg / swatches bindings ----------
+  // A single .ed-shape button might carry data-shape (legacy shapes) OR
+  // data-frame (photo frame presets) — dispatch accordingly.
   document.querySelectorAll(".ed-shape").forEach((btn) => {
-    btn.addEventListener("click", () => addShape(btn.dataset.shape));
+    btn.addEventListener("click", () => {
+      if (btn.dataset.frame) addFrame(btn.dataset.frame);
+      else if (btn.dataset.shape) addShape(btn.dataset.shape);
+    });
   });
   document.querySelectorAll(".ed-text-add").forEach((btn) => {
     btn.addEventListener("click", () => addText(btn.dataset.text));
@@ -2264,6 +2740,14 @@
         img.src = reader.result;
         b.appendChild(img);
         b.addEventListener("click", () => addImage(reader.result));
+        // Make uploaded photos draggable too so they can be dropped on frames
+        b.draggable = true;
+        b.addEventListener("dragstart", (e) => {
+          if (!e.dataTransfer) return;
+          e.dataTransfer.setData("text/uri-list", reader.result);
+          e.dataTransfer.setData("text/plain", reader.result);
+          e.dataTransfer.effectAllowed = "copy";
+        });
         uploadGridEl.appendChild(b);
       };
       reader.readAsDataURL(f);
@@ -2313,6 +2797,19 @@
       const ctx = c.getContext("2d");
       ctx.fillStyle = state.canvas.background || "#fff";
       ctx.fillRect(0, 0, c.width, c.height);
+      // Background image (right-click → set as background)
+      if (state.canvas.backgroundImage) {
+        try {
+          const bg = await loadImage(state.canvas.backgroundImage);
+          const cw = state.canvas.width, ch = state.canvas.height;
+          const ar = bg.naturalWidth / bg.naturalHeight;
+          const cr = cw / ch;
+          let dw, dh;
+          if (ar > cr) { dh = ch; dw = ch * ar; }
+          else         { dw = cw; dh = cw / ar; }
+          ctx.drawImage(bg, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+        } catch (_) {}
+      }
       // Lean draw loop — same shape as exportImage but inline. Keeping it
       // duplicated for now until we refactor a shared renderer.
       for (const el of state.elements) {
@@ -2327,6 +2824,8 @@
         ctx.globalAlpha = el.opacity != null ? el.opacity : 1;
         if (el.type === "image") {
           try { const img = await loadImage(el.src); ctx.drawImage(img, 0, 0, el.w, el.h); } catch (_) {}
+        } else if (el.type === "frame") {
+          await drawFrameToCanvas(ctx, el);
         } else if (el.type === "rect") {
           ctx.fillStyle = el.fill || "transparent";
           if (el.radius) { roundedRect(ctx, 0, 0, el.w, el.h, el.radius); ctx.fill(); }

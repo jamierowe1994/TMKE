@@ -301,6 +301,22 @@ const googleFonts = [
           <button class="ed-shape" data-shape="hr-thin"><div class="sh sh-hr"></div><span>Thin rule</span></button>
           <button class="ed-shape" data-shape="hr-thick"><div class="sh sh-hr sh-hr-thick"></div><span>Thick rule</span></button>
         </div>
+        <!-- Photo frames: each frame is an empty masked container. Click to add
+             an empty frame to the canvas, then drag a photo onto it (or select
+             the frame and click a photo) to fill it. Once filled, drag inside
+             the frame to pan the photo and scroll-wheel to zoom (viewpoint). -->
+        <div class="ed-section-title">Frames</div>
+        <p class="ed-section-hint">Add an empty frame, then drag a photo into it.</p>
+        <div class="ed-shape-grid">
+          <button class="ed-shape" data-frame="square"   title="Square frame"><div class="fr fr-square"></div><span>Square</span></button>
+          <button class="ed-shape" data-frame="portrait" title="Portrait frame"><div class="fr fr-portrait"></div><span>Portrait</span></button>
+          <button class="ed-shape" data-frame="landscape" title="Landscape frame"><div class="fr fr-landscape"></div><span>Landscape</span></button>
+          <button class="ed-shape" data-frame="wide"     title="Wide / banner frame"><div class="fr fr-wide"></div><span>Wide</span></button>
+          <button class="ed-shape" data-frame="circle"   title="Circle frame"><div class="fr fr-circle"></div><span>Circle</span></button>
+          <button class="ed-shape" data-frame="rounded"  title="Rounded frame"><div class="fr fr-rounded"></div><span>Rounded</span></button>
+          <button class="ed-shape" data-frame="arch"     title="Arch frame"><div class="fr fr-arch"></div><span>Arch</span></button>
+          <button class="ed-shape" data-frame="diamond"  title="Diamond frame"><div class="fr fr-diamond"></div><span>Diamond</span></button>
+        </div>
       </section>
 
       <!-- Text -->
@@ -1003,6 +1019,123 @@ const googleFonts = [
     .ed-shape .sh-hr { width: 100%; height: 1px; background: var(--english-violet); }
     .ed-shape .sh-hr-thick { height: 4px; }
     .ed-shape .sh-star { background: transparent; color: var(--english-violet); font-size: 28px; }
+
+    /* Frame thumbnails — same panel chrome as shapes, but each `.fr` shows
+       the silhouette of a photo crop. A subtle inner mountain icon hints
+       that "a photo goes here". */
+    .ed-shape .fr {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, rgba(71,66,84,0.18) 0%, rgba(71,66,84,0.32) 100%);
+      border: 1px solid rgba(71,66,84,0.35);
+      position: relative;
+      flex-shrink: 0;
+    }
+    /* Tiny mountain glyph centred inside every frame thumb */
+    .ed-shape .fr::after {
+      content: "";
+      position: absolute; inset: 0;
+      background-image:
+        radial-gradient(circle at 70% 32%, var(--english-violet) 0 3px, transparent 4px),
+        linear-gradient(135deg, transparent 55%, rgba(71,66,84,0.55) 56%, rgba(71,66,84,0.55) 70%, transparent 71%);
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+      opacity: 0.7;
+    }
+    .ed-shape .fr-square    { width: 40px; height: 40px; }
+    .ed-shape .fr-portrait  { width: 30px; height: 40px; }
+    .ed-shape .fr-landscape { width: 44px; height: 32px; }
+    .ed-shape .fr-wide      { width: 48px; height: 22px; }
+    .ed-shape .fr-circle    { border-radius: 50%; }
+    .ed-shape .fr-rounded   { border-radius: 10px; }
+    .ed-shape .fr-arch      { border-radius: 22px 22px 4px 4px; }
+    .ed-shape .fr-diamond   { transform: rotate(45deg); width: 30px; height: 30px; margin: 5px 0; }
+    .ed-shape .fr-diamond::after { transform: rotate(-45deg); }
+
+    .ed-section-hint {
+      margin: 0 0 10px;
+      font-family: var(--sans);
+      font-size: 11px;
+      color: rgba(28,29,34,0.55);
+      line-height: 1.4;
+    }
+
+    /* ===================== On-canvas frame element ===================== */
+    /* A frame is just an .ed-element with data-type="frame". Its outer
+       div carries the clip-path/border-radius so any child <img> (the
+       dropped photo) gets cropped to the frame's silhouette. */
+    .ed-element[data-type="frame"] {
+      overflow: hidden;
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(71,66,84,0.06) 0 8px,
+        rgba(71,66,84,0.12) 8px 16px
+      );
+      border: 1px dashed rgba(71,66,84,0.45);
+    }
+    /* Frame shape variants — applied via data-frame-shape on the node */
+    .ed-element[data-type="frame"][data-frame-shape="circle"]   { border-radius: 50%; }
+    .ed-element[data-type="frame"][data-frame-shape="rounded"]  { border-radius: 24px; }
+    .ed-element[data-type="frame"][data-frame-shape="arch"]     { border-radius: 999px 999px 12px 12px; }
+    .ed-element[data-type="frame"][data-frame-shape="diamond"]  { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border: none; }
+    /* square / portrait / landscape / wide need no special clip */
+
+    .ed-element[data-type="frame"].is-filled {
+      background: #1c1d22;
+      border: none;
+    }
+    .ed-element[data-type="frame"] .fr-img {
+      position: absolute;
+      left: 50%; top: 50%;
+      transform-origin: center center;
+      user-select: none;
+      -webkit-user-drag: none;
+      pointer-events: none;
+    }
+    .ed-element[data-type="frame"] .fr-placeholder {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 6px;
+      color: rgba(71,66,84,0.75);
+      font-family: var(--sans);
+      font-size: 13px;
+      text-align: center;
+      padding: 12px;
+      pointer-events: none;
+    }
+    .ed-element[data-type="frame"] .fr-placeholder svg { opacity: 0.55; }
+    .ed-element[data-type="frame"].is-drop-target {
+      outline: 2px solid var(--english-violet);
+      outline-offset: 2px;
+    }
+    /* Viewpoint edit mode — entered by double-clicking a filled frame.
+       Inner image becomes draggable; a small badge tells the user
+       what to do. Click outside or hit Esc to commit. */
+    .ed-element[data-type="frame"].is-editing-viewpoint {
+      outline: 2px solid var(--english-violet);
+      outline-offset: -2px;
+      cursor: grab;
+    }
+    .ed-element[data-type="frame"].is-editing-viewpoint:active { cursor: grabbing; }
+    .ed-element[data-type="frame"].is-editing-viewpoint .fr-img { pointer-events: auto; }
+    .ed-element[data-type="frame"].is-editing-viewpoint::after {
+      content: "Drag to pan · scroll to zoom · Esc when done";
+      position: absolute;
+      left: 50%; bottom: 8px;
+      transform: translateX(-50%);
+      background: rgba(28,29,34,0.85);
+      color: #fff;
+      font-family: var(--sans);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* When a photo card is being dragged, dim it slightly so the user
+       can see they've picked it up. */
+    [draggable="true"]:active { opacity: 0.7; }
 
     /* Text adders */
     .ed-text-add {
@@ -1919,6 +2052,16 @@ const googleFonts = [
           img.loading = 'lazy';
           btn.appendChild(img);
           btn.addEventListener('click', () => addPhoto(r));
+          // Make the card draggable so users can drop it directly onto a
+          // frame on the canvas to fill it. We expose the full-resolution
+          // URL so the frame doesn't render the thumbnail.
+          btn.draggable = true;
+          btn.addEventListener('dragstart', (e) => {
+            if (!e.dataTransfer) return;
+            e.dataTransfer.setData('text/uri-list', r.full);
+            e.dataTransfer.setData('text/plain', r.full);
+            e.dataTransfer.effectAllowed = 'copy';
+          });
           gridEl.appendChild(btn);
         });
       }
