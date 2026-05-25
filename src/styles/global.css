@@ -542,20 +542,40 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
     radial-gradient(60% 60% at 50% 50%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.25) 100%);
 }
 
-/* Letterbox bars */
+/* Letterbox + side bars — frame the hero on all four edges with paper
+   slivers so the page reads as wrapping around the video. Top/bottom
+   animate height; left/right animate width. Same timing + ease so the
+   four sides slide in together as one frame. */
 .hero-bar {
   position: absolute;
-  left: 0; right: 0;
-  height: 0;
   background: var(--paper);
   z-index: 4;
+}
+.hero-bar--top,
+.hero-bar--bottom {
+  left: 0; right: 0;
+  height: 0;
   transition: height 1.6s cubic-bezier(.7,0,.2,1) 0.2s;
+}
+.hero-bar--left,
+.hero-bar--right {
+  top: 0; bottom: 0;
+  width: 0;
+  transition: width 1.6s cubic-bezier(.7,0,.2,1) 0.2s;
 }
 .hero-bar--top    { top: 0; }
 .hero-bar--bottom { bottom: 0; }
-.hero.in .hero-bar { height: 56px; }
+.hero-bar--left   { left: 0; }
+.hero-bar--right  { right: 0; }
+.hero.in .hero-bar--top,
+.hero.in .hero-bar--bottom { height: 56px; }
+.hero.in .hero-bar--left,
+.hero.in .hero-bar--right  { width: 40px; }
 @media (max-width: 720px) {
-  .hero.in .hero-bar { height: 36px; }
+  .hero.in .hero-bar--top,
+  .hero.in .hero-bar--bottom { height: 36px; }
+  .hero.in .hero-bar--left,
+  .hero.in .hero-bar--right  { width: 22px; }
 }
 
 .hero-grain {
@@ -1600,8 +1620,22 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .feature-edit-right.in { opacity: 1; transform: translateY(0); }
 
+/* Hero image replacing the previous CSS laptop mockup.
+   Same column footprint as the laptop (~660px max) so the section
+   composition stays balanced. Sits flat on the paper bg — no drop
+   shadow, just softly rounded corners. */
+.feature-edit-image {
+  display: block;
+  width: 100%;
+  max-width: 660px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 18px;
+}
+
 @media (max-width: 960px) {
   .feature-edit-grid { grid-template-columns: 1fr; gap: 48px; }
+  .feature-edit-image { max-width: 100%; }
 }
 
 /* ===================== Laptop mockup =====================
