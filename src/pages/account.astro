@@ -21,7 +21,7 @@ import "../styles/account-sections.css";
       <a href="/account" class="app-logo dash-logo slide-in-left" data-d="0">TMKE</a>
 
       <nav class="dash-nav" aria-label="Sections">
-        <a href="/account" class="dash-link is-active slide-in-left" data-d="1">Workspace</a>
+        <a href="/account" class="dash-link is-active slide-in-left" data-d="1" data-view="workspace">Workspace</a>
         <a href="/editor" class="dash-link slide-in-left" data-d="2">Studio</a>
         <a href="/account/schedule" class="dash-link slide-in-left" data-d="3">Schedule</a>
         <button type="button" class="dash-link dash-link--btn slide-in-left" data-d="4" id="open-shop" aria-haspopup="dialog">Browse packs</button>
@@ -30,13 +30,14 @@ import "../styles/account-sections.css";
 
         <div class="dash-divider slide-in-left" data-d="7" aria-hidden="true"></div>
 
-        <!-- These open as a right-side drawer on /account. Each href
-             still points to the standalone /account/<section> page so
-             middle-click / cmd-click / direct nav still works. -->
-        <a href="/account/services" class="dash-link dash-link--sub slide-in-left" data-d="8" data-drawer="services">Managed socials</a>
-        <a href="/account/guides" class="dash-link dash-link--sub slide-in-left" data-d="9" data-drawer="guides">Guides</a>
-        <a href="/account/blog" class="dash-link dash-link--sub slide-in-left" data-d="10" data-drawer="blog">Blog</a>
-        <a href="/account/contact" class="dash-link dash-link--sub slide-in-left" data-d="11" data-drawer="contact">Contact</a>
+        <!-- These swap the main content in place rather than navigating
+             or opening a drawer. The href is preserved so middle-click
+             / cmd-click still opens the standalone /account/<section>
+             page in a new tab. -->
+        <a href="/account/services" class="dash-link dash-link--sub slide-in-left" data-d="8" data-view="services">Managed socials</a>
+        <a href="/account/guides" class="dash-link dash-link--sub slide-in-left" data-d="9" data-view="guides">Guides</a>
+        <a href="/account/blog" class="dash-link dash-link--sub slide-in-left" data-d="10" data-view="blog">Blog</a>
+        <a href="/account/contact" class="dash-link dash-link--sub slide-in-left" data-d="11" data-view="contact">Contact</a>
       </nav>
 
       <div class="dash-side-foot slide-in-left" data-d="12">
@@ -59,6 +60,10 @@ import "../styles/account-sections.css";
     </aside>
 
     <main class="app-main dash-main">
+    <!-- Each dash-view is one "tab" in the right column. Only the
+         active one is shown; sidebar links toggle which is visible.
+         No page reload, no drawer overlay. -->
+    <div class="dash-view is-active" data-view="workspace">
     <!-- Welcome hero — 2-column with decorative photo on the right.
          The greeting line below is set client-side based on the
          current hour (Good morning / afternoon / evening). -->
@@ -128,7 +133,7 @@ import "../styles/account-sections.css";
         <p id="up-state" class="lib-state" hidden></p>
       </article>
 
-      <a class="dash-pair-card dash-blog-feature" href="/account/blog#instagram-algo-2026" data-drawer="blog">
+      <a class="dash-pair-card dash-blog-feature" href="/account/blog#instagram-algo-2026" data-view="blog">
         <div class="dash-blog-feature-art" style="background-image:url('/assets/social-media.png')">
           <span class="dash-blog-feature-flag">Members only</span>
         </div>
@@ -166,6 +171,16 @@ import "../styles/account-sections.css";
       </header>
       <div id="drafts-grid" class="drafts-grid"></div>
     </section>
+    </div><!-- /dash-view[data-view="workspace"] -->
+
+    <!-- Sibling views — Contact / Services / Guides / Blog. Hidden
+         until the matching sidebar link is clicked. The same panel
+         components also render on the standalone /account/<section>
+         pages, so deep links still work. -->
+    <div class="dash-view" data-view="services" hidden><ServicesPanel /></div>
+    <div class="dash-view" data-view="guides" hidden><GuidesPanel /></div>
+    <div class="dash-view" data-view="blog" hidden><BlogPanel /></div>
+    <div class="dash-view" data-view="contact" hidden><ContactPanel /></div>
 
     <!-- Account footer — kept lightweight; signed-in chip + sign-out
          now live in the sidebar; this row is just contact info. -->
@@ -208,33 +223,7 @@ import "../styles/account-sections.css";
     </div>
   </div>
 
-  <!-- ============================================================
-       Right-side drawer: holds the Contact / Managed Socials /
-       Guides / Blog panels. Sidebar links with [data-drawer="..."]
-       open the matching panel here instead of navigating. Each
-       panel is pre-rendered (cheap static markup) and only the
-       active one is visible. The same components also render on
-       the standalone /account/<section> pages.
-       ============================================================ -->
-  <div class="dash-drawer-backdrop" id="dash-drawer" hidden role="dialog" aria-modal="true" aria-labelledby="dash-drawer-label">
-    <aside class="dash-drawer" aria-label="Section panel">
-      <header class="dash-drawer-bar">
-        <span class="dash-drawer-bar-label" id="dash-drawer-label">Panel</span>
-        <div class="dash-drawer-bar-actions">
-          <a href="/account/contact" class="dash-drawer-bar-expand" id="dash-drawer-expand">Open full &rarr;</a>
-          <button type="button" class="dash-drawer-bar-close" id="dash-drawer-close" aria-label="Close">&times;</button>
-        </div>
-      </header>
-      <div class="dash-drawer-body">
-        <div class="dash-drawer-panel" data-panel="contact"><ContactPanel /></div>
-        <div class="dash-drawer-panel" data-panel="services"><ServicesPanel /></div>
-        <div class="dash-drawer-panel" data-panel="guides"><GuidesPanel /></div>
-        <div class="dash-drawer-panel" data-panel="blog"><BlogPanel /></div>
-      </div>
-    </aside>
-  </div>
-
-  <!-- Left-edge "Calendar" tab. Persistent on workspace pages; click
+<!-- Left-edge "Calendar" tab. Persistent on workspace pages; click
        to open the month-view drawer below. -->
   <button type="button" class="cal-tab" id="cal-tab-trigger" aria-haspopup="dialog" aria-controls="cal-popup">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1323,70 +1312,41 @@ import "../styles/account-sections.css";
     document.getElementById('app-signout')?.addEventListener('click', signOut);
     document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
 
-    // ===== Right-side drawer (Contact / Services / Guides / Blog) =====
-    // Sidebar links with [data-drawer="<name>"] open the matching panel
-    // inside the drawer instead of navigating. Each link's href still
-    // points to the standalone /account/<section> page so middle-click
-    // / right-click "Open in new tab" still works as expected.
-    (function setupDashDrawer() {
-      const $backdrop = document.getElementById('dash-drawer');
-      const $close    = document.getElementById('dash-drawer-close');
-      const $label    = document.getElementById('dash-drawer-label');
-      const $expand   = document.getElementById('dash-drawer-expand');
-      const $panels   = $backdrop ? $backdrop.querySelectorAll('.dash-drawer-panel') : [];
-      if (!$backdrop || !$panels.length) return;
+    // ===== In-place view swap (Workspace / Contact / Services / Guides / Blog) =====
+    // Sidebar links with [data-view="<name>"] swap which .dash-view is
+    // visible in the right column. The sidebar itself stays put; only
+    // the main content changes. Workspace is the default view.
+    // Each link's href still points to the standalone /account/<section>
+    // page so middle-click / cmd-click "Open in new tab" still works.
+    (function setupDashViewSwap() {
+      const $views = document.querySelectorAll('.dash-view');
+      // Scope to actually-clickable elements with data-view; the shop
+      // modal also uses [data-view] on its <section> grid/detail
+      // elements and we don't want to swap on those.
+      const $links = document.querySelectorAll('a[data-view], button[data-view]');
+      if (!$views.length || !$links.length) return;
 
-      const LABELS = {
-        contact: 'Contact',
-        services: 'Managed socials',
-        guides: 'Guides',
-        blog: 'Members blog',
-      };
-
-      let openName = null;
-
-      function openDrawer(name) {
-        const panel = $backdrop.querySelector('.dash-drawer-panel[data-panel="' + name + '"]');
-        if (!panel) return;
-        $panels.forEach(function (p) { p.classList.toggle('is-active', p === panel); });
-        if ($label) $label.textContent = LABELS[name] || name;
-        if ($expand) $expand.setAttribute('href', '/account/' + name);
-        $backdrop.hidden = false;
-        // Two frames so the [hidden]-removed state has been painted
-        // before the transition class fires (otherwise the slide is
-        // lost in browsers that coalesce these into one frame).
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () { $backdrop.classList.add('is-open'); });
+      function switchView(name) {
+        $views.forEach(function (v) {
+          const match = v.getAttribute('data-view') === name;
+          v.hidden = !match;
+          v.classList.toggle('is-active', match);
         });
-        openName = name;
-        document.documentElement.style.overflow = 'hidden';
+        $links.forEach(function (a) {
+          a.classList.toggle('is-active', a.getAttribute('data-view') === name);
+        });
+        // Reset scroll so the new view starts at the top.
+        const main = document.querySelector('.dash-main');
+        if (main) main.scrollTop = 0;
+        window.scrollTo({ top: 0, behavior: 'instant' });
       }
 
-      function closeDrawer() {
-        if (!openName) return;
-        $backdrop.classList.remove('is-open');
-        document.documentElement.style.overflow = '';
-        setTimeout(function () {
-          if (!$backdrop.classList.contains('is-open')) $backdrop.hidden = true;
-        }, 600);
-        openName = null;
-      }
-
-      document.querySelectorAll('[data-drawer]').forEach(function (el) {
+      $links.forEach(function (el) {
         el.addEventListener('click', function (e) {
-          // Let modifier-clicks open the standalone page in a new tab.
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
           e.preventDefault();
-          openDrawer(el.getAttribute('data-drawer'));
+          switchView(el.getAttribute('data-view'));
         });
-      });
-
-      $close && $close.addEventListener('click', closeDrawer);
-      $backdrop.addEventListener('click', function (e) {
-        if (e.target === $backdrop) closeDrawer();
-      });
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && openName) closeDrawer();
       });
     })();
 
@@ -1413,14 +1373,24 @@ import "../styles/account-sections.css";
     // Priority:
     //   1. Posts they've scheduled in /account/schedule (real rendered output)
     //   2. Drafts with thumbnails (work saved but not scheduled yet)
-    //   3. null — caller falls back to the lifestyle photo
-    function pickDesignUrl(scheduled, drafts) {
+    //   3. Preview images from packs they ALREADY own (their library —
+    //      not "their" designs but they bought them, so still useful as
+    //      a "your stuff" stand-in until real designs exist)
+    //   4. null — caller falls back to the lifestyle photo
+    function pickDesignUrl(scheduled, drafts, ownedPacksWithImages) {
       const pool = [];
       (scheduled || []).forEach((s) => {
         const url = s.thumbnail_url || s.asset_url;
         if (url) pool.push(url);
       });
       if (!pool.length) (drafts || []).forEach((d) => { if (d.thumb) pool.push(d.thumb); });
+      if (!pool.length) {
+        (ownedPacksWithImages || []).forEach((p) => {
+          const previews = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
+          if (previews.length) pool.push(...previews);
+          else if (p.cover_image_url) pool.push(p.cover_image_url);
+        });
+      }
       if (!pool.length) return null;
       return pool[Math.floor(Math.random() * pool.length)];
     }
@@ -1450,8 +1420,9 @@ import "../styles/account-sections.css";
       let last = null;
       try { last = localStorage.getItem('tmke.welcome.last'); } catch (_) {}
 
-      const designUrl = pickDesignUrl(scheduled, drafts);
-      const packPick  = pickUnownedPack(allPacks, ownedIds || new Set());
+      const ownedPacks = (allPacks || []).filter((p) => (ownedIds || new Set()).has(p.id));
+      const designUrl  = pickDesignUrl(scheduled, drafts, ownedPacks);
+      const packPick   = pickUnownedPack(allPacks, ownedIds || new Set());
 
       // If only one source is available we use it and skip the toggle.
       let mode;
