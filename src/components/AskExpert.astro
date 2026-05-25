@@ -73,6 +73,28 @@
   <p class="ae-foot">Powered by AI &middot; replies may take a few seconds.</p>
 </aside>
 
+<!-- ============================================================
+     Demo overlay — used by the chat to walk users through the
+     editor. Backdrop blurs everything except the highlighted
+     target ("spotlight"); a caption + step controls + animated
+     pointer make it feel like a guided tour.
+     ============================================================ -->
+<div class="ae-tour" id="ae-tour" hidden aria-live="polite">
+  <div class="ae-tour-backdrop"></div>
+  <div class="ae-tour-spotlight" id="ae-tour-spotlight"></div>
+  <div class="ae-tour-cursor" id="ae-tour-cursor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 2l7.5 18.5 2-7.5 7.5-2L3 2z"/></svg>
+  </div>
+  <div class="ae-tour-card" id="ae-tour-card">
+    <div class="ae-tour-step" id="ae-tour-step">Step 1 of 3</div>
+    <p class="ae-tour-caption" id="ae-tour-caption">&hellip;</p>
+    <div class="ae-tour-actions">
+      <button type="button" class="ae-tour-skip" id="ae-tour-skip">Stop tour</button>
+      <button type="button" class="ae-tour-next" id="ae-tour-next">Next &rarr;</button>
+    </div>
+  </div>
+</div>
+
 <style is:global>
   /* ===== Floating trigger — bottom-right of the Studio ===== */
   .ae-trigger {
@@ -306,6 +328,154 @@
     .ae-trigger, .ae-panel { transition: none; }
     .ae-msg--typing span { animation: none; }
   }
+
+  /* ===== Demo overlay ("tour") ===== */
+  .ae-tour {
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    pointer-events: none;
+  }
+  .ae-tour[hidden] { display: none; }
+
+  /* Soft, light blur over everything outside the spotlight */
+  .ae-tour-backdrop {
+    position: absolute;
+    inset: 0;
+    backdrop-filter: blur(2.5px) brightness(0.92);
+    -webkit-backdrop-filter: blur(2.5px) brightness(0.92);
+    background: rgba(15, 12, 30, 0.18);
+    pointer-events: auto;
+    transition: opacity 0.35s cubic-bezier(.2,.7,.2,1);
+  }
+  /* Spotlight = a transparent rounded rect positioned over the target,
+     with a soft outer ring + giant box-shadow that "cuts" the spotlight
+     out of the backdrop using a single solid colour overlay. */
+  .ae-tour-spotlight {
+    position: absolute;
+    top: 0; left: 0;
+    width: 0; height: 0;
+    border-radius: 10px;
+    pointer-events: none;
+    /* The huge inset shadow paints over everything outside the spotlight,
+       giving a sharper cutout than backdrop-filter alone. The backdrop
+       above provides the blur; this provides the dim. */
+    box-shadow:
+      0 0 0 9999px rgba(15, 12, 30, 0.35),
+      0 0 0 3px rgba(255, 255, 255, 0.92),
+      0 0 0 6px rgba(71, 66, 84, 0.55);
+    transition:
+      top 0.55s cubic-bezier(.22,1,.36,1),
+      left 0.55s cubic-bezier(.22,1,.36,1),
+      width 0.55s cubic-bezier(.22,1,.36,1),
+      height 0.55s cubic-bezier(.22,1,.36,1);
+  }
+  .ae-tour-spotlight.is-pulse {
+    animation: aePulse 1.6s cubic-bezier(.2,.7,.2,1) infinite;
+  }
+  @keyframes aePulse {
+    0%, 100% { box-shadow: 0 0 0 9999px rgba(15, 12, 30, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.92), 0 0 0 6px rgba(71, 66, 84, 0.55); }
+    50%      { box-shadow: 0 0 0 9999px rgba(15, 12, 30, 0.35), 0 0 0 5px rgba(255, 255, 255, 1),    0 0 0 10px rgba(71, 66, 84, 0.85); }
+  }
+
+  /* Animated pointer that flies in to the target and pulses on a "click" */
+  .ae-tour-cursor {
+    position: absolute;
+    top: 0; left: 0;
+    width: 22px;
+    height: 22px;
+    color: var(--english-violet);
+    filter: drop-shadow(0 4px 8px rgba(15, 12, 30, 0.45));
+    transform: translate3d(-100px, -100px, 0);
+    transition: transform 0.75s cubic-bezier(.22,1,.36,1);
+    pointer-events: none;
+  }
+  .ae-tour-cursor.is-click::after {
+    content: "";
+    position: absolute;
+    top: -8px; left: -8px;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: 2px solid var(--english-violet);
+    opacity: 0;
+    animation: aeClick 0.5s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes aeClick {
+    0%   { opacity: 0.9; transform: scale(0.3); }
+    100% { opacity: 0;   transform: scale(1.4); }
+  }
+
+  /* Caption card — sits near the spotlight, flips above/below depending
+     on where the target lives so it never falls off-screen. */
+  .ae-tour-card {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(340px, calc(100vw - 48px));
+    padding: 18px 20px;
+    background: var(--paper);
+    border: 1px solid rgba(28, 29, 34, 0.10);
+    border-radius: 12px;
+    box-shadow:
+      0 24px 48px -16px rgba(15, 12, 30, 0.55),
+      0 8px 16px -8px rgba(15, 12, 30, 0.30);
+    pointer-events: auto;
+    transition: top 0.45s cubic-bezier(.22,1,.36,1),
+                left 0.45s cubic-bezier(.22,1,.36,1);
+  }
+  .ae-tour-step {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--english-violet);
+    margin-bottom: 6px;
+  }
+  .ae-tour-caption {
+    margin: 0 0 14px;
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .ae-tour-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .ae-tour-skip,
+  .ae-tour-next {
+    appearance: none;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 8px 14px;
+    transition: background 0.2s, color 0.2s;
+  }
+  .ae-tour-skip {
+    background: transparent;
+    color: rgba(28, 29, 34, 0.55);
+    border: 0;
+  }
+  .ae-tour-skip:hover { color: var(--ink); }
+  .ae-tour-next {
+    background: var(--english-violet);
+    color: var(--paper);
+    border: 0;
+  }
+  .ae-tour-next:hover { background: var(--ink); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ae-tour-backdrop, .ae-tour-spotlight, .ae-tour-cursor, .ae-tour-card {
+      transition: none;
+    }
+    .ae-tour-spotlight.is-pulse { animation: none; }
+  }
 </style>
 
 <script>
@@ -409,9 +579,217 @@
       const $typing = appendTyping();
       const reply = await askBackend(history);
       $typing.remove();
-      append("assistant", reply);
+      // Reply may contain a ```demo ... ``` fenced JSON block with a
+      // guided tour. Strip it from the visible chat message; pass the
+      // parsed steps to the tour runner.
+      const { prose, steps } = splitDemo(reply);
+      append("assistant", prose);
       history.push({ role: "assistant", content: reply });
       if ($send) $send.disabled = false;
+      if (steps && steps.length) startTour(steps);
+    });
+
+    // ===== Demo tour runner =====
+    // Parses a ```demo JSON``` block out of the assistant reply and
+    // walks the user through the editor: blur + spotlight + caption
+    // + animated pointer + click animation, one step at a time.
+    interface TourStep {
+      target: string;
+      caption: string;
+      action?: "click" | "hover" | "look" | "type";
+      duration?: number;
+    }
+    // The named keys Claude is told to use, mapped to actual selectors
+    // in the editor. Adding new tour vocabulary = add an entry here AND
+    // mention the key in the system prompt.
+    const TARGET_SELECTORS: Record<string, string> = {
+      "brand-tool":      '[data-tool="brand"]',
+      "elements-tool":   '[data-tool="elements"]',
+      "text-tool":       '[data-tool="text"]',
+      "photos-tool":     '[data-tool="photos"]',
+      "uploads-tool":    '[data-tool="uploads"]',
+      "background-tool": '[data-tool="background"]',
+      "layers-tool":     '[data-tool="layers"]',
+      "resize-tool":     '[data-tool="resize"]',
+      "panel":           "#ed-panel",
+      "canvas":          "#ed-canvas",
+      "stage":           "#ed-stage",
+      "filename":        "#ed-filename, .ed-filename input, .ed-filename",
+      "undo":            "#ed-undo",
+      "redo":            "#ed-redo",
+      "zoom":            "#ed-zoom-display",
+      "share":           "#ed-share",
+      "schedule":        "#ed-schedule",
+      "topbar":          ".ed-topbar",
+      "rail":            ".ed-rail",
+    };
+
+    function splitDemo(reply: string): { prose: string; steps: TourStep[] | null } {
+      const fence = /```demo\s*([\s\S]*?)```/i;
+      const m = reply.match(fence);
+      if (!m) return { prose: reply.trim(), steps: null };
+      const prose = reply.replace(fence, "").trim();
+      let steps: TourStep[] | null = null;
+      try {
+        const parsed = JSON.parse(m[1].trim());
+        if (Array.isArray(parsed)) {
+          steps = parsed.filter((s) => s && typeof s.target === "string" && typeof s.caption === "string");
+        }
+      } catch (_) { /* ignore — show prose only */ }
+      return { prose, steps: steps && steps.length ? steps : null };
+    }
+
+    function resolveTarget(key: string): HTMLElement | null {
+      const sel = TARGET_SELECTORS[key];
+      if (!sel) return null;
+      return document.querySelector(sel) as HTMLElement | null;
+    }
+
+    // Tour state
+    const $tour      = document.getElementById("ae-tour");
+    const $spot      = document.getElementById("ae-tour-spotlight");
+    const $cursor    = document.getElementById("ae-tour-cursor");
+    const $card      = document.getElementById("ae-tour-card");
+    const $stepLabel = document.getElementById("ae-tour-step");
+    const $caption   = document.getElementById("ae-tour-caption");
+    const $next      = document.getElementById("ae-tour-next");
+    const $skip      = document.getElementById("ae-tour-skip");
+    let currentTour: TourStep[] = [];
+    let stepIdx = -1;
+    let stepTimer: number | null = null;
+
+    function startTour(steps: TourStep[]) {
+      if (!$tour) return;
+      // Tuck the chat panel out of the way so it doesn't sit on top of
+      // whatever we're highlighting.
+      closePanel();
+      currentTour = steps;
+      stepIdx = -1;
+      $tour.hidden = false;
+      // Force layout, then advance to step 0.
+      requestAnimationFrame(() => advanceTour(0));
+    }
+
+    function endTour() {
+      currentTour = [];
+      stepIdx = -1;
+      if (stepTimer) { clearTimeout(stepTimer); stepTimer = null; }
+      if ($tour) $tour.hidden = true;
+      if ($spot) $spot.classList.remove("is-pulse");
+      if ($cursor) $cursor.classList.remove("is-click");
+    }
+
+    function advanceTour(idx: number) {
+      if (idx >= currentTour.length) return endTour();
+      stepIdx = idx;
+      const step = currentTour[idx];
+      const total = currentTour.length;
+      if ($stepLabel) $stepLabel.textContent = "Step " + (idx + 1) + " of " + total;
+      if ($caption) $caption.textContent = step.caption;
+      if ($next) $next.textContent = (idx + 1 === total) ? "Finish" : "Next →";
+
+      const el = resolveTarget(step.target);
+      if (!el) {
+        // Target missing — show caption centered without spotlight and let
+        // the user advance manually.
+        if ($spot) {
+          $spot.style.width = "0px";
+          $spot.style.height = "0px";
+        }
+        positionCard(null);
+        return;
+      }
+      // Make sure the target is in view before measuring it.
+      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      // Wait for the smooth scroll to settle before measuring + placing
+      // the spotlight. 320ms is enough on most pages.
+      window.setTimeout(() => {
+        const r = el.getBoundingClientRect();
+        const pad = 8;
+        if ($spot) {
+          $spot.style.top    = (r.top - pad) + "px";
+          $spot.style.left   = (r.left - pad) + "px";
+          $spot.style.width  = (r.width + pad * 2) + "px";
+          $spot.style.height = (r.height + pad * 2) + "px";
+          $spot.classList.add("is-pulse");
+        }
+        positionCard(r);
+        const action = step.action || "look";
+        if (action === "click" || action === "hover") flyCursorTo(r, action === "click");
+        // Auto-advance after duration, unless it's the last step (let the
+        // user explicitly finish).
+        if (stepTimer) clearTimeout(stepTimer);
+        const dwell = Math.max(1500, step.duration || 3500);
+        stepTimer = window.setTimeout(() => {
+          if (idx === stepIdx && idx + 1 < total) advanceTour(idx + 1);
+        }, dwell);
+      }, 320);
+    }
+
+    function positionCard(targetRect: DOMRect | null) {
+      if (!$card) return;
+      if (!targetRect) {
+        $card.style.top = "50%";
+        $card.style.left = "50%";
+        $card.style.transform = "translate(-50%, -50%)";
+        return;
+      }
+      const cardW = 340;
+      const cardH = $card.offsetHeight || 140;
+      const margin = 18;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      // Prefer below the target; flip above if no room.
+      let top = targetRect.bottom + margin;
+      if (top + cardH > vh - margin) top = Math.max(margin, targetRect.top - cardH - margin);
+      // Center horizontally on the target, but clamp to viewport.
+      let left = targetRect.left + targetRect.width / 2 - cardW / 2;
+      left = Math.max(margin, Math.min(vw - cardW - margin, left));
+      $card.style.top = top + "px";
+      $card.style.left = left + "px";
+      $card.style.transform = "none";
+    }
+
+    function flyCursorTo(rect: DOMRect, doClick: boolean) {
+      if (!$cursor) return;
+      const x = rect.left + rect.width / 2 - 6;
+      const y = rect.top + rect.height / 2 - 4;
+      $cursor.style.transform = "translate3d(" + x + "px, " + y + "px, 0)";
+      if (doClick) {
+        window.setTimeout(() => {
+          $cursor.classList.remove("is-click");
+          // Re-trigger animation
+          void $cursor.offsetWidth;
+          $cursor.classList.add("is-click");
+        }, 780);
+      }
+    }
+
+    $next?.addEventListener("click", () => advanceTour(stepIdx + 1));
+    $skip?.addEventListener("click", endTour);
+    document.addEventListener("keydown", (e) => {
+      if ($tour && !$tour.hidden) {
+        if (e.key === "Escape") endTour();
+        else if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          advanceTour(stepIdx + 1);
+        }
+      }
+    });
+    window.addEventListener("resize", () => {
+      // Re-place spotlight if a tour is running.
+      if (stepIdx >= 0 && currentTour[stepIdx]) {
+        const el = resolveTarget(currentTour[stepIdx].target);
+        if (el && $spot) {
+          const r = el.getBoundingClientRect();
+          const pad = 8;
+          $spot.style.top    = (r.top - pad) + "px";
+          $spot.style.left   = (r.left - pad) + "px";
+          $spot.style.width  = (r.width + pad * 2) + "px";
+          $spot.style.height = (r.height + pad * 2) + "px";
+          positionCard(r);
+        }
+      }
     });
 
     // Auto-grow textarea so multi-line questions fit.
