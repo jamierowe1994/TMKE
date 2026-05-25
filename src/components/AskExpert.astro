@@ -50,7 +50,13 @@
 
   <div id="ae-log" class="ae-log" aria-live="polite">
     <div class="ae-msg ae-msg--bot">
-      <p>Hi! I'm here to help you get the most out of the Studio. Ask me how to do anything &mdash; resize a photo, change brand colours, add a logo, schedule a post &mdash; and I'll walk you through it.</p>
+      <p>Hi! Tap one of the tours below to see it in action, or type any question.</p>
+    </div>
+    <!-- Curated quick-tours. Click to start an on-screen walk-through
+         (no AI round-trip needed — these are pre-defined and always work). -->
+    <div class="ae-tours" id="ae-tours">
+      <div class="ae-tours-label">Show me how to&hellip;</div>
+      <div class="ae-tours-grid" id="ae-tours-grid"></div>
     </div>
   </div>
 
@@ -266,6 +272,56 @@
     0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
     30%           { transform: translateY(-4px); opacity: 1; }
   }
+  /* Curated quick-tour list — surfaces the bundled tours so users
+     don't have to phrase a question to discover what's possible. */
+  .ae-tours {
+    margin: 4px 0 4px;
+  }
+  .ae-tours-label {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(28, 29, 34, 0.5);
+    margin: 0 4px 8px;
+  }
+  .ae-tours-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ae-tour-chip {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(71, 66, 84, 0.06);
+    border: 1px solid rgba(71, 66, 84, 0.16);
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--english-violet);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+  }
+  .ae-tour-chip:hover {
+    background: var(--english-violet);
+    color: var(--paper);
+    border-color: var(--english-violet);
+    transform: translateY(-1px);
+  }
+  .ae-tour-chip .ae-tour-chip-arrow {
+    margin-left: auto;
+    transition: transform 0.2s;
+  }
+  .ae-tour-chip:hover .ae-tour-chip-arrow {
+    transform: translateX(3px);
+  }
+
   .ae-msg--error {
     background: rgba(184, 130, 106, 0.14);
     color: #8a4d33;
@@ -589,6 +645,72 @@
       if (steps && steps.length) startTour(steps);
     });
 
+    // ===== Curated tours =====
+    // Hand-written walk-throughs of the most common Studio tasks.
+    // Surfaced as quick-pick chips in the chat panel — no AI round-trip,
+    // no risk of hallucinated targets. Each entry uses the same step
+    // schema the AI demo block uses, so the same runner plays them.
+    const CURATED_TOURS: { label: string; steps: TourStep[] }[] = [
+      {
+        label: "Add my logo",
+        steps: [
+          { target: "uploads-tool", action: "click", caption: "Click Uploads in the left rail." },
+          { target: "panel",        action: "look",  caption: "Drop your logo file here, or click to browse your computer." },
+          { target: "canvas",       action: "look",  caption: "Once it's uploaded, click your logo to drop it onto the design." },
+        ],
+      },
+      {
+        label: "Change brand colours",
+        steps: [
+          { target: "brand-tool", action: "click", caption: "Click Brand in the left rail." },
+          { target: "panel",      action: "look",  caption: "Your saved colours live here. Click any one to apply it to the selected element." },
+        ],
+      },
+      {
+        label: "Add a text block",
+        steps: [
+          { target: "text-tool", action: "click", caption: "Click Text in the left rail." },
+          { target: "panel",     action: "look",  caption: "Pick a heading, subheading or body style. Click it to drop it on the canvas." },
+          { target: "canvas",    action: "look",  caption: "Double-click the text on the canvas to start typing." },
+        ],
+      },
+      {
+        label: "Add a photo",
+        steps: [
+          { target: "photos-tool", action: "click", caption: "Click Photos in the left rail." },
+          { target: "panel",       action: "look",  caption: "Search the library or upload your own. Click a photo to add it.", duration: 4500 },
+        ],
+      },
+      {
+        label: "Change the background",
+        steps: [
+          { target: "background-tool", action: "click", caption: "Click Background in the left rail." },
+          { target: "panel",           action: "look",  caption: "Pick a colour, gradient or photo for the page background." },
+        ],
+      },
+      {
+        label: "Schedule this post",
+        steps: [
+          { target: "schedule", action: "click", caption: "Click Schedule in the top-right of the toolbar." },
+          { target: "stage",    action: "look",  caption: "Pick a date and time. We'll email you a reminder the morning it's due to go out.", duration: 5000 },
+        ],
+      },
+      {
+        label: "Resize the canvas",
+        steps: [
+          { target: "resize-tool", action: "click", caption: "Click Resize at the bottom of the left rail." },
+          { target: "panel",       action: "look",  caption: "Pick a format — Instagram post, story, reel — and we'll resize the canvas for you." },
+        ],
+      },
+      {
+        label: "Undo a mistake",
+        steps: [
+          { target: "undo", action: "click", caption: "Click Undo (or press Ctrl+Z) to step back." },
+          { target: "redo", action: "look",  caption: "Changed your mind? Redo is right next to it (Ctrl+Shift+Z)." },
+        ],
+      },
+    ];
+
     // ===== Demo tour runner =====
     // Parses a ```demo JSON``` block out of the assistant reply and
     // walks the user through the editor: blur + spotlight + caption
@@ -668,6 +790,24 @@
       $tour.hidden = false;
       // Force layout, then advance to step 0.
       requestAnimationFrame(() => advanceTour(0));
+    }
+
+    // Render the curated quick-pick chips at the top of the chat log.
+    const $toursGrid = document.getElementById("ae-tours-grid");
+    if ($toursGrid) {
+      $toursGrid.innerHTML = CURATED_TOURS.map((t, i) =>
+        `<button type="button" class="ae-tour-chip" data-tour-idx="${i}">` +
+          `<span>${t.label}</span>` +
+          `<span class="ae-tour-chip-arrow" aria-hidden="true">&rarr;</span>` +
+        `</button>`
+      ).join("");
+      $toursGrid.addEventListener("click", (e) => {
+        const btn = (e.target as HTMLElement).closest(".ae-tour-chip") as HTMLElement | null;
+        if (!btn) return;
+        const idx = Number(btn.getAttribute("data-tour-idx"));
+        const tour = CURATED_TOURS[idx];
+        if (tour) startTour(tour.steps);
+      });
     }
 
     function endTour() {
