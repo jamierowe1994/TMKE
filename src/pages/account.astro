@@ -1,6 +1,11 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import ContactPanel from "../components/account/ContactPanel.astro";
+import ServicesPanel from "../components/account/ServicesPanel.astro";
+import GuidesPanel from "../components/account/GuidesPanel.astro";
+import BlogPanel from "../components/account/BlogPanel.astro";
 import "../styles/workspace.css";
+import "../styles/account-sections.css";
 ---
 
 <BaseLayout
@@ -25,12 +30,16 @@ import "../styles/workspace.css";
 
         <div class="dash-divider slide-in-left" data-d="7" aria-hidden="true"></div>
 
-        <a href="/services" class="dash-link dash-link--sub slide-in-left" data-d="8">Managed Socials</a>
-        <a href="/blog" class="dash-link dash-link--sub slide-in-left" data-d="9">The Blog</a>
-        <a href="/contact" class="dash-link dash-link--sub slide-in-left" data-d="10">Contact</a>
+        <!-- These open as a right-side drawer on /account. Each href
+             still points to the standalone /account/<section> page so
+             middle-click / cmd-click / direct nav still works. -->
+        <a href="/account/services" class="dash-link dash-link--sub slide-in-left" data-d="8" data-drawer="services">Managed socials</a>
+        <a href="/account/guides" class="dash-link dash-link--sub slide-in-left" data-d="9" data-drawer="guides">Guides</a>
+        <a href="/account/blog" class="dash-link dash-link--sub slide-in-left" data-d="10" data-drawer="blog">Blog</a>
+        <a href="/account/contact" class="dash-link dash-link--sub slide-in-left" data-d="11" data-drawer="contact">Contact</a>
       </nav>
 
-      <div class="dash-side-foot slide-in-left" data-d="11">
+      <div class="dash-side-foot slide-in-left" data-d="12">
         <button type="button" id="cal-side-trigger" class="dash-cal-btn" aria-haspopup="dialog" aria-controls="cal-popup">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -93,30 +102,43 @@ import "../styles/workspace.css";
       </article>
     </section>
 
-    <!-- Upcoming this week — week-strip view of scheduled posts +
-         UK holidays. If today is Sunday we jump to next week's Monday
-         so this strip doesn't dwell on a near-empty current week.
-         Skip-forward / skip-back is week-by-week (month-by-month lives
-         in the left-edge pop-out drawer). -->
-    <section id="upcoming" class="upcoming slide-up" data-d="5" aria-labelledby="upcoming-h">
-      <header class="section-head">
-        <h2 id="upcoming-h" class="section-h">Upcoming this week</h2>
-        <p class="section-sub">A peek ahead at what's going out — plus the dates that matter for property marketing this week. Need the full month? Use the <strong>Calendar</strong> tab on the left.</p>
-      </header>
+    <!-- Two-up row: Upcoming list on the left, members-blog feature
+         on the right. Each half is a self-contained card. The week
+         strip JS still targets #up-grid / #up-label / #up-prev etc.
+         so the underlying calendar bootstrap is unchanged. -->
+    <section class="dash-pair slide-up" data-d="5" aria-label="This week and what to read">
+      <article id="upcoming" class="dash-pair-card upcoming-card" aria-labelledby="upcoming-h">
+        <header class="dash-pair-head">
+          <span class="dash-pair-eyebrow">This week</span>
+          <h3 id="upcoming-h" class="dash-pair-title">What you've got going out</h3>
+        </header>
 
-      <nav class="upcoming-nav" aria-label="Week navigation">
-        <div class="upcoming-nav-side">
-          <button type="button" class="upcoming-nav-btn" id="up-prev" aria-label="Previous week">&larr;</button>
-          <button type="button" class="upcoming-nav-today" id="up-today">This week</button>
-        </div>
-        <div class="upcoming-nav-label" id="up-label">—</div>
-        <div class="upcoming-nav-side" style="justify-content:flex-end;">
-          <button type="button" class="upcoming-nav-btn" id="up-next" aria-label="Next week">&rarr;</button>
-        </div>
-      </nav>
+        <nav class="upcoming-nav upcoming-nav--compact" aria-label="Week navigation">
+          <div class="upcoming-nav-side">
+            <button type="button" class="upcoming-nav-btn" id="up-prev" aria-label="Previous week">&larr;</button>
+            <button type="button" class="upcoming-nav-today" id="up-today">This week</button>
+          </div>
+          <div class="upcoming-nav-label" id="up-label">&mdash;</div>
+          <div class="upcoming-nav-side" style="justify-content:flex-end;">
+            <button type="button" class="upcoming-nav-btn" id="up-next" aria-label="Next week">&rarr;</button>
+          </div>
+        </nav>
 
-      <div id="up-grid" class="upcoming-grid"></div>
-      <p id="up-state" class="lib-state" hidden></p>
+        <div id="up-grid" class="upcoming-grid"></div>
+        <p id="up-state" class="lib-state" hidden></p>
+      </article>
+
+      <a class="dash-pair-card dash-blog-feature" href="/account/blog#instagram-algo-2026" data-drawer="blog">
+        <div class="dash-blog-feature-art" style="background-image:url('/assets/social-media.png')">
+          <span class="dash-blog-feature-flag">Members only</span>
+        </div>
+        <div class="dash-blog-feature-body">
+          <span class="dash-pair-eyebrow">Inside The Edit &middot; 6 min read</span>
+          <h3 class="dash-pair-title">What just changed in the Instagram ranking signal &mdash; and what to do this week</h3>
+          <p class="dash-blog-feature-desc">Instagram quietly bumped the weight of "shares to non-followers" in mid-May. For property accounts that's a bigger deal than it sounds.</p>
+          <span class="dash-blog-feature-cta">Read the piece <em>&rarr;</em></span>
+        </div>
+      </a>
     </section>
 
     <!-- Library -->
@@ -184,6 +206,32 @@ import "../styles/workspace.css";
         <div class="shop-detail" id="shop-detail"></div>
       </section>
     </div>
+  </div>
+
+  <!-- ============================================================
+       Right-side drawer: holds the Contact / Managed Socials /
+       Guides / Blog panels. Sidebar links with [data-drawer="..."]
+       open the matching panel here instead of navigating. Each
+       panel is pre-rendered (cheap static markup) and only the
+       active one is visible. The same components also render on
+       the standalone /account/<section> pages.
+       ============================================================ -->
+  <div class="dash-drawer-backdrop" id="dash-drawer" hidden role="dialog" aria-modal="true" aria-labelledby="dash-drawer-label">
+    <aside class="dash-drawer" aria-label="Section panel">
+      <header class="dash-drawer-bar">
+        <span class="dash-drawer-bar-label" id="dash-drawer-label">Panel</span>
+        <div class="dash-drawer-bar-actions">
+          <a href="/account/contact" class="dash-drawer-bar-expand" id="dash-drawer-expand">Open full &rarr;</a>
+          <button type="button" class="dash-drawer-bar-close" id="dash-drawer-close" aria-label="Close">&times;</button>
+        </div>
+      </header>
+      <div class="dash-drawer-body">
+        <div class="dash-drawer-panel" data-panel="contact"><ContactPanel /></div>
+        <div class="dash-drawer-panel" data-panel="services"><ServicesPanel /></div>
+        <div class="dash-drawer-panel" data-panel="guides"><GuidesPanel /></div>
+        <div class="dash-drawer-panel" data-panel="blog"><BlogPanel /></div>
+      </div>
+    </aside>
   </div>
 
   <!-- Left-edge "Calendar" tab. Persistent on workspace pages; click
@@ -434,6 +482,139 @@ import "../styles/workspace.css";
       }
     }
 
+    /* ---------- Dashboard "this week + members blog" pair ---------- */
+    .dash-pair {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+    @media (max-width: 980px) { .dash-pair { grid-template-columns: 1fr; } }
+
+    .dash-pair-card {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px 26px 24px;
+      background: #fff;
+      border: 1px solid rgba(28, 29, 34, 0.08);
+      border-radius: 10px;
+      box-shadow:
+        0 10px 24px -16px rgba(71, 66, 84, 0.22),
+        0 2px 6px -3px rgba(28, 29, 34, 0.08);
+      min-height: 340px;
+      overflow: hidden;
+    }
+    .dash-pair-head { display: flex; flex-direction: column; gap: 4px; }
+    .dash-pair-eyebrow {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .dash-pair-title {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    /* Compact upcoming nav inside the half-width card */
+    .upcoming-card .upcoming-nav {
+      margin: 0 0 4px;
+      padding: 10px 14px;
+      box-shadow: none;
+      background: rgba(71, 66, 84, 0.06);
+      border-color: rgba(71, 66, 84, 0.14);
+    }
+    .upcoming-card .upcoming-nav-label { font-size: 15px; }
+    .upcoming-card .upcoming-nav-btn { width: 26px; height: 26px; font-size: 12px; }
+    .upcoming-card .upcoming-nav-today { padding: 4px 10px; font-size: 9px; }
+    /* Inside the half-width card the week renders as a stacked list
+       of days, not a 7-column strip. Day cells flow vertically. */
+    .upcoming-card .upcoming-grid {
+      grid-template-columns: 1fr;
+      gap: 6px;
+      max-height: 360px;
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .upcoming-card .upcoming-grid::-webkit-scrollbar { width: 0; display: none; }
+    .upcoming-card .upcoming-day {
+      flex-direction: row;
+      align-items: center;
+      gap: 14px;
+      min-height: 0;
+      padding: 10px 14px;
+    }
+
+    /* Members-blog feature on the right of the pair */
+    .dash-blog-feature {
+      padding: 0;
+      text-decoration: none;
+      color: var(--ink);
+      transition: transform 0.3s cubic-bezier(.2,.7,.2,1), box-shadow 0.3s;
+    }
+    .dash-blog-feature:hover {
+      transform: translateY(-3px);
+      box-shadow:
+        0 22px 44px -16px rgba(71, 66, 84, 0.40),
+        0 8px 16px -8px rgba(28, 29, 34, 0.18);
+    }
+    .dash-blog-feature-art {
+      position: relative;
+      min-height: 200px;
+      background-size: cover;
+      background-position: center;
+      background-color: var(--english-violet);
+    }
+    .dash-blog-feature-flag {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      padding: 5px 12px;
+      background: rgba(15, 12, 30, 0.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: var(--paper);
+      border-radius: 999px;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .dash-blog-feature-body {
+      padding: 22px 26px 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+    .dash-blog-feature-desc {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      color: rgba(28, 29, 34, 0.66);
+      flex: 1;
+    }
+    .dash-blog-feature-cta {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--english-violet);
+    }
+    .dash-blog-feature-cta em { font-style: normal; display: inline-block; transition: transform 0.25s; }
+    .dash-blog-feature:hover .dash-blog-feature-cta em { transform: translateX(4px); }
+
     /* ---------- Entry animation ----------
        Reads as the page being assembled in front of the user. Sidebar
        cascades in first, then the welcome hero drops in with a soft
@@ -491,6 +672,7 @@ import "../styles/workspace.css";
     body.is-loaded .slide-in-left[data-d="9"]  { animation-delay: 1.26s; }
     body.is-loaded .slide-in-left[data-d="10"] { animation-delay: 1.40s; }
     body.is-loaded .slide-in-left[data-d="11"] { animation-delay: 1.54s; }
+    body.is-loaded .slide-in-left[data-d="12"] { animation-delay: 1.68s; }
 
     body.is-loaded .slide-down { animation-delay: 0.55s; }
 
@@ -1131,6 +1313,73 @@ import "../styles/workspace.css";
     }
     document.getElementById('app-signout')?.addEventListener('click', signOut);
     document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
+
+    // ===== Right-side drawer (Contact / Services / Guides / Blog) =====
+    // Sidebar links with [data-drawer="<name>"] open the matching panel
+    // inside the drawer instead of navigating. Each link's href still
+    // points to the standalone /account/<section> page so middle-click
+    // / right-click "Open in new tab" still works as expected.
+    (function setupDashDrawer() {
+      const $backdrop = document.getElementById('dash-drawer');
+      const $close    = document.getElementById('dash-drawer-close');
+      const $label    = document.getElementById('dash-drawer-label');
+      const $expand   = document.getElementById('dash-drawer-expand');
+      const $panels   = $backdrop ? $backdrop.querySelectorAll('.dash-drawer-panel') : [];
+      if (!$backdrop || !$panels.length) return;
+
+      const LABELS = {
+        contact: 'Contact',
+        services: 'Managed socials',
+        guides: 'Guides',
+        blog: 'Members blog',
+      };
+
+      let openName = null;
+
+      function openDrawer(name) {
+        const panel = $backdrop.querySelector('.dash-drawer-panel[data-panel="' + name + '"]');
+        if (!panel) return;
+        $panels.forEach(function (p) { p.classList.toggle('is-active', p === panel); });
+        if ($label) $label.textContent = LABELS[name] || name;
+        if ($expand) $expand.setAttribute('href', '/account/' + name);
+        $backdrop.hidden = false;
+        // Two frames so the [hidden]-removed state has been painted
+        // before the transition class fires (otherwise the slide is
+        // lost in browsers that coalesce these into one frame).
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { $backdrop.classList.add('is-open'); });
+        });
+        openName = name;
+        document.documentElement.style.overflow = 'hidden';
+      }
+
+      function closeDrawer() {
+        if (!openName) return;
+        $backdrop.classList.remove('is-open');
+        document.documentElement.style.overflow = '';
+        setTimeout(function () {
+          if (!$backdrop.classList.contains('is-open')) $backdrop.hidden = true;
+        }, 600);
+        openName = null;
+      }
+
+      document.querySelectorAll('[data-drawer]').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+          // Let modifier-clicks open the standalone page in a new tab.
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+          e.preventDefault();
+          openDrawer(el.getAttribute('data-drawer'));
+        });
+      });
+
+      $close && $close.addEventListener('click', closeDrawer);
+      $backdrop.addEventListener('click', function (e) {
+        if (e.target === $backdrop) closeDrawer();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && openName) closeDrawer();
+      });
+    })();
 
     // Local drafts — anything in localStorage under `tmke.editor.<id>`.
     function readLocalDrafts() {
