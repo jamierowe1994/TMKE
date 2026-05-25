@@ -543,9 +543,10 @@
     }
   }
 
-  /* Animated pointer that flies in to the target and pulses on a "click" */
+  /* Animated pointer that flies in to the target. z-index above the
+     shields so the shield's backdrop-filter doesn't blur it. */
   .ae-tour-cursor {
-    position: absolute;
+    position: fixed;
     top: 0; left: 0;
     width: 22px;
     height: 22px;
@@ -554,6 +555,7 @@
     transform: translate3d(-100px, -100px, 0);
     transition: transform 0.75s cubic-bezier(.22,1,.36,1);
     pointer-events: none;
+    z-index: 4;
   }
   .ae-tour-cursor.is-click::after {
     content: "";
@@ -570,13 +572,14 @@
     100% { opacity: 0;   transform: scale(1.4); }
   }
 
-  /* Caption card — sits near the spotlight, flips above/below depending
-     on where the target lives so it never falls off-screen. */
+  /* Caption card — sits in the corner furthest from the target so it
+     never covers what the user needs to interact with. z-index above
+     the shields so the card itself isn't blurred. */
   .ae-tour-card {
-    position: absolute;
+    position: fixed;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    width: min(340px, calc(100vw - 48px));
+    width: min(360px, calc(100vw - 48px));
     padding: 18px 20px;
     background: var(--paper);
     border: 1px solid rgba(28, 29, 34, 0.10);
@@ -585,6 +588,7 @@
       0 24px 48px -16px rgba(15, 12, 30, 0.55),
       0 8px 16px -8px rgba(15, 12, 30, 0.30);
     pointer-events: auto;
+    z-index: 5;
     transition: top 0.45s cubic-bezier(.22,1,.36,1),
                 left 0.45s cubic-bezier(.22,1,.36,1);
   }
@@ -800,67 +804,69 @@
     // Surfaced as quick-pick chips in the chat panel — no AI round-trip,
     // no risk of hallucinated targets. Each entry uses the same step
     // schema the AI demo block uses, so the same runner plays them.
+    // Tour step rules:
+    //   - default: clicking the spotlighted target advances the step
+    //   - awaitNext: true  ->  user must hit "Next →" (use for steps
+    //     where any panel click would advance prematurely, e.g. while
+    //     the user is uploading a file)
     const CURATED_TOURS: { label: string; steps: TourStep[] }[] = [
-      // Click steps WAIT for the user to actually click the highlighted
-      // element before advancing. That way the panel they need to see
-      // next is actually open by the time we spotlight it. Look steps
-      // just dwell + auto-advance.
       {
         label: "Add my logo",
         steps: [
-          { target: "uploads-tool", action: "click", caption: "Click Uploads in the left rail." },
-          { target: "panel",        action: "look",  caption: "Drop your logo file here, or click to browse your computer.", duration: 5000 },
-          { target: "canvas",       action: "look",  caption: "Once it's uploaded, click your logo to drop it onto the design.", duration: 5000 },
+          { target: "uploads-tool", caption: "Click Uploads in the left rail." },
+          { target: "panel",        caption: "Upload your logo here — drop a file in or hit 'Click to upload'. When it appears in the panel, press Next.", awaitNext: true },
+          { target: "panel",        caption: "Now click your logo thumbnail to drop it onto your design." },
+          { target: "canvas",       caption: "Drag your logo where you want it on the canvas. Press Next when you're happy.", awaitNext: true },
         ],
       },
       {
         label: "Change brand colours",
         steps: [
-          { target: "brand-tool", action: "click", caption: "Click Brand in the left rail." },
-          { target: "panel",      action: "look",  caption: "Your saved colours live here. Click any one to apply it to the selected element.", duration: 5000 },
+          { target: "brand-tool", caption: "Click Brand in the left rail." },
+          { target: "panel",      caption: "Your saved colours live here. Click any one to apply it to the selected element on your canvas." },
         ],
       },
       {
         label: "Add a text block",
         steps: [
-          { target: "text-tool", action: "click", caption: "Click Text in the left rail." },
-          { target: "panel",     action: "look",  caption: "Pick a heading, subheading or body style. Click it to drop it on the canvas.", duration: 5000 },
-          { target: "canvas",    action: "look",  caption: "Double-click the text on the canvas to start typing.", duration: 5000 },
+          { target: "text-tool", caption: "Click Text in the left rail." },
+          { target: "panel",     caption: "Pick a heading, subheading or body style — click it to drop it on the canvas." },
+          { target: "canvas",    caption: "Double-click the text on the canvas to start typing. Press Next when you're done.", awaitNext: true },
         ],
       },
       {
         label: "Add a photo",
         steps: [
-          { target: "photos-tool", action: "click", caption: "Click Photos in the left rail." },
-          { target: "panel",       action: "look",  caption: "Search the library or upload your own. Click a photo to add it.", duration: 5000 },
+          { target: "photos-tool", caption: "Click Photos in the left rail." },
+          { target: "panel",       caption: "Search the library or upload your own photo. When you've added it to the canvas, press Next.", awaitNext: true },
         ],
       },
       {
         label: "Change the background",
         steps: [
-          { target: "background-tool", action: "click", caption: "Click Background in the left rail." },
-          { target: "panel",           action: "look",  caption: "Pick a colour, gradient or photo for the page background.", duration: 5000 },
+          { target: "background-tool", caption: "Click Background in the left rail." },
+          { target: "panel",           caption: "Pick a colour, gradient or photo for the page background." },
         ],
       },
       {
         label: "Schedule this post",
         steps: [
-          { target: "schedule", action: "click", caption: "Click Schedule in the top-right of the toolbar." },
-          { target: "stage",    action: "look",  caption: "Pick a date and time. We'll email you a reminder the morning it's due to go out.", duration: 5500 },
+          { target: "schedule", caption: "Click Schedule in the top-right of the toolbar." },
+          { target: "stage",    caption: "Pick a date and time, then submit. We'll email you a reminder the morning it's due to go out. Press Next when you're done.", awaitNext: true },
         ],
       },
       {
         label: "Resize the canvas",
         steps: [
-          { target: "resize-tool", action: "click", caption: "Click Resize at the bottom of the left rail." },
-          { target: "panel",       action: "look",  caption: "Pick a format — Instagram post, story, reel — and we'll resize the canvas for you.", duration: 5000 },
+          { target: "resize-tool", caption: "Click Resize at the bottom of the left rail." },
+          { target: "panel",       caption: "Pick a format — Instagram post, story, reel — and we'll resize the canvas for you." },
         ],
       },
       {
         label: "Undo a mistake",
         steps: [
-          { target: "undo", action: "look", caption: "This is Undo. Hit it (or press Ctrl+Z) any time to step back." },
-          { target: "redo", action: "look", caption: "Changed your mind? Redo is right next to it (Ctrl+Shift+Z)." },
+          { target: "undo", caption: "This is Undo. Hit it (or press Ctrl+Z) any time to step back. Press Next to see Redo.", awaitNext: true },
+          { target: "redo", caption: "Changed your mind? Redo is right next to it (Ctrl+Shift+Z). Press Finish when you're done.", awaitNext: true },
         ],
       },
     ];
@@ -874,6 +880,11 @@
       caption: string;
       action?: "click" | "hover" | "look" | "type";
       duration?: number;
+      // When true, the step does NOT advance on a click on the target.
+      // The user has to press "Next →" explicitly. Use for multi-action
+      // steps like "upload a file then click the thumbnail" where any
+      // click inside the panel would advance prematurely.
+      awaitNext?: boolean;
     }
     // The named keys Claude is told to use, mapped to actual selectors
     // in the editor. Adding new tour vocabulary = add an entry here AND
@@ -1087,24 +1098,33 @@
         positionCard(r);
         flyCursorTo(r, /* doClick */ false);
 
-        // ALL steps are click-driven now — no dwell timer, no auto-
-        // advance. The user clicks the highlighted thing (or anywhere
-        // inside it) and we advance. "End tour" / Esc bail out at any
-        // time; "Next →" is a manual fallback if they're just reading.
-        // Capture-phase listener so we get the click before the page's
-        // own handler mutates the DOM in a way that would un-mount us.
-        stepClickTarget = el;
-        stepClickHandler = (_e: Event) => {
-          // Tiny delay so the page's own handler can open whatever
-          // panel it needs before we measure the next target.
-          window.setTimeout(() => {
-            if (stepIdx === idx) advanceTour(idx + 1);
-          }, 420);
-        };
-        el.addEventListener("click", stepClickHandler, true);
+        // Click-driven advancement — the user clicks the highlighted
+        // thing and we advance ~420ms later (page handlers settle).
+        // "End tour" / Esc bail out at any time; "Next →" is a manual
+        // fallback if they're just reading.
+        // Multi-action steps (awaitNext: true) skip the click listener
+        // entirely — those require explicit Next so an early click on
+        // the panel doesn't fire while the user is still mid-action
+        // (e.g. uploading a file).
+        if (!step.awaitNext) {
+          stepClickTarget = el;
+          stepClickHandler = (_e: Event) => {
+            // Tiny delay so the page's own handler can open whatever
+            // panel it needs before we measure the next target.
+            window.setTimeout(() => {
+              if (stepIdx === idx) advanceTour(idx + 1);
+            }, 420);
+          };
+          el.addEventListener("click", stepClickHandler, true);
+        }
       }, 320);
     }
 
+    // Place the card in the viewport CORNER furthest from the target's
+    // centre, so it never sits on top of the thing the user needs to
+    // interact with (or the panel that's about to open next to it).
+    // Four corner anchors; we pick whichever sits furthest from the
+    // target centre.
     function positionCard(targetRect: DOMRect | null) {
       if (!$card) return;
       if (!targetRect) {
@@ -1113,19 +1133,37 @@
         $card.style.transform = "translate(-50%, -50%)";
         return;
       }
-      const cardW = 340;
-      const cardH = $card.offsetHeight || 140;
-      const margin = 18;
+      const cardW = $card.offsetWidth || 360;
+      const cardH = $card.offsetHeight || 160;
+      const margin = 24;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      // Prefer below the target; flip above if no room.
-      let top = targetRect.bottom + margin;
-      if (top + cardH > vh - margin) top = Math.max(margin, targetRect.top - cardH - margin);
-      // Center horizontally on the target, but clamp to viewport.
-      let left = targetRect.left + targetRect.width / 2 - cardW / 2;
-      left = Math.max(margin, Math.min(vw - cardW - margin, left));
-      $card.style.top = top + "px";
-      $card.style.left = left + "px";
+      const tcx = targetRect.left + targetRect.width / 2;
+      const tcy = targetRect.top + targetRect.height / 2;
+
+      const corners = [
+        { top: margin,              left: margin                       },
+        { top: margin,              left: Math.max(margin, vw - cardW - margin) },
+        { top: Math.max(margin, vh - cardH - margin), left: margin     },
+        { top: Math.max(margin, vh - cardH - margin), left: Math.max(margin, vw - cardW - margin) },
+      ];
+
+      let best = corners[0];
+      let bestDist = -1;
+      corners.forEach((c) => {
+        const ccx = c.left + cardW / 2;
+        const ccy = c.top + cardH / 2;
+        const dx = ccx - tcx;
+        const dy = ccy - tcy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > bestDist) {
+          bestDist = dist;
+          best = c;
+        }
+      });
+
+      $card.style.top = best.top + "px";
+      $card.style.left = best.left + "px";
       $card.style.transform = "none";
     }
 
