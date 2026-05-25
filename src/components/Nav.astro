@@ -26,7 +26,7 @@ const links: { label: string; href: string }[] = [
     }
   </div>
   <div class="nav-actions">
-    <a href="/login" id="nav-login" class="nav-cta" aria-label="Login to your TMKE account"><span>Login</span></a>
+    <a href="/login" id="nav-login" class="nav-cta js-nav-login" aria-label="Login to your TMKE account"><span>Login</span></a>
     <button
       type="button"
       class="nav-burger"
@@ -48,6 +48,10 @@ const links: { label: string; href: string }[] = [
       <span class="nav-drawer-mark">TMKE</span>
       <button type="button" class="nav-drawer-close" data-nav-close aria-label="Close menu">&times;</button>
     </div>
+    <a href="/login" class="nav-drawer-login js-nav-login" aria-label="Login to your TMKE account">
+      <span class="nav-drawer-login-label">Login</span>
+      <span class="nav-drawer-login-arrow" aria-hidden="true">&rarr;</span>
+    </a>
     <nav class="nav-drawer-links">
       {
         links.map((l) => (
@@ -74,25 +78,30 @@ const links: { label: string; href: string }[] = [
   // the brand-kit profile, fronted by the brand splash overlay.
   import { supabase } from "../lib/supabase.js";
   (async () => {
-    const btn = document.getElementById("nav-login");
-    if (!btn) return;
+    const btns = Array.from(document.querySelectorAll(".js-nav-login"));
+    if (!btns.length) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    const label = btn.querySelector("span");
-    if (label) label.textContent = "Library";
-    btn.setAttribute("href", "/account");
+    btns.forEach((btn) => {
+      // Desktop CTA wraps its label in <span>; drawer link uses
+      // .nav-drawer-login-label. Both swap to "Library" when signed in.
+      const label = btn.querySelector(".nav-drawer-login-label") || btn.querySelector("span");
+      if (label) label.textContent = "Library";
+      btn.setAttribute("href", "/account");
+      btn.setAttribute("aria-label", "Open your TMKE library");
 
-    btn.addEventListener("click", function (e) {
-      let firstTime = false;
-      try {
-        firstTime = !localStorage.getItem("tmke.brand") && !localStorage.getItem("tmke.brand.skipped");
-      } catch (_) { /* ignore */ }
-      const dest = firstTime ? "/profile?next=/account" : "/account";
-      if (typeof window.tmkeSplash === "function") {
-        e.preventDefault();
-        window.tmkeSplash(dest);
-      }
+      btn.addEventListener("click", function (e) {
+        let firstTime = false;
+        try {
+          firstTime = !localStorage.getItem("tmke.brand") && !localStorage.getItem("tmke.brand.skipped");
+        } catch (_) { /* ignore */ }
+        const dest = firstTime ? "/profile?next=/account" : "/account";
+        if (typeof window.tmkeSplash === "function") {
+          e.preventDefault();
+          window.tmkeSplash(dest);
+        }
+      });
     });
   })();
 </script>
@@ -118,8 +127,8 @@ const links: { label: string; href: string }[] = [
     drawer.querySelectorAll("[data-nav-close]").forEach(function (el) {
       el.addEventListener("click", function () { setOpen(false); });
     });
-    // Tapping a link closes the drawer (links navigate anyway).
-    drawer.querySelectorAll(".nav-drawer-link").forEach(function (el) {
+    // Tapping any link closes the drawer (links navigate anyway).
+    drawer.querySelectorAll(".nav-drawer-link, .nav-drawer-login").forEach(function (el) {
       el.addEventListener("click", function () { setOpen(false); });
     });
     document.addEventListener("keydown", function (e) {
