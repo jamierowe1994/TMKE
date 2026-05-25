@@ -163,6 +163,29 @@
     }
     window.addEventListener('resize', updateApproach);
     updateApproach();
+
+    // Editorial right-aside fades out as approach rises into view, so the
+    // sticky copy doesn't get visually clipped by the pinned section above it.
+    const editorialSide = document.querySelector('.editorial-side');
+    if (editorialSide) {
+      const updateAsideFade = () => {
+        const rect = approach.getBoundingClientRect();
+        const vh = window.innerHeight;
+        // Full opacity while approach is more than 0.55vh below viewport top;
+        // fully hidden by the time its top reaches the viewport top.
+        const fadeStart = vh * 0.55;
+        const t = rect.top / fadeStart;
+        const opacity = Math.max(0, Math.min(1, t));
+        editorialSide.style.opacity = String(opacity);
+      };
+      if (window.__lenis && typeof window.__lenis.on === 'function') {
+        window.__lenis.on('scroll', updateAsideFade);
+      } else {
+        window.addEventListener('scroll', updateAsideFade, { passive: true });
+      }
+      window.addEventListener('resize', updateAsideFade);
+      updateAsideFade();
+    }
   }
 
   // ---------- News subscribe (placeholder) ----------
