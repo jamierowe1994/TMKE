@@ -122,7 +122,7 @@
     <div class="ae-tour-step" id="ae-tour-step">Step 1 of 3</div>
     <p class="ae-tour-caption" id="ae-tour-caption">&hellip;</p>
     <div class="ae-tour-actions">
-      <button type="button" class="ae-tour-skip" id="ae-tour-skip">Stop tour</button>
+      <button type="button" class="ae-tour-skip" id="ae-tour-skip">End tour</button>
       <button type="button" class="ae-tour-next" id="ae-tour-next">Next &rarr;</button>
     </div>
   </div>
@@ -481,56 +481,66 @@
   }
   .ae-tour[hidden] { display: none; }
 
-  /* Soft, light blur over everything. Pointer-events OFF — the 4
-     shields handle blocking so the spotlight stays click-through. */
+  /* The backdrop element is no longer used for visual effects —
+     the 4 shields handle BOTH the blur and the click-blocking,
+     which leaves the spotlight rectangle completely crystal-clear
+     (no blur, no dim) so it's unambiguous where to click. */
   .ae-tour-backdrop {
-    position: absolute;
-    inset: 0;
-    backdrop-filter: blur(2.5px) brightness(0.92);
-    -webkit-backdrop-filter: blur(2.5px) brightness(0.92);
-    background: rgba(15, 12, 30, 0.18);
-    pointer-events: none;
-    transition: opacity 0.35s cubic-bezier(.2,.7,.2,1);
+    display: none;
   }
 
-  /* The 4 shields are fixed-positioned rectangles that JS resizes
-     each step to surround the spotlight. They catch ALL clicks
-     outside the spotlight area, so a stray click somewhere random
-     in the editor doesn't accidentally do something. */
+  /* Each shield rect covers one band of the viewport around the
+     spotlight (top / bottom / left / right). They each blur + dim
+     their own area; the spotlight rectangle has no shield over it,
+     so it stays fully sharp. */
   .ae-tour-shield {
     position: fixed;
-    background: transparent;
+    background: rgba(15, 12, 30, 0.32);
+    backdrop-filter: blur(8px) brightness(0.85);
+    -webkit-backdrop-filter: blur(8px) brightness(0.85);
     pointer-events: auto;
     z-index: 1;
+    transition:
+      top 0.45s cubic-bezier(.22,1,.36,1),
+      left 0.45s cubic-bezier(.22,1,.36,1),
+      width 0.45s cubic-bezier(.22,1,.36,1),
+      height 0.45s cubic-bezier(.22,1,.36,1);
   }
-  /* Spotlight = a transparent rounded rect positioned over the target,
-     with a soft outer ring + giant box-shadow that "cuts" the spotlight
-     out of the backdrop using a single solid colour overlay. */
+  /* Spotlight is just the visible ring around the (already clear)
+     target — the dim/blur comes from the four shields. */
   .ae-tour-spotlight {
-    position: absolute;
+    position: fixed;
     top: 0; left: 0;
     width: 0; height: 0;
     border-radius: 10px;
     pointer-events: none;
-    /* The huge inset shadow paints over everything outside the spotlight,
-       giving a sharper cutout than backdrop-filter alone. The backdrop
-       above provides the blur; this provides the dim. */
+    z-index: 2;
     box-shadow:
-      0 0 0 9999px rgba(15, 12, 30, 0.35),
-      0 0 0 3px rgba(255, 255, 255, 0.92),
-      0 0 0 6px rgba(71, 66, 84, 0.55);
+      0 0 0 3px rgba(255, 255, 255, 0.95),
+      0 0 0 6px rgba(71, 66, 84, 0.7),
+      0 12px 28px -8px rgba(15, 12, 30, 0.6);
     transition:
-      top 0.55s cubic-bezier(.22,1,.36,1),
-      left 0.55s cubic-bezier(.22,1,.36,1),
-      width 0.55s cubic-bezier(.22,1,.36,1),
-      height 0.55s cubic-bezier(.22,1,.36,1);
+      top 0.45s cubic-bezier(.22,1,.36,1),
+      left 0.45s cubic-bezier(.22,1,.36,1),
+      width 0.45s cubic-bezier(.22,1,.36,1),
+      height 0.45s cubic-bezier(.22,1,.36,1);
   }
   .ae-tour-spotlight.is-pulse {
     animation: aePulse 1.6s cubic-bezier(.2,.7,.2,1) infinite;
   }
   @keyframes aePulse {
-    0%, 100% { box-shadow: 0 0 0 9999px rgba(15, 12, 30, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.92), 0 0 0 6px rgba(71, 66, 84, 0.55); }
-    50%      { box-shadow: 0 0 0 9999px rgba(15, 12, 30, 0.35), 0 0 0 5px rgba(255, 255, 255, 1),    0 0 0 10px rgba(71, 66, 84, 0.85); }
+    0%, 100% {
+      box-shadow:
+        0 0 0 3px rgba(255, 255, 255, 0.95),
+        0 0 0 6px rgba(71, 66, 84, 0.7),
+        0 12px 28px -8px rgba(15, 12, 30, 0.6);
+    }
+    50% {
+      box-shadow:
+        0 0 0 5px rgba(255, 255, 255, 1),
+        0 0 0 11px rgba(71, 66, 84, 0.9),
+        0 16px 36px -10px rgba(15, 12, 30, 0.7);
+    }
   }
 
   /* Animated pointer that flies in to the target and pulses on a "click" */
@@ -1038,13 +1048,10 @@
       const total = currentTour.length;
       if ($stepLabel) $stepLabel.textContent = "Step " + (idx + 1) + " of " + total;
       if ($caption) $caption.textContent = step.caption;
-      const isClick = (step.action || "look") === "click";
       if ($next) {
-        // On click steps the user is meant to drive — Next becomes
-        // "Skip" so they can bypass without clicking the target.
-        $next.textContent = (idx + 1 === total)
-          ? "Finish"
-          : (isClick ? "Skip →" : "Next →");
+        // Always available, but the tour is click-driven first —
+        // the user almost never needs to use Next manually.
+        $next.textContent = (idx + 1 === total) ? "Finish" : "Next →";
       }
 
       const el = resolveTarget(step.target);
@@ -1080,27 +1087,21 @@
         positionCard(r);
         flyCursorTo(r, /* doClick */ false);
 
-        if (isClick) {
-          // Wait for the user to click the highlighted thing. ANY
-          // click that lands on the target (or inside it) advances.
-          // capture-phase so we get it before the page's own handlers
-          // mutate the DOM in a way that would un-mount the listener.
-          stepClickTarget = el;
-          stepClickHandler = (e: Event) => {
-            // Tiny delay so the page's own handler can open whatever
-            // panel it needs before we measure the next target.
-            window.setTimeout(() => {
-              if (stepIdx === idx) advanceTour(idx + 1);
-            }, 420);
-          };
-          el.addEventListener("click", stepClickHandler, true);
-        } else {
-          // "look" / "hover" steps auto-advance after a dwell.
-          const dwell = Math.max(1500, step.duration || 3500);
-          stepTimer = window.setTimeout(() => {
-            if (idx === stepIdx && idx + 1 < total) advanceTour(idx + 1);
-          }, dwell);
-        }
+        // ALL steps are click-driven now — no dwell timer, no auto-
+        // advance. The user clicks the highlighted thing (or anywhere
+        // inside it) and we advance. "End tour" / Esc bail out at any
+        // time; "Next →" is a manual fallback if they're just reading.
+        // Capture-phase listener so we get the click before the page's
+        // own handler mutates the DOM in a way that would un-mount us.
+        stepClickTarget = el;
+        stepClickHandler = (_e: Event) => {
+          // Tiny delay so the page's own handler can open whatever
+          // panel it needs before we measure the next target.
+          window.setTimeout(() => {
+            if (stepIdx === idx) advanceTour(idx + 1);
+          }, 420);
+        };
+        el.addEventListener("click", stepClickHandler, true);
       }, 320);
     }
 
