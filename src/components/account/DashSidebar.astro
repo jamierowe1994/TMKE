@@ -1,0 +1,70 @@
+---
+// Shared left sidebar for every signed-in workspace page (/account,
+// /account/orders, /account/schedule, /profile, /account/<section>).
+//
+// Pass `active` so the matching link is highlighted. Valid values:
+//   workspace | studio | schedule | orders | brand
+//   services | guides | blog | contact
+//
+// On /account itself the links also carry [data-view] so the JS
+// view-swap intercepts and keeps you on the page. On every other
+// workspace page they navigate normally — same sidebar, different
+// content column, reads like a tab switch.
+
+interface Props {
+  active?:
+    | "workspace"
+    | "studio"
+    | "schedule"
+    | "orders"
+    | "brand"
+    | "services"
+    | "guides"
+    | "blog"
+    | "contact";
+}
+
+const { active = "workspace" } = Astro.props;
+const isActive = (k: string) => (active === k ? "is-active" : "");
+---
+
+<aside class="dash-side" aria-label="Workspace">
+  <a href="/account" class="app-logo dash-logo slide-in-left" data-d="0">TMKE</a>
+
+  <nav class="dash-nav" aria-label="Sections">
+    <a href="/account" class={`dash-link slide-in-left ${isActive("workspace")}`} data-d="1" data-view="workspace">Workspace</a>
+    <a href="/editor" class={`dash-link slide-in-left ${isActive("studio")}`} data-d="2">Studio</a>
+    <a href="/account/schedule" class={`dash-link slide-in-left ${isActive("schedule")}`} data-d="3">Schedule</a>
+    <button type="button" class="dash-link dash-link--btn slide-in-left" data-d="4" id="open-shop" aria-haspopup="dialog">Browse packs</button>
+    <a href="/account/orders" class={`dash-link slide-in-left ${isActive("orders")}`} data-d="5">Orders</a>
+    <a href="/profile" class={`dash-link slide-in-left ${isActive("brand")}`} data-d="6">Brand kit</a>
+
+    <div class="dash-divider slide-in-left" data-d="7" aria-hidden="true"></div>
+
+    <!-- On /account these swap content in place. On every other
+         workspace page they navigate to the standalone page. Either
+         way the sidebar itself doesn't move. -->
+    <a href="/account/services" class={`dash-link dash-link--sub slide-in-left ${isActive("services")}`} data-d="8" data-view="services">Managed socials</a>
+    <a href="/account/guides" class={`dash-link dash-link--sub slide-in-left ${isActive("guides")}`} data-d="9" data-view="guides">Guides</a>
+    <a href="/account/blog" class={`dash-link dash-link--sub slide-in-left ${isActive("blog")}`} data-d="10" data-view="blog">Blog</a>
+    <a href="/account/contact" class={`dash-link dash-link--sub slide-in-left ${isActive("contact")}`} data-d="11" data-view="contact">Contact</a>
+  </nav>
+
+  <div class="dash-side-foot slide-in-left" data-d="12">
+    <button type="button" id="cal-side-trigger" class="dash-cal-btn" aria-haspopup="dialog" aria-controls="cal-popup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Calendar</span>
+      <span class="dash-cal-count" id="cal-side-count" hidden>0</span>
+    </button>
+    <div class="dash-side-meta">
+      <span class="dash-side-tag">Signed in as</span>
+      <strong id="sidebar-email">&hellip;</strong>
+    </div>
+    <button type="button" id="app-signout" class="app-signout">Sign out</button>
+  </div>
+</aside>
