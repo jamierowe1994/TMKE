@@ -9,45 +9,41 @@ import "../styles/workspace.css";
   hideNav
   hideFooter
 >
-  <!-- Logged-in header. Replaces the global nav once a user has signed in
-       so /account feels like an app surface, not a marketing page. -->
-  <header class="app-header">
-    <a href="/account" class="app-logo">TMKE</a>
-    <nav class="app-header-nav" aria-label="Workspace">
-      <a href="/account" class="app-header-link is-active">Workspace</a>
-      <a href="/editor" class="app-header-link">Studio</a>
-      <button type="button" class="app-header-link app-header-btn" id="open-shop" aria-haspopup="dialog">Browse packs</button>
-      <a href="/account/schedule" class="app-header-link">Schedule</a>
-      <a href="/account/orders" class="app-header-link">Orders</a>
-      <div class="app-header-dd">
-        <button type="button" class="app-header-link app-header-btn" aria-haspopup="menu" aria-expanded="false">
-          Resources <span aria-hidden="true">▾</span>
-        </button>
-        <div class="app-dd-menu" role="menu">
-          <a href="/services" role="menuitem">
-            <strong>Managed Socials</strong>
-            <span>Hand the channel over.</span>
-          </a>
-          <a href="/blog" role="menuitem">
-            <strong>The Blog</strong>
-            <span>Insights for property marketers.</span>
-          </a>
-          <a href="/contact" role="menuitem">
-            <strong>Contact the team</strong>
-            <span>Get a same-day reply.</span>
-          </a>
-        </div>
-      </div>
-      <a href="/profile" class="app-header-link">Brand kit</a>
-    </nav>
-    <button type="button" id="app-signout" class="app-signout">Sign out</button>
-  </header>
+  <!-- /account uses a left sidebar instead of the shared top header.
+       Other workspace pages still use .app-header from workspace.css. -->
+  <div class="dash-shell">
+    <aside class="dash-side" aria-label="Workspace">
+      <a href="/account" class="app-logo dash-logo slide-in-left" data-d="0">TMKE</a>
 
-  <main class="app-main">
+      <nav class="dash-nav" aria-label="Sections">
+        <a href="/account" class="dash-link is-active slide-in-left" data-d="1">Workspace</a>
+        <a href="/editor" class="dash-link slide-in-left" data-d="2">Studio</a>
+        <a href="/account/schedule" class="dash-link slide-in-left" data-d="3">Schedule</a>
+        <button type="button" class="dash-link dash-link--btn slide-in-left" data-d="4" id="open-shop" aria-haspopup="dialog">Browse packs</button>
+        <a href="/account/orders" class="dash-link slide-in-left" data-d="5">Orders</a>
+        <a href="/profile" class="dash-link slide-in-left" data-d="6">Brand kit</a>
+
+        <div class="dash-divider slide-in-left" data-d="7" aria-hidden="true"></div>
+
+        <a href="/services" class="dash-link dash-link--sub slide-in-left" data-d="8">Managed Socials</a>
+        <a href="/blog" class="dash-link dash-link--sub slide-in-left" data-d="9">The Blog</a>
+        <a href="/contact" class="dash-link dash-link--sub slide-in-left" data-d="10">Contact</a>
+      </nav>
+
+      <div class="dash-side-foot slide-in-left" data-d="11">
+        <div class="dash-side-meta">
+          <span class="dash-side-tag">Signed in as</span>
+          <strong id="sidebar-email">&hellip;</strong>
+        </div>
+        <button type="button" id="app-signout" class="app-signout">Sign out</button>
+      </div>
+    </aside>
+
+    <main class="app-main dash-main">
     <!-- Welcome hero — 2-column with decorative photo on the right.
          The greeting line below is set client-side based on the
          current hour (Good morning / afternoon / evening). -->
-    <section class="welcome welcome--hero fade-up" data-delay="1">
+    <section class="welcome welcome--hero slide-down" data-d="2">
       <div class="welcome-content">
         <p class="welcome-eyebrow">Workspace</p>
         <h1 class="welcome-h" id="welcome-h">Welcome back, <em>let's get to work.</em></h1>
@@ -64,7 +60,7 @@ import "../styles/workspace.css";
     </section>
 
     <!-- Stats row -->
-    <section class="stats fade-up" data-delay="2" aria-label="Your TMKE at a glance">
+    <section class="stats slide-up" data-d="4" aria-label="Your TMKE at a glance">
       <article class="stat">
         <div class="stat-label">Active packs</div>
         <div class="stat-value" id="stat-packs">—</div>
@@ -92,7 +88,7 @@ import "../styles/workspace.css";
          so this strip doesn't dwell on a near-empty current week.
          Skip-forward / skip-back is week-by-week (month-by-month lives
          in the left-edge pop-out drawer). -->
-    <section id="upcoming" class="upcoming fade-up" data-delay="3" aria-labelledby="upcoming-h">
+    <section id="upcoming" class="upcoming slide-up" data-d="5" aria-labelledby="upcoming-h">
       <header class="section-head">
         <h2 id="upcoming-h" class="section-h">Upcoming this week</h2>
         <p class="section-sub">A peek ahead at what's going out — plus the dates that matter for property marketing this week. Need the full month? Use the <strong>Calendar</strong> tab on the left.</p>
@@ -114,7 +110,7 @@ import "../styles/workspace.css";
     </section>
 
     <!-- Library -->
-    <section id="library" class="library fade-up" data-delay="4" aria-labelledby="library-h">
+    <section id="library" class="library slide-up" data-d="6" aria-labelledby="library-h">
       <header class="section-head">
         <h2 id="library-h" class="section-h">Your library</h2>
         <p class="section-sub">Packs you've purchased from The Edit. <button type="button" class="inline-link" data-shop>Add another pack &rarr;</button></p>
@@ -131,7 +127,7 @@ import "../styles/workspace.css";
     </section>
 
     <!-- Drafts (from localStorage) -->
-    <section id="drafts" class="drafts fade-up" data-delay="5" aria-labelledby="drafts-h" hidden>
+    <section id="drafts" class="drafts slide-up" data-d="7" aria-labelledby="drafts-h" hidden>
       <header class="section-head">
         <h2 id="drafts-h" class="section-h">Designs in progress</h2>
         <p class="section-sub">Drafts saved in this browser. Open one to keep going.</p>
@@ -139,21 +135,19 @@ import "../styles/workspace.css";
       <div id="drafts-grid" class="drafts-grid"></div>
     </section>
 
-    <!-- Account footer -->
-    <footer class="app-foot">
-      <div class="app-foot-block">
-        <div class="app-foot-tag">Signed in as</div>
-        <strong id="footer-email">…</strong>
-      </div>
+    <!-- Account footer — kept lightweight; signed-in chip + sign-out
+         now live in the sidebar; this row is just contact info. -->
+    <footer class="app-foot dash-foot">
       <div class="app-foot-block">
         <div class="app-foot-tag">Help</div>
         <a href="/contact">hello@tmke.co.uk</a>
       </div>
       <div class="app-foot-block app-foot-block--right">
-        <button type="button" id="app-signout-foot" class="app-signout">Sign out</button>
+        <strong id="footer-email" class="dash-foot-email">&hellip;</strong>
       </div>
     </footer>
-  </main>
+    </main>
+  </div>
 
   <!-- Browse packs modal — triggered from the header. Stays inside the
        workspace so customers don't bounce out to the marketing storefront. -->
@@ -223,6 +217,217 @@ import "../styles/workspace.css";
        Shared workspace shell (header, footer, welcome, section heads,
        order rows, etc.) lives in src/styles/workspace.css. Only the
        account-landing-specific bits stay here. */
+
+    /* ---------- Dashboard shell ----------
+       /account uses a sidebar layout instead of the top header that
+       other workspace pages still share. The shell fills the viewport,
+       sidebar sticks at the left, main content scrolls on the right. */
+    .dash-shell {
+      display: grid;
+      grid-template-columns: 264px minmax(0, 1fr);
+      min-height: 100vh;
+      background: var(--paper);
+    }
+    .dash-side {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 36px 26px 32px;
+      background: var(--paper);
+      border-right: 1px solid rgba(28, 29, 34, 0.08);
+      gap: 28px;
+      overflow-y: auto;
+    }
+    .dash-logo {
+      font-family: var(--serif);
+      font-size: 26px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      text-decoration: none;
+      padding: 4px 12px;
+    }
+    .dash-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+    .dash-link {
+      appearance: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      line-height: 1.4;
+      color: rgba(28, 29, 34, 0.62);
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      text-decoration: none;
+      text-align: left;
+      cursor: pointer;
+      transition: color 0.25s, background 0.25s, transform 0.25s;
+    }
+    .dash-link:hover {
+      color: var(--ink);
+      background: rgba(71, 66, 84, 0.06);
+    }
+    .dash-link.is-active {
+      color: var(--english-violet);
+      background: rgba(71, 66, 84, 0.10);
+      box-shadow: inset 3px 0 0 0 var(--english-violet);
+    }
+    .dash-link--sub {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(28, 29, 34, 0.5);
+    }
+    .dash-divider {
+      height: 1px;
+      background: rgba(28, 29, 34, 0.08);
+      margin: 14px 14px 10px;
+    }
+    .dash-side-foot {
+      padding: 16px 6px 0;
+      border-top: 1px solid rgba(28, 29, 34, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .dash-side-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 0 8px;
+      min-width: 0;
+    }
+    .dash-side-tag {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.4);
+    }
+    .dash-side-meta strong {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      word-break: break-all;
+    }
+
+    /* Override .app-main when used inside the dash shell so the content
+       takes the full right column rather than being centred at 1280. */
+    .dash-main {
+      max-width: none;
+      margin: 0;
+      padding: 64px 56px 80px;
+    }
+
+    .dash-foot {
+      grid-template-columns: 1fr auto;
+    }
+    .dash-foot-email {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28, 29, 34, 0.55);
+    }
+
+    /* Responsive — under 880px the sidebar collapses to a top strip
+       so the layout still works on a tablet / mobile. */
+    @media (max-width: 880px) {
+      .dash-shell {
+        grid-template-columns: 1fr;
+      }
+      .dash-side {
+        position: static;
+        height: auto;
+        flex-direction: row;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 22px;
+        overflow-x: auto;
+        overflow-y: visible;
+      }
+      .dash-nav {
+        flex-direction: row;
+        flex: 0 1 auto;
+        gap: 2px;
+        overflow-x: auto;
+      }
+      .dash-divider,
+      .dash-link--sub,
+      .dash-side-foot {
+        display: none;
+      }
+      .dash-link.is-active {
+        box-shadow: inset 0 -2px 0 0 var(--english-violet);
+      }
+      .dash-main {
+        padding: 36px 22px 60px;
+      }
+    }
+
+    /* ---------- Slide-in animations ----------
+       Triggered when body gets .is-loaded (set by the page script after
+       the session check resolves). data-d controls per-element stagger.
+       Disabled for prefers-reduced-motion. */
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-32px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-in-left { opacity: 0; transform: translateX(-32px); }
+    .slide-down    { opacity: 0; transform: translateY(-28px); }
+    .slide-up      { opacity: 0; transform: translateY(28px); }
+
+    body.is-loaded .slide-in-left {
+      animation: slideInLeft 0.7s cubic-bezier(.2,.7,.2,1) both;
+    }
+    body.is-loaded .slide-down {
+      animation: slideDown 0.85s cubic-bezier(.2,.7,.2,1) both;
+    }
+    body.is-loaded .slide-up {
+      animation: slideUp 0.75s cubic-bezier(.2,.7,.2,1) both;
+    }
+
+    /* Per-element stagger driven by data-d (0..11). 70ms steps so the
+       sidebar links cascade in cleanly without the trail feeling slow. */
+    body.is-loaded [data-d="0"]  { animation-delay: 0.00s; }
+    body.is-loaded [data-d="1"]  { animation-delay: 0.07s; }
+    body.is-loaded [data-d="2"]  { animation-delay: 0.14s; }
+    body.is-loaded [data-d="3"]  { animation-delay: 0.21s; }
+    body.is-loaded [data-d="4"]  { animation-delay: 0.28s; }
+    body.is-loaded [data-d="5"]  { animation-delay: 0.35s; }
+    body.is-loaded [data-d="6"]  { animation-delay: 0.42s; }
+    body.is-loaded [data-d="7"]  { animation-delay: 0.49s; }
+    body.is-loaded [data-d="8"]  { animation-delay: 0.56s; }
+    body.is-loaded [data-d="9"]  { animation-delay: 0.63s; }
+    body.is-loaded [data-d="10"] { animation-delay: 0.70s; }
+    body.is-loaded [data-d="11"] { animation-delay: 0.77s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .slide-in-left, .slide-down, .slide-up {
+        opacity: 1; transform: none; animation: none !important;
+      }
+    }
+
 
     /* ---------- Stats ---------- */
     .stats {
@@ -808,6 +1013,7 @@ import "../styles/workspace.css";
     const $welcomeH = document.getElementById('welcome-h');
     const $welcomeSub = document.getElementById('welcome-sub');
     const $footerEmail = document.getElementById('footer-email');
+    const $sidebarEmail = document.getElementById('sidebar-email');
     const $statPacks = document.getElementById('stat-packs');
     const $statDesigns = document.getElementById('stat-designs');
     const $statSpend = document.getElementById('stat-spend');
@@ -1048,6 +1254,7 @@ import "../styles/workspace.css";
       $welcomeH.innerHTML = `${greeting}, <em>${escapeHtml(titleCase(firstName))}.</em>`;
       $welcomeSub.textContent = 'Your studio. Your library. Pick something up where you left off.';
       $footerEmail.textContent = email;
+      if ($sidebarEmail) $sidebarEmail.textContent = email;
 
       // Kick off the entrance animation. Adding the class on the next
       // frame ensures the .fade-up elements have laid out before the
