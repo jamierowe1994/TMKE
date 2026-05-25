@@ -3021,3 +3021,370 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   .footer { padding: 80px 22px 30px; }
   .hero-foot { padding: 0 22px; }
 }
+
+/* =====================================================================
+   MOBILE — HOMEPAGE
+   Everything below is mobile-only (max-width: 720px). Desktop is
+   intentionally untouched. Rules use higher specificity / media-scope so
+   they cannot leak above the breakpoint.
+   ===================================================================== */
+
+/* ---------- Footer <details> columns: desktop fallback =====
+   The footer now uses <details class="footer-col" open> for each link
+   column so mobile gets accordions. On desktop the details should look
+   identical to the previous <div> + <h5> layout — strip the disclosure
+   widget and show the h5 in its native position. */
+.footer .footer-col { display: block; }
+.footer .footer-col > summary {
+  list-style: none;
+  display: block;
+  padding: 0;
+  cursor: default;
+}
+.footer .footer-col > summary::-webkit-details-marker { display: none; }
+.footer .footer-col > summary::marker { content: ""; }
+.footer .footer-col > summary .footer-col-label { display: none; }
+/* h5 lives inside summary on the new markup — preserve its bottom margin */
+.footer .footer-col > summary > h5 { margin-bottom: 18px; }
+
+/* ---------- Hamburger button (mobile only) ---------- */
+.nav-burger {
+  display: none;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 8px;
+  margin: 0;
+  cursor: pointer;
+  color: currentColor;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+}
+.nav-burger span {
+  display: block;
+  width: 22px;
+  height: 1.5px;
+  background: currentColor;
+  transition: transform 0.3s, opacity 0.3s;
+}
+
+/* ---------- Mobile drawer (rendered always, hidden on desktop) ---------- */
+.nav-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0s 0.35s;
+}
+.nav-drawer.is-open {
+  pointer-events: auto;
+  visibility: visible;
+  transition: visibility 0s;
+}
+.nav-drawer-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 9, 8, 0.5);
+  opacity: 0;
+  transition: opacity 0.35s cubic-bezier(.2,.7,.2,1);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.nav-drawer.is-open .nav-drawer-scrim { opacity: 1; }
+.nav-drawer-panel {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: min(360px, 86vw);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 22px 26px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  transform: translateX(100%);
+  transition: transform 0.42s cubic-bezier(.2,.7,.2,1);
+  box-shadow: -24px 0 60px -20px rgba(0,0,0,0.5);
+  overflow-y: auto;
+}
+.nav-drawer.is-open .nav-drawer-panel { transform: translateX(0); }
+.nav-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+}
+.nav-drawer-mark {
+  font-family: var(--serif);
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+}
+.nav-drawer-close {
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(240,238,235,0.2);
+  border-radius: 50%;
+  color: var(--paper);
+  width: 36px; height: 36px;
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 0 2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-drawer-close:hover {
+  background: rgba(240,238,235,0.08);
+  border-color: rgba(240,238,235,0.5);
+}
+.nav-drawer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+.nav-drawer-link {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 18px 4px;
+  border-bottom: 1px solid rgba(240,238,235,0.08);
+  color: var(--paper);
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: -0.005em;
+  transition: padding 0.3s, color 0.3s;
+}
+.nav-drawer-link:hover,
+.nav-drawer-link.is-active {
+  color: var(--english-violet);
+  padding-left: 10px;
+}
+.nav-drawer-link.is-active { color: #e6dcff; }
+.nav-drawer-link-num {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  font-weight: 700;
+  color: rgba(240,238,235,0.45);
+}
+.nav-drawer-link-arrow {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 18px;
+  color: rgba(240,238,235,0.45);
+}
+.nav-drawer-foot {
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid rgba(240,238,235,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nav-drawer-mail {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--paper);
+  letter-spacing: 0.01em;
+}
+.nav-drawer-meta {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(240,238,235,0.45);
+}
+body.nav-drawer-open { overflow: hidden; }
+
+/* =========================================================
+   ≤ 720px — phone layout
+   ========================================================= */
+@media (max-width: 720px) {
+
+  /* ===== Nav: show hamburger, hide CTA gap niceties ===== */
+  .nav-burger { display: inline-flex; }
+  /* Login button can stay; tighten its padding so it sits beside the burger */
+  .nav-cta { padding: 7px 12px; font-size: 11px; letter-spacing: 0.08em; }
+  .nav-actions { gap: 8px; }
+
+  /* ===== Services: convert grid → horizontal snap carousel =====
+     Each card becomes ~78vw so the next card peeks off-screen, hinting
+     a swipe. Negative-margin trick lets the carousel use the full
+     viewport width while .wrap padding still indents non-carousel
+     content above it. */
+  .services { padding-top: 80px; }
+  .services-eyebrow {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 40px;
+    gap: 4px;
+  }
+  .services-eyebrow-line { white-space: normal; }
+  .services-grid {
+    display: flex;
+    grid-template-columns: none;
+    gap: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 22px;
+    padding: 4px 22px 24px;
+    margin: 0 -22px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .services-grid::-webkit-scrollbar { display: none; }
+  .svc-card {
+    flex: 0 0 78vw;
+    max-width: 320px;
+    min-height: 420px;
+    padding: 28px 24px 26px;
+    scroll-snap-align: start;
+  }
+  .svc-watermark {
+    font-size: clamp(140px, 38vw, 200px);
+    bottom: 60px;
+  }
+  .svc-title { font-size: 22px; margin: 0 0 18px; }
+  .svc-body { margin-top: 18px; }
+
+  /* On touch devices the hover state never fires, so reveal a subtle
+     accent border so the cards still feel "alive". */
+  .svc-card:focus-within,
+  .svc-card:active { border-color: var(--english-violet); }
+
+  /* ===== Editorial: stack already handled, tighten gap ===== */
+  .editorial-grid { gap: 24px !important; }
+
+  /* ===== Quote / Ch 06: reset the desktop negative top-margin
+     that overlaps the photo with the quote text once stacked. */
+  .quote { padding-top: 80px; padding-bottom: 80px; }
+  .quote-mark { font-size: 100px; margin: 0 0 -10px; height: 50px; }
+  .quote-photo {
+    margin: 8px 0 0;
+    max-width: 280px;
+  }
+  .quote-coda { margin-top: 32px; }
+  .quote-coda .btn { display: inline-flex; }
+
+  /* ===== Edit-split: keep stack, shrink laptop frame ===== */
+  .feature--edit-split { padding-top: 40px; }
+  .feature-edit-grid { gap: 32px; }
+  .laptop { max-width: 100%; }
+  /* The studio demo inside the laptop uses fixed 14px font; the panel
+     gets crowded under 360px. Pulling it down a touch keeps it legible
+     without clipping. */
+  .ed-demo { font-size: 11px; }
+  .ed-demo-filename { font-size: 9px; }
+  .ed-demo-name { font-size: 14px; }
+  .ed-demo-meta, .ed-demo-pill { font-size: 9px; }
+  .ed-demo-panel { padding: 8px; }
+  .ed-demo-panel-h { font-size: 11px; }
+  .ed-demo-panel-sub { font-size: 9px; }
+  .ed-demo-rail { padding: 6px 4px; }
+  .ed-demo-tool { font-size: 12px; }
+
+  /* The typewriter title can get oversized on small phones. */
+  .feature--edit-split .feature-title { font-size: clamp(64px, 22vw, 120px); }
+  /* CTA + meta info shouldn't fight for one row */
+  .feature--edit-split .feature-edit-left .edit-showcase-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .edit-showcase-meta-info { gap: 10px; }
+
+  /* ===== News: full-bleed, reduce huge title, stack form ===== */
+  .news { min-height: 0; margin-top: 60px; }
+  .news-content { padding: 60px 22px; }
+  .news-title { font-size: clamp(72px, 22vw, 120px); margin-bottom: 24px; }
+  .news-eyebrow { font-size: 22px; }
+  .news-form { flex-direction: column; gap: 10px; }
+  .news-form button { padding: 14px 18px; }
+
+  /* ===== Footer: collapse to accordion ===== */
+  .footer { padding: 56px 22px 24px; }
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0;
+    margin-bottom: 32px;
+  }
+  .footer-mark { font-size: 44px; }
+  .footer-tag { font-size: 14px; margin-bottom: 12px; }
+  .footer-blurb { margin-bottom: 22px; }
+  /* Each link column was wrapped in a <details> on the mobile pass. */
+  .footer .footer-col {
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .footer .footer-col:last-of-type {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .footer .footer-col > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 4px;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: rgba(240,238,235,0.7);
+  }
+  .footer .footer-col > summary::-webkit-details-marker { display: none; }
+  /* On mobile, show the inline label and hide the desktop h5 (which lives
+     inside the summary now). The +/- chevron sits on the summary itself. */
+  .footer .footer-col > summary > h5 { display: none; }
+  .footer .footer-col > summary .footer-col-label { display: inline-flex; }
+  .footer .footer-col > summary::after {
+    content: "+";
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1;
+    color: rgba(240,238,235,0.5);
+    transition: transform 0.3s;
+  }
+  .footer .footer-col[open] > summary::after { content: "−"; }
+  .footer .footer-col ul {
+    padding: 4px 4px 18px;
+    gap: 12px;
+  }
+  .footer .footer-col ul a { font-size: 15px; opacity: 0.92; }
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  /* ===== Hero: tighten footer line, shrink wordmark so it fits ===== */
+  .hero-foot { bottom: 36px; font-size: 10px; letter-spacing: 0.22em; }
+  .hero-content { padding: 0 22px; }
+  .hero-chapter { font-size: 9px; letter-spacing: 0.24em; margin-bottom: 28px; gap: 10px; }
+  .hero-chapter::before, .hero-chapter::after { width: 16px; }
+  .hero-mark { font-size: clamp(110px, 38vw, 200px); }
+  .hero-rule { margin: 22px 0 20px; }
+  .hero-sub { font-size: 13px; padding: 0 12px; }
+
+  /* ===== Approach: a touch more breathing room on tiny phones ===== */
+  .approach-visual--hero { height: clamp(280px, 42vh, 420px); }
+  .approach-hero-text { gap: 12px; }
+  .approach-card-stack--hero { gap: 18px; }
+  .approach-card-stack--hero .approach-p { font-size: 14px; }
+  /* Pull the rail right against the screen so it doesn't eat content
+     space, and keep dots tap-friendly. */
+  .approach-rail { right: 10px; }
+}
+
+/* ===== Floating Five & Live tab: hide while the drawer is open so it
+   doesn't fight the menu z-index. ===== */
+body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
