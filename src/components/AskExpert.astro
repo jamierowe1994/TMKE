@@ -100,7 +100,20 @@
      pointer make it feel like a guided tour.
      ============================================================ -->
 <div class="ae-tour" id="ae-tour" hidden aria-live="polite">
+  <!-- Pure visual blur. Pointer events stay OFF so it never blocks
+       clicks; the four shields below handle click-blocking around
+       the spotlight, leaving the highlighted area click-through. -->
   <div class="ae-tour-backdrop"></div>
+
+  <!-- Four shield rectangles surrounding the spotlight. Each is
+       sized/positioned by JS each step. Together they cover the
+       whole viewport EXCEPT the spotlight rectangle, so the only
+       thing the user can click is the highlighted element. -->
+  <div class="ae-tour-shield" id="ae-shield-top"    data-shield="top"></div>
+  <div class="ae-tour-shield" id="ae-shield-bottom" data-shield="bottom"></div>
+  <div class="ae-tour-shield" id="ae-shield-left"   data-shield="left"></div>
+  <div class="ae-tour-shield" id="ae-shield-right"  data-shield="right"></div>
+
   <div class="ae-tour-spotlight" id="ae-tour-spotlight"></div>
   <div class="ae-tour-cursor" id="ae-tour-cursor" aria-hidden="true">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 2l7.5 18.5 2-7.5 7.5-2L3 2z"/></svg>
@@ -116,6 +129,17 @@
 </div>
 
 <style is:global>
+  /* Don't surface Ask an Expert while the Studio is still on its
+     "Pick a pack to open" overlay — a tour fired from that screen
+     would spotlight UI that isn't on screen yet. The overlay
+     element is #ed-onboard; it gets `is-gone` once the user has
+     chosen (or skipped). Hide trigger + panel + tour until then. */
+  body:has(#ed-onboard:not(.is-gone)) .ae-trigger,
+  body:has(#ed-onboard:not(.is-gone)) .ae-panel,
+  body:has(#ed-onboard:not(.is-gone)) .ae-tour {
+    display: none !important;
+  }
+
   /* ===== Floating trigger — bottom-right of the Studio ===== */
   .ae-trigger {
     position: fixed;
@@ -457,15 +481,27 @@
   }
   .ae-tour[hidden] { display: none; }
 
-  /* Soft, light blur over everything outside the spotlight */
+  /* Soft, light blur over everything. Pointer-events OFF — the 4
+     shields handle blocking so the spotlight stays click-through. */
   .ae-tour-backdrop {
     position: absolute;
     inset: 0;
     backdrop-filter: blur(2.5px) brightness(0.92);
     -webkit-backdrop-filter: blur(2.5px) brightness(0.92);
     background: rgba(15, 12, 30, 0.18);
-    pointer-events: auto;
+    pointer-events: none;
     transition: opacity 0.35s cubic-bezier(.2,.7,.2,1);
+  }
+
+  /* The 4 shields are fixed-positioned rectangles that JS resizes
+     each step to surround the spotlight. They catch ALL clicks
+     outside the spotlight area, so a stray click somewhere random
+     in the editor doesn't accidentally do something. */
+  .ae-tour-shield {
+    position: fixed;
+    background: transparent;
+    pointer-events: auto;
+    z-index: 1;
   }
   /* Spotlight = a transparent rounded rect positioned over the target,
      with a soft outer ring + giant box-shadow that "cuts" the spotlight
@@ -755,62 +791,66 @@
     // no risk of hallucinated targets. Each entry uses the same step
     // schema the AI demo block uses, so the same runner plays them.
     const CURATED_TOURS: { label: string; steps: TourStep[] }[] = [
+      // Click steps WAIT for the user to actually click the highlighted
+      // element before advancing. That way the panel they need to see
+      // next is actually open by the time we spotlight it. Look steps
+      // just dwell + auto-advance.
       {
         label: "Add my logo",
         steps: [
           { target: "uploads-tool", action: "click", caption: "Click Uploads in the left rail." },
-          { target: "panel",        action: "look",  caption: "Drop your logo file here, or click to browse your computer." },
-          { target: "canvas",       action: "look",  caption: "Once it's uploaded, click your logo to drop it onto the design." },
+          { target: "panel",        action: "look",  caption: "Drop your logo file here, or click to browse your computer.", duration: 5000 },
+          { target: "canvas",       action: "look",  caption: "Once it's uploaded, click your logo to drop it onto the design.", duration: 5000 },
         ],
       },
       {
         label: "Change brand colours",
         steps: [
           { target: "brand-tool", action: "click", caption: "Click Brand in the left rail." },
-          { target: "panel",      action: "look",  caption: "Your saved colours live here. Click any one to apply it to the selected element." },
+          { target: "panel",      action: "look",  caption: "Your saved colours live here. Click any one to apply it to the selected element.", duration: 5000 },
         ],
       },
       {
         label: "Add a text block",
         steps: [
           { target: "text-tool", action: "click", caption: "Click Text in the left rail." },
-          { target: "panel",     action: "look",  caption: "Pick a heading, subheading or body style. Click it to drop it on the canvas." },
-          { target: "canvas",    action: "look",  caption: "Double-click the text on the canvas to start typing." },
+          { target: "panel",     action: "look",  caption: "Pick a heading, subheading or body style. Click it to drop it on the canvas.", duration: 5000 },
+          { target: "canvas",    action: "look",  caption: "Double-click the text on the canvas to start typing.", duration: 5000 },
         ],
       },
       {
         label: "Add a photo",
         steps: [
           { target: "photos-tool", action: "click", caption: "Click Photos in the left rail." },
-          { target: "panel",       action: "look",  caption: "Search the library or upload your own. Click a photo to add it.", duration: 4500 },
+          { target: "panel",       action: "look",  caption: "Search the library or upload your own. Click a photo to add it.", duration: 5000 },
         ],
       },
       {
         label: "Change the background",
         steps: [
           { target: "background-tool", action: "click", caption: "Click Background in the left rail." },
-          { target: "panel",           action: "look",  caption: "Pick a colour, gradient or photo for the page background." },
+          { target: "panel",           action: "look",  caption: "Pick a colour, gradient or photo for the page background.", duration: 5000 },
         ],
       },
       {
         label: "Schedule this post",
         steps: [
           { target: "schedule", action: "click", caption: "Click Schedule in the top-right of the toolbar." },
-          { target: "stage",    action: "look",  caption: "Pick a date and time. We'll email you a reminder the morning it's due to go out.", duration: 5000 },
+          { target: "stage",    action: "look",  caption: "Pick a date and time. We'll email you a reminder the morning it's due to go out.", duration: 5500 },
         ],
       },
       {
         label: "Resize the canvas",
         steps: [
           { target: "resize-tool", action: "click", caption: "Click Resize at the bottom of the left rail." },
-          { target: "panel",       action: "look",  caption: "Pick a format — Instagram post, story, reel — and we'll resize the canvas for you." },
+          { target: "panel",       action: "look",  caption: "Pick a format — Instagram post, story, reel — and we'll resize the canvas for you.", duration: 5000 },
         ],
       },
       {
         label: "Undo a mistake",
         steps: [
-          { target: "undo", action: "click", caption: "Click Undo (or press Ctrl+Z) to step back." },
-          { target: "redo", action: "look",  caption: "Changed your mind? Redo is right next to it (Ctrl+Shift+Z)." },
+          { target: "undo", action: "look", caption: "This is Undo. Hit it (or press Ctrl+Z) any time to step back." },
+          { target: "redo", action: "look", caption: "Changed your mind? Redo is right next to it (Ctrl+Shift+Z)." },
         ],
       },
     ];
@@ -872,17 +912,79 @@
     }
 
     // Tour state
-    const $tour      = document.getElementById("ae-tour");
-    const $spot      = document.getElementById("ae-tour-spotlight");
-    const $cursor    = document.getElementById("ae-tour-cursor");
-    const $card      = document.getElementById("ae-tour-card");
-    const $stepLabel = document.getElementById("ae-tour-step");
-    const $caption   = document.getElementById("ae-tour-caption");
-    const $next      = document.getElementById("ae-tour-next");
-    const $skip      = document.getElementById("ae-tour-skip");
+    const $tour       = document.getElementById("ae-tour");
+    const $spot       = document.getElementById("ae-tour-spotlight");
+    const $cursor     = document.getElementById("ae-tour-cursor");
+    const $card       = document.getElementById("ae-tour-card");
+    const $stepLabel  = document.getElementById("ae-tour-step");
+    const $caption    = document.getElementById("ae-tour-caption");
+    const $next       = document.getElementById("ae-tour-next");
+    const $skip       = document.getElementById("ae-tour-skip");
+    const $shieldTop  = document.getElementById("ae-shield-top");
+    const $shieldBot  = document.getElementById("ae-shield-bottom");
+    const $shieldLft  = document.getElementById("ae-shield-left");
+    const $shieldRgt  = document.getElementById("ae-shield-right");
     let currentTour: TourStep[] = [];
     let stepIdx = -1;
     let stepTimer: number | null = null;
+    // Cached click-listener so we can remove it cleanly between steps.
+    let stepClickHandler: ((e: Event) => void) | null = null;
+    let stepClickTarget: HTMLElement | null = null;
+
+    // Move the 4 shield rectangles so they fully cover the viewport
+    // except for the spotlight rect. Clicks anywhere outside the
+    // spotlight are silently swallowed; clicks inside go through to
+    // the real underlying element. Pass null to make every shield
+    // cover the full viewport (no click-through).
+    function positionShields(rect: DOMRect | null) {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      if (!rect) {
+        [$shieldTop, $shieldBot, $shieldLft, $shieldRgt].forEach((s) => {
+          if (!s) return;
+          s.style.top = "0"; s.style.left = "0";
+          s.style.width = vw + "px"; s.style.height = vh + "px";
+        });
+        return;
+      }
+      // Top band: full width, from 0 down to the spotlight top
+      if ($shieldTop) {
+        $shieldTop.style.top    = "0px";
+        $shieldTop.style.left   = "0px";
+        $shieldTop.style.width  = vw + "px";
+        $shieldTop.style.height = Math.max(0, rect.top) + "px";
+      }
+      // Bottom band: full width, from spotlight bottom to viewport bottom
+      if ($shieldBot) {
+        $shieldBot.style.top    = rect.bottom + "px";
+        $shieldBot.style.left   = "0px";
+        $shieldBot.style.width  = vw + "px";
+        $shieldBot.style.height = Math.max(0, vh - rect.bottom) + "px";
+      }
+      // Left band: between top and bottom shields
+      if ($shieldLft) {
+        $shieldLft.style.top    = rect.top + "px";
+        $shieldLft.style.left   = "0px";
+        $shieldLft.style.width  = Math.max(0, rect.left) + "px";
+        $shieldLft.style.height = rect.height + "px";
+      }
+      // Right band: between top and bottom shields
+      if ($shieldRgt) {
+        $shieldRgt.style.top    = rect.top + "px";
+        $shieldRgt.style.left   = rect.right + "px";
+        $shieldRgt.style.width  = Math.max(0, vw - rect.right) + "px";
+        $shieldRgt.style.height = rect.height + "px";
+      }
+    }
+
+    // Detach the previous step's click-to-advance listener (if any).
+    function clearStepClick() {
+      if (stepClickTarget && stepClickHandler) {
+        stepClickTarget.removeEventListener("click", stepClickHandler, true);
+      }
+      stepClickHandler = null;
+      stepClickTarget = null;
+    }
 
     function startTour(steps: TourStep[]) {
       if (!$tour) return;
@@ -918,6 +1020,7 @@
       currentTour = [];
       stepIdx = -1;
       if (stepTimer) { clearTimeout(stepTimer); stepTimer = null; }
+      clearStepClick();
       if ($tour) $tour.hidden = true;
       if ($spot) $spot.classList.remove("is-pulse");
       if ($cursor) $cursor.classList.remove("is-click");
@@ -926,30 +1029,46 @@
     function advanceTour(idx: number) {
       if (idx >= currentTour.length) return endTour();
       stepIdx = idx;
+      // Reset any prior step's click listener + timer before kicking
+      // off the new one.
+      clearStepClick();
+      if (stepTimer) { clearTimeout(stepTimer); stepTimer = null; }
+
       const step = currentTour[idx];
       const total = currentTour.length;
       if ($stepLabel) $stepLabel.textContent = "Step " + (idx + 1) + " of " + total;
       if ($caption) $caption.textContent = step.caption;
-      if ($next) $next.textContent = (idx + 1 === total) ? "Finish" : "Next →";
+      const isClick = (step.action || "look") === "click";
+      if ($next) {
+        // On click steps the user is meant to drive — Next becomes
+        // "Skip" so they can bypass without clicking the target.
+        $next.textContent = (idx + 1 === total)
+          ? "Finish"
+          : (isClick ? "Skip →" : "Next →");
+      }
 
       const el = resolveTarget(step.target);
       if (!el) {
-        // Target missing — show caption centered without spotlight and let
-        // the user advance manually.
+        // Target missing — show caption centered without spotlight and
+        // shield the whole page so a stray click doesn't fire anything.
         if ($spot) {
           $spot.style.width = "0px";
           $spot.style.height = "0px";
         }
+        positionShields(null);
         positionCard(null);
         return;
       }
       // Make sure the target is in view before measuring it.
       el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       // Wait for the smooth scroll to settle before measuring + placing
-      // the spotlight. 320ms is enough on most pages.
+      // the spotlight.
       window.setTimeout(() => {
         const r = el.getBoundingClientRect();
         const pad = 8;
+        // Spotlight rect for the visible ring, with padding around the
+        // target. The shield rects use the SAME rect (without padding)
+        // so the clickable area precisely matches the target.
         if ($spot) {
           $spot.style.top    = (r.top - pad) + "px";
           $spot.style.left   = (r.left - pad) + "px";
@@ -957,16 +1076,31 @@
           $spot.style.height = (r.height + pad * 2) + "px";
           $spot.classList.add("is-pulse");
         }
+        positionShields(r);
         positionCard(r);
-        const action = step.action || "look";
-        if (action === "click" || action === "hover") flyCursorTo(r, action === "click");
-        // Auto-advance after duration, unless it's the last step (let the
-        // user explicitly finish).
-        if (stepTimer) clearTimeout(stepTimer);
-        const dwell = Math.max(1500, step.duration || 3500);
-        stepTimer = window.setTimeout(() => {
-          if (idx === stepIdx && idx + 1 < total) advanceTour(idx + 1);
-        }, dwell);
+        flyCursorTo(r, /* doClick */ false);
+
+        if (isClick) {
+          // Wait for the user to click the highlighted thing. ANY
+          // click that lands on the target (or inside it) advances.
+          // capture-phase so we get it before the page's own handlers
+          // mutate the DOM in a way that would un-mount the listener.
+          stepClickTarget = el;
+          stepClickHandler = (e: Event) => {
+            // Tiny delay so the page's own handler can open whatever
+            // panel it needs before we measure the next target.
+            window.setTimeout(() => {
+              if (stepIdx === idx) advanceTour(idx + 1);
+            }, 420);
+          };
+          el.addEventListener("click", stepClickHandler, true);
+        } else {
+          // "look" / "hover" steps auto-advance after a dwell.
+          const dwell = Math.max(1500, step.duration || 3500);
+          stepTimer = window.setTimeout(() => {
+            if (idx === stepIdx && idx + 1 < total) advanceTour(idx + 1);
+          }, dwell);
+        }
       }, 320);
     }
 
@@ -1021,7 +1155,7 @@
       }
     });
     window.addEventListener("resize", () => {
-      // Re-place spotlight if a tour is running.
+      // Re-place spotlight + shields if a tour is running.
       if (stepIdx >= 0 && currentTour[stepIdx]) {
         const el = resolveTarget(currentTour[stepIdx].target);
         if (el && $spot) {
@@ -1031,6 +1165,7 @@
           $spot.style.left   = (r.left - pad) + "px";
           $spot.style.width  = (r.width + pad * 2) + "px";
           $spot.style.height = (r.height + pad * 2) + "px";
+          positionShields(r);
           positionCard(r);
         }
       }
