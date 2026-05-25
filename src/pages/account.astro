@@ -1369,6 +1369,20 @@ import "../styles/account-sections.css";
       return drafts;
     }
 
+    // Guaranteed fallback pool — six curated property / lifestyle
+    // photos so the welcome-art ALWAYS has something to rotate to,
+    // even for a fresh account with no orders, no drafts and no
+    // scheduled posts. Hot-linked from Unsplash (same source as
+    // the template library), 1080x1350 portrait crop.
+    const WELCOME_ART_FALLBACK = [
+      'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1567016432779-094069958ea5?auto=format&fit=crop&w=1080&h=1350&q=80',
+    ];
+
     // Pick a "design" image — what the user has actually been working on.
     // Priority:
     //   1. Posts they've scheduled in /account/schedule (real rendered output)
@@ -1376,7 +1390,8 @@ import "../styles/account-sections.css";
     //   3. Preview images from packs they ALREADY own (their library —
     //      not "their" designs but they bought them, so still useful as
     //      a "your stuff" stand-in until real designs exist)
-    //   4. null — caller falls back to the lifestyle photo
+    //   4. Curated Unsplash fallback so SOMETHING surfaces even on a
+    //      brand-new account.
     function pickDesignUrl(scheduled, drafts, ownedPacksWithImages) {
       const pool = [];
       (scheduled || []).forEach((s) => {
@@ -1391,8 +1406,9 @@ import "../styles/account-sections.css";
           else if (p.cover_image_url) pool.push(p.cover_image_url);
         });
       }
-      if (!pool.length) return null;
-      return pool[Math.floor(Math.random() * pool.length)];
+      // Last-ditch: ALWAYS return something so the rotation visibly works.
+      const source = pool.length ? pool : WELCOME_ART_FALLBACK;
+      return source[Math.floor(Math.random() * source.length)];
     }
 
     // Pick a pack the user does NOT already own. Returns { url, slug, id }
@@ -1676,6 +1692,11 @@ import "../styles/account-sections.css";
       const localDrafts = readLocalDrafts();
       renderDrafts(localDrafts);
       renderBrandStat();
+      // Fire an early rotation so the welcome-art swaps off the default
+      // photo even if the orders / calendar / packs queries fail or
+      // hang. The post-orders Promise.all will re-rotate with real
+      // data once it resolves.
+      rotateWelcomeArt({ scheduled: [], drafts: localDrafts, allPacks: [], ownedIds: new Set() });
 
       const { data: orders, error } = await supabase
         .from('orders')

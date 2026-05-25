@@ -563,9 +563,21 @@
    Each .dash-view sits in the main column; only the active one
    is shown. Sidebar links with [data-view="<name>"] toggle the
    visible view. No drawer overlay; the sidebar stays put.
+
+   .app-main has `display: flex; flex-direction: column; gap: 96px;`
+   which only applies between its direct children. Wrapping the
+   workspace sections in a single .dash-view made all that gap
+   collapse, so each .dash-view re-establishes column gap inside.
    ============================================================ */
-.dash-view { display: block; }
+.dash-view {
+  display: flex;
+  flex-direction: column;
+  gap: 96px;
+}
 .dash-view[hidden] { display: none; }
+@media (max-width: 780px) {
+  .dash-view { gap: 64px; }
+}
 
 @keyframes dashViewIn {
   from { opacity: 0; transform: translateY(12px); }
