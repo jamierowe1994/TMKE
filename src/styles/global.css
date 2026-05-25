@@ -1012,24 +1012,50 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 
 /* ---- Intro stage ----
-   The stage 0 frame carries a soft, lightly washed photo behind the
-   "Built for Agents…" headline. The wash keeps the black headline +
-   chapter rule legible without flattening the image. Stages 1–4 are
-   untouched — they have their own per-stage hero photos. */
+   The stage 0 frame carries a contained photo behind the
+   "Built for Agents…" headline. The photo box matches the side margins
+   and top-edge of the per-stage hero images used by stages 1-4, but is
+   taller so its bottom edge lines up with where their hero-text ends.
+   Stages 1-4 are untouched — they keep their own hero photos. */
 .approach-stage[data-stage="0"] {
+  /* Match the stage padding used by stages 1-4 (their selector
+     `:has(.approach-card-stack--hero)` doesn't fire here because the
+     intro stage uses a different inner). */
+  padding: 0 76px;
+}
+.approach-stage[data-stage="0"]::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  transform: translateY(-50%);
+  max-width: 1360px;
+  /* Height tracks the per-stage card-stack on stages 1-4:
+       visual (clamp 420 / 58vh / 640) + 28px gap + ~150-180px text.
+     Centering it in the stage means its top edge meets the visual's
+     top edge and its bottom edge meets the hero-text's bottom edge
+     on the other stages — i.e. it's slightly taller than their photo
+     alone, finishing where their copy ends. */
+  height: clamp(595px, 82vh, 840px);
   background-image:
-    linear-gradient(rgba(242, 239, 233, 0.62), rgba(242, 239, 233, 0.62)),
+    linear-gradient(rgba(20, 18, 16, 0.28), rgba(20, 18, 16, 0.28)),
     url("/assets/chapter%204.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  /* Same drop shadow as the other hero visuals for consistency. */
+  box-shadow: 0 30px 60px -30px rgba(28, 29, 34, 0.25);
+  z-index: 0;
+  pointer-events: none;
 }
 .approach-intro {
   text-align: center;
   max-width: 1100px;
-  /* Subtle paper plate behind the text so the headline stays crisp on
-     busier areas of the photo. */
+  /* Keep the headline + chapter rule above the photo box. */
   position: relative;
+  z-index: 1;
 }
 .approach-intro .chapter {
   margin-bottom: 56px;
