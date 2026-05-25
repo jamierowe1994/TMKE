@@ -1,0 +1,278 @@
+---
+// Register-interest form for the /estate-agency showcase. Used both on the
+// landing page and inside each template preview. Submit is stubbed for now —
+// flips to a success state on submit. Wire to Supabase / Resend later, the
+// same way contact.astro does.
+interface Props {
+  templateSlug?: string;
+  templateName?: string;
+  /** Compact variant for embedding under a preview. */
+  compact?: boolean;
+}
+
+const { templateSlug = "", templateName = "", compact = false } = Astro.props;
+---
+
+<section class={`ea-interest ${compact ? "ea-interest--compact" : ""}`} id="register-interest">
+  <div class="ea-interest-inner">
+    {!compact && (
+      <header class="ea-interest-head">
+        <div class="ea-interest-eyebrow">/ Register interest /</div>
+        <h2 class="ea-interest-title">
+          Like the look of these? <em>Let's talk.</em>
+        </h2>
+        <p class="ea-interest-sub">
+          Drop your details and tell us which direction interests you. We'll come
+          back within 48 hours with a short proposal — design references, pricing,
+          and a rough timeline.
+        </p>
+      </header>
+    )}
+
+    <form class="ea-interest-form" data-ea-form novalidate>
+      <input type="hidden" name="template_slug" value={templateSlug} />
+      <input type="hidden" name="template_name" value={templateName} />
+
+      <div class="ea-row">
+        <label class="ea-field">
+          <span>Your name <em>*</em></span>
+          <input name="name" type="text" required autocomplete="name" />
+        </label>
+        <label class="ea-field">
+          <span>Agency name <em>*</em></span>
+          <input name="agency" type="text" required autocomplete="organization" />
+        </label>
+      </div>
+
+      <div class="ea-row">
+        <label class="ea-field">
+          <span>Email <em>*</em></span>
+          <input name="email" type="email" required autocomplete="email" />
+        </label>
+        <label class="ea-field">
+          <span>Phone</span>
+          <input name="phone" type="tel" autocomplete="tel" />
+        </label>
+      </div>
+
+      {!compact && (
+        <label class="ea-field">
+          <span>Which template caught your eye?</span>
+          <input
+            name="template_pref"
+            type="text"
+            value={templateName}
+            placeholder="Belgrave, Harbour, Atelier, or describe what you'd like"
+          />
+        </label>
+      )}
+
+      <label class="ea-field">
+        <span>Anything else?</span>
+        <textarea
+          name="notes"
+          rows={compact ? 2 : 4}
+          placeholder="Existing site? Domain? Rough launch window? Anything that helps."
+        ></textarea>
+      </label>
+
+      <div class="ea-submit-row">
+        <button type="submit" class="ea-submit">
+          <span class="ea-submit-label">Register interest</span>
+          <span class="ea-submit-arrow" aria-hidden="true">&rarr;</span>
+        </button>
+        <p class="ea-form-note">No commitment — we'll come back within 48 hours.</p>
+      </div>
+
+      <p class="ea-form-error" role="alert" hidden></p>
+    </form>
+
+    <div class="ea-interest-success" hidden>
+      <div class="ea-interest-tick" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M8 12.5l3 3 5-6"></path>
+        </svg>
+      </div>
+      <h3>Thanks — that's in.</h3>
+      <p>
+        We've got your interest. Expect a short note from us within 48 hours with
+        next steps. If it's urgent, email <a href="mailto:hello@tmke.co.uk">hello@tmke.co.uk</a>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .ea-interest {
+    background: var(--paper);
+    color: var(--ink);
+    padding: 120px 36px;
+  }
+  .ea-interest--compact { padding: 64px 36px; }
+  .ea-interest-inner {
+    max-width: 880px;
+    margin: 0 auto;
+  }
+  .ea-interest-head { margin-bottom: 48px; text-align: center; }
+  .ea-interest-eyebrow {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(28,29,34,0.55);
+    margin-bottom: 18px;
+  }
+  .ea-interest-title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(36px, 4.4vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.018em;
+    margin: 0 0 18px;
+  }
+  .ea-interest-title em { font-style: italic; color: var(--english-violet); }
+  .ea-interest-sub {
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+    color: rgba(28,29,34,0.72);
+    max-width: 56ch;
+    margin: 0 auto;
+  }
+
+  .ea-interest-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(28,29,34,0.14);
+    padding: 36px;
+    border-radius: 2px;
+  }
+  .ea-interest--compact .ea-interest-form { padding: 24px; }
+  .ea-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 640px) {
+    .ea-row { grid-template-columns: 1fr; }
+  }
+  .ea-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ea-field > span {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(28,29,34,0.6);
+  }
+  .ea-field > span em {
+    font-style: normal;
+    color: var(--english-violet);
+    margin-left: 2px;
+  }
+  .ea-field input,
+  .ea-field textarea {
+    font-family: var(--sans);
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid rgba(28,29,34,0.18);
+    border-radius: 2px;
+    padding: 12px 14px;
+    transition: border-color 0.2s ease;
+  }
+  .ea-field input:focus,
+  .ea-field textarea:focus {
+    outline: none;
+    border-color: var(--english-violet);
+  }
+  .ea-field textarea { resize: vertical; min-height: 96px; }
+
+  .ea-submit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .ea-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 26px;
+    border: 1px solid var(--english-violet);
+    background: var(--english-violet);
+    color: var(--paper);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
+  }
+  .ea-submit:hover { background: var(--ink); border-color: var(--ink); }
+  .ea-submit-arrow { font-family: var(--serif); font-size: 14px; letter-spacing: 0; transition: transform 0.25s ease; }
+  .ea-submit:hover .ea-submit-arrow { transform: translateX(4px); }
+
+  .ea-form-note {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: rgba(28,29,34,0.55);
+    margin: 0;
+  }
+  .ea-form-error {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: #b3261e;
+    margin: 0;
+  }
+
+  .ea-interest-success {
+    text-align: center;
+    padding: 48px 24px;
+  }
+  .ea-interest-tick {
+    width: 56px; height: 56px;
+    margin: 0 auto 16px;
+    color: var(--english-violet);
+  }
+  .ea-interest-tick svg { width: 100%; height: 100%; }
+  .ea-interest-success h3 {
+    font-family: var(--serif);
+    font-size: clamp(28px, 3vw, 40px);
+    margin: 0 0 12px;
+  }
+  .ea-interest-success p {
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.65;
+    color: rgba(28,29,34,0.72);
+    max-width: 48ch;
+    margin: 0 auto;
+  }
+</style>
+
+<script>
+  // Stub submit — flips to success. Replace with a real handler (Supabase +
+  // Resend email) when the rest of the contact-pipeline pattern is ready.
+  document.querySelectorAll<HTMLFormElement>("form[data-ea-form]").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const wrap = form.closest(".ea-interest");
+      if (!wrap) return;
+      const success = wrap.querySelector<HTMLElement>(".ea-interest-success");
+      form.hidden = true;
+      if (success) success.hidden = false;
+    });
+  });
+</script>

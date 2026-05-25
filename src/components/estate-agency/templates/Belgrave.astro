@@ -1,0 +1,569 @@
+---
+// BELGRAVE — Classy / prime-market template.
+// FORMNEST-inspired: dark cinematic hero, giant serif wordmark, slow
+// editorial scroll, polaroid-stacked feature, selected-projects strip.
+// Self-contained: own nav, own footer. The TMKE preview chrome sits above.
+
+const UNSPLASH = (id, w = 1600, h = 1000) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
+
+const HERO = UNSPLASH("1512917774080-9991f1c4c750", 2400, 1400);
+
+const STACK = [
+  UNSPLASH("1600585154340-be6161a56a0c", 900, 1200),
+  UNSPLASH("1480714378408-67cf0d13bc1b", 900, 1200),
+  UNSPLASH("1600210492486-724fe5c67fb0", 900, 1200),
+];
+
+const PROJECTS = [
+  { ref: "01", name: "The Artisan", area: "270 m²", img: UNSPLASH("1583847268964-b28dc8f51f92", 900, 700) },
+  { ref: "02", name: "Ambervill", area: "190 m²", img: UNSPLASH("1600596542815-ffad4c1539a9", 900, 700) },
+  { ref: "03", name: "Noor",       area: "320 m²", img: UNSPLASH("1496564203457-11bb12075d90", 900, 700) },
+];
+
+const SERVICES = [
+  "Individual architectural design",
+  "Ready-to-build house projects",
+  "Interior layout planning",
+  "Construction documentation",
+  "3D visualisations",
+  "Construction supervision",
+  "Material selection & guidance",
+];
+---
+
+<div class="bg-root">
+
+  <!-- Sticky inner nav — template's own. -->
+  <header class="bg-nav">
+    <a href="#" class="bg-nav-link">Menu</a>
+    <a href="#" class="bg-mark">(BELGRAVE)</a>
+    <a href="#" class="bg-nav-link">Contacts</a>
+  </header>
+
+  <!-- Cinematic hero with full-bleed wordmark over a luxe property image. -->
+  <section class="bg-hero" style={`background-image: linear-gradient(180deg, rgba(20,18,22,0.18) 0%, rgba(20,18,22,0.42) 100%), url(${HERO});`}>
+    <h1 class="bg-hero-mark">BELGRAVE</h1>
+    <div class="bg-hero-strip">
+      <span>Tailored spaces</span>
+      <span class="bg-hero-strip-mid">Since &mdash; 2017</span>
+      <span>Honest materials</span>
+    </div>
+  </section>
+
+  <!-- Editorial intro: small eyebrow + large serif sentence + body. -->
+  <section class="bg-editorial">
+    <div class="bg-eyebrow">( Built around you )</div>
+    <h2 class="bg-editorial-h">
+      We design spaces where comfort comes naturally <em>&mdash;</em> no extra effort needed.
+    </h2>
+    <p class="bg-editorial-p">
+      Our homes are thoughtfully designed to make everyday living easier and more
+      comfortable. From the first sketch to the final detail, we focus on what
+      truly matters &mdash; simplicity, clarity, and ease of use. This construction
+      process is fast and efficient, so you can settle in sooner and enjoy a
+      space that feels right from the start.
+    </p>
+  </section>
+
+  <!-- Polaroid-stacked feature. Three property images overlapping at angles. -->
+  <section class="bg-polaroids">
+    <div class="bg-polaroid bg-polaroid-1"><img src={STACK[0]} alt="" loading="lazy" /></div>
+    <div class="bg-polaroid bg-polaroid-2"><img src={STACK[1]} alt="" loading="lazy" /></div>
+    <div class="bg-polaroid bg-polaroid-3"><img src={STACK[2]} alt="" loading="lazy" /></div>
+  </section>
+
+  <div class="bg-divider">Timeless <span>&mdash;</span> Interiors</div>
+
+  <!-- Featured residence — single wide feature card. -->
+  <section class="bg-residence">
+    <div class="bg-residence-media">
+      <img src={UNSPLASH("1505691938895-1758d7feb511", 1800, 1100)} alt="Skyline Loft" loading="lazy" />
+      <div class="bg-residence-meta">
+        <h3>Skyline Loft</h3>
+        <p>Industrial textures softened with warm oak and panoramic city views.</p>
+      </div>
+      <div class="bg-residence-index">1 / 6</div>
+    </div>
+  </section>
+
+  <!-- Services list — numbered ledger like the FORMNEST sample. -->
+  <section class="bg-services">
+    <div class="bg-services-inner">
+      <div class="bg-services-head">
+        <h2>Our Services</h2>
+      </div>
+      <div class="bg-services-list">
+        <p class="bg-services-blurb">
+          When every meeting place doesn't fully match your needs, we offer custom
+          architectural design from the ground up. We take into account your
+          lifestyle, site conditions, and any technical or aesthetic requirements.
+          You'll be involved in every key decision &mdash; from the first layout
+          ideas to the final drawings &mdash; so the home turns out the way it
+          should and how you want to live.
+        </p>
+        <ol class="bg-ledger">
+          {SERVICES.map((s, i) => (
+            <li>
+              <span class="bg-ledger-num">{String(i + 1).padStart(2, "0")}</span>
+              <span class="bg-ledger-label">{s}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- Selected projects strip — three columns. -->
+  <section class="bg-projects">
+    <header class="bg-projects-head">
+      <h2>Selected Projects</h2>
+      <div class="bg-projects-nav">
+        <button type="button" aria-label="Previous">&larr;</button>
+        <button type="button" aria-label="Next">&rarr;</button>
+      </div>
+    </header>
+    <div class="bg-projects-grid">
+      {PROJECTS.map((p) => (
+        <article class="bg-project">
+          <div class="bg-project-media"><img src={p.img} alt={p.name} loading="lazy" /></div>
+          <footer>
+            <span class="bg-project-ref">{p.ref}</span>
+            <span class="bg-project-name">{p.name}</span>
+            <span class="bg-project-area">{p.area}</span>
+          </footer>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <!-- Quiet CTA. -->
+  <section class="bg-cta">
+    <div class="bg-eyebrow">( Built around you )</div>
+    <h2 class="bg-cta-h">
+      Ready to find a home that works for your life?<br />
+      We've already built it &mdash; just reach out.
+    </h2>
+    <a href="#register-interest" class="bg-cta-btn">Contact us</a>
+  </section>
+
+  <!-- Minimalist footer. -->
+  <footer class="bg-foot">
+    <div class="bg-foot-grid">
+      <div class="bg-foot-brand">
+        <div class="bg-foot-mark">(BELGRAVE)</div>
+        <p>Join our list to hear what we're building next.</p>
+        <form class="bg-foot-sub" onsubmit="event.preventDefault();">
+          <input type="email" placeholder="Your email" />
+          <button type="submit" aria-label="Subscribe">&rarr;</button>
+        </form>
+        <p class="bg-foot-fine">By submitting, you agree with our Privacy Policy.</p>
+      </div>
+      <div>
+        <h4>Projects</h4>
+        <ul><li>About Us</li><li>Team</li></ul>
+      </div>
+      <div>
+        <h4>Contacts</h4>
+        <ul>
+          <li>info@belgrave.uk</li>
+          <li>+44 (0)20 0000 0000</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Office</h4>
+        <ul>
+          <li>52 Eaton Square</li>
+          <li>London, SW1W</li>
+        </ul>
+      </div>
+    </div>
+    <div class="bg-foot-base">
+      <span>&copy; 2026 Belgrave. All rights reserved.</span>
+      <span class="bg-foot-base-r">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Use</a>
+        <a href="#">Cookies</a>
+      </span>
+    </div>
+  </footer>
+</div>
+
+<style>
+  /* Scope every selector under .bg-root so this template can't leak. */
+  .bg-root {
+    --bg-paper:  #F2EFE9;
+    --bg-cream:  #ECE7DE;
+    --bg-ink:    #14121a;
+    --bg-mute:   rgba(20,18,26,0.62);
+    --bg-line:   rgba(20,18,26,0.14);
+    --bg-serif:  "Cormorant Garamond", "EB Garamond", Georgia, serif;
+    --bg-sans:   "Darker Grotesque", "Inter", system-ui, sans-serif;
+    background: var(--bg-paper);
+    color: var(--bg-ink);
+    font-family: var(--bg-sans);
+  }
+  .bg-root *,
+  .bg-root *::before,
+  .bg-root *::after { box-sizing: border-box; }
+
+  /* === Nav === */
+  .bg-nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 36px;
+    background: rgba(20,18,26,0.4);
+    backdrop-filter: blur(8px);
+    color: #fff;
+  }
+  .bg-nav-link {
+    font-family: var(--bg-sans);
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #fff;
+  }
+  .bg-mark {
+    font-family: var(--bg-serif);
+    font-style: italic;
+    font-size: 18px;
+    letter-spacing: 0.04em;
+    color: #fff;
+  }
+
+  /* === Hero === */
+  .bg-hero {
+    position: relative;
+    margin-top: -60px;
+    min-height: 92vh;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: stretch;
+    padding: 80px 36px 36px;
+    color: #fff;
+  }
+  .bg-hero-mark {
+    margin: 110px 0 0;
+    font-family: var(--bg-serif);
+    font-weight: 500;
+    font-size: clamp(80px, 16vw, 260px);
+    line-height: 0.9;
+    letter-spacing: -0.01em;
+    text-align: center;
+    color: #fff;
+    text-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  }
+  .bg-hero-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.85);
+    border-top: 1px solid rgba(255,255,255,0.25);
+    padding-top: 18px;
+    margin-top: auto;
+  }
+  .bg-hero-strip-mid { font-family: var(--bg-serif); font-style: italic; text-transform: none; font-size: 13px; letter-spacing: 0.08em; }
+
+  /* === Editorial intro === */
+  .bg-editorial {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 130px 36px 90px;
+    text-align: center;
+  }
+  .bg-eyebrow {
+    font-family: var(--bg-serif);
+    font-style: italic;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    color: var(--bg-mute);
+    margin-bottom: 26px;
+  }
+  .bg-editorial-h {
+    font-family: var(--bg-serif);
+    font-weight: 400;
+    font-size: clamp(28px, 3.6vw, 44px);
+    line-height: 1.25;
+    letter-spacing: -0.012em;
+    margin: 0 0 28px;
+  }
+  .bg-editorial-h em { font-style: italic; color: var(--bg-mute); }
+  .bg-editorial-p {
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--bg-mute);
+    max-width: 56ch;
+    margin: 0 auto;
+  }
+
+  /* === Polaroids === */
+  .bg-polaroids {
+    position: relative;
+    margin: 24px auto 0;
+    max-width: 520px;
+    height: 360px;
+  }
+  .bg-polaroid {
+    position: absolute;
+    width: 200px;
+    height: 260px;
+    background: #fff;
+    padding: 10px 10px 36px;
+    box-shadow: 0 24px 60px -28px rgba(20,18,26,0.4);
+  }
+  .bg-polaroid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bg-polaroid-1 { left: 8%;  top: 30px; transform: rotate(-8deg); }
+  .bg-polaroid-2 { left: 38%; top: 0;    transform: rotate(2deg);  z-index: 2; }
+  .bg-polaroid-3 { right: 6%; top: 50px; transform: rotate(7deg); }
+
+  .bg-divider {
+    text-align: center;
+    margin: 70px 0 0;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--bg-mute);
+  }
+  .bg-divider span { padding: 0 12px; }
+
+  /* === Residence === */
+  .bg-residence {
+    max-width: 1280px;
+    margin: 90px auto 0;
+    padding: 0 36px;
+  }
+  .bg-residence-media {
+    position: relative;
+    border-radius: 2px;
+    overflow: hidden;
+    aspect-ratio: 16 / 8;
+  }
+  .bg-residence-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bg-residence-meta {
+    position: absolute;
+    bottom: 28px; left: 32px;
+    color: #fff;
+    max-width: 320px;
+  }
+  .bg-residence-meta h3 {
+    font-family: var(--bg-serif);
+    font-weight: 400;
+    font-size: 32px;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .bg-residence-meta p { font-size: 12px; line-height: 1.6; opacity: 0.85; margin: 0; }
+  .bg-residence-index {
+    position: absolute;
+    bottom: 28px; right: 32px;
+    color: rgba(255,255,255,0.85);
+    font-size: 14px;
+    font-family: var(--bg-serif);
+    font-style: italic;
+  }
+
+  /* === Services === */
+  .bg-services { background: var(--bg-cream); margin-top: 120px; padding: 110px 36px; }
+  .bg-services-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 72px;
+  }
+  @media (max-width: 880px) {
+    .bg-services-inner { grid-template-columns: 1fr; gap: 32px; }
+  }
+  .bg-services h2 {
+    font-family: var(--bg-serif);
+    font-weight: 400;
+    font-size: clamp(36px, 4vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.014em;
+    margin: 0;
+  }
+  .bg-services-blurb {
+    font-size: 13px;
+    line-height: 1.75;
+    color: var(--bg-mute);
+    margin: 0 0 36px;
+    max-width: 60ch;
+  }
+  .bg-ledger { list-style: none; padding: 0; margin: 0; }
+  .bg-ledger li {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 18px;
+    padding: 16px 0;
+    border-top: 1px solid var(--bg-line);
+    align-items: baseline;
+  }
+  .bg-ledger li:last-child { border-bottom: 1px solid var(--bg-line); }
+  .bg-ledger-num {
+    font-family: var(--bg-serif);
+    font-style: italic;
+    color: var(--bg-mute);
+    font-size: 13px;
+  }
+  .bg-ledger-label {
+    font-family: var(--bg-serif);
+    font-size: 18px;
+    color: var(--bg-ink);
+  }
+
+  /* === Selected projects === */
+  .bg-projects { background: var(--bg-cream); padding: 0 36px 110px; }
+  .bg-projects-head {
+    max-width: 1280px;
+    margin: 0 auto 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .bg-projects-head h2 {
+    font-family: var(--bg-serif);
+    font-weight: 400;
+    font-size: clamp(28px, 3vw, 44px);
+    margin: 0;
+    letter-spacing: -0.012em;
+  }
+  .bg-projects-nav { display: flex; gap: 12px; }
+  .bg-projects-nav button {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg-paper);
+    border: 1px solid var(--bg-line);
+    color: var(--bg-ink);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .bg-projects-nav button:hover { background: var(--bg-ink); color: #fff; }
+  .bg-projects-grid {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  @media (max-width: 880px) {
+    .bg-projects-grid { grid-template-columns: 1fr; }
+  }
+  .bg-project { background: var(--bg-paper); padding: 14px 14px 18px; }
+  .bg-project-media { aspect-ratio: 5 / 4; overflow: hidden; }
+  .bg-project-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bg-project footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding-top: 14px;
+    font-size: 12px;
+  }
+  .bg-project-ref { color: var(--bg-mute); font-family: var(--bg-serif); font-style: italic; }
+  .bg-project-name { font-family: var(--bg-serif); font-size: 18px; flex: 1; padding: 0 12px; }
+  .bg-project-area { color: var(--bg-mute); }
+
+  /* === CTA === */
+  .bg-cta { text-align: center; padding: 130px 36px; }
+  .bg-cta-h {
+    font-family: var(--bg-serif);
+    font-weight: 400;
+    font-size: clamp(26px, 3vw, 38px);
+    line-height: 1.35;
+    margin: 0 0 32px;
+    letter-spacing: -0.012em;
+  }
+  .bg-cta-btn {
+    display: inline-block;
+    padding: 12px 28px;
+    background: var(--bg-ink);
+    color: #fff;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    border-radius: 2px;
+  }
+  .bg-cta-btn:hover { background: #000; }
+
+  /* === Footer === */
+  .bg-foot { background: var(--bg-cream); padding: 80px 36px 36px; }
+  .bg-foot-grid {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    gap: 48px;
+    padding-bottom: 60px;
+    border-bottom: 1px solid var(--bg-line);
+  }
+  @media (max-width: 880px) {
+    .bg-foot-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+  }
+  .bg-foot-mark {
+    font-family: var(--bg-serif);
+    font-style: italic;
+    font-size: 22px;
+    margin-bottom: 16px;
+  }
+  .bg-foot-brand p { font-size: 12px; color: var(--bg-mute); margin: 0 0 14px; }
+  .bg-foot-sub {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--bg-line);
+    padding-bottom: 8px;
+    max-width: 260px;
+  }
+  .bg-foot-sub input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font: inherit;
+    font-size: 13px;
+    color: var(--bg-ink);
+  }
+  .bg-foot-sub button {
+    background: var(--bg-ink);
+    color: #fff;
+    border: 0;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .bg-foot-fine { margin-top: 8px; font-size: 10px; color: var(--bg-mute); }
+  .bg-foot h4 {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--bg-mute);
+    margin: 0 0 12px;
+  }
+  .bg-foot ul { list-style: none; padding: 0; margin: 0; }
+  .bg-foot ul li {
+    font-size: 13px;
+    color: var(--bg-ink);
+    padding: 4px 0;
+  }
+  .bg-foot-base {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding-top: 24px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--bg-mute);
+  }
+  .bg-foot-base-r { display: flex; gap: 18px; }
+  .bg-foot-base a { color: inherit; }
+</style>
