@@ -485,6 +485,16 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   .splash-eyebrow, .splash-sub, .splash-bar,
   .splash-word > span { opacity: 1 !important; transform: none !important; animation: none !important; }
   .splash-bar-fill { transform: scaleX(1) !important; animation: none !important; }
+  /* Approach stages: drop the blur + 3D theatrics; keep a simple
+     opacity fade so the section is still usable. */
+  .approach-stage {
+    transform: none !important;
+    filter: none !important;
+    transition: opacity 0.45s linear !important;
+  }
+  .approach-stage.is-leaving { transform: none !important; }
+  .approach-stage[data-stage="0"]::before { animation: none !important; }
+  .approach-frame { perspective: none !important; }
 }
 
 /* ============ Hero — cinematic ============ */
@@ -973,6 +983,12 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   position: relative;
   width: 100%;
   height: 100%;
+  /* 3D perspective so the per-stage rotateX in the cinematic transition
+     reads as depth, not just a transform. Pin the vanishing point near
+     the centre of the viewport so the tilt feels natural. */
+  perspective: 1800px;
+  perspective-origin: 50% 55%;
+  transform-style: preserve-3d;
 }
 
 /* Body paper texture already provides grain — keep this layer disabled. */
@@ -992,23 +1008,46 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   align-items: center;
   justify-content: center;
   padding: 0 8vw;
+  /* Resting / incoming state — sits LOW, SMALL, BLURRED, and tilted
+     back into depth. The cinematic upgrade trades the old flat slide
+     for a true perspective rise: bigger translate, bigger scale gap,
+     bigger blur, and a forward-tilt rotateX so the frame reads as
+     dropping into place from below the viewport. */
   opacity: 0;
-  transform: translateY(28vh);
+  transform:
+    translate3d(0, 38vh, -260px)
+    scale(0.82)
+    rotateX(14deg);
+  filter: blur(26px);
+  transform-origin: 50% 100%;
   transition:
-    opacity 1.05s cubic-bezier(.2,.7,.2,1),
-    transform 1.25s cubic-bezier(.2,.7,.2,1);
+    opacity 1.0s cubic-bezier(.2,.7,.2,1),
+    transform 1.25s cubic-bezier(.34, 1.18, 0.36, 1),
+    filter 0.85s cubic-bezier(.2,.7,.2,1);
   pointer-events: none;
   z-index: 2;
-  will-change: transform, opacity;
+  will-change: transform, opacity, filter;
+  backface-visibility: hidden;
 }
 .approach-stage.is-active {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0) scale(1) rotateX(0);
+  filter: blur(0);
   pointer-events: auto;
+  z-index: 3;
 }
+/* Outgoing: punches FORWARD toward the camera (positive Z + scale up),
+   tilts away with a counter rotateX, blurs out, and fades. Combined
+   with the incoming stage rising from depth this reads as a true
+   camera-dolly transition rather than a presentation slide. */
 .approach-stage.is-leaving {
   opacity: 0;
-  transform: translateY(-28vh);
+  transform:
+    translate3d(0, -22vh, 180px)
+    scale(1.14)
+    rotateX(-10deg);
+  filter: blur(18px);
+  transform-origin: 50% 0%;
 }
 
 /* ---- Intro stage ----
@@ -1031,24 +1070,33 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   right: 0;
   margin-inline: auto;
   transform: translateY(-50%);
+  /* Match the per-stage hero photo box exactly:
+     same 1360px cap, same 76px stage padding (set on the stage) so the
+     left/right edges hit the same X-positions as .approach-visual--hero
+     does on stages 1-4. The height is taller — extending down to where
+     hero-text ends on those stages. */
   max-width: 1360px;
-  /* Height tracks the per-stage card-stack on stages 1-4:
-       visual (clamp 420 / 58vh / 640) + 28px gap + ~150-180px text.
-     Centering it in the stage means its top edge meets the visual's
-     top edge and its bottom edge meets the hero-text's bottom edge
-     on the other stages — i.e. it's slightly taller than their photo
-     alone, finishing where their copy ends. */
   height: clamp(595px, 82vh, 840px);
   background-image:
-    linear-gradient(rgba(20, 18, 16, 0.28), rgba(20, 18, 16, 0.28)),
+    linear-gradient(rgba(20, 18, 16, 0.30), rgba(20, 18, 16, 0.30)),
     url("/assets/chapter%204.png");
   background-size: cover;
-  background-position: center;
+  background-position: center 38%;
   background-repeat: no-repeat;
   /* Same drop shadow as the other hero visuals for consistency. */
   box-shadow: 0 30px 60px -30px rgba(28, 29, 34, 0.25);
   z-index: 0;
   pointer-events: none;
+  will-change: background-position;
+}
+/* Subtle background-position drift while the intro stage is active —
+   keeps the photo feeling alive without expanding its visible box. */
+.approach-stage[data-stage="0"].is-active::before {
+  animation: ch04Drift 22s ease-in-out infinite alternate;
+}
+@keyframes ch04Drift {
+  0%   { background-position: center 34%; }
+  100% { background-position: center 50%; }
 }
 .approach-intro {
   text-align: center;
@@ -1056,6 +1104,31 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   /* Keep the headline + chapter rule above the photo box. */
   position: relative;
   z-index: 1;
+}
+
+/* Stage 0 sits over a dark photo — flip the headline + chapter + scroll
+   hint to paper-white so they read against the darker tone. Em accent
+   shifts to violet-soft so the brand still shows through. */
+.approach-stage[data-stage="0"] .chapter,
+.approach-stage[data-stage="0"] .chapter::before,
+.approach-stage[data-stage="0"] .chapter::after {
+  color: var(--paper);
+}
+.approach-stage[data-stage="0"] .approach-title {
+  color: var(--paper);
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.35);
+}
+.approach-stage[data-stage="0"] .approach-title em {
+  color: var(--violet-soft);
+}
+.approach-stage[data-stage="0"] .approach-scroll-hint {
+  color: rgba(240, 238, 235, 0.72);
+}
+.approach-stage[data-stage="0"] .approach-scroll-hint-line {
+  background: rgba(240, 238, 235, 0.55);
+}
+.approach-stage[data-stage="0"] .approach-scroll-hint-line::after {
+  background: var(--paper);
 }
 .approach-intro .chapter {
   margin-bottom: 56px;
