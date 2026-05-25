@@ -482,6 +482,15 @@ import "../styles/account-sections.css";
       }
     }
 
+    /* When welcome-art is showing an unowned pack it doubles as a
+       "discover this pack" CTA — lift on hover so it reads clickable. */
+    #welcome-art-img[data-pack-slug] {
+      transition: transform 0.4s cubic-bezier(.2,.7,.2,1);
+    }
+    #welcome-art-img[data-pack-slug]:hover {
+      transform: scale(1.03);
+    }
+
     /* ---------- Dashboard "this week + members blog" pair ---------- */
     .dash-pair {
       display: grid;
@@ -1400,28 +1409,78 @@ import "../styles/account-sections.css";
       return drafts;
     }
 
-    // Pick a random "design" image to drop into the welcome-art slot.
-    // Prefers actual draft thumbnails (real work the user has saved);
-    // falls back to pack preview_images / cover URLs (designs from the
-    // packs they own); leaves the default lifestyle photo if neither
-    // exists. Re-runs every page load so the dashboard feels alive.
-    function rotateWelcomeArt(drafts, packs) {
+    // Pick a "design" image — what the user has actually been working on.
+    // Priority:
+    //   1. Posts they've scheduled in /account/schedule (real rendered output)
+    //   2. Drafts with thumbnails (work saved but not scheduled yet)
+    //   3. null — caller falls back to the lifestyle photo
+    function pickDesignUrl(scheduled, drafts) {
       const pool = [];
-      (drafts || []).forEach((d) => { if (d.thumb) pool.push(d.thumb); });
-      if (!pool.length) {
-        (packs || []).forEach((p) => {
-          const previews = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
-          if (previews.length) pool.push(...previews);
-          else if (p.cover_image_url) pool.push(p.cover_image_url);
-        });
-      }
-      if (!pool.length) return;
-      const pick = pool[Math.floor(Math.random() * pool.length)];
+      (scheduled || []).forEach((s) => {
+        const url = s.thumbnail_url || s.asset_url;
+        if (url) pool.push(url);
+      });
+      if (!pool.length) (drafts || []).forEach((d) => { if (d.thumb) pool.push(d.thumb); });
+      if (!pool.length) return null;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    // Pick a pack the user does NOT already own. Returns { url, slug, id }
+    // so the click handler can deep-link into the browse modal at the
+    // matching pack detail view. Returns null if every available pack is
+    // already owned (or none are loaded yet).
+    function pickUnownedPack(allPacks, ownedIds) {
+      const unowned = (allPacks || []).filter((p) => !ownedIds.has(p.id));
+      if (!unowned.length) return null;
+      const p = unowned[Math.floor(Math.random() * unowned.length)];
+      const previews = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
+      const url = previews.length ? previews[Math.floor(Math.random() * previews.length)] : p.cover_image_url;
+      if (!url) return null;
+      return { url, slug: p.slug, id: p.id };
+    }
+
+    // Welcome-art rotation. Alternates each load between a "design"
+    // image and an "unowned pack" image — tracked via localStorage so a
+    // refresh on the same machine swaps to the other type. The pack
+    // image is clickable: clicking it opens the Browse packs modal at
+    // the matching pack detail view.
+    function rotateWelcomeArt({ scheduled, drafts, allPacks, ownedIds }) {
       const $art = document.getElementById('welcome-art-img');
       if (!$art) return;
+      let last = null;
+      try { last = localStorage.getItem('tmke.welcome.last'); } catch (_) {}
+
+      const designUrl = pickDesignUrl(scheduled, drafts);
+      const packPick  = pickUnownedPack(allPacks, ownedIds || new Set());
+
+      // If only one source is available we use it and skip the toggle.
+      let mode;
+      if (!designUrl && !packPick) return;
+      else if (!designUrl) mode = 'pack';
+      else if (!packPick)  mode = 'design';
+      else                 mode = (last === 'design') ? 'pack' : 'design';
+
+      const url = mode === 'pack' ? packPick.url : designUrl;
       const next = new Image();
-      next.onload = () => { $art.src = pick; };
-      next.src = pick;
+      next.onload = () => {
+        $art.src = url;
+        // Toggle interactive treatment + data-attr so the click handler
+        // installed in the bootstrap knows whether to open the shop.
+        if (mode === 'pack') {
+          $art.dataset.packSlug = packPick.slug;
+          $art.dataset.packId   = packPick.id;
+          $art.style.cursor     = 'pointer';
+          $art.setAttribute('title', 'Browse this pack');
+        } else {
+          delete $art.dataset.packSlug;
+          delete $art.dataset.packId;
+          $art.style.cursor   = '';
+          $art.removeAttribute('title');
+        }
+      };
+      next.src = url;
+
+      try { localStorage.setItem('tmke.welcome.last', mode); } catch (_) {}
     }
 
     function renderDrafts(drafts) {
@@ -1565,6 +1624,28 @@ import "../styles/account-sections.css";
     }
 
     $shopOpen?.addEventListener('click', openShop);
+
+    // Welcome-art click — when rotateWelcomeArt has stamped a pack slug
+    // onto the img we use it as a quick "discover this pack" CTA: open
+    // the Browse packs modal and jump to the matching detail view.
+    document.getElementById('welcome-art-img')?.addEventListener('click', async (e) => {
+      const $img = e.currentTarget;
+      const slug = $img.dataset.packSlug;
+      if (!slug) return;
+      await openShop();
+      // openShop loads cachedPacks lazily; wait a tick for the fetch
+      // to settle before asking showDetail to find the pack by slug.
+      const waitForCache = () => new Promise((r) => {
+        let tries = 0;
+        (function tick() {
+          if (cachedPacks.some((p) => p.slug === slug) || tries > 20) return r();
+          tries += 1;
+          setTimeout(tick, 50);
+        })();
+      });
+      await waitForCache();
+      showDetail(slug);
+    });
     $shopClose?.addEventListener('click', closeShop);
     $shopModal?.addEventListener('click', (e) => { if (e.target === $shopModal) closeShop(); });
     $shopBack?.addEventListener('click', () => setView('grid'));
@@ -1624,9 +1705,6 @@ import "../styles/account-sections.css";
       const localDrafts = readLocalDrafts();
       renderDrafts(localDrafts);
       renderBrandStat();
-      // First pass — if the user has draft thumbs, rotate immediately
-      // (no need to wait for the orders/packs network round-trip).
-      rotateWelcomeArt(localDrafts, null);
 
       const { data: orders, error } = await supabase
         .from('orders')
@@ -1692,11 +1770,37 @@ import "../styles/account-sections.css";
         .in('id', packIds);
       const packMap = new Map((packs ?? []).map((p) => [p.id, p]));
 
-      // Second pass — if the user has no draft thumbs, rotate using
-      // preview images from their owned packs. (If they already had
-      // draft thumbs, the first pass already swapped the image and
-      // this call is a no-op in practice.)
-      if (!localDrafts.some((d) => d.thumb)) rotateWelcomeArt(localDrafts, packs);
+      // ===== Welcome-art rotation =====
+      // Pull two independent data sources in parallel so we can pick
+      // the right one (alternating each load) for the hero image.
+      //   * scheduled  — calendar_items the user has rendered + booked
+      //   * allPacks   — every published pack, so we can offer an
+      //                  unowned one to discover
+      // Both queries are soft-failed: if either errors we fall back to
+      // whatever's available (draft thumbnails / lifestyle photo).
+      Promise.all([
+        supabase
+          .from('calendar_items')
+          .select('asset_url, thumbnail_url, scheduled_date')
+          .eq('user_id', session.user.id)
+          .in('status', ['scheduled', 'reminder_sent', 'done'])
+          .order('scheduled_date', { ascending: false })
+          .limit(20),
+        supabase
+          .from('packs')
+          .select('id, slug, cover_image_url, preview_images')
+          .order('sort_order', { ascending: true }),
+      ]).then(([sRes, pRes]) => {
+        rotateWelcomeArt({
+          scheduled: (sRes && sRes.data) || [],
+          drafts: localDrafts,
+          allPacks: (pRes && pRes.data) || [],
+          ownedIds: ownedPackIds,
+        });
+      }).catch(() => {
+        // Last-ditch fallback — use drafts only.
+        rotateWelcomeArt({ scheduled: [], drafts: localDrafts, allPacks: [], ownedIds: ownedPackIds });
+      });
 
       $grid.innerHTML = [...byPack.values()].map(({ order, count }) => {
         const pack = packMap.get(order.pack_id);
