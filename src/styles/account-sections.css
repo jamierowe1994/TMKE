@@ -559,112 +559,23 @@
 }
 
 /* ============================================================
-   Right-side drawer used on /account.
-   When a sidebar link is clicked, the relevant panel renders
-   inside .dash-drawer and slides in from the right.
+   In-place view swap used on /account.
+   Each .dash-view sits in the main column; only the active one
+   is shown. Sidebar links with [data-view="<name>"] toggle the
+   visible view. No drawer overlay; the sidebar stays put.
    ============================================================ */
-.dash-drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 12, 30, 0);
-  backdrop-filter: blur(0);
-  -webkit-backdrop-filter: blur(0);
-  z-index: 120;
-  pointer-events: none;
-  display: flex;
-  justify-content: flex-end;
-  transition:
-    background 0.45s cubic-bezier(.22,1,.36,1),
-    backdrop-filter 0.45s cubic-bezier(.22,1,.36,1),
-    -webkit-backdrop-filter 0.45s cubic-bezier(.22,1,.36,1);
-}
-.dash-drawer-backdrop.is-open {
-  background: rgba(15, 12, 30, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  pointer-events: auto;
-}
-.dash-drawer-backdrop[hidden] { display: none; }
+.dash-view { display: block; }
+.dash-view[hidden] { display: none; }
 
-.dash-drawer {
-  position: relative;
-  width: min(720px, 92vw);
-  height: 100%;
-  background: var(--paper);
-  border-left: 1px solid rgba(28, 29, 34, 0.08);
-  box-shadow:
-    -28px 0 60px -16px rgba(0, 0, 0, 0.40),
-    -4px 0 8px -2px rgba(46, 31, 84, 0.22);
-  display: flex;
-  flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.55s cubic-bezier(.22,1,.36,1);
+@keyframes dashViewIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.dash-drawer-backdrop.is-open .dash-drawer { transform: translateX(0); }
-
-.dash-drawer-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 24px;
-  border-bottom: 1px solid rgba(28, 29, 34, 0.08);
-  flex-shrink: 0;
+/* Re-fade-in when a panel becomes active (not on first load — the
+   per-element slide-in/slide-up animations handle the entry already). */
+.dash-view.is-active:not(:first-child) {
+  animation: dashViewIn 0.45s cubic-bezier(.2,.7,.2,1) both;
 }
-.dash-drawer-bar-label {
-  font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: rgba(28, 29, 34, 0.5);
-}
-.dash-drawer-bar-expand,
-.dash-drawer-bar-close {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--english-violet);
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 4px;
-  text-decoration: none;
-  transition: background 0.2s, color 0.2s;
-}
-.dash-drawer-bar-expand:hover,
-.dash-drawer-bar-close:hover {
-  background: rgba(71, 66, 84, 0.08);
-}
-.dash-drawer-bar-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.dash-drawer-bar-close {
-  font-size: 22px;
-  line-height: 1;
-  letter-spacing: 0;
-  padding: 4px 10px;
-  color: rgba(28, 29, 34, 0.55);
-}
-
-.dash-drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 32px 36px 48px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.dash-drawer-body::-webkit-scrollbar { width: 0; height: 0; display: none; }
-
-/* Hidden panels — only the active one renders content */
-.dash-drawer-panel { display: none; }
-.dash-drawer-panel.is-active { display: block; }
-
 @media (prefers-reduced-motion: reduce) {
-  .dash-drawer-backdrop, .dash-drawer { transition: none; }
+  .dash-view.is-active:not(:first-child) { animation: none; }
 }
