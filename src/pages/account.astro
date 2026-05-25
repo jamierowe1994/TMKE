@@ -40,8 +40,24 @@ import "../styles/account-sections.css";
           <span class="welcome-pill"><strong id="pill-spend">£0</strong> lifetime spend</span>
         </div>
       </div>
-      <div class="welcome-art" aria-hidden="true">
+      <div class="welcome-art" id="welcome-art" data-mode="loading">
         <img id="welcome-art-img" src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
+        <!-- Contextual overlay — populated by rotateWelcomeArt().
+             Three states:
+               · pack    → "Our newest pack" + Browse-this-pack CTA
+               · fresh   → "Start something new" + Jump-into-Studio pill
+                          (used when the image is a template preview, not
+                           one of the user's own exported designs)
+               · design  → no overlay (the exported asset already carries
+                          their branding so it speaks for itself) -->
+        <div class="welcome-art-overlay" id="welcome-art-overlay" hidden>
+          <span class="welcome-art-eyebrow" id="welcome-art-eyebrow"></span>
+          <span class="welcome-art-headline" id="welcome-art-headline"></span>
+          <a class="welcome-art-pill" id="welcome-art-cta" href="#" hidden>
+            <span id="welcome-art-cta-label">Jump into a new design</span>
+            <em aria-hidden="true">&rarr;</em>
+          </a>
+        </div>
       </div>
     </section>
 
@@ -237,6 +253,101 @@ import "../styles/account-sections.css";
     }
     #welcome-art-img[data-pack-slug]:hover {
       transform: scale(1.03);
+    }
+
+    /* ---------- Welcome-art overlay ----------
+       Sits over the bottom of the welcome-art photo and explains what
+       the user is looking at. Three modes (set via [data-mode] on the
+       wrapper):
+         · pack      → "Our newest pack — just launched." + Browse pill
+         · fresh     → "Start something new." + Jump-into-Studio pill
+         · exported  → no overlay (user's own design speaks for itself)
+       Tint colour shifts per mode so the two states feel distinct. */
+    .welcome-art {
+      /* Already position: relative from workspace.css; this is a no-op
+         marker so anyone reading these styles sees it's an overlay
+         anchor. */
+      isolation: isolate;
+    }
+    .welcome-art-overlay {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 18px 20px 18px;
+      color: var(--paper);
+      background: linear-gradient(
+        180deg,
+        rgba(20, 16, 28, 0) 0%,
+        rgba(20, 16, 28, 0.55) 55%,
+        rgba(20, 16, 28, 0.86) 100%
+      );
+      transition: opacity 0.5s cubic-bezier(.2,.7,.2,1),
+                  transform 0.5s cubic-bezier(.2,.7,.2,1);
+    }
+    .welcome-art-overlay > * { pointer-events: auto; }
+    /* Starting state is set inline by JS so the fade-in is guaranteed
+       to run after the image swap regardless of HMR cascade timing. */
+    .welcome-art-eyebrow {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(240, 238, 235, 0.75);
+    }
+    .welcome-art[data-mode="pack"] .welcome-art-eyebrow {
+      color: var(--violet-soft);
+    }
+    .welcome-art-headline {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(15px, 1.4vw, 19px);
+      line-height: 1.25;
+      letter-spacing: -0.005em;
+      color: var(--paper);
+      max-width: 90%;
+    }
+    .welcome-art-pill {
+      align-self: flex-start;
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px 9px 18px;
+      background: var(--paper);
+      color: var(--violet-deep);
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.6);
+      transition: transform 0.3s cubic-bezier(.2,.7,.2,1),
+                  background 0.25s, color 0.25s, box-shadow 0.25s;
+    }
+    .welcome-art-pill:hover,
+    .welcome-art-pill:focus-visible {
+      transform: translateY(-1px);
+      background: var(--english-violet, var(--violet-deep));
+      color: var(--paper);
+      box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.7);
+    }
+    .welcome-art-pill em {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+      letter-spacing: 0;
+      text-transform: none;
+      line-height: 1;
+    }
+    @media (max-width: 880px) {
+      .welcome-art-overlay { padding: 14px 16px; gap: 4px; }
+      .welcome-art-headline { font-size: 14px; }
+      .welcome-art-pill { font-size: 10px; padding: 8px 14px; letter-spacing: 0.16em; }
     }
 
     /* ---------- Dashboard "this week + members blog" pair ---------- */
@@ -1152,22 +1263,31 @@ import "../styles/account-sections.css";
     //   4. Curated Unsplash fallback so SOMETHING surfaces even on a
     //      brand-new account.
     function pickDesignUrl(scheduled, drafts, ownedPacksWithImages) {
-      const pool = [];
+      // Source tagging lets the welcome-art overlay decide whether to
+      // show the "Jump into a new design" pill. Exported scheduled
+      // assets already carry the user's branding, so they need no pill;
+      // pack previews / fallback photos do, because they're generic.
+      const pools = { scheduled: [], draft: [], owned: [], fallback: WELCOME_ART_FALLBACK };
       (scheduled || []).forEach((s) => {
         const url = s.thumbnail_url || s.asset_url;
-        if (url) pool.push(url);
+        if (url) pools.scheduled.push(url);
       });
-      if (!pool.length) (drafts || []).forEach((d) => { if (d.thumb) pool.push(d.thumb); });
-      if (!pool.length) {
-        (ownedPacksWithImages || []).forEach((p) => {
-          const previews = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
-          if (previews.length) pool.push(...previews);
-          else if (p.cover_image_url) pool.push(p.cover_image_url);
-        });
+      (drafts || []).forEach((d) => { if (d.thumb) pools.draft.push(d.thumb); });
+      (ownedPacksWithImages || []).forEach((p) => {
+        const previews = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
+        if (previews.length) pools.owned.push(...previews);
+        else if (p.cover_image_url) pools.owned.push(p.cover_image_url);
+      });
+
+      const order = ['scheduled', 'draft', 'owned', 'fallback'];
+      for (const key of order) {
+        const pool = pools[key];
+        if (pool && pool.length) {
+          return { url: pool[Math.floor(Math.random() * pool.length)], source: key };
+        }
       }
-      // Last-ditch: ALWAYS return something so the rotation visibly works.
-      const source = pool.length ? pool : WELCOME_ART_FALLBACK;
-      return source[Math.floor(Math.random() * source.length)];
+      // pools.fallback always has entries so we never get here.
+      return { url: WELCOME_ART_FALLBACK[0], source: 'fallback' };
     }
 
     // Pick a pack the user does NOT already own. Returns { url, slug, id }
@@ -1181,7 +1301,7 @@ import "../styles/account-sections.css";
       const previews = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
       const url = previews.length ? previews[Math.floor(Math.random() * previews.length)] : p.cover_image_url;
       if (!url) return null;
-      return { url, slug: p.slug, id: p.id };
+      return { url, slug: p.slug, id: p.id, title: p.title || '' };
     }
 
     // Welcome-art rotation. Alternates each load between a "design"
@@ -1190,28 +1310,62 @@ import "../styles/account-sections.css";
     // image is clickable: clicking it opens the Browse packs modal at
     // the matching pack detail view.
     function rotateWelcomeArt({ scheduled, drafts, allPacks, ownedIds }) {
-      const $art = document.getElementById('welcome-art-img');
+      const $art      = document.getElementById('welcome-art-img');
+      const $wrap     = document.getElementById('welcome-art');
+      const $overlay  = document.getElementById('welcome-art-overlay');
+      const $eyebrow  = document.getElementById('welcome-art-eyebrow');
+      const $headline = document.getElementById('welcome-art-headline');
+      const $cta      = document.getElementById('welcome-art-cta');
+      const $ctaLbl   = document.getElementById('welcome-art-cta-label');
       if (!$art) return;
       let last = null;
       try { last = localStorage.getItem('tmke.welcome.last'); } catch (_) {}
 
       const ownedPacks = (allPacks || []).filter((p) => (ownedIds || new Set()).has(p.id));
-      const designUrl  = pickDesignUrl(scheduled, drafts, ownedPacks);
+      const designPick = pickDesignUrl(scheduled, drafts, ownedPacks);
       const packPick   = pickUnownedPack(allPacks, ownedIds || new Set());
 
       // If only one source is available we use it and skip the toggle.
       let mode;
-      if (!designUrl && !packPick) return;
-      else if (!designUrl) mode = 'pack';
-      else if (!packPick)  mode = 'design';
-      else                 mode = (last === 'design') ? 'pack' : 'design';
+      if (!designPick && !packPick) return;
+      else if (!designPick) mode = 'pack';
+      else if (!packPick)   mode = 'design';
+      else                  mode = (last === 'design') ? 'pack' : 'design';
 
-      const url = mode === 'pack' ? packPick.url : designUrl;
+      const url = mode === 'pack' ? packPick.url : designPick.url;
+      // The image source is exported (= already has user's branding) only
+      // when it came from a scheduled / rendered asset.
+      const isExportedDesign = mode === 'design' && designPick.source === 'scheduled';
+
+      // Decide overlay shape up-front so the JS reads as one decision.
+      // overlayState = { hidden, eyebrow, headline, cta: { label, href, view? } | null }
+      let overlayState;
+      if (mode === 'pack') {
+        const title = packPick.title || 'New in the shop';
+        overlayState = {
+          hidden: false,
+          eyebrow: 'Our newest pack',
+          headline: title + ' — just launched.',
+          cta: { label: 'Take a look', href: '#shop', action: 'shop' },
+        };
+      } else if (isExportedDesign) {
+        // Their own rendered design — show their work, no nudge needed.
+        overlayState = { hidden: true };
+      } else {
+        // Generic preview from an owned pack / draft / fallback photo —
+        // nudge them into the studio with a pill.
+        const isDraft = designPick.source === 'draft';
+        overlayState = {
+          hidden: false,
+          eyebrow: isDraft ? 'Pick up where you left off' : 'Start something new',
+          headline: isDraft ? 'Continue your draft.' : 'Make this yours in the Studio.',
+          cta: { label: isDraft ? 'Open in Studio' : 'Jump into a new design', href: '/editor' },
+        };
+      }
+
       const next = new Image();
       next.onload = () => {
         $art.src = url;
-        // Toggle interactive treatment + data-attr so the click handler
-        // installed in the bootstrap knows whether to open the shop.
         if (mode === 'pack') {
           $art.dataset.packSlug = packPick.slug;
           $art.dataset.packId   = packPick.id;
@@ -1223,6 +1377,41 @@ import "../styles/account-sections.css";
           $art.style.cursor   = '';
           $art.removeAttribute('title');
         }
+        if ($wrap) $wrap.dataset.mode = isExportedDesign ? 'exported' : mode;
+
+        if (!$overlay) return;
+        if (overlayState.hidden) {
+          $overlay.style.opacity = '0';
+          $overlay.style.transform = 'translateY(8px)';
+          $overlay.style.pointerEvents = 'none';
+          $overlay.hidden = true;
+          return;
+        }
+        $overlay.hidden = false;
+        $overlay.style.pointerEvents = 'auto';
+        // Start at the lifted/transparent state, then on the next frame
+        // bump to the rest state so the transition runs every time the
+        // image swaps (rotation, demo refresh, etc.).
+        $overlay.style.opacity = '0';
+        $overlay.style.transform = 'translateY(8px)';
+        if ($eyebrow) $eyebrow.textContent = overlayState.eyebrow || '';
+        if ($headline) $headline.textContent = overlayState.headline || '';
+        if ($cta && $ctaLbl) {
+          if (overlayState.cta) {
+            $cta.hidden = false;
+            $ctaLbl.textContent = overlayState.cta.label;
+            $cta.setAttribute('href', overlayState.cta.href);
+            $cta.dataset.action = overlayState.cta.action || '';
+          } else {
+            $cta.hidden = true;
+          }
+        }
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            $overlay.style.opacity = '1';
+            $overlay.style.transform = 'translateY(0)';
+          });
+        });
       };
       next.src = url;
 
@@ -1374,9 +1563,7 @@ import "../styles/account-sections.css";
     // Welcome-art click — when rotateWelcomeArt has stamped a pack slug
     // onto the img we use it as a quick "discover this pack" CTA: open
     // the Browse packs modal and jump to the matching detail view.
-    document.getElementById('welcome-art-img')?.addEventListener('click', async (e) => {
-      const $img = e.currentTarget;
-      const slug = $img.dataset.packSlug;
+    async function openShopAtSlug(slug) {
       if (!slug) return;
       await openShop();
       // openShop loads cachedPacks lazily; wait a tick for the fetch
@@ -1384,13 +1571,32 @@ import "../styles/account-sections.css";
       const waitForCache = () => new Promise((r) => {
         let tries = 0;
         (function tick() {
-          if (cachedPacks.some((p) => p.slug === slug) || tries > 20) return r();
+          if (cachedPacks && cachedPacks.some((p) => p.slug === slug) || tries > 20) return r();
           tries += 1;
           setTimeout(tick, 50);
         })();
       });
       await waitForCache();
       showDetail(slug);
+    }
+
+    document.getElementById('welcome-art-img')?.addEventListener('click', async (e) => {
+      const $img = e.currentTarget;
+      const slug = $img.dataset.packSlug;
+      if (!slug) return;
+      await openShopAtSlug(slug);
+    });
+
+    // Welcome-art overlay CTA: when it's the "Take a look" action on a
+    // newly-launched pack, route through the shop modal instead of
+    // navigating away; the /editor pill is just a plain anchor.
+    document.getElementById('welcome-art-cta')?.addEventListener('click', async (e) => {
+      const $cta = e.currentTarget;
+      if ($cta.dataset.action !== 'shop') return;
+      e.preventDefault();
+      const $img = document.getElementById('welcome-art-img');
+      const slug = $img && $img.dataset.packSlug;
+      await openShopAtSlug(slug);
     });
     $shopClose?.addEventListener('click', closeShop);
     $shopModal?.addEventListener('click', (e) => { if (e.target === $shopModal) closeShop(); });
@@ -1539,7 +1745,7 @@ import "../styles/account-sections.css";
           .limit(20),
         supabase
           .from('packs')
-          .select('id, slug, cover_image_url, preview_images')
+          .select('id, slug, title, cover_image_url, preview_images')
           .order('sort_order', { ascending: true }),
       ]).then(([sRes, pRes]) => {
         rotateWelcomeArt({
