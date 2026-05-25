@@ -1,0 +1,683 @@
+---
+// PARADE — Polished everyday agent template.
+// Horizon Estate-inspired: clean white, large sans-serif headline, embedded
+// search-tab hero, listings grid with pricing, agent profile card.
+
+const UNSPLASH = (id, w = 1600, h = 1000) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
+
+const HERO = UNSPLASH("1496564203457-11bb12075d90", 2400, 1500);
+
+const LISTINGS = [
+  { title: "Azura Villa",   where: "Greece / Cyclades / Mykonos", price: "£470,000", beds: 6, baths: 2, floors: 2, sqm: 400, img: UNSPLASH("1600210492486-724fe5c67fb0", 1200, 900) },
+  { title: "Aurora House",  where: "Cornwall / Padstow",          price: "£1,250,000", beds: 4, baths: 3, floors: 2, sqm: 220, img: UNSPLASH("1512917774080-9991f1c4c750", 1200, 900) },
+  { title: "Vela Residence",where: "Surrey / Esher",              price: "£995,000",  beds: 5, baths: 3, floors: 2, sqm: 280, img: UNSPLASH("1583847268964-b28dc8f51f92", 1200, 900) },
+  { title: "Sable Mews",    where: "London / Hackney",            price: "£725,000",  beds: 3, baths: 2, floors: 2, sqm: 140, img: UNSPLASH("1505691938895-1758d7feb511", 1200, 900) },
+  { title: "Crescent 14",   where: "Bristol / Clifton",           price: "£865,000",  beds: 4, baths: 2, floors: 3, sqm: 180, img: UNSPLASH("1480714378408-67cf0d13bc1b", 1200, 900) },
+  { title: "Linden Court",  where: "Edinburgh / Stockbridge",     price: "£560,000",  beds: 3, baths: 2, floors: 2, sqm: 130, img: UNSPLASH("1560448204-e02f11c3d0e2", 1200, 900) },
+];
+
+const TABS = ["Buy", "Rent", "New developments", "Commercial properties"];
+
+const BENEFITS = [
+  { h: "Local agents", p: "Every postcode covered by someone who lives or has lived there." },
+  { h: "Honest valuations", p: "We tell you what your home is worth, not what wins us the instruction." },
+  { h: "Move with one team", p: "Sales, lettings, mortgage referrals — handled by one named person." },
+];
+---
+
+<div class="pa-root">
+
+  <!-- Nav -->
+  <header class="pa-nav">
+    <a href="#" class="pa-mark">
+      <span>HORIZON</span>
+      <span class="pa-mark-sub">ESTATE</span>
+    </a>
+    <nav class="pa-nav-links">
+      <a href="#">Properties <span aria-hidden="true">&darr;</span></a>
+      <a href="#" class="pa-nav-pill">Mortgage <em>New</em></a>
+      <a href="#">Company</a>
+      <a href="#">Careers <span aria-hidden="true">&darr;</span></a>
+      <a href="#">Blog</a>
+    </nav>
+    <a href="#" class="pa-nav-cta">
+      <span aria-hidden="true">+</span> Post a property
+    </a>
+  </header>
+
+  <!-- Hero -->
+  <section class="pa-hero">
+    <div class="pa-hero-grid">
+      <div class="pa-hero-text">
+        <h1 class="pa-hero-h">
+          Find a place you<br />will call home
+        </h1>
+        <p class="pa-hero-p">
+          With us you will find not just accommodation, but a place where your new
+          life begins, full of coziness and possibilities.
+        </p>
+        <a href="#register-interest" class="pa-hero-btn">Book a call</a>
+      </div>
+      <div class="pa-hero-side">
+        <p>
+          Virtual tours, curated listings, and expert guidance &mdash; everything
+          you need to explore and buy with confidence.
+        </p>
+      </div>
+    </div>
+    <div class="pa-hero-media">
+      <img src={HERO} alt="Modern family home" loading="eager" />
+    </div>
+  </section>
+
+  <!-- Search panel -->
+  <section class="pa-search-wrap">
+    <div class="pa-search">
+      <header class="pa-search-head">
+        <div class="pa-search-text">
+          <h2>We help you find the home that will be yours</h2>
+        </div>
+        <p class="pa-search-sub">
+          Our projects are about harmony, style and care that everyone lives in
+          what is really important to them.
+        </p>
+      </header>
+
+      <div class="pa-tabs" role="tablist">
+        {TABS.map((t, i) => (
+          <button type="button" class={`pa-tab ${i === 0 ? "is-active" : ""}`} role="tab">{t}</button>
+        ))}
+      </div>
+
+      <div class="pa-filters">
+        <label>
+          <span>All countries</span>
+          <select><option>All countries</option><option>United Kingdom</option><option>Spain</option><option>Greece</option></select>
+        </label>
+        <label>
+          <span>New property</span>
+          <select><option>New property</option><option>Resale</option><option>New build</option></select>
+        </label>
+        <label>
+          <span>£280,000 &mdash; £500,000</span>
+          <select><option>£280,000 &mdash; £500,000</option><option>£500,000 &mdash; £1m</option><option>£1m+</option></select>
+        </label>
+        <label>
+          <span>All sizes (m²)</span>
+          <select><option>All sizes (m²)</option><option>Up to 100</option><option>100 &mdash; 200</option><option>200+</option></select>
+        </label>
+        <div class="pa-filters-actions">
+          <button type="button" class="pa-filters-more"><span aria-hidden="true">+</span> More options</button>
+          <button type="button" class="pa-filters-clear">Clear filters</button>
+          <button type="button" class="pa-filters-go">Show properties</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Listings -->
+  <section class="pa-listings">
+    <header class="pa-section-head">
+      <div>
+        <div class="pa-chapter">Featured listings</div>
+        <h2>What's on the market this week.</h2>
+      </div>
+      <a href="#" class="pa-section-link">View all <span aria-hidden="true">&rarr;</span></a>
+    </header>
+    <div class="pa-listings-grid">
+      {LISTINGS.map((l) => (
+        <article class="pa-listing">
+          <div class="pa-listing-media">
+            <img src={l.img} alt={l.title} loading="lazy" />
+            <button type="button" class="pa-listing-fav" aria-label="Save">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="pa-listing-body">
+            <header>
+              <h3>{l.title}</h3>
+              <strong class="pa-listing-price">{l.price}</strong>
+            </header>
+            <p class="pa-listing-where">{l.where}</p>
+            <ul class="pa-listing-meta">
+              <li>{l.sqm} m²</li>
+              <li>{l.floors} floors</li>
+              <li>{l.beds} beds</li>
+              <li>{l.baths} baths</li>
+            </ul>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <!-- Benefits -->
+  <section class="pa-benefits">
+    <header class="pa-section-head">
+      <div>
+        <div class="pa-chapter">Why us</div>
+        <h2>One team, the whole move.</h2>
+      </div>
+    </header>
+    <div class="pa-benefits-grid">
+      {BENEFITS.map((b, i) => (
+        <article class="pa-benefit">
+          <span class="pa-benefit-num">{String(i + 1).padStart(2, "0")}</span>
+          <h3>{b.h}</h3>
+          <p>{b.p}</p>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <!-- Agent card -->
+  <section class="pa-agent">
+    <div class="pa-agent-inner">
+      <div class="pa-agent-photo">
+        <img src={UNSPLASH("1507003211169-0a1dd7228f2d", 600, 800)} alt="Marcus Lee" loading="lazy" />
+      </div>
+      <div class="pa-agent-body">
+        <div class="pa-agent-brand">HORIZON ESTATE</div>
+        <h2>Marcus Lee</h2>
+        <p class="pa-agent-role">Real estate agent</p>
+        <div class="pa-agent-rating">
+          <strong>4.5</strong>
+          <span>/5 &middot; 76 reviews</span>
+        </div>
+        <p class="pa-agent-bio">
+          Twelve years across SW London and Surrey. Specialises in family homes
+          between £700k and £2m. Direct, well-prepared, and on the phone fast.
+        </p>
+        <div class="pa-agent-actions">
+          <a href="#register-interest" class="pa-hero-btn pa-hero-btn--dark">Book a viewing</a>
+          <a href="#" class="pa-agent-link">See Marcus's listings &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="pa-foot">
+    <div class="pa-foot-grid">
+      <div>
+        <div class="pa-mark pa-foot-mark">
+          <span>HORIZON</span>
+          <span class="pa-mark-sub">ESTATE</span>
+        </div>
+        <p>The polished everyday agency &mdash; sales, lettings, mortgages.</p>
+      </div>
+      <div>
+        <h4>Properties</h4>
+        <ul><li>For sale</li><li>To let</li><li>New homes</li><li>Commercial</li></ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul><li>About</li><li>Careers</li><li>Press</li><li>Contact</li></ul>
+      </div>
+      <div>
+        <h4>Stay in touch</h4>
+        <form class="pa-foot-sub" onsubmit="event.preventDefault();">
+          <input type="email" placeholder="Your email" />
+          <button type="submit">Sign up</button>
+        </form>
+      </div>
+    </div>
+    <div class="pa-foot-base">
+      <span>&copy; 2026 Horizon Estate</span>
+      <span>Regulated by ARLA &middot; Propertymark</span>
+    </div>
+  </footer>
+</div>
+
+<style>
+  .pa-root {
+    --pa-paper: #FFFFFF;
+    --pa-bg:    #F5F4F1;
+    --pa-ink:   #18181B;
+    --pa-mute:  rgba(24,24,27,0.6);
+    --pa-line:  rgba(24,24,27,0.1);
+    --pa-accent:#2563eb;
+    --pa-sans:  "Inter", "Darker Grotesque", system-ui, sans-serif;
+    --pa-serif: "Cormorant Garamond", Georgia, serif;
+    background: var(--pa-bg);
+    color: var(--pa-ink);
+    font-family: var(--pa-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .pa-root *, .pa-root *::before, .pa-root *::after { box-sizing: border-box; }
+
+  /* === Nav === */
+  .pa-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    background: var(--pa-paper);
+    border-bottom: 1px solid var(--pa-line);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .pa-mark {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1;
+    color: var(--pa-ink);
+  }
+  .pa-mark span { font-weight: 800; font-size: 14px; letter-spacing: 0.04em; }
+  .pa-mark-sub { font-weight: 400; font-size: 11px; letter-spacing: 0.2em; color: var(--pa-mute); margin-top: 2px; }
+  .pa-nav-links { display: flex; gap: 22px; align-items: center; }
+  .pa-nav-links a {
+    font-size: 14px;
+    color: var(--pa-ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pa-nav-links a:hover { color: var(--pa-accent); }
+  .pa-nav-pill em {
+    font-style: normal;
+    font-size: 10px;
+    background: var(--pa-ink);
+    color: var(--pa-paper);
+    padding: 1px 6px;
+    border-radius: 999px;
+    margin-left: 4px;
+  }
+  .pa-nav-cta {
+    padding: 9px 18px;
+    border: 1px solid var(--pa-line);
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--pa-ink);
+    background: var(--pa-paper);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pa-nav-cta:hover { background: var(--pa-bg); }
+
+  /* === Hero === */
+  .pa-hero { padding: 56px 32px 0; max-width: 1280px; margin: 0 auto; background: var(--pa-paper); }
+  .pa-hero-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 48px;
+    align-items: flex-end;
+    margin-bottom: 32px;
+  }
+  @media (max-width: 880px) {
+    .pa-hero-grid { grid-template-columns: 1fr; }
+  }
+  .pa-hero-h {
+    font-family: var(--pa-sans);
+    font-weight: 600;
+    font-size: clamp(40px, 6vw, 72px);
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    margin: 0 0 28px;
+  }
+  .pa-hero-btn {
+    display: inline-block;
+    padding: 12px 24px;
+    background: var(--pa-ink);
+    color: var(--pa-paper);
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+  }
+  .pa-hero-btn:hover { background: #000; }
+  .pa-hero-btn--dark { background: var(--pa-ink); }
+  .pa-hero-side p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--pa-mute);
+    margin: 0;
+  }
+  .pa-hero-media {
+    aspect-ratio: 16 / 8;
+    overflow: hidden;
+    border-radius: 4px;
+  }
+  .pa-hero-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* === Search panel === */
+  .pa-search-wrap { background: var(--pa-paper); padding: 56px 32px; }
+  .pa-search { max-width: 1280px; margin: 0 auto; }
+  .pa-search-head {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 32px;
+    align-items: end;
+    margin-bottom: 32px;
+  }
+  @media (max-width: 880px) { .pa-search-head { grid-template-columns: 1fr; } }
+  .pa-search-head h2 {
+    font-weight: 600;
+    font-size: clamp(28px, 3.4vw, 40px);
+    line-height: 1.1;
+    letter-spacing: -0.018em;
+    margin: 0;
+    max-width: 20ch;
+  }
+  .pa-search-sub {
+    font-size: 14px;
+    color: var(--pa-mute);
+    margin: 0;
+    line-height: 1.7;
+  }
+
+  .pa-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--pa-line); }
+  .pa-tab {
+    padding: 12px 18px;
+    background: transparent;
+    border: 0;
+    border-radius: 8px 8px 0 0;
+    font: inherit;
+    font-size: 14px;
+    color: var(--pa-mute);
+    cursor: pointer;
+  }
+  .pa-tab.is-active {
+    background: var(--pa-bg);
+    color: var(--pa-ink);
+    font-weight: 600;
+  }
+
+  .pa-filters {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr) auto;
+    gap: 12px;
+    padding: 20px;
+    background: var(--pa-bg);
+    border-radius: 0 0 12px 12px;
+    align-items: end;
+  }
+  @media (max-width: 880px) { .pa-filters { grid-template-columns: 1fr 1fr; } }
+  .pa-filters label { display: flex; flex-direction: column; gap: 4px; }
+  .pa-filters label > span {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pa-mute);
+  }
+  .pa-filters select {
+    border: 1px solid var(--pa-line);
+    background: var(--pa-paper);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--pa-ink);
+  }
+  .pa-filters-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    grid-column: 1 / -1;
+    padding-top: 8px;
+    border-top: 1px solid var(--pa-line);
+  }
+  .pa-filters-more,
+  .pa-filters-clear,
+  .pa-filters-go {
+    padding: 10px 16px;
+    background: var(--pa-paper);
+    border: 1px solid var(--pa-line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .pa-filters-more { margin-right: auto; }
+  .pa-filters-go {
+    background: var(--pa-ink);
+    color: var(--pa-paper);
+    border-color: var(--pa-ink);
+    font-weight: 500;
+  }
+
+  /* === Section heads === */
+  .pa-section-head {
+    max-width: 1280px;
+    margin: 0 auto 28px;
+    padding: 0 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 24px;
+  }
+  .pa-chapter {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--pa-mute);
+    margin-bottom: 8px;
+  }
+  .pa-section-head h2 {
+    font-weight: 600;
+    font-size: clamp(26px, 3vw, 36px);
+    line-height: 1.1;
+    letter-spacing: -0.018em;
+    margin: 0;
+  }
+  .pa-section-link {
+    font-size: 14px;
+    color: var(--pa-ink);
+    border-bottom: 1px solid var(--pa-line);
+    padding-bottom: 2px;
+  }
+
+  /* === Listings === */
+  .pa-listings { padding: 80px 0; background: var(--pa-bg); }
+  .pa-listings-grid {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+  }
+  @media (max-width: 880px) { .pa-listings-grid { grid-template-columns: 1fr; } }
+  .pa-listing {
+    background: var(--pa-paper);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .pa-listing:hover { transform: translateY(-2px); box-shadow: 0 24px 60px -32px rgba(24,24,27,0.2); }
+  .pa-listing-media { position: relative; aspect-ratio: 4 / 3; overflow: hidden; }
+  .pa-listing-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pa-listing-fav {
+    position: absolute; top: 12px; right: 12px;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    border: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--pa-ink);
+  }
+  .pa-listing-fav svg { width: 16px; height: 16px; }
+  .pa-listing-body { padding: 18px 18px 20px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .pa-listing-body header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .pa-listing-body h3 {
+    font-weight: 600;
+    font-size: 18px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .pa-listing-price {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--pa-ink);
+  }
+  .pa-listing-where {
+    font-size: 13px;
+    color: var(--pa-mute);
+    margin: 0;
+  }
+  .pa-listing-meta {
+    list-style: none;
+    padding: 12px 0 0;
+    margin: 0;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--pa-line);
+  }
+  .pa-listing-meta li {
+    font-size: 12px;
+    padding: 4px 10px;
+    background: var(--pa-bg);
+    border-radius: 999px;
+    color: var(--pa-ink);
+  }
+
+  /* === Benefits === */
+  .pa-benefits { padding: 80px 0; background: var(--pa-paper); }
+  .pa-benefits-grid {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  @media (max-width: 880px) { .pa-benefits-grid { grid-template-columns: 1fr; } }
+  .pa-benefit {
+    padding: 24px;
+    background: var(--pa-bg);
+    border-radius: 12px;
+  }
+  .pa-benefit-num {
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--pa-mute);
+  }
+  .pa-benefit h3 {
+    font-weight: 600;
+    font-size: 20px;
+    margin: 14px 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .pa-benefit p {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--pa-mute);
+    margin: 0;
+  }
+
+  /* === Agent === */
+  .pa-agent { padding: 80px 32px; background: var(--pa-bg); }
+  .pa-agent-inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    background: var(--pa-paper);
+    border-radius: 16px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 0;
+  }
+  @media (max-width: 880px) { .pa-agent-inner { grid-template-columns: 1fr; } }
+  .pa-agent-photo { aspect-ratio: 4 / 5; overflow: hidden; }
+  .pa-agent-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pa-agent-body { padding: 36px 40px; display: flex; flex-direction: column; justify-content: center; }
+  .pa-agent-brand {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    color: var(--pa-mute);
+    margin-bottom: 14px;
+  }
+  .pa-agent-body h2 {
+    font-weight: 600;
+    font-size: clamp(28px, 3vw, 38px);
+    margin: 0 0 4px;
+    letter-spacing: -0.018em;
+  }
+  .pa-agent-role { font-size: 14px; color: var(--pa-mute); margin: 0 0 14px; }
+  .pa-agent-rating { font-size: 14px; margin-bottom: 18px; }
+  .pa-agent-rating strong { font-size: 22px; font-weight: 600; }
+  .pa-agent-rating span { color: var(--pa-mute); margin-left: 4px; }
+  .pa-agent-bio {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--pa-mute);
+    max-width: 50ch;
+    margin: 0 0 22px;
+  }
+  .pa-agent-actions { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .pa-agent-link { font-size: 13px; color: var(--pa-ink); }
+
+  /* === Footer === */
+  .pa-foot { background: var(--pa-paper); border-top: 1px solid var(--pa-line); padding: 60px 32px 28px; }
+  .pa-foot-grid {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr 1.4fr;
+    gap: 36px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--pa-line);
+  }
+  @media (max-width: 880px) { .pa-foot-grid { grid-template-columns: 1fr 1fr; } }
+  .pa-foot-mark { margin-bottom: 12px; }
+  .pa-foot p { font-size: 13px; color: var(--pa-mute); margin: 0; line-height: 1.6; }
+  .pa-foot h4 {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--pa-mute);
+    margin: 0 0 12px;
+  }
+  .pa-foot ul { list-style: none; padding: 0; margin: 0; }
+  .pa-foot ul li {
+    font-size: 13px;
+    color: var(--pa-ink);
+    padding: 4px 0;
+  }
+  .pa-foot-sub {
+    display: flex;
+    gap: 8px;
+  }
+  .pa-foot-sub input {
+    flex: 1;
+    border: 1px solid var(--pa-line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 13px;
+    background: var(--pa-bg);
+  }
+  .pa-foot-sub button {
+    padding: 10px 16px;
+    background: var(--pa-ink);
+    color: var(--pa-paper);
+    border: 0;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .pa-foot-base {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding-top: 22px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--pa-mute);
+  }
+</style>
