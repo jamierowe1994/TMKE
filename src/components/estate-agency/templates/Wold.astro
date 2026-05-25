@@ -1,18 +1,27 @@
 ---
-// WOLD — Countryside template.
-// Warm cream/oak palette. Traditional country property, minimal pace.
-// Regional collections, period-property listings, slow editorial copy.
+// WOLD — Countryside template (v2).
+// Cinematic split-hero in the Cala Mira spirit: full-bleed property image,
+// dark glass info panel with status, title, metadata table and a floor-plan
+// sketch. Every following section sits on a warm-taupe page and slowly
+// fades-and-rises into view as the visitor scrolls.
 
 const UNSPLASH = (id, w = 1600, h = 1000) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
 
-const HERO = UNSPLASH("1505693416388-ac5ce068fe85", 2400, 1500);
+const HERO = UNSPLASH("1505693416388-ac5ce068fe85", 2400, 1600);
+
+const HERO_META = [
+  ["Interior",      "320 m²"],
+  ["Land",          "1.2 acres"],
+  ["Period",        "1840s · Grade II"],
+  ["Architecture",  "Stone & oak"],
+];
 
 const REGIONS = [
-  { name: "Cotswolds",     count: 28, img: UNSPLASH("1469854523086-cc02fe5d8800", 800, 600) },
-  { name: "Yorkshire Dales", count: 17, img: UNSPLASH("1502672260266-1c1ef2d93688", 800, 600) },
-  { name: "Lake District", count: 22, img: UNSPLASH("1496564203457-11bb12075d90", 800, 600) },
-  { name: "Peak District", count: 14, img: UNSPLASH("1521017432531-fbd92d768814", 800, 600) },
+  { name: "Cotswolds",       count: 28, img: UNSPLASH("1469854523086-cc02fe5d8800", 900, 1100) },
+  { name: "Yorkshire Dales", count: 17, img: UNSPLASH("1502672260266-1c1ef2d93688", 900, 1100) },
+  { name: "Lake District",   count: 22, img: UNSPLASH("1496564203457-11bb12075d90", 900, 1100) },
+  { name: "Peak District",   count: 14, img: UNSPLASH("1521017432531-fbd92d768814", 900, 1100) },
 ];
 
 const LISTINGS = [
@@ -23,7 +32,7 @@ const LISTINGS = [
     land: "1.2 acres",
     beds: 4,
     guide: "£1,650,000",
-    img: UNSPLASH("1505693416388-ac5ce068fe85", 1200, 900),
+    img: UNSPLASH("1505693416388-ac5ce068fe85", 1400, 1000),
   },
   {
     title: "Foxholes Farm",
@@ -32,7 +41,7 @@ const LISTINGS = [
     land: "8.4 acres",
     beds: 6,
     guide: "£2,250,000",
-    img: UNSPLASH("1448630360428-65456885c650", 1200, 900),
+    img: UNSPLASH("1448630360428-65456885c650", 1400, 1000),
   },
   {
     title: "Long Meadow",
@@ -41,115 +50,189 @@ const LISTINGS = [
     land: "0.6 acres",
     beds: 5,
     guide: "£995,000",
-    img: UNSPLASH("1430285561322-7808604715df", 1200, 900),
+    img: UNSPLASH("1430285561322-7808604715df", 1400, 1000),
   },
 ];
 
 const VALUES = [
-  { h: "Character",  p: "Houses with bones worth preserving — beams, stone, period detail." },
-  { h: "Light",      p: "Aspect, ceilings, windows. The rooms feel right before you measure them." },
-  { h: "Land",       p: "An acre that earns its keep — orchard, paddock, walled garden, view." },
+  { h: "Character",   p: "Houses with bones worth preserving — beams, stone, period detail." },
+  { h: "Light",       p: "Aspect, ceilings, windows. The rooms feel right before you measure them." },
+  { h: "Land",        p: "An acre that earns its keep — orchard, paddock, walled garden, view." },
   { h: "Stewardship", p: "Quiet, careful sales. We move slowly so the right buyer can be found." },
 ];
 ---
 
 <div class="wo-root">
 
-  <header class="wo-nav">
-    <a href="#" class="wo-mark">Wold</a>
-    <nav class="wo-nav-links">
-      <a href="#">Properties</a>
-      <a href="#">Regions</a>
-      <a href="#">Stories</a>
-      <a href="#">About</a>
-    </nav>
-    <a href="#register-interest" class="wo-nav-cta">Enquire</a>
-  </header>
-
-  <!-- Hero: type-led, country property image on the right. -->
+  <!-- ============================================================
+       HERO  —  Cinematic split: dark glass panel + photo
+       ============================================================ -->
   <section class="wo-hero">
-    <div class="wo-hero-text">
-      <div class="wo-eyebrow">/ Country Property /</div>
-      <h1 class="wo-hero-h">
-        Quiet houses.<br />
-        <em>Honest land.</em>
-      </h1>
-      <p class="wo-hero-p">
-        A small, considered list of country homes across the wolds, dales, and
-        downs. We sell slowly. We choose the houses we know.
-      </p>
-      <div class="wo-hero-actions">
-        <a href="#listings" class="wo-btn wo-btn--solid">See the houses</a>
-        <a href="#regions" class="wo-btn">Browse by region</a>
+    <span class="wo-cross wo-cross--tl" aria-hidden="true"></span>
+    <span class="wo-cross wo-cross--bl" aria-hidden="true"></span>
+
+    <aside class="wo-pane wo-pane--info">
+      <header class="wo-mast" data-reveal data-reveal-delay="0">
+        <a href="#" class="wo-mark">Wold</a>
+        <nav class="wo-mast-links">
+          <a href="#">Properties</a>
+          <a href="#">Stories</a>
+          <a href="#">About</a>
+        </nav>
+        <a href="#register-interest" class="wo-mast-cta">Book viewing</a>
+      </header>
+
+      <div class="wo-hero-body">
+        <div class="wo-hero-status" data-reveal data-reveal-delay="220">
+          <span class="wo-status-dot" aria-hidden="true"></span>
+          Available now
+        </div>
+
+        <h1 class="wo-hero-title" data-reveal data-reveal-delay="340">
+          Stable<br />Cottage 04
+        </h1>
+
+        <p class="wo-hero-desc" data-reveal data-reveal-delay="480">
+          A Grade II Cotswold stone house with walled garden, restored beams
+          and a long evening light through the orchard.
+        </p>
+
+        <dl class="wo-hero-meta" data-reveal data-reveal-delay="620">
+          {HERO_META.map(([k, v]) => (
+            <div class="wo-hero-meta-row">
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
-      <div class="wo-hero-meta">
-        <span><strong>81</strong> homes listed</span>
-        <span><strong>6</strong> counties</span>
-        <span>Est. 2014</span>
+
+      <figure class="wo-hero-plan" data-reveal data-reveal-delay="800" aria-hidden="true">
+        <svg viewBox="0 0 320 130" fill="none" stroke="currentColor" stroke-width="1">
+          <rect x="6" y="6" width="308" height="118" />
+          <line x1="155" y1="6" x2="155" y2="124" />
+          <line x1="6" y1="68" x2="155" y2="68" />
+          <line x1="155" y1="46" x2="314" y2="46" />
+          <rect x="20" y="20" width="40" height="20" />
+          <rect x="80" y="20" width="60" height="34" rx="2" />
+          <circle cx="40" cy="92" r="6" />
+          <rect x="60" y="84" width="34" height="20" />
+          <rect x="105" y="80" width="40" height="28" />
+          <ellipse cx="240" cy="26" rx="22" ry="10" />
+          <rect x="220" y="14" width="40" height="6" />
+          <rect x="220" y="32" width="40" height="6" />
+          <rect x="174" y="64" width="60" height="50" rx="2" />
+          <rect x="250" y="64" width="58" height="22" />
+          <rect x="250" y="92" width="58" height="22" />
+        </svg>
+        <figcaption>Ground floor &mdash; Level 01</figcaption>
+        <div class="wo-plan-pager">
+          <button type="button" aria-label="Previous level">&larr;</button>
+          <span>Level 01</span>
+          <button type="button" aria-label="Next level">&rarr;</button>
+        </div>
+      </figure>
+    </aside>
+
+    <div class="wo-pane wo-pane--photo">
+      <img
+        class="wo-hero-photo"
+        src={HERO}
+        alt="Stable Cottage at golden hour"
+        loading="eager"
+      />
+      <div class="wo-photo-overlay" aria-hidden="true"></div>
+
+      <div class="wo-photo-foot">
+        <div class="wo-photo-foot-l" data-reveal data-reveal-delay="900">
+          Cotswolds, England
+        </div>
+        <div class="wo-photo-foot-m" data-reveal data-reveal-delay="1000">
+          01 / 06
+        </div>
+        <div class="wo-photo-foot-r" data-reveal data-reveal-delay="1100">
+          51&deg;55&apos;34&quot;N &mdash; 1&deg;44&apos;33&quot;W
+        </div>
       </div>
-    </div>
-    <div class="wo-hero-media">
-      <img src={HERO} alt="" loading="eager" />
-      <div class="wo-hero-tag">Cotswolds &middot; Stable Cottage</div>
     </div>
   </section>
 
-  <!-- Editorial intro. -->
-  <section class="wo-intro">
-    <div class="wo-intro-inner">
-      <div class="wo-chapter">/ The list /</div>
-      <h2 class="wo-intro-h">
-        Country homes for people who would rather not rush.
+  <!-- ============================================================
+       EDITORIAL INTRO
+       ============================================================ -->
+  <section class="wo-section wo-section--intro">
+    <div class="wo-section-inner">
+      <div class="wo-chapter" data-reveal>( The list )</div>
+      <h2 class="wo-intro-h" data-reveal data-reveal-delay="100">
+        Country homes for people<br /><em>who would rather not rush.</em>
       </h2>
-      <p>
-        Wold isn't a portal. We hold a short list of country houses at any time
-        &mdash; period properties with land, character, and an honest story
-        behind the door. We meet the owners, we know the houses, and we sell
-        them to the right people, not the first ones.
+      <p class="wo-intro-p" data-reveal data-reveal-delay="240">
+        Wold isn't a portal. We hold a short list of country houses at any
+        time &mdash; period properties with land, character, and an honest
+        story behind the door. We meet the owners. We know the houses. And
+        we sell them to the right people, not the first ones.
       </p>
     </div>
   </section>
 
-  <!-- Regions. -->
-  <section class="wo-regions" id="regions">
+  <!-- ============================================================
+       REGIONS
+       ============================================================ -->
+  <section class="wo-section wo-section--regions" id="regions">
     <header class="wo-section-head">
-      <div class="wo-chapter">/ Regions /</div>
-      <h2>Where we work.</h2>
-      <p>Four counties we know by heart. Tap one to see what's listed.</p>
+      <div class="wo-chapter" data-reveal>( Regions )</div>
+      <h2 data-reveal data-reveal-delay="100">Where we work.</h2>
+      <p data-reveal data-reveal-delay="220">
+        Four counties we know by heart. Each one a hand-picked shortlist,
+        updated when the right house arrives.
+      </p>
     </header>
     <div class="wo-regions-grid">
-      {REGIONS.map((r) => (
-        <a class="wo-region" href="#">
-          <div class="wo-region-media"><img src={r.img} alt={r.name} loading="lazy" /></div>
-          <div class="wo-region-name">{r.name}</div>
-          <div class="wo-region-count">{r.count} listed</div>
+      {REGIONS.map((r, i) => (
+        <a class="wo-region" href="#" data-reveal data-reveal-delay={String(120 * i)}>
+          <div class="wo-region-media">
+            <img src={r.img} alt={r.name} loading="lazy" />
+          </div>
+          <div class="wo-region-foot">
+            <div>
+              <div class="wo-region-name">{r.name}</div>
+              <div class="wo-region-count">{r.count} listed</div>
+            </div>
+            <span class="wo-region-arrow" aria-hidden="true">&rarr;</span>
+          </div>
         </a>
       ))}
     </div>
   </section>
 
-  <!-- Listings. -->
-  <section class="wo-listings" id="listings">
+  <!-- ============================================================
+       LISTINGS
+       ============================================================ -->
+  <section class="wo-section wo-section--listings" id="listings">
     <header class="wo-section-head">
-      <div class="wo-chapter">/ Currently on the list /</div>
-      <h2>Three to consider.</h2>
-      <p>A snapshot of the present list. The full set is shown on request.</p>
+      <div class="wo-chapter" data-reveal>( Currently on the list )</div>
+      <h2 data-reveal data-reveal-delay="100">Three to consider.</h2>
+      <p data-reveal data-reveal-delay="220">
+        A snapshot of the present list. The full set is shown on request.
+      </p>
     </header>
     <div class="wo-listings-grid">
-      {LISTINGS.map((l) => (
-        <article class="wo-listing">
-          <div class="wo-listing-media"><img src={l.img} alt={l.title} loading="lazy" /></div>
+      {LISTINGS.map((l, i) => (
+        <article class="wo-listing" data-reveal data-reveal-delay={String(140 * i)}>
+          <div class="wo-listing-media">
+            <img src={l.img} alt={l.title} loading="lazy" />
+            <div class="wo-listing-tag">{l.period}</div>
+          </div>
           <div class="wo-listing-body">
             <h3>{l.title}</h3>
             <p class="wo-listing-where">{l.where}</p>
-            <ul class="wo-listing-meta">
-              <li><span>Period</span><strong>{l.period}</strong></li>
-              <li><span>Land</span><strong>{l.land}</strong></li>
-              <li><span>Bedrooms</span><strong>{l.beds}</strong></li>
-            </ul>
+            <dl class="wo-listing-meta">
+              <div><dt>Land</dt><dd>{l.land}</dd></div>
+              <div><dt>Bedrooms</dt><dd>{l.beds}</dd></div>
+            </dl>
             <footer>
               <span class="wo-listing-guide">Guide {l.guide}</span>
-              <span class="wo-listing-arrow">&rarr;</span>
+              <span class="wo-listing-arrow" aria-hidden="true">&rarr;</span>
             </footer>
           </div>
         </article>
@@ -157,15 +240,17 @@ const VALUES = [
     </div>
   </section>
 
-  <!-- What we look for. -->
-  <section class="wo-values">
-    <header class="wo-section-head wo-section-head--light">
-      <div class="wo-chapter">/ What we look for /</div>
-      <h2>Four things, every time.</h2>
+  <!-- ============================================================
+       VALUES
+       ============================================================ -->
+  <section class="wo-section wo-section--values">
+    <header class="wo-section-head">
+      <div class="wo-chapter" data-reveal>( What we look for )</div>
+      <h2 data-reveal data-reveal-delay="100">Four things, every time.</h2>
     </header>
     <div class="wo-values-grid">
       {VALUES.map((v, i) => (
-        <article class="wo-value">
+        <article class="wo-value" data-reveal data-reveal-delay={String(120 * i)}>
           <div class="wo-value-num">{String(i + 1).padStart(2, "0")}</div>
           <h3>{v.h}</h3>
           <p>{v.p}</p>
@@ -174,37 +259,44 @@ const VALUES = [
     </div>
   </section>
 
-  <!-- Quiet CTA. -->
-  <section class="wo-cta">
+  <!-- ============================================================
+       CTA
+       ============================================================ -->
+  <section class="wo-section wo-section--cta">
     <div class="wo-cta-inner">
-      <h2>
+      <h2 data-reveal>
         Looking for somewhere <em>slower</em>?<br />
-        Tell us what you're after.
+        Tell us what you&rsquo;re after.
       </h2>
-      <p>
-        A short conversation, an honest list. We'll come back with a handful
-        of houses you'd actually want to see, and we'll travel to meet you on
-        the doorstep if it helps.
+      <p data-reveal data-reveal-delay="200">
+        A short conversation, an honest list. We&rsquo;ll come back with a
+        handful of houses you&rsquo;d actually want to see, and we&rsquo;ll
+        travel to meet you on the doorstep if it helps.
       </p>
-      <a href="#register-interest" class="wo-btn wo-btn--solid">Start a conversation</a>
+      <a href="#register-interest" class="wo-btn wo-btn--solid" data-reveal data-reveal-delay="380">
+        Start a conversation
+      </a>
     </div>
   </section>
 
+  <!-- ============================================================
+       FOOTER
+       ============================================================ -->
   <footer class="wo-foot">
     <div class="wo-foot-grid">
-      <div>
+      <div data-reveal>
         <div class="wo-mark wo-foot-mark">Wold</div>
         <p>Country property &mdash; carefully chosen.</p>
       </div>
-      <div>
+      <div data-reveal data-reveal-delay="100">
         <h4>Office</h4>
         <p>The Old Wool Hall<br />Stow-on-the-Wold<br />GL54 1AA</p>
       </div>
-      <div>
+      <div data-reveal data-reveal-delay="200">
         <h4>Contact</h4>
         <p>list@wold.country<br />01451 000 000</p>
       </div>
-      <div>
+      <div data-reveal data-reveal-delay="300">
         <h4>Hours</h4>
         <p>Mon &ndash; Sat<br />By appointment</p>
       </div>
@@ -214,250 +306,462 @@ const VALUES = [
       <span>Registered in England &middot; No. 00000000</span>
     </div>
   </footer>
+
 </div>
 
 <style>
+  /* ============================================================
+     Tokens — warm taupe with cream + bronze accents.
+     ============================================================ */
   .wo-root {
-    --wo-cream:  #F2EEE5;
-    --wo-paper:  #FAF7F0;
-    --wo-oak:    #6f6147;
-    --wo-sage:   #7d8a6e;
-    --wo-ink:    #2a2620;
-    --wo-mute:   rgba(42,38,32,0.65);
-    --wo-line:   rgba(42,38,32,0.14);
-    --wo-serif:  "Cormorant Garamond", "EB Garamond", Georgia, serif;
-    --wo-sans:   "Darker Grotesque", "Inter", system-ui, sans-serif;
-    background: var(--wo-paper);
-    color: var(--wo-ink);
+    --wo-deep:    #1f1812;
+    --wo-taupe:   #2c2218;
+    --wo-warm:    #382b20;
+    --wo-cream:   #EFE6D4;
+    --wo-bronze:  #b48458;
+    --wo-mute:    rgba(239,230,212,0.55);
+    --wo-line:    rgba(239,230,212,0.16);
+    --wo-serif:   "Cormorant Garamond", "EB Garamond", Georgia, serif;
+    --wo-sans:    "Darker Grotesque", "Inter", system-ui, sans-serif;
+    --wo-ease:    cubic-bezier(0.16, 1, 0.3, 1);
+
+    background: var(--wo-taupe);
+    color: var(--wo-cream);
     font-family: var(--wo-sans);
+    overflow-x: hidden;
   }
   .wo-root *, .wo-root *::before, .wo-root *::after { box-sizing: border-box; }
+  .wo-root a { color: inherit; text-decoration: none; }
 
-  /* === Nav === */
-  .wo-nav {
-    position: sticky; top: 0; z-index: 20;
+  /* ============================================================
+     Reveal system — opacity + translateY, fired by IO below.
+     ============================================================ */
+  .wo-root [data-reveal] {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+      opacity 1300ms var(--wo-ease),
+      transform 1300ms var(--wo-ease);
+    transition-delay: var(--wo-rd, 0ms);
+    will-change: opacity, transform;
+  }
+  .wo-root [data-reveal].is-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wo-root [data-reveal] { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* ============================================================
+     HERO  —  Split layout, dark glass panel + photo
+     ============================================================ */
+  .wo-hero {
+    position: relative;
+    min-height: 100svh;
+    display: grid;
+    grid-template-columns: minmax(360px, 38%) 1fr;
+    background: var(--wo-deep);
+  }
+  @media (max-width: 880px) {
+    .wo-hero { grid-template-columns: 1fr; min-height: auto; }
+  }
+
+  .wo-cross {
+    position: absolute;
+    width: 14px; height: 14px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .wo-cross::before,
+  .wo-cross::after {
+    content: "";
+    position: absolute;
+    background: var(--wo-cream);
+    opacity: 0.4;
+  }
+  .wo-cross::before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-0.5px); }
+  .wo-cross::after  { top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-0.5px); }
+  .wo-cross--tl { left: calc(38% - 7px); top: 88px; }
+  .wo-cross--bl { left: calc(38% - 7px); bottom: 88px; }
+  @media (max-width: 880px) { .wo-cross { display: none; } }
+
+  /* === Glass info panel === */
+  .wo-pane--info {
+    position: relative;
+    padding: 28px 36px 36px;
+    background:
+      linear-gradient(180deg, rgba(20,15,11,0.4) 0%, rgba(20,15,11,0.85) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch' seed='5'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-color: var(--wo-warm);
+    color: var(--wo-cream);
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    border-right: 1px solid var(--wo-line);
+  }
+  @media (max-width: 880px) { .wo-pane--info { padding: 24px; gap: 24px; } }
+
+  .wo-mast {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 40px;
-    background: rgba(250,247,240,0.85);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--wo-line);
+    gap: 16px;
   }
   .wo-mark {
     font-family: var(--wo-serif);
-    font-size: 26px;
+    font-style: italic;
+    font-size: 22px;
     letter-spacing: 0.02em;
-    color: var(--wo-ink);
   }
-  .wo-nav-links { display: flex; gap: 28px; }
-  .wo-nav-links a {
-    font-size: 13px;
-    color: var(--wo-ink);
-    opacity: 0.78;
+  .wo-mast-links { display: flex; gap: 18px; }
+  .wo-mast-links a {
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--wo-cream);
+    opacity: 0.75;
+    transition: opacity 0.2s ease;
   }
-  .wo-nav-links a:hover { opacity: 1; }
-  .wo-nav-cta {
-    padding: 8px 18px;
-    border: 1px solid var(--wo-ink);
+  .wo-mast-links a:hover { opacity: 1; }
+  .wo-mast-cta {
+    padding: 8px 16px;
+    border: 1px solid var(--wo-line);
     border-radius: 999px;
     font-size: 11px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--wo-ink);
-    transition: background 0.2s ease, color 0.2s ease;
+    letter-spacing: 0.16em;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
-  .wo-nav-cta:hover { background: var(--wo-ink); color: var(--wo-paper); }
+  .wo-mast-cta:hover {
+    background: var(--wo-cream);
+    color: var(--wo-deep);
+    border-color: var(--wo-cream);
+  }
+  @media (max-width: 600px) {
+    .wo-mast-links { display: none; }
+  }
 
-  /* === Hero === */
-  .wo-hero {
-    display: grid;
-    grid-template-columns: 1fr 1.1fr;
-    gap: 56px;
-    align-items: center;
-    padding: 90px 40px 110px;
-    max-width: 1320px;
-    margin: 0 auto;
+  .wo-hero-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    margin-top: 18px;
+    max-width: 380px;
   }
-  @media (max-width: 880px) {
-    .wo-hero { grid-template-columns: 1fr; gap: 32px; padding: 60px 24px 80px; }
-  }
-  .wo-eyebrow {
-    font-size: 11px;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    color: var(--wo-oak);
-    margin-bottom: 22px;
-  }
-  .wo-hero-h {
-    font-family: var(--wo-serif);
-    font-weight: 400;
-    font-size: clamp(48px, 7vw, 96px);
-    line-height: 1.0;
-    letter-spacing: -0.02em;
-    margin: 0 0 24px;
-  }
-  .wo-hero-h em { font-style: italic; color: var(--wo-oak); }
-  .wo-hero-p {
-    font-size: 16px;
-    line-height: 1.65;
-    color: var(--wo-mute);
-    max-width: 44ch;
-    margin: 0 0 32px;
-  }
-  .wo-hero-actions { display: flex; gap: 12px; margin-bottom: 36px; flex-wrap: wrap; }
-  .wo-btn {
+
+  .wo-hero-status {
     display: inline-flex;
     align-items: center;
-    padding: 12px 22px;
-    border: 1px solid var(--wo-ink);
-    border-radius: 999px;
-    font-size: 12px;
-    letter-spacing: 0.16em;
-    color: var(--wo-ink);
-    transition: background 0.2s ease, color 0.2s ease;
-  }
-  .wo-btn--solid { background: var(--wo-ink); color: var(--wo-paper); border-color: var(--wo-ink); }
-  .wo-btn:hover { background: var(--wo-ink); color: var(--wo-paper); }
-  .wo-btn--solid:hover { background: #000; }
-  .wo-hero-meta {
-    display: flex; gap: 28px;
-    padding-top: 18px;
-    border-top: 1px solid var(--wo-line);
-    font-size: 12px;
-    color: var(--wo-mute);
-  }
-  .wo-hero-meta strong { color: var(--wo-ink); font-weight: 600; }
-
-  .wo-hero-media {
-    position: relative;
-    aspect-ratio: 4 / 5;
-    overflow: hidden;
-    border-radius: 2px;
-  }
-  .wo-hero-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .wo-hero-tag {
-    position: absolute;
-    left: 20px; bottom: 20px;
-    padding: 8px 14px;
-    background: rgba(250,247,240,0.9);
-    border-radius: 999px;
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    color: var(--wo-ink);
-  }
-
-  /* === Intro === */
-  .wo-intro { background: var(--wo-cream); padding: 110px 40px; }
-  .wo-intro-inner { max-width: 880px; margin: 0 auto; }
-  .wo-chapter {
-    font-size: 11px;
-    letter-spacing: 0.3em;
+    gap: 10px;
+    align-self: flex-start;
+    font-size: 10px;
+    letter-spacing: 0.32em;
     text-transform: uppercase;
-    color: var(--wo-oak);
-    margin-bottom: 18px;
+    color: var(--wo-cream);
+    opacity: 0.85;
   }
-  .wo-intro-h {
+  .wo-status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--wo-bronze);
+    box-shadow: 0 0 0 4px rgba(180,132,88,0.18);
+  }
+
+  .wo-hero-title {
     font-family: var(--wo-serif);
     font-weight: 400;
-    font-size: clamp(34px, 4.4vw, 56px);
-    line-height: 1.1;
-    letter-spacing: -0.014em;
-    margin: 0 0 22px;
-  }
-  .wo-intro p {
-    font-size: 16px;
-    line-height: 1.7;
-    color: var(--wo-mute);
-    max-width: 60ch;
+    font-size: clamp(48px, 6.5vw, 78px);
+    line-height: 0.96;
+    letter-spacing: -0.018em;
+    color: var(--wo-cream);
     margin: 0;
   }
 
-  /* === Section heads === */
+  .wo-hero-desc {
+    font-size: 14px;
+    line-height: 1.65;
+    color: rgba(239,230,212,0.78);
+    max-width: 36ch;
+    margin: 0;
+  }
+
+  .wo-hero-meta {
+    margin: 14px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .wo-hero-meta-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-top: 1px solid var(--wo-line);
+    font-size: 13px;
+  }
+  .wo-hero-meta-row:last-child { border-bottom: 1px solid var(--wo-line); }
+  .wo-hero-meta dt { color: var(--wo-mute); margin: 0; }
+  .wo-hero-meta dd { margin: 0; font-weight: 500; }
+
+  .wo-hero-plan {
+    margin: 0;
+    color: rgba(239,230,212,0.5);
+    border-top: 1px solid var(--wo-line);
+    padding-top: 22px;
+  }
+  .wo-hero-plan svg {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    display: block;
+  }
+  .wo-hero-plan figcaption {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--wo-mute);
+    margin-top: 12px;
+  }
+  .wo-plan-pager {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 8px;
+    color: var(--wo-cream);
+  }
+  .wo-plan-pager button {
+    background: transparent;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+  }
+  .wo-plan-pager button:hover { opacity: 1; }
+  .wo-plan-pager span {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  /* === Photo pane === */
+  .wo-pane--photo {
+    position: relative;
+    overflow: hidden;
+    min-height: 56vh;
+  }
+  .wo-hero-photo {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scale(1.06);
+    filter: blur(8px);
+    animation: wo-hero-clear 2200ms var(--wo-ease) 100ms forwards;
+  }
+  @keyframes wo-hero-clear {
+    to { transform: scale(1); filter: blur(0); }
+  }
+  .wo-photo-overlay {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(20,15,11,0.18) 0%, rgba(20,15,11,0) 28%, rgba(20,15,11,0) 60%, rgba(20,15,11,0.45) 100%);
+    pointer-events: none;
+  }
+  .wo-photo-foot {
+    position: absolute;
+    bottom: 28px;
+    left: 32px;
+    right: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    color: var(--wo-cream);
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  }
+  .wo-photo-foot-m {
+    font-family: var(--wo-serif);
+    font-style: italic;
+    text-transform: none;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    opacity: 0.85;
+  }
+  @media (max-width: 880px) {
+    .wo-photo-foot { font-size: 9px; gap: 12px; bottom: 18px; left: 18px; right: 18px; }
+  }
+
+  /* ============================================================
+     COMMON SECTION SCAFFOLD
+     ============================================================ */
+  .wo-section {
+    position: relative;
+    padding: 140px 36px;
+  }
+  @media (max-width: 880px) { .wo-section { padding: 96px 24px; } }
+
+  .wo-section-inner {
+    max-width: 980px;
+    margin: 0 auto;
+  }
   .wo-section-head {
     max-width: 1320px;
-    margin: 0 auto 56px;
-    padding: 0 40px;
+    margin: 0 auto 64px;
+    padding: 0;
   }
   .wo-section-head h2 {
     font-family: var(--wo-serif);
     font-weight: 400;
-    font-size: clamp(34px, 4vw, 52px);
-    margin: 0 0 14px;
-    letter-spacing: -0.014em;
+    font-size: clamp(36px, 4.4vw, 60px);
+    line-height: 1.05;
+    letter-spacing: -0.018em;
+    margin: 0 0 18px;
   }
   .wo-section-head p {
     font-size: 15px;
+    line-height: 1.7;
     color: var(--wo-mute);
     margin: 0;
-    max-width: 50ch;
+    max-width: 54ch;
   }
-  .wo-section-head--light .wo-chapter { color: var(--wo-cream); opacity: 0.7; }
-  .wo-section-head--light h2 { color: var(--wo-cream); }
+  .wo-chapter {
+    font-family: var(--wo-serif);
+    font-style: italic;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    color: var(--wo-bronze);
+    margin-bottom: 22px;
+  }
 
-  /* === Regions === */
-  .wo-regions { padding: 110px 0 90px; }
+  /* ============================================================
+     INTRO
+     ============================================================ */
+  .wo-section--intro { background: var(--wo-taupe); text-align: center; }
+  .wo-intro-h {
+    font-family: var(--wo-serif);
+    font-weight: 400;
+    font-size: clamp(40px, 5.5vw, 76px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin: 0 0 28px;
+  }
+  .wo-intro-h em { font-style: italic; color: var(--wo-bronze); }
+  .wo-intro-p {
+    font-size: 16px;
+    line-height: 1.75;
+    color: var(--wo-mute);
+    max-width: 56ch;
+    margin: 0 auto;
+  }
+
+  /* ============================================================
+     REGIONS
+     ============================================================ */
+  .wo-section--regions { background: var(--wo-deep); }
   .wo-regions-grid {
     max-width: 1320px;
     margin: 0 auto;
-    padding: 0 40px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 18px;
+    gap: 22px;
   }
-  @media (max-width: 880px) {
-    .wo-regions-grid { grid-template-columns: 1fr 1fr; }
-  }
+  @media (max-width: 880px) { .wo-regions-grid { grid-template-columns: 1fr 1fr; } }
   .wo-region {
     display: block;
-    color: var(--wo-ink);
+    color: var(--wo-cream);
   }
   .wo-region-media {
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 3 / 4;
     overflow: hidden;
+    margin-bottom: 16px;
     border-radius: 2px;
-    margin-bottom: 14px;
+    background: rgba(0,0,0,0.2);
   }
   .wo-region-media img {
     width: 100%; height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform 0.6s cubic-bezier(.2,.7,.2,1);
+    transition: transform 1.2s var(--wo-ease), filter 0.6s ease;
+    filter: brightness(0.85) saturate(0.85);
   }
-  .wo-region:hover .wo-region-media img { transform: scale(1.04); }
+  .wo-region:hover .wo-region-media img {
+    transform: scale(1.05);
+    filter: brightness(1) saturate(1);
+  }
+  .wo-region-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-top: 4px;
+    border-top: 1px solid var(--wo-line);
+  }
   .wo-region-name {
     font-family: var(--wo-serif);
     font-size: 22px;
-    margin-bottom: 4px;
+    line-height: 1.2;
   }
   .wo-region-count {
-    font-size: 12px;
-    letter-spacing: 0.18em;
+    font-size: 11px;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--wo-mute);
+    margin-top: 4px;
   }
+  .wo-region-arrow {
+    color: var(--wo-bronze);
+    font-size: 16px;
+    transition: transform 0.3s var(--wo-ease);
+  }
+  .wo-region:hover .wo-region-arrow { transform: translateX(4px); }
 
-  /* === Listings === */
-  .wo-listings { background: var(--wo-cream); padding: 110px 0; }
+  /* ============================================================
+     LISTINGS
+     ============================================================ */
+  .wo-section--listings { background: var(--wo-warm); }
   .wo-listings-grid {
     max-width: 1320px;
     margin: 0 auto;
-    padding: 0 40px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
+    gap: 26px;
   }
   @media (max-width: 880px) { .wo-listings-grid { grid-template-columns: 1fr; } }
   .wo-listing {
-    background: var(--wo-paper);
-    border-radius: 2px;
+    background: var(--wo-deep);
+    border: 1px solid var(--wo-line);
     overflow: hidden;
     display: flex;
     flex-direction: column;
   }
-  .wo-listing-media { aspect-ratio: 4 / 3; overflow: hidden; }
-  .wo-listing-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .wo-listing-body { padding: 24px 24px 22px; flex: 1; display: flex; flex-direction: column; }
+  .wo-listing-media {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+  }
+  .wo-listing-media img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 1.2s var(--wo-ease);
+  }
+  .wo-listing:hover .wo-listing-media img { transform: scale(1.04); }
+  .wo-listing-tag {
+    position: absolute;
+    top: 14px; left: 14px;
+    padding: 6px 12px;
+    background: rgba(31,24,18,0.78);
+    color: var(--wo-cream);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    backdrop-filter: blur(4px);
+  }
+  .wo-listing-body { padding: 24px 26px 22px; flex: 1; display: flex; flex-direction: column; }
   .wo-listing h3 {
     font-family: var(--wo-serif);
     font-weight: 400;
@@ -465,107 +769,132 @@ const VALUES = [
     margin: 0 0 6px;
     letter-spacing: -0.01em;
   }
-  .wo-listing-where {
-    font-size: 13px;
-    color: var(--wo-mute);
-    margin: 0 0 18px;
-  }
+  .wo-listing-where { font-size: 13px; color: var(--wo-mute); margin: 0 0 20px; }
   .wo-listing-meta {
-    list-style: none;
+    margin: 0 0 22px;
     padding: 0;
-    margin: 0 0 18px;
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    gap: 32px;
   }
-  .wo-listing-meta li {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    border-bottom: 1px dashed var(--wo-line);
-    padding-bottom: 8px;
+  .wo-listing-meta div { display: flex; flex-direction: column; gap: 4px; }
+  .wo-listing-meta dt {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--wo-mute);
+    margin: 0;
   }
-  .wo-listing-meta span { color: var(--wo-mute); letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px; }
-  .wo-listing-meta strong { font-weight: 600; color: var(--wo-ink); }
+  .wo-listing-meta dd {
+    font-family: var(--wo-serif);
+    font-size: 18px;
+    color: var(--wo-cream);
+    margin: 0;
+  }
   .wo-listing footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-top: auto;
-    padding-top: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--wo-line);
   }
   .wo-listing-guide {
     font-family: var(--wo-serif);
     font-size: 18px;
-    color: var(--wo-oak);
+    color: var(--wo-bronze);
   }
   .wo-listing-arrow {
     width: 32px; height: 32px;
     border-radius: 50%;
-    background: var(--wo-ink);
-    color: var(--wo-paper);
+    background: rgba(239,230,212,0.08);
+    color: var(--wo-cream);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
+    transition: background 0.3s ease, transform 0.3s ease;
   }
+  .wo-listing:hover .wo-listing-arrow { background: var(--wo-bronze); transform: translateX(2px); }
 
-  /* === Values === */
-  .wo-values { background: var(--wo-oak); padding: 110px 0; color: var(--wo-cream); }
+  /* ============================================================
+     VALUES
+     ============================================================ */
+  .wo-section--values { background: var(--wo-deep); }
   .wo-values-grid {
     max-width: 1320px;
     margin: 0 auto;
-    padding: 0 40px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 32px;
+    gap: 36px;
   }
   @media (max-width: 880px) { .wo-values-grid { grid-template-columns: 1fr 1fr; } }
   .wo-value {
-    padding-top: 18px;
-    border-top: 1px solid rgba(242,238,229,0.3);
+    padding-top: 22px;
+    border-top: 1px solid var(--wo-line);
   }
   .wo-value-num {
     font-family: var(--wo-serif);
     font-style: italic;
     font-size: 14px;
-    opacity: 0.7;
+    color: var(--wo-bronze);
     margin-bottom: 22px;
   }
   .wo-value h3 {
     font-family: var(--wo-serif);
     font-weight: 400;
-    font-size: 22px;
-    margin: 0 0 8px;
+    font-size: 24px;
+    margin: 0 0 10px;
   }
   .wo-value p {
     font-size: 13px;
-    line-height: 1.6;
-    color: rgba(242,238,229,0.78);
+    line-height: 1.65;
+    color: var(--wo-mute);
     margin: 0;
   }
 
-  /* === CTA === */
-  .wo-cta { padding: 130px 40px; text-align: center; }
+  /* ============================================================
+     CTA
+     ============================================================ */
+  .wo-section--cta {
+    text-align: center;
+    background: var(--wo-taupe);
+    padding: 160px 36px;
+  }
   .wo-cta-inner { max-width: 720px; margin: 0 auto; }
-  .wo-cta h2 {
+  .wo-cta-inner h2 {
     font-family: var(--wo-serif);
     font-weight: 400;
-    font-size: clamp(34px, 4.4vw, 54px);
+    font-size: clamp(36px, 5vw, 60px);
     line-height: 1.1;
     margin: 0 0 18px;
     letter-spacing: -0.014em;
   }
-  .wo-cta h2 em { font-style: italic; color: var(--wo-oak); }
-  .wo-cta p {
+  .wo-cta-inner h2 em { font-style: italic; color: var(--wo-bronze); }
+  .wo-cta-inner p {
     font-size: 15px;
-    line-height: 1.7;
+    line-height: 1.75;
     color: var(--wo-mute);
-    margin: 0 0 32px;
+    margin: 0 0 36px;
   }
+  .wo-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 14px 26px;
+    border: 1px solid var(--wo-cream);
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--wo-cream);
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  .wo-btn--solid { background: var(--wo-cream); color: var(--wo-deep); }
+  .wo-btn--solid:hover { background: var(--wo-bronze); border-color: var(--wo-bronze); color: var(--wo-cream); }
 
-  /* === Footer === */
-  .wo-foot { background: var(--wo-cream); padding: 80px 40px 36px; }
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  .wo-foot { background: var(--wo-deep); padding: 80px 36px 36px; border-top: 1px solid var(--wo-line); }
   .wo-foot-grid {
     max-width: 1320px;
     margin: 0 auto;
@@ -576,18 +905,18 @@ const VALUES = [
     border-bottom: 1px solid var(--wo-line);
   }
   @media (max-width: 880px) { .wo-foot-grid { grid-template-columns: 1fr 1fr; gap: 24px; } }
-  .wo-foot-mark { margin-bottom: 8px; }
+  .wo-foot-mark { font-size: 26px; margin-bottom: 12px; }
   .wo-foot h4 {
     font-size: 11px;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--wo-mute);
-    margin: 0 0 8px;
+    margin: 0 0 12px;
   }
   .wo-foot p {
     margin: 0;
     font-size: 13px;
-    color: var(--wo-ink);
+    color: var(--wo-cream);
     line-height: 1.65;
   }
   .wo-foot-base {
@@ -600,3 +929,56 @@ const VALUES = [
     color: var(--wo-mute);
   }
 </style>
+
+<script is:inline>
+  (function () {
+    const scope = document.querySelector(".wo-root");
+    if (!scope) return;
+
+    const items = scope.querySelectorAll("[data-reveal]");
+    if (!items.length) return;
+
+    items.forEach(function (el) {
+      const d = el.getAttribute("data-reveal-delay");
+      if (d) el.style.setProperty("--wo-rd", d + "ms");
+    });
+
+    // Force-reveal helper.
+    function reveal(el) { el.classList.add("is-in"); }
+
+    // Bail on legacy environments.
+    if (!("IntersectionObserver" in window)) {
+      items.forEach(reveal);
+      return;
+    }
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          reveal(entry.target);
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: "0px 0px -60px 0px" });
+
+    items.forEach(function (el) { io.observe(el); });
+
+    // Initial above-the-fold pass — elements already in view should reveal
+    // immediately instead of waiting for the IO callback (which can miss
+    // elements that loaded already inside the viewport).
+    requestAnimationFrame(function () {
+      var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+      items.forEach(function (el) {
+        var r = el.getBoundingClientRect();
+        if (r.top < vh && r.bottom > 0) reveal(el);
+      });
+    });
+
+    // Safety net — if anything's still un-revealed after a reasonable
+    // window (slow / hidden viewport / IO not firing), reveal them all so
+    // the page never gets stuck with invisible content.
+    setTimeout(function () {
+      items.forEach(reveal);
+    }, 3000);
+  })();
+</script>
