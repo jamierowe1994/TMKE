@@ -1728,14 +1728,37 @@
   });
 
   // ---------- Save / load ----------
+  // Renders a small JPEG preview of the current design (~300px wide,
+  // q=0.72) so /account can surface real thumbnails of the user's work.
+  // Returns a data URL, or null if rasterization fails.
+  async function _renderThumbDataUrl() {
+    try {
+      const full = await _renderDesignToCanvas({ transparent: false });
+      const targetW = 300;
+      const scale = Math.min(1, targetW / full.width);
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(full.width * scale));
+      c.height = Math.max(1, Math.round(full.height * scale));
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(full, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.72);
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function save() {
     if (!state.templateId) return;
+    const thumb = await _renderThumbDataUrl();
     const payload = {
       templateId: state.templateId,
       filename: filenameEl.value,
       canvas: state.canvas,
       elements: state.elements,
       savedAt: Date.now(),
+      thumb,
     };
     // Admin hook (set by editor.astro when ?mode=admin and signed in) — writes
     // back to the Supabase `templates` table instead of localStorage. Falls

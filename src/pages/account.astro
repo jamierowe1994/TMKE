@@ -31,6 +31,16 @@ import "../styles/workspace.css";
       </nav>
 
       <div class="dash-side-foot slide-in-left" data-d="11">
+        <button type="button" id="cal-side-trigger" class="dash-cal-btn" aria-haspopup="dialog" aria-controls="cal-popup">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>Calendar</span>
+          <span class="dash-cal-count" id="cal-side-count" hidden>0</span>
+        </button>
         <div class="dash-side-meta">
           <span class="dash-side-tag">Signed in as</span>
           <strong id="sidebar-email">&hellip;</strong>
@@ -55,7 +65,7 @@ import "../styles/workspace.css";
         </div>
       </div>
       <div class="welcome-art" aria-hidden="true">
-        <img src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
+        <img id="welcome-art-img" src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
       </div>
     </section>
 
@@ -301,6 +311,54 @@ import "../styles/workspace.css";
       flex-direction: column;
       gap: 12px;
     }
+    /* Calendar quick-open button — pinned at the bottom of the sidebar
+       just above the signed-in chip. Clicking it opens the same month
+       drawer the floating .cal-tab uses on non-dashboard pages. */
+    .dash-cal-btn {
+      appearance: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: var(--english-violet);
+      background: rgba(71, 66, 84, 0.06);
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      border-radius: 4px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.25s, border-color 0.25s, color 0.25s;
+    }
+    .dash-cal-btn:hover {
+      background: var(--english-violet);
+      color: var(--paper);
+      border-color: var(--english-violet);
+    }
+    .dash-cal-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .dash-cal-btn > span:not(.dash-cal-count) { flex: 1; }
+    .dash-cal-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 7px;
+      border-radius: 999px;
+      background: var(--english-violet);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .dash-cal-btn:hover .dash-cal-count {
+      background: var(--paper);
+      color: var(--english-violet);
+    }
+    .dash-cal-count[hidden] { display: none; }
     .dash-side-meta {
       display: flex;
       flex-direction: column;
@@ -376,51 +434,70 @@ import "../styles/workspace.css";
       }
     }
 
-    /* ---------- Slide-in animations ----------
-       Triggered when body gets .is-loaded (set by the page script after
-       the session check resolves). data-d controls per-element stagger.
+    /* ---------- Entry animation ----------
+       Reads as the page being assembled in front of the user. Sidebar
+       cascades in first, then the welcome hero drops in with a soft
+       overshoot, then each content section rises up on its own beat.
+       Triggered when body gets .is-loaded (set after the session check).
        Disabled for prefers-reduced-motion. */
     @keyframes slideInLeft {
-      from { opacity: 0; transform: translateX(-32px); }
+      from { opacity: 0; transform: translateX(-60px); }
       to   { opacity: 1; transform: translateX(0); }
     }
     @keyframes slideDown {
-      from { opacity: 0; transform: translateY(-28px); }
-      to   { opacity: 1; transform: translateY(0); }
+      0%   { opacity: 0; transform: translateY(-80px) scale(0.97); }
+      70%  { opacity: 1; }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
     }
     @keyframes slideUp {
-      from { opacity: 0; transform: translateY(28px); }
+      from { opacity: 0; transform: translateY(56px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    .slide-in-left { opacity: 0; transform: translateX(-32px); }
-    .slide-down    { opacity: 0; transform: translateY(-28px); }
-    .slide-up      { opacity: 0; transform: translateY(28px); }
+    .slide-in-left { opacity: 0; transform: translateX(-60px); }
+    .slide-down    { opacity: 0; transform: translateY(-80px) scale(0.97); }
+    .slide-up      { opacity: 0; transform: translateY(56px); }
 
     body.is-loaded .slide-in-left {
-      animation: slideInLeft 0.7s cubic-bezier(.2,.7,.2,1) both;
+      animation: slideInLeft 1.2s cubic-bezier(.16,.78,.28,1) both;
     }
     body.is-loaded .slide-down {
-      animation: slideDown 0.85s cubic-bezier(.2,.7,.2,1) both;
+      /* Slight overshoot easing so the hero "lands" rather than slides */
+      animation: slideDown 1.5s cubic-bezier(.2,1.05,.35,1) both;
     }
     body.is-loaded .slide-up {
-      animation: slideUp 0.75s cubic-bezier(.2,.7,.2,1) both;
+      animation: slideUp 1.3s cubic-bezier(.16,.78,.28,1) both;
     }
 
-    /* Per-element stagger driven by data-d (0..11). 70ms steps so the
-       sidebar links cascade in cleanly without the trail feeling slow. */
-    body.is-loaded [data-d="0"]  { animation-delay: 0.00s; }
-    body.is-loaded [data-d="1"]  { animation-delay: 0.07s; }
-    body.is-loaded [data-d="2"]  { animation-delay: 0.14s; }
-    body.is-loaded [data-d="3"]  { animation-delay: 0.21s; }
-    body.is-loaded [data-d="4"]  { animation-delay: 0.28s; }
-    body.is-loaded [data-d="5"]  { animation-delay: 0.35s; }
-    body.is-loaded [data-d="6"]  { animation-delay: 0.42s; }
-    body.is-loaded [data-d="7"]  { animation-delay: 0.49s; }
-    body.is-loaded [data-d="8"]  { animation-delay: 0.56s; }
-    body.is-loaded [data-d="9"]  { animation-delay: 0.63s; }
-    body.is-loaded [data-d="10"] { animation-delay: 0.70s; }
-    body.is-loaded [data-d="11"] { animation-delay: 0.77s; }
+    /* Explicit per-element timing per animation type so different parts
+       arrive at different rates (rather than a uniform 70ms march).
+
+       Sidebar — cascades 0 -> 1.21s at 110ms per item:
+         logo (0.00s) -> Workspace link -> ... -> Contact (1.10s)
+         -> Signed-in chip + sign-out (1.21s)
+       Welcome drops in mid-cascade (0.45s) so the chrome and the
+       headline arrive together.
+       Content sections then rise up one at a time after the welcome
+       has settled. */
+    body.is-loaded .slide-in-left[data-d="0"]  { animation-delay: 0.00s; }
+    body.is-loaded .slide-in-left[data-d="1"]  { animation-delay: 0.14s; }
+    body.is-loaded .slide-in-left[data-d="2"]  { animation-delay: 0.28s; }
+    body.is-loaded .slide-in-left[data-d="3"]  { animation-delay: 0.42s; }
+    body.is-loaded .slide-in-left[data-d="4"]  { animation-delay: 0.56s; }
+    body.is-loaded .slide-in-left[data-d="5"]  { animation-delay: 0.70s; }
+    body.is-loaded .slide-in-left[data-d="6"]  { animation-delay: 0.84s; }
+    body.is-loaded .slide-in-left[data-d="7"]  { animation-delay: 0.98s; }
+    body.is-loaded .slide-in-left[data-d="8"]  { animation-delay: 1.12s; }
+    body.is-loaded .slide-in-left[data-d="9"]  { animation-delay: 1.26s; }
+    body.is-loaded .slide-in-left[data-d="10"] { animation-delay: 1.40s; }
+    body.is-loaded .slide-in-left[data-d="11"] { animation-delay: 1.54s; }
+
+    body.is-loaded .slide-down { animation-delay: 0.55s; }
+
+    body.is-loaded .slide-up[data-d="4"] { animation-delay: 1.70s; }
+    body.is-loaded .slide-up[data-d="5"] { animation-delay: 2.10s; }
+    body.is-loaded .slide-up[data-d="6"] { animation-delay: 2.50s; }
+    body.is-loaded .slide-up[data-d="7"] { animation-delay: 2.90s; }
 
     @media (prefers-reduced-motion: reduce) {
       .slide-in-left, .slide-down, .slide-up {
@@ -725,10 +802,14 @@ import "../styles/workspace.css";
         0 -28px 80px -20px rgba(0, 0, 0, 0.5),
         0 -2px 6px -4px rgba(46, 31, 84, 0.25);
       overflow-y: auto;
+      /* Scroll stays functional; just hide the visible scrollbar. */
+      scrollbar-width: none;              /* Firefox */
+      -ms-overflow-style: none;           /* legacy Edge / IE */
       transform: translateY(100%);        /* off-screen until .is-open */
       /* Slow elastic-ish ease — gives the "we spent time on this" feel */
       transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
     }
+    .shop::-webkit-scrollbar { width: 0; height: 0; display: none; } /* Chrome / Safari */
     .shop-backdrop.is-open .shop { transform: translateY(0); }
 
     /* Subtle drag-handle hint at the top of the drawer */
@@ -1062,12 +1143,36 @@ import "../styles/workspace.css";
           try {
             const v = JSON.parse(localStorage.getItem(key) || 'null');
             if (!v) continue;
-            drafts.push({ id, filename: v.filename || id, savedAt: v.savedAt || 0 });
+            drafts.push({ id, filename: v.filename || id, savedAt: v.savedAt || 0, thumb: v.thumb || null });
           } catch (_) {}
         }
       } catch (_) {}
       drafts.sort((a, b) => b.savedAt - a.savedAt);
       return drafts;
+    }
+
+    // Pick a random "design" image to drop into the welcome-art slot.
+    // Prefers actual draft thumbnails (real work the user has saved);
+    // falls back to pack preview_images / cover URLs (designs from the
+    // packs they own); leaves the default lifestyle photo if neither
+    // exists. Re-runs every page load so the dashboard feels alive.
+    function rotateWelcomeArt(drafts, packs) {
+      const pool = [];
+      (drafts || []).forEach((d) => { if (d.thumb) pool.push(d.thumb); });
+      if (!pool.length) {
+        (packs || []).forEach((p) => {
+          const previews = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
+          if (previews.length) pool.push(...previews);
+          else if (p.cover_image_url) pool.push(p.cover_image_url);
+        });
+      }
+      if (!pool.length) return;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      const $art = document.getElementById('welcome-art-img');
+      if (!$art) return;
+      const next = new Image();
+      next.onload = () => { $art.src = pick; };
+      next.src = pick;
     }
 
     function renderDrafts(drafts) {
@@ -1233,7 +1338,13 @@ import "../styles/workspace.css";
 
     // ====== Bootstrap ======
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Dev-only preview escape hatch — visit /account?demo=1 under
+      // `astro dev` to render the dashboard with a stub session (no
+      // real Supabase data). import.meta.env.DEV is `false` in any
+      // production build so this CANNOT leak into the live site.
+      const isDemo = import.meta.env.DEV && location.search.includes('demo=1');
+      const { data: { session: realSession } } = await supabase.auth.getSession();
+      const session = realSession || (isDemo ? { user: { id: 'demo', email: 'demo@tmke.co.uk', user_metadata: { name: 'Danni' } } } : null);
       if (!session) {
         location.replace('/login?next=' + encodeURIComponent('/account'));
         return;
@@ -1261,8 +1372,12 @@ import "../styles/workspace.css";
       // animation starts (so transforms read smoothly).
       requestAnimationFrame(() => document.body.classList.add('is-loaded'));
 
-      renderDrafts(readLocalDrafts());
+      const localDrafts = readLocalDrafts();
+      renderDrafts(localDrafts);
       renderBrandStat();
+      // First pass — if the user has draft thumbs, rotate immediately
+      // (no need to wait for the orders/packs network round-trip).
+      rotateWelcomeArt(localDrafts, null);
 
       const { data: orders, error } = await supabase
         .from('orders')
@@ -1324,9 +1439,15 @@ import "../styles/workspace.css";
       const packIds = [...byPack.keys()].filter(Boolean);
       const { data: packs } = await supabase
         .from('packs')
-        .select('id, cover_image_url, description, contents, category')
+        .select('id, cover_image_url, preview_images, description, contents, category')
         .in('id', packIds);
       const packMap = new Map((packs ?? []).map((p) => [p.id, p]));
+
+      // Second pass — if the user has no draft thumbs, rotate using
+      // preview images from their owned packs. (If they already had
+      // draft thumbs, the first pass already swapped the image and
+      // this call is a no-op in practice.)
+      if (!localDrafts.some((d) => d.thumb)) rotateWelcomeArt(localDrafts, packs);
 
       $grid.innerHTML = [...byPack.values()].map(({ order, count }) => {
         const pack = packMap.get(order.pack_id);
@@ -1374,6 +1495,8 @@ import "../styles/workspace.css";
 
       const $tab       = document.getElementById('cal-tab-trigger');
       const $tabCount  = document.getElementById('cal-tab-count');
+      const $sideTrig  = document.getElementById('cal-side-trigger');
+      const $sideCount = document.getElementById('cal-side-count');
       const $popup     = document.getElementById('cal-popup');
       const $popupClose= document.getElementById('cal-popup-close');
       const $popupPrev = document.getElementById('cal-popup-prev');
@@ -1511,9 +1634,14 @@ import "../styles/workspace.css";
         });
         if (upcoming.length === 0) {
           $tabCount.hidden = true;
+          if ($sideCount) $sideCount.hidden = true;
         } else {
           $tabCount.hidden = false;
           $tabCount.textContent = String(upcoming.length);
+          if ($sideCount) {
+            $sideCount.hidden = false;
+            $sideCount.textContent = String(upcoming.length);
+          }
         }
       }
 
@@ -1628,6 +1756,7 @@ import "../styles/workspace.css";
       });
 
       $tab?.addEventListener('click', openPopup);
+      $sideTrig?.addEventListener('click', openPopup);
       $popupClose?.addEventListener('click', closePopup);
       $popup?.addEventListener('click', (e) => { if (e.target === $popup) closePopup(); });
       document.addEventListener('keydown', (e) => {
