@@ -485,6 +485,14 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   .splash-eyebrow, .splash-sub, .splash-bar,
   .splash-word > span { opacity: 1 !important; transform: none !important; animation: none !important; }
   .splash-bar-fill { transform: scaleX(1) !important; animation: none !important; }
+  /* Approach stages: drop the blur + scale theatrics; keep a simple
+     opacity fade so the section is still usable. */
+  .approach-stage {
+    transform: none !important;
+    filter: none !important;
+    transition: opacity 0.45s linear !important;
+  }
+  .approach-stage[data-stage="0"]::before { animation: none !important; }
 }
 
 /* ============ Hero — cinematic ============ */
@@ -992,23 +1000,35 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   align-items: center;
   justify-content: center;
   padding: 0 8vw;
+  /* Resting state for inactive stages BELOW the active one: sit lower,
+     smaller, blurred and out — incoming stages "ride up" from depth. */
   opacity: 0;
-  transform: translateY(28vh);
+  transform: translateY(18vh) scale(0.94);
+  filter: blur(14px);
+  transform-origin: 50% 60%;
   transition:
-    opacity 1.05s cubic-bezier(.2,.7,.2,1),
-    transform 1.25s cubic-bezier(.2,.7,.2,1);
+    opacity 0.95s cubic-bezier(.2,.7,.2,1),
+    transform 1.15s cubic-bezier(.22,.7,.18,1),
+    filter 0.85s cubic-bezier(.2,.7,.2,1);
   pointer-events: none;
   z-index: 2;
-  will-change: transform, opacity;
+  will-change: transform, opacity, filter;
 }
 .approach-stage.is-active {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
+  filter: blur(0);
   pointer-events: auto;
+  z-index: 3;
 }
+/* Outgoing: instead of just sliding up, the leaving stage drifts up a
+   touch AND zooms in slightly — like a camera dolly through the frame.
+   Combined with the incoming stage's depth-rise it reads as a layered
+   transition rather than a flat slide. */
 .approach-stage.is-leaving {
   opacity: 0;
-  transform: translateY(-28vh);
+  transform: translateY(-14vh) scale(1.04);
+  filter: blur(10px);
 }
 
 /* ---- Intro stage ----
@@ -1030,7 +1050,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   left: 0;
   right: 0;
   margin-inline: auto;
-  transform: translateY(-50%);
+  /* Default rest state is centered + slightly zoomed in. When the
+     stage activates the kenBurns animation drifts the zoom + pan
+     so the photo never feels static. */
+  transform: translateY(-50%) scale(1.0);
   max-width: 1360px;
   /* Height tracks the per-stage card-stack on stages 1-4:
        visual (clamp 420 / 58vh / 640) + 28px gap + ~150-180px text.
@@ -1042,13 +1065,22 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   background-image:
     linear-gradient(rgba(20, 18, 16, 0.28), rgba(20, 18, 16, 0.28)),
     url("/assets/chapter%204.png");
-  background-size: cover;
-  background-position: center;
+  background-size: 110% auto;
+  background-position: center 40%;
   background-repeat: no-repeat;
   /* Same drop shadow as the other hero visuals for consistency. */
   box-shadow: 0 30px 60px -30px rgba(28, 29, 34, 0.25);
   z-index: 0;
   pointer-events: none;
+  will-change: transform, background-position;
+}
+/* Photo gently breathes while the intro stage is the active one. */
+.approach-stage[data-stage="0"].is-active::before {
+  animation: ch04KenBurns 18s ease-in-out infinite alternate;
+}
+@keyframes ch04KenBurns {
+  0%   { transform: translateY(-50%) scale(1.0); background-position: center 38%; }
+  100% { transform: translateY(-50%) scale(1.06); background-position: center 46%; }
 }
 .approach-intro {
   text-align: center;
@@ -1056,6 +1088,31 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   /* Keep the headline + chapter rule above the photo box. */
   position: relative;
   z-index: 1;
+}
+
+/* Stage 0 sits over a dark photo — flip the headline + chapter + scroll
+   hint to paper-white so they read against the darker tone. Em accent
+   shifts to violet-soft so the brand still shows through. */
+.approach-stage[data-stage="0"] .chapter,
+.approach-stage[data-stage="0"] .chapter::before,
+.approach-stage[data-stage="0"] .chapter::after {
+  color: var(--paper);
+}
+.approach-stage[data-stage="0"] .approach-title {
+  color: var(--paper);
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.35);
+}
+.approach-stage[data-stage="0"] .approach-title em {
+  color: var(--violet-soft);
+}
+.approach-stage[data-stage="0"] .approach-scroll-hint {
+  color: rgba(240, 238, 235, 0.72);
+}
+.approach-stage[data-stage="0"] .approach-scroll-hint-line {
+  background: rgba(240, 238, 235, 0.55);
+}
+.approach-stage[data-stage="0"] .approach-scroll-hint-line::after {
+  background: var(--paper);
 }
 .approach-intro .chapter {
   margin-bottom: 56px;
