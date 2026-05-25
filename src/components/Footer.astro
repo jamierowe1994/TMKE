@@ -4,41 +4,72 @@ const year = new Date().getFullYear();
 
 <footer id="contact" class="footer">
   <div class="footer-grid">
-    <div>
+    <div class="footer-brand">
       <div class="footer-mark">TMKE</div>
       <div class="footer-tag">The future of property marketing.</div>
       <p class="footer-blurb">A specialist social media and marketing agency for the UK property sector.</p>
     </div>
 
-    <div>
-      <h5>Services</h5>
+    <!-- <details> wrappers collapse to accordions on mobile. Desktop styles
+         keep them visually identical via .footer-col display rules. -->
+    <details class="footer-col" open>
+      <summary><h5>Services</h5><span class="footer-col-label">Services</span></summary>
       <ul>
         <li><a href="/services">Social Media Management</a></li>
         <li><a href="/edit">The Edit</a></li>
         <li><a href="/#brand-looks">Brand Looks</a></li>
         <li><a href="#free-assets" data-fa-open>Five &amp; Live</a></li>
       </ul>
-    </div>
+    </details>
 
-    <div>
-      <h5>Company</h5>
+    <details class="footer-col" open>
+      <summary><h5>Company</h5><span class="footer-col-label">Company</span></summary>
       <ul>
         <li><a href="/about">About</a></li>
         <li><a href="/blog">Insights</a></li>
         <li><a href="/contact">Contact</a></li>
         <li><a href="/privacy">Privacy</a></li>
       </ul>
-    </div>
+    </details>
 
-    <div>
-      <h5>Get in touch</h5>
+    <details class="footer-col" open>
+      <summary><h5>Get in touch</h5><span class="footer-col-label">Get in touch</span></summary>
       <ul>
         <li><a href="mailto:hello@tmke.co.uk">hello@tmke.co.uk</a></li>
         <li><a href="tel:+442012345678">+44 (0) 20 1234 5678</a></li>
         <li><a href="/contact">Book a discovery call</a></li>
       </ul>
-    </div>
+    </details>
   </div>
+
+  <script is:inline>
+    // Footer columns are <details open> for desktop. On mobile we want
+    // them closed by default and tappable; on desktop we block toggling
+    // so the columns always read as static blocks.
+    (function () {
+      const cols = document.querySelectorAll(".footer .footer-col");
+      if (!cols.length) return;
+      const mq = window.matchMedia("(max-width: 720px)");
+      function sync() {
+        cols.forEach(function (d) {
+          if (mq.matches) {
+            d.removeAttribute("open");
+          } else {
+            d.setAttribute("open", "");
+          }
+        });
+      }
+      cols.forEach(function (d) {
+        const s = d.querySelector("summary");
+        if (!s) return;
+        s.addEventListener("click", function (e) {
+          if (!mq.matches) e.preventDefault();
+        });
+      });
+      sync();
+      mq.addEventListener ? mq.addEventListener("change", sync) : mq.addListener(sync);
+    })();
+  </script>
 
   <div class="footer-bottom">
     <div class="footer-bottom-left">
