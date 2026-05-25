@@ -8,7 +8,9 @@
 const UNSPLASH = (id, w = 1600, h = 1000) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
 
-const HERO = UNSPLASH("1505693416388-ac5ce068fe85", 2400, 1600);
+// Branded hero shot — supplied by the agency, lives in /public/assets/.
+// Space in the filename gets URL-encoded.
+const HERO = "/assets/wold%20hero.png";
 
 const HERO_META = [
   ["Interior",      "320 m²"],
@@ -65,13 +67,41 @@ const VALUES = [
 <div class="wo-root">
 
   <!-- ============================================================
-       HERO  —  Cinematic split: dark glass panel + photo
+       HERO  —  Full-bleed cinematic photo with a floating glass
+                info panel on the left. The panel is semi-transparent
+                with a backdrop-filter blur, so the image visibly
+                continues behind it (Cala Mira-style).
        ============================================================ -->
   <section class="wo-hero">
-    <span class="wo-cross wo-cross--tl" aria-hidden="true"></span>
-    <span class="wo-cross wo-cross--bl" aria-hidden="true"></span>
+    <!-- Full-bleed photo & overlay sit at the base. -->
+    <img
+      class="wo-hero-photo"
+      src={HERO}
+      alt="Country estate at last light"
+      loading="eager"
+    />
+    <div class="wo-photo-overlay" aria-hidden="true"></div>
 
-    <aside class="wo-pane wo-pane--info">
+    <!-- Coordinates / pagination on the photo, bottom edges. -->
+    <div class="wo-photo-foot">
+      <div class="wo-photo-foot-l" data-reveal data-reveal-delay="900">
+        Cotswolds, England
+      </div>
+      <div class="wo-photo-foot-m" data-reveal data-reveal-delay="1000">
+        01 / 06
+      </div>
+      <div class="wo-photo-foot-r" data-reveal data-reveal-delay="1100">
+        51&deg;55&apos;34&quot;N &mdash; 1&deg;44&apos;33&quot;W
+      </div>
+    </div>
+
+    <!-- Floating glass info panel — semi-transparent over the blurred photo. -->
+    <aside class="wo-pane wo-pane--info" data-reveal data-reveal-delay="60">
+      <span class="wo-cross wo-cross--tl" aria-hidden="true"></span>
+      <span class="wo-cross wo-cross--tr" aria-hidden="true"></span>
+      <span class="wo-cross wo-cross--bl" aria-hidden="true"></span>
+      <span class="wo-cross wo-cross--br" aria-hidden="true"></span>
+
       <header class="wo-mast" data-reveal data-reveal-delay="0">
         <a href="#" class="wo-mark">Wold</a>
         <nav class="wo-mast-links">
@@ -89,7 +119,7 @@ const VALUES = [
         </div>
 
         <h1 class="wo-hero-title" data-reveal data-reveal-delay="340">
-          Stable<br />Cottage 04
+          Stable<br />Cottage
         </h1>
 
         <p class="wo-hero-desc" data-reveal data-reveal-delay="480">
@@ -133,28 +163,6 @@ const VALUES = [
         </div>
       </figure>
     </aside>
-
-    <div class="wo-pane wo-pane--photo">
-      <img
-        class="wo-hero-photo"
-        src={HERO}
-        alt="Stable Cottage at golden hour"
-        loading="eager"
-      />
-      <div class="wo-photo-overlay" aria-hidden="true"></div>
-
-      <div class="wo-photo-foot">
-        <div class="wo-photo-foot-l" data-reveal data-reveal-delay="900">
-          Cotswolds, England
-        </div>
-        <div class="wo-photo-foot-m" data-reveal data-reveal-delay="1000">
-          01 / 06
-        </div>
-        <div class="wo-photo-foot-r" data-reveal data-reveal-delay="1100">
-          51&deg;55&apos;34&quot;N &mdash; 1&deg;44&apos;33&quot;W
-        </div>
-      </div>
-    </div>
   </section>
 
   <!-- ============================================================
@@ -325,13 +333,30 @@ const VALUES = [
     --wo-sans:    "Darker Grotesque", "Inter", system-ui, sans-serif;
     --wo-ease:    cubic-bezier(0.16, 1, 0.3, 1);
 
-    background: var(--wo-taupe);
+    /* Plaster texture — two inline SVG noise layers (large mottle +
+       fine grain) tinted warm cream. Applied to every section below
+       the hero via background-image stacking. */
+    --wo-plaster:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch' seed='3'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 0.95  0 0 0 0 0.86  0 0 0 0.09 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>"),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='720' height='720'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.012 0.015' numOctaves='3' stitchTiles='stitch' seed='7'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 0.93  0 0 0 0 0.82  0 0 0 0.14 0'/></filter><rect width='100%25' height='100%25' filter='url(%23m)'/></svg>");
+
+    /* Single, continuous plaster wall — applied to the root so the
+       noise tiles run unbroken behind every section and the footer.
+       Each section just sets its own padding; the wall shows through. */
+    background-color: var(--wo-taupe);
+    background-image: var(--wo-plaster);
+    background-size: 320px 320px, 720px 720px;
+    background-repeat: repeat, repeat;
+    background-blend-mode: soft-light, soft-light;
     color: var(--wo-cream);
     font-family: var(--wo-sans);
     overflow-x: hidden;
   }
   .wo-root *, .wo-root *::before, .wo-root *::after { box-sizing: border-box; }
-  .wo-root a { color: inherit; text-decoration: none; }
+  /* Reset anchor colour — but leave buttons alone so .wo-btn--solid
+     can paint its own text colour without losing the specificity war. */
+  .wo-root a:not(.wo-btn) { color: inherit; text-decoration: none; }
+  .wo-root a.wo-btn { text-decoration: none; }
 
   /* ============================================================
      Reveal system — opacity + translateY, fired by IO below.
@@ -354,53 +379,109 @@ const VALUES = [
   }
 
   /* ============================================================
-     HERO  —  Split layout, dark glass panel + photo
+     HERO  —  Full-bleed photo with a floating glass info panel
      ============================================================ */
   .wo-hero {
     position: relative;
     min-height: 100svh;
-    display: grid;
-    grid-template-columns: minmax(360px, 38%) 1fr;
     background: var(--wo-deep);
+    overflow: hidden;
   }
   @media (max-width: 880px) {
-    .wo-hero { grid-template-columns: 1fr; min-height: auto; }
+    .wo-hero { min-height: auto; }
   }
 
+  /* Corner cross-marks on the floating panel itself. */
   .wo-cross {
     position: absolute;
-    width: 14px; height: 14px;
+    width: 12px; height: 12px;
     pointer-events: none;
-    z-index: 5;
+    z-index: 3;
   }
   .wo-cross::before,
   .wo-cross::after {
     content: "";
     position: absolute;
     background: var(--wo-cream);
-    opacity: 0.4;
+    opacity: 0.55;
   }
   .wo-cross::before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-0.5px); }
   .wo-cross::after  { top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-0.5px); }
-  .wo-cross--tl { left: calc(38% - 7px); top: 88px; }
-  .wo-cross--bl { left: calc(38% - 7px); bottom: 88px; }
+  .wo-cross--tl { top: -6px; left: -6px; }
+  .wo-cross--tr { top: -6px; right: -6px; }
+  .wo-cross--bl { bottom: -6px; left: -6px; }
+  .wo-cross--br { bottom: -6px; right: -6px; }
   @media (max-width: 880px) { .wo-cross { display: none; } }
 
-  /* === Glass info panel === */
+  /* === Floating glass info panel ===
+     True frosted-glass treatment: very light tint, heavy backdrop blur,
+     and a gradient inner border so light catches the top + left edges
+     (as it would on actual glass). The photo continues, softly blurred,
+     behind the panel. No scrollbar — content clips cleanly. */
   .wo-pane--info {
-    position: relative;
-    padding: 28px 36px 36px;
-    background:
-      linear-gradient(180deg, rgba(20,15,11,0.4) 0%, rgba(20,15,11,0.85) 100%),
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch' seed='5'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-    background-color: var(--wo-warm);
+    position: absolute;
+    top: 44px;
+    left: 44px;
+    bottom: 44px;
+    z-index: 4;
+    width: 400px;
+    max-width: calc(100vw - 88px);
+    padding: 28px 32px 32px;
     color: var(--wo-cream);
     display: flex;
     flex-direction: column;
-    gap: 28px;
-    border-right: 1px solid var(--wo-line);
+    gap: 22px;
+    background:
+      linear-gradient(180deg, rgba(20,15,11,0.18) 0%, rgba(20,15,11,0.38) 100%);
+    backdrop-filter: blur(28px) saturate(1.15);
+    -webkit-backdrop-filter: blur(28px) saturate(1.15);
+    border: 1px solid rgba(239,230,212,0.18);
+    /* Subtle curve — soft glass, not a hard rectangle. */
+    border-radius: 14px;
+    /* Light catching the glass — inner highlight along the top edge,
+       a faint left-edge bloom, and a soft outer shadow that grounds
+       the panel without making it feel heavy. */
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      inset 1px 0 0 rgba(255,255,255,0.08),
+      inset 0 -1px 0 rgba(0,0,0,0.18),
+      0 40px 80px -28px rgba(0,0,0,0.55);
+    overflow: hidden;
   }
-  @media (max-width: 880px) { .wo-pane--info { padding: 24px; gap: 24px; } }
+  /* Brighter highlight that runs along the very top edge — feels like
+     light is catching the lip of the glass from the sky in the image. */
+  .wo-pane--info::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 24%),
+      linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 22%);
+    mix-blend-mode: screen;
+    opacity: 0.9;
+  }
+  /* Subtle grain on the glass for warmth */
+  .wo-pane--info::after {
+    content: "";
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch' seed='5'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size: 280px 280px;
+    opacity: 0.5;
+    mix-blend-mode: overlay;
+  }
+  @media (max-width: 880px) {
+    .wo-pane--info {
+      position: relative;
+      top: 0; left: 0; bottom: auto;
+      width: auto;
+      max-width: none;
+      margin: 16px;
+      padding: 24px;
+      gap: 20px;
+    }
+  }
 
   .wo-mast {
     display: flex;
@@ -545,17 +626,17 @@ const VALUES = [
     text-transform: uppercase;
   }
 
-  /* === Photo pane === */
-  .wo-pane--photo {
-    position: relative;
-    overflow: hidden;
-    min-height: 56vh;
-  }
+  /* === Full-bleed cinematic photo === */
   .wo-hero-photo {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
     object-fit: cover;
+    /* Shift the focal point right so the sofa sits closer to the
+       horizontal centre of the open canvas (between the glass panel
+       and the right edge of the viewport). */
+    object-position: 68% center;
     display: block;
+    z-index: 1;
     transform: scale(1.06);
     filter: blur(8px);
     animation: wo-hero-clear 2200ms var(--wo-ease) 100ms forwards;
@@ -565,42 +646,50 @@ const VALUES = [
   }
   .wo-photo-overlay {
     position: absolute; inset: 0;
+    z-index: 2;
     background:
-      linear-gradient(180deg, rgba(20,15,11,0.18) 0%, rgba(20,15,11,0) 28%, rgba(20,15,11,0) 60%, rgba(20,15,11,0.45) 100%);
+      linear-gradient(95deg, rgba(20,15,11,0.32) 0%, rgba(20,15,11,0) 38%, rgba(20,15,11,0) 60%, rgba(20,15,11,0.45) 100%),
+      linear-gradient(180deg, rgba(20,15,11,0.18) 0%, rgba(20,15,11,0) 28%, rgba(20,15,11,0) 65%, rgba(20,15,11,0.5) 100%);
     pointer-events: none;
   }
   .wo-photo-foot {
     position: absolute;
-    bottom: 28px;
+    bottom: 32px;
     left: 32px;
     right: 32px;
+    z-index: 3;
     display: flex;
-    justify-content: space-between;
-    align-items: end;
+    justify-content: flex-end;
+    gap: 32px;
     color: var(--wo-cream);
     font-size: 11px;
     letter-spacing: 0.24em;
     text-transform: uppercase;
     text-shadow: 0 2px 10px rgba(0,0,0,0.4);
   }
+  /* Hide the bottom-left "Cotswolds" label here — the panel already
+     identifies the property. Keep the two right-aligned details. */
+  .wo-photo-foot-l { display: none; }
   .wo-photo-foot-m {
     font-family: var(--wo-serif);
     font-style: italic;
     text-transform: none;
     font-size: 13px;
     letter-spacing: 0.1em;
-    opacity: 0.85;
+    opacity: 0.9;
   }
   @media (max-width: 880px) {
-    .wo-photo-foot { font-size: 9px; gap: 12px; bottom: 18px; left: 18px; right: 18px; }
+    .wo-photo-foot { font-size: 9px; gap: 14px; bottom: 18px; left: 18px; right: 18px; }
   }
 
   /* ============================================================
-     COMMON SECTION SCAFFOLD
+     COMMON SECTION SCAFFOLD — sections are transparent so the
+     root's plaster wall reads as one continuous surface.
      ============================================================ */
   .wo-section {
     position: relative;
     padding: 140px 36px;
+    background-color: transparent;
   }
   @media (max-width: 880px) { .wo-section { padding: 96px 24px; } }
 
@@ -640,7 +729,7 @@ const VALUES = [
   /* ============================================================
      INTRO
      ============================================================ */
-  .wo-section--intro { background: var(--wo-taupe); text-align: center; }
+  .wo-section--intro { text-align: center; }
   .wo-intro-h {
     font-family: var(--wo-serif);
     font-weight: 400;
@@ -649,7 +738,9 @@ const VALUES = [
     letter-spacing: -0.02em;
     margin: 0 0 28px;
   }
-  .wo-intro-h em { font-style: italic; color: var(--wo-bronze); }
+  /* Italic kept, colour matches the rest of the heading so the line
+     reads in cream-white rather than bronze. */
+  .wo-intro-h em { font-style: italic; color: inherit; }
   .wo-intro-p {
     font-size: 16px;
     line-height: 1.75;
@@ -661,7 +752,8 @@ const VALUES = [
   /* ============================================================
      REGIONS
      ============================================================ */
-  .wo-section--regions { background: var(--wo-deep); }
+  /* No local background — the root's plaster wall runs through. */
+  .wo-section--regions { /* transparent */ }
   .wo-regions-grid {
     max-width: 1320px;
     margin: 0 auto;
@@ -721,7 +813,7 @@ const VALUES = [
   /* ============================================================
      LISTINGS
      ============================================================ */
-  .wo-section--listings { background: var(--wo-warm); }
+  .wo-section--listings { /* transparent */ }
   .wo-listings-grid {
     max-width: 1320px;
     margin: 0 auto;
@@ -731,8 +823,19 @@ const VALUES = [
   }
   @media (max-width: 880px) { .wo-listings-grid { grid-template-columns: 1fr; } }
   .wo-listing {
-    background: var(--wo-deep);
-    border: 1px solid var(--wo-line);
+    position: relative;
+    /* Glass card — same language as the hero panel: light tint, heavy
+       backdrop blur, thin border, light catching the top edge. */
+    background: linear-gradient(180deg, rgba(20,15,11,0.18) 0%, rgba(20,15,11,0.36) 100%);
+    backdrop-filter: blur(28px) saturate(1.15);
+    -webkit-backdrop-filter: blur(28px) saturate(1.15);
+    border: 1px solid rgba(239,230,212,0.18);
+    border-radius: 14px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      inset 1px 0 0 rgba(255,255,255,0.08),
+      inset 0 -1px 0 rgba(0,0,0,0.18),
+      0 40px 80px -28px rgba(0,0,0,0.5);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -819,7 +922,7 @@ const VALUES = [
   /* ============================================================
      VALUES
      ============================================================ */
-  .wo-section--values { background: var(--wo-deep); }
+  .wo-section--values { /* transparent */ }
   .wo-values-grid {
     max-width: 1320px;
     margin: 0 auto;
@@ -857,7 +960,6 @@ const VALUES = [
      ============================================================ */
   .wo-section--cta {
     text-align: center;
-    background: var(--wo-taupe);
     padding: 160px 36px;
   }
   .wo-cta-inner { max-width: 720px; margin: 0 auto; }
@@ -888,13 +990,15 @@ const VALUES = [
     color: var(--wo-cream);
     transition: background 0.3s ease, color 0.3s ease;
   }
-  .wo-btn--solid { background: var(--wo-cream); color: var(--wo-deep); }
-  .wo-btn--solid:hover { background: var(--wo-bronze); border-color: var(--wo-bronze); color: var(--wo-cream); }
+  /* High-specificity .wo-root prefix locks the text colour in, so the
+     button label can never get washed out by a parent inherit rule. */
+  .wo-root .wo-btn--solid { background: var(--wo-cream); color: #000; }
+  .wo-root .wo-btn--solid:hover { background: var(--wo-bronze); border-color: var(--wo-bronze); color: var(--wo-cream); }
 
   /* ============================================================
      FOOTER
      ============================================================ */
-  .wo-foot { background: var(--wo-deep); padding: 80px 36px 36px; border-top: 1px solid var(--wo-line); }
+  .wo-foot { padding: 80px 36px 36px; border-top: 1px solid var(--wo-line); }
   .wo-foot-grid {
     max-width: 1320px;
     margin: 0 auto;
