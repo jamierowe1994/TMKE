@@ -28,8 +28,15 @@ const BENEFITS = [
 
 <div class="pa-root">
 
-  <!-- Nav -->
-  <header class="pa-nav">
+  <!-- Nav — has two visual states:
+       1. Cinematic phase (default): transparent over the video, white wordmark,
+          links + CTA hidden. The header reads as just the brand.
+       2. Solid phase (added via .pa-nav--solid by the inline script when the
+          cinematic scroll progress passes NAV_SOLID_AT): frosted-glass
+          background, dark text, full nav links + CTA fade in.
+       The wordmark you see over the video literally morphs into the page nav
+       as you scroll past the cinematic. -->
+  <header class="pa-nav" data-pa-nav>
     <a href="#" class="pa-mark">
       <span>HORIZON</span>
       <span class="pa-mark-sub">ESTATE</span>
@@ -72,7 +79,7 @@ const BENEFITS = [
           <h2>The Parade</h2>
           <p>Cliffside elevation</p>
         </article>
-        <article class="pa-cine-caption" data-at="0.40" data-until="0.60">
+        <article class="pa-cine-caption pa-cine-caption--right" data-at="0.40" data-until="0.60">
           <div class="pa-cine-eyebrow">Architecture</div>
           <h2>Held in concrete</h2>
           <p>Cantilevered above the lake</p>
@@ -295,24 +302,76 @@ const BENEFITS = [
   }
   .pa-root *, .pa-root *::before, .pa-root *::after { box-sizing: border-box; }
 
-  /* === Nav === */
+  /* === Nav ===
+     Default state (during cinematic): transparent, white wordmark, links
+     hidden. .pa-nav--solid (added by the inline script when scroll progress
+     passes NAV_SOLID_AT) morphs to frosted-glass + dark text + visible links.
+
+     The nav background uses a keyframe animation rather than a transition
+     because grouping `transition: background ...` on the base rule with a
+     `background` change on a higher-specificity descendant rule (the
+     `.pa-nav--solid` rule) can stall the visual update on some Chromium
+     builds. Keyframe animations bypass that quirk entirely. */
   .pa-nav {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 18px 32px;
-    background: var(--pa-paper);
-    border-bottom: 1px solid var(--pa-line);
-    position: sticky; top: 0; z-index: 20;
+    background-color: transparent;
+    border-bottom: 1px solid transparent;
+    position: sticky; top: 0; z-index: 30;
+  }
+  .pa-nav.pa-nav--solid {
+    background-color: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border-bottom-color: rgba(24, 24, 27, 0.08);
+    animation: pa-nav-morph 0.4s ease both;
+  }
+  @keyframes pa-nav-morph {
+    from {
+      background-color: transparent;
+      backdrop-filter: blur(0) saturate(100%);
+      -webkit-backdrop-filter: blur(0) saturate(100%);
+      border-bottom-color: transparent;
+    }
   }
   .pa-mark {
     display: inline-flex;
     flex-direction: column;
     line-height: 1;
+    color: #fff;
+    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.5);
+    text-decoration: none;
+    transition: color 0.4s ease, text-shadow 0.4s ease;
+  }
+  .pa-nav--solid .pa-mark {
     color: var(--pa-ink);
+    text-shadow: none;
   }
   .pa-mark span { font-weight: 800; font-size: 14px; letter-spacing: 0.04em; }
-  .pa-mark-sub { font-weight: 400; font-size: 11px; letter-spacing: 0.2em; color: var(--pa-mute); margin-top: 2px; }
+  .pa-mark-sub {
+    font-weight: 400; font-size: 11px; letter-spacing: 0.2em;
+    color: rgba(255, 255, 255, 0.78);
+    margin-top: 2px;
+    transition: color 0.4s ease;
+  }
+  .pa-nav--solid .pa-mark-sub { color: var(--pa-mute); }
+
+  /* Nav links + CTA — hidden during cinematic phase, fade in when solid.
+     pointer-events also toggled so they're not clickable while invisible. */
+  .pa-nav-links,
+  .pa-nav-cta {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+  .pa-nav--solid .pa-nav-links,
+  .pa-nav--solid .pa-nav-cta {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .pa-nav-links { display: flex; gap: 22px; align-items: center; }
   .pa-nav-links a {
     font-size: 14px;
@@ -769,39 +828,55 @@ const BENEFITS = [
     inset: 0;
     pointer-events: none;
   }
+  /* Caption — frosted-glass card pinned to the bottom-left by default.
+     The middle caption uses .pa-cine-caption--right to flip to the right
+     side for visual variety; layout is otherwise identical. */
   .pa-cine-caption {
     position: absolute;
-    bottom: 96px;
+    bottom: 88px;
     left: 56px;
-    max-width: 560px;
+    max-width: 520px;
     color: #fff;
     opacity: 0;
     will-change: opacity;
     /* JS sets opacity per-frame for accurate scrub; no CSS transition. */
+    padding: 26px 30px 28px;
+    background: rgba(20, 22, 26, 0.32);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 16px;
+    box-shadow:
+      0 12px 36px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .pa-cine-caption--right {
+    left: auto;
+    right: 56px;
+    text-align: right;
   }
   .pa-cine-eyebrow {
     font-size: 11px;
     letter-spacing: 0.28em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.72);
-    margin-bottom: 14px;
+    color: rgba(255,255,255,0.78);
+    margin-bottom: 12px;
   }
   .pa-cine-caption h2 {
     font-weight: 600;
-    font-size: clamp(40px, 6vw, 76px);
-    line-height: 1.0;
+    font-size: clamp(34px, 4.6vw, 56px);
+    line-height: 1.05;
     letter-spacing: -0.02em;
-    margin: 0 0 14px;
-    text-shadow: 0 2px 32px rgba(0,0,0,0.45);
+    margin: 0 0 10px;
   }
   .pa-cine-caption p {
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1.5;
     color: rgba(255,255,255,0.88);
     margin: 0;
     max-width: 44ch;
-    text-shadow: 0 1px 16px rgba(0,0,0,0.4);
   }
+  .pa-cine-caption--right p { margin-left: auto; }
   .pa-cine-scroll-hint {
     position: absolute;
     bottom: 28px;
@@ -827,7 +902,14 @@ const BENEFITS = [
     50%      { transform: translateX(-50%) translateY(6px); }
   }
   @media (max-width: 880px) {
-    .pa-cine-caption { bottom: 80px; left: 28px; right: 28px; }
+    .pa-cine-caption {
+      bottom: 80px; left: 20px; right: 20px;
+      max-width: none; padding: 22px 24px 24px;
+    }
+    /* On mobile, the right-aligned caption falls back to left alignment so
+       the glass card still spans the available width without awkward margins. */
+    .pa-cine-caption--right { right: 20px; text-align: left; }
+    .pa-cine-caption--right p { margin-left: 0; }
   }
   @media (prefers-reduced-motion: reduce) {
     /* No scroll runway — the section collapses to one viewport.
@@ -867,11 +949,26 @@ const BENEFITS = [
     if (!root) return;
     const video = root.querySelector('[data-pa-cine-video]');
     const captions = Array.from(root.querySelectorAll('.pa-cine-caption'));
+    const nav = document.querySelector('[data-pa-nav]');
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Nav morph — toggles .pa-nav--solid when scroll has progressed far
+    // enough through the cinematic that the wordmark should "land" into
+    // the page nav (glass background, dark text, nav links visible).
+    // Threshold sits past the last caption so the morph happens during the
+    // final stretch of the cinematic, not mid-content.
+    const NAV_SOLID_AT = 0.92;
+    const setNavSolid = (solid) => {
+      if (!nav) return;
+      nav.classList.toggle('pa-nav--solid', solid);
+    };
 
     if (reduced) {
       // Static fallback — first caption stays visible over the poster frame.
       if (captions[0]) captions[0].style.opacity = '1';
+      // The cinematic collapses to one viewport in reduced-motion mode, so
+      // jump the nav straight to its solid state — no morph to drive.
+      setNavSolid(true);
       return;
     }
 
@@ -914,14 +1011,20 @@ const BENEFITS = [
     //      if Lenis isn't loaded or rAF is throttled.
     // Each call is idempotent and cheap (one rect read + arithmetic).
     const tick = () => {
-      if (!duration) return;
       const rect = root.getBoundingClientRect();
-      const onScreen = rect.bottom > 0 && rect.top < window.innerHeight;
-      if (!onScreen) return;
-
       const runway   = rect.height - window.innerHeight;
       const scrolled = -rect.top;
       const progress = Math.max(0, Math.min(1, runway > 0 ? scrolled / runway : 0));
+
+      // Nav morph runs ALWAYS — even when the cinematic is off-screen —
+      // so the nav stays solid after the visitor scrolls past, and returns
+      // to transparent if they scroll back up to the top.
+      setNavSolid(progress >= NAV_SOLID_AT);
+
+      if (!duration) return;
+      // Only do the video work while the section is on screen.
+      const onScreen = rect.bottom > 0 && rect.top < window.innerHeight;
+      if (!onScreen) return;
 
       // Skip the work if scroll position barely moved frame-over-frame.
       if (Math.abs(progress - lastProgress) <= 0.0005) return;
