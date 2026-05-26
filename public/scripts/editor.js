@@ -2229,6 +2229,34 @@
     ctx.restore();
   }
 
+  // Shared binder for any DOM subtree that contains [data-prop] inputs.
+  // Used by both the right panel (renderProps) and the top-bar Position
+  // popover so the wiring behaviour is identical wherever the input lives.
+  function bindGenericPropInputs(root) {
+    root.querySelectorAll("[data-prop]").forEach(function (input) {
+      const prop = input.dataset.prop;
+      const ev = (input.type === "range" || input.type === "color") ? "input" : "change";
+      input.addEventListener(ev, function () {
+        const tgt = getEl(state.selectedIds[0]);
+        if (!tgt) return;
+        const val = (input.type === "number" || input.type === "range")
+          ? parseFloat(input.value)
+          : input.value;
+        tgt[prop] = val;
+        // SVG shapes/icons: recompute the data-URI src whenever the colour
+        // changes so the visual updates in lockstep with the picker.
+        if (prop === "svgFill" && tgt.svgKey) {
+          tgt.src = svgKeyToDataUri(tgt.svgKey, val);
+        }
+        fullRender();
+        if (input.type !== "range") pushHistory();
+      });
+      if (input.type === "range") {
+        input.addEventListener("change", function () { pushHistory(); });
+      }
+    });
+  }
+
   // ---------- Property panel ----------
   // Targets `#ed-selection-body` inside the left "Selection" pane (the right
   // properties panel was removed in favour of a unified left rail). On
@@ -2257,48 +2285,14 @@
     const el = getEl(state.selectedIds[0]);
     if (!el) return;
 
-    const html = [];
-    html.push(`<div class="ed-props-section"><h4>Position &amp; size</h4>
-      <div class="ed-props-row">
-        <div class="ed-props-field"><label>X</label><input type="number" data-prop="x" value="${el.x}"></div>
-        <div class="ed-props-field"><label>Y</label><input type="number" data-prop="y" value="${el.y}"></div>
-      </div>
-      <div class="ed-props-row">
-        <div class="ed-props-field"><label>Width</label><input type="number" data-prop="w" value="${el.w}"></div>
-        <div class="ed-props-field"><label>Height</label><input type="number" data-prop="h" value="${el.h}"></div>
-      </div>
-      <div class="ed-props-row">
-        <div class="ed-props-field"><label>Rotation</label><input type="number" data-prop="rotation" value="${el.rotation || 0}"></div>
-        <div class="ed-props-field"><label>Opacity</label><input type="range" min="0" max="1" step="0.05" data-prop="opacity" value="${el.opacity != null ? el.opacity : 1}"></div>
-      </div>
-    </div>`);
+    // Position & size, font/type and the effects panel used to render
+    // here as always-visible sections. They now live as popovers on the
+    // top context bar so the rail isn't dominated by controls the user
+    // only reaches for occasionally. Right-panel sections from here on
+    // are the per-type controls that benefit from being visible: fill /
+    // stroke, image actions, frame controls, arrange, etc.
 
-    if (el.type === "text") {
-      // Font picker mounts here (placeholder div, populated after render).
-      html.push(`<div class="ed-props-section"><h4>Type</h4>
-        <div class="ed-props-field"><label>Font</label>
-          <div data-mount="font-picker"></div>
-        </div>
-        <div class="ed-props-row">
-          <div class="ed-props-field"><label>Size</label><input type="number" data-prop="size" min="6" max="500" value="${el.size}"></div>
-          <div class="ed-props-field"><label>Weight</label>
-            <select data-prop="weight">
-              <option value="300" ${el.weight==300?"selected":""}>Light</option>
-              <option value="400" ${el.weight==400?"selected":""}>Regular</option>
-              <option value="500" ${el.weight==500?"selected":""}>Medium</option>
-              <option value="600" ${el.weight==600?"selected":""}>Semibold</option>
-              <option value="700" ${el.weight==700?"selected":""}>Bold</option>
-              <option value="800" ${el.weight==800?"selected":""}>Black</option>
-            </select>
-          </div>
-        </div>
-        <div class="ed-props-row">
-          <div class="ed-props-field"><label>Letter spacing</label><input type="number" data-prop="letterSpacing" step="0.1" value="${el.letterSpacing||0}"></div>
-          <div class="ed-props-field"><label>Line height</label><input type="number" data-prop="lineHeight" step="0.05" value="${el.lineHeight||1.3}"></div>
-        </div>
-        <div class="ed-props-field"><label>Colour</label><input type="color" data-prop="color" value="${rgbHex(el.color)}"></div>
-      </div>`);
-    }
+    const html = [];
 
     if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
       html.push(`<div class="ed-props-section"><h4>Fill</h4>
@@ -2362,11 +2356,21 @@
       );
     }
 
-    // ---------- Effects (shadow / glow / gradient / text background / outline) ----------
-    // Shown for everything except line — there's no useful shadow for a flat
-    // 1-axis line and adding one would just clutter the props panel.
-    if (el.type !== "line") {
-      html.push(renderEffectsSection(el));
+    // Effects now lives in a top-bar popover (see renderContextBar). Admins
+    // still get the merge-tag picker rendered here as its own section so
+    // it doesn't disappear into the popover.
+    if (el.type === "text" && isAdminMode()) {
+      const tagOpts = KNOWN_TAGS.map(function (k) {
+        return '<option value="' + k + '">{' + k + '}</option>';
+      }).join("");
+      html.push(
+        '<div class="ed-props-section"><h4>Merge tag</h4>' +
+          '<div class="ed-props-field"><label>Insert at end</label>' +
+            '<select data-fx="mergetag-pick"><option value="">Pick a tag…</option>' + tagOpts + '</select>' +
+          '</div>' +
+          '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Customers will see their saved brand kit values in place of these tags.</p>' +
+        '</div>'
+      );
     }
 
     html.push(`<div class="ed-props-section"><h4>Arrange</h4>
@@ -2400,29 +2404,10 @@
       }, { inline: true }));
     }
 
-    // Bind prop inputs
-    body.querySelectorAll("[data-prop]").forEach((input) => {
-      const prop = input.dataset.prop;
-      const ev = (input.type === "range" || input.type === "color") ? "input" : "change";
-      input.addEventListener(ev, () => {
-        const tgt = getEl(state.selectedIds[0]);
-        if (!tgt) return;
-        const val = input.type === "number" || input.type === "range" ? parseFloat(input.value) : input.value;
-        tgt[prop] = val;
-        // SVG shapes/icons: recompute the data-URI src whenever the
-        // colour changes so the visual updates in lockstep with the
-        // picker. Without this, only the stored `svgFill` would
-        // change — the rendered image would still be the old colour.
-        if (prop === "svgFill" && tgt.svgKey) {
-          tgt.src = svgKeyToDataUri(tgt.svgKey, val);
-        }
-        fullRender();
-        if (input.type !== "range") pushHistory();
-      });
-      if (input.type === "range") {
-        input.addEventListener("change", () => pushHistory());
-      }
-    });
+    // Bind data-prop inputs inside the right panel — shared with the top-bar
+    // Position popover via bindGenericPropInputs so both surfaces stay
+    // in lockstep.
+    bindGenericPropInputs(body);
 
     body.querySelectorAll("[data-arrange]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -2715,22 +2700,9 @@
           '</div>' +
         '</div>';
 
-      // Admin-only: surface the merge-tag insert helper so authors can drop a
-      // {brand name} placeholder into a template's text without typing it.
-      if (isAdminMode()) {
-        const tagOpts = KNOWN_TAGS.map(function (k) {
-          return '<option value="' + k + '">{' + k + '}</option>';
-        }).join("");
-        out +=
-          '<div class="ed-props-section ed-fx-mergetags"><h4>Merge tag</h4>' +
-            '<div class="ed-props-row">' +
-              '<div class="ed-props-field"><label>Insert at end</label>' +
-                '<select data-fx="mergetag-pick"><option value="">Pick a tag…</option>' + tagOpts + '</select>' +
-              '</div>' +
-            '</div>' +
-            '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Customers will see their saved brand kit values in place of these tags.</p>' +
-          '</div>';
-      }
+      // The merge-tag picker used to live here too, but it's now rendered
+      // as its own right-panel section (see renderProps) — keeps admins
+      // from having to open a popover to insert a token.
     }
 
     out += '</div>';
@@ -3010,9 +2982,55 @@
       ctxEl.appendChild(g);
     }
 
-    // ===== Common controls — opacity (icon), duplicate, delete =====
+    // ===== Common controls — position, effects, opacity, duplicate, delete =====
     // Z-order (bring forward / send back) moved to the right-click menu.
     // Lock is admin-only — hidden in the customer flow.
+
+    // Position — text-label popover trigger. Holds X / Y / W / H / Rotation
+    // numeric inputs. Lives on the top bar so the right-panel rail doesn't
+    // have to dedicate a section to controls people only reach for sometimes.
+    const positionWrap = popoverIconButton({
+      icon: '<span class="ed-ctx-poplabel">Position</span>',
+      title: "Position & size",
+      render: function () {
+        const panel = document.createElement("div");
+        panel.className = "ed-pop-panel ed-pop-form";
+        panel.innerHTML =
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>X</label><input type="number" data-prop="x" value="' + el.x + '"></div>' +
+            '<div class="ed-props-field"><label>Y</label><input type="number" data-prop="y" value="' + el.y + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Width</label><input type="number" data-prop="w" value="' + el.w + '"></div>' +
+            '<div class="ed-props-field"><label>Height</label><input type="number" data-prop="h" value="' + el.h + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Rotation</label><input type="number" data-prop="rotation" value="' + (el.rotation || 0) + '"></div>' +
+            '<div class="ed-props-field"></div>' +
+          '</div>';
+        bindGenericPropInputs(panel);
+        return panel;
+      },
+    });
+    ctxEl.appendChild(positionWrap);
+
+    // Effects — text-label popover trigger. Reuses renderEffectsSection so
+    // the markup matches what the right panel used to show. Skipped for
+    // line elements (no useful shadow on a 1-axis line).
+    if (el.type !== "line") {
+      const effectsWrap = popoverIconButton({
+        icon: '<span class="ed-ctx-poplabel">Effects</span>',
+        title: "Effects",
+        render: function () {
+          const panel = document.createElement("div");
+          panel.className = "ed-pop-panel ed-pop-form ed-pop-effects";
+          panel.innerHTML = renderEffectsSection(el);
+          bindEffectsInputs(panel);
+          return panel;
+        },
+      });
+      ctxEl.appendChild(effectsWrap);
+    }
 
     // Opacity — icon trigger, popover with a transparency slider.
     const opacityWrap = popoverIconButton({
