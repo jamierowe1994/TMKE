@@ -1699,13 +1699,14 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .feature-edit-grid {
   display: grid;
-  /* Asymmetric: ~20% copy / ~80% image so the rendered image lands at
-     roughly 70% of the *viewport* width (after the left gutter and gap).
-     The right column has no padding and no max-width, so the image
-     reaches the actual viewport edge. */
-  grid-template-columns: minmax(0, 22fr) minmax(0, 78fr);
-  gap: 56px;
-  align-items: stretch;
+  /* Asymmetric: ~30% copy / ~70% image. The right column has no padding
+     and no max-width, so the image reaches the actual viewport edge.
+     align-items: center vertically centres the text column against the
+     full-height image so the copy block sits at the image's midline
+     rather than floating at the top. */
+  grid-template-columns: minmax(0, 32fr) minmax(0, 68fr);
+  gap: 72px;
+  align-items: center;
   margin: 0;
   padding-left: max(76px, calc((100vw - 1360px) / 2 + 76px));
   padding-right: 0;
@@ -1733,8 +1734,9 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .feature-edit-right.in { opacity: 1; transform: translateX(0); }
 
-/* Image now fills its column edge-to-edge, top-to-bottom — no rounded
-   corners on the right side, since it bleeds to the viewport edge. */
+/* Image now fills its column edge-to-edge, top-to-bottom. Square corners
+   on both sides — the right edge bleeds off the viewport so a radius
+   there would never show, and the client wants the left edge sharp too. */
 .feature-edit-image {
   display: block;
   width: 100%;
@@ -1742,7 +1744,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   max-width: none;
   min-height: 540px;
   object-fit: cover;
-  border-radius: 18px 0 0 18px;
+  border-radius: 0;
 }
 
 @media (max-width: 980px) {
@@ -1753,7 +1755,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
     padding-left: 36px;
     padding-right: 36px;
   }
-  .feature-edit-image { max-width: 100%; min-height: 380px; border-radius: 18px; }
+  .feature-edit-image { max-width: 100%; min-height: 380px; border-radius: 0; }
 }
 @media (max-width: 560px) {
   .feature-edit-grid { padding-left: 22px; padding-right: 22px; }
