@@ -46,6 +46,52 @@ const BENEFITS = [
     </a>
   </header>
 
+  <!-- Cinematic hero — scroll-scrubbed flythrough video.
+       Outer section is 500vh tall to give scroll runway; the inner wrapper
+       is sticky so the video stays pinned to the viewport while the page
+       scrolls through it. Captions fade in/out at progress milestones.
+       The companion <script is:inline> at the bottom of this file drives
+       video.currentTime from scroll position and animates caption opacity. -->
+  <section class="pa-cine" data-pa-cine aria-label="The Parade — scroll to fly through">
+    <div class="pa-cine-sticky">
+      <video
+        class="pa-cine-video"
+        data-pa-cine-video
+        src="/assets/parade-flythrough.mp4"
+        poster="/assets/parade-flythrough-poster.jpg"
+        muted
+        playsinline
+        preload="auto"
+        disableRemotePlayback
+        aria-hidden="true"
+      ></video>
+      <div class="pa-cine-vignette" aria-hidden="true"></div>
+      <div class="pa-cine-captions">
+        <article class="pa-cine-caption" data-at="0" data-until="0.18">
+          <div class="pa-cine-eyebrow">Featured property</div>
+          <h2>The Parade</h2>
+          <p>Cliffside elevation</p>
+        </article>
+        <article class="pa-cine-caption" data-at="0.40" data-until="0.60">
+          <div class="pa-cine-eyebrow">Architecture</div>
+          <h2>Held in concrete</h2>
+          <p>Cantilevered above the lake</p>
+        </article>
+        <article class="pa-cine-caption" data-at="0.78" data-until="1.0">
+          <div class="pa-cine-eyebrow">Interior</div>
+          <h2>Inside</h2>
+          <p>Where the view becomes the room</p>
+        </article>
+      </div>
+      <div class="pa-cine-scroll-hint" aria-hidden="true">
+        <span>Scroll</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 5v14M6 13l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
   <!-- Hero -->
   <section class="pa-hero">
     <div class="pa-hero-grid">
@@ -680,4 +726,258 @@ const BENEFITS = [
     font-size: 11px;
     color: var(--pa-mute);
   }
+
+  /* === Cinematic hero (scroll-scrubbed video) === */
+  .pa-cine {
+    position: relative;
+    /* Scroll runway: 500vh = the visitor scrolls 5 screen-heights to
+       traverse the entire video. Adjust to taste — taller = slower scrub. */
+    height: 500vh;
+    background: #000;
+  }
+  .pa-cine-sticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .pa-cine-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    /* Hardware-accelerated paint — avoids reflow on currentTime updates. */
+    transform: translateZ(0);
+  }
+  .pa-cine-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.35) 0%,
+        rgba(0,0,0,0) 28%,
+        rgba(0,0,0,0) 58%,
+        rgba(0,0,0,0.6) 100%
+      );
+  }
+  .pa-cine-captions {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .pa-cine-caption {
+    position: absolute;
+    bottom: 96px;
+    left: 56px;
+    max-width: 560px;
+    color: #fff;
+    opacity: 0;
+    will-change: opacity;
+    /* JS sets opacity per-frame for accurate scrub; no CSS transition. */
+  }
+  .pa-cine-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.72);
+    margin-bottom: 14px;
+  }
+  .pa-cine-caption h2 {
+    font-weight: 600;
+    font-size: clamp(40px, 6vw, 76px);
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+    text-shadow: 0 2px 32px rgba(0,0,0,0.45);
+  }
+  .pa-cine-caption p {
+    font-size: 16px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.88);
+    margin: 0;
+    max-width: 44ch;
+    text-shadow: 0 1px 16px rgba(0,0,0,0.4);
+  }
+  .pa-cine-scroll-hint {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,0.7);
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    animation: pa-cine-bob 2.6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .pa-cine-scroll-hint svg {
+    width: 16px;
+    height: 16px;
+  }
+  @keyframes pa-cine-bob {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%      { transform: translateX(-50%) translateY(6px); }
+  }
+  @media (max-width: 880px) {
+    .pa-cine-caption { bottom: 80px; left: 28px; right: 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* No scroll runway — the section collapses to one viewport.
+       Script detects this and pins the first caption visible. */
+    .pa-cine { height: 100vh; }
+    .pa-cine-scroll-hint { display: none; }
+    .pa-cine-video { animation: none; }
+  }
 </style>
+
+<script is:inline>
+  /* Parade — scroll-driven video scrub.
+   *
+   * Drives <video>.currentTime from the visitor's scroll position through
+   * the sticky cinematic section, and fades captions in/out at per-caption
+   * progress milestones (data-at / data-until, normalised [0..1]).
+   *
+   * Architecture: continuous rAF loop while the section is in view, reading
+   * scroll position via getBoundingClientRect every frame. We deliberately
+   * do NOT rely on the window 'scroll' event because Lenis (smooth-scroll
+   * library, loaded in BaseLayout) intercepts wheel input and the native
+   * scroll event does not fire on window in this environment. rAF + IO is
+   * also the canonical pattern for high-fidelity scroll scrubbing (Apple,
+   * Stripe, etc. all do it this way).
+   *
+   * Notes:
+   * - The MP4 is encoded all-keyframe so currentTime seeks are frame-accurate
+   *   even on iOS Safari (where non-keyframe scrubbing is slow).
+   * - We "prime" the decoder on first user gesture (scroll/touch) because
+   *   iOS won't allow currentTime updates on a video that's never played.
+   * - The rAF loop is idle when the section is off-screen (IntersectionObserver
+   *   gates it), so there's no per-frame cost on the rest of the page.
+   * - prefers-reduced-motion: pins the first caption, skips the scrub entirely.
+   */
+  (function () {
+    const root = document.querySelector('[data-pa-cine]');
+    if (!root) return;
+    const video = root.querySelector('[data-pa-cine-video]');
+    const captions = Array.from(root.querySelectorAll('.pa-cine-caption'));
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduced) {
+      // Static fallback — first caption stays visible over the poster frame.
+      if (captions[0]) captions[0].style.opacity = '1';
+      return;
+    }
+
+    let duration = 0;
+    let primed = false;
+    let lastProgress = -1;
+
+    const setDuration = () => { duration = video.duration || 0; };
+    video.addEventListener('loadedmetadata', setDuration);
+    if (video.readyState >= 1) setDuration();
+
+    // iOS Safari requires a user gesture before currentTime updates work
+    // reliably on a video that's never played. Prime once on first input.
+    const prime = () => {
+      if (primed) return;
+      primed = true;
+      const p = video.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => video.pause()).catch(() => {});
+      }
+    };
+    window.addEventListener('wheel',      prime, { passive: true, once: true });
+    window.addEventListener('touchstart', prime, { passive: true, once: true });
+    window.addEventListener('keydown',    prime, { once: true });
+
+    // Smooth fade band around each caption's at/until window.
+    const FADE = 0.05;
+
+    // The actual per-frame work — compute scroll progress through the
+    // section, drive video.currentTime, fade captions in/out.
+    //
+    // We call this from three input sources, belt-and-braces, because no
+    // single source is reliable in all environments:
+    //   1. requestAnimationFrame — works in real browsers, may be throttled
+    //      to zero in some headless preview environments.
+    //   2. lenis.on('scroll', tick) — fires while Lenis smooth-scrolls.
+    //      Lenis suppresses the native window 'scroll' event so this is
+    //      the only way to react to wheel-driven scroll without polling.
+    //   3. wheel / touchmove on window — fires on direct user input even
+    //      if Lenis isn't loaded or rAF is throttled.
+    // Each call is idempotent and cheap (one rect read + arithmetic).
+    const tick = () => {
+      if (!duration) return;
+      const rect = root.getBoundingClientRect();
+      const onScreen = rect.bottom > 0 && rect.top < window.innerHeight;
+      if (!onScreen) return;
+
+      const runway   = rect.height - window.innerHeight;
+      const scrolled = -rect.top;
+      const progress = Math.max(0, Math.min(1, runway > 0 ? scrolled / runway : 0));
+
+      // Skip the work if scroll position barely moved frame-over-frame.
+      if (Math.abs(progress - lastProgress) <= 0.0005) return;
+      lastProgress = progress;
+
+      // Drive the video timeline. Wrapped in try/catch because some
+      // browsers throw if currentTime is set before metadata is ready.
+      try { video.currentTime = progress * duration; } catch (_) {}
+
+      // Per-caption opacity with linear fade-in / fade-out at edges.
+      for (let i = 0; i < captions.length; i++) {
+        const c = captions[i];
+        const at    = parseFloat(c.dataset.at);
+        const until = parseFloat(c.dataset.until);
+        let opacity;
+        if (progress < at - FADE || progress > until + FADE) {
+          opacity = 0;
+        } else if (progress < at) {
+          opacity = (progress - (at - FADE)) / FADE;
+        } else if (progress > until) {
+          opacity = 1 - (progress - until) / FADE;
+        } else {
+          opacity = 1;
+        }
+        c.style.opacity = opacity;
+      }
+    };
+
+    // Source 1: continuous rAF loop (primary in real browsers).
+    const rafLoop = () => { tick(); requestAnimationFrame(rafLoop); };
+    requestAnimationFrame(rafLoop);
+
+    // Source 2: hook into Lenis if it's running. The instance is exposed
+    // on window.__lenis by public/scripts/app.js. We poll briefly because
+    // Lenis is loaded with `defer` and may not be ready when this runs.
+    const hookLenis = () => {
+      if (window.__lenis && typeof window.__lenis.on === 'function') {
+        window.__lenis.on('scroll', tick);
+        return true;
+      }
+      return false;
+    };
+    if (!hookLenis()) {
+      let attempts = 0;
+      const poll = setInterval(() => {
+        if (hookLenis() || ++attempts > 40) clearInterval(poll); // ~4s max
+      }, 100);
+    }
+
+    // Source 3: direct input events — last-resort guarantee that scrubbing
+    // responds to user input even if rAF is throttled and Lenis is absent.
+    window.addEventListener('wheel',     tick, { passive: true });
+    window.addEventListener('touchmove', tick, { passive: true });
+    window.addEventListener('scroll',    tick, { passive: true });
+
+    // Reset progress cache on resize so the runway math re-evaluates.
+    window.addEventListener('resize', () => { lastProgress = -1; tick(); });
+  })();
+</script>

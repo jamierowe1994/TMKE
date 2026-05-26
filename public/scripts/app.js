@@ -6,7 +6,12 @@
   // easeOutExpo — strong deceleration, glides past then settles.
   const easeOutExpo = (x) => (x === 1 ? 1 : 1 - Math.pow(2, -10 * x));
 
-  if (typeof Lenis !== 'undefined') {
+  // Lenis is loaded with `defer` in BaseLayout, while this script is not —
+  // so Lenis may not be defined yet when we hit this block. Poll briefly
+  // for the class to become available, then instantiate. Once instantiated
+  // the instance is exposed on window.__lenis so other scripts (e.g. the
+  // Parade cinematic scroll-scrub) can hook into lenis.on('scroll', fn).
+  const initLenis = () => {
     const lenis = new Lenis({
       duration: 1.6,
       easing: easeOutExpo,
@@ -15,6 +20,7 @@
       touchMultiplier: 1.6,
       lerp: 0.08,
     });
+    window.__lenis = lenis;
 
     const raf = (time) => {
       lenis.raf(time);
@@ -33,8 +39,16 @@
         lenis.scrollTo(target, { offset: 0, duration: 2.0, easing: easeOutExpo });
       });
     });
+  };
 
-    window.__lenis = lenis;
+  if (typeof Lenis !== 'undefined') {
+    initLenis();
+  } else {
+    let attempts = 0;
+    const wait = setInterval(() => {
+      if (typeof Lenis !== 'undefined') { clearInterval(wait); initLenis(); }
+      else if (++attempts > 50) { clearInterval(wait); } // ~5s ceiling
+    }, 100);
   }
 
   // ---------- Nav scrolled state ----------
