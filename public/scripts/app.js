@@ -180,7 +180,10 @@
 
     // Editorial right-aside fades out as approach rises into view, so the
     // sticky copy doesn't get visually clipped by the pinned section above it.
-    const editorialSide = document.querySelector('.editorial-side');
+    // The Ch 03 redesign drops the sticky positioning (the aside sits in its
+    // own grid row underneath the lead), so this fade is scoped away from
+    // the new variant via :not(.editorial-side--below).
+    const editorialSide = document.querySelector('.editorial-side:not(.editorial-side--below)');
     if (editorialSide) {
       const updateAsideFade = () => {
         const rect = approach.getBoundingClientRect();
