@@ -760,6 +760,11 @@
     state.elements = deep(tpl.elements);
     state.selectedIds = [];
     filenameEl.value = tpl.name;
+    // Auto-substitute merge tags ({brand name}, etc.) from the customer's
+    // saved brand kit. Skipped in admin mode so admins can author templates
+    // with the tokens visible and intact. Customers can still hand-edit any
+    // text afterwards — this just gives them a personalised starting point.
+    if (!isAdminMode()) fillTemplateMergeTags();
     state.history = [];
     state.historyIndex = -1;
     pushHistory();
@@ -975,6 +980,13 @@
     if (el.type === "line") {
       node.style.background = el.fill || "#000";
     }
+
+    // Shadow / glow — applied as a CSS filter so it follows alpha and clip-paths.
+    // Text elements get their shadow on the inner span instead (handled in
+    // applyTextStyles) so it composes with gradient fill correctly.
+    if (el.type !== "text") {
+      node.style.filter = shadowFilter(el.shadow) || "";
+    }
   }
 
   function applyTextStyles(inner, el) {
@@ -987,6 +999,64 @@
     inner.style.letterSpacing = (el.letterSpacing || 0) + "px";
     inner.style.lineHeight = el.lineHeight || 1.3;
     inner.style.textDecoration = el.underline ? "underline" : "none";
+
+    // Gradient fill — paints the gradient as a background then clips it to the
+    // glyph outlines. Setting -webkit-text-fill-color (and color) to
+    // transparent is what makes the gradient show through.
+    const gradCss = textGradientCss(el.textGradient);
+    if (gradCss) {
+      inner.style.backgroundImage = gradCss;
+      inner.style.webkitBackgroundClip = "text";
+      inner.style.backgroundClip = "text";
+      inner.style.webkitTextFillColor = "transparent";
+      inner.style.color = "transparent";
+    } else {
+      inner.style.backgroundImage = "";
+      inner.style.webkitBackgroundClip = "";
+      inner.style.backgroundClip = "";
+      inner.style.webkitTextFillColor = "";
+    }
+
+    // Outline — paint-order makes the stroke sit underneath the fill so thin
+    // strokes don't eat into letterforms.
+    if (el.textOutline && el.textOutline.width > 0) {
+      const w = el.textOutline.width;
+      const c = el.textOutline.color || "#1c1d22";
+      inner.style.webkitTextStrokeWidth = w + "px";
+      inner.style.webkitTextStrokeColor = c;
+      inner.style.paintOrder = "stroke fill";
+    } else {
+      inner.style.webkitTextStrokeWidth = "";
+      inner.style.webkitTextStrokeColor = "";
+      inner.style.paintOrder = "";
+    }
+
+    // Text background pill — simple rectangle behind the text block, padding
+    // comes from spreadX/Y. Multi-line pill (box-decoration-break per line) is
+    // deferred; this single block hugging the text area is the common case.
+    const tb = el.textBg;
+    if (tb && tb.enabled) {
+      inner.style.backgroundColor = tb.color || "#FFE066";
+      inner.style.padding = (tb.padY || 6) + "px " + (tb.padX || 12) + "px";
+      inner.style.borderRadius = (tb.radius || 6) + "px";
+      inner.style.boxDecorationBreak = "clone";
+      inner.style.webkitBoxDecorationBreak = "clone";
+      // If gradient text is also on, the gradient background needs to stay
+      // clipped to text — we paint the pill on a wrapping container instead.
+      // Simple compromise: when both are on, drop the pill (rare combo).
+      if (gradCss) inner.style.backgroundColor = "";
+    } else {
+      // Only clear if we don't have a gradient using background. Gradient
+      // text uses backgroundImage; backgroundColor is independent so safe.
+      inner.style.backgroundColor = "";
+      inner.style.padding = "";
+      inner.style.borderRadius = "";
+      inner.style.boxDecorationBreak = "";
+      inner.style.webkitBoxDecorationBreak = "";
+    }
+
+    // Shadow / glow on the inner so it follows the painted text shape.
+    inner.style.filter = textShadowFilter(el.textShadow) || "";
   }
 
   // ---------- Frame helpers ----------
@@ -1830,6 +1900,17 @@
       ctx.translate(-el.w / 2, -el.h / 2);
       ctx.globalAlpha = el.opacity != null ? el.opacity : 1;
 
+      // Apply shadow for shape/image/frame elements. Canvas's built-in
+      // shadowBlur/Offset draws a blurred copy of subsequent fills/strokes,
+      // mirroring the DOM filter:drop-shadow look closely enough.
+      const sh = el.type !== "text" ? el.shadow : null;
+      if (sh && sh.enabled) {
+        ctx.shadowColor = hexToRgba(sh.color || "#000000", sh.opacity != null ? sh.opacity : 0.45);
+        ctx.shadowBlur = sh.blur || 0;
+        ctx.shadowOffsetX = sh.offsetX || 0;
+        ctx.shadowOffsetY = sh.offsetY || 0;
+      }
+
       if (el.type === "image") {
         try {
           const img = await loadImage(el.src);
@@ -1867,24 +1948,105 @@
         ctx.fillStyle = el.fill;
         ctx.fillRect(0, 0, el.w, el.h);
       } else if (el.type === "text") {
-        const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
-        ctx.fillStyle = el.color;
-        ctx.font = `${el.italic ? "italic " : ""}${el.weight} ${el.size}px ${font}`;
-        ctx.textBaseline = "top";
-        ctx.textAlign = el.align;
-        const lh = el.size * (el.lineHeight || 1.3);
-        const lines = wrapText(ctx, el.text || "", el.w);
-        let yy = 0;
-        let tx = 0;
-        if (el.align === "center") tx = el.w / 2;
-        else if (el.align === "right") tx = el.w;
-        for (const ln of lines) { ctx.fillText(ln, tx, yy); yy += lh; }
+        drawTextElementToCanvas(ctx, el);
       }
 
       ctx.restore();
     }
 
     return c;
+  }
+
+  // Helper: paint a text element to the canvas, honouring gradient fill,
+  // text shadow, outline and the simple block background. Used by the export
+  // pipeline so PNG/JPG output matches what the editor renders on screen.
+  function drawTextElementToCanvas(ctx, el) {
+    const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+    ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
+    ctx.textBaseline = "top";
+    ctx.textAlign = el.align;
+    const lh = el.size * (el.lineHeight || 1.3);
+    const lines = wrapText(ctx, el.text || "", el.w);
+
+    // Background pill — drawn first so the text sits on top. We measure each
+    // line independently so per-line backgrounds approximate Canva's
+    // box-decoration-break: clone look.
+    if (el.textBg && el.textBg.enabled) {
+      const padX = el.textBg.padX != null ? el.textBg.padX : 12;
+      const padY = el.textBg.padY != null ? el.textBg.padY : 6;
+      const radius = el.textBg.radius || 0;
+      ctx.save();
+      ctx.fillStyle = el.textBg.color || "#FFE066";
+      let yy = 0;
+      for (const ln of lines) {
+        const tw = ctx.measureText(ln).width;
+        let lx = 0;
+        if (el.align === "center") lx = (el.w - tw) / 2;
+        else if (el.align === "right") lx = el.w - tw;
+        roundedRect(ctx, lx - padX, yy - padY, tw + padX * 2, lh + padY * 2, radius);
+        ctx.fill();
+        yy += lh;
+      }
+      ctx.restore();
+    }
+
+    // Build the fill style — solid colour or a gradient. Canvas gradients are
+    // defined in absolute coords, so we work out endpoints from the angle.
+    let fillStyle = el.color;
+    const g = el.textGradient;
+    if (g && g.enabled) {
+      if (g.type === "radial") {
+        const grad = ctx.createRadialGradient(el.w / 2, el.h / 2, 0, el.w / 2, el.h / 2, Math.max(el.w, el.h) / 2);
+        grad.addColorStop(0, g.from || "#B9826A");
+        grad.addColorStop(1, g.to   || "#474254");
+        fillStyle = grad;
+      } else {
+        const angle = (g.angle != null ? g.angle : 90) * Math.PI / 180;
+        // Map CSS gradient angle (0deg = bottom→top in CSS, but we'll use
+        // top→down convention to keep code simple — close enough visually).
+        const x0 = el.w / 2 - Math.cos(angle) * el.w / 2;
+        const y0 = el.h / 2 - Math.sin(angle) * el.h / 2;
+        const x1 = el.w / 2 + Math.cos(angle) * el.w / 2;
+        const y1 = el.h / 2 + Math.sin(angle) * el.h / 2;
+        const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+        grad.addColorStop(0, g.from || "#B9826A");
+        grad.addColorStop(1, g.to   || "#474254");
+        fillStyle = grad;
+      }
+    }
+
+    // Text shadow — applied via the same canvas shadow API. Set before draws.
+    if (el.textShadow && el.textShadow.enabled) {
+      ctx.shadowColor = hexToRgba(el.textShadow.color || "#000000",
+        el.textShadow.opacity != null ? el.textShadow.opacity : 0.45);
+      ctx.shadowBlur = el.textShadow.blur || 0;
+      ctx.shadowOffsetX = el.textShadow.offsetX || 0;
+      ctx.shadowOffsetY = el.textShadow.offsetY || 0;
+    }
+
+    let yy = 0;
+    let tx = 0;
+    if (el.align === "center") tx = el.w / 2;
+    else if (el.align === "right") tx = el.w;
+
+    // Outline — drawn under the fill (matches CSS paint-order: stroke fill).
+    if (el.textOutline && el.textOutline.width > 0) {
+      ctx.save();
+      // Drawing a stroke also picks up shadow — usually we want the shadow on
+      // the visible paint, so clear it before the stroke pass and re-apply
+      // for the fill below.
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = el.textOutline.width * 2; // half outside, half inside → outside-only feel
+      ctx.strokeStyle = el.textOutline.color || "#1c1d22";
+      ctx.lineJoin = "round";
+      let oy = 0;
+      for (const ln of lines) { ctx.strokeText(ln, tx, oy); oy += lh; }
+      ctx.restore();
+    }
+
+    ctx.fillStyle = fillStyle;
+    for (const ln of lines) { ctx.fillText(ln, tx, yy); yy += lh; }
   }
 
   // type can be: "png" | "jpg" | "png-transparent" | "pdf"
@@ -2200,6 +2362,13 @@
       );
     }
 
+    // ---------- Effects (shadow / glow / gradient / text background / outline) ----------
+    // Shown for everything except line — there's no useful shadow for a flat
+    // 1-axis line and adding one would just clutter the props panel.
+    if (el.type !== "line") {
+      html.push(renderEffectsSection(el));
+    }
+
     html.push(`<div class="ed-props-section"><h4>Arrange</h4>
       <div class="ed-props-actions">
         <button data-arrange="up">Bring forward</button>
@@ -2338,6 +2507,9 @@
         pushHistory(); fullRender();
       });
     }
+
+    // Effects section bindings — shadow/outline/background/gradient + merge tags.
+    bindEffectsInputs(body);
   }
 
   function rgbHex(color) {
@@ -2347,6 +2519,334 @@
       : color;
     // best-effort fallback
     return "#000000";
+  }
+
+  // ---------- Effects (shadow / glow / outline / text background / gradient) ----------
+  // Each preset writes a plain shadow object so the slider UI just edits values
+  // and we never need to keep "current preset" state separate from the values.
+  // Tuned to roughly match Canva's defaults so designers get a familiar starting
+  // point — they can fine-tune from there.
+  const SHADOW_PRESETS = {
+    none:    null,
+    drop:    { offsetX: 8,  offsetY: 12, blur: 18, color: "#000000", opacity: 0.45 },
+    glow:    { offsetX: 0,  offsetY: 0,  blur: 22, color: "#FFFFFF", opacity: 0.8  },
+    outline: { offsetX: 0,  offsetY: 0,  blur: 0,  color: "#1c1d22", opacity: 1, strokePx: 3 },
+    curved:  { offsetX: 0,  offsetY: 24, blur: 30, color: "#000000", opacity: 0.3  },
+    lift:    { offsetX: 0,  offsetY: 4,  blur: 12, color: "#000000", opacity: 0.25 },
+    angled:  { offsetX: 16, offsetY: 16, blur: 6,  color: "#000000", opacity: 0.45 },
+    backdrop:{ offsetX: 0,  offsetY: 0,  blur: 40, color: "#000000", opacity: 0.55 },
+  };
+
+  function hexToRgba(hex, alpha) {
+    const h = rgbHex(hex || "#000000").replace("#", "");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return "rgba(" + r + "," + g + "," + b + "," + (alpha != null ? alpha : 1) + ")";
+  }
+
+  // Build the CSS filter value for an element's shadow. filter:drop-shadow
+  // follows alpha + clip-path + border-radius, so it works for raster images,
+  // frame masks and all the clip-path shapes (triangle/star).
+  function shadowFilter(shadow) {
+    if (!shadow || !shadow.enabled) return "";
+    const color = hexToRgba(shadow.color || "#000000", shadow.opacity != null ? shadow.opacity : 0.45);
+    return "drop-shadow(" + (shadow.offsetX || 0) + "px " + (shadow.offsetY || 0) + "px " +
+      (shadow.blur || 0) + "px " + color + ")";
+  }
+
+  // Text shadow as a CSS `filter` value too (rather than text-shadow), so it
+  // composes correctly with gradient-filled text — text-shadow paints behind
+  // the *background-clipped* glyph, which becomes invisible when the glyph
+  // itself is transparent. filter:drop-shadow paints behind the *rendered*
+  // pixels, which is what we want.
+  function textShadowFilter(shadow) {
+    return shadowFilter(shadow);
+  }
+
+  // Build a CSS background for gradient-filled text. Returns null if disabled.
+  function textGradientCss(grad) {
+    if (!grad || !grad.enabled) return null;
+    const angle = grad.angle != null ? grad.angle : 90;
+    const from = grad.from || "#1c1d22";
+    const to   = grad.to   || "#B9826A";
+    if (grad.type === "radial") {
+      return "radial-gradient(circle, " + from + ", " + to + ")";
+    }
+    return "linear-gradient(" + angle + "deg, " + from + ", " + to + ")";
+  }
+
+  // ---------- Merge tags ({brand name}, {company}, etc.) ----------
+  // Tokens are matched case-insensitively in either {brace} or (paren) form.
+  // We only substitute known keys, so legitimate parenthetical text in
+  // user-written copy isn't accidentally stripped.
+  function mergeTagMap() {
+    const m = {};
+    const b = BRAND || {};
+    const company = (b.company || "").trim();
+    if (company) {
+      m["brand name"] = company;
+      m["brand"]      = company;
+      m["company"]    = company;
+      m["company name"] = company;
+    }
+    // Optional fields — wired up as customers fill them in (kept opt-in so
+    // half-finished brand kits don't push empty strings into templates).
+    if (b.tagline) m["tagline"] = b.tagline;
+    if (b.email)   m["email"]   = b.email;
+    if (b.phone)   m["phone"]   = b.phone;
+    if (b.website) m["website"] = b.website;
+    return m;
+  }
+  // Surface the keys so the admin "insert tag" UI can list them.
+  const KNOWN_TAGS = ["brand name", "brand", "company", "company name", "tagline", "email", "phone", "website"];
+
+  function applyMergeTags(text) {
+    if (!text || typeof text !== "string") return text;
+    const map = mergeTagMap();
+    // Match {key} or (key) where key is one of our known tags. Letter case in
+    // the source is preserved by looking up against the lowercased key.
+    const pattern = /([{(])\s*([a-zA-Z][a-zA-Z ]*?)\s*([})])/g;
+    return text.replace(pattern, function (full, open, key, close) {
+      // Only substitute paired delimiters — `{x)` stays as-is.
+      const paired = (open === "{" && close === "}") || (open === "(" && close === ")");
+      if (!paired) return full;
+      const k = key.toLowerCase().replace(/\s+/g, " ").trim();
+      if (KNOWN_TAGS.indexOf(k) === -1) return full;
+      const val = map[k];
+      // Unknown brand data → leave the placeholder so the customer can fill it
+      // (or the admin can spot what's missing on the template).
+      return val ? val : full;
+    });
+  }
+
+  // Walk every text element and run their copy through applyMergeTags. Called
+  // when a template loads fresh so the customer sees their brand name baked in
+  // straight away. They can still edit any text afterwards as normal.
+  function fillTemplateMergeTags() {
+    state.elements.forEach(function (el) {
+      if (el.type !== "text" || !el.text) return;
+      const replaced = applyMergeTags(el.text);
+      if (replaced !== el.text) el.text = replaced;
+    });
+  }
+
+  // ---------- Effects panel ----------
+  function defaultShadow() {
+    return { enabled: true, offsetX: 8, offsetY: 12, blur: 18, color: "#000000", opacity: 0.45 };
+  }
+  function defaultTextOutline() { return { width: 2, color: "#1c1d22" }; }
+  function defaultTextBg()      { return { enabled: true, color: "#FFE066", radius: 6, padX: 12, padY: 6 }; }
+  function defaultTextGradient(){ return { enabled: true, from: "#B9826A", to: "#474254", angle: 90, type: "linear" }; }
+
+  function renderEffectsSection(el) {
+    const isText = el.type === "text";
+    const shadow = (isText ? el.textShadow : el.shadow) || { enabled: false };
+    const sxOn = !!shadow.enabled;
+    const sx = shadow.offsetX != null ? shadow.offsetX : 8;
+    const sy = shadow.offsetY != null ? shadow.offsetY : 12;
+    const sb = shadow.blur    != null ? shadow.blur    : 18;
+    const sc = rgbHex(shadow.color || "#000000");
+    const so = Math.round((shadow.opacity != null ? shadow.opacity : 0.45) * 100);
+
+    const presetKeys = ["none","drop","glow","curved","lift","angled","backdrop"];
+    const presetLabels = { none:"None", drop:"Drop", glow:"Glow", curved:"Curved", lift:"Page lift", angled:"Angled", backdrop:"Backdrop" };
+    const presetButtons = presetKeys.map(function (k) {
+      return '<button type="button" class="ed-fx-preset" data-shadow-preset="' + k + '" title="' + presetLabels[k] + '">' + presetLabels[k] + '</button>';
+    }).join("");
+
+    let out =
+      '<div class="ed-props-section"><h4>Effects</h4>' +
+        '<div class="ed-fx-preset-grid">' + presetButtons + '</div>' +
+        '<label class="ed-fx-toggle"><input type="checkbox" data-fx="shadow-enabled"' + (sxOn ? " checked" : "") + '><span>Drop shadow</span></label>' +
+        '<div class="ed-fx-controls" data-fx-group="shadow"' + (sxOn ? "" : ' hidden') + '>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Offset X</label><input type="range" min="-100" max="100" step="1" data-fx="shadow-offsetX" value="' + sx + '"></div>' +
+            '<div class="ed-props-field"><label>Offset Y</label><input type="range" min="-100" max="100" step="1" data-fx="shadow-offsetY" value="' + sy + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Blur</label><input type="range" min="0" max="80" step="1" data-fx="shadow-blur" value="' + sb + '"></div>' +
+            '<div class="ed-props-field"><label>Intensity</label><input type="range" min="0" max="100" step="1" data-fx="shadow-opacity" value="' + so + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-field"><label>Colour</label><input type="color" data-fx="shadow-color" value="' + sc + '"></div>' +
+        '</div>';
+
+    if (isText) {
+      const og = el.textOutline || { width: 0, color: "#1c1d22" };
+      out +=
+        '<label class="ed-fx-toggle"><input type="checkbox" data-fx="outline-enabled"' + (og.width > 0 ? " checked" : "") + '><span>Outline</span></label>' +
+        '<div class="ed-fx-controls" data-fx-group="outline"' + (og.width > 0 ? "" : ' hidden') + '>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Width</label><input type="range" min="0" max="20" step="1" data-fx="outline-width" value="' + (og.width || 0) + '"></div>' +
+            '<div class="ed-props-field"><label>Colour</label><input type="color" data-fx="outline-color" value="' + rgbHex(og.color || "#1c1d22") + '"></div>' +
+          '</div>' +
+        '</div>';
+
+      const bg = el.textBg || { enabled: false };
+      out +=
+        '<label class="ed-fx-toggle"><input type="checkbox" data-fx="bg-enabled"' + (bg.enabled ? " checked" : "") + '><span>Background</span></label>' +
+        '<div class="ed-fx-controls" data-fx-group="bg"' + (bg.enabled ? "" : ' hidden') + '>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Colour</label><input type="color" data-fx="bg-color" value="' + rgbHex(bg.color || "#FFE066") + '"></div>' +
+            '<div class="ed-props-field"><label>Roundness</label><input type="range" min="0" max="80" step="1" data-fx="bg-radius" value="' + (bg.radius || 6) + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Spread X</label><input type="range" min="0" max="60" step="1" data-fx="bg-padX" value="' + (bg.padX || 12) + '"></div>' +
+            '<div class="ed-props-field"><label>Spread Y</label><input type="range" min="0" max="60" step="1" data-fx="bg-padY" value="' + (bg.padY || 6) + '"></div>' +
+          '</div>' +
+        '</div>';
+
+      const g = el.textGradient || { enabled: false };
+      out +=
+        '<label class="ed-fx-toggle"><input type="checkbox" data-fx="grad-enabled"' + (g.enabled ? " checked" : "") + '><span>Gradient fill</span></label>' +
+        '<div class="ed-fx-controls" data-fx-group="grad"' + (g.enabled ? "" : ' hidden') + '>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>From</label><input type="color" data-fx="grad-from" value="' + rgbHex(g.from || "#B9826A") + '"></div>' +
+            '<div class="ed-props-field"><label>To</label><input type="color" data-fx="grad-to" value="' + rgbHex(g.to || "#474254") + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Angle</label><input type="range" min="0" max="360" step="1" data-fx="grad-angle" value="' + (g.angle != null ? g.angle : 90) + '"></div>' +
+            '<div class="ed-props-field"><label>Type</label>' +
+              '<select data-fx="grad-type">' +
+                '<option value="linear"' + (g.type === "linear" || !g.type ? " selected" : "") + '>Linear</option>' +
+                '<option value="radial"' + (g.type === "radial" ? " selected" : "") + '>Radial</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      // Admin-only: surface the merge-tag insert helper so authors can drop a
+      // {brand name} placeholder into a template's text without typing it.
+      if (isAdminMode()) {
+        const tagOpts = KNOWN_TAGS.map(function (k) {
+          return '<option value="' + k + '">{' + k + '}</option>';
+        }).join("");
+        out +=
+          '<div class="ed-props-section ed-fx-mergetags"><h4>Merge tag</h4>' +
+            '<div class="ed-props-row">' +
+              '<div class="ed-props-field"><label>Insert at end</label>' +
+                '<select data-fx="mergetag-pick"><option value="">Pick a tag…</option>' + tagOpts + '</select>' +
+              '</div>' +
+            '</div>' +
+            '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Customers will see their saved brand kit values in place of these tags.</p>' +
+          '</div>';
+      }
+    }
+
+    out += '</div>';
+    return out;
+  }
+
+  // Wire up the inputs rendered by renderEffectsSection. Called from the end
+  // of renderProps after body.innerHTML is set.
+  function bindEffectsInputs(body) {
+    function tgt() { return getEl(state.selectedIds[0]); }
+    function ensureGroup(el, key) {
+      if (key === "shadow") {
+        if (el.type === "text") return (el.textShadow = el.textShadow || defaultShadow());
+        return (el.shadow = el.shadow || defaultShadow());
+      }
+      if (key === "outline")  return (el.textOutline  = el.textOutline  || defaultTextOutline());
+      if (key === "bg")       return (el.textBg       = el.textBg       || defaultTextBg());
+      if (key === "grad")     return (el.textGradient = el.textGradient || defaultTextGradient());
+      return null;
+    }
+    function syncToggle(el, key, on) {
+      // Persist the on/off bit on the relevant group object so reloads pick
+      // it up exactly as the user left it.
+      if (key === "shadow") {
+        const g = ensureGroup(el, "shadow");
+        g.enabled = on;
+      } else if (key === "outline") {
+        if (!on) el.textOutline = { width: 0, color: el.textOutline ? el.textOutline.color : "#1c1d22" };
+        else { const g = ensureGroup(el, "outline"); if (!g.width) g.width = 2; }
+      } else if (key === "bg") {
+        const g = ensureGroup(el, "bg");
+        g.enabled = on;
+      } else if (key === "grad") {
+        const g = ensureGroup(el, "grad");
+        g.enabled = on;
+      }
+    }
+
+    // Shadow preset grid
+    body.querySelectorAll("[data-shadow-preset]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const el = tgt(); if (!el) return;
+        const key = btn.getAttribute("data-shadow-preset");
+        const preset = SHADOW_PRESETS[key];
+        const targetKey = el.type === "text" ? "textShadow" : "shadow";
+        if (!preset) {
+          if (el[targetKey]) el[targetKey].enabled = false;
+        } else {
+          el[targetKey] = Object.assign({ enabled: true }, preset);
+        }
+        pushHistory();
+        fullRender();
+      });
+    });
+
+    // Toggles
+    body.querySelectorAll('[data-fx$="-enabled"]').forEach(function (chk) {
+      chk.addEventListener("change", function () {
+        const el = tgt(); if (!el) return;
+        const key = chk.getAttribute("data-fx").replace(/-enabled$/, "");
+        syncToggle(el, key, chk.checked);
+        // Hide/show the controls panel without a full re-render to avoid
+        // resetting focus on the checkbox.
+        const group = body.querySelector('[data-fx-group="' + key + '"]');
+        if (group) group.hidden = !chk.checked;
+        pushHistory();
+        fullRender();
+      });
+    });
+
+    // Sliders / colours / selects — generic input binding.
+    body.querySelectorAll('[data-fx]:not([data-fx$="-enabled"]):not([data-fx="mergetag-pick"])').forEach(function (input) {
+      const ev = (input.type === "range" || input.type === "color") ? "input" : "change";
+      input.addEventListener(ev, function () {
+        const el = tgt(); if (!el) return;
+        const raw = input.getAttribute("data-fx");
+        const dash = raw.indexOf("-");
+        const groupKey = raw.slice(0, dash);
+        const fieldKey = raw.slice(dash + 1);
+        const group = ensureGroup(el, groupKey);
+        if (!group) return;
+        if (input.type === "range" || input.type === "number") {
+          let v = parseFloat(input.value);
+          if (fieldKey === "opacity") v = v / 100;
+          group[fieldKey] = v;
+        } else {
+          group[fieldKey] = input.value;
+        }
+        // Outline doesn't have an enabled flag — its presence is governed by
+        // width > 0. Mirror the checkbox state if the user nudges width.
+        if (groupKey === "outline" && fieldKey === "width") {
+          const chk = body.querySelector('[data-fx="outline-enabled"]');
+          if (chk) chk.checked = group.width > 0;
+        }
+        fullRender();
+        if (input.type !== "range") pushHistory();
+      });
+      if (input.type === "range") {
+        input.addEventListener("change", function () { pushHistory(); });
+      }
+    });
+
+    // Merge-tag insert (admin only)
+    const tagPicker = body.querySelector('[data-fx="mergetag-pick"]');
+    if (tagPicker) {
+      tagPicker.addEventListener("change", function () {
+        const el = tgt();
+        const key = tagPicker.value;
+        if (!el || el.type !== "text" || !key) return;
+        const token = "{" + key + "}";
+        el.text = (el.text ? el.text + " " : "") + token;
+        tagPicker.value = "";
+        pushHistory();
+        fullRender();
+      });
+    }
   }
 
   // ---------- Context bar (top, when element selected) ----------
@@ -2997,75 +3497,10 @@
   // Chromium). Falls back to a PNG download so the user can post manually.
   $("ed-share")?.addEventListener("click", async function () {
     try {
-      // Re-use the export pipeline. We need a Blob for navigator.share.
-      const c = document.createElement("canvas");
-      c.width = state.canvas.width;
-      c.height = state.canvas.height;
-      const ctx = c.getContext("2d");
-      ctx.fillStyle = state.canvas.background || "#fff";
-      ctx.fillRect(0, 0, c.width, c.height);
-      // Background image (right-click → set as background)
-      if (state.canvas.backgroundImage) {
-        try {
-          const bg = await loadImage(state.canvas.backgroundImage);
-          const cw = state.canvas.width, ch = state.canvas.height;
-          const ar = bg.naturalWidth / bg.naturalHeight;
-          const cr = cw / ch;
-          let dw, dh;
-          if (ar > cr) { dh = ch; dw = ch * ar; }
-          else         { dw = cw; dh = cw / ar; }
-          ctx.drawImage(bg, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
-        } catch (_) {}
-      }
-      // Lean draw loop — same shape as exportImage but inline. Keeping it
-      // duplicated for now until we refactor a shared renderer.
-      for (const el of state.elements) {
-        if (el.hidden) continue;
-        ctx.save();
-        const cx = el.x + el.w / 2;
-        const cy = el.y + el.h / 2;
-        ctx.translate(cx, cy);
-        ctx.rotate((el.rotation || 0) * Math.PI / 180);
-        if (el.flipX || el.flipY) ctx.scale(el.flipX ? -1 : 1, el.flipY ? -1 : 1);
-        ctx.translate(-el.w / 2, -el.h / 2);
-        ctx.globalAlpha = el.opacity != null ? el.opacity : 1;
-        if (el.type === "image") {
-          try { const img = await loadImage(el.src); ctx.drawImage(img, 0, 0, el.w, el.h); } catch (_) {}
-        } else if (el.type === "frame") {
-          await drawFrameToCanvas(ctx, el);
-        } else if (el.type === "rect") {
-          ctx.fillStyle = el.fill || "transparent";
-          if (el.radius) { roundedRect(ctx, 0, 0, el.w, el.h, el.radius); ctx.fill(); }
-          else ctx.fillRect(0, 0, el.w, el.h);
-          if (el.strokeWidth && el.stroke !== "transparent") {
-            ctx.lineWidth = el.strokeWidth; ctx.strokeStyle = el.stroke; ctx.stroke();
-          }
-        } else if (el.type === "ellipse") {
-          ctx.fillStyle = el.fill;
-          ctx.beginPath();
-          ctx.ellipse(el.w / 2, el.h / 2, el.w / 2, el.h / 2, 0, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (el.type === "triangle") {
-          ctx.fillStyle = el.fill;
-          ctx.beginPath(); ctx.moveTo(el.w / 2, 0); ctx.lineTo(el.w, el.h); ctx.lineTo(0, el.h); ctx.closePath(); ctx.fill();
-        } else if (el.type === "star") {
-          ctx.fillStyle = el.fill; drawStar(ctx, el.w, el.h);
-        } else if (el.type === "line") {
-          ctx.fillStyle = el.fill; ctx.fillRect(0, 0, el.w, el.h);
-        } else if (el.type === "text") {
-          const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
-          ctx.fillStyle = el.color;
-          ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
-          ctx.textBaseline = "top"; ctx.textAlign = el.align;
-          const lh = el.size * (el.lineHeight || 1.3);
-          const lines = wrapText(ctx, el.text || "", el.w);
-          let yy = 0, tx = 0;
-          if (el.align === "center") tx = el.w / 2;
-          else if (el.align === "right") tx = el.w;
-          for (const ln of lines) { ctx.fillText(ln, tx, yy); yy += lh; }
-        }
-        ctx.restore();
-      }
+      // Reuse the shared renderer so shadow/gradient/text-effect rules stay
+      // in one place — Share used to duplicate the draw loop verbatim, which
+      // meant any new effect needed touching twice.
+      const c = await _renderDesignToCanvas({ transparent: false });
       const blob = await new Promise(function (r) { c.toBlob(r, "image/png"); });
       if (!blob) throw new Error("Could not encode design");
       const filename = (filenameEl.value || "design").replace(/[^a-z0-9-_]+/gi, "-") + ".png";
