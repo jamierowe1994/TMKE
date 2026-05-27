@@ -210,31 +210,29 @@
 
       // 3. Per-stage windows. The stage band [STAGE_START, STAGE_END]
       //    is split evenly across N stages. Each stage gets a trapezoid
-      //    "hold" window with a short fade on each side so the
-      //    transitions feel decisive rather than perpetually crossfading.
+      //    "hold" window with a short fade on each side. v5 narrows the
+      //    fade (16% → 10% of a slot) so each stage holds longer and
+      //    feels deliberate when it lands.
       const stageRange = STAGE_END - STAGE_START;
       const slotSize   = stageRange / N_OVERLAYS;
-      const slotFade   = slotSize * 0.16; // ~16% of a slot is the fade window
-      const holdWidth  = slotSize - slotFade * 2;
+      const slotFade   = slotSize * 0.10;
 
-      // Parallax: a small pixel drift that oscillates within each
-      // stage's slot — gives the photos a "breathing" feel even when
-      // they're sitting in their hold period.
-      const localT = ((progress - STAGE_START) % slotSize + slotSize) % slotSize / slotSize;
-      const parallaxY = (localT - 0.5) * -24; // ±12px range, inverted
-
-      // Write everything to the frame so cascading CSS picks it up.
+      // Write the master state variables. Per-photo scale + pan-y get
+      // computed inside the per-stage loop below.
       frame.style.setProperty('--progress', progress.toFixed(4));
       frame.style.setProperty('--takeover', takeoverVal.toFixed(4));
       frame.style.setProperty('--intro-vis', introVis.toFixed(4));
-      frame.style.setProperty('--parallax-y', parallaxY.toFixed(2) + 'px');
 
       // Photo 0 — the *intro hero* (the original chapter-4 image). Holds
       // at full opacity from the section start, through the zoom-in,
       // until the moment stage 1 starts taking over. Then crossfades
-      // out as stage 1 fades in. No swipe (--x stays 0).
+      // out as stage 1 fades in. No swipe; just a very slow Ken Burns
+      // scale-down through the zoom-in so the contained → fullscreen
+      // morph reads as a single connected motion.
       const photo0Opacity = window_(progress, 0, STAGE_START, slotFade);
       frame.style.setProperty('--photo-0', photo0Opacity.toFixed(4));
+      const photo0Scale = 1.10 - 0.06 * smooth(progress / STAGE_START);
+      frame.style.setProperty('--scale-0', photo0Scale.toFixed(4));
 
       // Swipe helpers — each stage's photo + overlay slide in from the
       // right and out to the left as the user scrolls through the
@@ -300,6 +298,18 @@
         const finalTextX  = (isLast && progress >= holdEnd) ? 0 : textX;
         frame.style.setProperty('--photo-x-' + (i + 1), finalPhotoX.toFixed(2) + 'vw');
         frame.style.setProperty('--ov-x-'    + (i + 1), finalTextX.toFixed(2)  + 'vw');
+
+        // Ken Burns "pulling back" pan — scale slowly eases from 1.10
+        // when the photo arrives to 1.02 when it leaves. Coupled with a
+        // soft Y drift (-12px → +12px) so the camera feels like it's
+        // gently pulling away during the hold. Computed using a local
+        // progress that spans the entire alive window so the motion is
+        // continuous from slide-in through hold to slide-out.
+        const alive = Math.max(0, Math.min(1, (progress - fadeStart) / (fadeEnd - fadeStart)));
+        const stageScale = 1.10 - 0.08 * smooth(alive);
+        const stagePanY  = -12 + 24 * smooth(alive);
+        frame.style.setProperty('--scale-' + (i + 1), stageScale.toFixed(4));
+        frame.style.setProperty('--pan-y-' + (i + 1), stagePanY.toFixed(2) + 'px');
       }
     };
 
