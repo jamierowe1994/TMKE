@@ -229,33 +229,32 @@
       frame.style.setProperty('--intro-vis', introVis.toFixed(4));
       frame.style.setProperty('--parallax-y', parallaxY.toFixed(2) + 'px');
 
+      // Photo 0 — the *intro hero* (the original chapter-4 image). Holds
+      // at full opacity from the section start, through the zoom-in,
+      // until the moment stage 1 starts taking over. Then crossfades
+      // out as stage 1 fades in.
+      const photo0Opacity = window_(progress, 0, STAGE_START, slotFade);
+      frame.style.setProperty('--photo-0', photo0Opacity.toFixed(4));
+
+      // Photos 1..N pair with overlays 1..N. The first stage now needs
+      // a fade-in window too (crossfading out of photo 0).
       for (let i = 0; i < N_OVERLAYS; i++) {
         const slotStart = STAGE_START + i * slotSize;
         const slotEnd   = slotStart + slotSize;
-        // The first stage starts its fade-in at STAGE_START (the moment
-        // zoom-in finishes), and the last stage's fade-out is owned by
-        // the master takeover zoom-out below.
-        const holdStart = (i === 0) ? slotStart : slotStart + slotFade;
+        const holdStart = slotStart + slotFade;
         const holdEnd   = (i === N_OVERLAYS - 1) ? slotEnd : slotEnd - slotFade;
         const w = window_(progress, holdStart, holdEnd, slotFade);
         // Overlays gated by takeoverVal so they only appear when the
         // photo is fullscreen (or near it).
         frame.style.setProperty('--ov-' + (i + 1), (w * takeoverVal).toFixed(4));
-        // Photos use the same window — but photo 0 stays visible during
-        // the intro and stage 1 (both the contained state AND the first
-        // fullscreen frame use the same hero), and photo N-1 stays
-        // visible during the zoom-out tail.
+        // Photo (i+1) follows the overlay slot, with the last photo
+        // pinned at full opacity through the zoom-out tail so it
+        // doesn't pop off as the section exits.
         let photoOpacity = w;
-        if (i === 0) {
-          // Photo 0 must be 100% during the contained intro too. Take the
-          // max of the regular window and a flat "visible during intro" pulse.
-          photoOpacity = Math.max(w, 1 - takeoverVal);
-        }
         if (i === N_OVERLAYS - 1 && progress >= ZOOM_OUT_START) {
-          // Keep the last photo on screen all the way through zoom-out.
           photoOpacity = Math.max(w, 1);
         }
-        frame.style.setProperty('--photo-' + i, photoOpacity.toFixed(4));
+        frame.style.setProperty('--photo-' + (i + 1), photoOpacity.toFixed(4));
       }
     };
 

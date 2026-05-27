@@ -1137,10 +1137,11 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .approach-photo-layer {
   position: absolute;
   inset: 0;
-  /* Contained: leave room above for the title (22vh top, smaller bottom)
-     and side margins to match the page wrap. Fullscreen: zero insets. */
-  --inset-top: 22vh;
-  --inset-bottom: 12vh;
+  /* Contained: leave room above for the title (28vh top so the dark
+     intro photo doesn't fight the serif title) and side margins to
+     match the page wrap. Fullscreen: zero insets. */
+  --inset-top: 28vh;
+  --inset-bottom: 10vh;
   --inset-side: 8vw;
   clip-path: inset(
     calc(var(--inset-top)    * (1 - var(--takeover)))
@@ -1174,6 +1175,18 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .approach-photo[data-photo="1"] { opacity: var(--photo-1, 0); }
 .approach-photo[data-photo="2"] { opacity: var(--photo-2, 0); }
 .approach-photo[data-photo="3"] { opacity: var(--photo-3, 0); }
+.approach-photo[data-photo="4"] { opacity: var(--photo-4, 0); }
+/* The intro hero is a slightly darker render of the men-in-suits photo
+   to match its original treatment under the title; the overlay scrim
+   layer handles the rest, but a small built-in dim here keeps the title
+   readable on the contained state too. */
+.approach-photo--intro::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(20, 18, 16, 0.22), rgba(20, 18, 16, 0.22));
+  pointer-events: none;
+}
 .approach-photo-scrim {
   position: absolute;
   inset: 0;
@@ -1201,7 +1214,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   top: 0;
   left: 0;
   right: 0;
-  padding: 80px 8vw 0;
+  /* Title sits in the top inset above the contained photo. Compact
+     padding so the chapter eyebrow + title + scroll hint all fit
+     comfortably before the photo begins. */
+  padding: 36px 8vw 0;
   text-align: center;
   z-index: 3;
   opacity: var(--intro-vis);
@@ -1211,16 +1227,18 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   pointer-events: none;
   will-change: opacity, transform;
 }
-.approach-overlay--intro .chapter { margin-bottom: 28px; }
+.approach-overlay--intro .chapter { margin-bottom: 18px; }
 .approach-takeover-title {
   font-family: var(--serif);
-  font-size: clamp(38px, 5.5vw, 88px);
+  /* Slightly tightened size so the three-line headline (Built for Agents…)
+     fits comfortably in the 28vh top inset on a 1440×900 viewport. */
+  font-size: clamp(36px, 4.6vw, 72px);
   line-height: 1.02;
   letter-spacing: -0.02em;
   font-weight: 400;
   color: var(--ink);
   margin: 0 auto;
-  max-width: 18ch;
+  max-width: 22ch;
 }
 .approach-takeover-title em {
   font-style: italic;
