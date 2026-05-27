@@ -229,33 +229,77 @@
       frame.style.setProperty('--intro-vis', introVis.toFixed(4));
       frame.style.setProperty('--parallax-y', parallaxY.toFixed(2) + 'px');
 
+      // Photo 0 — the *intro hero* (the original chapter-4 image). Holds
+      // at full opacity from the section start, through the zoom-in,
+      // until the moment stage 1 starts taking over. Then crossfades
+      // out as stage 1 fades in. No swipe (--x stays 0).
+      const photo0Opacity = window_(progress, 0, STAGE_START, slotFade);
+      frame.style.setProperty('--photo-0', photo0Opacity.toFixed(4));
+
+      // Swipe helpers — each stage's photo + overlay slide in from the
+      // right and out to the left as the user scrolls through the
+      // section. The offset is interpolated as a pixel value (in vw)
+      // so the swipe distance is viewport-relative and stays consistent
+      // on any screen size.
+      //   incomingX(progress, fadeStart) → +100vw at fadeStart, 0 at hold
+      //   outgoingX(progress, fadeEnd)   → 0 at hold, -100vw at fadeEnd
+      // Text uses a stronger multiplier so it visibly zooms past the
+      // photo rather than scrolling at the same pace.
+      const swipeOffset = (progress, fadeStart, fadeEnd, holdStart, holdEnd, magnitude) => {
+        if (progress < fadeStart) return magnitude;            // off-right
+        if (progress < holdStart) {
+          const t = smooth((progress - fadeStart) / (holdStart - fadeStart));
+          return magnitude * (1 - t);
+        }
+        if (progress < holdEnd) return 0;                       // in place
+        if (progress < fadeEnd) {
+          const t = smooth((progress - holdEnd) / (fadeEnd - holdEnd));
+          return -magnitude * t;
+        }
+        return -magnitude;                                       // off-left
+      };
+
+      // Photos 1..N pair with overlays 1..N. Each photo (and its overlay)
+      // swipes in from the right and out to the left over a wider
+      // "alive" window than the inner hold. Opacity stays at 1 for the
+      // whole alive window so the swipe motion is unbroken — the
+      // photo's translateX is what carries it on and off the viewport,
+      // not a fade.
       for (let i = 0; i < N_OVERLAYS; i++) {
         const slotStart = STAGE_START + i * slotSize;
         const slotEnd   = slotStart + slotSize;
-        // The first stage starts its fade-in at STAGE_START (the moment
-        // zoom-in finishes), and the last stage's fade-out is owned by
-        // the master takeover zoom-out below.
-        const holdStart = (i === 0) ? slotStart : slotStart + slotFade;
+        const fadeStart = slotStart - slotFade;     // photo starts entering
+        const fadeEnd   = slotEnd + slotFade;       // photo finishes leaving
+        const holdStart = slotStart + slotFade;
         const holdEnd   = (i === N_OVERLAYS - 1) ? slotEnd : slotEnd - slotFade;
-        const w = window_(progress, holdStart, holdEnd, slotFade);
-        // Overlays gated by takeoverVal so they only appear when the
-        // photo is fullscreen (or near it).
-        frame.style.setProperty('--ov-' + (i + 1), (w * takeoverVal).toFixed(4));
-        // Photos use the same window — but photo 0 stays visible during
-        // the intro and stage 1 (both the contained state AND the first
-        // fullscreen frame use the same hero), and photo N-1 stays
-        // visible during the zoom-out tail.
-        let photoOpacity = w;
-        if (i === 0) {
-          // Photo 0 must be 100% during the contained intro too. Take the
-          // max of the regular window and a flat "visible during intro" pulse.
-          photoOpacity = Math.max(w, 1 - takeoverVal);
+        const isLast    = i === N_OVERLAYS - 1;
+
+        // Photo: opacity 1 across the whole alive window so the swipe
+        // reads as a horizontal pan rather than a fade.
+        let photoOpacity = window_(progress, fadeStart, fadeEnd, 0.005);
+        if (isLast && progress >= ZOOM_OUT_START) {
+          photoOpacity = Math.max(photoOpacity, 1);
         }
-        if (i === N_OVERLAYS - 1 && progress >= ZOOM_OUT_START) {
-          // Keep the last photo on screen all the way through zoom-out.
-          photoOpacity = Math.max(w, 1);
-        }
-        frame.style.setProperty('--photo-' + i, photoOpacity.toFixed(4));
+        frame.style.setProperty('--photo-' + (i + 1), photoOpacity.toFixed(4));
+
+        // Overlay text: keep a stricter hold window so each stage's
+        // copy gets a clean readable moment, but use the same fade
+        // length so the text and photo swipe arrive/leave in sync.
+        // Gated by takeoverVal so overlays never appear during the
+        // contained intro/outro phases.
+        const overlayOpacity = window_(progress, holdStart, holdEnd, slotFade) * takeoverVal;
+        frame.style.setProperty('--ov-' + (i + 1), overlayOpacity.toFixed(4));
+
+        // Swipe X. Photo travels exactly a viewport-width; the text
+        // travels 1.4× so it visibly "zooms past" — sells the pan.
+        const photoX = swipeOffset(progress, fadeStart, fadeEnd, holdStart, holdEnd, 100);
+        const textX  = swipeOffset(progress, fadeStart, fadeEnd, holdStart, holdEnd, 140);
+        // The last stage shouldn't swipe out during the zoom-out — keep
+        // it pinned at 0 so it shrinks back to contained without sliding.
+        const finalPhotoX = (isLast && progress >= holdEnd) ? 0 : photoX;
+        const finalTextX  = (isLast && progress >= holdEnd) ? 0 : textX;
+        frame.style.setProperty('--photo-x-' + (i + 1), finalPhotoX.toFixed(2) + 'vw');
+        frame.style.setProperty('--ov-x-'    + (i + 1), finalTextX.toFixed(2)  + 'vw');
       }
     };
 

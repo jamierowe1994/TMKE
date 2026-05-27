@@ -163,17 +163,29 @@ import FreeAssets from "../components/FreeAssets.astro";
         <!-- Photo layer — full-viewport stack of crossfading photos,
              masked by clip-path so it reads as a contained panel at
              the top and tail of the section and a fullscreen takeover
-             in the middle. Per-photo opacity is driven by
-             --active-photo so each one fades in around its slot. -->
+             in the middle. Photo 0 is the *intro hero* (the original
+             Chapter-04 image that used to sit behind the title); it
+             holds through the contained state + zoom-in, then crossfades
+             to photo 1 as stage 1 takes over. Photos 1-4 then pair with
+             overlays 1-4. -->
         <div class="approach-photo-layer" aria-hidden="true">
-          <div class="approach-photo" data-photo="0" style="background-image:url('/assets/bag.jpg')"></div>
-          <div class="approach-photo" data-photo="1" style="background-image:url('/assets/rush.jpg')"></div>
-          <div class="approach-photo" data-photo="2" style="background-image:url('/assets/outside.jpg')"></div>
-          <div class="approach-photo" data-photo="3" style="background-image:url('/assets/lay%20down.jpg')"></div>
+          <div class="approach-photo approach-photo--intro" data-photo="0" style="background-image:url('/assets/chapter%204.png')"></div>
+          <div class="approach-photo" data-photo="1" style="background-image:url('/assets/bag.jpg')"></div>
+          <div class="approach-photo" data-photo="2" style="background-image:url('/assets/rush.jpg')"></div>
+          <div class="approach-photo" data-photo="3" style="background-image:url('/assets/outside.jpg')"></div>
+          <div class="approach-photo" data-photo="4" style="background-image:url('/assets/lay%20down.jpg')"></div>
           <!-- Soft scrim over the photos so the white overlay text stays
                legible even on bright frames. -->
           <div class="approach-photo-scrim"></div>
         </div>
+
+        <!-- Dark-bottom scrim with backdrop-blur — sits above the photo
+             layer (so it isn't clipped by the photo's clip-path) and
+             below the overlay text. Heaviest at the bottom-left where
+             the overlay copy lives, fading to clear as it travels up
+             the viewport. Its opacity scales with --takeover so it only
+             appears once the photo has gone fullscreen. -->
+        <div class="approach-bottom-scrim" aria-hidden="true"></div>
 
         <!-- Intro overlay — sits above the contained photo at the
              start, fades out as the photo expands to fullscreen. -->
@@ -194,7 +206,7 @@ import FreeAssets from "../components/FreeAssets.astro";
              takeover feeling: photo behind, text always in the same
              place. -->
         <div class="approach-overlay approach-overlay--stage" data-overlay="1">
-          <div class="approach-overlay-inner wrap">
+          <div class="approach-overlay-inner">
             <span class="approach-overlay-step">01 / 04</span>
             <h3 class="approach-overlay-h">Templates that mean <em>business.</em></h3>
             <p class="approach-overlay-p">Ready-made social media assets designed specifically for the property sector. Professional, polished, and built to reflect the standard of your agency &mdash; not just fill a feed.</p>
@@ -202,7 +214,7 @@ import FreeAssets from "../components/FreeAssets.astro";
         </div>
 
         <div class="approach-overlay approach-overlay--stage" data-overlay="2">
-          <div class="approach-overlay-inner wrap">
+          <div class="approach-overlay-inner">
             <span class="approach-overlay-step">02 / 04</span>
             <h3 class="approach-overlay-h">Made for <em>agents</em>, not anyone.</h3>
             <p class="approach-overlay-p">TMKE works exclusively in the property sector. That means we understand the market, the audience, and what actually resonates &mdash; no generalist guesswork, no learning curve at your expense.</p>
@@ -210,7 +222,7 @@ import FreeAssets from "../components/FreeAssets.astro";
         </div>
 
         <div class="approach-overlay approach-overlay--stage" data-overlay="3">
-          <div class="approach-overlay-inner wrap">
+          <div class="approach-overlay-inner">
             <span class="approach-overlay-step">03 / 04</span>
             <h3 class="approach-overlay-h">Intentional <em>by design.</em></h3>
             <p class="approach-overlay-p">Every piece of content has a reason to exist. Strategy-led and structured from the start, so your social media works as a system rather than a series of disconnected posts.</p>
@@ -218,7 +230,7 @@ import FreeAssets from "../components/FreeAssets.astro";
         </div>
 
         <div class="approach-overlay approach-overlay--stage" data-overlay="4">
-          <div class="approach-overlay-inner wrap">
+          <div class="approach-overlay-inner">
             <span class="approach-overlay-step">04 / 04</span>
             <h3 class="approach-overlay-h">Done with you. Or <em>done for you.</em></h3>
             <p class="approach-overlay-p">Whether you want ready-made assets from The Edit or a fully managed service through Social Media Management, there&rsquo;s a level of support that fits where your business is right now.</p>
