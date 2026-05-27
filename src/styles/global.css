@@ -1109,10 +1109,11 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
    The legacy .approach-stage / .approach-visual rules in this file are
    now dead code — they don't match anything in the new markup. */
 .approach--takeover {
-  /* Generous scroll budget so each phase has time to breathe. The
-     section gives roughly 1.5–2 viewports of scroll to each stage so
-     the swipe transitions feel deliberate, not flicked. */
-  height: 800vh;
+  /* Cinematic scroll budget — each stage gets ~3 viewports of scroll
+     so the user "lives in" each frame before the swipe to the next.
+     The animation is deliberately slow; the polish is in the hold,
+     not the transition speed. */
+  height: 1100vh;
   margin-top: 0;
   background: var(--paper);
 }
@@ -1159,28 +1160,32 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   background-size: cover;
   background-position: center;
   opacity: 0;
-  /* No CSS transition here — the JS controller smoothsteps the
-     per-photo opacity every scroll tick. A CSS transition on top
-     would fight the scroll-driven updates and stall partway. */
-  /* Each photo composes its own --x (horizontal swipe) with the shared
-     --parallax-y (gentle vertical drift). At swipe-rest --x is 0; the
-     controller drives it from +100vw → 0 → -100vw across a stage's
-     fade windows so the photo slides in from the right and out to the
-     left like a horizontal pan. */
+  /* No CSS transition here — the JS controller smoothsteps everything
+     every scroll tick. A CSS transition on top would fight the
+     scroll-driven updates and stall partway.
+     The transform composes three variables:
+       --x       : horizontal swipe between stages (+100vw → 0 → -100vw)
+       --scale   : Ken Burns pull-back during a stage's hold (1.10 → 1.02)
+       --pan-y   : tiny Y drift coupled with the pull-back for parallax
+     The default values keep the photo centered and slightly oversized
+     so the cover-fill doesn't show any edge gap. */
   --x: 0;
-  transform: translate3d(var(--x), var(--parallax-y, 0), 0) scale(1.04);
+  --scale: 1.04;
+  --pan-y: 0px;
+  transform: translate3d(var(--x), var(--pan-y), 0) scale(var(--scale));
   will-change: opacity, transform;
 }
 /* Active-photo selection — each photo's opacity comes from a per-index
    custom property the controller writes (--photo-0..3). We avoid the
    CSS abs() function for browser-support reasons; JS does the maths. */
 /* Photo 0 is the intro hero — never swipes, it just opacity-fades out.
-   Photos 1-4 swipe horizontally as the controller writes their --x.  */
-.approach-photo[data-photo="0"] { opacity: var(--photo-0, 0); --x: 0; }
-.approach-photo[data-photo="1"] { opacity: var(--photo-1, 0); --x: var(--photo-x-1, 0); }
-.approach-photo[data-photo="2"] { opacity: var(--photo-2, 0); --x: var(--photo-x-2, 0); }
-.approach-photo[data-photo="3"] { opacity: var(--photo-3, 0); --x: var(--photo-x-3, 0); }
-.approach-photo[data-photo="4"] { opacity: var(--photo-4, 0); --x: var(--photo-x-4, 0); }
+   Photos 1-4 swipe horizontally AND Ken Burns-pan as the controller
+   writes their --x / --scale / --pan-y values. */
+.approach-photo[data-photo="0"] { opacity: var(--photo-0, 0); --x: 0; --scale: var(--scale-0, 1.04); --pan-y: var(--pan-y-0, 0px); }
+.approach-photo[data-photo="1"] { opacity: var(--photo-1, 0); --x: var(--photo-x-1, 0); --scale: var(--scale-1, 1.10); --pan-y: var(--pan-y-1, 0px); }
+.approach-photo[data-photo="2"] { opacity: var(--photo-2, 0); --x: var(--photo-x-2, 0); --scale: var(--scale-2, 1.10); --pan-y: var(--pan-y-2, 0px); }
+.approach-photo[data-photo="3"] { opacity: var(--photo-3, 0); --x: var(--photo-x-3, 0); --scale: var(--scale-3, 1.10); --pan-y: var(--pan-y-3, 0px); }
+.approach-photo[data-photo="4"] { opacity: var(--photo-4, 0); --x: var(--photo-x-4, 0); --scale: var(--scale-4, 1.10); --pan-y: var(--pan-y-4, 0px); }
 /* The intro hero is a slightly darker render of the men-in-suits photo
    to match its original treatment under the title; the overlay scrim
    layer handles the rest, but a small built-in dim here keeps the title
@@ -1195,49 +1200,52 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .approach-photo-scrim {
   position: absolute;
   inset: 0;
-  /* Light all-over dim that takes the edge off the brightest frames.
-     The heavy "where the text sits" gradient now lives in
-     .approach-bottom-scrim (outside the clip-path so it can span the
-     viewport even before the photo has gone fullscreen). */
-  background: linear-gradient(180deg,
-    transparent 0%,
-    rgba(28, 29, 34, calc(0.08 * var(--takeover))) 100%);
+  /* All-over dim — pulls the photo down a stop so the section feels
+     cinematic and bold rather than brightly photographic. Heavier
+     than before; the bottom-scrim adds an additional black floor
+     under the overlay text on top of this. */
+  background:
+    linear-gradient(180deg,
+      rgba(0, 0, 0, calc(0.12 * var(--takeover))) 0%,
+      rgba(0, 0, 0, calc(0.22 * var(--takeover))) 100%);
   pointer-events: none;
 }
 
-/* Heavy dark gradient + backdrop blur pinned to the bottom of the
+/* Heavy black gradient + backdrop blur pinned to the bottom of the
    viewport so the bottom-left overlay copy always reads clearly. Lives
    OUTSIDE .approach-photo-layer so it isn't masked by the photo's
    clip-path during the contained intro / outro states. Its opacity
    scales with --takeover so it only appears once the photo is
-   fullscreen (or close to it). */
+   fullscreen (or close to it). Properly black now (was tinted purple)
+   for a stronger cinematic dim under the text. */
 .approach-bottom-scrim {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 55vh;
+  height: 62vh;
   z-index: 2;
   pointer-events: none;
   opacity: var(--takeover, 0);
-  /* Gradient: heavy at the bottom-left, fading to transparent towards
-     the top. A second left-anchored gradient adds an extra dim under
-     where the text sits without darkening the right of the frame. */
+  /* Gradient stack: a deep black floor that fades to transparent
+     toward the top, plus a left-anchored gradient adding extra dim
+     where the overlay text sits. */
   background:
     linear-gradient(0deg,
-      rgba(20, 16, 26, 0.80) 0%,
-      rgba(20, 16, 26, 0.55) 20%,
-      rgba(20, 16, 26, 0.25) 55%,
-      rgba(20, 16, 26, 0.00) 100%),
+      rgba(0, 0, 0, 0.92) 0%,
+      rgba(0, 0, 0, 0.75) 18%,
+      rgba(0, 0, 0, 0.45) 45%,
+      rgba(0, 0, 0, 0.15) 75%,
+      rgba(0, 0, 0, 0.00) 100%),
     linear-gradient(75deg,
-      rgba(20, 16, 26, 0.35) 0%,
-      rgba(20, 16, 26, 0.05) 45%,
+      rgba(0, 0, 0, 0.40) 0%,
+      rgba(0, 0, 0, 0.10) 45%,
       transparent 70%);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  /* Soft top edge so the blur doesn't have a hard horizontal line. */
-  -webkit-mask-image: linear-gradient(0deg, #000 65%, transparent 100%);
-          mask-image: linear-gradient(0deg, #000 65%, transparent 100%);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  /* Soft top edge so the blur doesn't show a hard horizontal line. */
+  -webkit-mask-image: linear-gradient(0deg, #000 60%, transparent 100%);
+          mask-image: linear-gradient(0deg, #000 60%, transparent 100%);
 }
 
 /* Intro overlay — sits at the top of the viewport above the contained
@@ -1350,11 +1358,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .approach-overlay-h em {
   font-style: italic;
-  /* Deeper brand purple — the same english-violet used for emphasis
-     across the rest of the homepage, with a stronger glow so it
-     reads against the dark photo + scrim. */
-  color: var(--english-violet);
-  text-shadow: 0 2px 18px rgba(28, 29, 34, 0.55), 0 0 1px rgba(255, 255, 255, 0.25);
+  /* All-white titles on the cinematic dark photos — the italic alone
+     carries the emphasis. The shared parent text-shadow keeps it
+     readable on any frame. */
+  color: inherit;
 }
 .approach-overlay-p {
   font-family: var(--sans);
