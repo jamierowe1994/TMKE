@@ -1095,6 +1095,226 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   margin-top: -120px;
   z-index: 4;
 }
+
+/* ============ Chapter 04 — zoom-takeover (v3) ============
+   Applied alongside .approach so the legacy rules above don't fight
+   the takeover layout. JS in app.js writes the master --progress on
+   .approach-frame and we derive everything else from it:
+     --progress       : 0..1 across the whole pinned section
+     --takeover       : 0 contained → 1 fullscreen (peaks 0.2-0.85, then back)
+     --intro-vis      : 1 at start, 0 once photo is fullscreen
+     --active-photo   : 0..3 (the crossfading hero behind every stage)
+     --active-overlay : 1..4 (which text overlay is current)
+     --parallax-y     : tiny pixel drift so the photo never feels frozen
+   The legacy .approach-stage / .approach-visual rules in this file are
+   now dead code — they don't match anything in the new markup. */
+.approach--takeover {
+  /* Generous scroll budget so each phase has room to breathe. ~6×100vh
+     so the user feels they're moving through chapters, not flicking
+     a slideshow. */
+  height: 600vh;
+  margin-top: 0;
+  background: var(--paper);
+}
+.approach--takeover .approach-pin {
+  background: var(--paper);
+}
+.approach--takeover .approach-frame {
+  perspective: none;
+  /* Initial state of the master variables — overridden by app.js. */
+  --progress: 0;
+  --takeover: 0;
+  --intro-vis: 1;
+  --active-photo: 0;
+  --active-overlay: 1;
+  --parallax-y: 0px;
+}
+
+/* Photo layer — full-viewport box, masked via clip-path so the photo
+   reads as a contained panel at --takeover=0 and as a fullscreen
+   takeover at --takeover=1. The clip insets interpolate via calc, so
+   the transition is a single smooth easing curve driven by JS. */
+.approach-photo-layer {
+  position: absolute;
+  inset: 0;
+  /* Contained: leave room above for the title (22vh top, smaller bottom)
+     and side margins to match the page wrap. Fullscreen: zero insets. */
+  --inset-top: 22vh;
+  --inset-bottom: 12vh;
+  --inset-side: 8vw;
+  clip-path: inset(
+    calc(var(--inset-top)    * (1 - var(--takeover)))
+    calc(var(--inset-side)   * (1 - var(--takeover)))
+    calc(var(--inset-bottom) * (1 - var(--takeover)))
+    calc(var(--inset-side)   * (1 - var(--takeover)))
+  );
+  /* Soft drop shadow only matters in the contained state — clip-path
+     would chop a hard shadow anyway. Filter:drop-shadow is clip-aware. */
+  filter: drop-shadow(0 30px 60px rgba(28, 29, 34, calc(0.25 * (1 - var(--takeover)))));
+}
+.approach-photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  /* No CSS transition here — the JS controller smoothsteps the
+     per-photo opacity every scroll tick. A CSS transition on top
+     would fight the scroll-driven updates and stall partway. */
+  /* Subtle parallax: vertical drift scaled by the section's progress
+     within the active stage. Re-applied as the active photo changes so
+     each one gets its own micro-movement. */
+  transform: translate3d(0, var(--parallax-y, 0), 0) scale(1.04);
+  will-change: opacity, transform;
+}
+/* Active-photo selection — each photo's opacity comes from a per-index
+   custom property the controller writes (--photo-0..3). We avoid the
+   CSS abs() function for browser-support reasons; JS does the maths. */
+.approach-photo[data-photo="0"] { opacity: var(--photo-0, 0); }
+.approach-photo[data-photo="1"] { opacity: var(--photo-1, 0); }
+.approach-photo[data-photo="2"] { opacity: var(--photo-2, 0); }
+.approach-photo[data-photo="3"] { opacity: var(--photo-3, 0); }
+.approach-photo-scrim {
+  position: absolute;
+  inset: 0;
+  /* Two-pass scrim — a stronger bottom-left gradient where the overlay
+     text sits (so the heading + body copy always read clearly), plus a
+     subtle full-frame dim that takes the edge off the brightest photos
+     without flattening them. Both scale with --takeover so they only
+     appear when the photo is fullscreen. */
+  background:
+    linear-gradient(115deg,
+      rgba(28, 29, 34, calc(0.55 * var(--takeover))) 0%,
+      rgba(28, 29, 34, calc(0.15 * var(--takeover))) 55%,
+      transparent 95%),
+    linear-gradient(180deg,
+      transparent 0%,
+      rgba(28, 29, 34, calc(0.12 * var(--takeover))) 100%);
+  pointer-events: none;
+}
+
+/* Intro overlay — sits at the top of the viewport above the contained
+   photo. Fades out as --intro-vis runs from 1 to 0 (driven by JS during
+   the zoom-in phase). */
+.approach-overlay--intro {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 80px 8vw 0;
+  text-align: center;
+  z-index: 3;
+  opacity: var(--intro-vis);
+  /* Slight upward drift on exit so the intro feels like it lifts away
+     rather than just disappearing. */
+  transform: translate3d(0, calc((1 - var(--intro-vis)) * -32px), 0);
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+.approach-overlay--intro .chapter { margin-bottom: 28px; }
+.approach-takeover-title {
+  font-family: var(--serif);
+  font-size: clamp(38px, 5.5vw, 88px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  font-weight: 400;
+  color: var(--ink);
+  margin: 0 auto;
+  max-width: 18ch;
+}
+.approach-takeover-title em {
+  font-style: italic;
+  color: var(--english-violet);
+}
+.approach-overlay--intro .approach-scroll-hint {
+  margin-top: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(28, 29, 34, 0.5);
+}
+
+/* Stage overlays — all four absolutely positioned in the same spot so
+   the layout is identical across stages 1-4. Only the currently-active
+   overlay fades in (controlled by --active-overlay). */
+.approach-overlay--stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 0 12vh;
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  /* No CSS transition — the JS controller smoothsteps overlay opacity
+     directly. See .approach-photo for the same rationale. */
+  will-change: opacity;
+}
+.approach-overlay--stage[data-overlay="1"] { opacity: var(--ov-1, 0); }
+.approach-overlay--stage[data-overlay="2"] { opacity: var(--ov-2, 0); }
+.approach-overlay--stage[data-overlay="3"] { opacity: var(--ov-3, 0); }
+.approach-overlay--stage[data-overlay="4"] { opacity: var(--ov-4, 0); }
+
+.approach-overlay-inner {
+  max-width: 600px;
+  color: var(--paper);
+}
+.approach-overlay-step {
+  display: inline-block;
+  margin-bottom: 22px;
+  padding: 8px 16px;
+  border: 1px solid rgba(240, 238, 235, 0.45);
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(240, 238, 235, 0.95);
+  background: rgba(28, 29, 34, 0.25);
+  backdrop-filter: blur(8px);
+}
+.approach-overlay-h {
+  font-family: var(--serif);
+  font-size: clamp(36px, 4.4vw, 64px);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  color: var(--paper);
+  margin: 0 0 18px;
+  max-width: 16ch;
+  /* Soft text shadow so the heading stays legible across a wide
+     variety of photo content without needing a full dark scrim. */
+  text-shadow: 0 2px 24px rgba(28, 29, 34, 0.4);
+}
+.approach-overlay-h em {
+  font-style: italic;
+  color: #d8d0e2;
+}
+.approach-overlay-p {
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  color: rgba(240, 238, 235, 0.88);
+  margin: 0;
+  max-width: 520px;
+  text-shadow: 0 1px 10px rgba(28, 29, 34, 0.5);
+}
+
+@media (max-width: 880px) {
+  .approach--takeover { height: 520vh; }
+  .approach-photo-layer { --inset-top: 18vh; --inset-bottom: 10vh; --inset-side: 5vw; }
+  .approach-overlay--intro { padding-top: 56px; }
+  .approach-takeover-title { font-size: clamp(36px, 9vw, 56px); }
+  .approach-overlay--stage { padding-bottom: 10vh; }
+  .approach-overlay-inner { padding: 0 24px; }
+  .approach-overlay-h { font-size: clamp(32px, 7vw, 44px); }
+}
 .approach-pin {
   position: sticky;
   top: 0;
