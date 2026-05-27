@@ -73,6 +73,16 @@ const BENEFITS = [
         aria-hidden="true"
       ></video>
       <div class="pa-cine-vignette" aria-hidden="true"></div>
+
+      <!-- Loading state — three pulsing dots, shown while the video is
+           buffering. The script adds .is-ready once canplaythrough fires
+           and the dots fade out. Without this the visitor sees a frozen
+           first frame for several seconds on slow connections and assumes
+           the page is broken. -->
+      <div class="pa-cine-loading" data-pa-cine-loading aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+
       <div class="pa-cine-captions">
         <article class="pa-cine-caption" data-at="0" data-until="0.18">
           <div class="pa-cine-eyebrow">Featured property</div>
@@ -823,6 +833,34 @@ const BENEFITS = [
         rgba(0,0,0,0.6) 100%
       );
   }
+
+  /* Loading state — three pulsing dots, centered. Visible until the
+     video reports canplaythrough; the script adds .is-ready to fade
+     it out. Mostly buys honest visual feedback during the ~1-3s buffer
+     fill on slower connections. */
+  .pa-cine-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    z-index: 4;
+  }
+  .pa-cine-loading.is-ready { opacity: 0; }
+  .pa-cine-loading span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    animation: pa-cine-pulse 1.2s ease-in-out infinite;
+  }
+  .pa-cine-loading span:nth-child(2) { animation-delay: 0.15s; }
+  .pa-cine-loading span:nth-child(3) { animation-delay: 0.30s; }
+  @keyframes pa-cine-pulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.85); }
+    50%      { opacity: 1;   transform: scale(1.15); }
+  }
   .pa-cine-captions {
     position: absolute;
     inset: 0;
@@ -948,6 +986,7 @@ const BENEFITS = [
     const root = document.querySelector('[data-pa-cine]');
     if (!root) return;
     const video = root.querySelector('[data-pa-cine-video]');
+    const loading = root.querySelector('[data-pa-cine-loading]');
     const captions = Array.from(root.querySelectorAll('.pa-cine-caption'));
     const nav = document.querySelector('[data-pa-nav]');
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -966,6 +1005,7 @@ const BENEFITS = [
     if (reduced) {
       // Static fallback — first caption stays visible over the poster frame.
       if (captions[0]) captions[0].style.opacity = '1';
+      if (loading) loading.classList.add('is-ready');
       // The cinematic collapses to one viewport in reduced-motion mode, so
       // jump the nav straight to its solid state — no morph to drive.
       setNavSolid(true);
@@ -979,6 +1019,28 @@ const BENEFITS = [
     const setDuration = () => { duration = video.duration || 0; };
     video.addEventListener('loadedmetadata', setDuration);
     if (video.readyState >= 1) setDuration();
+
+    // Hide loading dots once the video has buffered enough to play through.
+    // canplaythrough is the most permissive — by the time it fires the
+    // browser estimates the entire video can play without re-buffering.
+    const markReady = () => { if (loading) loading.classList.add('is-ready'); };
+    video.addEventListener('canplaythrough', markReady);
+    // Belt-and-braces — also hide once we've seen a successful seek.
+    video.addEventListener('seeked', markReady, { once: true });
+    if (video.readyState >= 4) markReady();
+
+    // How much of the video is contiguously buffered from t=0, in seconds.
+    // Used to clamp seeks during the initial buffer fill so the scrub never
+    // lands on an unbuffered frame and stalls the decoder.
+    const lastBufferedEnd = () => {
+      try {
+        if (!video.buffered || video.buffered.length === 0) return 0;
+        for (let i = 0; i < video.buffered.length; i++) {
+          if (video.buffered.start(i) <= 0.05) return video.buffered.end(i);
+        }
+        return video.buffered.end(0);
+      } catch (_) { return 0; }
+    };
 
     // iOS Safari requires a user gesture before currentTime updates work
     // reliably on a video that's never played. Prime once on first input.
@@ -1022,6 +1084,9 @@ const BENEFITS = [
       setNavSolid(progress >= NAV_SOLID_AT);
 
       if (!duration) return;
+      // readyState < 2 (HAVE_CURRENT_DATA) means the decoder can't reliably
+      // seek yet — skip until video has at least the current frame.
+      if (video.readyState < 2) return;
       // Only do the video work while the section is on screen.
       const onScreen = rect.bottom > 0 && rect.top < window.innerHeight;
       if (!onScreen) return;
@@ -1030,9 +1095,22 @@ const BENEFITS = [
       if (Math.abs(progress - lastProgress) <= 0.0005) return;
       lastProgress = progress;
 
+      let targetTime = progress * duration;
+
+      // Buffer-aware clamp — during the initial fill, if the user scrubs
+      // past the buffered region the video would stall and look broken.
+      // Hold them at the last buffered frame until more loads. Once the
+      // file is fully buffered (bufEnd ≥ duration - 0.5s) this becomes a
+      // no-op so the visitor can always reach the final frame.
+      const bufEnd = lastBufferedEnd();
+      if (bufEnd > 0 && bufEnd < duration - 0.5) {
+        const safeMax = Math.max(0, bufEnd - 0.1);
+        if (targetTime > safeMax) targetTime = safeMax;
+      }
+
       // Drive the video timeline. Wrapped in try/catch because some
       // browsers throw if currentTime is set before metadata is ready.
-      try { video.currentTime = progress * duration; } catch (_) {}
+      try { video.currentTime = targetTime; } catch (_) {}
 
       // Per-caption opacity with linear fade-in / fade-out at edges.
       for (let i = 0; i < captions.length; i++) {
