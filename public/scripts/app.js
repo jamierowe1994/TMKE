@@ -138,8 +138,138 @@
     update();
   }
 
-  // ---------- Approach: pinned cinematic stages ----------
-  const approach = document.querySelector('.approach');
+  // ---------- Approach: zoom-takeover controller (Ch 04 v3) ----------
+  // The new pinned section uses ONE master --progress (0..1 across the
+  // whole section) and derives everything else from it. The phases:
+  //   [0.00, 0.10]  intro panel visible, photo contained
+  //   [0.10, 0.22]  zoom-in: photo expands to fullscreen, intro fades
+  //   [0.22, 0.85]  4 stages cross-fade behind the same overlay layout
+  //   [0.85, 1.00]  zoom-out: photo shrinks back to contained
+  // Parallax: a small Y drift derived from the current stage's local
+  // progress, applied to every photo so they all feel "alive".
+  const takeover = document.querySelector('.approach--takeover');
+  if (takeover) {
+    const frame = takeover.querySelector('.approach-frame');
+    const photos = takeover.querySelectorAll('.approach-photo');
+    const overlays = takeover.querySelectorAll('.approach-overlay--stage');
+    const N_PHOTOS = photos.length;
+    const N_OVERLAYS = overlays.length;
+
+    // Phase boundaries — keep these in sync with the CSS comments.
+    const ZOOM_IN_START = 0.10;
+    const ZOOM_IN_END   = 0.22;
+    const ZOOM_OUT_START = 0.85;
+    const ZOOM_OUT_END   = 1.00;
+    const STAGE_START    = ZOOM_IN_END;
+    const STAGE_END      = ZOOM_OUT_START;
+
+    // Eased interpolation helpers — slow but tasteful (the user's brief).
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const smooth  = (v) => { const t = clamp01(v); return t * t * (3 - 2 * t); }; // smoothstep
+
+    // Trapezoid window: 0 outside [start - fade, end + fade], rises with
+    // smoothstep over `fade` width on either side, and holds at 1 across
+    // [start, end]. This gives each stage a "hold" period at full
+    // brightness in the middle of its slot, plus a soft crossfade at the
+    // boundaries — much cleaner than a triangle that's perpetually mid-fade.
+    const window_ = (progress, start, end, fade) => {
+      if (progress < start - fade) return 0;
+      if (progress < start) return smooth((progress - (start - fade)) / fade);
+      if (progress < end) return 1;
+      if (progress < end + fade) return 1 - smooth((progress - end) / fade);
+      return 0;
+    };
+
+    const updateTakeover = () => {
+      const rect = takeover.getBoundingClientRect();
+      const total = takeover.offsetHeight - window.innerHeight;
+      const scrolled = Math.max(0, Math.min(total, -rect.top));
+      const progress = total > 0 ? scrolled / total : 0;
+
+      // 1. Master takeover (clip-path inset multiplier). The photo is
+      //    contained at 0 and fullscreen at 1. Smoothstep both ends so
+      //    the zoom feels slow at the start and end, gathering speed
+      //    in the middle.
+      let takeoverVal;
+      if (progress < ZOOM_IN_START) {
+        takeoverVal = 0;
+      } else if (progress < ZOOM_IN_END) {
+        takeoverVal = smooth((progress - ZOOM_IN_START) / (ZOOM_IN_END - ZOOM_IN_START));
+      } else if (progress < ZOOM_OUT_START) {
+        takeoverVal = 1;
+      } else if (progress < ZOOM_OUT_END) {
+        takeoverVal = 1 - smooth((progress - ZOOM_OUT_START) / (ZOOM_OUT_END - ZOOM_OUT_START));
+      } else {
+        takeoverVal = 0;
+      }
+
+      // 2. Intro overlay visibility — visible at the start, fading out
+      //    in lockstep with the zoom-in so the title clears the way
+      //    for the photo takeover.
+      const introVis = 1 - takeoverVal;
+
+      // 3. Per-stage windows. The stage band [STAGE_START, STAGE_END]
+      //    is split evenly across N stages. Each stage gets a trapezoid
+      //    "hold" window with a short fade on each side so the
+      //    transitions feel decisive rather than perpetually crossfading.
+      const stageRange = STAGE_END - STAGE_START;
+      const slotSize   = stageRange / N_OVERLAYS;
+      const slotFade   = slotSize * 0.16; // ~16% of a slot is the fade window
+      const holdWidth  = slotSize - slotFade * 2;
+
+      // Parallax: a small pixel drift that oscillates within each
+      // stage's slot — gives the photos a "breathing" feel even when
+      // they're sitting in their hold period.
+      const localT = ((progress - STAGE_START) % slotSize + slotSize) % slotSize / slotSize;
+      const parallaxY = (localT - 0.5) * -24; // ±12px range, inverted
+
+      // Write everything to the frame so cascading CSS picks it up.
+      frame.style.setProperty('--progress', progress.toFixed(4));
+      frame.style.setProperty('--takeover', takeoverVal.toFixed(4));
+      frame.style.setProperty('--intro-vis', introVis.toFixed(4));
+      frame.style.setProperty('--parallax-y', parallaxY.toFixed(2) + 'px');
+
+      for (let i = 0; i < N_OVERLAYS; i++) {
+        const slotStart = STAGE_START + i * slotSize;
+        const slotEnd   = slotStart + slotSize;
+        // The first stage starts its fade-in at STAGE_START (the moment
+        // zoom-in finishes), and the last stage's fade-out is owned by
+        // the master takeover zoom-out below.
+        const holdStart = (i === 0) ? slotStart : slotStart + slotFade;
+        const holdEnd   = (i === N_OVERLAYS - 1) ? slotEnd : slotEnd - slotFade;
+        const w = window_(progress, holdStart, holdEnd, slotFade);
+        // Overlays gated by takeoverVal so they only appear when the
+        // photo is fullscreen (or near it).
+        frame.style.setProperty('--ov-' + (i + 1), (w * takeoverVal).toFixed(4));
+        // Photos use the same window — but photo 0 stays visible during
+        // the intro and stage 1 (both the contained state AND the first
+        // fullscreen frame use the same hero), and photo N-1 stays
+        // visible during the zoom-out tail.
+        let photoOpacity = w;
+        if (i === 0) {
+          // Photo 0 must be 100% during the contained intro too. Take the
+          // max of the regular window and a flat "visible during intro" pulse.
+          photoOpacity = Math.max(w, 1 - takeoverVal);
+        }
+        if (i === N_OVERLAYS - 1 && progress >= ZOOM_OUT_START) {
+          // Keep the last photo on screen all the way through zoom-out.
+          photoOpacity = Math.max(w, 1);
+        }
+        frame.style.setProperty('--photo-' + i, photoOpacity.toFixed(4));
+      }
+    };
+
+    if (window.__lenis && typeof window.__lenis.on === 'function') {
+      window.__lenis.on('scroll', updateTakeover);
+    } else {
+      window.addEventListener('scroll', updateTakeover, { passive: true });
+    }
+    window.addEventListener('resize', updateTakeover);
+    updateTakeover();
+  }
+
+  // ---------- Approach: legacy cinematic-stages controller (no-op now) ----------
+  const approach = document.querySelector('.approach:not(.approach--takeover)');
   if (approach) {
     const stages = approach.querySelectorAll('.approach-stage');
     const dots = approach.querySelectorAll('.approach-rail-dot');
@@ -162,14 +292,11 @@
       const total = approach.offsetHeight - window.innerHeight;
       const scrolled = Math.max(0, Math.min(total, -rect.top));
       const progress = total > 0 ? scrolled / total : 0;
-      // 5 stages spread over progress 0–1, each slot 1/N wide.
-      // Add 0.5 / N offset so a stage is centered in its slot.
       const idx = Math.max(0, Math.min(N - 1, Math.floor(progress * N + 0.0001)));
       setStage(idx);
       if (fill) fill.style.height = (progress * 100) + '%';
     };
 
-    // Hook into Lenis if available for smoothest updates, else fall back to scroll.
     if (window.__lenis && typeof window.__lenis.on === 'function') {
       window.__lenis.on('scroll', updateApproach);
     } else {

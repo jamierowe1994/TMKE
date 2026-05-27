@@ -143,76 +143,88 @@ import FreeAssets from "../components/FreeAssets.astro";
     </div>
   </section>
 
-  <!-- ============================== APPROACH — pinned cinematic stages -->
-  <section id="for-agents" class="approach" data-stages="5" data-reveal-root>
+  <!-- ============================== APPROACH — zoom-takeover (v3)
+       Chapter 04, round-4 redesign. Inspired by the CUUB reference the
+       user shared: a single hero photo starts as a contained panel
+       beneath a title block, scrolls open to fill the viewport
+       (sticky-takeover), then runs through four stages where the photo
+       crossfades behind the same overlay layout, then finally zooms
+       back out to a contained panel before handing off to Chapter 05.
+       The controller in app.js drives one master --progress (0→1)
+       across the whole section, and the CSS derives every animation
+       from it via clip-path interpolation + targeted opacity stages.
+       The .approach-stage/.approach-visual legacy CSS rules from the
+       previous cinematic-stages design stay in the stylesheet but no
+       longer match any markup. -->
+  <section id="for-agents" class="approach approach--takeover" data-reveal-root>
     <div class="approach-pin">
       <div class="approach-frame">
-        <div class="approach-stage is-active" data-stage="0">
-          <div class="approach-intro">
-            <div class="chapter chapter--center">Chapter 04 &mdash; Approach</div>
-            <h2 class="approach-title">
-              Built for Agents Who Want <em>More</em> Than Just Property Posts.
-            </h2>
-            <div class="approach-scroll-hint">
-              <span class="approach-scroll-hint-line"></span>
-              Keep scrolling
-            </div>
+
+        <!-- Photo layer — full-viewport stack of crossfading photos,
+             masked by clip-path so it reads as a contained panel at
+             the top and tail of the section and a fullscreen takeover
+             in the middle. Per-photo opacity is driven by
+             --active-photo so each one fades in around its slot. -->
+        <div class="approach-photo-layer" aria-hidden="true">
+          <div class="approach-photo" data-photo="0" style="background-image:url('/assets/bag.jpg')"></div>
+          <div class="approach-photo" data-photo="1" style="background-image:url('/assets/rush.jpg')"></div>
+          <div class="approach-photo" data-photo="2" style="background-image:url('/assets/outside.jpg')"></div>
+          <div class="approach-photo" data-photo="3" style="background-image:url('/assets/lay%20down.jpg')"></div>
+          <!-- Soft scrim over the photos so the white overlay text stays
+               legible even on bright frames. -->
+          <div class="approach-photo-scrim"></div>
+        </div>
+
+        <!-- Intro overlay — sits above the contained photo at the
+             start, fades out as the photo expands to fullscreen. -->
+        <div class="approach-overlay approach-overlay--intro" data-overlay="intro">
+          <div class="chapter chapter--center">Chapter 04 &mdash; Approach</div>
+          <h2 class="approach-takeover-title">
+            Built for Agents Who Want <em>More</em> Than Just Property Posts.
+          </h2>
+          <div class="approach-scroll-hint">
+            <span class="approach-scroll-hint-line"></span>
+            Keep scrolling
           </div>
         </div>
 
-        <div class="approach-stage" data-stage="1">
-          <div class="approach-card-stack approach-card-stack--hero">
-            <div class="approach-visual approach-visual--hero">
-              <div class="approach-visual-img" style="background-image:url('/assets/bag.jpg')"></div>
-            </div>
-            <div class="approach-hero-text">
-              <h3 class="approach-h">Templates that mean <em>business.</em></h3>
-              <p class="approach-p">Ready-made social media assets designed specifically for the property sector. Professional, polished, and built to reflect the standard of your agency &mdash; not just fill a feed.</p>
-              <div class="approach-step">01 / 04</div>
-            </div>
+        <!-- Stage overlays — same layout, crossfading content. Each is
+             visible during its own slot of the master progress. The
+             overlay column sits bottom-left so it sells the sticky-
+             takeover feeling: photo behind, text always in the same
+             place. -->
+        <div class="approach-overlay approach-overlay--stage" data-overlay="1">
+          <div class="approach-overlay-inner wrap">
+            <span class="approach-overlay-step">01 / 04</span>
+            <h3 class="approach-overlay-h">Templates that mean <em>business.</em></h3>
+            <p class="approach-overlay-p">Ready-made social media assets designed specifically for the property sector. Professional, polished, and built to reflect the standard of your agency &mdash; not just fill a feed.</p>
           </div>
         </div>
 
-        <div class="approach-stage" data-stage="2">
-          <div class="approach-card-stack approach-card-stack--hero">
-            <div class="approach-visual approach-visual--hero">
-              <div class="approach-visual-img" style="background-image:url('/assets/rush.jpg')"></div>
-            </div>
-            <div class="approach-hero-text">
-              <h3 class="approach-h">Made for <em>agents</em>, not anyone.</h3>
-              <p class="approach-p">TMKE works exclusively in the property sector. That means we understand the market, the audience, and what actually resonates &mdash; no generalist guesswork, no learning curve at your expense.</p>
-              <div class="approach-step">02 / 04</div>
-            </div>
+        <div class="approach-overlay approach-overlay--stage" data-overlay="2">
+          <div class="approach-overlay-inner wrap">
+            <span class="approach-overlay-step">02 / 04</span>
+            <h3 class="approach-overlay-h">Made for <em>agents</em>, not anyone.</h3>
+            <p class="approach-overlay-p">TMKE works exclusively in the property sector. That means we understand the market, the audience, and what actually resonates &mdash; no generalist guesswork, no learning curve at your expense.</p>
           </div>
         </div>
 
-        <div class="approach-stage" data-stage="3">
-          <div class="approach-card-stack approach-card-stack--hero">
-            <div class="approach-visual approach-visual--hero">
-              <div class="approach-visual-img" style="background-image:url('/assets/outside.jpg')"></div>
-            </div>
-            <div class="approach-hero-text">
-              <h3 class="approach-h">Intentional <em>by design.</em></h3>
-              <p class="approach-p">Every piece of content has a reason to exist. Strategy-led and structured from the start, so your social media works as a system rather than a series of disconnected posts.</p>
-              <div class="approach-step">03 / 04</div>
-            </div>
+        <div class="approach-overlay approach-overlay--stage" data-overlay="3">
+          <div class="approach-overlay-inner wrap">
+            <span class="approach-overlay-step">03 / 04</span>
+            <h3 class="approach-overlay-h">Intentional <em>by design.</em></h3>
+            <p class="approach-overlay-p">Every piece of content has a reason to exist. Strategy-led and structured from the start, so your social media works as a system rather than a series of disconnected posts.</p>
           </div>
         </div>
 
-        <div class="approach-stage" data-stage="4">
-          <div class="approach-card-stack approach-card-stack--hero">
-            <div class="approach-visual approach-visual--hero">
-              <div class="approach-visual-img" style="background-image:url('/assets/lay%20down.jpg')"></div>
-            </div>
-            <div class="approach-hero-text">
-              <h3 class="approach-h">Done with you. Or <em>done for you.</em></h3>
-              <p class="approach-p">Whether you want ready-made assets from The Edit or a fully managed service through Social Media Management, there's a level of support that fits where your business is right now.</p>
-              <div class="approach-step">04 / 04</div>
-            </div>
+        <div class="approach-overlay approach-overlay--stage" data-overlay="4">
+          <div class="approach-overlay-inner wrap">
+            <span class="approach-overlay-step">04 / 04</span>
+            <h3 class="approach-overlay-h">Done with you. Or <em>done for you.</em></h3>
+            <p class="approach-overlay-p">Whether you want ready-made assets from The Edit or a fully managed service through Social Media Management, there&rsquo;s a level of support that fits where your business is right now.</p>
           </div>
         </div>
 
-        <div class="approach-grain" aria-hidden="true"></div>
       </div>
     </div>
   </section>
