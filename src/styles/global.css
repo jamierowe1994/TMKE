@@ -1109,10 +1109,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
    The legacy .approach-stage / .approach-visual rules in this file are
    now dead code — they don't match anything in the new markup. */
 .approach--takeover {
-  /* Generous scroll budget so each phase has room to breathe. ~6×100vh
-     so the user feels they're moving through chapters, not flicking
-     a slideshow. */
-  height: 600vh;
+  /* Generous scroll budget so each phase has time to breathe. The
+     section gives roughly 1.5–2 viewports of scroll to each stage so
+     the swipe transitions feel deliberate, not flicked. */
+  height: 800vh;
   margin-top: 0;
   background: var(--paper);
 }
@@ -1162,20 +1162,25 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   /* No CSS transition here — the JS controller smoothsteps the
      per-photo opacity every scroll tick. A CSS transition on top
      would fight the scroll-driven updates and stall partway. */
-  /* Subtle parallax: vertical drift scaled by the section's progress
-     within the active stage. Re-applied as the active photo changes so
-     each one gets its own micro-movement. */
-  transform: translate3d(0, var(--parallax-y, 0), 0) scale(1.04);
+  /* Each photo composes its own --x (horizontal swipe) with the shared
+     --parallax-y (gentle vertical drift). At swipe-rest --x is 0; the
+     controller drives it from +100vw → 0 → -100vw across a stage's
+     fade windows so the photo slides in from the right and out to the
+     left like a horizontal pan. */
+  --x: 0;
+  transform: translate3d(var(--x), var(--parallax-y, 0), 0) scale(1.04);
   will-change: opacity, transform;
 }
 /* Active-photo selection — each photo's opacity comes from a per-index
    custom property the controller writes (--photo-0..3). We avoid the
    CSS abs() function for browser-support reasons; JS does the maths. */
-.approach-photo[data-photo="0"] { opacity: var(--photo-0, 0); }
-.approach-photo[data-photo="1"] { opacity: var(--photo-1, 0); }
-.approach-photo[data-photo="2"] { opacity: var(--photo-2, 0); }
-.approach-photo[data-photo="3"] { opacity: var(--photo-3, 0); }
-.approach-photo[data-photo="4"] { opacity: var(--photo-4, 0); }
+/* Photo 0 is the intro hero — never swipes, it just opacity-fades out.
+   Photos 1-4 swipe horizontally as the controller writes their --x.  */
+.approach-photo[data-photo="0"] { opacity: var(--photo-0, 0); --x: 0; }
+.approach-photo[data-photo="1"] { opacity: var(--photo-1, 0); --x: var(--photo-x-1, 0); }
+.approach-photo[data-photo="2"] { opacity: var(--photo-2, 0); --x: var(--photo-x-2, 0); }
+.approach-photo[data-photo="3"] { opacity: var(--photo-3, 0); --x: var(--photo-x-3, 0); }
+.approach-photo[data-photo="4"] { opacity: var(--photo-4, 0); --x: var(--photo-x-4, 0); }
 /* The intro hero is a slightly darker render of the men-in-suits photo
    to match its original treatment under the title; the overlay scrim
    layer handles the rest, but a small built-in dim here keeps the title
@@ -1190,20 +1195,49 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .approach-photo-scrim {
   position: absolute;
   inset: 0;
-  /* Two-pass scrim — a stronger bottom-left gradient where the overlay
-     text sits (so the heading + body copy always read clearly), plus a
-     subtle full-frame dim that takes the edge off the brightest photos
-     without flattening them. Both scale with --takeover so they only
-     appear when the photo is fullscreen. */
-  background:
-    linear-gradient(115deg,
-      rgba(28, 29, 34, calc(0.55 * var(--takeover))) 0%,
-      rgba(28, 29, 34, calc(0.15 * var(--takeover))) 55%,
-      transparent 95%),
-    linear-gradient(180deg,
-      transparent 0%,
-      rgba(28, 29, 34, calc(0.12 * var(--takeover))) 100%);
+  /* Light all-over dim that takes the edge off the brightest frames.
+     The heavy "where the text sits" gradient now lives in
+     .approach-bottom-scrim (outside the clip-path so it can span the
+     viewport even before the photo has gone fullscreen). */
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(28, 29, 34, calc(0.08 * var(--takeover))) 100%);
   pointer-events: none;
+}
+
+/* Heavy dark gradient + backdrop blur pinned to the bottom of the
+   viewport so the bottom-left overlay copy always reads clearly. Lives
+   OUTSIDE .approach-photo-layer so it isn't masked by the photo's
+   clip-path during the contained intro / outro states. Its opacity
+   scales with --takeover so it only appears once the photo is
+   fullscreen (or close to it). */
+.approach-bottom-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 55vh;
+  z-index: 2;
+  pointer-events: none;
+  opacity: var(--takeover, 0);
+  /* Gradient: heavy at the bottom-left, fading to transparent towards
+     the top. A second left-anchored gradient adds an extra dim under
+     where the text sits without darkening the right of the frame. */
+  background:
+    linear-gradient(0deg,
+      rgba(20, 16, 26, 0.80) 0%,
+      rgba(20, 16, 26, 0.55) 20%,
+      rgba(20, 16, 26, 0.25) 55%,
+      rgba(20, 16, 26, 0.00) 100%),
+    linear-gradient(75deg,
+      rgba(20, 16, 26, 0.35) 0%,
+      rgba(20, 16, 26, 0.05) 45%,
+      transparent 70%);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  /* Soft top edge so the blur doesn't have a hard horizontal line. */
+  -webkit-mask-image: linear-gradient(0deg, #000 65%, transparent 100%);
+          mask-image: linear-gradient(0deg, #000 65%, transparent 100%);
 }
 
 /* Intro overlay — sits at the top of the viewport above the contained
@@ -1257,29 +1291,33 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   color: rgba(28, 29, 34, 0.5);
 }
 
-/* Stage overlays — all four absolutely positioned in the same spot so
-   the layout is identical across stages 1-4. Only the currently-active
-   overlay fades in (controlled by --active-overlay). */
+/* Stage overlays — pinned to the bottom-left of the viewport with
+   breathing room on both edges so the copy never crowds the corner.
+   Each overlay swipes horizontally in lockstep with its paired photo,
+   driven by --ov-x-N (read in the per-stage rule below). The text
+   travels further than the photo so it reads as "zooming past". */
 .approach-overlay--stage {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: flex-end;
-  padding: 0 0 12vh;
+  justify-content: flex-start;
+  padding: 0 0 11vh 9vw;
   z-index: 3;
   opacity: 0;
   pointer-events: none;
-  /* No CSS transition — the JS controller smoothsteps overlay opacity
-     directly. See .approach-photo for the same rationale. */
-  will-change: opacity;
+  /* JS-driven; no CSS transition. */
+  --ox: 0;
+  transform: translate3d(var(--ox), 0, 0);
+  will-change: opacity, transform;
 }
-.approach-overlay--stage[data-overlay="1"] { opacity: var(--ov-1, 0); }
-.approach-overlay--stage[data-overlay="2"] { opacity: var(--ov-2, 0); }
-.approach-overlay--stage[data-overlay="3"] { opacity: var(--ov-3, 0); }
-.approach-overlay--stage[data-overlay="4"] { opacity: var(--ov-4, 0); }
+.approach-overlay--stage[data-overlay="1"] { opacity: var(--ov-1, 0); --ox: var(--ov-x-1, 0); }
+.approach-overlay--stage[data-overlay="2"] { opacity: var(--ov-2, 0); --ox: var(--ov-x-2, 0); }
+.approach-overlay--stage[data-overlay="3"] { opacity: var(--ov-3, 0); --ox: var(--ov-x-3, 0); }
+.approach-overlay--stage[data-overlay="4"] { opacity: var(--ov-4, 0); --ox: var(--ov-x-4, 0); }
 
 .approach-overlay-inner {
-  max-width: 600px;
+  max-width: 580px;
   color: var(--paper);
 }
 .approach-overlay-step {
@@ -1312,7 +1350,11 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .approach-overlay-h em {
   font-style: italic;
-  color: #d8d0e2;
+  /* Deeper brand purple — the same english-violet used for emphasis
+     across the rest of the homepage, with a stronger glow so it
+     reads against the dark photo + scrim. */
+  color: var(--english-violet);
+  text-shadow: 0 2px 18px rgba(28, 29, 34, 0.55), 0 0 1px rgba(255, 255, 255, 0.25);
 }
 .approach-overlay-p {
   font-family: var(--sans);
