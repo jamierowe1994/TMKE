@@ -1138,11 +1138,12 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .approach-photo-layer {
   position: absolute;
   inset: 0;
-  /* Contained: leave room above for the title (28vh top so the dark
-     intro photo doesn't fight the serif title) and side margins to
-     match the page wrap. Fullscreen: zero insets. */
-  --inset-top: 28vh;
-  --inset-bottom: 10vh;
+  /* Contained: balanced top/bottom insets so the panel sits centred in
+     the viewport. The intro title now sits over the centre of the photo
+     (rather than in a tall top gutter), so no extra headroom is needed.
+     Side margins match the page wrap. Fullscreen: zero insets. */
+  --inset-top: 17vh;
+  --inset-bottom: 17vh;
   --inset-side: 8vw;
   clip-path: inset(
     calc(var(--inset-top)    * (1 - var(--takeover)))
@@ -1194,7 +1195,14 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(rgba(20, 18, 16, 0.22), rgba(20, 18, 16, 0.22));
+  /* Even base dim plus a soft centre-weighted darkening so the white
+     intro title, now overlaid on the middle of the photo, stays legible
+     without flattening the whole frame. */
+  background:
+    radial-gradient(120% 90% at 50% 50%,
+      rgba(16, 14, 12, 0.5) 0%,
+      rgba(16, 14, 12, 0.28) 55%,
+      rgba(16, 14, 12, 0.22) 100%);
   pointer-events: none;
 }
 .approach-photo-scrim {
@@ -1223,7 +1231,9 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   left: 0;
   right: 0;
   bottom: 0;
-  height: 62vh;
+  /* Shorter now that the copy is a single-line title over a paragraph —
+     the dark floor doesn't need to climb as high. */
+  height: 50vh;
   z-index: 2;
   pointer-events: none;
   opacity: var(--takeover, 0);
@@ -1241,8 +1251,8 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
       rgba(0, 0, 0, 0.40) 0%,
       rgba(0, 0, 0, 0.10) 45%,
       transparent 70%);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   /* Soft top edge so the blur doesn't show a hard horizontal line. */
   -webkit-mask-image: linear-gradient(0deg, #000 60%, transparent 100%);
           mask-image: linear-gradient(0deg, #000 60%, transparent 100%);
@@ -1253,13 +1263,15 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
    the zoom-in phase). */
 .approach-overlay--intro {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  /* Title sits in the top inset above the contained photo. Compact
-     padding so the chapter eyebrow + title + scroll hint all fit
-     comfortably before the photo begins. */
-  padding: 36px 8vw 0;
+  inset: 0;
+  /* Title block now sits centred over the contained photo rather than in
+     a top gutter. Flex-centre the eyebrow + title as a group; the scroll
+     hint is pinned to the bottom of the frame below. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8vw;
   text-align: center;
   z-index: 3;
   opacity: var(--intro-vis);
@@ -1269,25 +1281,37 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   pointer-events: none;
   will-change: opacity, transform;
 }
-.approach-overlay--intro .chapter { margin-bottom: 18px; }
+/* Light eyebrow + hairlines so the chapter marker reads over the photo. */
+.approach-overlay--intro .chapter {
+  color: rgba(240, 238, 235, 0.72);
+  margin-bottom: 26px;
+}
 .approach-takeover-title {
   font-family: var(--serif);
-  /* Slightly tightened size so the three-line headline (Built for Agents…)
-     fits comfortably in the 28vh top inset on a 1440×900 viewport. */
-  font-size: clamp(36px, 4.6vw, 72px);
+  /* Scaled up a touch now that it sits over the full centre of the photo
+     with more room than the old top gutter allowed. */
+  font-size: clamp(40px, 5vw, 80px);
   line-height: 1.02;
   letter-spacing: -0.02em;
   font-weight: 400;
-  color: var(--ink);
+  /* White over the darkened photo, with a soft shadow for legibility. */
+  color: var(--paper);
+  text-shadow: 0 2px 34px rgba(0, 0, 0, 0.45);
   margin: 0 auto;
-  max-width: 22ch;
+  max-width: 20ch;
 }
 .approach-takeover-title em {
   font-style: italic;
-  color: var(--english-violet);
+  color: #cdbce0;
 }
 .approach-overlay--intro .approach-scroll-hint {
-  margin-top: 36px;
+  /* Pinned to the bottom of the frame so the centred title reads cleanly
+     while the scroll cue stays where users expect it. */
+  position: absolute;
+  bottom: 6vh;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0;
   display: inline-flex;
   align-items: center;
   gap: 14px;
@@ -1296,7 +1320,13 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   font-weight: 600;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: rgba(28, 29, 34, 0.5);
+  color: rgba(240, 238, 235, 0.66);
+}
+.approach-overlay--intro .approach-scroll-hint-line {
+  background: rgba(240, 238, 235, 0.45);
+}
+.approach-overlay--intro .approach-scroll-hint-line::after {
+  background: rgba(240, 238, 235, 0.95);
 }
 
 /* Stage overlays — pinned to the bottom-left of the viewport with
@@ -1325,23 +1355,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .approach-overlay--stage[data-overlay="4"] { opacity: var(--ov-4, 0); --ox: var(--ov-x-4, 0); }
 
 .approach-overlay-inner {
-  max-width: 580px;
+  /* No width cap — the single-line headings need the room. The paragraph
+     below keeps its own max-width for readable line lengths. */
+  max-width: none;
   color: var(--paper);
-}
-.approach-overlay-step {
-  display: inline-block;
-  margin-bottom: 22px;
-  padding: 8px 16px;
-  border: 1px solid rgba(240, 238, 235, 0.45);
-  border-radius: 999px;
-  font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: rgba(240, 238, 235, 0.95);
-  background: rgba(28, 29, 34, 0.25);
-  backdrop-filter: blur(8px);
 }
 .approach-overlay-h {
   font-family: var(--serif);
@@ -1351,7 +1368,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   font-weight: 400;
   color: var(--paper);
   margin: 0 0 18px;
-  max-width: 16ch;
+  /* Each stage title now sits on a single line (the vw-based size keeps
+     even the longest one within the viewport from ~880px up). */
+  max-width: none;
+  white-space: nowrap;
   /* Soft text shadow so the heading stays legible across a wide
      variety of photo content without needing a full dark scrim. */
   text-shadow: 0 2px 24px rgba(28, 29, 34, 0.4);
@@ -1375,12 +1395,13 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 
 @media (max-width: 880px) {
   .approach--takeover { height: 520vh; }
-  .approach-photo-layer { --inset-top: 18vh; --inset-bottom: 10vh; --inset-side: 5vw; }
-  .approach-overlay--intro { padding-top: 56px; }
+  .approach-photo-layer { --inset-top: 15vh; --inset-bottom: 15vh; --inset-side: 5vw; }
   .approach-takeover-title { font-size: clamp(36px, 9vw, 56px); }
   .approach-overlay--stage { padding-bottom: 10vh; }
   .approach-overlay-inner { padding: 0 24px; }
-  .approach-overlay-h { font-size: clamp(32px, 7vw, 44px); }
+  /* On narrow screens the long titles can't fit on one line — let them
+     wrap again rather than overflow the viewport. */
+  .approach-overlay-h { font-size: clamp(32px, 7vw, 44px); white-space: normal; max-width: 16ch; }
 }
 .approach-pin {
   position: sticky;
@@ -2005,8 +2026,20 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .feature--edit-split .feature-edit-left .feature-title { white-space: normal; }
 .feature--edit-split .feature-edit-left .feature-lead { white-space: normal; max-width: none; }
 .feature--edit-split .feature-edit-left .feature-copy { max-width: 460px; }
+/* Subtle hairlines — pick up the thin-rule motif already used by the
+   chapter eyebrows to give the Edit block more structure without walling
+   it off. A line opens the copy column, and a second separates the body
+   copy from the CTA / meta cluster below. */
+.feature--edit-split .feature-edit-left {
+  border-top: 1px solid rgba(28, 29, 34, 0.12);
+  padding-top: 40px;
+}
 .feature--edit-split .feature-edit-left .edit-showcase-meta {
-  margin-top: 36px; justify-content: flex-start; gap: 32px;
+  margin-top: 40px;
+  padding-top: 36px;
+  border-top: 1px solid rgba(28, 29, 34, 0.12);
+  justify-content: flex-start;
+  gap: 32px;
 }
 
 .feature-edit-right {
@@ -2027,9 +2060,12 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .feature-edit-image {
   display: block;
   width: 100%;
-  height: 100%;
+  /* Capped, much shorter height — the image previously ran floor-to-
+     ceiling and read as oversized. A clamped height keeps it a contained
+     editorial band that the centred copy column sits comfortably beside. */
+  height: clamp(320px, 44vh, 440px);
   max-width: none;
-  min-height: 540px;
+  min-height: 0;
   object-fit: cover;
   border-radius: 0;
 }
@@ -2042,7 +2078,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
     padding-left: 36px;
     padding-right: 36px;
   }
-  .feature-edit-image { max-width: 100%; min-height: 380px; border-radius: 0; }
+  .feature-edit-image { max-width: 100%; height: clamp(260px, 40vh, 360px); min-height: 0; border-radius: 0; }
 }
 @media (max-width: 560px) {
   .feature-edit-grid { padding-left: 22px; padding-right: 22px; }
@@ -4146,3 +4182,258 @@ body.nav-drawer-open { overflow: hidden; }
 /* ===== Floating Five & Live tab: hide while the drawer is open so it
    doesn't fight the menu z-index. ===== */
 body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
+
+/* ============================================================
+   CH 05 — THE EDIT (pinned "device" scene)
+   A 3-stage sticky takeover inspired by the Luffu reference: a hand
+   holds a phone (green-screen asset; the screen content is layered
+   over the chroma area), a soft gradient drifts behind, and both the
+   headline and the phone screen crossfade as the page snaps between
+   stages. Snapping is JS-driven via Lenis (see index.astro).
+   ============================================================ */
+.edit-scene {
+  position: relative;
+  height: 350vh;                 /* scroll length: pin stays put across all 3 stages */
+  --edit-bg: #f4f1e9;
+  --blob-a: #e8e3d4;
+  --blob-b: #ddd2e6;
+  background: var(--edit-bg);
+  transition: background 0.9s ease;
+}
+/* Invisible full-height markers — the IntersectionObserver flips the
+   active stage as each one crosses the viewport centre, and the JS snap
+   targets their offsets (0 / 100vh / 200vh into the section). */
+.edit-snap { position: absolute; left: 0; width: 1px; height: 100vh; pointer-events: none; }
+.edit-snap[data-stage="0"] { top: 0; }
+.edit-snap[data-stage="1"] { top: 100vh; }
+.edit-snap[data-stage="2"] { top: 200vh; }
+.edit-scene[data-stage="1"] { --edit-bg: #efe7ec; --blob-a: #ecd9e4; --blob-b: #f1ddc9; }
+/* Stage 3 — a soft lavender (not the warm orange, which belongs to the
+   Marketing Experts palette), distinct from stage 2's pink-lilac. */
+.edit-scene[data-stage="2"] { --edit-bg: #ece6f2; --blob-a: #d8cbe9; --blob-b: #c6b8df; }
+
+.edit-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Soft drifting gradient blobs behind the scene. */
+.edit-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.edit-blob {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.7;
+  transition: background 0.9s ease;
+  will-change: transform;
+}
+.edit-blob--a {
+  width: 70vw; height: 70vw; top: -18vw; left: -10vw;
+  background: radial-gradient(circle at 50% 50%, var(--blob-a), transparent 68%);
+  animation: editBlobA 28s ease-in-out infinite;
+}
+.edit-blob--b {
+  width: 64vw; height: 64vw; bottom: -22vw; right: -12vw;
+  background: radial-gradient(circle at 50% 50%, var(--blob-b), transparent 68%);
+  animation: editBlobB 34s ease-in-out infinite;
+}
+@keyframes editBlobA {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33%      { transform: translate3d(8vw, 6vh, 0) scale(1.08); }
+  66%      { transform: translate3d(-4vw, 10vh, 0) scale(0.96); }
+}
+@keyframes editBlobB {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  40%      { transform: translate3d(-7vw, -6vh, 0) scale(1.10); }
+  70%      { transform: translate3d(5vw, -3vh, 0) scale(0.95); }
+}
+
+/* Headline — pinned near the top; stages crossfade in place. */
+.edit-head {
+  position: absolute;
+  top: 9vh; left: 0; right: 0;
+  z-index: 3;
+  text-align: center;
+  padding: 0 8vw;
+  pointer-events: none;
+}
+.edit-head-chapter { margin-bottom: 22px; }
+.edit-head-stages { position: relative; min-height: 26vh; }
+.edit-head-stage {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.edit-scene[data-stage="0"] .edit-head-stage[data-stage="0"],
+.edit-scene[data-stage="1"] .edit-head-stage[data-stage="1"],
+.edit-scene[data-stage="2"] .edit-head-stage[data-stage="2"] { opacity: 1; transform: none; }
+.edit-scene[data-stage="2"] .edit-head-stage[data-stage="2"] { pointer-events: auto; }
+.edit-head-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(30px, 4vw, 58px);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0 auto;
+  max-width: 18ch;
+}
+.edit-head-title em { font-style: italic; color: var(--english-violet); }
+.edit-head-copy {
+  font-family: var(--sans);
+  font-size: clamp(14px, 1.15vw, 17px);
+  line-height: 1.55;
+  color: rgba(28, 29, 34, 0.62);
+  margin: 18px auto 0;
+  max-width: 52ch;
+}
+.edit-head-cta { margin-top: 26px; display: inline-flex; }
+
+/* Hand + phone scene. */
+.edit-stage-wrap { position: absolute; inset: 0; z-index: 2; }
+.edit-hand {
+  position: absolute;
+  left: 50%;
+  bottom: -7vh;
+  transform: translateX(-50%);
+  height: 96vh;
+  aspect-ratio: 3 / 4;          /* matches hand.png (1500×2000) */
+}
+.edit-hand-img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* Screen content positioned exactly over the green chroma area of
+   hand.png (measured: left 30.33%, top 28.2%, w 33.73%, h 58.15%). */
+.edit-phone {
+  position: absolute;
+  /* Sits over the green chroma area of hand.png, bled slightly past it on
+     every side so no green leaks at the edges; the rounded corners tuck the
+     bleed under the bezel. (Green measured at 30.33–63.93% × 29.95–86.4%.) */
+  left: 29.5%;
+  top: 29.2%;
+  width: 35%;
+  height: 58%;
+  overflow: hidden;
+  border-radius: clamp(20px, 3.4vh, 46px);
+  font-size: clamp(7px, 1.45vh, 12px);   /* drives the mock UIs' em units */
+  background: #f6f4ef;
+}
+/* Horizontal strip of screens — slid by --screen-pos (0..N) so the phone
+   reads as scrolling sideways between stages rather than cross-fading. */
+.edit-track {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  width: 100%;
+  transform: translate3d(calc(var(--screen-pos, 0) * -100%), 0, 0);
+  will-change: transform;
+}
+.edit-screen {
+  position: relative;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f6f4ef;
+}
+.edit-screen--collage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---- Phone editor mock (Screen A) ---- */
+.edit-screen--editor { background: #f6f4ef; color: var(--ink); display: flex; flex-direction: column; }
+.ph-status {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1.1em 1.4em 0.4em;
+  font: 600 0.95em/1 var(--sans);
+}
+.ph-status-ic { width: 2.4em; height: 0.8em; border-radius: 2px; background: rgba(28, 29, 34, 0.5); }
+.ph-body { flex: 1; display: flex; flex-direction: column; gap: 1.05em; padding: 0.6em 1.4em 1.4em; min-height: 0; }
+.ph-head { display: flex; align-items: baseline; justify-content: space-between; }
+.ph-eyebrow { font-family: var(--serif); font-size: 2.1em; letter-spacing: -0.02em; }
+.ph-chip {
+  font: 700 0.85em/1 var(--sans); letter-spacing: 0.18em;
+  color: var(--english-violet);
+  border: 1px solid rgba(91, 75, 122, 0.4);
+  border-radius: 999px; padding: 0.3em 0.7em;
+}
+.ph-feature {
+  position: relative; flex: 1; min-height: 0;
+  border-radius: 1.2em; overflow: hidden;
+  /* Live, flowing colour so the template reads as active, not a still. */
+  background: linear-gradient(135deg, #5b4b7a, #9a86b8 50%, #7a6aa6);
+  background-size: 220% 220%;
+  animation: phFlow 9s ease-in-out infinite;
+}
+@keyframes phFlow {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+.ph-feature-tag {
+  position: absolute; top: 0.9em; left: 0.9em;
+  font: 700 0.8em/1 var(--sans); letter-spacing: 0.16em; text-transform: uppercase;
+  color: #fff; background: rgba(0, 0, 0, 0.22); padding: 0.35em 0.7em; border-radius: 999px;
+}
+.ph-feature-title { position: absolute; bottom: 0.8em; left: 0.9em; font-family: var(--serif); font-size: 1.7em; color: #fff; }
+.ph-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6em; }
+.ph-thumb { aspect-ratio: 1; border-radius: 0.7em; background: #e6e0d4; }
+.ph-thumb:nth-child(2) { background: #d9cfe2; }
+.ph-thumb:nth-child(3) { background: #e7d9cb; }
+/* Scrolling brand-palette strip — colours glide across to show movement. */
+.ph-palette { display: flex; flex-direction: column; gap: 0.5em; }
+.ph-palette-label { font: 600 0.95em/1 var(--sans); color: rgba(28, 29, 34, 0.6); letter-spacing: 0.04em; }
+.ph-palette-strip { overflow: hidden; }
+.ph-palette-track { display: flex; gap: 0.55em; width: max-content; animation: phPalette 7s linear infinite; }
+.ph-palette-track i { width: 1.6em; height: 1.6em; border-radius: 50%; display: block; flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
+@keyframes phPalette { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ---- Phone catalogue mock (Screen B) ---- */
+.edit-screen--catalog { color: var(--ink); display: flex; flex-direction: column; }
+.ph-packs { display: flex; gap: 0.5em; overflow: hidden; }
+.ph-pack {
+  flex: 0 0 auto;
+  font: 600 0.9em/1 var(--sans); letter-spacing: 0.01em;
+  padding: 0.55em 0.9em; border-radius: 999px; white-space: nowrap;
+  background: #ece7dd; color: rgba(28, 29, 34, 0.7);
+}
+.ph-pack.is-on { background: var(--english-violet); color: #f6f4ef; }
+.ph-film { flex: 1; min-height: 0; overflow: hidden; border-radius: 1em; }
+.ph-film-track { display: flex; gap: 0.7em; height: 100%; width: max-content; animation: phFilm 18s linear infinite; }
+.ph-tile {
+  position: relative; flex: 0 0 auto;
+  width: 8.5em; height: 100%;
+  border-radius: 0.9em; overflow: hidden;
+  background: var(--g, #5b4b7a);
+}
+.ph-tile::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, 0.4));
+}
+.ph-tile b {
+  position: absolute; left: 0.7em; right: 0.7em; bottom: 0.7em; z-index: 1;
+  font: 700 0.95em/1.2 var(--sans); color: #fff;
+}
+@keyframes phFilm { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ph-btn {
+  margin-top: auto; text-align: center;
+  font: 600 1.05em/1 var(--sans); letter-spacing: 0.02em;
+  color: #f6f4ef; background: var(--ink);
+  border-radius: 999px; padding: 0.95em 1em;
+}
+.ph-btn span { margin-left: 0.3em; }
+
+@media (max-width: 880px) {
+  .edit-head { top: 7vh; }
+  .edit-head-title { font-size: clamp(26px, 7vw, 40px); }
+  .edit-head-copy { font-size: 14px; }
+  .edit-hand { height: 74vh; bottom: -4vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .edit-blob,
+  .ph-feature,
+  .ph-palette-track,
+  .ph-film-track { animation: none; }
+  .edit-head-stage { transition: none; }
+}
