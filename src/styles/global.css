@@ -1138,11 +1138,12 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .approach-photo-layer {
   position: absolute;
   inset: 0;
-  /* Contained: leave room above for the title (28vh top so the dark
-     intro photo doesn't fight the serif title) and side margins to
-     match the page wrap. Fullscreen: zero insets. */
-  --inset-top: 28vh;
-  --inset-bottom: 10vh;
+  /* Contained: balanced top/bottom insets so the panel sits centred in
+     the viewport. The intro title now sits over the centre of the photo
+     (rather than in a tall top gutter), so no extra headroom is needed.
+     Side margins match the page wrap. Fullscreen: zero insets. */
+  --inset-top: 17vh;
+  --inset-bottom: 17vh;
   --inset-side: 8vw;
   clip-path: inset(
     calc(var(--inset-top)    * (1 - var(--takeover)))
@@ -1194,7 +1195,14 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(rgba(20, 18, 16, 0.22), rgba(20, 18, 16, 0.22));
+  /* Even base dim plus a soft centre-weighted darkening so the white
+     intro title, now overlaid on the middle of the photo, stays legible
+     without flattening the whole frame. */
+  background:
+    radial-gradient(120% 90% at 50% 50%,
+      rgba(16, 14, 12, 0.5) 0%,
+      rgba(16, 14, 12, 0.28) 55%,
+      rgba(16, 14, 12, 0.22) 100%);
   pointer-events: none;
 }
 .approach-photo-scrim {
@@ -1223,7 +1231,9 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   left: 0;
   right: 0;
   bottom: 0;
-  height: 62vh;
+  /* Shorter now that the copy is a single-line title over a paragraph —
+     the dark floor doesn't need to climb as high. */
+  height: 50vh;
   z-index: 2;
   pointer-events: none;
   opacity: var(--takeover, 0);
@@ -1241,8 +1251,8 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
       rgba(0, 0, 0, 0.40) 0%,
       rgba(0, 0, 0, 0.10) 45%,
       transparent 70%);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   /* Soft top edge so the blur doesn't show a hard horizontal line. */
   -webkit-mask-image: linear-gradient(0deg, #000 60%, transparent 100%);
           mask-image: linear-gradient(0deg, #000 60%, transparent 100%);
@@ -1253,13 +1263,15 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
    the zoom-in phase). */
 .approach-overlay--intro {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  /* Title sits in the top inset above the contained photo. Compact
-     padding so the chapter eyebrow + title + scroll hint all fit
-     comfortably before the photo begins. */
-  padding: 36px 8vw 0;
+  inset: 0;
+  /* Title block now sits centred over the contained photo rather than in
+     a top gutter. Flex-centre the eyebrow + title as a group; the scroll
+     hint is pinned to the bottom of the frame below. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8vw;
   text-align: center;
   z-index: 3;
   opacity: var(--intro-vis);
@@ -1269,25 +1281,37 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   pointer-events: none;
   will-change: opacity, transform;
 }
-.approach-overlay--intro .chapter { margin-bottom: 18px; }
+/* Light eyebrow + hairlines so the chapter marker reads over the photo. */
+.approach-overlay--intro .chapter {
+  color: rgba(240, 238, 235, 0.72);
+  margin-bottom: 26px;
+}
 .approach-takeover-title {
   font-family: var(--serif);
-  /* Slightly tightened size so the three-line headline (Built for Agents…)
-     fits comfortably in the 28vh top inset on a 1440×900 viewport. */
-  font-size: clamp(36px, 4.6vw, 72px);
+  /* Scaled up a touch now that it sits over the full centre of the photo
+     with more room than the old top gutter allowed. */
+  font-size: clamp(40px, 5vw, 80px);
   line-height: 1.02;
   letter-spacing: -0.02em;
   font-weight: 400;
-  color: var(--ink);
+  /* White over the darkened photo, with a soft shadow for legibility. */
+  color: var(--paper);
+  text-shadow: 0 2px 34px rgba(0, 0, 0, 0.45);
   margin: 0 auto;
-  max-width: 22ch;
+  max-width: 20ch;
 }
 .approach-takeover-title em {
   font-style: italic;
-  color: var(--english-violet);
+  color: #cdbce0;
 }
 .approach-overlay--intro .approach-scroll-hint {
-  margin-top: 36px;
+  /* Pinned to the bottom of the frame so the centred title reads cleanly
+     while the scroll cue stays where users expect it. */
+  position: absolute;
+  bottom: 6vh;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0;
   display: inline-flex;
   align-items: center;
   gap: 14px;
@@ -1296,7 +1320,13 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   font-weight: 600;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: rgba(28, 29, 34, 0.5);
+  color: rgba(240, 238, 235, 0.66);
+}
+.approach-overlay--intro .approach-scroll-hint-line {
+  background: rgba(240, 238, 235, 0.45);
+}
+.approach-overlay--intro .approach-scroll-hint-line::after {
+  background: rgba(240, 238, 235, 0.95);
 }
 
 /* Stage overlays — pinned to the bottom-left of the viewport with
@@ -1325,23 +1355,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .approach-overlay--stage[data-overlay="4"] { opacity: var(--ov-4, 0); --ox: var(--ov-x-4, 0); }
 
 .approach-overlay-inner {
-  max-width: 580px;
+  /* No width cap — the single-line headings need the room. The paragraph
+     below keeps its own max-width for readable line lengths. */
+  max-width: none;
   color: var(--paper);
-}
-.approach-overlay-step {
-  display: inline-block;
-  margin-bottom: 22px;
-  padding: 8px 16px;
-  border: 1px solid rgba(240, 238, 235, 0.45);
-  border-radius: 999px;
-  font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: rgba(240, 238, 235, 0.95);
-  background: rgba(28, 29, 34, 0.25);
-  backdrop-filter: blur(8px);
 }
 .approach-overlay-h {
   font-family: var(--serif);
@@ -1351,7 +1368,10 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   font-weight: 400;
   color: var(--paper);
   margin: 0 0 18px;
-  max-width: 16ch;
+  /* Each stage title now sits on a single line (the vw-based size keeps
+     even the longest one within the viewport from ~880px up). */
+  max-width: none;
+  white-space: nowrap;
   /* Soft text shadow so the heading stays legible across a wide
      variety of photo content without needing a full dark scrim. */
   text-shadow: 0 2px 24px rgba(28, 29, 34, 0.4);
@@ -1375,12 +1395,13 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 
 @media (max-width: 880px) {
   .approach--takeover { height: 520vh; }
-  .approach-photo-layer { --inset-top: 18vh; --inset-bottom: 10vh; --inset-side: 5vw; }
-  .approach-overlay--intro { padding-top: 56px; }
+  .approach-photo-layer { --inset-top: 15vh; --inset-bottom: 15vh; --inset-side: 5vw; }
   .approach-takeover-title { font-size: clamp(36px, 9vw, 56px); }
   .approach-overlay--stage { padding-bottom: 10vh; }
   .approach-overlay-inner { padding: 0 24px; }
-  .approach-overlay-h { font-size: clamp(32px, 7vw, 44px); }
+  /* On narrow screens the long titles can't fit on one line — let them
+     wrap again rather than overflow the viewport. */
+  .approach-overlay-h { font-size: clamp(32px, 7vw, 44px); white-space: normal; max-width: 16ch; }
 }
 .approach-pin {
   position: sticky;
@@ -2005,8 +2026,20 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .feature--edit-split .feature-edit-left .feature-title { white-space: normal; }
 .feature--edit-split .feature-edit-left .feature-lead { white-space: normal; max-width: none; }
 .feature--edit-split .feature-edit-left .feature-copy { max-width: 460px; }
+/* Subtle hairlines — pick up the thin-rule motif already used by the
+   chapter eyebrows to give the Edit block more structure without walling
+   it off. A line opens the copy column, and a second separates the body
+   copy from the CTA / meta cluster below. */
+.feature--edit-split .feature-edit-left {
+  border-top: 1px solid rgba(28, 29, 34, 0.12);
+  padding-top: 40px;
+}
 .feature--edit-split .feature-edit-left .edit-showcase-meta {
-  margin-top: 36px; justify-content: flex-start; gap: 32px;
+  margin-top: 40px;
+  padding-top: 36px;
+  border-top: 1px solid rgba(28, 29, 34, 0.12);
+  justify-content: flex-start;
+  gap: 32px;
 }
 
 .feature-edit-right {
@@ -2027,9 +2060,12 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .feature-edit-image {
   display: block;
   width: 100%;
-  height: 100%;
+  /* Capped, much shorter height — the image previously ran floor-to-
+     ceiling and read as oversized. A clamped height keeps it a contained
+     editorial band that the centred copy column sits comfortably beside. */
+  height: clamp(320px, 44vh, 440px);
   max-width: none;
-  min-height: 540px;
+  min-height: 0;
   object-fit: cover;
   border-radius: 0;
 }
@@ -2042,7 +2078,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
     padding-left: 36px;
     padding-right: 36px;
   }
-  .feature-edit-image { max-width: 100%; min-height: 380px; border-radius: 0; }
+  .feature-edit-image { max-width: 100%; height: clamp(260px, 40vh, 360px); min-height: 0; border-radius: 0; }
 }
 @media (max-width: 560px) {
   .feature-edit-grid { padding-left: 22px; padding-right: 22px; }
@@ -4146,3 +4182,120 @@ body.nav-drawer-open { overflow: hidden; }
 /* ===== Floating Five & Live tab: hide while the drawer is open so it
    doesn't fight the menu z-index. ===== */
 body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
+
+/* ============================================================
+   CH 05 — THE EDIT (records on a shelf)
+   Full-screen wall + the transparent shelf image (shelf3.png, 3 shelves).
+   Three template "records" sit on each shelf (same size, evenly spaced).
+   The top two rows sit BEHIND the shelf image so its front edge tucks their
+   base (looking-up perspective); the bottom row sits in FRONT on the open
+   surface, leaned back with a directional shadow (light from the upper-
+   right). Hover springs a record up and off the shelf.
+   ============================================================ */
+.shelf-scene {
+  position: relative;
+  min-height: 106vh;              /* a touch taller → more header room up top */
+  display: flex;
+  align-items: flex-end;          /* shelves sit low; wall above holds the top row + copy */
+  justify-content: center;
+  padding: 0 4vw 3vh;
+  /* Clean wall — the shelf PNG is transparent, so we own the backdrop. */
+  background: radial-gradient(120% 110% at 50% 26%, #efefef 0%, #dcdcdc 55%, #c6c6c7 100%);
+  overflow: hidden;
+}
+.shelf-copy { position: absolute; top: 8vh; left: 5vw; z-index: 5; max-width: 22ch; }
+.shelf-copy .chapter { color: rgba(28, 29, 34, 0.5); margin-bottom: 16px; }
+.shelf-title {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(32px, 3.6vw, 52px); line-height: 1; letter-spacing: -0.02em;
+  color: var(--ink); margin: 0;
+}
+.shelf-sub {
+  font-family: var(--sans); font-size: clamp(13px, 0.95vw, 15px); line-height: 1.5;
+  color: rgba(28, 29, 34, 0.6); margin: 14px 0 20px; max-width: 24ch;
+}
+.shelf-cta { color: var(--ink); }
+/* CTA in the bottom-right corner (padded off the edge) to balance the
+   top-left copy and even out the composition. */
+.shelf-cta-corner { position: absolute; right: 6vw; bottom: 7vh; z-index: 5; }
+
+/* Stage holds shelf2.png at its native aspect so record %-positions map
+   straight onto the picture. Records overflow upward, so nothing clips. */
+.shelf-stage {
+  position: relative;
+  isolation: isolate;              /* own stacking context for the record/shelf depth ordering */
+  width: min(92vw, 118vh);         /* bigger overall → records read larger */
+  aspect-ratio: 3000 / 2000;
+}
+.shelf-bg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; pointer-events: none; user-select: none;
+  z-index: 2;                      /* between the tucked-under rows (1) and the front row (3) */
+}
+
+/* Records — portrait (3:4) social posts resting on a shelf's front edge
+   (--y = distance from the stage bottom), leaning back via a bottom-pivoted
+   rotateX so they look propped against the shelf rather than floating. The
+   per-shelf modifiers set size / lean / depth so the perspective reads. */
+.shelf-rec {
+  position: absolute;
+  left: var(--x); bottom: var(--y);
+  /* Same size for every record — 3:4 height (~24% of the stage) still fits
+     inside the ~25% gap; the bigger stage above makes them read larger. */
+  width: 12%; aspect-ratio: 3 / 4;
+  border-radius: 4px; overflow: hidden;
+  background: #cfcfcf;
+  transform-origin: center bottom;
+  transform: perspective(1200px) rotateX(var(--lean, 9deg));
+  /* Directional drop shadow — light from the upper-right, so the shadow
+     falls down and to the left. */
+  box-shadow: -12px 16px 28px rgba(0, 0, 0, 0.26), -3px 5px 9px rgba(0, 0, 0, 0.18);
+  transition: transform 0.45s cubic-bezier(.2, .8, .2, 1), box-shadow 0.45s ease;
+  cursor: pointer;
+}
+.shelf-rec img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.shelf-rec::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.16), transparent 42%);
+  pointer-events: none;
+}
+.shelf-rec:hover,
+.shelf-rec:focus-visible {
+  /* Spring up AND out (translateZ toward the viewer) and pop above the shelf
+     image, so even a tucked record springs clear instead of clipping through
+     the shelf. The overshoot easing gives it the "spring". */
+  transform: perspective(1200px) rotateX(2deg) translateY(-15%) translateZ(40px);
+  box-shadow: 0 44px 64px rgba(0, 0, 0, 0.36), 0 16px 24px rgba(0, 0, 0, 0.24);
+  transition: transform 0.5s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.4s ease;
+  z-index: 7 !important;
+  outline: none;
+}
+
+/* Per-shelf depth + seating — measured from shelf3.png (front edges ~6.5 /
+   42 / 77.7%). All same size; only position / lean / depth differ:
+   - s1 (top):    behind the shelf (z1) → base tucks, bottom clips (looking up).
+   - s2 (middle): behind the shelf (z1) → bottom clips into its own shelf only;
+                  sized so the top clears shelf 1.
+   - s3 (bottom): in FRONT (z3) → fully visible on the surface, no clipping. */
+/* Solid shelf bodies (centre): s1 1.6–12.3%, s2 37.2–42.9%, s3 67.8–78.5%.
+   - s1 (top): behind the shelf (z1), base tucked, body rises above (looking up).
+   - s2 (middle): behind (z1), base tucked on shelf 2; sized so its TOP (~20%)
+     stays clear of shelf 1's solid (12.3%).
+   - s3 (bottom): in FRONT (z3), base ON the surface (~74%), leaning back. */
+.shelf-rec--s1 { --y: 93%; --lean: 8deg;  z-index: 1; } /* top — lifted so less is tucked  */
+.shelf-rec--s2 { --y: 61%; --lean: 9deg;  z-index: 1; } /* middle — up, just below shelf 1   */
+.shelf-rec--s3 {
+  --y: 32%; --lean: 22deg; z-index: 3;                  /* bottom — sat on the surface, leaned back hard */
+  /* Leaning hard against the wall + lit from the upper-right casts a deeper
+     shadow down and to the left, wedging into the shelf/wall (the triangle). */
+  box-shadow: -24px 26px 42px rgba(0, 0, 0, 0.32), -7px 10px 16px rgba(0, 0, 0, 0.24);
+}
+
+@media (max-width: 900px) {
+  .shelf-scene { align-items: flex-end; padding-bottom: 6vh; }
+  .shelf-copy { max-width: 60vw; top: 5vh; }
+  .shelf-stage { width: 96vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shelf-rec { transition: none; }
+}
