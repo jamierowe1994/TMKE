@@ -60,6 +60,7 @@
   function injectStyles() {
     var css = '';
     Object.keys(overrides).forEach(function (sel) {
+      if (sel.indexOf('__') === 0) return;
       var rules = overrides[sel];
       var decls = Object.keys(rules)
         .filter(function (p) { return p.indexOf('__') !== 0 && rules[p] !== '' && rules[p] != null; })
@@ -73,18 +74,24 @@
   }
   function applyContent() {
     Object.keys(overrides).forEach(function (sel) {
+      if (sel.indexOf('__') === 0) return;
       var o = overrides[sel], el;
       try { el = document.querySelector(sel); } catch (e) { return; }
       if (!el) return;
       if (o.__html != null) el.innerHTML = o.__html;
-      if (o.__src != null) { if (el.tagName === 'IMG') el.src = o.__src; else el.style.backgroundImage = "url('" + o.__src + "')"; }
+      if (o.__src != null) { if (el.tagName === 'IMG' || el.tagName === 'VIDEO') el.src = o.__src; else el.style.backgroundImage = "url('" + o.__src + "')"; }
       if (o.__icon != null && el.tagName.toLowerCase() === 'svg') { el.setAttribute('viewBox', '0 0 24 24'); el.innerHTML = o.__icon; }
     });
   }
-  function applyAll() { injectStyles(); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyContent, { once: true }); else applyContent(); }
+  function applyAll() {
+    injectStyles();
+    var run = function () { applyBlocks(); applyContent(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
+    else run();
+  }
 
-  /* Animation keyframes — injected for everyone so published animations run. */
-  function injectKeyframes() {
+  /* Always-on styles for everyone: animation keyframes + added-block layout. */
+  function injectGlobalStyles() {
     if (document.getElementById('tmke-ve-keyframes')) return;
     var s = document.createElement('style'); s.id = 'tmke-ve-keyframes';
     s.textContent =
@@ -92,10 +99,26 @@
       '@keyframes ve-up{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}' +
       '@keyframes ve-inleft{from{opacity:0;transform:translateX(-34px)}to{opacity:1;transform:none}}' +
       '@keyframes ve-zoom{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}' +
-      '@keyframes ve-pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}';
+      '@keyframes ve-pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}' +
+      '.ve-block{max-width:1360px;margin:40px auto;padding:0 76px;}' +
+      '.ve-block--text p{font-family:var(--serif);font-size:clamp(20px,2vw,26px);line-height:1.5;color:var(--ink);margin:0;}' +
+      '.ve-block--image img,.ve-block--video video{width:100%;height:auto;display:block;border-radius:4px;}';
     document.head.appendChild(s);
   }
-  injectKeyframes();
+  injectGlobalStyles();
+
+  /* Re-insert blocks the editor added (stored in overrides.__blocks). */
+  function applyBlocks() {
+    var blocks = overrides.__blocks; if (!blocks || !blocks.length) return;
+    blocks.forEach(function (bk) {
+      if (document.querySelector('[data-ve-block="' + bk.id + '"]')) return; // already there
+      var after; try { after = document.querySelector(bk.after); } catch (e) { return; }
+      var wrap = document.createElement('div'); wrap.innerHTML = bk.html.trim();
+      var node = wrap.firstElementChild; if (!node) return;
+      if (after && after.parentNode) after.parentNode.insertBefore(node, after.nextSibling);
+      else document.body.appendChild(node);
+    });
+  }
 
   /* ---- save (draft) ---- */
   var saveTimer = null, onDirty = null;
@@ -235,6 +258,9 @@
       '.tmke-ve-icons{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}',
       '.tmke-ve-iconbtn{display:flex;align-items:center;justify-content:center;padding:6px;border-radius:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#f2efe9;cursor:pointer;}',
       '.tmke-ve-iconbtn:hover{background:rgba(255,255,255,.2);}',
+      '.tmke-ve-addmenu{position:fixed;z-index:2147483646;background:#22232a;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px;display:flex;flex-direction:column;min-width:150px;box-shadow:0 12px 36px rgba(0,0,0,.4);}',
+      '.tmke-ve-addmenu button{display:block;width:100%;text-align:left;background:none;border:none;color:#f2efe9;font:600 13px system-ui,sans-serif;padding:9px 10px;border-radius:6px;cursor:pointer;}',
+      '.tmke-ve-addmenu button:hover{background:rgba(255,255,255,.12);}',
       '.tmke-ve-reset{width:100%;margin-top:6px;padding:9px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.25);color:#f2efe9;font:600 12px system-ui,sans-serif;cursor:pointer;}',
       '.tmke-ve-reset:hover{background:rgba(255,255,255,.08);}',
     ].join('');
@@ -248,6 +274,7 @@
     bar.innerHTML = '<b>Website Editor</b><span class="tag">' + (isRemote ? '' : 'Local preview') + '</span>' +
       '<span class="status" id="tmke-ve-status"></span>' +
       '<span class="crumb" id="tmke-ve-crumb">Click any element to edit it</span>';
+    bar.appendChild(btn('+ Add', function (e) { toggleAddMenu(e.currentTarget); }));
     bar.appendChild(btn('Reset all', function () {
       if (!confirm('Remove every saved change on this page?')) return;
       overrides = {}; persist(); injectStyles(); deselect();
@@ -262,6 +289,38 @@
   }
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.onclick = fn; return b; }
   function btn2(label, cls, fn) { var b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = fn; return b; }
+
+  /* ---- Add blocks (Text / Header image / Video) ---- */
+  var blockSeq = 0;
+  function toggleAddMenu(anchor) {
+    var ex = document.getElementById('tmke-ve-addmenu'); if (ex) { ex.remove(); return; }
+    var m = document.createElement('div'); m.id = 'tmke-ve-addmenu'; m.className = 'tmke-ve-addmenu';
+    [['Text', 'text'], ['Header image', 'image'], ['Video', 'video']].forEach(function (o) {
+      var b = document.createElement('button'); b.textContent = o[0];
+      b.onclick = function () { m.remove(); addBlock(o[1]); };
+      m.appendChild(b);
+    });
+    var r = anchor.getBoundingClientRect();
+    m.style.left = r.left + 'px'; m.style.top = (r.bottom + 6) + 'px';
+    document.body.appendChild(m);
+  }
+  function addBlock(type) {
+    blockSeq++;
+    var id = 'b' + Date.now() + '-' + blockSeq, html;
+    if (type === 'text') html = '<div class="ve-block ve-block--text" data-ve-block="' + id + '"><p>New text — click to edit.</p></div>';
+    else if (type === 'image') html = '<div class="ve-block ve-block--image" data-ve-block="' + id + '"><img src="/assets/hero.png" alt=""></div>';
+    else html = '<div class="ve-block ve-block--video" data-ve-block="' + id + '"><video src="" controls playsinline></video></div>';
+    var afterEl = selected ? (selected.closest('section') || selected) : null;
+    if (!afterEl) { var secs = document.querySelectorAll('section'); afterEl = secs[secs.length - 1] || document.body.lastElementChild; }
+    var wrap = document.createElement('div'); wrap.innerHTML = html.trim();
+    var node = wrap.firstElementChild;
+    afterEl.parentNode.insertBefore(node, afterEl.nextSibling);
+    if (!overrides.__blocks) overrides.__blocks = [];
+    overrides.__blocks.push({ id: id, after: selectorFor(afterEl), html: node.outerHTML });
+    persist();
+    node.scrollIntoView({ block: 'center' });
+    select(type === 'text' ? (node.querySelector('p') || node) : node);
+  }
   function exitEditor() { var u = new URL(location.href); u.searchParams.delete('edit'); location.href = u.toString(); }
 
   /* Edit mode ⇆ Preview, toggled in-session (no reload → scroll preserved). */
@@ -419,17 +478,17 @@
       tBtn.onclick = function () { startTextEdit(el, sel); };
       tRow.appendChild(tBtn); panelBody.appendChild(tRow);
     }
-    // content: image
-    var isImg = el.tagName === 'IMG', hasBg = !isImg && cs.backgroundImage && cs.backgroundImage !== 'none';
-    if (isImg || hasBg) {
+    // content: image / video
+    var isImg = el.tagName === 'IMG', isVid = el.tagName === 'VIDEO', hasBg = !isImg && !isVid && cs.backgroundImage && cs.backgroundImage !== 'none';
+    if (isImg || isVid || hasBg) {
       var iRow = document.createElement('div'); iRow.className = 'tmke-ve-row';
-      iRow.innerHTML = '<label>Image</label><input type="text" class="tmke-ve-text" placeholder="https://… or /assets/…">';
+      iRow.innerHTML = '<label>' + (isVid ? 'Video URL' : 'Image') + '</label><input type="text" class="tmke-ve-text" placeholder="https://… or /assets/…">';
       var iInput = iRow.querySelector('input');
-      iInput.value = (overrides[sel] && overrides[sel].__src) || (isImg ? (el.getAttribute('src') || '') : extractUrl(cs.backgroundImage));
+      iInput.value = (overrides[sel] && overrides[sel].__src) || ((isImg || isVid) ? (el.getAttribute('src') || '') : extractUrl(cs.backgroundImage));
       iInput.addEventListener('change', function () {
         var v = iInput.value.trim(); if (!v) return;
         if (!overrides[sel]) overrides[sel] = {}; overrides[sel].__src = v; persist();
-        if (isImg) el.src = v; else el.style.backgroundImage = "url('" + v + "')";
+        if (isImg || isVid) el.src = v; else el.style.backgroundImage = "url('" + v + "')";
       });
       panelBody.appendChild(iRow);
     }
@@ -505,7 +564,7 @@
   function clearHover() { Array.prototype.forEach.call(document.querySelectorAll('.tmke-ve-hover'), function (n) { n.classList.remove('tmke-ve-hover'); }); }
   function showFloatTag(el) { var t = document.getElementById('tmke-ve-floattag'); if (!t) return; var r = el.getBoundingClientRect(); t.textContent = el.tagName.toLowerCase(); t.style.left = r.left + 'px'; t.style.top = (r.top - 4) + 'px'; t.style.display = 'block'; }
   function hideFloatTag() { var t = document.getElementById('tmke-ve-floattag'); if (t) t.style.display = 'none'; }
-  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.id === 'tmke-ve-floattag')); }
+  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.closest('.tmke-ve-addmenu') || el.closest('.tmke-ve-prebar') || el.id === 'tmke-ve-floattag')); }
   function pathLabel(el) { var bits = [], n = el; for (var i = 0; i < 3 && n && n !== document.body; i++) { bits.unshift(n.tagName.toLowerCase()); n = n.parentElement; } return bits.join(' › '); }
 
   /* ---- content helpers ---- */
