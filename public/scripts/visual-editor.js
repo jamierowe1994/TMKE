@@ -189,6 +189,8 @@
     buildToolbar(isRemote);
     buildPanel();
     wirePageInteractions();
+    editingEnabled = true;
+    deselect();
   }
 
   function injectChrome() {
@@ -205,12 +207,17 @@
       '.tmke-ve-bar button{font:600 12px system-ui,sans-serif;color:#f2efe9;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:7px 12px;cursor:pointer;}',
       '.tmke-ve-bar button:hover{background:rgba(255,255,255,.2);}',
       '.tmke-ve-bar button.primary{background:#5b4b7a;border-color:#5b4b7a;}',
-      'body.tmke-ve-on{padding-top:46px!important;}',
-      '.tmke-ve-panel{position:fixed;top:62px;right:16px;z-index:2147483645;width:268px;background:#22232a;color:#f2efe9;border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.45);font:13px system-ui,sans-serif;overflow:hidden;display:none;}',
-      '.tmke-ve-panel.open{display:block;}',
-      '.tmke-ve-panel-h{padding:12px 14px;background:rgba(255,255,255,.05);font-weight:700;display:flex;align-items:center;justify-content:space-between;}',
+      'body.tmke-ve-on{padding-top:46px!important;margin-right:300px!important;}',
+      'body.tmke-ve-on .nav{right:300px!important;}',
+      '.tmke-ve-panel{position:fixed;top:46px;right:0;bottom:0;z-index:2147483645;width:300px;background:#22232a;color:#f2efe9;border-left:1px solid rgba(255,255,255,.12);box-shadow:-8px 0 30px rgba(0,0,0,.22);font:13px system-ui,sans-serif;display:flex;flex-direction:column;}',
+      '.tmke-ve-panel-h{padding:12px 14px;background:rgba(255,255,255,.05);font-weight:700;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;}',
       '.tmke-ve-panel-h small{font-weight:500;opacity:.6;font-size:11px;}',
-      '.tmke-ve-body{padding:6px 14px 14px;max-height:70vh;overflow:auto;}',
+      '.tmke-ve-body{padding:6px 14px 16px;flex:1;overflow:auto;}',
+      '.tmke-ve-empty{opacity:.55;font-size:12px;line-height:1.5;padding:20px 4px;}',
+      '.tmke-ve-prebar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#1c1d22;color:#f2efe9;border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:8px 10px 8px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.4);font:600 13px system-ui,sans-serif;}',
+      '.tmke-ve-prebar button{font:600 12px system-ui,sans-serif;border:none;border-radius:999px;padding:9px 16px;cursor:pointer;}',
+      '.tmke-ve-prebar .ghost{background:rgba(255,255,255,.12);color:#f2efe9;}',
+      '.tmke-ve-prebar .primary{background:#5b4b7a;color:#fff;}',
       '.tmke-ve-row{margin:12px 0;}',
       '.tmke-ve-row label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.04em;text-transform:uppercase;opacity:.7;margin-bottom:6px;}',
       '.tmke-ve-row label .val{opacity:1;font-weight:700;text-transform:none;letter-spacing:0;}',
@@ -235,6 +242,7 @@
     document.body.classList.add('tmke-ve-on');
   }
 
+  var editingEnabled = false;
   function buildToolbar(isRemote) {
     var bar = document.createElement('div'); bar.className = 'tmke-ve-bar';
     bar.innerHTML = '<b>Website Editor</b><span class="tag">' + (isRemote ? '' : 'Local preview') + '</span>' +
@@ -245,21 +253,42 @@
       overrides = {}; persist(); injectStyles(); deselect();
       if (remote && store) store.saveDraft(overrides);
     }));
-    if (isRemote) {
-      var pub = btn('Publish', function () {
-        statusEl.textContent = 'Publishing…';
-        store.publish(overrides).then(function () { statusEl.textContent = 'Published ✓'; setTimeout(function () { statusEl.textContent = ''; }, 2500); })
-          .catch(function () { statusEl.textContent = 'Publish failed'; });
-      });
-      pub.className = 'primary'; bar.appendChild(pub);
-    }
-    bar.appendChild(btn('Done', function () { var u = new URL(location.href); u.searchParams.delete('edit'); location.href = u.toString(); }));
+    var prev = btn('Preview', enterPreview); prev.className = 'primary'; bar.appendChild(prev);
+    bar.appendChild(btn('Done', exitEditor));
     document.body.appendChild(bar);
     crumbEl = bar.querySelector('#tmke-ve-crumb');
     statusEl = bar.querySelector('#tmke-ve-status');
-    onDirty = function () { if (remote) { statusEl.textContent = 'Draft saved'; } };
+    onDirty = function () { if (remote) statusEl.textContent = 'Draft saved'; };
   }
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.onclick = fn; return b; }
+  function btn2(label, cls, fn) { var b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = fn; return b; }
+  function exitEditor() { var u = new URL(location.href); u.searchParams.delete('edit'); location.href = u.toString(); }
+
+  /* Edit mode ⇆ Preview, toggled in-session (no reload → scroll preserved). */
+  function setEditing(on) {
+    editingEnabled = on;
+    var bar = document.querySelector('.tmke-ve-bar'); if (bar) bar.style.display = on ? 'flex' : 'none';
+    if (panel) panel.style.display = on ? 'flex' : 'none';
+    document.body.classList.toggle('tmke-ve-on', on);
+    if (!on) { clearHover(); hideFloatTag(); deselect(); }
+  }
+  function enterPreview() {
+    setEditing(false);
+    var pb = document.createElement('div'); pb.className = 'tmke-ve-prebar'; pb.id = 'tmke-ve-prebar';
+    pb.innerHTML = '<span>Preview — this is how it will look</span>';
+    pb.appendChild(btn2('Continue editing', 'ghost', function () { pb.remove(); setEditing(true); }));
+    if (remote) {
+      var pubBtn = btn2('Publish', 'primary', function () {
+        pubBtn.textContent = 'Publishing…';
+        store.publish(overrides).then(function () { pubBtn.textContent = 'Published ✓'; setTimeout(function () { pubBtn.textContent = 'Publish'; }, 2500); })
+          .catch(function () { pubBtn.textContent = 'Publish failed'; });
+      });
+      pb.appendChild(pubBtn);
+    } else {
+      pb.appendChild(btn2('Exit', 'ghost', exitEditor));
+    }
+    document.body.appendChild(pb);
+  }
 
   function buildPanel() {
     panel = document.createElement('div'); panel.className = 'tmke-ve-panel';
@@ -297,6 +326,22 @@
       input.addEventListener('input', function () { var v = parseFloat(input.value); valEl.textContent = fmt(v, c.unit); setOverride(sel, c.prop, v + c.unit); });
       panelBody.appendChild(row);
     });
+
+    // font family (brand fonts)
+    if (isTextEl(el)) {
+      var FONTS = [['Default', ''], ['Cormorant (serif)', '"Cormorant Garamond", Georgia, serif'], ['Darker Grotesque', '"Darker Grotesque", system-ui, sans-serif']];
+      var fRow = document.createElement('div'); fRow.className = 'tmke-ve-row';
+      fRow.innerHTML = '<label>Font</label><select>' + FONTS.map(function (f) { return '<option value="' + f[1] + '">' + f[0] + '</option>'; }).join('') + '</select>';
+      var fSel = fRow.querySelector('select');
+      var savedFont = overrides[sel] && overrides[sel]['font-family'];
+      if (savedFont) fSel.value = savedFont;
+      else { var cf = cs.fontFamily; FONTS.forEach(function (f) { if (f[1] && cf.indexOf(f[1].split(',')[0].replace(/"/g, '')) === 0) fSel.value = f[1]; }); }
+      fSel.addEventListener('change', function () {
+        if (fSel.value) setOverride(sel, 'font-family', fSel.value);
+        else { if (overrides[sel]) delete overrides[sel]['font-family']; persist(); injectStyles(); }
+      });
+      panelBody.appendChild(fRow);
+    }
 
     // weight
     var wRow = document.createElement('div'); wRow.className = 'tmke-ve-row';
@@ -437,20 +482,26 @@
   /* ---- interactions ---- */
   function wirePageInteractions() {
     document.addEventListener('mouseover', function (e) {
-      if (isChrome(e.target)) return;
+      if (!editingEnabled || isChrome(e.target)) return;
       var el = e.target.closest(EDITABLE); clearHover();
       if (el && !isChrome(el)) { el.classList.add('tmke-ve-hover'); showFloatTag(el); }
     }, true);
     document.addEventListener('mouseout', function () { clearHover(); hideFloatTag(); }, true);
     document.addEventListener('click', function (e) {
-      if (isChrome(e.target)) return;
+      if (!editingEnabled || isChrome(e.target)) return;
       if (e.target.isContentEditable) return;
       var el = e.target.closest(EDITABLE); if (!el) return;
       e.preventDefault(); e.stopPropagation(); select(el);
     }, true);
   }
-  function select(el) { deselect(); selected = el; el.classList.add('tmke-ve-selected'); crumbEl.textContent = pathLabel(el); panel.classList.add('open'); renderPanel(el); }
-  function deselect() { if (selected) selected.classList.remove('tmke-ve-selected'); selected = null; if (panel) panel.classList.remove('open'); }
+  function select(el) { deselect(); selected = el; el.classList.add('tmke-ve-selected'); crumbEl.textContent = pathLabel(el); renderPanel(el); }
+  function deselect() {
+    if (selected) selected.classList.remove('tmke-ve-selected');
+    selected = null;
+    if (panelBody) panelBody.innerHTML = '<div class="tmke-ve-empty">Select any element on the page — text, image, section — to edit it here.</div>';
+    if (tagBadge) tagBadge.textContent = 'Nothing selected';
+    var t = panel && panel.querySelector('#tmke-ve-eltxt'); if (t) t.textContent = '';
+  }
   function clearHover() { Array.prototype.forEach.call(document.querySelectorAll('.tmke-ve-hover'), function (n) { n.classList.remove('tmke-ve-hover'); }); }
   function showFloatTag(el) { var t = document.getElementById('tmke-ve-floattag'); if (!t) return; var r = el.getBoundingClientRect(); t.textContent = el.tagName.toLowerCase(); t.style.left = r.left + 'px'; t.style.top = (r.top - 4) + 'px'; t.style.display = 'block'; }
   function hideFloatTag() { var t = document.getElementById('tmke-ve-floattag'); if (t) t.style.display = 'none'; }
