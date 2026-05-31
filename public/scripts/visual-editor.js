@@ -86,7 +86,8 @@
   /* ====================================================================== */
   if (!new URLSearchParams(location.search).has('edit')) return;
 
-  var EDITABLE = 'h1,h2,h3,h4,h5,h6,p,span,a,button,li,blockquote,em,strong,figcaption';
+  var EDITABLE = 'h1,h2,h3,h4,h5,h6,p,span,a,button,li,blockquote,em,strong,figcaption,' +
+    'div,section,article,figure,ul,ol,aside,header,footer,form';
   var selected = null;
 
   document.addEventListener('DOMContentLoaded', initEditor);
@@ -126,6 +127,9 @@
       '.tmke-ve-row label .val{opacity:1;font-weight:700;text-transform:none;letter-spacing:0;}',
       '.tmke-ve-row input[type=range]{width:100%;accent-color:#9a86b8;}',
       '.tmke-ve-row input[type=color]{width:100%;height:30px;border:none;background:none;cursor:pointer;}',
+      '.tmke-ve-swatches{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}',
+      '.tmke-ve-swatch{width:22px;height:22px;border-radius:5px;border:1px solid rgba(255,255,255,.25);cursor:pointer;padding:0;}',
+      '.tmke-ve-swatch:hover{transform:scale(1.12);}',
       '.tmke-ve-row select{width:100%;padding:6px;border-radius:6px;background:#1c1d22;color:#f2efe9;border:1px solid rgba(255,255,255,.18);}',
       '.tmke-ve-reset{width:100%;margin-top:6px;padding:9px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.25);color:#f2efe9;font:600 12px system-ui,sans-serif;cursor:pointer;}',
       '.tmke-ve-reset:hover{background:rgba(255,255,255,.08);}',
@@ -141,7 +145,7 @@
     var bar = document.createElement('div');
     bar.className = 'tmke-ve-bar';
     bar.innerHTML =
-      '<b>TMKE Editor</b><span class="tag">Prototype</span>' +
+      '<b>Website Editor</b><span class="tag">Prototype</span>' +
       '<span class="crumb" id="tmke-ve-crumb">Click any text to edit it</span>';
     var resetAll = btn('Reset all', function () {
       if (!confirm('Remove every saved change on this site?')) return;
@@ -159,13 +163,30 @@
 
   /* ---- Control panel ---- */
   var panel, panelBody, tagBadge;
+  function isContainer(el, cs) {
+    var d = cs.display;
+    return d === 'flex' || d === 'grid' || d === 'inline-flex' || d === 'inline-grid';
+  }
+  function isTextEl(el) { return /^(H1|H2|H3|H4|H5|H6|P|SPAN|A|BUTTON|LI|EM|STRONG|BLOCKQUOTE|FIGCAPTION)$/.test(el.tagName); }
   var CONTROLS = [
-    { prop: 'font-size',      label: 'Font size',      unit: 'px', min: 8,   max: 220, step: 1 },
-    { prop: 'line-height',    label: 'Line height',    unit: '',   min: 0.8, max: 2.4, step: 0.01 },
-    { prop: 'letter-spacing', label: 'Letter spacing', unit: 'px', min: -6,  max: 12,  step: 0.1 },
-    { prop: 'margin-top',     label: 'Space above',    unit: 'px', min: 0,   max: 240, step: 1 },
-    { prop: 'margin-bottom',  label: 'Space below',    unit: 'px', min: 0,   max: 240, step: 1 },
+    { prop: 'font-size',      label: 'Font size',      unit: 'px', min: 8,   max: 220, step: 1,   when: function (el) { return isTextEl(el); } },
+    { prop: 'line-height',    label: 'Line height',    unit: '',   min: 0.8, max: 2.4, step: 0.01, when: function (el) { return isTextEl(el); } },
+    { prop: 'letter-spacing', label: 'Letter spacing', unit: 'px', min: -6,  max: 12,  step: 0.1, when: function (el) { return isTextEl(el); } },
+    { prop: 'margin-top',     label: 'Space above (margin)',  unit: 'px', min: 0, max: 280, step: 1 },
+    { prop: 'margin-bottom',  label: 'Space below (margin)',  unit: 'px', min: 0, max: 280, step: 1 },
+    { prop: 'padding-top',    label: 'Padding top',    unit: 'px', min: 0,   max: 240, step: 1 },
+    { prop: 'padding-bottom', label: 'Padding bottom', unit: 'px', min: 0,   max: 240, step: 1 },
+    { prop: 'gap',            label: 'Gap (space between items)', unit: 'px', min: 0, max: 160, step: 1, when: isContainer },
   ];
+  /* Brand palette — read live from the site's CSS variables. */
+  var BRAND_VARS = [
+    ['--ink', 'Ink'], ['--paper', 'Paper'], ['--english-violet', 'Violet'],
+    ['--accent', 'Accent'], ['--coral', 'Coral'], ['--gold', 'Gold'],
+    ['--mint', 'Mint'], ['--gunmetal', 'Gunmetal'],
+  ];
+  function brandColour(varName) {
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
   function buildPanel() {
     panel = document.createElement('div');
     panel.className = 'tmke-ve-panel';
@@ -189,6 +210,7 @@
       '“' + (el.textContent || '').trim().slice(0, 22) + '”';
 
     CONTROLS.forEach(function (c) {
+      if (c.when && !c.when(el, cs)) return;
       var saved = overrides[sel] && overrides[sel][c.prop];
       var current;
       if (saved != null) {
@@ -226,13 +248,44 @@
     wSel.addEventListener('change', function () { setOverride(sel, 'font-weight', wSel.value); });
     panelBody.appendChild(wRow);
 
-    // colour
+    // colour + brand swatches
     var cRow = document.createElement('div'); cRow.className = 'tmke-ve-row';
-    cRow.innerHTML = '<label>Text colour</label><input type="color">';
+    cRow.innerHTML = '<label>Text colour</label><input type="color">' +
+      '<div class="tmke-ve-swatches"></div>';
     var cInput = cRow.querySelector('input');
     cInput.value = (overrides[sel] && overrides[sel]['color']) || rgbToHex(cs.color);
     cInput.addEventListener('input', function () { setOverride(sel, 'color', cInput.value); });
+    var sw = cRow.querySelector('.tmke-ve-swatches');
+    BRAND_VARS.forEach(function (b) {
+      var hex = brandColour(b[0]); if (!hex) return;
+      var dot = document.createElement('button');
+      dot.className = 'tmke-ve-swatch'; dot.title = b[1]; dot.style.background = hex;
+      dot.onclick = function () { cInput.value = toHex(hex); setOverride(sel, 'color', hex); };
+      sw.appendChild(dot);
+    });
     panelBody.appendChild(cRow);
+
+    // layout — column split for 2-column grids (e.g. image | text)
+    if (cs.display === 'grid') {
+      var tracks = cs.gridTemplateColumns.split(' ').filter(Boolean).map(parseFloat);
+      if (tracks.length === 2 && tracks[0] && tracks[1]) {
+        var savedR = overrides[sel] && overrides[sel]['grid-template-columns'];
+        var ratio = savedR ? (parseFloat(savedR) / (parseFloat(savedR) + parseFloat(savedR.split(' ')[1])))
+                           : tracks[0] / (tracks[0] + tracks[1]);
+        var lRow = document.createElement('div'); lRow.className = 'tmke-ve-row';
+        lRow.innerHTML = '<label>Column split <span class="val"></span></label>' +
+          '<input type="range" min="20" max="80" step="1">';
+        var lInput = lRow.querySelector('input'); var lVal = lRow.querySelector('.val');
+        lInput.value = Math.round(ratio * 100);
+        var setSplit = function (pct) {
+          lVal.textContent = pct + ' / ' + (100 - pct);
+          setOverride(sel, 'grid-template-columns', pct + 'fr ' + (100 - pct) + 'fr');
+        };
+        lInput.addEventListener('input', function () { setSplit(parseInt(lInput.value, 10)); });
+        lVal.textContent = lInput.value + ' / ' + (100 - lInput.value);
+        panelBody.appendChild(lRow);
+      }
+    }
 
     // reset this element
     var reset = document.createElement('button'); reset.className = 'tmke-ve-reset';
@@ -310,5 +363,10 @@
   function rgbToHex(rgb) {
     var m = (rgb || '').match(/\d+/g); if (!m) return '#000000';
     return '#' + m.slice(0, 3).map(function (x) { return ('0' + parseInt(x, 10).toString(16)).slice(-2); }).join('');
+  }
+  function toHex(c) {
+    c = (c || '').trim();
+    if (c[0] === '#') return c.length === 4 ? '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3] : c.slice(0, 7);
+    return rgbToHex(c);
   }
 })();
