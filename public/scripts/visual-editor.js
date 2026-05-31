@@ -60,6 +60,7 @@
   function injectStyles() {
     var css = '';
     Object.keys(overrides).forEach(function (sel) {
+      if (sel.indexOf('__') === 0) return;
       var rules = overrides[sel];
       var decls = Object.keys(rules)
         .filter(function (p) { return p.indexOf('__') !== 0 && rules[p] !== '' && rules[p] != null; })
@@ -71,20 +72,47 @@
     if (!tag) { tag = document.createElement('style'); tag.id = 'tmke-overrides'; document.head.appendChild(tag); }
     tag.textContent = css;
   }
+  var baseContent = {};          // pristine content captured before first edit (for undo)
+  function captureBase(sel, el) {
+    if (!sel || !el) return;
+    if (!baseContent[sel]) baseContent[sel] = {};
+    var b = baseContent[sel];
+    if (b.html == null) b.html = el.innerHTML;
+    if ((el.tagName === 'IMG' || el.tagName === 'VIDEO') && b.src == null) b.src = el.getAttribute('src') || '';
+    else if (b.bg == null) { var cbg = getComputedStyle(el).backgroundImage; b.bg = (cbg && cbg !== 'none') ? cbg : ''; }
+  }
+  var ATTR_BOOL = { controls: 1, autoplay: 1, loop: 1, muted: 1, playsinline: 1 };
   function applyContent() {
+    // 1) restore pristine content where the content override has been removed (undo/reset)
+    Object.keys(baseContent).forEach(function (sel) {
+      var el; try { el = document.querySelector(sel); } catch (e) { return; }
+      if (!el) return;
+      var o = overrides[sel] || {}, b = baseContent[sel];
+      if (b.html != null && o.__html == null) el.innerHTML = b.html;
+      if (b.src != null && o.__src == null && (el.tagName === 'IMG' || el.tagName === 'VIDEO')) el.src = b.src;
+      if (b.bg != null && o.__src == null && el.tagName !== 'IMG' && el.tagName !== 'VIDEO') el.style.backgroundImage = b.bg;
+    });
+    // 2) apply current content overrides
     Object.keys(overrides).forEach(function (sel) {
+      if (sel.indexOf('__') === 0) return;
       var o = overrides[sel], el;
       try { el = document.querySelector(sel); } catch (e) { return; }
       if (!el) return;
       if (o.__html != null) el.innerHTML = o.__html;
-      if (o.__src != null) { if (el.tagName === 'IMG') el.src = o.__src; else el.style.backgroundImage = "url('" + o.__src + "')"; }
+      if (o.__src != null) { if (el.tagName === 'IMG' || el.tagName === 'VIDEO') el.src = o.__src; else el.style.backgroundImage = o.__src ? ("url('" + o.__src + "')") : ''; }
       if (o.__icon != null && el.tagName.toLowerCase() === 'svg') { el.setAttribute('viewBox', '0 0 24 24'); el.innerHTML = o.__icon; }
+      if (o.__attrs) Object.keys(o.__attrs).forEach(function (a) { if (o.__attrs[a]) el.setAttribute(a, ATTR_BOOL[a] ? '' : 'true'); else el.removeAttribute(a); });
     });
   }
-  function applyAll() { injectStyles(); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyContent, { once: true }); else applyContent(); }
+  function applyAll() {
+    injectStyles();
+    var run = function () { applyBlocks(); applyContent(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
+    else run();
+  }
 
-  /* Animation keyframes — injected for everyone so published animations run. */
-  function injectKeyframes() {
+  /* Always-on styles for everyone: animation keyframes + added-block layout. */
+  function injectGlobalStyles() {
     if (document.getElementById('tmke-ve-keyframes')) return;
     var s = document.createElement('style'); s.id = 'tmke-ve-keyframes';
     s.textContent =
@@ -92,10 +120,26 @@
       '@keyframes ve-up{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}' +
       '@keyframes ve-inleft{from{opacity:0;transform:translateX(-34px)}to{opacity:1;transform:none}}' +
       '@keyframes ve-zoom{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}' +
-      '@keyframes ve-pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}';
+      '@keyframes ve-pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}' +
+      '.ve-block{max-width:1360px;margin:40px auto;padding:0 76px;}' +
+      '.ve-block--text p{font-family:var(--serif);font-size:clamp(20px,2vw,26px);line-height:1.5;color:var(--ink);margin:0;}' +
+      '.ve-block--image img,.ve-block--video video{width:100%;height:auto;display:block;border-radius:4px;}';
     document.head.appendChild(s);
   }
-  injectKeyframes();
+  injectGlobalStyles();
+
+  /* Re-insert blocks the editor added (stored in overrides.__blocks). */
+  function applyBlocks() {
+    var blocks = overrides.__blocks; if (!blocks || !blocks.length) return;
+    blocks.forEach(function (bk) {
+      if (document.querySelector('[data-ve-block="' + bk.id + '"]')) return; // already there
+      var after; try { after = document.querySelector(bk.after); } catch (e) { return; }
+      var wrap = document.createElement('div'); wrap.innerHTML = bk.html.trim();
+      var node = wrap.firstElementChild; if (!node) return;
+      if (after && after.parentNode) after.parentNode.insertBefore(node, after.nextSibling);
+      else document.body.appendChild(node);
+    });
+  }
 
   /* ---- save (draft) ---- */
   var saveTimer = null, onDirty = null;
@@ -103,7 +147,50 @@
     Local.save(overrides);
     if (remote && store) { clearTimeout(saveTimer); saveTimer = setTimeout(function () { store.saveDraft(overrides); }, 600); }
     if (onDirty) onDirty();
+    recordHistory();
   }
+
+  /* ---- undo / redo (history within the current publish window) ---- */
+  var history = [], histIndex = -1, restoring = false, histTimer = null;
+  function snapshot() { return JSON.parse(JSON.stringify(overrides)); }
+  function historyInit() { history = [snapshot()]; histIndex = 0; updateHistButtons(); }
+  function recordHistory() {
+    if (restoring || histIndex < 0) return;
+    clearTimeout(histTimer);
+    histTimer = setTimeout(function () {
+      var snap = JSON.stringify(overrides);
+      if (JSON.stringify(history[histIndex]) === snap) return;     // nothing changed
+      history = history.slice(0, histIndex + 1);
+      history.push(JSON.parse(snap));
+      if (history.length > 80) history.shift();
+      histIndex = history.length - 1;
+      updateHistButtons();
+    }, 350);
+  }
+  function reapplyAll() {
+    injectStyles();
+    var want = {}; (overrides.__blocks || []).forEach(function (b) { want[b.id] = 1; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ve-block]'), function (n) { if (!want[n.getAttribute('data-ve-block')]) n.remove(); });
+    applyBlocks();
+    applyContent();
+  }
+  function restoreState(map) {
+    restoring = true;
+    overrides = JSON.parse(JSON.stringify(map));
+    Local.save(overrides);
+    if (remote && store) { clearTimeout(saveTimer); saveTimer = setTimeout(function () { store.saveDraft(overrides); }, 200); }
+    reapplyAll();
+    if (selected && document.contains(selected)) renderPanel(selected); else deselect();
+    restoring = false;
+  }
+  function undo() { if (histIndex <= 0) return; histIndex--; restoreState(history[histIndex]); updateHistButtons(); flashStatus('Undo'); }
+  function redo() { if (histIndex >= history.length - 1) return; histIndex++; restoreState(history[histIndex]); updateHistButtons(); flashStatus('Redo'); }
+  function updateHistButtons() {
+    var u = document.getElementById('tmke-ve-undo'), r = document.getElementById('tmke-ve-redo');
+    if (u) u.disabled = histIndex <= 0;
+    if (r) r.disabled = histIndex >= history.length - 1;
+  }
+  function flashStatus(msg) { if (statusEl) { statusEl.textContent = msg; clearTimeout(flashStatus._t); flashStatus._t = setTimeout(function () { statusEl.textContent = (remote ? 'Draft saved' : ''); }, 1200); } }
 
   /* ====================================================================== */
   /*  BOOT                                                                  */
@@ -189,6 +276,10 @@
     buildToolbar(isRemote);
     buildPanel();
     wirePageInteractions();
+    editingEnabled = true;
+    loadRulers(); renderRulers();
+    historyInit();
+    deselect();
   }
 
   function injectChrome() {
@@ -205,12 +296,17 @@
       '.tmke-ve-bar button{font:600 12px system-ui,sans-serif;color:#f2efe9;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:7px 12px;cursor:pointer;}',
       '.tmke-ve-bar button:hover{background:rgba(255,255,255,.2);}',
       '.tmke-ve-bar button.primary{background:#5b4b7a;border-color:#5b4b7a;}',
-      'body.tmke-ve-on{padding-top:46px!important;}',
-      '.tmke-ve-panel{position:fixed;top:62px;right:16px;z-index:2147483645;width:268px;background:#22232a;color:#f2efe9;border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.45);font:13px system-ui,sans-serif;overflow:hidden;display:none;}',
-      '.tmke-ve-panel.open{display:block;}',
-      '.tmke-ve-panel-h{padding:12px 14px;background:rgba(255,255,255,.05);font-weight:700;display:flex;align-items:center;justify-content:space-between;}',
+      'body.tmke-ve-on{padding-top:46px!important;margin-right:300px!important;}',
+      'body.tmke-ve-on .nav{right:300px!important;}',
+      '.tmke-ve-panel{position:fixed;top:46px;right:0;bottom:0;z-index:2147483645;width:300px;background:#22232a;color:#f2efe9;border-left:1px solid rgba(255,255,255,.12);box-shadow:-8px 0 30px rgba(0,0,0,.22);font:13px system-ui,sans-serif;display:flex;flex-direction:column;}',
+      '.tmke-ve-panel-h{padding:12px 14px;background:rgba(255,255,255,.05);font-weight:700;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;}',
       '.tmke-ve-panel-h small{font-weight:500;opacity:.6;font-size:11px;}',
-      '.tmke-ve-body{padding:6px 14px 14px;max-height:70vh;overflow:auto;}',
+      '.tmke-ve-body{padding:6px 14px 16px;flex:1;overflow:auto;}',
+      '.tmke-ve-empty{opacity:.55;font-size:12px;line-height:1.5;padding:20px 4px;}',
+      '.tmke-ve-prebar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#1c1d22;color:#f2efe9;border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:8px 10px 8px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.4);font:600 13px system-ui,sans-serif;}',
+      '.tmke-ve-prebar button{font:600 12px system-ui,sans-serif;border:none;border-radius:999px;padding:9px 16px;cursor:pointer;}',
+      '.tmke-ve-prebar .ghost{background:rgba(255,255,255,.12);color:#f2efe9;}',
+      '.tmke-ve-prebar .primary{background:#5b4b7a;color:#fff;}',
       '.tmke-ve-row{margin:12px 0;}',
       '.tmke-ve-row label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.04em;text-transform:uppercase;opacity:.7;margin-bottom:6px;}',
       '.tmke-ve-row label .val{opacity:1;font-weight:700;text-transform:none;letter-spacing:0;}',
@@ -228,38 +324,146 @@
       '.tmke-ve-icons{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}',
       '.tmke-ve-iconbtn{display:flex;align-items:center;justify-content:center;padding:6px;border-radius:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#f2efe9;cursor:pointer;}',
       '.tmke-ve-iconbtn:hover{background:rgba(255,255,255,.2);}',
+      '.tmke-ve-addmenu{position:fixed;z-index:2147483646;background:#22232a;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px;display:flex;flex-direction:column;min-width:150px;box-shadow:0 12px 36px rgba(0,0,0,.4);}',
+      '.tmke-ve-addmenu button{display:block;width:100%;text-align:left;background:none;border:none;color:#f2efe9;font:600 13px system-ui,sans-serif;padding:9px 10px;border-radius:6px;cursor:pointer;}',
+      '.tmke-ve-addmenu button:hover{background:rgba(255,255,255,.12);}',
       '.tmke-ve-reset{width:100%;margin-top:6px;padding:9px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.25);color:#f2efe9;font:600 12px system-ui,sans-serif;cursor:pointer;}',
       '.tmke-ve-reset:hover{background:rgba(255,255,255,.08);}',
+      '#tmke-ve-guides{position:fixed;inset:0;z-index:2147483644;pointer-events:none;}',
+      '.tmke-ve-guide{position:absolute;background:#ff3b80;box-shadow:0 0 0 .5px rgba(255,59,128,.4);}',
+      '.tmke-ve-guide.v{top:0;bottom:0;width:1px;}',
+      '.tmke-ve-guide.h{left:0;right:0;height:1px;}',
+      '#tmke-ve-rulers{position:fixed;inset:0;z-index:2147483643;pointer-events:none;}',
+      '.tmke-ve-ruler{position:absolute;background:#2bb0ff;pointer-events:auto;}',
+      '.tmke-ve-ruler.v{top:0;bottom:0;width:1px;cursor:ew-resize;}',
+      '.tmke-ve-ruler.h{left:0;right:0;height:1px;cursor:ns-resize;}',
+      '.tmke-ve-ruler .lab{position:absolute;background:#2bb0ff;color:#fff;font:600 10px/1 system-ui;padding:3px 5px;border-radius:3px;white-space:nowrap;}',
+      '.tmke-ve-ruler.v .lab{top:52px;left:5px;}',
+      '.tmke-ve-ruler.h .lab{left:52px;top:5px;}',
+      '.tmke-ve-selected{cursor:move!important;}',
+      '.tmke-ve-bar button:disabled{opacity:.32;cursor:default;}',
+      '.tmke-ve-group{border:1px solid rgba(255,255,255,.1);border-radius:8px;margin:8px 0;overflow:hidden;background:rgba(255,255,255,.02);}',
+      '.tmke-ve-group>summary{list-style:none;cursor:pointer;padding:10px 12px;font-weight:700;font-size:12px;letter-spacing:.03em;display:flex;align-items:center;justify-content:space-between;user-select:none;}',
+      '.tmke-ve-group>summary::-webkit-details-marker{display:none;}',
+      '.tmke-ve-group>summary::after{content:"\\25B8";opacity:.55;font-size:11px;transition:transform .15s;}',
+      '.tmke-ve-group[open]>summary::after{transform:rotate(90deg);}',
+      '.tmke-ve-group>summary:hover{background:rgba(255,255,255,.05);}',
+      '.tmke-ve-gbody{padding:2px 12px 12px;}',
+      '.tmke-ve-gbody .tmke-ve-row:first-child{margin-top:4px;}',
+      '.tmke-ve-hint{font-size:11.5px;line-height:1.5;opacity:.6;padding:4px 0;}',
+      '.tmke-ve-quadgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}',
+      '.tmke-ve-quadcell{display:flex;align-items:center;gap:6px;background:#1c1d22;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:5px 8px;}',
+      '.tmke-ve-quadcell span{font-size:10px;opacity:.55;font-weight:700;width:12px;flex:0 0 auto;}',
+      '.tmke-ve-quadcell input{width:100%;background:none;border:none;color:#f2efe9;font:12px system-ui;outline:none;-moz-appearance:textfield;}',
+      '.tmke-ve-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;}',
+      '.tmke-ve-toggle label{margin:0;flex:1;}',
+      '.tmke-ve-switch{width:38px;height:22px;border-radius:999px;background:rgba(255,255,255,.18);border:none;position:relative;cursor:pointer;flex:0 0 auto;padding:0;transition:background .15s;}',
+      '.tmke-ve-switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s;}',
+      '.tmke-ve-switch.on{background:#5b4b7a;}',
+      '.tmke-ve-switch.on::after{transform:translateX(16px);}',
+      '.tmke-ve-danger{margin-top:14px;border-color:rgba(255,120,120,.45)!important;color:#ffb4b4!important;}',
+      '.tmke-ve-danger:hover{background:rgba(255,120,120,.1)!important;}',
     ].join('');
     document.head.appendChild(s);
     document.body.classList.add('tmke-ve-on');
   }
 
+  var editingEnabled = false;
   function buildToolbar(isRemote) {
     var bar = document.createElement('div'); bar.className = 'tmke-ve-bar';
     bar.innerHTML = '<b>Website Editor</b><span class="tag">' + (isRemote ? '' : 'Local preview') + '</span>' +
       '<span class="status" id="tmke-ve-status"></span>' +
       '<span class="crumb" id="tmke-ve-crumb">Click any element to edit it</span>';
+    var ub = btn('↶ Undo', undo); ub.id = 'tmke-ve-undo'; ub.disabled = true; ub.title = 'Undo (Ctrl+Z)'; bar.appendChild(ub);
+    var rb = btn('↷ Redo', redo); rb.id = 'tmke-ve-redo'; rb.disabled = true; rb.title = 'Redo (Ctrl+Shift+Z)'; bar.appendChild(rb);
+    bar.appendChild(btn('+ Add', function (e) { toggleAddMenu(e.currentTarget); }));
+    bar.appendChild(btn('Rulers', function (e) { toggleRulerMenu(e.currentTarget); }));
     bar.appendChild(btn('Reset all', function () {
       if (!confirm('Remove every saved change on this page?')) return;
       overrides = {}; persist(); injectStyles(); deselect();
       if (remote && store) store.saveDraft(overrides);
     }));
-    if (isRemote) {
-      var pub = btn('Publish', function () {
-        statusEl.textContent = 'Publishing…';
-        store.publish(overrides).then(function () { statusEl.textContent = 'Published ✓'; setTimeout(function () { statusEl.textContent = ''; }, 2500); })
-          .catch(function () { statusEl.textContent = 'Publish failed'; });
-      });
-      pub.className = 'primary'; bar.appendChild(pub);
-    }
-    bar.appendChild(btn('Done', function () { var u = new URL(location.href); u.searchParams.delete('edit'); location.href = u.toString(); }));
+    var prev = btn('Preview', enterPreview); prev.className = 'primary'; bar.appendChild(prev);
+    bar.appendChild(btn('Done', exitEditor));
     document.body.appendChild(bar);
     crumbEl = bar.querySelector('#tmke-ve-crumb');
     statusEl = bar.querySelector('#tmke-ve-status');
-    onDirty = function () { if (remote) { statusEl.textContent = 'Draft saved'; } };
+    onDirty = function () { if (remote) statusEl.textContent = 'Draft saved'; };
   }
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.onclick = fn; return b; }
+  function btn2(label, cls, fn) { var b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = fn; return b; }
+
+  /* ---- Add blocks (Text / Header image / Video) ---- */
+  var blockSeq = 0;
+  function toggleAddMenu(anchor) {
+    var ex = document.getElementById('tmke-ve-addmenu'); if (ex) { ex.remove(); return; }
+    var m = document.createElement('div'); m.id = 'tmke-ve-addmenu'; m.className = 'tmke-ve-addmenu';
+    [['Text', 'text'], ['Header image', 'image'], ['Video', 'video']].forEach(function (o) {
+      var b = document.createElement('button'); b.textContent = o[0];
+      b.onclick = function () { m.remove(); addBlock(o[1]); };
+      m.appendChild(b);
+    });
+    var r = anchor.getBoundingClientRect();
+    m.style.left = r.left + 'px'; m.style.top = (r.bottom + 6) + 'px';
+    document.body.appendChild(m);
+  }
+  function addBlock(type) {
+    blockSeq++;
+    var id = 'b' + Date.now() + '-' + blockSeq, html;
+    if (type === 'text') html = '<div class="ve-block ve-block--text" data-ve-block="' + id + '"><p>New text — click to edit.</p></div>';
+    else if (type === 'image') html = '<div class="ve-block ve-block--image" data-ve-block="' + id + '"><img src="/assets/hero.png" alt=""></div>';
+    else html = '<div class="ve-block ve-block--video" data-ve-block="' + id + '"><video src="" controls playsinline></video></div>';
+    var afterEl = selected ? (selected.closest('section') || selected) : null;
+    if (!afterEl) { var secs = document.querySelectorAll('section'); afterEl = secs[secs.length - 1] || document.body.lastElementChild; }
+    var wrap = document.createElement('div'); wrap.innerHTML = html.trim();
+    var node = wrap.firstElementChild;
+    afterEl.parentNode.insertBefore(node, afterEl.nextSibling);
+    if (!overrides.__blocks) overrides.__blocks = [];
+    overrides.__blocks.push({ id: id, after: selectorFor(afterEl), html: node.outerHTML });
+    persist();
+    node.scrollIntoView({ block: 'center' });
+    select(type === 'text' ? (node.querySelector('p') || node) : node);
+  }
+  function toggleRulerMenu(anchor) {
+    var ex = document.getElementById('tmke-ve-addmenu'); if (ex) { ex.remove(); return; }
+    var m = document.createElement('div'); m.id = 'tmke-ve-addmenu'; m.className = 'tmke-ve-addmenu';
+    [['Vertical ruler', function () { addRuler('v'); }], ['Horizontal ruler', function () { addRuler('h'); }],
+     ['Clear rulers', function () { rulers = []; saveRulers(); }]].forEach(function (o) {
+      var b = document.createElement('button'); b.textContent = o[0];
+      b.onclick = function () { m.remove(); o[1](); }; m.appendChild(b);
+    });
+    var r = anchor.getBoundingClientRect();
+    m.style.left = r.left + 'px'; m.style.top = (r.bottom + 6) + 'px';
+    document.body.appendChild(m);
+  }
+  function exitEditor() { var u = new URL(location.href); u.searchParams.delete('edit'); location.href = u.toString(); }
+
+  /* Edit mode ⇆ Preview, toggled in-session (no reload → scroll preserved). */
+  function setEditing(on) {
+    editingEnabled = on;
+    var bar = document.querySelector('.tmke-ve-bar'); if (bar) bar.style.display = on ? 'flex' : 'none';
+    if (panel) panel.style.display = on ? 'flex' : 'none';
+    document.body.classList.toggle('tmke-ve-on', on);
+    if (!on) { clearHover(); hideFloatTag(); deselect(); clearGuides(); }
+    renderRulers();
+  }
+  function enterPreview() {
+    setEditing(false);
+    var pb = document.createElement('div'); pb.className = 'tmke-ve-prebar'; pb.id = 'tmke-ve-prebar';
+    pb.innerHTML = '<span>Preview — this is how it will look</span>';
+    pb.appendChild(btn2('Continue editing', 'ghost', function () { pb.remove(); setEditing(true); }));
+    if (remote) {
+      var pubBtn = btn2('Publish', 'primary', function () {
+        pubBtn.textContent = 'Publishing…';
+        store.publish(overrides).then(function () { pubBtn.textContent = 'Published ✓'; setTimeout(function () { pubBtn.textContent = 'Publish'; }, 2500); })
+          .catch(function () { pubBtn.textContent = 'Publish failed'; });
+      });
+      pb.appendChild(pubBtn);
+    } else {
+      pb.appendChild(btn2('Exit', 'ghost', exitEditor));
+    }
+    document.body.appendChild(pb);
+  }
 
   function buildPanel() {
     panel = document.createElement('div'); panel.className = 'tmke-ve-panel';
@@ -277,184 +481,403 @@
     overrides[sel][prop] = value; persist(); injectStyles();
   }
 
-  function renderPanel(el) {
-    var sel = selectorFor(el), cs = getComputedStyle(el);
-    panelBody.innerHTML = '';
-    tagBadge.textContent = el.tagName.toLowerCase();
-    panel.querySelector('#tmke-ve-eltxt').textContent = '“' + (el.textContent || '').trim().slice(0, 22) + '”';
-
-    CONTROLS.forEach(function (c) {
-      if (c.when && !c.when(el, cs)) return;
-      var saved = overrides[sel] && overrides[sel][c.prop], current;
-      if (saved != null) current = parseFloat(saved);
-      else if (c.prop === 'line-height') { var lh = cs.lineHeight; current = (lh === 'normal') ? 1.2 : (parseFloat(lh) / parseFloat(cs.fontSize)); }
-      else if (c.prop === 'max-width') { current = (cs.maxWidth === 'none') ? c.max : parseFloat(cs.maxWidth) || c.max; }
-      else current = parseFloat(cs.getPropertyValue(c.prop)) || 0;
-      var row = document.createElement('div'); row.className = 'tmke-ve-row';
-      row.innerHTML = '<label>' + c.label + ' <span class="val"></span></label><input type="range" min="' + c.min + '" max="' + c.max + '" step="' + c.step + '">';
-      var input = row.querySelector('input'), valEl = row.querySelector('.val');
-      input.value = current; valEl.textContent = fmt(current, c.unit);
-      input.addEventListener('input', function () { var v = parseFloat(input.value); valEl.textContent = fmt(v, c.unit); setOverride(sel, c.prop, v + c.unit); });
-      panelBody.appendChild(row);
+  /* ---- panel building blocks (collapsible groups + compact controls) ---- */
+  function group(title, open) {
+    var d = document.createElement('details'); d.className = 'tmke-ve-group'; if (open) d.open = true;
+    var s = document.createElement('summary'); s.textContent = title; d.appendChild(s);
+    var body = document.createElement('div'); body.className = 'tmke-ve-gbody'; d.appendChild(body);
+    panelBody.appendChild(d); return body;
+  }
+  function rangeRow(parent, label, prop, sel, cs, opt) {
+    var saved = overrides[sel] && overrides[sel][prop], cur;
+    if (saved != null) cur = parseFloat(saved);
+    else if (opt.init) cur = opt.init(cs);
+    else cur = parseFloat(cs.getPropertyValue(prop)) || 0;
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>' + label + ' <span class="val"></span></label><input type="range" min="' + opt.min + '" max="' + opt.max + '" step="' + opt.step + '">';
+    var input = row.querySelector('input'), valEl = row.querySelector('.val');
+    input.value = cur; valEl.textContent = fmt(cur, opt.unit);
+    input.addEventListener('input', function () { var v = parseFloat(input.value); valEl.textContent = fmt(v, opt.unit); setOverride(sel, prop, v + opt.unit); });
+    parent.appendChild(row); return input;
+  }
+  function selectRow(parent, label, options, current, onChange) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>' + label + '</label><select>' + options.map(function (o) { return '<option value="' + o[1] + '">' + o[0] + '</option>'; }).join('') + '</select>';
+    var s = row.querySelector('select'); s.value = current; s.addEventListener('change', function () { onChange(s.value); });
+    parent.appendChild(row); return s;
+  }
+  function boolToggle(parent, label, on, onChange) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row tmke-ve-toggle';
+    row.innerHTML = '<label>' + label + '</label><button class="tmke-ve-switch' + (on ? ' on' : '') + '" type="button" role="switch"></button>';
+    var b = row.querySelector('button');
+    b.onclick = function () { var now = !b.classList.contains('on'); b.classList.toggle('on', now); onChange(now); };
+    parent.appendChild(row);
+  }
+  function sideGrid(parent, base, sel, cs) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<div class="tmke-ve-quadgrid"></div>';
+    var g = row.querySelector('.tmke-ve-quadgrid');
+    ['top', 'right', 'bottom', 'left'].forEach(function (side) {
+      var prop = base + '-' + side;
+      var saved = overrides[sel] && overrides[sel][prop];
+      var cur = saved != null ? parseFloat(saved) : (parseFloat(cs.getPropertyValue(prop)) || 0);
+      var cell = document.createElement('label'); cell.className = 'tmke-ve-quadcell';
+      cell.innerHTML = '<span>' + side.charAt(0).toUpperCase() + '</span><input type="number" step="1">';
+      var inp = cell.querySelector('input'); inp.value = Math.round(cur);
+      inp.addEventListener('input', function () { setOverride(sel, prop, (parseFloat(inp.value) || 0) + 'px'); });
+      g.appendChild(cell);
     });
-
-    // weight
-    var wRow = document.createElement('div'); wRow.className = 'tmke-ve-row';
-    wRow.innerHTML = '<label>Weight</label><select>' + ['300','400','500','600','700','800'].map(function (w) { return '<option value="' + w + '">' + w + '</option>'; }).join('') + '</select>';
-    var wSel = wRow.querySelector('select');
-    wSel.value = (overrides[sel] && overrides[sel]['font-weight']) || String(Math.round(parseInt(cs.fontWeight, 10) / 100) * 100) || '400';
-    wSel.addEventListener('change', function () { setOverride(sel, 'font-weight', wSel.value); });
-    panelBody.appendChild(wRow);
-
-    // colour + brand swatches
-    var cRow = document.createElement('div'); cRow.className = 'tmke-ve-row';
-    cRow.innerHTML = '<label>Text colour</label><input type="color"><div class="tmke-ve-swatches"></div>';
-    var cInput = cRow.querySelector('input');
-    cInput.value = (overrides[sel] && overrides[sel]['color']) || rgbToHex(cs.color);
-    cInput.addEventListener('input', function () { setOverride(sel, 'color', cInput.value); });
-    var sw = cRow.querySelector('.tmke-ve-swatches');
-    BRAND_VARS.forEach(function (b) {
-      var hex = brandColour(b[0]); if (!hex) return;
-      var dot = document.createElement('button'); dot.className = 'tmke-ve-swatch'; dot.title = b[1]; dot.style.background = hex;
-      dot.onclick = function () { cInput.value = toHex(hex); setOverride(sel, 'color', hex); };
-      sw.appendChild(dot);
-    });
-    panelBody.appendChild(cRow);
-
-    // background colour + brand swatches (+ None / White)
-    var bgRow = document.createElement('div'); bgRow.className = 'tmke-ve-row';
-    bgRow.innerHTML = '<label>Background colour</label><input type="color"><div class="tmke-ve-swatches"></div>';
-    var bgInput = bgRow.querySelector('input');
-    var curBg = (overrides[sel] && overrides[sel]['background-color']) || cs.backgroundColor;
-    bgInput.value = toHex(curBg && curBg !== 'rgba(0, 0, 0, 0)' && curBg !== 'transparent' ? curBg : '#ffffff');
-    bgInput.addEventListener('input', function () { setOverride(sel, 'background-color', bgInput.value); });
-    var bsw = bgRow.querySelector('.tmke-ve-swatches');
-    var bgChoices = [['transparent', 'None'], ['#ffffff', 'White']].concat(BRAND_VARS.map(function (b) { return [brandColour(b[0]), b[1]]; }));
-    bgChoices.forEach(function (item) {
+    parent.appendChild(row);
+  }
+  function colourRow(parent, label, prop, sel, cs, isBg) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>' + label + '</label><input type="color"><div class="tmke-ve-swatches"></div>';
+    var input = row.querySelector('input');
+    if (isBg) { var curBg = (overrides[sel] && overrides[sel][prop]) || cs.backgroundColor; input.value = toHex(curBg && curBg !== 'rgba(0, 0, 0, 0)' && curBg !== 'transparent' ? curBg : '#ffffff'); }
+    else input.value = (overrides[sel] && overrides[sel][prop]) || rgbToHex(cs.color);
+    input.addEventListener('input', function () { setOverride(sel, prop, input.value); });
+    var sw = row.querySelector('.tmke-ve-swatches');
+    var choices = (isBg ? [['transparent', 'None'], ['#ffffff', 'White']] : []).concat(BRAND_VARS.map(function (b) { return [brandColour(b[0]), b[1]]; }));
+    choices.forEach(function (item) {
       var val = item[0]; if (!val) return;
       var dot = document.createElement('button'); dot.className = 'tmke-ve-swatch'; dot.title = item[1];
       dot.style.background = (val === 'transparent') ? 'repeating-conic-gradient(#bbb 0% 25%, #fff 0% 50%) 50% / 8px 8px' : val;
-      dot.onclick = function () { if (val !== 'transparent') bgInput.value = toHex(val); setOverride(sel, 'background-color', val); };
-      bsw.appendChild(dot);
+      dot.onclick = function () { if (val !== 'transparent') input.value = toHex(val); setOverride(sel, prop, val); };
+      sw.appendChild(dot);
     });
-    panelBody.appendChild(bgRow);
-
-    // shape — corner-radius presets (great for images)
-    var shRow = document.createElement('div'); shRow.className = 'tmke-ve-row';
-    shRow.innerHTML = '<label>Shape</label><div class="tmke-ve-chips"></div>';
-    var shc = shRow.querySelector('.tmke-ve-chips');
+    parent.appendChild(row);
+  }
+  function shapeRow(parent, sel, el) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Shape</label><div class="tmke-ve-chips"></div>';
+    var c = row.querySelector('.tmke-ve-chips');
     [['Sharp', '0'], ['Soft', '14px'], ['Round', '28px'], ['Pill', '999px'], ['Circle', '50%']].forEach(function (s) {
       var chip = document.createElement('button'); chip.className = 'tmke-ve-chip'; chip.textContent = s[0];
       chip.onclick = function () { setOverride(sel, 'border-radius', s[1]); if (el.tagName === 'IMG' || getComputedStyle(el).overflow === 'visible') setOverride(sel, 'overflow', 'hidden'); };
-      shc.appendChild(chip);
+      c.appendChild(chip);
     });
-    panelBody.appendChild(shRow);
-
-    // layout — column split for 2-column grids
-    if (cs.display === 'grid') {
-      var tracks = cs.gridTemplateColumns.split(' ').filter(Boolean).map(parseFloat);
-      if (tracks.length === 2 && tracks[0] && tracks[1]) {
-        var savedR = overrides[sel] && overrides[sel]['grid-template-columns'];
-        var ratio = savedR ? (parseFloat(savedR) / (parseFloat(savedR) + parseFloat(savedR.split(' ')[1]))) : tracks[0] / (tracks[0] + tracks[1]);
-        var lRow = document.createElement('div'); lRow.className = 'tmke-ve-row';
-        lRow.innerHTML = '<label>Column split <span class="val"></span></label><input type="range" min="20" max="80" step="1">';
-        var lInput = lRow.querySelector('input'), lVal = lRow.querySelector('.val');
-        lInput.value = Math.round(ratio * 100);
-        var setSplit = function (pct) { lVal.textContent = pct + ' / ' + (100 - pct); setOverride(sel, 'grid-template-columns', pct + 'fr ' + (100 - pct) + 'fr'); };
-        lInput.addEventListener('input', function () { setSplit(parseInt(lInput.value, 10)); });
-        lVal.textContent = lInput.value + ' / ' + (100 - lInput.value);
-        panelBody.appendChild(lRow);
-      }
-    }
-
-    // content: wording
-    if (isTextEl(el)) {
-      var tRow = document.createElement('div'); tRow.className = 'tmke-ve-row'; tRow.innerHTML = '<label>Wording</label>';
-      var tBtn = document.createElement('button'); tBtn.className = 'tmke-ve-reset'; tBtn.textContent = '✎ Edit text';
-      tBtn.onclick = function () { startTextEdit(el, sel); };
-      tRow.appendChild(tBtn); panelBody.appendChild(tRow);
-    }
-    // content: image
-    var isImg = el.tagName === 'IMG', hasBg = !isImg && cs.backgroundImage && cs.backgroundImage !== 'none';
-    if (isImg || hasBg) {
-      var iRow = document.createElement('div'); iRow.className = 'tmke-ve-row';
-      iRow.innerHTML = '<label>Image</label><input type="text" class="tmke-ve-text" placeholder="https://… or /assets/…">';
-      var iInput = iRow.querySelector('input');
-      iInput.value = (overrides[sel] && overrides[sel].__src) || (isImg ? (el.getAttribute('src') || '') : extractUrl(cs.backgroundImage));
-      iInput.addEventListener('change', function () {
-        var v = iInput.value.trim(); if (!v) return;
-        if (!overrides[sel]) overrides[sel] = {}; overrides[sel].__src = v; persist();
-        if (isImg) el.src = v; else el.style.backgroundImage = "url('" + v + "')";
+    parent.appendChild(row);
+  }
+  function fontControls(parent, sel, el, cs) {
+    rangeRow(parent, 'Font size', 'font-size', sel, cs, { min: 8, max: 220, step: 1, unit: 'px' });
+    var FONTS = [['Default', ''], ['Cormorant (serif)', '"Cormorant Garamond", Georgia, serif'], ['Darker Grotesque', '"Darker Grotesque", system-ui, sans-serif']];
+    var curFont = (overrides[sel] && overrides[sel]['font-family']) || '';
+    if (!curFont) { var cf = cs.fontFamily; FONTS.forEach(function (f) { if (f[1] && cf.indexOf(f[1].split(',')[0].replace(/"/g, '')) === 0) curFont = f[1]; }); }
+    selectRow(parent, 'Font', FONTS, curFont, function (v) { if (v) setOverride(sel, 'font-family', v); else { if (overrides[sel]) delete overrides[sel]['font-family']; persist(); injectStyles(); } });
+    var curW = (overrides[sel] && overrides[sel]['font-weight']) || String(Math.round(parseInt(cs.fontWeight, 10) / 100) * 100) || '400';
+    selectRow(parent, 'Weight', ['300', '400', '500', '600', '700', '800'].map(function (w) { return [w, w]; }), curW, function (v) { setOverride(sel, 'font-weight', v); });
+    rangeRow(parent, 'Letter spacing', 'letter-spacing', sel, cs, { min: -6, max: 12, step: 0.1, unit: 'px', init: function (cs2) { var l = cs2.letterSpacing; return l === 'normal' ? 0 : (parseFloat(l) || 0); } });
+    rangeRow(parent, 'Line height', 'line-height', sel, cs, { min: 0.8, max: 2.4, step: 0.01, unit: '', init: function (cs2) { var lh = cs2.lineHeight; return lh === 'normal' ? 1.2 : (parseFloat(lh) / parseFloat(cs2.fontSize)); } });
+    colourRow(parent, 'Text colour', 'color', sel, cs, false);
+    var tRow = document.createElement('div'); tRow.className = 'tmke-ve-row';
+    var tBtn = document.createElement('button'); tBtn.className = 'tmke-ve-reset'; tBtn.textContent = '✎ Edit wording';
+    tBtn.onclick = function () { captureBase(sel, el); startTextEdit(el, sel); };
+    tRow.appendChild(tBtn); parent.appendChild(tRow);
+  }
+  function sourceRow(parent, label, sel, el, kind) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>' + label + '</label><input type="text" class="tmke-ve-text" placeholder="https://… or /assets/…">';
+    var inp = row.querySelector('input');
+    inp.value = (overrides[sel] && overrides[sel].__src) || (el.getAttribute('src') || '');
+    inp.addEventListener('change', function () {
+      var v = inp.value.trim(); if (!v) return; captureBase(sel, el);
+      if (!overrides[sel]) overrides[sel] = {}; overrides[sel].__src = v; persist(); el.src = v;
+    });
+    parent.appendChild(row);
+  }
+  function bgImageRows(parent, sel, el, cs) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Background image</label><input type="text" class="tmke-ve-text" placeholder="/assets/… (blank to remove)">';
+    var inp = row.querySelector('input'); inp.value = (overrides[sel] && overrides[sel].__src) || extractUrl(cs.backgroundImage);
+    inp.addEventListener('change', function () {
+      var v = inp.value.trim(); captureBase(sel, el);
+      if (!overrides[sel]) overrides[sel] = {}; overrides[sel].__src = v; persist();
+      el.style.backgroundImage = v ? ("url('" + v + "')") : '';
+    });
+    parent.appendChild(row);
+    selectRow(parent, 'Image size', [['Cover (fill area)', 'cover'], ['Contain (whole image)', 'contain'], ['Original', 'auto']], (overrides[sel] && overrides[sel]['background-size']) || (/^(cover|contain)$/.test(cs.backgroundSize) ? cs.backgroundSize : 'cover'), function (v) { setOverride(sel, 'background-size', v); });
+    selectRow(parent, 'Image position', [['Center', 'center'], ['Top', 'top'], ['Bottom', 'bottom'], ['Left', 'left'], ['Right', 'right']], (overrides[sel] && overrides[sel]['background-position']) || 'center', function (v) { setOverride(sel, 'background-position', v); });
+  }
+  function attrToggles(parent, sel, el, attrs) {
+    attrs.forEach(function (a) {
+      var name = a[0];
+      var cur = (overrides[sel] && overrides[sel].__attrs && overrides[sel].__attrs[name] != null) ? overrides[sel].__attrs[name] : el.hasAttribute(name);
+      boolToggle(parent, a[1], !!cur, function (on) {
+        if (!overrides[sel]) overrides[sel] = {}; if (!overrides[sel].__attrs) overrides[sel].__attrs = {};
+        overrides[sel].__attrs[name] = on; persist();
+        if (on) el.setAttribute(name, ATTR_BOOL[name] ? '' : 'true'); else el.removeAttribute(name);
       });
-      panelBody.appendChild(iRow);
-    }
-
-    // icon picker (when the element is, or contains, an SVG)
-    var iconSvg = el.tagName.toLowerCase() === 'svg' ? el : (el.querySelector ? el.querySelector('svg') : null);
-    if (iconSvg) {
-      var icSel = selectorFor(iconSvg);
-      var icRow = document.createElement('div'); icRow.className = 'tmke-ve-row';
-      icRow.innerHTML = '<label>Icon</label><div class="tmke-ve-icons"></div>';
-      var ig = icRow.querySelector('.tmke-ve-icons');
-      ICONS.forEach(function (ic) {
-        var b = document.createElement('button'); b.className = 'tmke-ve-iconbtn'; b.title = ic[0];
-        b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20">' + ic[1] + '</svg>';
-        b.onclick = function () {
-          if (!overrides[icSel]) overrides[icSel] = {};
-          overrides[icSel].__icon = ic[1]; persist();
-          iconSvg.setAttribute('viewBox', '0 0 24 24'); iconSvg.innerHTML = ic[1];
-        };
-        ig.appendChild(b);
-      });
-      panelBody.appendChild(icRow);
-    }
-
-    // animation + timing
+    });
+  }
+  function columnSplit(parent, el, cs, sel) {
+    if (cs.display !== 'grid') return;
+    var tracks = cs.gridTemplateColumns.split(' ').filter(Boolean).map(parseFloat);
+    if (!(tracks.length === 2 && tracks[0] && tracks[1])) return;
+    var savedR = overrides[sel] && overrides[sel]['grid-template-columns'];
+    var ratio = savedR ? (parseFloat(savedR) / (parseFloat(savedR) + parseFloat(savedR.split(' ')[1]))) : tracks[0] / (tracks[0] + tracks[1]);
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Column split <span class="val"></span></label><input type="range" min="20" max="80" step="1">';
+    var input = row.querySelector('input'), valEl = row.querySelector('.val'); input.value = Math.round(ratio * 100);
+    var setSplit = function (pct) { valEl.textContent = pct + ' / ' + (100 - pct); setOverride(sel, 'grid-template-columns', pct + 'fr ' + (100 - pct) + 'fr'); };
+    input.addEventListener('input', function () { setSplit(parseInt(input.value, 10)); }); valEl.textContent = input.value + ' / ' + (100 - input.value);
+    parent.appendChild(row);
+  }
+  function iconGroup(iconSvg) {
+    var icSel = selectorFor(iconSvg);
+    var parent = group('Icon', true);
+    var row = document.createElement('div'); row.className = 'tmke-ve-row'; row.innerHTML = '<label>Pick an icon</label><div class="tmke-ve-icons"></div>';
+    var ig = row.querySelector('.tmke-ve-icons');
+    ICONS.forEach(function (ic) {
+      var b = document.createElement('button'); b.className = 'tmke-ve-iconbtn'; b.title = ic[0];
+      b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20">' + ic[1] + '</svg>';
+      b.onclick = function () { captureBase(icSel, iconSvg); if (!overrides[icSel]) overrides[icSel] = {}; overrides[icSel].__icon = ic[1]; persist(); iconSvg.setAttribute('viewBox', '0 0 24 24'); iconSvg.innerHTML = ic[1]; };
+      ig.appendChild(b);
+    });
+    parent.appendChild(row);
+  }
+  function animRows(parent, sel, el) {
     var animSaved = overrides[sel] && overrides[sel]['animation'];
     var animName = (animSaved && animSaved !== 'none') ? animSaved.split(' ')[0] : '';
     var animDur = animSaved ? (parseFloat(animSaved.split(' ')[1]) || 0.6) : 0.6;
-    var aRow = document.createElement('div'); aRow.className = 'tmke-ve-row';
-    aRow.innerHTML = '<label>Animation</label><select>' +
-      ANIMS.map(function (a) { return '<option value="' + a[1] + '">' + a[0] + '</option>'; }).join('') + '</select>' +
-      '<label style="margin-top:10px">Duration <span class="val">' + animDur.toFixed(1) + 's</span></label>' +
-      '<input type="range" min="0.2" max="2.5" step="0.1">';
-    var aSel = aRow.querySelector('select'); aSel.value = animName;
-    var aDur = aRow.querySelector('input'); aDur.value = animDur; var aVal = aRow.querySelector('.val');
-    var applyAnim = function () {
-      var name = aSel.value, dur = parseFloat(aDur.value); aVal.textContent = dur.toFixed(1) + 's';
-      setOverride(sel, 'animation', name ? (name + ' ' + dur + 's ease both') : 'none');
-    };
-    aSel.addEventListener('change', applyAnim);
-    aDur.addEventListener('input', applyAnim);
-    panelBody.appendChild(aRow);
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Effect</label><select>' + ANIMS.map(function (a) { return '<option value="' + a[1] + '">' + a[0] + '</option>'; }).join('') +
+      '</select><label style="margin-top:10px">Duration <span class="val">' + animDur.toFixed(1) + 's</span></label><input type="range" min="0.2" max="2.5" step="0.1">';
+    var aSel = row.querySelector('select'); aSel.value = animName; var aDur = row.querySelector('input'); aDur.value = animDur; var aVal = row.querySelector('.val');
+    var apply = function () { var name = aSel.value, dur = parseFloat(aDur.value); aVal.textContent = dur.toFixed(1) + 's'; setOverride(sel, 'animation', name ? (name + ' ' + dur + 's ease both') : 'none'); };
+    aSel.addEventListener('change', apply); aDur.addEventListener('input', apply);
+    parent.appendChild(row);
+  }
 
-    // reset element
-    var reset = document.createElement('button'); reset.className = 'tmke-ve-reset'; reset.textContent = 'Reset this element';
-    reset.onclick = function () { delete overrides[sel]; persist(); injectStyles(); location.reload(); };
+  function renderPanel(el) {
+    var sel = selectorFor(el), cs = getComputedStyle(el);
+    panelBody.innerHTML = '';
+    var isImg = el.tagName === 'IMG', isVid = el.tagName === 'VIDEO';
+    var iconSvg = el.tagName.toLowerCase() === 'svg' ? el : (el.querySelector ? el.querySelector('svg') : null);
+    var hasBg = !isImg && !isVid && cs.backgroundImage && cs.backgroundImage !== 'none';
+    var isSection = el.tagName === 'SECTION';
+    var textEl = isTextEl(el);
+    var kind = isImg ? 'Image' : isVid ? 'Video' : iconSvg ? 'Icon' : isSection ? 'Section' : textEl ? 'Text' : el.tagName.toLowerCase();
+    tagBadge.textContent = kind;
+    panel.querySelector('#tmke-ve-eltxt').textContent = '“' + (el.textContent || '').trim().slice(0, 22) + '”';
+
+    // POSITION — drag hint / reset / locked notice
+    var gp = group('Position & move', true);
+    var t = getTranslate(sel);
+    var posRow = document.createElement('div'); posRow.className = 'tmke-ve-row';
+    if (t.x || t.y) {
+      posRow.innerHTML = '<label>Moved <span class="val">' + Math.round(t.x) + ', ' + Math.round(t.y) + '</span></label><div class="tmke-ve-chips"></div>';
+      var pchip = document.createElement('button'); pchip.className = 'tmke-ve-chip'; pchip.textContent = 'Reset position';
+      pchip.onclick = function () { if (overrides[sel]) delete overrides[sel]['transform']; persist(); injectStyles(); renderPanel(el); };
+      posRow.querySelector('.tmke-ve-chips').appendChild(pchip);
+    } else if (isDragLocked(el)) {
+      posRow.innerHTML = '<div class="tmke-ve-hint">This element drives a scroll animation, so dragging is locked to protect the effect. Text and styles are still editable.</div>';
+    } else {
+      posRow.innerHTML = '<div class="tmke-ve-hint">Drag the element on the page to move it. Pink lines snap it to neighbours.</div>';
+    }
+    gp.appendChild(posRow);
+
+    // TEXT
+    if (textEl) fontControls(group('Text', true), sel, el, cs);
+
+    // IMAGE
+    if (isImg) {
+      var gi = group('Image', true);
+      sourceRow(gi, 'Image URL', sel, el, 'img');
+      selectRow(gi, 'Fit', [['Cover', 'cover'], ['Contain', 'contain'], ['Fill', 'fill'], ['None', 'none']], (overrides[sel] && overrides[sel]['object-fit']) || cs.objectFit || 'cover', function (v) { setOverride(sel, 'object-fit', v); });
+      rangeRow(gi, 'Width', 'max-width', sel, cs, { min: 40, max: 1680, step: 10, unit: 'px', init: function (cs2) { return cs2.maxWidth === 'none' ? (parseFloat(cs2.width) || 400) : parseFloat(cs2.maxWidth); } });
+      shapeRow(gi, sel, el);
+    }
+
+    // VIDEO
+    if (isVid) {
+      var gv = group('Video', true);
+      sourceRow(gv, 'Video URL', sel, el, 'video');
+      selectRow(gv, 'Fit', [['Cover', 'cover'], ['Contain', 'contain'], ['Fill', 'fill']], (overrides[sel] && overrides[sel]['object-fit']) || cs.objectFit || 'cover', function (v) { setOverride(sel, 'object-fit', v); });
+      attrToggles(gv, sel, el, [['controls', 'Show controls'], ['autoplay', 'Autoplay'], ['loop', 'Loop'], ['muted', 'Muted']]);
+      shapeRow(gv, sel, el);
+    }
+
+    // ICON
+    if (iconSvg) iconGroup(iconSvg);
+
+    // BACKGROUND (non media)
+    if (!isImg && !isVid) {
+      var gb = group('Background', isSection || hasBg);
+      colourRow(gb, 'Background colour', 'background-color', sel, cs, true);
+      bgImageRows(gb, sel, el, cs);
+    }
+
+    // SPACING — each its own collapsible box
+    sideGrid(group('Margins', false), 'margin', sel, cs);
+    sideGrid(group('Padding', false), 'padding', sel, cs);
+    if (isContainer(el, cs)) {
+      var gg = group('Layout (gap & columns)', false);
+      rangeRow(gg, 'Gap between items', 'gap', sel, cs, { min: 0, max: 160, step: 1, unit: 'px' });
+      columnSplit(gg, el, cs, sel);
+    }
+
+    // SIZE & SHAPE (non-image; image has its own width above)
+    if (!isImg) {
+      var gs = group('Size & shape', false);
+      rangeRow(gs, 'Max width', 'max-width', sel, cs, { min: 280, max: 1680, step: 10, unit: 'px', init: function (cs2) { return cs2.maxWidth === 'none' ? 1360 : parseFloat(cs2.maxWidth); } });
+      rangeRow(gs, 'Corner radius', 'border-radius', sel, cs, { min: 0, max: 200, step: 1, unit: 'px' });
+      shapeRow(gs, sel, el);
+    }
+
+    // SECTION-level controls
+    if (isSection) {
+      var gsec = group('Section', true);
+      boolToggle(gsec, 'Full-screen height', (overrides[sel] && overrides[sel]['min-height']) === '100vh', function (on) { if (on) setOverride(sel, 'min-height', '100vh'); else { if (overrides[sel]) delete overrides[sel]['min-height']; persist(); injectStyles(); } });
+      boolToggle(gsec, 'Sticky hold (pin on scroll)', (overrides[sel] && overrides[sel]['position']) === 'sticky', function (on) { if (on) { setOverride(sel, 'position', 'sticky'); setOverride(sel, 'top', '0px'); } else { if (overrides[sel]) { delete overrides[sel]['position']; delete overrides[sel]['top']; } persist(); injectStyles(); } });
+    }
+
+    // ANIMATION (whole-element entrance effect — works on sections too)
+    animRows(group('Animation', false), sel, el);
+
+    // RESET (no reload — reverts styles + content live)
+    var reset = document.createElement('button'); reset.className = 'tmke-ve-reset tmke-ve-danger'; reset.textContent = 'Reset this element';
+    reset.onclick = function () { delete overrides[sel]; persist(); injectStyles(); applyContent(); renderPanel(el); };
     panelBody.appendChild(reset);
   }
 
   /* ---- interactions ---- */
   function wirePageInteractions() {
     document.addEventListener('mouseover', function (e) {
-      if (isChrome(e.target)) return;
+      if (!editingEnabled || isChrome(e.target)) return;
       var el = e.target.closest(EDITABLE); clearHover();
       if (el && !isChrome(el)) { el.classList.add('tmke-ve-hover'); showFloatTag(el); }
     }, true);
     document.addEventListener('mouseout', function () { clearHover(); hideFloatTag(); }, true);
     document.addEventListener('click', function (e) {
-      if (isChrome(e.target)) return;
+      if (!editingEnabled || isChrome(e.target)) return;
+      if (suppressNextClick) { suppressNextClick = false; e.preventDefault(); e.stopPropagation(); return; }
       if (e.target.isContentEditable) return;
       var el = e.target.closest(EDITABLE); if (!el) return;
       e.preventDefault(); e.stopPropagation(); select(el);
     }, true);
+    document.addEventListener('keydown', function (e) {
+      if (!editingEnabled) return;
+      var tgt = e.target;
+      if (tgt && (tgt.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tgt.tagName))) return;
+      var z = (e.key === 'z' || e.key === 'Z'), y = (e.key === 'y' || e.key === 'Y');
+      if ((e.ctrlKey || e.metaKey) && z && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((e.ctrlKey || e.metaKey) && ((z && e.shiftKey) || y)) { e.preventDefault(); redo(); }
+    }, true);
+    wireDrag();
   }
-  function select(el) { deselect(); selected = el; el.classList.add('tmke-ve-selected'); crumbEl.textContent = pathLabel(el); panel.classList.add('open'); renderPanel(el); }
-  function deselect() { if (selected) selected.classList.remove('tmke-ve-selected'); selected = null; if (panel) panel.classList.remove('open'); }
+
+  /* Elements that drive scroll animations — draggable-locked so a move can't
+     break the effect. (Text inside them stays selectable + editable.) */
+  var NO_DRAG = '.approach-pin, .approach-photo-layer, .approach-photo, .approach-overlay, .shelf-scene, .shelf-stage, .shelf-rec, [data-photo], [data-ve-lock]';
+  function isDragLocked(el) {
+    if (el.closest && el.closest(NO_DRAG)) return true;
+    var n = el;
+    while (n && n !== document.body) { if (n.style && n.style.transform && !(dragging && dragging.el === n)) return true; n = n.parentElement; }
+    return false;
+  }
+
+  /* ---- Drag-to-move + smart alignment guides ---- */
+  var dragging = null, dragCands = null, guideLayer = null, suppressNextClick = false;
+  function getTranslate(sel) {
+    var saved = overrides[sel] && overrides[sel]['transform'];
+    if (saved) { var m = String(saved).match(/translate\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px/); if (m) return { x: parseFloat(m[1]), y: parseFloat(m[2]) }; }
+    return { x: 0, y: 0 };
+  }
+  function wireDrag() {
+    document.addEventListener('mousedown', function (e) {
+      if (!editingEnabled || e.button !== 0 || isChrome(e.target) || e.target.isContentEditable) return;
+      var el = (selected && selected.contains && selected.contains(e.target)) ? selected : e.target.closest(EDITABLE);
+      if (!el || el === document.body) return;
+      if (isDragLocked(el)) return;                 // don't drag scroll-animated elements
+      var sel = selectorFor(el), base = getTranslate(sel);
+      dragging = { el: el, sel: sel, sx: e.clientX, sy: e.clientY, bx: base.x, by: base.y, rect0: el.getBoundingClientRect(), moved: false, lx: base.x, ly: base.y };
+      dragCands = gatherCandidates(el);
+    }, true);
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      var dx = e.clientX - dragging.sx, dy = e.clientY - dragging.sy;
+      if (!dragging.moved && (Math.abs(dx) + Math.abs(dy)) < 4) return;
+      if (!dragging.moved) { dragging.moved = true; if (selected !== dragging.el) select(dragging.el); document.body.style.userSelect = 'none'; }
+      var snap = computeSnap(dragging, dragging.bx + dx, dragging.by + dy);
+      dragging.lx = snap.x; dragging.ly = snap.y;
+      dragging.el.style.setProperty('transform', 'translate(' + Math.round(snap.x) + 'px,' + Math.round(snap.y) + 'px)', 'important');
+      drawGuides(snap.guides);
+      e.preventDefault();
+    }, true);
+    document.addEventListener('mouseup', function (e) {
+      if (!dragging) return;
+      var d = dragging; dragging = null; document.body.style.userSelect = ''; clearGuides();
+      if (d.moved) {
+        d.el.style.removeProperty('transform');
+        setOverride(d.sel, 'transform', 'translate(' + Math.round(d.lx) + 'px,' + Math.round(d.ly) + 'px)');
+        suppressNextClick = true; e.preventDefault(); e.stopPropagation();
+      }
+    }, true);
+  }
+  function gatherCandidates(el) {
+    var vx = [], hy = [], push = function (node) {
+      if (node === el) return; var r = node.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return;
+      vx.push(r.left, r.left + r.width / 2, r.right); hy.push(r.top, r.top + r.height / 2, r.bottom);
+    };
+    var p = el.parentElement;
+    if (p) { push(p); for (var i = 0; i < p.children.length; i++) push(p.children[i]); }
+    return { vx: vx, hy: hy };
+  }
+  function computeSnap(d, nx, ny) {
+    var TH = 6, ox = nx - d.bx, oy = ny - d.by;
+    var box = { l: d.rect0.left + ox, r: d.rect0.right + ox, t: d.rect0.top + oy, b: d.rect0.bottom + oy };
+    box.cx = (box.l + box.r) / 2; box.cy = (box.t + box.b) / 2;
+    var guides = [];
+    var best = function (edges, cands) { var bb = null; edges.forEach(function (v) { cands.forEach(function (c) { var dd = c - v; if (Math.abs(dd) <= TH && (!bb || Math.abs(dd) < Math.abs(bb.dd))) bb = { dd: dd, line: c }; }); }); return bb; };
+    var vb = best([box.l, box.cx, box.r], dragCands.vx); if (vb) { nx += vb.dd; guides.push({ t: 'v', pos: vb.line }); }
+    var hb = best([box.t, box.cy, box.b], dragCands.hy); if (hb) { ny += hb.dd; guides.push({ t: 'h', pos: hb.line }); }
+    return { x: nx, y: ny, guides: guides };
+  }
+  function drawGuides(guides) {
+    clearGuides(); if (!guides.length) return;
+    guideLayer = document.createElement('div'); guideLayer.id = 'tmke-ve-guides';
+    guides.forEach(function (g) { var ln = document.createElement('div'); ln.className = 'tmke-ve-guide ' + g.t; if (g.t === 'v') ln.style.left = g.pos + 'px'; else ln.style.top = g.pos + 'px'; guideLayer.appendChild(ln); });
+    document.body.appendChild(guideLayer);
+  }
+  function clearGuides() { if (guideLayer) { guideLayer.remove(); guideLayer = null; } }
+
+  /* ---- Rulers (editor-only guides; not published) ---- */
+  var rulers = [];
+  function loadRulers() { try { rulers = JSON.parse(localStorage.getItem('tmke-ve-rulers') || '[]'); } catch (e) { rulers = []; } }
+  function saveRulers() { try { localStorage.setItem('tmke-ve-rulers', JSON.stringify(rulers)); } catch (e) {} renderRulers(); }
+  function addRuler(t) { rulers.push({ t: t, pos: t === 'v' ? 80 : 200 }); saveRulers(); }
+  function renderRulers() {
+    var old = document.getElementById('tmke-ve-rulers'); if (old) old.remove();
+    if (!editingEnabled || !rulers.length) return;
+    var layer = document.createElement('div'); layer.id = 'tmke-ve-rulers';
+    rulers.forEach(function (r, idx) {
+      var ln = document.createElement('div'); ln.className = 'tmke-ve-ruler ' + r.t;
+      ln.style[r.t === 'v' ? 'left' : 'top'] = r.pos + 'px';
+      var lab = document.createElement('span'); lab.className = 'lab'; lab.textContent = Math.round(r.pos) + 'px'; ln.appendChild(lab);
+      ln.addEventListener('mousedown', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var move = function (ev) { r.pos = (r.t === 'v') ? ev.clientX : ev.clientY; ln.style[r.t === 'v' ? 'left' : 'top'] = r.pos + 'px'; lab.textContent = Math.round(r.pos) + 'px'; };
+        var up = function () { document.removeEventListener('mousemove', move, true); document.removeEventListener('mouseup', up, true); saveRulers(); };
+        document.addEventListener('mousemove', move, true); document.addEventListener('mouseup', up, true);
+      }, true);
+      ln.addEventListener('dblclick', function (e) { e.preventDefault(); rulers.splice(idx, 1); saveRulers(); });
+      layer.appendChild(ln);
+    });
+    document.body.appendChild(layer);
+  }
+  function select(el) { deselect(); selected = el; el.classList.add('tmke-ve-selected'); crumbEl.textContent = pathLabel(el); renderPanel(el); }
+  function deselect() {
+    if (selected) selected.classList.remove('tmke-ve-selected');
+    selected = null;
+    if (panelBody) panelBody.innerHTML = '<div class="tmke-ve-empty">Select any element on the page — text, image, section — to edit it here.</div>';
+    if (tagBadge) tagBadge.textContent = 'Nothing selected';
+    var t = panel && panel.querySelector('#tmke-ve-eltxt'); if (t) t.textContent = '';
+  }
   function clearHover() { Array.prototype.forEach.call(document.querySelectorAll('.tmke-ve-hover'), function (n) { n.classList.remove('tmke-ve-hover'); }); }
   function showFloatTag(el) { var t = document.getElementById('tmke-ve-floattag'); if (!t) return; var r = el.getBoundingClientRect(); t.textContent = el.tagName.toLowerCase(); t.style.left = r.left + 'px'; t.style.top = (r.top - 4) + 'px'; t.style.display = 'block'; }
   function hideFloatTag() { var t = document.getElementById('tmke-ve-floattag'); if (t) t.style.display = 'none'; }
-  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.id === 'tmke-ve-floattag')); }
+  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.closest('.tmke-ve-addmenu') || el.closest('.tmke-ve-prebar') || el.closest('#tmke-ve-rulers') || el.closest('#tmke-ve-guides') || el.id === 'tmke-ve-floattag')); }
   function pathLabel(el) { var bits = [], n = el; for (var i = 0; i < 3 && n && n !== document.body; i++) { bits.unshift(n.tagName.toLowerCase()); n = n.parentElement; } return bits.join(' › '); }
 
   /* ---- content helpers ---- */
