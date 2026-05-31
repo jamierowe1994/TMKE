@@ -72,15 +72,36 @@
     if (!tag) { tag = document.createElement('style'); tag.id = 'tmke-overrides'; document.head.appendChild(tag); }
     tag.textContent = css;
   }
+  var baseContent = {};          // pristine content captured before first edit (for undo)
+  function captureBase(sel, el) {
+    if (!sel || !el) return;
+    if (!baseContent[sel]) baseContent[sel] = {};
+    var b = baseContent[sel];
+    if (b.html == null) b.html = el.innerHTML;
+    if ((el.tagName === 'IMG' || el.tagName === 'VIDEO') && b.src == null) b.src = el.getAttribute('src') || '';
+    else if (b.bg == null) { var cbg = getComputedStyle(el).backgroundImage; b.bg = (cbg && cbg !== 'none') ? cbg : ''; }
+  }
+  var ATTR_BOOL = { controls: 1, autoplay: 1, loop: 1, muted: 1, playsinline: 1 };
   function applyContent() {
+    // 1) restore pristine content where the content override has been removed (undo/reset)
+    Object.keys(baseContent).forEach(function (sel) {
+      var el; try { el = document.querySelector(sel); } catch (e) { return; }
+      if (!el) return;
+      var o = overrides[sel] || {}, b = baseContent[sel];
+      if (b.html != null && o.__html == null) el.innerHTML = b.html;
+      if (b.src != null && o.__src == null && (el.tagName === 'IMG' || el.tagName === 'VIDEO')) el.src = b.src;
+      if (b.bg != null && o.__src == null && el.tagName !== 'IMG' && el.tagName !== 'VIDEO') el.style.backgroundImage = b.bg;
+    });
+    // 2) apply current content overrides
     Object.keys(overrides).forEach(function (sel) {
       if (sel.indexOf('__') === 0) return;
       var o = overrides[sel], el;
       try { el = document.querySelector(sel); } catch (e) { return; }
       if (!el) return;
       if (o.__html != null) el.innerHTML = o.__html;
-      if (o.__src != null) { if (el.tagName === 'IMG' || el.tagName === 'VIDEO') el.src = o.__src; else el.style.backgroundImage = "url('" + o.__src + "')"; }
+      if (o.__src != null) { if (el.tagName === 'IMG' || el.tagName === 'VIDEO') el.src = o.__src; else el.style.backgroundImage = o.__src ? ("url('" + o.__src + "')") : ''; }
       if (o.__icon != null && el.tagName.toLowerCase() === 'svg') { el.setAttribute('viewBox', '0 0 24 24'); el.innerHTML = o.__icon; }
+      if (o.__attrs) Object.keys(o.__attrs).forEach(function (a) { if (o.__attrs[a]) el.setAttribute(a, ATTR_BOOL[a] ? '' : 'true'); else el.removeAttribute(a); });
     });
   }
   function applyAll() {
@@ -126,7 +147,50 @@
     Local.save(overrides);
     if (remote && store) { clearTimeout(saveTimer); saveTimer = setTimeout(function () { store.saveDraft(overrides); }, 600); }
     if (onDirty) onDirty();
+    recordHistory();
   }
+
+  /* ---- undo / redo (history within the current publish window) ---- */
+  var history = [], histIndex = -1, restoring = false, histTimer = null;
+  function snapshot() { return JSON.parse(JSON.stringify(overrides)); }
+  function historyInit() { history = [snapshot()]; histIndex = 0; updateHistButtons(); }
+  function recordHistory() {
+    if (restoring || histIndex < 0) return;
+    clearTimeout(histTimer);
+    histTimer = setTimeout(function () {
+      var snap = JSON.stringify(overrides);
+      if (JSON.stringify(history[histIndex]) === snap) return;     // nothing changed
+      history = history.slice(0, histIndex + 1);
+      history.push(JSON.parse(snap));
+      if (history.length > 80) history.shift();
+      histIndex = history.length - 1;
+      updateHistButtons();
+    }, 350);
+  }
+  function reapplyAll() {
+    injectStyles();
+    var want = {}; (overrides.__blocks || []).forEach(function (b) { want[b.id] = 1; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ve-block]'), function (n) { if (!want[n.getAttribute('data-ve-block')]) n.remove(); });
+    applyBlocks();
+    applyContent();
+  }
+  function restoreState(map) {
+    restoring = true;
+    overrides = JSON.parse(JSON.stringify(map));
+    Local.save(overrides);
+    if (remote && store) { clearTimeout(saveTimer); saveTimer = setTimeout(function () { store.saveDraft(overrides); }, 200); }
+    reapplyAll();
+    if (selected && document.contains(selected)) renderPanel(selected); else deselect();
+    restoring = false;
+  }
+  function undo() { if (histIndex <= 0) return; histIndex--; restoreState(history[histIndex]); updateHistButtons(); flashStatus('Undo'); }
+  function redo() { if (histIndex >= history.length - 1) return; histIndex++; restoreState(history[histIndex]); updateHistButtons(); flashStatus('Redo'); }
+  function updateHistButtons() {
+    var u = document.getElementById('tmke-ve-undo'), r = document.getElementById('tmke-ve-redo');
+    if (u) u.disabled = histIndex <= 0;
+    if (r) r.disabled = histIndex >= history.length - 1;
+  }
+  function flashStatus(msg) { if (statusEl) { statusEl.textContent = msg; clearTimeout(flashStatus._t); flashStatus._t = setTimeout(function () { statusEl.textContent = (remote ? 'Draft saved' : ''); }, 1200); } }
 
   /* ====================================================================== */
   /*  BOOT                                                                  */
@@ -214,6 +278,7 @@
     wirePageInteractions();
     editingEnabled = true;
     loadRulers(); renderRulers();
+    historyInit();
     deselect();
   }
 
@@ -276,6 +341,28 @@
       '.tmke-ve-ruler.v .lab{top:52px;left:5px;}',
       '.tmke-ve-ruler.h .lab{left:52px;top:5px;}',
       '.tmke-ve-selected{cursor:move!important;}',
+      '.tmke-ve-bar button:disabled{opacity:.32;cursor:default;}',
+      '.tmke-ve-group{border:1px solid rgba(255,255,255,.1);border-radius:8px;margin:8px 0;overflow:hidden;background:rgba(255,255,255,.02);}',
+      '.tmke-ve-group>summary{list-style:none;cursor:pointer;padding:10px 12px;font-weight:700;font-size:12px;letter-spacing:.03em;display:flex;align-items:center;justify-content:space-between;user-select:none;}',
+      '.tmke-ve-group>summary::-webkit-details-marker{display:none;}',
+      '.tmke-ve-group>summary::after{content:"\\25B8";opacity:.55;font-size:11px;transition:transform .15s;}',
+      '.tmke-ve-group[open]>summary::after{transform:rotate(90deg);}',
+      '.tmke-ve-group>summary:hover{background:rgba(255,255,255,.05);}',
+      '.tmke-ve-gbody{padding:2px 12px 12px;}',
+      '.tmke-ve-gbody .tmke-ve-row:first-child{margin-top:4px;}',
+      '.tmke-ve-hint{font-size:11.5px;line-height:1.5;opacity:.6;padding:4px 0;}',
+      '.tmke-ve-quadgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}',
+      '.tmke-ve-quadcell{display:flex;align-items:center;gap:6px;background:#1c1d22;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:5px 8px;}',
+      '.tmke-ve-quadcell span{font-size:10px;opacity:.55;font-weight:700;width:12px;flex:0 0 auto;}',
+      '.tmke-ve-quadcell input{width:100%;background:none;border:none;color:#f2efe9;font:12px system-ui;outline:none;-moz-appearance:textfield;}',
+      '.tmke-ve-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;}',
+      '.tmke-ve-toggle label{margin:0;flex:1;}',
+      '.tmke-ve-switch{width:38px;height:22px;border-radius:999px;background:rgba(255,255,255,.18);border:none;position:relative;cursor:pointer;flex:0 0 auto;padding:0;transition:background .15s;}',
+      '.tmke-ve-switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s;}',
+      '.tmke-ve-switch.on{background:#5b4b7a;}',
+      '.tmke-ve-switch.on::after{transform:translateX(16px);}',
+      '.tmke-ve-danger{margin-top:14px;border-color:rgba(255,120,120,.45)!important;color:#ffb4b4!important;}',
+      '.tmke-ve-danger:hover{background:rgba(255,120,120,.1)!important;}',
     ].join('');
     document.head.appendChild(s);
     document.body.classList.add('tmke-ve-on');
@@ -287,6 +374,8 @@
     bar.innerHTML = '<b>Website Editor</b><span class="tag">' + (isRemote ? '' : 'Local preview') + '</span>' +
       '<span class="status" id="tmke-ve-status"></span>' +
       '<span class="crumb" id="tmke-ve-crumb">Click any element to edit it</span>';
+    var ub = btn('↶ Undo', undo); ub.id = 'tmke-ve-undo'; ub.disabled = true; ub.title = 'Undo (Ctrl+Z)'; bar.appendChild(ub);
+    var rb = btn('↷ Redo', redo); rb.id = 'tmke-ve-redo'; rb.disabled = true; rb.title = 'Redo (Ctrl+Shift+Z)'; bar.appendChild(rb);
     bar.appendChild(btn('+ Add', function (e) { toggleAddMenu(e.currentTarget); }));
     bar.appendChild(btn('Rulers', function (e) { toggleRulerMenu(e.currentTarget); }));
     bar.appendChild(btn('Reset all', function () {
@@ -392,189 +481,262 @@
     overrides[sel][prop] = value; persist(); injectStyles();
   }
 
-  function renderPanel(el) {
-    var sel = selectorFor(el), cs = getComputedStyle(el);
-    panelBody.innerHTML = '';
-    tagBadge.textContent = el.tagName.toLowerCase();
-    panel.querySelector('#tmke-ve-eltxt').textContent = '“' + (el.textContent || '').trim().slice(0, 22) + '”';
-
-    // position (drag-to-move) — hint + reset, shown once moved
-    var posRow = document.createElement('div'); posRow.className = 'tmke-ve-row';
-    var t = getTranslate(sel);
-    if (t.x || t.y) {
-      posRow.innerHTML = '<label>Position <span class="val">' + Math.round(t.x) + ', ' + Math.round(t.y) + '</span></label><div class="tmke-ve-chips"></div>';
-      var pchip = document.createElement('button'); pchip.className = 'tmke-ve-chip'; pchip.textContent = 'Reset position';
-      pchip.onclick = function () { if (overrides[sel]) delete overrides[sel]['transform']; persist(); injectStyles(); renderPanel(el); };
-      posRow.querySelector('.tmke-ve-chips').appendChild(pchip);
-    } else {
-      posRow.innerHTML = '<label>Position</label><div class="tmke-ve-empty" style="padding:2px 0;">Drag the element on the page to move it. Pink lines show alignment with neighbours.</div>';
-    }
-    panelBody.appendChild(posRow);
-
-    CONTROLS.forEach(function (c) {
-      if (c.when && !c.when(el, cs)) return;
-      var saved = overrides[sel] && overrides[sel][c.prop], current;
-      if (saved != null) current = parseFloat(saved);
-      else if (c.prop === 'line-height') { var lh = cs.lineHeight; current = (lh === 'normal') ? 1.2 : (parseFloat(lh) / parseFloat(cs.fontSize)); }
-      else if (c.prop === 'max-width') { current = (cs.maxWidth === 'none') ? c.max : parseFloat(cs.maxWidth) || c.max; }
-      else current = parseFloat(cs.getPropertyValue(c.prop)) || 0;
-      var row = document.createElement('div'); row.className = 'tmke-ve-row';
-      row.innerHTML = '<label>' + c.label + ' <span class="val"></span></label><input type="range" min="' + c.min + '" max="' + c.max + '" step="' + c.step + '">';
-      var input = row.querySelector('input'), valEl = row.querySelector('.val');
-      input.value = current; valEl.textContent = fmt(current, c.unit);
-      input.addEventListener('input', function () { var v = parseFloat(input.value); valEl.textContent = fmt(v, c.unit); setOverride(sel, c.prop, v + c.unit); });
-      panelBody.appendChild(row);
+  /* ---- panel building blocks (collapsible groups + compact controls) ---- */
+  function group(title, open) {
+    var d = document.createElement('details'); d.className = 'tmke-ve-group'; if (open) d.open = true;
+    var s = document.createElement('summary'); s.textContent = title; d.appendChild(s);
+    var body = document.createElement('div'); body.className = 'tmke-ve-gbody'; d.appendChild(body);
+    panelBody.appendChild(d); return body;
+  }
+  function rangeRow(parent, label, prop, sel, cs, opt) {
+    var saved = overrides[sel] && overrides[sel][prop], cur;
+    if (saved != null) cur = parseFloat(saved);
+    else if (opt.init) cur = opt.init(cs);
+    else cur = parseFloat(cs.getPropertyValue(prop)) || 0;
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>' + label + ' <span class="val"></span></label><input type="range" min="' + opt.min + '" max="' + opt.max + '" step="' + opt.step + '">';
+    var input = row.querySelector('input'), valEl = row.querySelector('.val');
+    input.value = cur; valEl.textContent = fmt(cur, opt.unit);
+    input.addEventListener('input', function () { var v = parseFloat(input.value); valEl.textContent = fmt(v, opt.unit); setOverride(sel, prop, v + opt.unit); });
+    parent.appendChild(row); return input;
+  }
+  function selectRow(parent, label, options, current, onChange) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>' + label + '</label><select>' + options.map(function (o) { return '<option value="' + o[1] + '">' + o[0] + '</option>'; }).join('') + '</select>';
+    var s = row.querySelector('select'); s.value = current; s.addEventListener('change', function () { onChange(s.value); });
+    parent.appendChild(row); return s;
+  }
+  function boolToggle(parent, label, on, onChange) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row tmke-ve-toggle';
+    row.innerHTML = '<label>' + label + '</label><button class="tmke-ve-switch' + (on ? ' on' : '') + '" type="button" role="switch"></button>';
+    var b = row.querySelector('button');
+    b.onclick = function () { var now = !b.classList.contains('on'); b.classList.toggle('on', now); onChange(now); };
+    parent.appendChild(row);
+  }
+  function sideGrid(parent, base, sel, cs) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<div class="tmke-ve-quadgrid"></div>';
+    var g = row.querySelector('.tmke-ve-quadgrid');
+    ['top', 'right', 'bottom', 'left'].forEach(function (side) {
+      var prop = base + '-' + side;
+      var saved = overrides[sel] && overrides[sel][prop];
+      var cur = saved != null ? parseFloat(saved) : (parseFloat(cs.getPropertyValue(prop)) || 0);
+      var cell = document.createElement('label'); cell.className = 'tmke-ve-quadcell';
+      cell.innerHTML = '<span>' + side.charAt(0).toUpperCase() + '</span><input type="number" step="1">';
+      var inp = cell.querySelector('input'); inp.value = Math.round(cur);
+      inp.addEventListener('input', function () { setOverride(sel, prop, (parseFloat(inp.value) || 0) + 'px'); });
+      g.appendChild(cell);
     });
-
-    // font family (brand fonts)
-    if (isTextEl(el)) {
-      var FONTS = [['Default', ''], ['Cormorant (serif)', '"Cormorant Garamond", Georgia, serif'], ['Darker Grotesque', '"Darker Grotesque", system-ui, sans-serif']];
-      var fRow = document.createElement('div'); fRow.className = 'tmke-ve-row';
-      fRow.innerHTML = '<label>Font</label><select>' + FONTS.map(function (f) { return '<option value="' + f[1] + '">' + f[0] + '</option>'; }).join('') + '</select>';
-      var fSel = fRow.querySelector('select');
-      var savedFont = overrides[sel] && overrides[sel]['font-family'];
-      if (savedFont) fSel.value = savedFont;
-      else { var cf = cs.fontFamily; FONTS.forEach(function (f) { if (f[1] && cf.indexOf(f[1].split(',')[0].replace(/"/g, '')) === 0) fSel.value = f[1]; }); }
-      fSel.addEventListener('change', function () {
-        if (fSel.value) setOverride(sel, 'font-family', fSel.value);
-        else { if (overrides[sel]) delete overrides[sel]['font-family']; persist(); injectStyles(); }
-      });
-      panelBody.appendChild(fRow);
-    }
-
-    // weight
-    var wRow = document.createElement('div'); wRow.className = 'tmke-ve-row';
-    wRow.innerHTML = '<label>Weight</label><select>' + ['300','400','500','600','700','800'].map(function (w) { return '<option value="' + w + '">' + w + '</option>'; }).join('') + '</select>';
-    var wSel = wRow.querySelector('select');
-    wSel.value = (overrides[sel] && overrides[sel]['font-weight']) || String(Math.round(parseInt(cs.fontWeight, 10) / 100) * 100) || '400';
-    wSel.addEventListener('change', function () { setOverride(sel, 'font-weight', wSel.value); });
-    panelBody.appendChild(wRow);
-
-    // colour + brand swatches
-    var cRow = document.createElement('div'); cRow.className = 'tmke-ve-row';
-    cRow.innerHTML = '<label>Text colour</label><input type="color"><div class="tmke-ve-swatches"></div>';
-    var cInput = cRow.querySelector('input');
-    cInput.value = (overrides[sel] && overrides[sel]['color']) || rgbToHex(cs.color);
-    cInput.addEventListener('input', function () { setOverride(sel, 'color', cInput.value); });
-    var sw = cRow.querySelector('.tmke-ve-swatches');
-    BRAND_VARS.forEach(function (b) {
-      var hex = brandColour(b[0]); if (!hex) return;
-      var dot = document.createElement('button'); dot.className = 'tmke-ve-swatch'; dot.title = b[1]; dot.style.background = hex;
-      dot.onclick = function () { cInput.value = toHex(hex); setOverride(sel, 'color', hex); };
-      sw.appendChild(dot);
-    });
-    panelBody.appendChild(cRow);
-
-    // background colour + brand swatches (+ None / White)
-    var bgRow = document.createElement('div'); bgRow.className = 'tmke-ve-row';
-    bgRow.innerHTML = '<label>Background colour</label><input type="color"><div class="tmke-ve-swatches"></div>';
-    var bgInput = bgRow.querySelector('input');
-    var curBg = (overrides[sel] && overrides[sel]['background-color']) || cs.backgroundColor;
-    bgInput.value = toHex(curBg && curBg !== 'rgba(0, 0, 0, 0)' && curBg !== 'transparent' ? curBg : '#ffffff');
-    bgInput.addEventListener('input', function () { setOverride(sel, 'background-color', bgInput.value); });
-    var bsw = bgRow.querySelector('.tmke-ve-swatches');
-    var bgChoices = [['transparent', 'None'], ['#ffffff', 'White']].concat(BRAND_VARS.map(function (b) { return [brandColour(b[0]), b[1]]; }));
-    bgChoices.forEach(function (item) {
+    parent.appendChild(row);
+  }
+  function colourRow(parent, label, prop, sel, cs, isBg) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>' + label + '</label><input type="color"><div class="tmke-ve-swatches"></div>';
+    var input = row.querySelector('input');
+    if (isBg) { var curBg = (overrides[sel] && overrides[sel][prop]) || cs.backgroundColor; input.value = toHex(curBg && curBg !== 'rgba(0, 0, 0, 0)' && curBg !== 'transparent' ? curBg : '#ffffff'); }
+    else input.value = (overrides[sel] && overrides[sel][prop]) || rgbToHex(cs.color);
+    input.addEventListener('input', function () { setOverride(sel, prop, input.value); });
+    var sw = row.querySelector('.tmke-ve-swatches');
+    var choices = (isBg ? [['transparent', 'None'], ['#ffffff', 'White']] : []).concat(BRAND_VARS.map(function (b) { return [brandColour(b[0]), b[1]]; }));
+    choices.forEach(function (item) {
       var val = item[0]; if (!val) return;
       var dot = document.createElement('button'); dot.className = 'tmke-ve-swatch'; dot.title = item[1];
       dot.style.background = (val === 'transparent') ? 'repeating-conic-gradient(#bbb 0% 25%, #fff 0% 50%) 50% / 8px 8px' : val;
-      dot.onclick = function () { if (val !== 'transparent') bgInput.value = toHex(val); setOverride(sel, 'background-color', val); };
-      bsw.appendChild(dot);
+      dot.onclick = function () { if (val !== 'transparent') input.value = toHex(val); setOverride(sel, prop, val); };
+      sw.appendChild(dot);
     });
-    panelBody.appendChild(bgRow);
-
-    // shape — corner-radius presets (great for images)
-    var shRow = document.createElement('div'); shRow.className = 'tmke-ve-row';
-    shRow.innerHTML = '<label>Shape</label><div class="tmke-ve-chips"></div>';
-    var shc = shRow.querySelector('.tmke-ve-chips');
+    parent.appendChild(row);
+  }
+  function shapeRow(parent, sel, el) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Shape</label><div class="tmke-ve-chips"></div>';
+    var c = row.querySelector('.tmke-ve-chips');
     [['Sharp', '0'], ['Soft', '14px'], ['Round', '28px'], ['Pill', '999px'], ['Circle', '50%']].forEach(function (s) {
       var chip = document.createElement('button'); chip.className = 'tmke-ve-chip'; chip.textContent = s[0];
       chip.onclick = function () { setOverride(sel, 'border-radius', s[1]); if (el.tagName === 'IMG' || getComputedStyle(el).overflow === 'visible') setOverride(sel, 'overflow', 'hidden'); };
-      shc.appendChild(chip);
+      c.appendChild(chip);
     });
-    panelBody.appendChild(shRow);
-
-    // layout — column split for 2-column grids
-    if (cs.display === 'grid') {
-      var tracks = cs.gridTemplateColumns.split(' ').filter(Boolean).map(parseFloat);
-      if (tracks.length === 2 && tracks[0] && tracks[1]) {
-        var savedR = overrides[sel] && overrides[sel]['grid-template-columns'];
-        var ratio = savedR ? (parseFloat(savedR) / (parseFloat(savedR) + parseFloat(savedR.split(' ')[1]))) : tracks[0] / (tracks[0] + tracks[1]);
-        var lRow = document.createElement('div'); lRow.className = 'tmke-ve-row';
-        lRow.innerHTML = '<label>Column split <span class="val"></span></label><input type="range" min="20" max="80" step="1">';
-        var lInput = lRow.querySelector('input'), lVal = lRow.querySelector('.val');
-        lInput.value = Math.round(ratio * 100);
-        var setSplit = function (pct) { lVal.textContent = pct + ' / ' + (100 - pct); setOverride(sel, 'grid-template-columns', pct + 'fr ' + (100 - pct) + 'fr'); };
-        lInput.addEventListener('input', function () { setSplit(parseInt(lInput.value, 10)); });
-        lVal.textContent = lInput.value + ' / ' + (100 - lInput.value);
-        panelBody.appendChild(lRow);
-      }
-    }
-
-    // content: wording
-    if (isTextEl(el)) {
-      var tRow = document.createElement('div'); tRow.className = 'tmke-ve-row'; tRow.innerHTML = '<label>Wording</label>';
-      var tBtn = document.createElement('button'); tBtn.className = 'tmke-ve-reset'; tBtn.textContent = '✎ Edit text';
-      tBtn.onclick = function () { startTextEdit(el, sel); };
-      tRow.appendChild(tBtn); panelBody.appendChild(tRow);
-    }
-    // content: image / video
-    var isImg = el.tagName === 'IMG', isVid = el.tagName === 'VIDEO', hasBg = !isImg && !isVid && cs.backgroundImage && cs.backgroundImage !== 'none';
-    if (isImg || isVid || hasBg) {
-      var iRow = document.createElement('div'); iRow.className = 'tmke-ve-row';
-      iRow.innerHTML = '<label>' + (isVid ? 'Video URL' : 'Image') + '</label><input type="text" class="tmke-ve-text" placeholder="https://… or /assets/…">';
-      var iInput = iRow.querySelector('input');
-      iInput.value = (overrides[sel] && overrides[sel].__src) || ((isImg || isVid) ? (el.getAttribute('src') || '') : extractUrl(cs.backgroundImage));
-      iInput.addEventListener('change', function () {
-        var v = iInput.value.trim(); if (!v) return;
-        if (!overrides[sel]) overrides[sel] = {}; overrides[sel].__src = v; persist();
-        if (isImg || isVid) el.src = v; else el.style.backgroundImage = "url('" + v + "')";
+    parent.appendChild(row);
+  }
+  function fontControls(parent, sel, el, cs) {
+    rangeRow(parent, 'Font size', 'font-size', sel, cs, { min: 8, max: 220, step: 1, unit: 'px' });
+    var FONTS = [['Default', ''], ['Cormorant (serif)', '"Cormorant Garamond", Georgia, serif'], ['Darker Grotesque', '"Darker Grotesque", system-ui, sans-serif']];
+    var curFont = (overrides[sel] && overrides[sel]['font-family']) || '';
+    if (!curFont) { var cf = cs.fontFamily; FONTS.forEach(function (f) { if (f[1] && cf.indexOf(f[1].split(',')[0].replace(/"/g, '')) === 0) curFont = f[1]; }); }
+    selectRow(parent, 'Font', FONTS, curFont, function (v) { if (v) setOverride(sel, 'font-family', v); else { if (overrides[sel]) delete overrides[sel]['font-family']; persist(); injectStyles(); } });
+    var curW = (overrides[sel] && overrides[sel]['font-weight']) || String(Math.round(parseInt(cs.fontWeight, 10) / 100) * 100) || '400';
+    selectRow(parent, 'Weight', ['300', '400', '500', '600', '700', '800'].map(function (w) { return [w, w]; }), curW, function (v) { setOverride(sel, 'font-weight', v); });
+    rangeRow(parent, 'Letter spacing', 'letter-spacing', sel, cs, { min: -6, max: 12, step: 0.1, unit: 'px', init: function (cs2) { var l = cs2.letterSpacing; return l === 'normal' ? 0 : (parseFloat(l) || 0); } });
+    rangeRow(parent, 'Line height', 'line-height', sel, cs, { min: 0.8, max: 2.4, step: 0.01, unit: '', init: function (cs2) { var lh = cs2.lineHeight; return lh === 'normal' ? 1.2 : (parseFloat(lh) / parseFloat(cs2.fontSize)); } });
+    colourRow(parent, 'Text colour', 'color', sel, cs, false);
+    var tRow = document.createElement('div'); tRow.className = 'tmke-ve-row';
+    var tBtn = document.createElement('button'); tBtn.className = 'tmke-ve-reset'; tBtn.textContent = '✎ Edit wording';
+    tBtn.onclick = function () { captureBase(sel, el); startTextEdit(el, sel); };
+    tRow.appendChild(tBtn); parent.appendChild(tRow);
+  }
+  function sourceRow(parent, label, sel, el, kind) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>' + label + '</label><input type="text" class="tmke-ve-text" placeholder="https://… or /assets/…">';
+    var inp = row.querySelector('input');
+    inp.value = (overrides[sel] && overrides[sel].__src) || (el.getAttribute('src') || '');
+    inp.addEventListener('change', function () {
+      var v = inp.value.trim(); if (!v) return; captureBase(sel, el);
+      if (!overrides[sel]) overrides[sel] = {}; overrides[sel].__src = v; persist(); el.src = v;
+    });
+    parent.appendChild(row);
+  }
+  function bgImageRows(parent, sel, el, cs) {
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Background image</label><input type="text" class="tmke-ve-text" placeholder="/assets/… (blank to remove)">';
+    var inp = row.querySelector('input'); inp.value = (overrides[sel] && overrides[sel].__src) || extractUrl(cs.backgroundImage);
+    inp.addEventListener('change', function () {
+      var v = inp.value.trim(); captureBase(sel, el);
+      if (!overrides[sel]) overrides[sel] = {}; overrides[sel].__src = v; persist();
+      el.style.backgroundImage = v ? ("url('" + v + "')") : '';
+    });
+    parent.appendChild(row);
+    selectRow(parent, 'Image size', [['Cover (fill area)', 'cover'], ['Contain (whole image)', 'contain'], ['Original', 'auto']], (overrides[sel] && overrides[sel]['background-size']) || (/^(cover|contain)$/.test(cs.backgroundSize) ? cs.backgroundSize : 'cover'), function (v) { setOverride(sel, 'background-size', v); });
+    selectRow(parent, 'Image position', [['Center', 'center'], ['Top', 'top'], ['Bottom', 'bottom'], ['Left', 'left'], ['Right', 'right']], (overrides[sel] && overrides[sel]['background-position']) || 'center', function (v) { setOverride(sel, 'background-position', v); });
+  }
+  function attrToggles(parent, sel, el, attrs) {
+    attrs.forEach(function (a) {
+      var name = a[0];
+      var cur = (overrides[sel] && overrides[sel].__attrs && overrides[sel].__attrs[name] != null) ? overrides[sel].__attrs[name] : el.hasAttribute(name);
+      boolToggle(parent, a[1], !!cur, function (on) {
+        if (!overrides[sel]) overrides[sel] = {}; if (!overrides[sel].__attrs) overrides[sel].__attrs = {};
+        overrides[sel].__attrs[name] = on; persist();
+        if (on) el.setAttribute(name, ATTR_BOOL[name] ? '' : 'true'); else el.removeAttribute(name);
       });
-      panelBody.appendChild(iRow);
-    }
-
-    // icon picker (when the element is, or contains, an SVG)
-    var iconSvg = el.tagName.toLowerCase() === 'svg' ? el : (el.querySelector ? el.querySelector('svg') : null);
-    if (iconSvg) {
-      var icSel = selectorFor(iconSvg);
-      var icRow = document.createElement('div'); icRow.className = 'tmke-ve-row';
-      icRow.innerHTML = '<label>Icon</label><div class="tmke-ve-icons"></div>';
-      var ig = icRow.querySelector('.tmke-ve-icons');
-      ICONS.forEach(function (ic) {
-        var b = document.createElement('button'); b.className = 'tmke-ve-iconbtn'; b.title = ic[0];
-        b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20">' + ic[1] + '</svg>';
-        b.onclick = function () {
-          if (!overrides[icSel]) overrides[icSel] = {};
-          overrides[icSel].__icon = ic[1]; persist();
-          iconSvg.setAttribute('viewBox', '0 0 24 24'); iconSvg.innerHTML = ic[1];
-        };
-        ig.appendChild(b);
-      });
-      panelBody.appendChild(icRow);
-    }
-
-    // animation + timing
+    });
+  }
+  function columnSplit(parent, el, cs, sel) {
+    if (cs.display !== 'grid') return;
+    var tracks = cs.gridTemplateColumns.split(' ').filter(Boolean).map(parseFloat);
+    if (!(tracks.length === 2 && tracks[0] && tracks[1])) return;
+    var savedR = overrides[sel] && overrides[sel]['grid-template-columns'];
+    var ratio = savedR ? (parseFloat(savedR) / (parseFloat(savedR) + parseFloat(savedR.split(' ')[1]))) : tracks[0] / (tracks[0] + tracks[1]);
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Column split <span class="val"></span></label><input type="range" min="20" max="80" step="1">';
+    var input = row.querySelector('input'), valEl = row.querySelector('.val'); input.value = Math.round(ratio * 100);
+    var setSplit = function (pct) { valEl.textContent = pct + ' / ' + (100 - pct); setOverride(sel, 'grid-template-columns', pct + 'fr ' + (100 - pct) + 'fr'); };
+    input.addEventListener('input', function () { setSplit(parseInt(input.value, 10)); }); valEl.textContent = input.value + ' / ' + (100 - input.value);
+    parent.appendChild(row);
+  }
+  function iconGroup(iconSvg) {
+    var icSel = selectorFor(iconSvg);
+    var parent = group('Icon', true);
+    var row = document.createElement('div'); row.className = 'tmke-ve-row'; row.innerHTML = '<label>Pick an icon</label><div class="tmke-ve-icons"></div>';
+    var ig = row.querySelector('.tmke-ve-icons');
+    ICONS.forEach(function (ic) {
+      var b = document.createElement('button'); b.className = 'tmke-ve-iconbtn'; b.title = ic[0];
+      b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20">' + ic[1] + '</svg>';
+      b.onclick = function () { captureBase(icSel, iconSvg); if (!overrides[icSel]) overrides[icSel] = {}; overrides[icSel].__icon = ic[1]; persist(); iconSvg.setAttribute('viewBox', '0 0 24 24'); iconSvg.innerHTML = ic[1]; };
+      ig.appendChild(b);
+    });
+    parent.appendChild(row);
+  }
+  function animRows(parent, sel, el) {
     var animSaved = overrides[sel] && overrides[sel]['animation'];
     var animName = (animSaved && animSaved !== 'none') ? animSaved.split(' ')[0] : '';
     var animDur = animSaved ? (parseFloat(animSaved.split(' ')[1]) || 0.6) : 0.6;
-    var aRow = document.createElement('div'); aRow.className = 'tmke-ve-row';
-    aRow.innerHTML = '<label>Animation</label><select>' +
-      ANIMS.map(function (a) { return '<option value="' + a[1] + '">' + a[0] + '</option>'; }).join('') + '</select>' +
-      '<label style="margin-top:10px">Duration <span class="val">' + animDur.toFixed(1) + 's</span></label>' +
-      '<input type="range" min="0.2" max="2.5" step="0.1">';
-    var aSel = aRow.querySelector('select'); aSel.value = animName;
-    var aDur = aRow.querySelector('input'); aDur.value = animDur; var aVal = aRow.querySelector('.val');
-    var applyAnim = function () {
-      var name = aSel.value, dur = parseFloat(aDur.value); aVal.textContent = dur.toFixed(1) + 's';
-      setOverride(sel, 'animation', name ? (name + ' ' + dur + 's ease both') : 'none');
-    };
-    aSel.addEventListener('change', applyAnim);
-    aDur.addEventListener('input', applyAnim);
-    panelBody.appendChild(aRow);
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Effect</label><select>' + ANIMS.map(function (a) { return '<option value="' + a[1] + '">' + a[0] + '</option>'; }).join('') +
+      '</select><label style="margin-top:10px">Duration <span class="val">' + animDur.toFixed(1) + 's</span></label><input type="range" min="0.2" max="2.5" step="0.1">';
+    var aSel = row.querySelector('select'); aSel.value = animName; var aDur = row.querySelector('input'); aDur.value = animDur; var aVal = row.querySelector('.val');
+    var apply = function () { var name = aSel.value, dur = parseFloat(aDur.value); aVal.textContent = dur.toFixed(1) + 's'; setOverride(sel, 'animation', name ? (name + ' ' + dur + 's ease both') : 'none'); };
+    aSel.addEventListener('change', apply); aDur.addEventListener('input', apply);
+    parent.appendChild(row);
+  }
 
-    // reset element
-    var reset = document.createElement('button'); reset.className = 'tmke-ve-reset'; reset.textContent = 'Reset this element';
-    reset.onclick = function () { delete overrides[sel]; persist(); injectStyles(); location.reload(); };
+  function renderPanel(el) {
+    var sel = selectorFor(el), cs = getComputedStyle(el);
+    panelBody.innerHTML = '';
+    var isImg = el.tagName === 'IMG', isVid = el.tagName === 'VIDEO';
+    var iconSvg = el.tagName.toLowerCase() === 'svg' ? el : (el.querySelector ? el.querySelector('svg') : null);
+    var hasBg = !isImg && !isVid && cs.backgroundImage && cs.backgroundImage !== 'none';
+    var isSection = el.tagName === 'SECTION';
+    var textEl = isTextEl(el);
+    var kind = isImg ? 'Image' : isVid ? 'Video' : iconSvg ? 'Icon' : isSection ? 'Section' : textEl ? 'Text' : el.tagName.toLowerCase();
+    tagBadge.textContent = kind;
+    panel.querySelector('#tmke-ve-eltxt').textContent = '“' + (el.textContent || '').trim().slice(0, 22) + '”';
+
+    // POSITION — drag hint / reset / locked notice
+    var gp = group('Position & move', true);
+    var t = getTranslate(sel);
+    var posRow = document.createElement('div'); posRow.className = 'tmke-ve-row';
+    if (t.x || t.y) {
+      posRow.innerHTML = '<label>Moved <span class="val">' + Math.round(t.x) + ', ' + Math.round(t.y) + '</span></label><div class="tmke-ve-chips"></div>';
+      var pchip = document.createElement('button'); pchip.className = 'tmke-ve-chip'; pchip.textContent = 'Reset position';
+      pchip.onclick = function () { if (overrides[sel]) delete overrides[sel]['transform']; persist(); injectStyles(); renderPanel(el); };
+      posRow.querySelector('.tmke-ve-chips').appendChild(pchip);
+    } else if (isDragLocked(el)) {
+      posRow.innerHTML = '<div class="tmke-ve-hint">This element drives a scroll animation, so dragging is locked to protect the effect. Text and styles are still editable.</div>';
+    } else {
+      posRow.innerHTML = '<div class="tmke-ve-hint">Drag the element on the page to move it. Pink lines snap it to neighbours.</div>';
+    }
+    gp.appendChild(posRow);
+
+    // TEXT
+    if (textEl) fontControls(group('Text', true), sel, el, cs);
+
+    // IMAGE
+    if (isImg) {
+      var gi = group('Image', true);
+      sourceRow(gi, 'Image URL', sel, el, 'img');
+      selectRow(gi, 'Fit', [['Cover', 'cover'], ['Contain', 'contain'], ['Fill', 'fill'], ['None', 'none']], (overrides[sel] && overrides[sel]['object-fit']) || cs.objectFit || 'cover', function (v) { setOverride(sel, 'object-fit', v); });
+      rangeRow(gi, 'Width', 'max-width', sel, cs, { min: 40, max: 1680, step: 10, unit: 'px', init: function (cs2) { return cs2.maxWidth === 'none' ? (parseFloat(cs2.width) || 400) : parseFloat(cs2.maxWidth); } });
+      shapeRow(gi, sel, el);
+    }
+
+    // VIDEO
+    if (isVid) {
+      var gv = group('Video', true);
+      sourceRow(gv, 'Video URL', sel, el, 'video');
+      selectRow(gv, 'Fit', [['Cover', 'cover'], ['Contain', 'contain'], ['Fill', 'fill']], (overrides[sel] && overrides[sel]['object-fit']) || cs.objectFit || 'cover', function (v) { setOverride(sel, 'object-fit', v); });
+      attrToggles(gv, sel, el, [['controls', 'Show controls'], ['autoplay', 'Autoplay'], ['loop', 'Loop'], ['muted', 'Muted']]);
+      shapeRow(gv, sel, el);
+    }
+
+    // ICON
+    if (iconSvg) iconGroup(iconSvg);
+
+    // BACKGROUND (non media)
+    if (!isImg && !isVid) {
+      var gb = group('Background', isSection || hasBg);
+      colourRow(gb, 'Background colour', 'background-color', sel, cs, true);
+      bgImageRows(gb, sel, el, cs);
+    }
+
+    // SPACING — each its own collapsible box
+    sideGrid(group('Margins', false), 'margin', sel, cs);
+    sideGrid(group('Padding', false), 'padding', sel, cs);
+    if (isContainer(el, cs)) {
+      var gg = group('Layout (gap & columns)', false);
+      rangeRow(gg, 'Gap between items', 'gap', sel, cs, { min: 0, max: 160, step: 1, unit: 'px' });
+      columnSplit(gg, el, cs, sel);
+    }
+
+    // SIZE & SHAPE (non-image; image has its own width above)
+    if (!isImg) {
+      var gs = group('Size & shape', false);
+      rangeRow(gs, 'Max width', 'max-width', sel, cs, { min: 280, max: 1680, step: 10, unit: 'px', init: function (cs2) { return cs2.maxWidth === 'none' ? 1360 : parseFloat(cs2.maxWidth); } });
+      rangeRow(gs, 'Corner radius', 'border-radius', sel, cs, { min: 0, max: 200, step: 1, unit: 'px' });
+      shapeRow(gs, sel, el);
+    }
+
+    // SECTION-level controls
+    if (isSection) {
+      var gsec = group('Section', true);
+      boolToggle(gsec, 'Full-screen height', (overrides[sel] && overrides[sel]['min-height']) === '100vh', function (on) { if (on) setOverride(sel, 'min-height', '100vh'); else { if (overrides[sel]) delete overrides[sel]['min-height']; persist(); injectStyles(); } });
+      boolToggle(gsec, 'Sticky hold (pin on scroll)', (overrides[sel] && overrides[sel]['position']) === 'sticky', function (on) { if (on) { setOverride(sel, 'position', 'sticky'); setOverride(sel, 'top', '0px'); } else { if (overrides[sel]) { delete overrides[sel]['position']; delete overrides[sel]['top']; } persist(); injectStyles(); } });
+    }
+
+    // ANIMATION (whole-element entrance effect — works on sections too)
+    animRows(group('Animation', false), sel, el);
+
+    // RESET (no reload — reverts styles + content live)
+    var reset = document.createElement('button'); reset.className = 'tmke-ve-reset tmke-ve-danger'; reset.textContent = 'Reset this element';
+    reset.onclick = function () { delete overrides[sel]; persist(); injectStyles(); applyContent(); renderPanel(el); };
     panelBody.appendChild(reset);
   }
 
@@ -593,7 +755,25 @@
       var el = e.target.closest(EDITABLE); if (!el) return;
       e.preventDefault(); e.stopPropagation(); select(el);
     }, true);
+    document.addEventListener('keydown', function (e) {
+      if (!editingEnabled) return;
+      var tgt = e.target;
+      if (tgt && (tgt.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tgt.tagName))) return;
+      var z = (e.key === 'z' || e.key === 'Z'), y = (e.key === 'y' || e.key === 'Y');
+      if ((e.ctrlKey || e.metaKey) && z && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((e.ctrlKey || e.metaKey) && ((z && e.shiftKey) || y)) { e.preventDefault(); redo(); }
+    }, true);
     wireDrag();
+  }
+
+  /* Elements that drive scroll animations — draggable-locked so a move can't
+     break the effect. (Text inside them stays selectable + editable.) */
+  var NO_DRAG = '.approach-pin, .approach-photo-layer, .approach-photo, .approach-overlay, .shelf-scene, .shelf-stage, .shelf-rec, [data-photo], [data-ve-lock]';
+  function isDragLocked(el) {
+    if (el.closest && el.closest(NO_DRAG)) return true;
+    var n = el;
+    while (n && n !== document.body) { if (n.style && n.style.transform && !(dragging && dragging.el === n)) return true; n = n.parentElement; }
+    return false;
   }
 
   /* ---- Drag-to-move + smart alignment guides ---- */
@@ -608,6 +788,7 @@
       if (!editingEnabled || e.button !== 0 || isChrome(e.target) || e.target.isContentEditable) return;
       var el = (selected && selected.contains && selected.contains(e.target)) ? selected : e.target.closest(EDITABLE);
       if (!el || el === document.body) return;
+      if (isDragLocked(el)) return;                 // don't drag scroll-animated elements
       var sel = selectorFor(el), base = getTranslate(sel);
       dragging = { el: el, sel: sel, sx: e.clientX, sy: e.clientY, bx: base.x, by: base.y, rect0: el.getBoundingClientRect(), moved: false, lx: base.x, ly: base.y };
       dragCands = gatherCandidates(el);
