@@ -311,7 +311,11 @@
       '.tmke-ve-panel{position:fixed;top:46px;right:0;bottom:0;z-index:2147483645;width:300px;background:#22232a;color:#f2efe9;border-left:1px solid rgba(255,255,255,.12);box-shadow:-8px 0 30px rgba(0,0,0,.22);font:13px system-ui,sans-serif;display:flex;flex-direction:column;}',
       '.tmke-ve-panel-h{padding:12px 14px;background:rgba(255,255,255,.05);font-weight:700;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;}',
       '.tmke-ve-panel-h small{font-weight:500;opacity:.6;font-size:11px;}',
-      '.tmke-ve-body{padding:6px 14px 16px;flex:1;overflow:auto;}',
+      '.tmke-ve-body{padding:6px 14px 24px;flex:1 1 auto;min-height:0;overflow-y:scroll;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#6b5e86 #2a2b33;}',
+      '.tmke-ve-body::-webkit-scrollbar{width:11px;}',
+      '.tmke-ve-body::-webkit-scrollbar-track{background:#2a2b33;}',
+      '.tmke-ve-body::-webkit-scrollbar-thumb{background:#6b5e86;border-radius:6px;border:2px solid #2a2b33;}',
+      '.tmke-ve-body::-webkit-scrollbar-thumb:hover{background:#8573a8;}',
       '.tmke-ve-empty{opacity:.55;font-size:12px;line-height:1.5;padding:20px 4px;}',
       '.tmke-ve-prebar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#1c1d22;color:#f2efe9;border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:8px 10px 8px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.4);font:600 13px system-ui,sans-serif;}',
       '.tmke-ve-prebar button{font:600 12px system-ui,sans-serif;border:none;border-radius:999px;padding:9px 16px;cursor:pointer;}',
@@ -330,6 +334,7 @@
       '.tmke-ve-swatch:hover{transform:scale(1.12);}',
       '.tmke-ve-chips{display:flex;flex-wrap:wrap;gap:6px;}',
       '.tmke-ve-chip{font:600 11px system-ui,sans-serif;color:#f2efe9;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:6px 10px;cursor:pointer;}',
+      '.tmke-ve-chip.on{background:#5b4b7a;border-color:#5b4b7a;}',
       '.tmke-ve-chip:hover{background:rgba(255,255,255,.2);}',
       '.tmke-ve-icons{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}',
       '.tmke-ve-iconbtn{display:flex;align-items:center;justify-content:center;padding:6px;border-radius:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#f2efe9;cursor:pointer;}',
@@ -561,9 +566,15 @@
 
   function buildPanel() {
     panel = document.createElement('div'); panel.className = 'tmke-ve-panel';
-    panel.innerHTML = '<div class="tmke-ve-panel-h"><span id="tmke-ve-eltag">Element</span><small id="tmke-ve-eltxt"></small></div><div class="tmke-ve-body" id="tmke-ve-body"></div>';
+    // data-lenis-prevent: stop the page's smooth-scroll from hijacking the
+    // mouse wheel over the panel, so it scrolls its own content natively.
+    panel.setAttribute('data-lenis-prevent', '');
+    panel.innerHTML = '<div class="tmke-ve-panel-h"><span id="tmke-ve-eltag">Element</span><small id="tmke-ve-eltxt"></small></div><div class="tmke-ve-body" id="tmke-ve-body" data-lenis-prevent></div>';
     document.body.appendChild(panel);
     panelBody = panel.querySelector('#tmke-ve-body');
+    // Belt-and-braces: also translate wheel into native panel scroll in case
+    // the smooth-scroll library doesn't honour the attribute.
+    panelBody.addEventListener('wheel', function (e) { panelBody.scrollTop += e.deltaY; e.stopPropagation(); }, { passive: true });
     tagBadge = panel.querySelector('#tmke-ve-eltag');
     var badge = document.createElement('div'); badge.className = 'tmke-ve-tag'; badge.id = 'tmke-ve-floattag'; badge.style.display = 'none';
     document.body.appendChild(badge);
@@ -606,6 +617,31 @@
     var b = row.querySelector('button');
     b.onclick = function () { var now = !b.classList.contains('on'); b.classList.toggle('on', now); onChange(now); };
     parent.appendChild(row);
+  }
+  function positionRows(parent, sel, el) {
+    var t = getTranslate(sel);
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Nudge position (px)</label><div class="tmke-ve-quadgrid tmke-ve-xy"></div>';
+    var g = row.querySelector('.tmke-ve-xy');
+    var apply = function () { setOverride(sel, 'transform', 'translate(' + (Math.round(state.x) || 0) + 'px,' + (Math.round(state.y) || 0) + 'px)'); };
+    var state = { x: t.x, y: t.y };
+    [['X', 'x'], ['Y', 'y']].forEach(function (ax) {
+      var cell = document.createElement('label'); cell.className = 'tmke-ve-quadcell';
+      cell.innerHTML = '<span>' + ax[0] + '</span><input type="number" step="1">';
+      var inp = cell.querySelector('input'); inp.value = Math.round(state[ax[1]]);
+      inp.addEventListener('input', function () { state[ax[1]] = parseFloat(inp.value) || 0; apply(); });
+      g.appendChild(cell);
+    });
+    parent.appendChild(row);
+    if (t.x || t.y) {
+      var rrow = document.createElement('div'); rrow.className = 'tmke-ve-row'; rrow.innerHTML = '<div class="tmke-ve-chips"></div>';
+      var chip = document.createElement('button'); chip.className = 'tmke-ve-chip'; chip.textContent = 'Reset to original';
+      chip.onclick = function () { if (overrides[sel]) delete overrides[sel]['transform']; persist(); injectStyles(); renderPanel(el); };
+      rrow.querySelector('.tmke-ve-chips').appendChild(chip); parent.appendChild(rrow);
+    } else {
+      var hint = document.createElement('div'); hint.className = 'tmke-ve-hint'; hint.textContent = 'Type X / Y values to nudge this element. Dragging on the page is off so nothing moves by accident.';
+      parent.appendChild(hint);
+    }
   }
   function sideGrid(parent, base, sel, cs) {
     var row = document.createElement('div'); row.className = 'tmke-ve-row';
@@ -802,21 +838,9 @@
     tagBadge.textContent = kind;
     panel.querySelector('#tmke-ve-eltxt').textContent = '“' + (el.textContent || '').trim().slice(0, 22) + '”';
 
-    // POSITION — drag hint / reset / locked notice
-    var gp = group('Position & move', true);
-    var t = getTranslate(sel);
-    var posRow = document.createElement('div'); posRow.className = 'tmke-ve-row';
-    if (t.x || t.y) {
-      posRow.innerHTML = '<label>Moved <span class="val">' + Math.round(t.x) + ', ' + Math.round(t.y) + '</span></label><div class="tmke-ve-chips"></div>';
-      var pchip = document.createElement('button'); pchip.className = 'tmke-ve-chip'; pchip.textContent = 'Reset position';
-      pchip.onclick = function () { if (overrides[sel]) delete overrides[sel]['transform']; persist(); injectStyles(); renderPanel(el); };
-      posRow.querySelector('.tmke-ve-chips').appendChild(pchip);
-    } else if (isDragLocked(el)) {
-      posRow.innerHTML = '<div class="tmke-ve-hint">This element drives a scroll animation, so dragging is locked to protect the effect. Text and styles are still editable.</div>';
-    } else {
-      posRow.innerHTML = '<div class="tmke-ve-hint">Drag the element on the page to move it. Pink lines snap it to neighbours.</div>';
-    }
-    gp.appendChild(posRow);
+    // POSITION — exact X/Y nudge from the sidebar (no dragging on the page)
+    var gp = group('Position', true);
+    positionRows(gp, sel, el);
 
     // GRADIENT / LINE / SHAPE (added blocks get tailored controls)
     if (isGradient) gradientGroup(sel, el);
@@ -870,10 +894,28 @@
       shapeRow(gs, sel, el);
     }
 
-    // SECTION-level controls
+    // SECTION-level controls — height presets, side margins, sticky
     if (isSection) {
       var gsec = group('Section', true);
-      boolToggle(gsec, 'Full-screen height', (overrides[sel] && overrides[sel]['min-height']) === '100vh', function (on) { if (on) setOverride(sel, 'min-height', '100vh'); else { if (overrides[sel]) delete overrides[sel]['min-height']; persist(); injectStyles(); } });
+      // Height presets: Auto / Half / Full screen
+      var hrow = document.createElement('div'); hrow.className = 'tmke-ve-row';
+      hrow.innerHTML = '<label>Section height</label><div class="tmke-ve-chips"></div>';
+      var hc = hrow.querySelector('.tmke-ve-chips');
+      var curMin = (overrides[sel] && overrides[sel]['min-height']) || '';
+      [['Auto', ''], ['Half screen', '50vh'], ['Full screen', '100vh']].forEach(function (p) {
+        var chip = document.createElement('button'); chip.className = 'tmke-ve-chip'; chip.textContent = p[0];
+        if (curMin === p[1]) chip.classList.add('on');
+        chip.onclick = function () { if (p[1]) setOverride(sel, 'min-height', p[1]); else { if (overrides[sel]) delete overrides[sel]['min-height']; persist(); injectStyles(); } renderPanel(el); };
+        hc.appendChild(chip);
+      });
+      gsec.appendChild(hrow);
+      // Side margins (left & right) — one slider; works even on full-screen sections
+      var curPad = (overrides[sel] && overrides[sel]['padding-left'] != null) ? parseFloat(overrides[sel]['padding-left']) : (parseFloat(cs.paddingLeft) || 0);
+      var mrow = document.createElement('div'); mrow.className = 'tmke-ve-row';
+      mrow.innerHTML = '<label>Side margins (left &amp; right) <span class="val">' + Math.round(curPad) + 'px</span></label><input type="range" min="0" max="320" step="2">';
+      var mInput = mrow.querySelector('input'), mVal = mrow.querySelector('.val'); mInput.value = curPad;
+      mInput.addEventListener('input', function () { var v = parseFloat(mInput.value); mVal.textContent = Math.round(v) + 'px'; if (!overrides[sel]) overrides[sel] = {}; overrides[sel]['padding-left'] = v + 'px'; overrides[sel]['padding-right'] = v + 'px'; persist(); injectStyles(); });
+      gsec.appendChild(mrow);
       boolToggle(gsec, 'Sticky hold (pin on scroll)', (overrides[sel] && overrides[sel]['position']) === 'sticky', function (on) { if (on) { setOverride(sel, 'position', 'sticky'); setOverride(sel, 'top', '0px'); } else { if (overrides[sel]) { delete overrides[sel]['position']; delete overrides[sel]['top']; } persist(); injectStyles(); } });
     }
 
@@ -912,7 +954,8 @@
       if ((e.ctrlKey || e.metaKey) && z && !e.shiftKey) { e.preventDefault(); undo(); }
       else if ((e.ctrlKey || e.metaKey) && ((z && e.shiftKey) || y)) { e.preventDefault(); redo(); }
     }, true);
-    wireDrag();
+    // Drag-to-move is intentionally disabled — clients kept nudging things by
+    // accident. Position is now set from the sidebar via X/Y fields instead.
   }
 
   /* Elements that drive scroll animations — draggable-locked so a move can't
