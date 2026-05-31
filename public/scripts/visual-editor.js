@@ -213,6 +213,7 @@
     buildPanel();
     wirePageInteractions();
     editingEnabled = true;
+    loadRulers(); renderRulers();
     deselect();
   }
 
@@ -263,6 +264,18 @@
       '.tmke-ve-addmenu button:hover{background:rgba(255,255,255,.12);}',
       '.tmke-ve-reset{width:100%;margin-top:6px;padding:9px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.25);color:#f2efe9;font:600 12px system-ui,sans-serif;cursor:pointer;}',
       '.tmke-ve-reset:hover{background:rgba(255,255,255,.08);}',
+      '#tmke-ve-guides{position:fixed;inset:0;z-index:2147483644;pointer-events:none;}',
+      '.tmke-ve-guide{position:absolute;background:#ff3b80;box-shadow:0 0 0 .5px rgba(255,59,128,.4);}',
+      '.tmke-ve-guide.v{top:0;bottom:0;width:1px;}',
+      '.tmke-ve-guide.h{left:0;right:0;height:1px;}',
+      '#tmke-ve-rulers{position:fixed;inset:0;z-index:2147483643;pointer-events:none;}',
+      '.tmke-ve-ruler{position:absolute;background:#2bb0ff;pointer-events:auto;}',
+      '.tmke-ve-ruler.v{top:0;bottom:0;width:1px;cursor:ew-resize;}',
+      '.tmke-ve-ruler.h{left:0;right:0;height:1px;cursor:ns-resize;}',
+      '.tmke-ve-ruler .lab{position:absolute;background:#2bb0ff;color:#fff;font:600 10px/1 system-ui;padding:3px 5px;border-radius:3px;white-space:nowrap;}',
+      '.tmke-ve-ruler.v .lab{top:52px;left:5px;}',
+      '.tmke-ve-ruler.h .lab{left:52px;top:5px;}',
+      '.tmke-ve-selected{cursor:move!important;}',
     ].join('');
     document.head.appendChild(s);
     document.body.classList.add('tmke-ve-on');
@@ -275,6 +288,7 @@
       '<span class="status" id="tmke-ve-status"></span>' +
       '<span class="crumb" id="tmke-ve-crumb">Click any element to edit it</span>';
     bar.appendChild(btn('+ Add', function (e) { toggleAddMenu(e.currentTarget); }));
+    bar.appendChild(btn('Rulers', function (e) { toggleRulerMenu(e.currentTarget); }));
     bar.appendChild(btn('Reset all', function () {
       if (!confirm('Remove every saved change on this page?')) return;
       overrides = {}; persist(); injectStyles(); deselect();
@@ -321,6 +335,18 @@
     node.scrollIntoView({ block: 'center' });
     select(type === 'text' ? (node.querySelector('p') || node) : node);
   }
+  function toggleRulerMenu(anchor) {
+    var ex = document.getElementById('tmke-ve-addmenu'); if (ex) { ex.remove(); return; }
+    var m = document.createElement('div'); m.id = 'tmke-ve-addmenu'; m.className = 'tmke-ve-addmenu';
+    [['Vertical ruler', function () { addRuler('v'); }], ['Horizontal ruler', function () { addRuler('h'); }],
+     ['Clear rulers', function () { rulers = []; saveRulers(); }]].forEach(function (o) {
+      var b = document.createElement('button'); b.textContent = o[0];
+      b.onclick = function () { m.remove(); o[1](); }; m.appendChild(b);
+    });
+    var r = anchor.getBoundingClientRect();
+    m.style.left = r.left + 'px'; m.style.top = (r.bottom + 6) + 'px';
+    document.body.appendChild(m);
+  }
   function exitEditor() { var u = new URL(location.href); u.searchParams.delete('edit'); location.href = u.toString(); }
 
   /* Edit mode ⇆ Preview, toggled in-session (no reload → scroll preserved). */
@@ -329,7 +355,8 @@
     var bar = document.querySelector('.tmke-ve-bar'); if (bar) bar.style.display = on ? 'flex' : 'none';
     if (panel) panel.style.display = on ? 'flex' : 'none';
     document.body.classList.toggle('tmke-ve-on', on);
-    if (!on) { clearHover(); hideFloatTag(); deselect(); }
+    if (!on) { clearHover(); hideFloatTag(); deselect(); clearGuides(); }
+    renderRulers();
   }
   function enterPreview() {
     setEditing(false);
@@ -370,6 +397,19 @@
     panelBody.innerHTML = '';
     tagBadge.textContent = el.tagName.toLowerCase();
     panel.querySelector('#tmke-ve-eltxt').textContent = '“' + (el.textContent || '').trim().slice(0, 22) + '”';
+
+    // position (drag-to-move) — hint + reset, shown once moved
+    var posRow = document.createElement('div'); posRow.className = 'tmke-ve-row';
+    var t = getTranslate(sel);
+    if (t.x || t.y) {
+      posRow.innerHTML = '<label>Position <span class="val">' + Math.round(t.x) + ', ' + Math.round(t.y) + '</span></label><div class="tmke-ve-chips"></div>';
+      var pchip = document.createElement('button'); pchip.className = 'tmke-ve-chip'; pchip.textContent = 'Reset position';
+      pchip.onclick = function () { if (overrides[sel]) delete overrides[sel]['transform']; persist(); injectStyles(); renderPanel(el); };
+      posRow.querySelector('.tmke-ve-chips').appendChild(pchip);
+    } else {
+      posRow.innerHTML = '<label>Position</label><div class="tmke-ve-empty" style="padding:2px 0;">Drag the element on the page to move it. Pink lines show alignment with neighbours.</div>';
+    }
+    panelBody.appendChild(posRow);
 
     CONTROLS.forEach(function (c) {
       if (c.when && !c.when(el, cs)) return;
@@ -548,10 +588,102 @@
     document.addEventListener('mouseout', function () { clearHover(); hideFloatTag(); }, true);
     document.addEventListener('click', function (e) {
       if (!editingEnabled || isChrome(e.target)) return;
+      if (suppressNextClick) { suppressNextClick = false; e.preventDefault(); e.stopPropagation(); return; }
       if (e.target.isContentEditable) return;
       var el = e.target.closest(EDITABLE); if (!el) return;
       e.preventDefault(); e.stopPropagation(); select(el);
     }, true);
+    wireDrag();
+  }
+
+  /* ---- Drag-to-move + smart alignment guides ---- */
+  var dragging = null, dragCands = null, guideLayer = null, suppressNextClick = false;
+  function getTranslate(sel) {
+    var saved = overrides[sel] && overrides[sel]['transform'];
+    if (saved) { var m = String(saved).match(/translate\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px/); if (m) return { x: parseFloat(m[1]), y: parseFloat(m[2]) }; }
+    return { x: 0, y: 0 };
+  }
+  function wireDrag() {
+    document.addEventListener('mousedown', function (e) {
+      if (!editingEnabled || e.button !== 0 || isChrome(e.target) || e.target.isContentEditable) return;
+      var el = (selected && selected.contains && selected.contains(e.target)) ? selected : e.target.closest(EDITABLE);
+      if (!el || el === document.body) return;
+      var sel = selectorFor(el), base = getTranslate(sel);
+      dragging = { el: el, sel: sel, sx: e.clientX, sy: e.clientY, bx: base.x, by: base.y, rect0: el.getBoundingClientRect(), moved: false, lx: base.x, ly: base.y };
+      dragCands = gatherCandidates(el);
+    }, true);
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      var dx = e.clientX - dragging.sx, dy = e.clientY - dragging.sy;
+      if (!dragging.moved && (Math.abs(dx) + Math.abs(dy)) < 4) return;
+      if (!dragging.moved) { dragging.moved = true; if (selected !== dragging.el) select(dragging.el); document.body.style.userSelect = 'none'; }
+      var snap = computeSnap(dragging, dragging.bx + dx, dragging.by + dy);
+      dragging.lx = snap.x; dragging.ly = snap.y;
+      dragging.el.style.setProperty('transform', 'translate(' + Math.round(snap.x) + 'px,' + Math.round(snap.y) + 'px)', 'important');
+      drawGuides(snap.guides);
+      e.preventDefault();
+    }, true);
+    document.addEventListener('mouseup', function (e) {
+      if (!dragging) return;
+      var d = dragging; dragging = null; document.body.style.userSelect = ''; clearGuides();
+      if (d.moved) {
+        d.el.style.removeProperty('transform');
+        setOverride(d.sel, 'transform', 'translate(' + Math.round(d.lx) + 'px,' + Math.round(d.ly) + 'px)');
+        suppressNextClick = true; e.preventDefault(); e.stopPropagation();
+      }
+    }, true);
+  }
+  function gatherCandidates(el) {
+    var vx = [], hy = [], push = function (node) {
+      if (node === el) return; var r = node.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return;
+      vx.push(r.left, r.left + r.width / 2, r.right); hy.push(r.top, r.top + r.height / 2, r.bottom);
+    };
+    var p = el.parentElement;
+    if (p) { push(p); for (var i = 0; i < p.children.length; i++) push(p.children[i]); }
+    return { vx: vx, hy: hy };
+  }
+  function computeSnap(d, nx, ny) {
+    var TH = 6, ox = nx - d.bx, oy = ny - d.by;
+    var box = { l: d.rect0.left + ox, r: d.rect0.right + ox, t: d.rect0.top + oy, b: d.rect0.bottom + oy };
+    box.cx = (box.l + box.r) / 2; box.cy = (box.t + box.b) / 2;
+    var guides = [];
+    var best = function (edges, cands) { var bb = null; edges.forEach(function (v) { cands.forEach(function (c) { var dd = c - v; if (Math.abs(dd) <= TH && (!bb || Math.abs(dd) < Math.abs(bb.dd))) bb = { dd: dd, line: c }; }); }); return bb; };
+    var vb = best([box.l, box.cx, box.r], dragCands.vx); if (vb) { nx += vb.dd; guides.push({ t: 'v', pos: vb.line }); }
+    var hb = best([box.t, box.cy, box.b], dragCands.hy); if (hb) { ny += hb.dd; guides.push({ t: 'h', pos: hb.line }); }
+    return { x: nx, y: ny, guides: guides };
+  }
+  function drawGuides(guides) {
+    clearGuides(); if (!guides.length) return;
+    guideLayer = document.createElement('div'); guideLayer.id = 'tmke-ve-guides';
+    guides.forEach(function (g) { var ln = document.createElement('div'); ln.className = 'tmke-ve-guide ' + g.t; if (g.t === 'v') ln.style.left = g.pos + 'px'; else ln.style.top = g.pos + 'px'; guideLayer.appendChild(ln); });
+    document.body.appendChild(guideLayer);
+  }
+  function clearGuides() { if (guideLayer) { guideLayer.remove(); guideLayer = null; } }
+
+  /* ---- Rulers (editor-only guides; not published) ---- */
+  var rulers = [];
+  function loadRulers() { try { rulers = JSON.parse(localStorage.getItem('tmke-ve-rulers') || '[]'); } catch (e) { rulers = []; } }
+  function saveRulers() { try { localStorage.setItem('tmke-ve-rulers', JSON.stringify(rulers)); } catch (e) {} renderRulers(); }
+  function addRuler(t) { rulers.push({ t: t, pos: t === 'v' ? 80 : 200 }); saveRulers(); }
+  function renderRulers() {
+    var old = document.getElementById('tmke-ve-rulers'); if (old) old.remove();
+    if (!editingEnabled || !rulers.length) return;
+    var layer = document.createElement('div'); layer.id = 'tmke-ve-rulers';
+    rulers.forEach(function (r, idx) {
+      var ln = document.createElement('div'); ln.className = 'tmke-ve-ruler ' + r.t;
+      ln.style[r.t === 'v' ? 'left' : 'top'] = r.pos + 'px';
+      var lab = document.createElement('span'); lab.className = 'lab'; lab.textContent = Math.round(r.pos) + 'px'; ln.appendChild(lab);
+      ln.addEventListener('mousedown', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var move = function (ev) { r.pos = (r.t === 'v') ? ev.clientX : ev.clientY; ln.style[r.t === 'v' ? 'left' : 'top'] = r.pos + 'px'; lab.textContent = Math.round(r.pos) + 'px'; };
+        var up = function () { document.removeEventListener('mousemove', move, true); document.removeEventListener('mouseup', up, true); saveRulers(); };
+        document.addEventListener('mousemove', move, true); document.addEventListener('mouseup', up, true);
+      }, true);
+      ln.addEventListener('dblclick', function (e) { e.preventDefault(); rulers.splice(idx, 1); saveRulers(); });
+      layer.appendChild(ln);
+    });
+    document.body.appendChild(layer);
   }
   function select(el) { deselect(); selected = el; el.classList.add('tmke-ve-selected'); crumbEl.textContent = pathLabel(el); renderPanel(el); }
   function deselect() {
@@ -564,7 +696,7 @@
   function clearHover() { Array.prototype.forEach.call(document.querySelectorAll('.tmke-ve-hover'), function (n) { n.classList.remove('tmke-ve-hover'); }); }
   function showFloatTag(el) { var t = document.getElementById('tmke-ve-floattag'); if (!t) return; var r = el.getBoundingClientRect(); t.textContent = el.tagName.toLowerCase(); t.style.left = r.left + 'px'; t.style.top = (r.top - 4) + 'px'; t.style.display = 'block'; }
   function hideFloatTag() { var t = document.getElementById('tmke-ve-floattag'); if (t) t.style.display = 'none'; }
-  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.closest('.tmke-ve-addmenu') || el.closest('.tmke-ve-prebar') || el.id === 'tmke-ve-floattag')); }
+  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.closest('.tmke-ve-addmenu') || el.closest('.tmke-ve-prebar') || el.closest('#tmke-ve-rulers') || el.closest('#tmke-ve-guides') || el.id === 'tmke-ve-floattag')); }
   function pathLabel(el) { var bits = [], n = el; for (var i = 0; i < 3 && n && n !== document.body; i++) { bits.unshift(n.tagName.toLowerCase()); n = n.parentElement; } return bits.join(' › '); }
 
   /* ---- content helpers ---- */
