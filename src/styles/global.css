@@ -4184,256 +4184,118 @@ body.nav-drawer-open { overflow: hidden; }
 body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
 
 /* ============================================================
-   CH 05 — THE EDIT (pinned "device" scene)
-   A 3-stage sticky takeover inspired by the Luffu reference: a hand
-   holds a phone (green-screen asset; the screen content is layered
-   over the chroma area), a soft gradient drifts behind, and both the
-   headline and the phone screen crossfade as the page snaps between
-   stages. Snapping is JS-driven via Lenis (see index.astro).
+   CH 05 — THE EDIT (records on a shelf)
+   Full-screen wall + the transparent shelf image (shelf3.png, 3 shelves).
+   Three template "records" sit on each shelf (same size, evenly spaced).
+   The top two rows sit BEHIND the shelf image so its front edge tucks their
+   base (looking-up perspective); the bottom row sits in FRONT on the open
+   surface, leaned back with a directional shadow (light from the upper-
+   right). Hover springs a record up and off the shelf.
    ============================================================ */
-.edit-scene {
+.shelf-scene {
   position: relative;
-  height: 350vh;                 /* scroll length: pin stays put across all 3 stages */
-  --edit-bg: #f4f1e9;
-  --blob-a: #e8e3d4;
-  --blob-b: #ddd2e6;
-  background: var(--edit-bg);
-  transition: background 0.9s ease;
-}
-/* Invisible full-height markers — the IntersectionObserver flips the
-   active stage as each one crosses the viewport centre, and the JS snap
-   targets their offsets (0 / 100vh / 200vh into the section). */
-.edit-snap { position: absolute; left: 0; width: 1px; height: 100vh; pointer-events: none; }
-.edit-snap[data-stage="0"] { top: 0; }
-.edit-snap[data-stage="1"] { top: 100vh; }
-.edit-snap[data-stage="2"] { top: 200vh; }
-.edit-scene[data-stage="1"] { --edit-bg: #efe7ec; --blob-a: #ecd9e4; --blob-b: #f1ddc9; }
-/* Stage 3 — a soft lavender (not the warm orange, which belongs to the
-   Marketing Experts palette), distinct from stage 2's pink-lilac. */
-.edit-scene[data-stage="2"] { --edit-bg: #ece6f2; --blob-a: #d8cbe9; --blob-b: #c6b8df; }
-
-.edit-pin {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  min-height: 106vh;              /* a touch taller → more header room up top */
+  display: flex;
+  align-items: flex-end;          /* shelves sit low; wall above holds the top row + copy */
+  justify-content: center;
+  padding: 0 4vw 3vh;
+  /* Clean wall — the shelf PNG is transparent, so we own the backdrop. */
+  background: radial-gradient(120% 110% at 50% 26%, #efefef 0%, #dcdcdc 55%, #c6c6c7 100%);
   overflow: hidden;
 }
+.shelf-copy { position: absolute; top: 8vh; left: 5vw; z-index: 5; max-width: 22ch; }
+.shelf-copy .chapter { color: rgba(28, 29, 34, 0.5); margin-bottom: 16px; }
+.shelf-title {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(32px, 3.6vw, 52px); line-height: 1; letter-spacing: -0.02em;
+  color: var(--ink); margin: 0;
+}
+.shelf-sub {
+  font-family: var(--sans); font-size: clamp(13px, 0.95vw, 15px); line-height: 1.5;
+  color: rgba(28, 29, 34, 0.6); margin: 14px 0 20px; max-width: 24ch;
+}
+.shelf-cta { color: var(--ink); }
+/* CTA in the bottom-right corner (padded off the edge) to balance the
+   top-left copy and even out the composition. */
+.shelf-cta-corner { position: absolute; right: 6vw; bottom: 7vh; z-index: 5; }
 
-/* Soft drifting gradient blobs behind the scene. */
-.edit-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.edit-blob {
-  position: absolute;
-  display: block;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.7;
-  transition: background 0.9s ease;
-  will-change: transform;
+/* Stage holds shelf2.png at its native aspect so record %-positions map
+   straight onto the picture. Records overflow upward, so nothing clips. */
+.shelf-stage {
+  position: relative;
+  isolation: isolate;              /* own stacking context for the record/shelf depth ordering */
+  width: min(92vw, 118vh);         /* bigger overall → records read larger */
+  aspect-ratio: 3000 / 2000;
 }
-.edit-blob--a {
-  width: 70vw; height: 70vw; top: -18vw; left: -10vw;
-  background: radial-gradient(circle at 50% 50%, var(--blob-a), transparent 68%);
-  animation: editBlobA 28s ease-in-out infinite;
-}
-.edit-blob--b {
-  width: 64vw; height: 64vw; bottom: -22vw; right: -12vw;
-  background: radial-gradient(circle at 50% 50%, var(--blob-b), transparent 68%);
-  animation: editBlobB 34s ease-in-out infinite;
-}
-@keyframes editBlobA {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  33%      { transform: translate3d(8vw, 6vh, 0) scale(1.08); }
-  66%      { transform: translate3d(-4vw, 10vh, 0) scale(0.96); }
-}
-@keyframes editBlobB {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  40%      { transform: translate3d(-7vw, -6vh, 0) scale(1.10); }
-  70%      { transform: translate3d(5vw, -3vh, 0) scale(0.95); }
+.shelf-bg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; pointer-events: none; user-select: none;
+  z-index: 2;                      /* between the tucked-under rows (1) and the front row (3) */
 }
 
-/* Headline — pinned near the top; stages crossfade in place. */
-.edit-head {
+/* Records — portrait (3:4) social posts resting on a shelf's front edge
+   (--y = distance from the stage bottom), leaning back via a bottom-pivoted
+   rotateX so they look propped against the shelf rather than floating. The
+   per-shelf modifiers set size / lean / depth so the perspective reads. */
+.shelf-rec {
   position: absolute;
-  top: 9vh; left: 0; right: 0;
-  z-index: 3;
-  text-align: center;
-  padding: 0 8vw;
+  left: var(--x); bottom: var(--y);
+  /* Same size for every record — 3:4 height (~24% of the stage) still fits
+     inside the ~25% gap; the bigger stage above makes them read larger. */
+  width: 12%; aspect-ratio: 3 / 4;
+  border-radius: 4px; overflow: hidden;
+  background: #cfcfcf;
+  transform-origin: center bottom;
+  transform: perspective(1200px) rotateX(var(--lean, 9deg));
+  /* Directional drop shadow — light from the upper-right, so the shadow
+     falls down and to the left. */
+  box-shadow: -12px 16px 28px rgba(0, 0, 0, 0.26), -3px 5px 9px rgba(0, 0, 0, 0.18);
+  transition: transform 0.45s cubic-bezier(.2, .8, .2, 1), box-shadow 0.45s ease;
+  cursor: pointer;
+}
+.shelf-rec img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.shelf-rec::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.16), transparent 42%);
   pointer-events: none;
 }
-.edit-head-chapter { margin-bottom: 22px; }
-.edit-head-stages { position: relative; min-height: 26vh; }
-.edit-head-stage {
-  position: absolute;
-  left: 0; right: 0; top: 0;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
+.shelf-rec:hover,
+.shelf-rec:focus-visible {
+  /* Spring up AND out (translateZ toward the viewer) and pop above the shelf
+     image, so even a tucked record springs clear instead of clipping through
+     the shelf. The overshoot easing gives it the "spring". */
+  transform: perspective(1200px) rotateX(2deg) translateY(-15%) translateZ(40px);
+  box-shadow: 0 44px 64px rgba(0, 0, 0, 0.36), 0 16px 24px rgba(0, 0, 0, 0.24);
+  transition: transform 0.5s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.4s ease;
+  z-index: 7 !important;
+  outline: none;
 }
-.edit-scene[data-stage="0"] .edit-head-stage[data-stage="0"],
-.edit-scene[data-stage="1"] .edit-head-stage[data-stage="1"],
-.edit-scene[data-stage="2"] .edit-head-stage[data-stage="2"] { opacity: 1; transform: none; }
-.edit-scene[data-stage="2"] .edit-head-stage[data-stage="2"] { pointer-events: auto; }
-.edit-head-title {
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: clamp(30px, 4vw, 58px);
-  line-height: 1.04;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  margin: 0 auto;
-  max-width: 18ch;
-}
-.edit-head-title em { font-style: italic; color: var(--english-violet); }
-.edit-head-copy {
-  font-family: var(--sans);
-  font-size: clamp(14px, 1.15vw, 17px);
-  line-height: 1.55;
-  color: rgba(28, 29, 34, 0.62);
-  margin: 18px auto 0;
-  max-width: 52ch;
-}
-.edit-head-cta { margin-top: 26px; display: inline-flex; }
 
-/* Hand + phone scene. */
-.edit-stage-wrap { position: absolute; inset: 0; z-index: 2; }
-.edit-hand {
-  position: absolute;
-  left: 50%;
-  bottom: -7vh;
-  transform: translateX(-50%);
-  height: 96vh;
-  aspect-ratio: 3 / 4;          /* matches hand.png (1500×2000) */
+/* Per-shelf depth + seating — measured from shelf3.png (front edges ~6.5 /
+   42 / 77.7%). All same size; only position / lean / depth differ:
+   - s1 (top):    behind the shelf (z1) → base tucks, bottom clips (looking up).
+   - s2 (middle): behind the shelf (z1) → bottom clips into its own shelf only;
+                  sized so the top clears shelf 1.
+   - s3 (bottom): in FRONT (z3) → fully visible on the surface, no clipping. */
+/* Solid shelf bodies (centre): s1 1.6–12.3%, s2 37.2–42.9%, s3 67.8–78.5%.
+   - s1 (top): behind the shelf (z1), base tucked, body rises above (looking up).
+   - s2 (middle): behind (z1), base tucked on shelf 2; sized so its TOP (~20%)
+     stays clear of shelf 1's solid (12.3%).
+   - s3 (bottom): in FRONT (z3), base ON the surface (~74%), leaning back. */
+.shelf-rec--s1 { --y: 93%; --lean: 8deg;  z-index: 1; } /* top — lifted so less is tucked  */
+.shelf-rec--s2 { --y: 61%; --lean: 9deg;  z-index: 1; } /* middle — up, just below shelf 1   */
+.shelf-rec--s3 {
+  --y: 32%; --lean: 22deg; z-index: 3;                  /* bottom — sat on the surface, leaned back hard */
+  /* Leaning hard against the wall + lit from the upper-right casts a deeper
+     shadow down and to the left, wedging into the shelf/wall (the triangle). */
+  box-shadow: -24px 26px 42px rgba(0, 0, 0, 0.32), -7px 10px 16px rgba(0, 0, 0, 0.24);
 }
-.edit-hand-img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
-/* Screen content positioned exactly over the green chroma area of
-   hand.png (measured: left 30.33%, top 28.2%, w 33.73%, h 58.15%). */
-.edit-phone {
-  position: absolute;
-  /* Sits over the green chroma area of hand.png, bled slightly past it on
-     every side so no green leaks at the edges; the rounded corners tuck the
-     bleed under the bezel. (Green measured at 30.33–63.93% × 29.95–86.4%.) */
-  left: 29.5%;
-  top: 29.2%;
-  width: 35%;
-  height: 58%;
-  overflow: hidden;
-  border-radius: clamp(20px, 3.4vh, 46px);
-  font-size: clamp(7px, 1.45vh, 12px);   /* drives the mock UIs' em units */
-  background: #f6f4ef;
-}
-/* Horizontal strip of screens — slid by --screen-pos (0..N) so the phone
-   reads as scrolling sideways between stages rather than cross-fading. */
-.edit-track {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  width: 100%;
-  transform: translate3d(calc(var(--screen-pos, 0) * -100%), 0, 0);
-  will-change: transform;
-}
-.edit-screen {
-  position: relative;
-  flex: 0 0 100%;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #f6f4ef;
-}
-.edit-screen--collage img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-/* ---- Phone editor mock (Screen A) ---- */
-.edit-screen--editor { background: #f6f4ef; color: var(--ink); display: flex; flex-direction: column; }
-.ph-status {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 1.1em 1.4em 0.4em;
-  font: 600 0.95em/1 var(--sans);
-}
-.ph-status-ic { width: 2.4em; height: 0.8em; border-radius: 2px; background: rgba(28, 29, 34, 0.5); }
-.ph-body { flex: 1; display: flex; flex-direction: column; gap: 1.05em; padding: 0.6em 1.4em 1.4em; min-height: 0; }
-.ph-head { display: flex; align-items: baseline; justify-content: space-between; }
-.ph-eyebrow { font-family: var(--serif); font-size: 2.1em; letter-spacing: -0.02em; }
-.ph-chip {
-  font: 700 0.85em/1 var(--sans); letter-spacing: 0.18em;
-  color: var(--english-violet);
-  border: 1px solid rgba(91, 75, 122, 0.4);
-  border-radius: 999px; padding: 0.3em 0.7em;
-}
-.ph-feature {
-  position: relative; flex: 1; min-height: 0;
-  border-radius: 1.2em; overflow: hidden;
-  /* Live, flowing colour so the template reads as active, not a still. */
-  background: linear-gradient(135deg, #5b4b7a, #9a86b8 50%, #7a6aa6);
-  background-size: 220% 220%;
-  animation: phFlow 9s ease-in-out infinite;
-}
-@keyframes phFlow {
-  0%, 100% { background-position: 0% 50%; }
-  50%      { background-position: 100% 50%; }
-}
-.ph-feature-tag {
-  position: absolute; top: 0.9em; left: 0.9em;
-  font: 700 0.8em/1 var(--sans); letter-spacing: 0.16em; text-transform: uppercase;
-  color: #fff; background: rgba(0, 0, 0, 0.22); padding: 0.35em 0.7em; border-radius: 999px;
-}
-.ph-feature-title { position: absolute; bottom: 0.8em; left: 0.9em; font-family: var(--serif); font-size: 1.7em; color: #fff; }
-.ph-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6em; }
-.ph-thumb { aspect-ratio: 1; border-radius: 0.7em; background: #e6e0d4; }
-.ph-thumb:nth-child(2) { background: #d9cfe2; }
-.ph-thumb:nth-child(3) { background: #e7d9cb; }
-/* Scrolling brand-palette strip — colours glide across to show movement. */
-.ph-palette { display: flex; flex-direction: column; gap: 0.5em; }
-.ph-palette-label { font: 600 0.95em/1 var(--sans); color: rgba(28, 29, 34, 0.6); letter-spacing: 0.04em; }
-.ph-palette-strip { overflow: hidden; }
-.ph-palette-track { display: flex; gap: 0.55em; width: max-content; animation: phPalette 7s linear infinite; }
-.ph-palette-track i { width: 1.6em; height: 1.6em; border-radius: 50%; display: block; flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
-@keyframes phPalette { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-
-/* ---- Phone catalogue mock (Screen B) ---- */
-.edit-screen--catalog { color: var(--ink); display: flex; flex-direction: column; }
-.ph-packs { display: flex; gap: 0.5em; overflow: hidden; }
-.ph-pack {
-  flex: 0 0 auto;
-  font: 600 0.9em/1 var(--sans); letter-spacing: 0.01em;
-  padding: 0.55em 0.9em; border-radius: 999px; white-space: nowrap;
-  background: #ece7dd; color: rgba(28, 29, 34, 0.7);
-}
-.ph-pack.is-on { background: var(--english-violet); color: #f6f4ef; }
-.ph-film { flex: 1; min-height: 0; overflow: hidden; border-radius: 1em; }
-.ph-film-track { display: flex; gap: 0.7em; height: 100%; width: max-content; animation: phFilm 18s linear infinite; }
-.ph-tile {
-  position: relative; flex: 0 0 auto;
-  width: 8.5em; height: 100%;
-  border-radius: 0.9em; overflow: hidden;
-  background: var(--g, #5b4b7a);
-}
-.ph-tile::after {
-  content: ""; position: absolute; inset: 0;
-  background: linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, 0.4));
-}
-.ph-tile b {
-  position: absolute; left: 0.7em; right: 0.7em; bottom: 0.7em; z-index: 1;
-  font: 700 0.95em/1.2 var(--sans); color: #fff;
-}
-@keyframes phFilm { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.ph-btn {
-  margin-top: auto; text-align: center;
-  font: 600 1.05em/1 var(--sans); letter-spacing: 0.02em;
-  color: #f6f4ef; background: var(--ink);
-  border-radius: 999px; padding: 0.95em 1em;
-}
-.ph-btn span { margin-left: 0.3em; }
-
-@media (max-width: 880px) {
-  .edit-head { top: 7vh; }
-  .edit-head-title { font-size: clamp(26px, 7vw, 40px); }
-  .edit-head-copy { font-size: 14px; }
-  .edit-hand { height: 74vh; bottom: -4vh; }
+@media (max-width: 900px) {
+  .shelf-scene { align-items: flex-end; padding-bottom: 6vh; }
+  .shelf-copy { max-width: 60vw; top: 5vh; }
+  .shelf-stage { width: 96vw; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .edit-blob,
-  .ph-feature,
-  .ph-palette-track,
-  .ph-film-track { animation: none; }
-  .edit-head-stage { transition: none; }
+  .shelf-rec { transition: none; }
 }
