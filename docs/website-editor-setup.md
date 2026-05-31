@@ -34,6 +34,43 @@ create policy "authed update site_overrides"
   with check (auth.role() = 'authenticated');
 ```
 
+## 1b. Create the image-upload storage bucket
+
+The editor can upload images and pull them into the page (the "⤴ Upload" /
+"▦ Library" buttons on any image or background). This needs a **public** Storage
+bucket called `site-media`.
+
+In the Supabase dashboard → **Storage** → **New bucket**:
+
+- Name: `site-media`
+- **Public bucket: ON** (so uploaded images are viewable on the live site)
+
+Then add policies so signed-in admins can upload and anyone can read. Run this
+in the SQL editor:
+
+```sql
+-- public read of uploaded images
+create policy "public read site-media"
+  on storage.objects for select
+  using (bucket_id = 'site-media');
+
+-- signed-in admins can upload
+create policy "authed upload site-media"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'site-media');
+
+-- signed-in admins can overwrite / remove their uploads
+create policy "authed update site-media"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'site-media');
+create policy "authed delete site-media"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'site-media');
+```
+
+Uploads are stored under `uploads/` and referenced by their public URL, so
+nothing breaks if the editor is toggled off.
+
 ## 2. Environment variables
 
 These are the **same** vars the rest of the auth/admin already uses — no new
