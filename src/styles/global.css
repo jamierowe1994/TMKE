@@ -35,6 +35,22 @@
   --serif: "Cormorant Garamond", "EB Garamond", Georgia, serif;
   --sans:  "Darker Grotesque", "Inter", system-ui, sans-serif;
   --tracking-eyebrow: 0.18em;
+
+  /* ============================================================
+     SHARED TYPE + SPACING SCALE — single source of truth.
+     Derived from the home page; every page should reference these so
+     sizing, line-height and section rhythm stay uniform site-wide.
+     ============================================================ */
+  --sec-top:    clamp(80px, 9vw, 140px);   /* section padding-top    */
+  --sec-bottom: clamp(104px, 12vw, 180px); /* section padding-bottom */
+  /* Type scale — client-locked sizes (desktop values; scale down fluidly). */
+  --fs-display: clamp(92px, 12vw, 160px);  /* giant footer word, e.g. "News" — lh 0.86 */
+  --lh-display: 0.86;
+  --fs-title:   clamp(32px, 4vw, 48px);    /* section titles: "The Edit", "A small studio" — lh 1.0 */
+  --lh-title:   1.0;
+  --fs-quote:   clamp(20px, 2vw, 26px);    /* quote / lead paragraphs — lh 1.2 */
+  --lh-quote:   1.2;
+  --fs-eyebrow: 11px;                       /* chapter / eyebrow label (Darker Grotesque) */
 }
 
 * { box-sizing: border-box; }
@@ -701,7 +717,8 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 
 /* ============ Services Grid ============ */
-.services { padding-top: 140px; position: relative; }
+/* Reduced gap from the full-screen hero into Chapter 02 (was 140px). */
+.services { padding-top: clamp(56px, 6vw, 84px); position: relative; }
 .services-eyebrow {
   display: flex; justify-content: space-between; align-items: end;
   margin-bottom: 72px;
@@ -717,17 +734,16 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .services-eyebrow-line {
   display: block;
   white-space: nowrap;
-  /* Auto-shrinks below the headline ceiling on narrower laptops so the line
-     stays on one row rather than wrapping or overflowing. */
-  font-size: clamp(28px, 3.55vw, 58px);
+  /* Client-locked section-title size (48px). Still auto-shrinks fluidly. */
+  font-size: var(--fs-title);
 }
 .services-eyebrow-sub {
   display: block;
   margin-top: 14px;
   font-family: var(--sans);
   font-style: normal;
-  font-weight: 600;
-  font-size: clamp(24px, 2.2vw, 32px);
+  font-weight: 400;          /* de-bolded per client */
+  font-size: clamp(22px, 2vw, 28px);
   letter-spacing: -0.005em;
   color: var(--english-violet);
 }
@@ -1142,9 +1158,9 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
      the viewport. The intro title now sits over the centre of the photo
      (rather than in a tall top gutter), so no extra headroom is needed.
      Side margins match the page wrap. Fullscreen: zero insets. */
-  --inset-top: 17vh;
-  --inset-bottom: 17vh;
-  --inset-side: 8vw;
+  --inset-top: 12vh;
+  --inset-bottom: 12vh;
+  --inset-side: 5vw;
   clip-path: inset(
     calc(var(--inset-top)    * (1 - var(--takeover)))
     calc(var(--inset-side)   * (1 - var(--takeover)))
@@ -1237,25 +1253,14 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   z-index: 2;
   pointer-events: none;
   opacity: var(--takeover, 0);
-  /* Gradient stack: a deep black floor that fades to transparent
-     toward the top, plus a left-anchored gradient adding extra dim
-     where the overlay text sits. */
+  /* Clean single bottom-up fade (no blur, no abstract left-anchored layer)
+     so the copy stays legible without the scrim reading as a hazy blob. */
   background:
     linear-gradient(0deg,
-      rgba(0, 0, 0, 0.92) 0%,
-      rgba(0, 0, 0, 0.75) 18%,
-      rgba(0, 0, 0, 0.45) 45%,
-      rgba(0, 0, 0, 0.15) 75%,
-      rgba(0, 0, 0, 0.00) 100%),
-    linear-gradient(75deg,
-      rgba(0, 0, 0, 0.40) 0%,
-      rgba(0, 0, 0, 0.10) 45%,
-      transparent 70%);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  /* Soft top edge so the blur doesn't show a hard horizontal line. */
-  -webkit-mask-image: linear-gradient(0deg, #000 60%, transparent 100%);
-          mask-image: linear-gradient(0deg, #000 60%, transparent 100%);
+      rgba(0, 0, 0, 0.72) 0%,
+      rgba(0, 0, 0, 0.46) 28%,
+      rgba(0, 0, 0, 0.18) 62%,
+      rgba(0, 0, 0, 0.00) 100%);
 }
 
 /* Intro overlay — sits at the top of the viewport above the contained
@@ -1287,18 +1292,17 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   margin-bottom: 26px;
 }
 .approach-takeover-title {
-  font-family: var(--serif);
-  /* Scaled up a touch now that it sits over the full centre of the photo
-     with more room than the old top gutter allowed. */
+  /* Darker Grotesque display title with tight tracking (per client). */
+  font-family: var(--sans);
   font-size: clamp(40px, 5vw, 80px);
   line-height: 1.02;
-  letter-spacing: -0.02em;
-  font-weight: 400;
+  letter-spacing: -0.03em;
+  font-weight: 500;
   /* White over the darkened photo, with a soft shadow for legibility. */
   color: var(--paper);
   text-shadow: 0 2px 34px rgba(0, 0, 0, 0.45);
   margin: 0 auto;
-  max-width: 20ch;
+  max-width: 22ch;
 }
 .approach-takeover-title em {
   font-style: italic;
@@ -1361,11 +1365,12 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   color: var(--paper);
 }
 .approach-overlay-h {
-  font-family: var(--serif);
+  /* Slide titles in Darker Grotesque, tight tracking (per client). */
+  font-family: var(--sans);
   font-size: clamp(36px, 4.4vw, 64px);
   line-height: 1.05;
-  letter-spacing: -0.015em;
-  font-weight: 400;
+  letter-spacing: -0.03em;
+  font-weight: 500;
   color: var(--paper);
   margin: 0 0 18px;
   /* Each stage title now sits on a single line (the vw-based size keeps
@@ -2626,7 +2631,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   font-family: var(--serif);
   font-style: italic;
   font-weight: 400;
-  font-size: 26px;
+  font-size: 20px;
   letter-spacing: 0;
   text-transform: none;
   line-height: 1;
@@ -2887,8 +2892,8 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .quote-text {
   font-family: var(--serif);
-  font-size: clamp(25px, 2.5vw, 40px);
-  line-height: 1.22;
+  font-size: var(--fs-quote);     /* client-locked 26px / 1.2 */
+  line-height: var(--lh-quote);
   letter-spacing: -0.005em;
   color: var(--ink);
   position: relative;
@@ -3012,8 +3017,8 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .quote--split .quote-text {
   font-family: var(--serif);
-  font-size: clamp(25px, 2.4vw, 38px);
-  line-height: 1.22;
+  font-size: var(--fs-quote);     /* client-locked 26px / 1.2 */
+  line-height: var(--lh-quote);
   letter-spacing: -0.005em;
   color: var(--ink);
   margin: 0;
@@ -3545,9 +3550,11 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   margin-bottom: -10px;
 }
 .news-title {
-  font-family: var(--serif);
-  font-size: clamp(108px, 12.6vw, 216px);
-  line-height: 0.86;
+  /* Large word in Darker Grotesque (small eyebrow above stays Cormorant). */
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: var(--fs-display);   /* client-locked 160px / 0.86 */
+  line-height: var(--lh-display);
   letter-spacing: -0.02em;
   margin-bottom: 32px;
 }
@@ -3593,6 +3600,8 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   color: var(--paper);
   position: relative;
   z-index: 2;
+  /* Hairline top divider, matching the header's border treatment. */
+  border-top: 1px solid rgba(242, 239, 233, 0.12);
 }
 .footer-grid {
   display: grid;
@@ -4207,7 +4216,7 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
 .shelf-copy .chapter { color: rgba(28, 29, 34, 0.5); margin-bottom: 16px; }
 .shelf-title {
   font-family: var(--serif); font-weight: 400;
-  font-size: clamp(32px, 3.6vw, 52px); line-height: 1; letter-spacing: -0.02em;
+  font-size: var(--fs-title); line-height: var(--lh-title); letter-spacing: -0.02em;
   color: var(--ink); margin: 0;
 }
 .shelf-sub {
@@ -4224,7 +4233,9 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
 .shelf-stage {
   position: relative;
   isolation: isolate;              /* own stacking context for the record/shelf depth ordering */
-  width: min(92vw, 118vh);         /* bigger overall → records read larger */
+  /* Scaled down so the shelf is less dominant vs the assets and leaves
+     the top-left title more breathing room. */
+  width: min(80vw, 104vh);
   aspect-ratio: 3000 / 2000;
 }
 .shelf-bg {
