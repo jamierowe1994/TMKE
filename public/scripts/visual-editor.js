@@ -122,8 +122,18 @@
       '@keyframes ve-zoom{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}' +
       '@keyframes ve-pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}' +
       '.ve-block{max-width:1360px;margin:40px auto;padding:0 76px;}' +
+      '.ve-block--text h2{font-family:var(--sans);font-size:clamp(32px,4vw,52px);line-height:1.05;color:var(--ink);margin:0;}' +
+      '.ve-block--text h3{font-family:var(--serif);font-size:clamp(24px,3vw,34px);line-height:1.2;color:var(--ink);margin:0;}' +
       '.ve-block--text p{font-family:var(--serif);font-size:clamp(20px,2vw,26px);line-height:1.5;color:var(--ink);margin:0;}' +
-      '.ve-block--image img,.ve-block--video video{width:100%;height:auto;display:block;border-radius:4px;}';
+      '.ve-block--image img,.ve-block--video video{width:100%;height:auto;display:block;border-radius:4px;}' +
+      '.ve-block.ve-shape,.ve-block.ve-line,.ve-block.ve-gradient{max-width:none;padding:0;}' +
+      '.ve-shape{width:180px;height:120px;background:var(--english-violet);margin:24px auto;}' +
+      '.ve-shape--circle{border-radius:50%;}' +
+      '.ve-shape--tri{clip-path:polygon(50% 0%,100% 100%,0% 100%);}' +
+      '.ve-line{background:var(--ink);margin:24px auto;}' +
+      '.ve-line--h{width:60%;height:3px;}' +
+      '.ve-line--v{width:3px;height:160px;}' +
+      '.ve-gradient{width:100%;height:240px;margin:0 auto;background:linear-gradient(to bottom,rgba(0,0,0,.6),rgba(0,0,0,0));}';
     document.head.appendChild(s);
   }
   injectGlobalStyles();
@@ -363,6 +373,22 @@
       '.tmke-ve-switch.on::after{transform:translateX(16px);}',
       '.tmke-ve-danger{margin-top:14px;border-color:rgba(255,120,120,.45)!important;color:#ffb4b4!important;}',
       '.tmke-ve-danger:hover{background:rgba(255,120,120,.1)!important;}',
+      '#tmke-ve-handles{position:fixed;z-index:2147483644;pointer-events:none;outline:1px solid rgba(91,75,122,.9);}',
+      '.tmke-ve-handle{position:absolute;width:13px;height:13px;background:#fff;border:2px solid #5b4b7a;border-radius:50%;pointer-events:auto;}',
+      '.tmke-ve-handle.nw{left:-7px;top:-7px;cursor:nwse-resize;}',
+      '.tmke-ve-handle.ne{right:-7px;top:-7px;cursor:nesw-resize;}',
+      '.tmke-ve-handle.sw{left:-7px;bottom:-7px;cursor:nesw-resize;}',
+      '.tmke-ve-handle.se{right:-7px;bottom:-7px;cursor:nwse-resize;}',
+      '#tmke-ve-ghost{position:fixed;z-index:2147483646;transform:translate(-50%,-50%);background:#5b4b7a;color:#fff;font:600 12px system-ui;padding:6px 10px;border-radius:6px;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.4);text-transform:capitalize;}',
+      '.tmke-ve-palette{width:300px;padding:8px;}',
+      '.tmke-ve-palcats{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;}',
+      '.tmke-ve-palcat{flex:1 1 auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:#f2efe9;font:600 11px system-ui;padding:6px 8px;border-radius:6px;cursor:pointer;}',
+      '.tmke-ve-palcat.on{background:#5b4b7a;border-color:#5b4b7a;}',
+      '.tmke-ve-paltiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}',
+      '.tmke-ve-tile{display:flex;flex-direction:column;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#f2efe9;border-radius:8px;padding:12px 6px 9px;cursor:grab;font:600 11px system-ui;}',
+      '.tmke-ve-tile:hover{background:rgba(255,255,255,.14);}',
+      '.tmke-ve-tile .ic{opacity:.92;}',
+      '.tmke-ve-palhint{font-size:10.5px;opacity:.55;line-height:1.4;padding:8px 2px 2px;}',
     ].join('');
     document.head.appendChild(s);
     document.body.classList.add('tmke-ve-on');
@@ -393,36 +419,104 @@
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.onclick = fn; return b; }
   function btn2(label, cls, fn) { var b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = fn; return b; }
 
-  /* ---- Add blocks (Text / Header image / Video) ---- */
+  /* ---- Add palette (Canva-style tiles + drag-to-place) ---- */
   var blockSeq = 0;
+  var ADD_CATS = [
+    ['Text', [['Heading', 'heading'], ['Subheading', 'subheading'], ['Paragraph', 'paragraph']]],
+    ['Media', [['Image', 'image'], ['Video', 'video']]],
+    ['Shapes', [['Rectangle', 'rect'], ['Circle', 'circle'], ['Triangle', 'triangle']]],
+    ['Lines', [['Horizontal', 'hline'], ['Vertical', 'vline']]],
+    ['Gradient', [['Gradient', 'gradient']]],
+  ];
+  function tileIcon(t) {
+    var s = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6">';
+    var g = { heading: '<path d="M5 5v14M5 12h9M14 5v14"/>', subheading: '<path d="M5 7v10M5 12h7M12 7v10"/><circle cx="18" cy="9" r="1.4" fill="currentColor"/>',
+      paragraph: '<path d="M5 6h14M5 10h14M5 14h10M5 18h7"/>', image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M4 17l5-4 4 3 3-2 4 3"/>',
+      video: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M10 9l5 3-5 3z" fill="currentColor"/>', rect: '<rect x="4" y="6" width="16" height="12" rx="1.5" fill="currentColor"/>',
+      circle: '<circle cx="12" cy="12" r="8" fill="currentColor"/>', triangle: '<path d="M12 4l8 16H4z" fill="currentColor"/>',
+      hline: '<path d="M4 12h16" stroke-width="2.4"/>', vline: '<path d="M12 4v16" stroke-width="2.4"/>',
+      gradient: '<defs><linearGradient id="vg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><rect x="4" y="4" width="16" height="16" rx="2" fill="url(#vg)" stroke="none"/>' };
+    return s + (g[t] || '') + '</svg>';
+  }
   function toggleAddMenu(anchor) {
     var ex = document.getElementById('tmke-ve-addmenu'); if (ex) { ex.remove(); return; }
-    var m = document.createElement('div'); m.id = 'tmke-ve-addmenu'; m.className = 'tmke-ve-addmenu';
-    [['Text', 'text'], ['Header image', 'image'], ['Video', 'video']].forEach(function (o) {
-      var b = document.createElement('button'); b.textContent = o[0];
-      b.onclick = function () { m.remove(); addBlock(o[1]); };
-      m.appendChild(b);
+    var m = document.createElement('div'); m.id = 'tmke-ve-addmenu'; m.className = 'tmke-ve-addmenu tmke-ve-palette';
+    var cats = document.createElement('div'); cats.className = 'tmke-ve-palcats';
+    var tiles = document.createElement('div'); tiles.className = 'tmke-ve-paltiles';
+    function renderTiles(items) {
+      tiles.innerHTML = '';
+      items.forEach(function (it) {
+        var tile = document.createElement('button'); tile.className = 'tmke-ve-tile';
+        tile.innerHTML = '<span class="ic">' + tileIcon(it[1]) + '</span><span>' + it[0] + '</span>';
+        tile.addEventListener('mousedown', function (e) { startPaletteDrag(e, { t: it[1] }, m); });
+        tiles.appendChild(tile);
+      });
+    }
+    ADD_CATS.forEach(function (c, ci) {
+      var cb = document.createElement('button'); cb.className = 'tmke-ve-palcat' + (ci === 0 ? ' on' : ''); cb.textContent = c[0];
+      cb.onclick = function () { Array.prototype.forEach.call(cats.children, function (n) { n.classList.remove('on'); }); cb.classList.add('on'); renderTiles(c[1]); };
+      cats.appendChild(cb);
     });
+    renderTiles(ADD_CATS[0][1]);
+    var hint = document.createElement('div'); hint.className = 'tmke-ve-palhint'; hint.textContent = 'Click to add, or drag onto the page to drop it exactly where you want.';
+    m.appendChild(cats); m.appendChild(tiles); m.appendChild(hint);
     var r = anchor.getBoundingClientRect();
-    m.style.left = r.left + 'px'; m.style.top = (r.bottom + 6) + 'px';
+    m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 320)) + 'px'; m.style.top = (r.bottom + 6) + 'px';
     document.body.appendChild(m);
   }
-  function addBlock(type) {
+  function startPaletteDrag(e, def, menu) {
+    e.preventDefault();
+    var sx = e.clientX, sy = e.clientY, moved = false, ghost = null;
+    var move = function (ev) {
+      if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) < 5) return;
+      if (!moved) { moved = true; ghost = document.createElement('div'); ghost.id = 'tmke-ve-ghost'; ghost.textContent = '＋ ' + def.t; document.body.appendChild(ghost); }
+      ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px';
+    };
+    var up = function (ev) {
+      document.removeEventListener('mousemove', move, true); document.removeEventListener('mouseup', up, true);
+      if (ghost) ghost.remove(); if (menu) menu.remove();
+      if (moved) { if (!isChrome(ev.target)) addPaletteBlock(def, ev.clientX, ev.clientY); }
+      else addPaletteBlock(def);
+    };
+    document.addEventListener('mousemove', move, true); document.addEventListener('mouseup', up, true);
+  }
+  function blockHtml(t, id) {
+    var a = 'id="' + id + '" data-ve-block="' + id + '"';
+    switch (t) {
+      case 'heading': return '<div class="ve-block ve-block--text" ' + a + '><h2>New heading</h2></div>';
+      case 'subheading': return '<div class="ve-block ve-block--text" ' + a + '><h3>New subheading</h3></div>';
+      case 'paragraph': return '<div class="ve-block ve-block--text" ' + a + '><p>New paragraph — click to edit.</p></div>';
+      case 'image': return '<div class="ve-block ve-block--image" ' + a + '><img src="/assets/hero.png" alt=""></div>';
+      case 'video': return '<div class="ve-block ve-block--video" ' + a + '><video src="" controls playsinline></video></div>';
+      case 'rect': return '<div class="ve-block ve-shape ve-shape--rect" ' + a + '></div>';
+      case 'circle': return '<div class="ve-block ve-shape ve-shape--circle" ' + a + '></div>';
+      case 'triangle': return '<div class="ve-block ve-shape ve-shape--tri" ' + a + '></div>';
+      case 'hline': return '<div class="ve-block ve-line ve-line--h" ' + a + '></div>';
+      case 'vline': return '<div class="ve-block ve-line ve-line--v" ' + a + '></div>';
+      case 'gradient': return '<div class="ve-block ve-gradient" ' + a + '></div>';
+      default: return '<div class="ve-block ve-block--text" ' + a + '><p>New block</p></div>';
+    }
+  }
+  function addPaletteBlock(def, x, y) {
     blockSeq++;
-    var id = 'b' + Date.now() + '-' + blockSeq, html;
-    if (type === 'text') html = '<div class="ve-block ve-block--text" data-ve-block="' + id + '"><p>New text — click to edit.</p></div>';
-    else if (type === 'image') html = '<div class="ve-block ve-block--image" data-ve-block="' + id + '"><img src="/assets/hero.png" alt=""></div>';
-    else html = '<div class="ve-block ve-block--video" data-ve-block="' + id + '"><video src="" controls playsinline></video></div>';
-    var afterEl = selected ? (selected.closest('section') || selected) : null;
-    if (!afterEl) { var secs = document.querySelectorAll('section'); afterEl = secs[secs.length - 1] || document.body.lastElementChild; }
-    var wrap = document.createElement('div'); wrap.innerHTML = html.trim();
+    var id = 'veb' + Date.now() + '-' + blockSeq;
+    var wrap = document.createElement('div'); wrap.innerHTML = blockHtml(def.t, id).trim();
     var node = wrap.firstElementChild;
-    afterEl.parentNode.insertBefore(node, afterEl.nextSibling);
+    var ref = null;
+    if (typeof x === 'number') { var u = document.elementFromPoint(x, y); ref = u && u.closest('section'); }
+    if (!ref) ref = selected && selected.closest('section');
+    if (!ref) { var secs = document.querySelectorAll('section'); ref = secs[secs.length - 1] || document.body.lastElementChild; }
+    ref.parentNode.insertBefore(node, ref.nextSibling);
     if (!overrides.__blocks) overrides.__blocks = [];
-    overrides.__blocks.push({ id: id, after: selectorFor(afterEl), html: node.outerHTML });
+    var nsel = selectorFor(node);
+    if (typeof x === 'number') {
+      var r = node.getBoundingClientRect();
+      var tx = Math.round(x - (r.left + r.width / 2)), ty = Math.round(y - (r.top + r.height / 2));
+      setOverride(nsel, 'transform', 'translate(' + tx + 'px,' + ty + 'px)');
+    } else node.scrollIntoView({ block: 'center' });
+    overrides.__blocks.push({ id: id, after: selectorFor(ref), html: node.outerHTML });
     persist();
-    node.scrollIntoView({ block: 'center' });
-    select(type === 'text' ? (node.querySelector('p') || node) : node);
+    select((def.t === 'heading' || def.t === 'subheading' || def.t === 'paragraph') ? (node.querySelector('h2,h3,p') || node) : node);
   }
   function toggleRulerMenu(anchor) {
     var ex = document.getElementById('tmke-ve-addmenu'); if (ex) { ex.remove(); return; }
@@ -635,10 +729,52 @@
     });
     parent.appendChild(row);
   }
+  function blurRow(parent, sel, cs) {
+    var saved = overrides[sel] && overrides[sel]['filter'];
+    var cur = saved ? (parseFloat((String(saved).match(/blur\(([\d.]+)px\)/) || [])[1]) || 0) : 0;
+    var row = document.createElement('div'); row.className = 'tmke-ve-row';
+    row.innerHTML = '<label>Blur <span class="val">' + cur + 'px</span></label><input type="range" min="0" max="30" step="0.5">';
+    var input = row.querySelector('input'), valEl = row.querySelector('.val'); input.value = cur;
+    input.addEventListener('input', function () { var v = parseFloat(input.value); valEl.textContent = v + 'px'; if (v > 0) setOverride(sel, 'filter', 'blur(' + v + 'px)'); else { if (overrides[sel]) delete overrides[sel]['filter']; persist(); injectStyles(); } });
+    parent.appendChild(row);
+  }
+  function effectsGroup(sel, el, cs) {
+    var ge = group('Effects (opacity & blur)', false);
+    rangeRow(ge, 'Opacity', 'opacity', sel, cs, { min: 0, max: 1, step: 0.05, unit: '', init: function (cs2) { return parseFloat(cs2.opacity) || 1; } });
+    blurRow(ge, sel, cs);
+  }
+  function lineGroup(sel, el, cs) {
+    var isV = el.classList.contains('ve-line--v');
+    var gl = group('Line', true);
+    rangeRow(gl, 'Thickness', isV ? 'width' : 'height', sel, cs, { min: 1, max: 40, step: 1, unit: 'px' });
+    rangeRow(gl, 'Length', isV ? 'height' : 'width', sel, cs, { min: 20, max: 1200, step: 10, unit: 'px', init: function (cs2) { return parseFloat(isV ? cs2.height : cs2.width) || 200; } });
+    colourRow(gl, 'Colour', 'background-color', sel, cs, false);
+  }
+  function gradientGroup(sel, el) {
+    var gg = group('Gradient', true);
+    var saved = (overrides[sel] && overrides[sel].__grad) || { dir: 'to bottom', c1: '#000000', fade: true, c2: '#ffffff' };
+    var apply = function () {
+      if (!overrides[sel]) overrides[sel] = {}; overrides[sel].__grad = saved;
+      var end = saved.fade ? hexToRgba(saved.c1, 0) : saved.c2;
+      setOverride(sel, 'background-image', 'linear-gradient(' + saved.dir + ',' + saved.c1 + ',' + end + ')');
+    };
+    selectRow(gg, 'Direction', [['Top → Bottom', 'to bottom'], ['Bottom → Top', 'to top'], ['Left → Right', 'to right'], ['Right → Left', 'to left'], ['Diagonal', '135deg']], saved.dir, function (v) { saved.dir = v; apply(); });
+    var c1Row = document.createElement('div'); c1Row.className = 'tmke-ve-row'; c1Row.innerHTML = '<label>Start colour</label><input type="color">';
+    var c1 = c1Row.querySelector('input'); c1.value = toHex(saved.c1); c1.addEventListener('input', function () { saved.c1 = c1.value; apply(); }); gg.appendChild(c1Row);
+    boolToggle(gg, 'Fade to transparent', saved.fade, function (on) { saved.fade = on; apply(); renderPanel(el); });
+    if (!saved.fade) {
+      var c2Row = document.createElement('div'); c2Row.className = 'tmke-ve-row'; c2Row.innerHTML = '<label>End colour</label><input type="color">';
+      var c2 = c2Row.querySelector('input'); c2.value = toHex(saved.c2); c2.addEventListener('input', function () { saved.c2 = c2.value; apply(); }); gg.appendChild(c2Row);
+    }
+  }
   function animRows(parent, sel, el) {
     var animSaved = overrides[sel] && overrides[sel]['animation'];
     var animName = (animSaved && animSaved !== 'none') ? animSaved.split(' ')[0] : '';
     var animDur = animSaved ? (parseFloat(animSaved.split(' ')[1]) || 0.6) : 0.6;
+    // surface any animation the element already has from the site's own CSS
+    var liveAnim = getComputedStyle(el).animationName;
+    var known = ANIMS.some(function (a) { return a[1] === liveAnim; });
+    if (!animName && liveAnim && liveAnim !== 'none') { if (known) animName = liveAnim; }
     var row = document.createElement('div'); row.className = 'tmke-ve-row';
     row.innerHTML = '<label>Effect</label><select>' + ANIMS.map(function (a) { return '<option value="' + a[1] + '">' + a[0] + '</option>'; }).join('') +
       '</select><label style="margin-top:10px">Duration <span class="val">' + animDur.toFixed(1) + 's</span></label><input type="range" min="0.2" max="2.5" step="0.1">';
@@ -646,6 +782,10 @@
     var apply = function () { var name = aSel.value, dur = parseFloat(aDur.value); aVal.textContent = dur.toFixed(1) + 's'; setOverride(sel, 'animation', name ? (name + ' ' + dur + 's ease both') : 'none'); };
     aSel.addEventListener('change', apply); aDur.addEventListener('input', apply);
     parent.appendChild(row);
+    if (liveAnim && liveAnim !== 'none' && !known && !animSaved) {
+      var hint = document.createElement('div'); hint.className = 'tmke-ve-hint'; hint.textContent = 'This element already animates on scroll (“' + liveAnim + '”). Choosing an effect here replaces it.';
+      parent.appendChild(hint);
+    }
   }
 
   function renderPanel(el) {
@@ -656,7 +796,9 @@
     var hasBg = !isImg && !isVid && cs.backgroundImage && cs.backgroundImage !== 'none';
     var isSection = el.tagName === 'SECTION';
     var textEl = isTextEl(el);
-    var kind = isImg ? 'Image' : isVid ? 'Video' : iconSvg ? 'Icon' : isSection ? 'Section' : textEl ? 'Text' : el.tagName.toLowerCase();
+    var cl = el.classList || { contains: function () { return false; } };
+    var isShape = cl.contains('ve-shape'), isLine = cl.contains('ve-line'), isGradient = cl.contains('ve-gradient');
+    var kind = isGradient ? 'Gradient' : isLine ? 'Line' : isShape ? 'Shape' : isImg ? 'Image' : isVid ? 'Video' : iconSvg ? 'Icon' : isSection ? 'Section' : textEl ? 'Text' : el.tagName.toLowerCase();
     tagBadge.textContent = kind;
     panel.querySelector('#tmke-ve-eltxt').textContent = '“' + (el.textContent || '').trim().slice(0, 22) + '”';
 
@@ -675,6 +817,10 @@
       posRow.innerHTML = '<div class="tmke-ve-hint">Drag the element on the page to move it. Pink lines snap it to neighbours.</div>';
     }
     gp.appendChild(posRow);
+
+    // GRADIENT / LINE / SHAPE (added blocks get tailored controls)
+    if (isGradient) gradientGroup(sel, el);
+    if (isLine) lineGroup(sel, el, cs);
 
     // TEXT
     if (textEl) fontControls(group('Text', true), sel, el, cs);
@@ -700,11 +846,11 @@
     // ICON
     if (iconSvg) iconGroup(iconSvg);
 
-    // BACKGROUND (non media)
-    if (!isImg && !isVid) {
-      var gb = group('Background', isSection || hasBg);
-      colourRow(gb, 'Background colour', 'background-color', sel, cs, true);
-      bgImageRows(gb, sel, el, cs);
+    // BACKGROUND (non media; gradient/line handle their own colour)
+    if (!isImg && !isVid && !isGradient && !isLine) {
+      var gb = group('Background', isSection || hasBg || isShape);
+      colourRow(gb, isShape ? 'Fill colour' : 'Background colour', 'background-color', sel, cs, true);
+      if (!isShape) bgImageRows(gb, sel, el, cs);
     }
 
     // SPACING — each its own collapsible box
@@ -716,8 +862,8 @@
       columnSplit(gg, el, cs, sel);
     }
 
-    // SIZE & SHAPE (non-image; image has its own width above)
-    if (!isImg) {
+    // SIZE & SHAPE (non-image/line/gradient; those size via handles or their own box)
+    if (!isImg && !isLine && !isGradient) {
       var gs = group('Size & shape', false);
       rangeRow(gs, 'Max width', 'max-width', sel, cs, { min: 280, max: 1680, step: 10, unit: 'px', init: function (cs2) { return cs2.maxWidth === 'none' ? 1360 : parseFloat(cs2.maxWidth); } });
       rangeRow(gs, 'Corner radius', 'border-radius', sel, cs, { min: 0, max: 200, step: 1, unit: 'px' });
@@ -730,6 +876,9 @@
       boolToggle(gsec, 'Full-screen height', (overrides[sel] && overrides[sel]['min-height']) === '100vh', function (on) { if (on) setOverride(sel, 'min-height', '100vh'); else { if (overrides[sel]) delete overrides[sel]['min-height']; persist(); injectStyles(); } });
       boolToggle(gsec, 'Sticky hold (pin on scroll)', (overrides[sel] && overrides[sel]['position']) === 'sticky', function (on) { if (on) { setOverride(sel, 'position', 'sticky'); setOverride(sel, 'top', '0px'); } else { if (overrides[sel]) { delete overrides[sel]['position']; delete overrides[sel]['top']; } persist(); injectStyles(); } });
     }
+
+    // EFFECTS (opacity + blur) — on everything except whole sections
+    if (!isSection) effectsGroup(sel, el, cs);
 
     // ANIMATION (whole-element entrance effect — works on sections too)
     animRows(group('Animation', false), sel, el);
@@ -866,18 +1015,75 @@
     });
     document.body.appendChild(layer);
   }
-  function select(el) { deselect(); selected = el; el.classList.add('tmke-ve-selected'); crumbEl.textContent = pathLabel(el); renderPanel(el); }
+  function select(el) { deselect(); selected = el; el.classList.add('tmke-ve-selected'); crumbEl.textContent = pathLabel(el); renderPanel(el); showHandles(el); }
   function deselect() {
     if (selected) selected.classList.remove('tmke-ve-selected');
-    selected = null;
+    selected = null; removeHandles();
     if (panelBody) panelBody.innerHTML = '<div class="tmke-ve-empty">Select any element on the page — text, image, section — to edit it here.</div>';
     if (tagBadge) tagBadge.textContent = 'Nothing selected';
     var t = panel && panel.querySelector('#tmke-ve-eltxt'); if (t) t.textContent = '';
   }
+
+  /* ---- resize handles (corner-drag to scale text / images / shapes) ---- */
+  var handleLayer = null, hdlWired = false;
+  function showHandles(el) {
+    removeHandles();
+    if (!el || el === document.body || el.tagName === 'SECTION' || isChrome(el)) return;
+    handleLayer = document.createElement('div'); handleLayer.id = 'tmke-ve-handles';
+    ['nw', 'ne', 'sw', 'se'].forEach(function (pos) {
+      var h = document.createElement('div'); h.className = 'tmke-ve-handle ' + pos;
+      h.addEventListener('mousedown', function (e) { startResize(e, el, pos); });
+      handleLayer.appendChild(h);
+    });
+    document.body.appendChild(handleLayer);
+    positionHandles(el);
+    if (!hdlWired) {
+      hdlWired = true;
+      var reflow = function () { if (selected && handleLayer) positionHandles(selected); };
+      window.addEventListener('scroll', reflow, true);
+      window.addEventListener('resize', reflow);
+      if (window.__lenis && window.__lenis.on) window.__lenis.on('scroll', reflow);
+    }
+  }
+  function positionHandles(el) {
+    if (!handleLayer) return; var r = el.getBoundingClientRect();
+    handleLayer.style.left = r.left + 'px'; handleLayer.style.top = r.top + 'px';
+    handleLayer.style.width = r.width + 'px'; handleLayer.style.height = r.height + 'px';
+  }
+  function removeHandles() { if (handleLayer) { handleLayer.remove(); handleLayer = null; } }
+  function startResize(e, el, pos) {
+    e.preventDefault(); e.stopPropagation();
+    var sel = selectorFor(el), r = el.getBoundingClientRect();
+    var sx = e.clientX, sy = e.clientY, w0 = r.width, h0 = r.height, ar = w0 / (h0 || 1);
+    var isImg = el.tagName === 'IMG', isLine = el.classList && el.classList.contains('ve-line');
+    var moved = false;
+    document.body.style.userSelect = 'none';
+    var move = function (ev) {
+      var dx = ev.clientX - sx, dy = ev.clientY - sy;
+      var fx = (pos === 'ne' || pos === 'se') ? 1 : -1, fy = (pos === 'sw' || pos === 'se') ? 1 : -1;
+      var w = Math.max(16, w0 + dx * fx), h = Math.max(10, h0 + dy * fy);
+      if (isImg) { h = w / ar; el.style.setProperty('height', 'auto', 'important'); }
+      el.style.setProperty('width', Math.round(w) + 'px', 'important');
+      if (!isImg) el.style.setProperty('height', Math.round(h) + 'px', 'important');
+      positionHandles(el); moved = true;
+    };
+    var up = function () {
+      document.removeEventListener('mousemove', move, true); document.removeEventListener('mouseup', up, true);
+      document.body.style.userSelect = '';
+      if (moved) {
+        var r2 = el.getBoundingClientRect();
+        el.style.removeProperty('width'); el.style.removeProperty('height');
+        setOverride(sel, 'width', Math.round(r2.width) + 'px');
+        setOverride(sel, isImg ? 'height' : 'height', isImg ? 'auto' : (Math.round(r2.height) + 'px'));
+        positionHandles(el);
+      }
+    };
+    document.addEventListener('mousemove', move, true); document.addEventListener('mouseup', up, true);
+  }
   function clearHover() { Array.prototype.forEach.call(document.querySelectorAll('.tmke-ve-hover'), function (n) { n.classList.remove('tmke-ve-hover'); }); }
   function showFloatTag(el) { var t = document.getElementById('tmke-ve-floattag'); if (!t) return; var r = el.getBoundingClientRect(); t.textContent = el.tagName.toLowerCase(); t.style.left = r.left + 'px'; t.style.top = (r.top - 4) + 'px'; t.style.display = 'block'; }
   function hideFloatTag() { var t = document.getElementById('tmke-ve-floattag'); if (t) t.style.display = 'none'; }
-  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.closest('.tmke-ve-addmenu') || el.closest('.tmke-ve-prebar') || el.closest('#tmke-ve-rulers') || el.closest('#tmke-ve-guides') || el.id === 'tmke-ve-floattag')); }
+  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.closest('.tmke-ve-addmenu') || el.closest('.tmke-ve-prebar') || el.closest('#tmke-ve-rulers') || el.closest('#tmke-ve-guides') || el.closest('#tmke-ve-handles') || el.id === 'tmke-ve-floattag' || el.id === 'tmke-ve-ghost')); }
   function pathLabel(el) { var bits = [], n = el; for (var i = 0; i < 3 && n && n !== document.body; i++) { bits.unshift(n.tagName.toLowerCase()); n = n.parentElement; } return bits.join(' › '); }
 
   /* ---- content helpers ---- */
@@ -895,4 +1101,5 @@
   function fmt(v, unit) { return (unit === '' ? v.toFixed(2) : Math.round(v * 10) / 10 + unit); }
   function rgbToHex(rgb) { var m = (rgb || '').match(/\d+/g); if (!m) return '#000000'; return '#' + m.slice(0, 3).map(function (x) { return ('0' + parseInt(x, 10).toString(16)).slice(-2); }).join(''); }
   function toHex(c) { c = (c || '').trim(); if (c[0] === '#') return c.length === 4 ? '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3] : c.slice(0, 7); return rgbToHex(c); }
+  function hexToRgba(hex, a) { var h = toHex(hex).replace('#', ''); var n = parseInt(h, 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
 })();
