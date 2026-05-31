@@ -136,10 +136,16 @@
     { prop: 'font-size',      label: 'Font size',      unit: 'px', min: 8,   max: 220, step: 1,   when: function (el) { return isTextEl(el); } },
     { prop: 'line-height',    label: 'Line height',    unit: '',   min: 0.8, max: 2.4, step: 0.01, when: function (el) { return isTextEl(el); } },
     { prop: 'letter-spacing', label: 'Letter spacing', unit: 'px', min: -6,  max: 12,  step: 0.1, when: function (el) { return isTextEl(el); } },
-    { prop: 'margin-top',     label: 'Space above (margin)',  unit: 'px', min: 0, max: 280, step: 1 },
-    { prop: 'margin-bottom',  label: 'Space below (margin)',  unit: 'px', min: 0, max: 280, step: 1 },
-    { prop: 'padding-top',    label: 'Padding top',    unit: 'px', min: 0,   max: 240, step: 1 },
-    { prop: 'padding-bottom', label: 'Padding bottom', unit: 'px', min: 0,   max: 240, step: 1 },
+    { prop: 'margin-top',     label: 'Margin top',     unit: 'px', min: -120, max: 320, step: 1 },
+    { prop: 'margin-bottom',  label: 'Margin bottom',  unit: 'px', min: -120, max: 320, step: 1 },
+    { prop: 'margin-left',    label: 'Margin left',    unit: 'px', min: -120, max: 320, step: 1 },
+    { prop: 'margin-right',   label: 'Margin right',   unit: 'px', min: -120, max: 320, step: 1 },
+    { prop: 'padding-top',    label: 'Padding top',    unit: 'px', min: 0,   max: 280, step: 1 },
+    { prop: 'padding-bottom', label: 'Padding bottom', unit: 'px', min: 0,   max: 280, step: 1 },
+    { prop: 'padding-left',   label: 'Padding left',   unit: 'px', min: 0,   max: 280, step: 1 },
+    { prop: 'padding-right',  label: 'Padding right',  unit: 'px', min: 0,   max: 280, step: 1 },
+    { prop: 'max-width',      label: 'Content width (max)', unit: 'px', min: 280, max: 1680, step: 10 },
+    { prop: 'border-radius',  label: 'Corner radius',  unit: 'px', min: 0,   max: 200, step: 1 },
     { prop: 'gap',            label: 'Gap (space between items)', unit: 'px', min: 0, max: 160, step: 1, when: isContainer },
   ];
   var BRAND_VARS = [['--ink','Ink'],['--paper','Paper'],['--english-violet','Violet'],['--accent','Accent'],['--coral','Coral'],['--gold','Gold'],['--mint','Mint'],['--gunmetal','Gunmetal']];
@@ -186,6 +192,9 @@
       '.tmke-ve-swatches{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}',
       '.tmke-ve-swatch{width:22px;height:22px;border-radius:5px;border:1px solid rgba(255,255,255,.25);cursor:pointer;padding:0;}',
       '.tmke-ve-swatch:hover{transform:scale(1.12);}',
+      '.tmke-ve-chips{display:flex;flex-wrap:wrap;gap:6px;}',
+      '.tmke-ve-chip{font:600 11px system-ui,sans-serif;color:#f2efe9;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:6px 10px;cursor:pointer;}',
+      '.tmke-ve-chip:hover{background:rgba(255,255,255,.2);}',
       '.tmke-ve-reset{width:100%;margin-top:6px;padding:9px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.25);color:#f2efe9;font:600 12px system-ui,sans-serif;cursor:pointer;}',
       '.tmke-ve-reset:hover{background:rgba(255,255,255,.08);}',
     ].join('');
@@ -246,6 +255,7 @@
       var saved = overrides[sel] && overrides[sel][c.prop], current;
       if (saved != null) current = parseFloat(saved);
       else if (c.prop === 'line-height') { var lh = cs.lineHeight; current = (lh === 'normal') ? 1.2 : (parseFloat(lh) / parseFloat(cs.fontSize)); }
+      else if (c.prop === 'max-width') { current = (cs.maxWidth === 'none') ? c.max : parseFloat(cs.maxWidth) || c.max; }
       else current = parseFloat(cs.getPropertyValue(c.prop)) || 0;
       var row = document.createElement('div'); row.className = 'tmke-ve-row';
       row.innerHTML = '<label>' + c.label + ' <span class="val"></span></label><input type="range" min="' + c.min + '" max="' + c.max + '" step="' + c.step + '">';
@@ -277,6 +287,35 @@
       sw.appendChild(dot);
     });
     panelBody.appendChild(cRow);
+
+    // background colour + brand swatches (+ None / White)
+    var bgRow = document.createElement('div'); bgRow.className = 'tmke-ve-row';
+    bgRow.innerHTML = '<label>Background colour</label><input type="color"><div class="tmke-ve-swatches"></div>';
+    var bgInput = bgRow.querySelector('input');
+    var curBg = (overrides[sel] && overrides[sel]['background-color']) || cs.backgroundColor;
+    bgInput.value = toHex(curBg && curBg !== 'rgba(0, 0, 0, 0)' && curBg !== 'transparent' ? curBg : '#ffffff');
+    bgInput.addEventListener('input', function () { setOverride(sel, 'background-color', bgInput.value); });
+    var bsw = bgRow.querySelector('.tmke-ve-swatches');
+    var bgChoices = [['transparent', 'None'], ['#ffffff', 'White']].concat(BRAND_VARS.map(function (b) { return [brandColour(b[0]), b[1]]; }));
+    bgChoices.forEach(function (item) {
+      var val = item[0]; if (!val) return;
+      var dot = document.createElement('button'); dot.className = 'tmke-ve-swatch'; dot.title = item[1];
+      dot.style.background = (val === 'transparent') ? 'repeating-conic-gradient(#bbb 0% 25%, #fff 0% 50%) 50% / 8px 8px' : val;
+      dot.onclick = function () { if (val !== 'transparent') bgInput.value = toHex(val); setOverride(sel, 'background-color', val); };
+      bsw.appendChild(dot);
+    });
+    panelBody.appendChild(bgRow);
+
+    // shape — corner-radius presets (great for images)
+    var shRow = document.createElement('div'); shRow.className = 'tmke-ve-row';
+    shRow.innerHTML = '<label>Shape</label><div class="tmke-ve-chips"></div>';
+    var shc = shRow.querySelector('.tmke-ve-chips');
+    [['Sharp', '0'], ['Soft', '14px'], ['Round', '28px'], ['Pill', '999px'], ['Circle', '50%']].forEach(function (s) {
+      var chip = document.createElement('button'); chip.className = 'tmke-ve-chip'; chip.textContent = s[0];
+      chip.onclick = function () { setOverride(sel, 'border-radius', s[1]); if (el.tagName === 'IMG' || getComputedStyle(el).overflow === 'visible') setOverride(sel, 'overflow', 'hidden'); };
+      shc.appendChild(chip);
+    });
+    panelBody.appendChild(shRow);
 
     // layout — column split for 2-column grids
     if (cs.display === 'grid') {
