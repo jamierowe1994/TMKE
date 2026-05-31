@@ -78,9 +78,24 @@
       if (!el) return;
       if (o.__html != null) el.innerHTML = o.__html;
       if (o.__src != null) { if (el.tagName === 'IMG') el.src = o.__src; else el.style.backgroundImage = "url('" + o.__src + "')"; }
+      if (o.__icon != null && el.tagName.toLowerCase() === 'svg') { el.setAttribute('viewBox', '0 0 24 24'); el.innerHTML = o.__icon; }
     });
   }
   function applyAll() { injectStyles(); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyContent, { once: true }); else applyContent(); }
+
+  /* Animation keyframes — injected for everyone so published animations run. */
+  function injectKeyframes() {
+    if (document.getElementById('tmke-ve-keyframes')) return;
+    var s = document.createElement('style'); s.id = 'tmke-ve-keyframes';
+    s.textContent =
+      '@keyframes ve-fade{from{opacity:0}to{opacity:1}}' +
+      '@keyframes ve-up{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}' +
+      '@keyframes ve-inleft{from{opacity:0;transform:translateX(-34px)}to{opacity:1;transform:none}}' +
+      '@keyframes ve-zoom{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}' +
+      '@keyframes ve-pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}';
+    document.head.appendChild(s);
+  }
+  injectKeyframes();
 
   /* ---- save (draft) ---- */
   var saveTimer = null, onDirty = null;
@@ -130,16 +145,37 @@
   /* ====================================================================== */
   function isContainer(el, cs) { var d = cs.display; return d === 'flex' || d === 'grid' || d === 'inline-flex' || d === 'inline-grid'; }
   function isTextEl(el) { return /^(H1|H2|H3|H4|H5|H6|P|SPAN|A|BUTTON|LI|EM|STRONG|BLOCKQUOTE|FIGCAPTION)$/.test(el.tagName); }
-  var EDITABLE = 'h1,h2,h3,h4,h5,h6,p,span,a,button,li,blockquote,em,strong,figcaption,img,' +
+  var EDITABLE = 'h1,h2,h3,h4,h5,h6,p,span,a,button,li,blockquote,em,strong,figcaption,img,svg,' +
     'div,section,article,figure,ul,ol,aside,header,footer,form';
+  var ANIMS = [['None', ''], ['Fade in', 've-fade'], ['Slide up', 've-up'], ['Slide in', 've-inleft'], ['Zoom in', 've-zoom'], ['Pop', 've-pop']];
+  var ICONS = [
+    ['Arrow', '<path d="M4 12h15M13 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'],
+    ['Arrow ↗', '<path d="M7 17L17 7M8 7h9v9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'],
+    ['Star', '<path d="M12 2.5l2.95 6 6.6.96-4.78 4.66 1.13 6.58L12 17.6l-5.9 3.1 1.13-6.58L2.45 9.46l6.6-.96L12 2.5z" fill="currentColor"/>'],
+    ['Heart', '<path d="M12 21S3.5 15.4 3.5 9.6C3.5 6.9 5.6 5 8 5c1.7 0 3.1 1 4 2.3C12.9 6 14.3 5 16 5c2.4 0 4.5 1.9 4.5 4.6C20.5 15.4 12 21 12 21z" fill="currentColor"/>'],
+    ['Check', '<path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'],
+    ['Plus', '<path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
+    ['Phone', '<path d="M6.6 10.8a15 15 0 006.6 6.6l2.2-2.2a1 1 0 011-.24 11 11 0 003.4.55 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1 11 11 0 00.55 3.4 1 1 0 01-.24 1l-2.2 2.4z" fill="currentColor"/>'],
+    ['Mail', '<rect x="3" y="6" width="18" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 7l8.5 6 8.5-6" fill="none" stroke="currentColor" stroke-width="2"/>'],
+    ['Calendar', '<rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
+    ['Play', '<path d="M8 5v14l11-7z" fill="currentColor"/>'],
+    ['Chat', '<path d="M4 5h16v10H8l-4 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'],
+    ['Search', '<circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
+  ];
   var CONTROLS = [
     { prop: 'font-size',      label: 'Font size',      unit: 'px', min: 8,   max: 220, step: 1,   when: function (el) { return isTextEl(el); } },
     { prop: 'line-height',    label: 'Line height',    unit: '',   min: 0.8, max: 2.4, step: 0.01, when: function (el) { return isTextEl(el); } },
     { prop: 'letter-spacing', label: 'Letter spacing', unit: 'px', min: -6,  max: 12,  step: 0.1, when: function (el) { return isTextEl(el); } },
-    { prop: 'margin-top',     label: 'Space above (margin)',  unit: 'px', min: 0, max: 280, step: 1 },
-    { prop: 'margin-bottom',  label: 'Space below (margin)',  unit: 'px', min: 0, max: 280, step: 1 },
-    { prop: 'padding-top',    label: 'Padding top',    unit: 'px', min: 0,   max: 240, step: 1 },
-    { prop: 'padding-bottom', label: 'Padding bottom', unit: 'px', min: 0,   max: 240, step: 1 },
+    { prop: 'margin-top',     label: 'Margin top',     unit: 'px', min: -120, max: 320, step: 1 },
+    { prop: 'margin-bottom',  label: 'Margin bottom',  unit: 'px', min: -120, max: 320, step: 1 },
+    { prop: 'margin-left',    label: 'Margin left',    unit: 'px', min: -120, max: 320, step: 1 },
+    { prop: 'margin-right',   label: 'Margin right',   unit: 'px', min: -120, max: 320, step: 1 },
+    { prop: 'padding-top',    label: 'Padding top',    unit: 'px', min: 0,   max: 280, step: 1 },
+    { prop: 'padding-bottom', label: 'Padding bottom', unit: 'px', min: 0,   max: 280, step: 1 },
+    { prop: 'padding-left',   label: 'Padding left',   unit: 'px', min: 0,   max: 280, step: 1 },
+    { prop: 'padding-right',  label: 'Padding right',  unit: 'px', min: 0,   max: 280, step: 1 },
+    { prop: 'max-width',      label: 'Content width (max)', unit: 'px', min: 280, max: 1680, step: 10 },
+    { prop: 'border-radius',  label: 'Corner radius',  unit: 'px', min: 0,   max: 200, step: 1 },
     { prop: 'gap',            label: 'Gap (space between items)', unit: 'px', min: 0, max: 160, step: 1, when: isContainer },
   ];
   var BRAND_VARS = [['--ink','Ink'],['--paper','Paper'],['--english-violet','Violet'],['--accent','Accent'],['--coral','Coral'],['--gold','Gold'],['--mint','Mint'],['--gunmetal','Gunmetal']];
@@ -186,6 +222,12 @@
       '.tmke-ve-swatches{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}',
       '.tmke-ve-swatch{width:22px;height:22px;border-radius:5px;border:1px solid rgba(255,255,255,.25);cursor:pointer;padding:0;}',
       '.tmke-ve-swatch:hover{transform:scale(1.12);}',
+      '.tmke-ve-chips{display:flex;flex-wrap:wrap;gap:6px;}',
+      '.tmke-ve-chip{font:600 11px system-ui,sans-serif;color:#f2efe9;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:6px 10px;cursor:pointer;}',
+      '.tmke-ve-chip:hover{background:rgba(255,255,255,.2);}',
+      '.tmke-ve-icons{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}',
+      '.tmke-ve-iconbtn{display:flex;align-items:center;justify-content:center;padding:6px;border-radius:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#f2efe9;cursor:pointer;}',
+      '.tmke-ve-iconbtn:hover{background:rgba(255,255,255,.2);}',
       '.tmke-ve-reset{width:100%;margin-top:6px;padding:9px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.25);color:#f2efe9;font:600 12px system-ui,sans-serif;cursor:pointer;}',
       '.tmke-ve-reset:hover{background:rgba(255,255,255,.08);}',
     ].join('');
@@ -246,6 +288,7 @@
       var saved = overrides[sel] && overrides[sel][c.prop], current;
       if (saved != null) current = parseFloat(saved);
       else if (c.prop === 'line-height') { var lh = cs.lineHeight; current = (lh === 'normal') ? 1.2 : (parseFloat(lh) / parseFloat(cs.fontSize)); }
+      else if (c.prop === 'max-width') { current = (cs.maxWidth === 'none') ? c.max : parseFloat(cs.maxWidth) || c.max; }
       else current = parseFloat(cs.getPropertyValue(c.prop)) || 0;
       var row = document.createElement('div'); row.className = 'tmke-ve-row';
       row.innerHTML = '<label>' + c.label + ' <span class="val"></span></label><input type="range" min="' + c.min + '" max="' + c.max + '" step="' + c.step + '">';
@@ -277,6 +320,35 @@
       sw.appendChild(dot);
     });
     panelBody.appendChild(cRow);
+
+    // background colour + brand swatches (+ None / White)
+    var bgRow = document.createElement('div'); bgRow.className = 'tmke-ve-row';
+    bgRow.innerHTML = '<label>Background colour</label><input type="color"><div class="tmke-ve-swatches"></div>';
+    var bgInput = bgRow.querySelector('input');
+    var curBg = (overrides[sel] && overrides[sel]['background-color']) || cs.backgroundColor;
+    bgInput.value = toHex(curBg && curBg !== 'rgba(0, 0, 0, 0)' && curBg !== 'transparent' ? curBg : '#ffffff');
+    bgInput.addEventListener('input', function () { setOverride(sel, 'background-color', bgInput.value); });
+    var bsw = bgRow.querySelector('.tmke-ve-swatches');
+    var bgChoices = [['transparent', 'None'], ['#ffffff', 'White']].concat(BRAND_VARS.map(function (b) { return [brandColour(b[0]), b[1]]; }));
+    bgChoices.forEach(function (item) {
+      var val = item[0]; if (!val) return;
+      var dot = document.createElement('button'); dot.className = 'tmke-ve-swatch'; dot.title = item[1];
+      dot.style.background = (val === 'transparent') ? 'repeating-conic-gradient(#bbb 0% 25%, #fff 0% 50%) 50% / 8px 8px' : val;
+      dot.onclick = function () { if (val !== 'transparent') bgInput.value = toHex(val); setOverride(sel, 'background-color', val); };
+      bsw.appendChild(dot);
+    });
+    panelBody.appendChild(bgRow);
+
+    // shape — corner-radius presets (great for images)
+    var shRow = document.createElement('div'); shRow.className = 'tmke-ve-row';
+    shRow.innerHTML = '<label>Shape</label><div class="tmke-ve-chips"></div>';
+    var shc = shRow.querySelector('.tmke-ve-chips');
+    [['Sharp', '0'], ['Soft', '14px'], ['Round', '28px'], ['Pill', '999px'], ['Circle', '50%']].forEach(function (s) {
+      var chip = document.createElement('button'); chip.className = 'tmke-ve-chip'; chip.textContent = s[0];
+      chip.onclick = function () { setOverride(sel, 'border-radius', s[1]); if (el.tagName === 'IMG' || getComputedStyle(el).overflow === 'visible') setOverride(sel, 'overflow', 'hidden'); };
+      shc.appendChild(chip);
+    });
+    panelBody.appendChild(shRow);
 
     // layout — column split for 2-column grids
     if (cs.display === 'grid') {
@@ -316,6 +388,45 @@
       });
       panelBody.appendChild(iRow);
     }
+
+    // icon picker (when the element is, or contains, an SVG)
+    var iconSvg = el.tagName.toLowerCase() === 'svg' ? el : (el.querySelector ? el.querySelector('svg') : null);
+    if (iconSvg) {
+      var icSel = selectorFor(iconSvg);
+      var icRow = document.createElement('div'); icRow.className = 'tmke-ve-row';
+      icRow.innerHTML = '<label>Icon</label><div class="tmke-ve-icons"></div>';
+      var ig = icRow.querySelector('.tmke-ve-icons');
+      ICONS.forEach(function (ic) {
+        var b = document.createElement('button'); b.className = 'tmke-ve-iconbtn'; b.title = ic[0];
+        b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20">' + ic[1] + '</svg>';
+        b.onclick = function () {
+          if (!overrides[icSel]) overrides[icSel] = {};
+          overrides[icSel].__icon = ic[1]; persist();
+          iconSvg.setAttribute('viewBox', '0 0 24 24'); iconSvg.innerHTML = ic[1];
+        };
+        ig.appendChild(b);
+      });
+      panelBody.appendChild(icRow);
+    }
+
+    // animation + timing
+    var animSaved = overrides[sel] && overrides[sel]['animation'];
+    var animName = (animSaved && animSaved !== 'none') ? animSaved.split(' ')[0] : '';
+    var animDur = animSaved ? (parseFloat(animSaved.split(' ')[1]) || 0.6) : 0.6;
+    var aRow = document.createElement('div'); aRow.className = 'tmke-ve-row';
+    aRow.innerHTML = '<label>Animation</label><select>' +
+      ANIMS.map(function (a) { return '<option value="' + a[1] + '">' + a[0] + '</option>'; }).join('') + '</select>' +
+      '<label style="margin-top:10px">Duration <span class="val">' + animDur.toFixed(1) + 's</span></label>' +
+      '<input type="range" min="0.2" max="2.5" step="0.1">';
+    var aSel = aRow.querySelector('select'); aSel.value = animName;
+    var aDur = aRow.querySelector('input'); aDur.value = animDur; var aVal = aRow.querySelector('.val');
+    var applyAnim = function () {
+      var name = aSel.value, dur = parseFloat(aDur.value); aVal.textContent = dur.toFixed(1) + 's';
+      setOverride(sel, 'animation', name ? (name + ' ' + dur + 's ease both') : 'none');
+    };
+    aSel.addEventListener('change', applyAnim);
+    aDur.addEventListener('input', applyAnim);
+    panelBody.appendChild(aRow);
 
     // reset element
     var reset = document.createElement('button'); reset.className = 'tmke-ve-reset'; reset.textContent = 'Reset this element';
