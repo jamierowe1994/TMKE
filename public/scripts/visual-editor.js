@@ -66,7 +66,7 @@
     Object.keys(overrides).forEach(function (sel) {
       var rules = overrides[sel];
       var decls = Object.keys(rules)
-        .filter(function (p) { return rules[p] !== '' && rules[p] != null; })
+        .filter(function (p) { return p.indexOf('__') !== 0 && rules[p] !== '' && rules[p] != null; })
         .map(function (p) { return p + ':' + rules[p] + ' !important'; })
         .join(';');
       if (decls) css += sel + '{' + decls + '}\n';
@@ -79,14 +79,32 @@
     }
     tag.textContent = css;
   }
-  injectStyles(); // <-- viewers get saved changes applied
+
+  /* Content overrides — edited wording (__html) and swapped images (__src).
+     NOTE: in production these must be sanitised before re-injecting. */
+  function applyContent() {
+    Object.keys(overrides).forEach(function (sel) {
+      var o = overrides[sel]; var el;
+      try { el = document.querySelector(sel); } catch (e) { return; }
+      if (!el) return;
+      if (o.__html != null) el.innerHTML = o.__html;
+      if (o.__src != null) {
+        if (el.tagName === 'IMG') el.src = o.__src;
+        else el.style.backgroundImage = "url('" + o.__src + "')";
+      }
+    });
+  }
+
+  injectStyles(); // <-- viewers get saved style changes applied
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyContent);
+  else applyContent();
 
   /* ====================================================================== */
   /*  EDITOR — only when ?edit=1                                            */
   /* ====================================================================== */
   if (!new URLSearchParams(location.search).has('edit')) return;
 
-  var EDITABLE = 'h1,h2,h3,h4,h5,h6,p,span,a,button,li,blockquote,em,strong,figcaption,' +
+  var EDITABLE = 'h1,h2,h3,h4,h5,h6,p,span,a,button,li,blockquote,em,strong,figcaption,img,' +
     'div,section,article,figure,ul,ol,aside,header,footer,form';
   var selected = null;
 
@@ -131,6 +149,8 @@
       '.tmke-ve-swatch{width:22px;height:22px;border-radius:5px;border:1px solid rgba(255,255,255,.25);cursor:pointer;padding:0;}',
       '.tmke-ve-swatch:hover{transform:scale(1.12);}',
       '.tmke-ve-row select{width:100%;padding:6px;border-radius:6px;background:#1c1d22;color:#f2efe9;border:1px solid rgba(255,255,255,.18);}',
+      '.tmke-ve-row .tmke-ve-text{width:100%;padding:7px;border-radius:6px;background:#1c1d22;color:#f2efe9;border:1px solid rgba(255,255,255,.18);font:12px system-ui,sans-serif;}',
+      '[contenteditable=true]{outline:2px solid #9a86b8!important;outline-offset:3px;cursor:text!important;}',
       '.tmke-ve-reset{width:100%;margin-top:6px;padding:9px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.25);color:#f2efe9;font:600 12px system-ui,sans-serif;cursor:pointer;}',
       '.tmke-ve-reset:hover{background:rgba(255,255,255,.08);}',
       '.tmke-ve-empty{padding:22px 16px;text-align:center;opacity:.6;font-size:12px;line-height:1.5;}',
@@ -287,10 +307,41 @@
       }
     }
 
+    // ---- Content: edit wording ----
+    if (isTextEl(el)) {
+      var tRow = document.createElement('div'); tRow.className = 'tmke-ve-row';
+      tRow.innerHTML = '<label>Wording</label>';
+      var tBtn = document.createElement('button'); tBtn.className = 'tmke-ve-reset';
+      tBtn.textContent = '✎ Edit text';
+      tBtn.onclick = function () { startTextEdit(el, sel); };
+      tRow.appendChild(tBtn);
+      panelBody.appendChild(tRow);
+    }
+    // ---- Content: swap image (img src or background-image) ----
+    var isImg = el.tagName === 'IMG';
+    var hasBg = !isImg && cs.backgroundImage && cs.backgroundImage !== 'none';
+    if (isImg || hasBg) {
+      var iRow = document.createElement('div'); iRow.className = 'tmke-ve-row';
+      iRow.innerHTML = '<label>Image</label><input type="text" class="tmke-ve-text" placeholder="https://… or /assets/…">';
+      var iInput = iRow.querySelector('input');
+      iInput.value = (overrides[sel] && overrides[sel].__src) ||
+        (isImg ? (el.getAttribute('src') || '') : extractUrl(cs.backgroundImage));
+      iInput.addEventListener('change', function () {
+        var v = iInput.value.trim(); if (!v) return;
+        if (!overrides[sel]) overrides[sel] = {};
+        overrides[sel].__src = v; Store.save(overrides);
+        if (isImg) el.src = v; else el.style.backgroundImage = "url('" + v + "')";
+      });
+      panelBody.appendChild(iRow);
+    }
+
     // reset this element
     var reset = document.createElement('button'); reset.className = 'tmke-ve-reset';
     reset.textContent = 'Reset this element';
-    reset.onclick = function () { delete overrides[sel]; Store.save(overrides); injectStyles(); renderPanel(el); };
+    reset.onclick = function () {
+      delete overrides[sel]; Store.save(overrides);
+      injectStyles(); el.style.backgroundImage = ''; location.reload();
+    };
     panelBody.appendChild(reset);
   }
 
@@ -314,7 +365,8 @@
 
     // Intercept clicks while editing so links/buttons don't navigate.
     document.addEventListener('click', function (e) {
-      if (isChrome(e.target)) return;       // let panel/toolbar work normally
+      if (isChrome(e.target)) return;            // let panel/toolbar work normally
+      if (e.target.isContentEditable) return;    // let the cursor land while editing wording
       var el = e.target.closest(EDITABLE);
       if (!el) return;
       e.preventDefault(); e.stopPropagation();
@@ -357,6 +409,26 @@
     for (var i = 0; i < 3 && n && n !== document.body; i++) { bits.unshift(n.tagName.toLowerCase()); n = n.parentElement; }
     return bits.join(' › ');
   }
+
+  /* ---- content editing helpers ---- */
+  function startTextEdit(el, sel) {
+    el.setAttribute('contenteditable', 'true');
+    el.focus();
+    var range = document.createRange(); range.selectNodeContents(el);
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(range);
+    var finish = function () {
+      el.removeAttribute('contenteditable');
+      el.removeEventListener('blur', finish);
+      el.removeEventListener('keydown', onKey);
+      if (!overrides[sel]) overrides[sel] = {};
+      overrides[sel].__html = el.innerHTML;
+      Store.save(overrides);
+    };
+    var onKey = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); el.blur(); } };
+    el.addEventListener('blur', finish);
+    el.addEventListener('keydown', onKey);
+  }
+  function extractUrl(bg) { var m = (bg || '').match(/url\(["']?(.*?)["']?\)/); return m ? m[1] : ''; }
 
   /* ---- helpers ---- */
   function fmt(v, unit) { return (unit === '' ? v.toFixed(2) : Math.round(v * 10) / 10 + unit); }
