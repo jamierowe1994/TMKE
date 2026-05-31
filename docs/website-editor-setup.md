@@ -6,7 +6,9 @@ so the changes go live for everyone. Edits are stored per page in Supabase.
 
 ## 1. Create the database table
 
-Run this in the Supabase SQL editor (project → SQL):
+Run this in the Supabase SQL editor (project → SQL). It's **safe to re-run** —
+if you've already set this up you'll just see the table/policies stay as they
+are (no `already exists` error).
 
 ```sql
 create table if not exists public.site_overrides (
@@ -19,20 +21,27 @@ create table if not exists public.site_overrides (
 alter table public.site_overrides enable row level security;
 
 -- The live site (anonymous visitors) must be able to READ published overrides.
+drop policy if exists "public read site_overrides" on public.site_overrides;
 create policy "public read site_overrides"
   on public.site_overrides for select
   using (true);
 
 -- Only signed-in admins can WRITE (save drafts / publish).
+drop policy if exists "authed insert site_overrides" on public.site_overrides;
 create policy "authed insert site_overrides"
   on public.site_overrides for insert
   with check (auth.role() = 'authenticated');
 
+drop policy if exists "authed update site_overrides" on public.site_overrides;
 create policy "authed update site_overrides"
   on public.site_overrides for update
   using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
 ```
+
+> Already seeing `policy "..." already exists`? That just means this step was
+> done previously — you can skip it. (The `drop policy if exists` lines above
+> make the script safe to run again.)
 
 ## 1b. Create the image-upload storage bucket
 
@@ -46,23 +55,27 @@ In the Supabase dashboard → **Storage** → **New bucket**:
 - **Public bucket: ON** (so uploaded images are viewable on the live site)
 
 Then add policies so signed-in admins can upload and anyone can read. Run this
-in the SQL editor:
+in the SQL editor (also **safe to re-run**):
 
 ```sql
 -- public read of uploaded images
+drop policy if exists "public read site-media" on storage.objects;
 create policy "public read site-media"
   on storage.objects for select
   using (bucket_id = 'site-media');
 
 -- signed-in admins can upload
+drop policy if exists "authed upload site-media" on storage.objects;
 create policy "authed upload site-media"
   on storage.objects for insert to authenticated
   with check (bucket_id = 'site-media');
 
 -- signed-in admins can overwrite / remove their uploads
+drop policy if exists "authed update site-media" on storage.objects;
 create policy "authed update site-media"
   on storage.objects for update to authenticated
   using (bucket_id = 'site-media');
+drop policy if exists "authed delete site-media" on storage.objects;
 create policy "authed delete site-media"
   on storage.objects for delete to authenticated
   using (bucket_id = 'site-media');
