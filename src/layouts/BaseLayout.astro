@@ -159,8 +159,42 @@ const {
     </script>
 
     <script src="/scripts/app.js" is:inline></script>
-    <!-- Visual editor (prototype): always re-applies saved per-element style
-         overrides; the click-to-edit overlay only activates with ?edit=1. -->
+
+    <!-- Website Editor — Supabase bridge. Exposes window.tmkeStore (auth +
+         per-page draft/published overrides) for the editor below. Falls back
+         to localStorage when Supabase env vars aren't set. Requires a
+         `site_overrides` table (see docs/website-editor-setup.md). -->
+    <script>
+      import { supabase, isConfigured } from "../lib/supabase.js";
+      const TABLE = "site_overrides";
+      const path = () => (location.pathname.replace(/\/+$/, "") || "/");
+      window.tmkeStore = {
+        configured: isConfigured,
+        async hasSession() {
+          try { const { data } = await supabase.auth.getSession(); return !!(data && data.session); }
+          catch (e) { return false; }
+        },
+        async loadPublished() {
+          try { const { data } = await supabase.from(TABLE).select("published").eq("path", path()).maybeSingle(); return (data && data.published) || {}; }
+          catch (e) { return {}; }
+        },
+        async loadDraft() {
+          try { const { data } = await supabase.from(TABLE).select("draft,published").eq("path", path()).maybeSingle(); return data ? (data.draft || data.published || {}) : {}; }
+          catch (e) { return {}; }
+        },
+        async saveDraft(map) {
+          try { await supabase.from(TABLE).upsert({ path: path(), draft: map, updated_at: new Date().toISOString() }, { onConflict: "path" }); } catch (e) {}
+        },
+        async publish(map) {
+          const { error } = await supabase.from(TABLE).upsert({ path: path(), draft: map, published: map, updated_at: new Date().toISOString() }, { onConflict: "path" });
+          if (error) throw error;
+        },
+      };
+      window.dispatchEvent(new Event("tmke:store-ready"));
+    </script>
+
+    <!-- Website Editor — loader (always re-applies the page's published
+         overrides) + click-to-edit overlay (only with ?edit=1). -->
     <script src="/scripts/visual-editor.js" is:inline></script>
   </body>
 </html>
