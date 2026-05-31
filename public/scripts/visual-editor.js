@@ -348,9 +348,15 @@
       '.tmke-ve-bar button{font:600 12px system-ui,sans-serif;color:#f2efe9;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:7px 12px;cursor:pointer;}',
       '.tmke-ve-bar button:hover{background:rgba(255,255,255,.2);}',
       '.tmke-ve-bar button.primary{background:#5b4b7a;border-color:#5b4b7a;}',
-      'body.tmke-ve-on{padding-top:46px!important;margin-right:300px!important;}',
-      'body.tmke-ve-on .nav{right:300px!important;}',
-      '.tmke-ve-panel{position:fixed;top:46px;right:0;bottom:0;z-index:2147483645;width:300px;background:#22232a;color:#f2efe9;border-left:1px solid rgba(255,255,255,.12);box-shadow:-8px 0 30px rgba(0,0,0,.22);font:13px system-ui,sans-serif;display:flex;flex-direction:column;}',
+      /* Editor chrome OVERLAYS the page (it never reflows it), so the layout
+         on screen is exactly what visitors see — full-bleed backgrounds, vw
+         units and centring all use the real full-window width. The site nav is
+         only nudged down (vertical) so it sits below the bar. */
+      'body.tmke-ve-on .nav{top:46px!important;}',
+      '.tmke-ve-panel{position:fixed;top:46px;right:0;bottom:0;z-index:2147483645;width:300px;background:#22232a;color:#f2efe9;border-left:1px solid rgba(255,255,255,.12);box-shadow:-8px 0 30px rgba(0,0,0,.22);font:13px system-ui,sans-serif;display:flex;flex-direction:column;transition:transform .18s ease;}',
+      'body.tmke-ve-collapsed .tmke-ve-panel{transform:translateX(100%);}',
+      '.tmke-ve-showtab{position:fixed;top:56px;right:0;z-index:2147483645;display:none;background:#5b4b7a;color:#fff;border:none;border-radius:8px 0 0 8px;padding:12px 7px;cursor:pointer;font:700 11px system-ui;letter-spacing:.1em;writing-mode:vertical-rl;}',
+      'body.tmke-ve-collapsed .tmke-ve-showtab{display:block;}',
       '.tmke-ve-panel-h{padding:12px 14px;background:rgba(255,255,255,.05);font-weight:700;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;}',
       '.tmke-ve-panel-h small{font-weight:500;opacity:.6;font-size:11px;}',
       '.tmke-ve-body{padding:6px 14px 24px;flex:1 1 auto;min-height:0;overflow-y:scroll;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#6b5e86 #2a2b33;}',
@@ -419,6 +425,8 @@
       '.tmke-ve-switch.on{background:#5b4b7a;}',
       '.tmke-ve-switch.on::after{transform:translateX(16px);}',
       '.tmke-ve-danger{margin-top:14px;border-color:rgba(255,120,120,.45)!important;color:#ffb4b4!important;}',
+      '.tmke-ve-del{margin-top:8px;background:#7a2230!important;border-color:#9c2d3f!important;color:#ffd9df!important;}',
+      '.tmke-ve-del:hover{background:#9c2d3f!important;}',
       '.tmke-ve-danger:hover{background:rgba(255,120,120,.1)!important;}',
       '#tmke-ve-handles{position:fixed;z-index:2147483644;pointer-events:none;outline:1px solid rgba(91,75,122,.9);}',
       '.tmke-ve-handle{position:absolute;width:13px;height:13px;background:#fff;border:2px solid #5b4b7a;border-radius:50%;pointer-events:auto;}',
@@ -444,7 +452,7 @@
       '.tmke-ve-secrow .grab{cursor:grab;opacity:.5;letter-spacing:-2px;}',
       '.tmke-ve-secrow .nm{flex:1;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
       '.tmke-ve-secrow .nm:hover{color:#c9b8e6;}',
-      '.tmke-ve-secrow .ord button{background:rgba(255,255,255,.1);border:none;color:#f2efe9;width:22px;height:22px;border-radius:5px;cursor:pointer;font-size:12px;}',
+      '.tmke-ve-secrow .ord button{background:rgba(255,255,255,.1);border:none;color:#f2efe9;min-width:22px;height:22px;padding:0 7px;border-radius:5px;cursor:pointer;font-size:11px;}',
       '.tmke-ve-secrow .ord button:hover{background:#5b4b7a;}',
       '#tmke-ve-lib{position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;}',
       '.tmke-ve-lib-box{width:min(720px,92vw);max-height:80vh;background:#22232a;border:1px solid rgba(255,255,255,.15);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5);}',
@@ -469,6 +477,8 @@
     bar.appendChild(btn('+ Add', function (e) { toggleAddMenu(e.currentTarget); }));
     bar.appendChild(btn('Sections', function (e) { toggleSectionsMenu(e.currentTarget); }));
     bar.appendChild(btn('Rulers', function (e) { toggleRulerMenu(e.currentTarget); }));
+    bar.appendChild(btn('⬇ Save state', saveState));
+    bar.appendChild(btn('Restore', function (e) { toggleStatesMenu(e.currentTarget); }));
     bar.appendChild(btn('Reset all', function () {
       if (!confirm('Remove every saved change on this page?')) return;
       overrides = {}; persist(); injectStyles(); deselect();
@@ -476,7 +486,10 @@
     }));
     var prev = btn('Preview', enterPreview); prev.className = 'primary'; bar.appendChild(prev);
     bar.appendChild(btn('Done', exitEditor));
+    var collapse = btn('⟩', function () { document.body.classList.toggle('tmke-ve-collapsed'); collapse.textContent = document.body.classList.contains('tmke-ve-collapsed') ? '⟨' : '⟩'; });
+    collapse.title = 'Hide / show the panel (the page never resizes)'; bar.appendChild(collapse);
     document.body.appendChild(bar);
+    var tab = document.createElement('button'); tab.className = 'tmke-ve-showtab'; tab.textContent = 'PANEL'; tab.onclick = function () { document.body.classList.remove('tmke-ve-collapsed'); collapse.textContent = '⟩'; }; document.body.appendChild(tab);
     crumbEl = bar.querySelector('#tmke-ve-crumb');
     statusEl = bar.querySelector('#tmke-ve-status');
     onDirty = function () { if (remote) statusEl.textContent = 'Draft saved'; };
@@ -629,6 +642,59 @@
     m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 320)) + 'px'; m.style.top = (r.bottom + 6) + 'px';
     document.body.appendChild(m);
   }
+  /* ---- save states (soft saves / checkpoints — separate from Publish) ---- */
+  function statesKey() { return 'tmke-ve-states::' + pathKey(); }
+  function loadStates() { try { return JSON.parse(localStorage.getItem(statesKey()) || '[]'); } catch (e) { return []; } }
+  function saveStatesArr(a) { try { localStorage.setItem(statesKey(), JSON.stringify(a)); } catch (e) {} }
+  function saveState() {
+    var a = loadStates();
+    a.unshift({ id: 'st' + Date.now(), ts: Date.now(), map: JSON.parse(JSON.stringify(overrides)) });
+    if (a.length > 30) a = a.slice(0, 30);
+    saveStatesArr(a); flashStatus('State saved ✓');
+  }
+  function relTime(ts) { var s = Math.floor((Date.now() - ts) / 1000); if (s < 60) return 'just now'; var m = Math.floor(s / 60); if (m < 60) return m + ' min ago'; var h = Math.floor(m / 60); if (h < 24) return h + 'h ago'; return Math.floor(h / 24) + 'd ago'; }
+  function fmtClock(ts) { try { return new Date(ts).toLocaleString(); } catch (e) { return ''; } }
+  function restoreSnap(map) {
+    overrides = JSON.parse(JSON.stringify(map));
+    Local.save(overrides);
+    if (remote && store) { clearTimeout(saveTimer); saveTimer = setTimeout(function () { store.saveDraft(overrides); }, 200); }
+    reapplyAll();
+    if (selected && document.contains(selected)) renderPanel(selected); else deselect();
+    recordHistory(); flashStatus('Restored');
+  }
+  function toggleStatesMenu(anchor) {
+    var ex = document.getElementById('tmke-ve-addmenu'); if (ex) { ex.remove(); return; }
+    var a = loadStates();
+    var m = document.createElement('div'); m.id = 'tmke-ve-addmenu'; m.className = 'tmke-ve-addmenu tmke-ve-secmenu';
+    var hint = document.createElement('div'); hint.className = 'tmke-ve-palhint'; hint.textContent = 'Saved states are soft saves (not Publish). Roll back to any of them at any time.'; m.appendChild(hint);
+    if (!a.length) { var e = document.createElement('div'); e.className = 'tmke-ve-hint'; e.style.padding = '12px 4px'; e.textContent = 'No saved states yet — click “⬇ Save state” to make one.'; m.appendChild(e); }
+    var list = document.createElement('div'); list.className = 'tmke-ve-seclist'; m.appendChild(list);
+    a.forEach(function (st) {
+      var row = document.createElement('div'); row.className = 'tmke-ve-secrow';
+      row.innerHTML = '<span class="nm" title="' + fmtClock(st.ts) + '">' + relTime(st.ts) + ' · ' + fmtClock(st.ts) + '</span><span class="ord"><button class="rest" title="Restore">Restore</button><button class="del" title="Delete">✕</button></span>';
+      row.querySelector('.rest').onclick = function () { restoreSnap(st.map); m.remove(); };
+      row.querySelector('.del').onclick = function () { saveStatesArr(loadStates().filter(function (x) { return x.id !== st.id; })); m.remove(); toggleStatesMenu(anchor); };
+      list.appendChild(row);
+    });
+    var r = anchor.getBoundingClientRect(); m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 320)) + 'px'; m.style.top = (r.bottom + 6) + 'px';
+    document.body.appendChild(m);
+  }
+
+  /* ---- delete the selected element ---- */
+  function deleteSelected() {
+    if (!selected) return;
+    var el = selected, block = el.closest && el.closest('[data-ve-block]');
+    if (block) {
+      var bid = block.getAttribute('data-ve-block');
+      overrides.__blocks = (overrides.__blocks || []).filter(function (b) { return b.id !== bid; });
+      var bsel = selectorFor(block); if (overrides[bsel]) delete overrides[bsel];
+      block.remove(); persist();
+    } else {
+      setOverride(selectorFor(el), 'display', 'none');
+    }
+    removeHandles(); deselect();
+  }
+
   function exitEditor() { var u = new URL(location.href); u.searchParams.delete('edit'); location.href = u.toString(); }
 
   /* Edit mode ⇆ Preview, toggled in-session (no reload → scroll preserved). */
@@ -727,6 +793,20 @@
       g.appendChild(cell);
     });
     parent.appendChild(row);
+    // Quick centre — responsive (uses auto margins / flex, never fixed pixels)
+    var crow = document.createElement('div'); crow.className = 'tmke-ve-row';
+    crow.innerHTML = '<label>Quick centre</label><div class="tmke-ve-chips"></div>';
+    var cc = crow.querySelector('.tmke-ve-chips');
+    var mk = function (txt, fn) { var b = document.createElement('button'); b.className = 'tmke-ve-chip'; b.textContent = txt; b.onclick = fn; cc.appendChild(b); };
+    mk('⇔ Centre X', function () { setOverride(sel, 'margin-left', 'auto'); setOverride(sel, 'margin-right', 'auto'); if (isTextEl(el)) setOverride(sel, 'text-align', 'center'); renderPanel(el); });
+    mk('⇕ Centre Y', function () { var tgt = (el.tagName === 'SECTION') ? el : (el.closest('section') || el.parentElement || el); var ts = selectorFor(tgt); setOverride(ts, 'display', 'flex'); setOverride(ts, 'flex-direction', 'column'); setOverride(ts, 'justify-content', 'center'); renderPanel(el); });
+    mk('Neutral', function () {
+      if (overrides[sel]) ['transform', 'margin-left', 'margin-right', 'text-align'].forEach(function (p) { delete overrides[sel][p]; });
+      var tgt = (el.tagName === 'SECTION') ? el : (el.closest('section') || el.parentElement || el); var ts = selectorFor(tgt);
+      if (overrides[ts]) ['display', 'flex-direction', 'justify-content', 'align-items'].forEach(function (p) { delete overrides[ts][p]; });
+      persist(); injectStyles(); renderPanel(el);
+    });
+    parent.appendChild(crow);
     if (t.x || t.y) {
       var rrow = document.createElement('div'); rrow.className = 'tmke-ve-row'; rrow.innerHTML = '<div class="tmke-ve-chips"></div>';
       var chip = document.createElement('button'); chip.className = 'tmke-ve-chip'; chip.textContent = 'Reset to original';
@@ -1075,6 +1155,10 @@
     var reset = document.createElement('button'); reset.className = 'tmke-ve-reset tmke-ve-danger'; reset.textContent = 'Reset this element';
     reset.onclick = function () { delete overrides[sel]; persist(); injectStyles(); applyContent(); renderPanel(el); };
     panelBody.appendChild(reset);
+    // Delete (also: Delete / Backspace key). Hides existing elements; removes added blocks.
+    var del = document.createElement('button'); del.className = 'tmke-ve-reset tmke-ve-del'; del.textContent = '🗑 Delete element';
+    del.onclick = function () { deleteSelected(); };
+    panelBody.appendChild(del);
   }
 
   /* ---- interactions ---- */
@@ -1099,6 +1183,7 @@
       var z = (e.key === 'z' || e.key === 'Z'), y = (e.key === 'y' || e.key === 'Y');
       if ((e.ctrlKey || e.metaKey) && z && !e.shiftKey) { e.preventDefault(); undo(); }
       else if ((e.ctrlKey || e.metaKey) && ((z && e.shiftKey) || y)) { e.preventDefault(); redo(); }
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteSelected(); }
     }, true);
     // Drag-to-move is intentionally disabled — clients kept nudging things by
     // accident. Position is now set from the sidebar via X/Y fields instead.
