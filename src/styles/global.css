@@ -1255,14 +1255,18 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 .approach-photo-scrim {
   position: absolute;
   inset: 0;
-  /* All-over dim — pulls the photo down a stop so the section feels
-     cinematic and bold rather than brightly photographic. Heavier
-     than before; the bottom-scrim adds an additional black floor
-     under the overlay text on top of this. */
+  /* Flat all-over dim PLUS an edge vignette that closes in from all sides as
+     the photo takes over — so the fullscreen stages pick up the darker, framed
+     look of the intro and the white copy reads cleanly. Both scale with
+     --takeover, so they fade in/out with the scroll transition. */
   background:
+    radial-gradient(130% 110% at 50% 45%,
+      rgba(0, 0, 0, 0) 30%,
+      rgba(0, 0, 0, calc(0.20 * var(--takeover))) 70%,
+      rgba(0, 0, 0, calc(0.46 * var(--takeover))) 100%),
     linear-gradient(180deg,
-      rgba(0, 0, 0, calc(0.12 * var(--takeover))) 0%,
-      rgba(0, 0, 0, calc(0.22 * var(--takeover))) 100%);
+      rgba(0, 0, 0, calc(0.14 * var(--takeover))) 0%,
+      rgba(0, 0, 0, calc(0.24 * var(--takeover))) 100%);
   pointer-events: none;
 }
 
@@ -1340,6 +1344,10 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   max-width: none;
   margin: 0 auto;
   border: 2px solid rgba(255, 255, 255, 0.9);
+  /* Same faint dark tint + blur as the stage boxes. */
+  background: rgba(0, 0, 0, 0.13);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
   padding: 44px 48px;
   display: flex;
   align-items: center;
@@ -1419,6 +1427,11 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   width: min(600px, 86vw);
   min-height: 330px;
   border: 2px solid rgba(255, 255, 255, 0.9);
+  /* Faint dark tint + blur of the photo behind the box so the copy reads
+     clearly without hiding the image. */
+  background: rgba(0, 0, 0, 0.13);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
   padding: 44px 48px;
   display: flex;
   flex-direction: column;
