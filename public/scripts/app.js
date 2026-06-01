@@ -60,6 +60,12 @@
   onScroll();
   window.addEventListener('scroll', onScroll, { passive: true });
 
+  // Fallback for browsers without :has() — flag pages with a dark full-bleed
+  // hero so the nav shows in white until the user scrolls (CSS handles the rest).
+  if (document.querySelector('.about-hero, .smm-hero, .contact-hero')) {
+    document.body.classList.add('has-dark-hero');
+  }
+
   // ---------- Reveal on scroll ----------
   const revealObserver = new IntersectionObserver(
     (entries) => {
