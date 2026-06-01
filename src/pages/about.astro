@@ -22,8 +22,7 @@ const team = [
   },
 ];
 
-const sofaImage =
-  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1800&q=80";
+const sofaImage = "/assets/Doors.jpg";
 
 const togetherImage =
   "https://images.unsplash.com/photo-1556656793-08538906a9f8?auto=format&fit=crop&w=2000&q=80";
@@ -34,18 +33,12 @@ const togetherImage =
   description="TMKE is a marketing agency built specifically for estate agents who are tired of inconsistent, rushed, and underwhelming social media."
 >
   <section class="about-hero">
-    <video
+    <img
       class="about-hero-video"
-      data-hero-video
-      muted
-      loop
-      playsinline
-      preload="metadata"
-      poster="/assets/hero-poster-dark.svg"
+      src="/assets/about%20us.png"
+      alt=""
       aria-hidden="true"
-    >
-      <source data-src="/assets/laptop.mp4" type="video/mp4" />
-    </video>
+    />
     <div class="about-hero-overlay"></div>
     <div class="about-hero-vignette"></div>
 
@@ -141,7 +134,7 @@ const togetherImage =
         class="about-method-image"
         style={`background-image: url('${sofaImage}')`}
         role="img"
-        aria-label="An editorial scene — a laptop resting on a linen sofa"
+        aria-label="An editorial scene — a set of doors"
       >
       </div>
     </div>
@@ -625,30 +618,3 @@ const togetherImage =
     .about-together-small { margin-left: 24px; }
   }
 </style>
-
-<script is:inline>
-  (function () {
-    const video = document.querySelector("[data-hero-video]");
-    if (!video) return;
-    const source = video.querySelector("source[data-src]");
-    let armed = false;
-    const arm = function () {
-      if (armed || !source) return;
-      armed = true;
-      source.setAttribute("src", source.getAttribute("data-src"));
-      video.load();
-      const playPromise = video.play();
-      if (playPromise && playPromise.catch) playPromise.catch(function () {});
-    };
-    if ("IntersectionObserver" in window) {
-      const io = new IntersectionObserver(function (entries) {
-        for (const e of entries) {
-          if (e.isIntersecting) { arm(); io.disconnect(); break; }
-        }
-      }, { rootMargin: "200px" });
-      io.observe(video);
-    } else {
-      arm();
-    }
-  })();
-</script>
