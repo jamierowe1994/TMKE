@@ -414,6 +414,12 @@
       '.tmke-ve-gbody{padding:2px 12px 12px;}',
       '.tmke-ve-gbody .tmke-ve-row:first-child{margin-top:4px;}',
       '.tmke-ve-hint{font-size:11.5px;line-height:1.5;opacity:.6;padding:4px 0;}',
+      '.tmke-ve-inspect{display:flex;flex-direction:column;gap:3px;margin:2px 0 4px;}',
+      '.tmke-ve-iline{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06);}',
+      '.tmke-ve-iline .k{opacity:.6;flex:0 0 auto;}',
+      '.tmke-ve-iline .v{font-weight:600;text-align:right;font-variant-numeric:tabular-nums;}',
+      '.tmke-ve-cchip{display:inline-flex;align-items:center;gap:6px;}',
+      '.tmke-ve-cchip .dot{width:12px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.3);}',
       '.tmke-ve-quadgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}',
       '.tmke-ve-quadcell{display:flex;align-items:center;gap:6px;background:#1c1d22;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:5px 8px;}',
       '.tmke-ve-quadcell span{font-size:10px;opacity:.55;font-weight:700;width:12px;flex:0 0 auto;}',
@@ -1037,6 +1043,51 @@
     }
   }
 
+  /* ---- read-only "current values" inspector (the reference point) ---- */
+  function shortFont(f) { return (f || '').split(',')[0].replace(/["']/g, '').trim(); }
+  function pxQuad(cs, base) { return ['Top', 'Right', 'Bottom', 'Left'].map(function (s) { return Math.round(parseFloat(cs[base + s]) || 0); }).join(' / '); }
+  function colorChip(c) {
+    var wrap = document.createElement('span'); wrap.className = 'tmke-ve-cchip';
+    var dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = c;
+    var t = document.createElement('span'); t.textContent = toHex(c);
+    wrap.appendChild(dot); wrap.appendChild(t); return wrap;
+  }
+  function inspector(sel, el, cs) {
+    var g = group('Current values (reference)', true);
+    var box = document.createElement('div'); box.className = 'tmke-ve-inspect';
+    var add = function (k, v) {
+      var line = document.createElement('div'); line.className = 'tmke-ve-iline';
+      var ks = document.createElement('span'); ks.className = 'k'; ks.textContent = k;
+      var vs = document.createElement('span'); vs.className = 'v';
+      if (v && v.nodeType) vs.appendChild(v); else vs.textContent = v;
+      line.appendChild(ks); line.appendChild(vs); box.appendChild(line);
+    };
+    var r = el.getBoundingClientRect();
+    add('Size', Math.round(r.width) + ' × ' + Math.round(r.height) + ' px');
+    if (isTextEl(el)) {
+      add('Font', shortFont(cs.fontFamily));
+      add('Text size', Math.round(parseFloat(cs.fontSize)) + ' px');
+      add('Weight', cs.fontWeight);
+      add('Line height', cs.lineHeight === 'normal' ? 'normal' : (parseFloat(cs.lineHeight) / parseFloat(cs.fontSize)).toFixed(2));
+      add('Letter spacing', cs.letterSpacing === 'normal' ? '0' : (Math.round(parseFloat(cs.letterSpacing) * 10) / 10) + ' px');
+    }
+    add('Text colour', colorChip(cs.color));
+    if (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent') add('Background', colorChip(cs.backgroundColor));
+    add('Padding', pxQuad(cs, 'padding') + '  (T/R/B/L)');
+    add('Margin', pxQuad(cs, 'margin') + '  (T/R/B/L)');
+    if (cs.maxWidth !== 'none') add('Max width', Math.round(parseFloat(cs.maxWidth)) + ' px');
+    if (parseFloat(cs.borderRadius)) add('Corner radius', cs.borderRadius);
+    // Position offsets — this is what reads as "padding" on inset images like Chapter 4
+    if (cs.position && cs.position !== 'static') {
+      var ins = ['top', 'right', 'bottom', 'left'].map(function (s) { var v = cs[s]; return v === 'auto' ? 'auto' : (Math.round(parseFloat(v)) + ''); }).join(' / ');
+      add('Inset (' + cs.position + ')', ins + '  (T/R/B/L)');
+    }
+    var t = getTranslate(sel); if (t.x || t.y) add('Moved', Math.round(t.x) + ', ' + Math.round(t.y) + ' px');
+    g.appendChild(box);
+    var note = document.createElement('div'); note.className = 'tmke-ve-hint'; note.textContent = 'These are the element’s live values. If spacing shows under “Inset” not “Padding”, it’s positioned — match it from there.';
+    g.appendChild(note);
+  }
+
   function renderPanel(el) {
     var sel = selectorFor(el), cs = getComputedStyle(el);
     panelBody.innerHTML = '';
@@ -1050,6 +1101,9 @@
     var kind = isGradient ? 'Gradient' : isLine ? 'Line' : isShape ? 'Shape' : isImg ? 'Image' : isVid ? 'Video' : iconSvg ? 'Icon' : isSection ? 'Section' : textEl ? 'Text' : el.tagName.toLowerCase();
     tagBadge.textContent = kind;
     panel.querySelector('#tmke-ve-eltxt').textContent = '“' + (el.textContent || '').trim().slice(0, 22) + '”';
+
+    // CURRENT VALUES — read-only reference of how this element is actually built
+    inspector(sel, el, cs);
 
     // POSITION — exact X/Y nudge from the sidebar (no dragging on the page)
     var gp = group('Position', true);
