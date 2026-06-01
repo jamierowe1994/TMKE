@@ -1315,6 +1315,15 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   text-align: center;
   z-index: 3;
   opacity: var(--intro-vis);
+  /* Fairly dark edge-weighted wash over the photo whenever the intro is on
+     screen — i.e. at the very start AND on the outro (intro-vis = 1 - takeover).
+     So Chapter 4 opens dark and "Done with you" fades back into the same dark
+     frame as it zooms out, bookending the section. */
+  background:
+    radial-gradient(130% 110% at 50% 48%,
+      rgba(8, 7, 9, 0.40) 0%,
+      rgba(8, 7, 9, 0.64) 64%,
+      rgba(8, 7, 9, 0.86) 100%);
   /* Slight upward drift on exit so the intro feels like it lifts away
      rather than just disappearing. */
   transform: translate3d(0, calc((1 - var(--intro-vis)) * -32px), 0);
@@ -4307,7 +4316,10 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
   /* Flat --paper so The Edit is exactly the same background as every other
      section — no wall tint, fully cohesive. */
   background: var(--paper);
-  overflow: hidden;
+  /* Clip horizontally only — let the shelves' soft drop-shadow spill DOWN into
+     the next section so it fades out naturally instead of cutting a hard line. */
+  overflow-x: clip;
+  overflow-y: visible;
 }
 .shelf-copy { position: absolute; top: 8vh; left: 5vw; z-index: 5; max-width: 22ch; }
 .shelf-copy .chapter { color: rgba(28, 29, 34, 0.5); margin-bottom: 16px; }
