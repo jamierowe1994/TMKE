@@ -22,11 +22,9 @@ const team = [
   },
 ];
 
-const sofaImage =
-  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1800&q=80";
+const sofaImage = "/assets/Doors.jpg";
 
-const togetherImage =
-  "https://images.unsplash.com/photo-1556656793-08538906a9f8?auto=format&fit=crop&w=2000&q=80";
+const togetherImage = "/assets/jungle.png";
 ---
 
 <BaseLayout
@@ -34,18 +32,12 @@ const togetherImage =
   description="TMKE is a marketing agency built specifically for estate agents who are tired of inconsistent, rushed, and underwhelming social media."
 >
   <section class="about-hero">
-    <video
+    <img
       class="about-hero-video"
-      data-hero-video
-      muted
-      loop
-      playsinline
-      preload="metadata"
-      poster="/assets/hero-poster-dark.svg"
+      src="/assets/about%20us.png"
+      alt=""
       aria-hidden="true"
-    >
-      <source data-src="/assets/laptop.mp4" type="video/mp4" />
-    </video>
+    />
     <div class="about-hero-overlay"></div>
     <div class="about-hero-vignette"></div>
 
@@ -141,7 +133,7 @@ const togetherImage =
         class="about-method-image"
         style={`background-image: url('${sofaImage}')`}
         role="img"
-        aria-label="An editorial scene — a laptop resting on a linen sofa"
+        aria-label="An editorial scene — a set of doors"
       >
       </div>
     </div>
@@ -163,6 +155,7 @@ const togetherImage =
       style={`background-image: url('${togetherImage}')`}
     >
     </div>
+    <div class="about-together-blur"></div>
     <div class="about-together-overlay"></div>
 
     <div class="about-together-inner">
@@ -325,9 +318,14 @@ const togetherImage =
   }
 
   /* ============ About — intro split ============ */
+  /* Intro split — laid out to mirror the Social page's "Managed for Estate
+     Agents" section exactly: same 1360 content width, same 76px gutters, the
+     prose stacked on the left and the aside pushed to the bottom-right as an
+     editorial follow-on (rather than a parallel column), with matching type
+     sizes and spacing so the two pages read as one system. */
   .about-intro {
     background: var(--paper);
-    padding: 80px 76px 40px;   /* tightened — less dead space top + bottom */
+    padding: clamp(56px, 6vw, 96px) 76px 20px;
   }
   .about-intro-wrap {
     max-width: 1360px;
@@ -341,10 +339,9 @@ const togetherImage =
     margin-bottom: 100px;
   }
   .about-intro-grid {
-    display: grid;
-    grid-template-columns: 1.1fr 1fr;
-    gap: clamp(48px, 6vw, 120px);
-    align-items: end;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
   }
   .about-intro-copy p {
     font-family: var(--serif);
@@ -353,30 +350,30 @@ const togetherImage =
     line-height: var(--lh-quote);
     color: var(--gunmetal);
     margin: 0 0 28px;
+    max-width: 46ch;
     letter-spacing: -0.005em;
   }
   .about-intro-copy p:last-child {
     margin-bottom: 0;
   }
   .about-intro-aside {
-    max-width: 460px;
-    justify-self: end;
+    align-self: flex-end;
+    max-width: 420px;
   }
   .about-intro-aside h3 {
     font-family: var(--sans);
     font-size: 16px;
     font-weight: 700;
     color: var(--gunmetal);
-    margin: 0 0 20px;
+    margin: 0 0 8px;
     letter-spacing: 0;
   }
   .about-intro-aside p {
     font-family: var(--sans);
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.7;
-    color: var(--gunmetal);
+    color: rgba(28, 29, 34, 0.72);
     margin: 0;
-    text-align: justify;
   }
 
   /* ============ About — team cards ============ */
@@ -448,10 +445,12 @@ const togetherImage =
     /* Image widened to ~2/3 so it matches the width of two team cards. */
     grid-template-columns: 1fr 2fr;
     gap: clamp(40px, 6vw, 100px);
-    align-items: start;
+    /* Text column centred against the taller image, so the heading + copy sit
+       midway down the photo rather than aligned to its top edge. */
+    align-items: center;
   }
   .about-method-text {
-    padding-top: 24px;
+    padding-top: 0;
   }
   .about-method-title {
     font-family: var(--serif);
@@ -517,14 +516,38 @@ const togetherImage =
     background-position: center;
     background-repeat: no-repeat;
   }
+  /* Darkening + blur fade from the left (behind the copy) out to roughly
+     three-quarters across, leaving the right end of the photo clean and
+     untouched. The blur lives on its own masked layer so it can fade out
+     independently of the gradient. */
   .about-together-overlay {
     position: absolute;
     inset: 0;
     background: linear-gradient(
       90deg,
-      rgba(20, 18, 26, 0.55) 0%,
-      rgba(20, 18, 26, 0.35) 50%,
-      rgba(20, 18, 26, 0.2) 100%
+      rgba(20, 18, 26, 0.82) 0%,
+      rgba(20, 18, 26, 0.62) 32%,
+      rgba(20, 18, 26, 0.3) 58%,
+      rgba(20, 18, 26, 0) 78%
+    );
+  }
+  .about-together-blur {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 42%,
+      rgba(0, 0, 0, 0) 75%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 42%,
+      rgba(0, 0, 0, 0) 75%
     );
   }
   .about-together-inner {
@@ -598,11 +621,9 @@ const togetherImage =
   /* ============ About — responsive ============ */
   @media (max-width: 900px) {
     .about-intro-grid {
-      grid-template-columns: 1fr;
-      gap: 48px;
-      align-items: start;
+      gap: 32px;
     }
-    .about-intro-aside { justify-self: start; max-width: 100%; }
+    .about-intro-aside { align-self: stretch; max-width: none; }
     .about-method-wrap { grid-template-columns: 1fr; }
     .about-method-text { padding-top: 0; }
     .about-method-caption { grid-template-columns: 1fr; }
@@ -623,30 +644,3 @@ const togetherImage =
     .about-together-small { margin-left: 24px; }
   }
 </style>
-
-<script is:inline>
-  (function () {
-    const video = document.querySelector("[data-hero-video]");
-    if (!video) return;
-    const source = video.querySelector("source[data-src]");
-    let armed = false;
-    const arm = function () {
-      if (armed || !source) return;
-      armed = true;
-      source.setAttribute("src", source.getAttribute("data-src"));
-      video.load();
-      const playPromise = video.play();
-      if (playPromise && playPromise.catch) playPromise.catch(function () {});
-    };
-    if ("IntersectionObserver" in window) {
-      const io = new IntersectionObserver(function (entries) {
-        for (const e of entries) {
-          if (e.isIntersecting) { arm(); io.disconnect(); break; }
-        }
-      }, { rootMargin: "200px" });
-      io.observe(video);
-    } else {
-      arm();
-    }
-  })();
-</script>
