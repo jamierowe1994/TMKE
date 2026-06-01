@@ -1327,19 +1327,28 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   /* White over the darkened photo, with a soft shadow for legibility. */
   color: var(--paper);
   text-shadow: 0 2px 34px rgba(0, 0, 0, 0.45);
-  /* Same white outline box as the stage slides, centred — so the intro and the
-     stages share an identical frame. */
+  /* Same double-outline frame as the stage slides, centred. */
+  position: relative;
   box-sizing: border-box;
-  width: min(640px, 84vw);
-  min-height: 300px;
+  width: min(600px, 86vw);
+  min-height: 330px;
   max-width: none;
   margin: 0 auto;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  padding: 36px 42px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  padding: 44px 48px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+.approach-takeover-title::before {
+  content: "";
+  position: absolute;          /* absolute → out of the flex flow, so it can't
+                                  split the title text into separate items */
+  inset: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+.approach-takeover-title > span { text-align: center; }
 .approach-takeover-title em {
   font-style: italic;
   color: #cdbce0;
@@ -1396,18 +1405,27 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 
 .approach-overlay-inner {
   color: var(--paper);
-  /* White outline box — identical size on every stage and pinned to the same
-     spot, so as the slides crossfade it reads as just the wording + photo
-     switching inside a fixed frame. Sized off the biggest slide. */
+  /* Double white outline frame — identical size on every stage, pinned to the
+     same spot, so the slides read as just the wording + photo switching inside
+     a fixed frame. The inner hairline (::before) sits 9px in for a polished,
+     framed feel. */
+  position: relative;
   box-sizing: border-box;
-  width: min(640px, 84vw);
-  min-height: 300px;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  padding: 36px 42px;
+  width: min(600px, 86vw);
+  min-height: 330px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  padding: 44px 48px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 16px;
+}
+.approach-overlay-inner::before {
+  content: "";
+  position: absolute;          /* absolute → taken out of the flex flow */
+  inset: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none;
 }
 .approach-overlay-h {
   /* Slide titles in Darker Grotesque, tight tracking (per client). */
@@ -4350,10 +4368,75 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
    both sit IN FRONT of the shelf image (z3) so all eight are fully visible. */
 /* Both rows tuck under their shelf's front edge (z1) with the SAME tilt. The
    top row goes a touch further under than the bottom. */
-.shelf-rec--s1 { --y: 80%; --lean: 15deg; z-index: 1; } /* top shelf — slightly more under */
+/* Both rows identical treatment (same tilt + same left-cast shadow); only the
+   shelf they sit on differs. Top row a touch further under than the bottom. */
+.shelf-rec--s1,
 .shelf-rec--s2 {
-  --y: 38%; --lean: 15deg; z-index: 1;                  /* bottom shelf — just kissing / under */
+  --lean: 15deg; z-index: 1;
   box-shadow: -28px 2px 38px rgba(0, 0, 0, 0.3), -11px 1px 16px rgba(0, 0, 0, 0.22);
+}
+.shelf-rec--s1 { --y: 80%; } /* top shelf — slightly more under */
+.shelf-rec--s2 { --y: 38%; } /* bottom shelf — just kissing / under */
+
+/* ============ The Edit — template-pack modal ============ */
+.edit-modal {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.edit-modal[hidden] { display: none; }
+.edit-modal-scrim {
+  position: absolute; inset: 0;
+  background: rgba(14, 13, 18, 0.55);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  opacity: 0; transition: opacity 0.28s ease;
+}
+.edit-modal.is-open .edit-modal-scrim { opacity: 1; }
+.edit-modal-panel {
+  position: relative; z-index: 1;
+  width: min(880px, 94vw); max-height: 88vh; overflow: auto;
+  background: var(--paper); border-radius: 6px;
+  padding: 40px clamp(24px, 4vw, 56px) 32px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.4);
+  transform: translateY(20px) scale(0.98); opacity: 0;
+  transition: transform 0.32s cubic-bezier(.2,.7,.2,1), opacity 0.28s ease;
+}
+.edit-modal.is-open .edit-modal-panel { transform: none; opacity: 1; }
+.edit-modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid rgba(28, 29, 34, 0.2); background: transparent;
+  font-size: 22px; line-height: 1; cursor: pointer; color: var(--ink);
+  transition: background 0.25s;
+}
+.edit-modal-close:hover { background: rgba(28, 29, 34, 0.06); }
+.edit-modal-eyebrow {
+  font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; font-weight: 700; color: var(--english-violet);
+  margin-bottom: 8px;
+}
+.edit-modal-title {
+  font-family: var(--serif); font-size: clamp(28px, 3vw, 40px);
+  font-weight: 500; color: var(--ink); margin: 0 0 24px; letter-spacing: -0.01em;
+}
+.edit-modal-gallery {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 28px;
+}
+.edit-modal-thumb {
+  aspect-ratio: 3 / 4; background-size: cover; background-position: center;
+  border-radius: 4px; background-color: #e6e2d9;
+}
+.edit-modal-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border-top: 1px solid rgba(28, 29, 34, 0.12); padding-top: 22px;
+}
+.edit-modal-price {
+  font-family: var(--serif); font-style: italic; font-size: 18px; color: rgba(28, 29, 34, 0.6);
+}
+body.edit-modal-open { overflow: hidden; }
+@media (max-width: 600px) {
+  .edit-modal-gallery { grid-template-columns: 1fr 1fr; }
+  .edit-modal-foot { flex-direction: column; align-items: stretch; }
 }
 
 @media (max-width: 900px) {
