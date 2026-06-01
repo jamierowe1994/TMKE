@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import AskExpert from "../components/AskExpert.astro";
+import ShopModal from "../components/ShopModal.astro";
 import { templates, packages } from "../data/library.js";
 
 const photoLibrary = templates.map((t) => {
@@ -109,6 +110,9 @@ const googleFonts = [
 >
   <!-- =================== ONBOARDING OVERLAY =================== -->
   <div class="ed-onboard" id="ed-onboard">
+    <a href="/account" class="ed-onboard-back" id="ed-onboard-back" aria-label="Back to your workspace">
+      <span aria-hidden="true">&larr;</span> Back
+    </a>
     <div class="ed-onboard-inner">
       <div class="ed-onboard-eyebrow">Welcome to the Studio</div>
       <h1 class="ed-onboard-title">Pick a pack <em>to open.</em></h1>
@@ -2164,6 +2168,28 @@ const googleFonts = [
       pointer-events: none;
     }
     .ed-onboard.is-gone { display: none; }
+    /* Back button — exits the Studio to the workspace. */
+    .ed-onboard-back {
+      position: absolute;
+      top: 28px; left: 32px;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 16px;
+      font-family: var(--sans);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--english-violet);
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(71, 66, 84, 0.22);
+      border-radius: 14px;
+      text-decoration: none;
+      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.25s;
+      z-index: 2;
+    }
+    .ed-onboard-back:hover {
+      background: var(--english-violet); color: var(--paper);
+      border-color: var(--english-violet); transform: translateX(-2px);
+    }
+    @media (max-width: 600px) { .ed-onboard-back { top: 16px; left: 16px; } }
     .ed-onboard-inner {
       width: 100%;
       max-width: 1100px;
@@ -2923,7 +2949,7 @@ const googleFonts = [
     function renderMoreCell(unowned) {
       if (!unowned.length) return;
       const previews = unowned.slice(0, 2).map((p) => `
-        <a class="ed-onboard-more-pack" href="/edit" title="${escapeHtml(p.title)}">
+        <a class="ed-onboard-more-pack" href="#" data-shop data-shop-slug="${escapeHtml(p.slug)}" title="${escapeHtml(p.title)}">
           <span class="ed-onboard-more-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
           <span class="ed-onboard-more-name">${escapeHtml(p.title)}</span>
         </a>`).join("");
@@ -2935,7 +2961,7 @@ const googleFonts = [
           <span>Download and buy more in The Edit.</span>
         </div>
         <div class="ed-onboard-more-list">${previews}</div>
-        <a class="ed-onboard-more-cta" href="/edit">Browse The Edit &rarr;</a>`;
+        <a class="ed-onboard-more-cta" href="#" data-shop>Browse The Edit &rarr;</a>`;
       grid.insertAdjacentElement("afterend", cell);
     }
 
@@ -2980,7 +3006,7 @@ const googleFonts = [
       if (owned.length === 0) {
         // Nothing purchased yet — nudge toward the shop, but the blank-canvas
         // skip button below still lets them explore the studio.
-        error.innerHTML = "You haven't added any packs yet — start with a blank canvas below, or pick some up in <a href=\"/edit\">The Edit</a>.";
+        error.innerHTML = "You haven't added any packs yet — start with a blank canvas below, or pick some up in <a href=\"#\" data-shop>The Edit</a>.";
         error.hidden = false;
         renderMoreCell(unowned);
         return;
@@ -3005,4 +3031,8 @@ const googleFonts = [
        separate edge function). Until that's wired the widget shows
        a friendly fallback message so the UI is still usable. -->
   <AskExpert />
+
+  <!-- Browse-packs shop modal — opened from the onboarding "Need more
+       packs?" cell so users can buy without leaving the Studio. -->
+  <ShopModal />
 </BaseLayout>
