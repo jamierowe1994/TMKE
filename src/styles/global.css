@@ -1255,11 +1255,19 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 .approach-photo-scrim {
   position: absolute;
   inset: 0;
-  /* Flat all-over dim PLUS an edge vignette that closes in from all sides as
-     the photo takes over — so the fullscreen stages pick up the darker, framed
-     look of the intro and the white copy reads cleanly. Both scale with
-     --takeover, so they fade in/out with the scroll transition. */
+  /* This scrim lives INSIDE the clipped photo layer, so every layer here only
+     ever covers the image itself — it scales down with the photo and never
+     bleeds onto the surrounding page background.
+     1) Contained state (intro + outro): a fairly dark, edge-weighted wash that
+        scales with (1 - takeover), so the photo is dark when small and Chapter 4
+        bookends on the same dark note.
+     2) Fullscreen state: a softer vignette + flat dim scaling with takeover so
+        the stage copy stays legible. */
   background:
+    radial-gradient(125% 105% at 50% 50%,
+      rgba(8, 7, 9, calc(0.40 * (1 - var(--takeover)))) 0%,
+      rgba(8, 7, 9, calc(0.58 * (1 - var(--takeover)))) 65%,
+      rgba(8, 7, 9, calc(0.80 * (1 - var(--takeover)))) 100%),
     radial-gradient(130% 110% at 50% 45%,
       rgba(0, 0, 0, 0) 30%,
       rgba(0, 0, 0, calc(0.20 * var(--takeover))) 70%,
@@ -4307,10 +4315,18 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
   /* Flat --paper so The Edit is exactly the same background as every other
      section — no wall tint, fully cohesive. */
   background: var(--paper);
-  overflow: hidden;
+  /* Clip horizontally only — let the shelves' soft drop-shadow spill DOWN into
+     the next section so it fades out naturally instead of cutting a hard line. */
+  overflow-x: clip;
+  overflow-y: visible;
 }
-.shelf-copy { position: absolute; top: 8vh; left: 5vw; z-index: 5; max-width: 22ch; }
-.shelf-copy .chapter { color: rgba(28, 29, 34, 0.5); margin-bottom: 16px; }
+/* Aligned to the same left edge as Chapter 6's content (1360 wrap + 76px
+   gutter), and a touch wider so the copy isn't cramped. */
+.shelf-copy {
+  position: absolute; top: 8vh; z-index: 5; max-width: 34ch;
+  left: max(76px, calc((100vw - 1360px) / 2 + 76px));
+}
+.shelf-copy .chapter { color: rgba(28, 29, 34, 0.5); margin-bottom: 16px; white-space: nowrap; }
 .shelf-title {
   font-family: var(--serif); font-weight: 400;
   font-size: var(--fs-title); line-height: var(--lh-title); letter-spacing: -0.02em;
@@ -4318,7 +4334,7 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
 }
 .shelf-sub {
   font-family: var(--sans); font-size: clamp(13px, 0.95vw, 15px); line-height: 1.5;
-  color: rgba(28, 29, 34, 0.6); margin: 14px 0 20px; max-width: 24ch;
+  color: rgba(28, 29, 34, 0.6); margin: 14px 0 20px; max-width: 34ch;
 }
 .shelf-cta { color: var(--ink); }
 /* CTA in the bottom-right corner (padded off the edge) to balance the
