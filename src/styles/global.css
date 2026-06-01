@@ -3039,16 +3039,20 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
    with the page wrap, image on the right bleeds toward the viewport edge,
    and the SMM coda nests under the image column. */
 .quote--split {
-  padding: 140px 0 180px;
+  /* Mirror Chapter 3 (editorial): same vertical rhythm + content frame. */
+  padding: 90px 0 48px;
   overflow-x: clip;
 }
 .quote-split-grid {
   display: grid;
-  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  /* Same column split + wrap as Chapter 3 so the two chapters read identically;
+     the photo lives in the right column — the same gap as Ch3's aside. */
+  grid-template-columns: 7fr 5fr;
   gap: 80px;
   align-items: start;
-  padding-left: max(76px, calc((100vw - 1360px) / 2 + 76px));
-  padding-right: max(0px, calc((100vw - 1360px) / 2));
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 76px;
 }
 .quote-left { padding-top: 24px; }
 .quote--split .chapter { margin-bottom: 40px; }
@@ -3061,8 +3065,9 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 }
 .quote--split .quote-text {
   font-family: var(--serif);
-  font-size: var(--fs-quote);     /* client-locked 26px / 1.2 */
-  line-height: var(--lh-quote);
+  /* Matched to Chapter 3's editorial lead — same size, line-height, tracking. */
+  font-size: clamp(25px, 2.3vw, 36px);
+  line-height: 1.22;
   letter-spacing: -0.005em;
   color: var(--ink);
   margin: 0;
@@ -3079,13 +3084,20 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
    silhouette but spanning a much larger footprint than the old quote-photo. */
 .quote-photo--full {
   position: relative;
-  margin: 0;                /* left-aligned so it lines up with the SMM copy below it */
+  margin: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: none;          /* fill the right column — the same gap as Ch3's aside */
 }
 .quote-photo--full .quote-photo-frame {
   aspect-ratio: 4 / 5;
-  border-radius: 50% 50% 0 0 / 46% 46% 0 0;   /* rounder dome at the top */
+  border-radius: 50% 50% 0 0 / 26% 26% 0 0;   /* gentler arch — less rounded on top */
+}
+/* Show the person reading (upper-right of the source) rather than just the
+   chair: bias the crop up + right and ease off the zoom so more is visible. */
+.quote-photo--full .quote-photo-frame img {
+  object-position: 72% 8%;
+  transform: scale(1.02);
+  animation: none;
 }
 .quote-photo--full .quote-photo-caption { margin-left: 4px; }
 
@@ -4255,7 +4267,7 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
   display: flex;
   align-items: flex-end;          /* shelves sit low; wall above holds the top row + copy */
   justify-content: center;
-  padding: 0 4vw 3vh;
+  padding: 0 4vw 0.5vh;           /* pushed lower — closer to the bottom */
   /* Flat --paper so The Edit is exactly the same background as every other
      section — no wall tint, fully cohesive. */
   background: var(--paper);
@@ -4284,7 +4296,9 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
   isolation: isolate;              /* own stacking context for the record/shelf depth ordering */
   /* Scaled down so the shelf is less dominant vs the assets and leaves
      the top-left title more breathing room. */
-  width: min(82vw, 86vh);
+  /* Wider + nudged right so it's stretched out and clear of the left title. */
+  width: min(92vw, 98vh);
+  transform: translateX(5%);
   aspect-ratio: 3000 / 2500;   /* shelf2.png — two shelves, taller frame */
 }
 .shelf-bg {
@@ -4304,11 +4318,12 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
   width: 17%; aspect-ratio: 3 / 4;
   border-radius: 4px; overflow: hidden;
   background: #cfcfcf;
+  z-index: 1;                       /* behind the shelf image so the front edge tucks the base */
   transform-origin: center bottom;
   transform: perspective(1200px) rotateX(var(--lean, 9deg));
-  /* Directional drop shadow — light from the upper-right, so the shadow
-     falls down and to the left. */
-  box-shadow: -12px 16px 28px rgba(0, 0, 0, 0.26), -3px 5px 9px rgba(0, 0, 0, 0.18);
+  /* Light from the right → the shadow casts to the LEFT, not downward, so the
+     record reads as leaning against the wall rather than floating off a base. */
+  box-shadow: -24px 2px 30px rgba(0, 0, 0, 0.26), -10px 1px 14px rgba(0, 0, 0, 0.2);
   transition: transform 0.45s cubic-bezier(.2, .8, .2, 1), box-shadow 0.45s ease;
   cursor: pointer;
 }
@@ -4333,10 +4348,12 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
 /* Two shelves (shelf2.png). Front edges ~17% (top) and ~60% (bottom) from the
    top → ~83% / ~40% from the bottom. Records rest on each shelf and lean back;
    both sit IN FRONT of the shelf image (z3) so all eight are fully visible. */
-.shelf-rec--s1 { --y: 83%; --lean: 12deg; z-index: 3; } /* top shelf  */
+/* Both rows tuck under their shelf's front edge (z1) with the SAME tilt. The
+   top row goes a touch further under than the bottom. */
+.shelf-rec--s1 { --y: 80%; --lean: 15deg; z-index: 1; } /* top shelf — slightly more under */
 .shelf-rec--s2 {
-  --y: 40%; --lean: 16deg; z-index: 3;                  /* bottom shelf — leaned back a touch harder */
-  box-shadow: -20px 24px 40px rgba(0, 0, 0, 0.3), -6px 9px 15px rgba(0, 0, 0, 0.22);
+  --y: 38%; --lean: 15deg; z-index: 1;                  /* bottom shelf — just kissing / under */
+  box-shadow: -28px 2px 38px rgba(0, 0, 0, 0.3), -11px 1px 16px rgba(0, 0, 0, 0.22);
 }
 
 @media (max-width: 900px) {
