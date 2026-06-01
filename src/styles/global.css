@@ -1325,16 +1325,35 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 .approach-takeover-title {
   /* Darker Grotesque display title with tight tracking (per client). */
   font-family: var(--sans);
-  font-size: clamp(40px, 5vw, 80px);
-  line-height: 1.02;
+  font-size: clamp(28px, 3.2vw, 44px);
+  line-height: 1.1;
   letter-spacing: -0.03em;
   font-weight: 500;
   /* White over the darkened photo, with a soft shadow for legibility. */
   color: var(--paper);
   text-shadow: 0 2px 34px rgba(0, 0, 0, 0.45);
+  /* Same double-outline frame as the stage slides, centred. */
+  position: relative;
+  box-sizing: border-box;
+  width: min(600px, 86vw);
+  min-height: 330px;
+  max-width: none;
   margin: 0 auto;
-  max-width: 22ch;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  padding: 44px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+.approach-takeover-title::before {
+  content: "";
+  position: absolute;          /* absolute → out of the flex flow, so it can't
+                                  split the title text into separate items */
+  inset: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+.approach-takeover-title > span { text-align: center; }
 .approach-takeover-title em {
   font-style: italic;
   color: #cdbce0;
@@ -1390,24 +1409,41 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 .approach-overlay--stage[data-overlay="4"] { opacity: var(--ov-4, 0); --ox: var(--ov-x-4, 0); }
 
 .approach-overlay-inner {
-  /* No width cap — the single-line headings need the room. The paragraph
-     below keeps its own max-width for readable line lengths. */
-  max-width: none;
   color: var(--paper);
+  /* Double white outline frame — identical size on every stage, pinned to the
+     same spot, so the slides read as just the wording + photo switching inside
+     a fixed frame. The inner hairline (::before) sits 9px in for a polished,
+     framed feel. */
+  position: relative;
+  box-sizing: border-box;
+  width: min(600px, 86vw);
+  min-height: 330px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  padding: 44px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+}
+.approach-overlay-inner::before {
+  content: "";
+  position: absolute;          /* absolute → taken out of the flex flow */
+  inset: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none;
 }
 .approach-overlay-h {
   /* Slide titles in Darker Grotesque, tight tracking (per client). */
   font-family: var(--sans);
-  font-size: clamp(36px, 4.4vw, 64px);
-  line-height: 1.05;
+  font-size: clamp(30px, 3.4vw, 46px);
+  line-height: 1.08;
   letter-spacing: -0.03em;
   font-weight: 500;
   color: var(--paper);
-  margin: 0 0 18px;
-  /* Each stage title now sits on a single line (the vw-based size keeps
-     even the longest one within the viewport from ~880px up). */
+  margin: 0;
+  /* Wrap inside the fixed box rather than forcing a single line. */
   max-width: none;
-  white-space: nowrap;
+  white-space: normal;
   /* Soft text shadow so the heading stays legible across a wide
      variety of photo content without needing a full dark scrim. */
   text-shadow: 0 2px 24px rgba(28, 29, 34, 0.4);
@@ -3026,16 +3062,20 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
    with the page wrap, image on the right bleeds toward the viewport edge,
    and the SMM coda nests under the image column. */
 .quote--split {
-  padding: 140px 0 180px;
+  /* Mirror Chapter 3 (editorial): same vertical rhythm + content frame. */
+  padding: 90px 0 48px;
   overflow-x: clip;
 }
 .quote-split-grid {
   display: grid;
-  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  /* Same column split + wrap as Chapter 3 so the two chapters read identically;
+     the photo lives in the right column — the same gap as Ch3's aside. */
+  grid-template-columns: 7fr 5fr;
   gap: 80px;
   align-items: start;
-  padding-left: max(76px, calc((100vw - 1360px) / 2 + 76px));
-  padding-right: max(0px, calc((100vw - 1360px) / 2));
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 76px;
 }
 .quote-left { padding-top: 24px; }
 .quote--split .chapter { margin-bottom: 40px; }
@@ -3048,8 +3088,9 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 }
 .quote--split .quote-text {
   font-family: var(--serif);
-  font-size: var(--fs-quote);     /* client-locked 26px / 1.2 */
-  line-height: var(--lh-quote);
+  /* Matched to Chapter 3's editorial lead — same size, line-height, tracking. */
+  font-size: clamp(25px, 2.3vw, 36px);
+  line-height: 1.22;
   letter-spacing: -0.005em;
   color: var(--ink);
   margin: 0;
@@ -3066,13 +3107,20 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
    silhouette but spanning a much larger footprint than the old quote-photo. */
 .quote-photo--full {
   position: relative;
-  margin: 0;                /* left-aligned so it lines up with the SMM copy below it */
+  margin: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: none;          /* fill the right column — the same gap as Ch3's aside */
 }
 .quote-photo--full .quote-photo-frame {
   aspect-ratio: 4 / 5;
-  border-radius: 50% 50% 0 0 / 46% 46% 0 0;   /* rounder dome at the top */
+  border-radius: 50% 50% 0 0 / 26% 26% 0 0;   /* gentler arch — less rounded on top */
+}
+/* Show the person reading (upper-right of the source) rather than just the
+   chair: bias the crop up + right and ease off the zoom so more is visible. */
+.quote-photo--full .quote-photo-frame img {
+  object-position: 72% 8%;
+  transform: scale(1.02);
+  animation: none;
 }
 .quote-photo--full .quote-photo-caption { margin-left: 4px; }
 
@@ -4242,7 +4290,7 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
   display: flex;
   align-items: flex-end;          /* shelves sit low; wall above holds the top row + copy */
   justify-content: center;
-  padding: 0 4vw 3vh;
+  padding: 0 4vw 0.5vh;           /* pushed lower — closer to the bottom */
   /* Flat --paper so The Edit is exactly the same background as every other
      section — no wall tint, fully cohesive. */
   background: var(--paper);
@@ -4271,8 +4319,10 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
   isolation: isolate;              /* own stacking context for the record/shelf depth ordering */
   /* Scaled down so the shelf is less dominant vs the assets and leaves
      the top-left title more breathing room. */
-  width: min(80vw, 104vh);
-  aspect-ratio: 3000 / 2000;
+  /* Wider + nudged right so it's stretched out and clear of the left title. */
+  width: min(92vw, 98vh);
+  transform: translateX(5%);
+  aspect-ratio: 3000 / 2500;   /* shelf2.png — two shelves, taller frame */
 }
 .shelf-bg {
   position: absolute; inset: 0; width: 100%; height: 100%;
@@ -4287,16 +4337,16 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
 .shelf-rec {
   position: absolute;
   left: var(--x); bottom: var(--y);
-  /* Same size for every record — 3:4 height (~24% of the stage) still fits
-     inside the ~25% gap; the bigger stage above makes them read larger. */
-  width: 12%; aspect-ratio: 3 / 4;
+  /* Four records per shelf — wider than the old 3-up layout. */
+  width: 17%; aspect-ratio: 3 / 4;
   border-radius: 4px; overflow: hidden;
   background: #cfcfcf;
+  z-index: 1;                       /* behind the shelf image so the front edge tucks the base */
   transform-origin: center bottom;
   transform: perspective(1200px) rotateX(var(--lean, 9deg));
-  /* Directional drop shadow — light from the upper-right, so the shadow
-     falls down and to the left. */
-  box-shadow: -12px 16px 28px rgba(0, 0, 0, 0.26), -3px 5px 9px rgba(0, 0, 0, 0.18);
+  /* Light from the right → the shadow casts to the LEFT, not downward, so the
+     record reads as leaning against the wall rather than floating off a base. */
+  box-shadow: -24px 2px 30px rgba(0, 0, 0, 0.26), -10px 1px 14px rgba(0, 0, 0, 0.2);
   transition: transform 0.45s cubic-bezier(.2, .8, .2, 1), box-shadow 0.45s ease;
   cursor: pointer;
 }
@@ -4318,24 +4368,80 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
   outline: none;
 }
 
-/* Per-shelf depth + seating — measured from shelf3.png (front edges ~6.5 /
-   42 / 77.7%). All same size; only position / lean / depth differ:
-   - s1 (top):    behind the shelf (z1) → base tucks, bottom clips (looking up).
-   - s2 (middle): behind the shelf (z1) → bottom clips into its own shelf only;
-                  sized so the top clears shelf 1.
-   - s3 (bottom): in FRONT (z3) → fully visible on the surface, no clipping. */
-/* Solid shelf bodies (centre): s1 1.6–12.3%, s2 37.2–42.9%, s3 67.8–78.5%.
-   - s1 (top): behind the shelf (z1), base tucked, body rises above (looking up).
-   - s2 (middle): behind (z1), base tucked on shelf 2; sized so its TOP (~20%)
-     stays clear of shelf 1's solid (12.3%).
-   - s3 (bottom): in FRONT (z3), base ON the surface (~74%), leaning back. */
-.shelf-rec--s1 { --y: 93%; --lean: 8deg;  z-index: 1; } /* top — lifted so less is tucked  */
-.shelf-rec--s2 { --y: 61%; --lean: 9deg;  z-index: 1; } /* middle — up, just below shelf 1   */
-.shelf-rec--s3 {
-  --y: 32%; --lean: 22deg; z-index: 3;                  /* bottom — sat on the surface, leaned back hard */
-  /* Leaning hard against the wall + lit from the upper-right casts a deeper
-     shadow down and to the left, wedging into the shelf/wall (the triangle). */
-  box-shadow: -24px 26px 42px rgba(0, 0, 0, 0.32), -7px 10px 16px rgba(0, 0, 0, 0.24);
+/* Two shelves (shelf2.png). Front edges ~17% (top) and ~60% (bottom) from the
+   top → ~83% / ~40% from the bottom. Records rest on each shelf and lean back;
+   both sit IN FRONT of the shelf image (z3) so all eight are fully visible. */
+/* Both rows tuck under their shelf's front edge (z1) with the SAME tilt. The
+   top row goes a touch further under than the bottom. */
+/* Both rows identical treatment (same tilt + same left-cast shadow); only the
+   shelf they sit on differs. Top row a touch further under than the bottom. */
+.shelf-rec--s1,
+.shelf-rec--s2 {
+  --lean: 15deg; z-index: 1;
+  box-shadow: -28px 2px 38px rgba(0, 0, 0, 0.3), -11px 1px 16px rgba(0, 0, 0, 0.22);
+}
+.shelf-rec--s1 { --y: 80%; } /* top shelf — slightly more under */
+.shelf-rec--s2 { --y: 38%; } /* bottom shelf — just kissing / under */
+
+/* ============ The Edit — template-pack modal ============ */
+.edit-modal {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.edit-modal[hidden] { display: none; }
+.edit-modal-scrim {
+  position: absolute; inset: 0;
+  background: rgba(14, 13, 18, 0.55);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  opacity: 0; transition: opacity 0.28s ease;
+}
+.edit-modal.is-open .edit-modal-scrim { opacity: 1; }
+.edit-modal-panel {
+  position: relative; z-index: 1;
+  width: min(880px, 94vw); max-height: 88vh; overflow: auto;
+  background: var(--paper); border-radius: 6px;
+  padding: 40px clamp(24px, 4vw, 56px) 32px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.4);
+  transform: translateY(20px) scale(0.98); opacity: 0;
+  transition: transform 0.32s cubic-bezier(.2,.7,.2,1), opacity 0.28s ease;
+}
+.edit-modal.is-open .edit-modal-panel { transform: none; opacity: 1; }
+.edit-modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid rgba(28, 29, 34, 0.2); background: transparent;
+  font-size: 22px; line-height: 1; cursor: pointer; color: var(--ink);
+  transition: background 0.25s;
+}
+.edit-modal-close:hover { background: rgba(28, 29, 34, 0.06); }
+.edit-modal-eyebrow {
+  font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; font-weight: 700; color: var(--english-violet);
+  margin-bottom: 8px;
+}
+.edit-modal-title {
+  font-family: var(--serif); font-size: clamp(28px, 3vw, 40px);
+  font-weight: 500; color: var(--ink); margin: 0 0 24px; letter-spacing: -0.01em;
+}
+.edit-modal-gallery {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 28px;
+}
+.edit-modal-thumb {
+  aspect-ratio: 3 / 4; background-size: cover; background-position: center;
+  border-radius: 4px; background-color: #e6e2d9;
+}
+.edit-modal-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border-top: 1px solid rgba(28, 29, 34, 0.12); padding-top: 22px;
+}
+.edit-modal-price {
+  font-family: var(--serif); font-style: italic; font-size: 18px; color: rgba(28, 29, 34, 0.6);
+}
+body.edit-modal-open { overflow: hidden; }
+@media (max-width: 600px) {
+  .edit-modal-gallery { grid-template-columns: 1fr 1fr; }
+  .edit-modal-foot { flex-direction: column; align-items: stretch; }
 }
 
 @media (max-width: 900px) {
