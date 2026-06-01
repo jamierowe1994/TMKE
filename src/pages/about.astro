@@ -24,7 +24,7 @@ const team = [
 
 const sofaImage = "/assets/Doors.jpg";
 
-const togetherImage = "/assets/social%20media.jpg";
+const togetherImage = "/assets/jungle.png";
 ---
 
 <BaseLayout
@@ -155,6 +155,7 @@ const togetherImage = "/assets/social%20media.jpg";
       style={`background-image: url('${togetherImage}')`}
     >
     </div>
+    <div class="about-together-blur"></div>
     <div class="about-together-overlay"></div>
 
     <div class="about-together-inner">
@@ -515,19 +516,39 @@ const togetherImage = "/assets/social%20media.jpg";
     background-position: center;
     background-repeat: no-repeat;
   }
+  /* Darkening + blur fade from the left (behind the copy) out to roughly
+     three-quarters across, leaving the right end of the photo clean and
+     untouched. The blur lives on its own masked layer so it can fade out
+     independently of the gradient. */
   .about-together-overlay {
     position: absolute;
     inset: 0;
-    /* Darkened so the copy reads cleanly over the photo, plus a touch of blur
-       to soften the image behind the text. */
     background: linear-gradient(
       90deg,
-      rgba(20, 18, 26, 0.78) 0%,
-      rgba(20, 18, 26, 0.62) 50%,
-      rgba(20, 18, 26, 0.48) 100%
+      rgba(20, 18, 26, 0.82) 0%,
+      rgba(20, 18, 26, 0.62) 32%,
+      rgba(20, 18, 26, 0.3) 58%,
+      rgba(20, 18, 26, 0) 78%
     );
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
+  }
+  .about-together-blur {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 42%,
+      rgba(0, 0, 0, 0) 75%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 42%,
+      rgba(0, 0, 0, 0) 75%
+    );
   }
   .about-together-inner {
     position: relative;
