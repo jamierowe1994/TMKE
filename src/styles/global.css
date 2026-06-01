@@ -4332,9 +4332,11 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
   isolation: isolate;              /* own stacking context for the record/shelf depth ordering */
   /* Scaled down so the shelf is less dominant vs the assets and leaves
      the top-left title more breathing room. */
-  /* Wider + nudged right so it's stretched out and clear of the left title. */
-  width: min(92vw, 98vh);
-  transform: translateX(5%);
+  /* Wider + dropped lower so the shelves sit closer to the Browse CTA; only a
+     small right nudge now so it reads more centred/full rather than cornered.
+     (The empty space below the bottom shelf in the PNG clips off the bottom.) */
+  width: min(94vw, 100vh);
+  transform: translate(2%, 16%);
   aspect-ratio: 3000 / 2500;   /* shelf2.png — two shelves, taller frame */
 }
 .shelf-bg {
@@ -4396,65 +4398,64 @@ body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
 .shelf-rec--s1 { --y: 80%; } /* top shelf — slightly more under */
 .shelf-rec--s2 { --y: 38%; } /* bottom shelf — just kissing / under */
 
-/* ============ The Edit — template-pack modal ============ */
+/* ============ The Edit — full-screen template showcase ============ */
 .edit-modal {
   position: fixed; inset: 0; z-index: 200;
   display: flex; align-items: center; justify-content: center;
-  padding: 24px;
 }
 .edit-modal[hidden] { display: none; }
 .edit-modal-scrim {
   position: absolute; inset: 0;
-  background: rgba(14, 13, 18, 0.55);
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-  opacity: 0; transition: opacity 0.28s ease;
+  background: rgba(10, 9, 12, 0.93);
+  opacity: 0; transition: opacity 0.3s ease;
 }
 .edit-modal.is-open .edit-modal-scrim { opacity: 1; }
-.edit-modal-panel {
-  position: relative; z-index: 1;
-  width: min(880px, 94vw); max-height: 88vh; overflow: auto;
-  background: var(--paper); border-radius: 6px;
-  padding: 40px clamp(24px, 4vw, 56px) 32px;
-  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.4);
-  transform: translateY(20px) scale(0.98); opacity: 0;
-  transition: transform 0.32s cubic-bezier(.2,.7,.2,1), opacity 0.28s ease;
+.edit-modal-stage {
+  position: relative; z-index: 1; margin: 0;
+  width: 92vw; height: 82vh;
+  display: flex; align-items: center; justify-content: center;
+  transform: scale(0.97); opacity: 0;
+  transition: transform 0.34s cubic-bezier(.2,.7,.2,1), opacity 0.3s ease;
 }
-.edit-modal.is-open .edit-modal-panel { transform: none; opacity: 1; }
-.edit-modal-close {
-  position: absolute; top: 16px; right: 16px;
-  width: 40px; height: 40px; border-radius: 50%;
-  border: 1px solid rgba(28, 29, 34, 0.2); background: transparent;
-  font-size: 22px; line-height: 1; cursor: pointer; color: var(--ink);
-  transition: background 0.25s;
+.edit-modal.is-open .edit-modal-stage { transform: none; opacity: 1; }
+.edit-modal-img {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain; border-radius: 4px;
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
 }
-.edit-modal-close:hover { background: rgba(28, 29, 34, 0.06); }
-.edit-modal-eyebrow {
-  font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em;
-  text-transform: uppercase; font-weight: 700; color: var(--english-violet);
-  margin-bottom: 8px;
+.edit-modal-close,
+.edit-modal-arrow {
+  position: absolute; z-index: 3;
+  border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.07); color: #fff;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  line-height: 1; transition: background 0.25s, border-color 0.25s;
 }
-.edit-modal-title {
-  font-family: var(--serif); font-size: clamp(28px, 3vw, 40px);
-  font-weight: 500; color: var(--ink); margin: 0 0 24px; letter-spacing: -0.01em;
+.edit-modal-close:hover,
+.edit-modal-arrow:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.6); }
+.edit-modal-close { top: 22px; right: 26px; width: 44px; height: 44px; font-size: 24px; }
+.edit-modal-arrow { top: 50%; transform: translateY(-50%); width: 56px; height: 56px; font-size: 32px; padding-bottom: 4px; }
+.edit-modal-arrow--prev { left: 24px; }
+.edit-modal-arrow--next { right: 24px; }
+.edit-modal-bar {
+  position: absolute; z-index: 3; bottom: 24px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 22px;
+  padding: 9px 11px 9px 22px;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
-.edit-modal-gallery {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 28px;
+.edit-modal-meta {
+  font-family: var(--sans); font-size: 13px; letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
 }
-.edit-modal-thumb {
-  aspect-ratio: 3 / 4; background-size: cover; background-position: center;
-  border-radius: 4px; background-color: #e6e2d9;
-}
-.edit-modal-foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  border-top: 1px solid rgba(28, 29, 34, 0.12); padding-top: 22px;
-}
-.edit-modal-price {
-  font-family: var(--serif); font-style: italic; font-size: 18px; color: rgba(28, 29, 34, 0.6);
-}
+.edit-modal-dot { opacity: 0.45; margin: 0 5px; }
 body.edit-modal-open { overflow: hidden; }
 @media (max-width: 600px) {
-  .edit-modal-gallery { grid-template-columns: 1fr 1fr; }
-  .edit-modal-foot { flex-direction: column; align-items: stretch; }
+  .edit-modal-stage { width: 94vw; height: 70vh; }
+  .edit-modal-arrow { width: 44px; height: 44px; font-size: 26px; }
+  .edit-modal-arrow--prev { left: 12px; }
+  .edit-modal-arrow--next { right: 12px; }
+  .edit-modal-bar { flex-direction: column; gap: 10px; bottom: 16px; padding: 12px 18px; }
 }
 
 @media (max-width: 900px) {

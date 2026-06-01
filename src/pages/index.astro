@@ -274,22 +274,26 @@ import FreeAssets from "../components/FreeAssets.astro";
     </a>
   </section>
 
-  <!-- Template-pack modal. Clicking a record on the shelf opens this with a
-       preview gallery (placeholder Unsplash shots for now) + a checkout CTA
-       (the checkout page isn't built yet, so the button is inert). -->
+  <!-- Template-pack showcase. Clicking a record opens a full-screen lightbox
+       that steps through the pack's designs one big image at a time (placeholder
+       Unsplash shots for now), with a checkout CTA (inert until checkout exists). -->
   <div class="edit-modal" id="edit-modal" hidden>
     <div class="edit-modal-scrim" data-edit-close></div>
-    <div class="edit-modal-panel" role="dialog" aria-modal="true" aria-label="Template pack preview">
-      <button type="button" class="edit-modal-close" data-edit-close aria-label="Close">&times;</button>
-      <div class="edit-modal-eyebrow">The Edit &middot; Template Pack</div>
-      <h3 class="edit-modal-title" id="edit-modal-title">Template Pack</h3>
-      <div class="edit-modal-gallery" id="edit-modal-gallery"></div>
-      <div class="edit-modal-foot">
-        <span class="edit-modal-price">Pricing coming soon</span>
-        <button type="button" class="btn btn--solid edit-modal-buy" title="Checkout coming soon">
-          Download &amp; Buy <span class="btn-arrow" aria-hidden="true">&rarr;</span>
-        </button>
+    <button type="button" class="edit-modal-close" data-edit-close aria-label="Close">&times;</button>
+    <button type="button" class="edit-modal-arrow edit-modal-arrow--prev" id="edit-prev" aria-label="Previous design">&lsaquo;</button>
+    <figure class="edit-modal-stage" role="dialog" aria-modal="true" aria-label="Template showcase">
+      <img class="edit-modal-img" id="edit-modal-img" alt="Template preview" />
+    </figure>
+    <button type="button" class="edit-modal-arrow edit-modal-arrow--next" id="edit-next" aria-label="Next design">&rsaquo;</button>
+    <div class="edit-modal-bar">
+      <div class="edit-modal-meta">
+        <span id="edit-modal-title">Template Pack</span>
+        <span class="edit-modal-dot">&middot;</span>
+        <span id="edit-modal-count">1 / 5</span>
       </div>
+      <button type="button" class="btn btn--solid edit-modal-buy" title="Checkout coming soon">
+        Download &amp; Buy <span class="btn-arrow" aria-hidden="true">&rarr;</span>
+      </button>
     </div>
   </div>
 
@@ -297,11 +301,12 @@ import FreeAssets from "../components/FreeAssets.astro";
     (function () {
       var modal = document.getElementById("edit-modal");
       if (!modal) return;
-      var gallery = document.getElementById("edit-modal-gallery");
+      var imgEl = document.getElementById("edit-modal-img");
       var titleEl = document.getElementById("edit-modal-title");
+      var countEl = document.getElementById("edit-modal-count");
       var recs = Array.prototype.slice.call(document.querySelectorAll(".shelf-rec"));
       var U = function (id) {
-        return "https://images.unsplash.com/photo-" + id + "?auto=format&fit=crop&w=900&q=80";
+        return "https://images.unsplash.com/photo-" + id + "?auto=format&fit=crop&w=1600&q=80";
       };
       // Generic, on-brand placeholders — swapped for real showcase shots later.
       var GENERIC = [
@@ -310,16 +315,19 @@ import FreeAssets from "../components/FreeAssets.astro";
         U("1556909114-f6e7ad7d3136"),    U("1513161455079-7dc1de15ef3e"),
         U("1567016432779-094069958ea5"), U("1524758631624-e2822e304c36"),
       ];
+      var list = [], idx = 0;
+      function render() {
+        imgEl.src = list[idx];
+        countEl.textContent = (idx + 1) + " / " + list.length;
+      }
       function open(i) {
         var rec = recs[i];
         var cover = rec && rec.querySelector("img") ? rec.querySelector("img").getAttribute("src") : null;
         titleEl.textContent = "Template Pack " + (i + 1);
-        var imgs = [];
-        if (cover) imgs.push(cover);
-        for (var k = 0; imgs.length < 4; k++) imgs.push(GENERIC[(i + k) % GENERIC.length]);
-        gallery.innerHTML = imgs.map(function (src) {
-          return '<div class="edit-modal-thumb" style="background-image:url(\'' + src + '\')"></div>';
-        }).join("");
+        list = [];
+        if (cover) list.push(cover);
+        for (var k = 0; list.length < 5; k++) list.push(GENERIC[(i + k) % GENERIC.length]);
+        idx = 0; render();
         modal.hidden = false;
         document.body.classList.add("edit-modal-open");
         requestAnimationFrame(function () { modal.classList.add("is-open"); });
@@ -329,14 +337,20 @@ import FreeAssets from "../components/FreeAssets.astro";
         document.body.classList.remove("edit-modal-open");
         setTimeout(function () { modal.hidden = true; }, 300);
       }
+      function step(d) { if (!list.length) return; idx = (idx + d + list.length) % list.length; render(); }
       recs.forEach(function (rec, i) {
         rec.addEventListener("click", function (e) { e.preventDefault(); open(i); });
       });
+      document.getElementById("edit-prev").addEventListener("click", function () { step(-1); });
+      document.getElementById("edit-next").addEventListener("click", function () { step(1); });
       modal.querySelectorAll("[data-edit-close]").forEach(function (el) {
         el.addEventListener("click", close);
       });
       document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && !modal.hidden) close();
+        if (modal.hidden) return;
+        if (e.key === "Escape") close();
+        else if (e.key === "ArrowLeft") step(-1);
+        else if (e.key === "ArrowRight") step(1);
       });
     })();
   </script>
