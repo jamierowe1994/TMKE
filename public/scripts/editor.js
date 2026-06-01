@@ -772,6 +772,23 @@
     fitZoom();
   }
 
+  // ---------- Blank canvas ----------
+  // A truly-empty starting point (the onboarding "Start with a blank canvas"
+  // choice). A violet page with a "Start building here" hint — the hint is
+  // DOM-only (see fullRender), so it never lands in an export.
+  function loadBlank() {
+    state.templateId = null;
+    state.canvas = { width: 1080, height: 1350, background: "#7B5BCF" };
+    state.elements = [];
+    state.selectedIds = [];
+    filenameEl.value = "Untitled";
+    state.history = [];
+    state.historyIndex = -1;
+    pushHistory();
+    fullRender();
+    fitZoom();
+  }
+
   // ---------- Rendering ----------
   function fullRender() {
     canvasEl.style.width = state.canvas.width + "px";
@@ -800,6 +817,18 @@
     state.elements.forEach((el) => {
       canvasEl.appendChild(renderElement(el));
     });
+
+    // Blank-canvas hint: a DOM-only "Start building here" prompt shown while
+    // a from-scratch canvas is still empty. It carries no element data, so
+    // _renderDesignToCanvas (which draws from state) never exports it, and it
+    // disappears the moment the user adds anything.
+    if (state.templateId === null && state.elements.length === 0) {
+      const hint = document.createElement("div");
+      hint.className = "ed-blank-hint";
+      hint.textContent = "Start building here";
+      hint.setAttribute("aria-hidden", "true");
+      canvasEl.appendChild(hint);
+    }
 
     renderHandles();
     renderLayers();
@@ -3678,10 +3707,17 @@
   seedBrandIntoBackgroundPane();
   window.addEventListener("resize", () => fitZoom());
 
-  // Read template ID from URL
+  // Read template ID from URL. A `?template=` deep-link (admin / library
+  // "edit this design") loads that specific template; otherwise we open on a
+  // genuinely blank canvas rather than silently dropping the first library
+  // template behind the onboarding overlay.
   const urlParams = new URLSearchParams(window.location.search);
-  const tplId = urlParams.get("template") || (TEMPLATES[0] && TEMPLATES[0].id);
-  loadTemplate(tplId, false);
+  const explicitTpl = urlParams.get("template");
+  if (explicitTpl) {
+    loadTemplate(explicitTpl, false);
+  } else {
+    loadBlank();
+  }
 
   // Persist filename changes
   filenameEl.addEventListener("blur", save);
