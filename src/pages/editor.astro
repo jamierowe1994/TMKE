@@ -1674,6 +1674,24 @@ const googleFonts = [
       overflow: hidden;
       background: #fff;
     }
+    /* Empty-state prompt for a blank canvas. Sits in the canvas (so it scales
+       with zoom) but is never part of the design data, so it won't export. */
+    .ed-blank-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--serif), Georgia, serif;
+      font-style: italic;
+      font-size: 64px;
+      letter-spacing: -0.01em;
+      color: rgba(255, 255, 255, 0.92);
+      text-align: center;
+      padding: 0 8%;
+      pointer-events: none;
+      user-select: none;
+    }
     .ed-element {
       position: absolute;
       box-sizing: border-box;
@@ -2240,6 +2258,70 @@ const googleFonts = [
       color: var(--ink);
       margin: 0;
     }
+    /* "Need more packs?" side cell — sits under the owned packs and teases a
+       couple the user hasn't bought, linking through to the shop. */
+    .ed-onboard-more {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      padding: 20px 22px;
+      margin: 4px 0 36px;
+      border: 1px dashed rgba(71,66,84,0.3);
+      border-radius: 6px;
+      background: rgba(123,91,207,0.05);
+    }
+    .ed-onboard-more-head { display: flex; flex-direction: column; gap: 3px; margin-right: auto; }
+    .ed-onboard-more-head strong {
+      font-family: var(--serif);
+      font-size: 19px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .ed-onboard-more-head span {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28,29,34,0.55);
+    }
+    .ed-onboard-more-list { display: flex; gap: 12px; }
+    .ed-onboard-more-pack {
+      display: flex;
+      flex-direction: column;
+      width: 84px;
+      text-decoration: none;
+      transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
+    }
+    .ed-onboard-more-pack:hover { transform: translateY(-3px); }
+    .ed-onboard-more-cover {
+      aspect-ratio: 4 / 3;
+      border-radius: 3px;
+      background-color: var(--platinum);
+      background-size: cover;
+      background-position: center;
+      border: 1px solid rgba(71,66,84,0.18);
+    }
+    .ed-onboard-more-name {
+      margin-top: 6px;
+      font-family: var(--sans);
+      font-size: 11px;
+      color: rgba(28,29,34,0.6);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ed-onboard-more-cta {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--violet, #7B5BCF);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color 0.25s;
+    }
+    .ed-onboard-more-cta:hover { color: var(--english-violet); }
+    .ed-onboard-error a { color: var(--violet, #7B5BCF); text-decoration: underline; }
     .ed-onboard-skip {
       appearance: none;
       background: transparent;
@@ -2825,44 +2907,94 @@ const googleFonts = [
 
     skipBtn.addEventListener("click", () => closeOverlayAndBuild(null));
 
-    (async () => {
-      const { data, error: err } = await supabase
-        .from("packs")
-        .select("id, slug, title, category, cover_image_url")
-        .eq("status", "active")
-        .order("sort_order", { ascending: true });
-
-      loading.hidden = true;
-
-      if (err) {
-        error.textContent = "Couldn't load your packs — start blank or refresh to retry.";
-        error.hidden = false;
-        return;
-      }
-
-      const packs = (data ?? []).slice(0, 8);
-      if (packs.length === 0) {
-        error.textContent = "No packs available yet — start blank to explore the studio.";
-        error.hidden = false;
-        return;
-      }
-
-      grid.innerHTML = packs.map((p) => `
+    function packCard(p) {
+      return `
         <button type="button" class="ed-onboard-card" data-pack-id="${p.id}">
           <div class="ed-onboard-card-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></div>
           <div class="ed-onboard-card-body">
             ${p.category ? `<span class="ed-onboard-card-cat">${escapeHtml(p.category)}</span>` : ""}
             <h3 class="ed-onboard-card-title">${escapeHtml(p.title)}</h3>
           </div>
-        </button>
-      `).join("");
+        </button>`;
+    }
+
+    // "Need more packs?" footer cell — previews a couple of packs the user
+    // doesn't own yet and links through to the shop to buy them.
+    function renderMoreCell(unowned) {
+      if (!unowned.length) return;
+      const previews = unowned.slice(0, 2).map((p) => `
+        <a class="ed-onboard-more-pack" href="/edit" title="${escapeHtml(p.title)}">
+          <span class="ed-onboard-more-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
+          <span class="ed-onboard-more-name">${escapeHtml(p.title)}</span>
+        </a>`).join("");
+      const cell = document.createElement("div");
+      cell.className = "ed-onboard-more";
+      cell.innerHTML = `
+        <div class="ed-onboard-more-head">
+          <strong>Need more packs?</strong>
+          <span>Download and buy more in The Edit.</span>
+        </div>
+        <div class="ed-onboard-more-list">${previews}</div>
+        <a class="ed-onboard-more-cta" href="/edit">Browse The Edit &rarr;</a>`;
+      grid.insertAdjacentElement("afterend", cell);
+    }
+
+    (async () => {
+      // Who's signed in — drives which packs they already own.
+      const { data: { session } } = await supabase.auth.getSession();
+      const email = session?.user?.email || "";
+
+      // All active packs + the user's paid orders, in parallel.
+      const [packsRes, ordersRes] = await Promise.all([
+        supabase
+          .from("packs")
+          .select("id, slug, title, category, cover_image_url")
+          .eq("status", "active")
+          .order("sort_order", { ascending: true }),
+        session
+          ? supabase
+              .from("orders")
+              .select("pack_id, status")
+              .or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      loading.hidden = true;
+
+      if (packsRes.error) {
+        error.textContent = "Couldn't load your packs — start blank or refresh to retry.";
+        error.hidden = false;
+        return;
+      }
+
+      const allPacks = packsRes.data ?? [];
+      const ownedIds = new Set(
+        (ordersRes.data ?? [])
+          .filter((o) => o.status === "paid" && o.pack_id)
+          .map((o) => o.pack_id)
+      );
+
+      const owned = allPacks.filter((p) => ownedIds.has(p.id));
+      const unowned = allPacks.filter((p) => !ownedIds.has(p.id));
+
+      if (owned.length === 0) {
+        // Nothing purchased yet — nudge toward the shop, but the blank-canvas
+        // skip button below still lets them explore the studio.
+        error.innerHTML = "You haven't added any packs yet — start with a blank canvas below, or pick some up in <a href=\"/edit\">The Edit</a>.";
+        error.hidden = false;
+        renderMoreCell(unowned);
+        return;
+      }
+
+      grid.innerHTML = owned.map(packCard).join("");
       grid.hidden = false;
+      renderMoreCell(unowned);
 
       grid.addEventListener("click", (e) => {
         const btn = e.target instanceof Element ? e.target.closest("[data-pack-id]") : null;
         if (!btn) return;
         const id = btn.getAttribute("data-pack-id");
-        const pack = packs.find((p) => p.id === id);
+        const pack = owned.find((p) => p.id === id);
         closeOverlayAndBuild(pack);
       });
     })();
