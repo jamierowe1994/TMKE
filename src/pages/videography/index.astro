@@ -1,0 +1,194 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DiscoveryPanel from "../../components/DiscoveryPanel.astro";
+import VideoShowcase from "../../components/VideoShowcase.astro";
+import { SERVICES, priceFor } from "../../data/videography.js";
+import { gbpFromPence } from "../../lib/supabase.js";
+
+const HERO_IMG = "/assets/swag.jpg";
+const POSTER = (id, w = 1200, h = 800) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
+
+// A reel pulled from the first showcase item of each service for the hub.
+const HUB_SHOWCASE = SERVICES.map((s) => ({
+  title: s.name,
+  poster: s.showcase?.[0]?.poster || s.poster,
+}));
+---
+
+<BaseLayout
+  title="Videography — TMKE"
+  description="In-house property videography — cinematic property films, social reels, brand films, and aerial. Produced, edited, and delivered by TMKE."
+>
+  <!-- ============ HERO ============ -->
+  <section
+    class="vid-hero"
+    style={`background-image: linear-gradient(180deg, rgba(12,11,10,0.55), rgba(12,11,10,0.85)), url(${HERO_IMG});`}
+  >
+    <div class="vid-hero-inner">
+      <div class="vid-hero-eyebrow"><span>/</span> Videography <span>/</span></div>
+      <h1 class="vid-hero-title">Films that make property<br /><em>impossible to scroll past.</em></h1>
+      <p class="vid-hero-sub">
+        A full in-house film team — cinematic property films, scroll-stopping social,
+        brand stories, and licensed aerial. Produced, edited, and delivered for you.
+      </p>
+      <div class="vid-hero-cta-row">
+        <a href="#services" class="btn btn--ghost-light">See the work <span class="btn-arrow">&rarr;</span></a>
+        <button type="button" data-discovery-call class="btn btn--ghost-light">Book a shoot <span class="btn-arrow">&rarr;</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PARTNER BANNER (populated client-side) ============ -->
+  <div class="vid-partner-banner wrap" id="vid-partner-banner" hidden>
+    <span id="vid-partner-text"></span>
+  </div>
+
+  <!-- ============ INTRO ============ -->
+  <section class="vid-intro wrap">
+    <div class="chapter">In-house. End to end.</div>
+    <p class="vid-intro-lede">
+      Jack and the team shoot, edit and deliver everything under one roof — so your
+      content is consistent, on-brand, and handled without you chasing freelancers.
+    </p>
+  </section>
+
+  <!-- ============ SERVICES GRID ============ -->
+  <section class="vid-services wrap" id="services">
+    <div class="vid-services-grid">
+      {SERVICES.map((s) => (
+        <a class="vid-svc" href={`/videography/${s.slug}`}>
+          <div class="vid-svc-media" style={`background-image:url('${s.poster}')`}></div>
+          <div class="vid-svc-body">
+            <h3 class="vid-svc-name">{s.name}</h3>
+            <p class="vid-svc-tag">{s.tagline}</p>
+            <div class="vid-svc-foot">
+              <span class="vid-svc-price">
+                from <strong data-price-svc={s.slug}>{gbpFromPence(priceFor(s, "direct"))}</strong>
+              </span>
+              <span class="vid-svc-arrow">&rarr;</span>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <!-- ============ SHOWCASE ============ -->
+  <VideoShowcase heading="Selected work" items={HUB_SHOWCASE} />
+
+  <!-- ============ CTA ============ -->
+  <section class="vid-cta wrap">
+    <h2 class="vid-cta-title">Let's make something<em>.</em></h2>
+    <p class="vid-cta-sub">Tell us what you're shooting and we'll put a plan together.</p>
+    <button type="button" data-discovery-call class="btn btn--solid">Book a shoot <span class="btn-arrow">&rarr;</span></button>
+  </section>
+
+  <DiscoveryPanel />
+
+  <style>
+    .vid-hero {
+      position: relative; min-height: 88vh;
+      background-size: cover; background-position: center;
+      color: var(--paper);
+      display: flex; align-items: center;
+      padding: 160px 36px 120px; overflow: hidden;
+    }
+    .vid-hero-inner { position: relative; z-index: 2; max-width: 1280px; margin: 0 auto; width: 100%; }
+    .vid-hero-eyebrow {
+      font-family: var(--serif); font-style: italic;
+      font-size: clamp(20px, 2.2vw, 30px); margin-bottom: 28px; color: var(--paper);
+    }
+    .vid-hero-eyebrow span { color: rgba(240,238,235,0.45); margin: 0 12px; font-style: normal; font-weight: 300; }
+    .vid-hero-title {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(40px, 6vw, 96px); line-height: 1.04;
+      letter-spacing: -0.02em; margin: 0 0 32px; color: var(--paper); max-width: 18ch;
+    }
+    .vid-hero-title em { font-style: italic; color: rgba(240,238,235,0.8); }
+    .vid-hero-sub {
+      font-family: var(--sans); font-size: clamp(15px, 1.5vw, 19px);
+      line-height: 1.7; color: rgba(240,238,235,0.85); max-width: 620px; margin: 0 0 40px;
+    }
+    .vid-hero-cta-row { display: flex; gap: 14px; flex-wrap: wrap; }
+
+    .vid-partner-banner {
+      max-width: 1280px; margin: 0 auto; padding: 18px 36px 0;
+    }
+    .vid-partner-banner[hidden] { display: none; }
+    #vid-partner-text {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 10px 18px; border-radius: 999px;
+      background: rgba(71, 66, 84, 0.1); color: var(--english-violet);
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+    }
+
+    .vid-intro { max-width: 1280px; margin: 0 auto; padding: 120px 36px 40px; }
+    .vid-intro .chapter { margin-bottom: 40px; }
+    .vid-intro-lede {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(26px, 3vw, 44px); line-height: 1.35;
+      letter-spacing: -0.01em; color: var(--ink); max-width: 24ch; margin: 0;
+    }
+
+    .vid-services { max-width: 1280px; margin: 0 auto; padding: 60px 36px 40px; }
+    .vid-services-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px;
+    }
+    @media (max-width: 860px) { .vid-services-grid { grid-template-columns: 1fr; } }
+    .vid-svc {
+      display: flex; flex-direction: column;
+      border: 1px solid rgba(28,29,34,0.16); border-radius: 3px; overflow: hidden;
+      background: transparent; color: var(--ink);
+      transition: transform 0.4s cubic-bezier(.2,.7,.2,1), border-color 0.4s, box-shadow 0.4s;
+    }
+    .vid-svc:hover { transform: translateY(-3px); border-color: var(--english-violet); box-shadow: 0 18px 50px rgba(20,18,26,0.12); }
+    .vid-svc-media { aspect-ratio: 16/9; background-size: cover; background-position: center; }
+    .vid-svc-body { padding: 26px 28px 22px; display: flex; flex-direction: column; flex: 1; }
+    .vid-svc-name { font-family: var(--serif); font-weight: 500; font-size: 28px; letter-spacing: -0.01em; margin: 0 0 8px; color: var(--ink); }
+    .vid-svc-tag { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.65); margin: 0; flex: 1; }
+    .vid-svc-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(28,29,34,0.12);
+    }
+    .vid-svc-price { font-family: var(--sans); font-size: 13px; letter-spacing: 0.04em; color: rgba(28,29,34,0.6); }
+    .vid-svc-price strong { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); }
+    .vid-svc-arrow { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--english-violet); transition: transform 0.4s; }
+    .vid-svc:hover .vid-svc-arrow { transform: translateX(6px); }
+
+    .vid-cta { max-width: 1280px; margin: 0 auto; padding: 80px 36px 200px; text-align: center; }
+    .vid-cta-title { font-family: var(--serif); font-weight: 400; font-size: clamp(44px, 6vw, 88px); letter-spacing: -0.02em; color: var(--ink); margin: 0 0 16px; }
+    .vid-cta-title em { font-style: italic; color: var(--english-violet); }
+    .vid-cta-sub { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 1.8vw, 24px); color: rgba(28,29,34,0.65); margin: 0 0 32px; }
+
+    @media (max-width: 720px) {
+      .vid-intro { padding: 80px 24px 24px; }
+      .vid-services { padding: 40px 24px; }
+    }
+  </style>
+
+  <script>
+    import { SERVICES, priceFor, resolvePartnerSlug, getPartner } from "../../data/videography.js";
+    import { gbpFromPence } from "../../lib/supabase.js";
+
+    const slug = resolvePartnerSlug();
+    const partner = getPartner(slug);
+
+    // Rewrite each service price to the resolved partner tier.
+    SERVICES.forEach((s) => {
+      const el = document.querySelector(`[data-price-svc="${s.slug}"]`);
+      if (el) el.textContent = gbpFromPence(priceFor(s, slug));
+    });
+
+    // Show the partner banner when a partner is active.
+    if (slug !== "direct") {
+      const banner = document.getElementById("vid-partner-banner");
+      const text = document.getElementById("vid-partner-text");
+      if (banner && text) {
+        text.textContent = `${partner.name} · ${partner.note}`;
+        banner.hidden = false;
+      }
+    }
+  </script>
+</BaseLayout>

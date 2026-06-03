@@ -1,0 +1,725 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHero from "../../components/PageHero.astro";
+---
+
+<BaseLayout
+  title="Videography — Admin · TMKE"
+  description="Jack's videography studio — pipeline, bookings, diary, delivery, and connections."
+  hideNav
+  hideFooter
+>
+  <div class="admin-hero-pad">
+    <PageHero
+      chapter="Admin — Videography"
+      title="Videography <em>studio.</em>"
+      sub="Jack's home base — track every shoot from booking to invoice, manage the diary, and deliver the work."
+    />
+  </div>
+
+  <section class="admin-bar wrap">
+    <a href="/admin" class="admin-back">&larr; Dashboard</a>
+    <div class="admin-bar-actions">
+      <div class="vid-tabs" id="vid-tabs" role="tablist">
+        <button type="button" class="enquiry-chip is-active" data-tab="pipeline">Pipeline</button>
+        <button type="button" class="enquiry-chip" data-tab="bookings">Bookings</button>
+        <button type="button" class="enquiry-chip" data-tab="diary">Diary</button>
+        <button type="button" class="enquiry-chip" data-tab="deliver">Deliver</button>
+        <button type="button" class="enquiry-chip" data-tab="connections">Connections</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PIPELINE (kanban / mini-CRM) ===================== -->
+  <section class="vid-panel wrap is-active" data-panel="pipeline">
+    <div class="vid-panel-head">
+      <div>
+        <h2 class="vid-panel-title">Pipeline</h2>
+        <p class="vid-panel-sub">Drag a job between stages as it moves. Click a card to edit details.</p>
+      </div>
+      <button type="button" class="admin-btn admin-btn-primary" id="vid-new-booking">+ New booking</button>
+    </div>
+
+    <p class="vid-loading" id="vid-board-loading">Loading pipeline…</p>
+    <div class="vid-board" id="vid-board" hidden></div>
+  </section>
+
+  <!-- ===================== BOOKINGS (client list) ===================== -->
+  <section class="vid-panel wrap" data-panel="bookings">
+    <div class="vid-panel-head">
+      <div>
+        <h2 class="vid-panel-title">Bookings &amp; clients</h2>
+        <p class="vid-panel-sub">Every client who's booked Jack — pulled from the pipeline.</p>
+      </div>
+      <input type="search" id="vid-booking-search" class="admin-search" placeholder="Search client, company, brand…" />
+    </div>
+    <p class="vid-loading" id="vid-bookings-empty" hidden>No bookings yet.</p>
+    <div class="enquiry-table" id="vid-bookings-table"></div>
+  </section>
+
+  <!-- ===================== DIARY (weekly availability) ===================== -->
+  <section class="vid-panel wrap" data-panel="diary">
+    <div class="vid-panel-head">
+      <div>
+        <h2 class="vid-panel-title">Diary &amp; availability</h2>
+        <p class="vid-panel-sub">Set the hours Jack is bookable each weekday. This drives the public booking page.</p>
+      </div>
+    </div>
+
+    <div class="vid-conn-note">
+      <strong>Microsoft 365 sync — coming in Phase 2.</strong>
+      For now this is Jack's master availability template. Once his 365 calendar is
+      connected, real events will block out these slots automatically.
+    </div>
+
+    <div class="vid-diary" id="vid-diary">
+      <p class="vid-loading" id="vid-diary-loading">Loading diary…</p>
+    </div>
+  </section>
+
+  <!-- ===================== DELIVER (uploads → client) ===================== -->
+  <section class="vid-panel wrap" data-panel="deliver">
+    <div class="vid-panel-head">
+      <div>
+        <h2 class="vid-panel-title">Deliver work</h2>
+        <p class="vid-panel-sub">Upload the finished shoot, then send the client their gallery.</p>
+      </div>
+    </div>
+
+    <div class="vid-conn-note is-pending">
+      <strong>Upload engine — wiring lands in Phase 4 (Cloudflare R2).</strong>
+      This is the interface Jack will use. The drag-and-drop zone below is the real
+      shape of it; the direct-to-R2 multipart upload + “send gallery” button get
+      connected once the R2 account and the server endpoints are in place.
+    </div>
+
+    <div class="vid-dropzone" id="vid-dropzone" aria-disabled="true">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+      <div class="vid-dropzone-title">Drag videos &amp; photos here</div>
+      <div class="vid-dropzone-sub">Multi-GB, full-resolution — uploads straight to Cloudflare R2 (not your server)</div>
+      <button type="button" class="admin-btn admin-btn-ghost" disabled>Choose files</button>
+    </div>
+
+    <div class="vid-deliver-steps">
+      <div class="vid-step"><span class="vid-step-n">1</span> Pick the client &amp; upload the deliverables</div>
+      <div class="vid-step"><span class="vid-step-n">2</span> Edit the invoice — add travel, extras</div>
+      <div class="vid-step"><span class="vid-step-n">3</span> Send gallery — teaser images free, full set behind Stripe</div>
+    </div>
+  </section>
+
+  <!-- ===================== CONNECTIONS (integrations) ===================== -->
+  <section class="vid-panel wrap" data-panel="connections">
+    <div class="vid-panel-head">
+      <div>
+        <h2 class="vid-panel-title">Connections</h2>
+        <p class="vid-panel-sub">The accounts that power booking, storage, and payments.</p>
+      </div>
+    </div>
+
+    <div class="vid-conn-grid">
+      <div class="vid-conn-card">
+        <div class="vid-conn-row">
+          <h3>Microsoft 365 — Jack's calendar</h3>
+          <span class="enquiry-status-pill is-pending">Not connected</span>
+        </div>
+        <p>Lets clients book directly into Jack's real diary, and blocks out slots automatically. Native build on Microsoft Graph.</p>
+        <button type="button" class="admin-btn admin-btn-ghost" disabled>Connect 365 (Phase 2)</button>
+      </div>
+
+      <div class="vid-conn-card">
+        <div class="vid-conn-row">
+          <h3>Cloudflare R2 — media storage</h3>
+          <span class="enquiry-status-pill is-pending">Not connected</span>
+        </div>
+        <p>Fast, high-resolution storage for shoots. Direct-to-edge uploads for Jack, zero-egress fast downloads for clients.</p>
+        <button type="button" class="admin-btn admin-btn-ghost" disabled>Add R2 keys (Phase 4)</button>
+      </div>
+
+      <div class="vid-conn-card">
+        <div class="vid-conn-row">
+          <h3>Stripe — payments</h3>
+          <span class="enquiry-status-pill is-pending">Not connected</span>
+        </div>
+        <p>Paywalls the full gallery and collects payment. Teaser images free, full set on payment.</p>
+        <button type="button" class="admin-btn admin-btn-ghost" disabled>Connect Stripe (Phase 5)</button>
+      </div>
+
+      <div class="vid-conn-card">
+        <div class="vid-conn-row">
+          <h3>QuickBooks — invoicing</h3>
+          <span class="enquiry-status-pill is-pending">Not connected</span>
+        </div>
+        <p>Raises and reconciles the invoice once a shoot is paid for. Keeps the books in sync.</p>
+        <button type="button" class="admin-btn admin-btn-ghost" disabled>Connect QuickBooks (Phase 5)</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Booking modal (add / edit) ===================== -->
+  <div class="modal-backdrop" id="vid-modal" hidden>
+    <div class="modal vid-modal" role="dialog" aria-modal="true" aria-labelledby="vid-modal-title">
+      <header class="modal-head">
+        <h2 id="vid-modal-title">New booking</h2>
+        <button type="button" class="modal-close" id="vid-modal-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="vid-form" id="vid-form">
+        <div class="vid-field">
+          <label>Client name *</label>
+          <input type="text" data-f="client_name" />
+        </div>
+        <div class="vid-field-row">
+          <div class="vid-field"><label>Email</label><input type="email" data-f="client_email" /></div>
+          <div class="vid-field"><label>Phone</label><input type="tel" data-f="client_phone" /></div>
+        </div>
+        <div class="vid-field-row">
+          <div class="vid-field"><label>Company</label><input type="text" data-f="client_company" /></div>
+          <div class="vid-field">
+            <label>Brand / price tier</label>
+            <select data-f="brand">
+              <option value="">— Select —</option>
+              <option value="property-experts">The Property Experts</option>
+              <option value="fine-and-country">Fine &amp; Country</option>
+              <option value="other">Other / direct</option>
+            </select>
+          </div>
+        </div>
+        <div class="vid-field-row">
+          <div class="vid-field"><label>Service</label><input type="text" data-f="service" placeholder="Property video, podcast…" /></div>
+          <div class="vid-field"><label>Shoot date</label><input type="datetime-local" data-f="shoot_date" /></div>
+        </div>
+        <div class="vid-field-row">
+          <div class="vid-field"><label>Location</label><input type="text" data-f="location" /></div>
+          <div class="vid-field"><label>Quote (£)</label><input type="number" data-f="amount_gbp" min="0" step="0.01" /></div>
+        </div>
+        <div class="vid-field"><label>Notes</label><textarea data-f="notes" rows="3"></textarea></div>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="admin-btn admin-btn-danger" id="vid-delete" hidden>Delete</button>
+        <div class="spacer"></div>
+        <button type="button" class="admin-btn admin-btn-ghost" id="vid-cancel">Cancel</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="vid-save">Save booking</button>
+      </footer>
+    </div>
+  </div>
+
+  <style is:global>
+    .admin-hero-pad { padding-top: 100px; }
+    @media (max-width: 720px) { .admin-hero-pad { padding-top: 56px; } }
+
+    .admin-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 16px; max-width: 1360px; margin: 0 auto;
+      padding: 12px 36px 24px; flex-wrap: wrap;
+    }
+    .admin-back {
+      font-family: var(--sans); font-size: 12px; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--english-violet); font-weight: 700;
+    }
+    .admin-back:hover { color: var(--ink); }
+    .admin-bar-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .admin-search {
+      padding: 8px 12px; border: 1px solid rgba(71, 66, 84, 0.3); border-radius: 2px;
+      font-family: var(--sans); font-size: 13px; color: var(--ink);
+      background: var(--paper); min-width: 220px;
+    }
+    .admin-search:focus { outline: none; border-color: var(--english-violet); }
+
+    .vid-tabs { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .enquiry-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      background: transparent; border: 1px solid rgba(71, 66, 84, 0.3);
+      border-radius: 999px; font-family: var(--sans); font-size: 11px;
+      letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
+      color: var(--english-violet); cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .enquiry-chip:hover { background: rgba(71, 66, 84, 0.06); }
+    .enquiry-chip.is-active {
+      background: var(--english-violet); color: var(--paper); border-color: var(--english-violet);
+    }
+
+    /* ---- Panels ---- */
+    .vid-panel { max-width: 1360px; margin: 0 auto; padding: 0 36px 200px; display: none; }
+    .vid-panel.is-active { display: block; }
+    .vid-panel-head {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      gap: 16px; flex-wrap: wrap; margin-bottom: 24px;
+    }
+    .vid-panel-title { font-family: var(--serif); font-size: 30px; font-weight: 500; color: var(--ink); margin: 0; }
+    .vid-panel-sub { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.6); margin: 4px 0 0; }
+    .vid-loading { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); padding: 40px 0; }
+
+    /* ---- Kanban board ---- */
+    .vid-board {
+      display: grid; grid-template-columns: repeat(6, minmax(220px, 1fr));
+      gap: 12px; align-items: start; overflow-x: auto; padding-bottom: 8px;
+    }
+    .vid-col {
+      background: rgba(71, 66, 84, 0.04); border: 1px solid rgba(71, 66, 84, 0.15);
+      border-radius: 4px; min-height: 120px; display: flex; flex-direction: column;
+    }
+    .vid-col.is-drop { border-color: var(--english-violet); background: rgba(71, 66, 84, 0.1); }
+    .vid-col-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 14px; border-bottom: 1px solid rgba(71, 66, 84, 0.12);
+      font-family: var(--sans); font-size: 10px; letter-spacing: 0.18em;
+      text-transform: uppercase; font-weight: 700; color: rgba(28, 29, 34, 0.6);
+    }
+    .vid-col-count {
+      min-width: 18px; text-align: center; padding: 1px 6px; border-radius: 999px;
+      background: rgba(71, 66, 84, 0.12); font-size: 10px;
+    }
+    .vid-col-list { padding: 10px; display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 60px; }
+    .vid-card {
+      background: var(--paper); border: 1px solid rgba(71, 66, 84, 0.2); border-radius: 3px;
+      padding: 12px 13px; cursor: grab; box-shadow: 0 1px 2px rgba(20, 18, 26, 0.04);
+      transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+    }
+    .vid-card:hover { border-color: var(--english-violet); box-shadow: 0 4px 14px rgba(20, 18, 26, 0.1); }
+    .vid-card.is-dragging { opacity: 0.5; }
+    .vid-card-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
+    .vid-card-meta { font-family: var(--sans); font-size: 12px; color: rgba(28, 29, 34, 0.6); margin-top: 3px; }
+    .vid-card-foot {
+      display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
+      font-family: var(--sans); font-size: 11px; color: rgba(28, 29, 34, 0.55);
+    }
+    .vid-card-brand {
+      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+      padding: 2px 7px; border-radius: 999px; background: rgba(71, 66, 84, 0.1); color: var(--english-violet);
+    }
+    .vid-card-amount { font-family: var(--serif); font-size: 15px; font-weight: 500; color: var(--ink); }
+
+    /* ---- Bookings table (reuses enquiry-table look) ---- */
+    .enquiry-table {
+      display: grid; gap: 1px; background: rgba(71, 66, 84, 0.18);
+      border: 1px solid rgba(71, 66, 84, 0.18); border-radius: 2px; overflow: hidden;
+    }
+    .vid-brow {
+      display: grid; grid-template-columns: 1.4fr 1.2fr 1fr 1fr 110px 24px;
+      gap: 16px; padding: 16px 20px; background: var(--paper);
+      align-items: center; cursor: pointer; transition: background 0.15s;
+    }
+    .vid-brow.is-header {
+      cursor: default; background: rgba(71, 66, 84, 0.04); font-family: var(--sans);
+      font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: rgba(28, 29, 34, 0.55);
+    }
+    .vid-brow:not(.is-header):hover { background: rgba(71, 66, 84, 0.04); }
+    .vid-bname { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
+    .vid-bmeta { font-family: var(--sans); font-size: 12px; color: rgba(28, 29, 34, 0.55); margin-top: 2px; }
+
+    /* ---- Diary ---- */
+    .vid-diary { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
+    .vid-day {
+      display: grid; grid-template-columns: 150px 90px 1fr 1fr; gap: 16px; align-items: center;
+      padding: 14px 18px; background: var(--paper);
+      border: 1px solid rgba(71, 66, 84, 0.18); border-radius: 3px;
+    }
+    .vid-day.is-off { opacity: 0.55; }
+    .vid-day-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
+    .vid-day-toggle { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); cursor: pointer; }
+    .vid-day input[type="time"] {
+      padding: 6px 8px; border: 1px solid rgba(71, 66, 84, 0.3); border-radius: 2px;
+      font-family: var(--sans); font-size: 13px; color: var(--ink); background: var(--paper); width: 100%;
+    }
+    .vid-diary-save { margin-top: 8px; }
+
+    /* ---- Deliver ---- */
+    .vid-dropzone {
+      border: 2px dashed rgba(71, 66, 84, 0.3); border-radius: 6px;
+      padding: 48px 24px; text-align: center; color: rgba(28, 29, 34, 0.55);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      background: rgba(71, 66, 84, 0.02);
+    }
+    .vid-dropzone-title { font-family: var(--serif); font-size: 22px; color: var(--ink); }
+    .vid-dropzone-sub { font-family: var(--sans); font-size: 13px; }
+    .vid-deliver-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+    .vid-step {
+      padding: 16px 18px; background: rgba(71, 66, 84, 0.04);
+      border: 1px solid rgba(71, 66, 84, 0.15); border-radius: 3px;
+      font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.7);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .vid-step-n {
+      flex: none; width: 24px; height: 24px; border-radius: 50%;
+      background: var(--english-violet); color: var(--paper);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 12px;
+    }
+
+    /* ---- Connections ---- */
+    .vid-conn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .vid-conn-card {
+      padding: 22px 24px; border: 1px solid rgba(71, 66, 84, 0.2);
+      border-radius: 4px; background: var(--paper);
+    }
+    .vid-conn-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .vid-conn-card h3 { font-family: var(--serif); font-size: 20px; font-weight: 500; color: var(--ink); margin: 0; }
+    .vid-conn-card p { font-family: var(--sans); font-size: 13px; line-height: 1.55; color: rgba(28, 29, 34, 0.6); margin: 0 0 16px; }
+    .vid-conn-note {
+      padding: 14px 18px; border-left: 3px solid var(--english-violet);
+      background: rgba(71, 66, 84, 0.05); border-radius: 2px; margin-bottom: 20px;
+      font-family: var(--sans); font-size: 13px; line-height: 1.55; color: rgba(28, 29, 34, 0.75);
+    }
+    .vid-conn-note.is-pending { border-left-color: #b78a2e; background: rgba(183, 138, 46, 0.08); }
+    .vid-conn-note strong { color: var(--ink); }
+
+    .enquiry-status-pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+      border-radius: 999px; font-family: var(--sans); font-size: 10px;
+      letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;
+    }
+    .enquiry-status-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .enquiry-status-pill.is-pending { color: #b78a2e; background: rgba(183, 138, 46, 0.12); }
+    .enquiry-status-pill.is-paid { color: #2c7a4b; background: rgba(44, 122, 75, 0.1); }
+
+    /* ---- Modal ---- */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 200; background: rgba(20, 18, 26, 0.55);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .modal-backdrop[hidden] { display: none; }
+    .modal.vid-modal {
+      background: var(--paper); max-width: 640px; width: 100%; max-height: 88vh;
+      display: flex; flex-direction: column; border-radius: 4px; overflow: hidden;
+      box-shadow: 0 30px 80px rgba(20, 18, 26, 0.35);
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 28px; border-bottom: 1px solid rgba(71, 66, 84, 0.12);
+    }
+    .modal-head h2 { font-family: var(--serif); font-size: 22px; font-weight: 500; margin: 0; color: var(--ink); }
+    .modal-close { background: transparent; border: none; font-size: 28px; line-height: 1; color: var(--english-violet); cursor: pointer; padding: 0 4px; }
+    .vid-form { padding: 24px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+    .vid-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .vid-field { display: flex; flex-direction: column; gap: 5px; }
+    .vid-field label {
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em;
+      text-transform: uppercase; font-weight: 700; color: rgba(28, 29, 34, 0.6);
+    }
+    .vid-field input, .vid-field select, .vid-field textarea {
+      padding: 9px 12px; border: 1px solid rgba(71, 66, 84, 0.3); border-radius: 2px;
+      font-family: var(--sans); font-size: 14px; color: var(--ink); background: var(--paper);
+      resize: vertical;
+    }
+    .vid-field input:focus, .vid-field select:focus, .vid-field textarea:focus { outline: none; border-color: var(--english-violet); }
+    .modal-foot {
+      display: flex; gap: 8px; align-items: center; padding: 16px 28px;
+      border-top: 1px solid rgba(71, 66, 84, 0.12); flex-wrap: wrap;
+    }
+    .modal-foot .spacer { flex: 1; }
+    .admin-btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px;
+      border-radius: 2px; font-family: var(--sans); font-size: 11px;
+      letter-spacing: 0.24em; text-transform: uppercase; font-weight: 700;
+      cursor: pointer; border: 1px solid transparent;
+      transition: background 0.2s, color 0.2s, border-color 0.2s; text-decoration: none;
+    }
+    .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
+    .admin-btn-primary:hover { background: var(--ink); color: var(--paper); }
+    .admin-btn-ghost { background: transparent; border-color: rgba(71, 66, 84, 0.4); color: var(--english-violet); }
+    .admin-btn-ghost:hover { background: rgba(71, 66, 84, 0.06); }
+    .admin-btn-danger { background: transparent; border-color: #a05a3c; color: #a05a3c; }
+    .admin-btn-danger:hover { background: #a05a3c; color: var(--paper); }
+
+    @media (max-width: 980px) {
+      .vid-conn-grid { grid-template-columns: 1fr; }
+      .vid-deliver-steps { grid-template-columns: 1fr; }
+      .vid-day { grid-template-columns: 1fr 1fr; }
+      .vid-brow { grid-template-columns: 1fr; gap: 6px; }
+      .vid-brow.is-header { display: none; }
+    }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase, gbpFromPence } from "../../lib/supabase.js";
+
+    const STAGES = [
+      { key: "booked",      label: "Booked" },
+      { key: "shoot_day",   label: "Shoot day" },
+      { key: "editing",     label: "Editing" },
+      { key: "final_draft", label: "Final draft" },
+      { key: "invoice_out", label: "Invoice out" },
+      { key: "complete",    label: "Complete" },
+    ];
+    const DAYS = [
+      { d: 1, name: "Monday" }, { d: 2, name: "Tuesday" }, { d: 3, name: "Wednesday" },
+      { d: 4, name: "Thursday" }, { d: 5, name: "Friday" }, { d: 6, name: "Saturday" },
+      { d: 0, name: "Sunday" },
+    ];
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function fmtWhen(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    }
+    const BRAND_LABEL = {
+      "property-experts": "Property Experts",
+      "fine-and-country": "Fine & Country",
+      "other": "Direct",
+    };
+
+    let bookings = [];
+
+    /* ---------- Tabs ---------- */
+    function initTabs() {
+      const tabs = document.getElementById("vid-tabs");
+      tabs?.addEventListener("click", (e) => {
+        const btn = e.target.closest(".enquiry-chip");
+        if (!btn) return;
+        const tab = btn.getAttribute("data-tab");
+        tabs.querySelectorAll(".enquiry-chip").forEach((c) => c.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        document.querySelectorAll(".vid-panel").forEach((p) => {
+          p.classList.toggle("is-active", p.getAttribute("data-panel") === tab);
+        });
+      });
+    }
+
+    /* ---------- Pipeline (kanban) ---------- */
+    function renderBoard() {
+      const board = document.getElementById("vid-board");
+      const loading = document.getElementById("vid-board-loading");
+      if (!board) return;
+      if (loading) loading.hidden = true;
+      board.hidden = false;
+
+      board.innerHTML = STAGES.map((s) => {
+        const cards = bookings
+          .filter((b) => b.stage === s.key)
+          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        return `
+          <div class="vid-col" data-stage="${s.key}">
+            <div class="vid-col-head">
+              <span>${s.label}</span>
+              <span class="vid-col-count">${cards.length}</span>
+            </div>
+            <div class="vid-col-list" data-stage="${s.key}">
+              ${cards.map(cardHtml).join("")}
+            </div>
+          </div>`;
+      }).join("");
+
+      board.querySelectorAll(".vid-card").forEach((el) => {
+        el.addEventListener("dragstart", onDragStart);
+        el.addEventListener("dragend", onDragEnd);
+        el.addEventListener("click", () => openModal(el.getAttribute("data-id")));
+      });
+      board.querySelectorAll(".vid-col-list").forEach((col) => {
+        col.addEventListener("dragover", onDragOver);
+        col.addEventListener("dragleave", onDragLeave);
+        col.addEventListener("drop", onDrop);
+      });
+    }
+
+    function cardHtml(b) {
+      const brand = b.brand ? `<span class="vid-card-brand">${escapeHtml(BRAND_LABEL[b.brand] || b.brand)}</span>` : "<span></span>";
+      const amount = b.amount_pence != null ? `<span class="vid-card-amount">${gbpFromPence(b.amount_pence)}</span>` : "";
+      return `
+        <div class="vid-card" draggable="true" data-id="${b.id}">
+          <div class="vid-card-name">${escapeHtml(b.client_name)}</div>
+          <div class="vid-card-meta">${escapeHtml(b.service || b.client_company || "—")}</div>
+          <div class="vid-card-meta">${b.shoot_date ? "📅 " + fmtWhen(b.shoot_date) : ""}</div>
+          <div class="vid-card-foot">${brand}${amount}</div>
+        </div>`;
+    }
+
+    let dragId = null;
+    function onDragStart(e) { dragId = e.currentTarget.getAttribute("data-id"); e.currentTarget.classList.add("is-dragging"); e.dataTransfer.effectAllowed = "move"; }
+    function onDragEnd(e) { e.currentTarget.classList.remove("is-dragging"); }
+    function onDragOver(e) { e.preventDefault(); e.currentTarget.closest(".vid-col")?.classList.add("is-drop"); }
+    function onDragLeave(e) { e.currentTarget.closest(".vid-col")?.classList.remove("is-drop"); }
+    async function onDrop(e) {
+      e.preventDefault();
+      const col = e.currentTarget.closest(".vid-col");
+      col?.classList.remove("is-drop");
+      const newStage = e.currentTarget.getAttribute("data-stage");
+      if (!dragId || !newStage) return;
+      const b = bookings.find((x) => x.id === dragId);
+      if (!b || b.stage === newStage) return;
+      const prev = b.stage;
+      b.stage = newStage;        // optimistic
+      renderBoard();
+      const { error } = await supabase.from("videography_bookings").update({ stage: newStage }).eq("id", dragId);
+      if (error) { b.stage = prev; renderBoard(); alert("Couldn't move card: " + error.message); }
+    }
+
+    /* ---------- Bookings list ---------- */
+    function renderBookings(filter = "") {
+      const table = document.getElementById("vid-bookings-table");
+      const empty = document.getElementById("vid-bookings-empty");
+      if (!table) return;
+      const q = filter.trim().toLowerCase();
+      const rows = bookings.filter((b) =>
+        !q || [b.client_name, b.client_company, b.brand, b.service, b.client_email]
+          .filter(Boolean).some((v) => String(v).toLowerCase().includes(q)));
+      if (!rows.length) { table.innerHTML = ""; if (empty) empty.hidden = false; return; }
+      if (empty) empty.hidden = true;
+      const stageLabel = (k) => (STAGES.find((s) => s.key === k) || {}).label || k;
+      table.innerHTML =
+        `<div class="vid-brow is-header"><div>Client</div><div>Service</div><div>Brand</div><div>Stage</div><div>Quote</div><div></div></div>` +
+        rows.map((b) => `
+          <div class="vid-brow" data-id="${b.id}">
+            <div><div class="vid-bname">${escapeHtml(b.client_name)}</div><div class="vid-bmeta">${escapeHtml(b.client_company || b.client_email || "—")}</div></div>
+            <div class="vid-bmeta">${escapeHtml(b.service || "—")}</div>
+            <div class="vid-bmeta">${escapeHtml(BRAND_LABEL[b.brand] || b.brand || "—")}</div>
+            <div class="vid-bmeta">${escapeHtml(stageLabel(b.stage))}</div>
+            <div class="vid-bname">${b.amount_pence != null ? gbpFromPence(b.amount_pence) : "—"}</div>
+            <div style="text-align:right;color:var(--english-violet)">&rarr;</div>
+          </div>`).join("");
+      table.querySelectorAll("[data-id]").forEach((el) =>
+        el.addEventListener("click", () => openModal(el.getAttribute("data-id"))));
+    }
+
+    /* ---------- Diary ---------- */
+    let availability = [];
+    function renderDiary() {
+      const wrap = document.getElementById("vid-diary");
+      if (!wrap) return;
+      const byDay = new Map(availability.map((a) => [a.weekday, a]));
+      wrap.innerHTML = DAYS.map(({ d, name }) => {
+        const a = byDay.get(d) || { weekday: d, start_time: "09:00", end_time: "17:30", is_available: false };
+        return `
+          <div class="vid-day ${a.is_available ? "" : "is-off"}" data-day="${d}">
+            <div class="vid-day-name">${name}</div>
+            <label class="vid-day-toggle">
+              <input type="checkbox" data-avail ${a.is_available ? "checked" : ""}/> Open
+            </label>
+            <input type="time" data-start value="${a.start_time || "09:00"}"/>
+            <input type="time" data-end value="${a.end_time || "17:30"}"/>
+          </div>`;
+      }).join("") + `<button type="button" class="admin-btn admin-btn-primary vid-diary-save" id="vid-diary-save">Save diary</button>`;
+
+      wrap.querySelectorAll("[data-avail]").forEach((cb) =>
+        cb.addEventListener("change", (e) => e.target.closest(".vid-day").classList.toggle("is-off", !e.target.checked)));
+      document.getElementById("vid-diary-save")?.addEventListener("click", saveDiary);
+    }
+    async function saveDiary() {
+      const rows = [...document.querySelectorAll(".vid-day")].map((row) => ({
+        weekday: Number(row.getAttribute("data-day")),
+        is_available: row.querySelector("[data-avail]").checked,
+        start_time: row.querySelector("[data-start]").value || "09:00",
+        end_time: row.querySelector("[data-end]").value || "17:30",
+      }));
+      const btn = document.getElementById("vid-diary-save");
+      if (btn) btn.textContent = "Saving…";
+      const { error } = await supabase.from("videography_availability").upsert(rows, { onConflict: "weekday" });
+      if (btn) btn.textContent = error ? "Error — retry" : "Saved ✓";
+      if (!error) availability = rows.map((r) => ({ ...r }));
+      setTimeout(() => { if (btn) btn.textContent = "Save diary"; }, 1800);
+    }
+
+    /* ---------- Modal (add / edit booking) ---------- */
+    let editingId = null;
+    function openModal(id) {
+      editingId = id || null;
+      const b = id ? bookings.find((x) => x.id === id) : null;
+      const set = (f, v) => { const el = document.querySelector(`[data-f="${f}"]`); if (el) el.value = v ?? ""; };
+      set("client_name", b?.client_name);
+      set("client_email", b?.client_email);
+      set("client_phone", b?.client_phone);
+      set("client_company", b?.client_company);
+      set("brand", b?.brand);
+      set("service", b?.service);
+      set("shoot_date", b?.shoot_date ? new Date(b.shoot_date).toISOString().slice(0, 16) : "");
+      set("location", b?.location);
+      set("amount_gbp", b?.amount_pence != null ? (b.amount_pence / 100).toString() : "");
+      set("notes", b?.notes);
+      document.getElementById("vid-modal-title").textContent = b ? "Edit booking" : "New booking";
+      document.getElementById("vid-delete").hidden = !b;
+      document.getElementById("vid-modal").hidden = false;
+    }
+    function closeModal() { document.getElementById("vid-modal").hidden = true; editingId = null; }
+
+    async function saveBooking() {
+      const get = (f) => { const el = document.querySelector(`[data-f="${f}"]`); return el ? el.value.trim() : ""; };
+      const name = get("client_name");
+      if (!name) { alert("Client name is required."); return; }
+      const gbp = get("amount_gbp");
+      const payload = {
+        client_name: name,
+        client_email: get("client_email") || null,
+        client_phone: get("client_phone") || null,
+        client_company: get("client_company") || null,
+        brand: get("brand") || null,
+        service: get("service") || null,
+        shoot_date: get("shoot_date") ? new Date(get("shoot_date")).toISOString() : null,
+        location: get("location") || null,
+        amount_pence: gbp ? Math.round(parseFloat(gbp) * 100) : null,
+        notes: get("notes") || null,
+      };
+      const btn = document.getElementById("vid-save");
+      if (btn) btn.textContent = "Saving…";
+      if (editingId) {
+        const { error } = await supabase.from("videography_bookings").update(payload).eq("id", editingId);
+        if (error) { alert("Save failed: " + error.message); if (btn) btn.textContent = "Save booking"; return; }
+        Object.assign(bookings.find((x) => x.id === editingId), payload);
+      } else {
+        payload.stage = "booked";
+        const { data, error } = await supabase.from("videography_bookings").insert(payload).select().single();
+        if (error) { alert("Save failed: " + error.message); if (btn) btn.textContent = "Save booking"; return; }
+        bookings.unshift(data);
+      }
+      if (btn) btn.textContent = "Save booking";
+      closeModal();
+      renderBoard(); renderBookings(document.getElementById("vid-booking-search")?.value || "");
+    }
+
+    async function deleteBooking() {
+      if (!editingId) return;
+      if (!confirm("Delete this booking? This can't be undone.")) return;
+      const { error } = await supabase.from("videography_bookings").delete().eq("id", editingId);
+      if (error) { alert("Delete failed: " + error.message); return; }
+      bookings = bookings.filter((x) => x.id !== editingId);
+      closeModal();
+      renderBoard(); renderBookings(document.getElementById("vid-booking-search")?.value || "");
+    }
+
+    /* ---------- Boot ---------- */
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+      initTabs();
+
+      const [bRes, aRes] = await Promise.all([
+        supabase.from("videography_bookings").select("*").order("created_at", { ascending: false }),
+        supabase.from("videography_availability").select("*"),
+      ]);
+
+      bookings = bRes.error ? [] : (bRes.data || []);
+      availability = aRes.error ? [] : (aRes.data || []);
+
+      if (bRes.error) {
+        const l = document.getElementById("vid-board-loading");
+        if (l) l.textContent = "Could not load pipeline: " + bRes.error.message + " — have you run supabase/videography.sql?";
+      } else {
+        renderBoard();
+      }
+      const dl = document.getElementById("vid-diary-loading");
+      if (dl) dl.remove();
+      renderDiary();
+      renderBookings();
+
+      document.getElementById("vid-new-booking")?.addEventListener("click", () => openModal(null));
+      document.getElementById("vid-save")?.addEventListener("click", saveBooking);
+      document.getElementById("vid-delete")?.addEventListener("click", deleteBooking);
+      document.getElementById("vid-cancel")?.addEventListener("click", closeModal);
+      document.getElementById("vid-modal-close")?.addEventListener("click", closeModal);
+      document.getElementById("vid-modal")?.addEventListener("click", (e) => {
+        if (e.target instanceof HTMLElement && e.target.id === "vid-modal") closeModal();
+      });
+      document.getElementById("vid-booking-search")?.addEventListener("input", (e) => renderBookings(e.target.value || ""));
+    })();
+  </script>
+</BaseLayout>
