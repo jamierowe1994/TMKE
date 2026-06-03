@@ -6,9 +6,14 @@ import { getPublishedPosts } from "../../data/blog.js";
 const allPosts = await getPublishedPosts();
 const sorted = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
 const featured = sorted[0]; // → right column (newest / feature post)
-const rest = sorted.slice(1); // → left scrolling list
+const rest = sorted.slice(1); // → left list
 
-// The feature card shows a slightly shorter display title (≈3 lines, not 4)
+// The left side is a double column whose two halves counter-scroll. Alternate
+// posts between them so both stay populated and balanced.
+const colUp = rest.filter((_, i) => i % 2 === 0);   // left-left column → drifts UP
+const colDown = rest.filter((_, i) => i % 2 === 1); // left-right column → drifts DOWN
+
+// The feature card shows a slightly shorter display title (≈2 lines)
 // without changing the article's canonical title. Keyed by slug so it only
 // applies to the intended post; falls back to the real title otherwise.
 const FEATURE_TITLE = {
@@ -32,30 +37,33 @@ function fmtDate(iso) {
 
   <!-- ============================== TWO-COLUMN SPLIT -->
   <section class="insights2" id="insights2">
-    <!-- LEFT: scrolling list of every other post -->
+    <!-- LEFT: double column — the two halves counter-scroll (left up, right down) -->
     <div class="ins-list" id="ins-list">
       <div class="ins-list-head">
         <div class="eyebrow">Insights</div>
         <h1 class="ins-list-title">Notes from <em>the desk.</em></h1>
       </div>
 
-      {rest.map((p) => (
-        <a class="ins-item" href={`/blog/${p.slug}`}>
-          <h3 class="ins-item-title">{p.title}</h3>
-          <div class="ins-item-media">
-            <img src={p.hero} alt={p.title} loading="lazy" />
-          </div>
-          <div class="ins-item-foot">
-            <span class="ins-item-cat">{p.category}</span>
-            <p class="ins-item-brief">{p.standfirst}</p>
-            <div class="ins-item-meta">
-              <span>{fmtDate(p.date)}</span>
-              <span class="ins-dot">·</span>
-              <span>{p.readTime} min read</span>
-            </div>
-          </div>
-        </a>
-      ))}
+      <div class="ins-cols">
+        <div class="ins-col ins-col--up" id="ins-col-up">
+          {colUp.map((p) => (
+            <a class="ins-item" href={`/blog/${p.slug}`}>
+              <h3 class="ins-item-title">{p.title}</h3>
+              <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
+              <p class="ins-item-brief">{p.standfirst}</p>
+            </a>
+          ))}
+        </div>
+        <div class="ins-col ins-col--down" id="ins-col-down">
+          {colDown.map((p) => (
+            <a class="ins-item" href={`/blog/${p.slug}`}>
+              <h3 class="ins-item-title">{p.title}</h3>
+              <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
+              <p class="ins-item-brief">{p.standfirst}</p>
+            </a>
+          ))}
+        </div>
+      </div>
     </div>
 
     <!-- RIGHT: pinned feature (newest post) -->
@@ -124,25 +132,38 @@ function fmtDate(iso) {
       padding: clamp(92px, 10vh, 124px) clamp(22px, 4vw, 64px) clamp(80px, 8vw, 120px);
     }
 
-    /* ---- LEFT: scrolling list ---- */
+    /* ---- LEFT: double column (the two halves counter-scroll) ---- */
     .ins-list {
       display: flex;
       flex-direction: column;
-      gap: clamp(64px, 8vw, 120px);
-      will-change: transform;
     }
-    .ins-list-head { margin-bottom: clamp(8px, 2vw, 24px); }
+    .ins-list-head { margin-bottom: clamp(20px, 3vw, 40px); }
     .ins-list-head .eyebrow { margin-bottom: 16px; }
     .ins-list-title {
       font-family: var(--serif);
       font-weight: 400;
-      font-size: clamp(34px, 4vw, 56px);
+      font-size: clamp(30px, 3.4vw, 48px);
       line-height: 1.04;
       letter-spacing: -0.018em;
       color: var(--ink);
       margin: 0;
     }
     .ins-list-title em { font-style: italic; color: var(--english-violet); }
+
+    .ins-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(16px, 2vw, 28px);
+      align-items: start;
+    }
+    .ins-col {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(26px, 3vw, 44px);
+      will-change: transform;
+    }
+    /* Stagger the down column so the two halves interleave (masonry feel). */
+    .ins-col--down { margin-top: clamp(40px, 6vw, 96px); }
 
     .ins-item {
       display: block;
@@ -152,12 +173,15 @@ function fmtDate(iso) {
     .ins-item-title {
       font-family: var(--serif);
       font-weight: 400;
-      font-size: clamp(24px, 2.4vw, 38px);
-      line-height: 1.08;
-      letter-spacing: -0.015em;
+      font-size: clamp(16px, 1.25vw, 20px);
+      line-height: 1.15;
+      letter-spacing: -0.01em;
       color: var(--ink);
-      margin: 0 0 22px;
-      max-width: 20ch;
+      margin: 0 0 12px;
+      /* One line maximum. */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       transition: color 0.3s ease;
     }
     .ins-item:hover .ins-item-title { color: var(--english-violet); }
@@ -165,8 +189,9 @@ function fmtDate(iso) {
     .ins-item-media {
       aspect-ratio: 4 / 3;
       overflow: hidden;
+      border-radius: 14px;
       background: rgba(28, 29, 34, 0.06);
-      margin-bottom: 22px;
+      margin-bottom: 12px;
     }
     .ins-item-media img {
       width: 100%; height: 100%; object-fit: cover; display: block;
@@ -174,32 +199,17 @@ function fmtDate(iso) {
     }
     .ins-item:hover .ins-item-media img { transform: scale(1.05); }
 
-    .ins-item-cat {
-      display: inline-block;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-      margin-bottom: 12px;
-    }
     .ins-item-brief {
       font-family: var(--sans);
-      font-size: clamp(14px, 1.05vw, 16px);
-      line-height: 1.55;
-      color: rgba(28, 29, 34, 0.62);
-      margin: 0 0 14px;
-      max-width: 52ch;
-    }
-    .ins-item-meta {
-      display: flex; gap: 8px;
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      font-weight: 600;
-      color: rgba(28, 29, 34, 0.5);
+      font-size: clamp(12.5px, 0.95vw, 14px);
+      line-height: 1.35;
+      color: rgba(28, 29, 34, 0.6);
+      margin: 0;
+      /* Two lines, tight. */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .ins-dot { opacity: 0.5; }
 
@@ -236,7 +246,7 @@ function fmtDate(iso) {
       letter-spacing: -0.02em;
       color: var(--ink);
       margin: 0;
-      max-width: 16ch;
+      max-width: 24ch;
     }
     .ins-feature-sub {
       flex: 0 0 auto;
@@ -253,6 +263,7 @@ function fmtDate(iso) {
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
+      border-radius: 14px;
       background: rgba(28, 29, 34, 0.06);
     }
     .ins-feature-media img,
@@ -297,8 +308,11 @@ function fmtDate(iso) {
         order: -1; /* feature first on mobile */
       }
       .ins-feature-media { aspect-ratio: 4 / 3; flex: 0 0 auto; height: auto; }
+      /* Collapse the double column to one; no counter-scroll on small screens. */
+      .ins-cols { grid-template-columns: 1fr; gap: clamp(26px, 6vw, 44px); }
+      .ins-col--down { margin-top: clamp(26px, 6vw, 44px); }
       /* Parallax transforms are skipped in JS below this width. */
-      .ins-list, .ins-feature-inner { transform: none !important; }
+      .ins-col, .ins-feature-inner { transform: none !important; }
     }
 
     /* ============== NEWSLETTER ============== */
@@ -383,29 +397,33 @@ function fmtDate(iso) {
     }
   </style>
 
-  <!-- Opposite-direction parallax: left list drifts DOWN, right feature drifts
-       UP as the section scrolls. Hooks the site's global Lenis instance when
-       present, else a passive scroll listener. Skipped on small screens and
-       under prefers-reduced-motion. -->
+  <!-- Counter-scroll parallax. On the left, the two columns drift in opposite
+       directions (left-left UP, left-right DOWN); on the right the feature
+       drifts UP. Hooks the site's global Lenis instance when present, else a
+       passive scroll listener. Skipped on small screens and reduced-motion. -->
   <script is:inline>
     (function () {
-      const list = document.getElementById("ins-list");
+      const colUp = document.getElementById("ins-col-up");
+      const colDown = document.getElementById("ins-col-down");
       const featureInner = document.querySelector("#ins-feature .ins-feature-inner");
       const section = document.getElementById("insights2");
-      if (!list || !featureInner || !section) return;
+      if (!colUp || !colDown || !featureInner || !section) return;
 
       const reduce =
         window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
 
-      // Max drift each column travels from the neutral mid-scroll position.
-      const RANGE = 46;
+      // Max drift from the neutral mid-scroll position. The columns travel
+      // further than the feature so the counter-scroll reads clearly.
+      const RANGE_COL = 80;
+      const RANGE_FEAT = 46;
       let ticking = false;
 
       function apply() {
         ticking = false;
         if (reduce || isMobile()) {
-          list.style.transform = "";
+          colUp.style.transform = "";
+          colDown.style.transform = "";
           featureInner.style.transform = "";
           return;
         }
@@ -415,9 +433,13 @@ function fmtDate(iso) {
         // has fully passed the top. 0.5 ≈ centred → neutral (no drift).
         const total = rect.height + vh;
         const p = Math.max(0, Math.min(1, (vh - rect.top) / total));
-        const drift = (p - 0.5) * 2 * RANGE; // -RANGE … +RANGE
-        list.style.transform = "translate3d(0," + drift.toFixed(2) + "px,0)";
-        featureInner.style.transform = "translate3d(0," + (-drift).toFixed(2) + "px,0)";
+        const k = (p - 0.5) * 2; // -1 … +1
+        const col = k * RANGE_COL;
+        const feat = k * RANGE_FEAT;
+        // As you scroll down (p↑): left-left rises, left-right sinks, feature rises.
+        colUp.style.transform = "translate3d(0," + (-col).toFixed(2) + "px,0)";
+        colDown.style.transform = "translate3d(0," + col.toFixed(2) + "px,0)";
+        featureInner.style.transform = "translate3d(0," + (-feat).toFixed(2) + "px,0)";
       }
 
       function onScroll() {
