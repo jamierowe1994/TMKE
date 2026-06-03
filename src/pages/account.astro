@@ -1139,6 +1139,7 @@ import "../styles/account-sections.css";
 
   <script>
     import { supabase, gbpFromPence } from '../lib/supabase.js';
+    import { maybeStartTour } from '../lib/tour.js';
     import * as cal from '../lib/calendar.js';
 
     const $welcomeH = document.getElementById('welcome-h');
@@ -1648,6 +1649,13 @@ import "../styles/account-sections.css";
       $welcomeSub.textContent = 'Your studio. Your library. Pick something up where you left off.';
       $footerEmail.textContent = email;
       if ($sidebarEmail) $sidebarEmail.textContent = email;
+
+      // First-time login tour. Starts only when the user has never completed it
+      // (flag stamped on their Supabase account); otherwise inert. Skippable.
+      maybeStartTour({
+        firstName: titleCase(firstName),
+        completedAt: meta.tour_completed_at || null,
+      });
 
       // Kick off the entrance animation. Adding the class on the next
       // frame ensures the .fade-up elements have laid out before the
