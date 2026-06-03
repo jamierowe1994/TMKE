@@ -1,0 +1,424 @@
+---
+// Reusable "Browse packs" shop modal — a slide-up drawer that lets a
+// signed-in user browse and open the purchase flow for a pack without
+// leaving the page they're on.
+//
+// To use: drop <ShopModal /> onto a page, then either
+//   • give any element the `data-shop` attribute (opens the grid), or
+//   • call window.tmkeOpenShop() / window.tmkeOpenShopAtSlug(slug).
+//
+// Borrowed from the /account "Browse packs" modal so the Studio can pop
+// it up in place instead of bouncing the user back to The Edit.
+---
+
+<div class="shop-backdrop" id="shop-modal" hidden role="dialog" aria-modal="true" aria-labelledby="shop-h">
+  <div class="shop">
+    <header class="shop-head">
+      <div>
+        <p class="shop-eyebrow">Shop — The Edit</p>
+        <h2 id="shop-h">Browse <em>packs.</em></h2>
+      </div>
+      <button type="button" class="shop-close" id="shop-close" aria-label="Close">&times;</button>
+    </header>
+
+    <section class="shop-view" data-view="grid">
+      <p class="shop-state" id="shop-loading">Loading packs&hellip;</p>
+      <p class="shop-state" id="shop-empty" hidden>No packs available yet. Check back soon.</p>
+      <div class="shop-grid" id="shop-grid"></div>
+    </section>
+
+    <section class="shop-view" data-view="detail" hidden>
+      <button type="button" class="shop-back" id="shop-back">&larr; All packs</button>
+      <div class="shop-detail" id="shop-detail"></div>
+    </section>
+  </div>
+</div>
+
+<style is:global>
+  /* Shop modal — slide-up drawer anchored to the bottom of the viewport.
+     z-index 300 so it sits above the Studio onboarding overlay (z 200). */
+  .shop-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(15, 12, 30, 0);
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+    z-index: 300;
+    overflow: hidden;
+    pointer-events: none;
+    transition:
+      background 0.45s cubic-bezier(0.2, 0.7, 0.2, 1),
+      backdrop-filter 0.45s cubic-bezier(0.2, 0.7, 0.2, 1),
+      -webkit-backdrop-filter 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .shop-backdrop.is-open {
+    background: rgba(15, 12, 30, 0.62);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    pointer-events: auto;
+  }
+  .shop-backdrop[hidden] { display: none; }
+
+  .shop {
+    width: 100%;
+    max-width: 1100px;
+    max-height: 90vh;
+    background: var(--paper);
+    border: 1px solid rgba(28, 29, 34, 0.1);
+    border-bottom: none;
+    border-radius: 18px 18px 0 0;
+    box-shadow:
+      0 -28px 80px -20px rgba(0, 0, 0, 0.5),
+      0 -2px 6px -4px rgba(46, 31, 84, 0.25);
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    transform: translateY(100%);
+    transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .shop::-webkit-scrollbar { width: 0; height: 0; display: none; }
+  .shop-backdrop.is-open .shop { transform: translateY(0); }
+
+  .shop::before {
+    content: "";
+    display: block;
+    width: 44px; height: 4px;
+    margin: 10px auto 4px;
+    background: rgba(46, 31, 84, 0.22);
+    border-radius: 4px;
+  }
+
+  @media (min-width: 780px) {
+    .shop-backdrop { padding: 0 24px 24px; }
+    .shop {
+      border-radius: 14px;
+      border-bottom: 1px solid rgba(28, 29, 34, 0.1);
+      max-height: 88vh;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .shop-backdrop, .shop { transition: none; }
+  }
+
+  .shop-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 24px 32px;
+    border-bottom: 1px solid rgba(28, 29, 34, 0.1);
+  }
+  .shop-head h2 {
+    font-family: var(--serif);
+    font-size: 36px; font-weight: 500;
+    letter-spacing: -0.015em; margin: 6px 0 0;
+  }
+  .shop-head h2 em { font-style: italic; color: var(--violet-deep); }
+  .shop-eyebrow {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--violet-deep);
+  }
+  .shop-close {
+    background: transparent;
+    border: 1px solid rgba(46, 31, 84, 0.3);
+    border-radius: 999px;
+    font-size: 22px; width: 38px; height: 38px;
+    cursor: pointer; color: var(--violet-deep); line-height: 1;
+    transition: background 0.25s, color 0.25s, border-color 0.25s;
+  }
+  .shop-close:hover { background: var(--violet-deep); color: var(--paper); border-color: var(--violet-deep); }
+  .shop-view { padding: 32px; }
+  .shop-state {
+    font-family: var(--sans); font-size: 14px;
+    color: rgba(28, 29, 34, 0.55); padding: 24px 0; margin: 0;
+  }
+  .shop-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
+  }
+  @media (max-width: 880px) { .shop-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .shop-grid { grid-template-columns: 1fr; } }
+  .shop-card {
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid rgba(28, 29, 34, 0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.25s, transform 0.3s, box-shadow 0.3s;
+    text-align: left; padding: 0; font: inherit; color: var(--ink);
+    opacity: 0;
+    transform: translateY(22px) scale(0.97);
+    box-shadow:
+      0 10px 24px -14px rgba(46, 31, 84, 0.22),
+      0 2px 6px -3px rgba(28, 29, 34, 0.10);
+  }
+  .shop-card:hover {
+    border-color: rgba(46, 31, 84, 0.35);
+    transform: translateY(-3px);
+    box-shadow:
+      0 18px 38px -14px rgba(46, 31, 84, 0.30),
+      0 6px 14px -8px rgba(28, 29, 34, 0.18);
+  }
+  @keyframes shopCardPop {
+    0%   { opacity: 0; transform: translateY(22px) scale(0.97); }
+    60%  { opacity: 1; }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .shop-backdrop.is-open .shop-card {
+    animation: shopCardPop 0.68s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .shop-backdrop.is-open .shop-card { animation: none; opacity: 1; transform: none; }
+  }
+  .shop-card-cover {
+    aspect-ratio: 4 / 5;
+    background-size: cover; background-position: center;
+    background-color: var(--platinum);
+  }
+  .shop-card-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 4px; }
+  .shop-card-cat {
+    font-family: var(--sans); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.28em; text-transform: uppercase; color: var(--violet-deep);
+  }
+  .shop-card-title {
+    font-family: var(--serif); font-size: 22px;
+    letter-spacing: -0.015em; margin: 2px 0 4px;
+  }
+  .shop-card-price {
+    font-family: var(--sans); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.02em; color: var(--ink); margin-top: 2px;
+  }
+  .shop-back {
+    background: transparent; border: none;
+    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--violet-deep); cursor: pointer; padding: 0 0 18px;
+    transition: color 0.2s, transform 0.2s;
+  }
+  .shop-back:hover { color: var(--ink); transform: translateX(-3px); }
+  .shop-detail {
+    display: grid; grid-template-columns: 360px 1fr; gap: 40px; align-items: start;
+  }
+  @media (max-width: 780px) { .shop-detail { grid-template-columns: 1fr; gap: 24px; } }
+  .shop-detail-cover {
+    aspect-ratio: 4 / 5;
+    background-size: cover; background-position: center;
+    background-color: var(--platinum);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px -20px rgba(46, 31, 84, 0.35);
+  }
+  .shop-detail-body { display: flex; flex-direction: column; gap: 14px; }
+  .shop-detail-cat {
+    font-family: var(--sans); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.28em; text-transform: uppercase; color: var(--violet-deep);
+  }
+  .shop-detail-title {
+    font-family: var(--serif); font-size: 40px; line-height: 1.05;
+    letter-spacing: -0.02em; margin: 0; font-weight: 500;
+  }
+  .shop-detail-desc { font-size: 16px; line-height: 1.6; color: rgba(28, 29, 34, 0.7); }
+  .shop-detail ul {
+    margin: 0; padding: 0 0 0 18px;
+    font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.7); line-height: 1.7;
+  }
+  .shop-detail-foot {
+    display: flex; align-items: center; gap: 18px;
+    margin-top: 12px; padding-top: 18px;
+    border-top: 1px solid rgba(28, 29, 34, 0.1);
+  }
+  .shop-detail-price { font-family: var(--serif); font-size: 32px; letter-spacing: -0.015em; }
+  .shop-buy {
+    appearance: none;
+    background: var(--violet-deep); color: var(--paper); border: 0;
+    padding: 14px 24px; border-radius: 14px;
+    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 8px;
+    box-shadow:
+      0 12px 24px -10px rgba(46, 31, 84, 0.55),
+      0 4px 8px -4px rgba(28, 29, 34, 0.22);
+    transition: transform 0.25s, box-shadow 0.25s, background 0.25s;
+  }
+  .shop-buy:hover {
+    transform: translateY(-2px); background: var(--ink);
+    box-shadow:
+      0 18px 32px -10px rgba(46, 31, 84, 0.65),
+      0 6px 12px -6px rgba(28, 29, 34, 0.30);
+  }
+  .shop-already {
+    display: inline-flex; align-items: center;
+    padding: 4px 10px;
+    background: rgba(121, 201, 168, 0.18);
+    border: 1px solid rgba(121, 201, 168, 0.4);
+    color: #1f6149;
+    font-family: var(--sans); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase; border-radius: 999px;
+  }
+</style>
+
+<script>
+  import { supabase, gbpFromPence } from "../lib/supabase.js";
+
+  const $shopModal = document.getElementById("shop-modal");
+  if ($shopModal) {
+    const $shopGrid = document.getElementById("shop-grid");
+    const $shopDetail = document.getElementById("shop-detail");
+    const $shopLoading = document.getElementById("shop-loading");
+    const $shopEmpty = document.getElementById("shop-empty");
+    const $shopClose = document.getElementById("shop-close");
+    const $shopBack = document.getElementById("shop-back");
+
+    let cachedPacks = null;
+    let ownedPackIds = new Set();
+    let ownershipLoaded = false;
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    function setView(name) {
+      document.querySelectorAll(".shop-view").forEach((v) => {
+        v.hidden = v.getAttribute("data-view") !== name;
+      });
+    }
+
+    async function loadOwnership() {
+      if (ownershipLoaded) return;
+      ownershipLoaded = true;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const email = session.user.email || "";
+      const { data } = await supabase
+        .from("orders")
+        .select("pack_id, status")
+        .or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`);
+      (data || []).forEach((o) => {
+        if (o.status === "paid" && o.pack_id) ownedPackIds.add(o.pack_id);
+      });
+    }
+
+    async function openShop() {
+      $shopModal.hidden = false;
+      document.body.style.overflow = "hidden";
+      setView("grid");
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => $shopModal.classList.add("is-open"));
+      });
+      if (!cachedPacks) {
+        $shopLoading.hidden = false;
+        await loadOwnership();
+        const { data, error } = await supabase
+          .from("packs")
+          .select("id, slug, title, description, price_pence, cover_image_url, contents, category, sort_order")
+          .eq("status", "active")
+          .order("sort_order", { ascending: true });
+        $shopLoading.hidden = true;
+        if (error || !data || !data.length) {
+          $shopEmpty.hidden = false;
+          return;
+        }
+        cachedPacks = data;
+      }
+      renderGrid();
+    }
+
+    let closeTimer = null;
+    function closeShop() {
+      if (!$shopModal.classList.contains("is-open")) {
+        $shopModal.hidden = true;
+        document.body.style.overflow = "";
+        return;
+      }
+      $shopModal.classList.remove("is-open");
+      clearTimeout(closeTimer);
+      closeTimer = setTimeout(() => {
+        $shopModal.hidden = true;
+        document.body.style.overflow = "";
+      }, 760);
+    }
+
+    function renderGrid() {
+      const BASE_DELAY = 700, STEP = 70, MAX_STEPS = 12;
+      $shopGrid.innerHTML = cachedPacks.map((p, i) => {
+        const cover = p.cover_image_url ? `background-image:url('${escapeHtml(p.cover_image_url)}')` : "";
+        const delay = BASE_DELAY + (Math.min(i, MAX_STEPS) * STEP);
+        return `
+          <button type="button" class="shop-card" data-slug="${escapeHtml(p.slug)}" style="animation-delay:${delay}ms">
+            <div class="shop-card-cover" style="${cover}"></div>
+            <div class="shop-card-body">
+              ${p.category ? `<span class="shop-card-cat">${escapeHtml(p.category)}</span>` : ""}
+              <h3 class="shop-card-title">${escapeHtml(p.title)}</h3>
+              <span class="shop-card-price">${gbpFromPence(p.price_pence)}${ownedPackIds.has(p.id) ? " &middot; Owned" : ""}</span>
+            </div>
+          </button>`;
+      }).join("");
+    }
+
+    function showDetail(slug) {
+      const p = cachedPacks.find((x) => x.slug === slug);
+      if (!p) return;
+      const cover = p.cover_image_url ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : "";
+      const owned = ownedPackIds.has(p.id);
+      const contentsHtml = (p.contents || []).map((c) => `<li>${escapeHtml(c)}</li>`).join("");
+      $shopDetail.innerHTML = `
+        <div class="shop-detail-cover" ${cover}></div>
+        <div class="shop-detail-body">
+          ${p.category ? `<span class="shop-detail-cat">${escapeHtml(p.category)}</span>` : ""}
+          <h2 class="shop-detail-title">${escapeHtml(p.title)}</h2>
+          <p class="shop-detail-desc">${escapeHtml(p.description || "")}</p>
+          ${contentsHtml ? `<ul>${contentsHtml}</ul>` : ""}
+          <div class="shop-detail-foot">
+            <span class="shop-detail-price">${gbpFromPence(p.price_pence)}</span>
+            ${owned
+              ? `<span class="shop-already">Already in your library</span>`
+              : `<a class="shop-buy" href="/edit?buy=${encodeURIComponent(p.slug)}">Purchase &rarr;</a>`}
+          </div>
+        </div>`;
+      setView("detail");
+    }
+
+    async function openShopAtSlug(slug) {
+      await openShop();
+      if (!slug) return;
+      const waitForCache = () => new Promise((r) => {
+        let tries = 0;
+        (function tick() {
+          if ((cachedPacks && cachedPacks.some((p) => p.slug === slug)) || tries > 20) return r();
+          tries += 1; setTimeout(tick, 50);
+        })();
+      });
+      await waitForCache();
+      showDetail(slug);
+    }
+
+    // Expose for programmatic opening.
+    window.tmkeOpenShop = openShop;
+    window.tmkeOpenShopAtSlug = openShopAtSlug;
+
+    // Any element with [data-shop] opens the modal (optionally at a slug).
+    document.addEventListener("click", (e) => {
+      const t = e.target instanceof HTMLElement ? e.target.closest("[data-shop]") : null;
+      if (!t) return;
+      e.preventDefault();
+      const slug = t.getAttribute("data-shop-slug");
+      if (slug) openShopAtSlug(slug); else openShop();
+    });
+
+    $shopClose?.addEventListener("click", closeShop);
+    $shopModal.addEventListener("click", (e) => { if (e.target === $shopModal) closeShop(); });
+    $shopBack?.addEventListener("click", () => setView("grid"));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !$shopModal.hidden) closeShop();
+    });
+    $shopGrid?.addEventListener("click", (e) => {
+      const card = e.target instanceof Element ? e.target.closest(".shop-card") : null;
+      if (!card) return;
+      showDetail(card.getAttribute("data-slug"));
+    });
+  }
+</script>

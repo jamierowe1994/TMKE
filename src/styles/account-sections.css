@@ -1,0 +1,809 @@
+/* ============================================================
+   Dashboard shell — used by every signed-in workspace page.
+   Two-column grid: sticky left sidebar + scrolling main column.
+   Lives here (not in account.astro) so /account/orders,
+   /account/schedule, /profile etc. can render the same chrome
+   and the sidebar stays put across pages.
+   ============================================================ */
+.dash-shell {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--paper);
+}
+.dash-side {
+  /* Floating white nav panel inset from the edges, so the beige shell
+     shows around it as an enclosed nav space. 14px radius matches the
+     "Good evening" welcome box. */
+  position: sticky;
+  top: 14px;
+  height: calc(100vh - 28px);
+  display: flex;
+  flex-direction: column;
+  margin: 14px 0 14px 14px;
+  padding: 30px 22px 26px;
+  background: #fff;
+  border: 1px solid rgba(28, 29, 34, 0.08);
+  border-radius: 14px;
+  /* Layered shadow — a soft close ambient plus a deeper cast — so the
+     panel lifts cleanly off the beige shell. */
+  box-shadow:
+    0 4px 12px -6px rgba(46, 31, 84, 0.18),
+    0 24px 48px -20px rgba(46, 31, 84, 0.45);
+  gap: 28px;
+  overflow-y: auto;
+}
+.dash-logo {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 4px 12px;
+}
+.dash-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.dash-link {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  color: rgba(28, 29, 34, 0.62);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.25s, background 0.25s, transform 0.25s;
+}
+.dash-link:hover {
+  color: var(--ink);
+  background: rgba(71, 66, 84, 0.06);
+}
+.dash-link.is-active {
+  color: var(--english-violet);
+  background: rgba(71, 66, 84, 0.10);
+  box-shadow: inset 3px 0 0 0 var(--english-violet);
+}
+.dash-link--sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(28, 29, 34, 0.5);
+}
+.dash-divider {
+  height: 1px;
+  background: rgba(28, 29, 34, 0.08);
+  margin: 14px 14px 10px;
+}
+.dash-side-foot {
+  padding: 16px 6px 0;
+  border-top: 1px solid rgba(28, 29, 34, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dash-cal-btn {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--english-violet);
+  background: rgba(71, 66, 84, 0.06);
+  border: 1px solid rgba(71, 66, 84, 0.18);
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.25s, border-color 0.25s, color 0.25s;
+}
+.dash-cal-btn:hover {
+  background: var(--english-violet);
+  color: var(--paper);
+  border-color: var(--english-violet);
+}
+.dash-cal-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.dash-cal-btn > span:not(.dash-cal-count) { flex: 1; }
+.dash-cal-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--english-violet);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.dash-cal-btn:hover .dash-cal-count {
+  background: var(--paper);
+  color: var(--english-violet);
+}
+.dash-cal-count[hidden] { display: none; }
+.dash-side-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+  min-width: 0;
+}
+.dash-side-tag {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(28, 29, 34, 0.4);
+}
+.dash-side-meta strong {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  word-break: break-all;
+}
+
+/* Override .app-main when used inside the dash shell so the content
+   takes the full right column rather than being centred at 1280. */
+.dash-main {
+  max-width: none;
+  margin: 0;
+  padding: 64px 56px 80px;
+}
+
+.dash-foot {
+  grid-template-columns: 1fr auto;
+}
+.dash-foot-email {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: rgba(28, 29, 34, 0.55);
+}
+
+@media (max-width: 880px) {
+  .dash-shell { grid-template-columns: 1fr; }
+  .dash-side {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    margin: 12px;
+    padding: 12px 18px;
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+  .dash-nav {
+    flex-direction: row;
+    flex: 0 1 auto;
+    gap: 2px;
+    overflow-x: auto;
+  }
+  .dash-divider,
+  .dash-link--sub,
+  .dash-side-foot { display: none; }
+  .dash-link.is-active {
+    box-shadow: inset 0 -2px 0 0 var(--english-violet);
+  }
+  .dash-main { padding: 36px 22px 60px; }
+}
+
+/* Entry animation classes (slide-in-left, slide-down, slide-up) live
+   in account.astro because they're scoped to the welcome-load
+   experience and use per-element delay tokens. The sidebar still
+   gains the classes via the DashSidebar component; pages that don't
+   define the keyframes simply see static elements (no harm). */
+
+
+/* ============================================================
+   Shared styles for the in-platform sections:
+     - Contact, Managed Socials, Guides, Blog
+   Each panel component renders this markup; this stylesheet
+   covers the standalone /account/<section> page and the
+   in-place view swap on /account.
+   ============================================================ */
+
+.acc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.acc-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.acc-section-eyebrow {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--english-violet);
+}
+.acc-section-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(28px, 3vw, 42px);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.acc-section-sub {
+  margin: 0;
+  max-width: 640px;
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(28, 29, 34, 0.62);
+}
+
+.acc-section-foot {
+  margin-top: 8px;
+  padding: 20px 24px;
+  background: rgba(71, 66, 84, 0.06);
+  border: 1px solid rgba(71, 66, 84, 0.14);
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(28, 29, 34, 0.7);
+}
+.acc-section-foot-tag {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--english-violet);
+  margin-bottom: 4px;
+}
+.acc-section-foot-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 700;
+  color: var(--english-violet);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(71, 66, 84, 0.4);
+  transition: color 0.2s, border-color 0.2s;
+}
+.acc-section-foot-link:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ---------- Contact ---------- */
+.acc-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 720px) { .acc-contact-grid { grid-template-columns: 1fr; } }
+
+.acc-contact-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px 22px 18px;
+  background: #fff;
+  border: 1px solid rgba(28, 29, 34, 0.08);
+  border-left: 3px solid var(--english-violet);
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--ink);
+  transition: transform 0.25s cubic-bezier(.2,.7,.2,1), box-shadow 0.25s, border-color 0.25s;
+}
+.acc-contact-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 26px -14px rgba(71, 66, 84, 0.32),
+    0 4px 10px -6px rgba(28, 29, 34, 0.15);
+}
+.acc-contact-card-tag {
+  align-self: flex-start;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--english-violet);
+}
+.acc-contact-card-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+.acc-contact-card-desc {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(28, 29, 34, 0.65);
+  flex: 1;
+}
+.acc-contact-card-cta {
+  margin-top: 6px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--english-violet);
+}
+.acc-contact-card-cta em { font-style: normal; transition: transform 0.25s; display: inline-block; }
+.acc-contact-card:hover .acc-contact-card-cta em { transform: translateX(4px); }
+.acc-contact-card--soft {
+  background: rgba(71, 66, 84, 0.04);
+  border-left-color: rgba(71, 66, 84, 0.45);
+}
+
+/* ---------- Managed Socials (tiers) ---------- */
+.acc-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+@media (max-width: 980px) { .acc-tier-grid { grid-template-columns: 1fr; } }
+
+.acc-tier {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 22px 22px;
+  background: #fff;
+  border: 1px solid rgba(28, 29, 34, 0.08);
+  border-radius: 8px;
+  box-shadow:
+    0 10px 24px -16px rgba(71, 66, 84, 0.22),
+    0 2px 6px -3px rgba(28, 29, 34, 0.08);
+}
+.acc-tier--featured {
+  background: var(--english-violet);
+  border-color: var(--english-violet);
+  color: var(--paper);
+  box-shadow:
+    0 20px 40px -16px rgba(71, 66, 84, 0.55),
+    0 6px 14px -8px rgba(28, 29, 34, 0.25);
+}
+.acc-tier-flag {
+  position: absolute;
+  top: -12px;
+  right: 18px;
+  padding: 5px 12px;
+  background: var(--paper);
+  color: var(--english-violet);
+  border: 1px solid var(--english-violet);
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.acc-tier-head { display: flex; flex-direction: column; gap: 4px; }
+.acc-tier-tag {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--english-violet);
+}
+.acc-tier--featured .acc-tier-tag { color: rgba(240, 238, 235, 0.7); }
+.acc-tier-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+}
+.acc-tier-price {
+  margin: 6px 0 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: rgba(28, 29, 34, 0.55);
+}
+.acc-tier-price strong {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 30px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  margin-right: 6px;
+}
+.acc-tier--featured .acc-tier-price { color: rgba(240, 238, 235, 0.7); }
+.acc-tier--featured .acc-tier-price strong { color: var(--paper); }
+.acc-tier-blurb {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(28, 29, 34, 0.7);
+}
+.acc-tier--featured .acc-tier-blurb { color: rgba(240, 238, 235, 0.85); }
+.acc-tier-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: rgba(28, 29, 34, 0.7);
+  flex: 1;
+}
+.acc-tier-list li {
+  position: relative;
+  padding-left: 18px;
+}
+.acc-tier-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--english-violet);
+}
+.acc-tier--featured .acc-tier-list { color: rgba(240, 238, 235, 0.85); }
+.acc-tier--featured .acc-tier-list li::before { background: var(--paper); }
+.acc-tier-cta {
+  margin-top: 4px;
+  align-self: flex-start;
+  padding: 11px 18px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--english-violet);
+  border: 1px solid var(--english-violet);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background 0.25s, color 0.25s, transform 0.25s;
+}
+.acc-tier-cta em { font-style: normal; display: inline-block; margin-left: 6px; transition: transform 0.25s; }
+.acc-tier-cta:hover { background: var(--english-violet); color: var(--paper); }
+.acc-tier-cta:hover em { transform: translateX(4px); }
+.acc-tier-cta--solid {
+  background: var(--paper);
+  color: var(--english-violet);
+  border-color: var(--paper);
+}
+.acc-tier-cta--solid:hover {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.acc-services-process {
+  margin-top: 8px;
+  padding: 28px 28px 24px;
+  background: rgba(71, 66, 84, 0.04);
+  border: 1px solid rgba(71, 66, 84, 0.12);
+  border-radius: 8px;
+}
+.acc-services-process-title {
+  margin: 0 0 18px;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.acc-services-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+@media (max-width: 720px) { .acc-services-steps { grid-template-columns: 1fr; } }
+.acc-services-steps li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.acc-services-step-num {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--english-violet);
+  color: var(--paper);
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.acc-services-steps li strong {
+  display: block;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.acc-services-steps li p {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(28, 29, 34, 0.65);
+}
+
+/* ---------- Guides ---------- */
+.acc-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 720px) { .acc-guide-grid { grid-template-columns: 1fr; } }
+
+.acc-guide-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px 22px 18px;
+  background: #fff;
+  border: 1px solid rgba(28, 29, 34, 0.08);
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--ink);
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(.2,.7,.2,1), box-shadow 0.25s;
+}
+.acc-guide-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 26px -14px rgba(71, 66, 84, 0.32),
+    0 4px 10px -6px rgba(28, 29, 34, 0.15);
+}
+.acc-guide-num {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 48px;
+  font-weight: 400;
+  color: rgba(71, 66, 84, 0.10);
+  pointer-events: none;
+  line-height: 1;
+}
+.acc-guide-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  max-width: 22ch;
+  position: relative;
+  z-index: 1;
+}
+.acc-guide-desc {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(28, 29, 34, 0.62);
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+.acc-guide-meta {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--english-violet);
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Blog ---------- */
+.acc-blog-head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+.acc-blog-flag {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  background: var(--english-violet);
+  color: var(--paper);
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.acc-blog-hero {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 0;
+  background: #fff;
+  border: 1px solid rgba(28, 29, 34, 0.08);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--ink);
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(.2,.7,.2,1), box-shadow 0.25s;
+  box-shadow:
+    0 14px 32px -16px rgba(71, 66, 84, 0.28),
+    0 4px 10px -6px rgba(28, 29, 34, 0.10);
+}
+.acc-blog-hero:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 22px 44px -16px rgba(71, 66, 84, 0.40),
+    0 8px 16px -8px rgba(28, 29, 34, 0.18);
+}
+@media (max-width: 780px) { .acc-blog-hero { grid-template-columns: 1fr; } }
+.acc-blog-hero-art {
+  min-height: 260px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--english-violet);
+}
+.acc-blog-hero-body {
+  padding: 26px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.acc-blog-hero-title {
+  margin: 4px 0 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(22px, 2vw, 28px);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.acc-blog-hero-desc {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(28, 29, 34, 0.66);
+}
+.acc-blog-card-meta {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--english-violet);
+}
+.acc-blog-card-cta {
+  margin-top: auto;
+  padding-top: 8px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--english-violet);
+}
+.acc-blog-card-cta em { font-style: normal; display: inline-block; transition: transform 0.25s; }
+.acc-blog-hero:hover .acc-blog-card-cta em { transform: translateX(4px); }
+
+.acc-blog-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 980px) { .acc-blog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .acc-blog-grid { grid-template-columns: 1fr; } }
+
+.acc-blog-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid rgba(28, 29, 34, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--ink);
+  transition: transform 0.25s cubic-bezier(.2,.7,.2,1), box-shadow 0.25s;
+}
+.acc-blog-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 26px -14px rgba(71, 66, 84, 0.32),
+    0 4px 10px -6px rgba(28, 29, 34, 0.15);
+}
+.acc-blog-card-art {
+  aspect-ratio: 16 / 9;
+  background-size: cover;
+  background-position: center;
+}
+.acc-blog-card-body {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.acc-blog-card-title {
+  margin: 4px 0 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.acc-blog-card-desc {
+  margin: 4px 0 0;
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(28, 29, 34, 0.62);
+  flex: 1;
+}
+
+/* ============================================================
+   In-place view swap used on /account.
+   Each .dash-view sits in the main column; only the active one
+   is shown. Sidebar links with [data-view="<name>"] toggle the
+   visible view. No drawer overlay; the sidebar stays put.
+
+   .app-main has `display: flex; flex-direction: column; gap: 96px;`
+   which only applies between its direct children. Wrapping the
+   workspace sections in a single .dash-view made all that gap
+   collapse, so each .dash-view re-establishes column gap inside.
+   ============================================================ */
+.dash-view {
+  display: flex;
+  flex-direction: column;
+  gap: 96px;
+}
+.dash-view[hidden] { display: none; }
+@media (max-width: 780px) {
+  .dash-view { gap: 64px; }
+}
+
+@keyframes dashViewIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Re-fade-in when a panel becomes active (not on first load — the
+   per-element slide-in/slide-up animations handle the entry already). */
+.dash-view.is-active:not(:first-child) {
+  animation: dashViewIn 0.45s cubic-bezier(.2,.7,.2,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dash-view.is-active:not(:first-child) { animation: none; }
+}

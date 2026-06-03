@@ -17,7 +17,9 @@ const CAROUSEL = [
   { src: UNSPLASH("1521017432531-fbd92d768814", 1400, 900), caption: "Quiet street, dusk light" },
   { src: UNSPLASH("1505691938895-1758d7feb511", 1400, 900), caption: "Marble kitchen, soft daylight" },
 ];
-const TALK_BG = UNSPLASH("1517694712202-14dd9538aa97", 2000, 1200);
+// Warmer, more editorial interior — closer to the brand than the old desk shot.
+// (Placeholder until a branded image is supplied.)
+const TALK_BG = UNSPLASH("1524758631624-e2822e304c36", 2000, 1200);
 
 const TESTIMONIALS = [
   {
@@ -72,10 +74,10 @@ const LOGO_STRIP = [
 
   <!-- =============================== MANAGED FOR ESTATE AGENTS -->
   <section class="smm-section smm-managed wrap">
-    <div class="chapter">Managed for Estate Agents</div>
+    <div class="chapter" data-reveal>Managed for Estate Agents</div>
 
     <div class="smm-managed-grid">
-      <div class="smm-managed-body">
+      <div class="smm-managed-body" data-reveal data-reveal-delay="1">
         <p class="smm-prose">
           We plan, create, and manage your social media so it's consistent,
           considered, and aligned with your business.
@@ -92,7 +94,7 @@ const LOGO_STRIP = [
         </p>
       </div>
 
-      <aside class="smm-managed-aside">
+      <aside class="smm-managed-aside" data-reveal data-reveal-delay="2">
         <h3 class="smm-aside-head">Why Your Socials Matter.</h3>
         <p>
           Your social media is often the first impression people get of your
@@ -117,7 +119,7 @@ const LOGO_STRIP = [
 
   <!-- =============================== WHO IT'S FOR -->
   <section class="smm-section wrap">
-    <article class="smm-card">
+    <article class="smm-card smm-card--frame" data-reveal>
       <h2 class="smm-card-title">For Property Professionals Who Want It Done Properly</h2>
       <p>
         Social media management is for estate agents, lettings businesses,
@@ -140,7 +142,7 @@ const LOGO_STRIP = [
   <!-- =============================== HOW IT WORKS -->
   <section class="smm-section smm-how wrap">
     <div class="smm-how-grid">
-      <div class="smm-how-media">
+      <div class="smm-how-media" data-reveal data-reveal-dir="left">
         <div class="smm-carousel" id="smm-carousel">
           {CAROUSEL.map((slide, i) => (
             <figure class={`smm-slide ${i === 0 ? "is-active" : ""}`} data-i={i}>
@@ -160,7 +162,7 @@ const LOGO_STRIP = [
         </div>
       </div>
 
-      <div class="smm-how-body">
+      <div class="smm-how-body" data-reveal data-reveal-dir="right" data-reveal-delay="1">
         <h2 class="smm-how-title">How It Works</h2>
         <p class="smm-how-lede">
           <strong>We don't rely on automation to run your social media.</strong>
@@ -185,11 +187,11 @@ const LOGO_STRIP = [
 
   <!-- =============================== TRUSTED BY -->
   <section class="smm-section smm-trusted wrap">
-    <h2 class="smm-trusted-title">Trusted By</h2>
+    <h2 class="smm-trusted-title" data-reveal>Trusted By</h2>
 
     <div class="smm-testimonials">
-      {TESTIMONIALS.map((t) => (
-        <article class="smm-card smm-testimonial">
+      {TESTIMONIALS.map((t, i) => (
+        <article class="smm-card smm-testimonial" data-reveal data-reveal-dir="up" data-reveal-delay={String(i + 1)}>
           <div class="smm-stars" aria-label="5 out of 5 stars">★ ★ ★ ★ ★</div>
           <p class="smm-quote">{t.quote}</p>
           <a class="smm-readmore" href="#">Read more</a>
@@ -207,7 +209,7 @@ const LOGO_STRIP = [
       ))}
     </div>
 
-    <div class="smm-marquee" aria-hidden="true">
+    <div class="smm-marquee" aria-hidden="true" data-reveal>
       <div class="smm-marquee-track">
         {[...LOGO_STRIP, ...LOGO_STRIP].map((name) => (
           <span class="smm-marquee-item">{name}</span>
@@ -223,13 +225,13 @@ const LOGO_STRIP = [
     style={`background-image: linear-gradient(120deg, rgba(12,11,10,0.7), rgba(12,11,10,0.45)), url(${TALK_BG});`}
   >
     <div class="smm-talk-inner">
-      <div class="smm-talk-eyebrow">Let's</div>
-      <h2 class="smm-talk-mark">Talk<em>.</em></h2>
-      <p class="smm-talk-sub">
+      <div class="smm-talk-eyebrow" data-reveal>Let's</div>
+      <h2 class="smm-talk-mark" data-reveal data-reveal-delay="1">Talk<em>.</em></h2>
+      <p class="smm-talk-sub" data-reveal data-reveal-delay="2">
         Have a quick conversation about how your social media could look,
         feel, and perform — with no commitment beyond half an hour of your time.
       </p>
-      <button type="button" data-discovery-call class="btn btn--ghost-light smm-talk-cta">
+      <button type="button" data-discovery-call class="btn btn--ghost-light smm-talk-cta" data-reveal data-reveal-delay="3">
         Book a Discovery Call <span class="btn-arrow">&rarr;</span>
       </button>
     </div>
@@ -241,7 +243,7 @@ const LOGO_STRIP = [
     /* ============== HERO ============== */
     .smm-hero {
       position: relative;
-      min-height: 92vh;
+      min-height: 100vh;        /* full-screen hero */
       background-size: cover;
       background-position: center;
       color: var(--paper);
@@ -294,9 +296,9 @@ const LOGO_STRIP = [
       font-family: var(--sans);
       font-weight: 400;
       font-size: clamp(16px, 1.6vw, 21px);
-      line-height: 1.7;
+      line-height: 1.55;          /* reduced per client */
       color: rgba(240, 238, 235, 0.88);
-      max-width: 720px;
+      max-width: 800px;           /* shared hero text-column width (matches About) */
       margin: 0 auto 44px;
     }
     .smm-hero-sub strong {
@@ -328,30 +330,38 @@ const LOGO_STRIP = [
 
     /* ============== SECTION SCAFFOLD ============== */
     .smm-section {
-      max-width: 1280px;
+      max-width: 1360px;          /* match home content width */
       margin: 0 auto;
-      padding: 120px 36px;
+      /* Tightened per client — the page had a lot of dead vertical space. */
+      padding: clamp(56px, 6vw, 96px) 76px;
     }
     @media (max-width: 720px) {
-      .smm-section { padding: 80px 24px; }
+      .smm-section { padding: 56px 24px; }
     }
-    .smm-section .chapter { margin-bottom: 72px; }
+    .smm-section .chapter { margin-bottom: 36px; }
+    /* Close the gap under "Why Your Socials Matter" (managed section) before
+       the "For Property Professionals" block. */
+    .smm-managed { padding-bottom: 20px; }
+    .smm-managed + .smm-section { padding-top: 24px; }
 
     /* ============== MANAGED FOR ESTATE AGENTS ==============
        Single-column stack: the editorial prose runs wide and the
        "Why Your Socials Matter" panel sits beneath it, pushed to
        the right so it reads as a footnote to the main argument. */
+    /* Stacked, with the "Why Your Socials Matter" panel sitting just below
+       where the opening prose ends (small gap), pushed to the right so it
+       reads as an editorial follow-on rather than a parallel column. */
     .smm-managed-grid {
       display: flex;
       flex-direction: column;
-      gap: 96px;
+      gap: 28px;
     }
-    .smm-managed-body { display: flex; flex-direction: column; gap: 32px; }
+    .smm-managed-body { display: flex; flex-direction: column; gap: 28px; }
     .smm-prose {
       font-family: var(--serif);
       font-weight: 400;
-      font-size: clamp(24px, 2.4vw, 36px);
-      line-height: 1.4;
+      font-size: var(--fs-quote);     /* reduced to the shared quote size */
+      line-height: var(--lh-quote);
       letter-spacing: -0.008em;
       color: var(--ink);
       max-width: 38ch;
@@ -367,7 +377,7 @@ const LOGO_STRIP = [
       display: flex; flex-direction: column; gap: 18px;
     }
     @media (max-width: 980px) {
-      .smm-managed-grid { gap: 56px; }
+      .smm-managed-grid { gap: 32px; }
       .smm-managed-aside {
         align-self: stretch;
         max-width: none;
@@ -427,11 +437,30 @@ const LOGO_STRIP = [
     }
     .smm-card p:last-child { margin-bottom: 0; }
 
+    /* Double-line frame — the same box-in-box treatment as the home page's
+       Chapter 4 panels, carried across for cohesion. Crisp outer rule with a
+       finer inner rule inset just inside it, here in ink tones for the light
+       background. */
+    .smm-card--frame {
+      position: relative;
+      border: 1.5px solid rgba(28, 29, 34, 0.42);
+      border-radius: 2px;
+    }
+    .smm-card--frame::before {
+      content: "";
+      position: absolute;
+      inset: 9px;
+      border: 1px solid rgba(28, 29, 34, 0.2);
+      border-radius: 1px;
+      pointer-events: none;
+    }
+
     /* ============== HOW IT WORKS ============== */
+    /* Two-thirds photo, one-third text — never a flat 50/50. */
     .smm-how-grid {
       display: grid;
-      grid-template-columns: 1.3fr 1fr;
-      gap: 100px;
+      grid-template-columns: 2fr 1fr;
+      gap: 80px;
       align-items: center;
     }
     @media (max-width: 980px) {
@@ -612,22 +641,31 @@ const LOGO_STRIP = [
       position: relative;
       background-size: cover;
       background-position: center;
-      min-height: 60vh;
+      min-height: 64vh;           /* match the About "Working Together" section */
       color: var(--paper);
       display: flex;
       align-items: center;
       padding: 120px 36px;
       overflow: hidden;
+      /* Inset frame so "Let's Talk" breaks away as its own block before the
+         full-bleed footer (matches the home page treatment). */
+      margin: 0 40px 64px;
+    }
+    @media (max-width: 720px) {
+      .smm-talk { margin: 0 22px 44px; min-height: 58vh; }
     }
     .smm-talk-inner {
       position: relative;
-      max-width: 1280px;
+      max-width: 1360px;          /* match the About "Working Together" grid */
       width: 100%;
       margin: 0 auto;
     }
+    /* Type scale matched to the About page's "Working Together" CTA so the two
+       closing sections share one system: eyebrow = "Working", mark =
+       "Together", sub = the lede. */
     .smm-talk-eyebrow {
       font-family: var(--serif);
-      font-size: clamp(20px, 1.8vw, 26px);
+      font-size: clamp(22px, 2.3vw, 32px);
       color: rgba(240, 238, 235, 0.85);
       margin-bottom: 8px;
       padding-left: 4px;
@@ -636,12 +674,13 @@ const LOGO_STRIP = [
       font-family: var(--serif);
       font-weight: 400;
       font-style: italic;
-      font-size: clamp(120px, 22vw, 360px);
-      line-height: 0.85;
+      font-size: clamp(60px, 9.5vw, 148px);
+      line-height: 1;
       letter-spacing: -0.02em;
       color: rgba(240, 238, 235, 0.92);
       margin: 0 0 36px;
-      text-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      /* No drop-shadow — "Together" on About has none, so dropping it here
+         keeps the two marks visually identical in weight as well as size. */
     }
     .smm-talk-mark em {
       font-style: italic;
@@ -650,8 +689,8 @@ const LOGO_STRIP = [
     .smm-talk-sub {
       font-family: var(--serif);
       font-style: italic;
-      font-size: clamp(18px, 1.8vw, 22px);
-      line-height: 1.5;
+      font-size: clamp(15px, 1.2vw, 17px);
+      line-height: 1.7;
       color: rgba(240, 238, 235, 0.78);
       max-width: 540px;
       margin: 0 0 28px;

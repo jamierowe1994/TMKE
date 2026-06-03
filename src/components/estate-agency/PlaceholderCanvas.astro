@@ -1,0 +1,180 @@
+---
+// Renders inside the preview stage when a template doesn't yet have its own
+// component. Mirrors the rough shape of an estate-agency homepage so you can
+// see how the chrome and interest form sit around it, then swap the markup
+// out template by template.
+interface Props {
+  name: string;
+  tagline: string;
+  hero: string;
+  accent: string;
+  audience: string;
+  features: string[];
+}
+
+const { name, tagline, hero, accent, audience, features } = Astro.props;
+---
+
+<div class="ea-placeholder" style={`--ea-accent: ${accent};`}>
+  <section
+    class="ea-placeholder-hero"
+    style={`background-image: linear-gradient(180deg, rgba(12,11,10,0.35), rgba(12,11,10,0.7)), url(${hero});`}
+  >
+    <div class="ea-placeholder-hero-inner">
+      <div class="ea-placeholder-eyebrow">Template &middot; Draft</div>
+      <h1 class="ea-placeholder-name">{name}</h1>
+      <p class="ea-placeholder-tagline">{tagline}</p>
+      <div class="ea-placeholder-audience">For {audience}</div>
+    </div>
+  </section>
+
+  <section class="ea-placeholder-body">
+    <div class="ea-placeholder-grid">
+      <div>
+        <div class="ea-placeholder-chapter">/ What this template does /</div>
+        <p class="ea-placeholder-prose">
+          This is a working canvas for the <strong>{name}</strong> homepage.
+          The real design will live in its own component under
+          <code>src/components/estate-agency/templates/</code> and replace
+          this placeholder once it's ready.
+        </p>
+        <p class="ea-placeholder-prose">
+          For now the chrome, interest form, and showcase routing are all in
+          place — so you can build out the homepage in isolation and drop it
+          in when you're happy.
+        </p>
+      </div>
+      <aside class="ea-placeholder-features">
+        <h3>Planned blocks</h3>
+        <ul>
+          {features.map((f) => <li>{f}</li>)}
+        </ul>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<style>
+  .ea-placeholder { --ea-accent: #474254; }
+
+  .ea-placeholder-hero {
+    min-height: 72vh;
+    background-size: cover;
+    background-position: center;
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 120px 36px;
+    text-align: center;
+  }
+  .ea-placeholder-hero-inner { max-width: 820px; }
+  .ea-placeholder-eyebrow {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(240,238,235,0.7);
+    margin-bottom: 24px;
+  }
+  .ea-placeholder-name {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(56px, 9vw, 128px);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin: 0 0 18px;
+  }
+  .ea-placeholder-tagline {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(18px, 2vw, 24px);
+    color: rgba(240,238,235,0.85);
+    margin: 0 0 24px;
+  }
+  .ea-placeholder-audience {
+    font-family: var(--sans);
+    font-size: 12px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(240,238,235,0.55);
+  }
+
+  .ea-placeholder-body {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 96px 36px;
+  }
+  .ea-placeholder-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 80px;
+    align-items: start;
+  }
+  @media (max-width: 880px) {
+    .ea-placeholder-grid { grid-template-columns: 1fr; gap: 48px; }
+  }
+  .ea-placeholder-chapter {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(28,29,34,0.55);
+    margin-bottom: 18px;
+  }
+  .ea-placeholder-prose {
+    font-family: var(--serif);
+    font-size: clamp(20px, 1.9vw, 26px);
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+    margin: 0 0 24px;
+  }
+  .ea-placeholder-prose code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78em;
+    background: rgba(28,29,34,0.06);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .ea-placeholder-features {
+    border: 1px solid rgba(28,29,34,0.16);
+    padding: 28px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.4);
+  }
+  .ea-placeholder-features h3 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ea-accent);
+    margin: 0 0 16px;
+  }
+  .ea-placeholder-features ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ea-placeholder-features li {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: rgba(28,29,34,0.78);
+    padding-left: 18px;
+    position: relative;
+  }
+  .ea-placeholder-features li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.7em;
+    width: 8px; height: 1px;
+    background: var(--ea-accent);
+  }
+</style>
