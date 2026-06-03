@@ -8,6 +8,14 @@ const sorted = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
 const featured = sorted[0]; // → right column (newest / feature post)
 const rest = sorted.slice(1); // → left scrolling list
 
+// The feature card shows a slightly shorter display title (≈3 lines, not 4)
+// without changing the article's canonical title. Keyed by slug so it only
+// applies to the intended post; falls back to the real title otherwise.
+const FEATURE_TITLE = {
+  "why-personal-branding-works-in-estate-agency": "Why personal branding works in estate agency",
+};
+const featTitle = FEATURE_TITLE[featured.slug] || featured.title;
+
 function fmtDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
@@ -18,6 +26,10 @@ function fmtDate(iso) {
   title="Insights — TMKE"
   description="Structured insights on social media, brand positioning, content systems, and the future of estate agency marketing — written for UK property professionals."
 >
+  <!-- Page-wide film grain — fixed, sits above the content but below the nav,
+       blended so it adds texture without tinting. Purely decorative. -->
+  <div class="insights-grain" aria-hidden="true"></div>
+
   <!-- ============================== TWO-COLUMN SPLIT -->
   <section class="insights2" id="insights2">
     <!-- LEFT: scrolling list of every other post -->
@@ -51,15 +63,26 @@ function fmtDate(iso) {
       <a class="ins-feature-inner" href={`/blog/${featured.slug}`}>
         <div class="ins-feature-head">
           <div class="ins-feature-eyebrow">Latest <span class="ins-dot">·</span> {featured.category}</div>
-          <h2 class="ins-feature-title">{featured.title}</h2>
-          <p class="ins-feature-sub">{featured.standfirst}</p>
+          <h2 class="ins-feature-title">{featTitle}</h2>
         </div>
-        <!-- Video-ready: drop in a <video autoplay muted loop playsinline> here
-             later; the <img> placeholder uses the post's existing hero for now. -->
         <div class="ins-feature-media">
-          <img src={featured.hero} alt={featured.title} loading="eager" />
+          <!-- Feature video. The poster (the post's hero image) shows until the
+               clip is added to /public/assets — drop the file in at the path
+               below and it plays automatically. -->
+          <video
+            class="ins-feature-video"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            poster={featured.hero}
+          >
+            <source src="/assets/book%20reading%20the%20whole%20thing.mp4" type="video/mp4" />
+          </video>
           <span class="ins-feature-tag">Read the feature <em>&rarr;</em></span>
         </div>
+        <p class="ins-feature-sub">{featured.standfirst}</p>
       </a>
     </aside>
   </section>
@@ -79,6 +102,18 @@ function fmtDate(iso) {
   </section>
 
   <style>
+    /* ============== PAGE GRAIN ============== */
+    .insights-grain {
+      position: fixed;
+      inset: 0;
+      z-index: 60; /* above content (z-index:2), below nav (100) */
+      pointer-events: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
+      background-size: 240px 240px;
+      opacity: 0.15;
+      mix-blend-mode: overlay;
+    }
+
     /* ============== TWO-COLUMN SPLIT ============== */
     .insights2 {
       display: grid;
@@ -87,7 +122,7 @@ function fmtDate(iso) {
       align-items: start;
       max-width: 1640px;
       margin: 0 auto;
-      padding: clamp(140px, 16vh, 200px) clamp(22px, 4vw, 64px) clamp(80px, 8vw, 120px);
+      padding: clamp(92px, 10vh, 124px) clamp(22px, 4vw, 64px) clamp(80px, 8vw, 120px);
     }
 
     /* ---- LEFT: scrolling list ---- */
@@ -172,9 +207,9 @@ function fmtDate(iso) {
     /* ---- RIGHT: pinned feature ---- */
     .ins-feature {
       position: sticky;
-      top: clamp(96px, 12vh, 140px);
-      height: calc(100vh - clamp(96px, 12vh, 140px) - clamp(40px, 5vh, 72px));
-      min-height: 520px;
+      top: clamp(80px, 9vh, 104px);
+      height: calc(100vh - clamp(80px, 9vh, 104px) - clamp(32px, 4vh, 56px));
+      min-height: 540px;
     }
     .ins-feature-inner {
       display: flex;
@@ -184,7 +219,7 @@ function fmtDate(iso) {
       text-decoration: none;
       will-change: transform;
     }
-    .ins-feature-head { flex: 0 0 auto; margin-bottom: clamp(18px, 2vw, 30px); }
+    .ins-feature-head { flex: 0 0 auto; margin-bottom: clamp(16px, 1.8vw, 26px); }
     .ins-feature-eyebrow {
       font-family: var(--sans);
       font-size: 11px;
@@ -198,20 +233,21 @@ function fmtDate(iso) {
       font-family: var(--serif);
       font-weight: 400;
       font-size: clamp(34px, 3.6vw, 62px);
-      line-height: 1.02;
+      line-height: 1.04;
       letter-spacing: -0.02em;
       color: var(--ink);
-      margin: 0 0 18px;
-      max-width: 18ch;
+      margin: 0;
+      max-width: 16ch;
     }
     .ins-feature-sub {
+      flex: 0 0 auto;
       font-family: var(--serif);
       font-style: italic;
       font-size: clamp(17px, 1.5vw, 22px);
       line-height: 1.5;
       color: rgba(28, 29, 34, 0.7);
-      margin: 0;
-      max-width: 56ch;
+      margin: clamp(16px, 1.6vw, 24px) 0 0;
+      max-width: 60ch;
     }
     .ins-feature-media {
       position: relative;
@@ -225,7 +261,8 @@ function fmtDate(iso) {
       width: 100%; height: 100%; object-fit: cover; display: block;
       transition: transform 1.6s cubic-bezier(.2, .7, .2, 1);
     }
-    .ins-feature-inner:hover .ins-feature-media img { transform: scale(1.04); }
+    .ins-feature-inner:hover .ins-feature-media img,
+    .ins-feature-inner:hover .ins-feature-media video { transform: scale(1.04); }
     .ins-feature-tag {
       position: absolute;
       left: 18px; bottom: 18px;
