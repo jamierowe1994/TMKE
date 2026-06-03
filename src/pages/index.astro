@@ -1,9 +1,9 @@
-﻿---
+---
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
 <BaseLayout
-  title="TMKE â€” The Marketing Experts"
+  title="TMKE — The Marketing Experts"
   description="A specialist social media and marketing agency for the UK property sector. Premium templates, fully managed channels, structured content."
 >
   <!-- ============================== HERO (TMKE fold-out)
@@ -13,13 +13,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        shift dark->light as the photo passes under them. -->
   <section id="top" class="hero-zoom" data-reveal-root>
     <div class="hero-zoom-pin">
-      <!-- Layer A â€” the photo that unfolds to full screen -->
+      <!-- Starter texture — bumpy plaster wall behind the word; fades and
+           slides down as the photo irises in. -->
+      <div class="hero-zoom-texture" aria-hidden="true"></div>
+      <!-- Layer A — the photo that unfolds to full screen -->
       <div class="hero-zoom-media">
         <img class="hero-zoom-img" src="/assets/vibes.jpg" alt="A TMKE interior" />
       </div>
-      <!-- Layer B â€” TMKE wordmark (brand serif), dead centre -->
+      <!-- Layer B — TMKE wordmark (brand serif), dead centre -->
       <h1 class="hero-zoom-word" aria-label="TMKE">TMKE</h1>
-      <!-- Layer C â€” sofa-cushion cut-out, ABOVE the word so the E tucks behind
+      <!-- Layer C — sofa-cushion cut-out, ABOVE the word so the E tucks behind
            it; revealed by the same iris clip as the photo. -->
       <div class="hero-zoom-fg">
         <img class="hero-zoom-fg-img" src="/assets/sofa%20invis.png" alt="" />
@@ -48,12 +51,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </div>
     </div>
 
-    <!-- Bleed container â€” sits outside .wrap so the ghost cards can extend
+    <!-- Bleed container — sits outside .wrap so the ghost cards can extend
          past both edges of the page. The inner grid still lines its real
          children up with .wrap's content rect via a calc-based gutter. -->
     <div class="services-bleed">
       <div class="services-grid" data-reveal>
-        <!-- Ghost cards (left bleed) â€” outline only, no content. They imply
+        <!-- Ghost cards (left bleed) — outline only, no content. They imply
              a longer row scrolling in from off-screen. -->
         <span class="svc-card svc-card--ghost" aria-hidden="true"></span>
         <span class="svc-card svc-card--ghost svc-card--ghost-near" aria-hidden="true"></span>
@@ -132,20 +135,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </div>
   </section>
 
-  <!-- ============================== APPROACH â€” zoom-takeover (v3)
+  <!-- ============================== APPROACH — zoom-takeover (v3)
        Chapter 04, round-4 redesign. Inspired by the CUUB reference the
        user shared: a single hero photo starts as a contained panel
        beneath a title block, scrolls open to fill the viewport
        (sticky-takeover), then runs through four stages where the photo
        crossfades behind the same overlay layout, then finally zooms
        back out to a contained panel before handing off to Chapter 05.
-       The controller in app.js drives one master --progress (0â†’1)
+       The controller in app.js drives one master --progress (0→1)
        across the whole section, and the CSS derives every animation
        from it via clip-path interpolation + targeted opacity stages.
        The .approach-stage/.approach-visual legacy CSS rules from the
        previous cinematic-stages design stay in the stylesheet but no
        longer match any markup. -->
-  <!-- ============================== CHAPTER 04 â€” paired property scroller
+  <!-- ============================== CHAPTER 04 — paired property scroller
        50/50 split: the left panel travels up while the right travels down,
        each pair two views of one property. A centre statement holds while a
        corner label fades in per stage. Driven by the controller near the foot
@@ -173,16 +176,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </div>
 
       <div class="ch4-overlay">
-        <div class="ch4-eyebrow">Chapter 04 &mdash; Approach</div>
-        <div class="ch4-box">
-          <p class="ch4-statement">Built for agents who want<br />more than just property posts</p>
+        <div class="ch4-imprint">
+          <p class="ch4-imprint-text" data-ch4-text>Built for agents who want more than just property posts</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- ============================================================
-       CH 05 â€” THE EDIT (records on a shelf)
+       CH 05 — THE EDIT (records on a shelf)
        Full-screen wall + shelf (shelf3.png). The template assets sit on the
        three shelves like records, leaning back with directional shadows, and
        lift off on hover. Copy top-left, CTA bottom-right.
@@ -252,7 +254,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       var U = function (id) {
         return "https://images.unsplash.com/photo-" + id + "?auto=format&fit=crop&w=1600&q=80";
       };
-      // Generic, on-brand placeholders â€” swapped for real showcase shots later.
+      // Generic, on-brand placeholders — swapped for real showcase shots later.
       var GENERIC = [
         U("1505691938895-1758d7feb511"), U("1493809842364-78817add7ffb"),
         U("1484154218962-a197022b5858"), U("1522708323590-d24dbb6b0267"),
@@ -299,7 +301,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     })();
   </script>
 
-  <!-- ============================== CH 06 â€” SOCIAL MEDIA
+  <!-- ============================== CH 06 — SOCIAL MEDIA
        Mirrors the Ch 05 pattern: copy on the left, image on the right,
        and the SMM coda block sits below tucked under the image column so
        it reads as part of the same composition. -->
@@ -329,7 +331,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </figcaption>
         </figure>
 
-        <!-- SMM coda â€” sits below the image, kept in line with the image
+        <!-- SMM coda — sits below the image, kept in line with the image
              column. Matches the layout in the client mockup where the
              "Social Media Management" block tucks underneath the photo. -->
         <div class="quote-coda" data-reveal data-reveal-dir="up">
@@ -376,7 +378,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       overflow: hidden;
     }
 
-    /* Layer A â€” the photo, revealed by a circle that irises out from the centre
+    /* Starter texture — a bumpy plaster wall (SVG turbulence + diffuse lighting),
+       multiplied over the paper. The controller fades it out + slides it down as
+       the photo irises in. */
+    .hero-zoom-texture {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='480'><filter id='pl'><feTurbulence type='fractalNoise' baseFrequency='0.018' numOctaves='4' seed='7' stitchTiles='stitch' result='n'/><feDiffuseLighting in='n' lighting-color='%23efece6' surfaceScale='2' diffuseConstant='1.05' result='l'><feDistantLight azimuth='235' elevation='58'/></feDiffuseLighting></filter><rect width='100%25' height='100%25' filter='url(%23pl)'/></svg>") center / 480px 480px;
+      mix-blend-mode: multiply;
+      opacity: 0.85;
+      will-change: transform, opacity;
+    }
+
+    /* Layer A — the photo, revealed by a circle that irises out from the centre
        of the word to fill a 30px-framed full screen. */
     .hero-zoom-media {
       position: absolute;
@@ -395,7 +410,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       display: block;
     }
 
-    /* Layer B â€” TMKE, solid dark purple, dead centre; recolours to white as the
+    /* Layer B — TMKE, solid dark purple, dead centre; recolours to white as the
        photo irises out behind it (colour set by the controller). */
     .hero-zoom-word {
       position: absolute;
@@ -404,7 +419,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       transform: translate(-50%, -50%);
       z-index: 3;
       margin: 0;
-      /* Brand wordmark font â€” matches the top-left logo (Cormorant) */
+      /* Brand wordmark font — matches the top-left logo (Cormorant) */
       font-family: var(--serif);
       font-weight: 600;
       font-size: clamp(96px, 15vw, 230px);
@@ -415,7 +430,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       will-change: color;
     }
 
-    /* Layer C â€” sofa cushions over the word (same iris clip, set by the
+    /* Layer C — sofa cushions over the word (same iris clip, set by the
        controller). object-fit/position mirror the photo so they line up. */
     .hero-zoom-fg {
       position: absolute;
@@ -450,7 +465,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     :global(.nav.nav--on-image) { color: #fff !important; }
     :global(.nav.nav--on-image .nav-burger span) { background: #fff !important; }
 
-    /* Bottom labels â€” sit on top of everything; shift dark->light as the photo
+    /* Bottom labels — sit on top of everything; shift dark->light as the photo
        passes under them (colour set by the controller). */
     .hero-zoom-foot {
       position: absolute;
@@ -497,6 +512,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (!hero) return;
       const media = hero.querySelector(".hero-zoom-media");
       const fg = hero.querySelector(".hero-zoom-fg");
+      const tex = hero.querySelector(".hero-zoom-texture");
       const word = hero.querySelector(".hero-zoom-word");
       const foot = hero.querySelector(".hero-zoom-foot");
       const nav = document.getElementById("nav");
@@ -511,12 +527,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const e = smooth(clamp01(p / 0.82));             // iris out over first ~82%
         const vw = window.innerWidth, vh = window.innerHeight;
         // circle irises out from the viewport centre (where the word sits) until
-        // it covers the box (top:0, 30px on the other sides â†’ top corners reach last)
+        // it covers the box (top:0, 30px on the other sides → top corners reach last)
         const halfW = vw / 2 - 30, halfH = vh / 2;
         const rMax = Math.sqrt(halfW * halfW + halfH * halfH);
         const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
         media.style.clipPath = clip;
         if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
+        // starter texture fades + slides down as the photo takes over
+        if (tex) {
+          tex.style.opacity = (0.85 * (1 - e)).toFixed(3);
+          tex.style.transform = "translateY(" + (e * vh * 0.5).toFixed(0) + "px)";
+        }
         // word: dark purple -> white as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
@@ -544,7 +565,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
   <!-- ===================== Chapter 04 paired-scroller styles ===================== -->
   <style>
-    .ch4 { position: relative; height: 600vh; background: var(--paper); }
+    .ch4 { position: relative; height: 760vh; background: var(--paper); }
     .ch4-pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
     .ch4-panels {
       position: absolute;
@@ -566,62 +587,46 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ch4-cell { height: 25%; overflow: hidden; }
     .ch4-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    /* Centre overlay â€” eyebrow + double-line box around the statement.
-       Faded by the controller as the panels start to move. */
+    /* Centre imprint — a paper-coloured "cutout" plaque (matches the page bg)
+       with the statement debossed into it. Always visible; never fades. */
     .ch4-overlay {
       position: absolute;
       left: 50%; top: 50%;
       transform: translate(-50%, -50%);
       z-index: 3;
-      width: min(720px, 86vw);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 28px;
       pointer-events: none;
     }
-    .ch4-eyebrow {
-      display: flex; align-items: center; gap: 16px;
-      font-family: var(--sans);
-      font-size: 12px; font-weight: 700;
-      letter-spacing: 0.3em; text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.78);
+    .ch4-imprint {
+      background: var(--paper);
+      padding: 16px 22px;
+      max-width: 460px;
+      /* recessed-plaque edge: light top lip, soft drop so it reads as a cutout */
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.07),
+        0 2px 6px rgba(0, 0, 0, 0.18);
     }
-    .ch4-eyebrow::before, .ch4-eyebrow::after {
-      content: ""; width: 40px; height: 1px; background: currentColor; opacity: 0.5;
-    }
-    /* Double-line box: outer border + an inset inner border, with a subtle
-       blurred/dimmed backdrop so the white text reads over any image. */
-    .ch4-box {
-      position: relative;
-      width: 100%;
-      padding: 54px 48px;
-      border: 1px solid rgba(255, 255, 255, 0.55);
-      background: rgba(14, 14, 17, 0.22);
-      backdrop-filter: blur(8px) brightness(0.82);
-      -webkit-backdrop-filter: blur(8px) brightness(0.82);
-    }
-    .ch4-box::before {
-      content: "";
-      position: absolute; inset: 7px;
-      border: 1px solid rgba(255, 255, 255, 0.32);
-      pointer-events: none;
-    }
-    .ch4-statement {
+    .ch4-imprint-text {
       margin: 0;
       text-align: center;
-      color: #fff;
       font-family: var(--sans);
       font-weight: 800;
-      font-size: clamp(26px, 3.2vw, 46px);
-      line-height: 1.12;
+      font-size: clamp(19px, 2.2vw, 30px);
+      line-height: 1.14;
       letter-spacing: -0.01em;
+      /* debossed / stamped-in: text the paper colour, with a light lip below and
+         a soft shadow above so the letters read as pressed into the surface */
+      color: #e7e2d7;
+      text-shadow:
+        0 1px 1px rgba(255, 255, 255, 0.9),
+        0 -1px 2px rgba(38, 36, 32, 0.32);
+      transition: opacity 0.18s ease;
     }
 
     @media (max-width: 860px) {
-      .ch4 { height: 480vh; }
-      .ch4-box { padding: 36px 26px; }
-      .ch4-statement { font-size: clamp(20px, 5.4vw, 30px); }
+      .ch4 { height: 560vh; }
+      .ch4-imprint { padding: 14px 18px; max-width: 80vw; }
+      .ch4-imprint-text { font-size: clamp(16px, 4.6vw, 24px); }
     }
     @media (prefers-reduced-motion: reduce) {
       .ch4 { height: 100vh; }
@@ -638,13 +643,23 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (!ch4) return;
       const left = ch4.querySelector('[data-ch4="left"]');
       const right = ch4.querySelector('[data-ch4="right"]');
-      const overlay = ch4.querySelector(".ch4-overlay");
+      const textEl = ch4.querySelector("[data-ch4-text]");
       const N = 4;
-      const DWELL = 0.22;        // entry dead-zone: holds longer so you can read
+      // One line of imprint copy per property pair
+      const TEXTS = [
+        "Built for agents who want more than just property posts",
+        "Templates that mean business",
+        "Made for agents, not anyone",
+        "Done with you, or done for you"
+      ];
+      // Stepped scroll: each stage gets a flat HOLD band (image sits still) then
+      // a TRANS band (panels move to the next). Long holds = a "viewport break".
+      const HOLD = 1.5, TRANS = 1.0;
+      const UNITS = N * HOLD + (N - 1) * TRANS;
       const clamp01 = (t) => Math.max(0, Math.min(1, t));
       const smooth = (t) => t * t * (3 - 2 * t);
       const lenis = window.__lenis;
-      let snapping = false, snapTimer = 0;
+      let snapping = false, snapTimer = 0, curStage = -1;
 
       const prog = () => {
         const rect = ch4.getBoundingClientRect();
@@ -653,39 +668,56 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         return { p: total > 0 ? scrolled / total : 0, rect, total };
       };
 
-      const update = () => {
-        const { p } = prog();
-        const pe = clamp01((p - DWELL) / (1 - DWELL));   // effective progress after the dwell
-        const pos = pe * (N - 1);                        // 0 .. 3
-        left.style.transform = "translateY(" + (-pos * 25).toFixed(3) + "%)";
-        right.style.transform = "translateY(" + (-(N - 1 - pos) * 25).toFixed(3) + "%)";
-        // boxed statement holds through the dwell, then fades as panels move
-        overlay.style.opacity = (1 - smooth(clamp01((pe - 0.06) / 0.4))).toFixed(3);
+      // stepped position 0..N-1: flat during holds, eased during transitions
+      const posFromP = (p) => {
+        let u = p * UNITS, acc = 0;
+        for (let i = 0; i < N; i++) {
+          if (u <= acc + HOLD) return i;
+          acc += HOLD;
+          if (i < N - 1) {
+            if (u <= acc + TRANS) return i + smooth((u - acc) / TRANS);
+            acc += TRANS;
+          }
+        }
+        return N - 1;
       };
 
-      // scroll Y that lands the section on stage i
+      const update = () => {
+        const { p } = prog();
+        const pos = posFromP(p);
+        left.style.transform = "translateY(" + (-pos * 25).toFixed(3) + "%)";
+        right.style.transform = "translateY(" + (-(N - 1 - pos) * 25).toFixed(3) + "%)";
+        // swap the imprint copy when the active pair changes (quick crossfade);
+        // the imprint itself never fades.
+        const stage = Math.round(pos);
+        if (stage !== curStage && TEXTS[stage]) {
+          curStage = stage;
+          textEl.style.opacity = "0";
+          setTimeout(() => { textEl.textContent = TEXTS[stage]; textEl.style.opacity = "1"; }, 150);
+        }
+      };
+
+      // scroll Y that lands on stage i's hold centre
       const stageY = (i) => {
         const total = ch4.offsetHeight - window.innerHeight;
         const top = ch4.getBoundingClientRect().top + window.scrollY;
-        return top + (DWELL + (i / (N - 1)) * (1 - DWELL)) * total;
+        const u = i * (HOLD + TRANS) + HOLD / 2;
+        return top + (u / UNITS) * total;
       };
 
-      // when scrolling stops over the pinned section, snap to the nearest stage
+      // when scrolling stops over the pinned section, snap to the nearest hold
       const scheduleSnap = () => {
         if (snapping) return;
         clearTimeout(snapTimer);
         snapTimer = setTimeout(() => {
           const { p, rect } = prog();
-          // only while fully pinned â€” lets you enter from the top / exit past the
-          // bottom without being trapped
-          if (rect.top > 0 || rect.bottom < window.innerHeight) return;
-          const pe = clamp01((p - DWELL) / (1 - DWELL));
-          const y = stageY(Math.round(pe * (N - 1)));
+          if (rect.top > 0 || rect.bottom < window.innerHeight) return;  // free entry/exit
+          const y = stageY(Math.round(posFromP(p)));
           snapping = true;
           const done = () => { snapping = false; };
-          if (lenis && typeof lenis.scrollTo === "function") lenis.scrollTo(y, { duration: 0.45, onComplete: done });
-          else { window.scrollTo({ top: y, behavior: "smooth" }); setTimeout(done, 450); }
-          setTimeout(done, 900);   // safety: always release, even if a snap is interrupted
+          if (lenis && typeof lenis.scrollTo === "function") lenis.scrollTo(y, { duration: 0.5, onComplete: done });
+          else { window.scrollTo({ top: y, behavior: "smooth" }); setTimeout(done, 500); }
+          setTimeout(done, 1000);   // safety release
         }, 90);
       };
 
@@ -697,7 +729,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     })();
   </script>
 
-  <!-- ===================== Chapter 06 â€” Table photo ===================== -->
+  <!-- ===================== Chapter 06 — Table photo ===================== -->
   <style>
     /* No shadow, no darkening gradient on the table photo. */
     #social .quote-photo--table .quote-photo-frame { box-shadow: none; }
@@ -716,7 +748,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
   <!-- Chapter 06: the table photo rises up from off-screen bottom-right, comes
        over into line with the studio caption, then carries on up and off the
-       top â€” a scroll-driven parallax. -->
+       top — a scroll-driven parallax. -->
   <script>
     (function () {
       const section = document.getElementById("social");
