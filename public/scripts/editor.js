@@ -318,10 +318,19 @@
 
     // "Set as background" — available for any element with an image source.
     // Images carry it on .src; filled frames also carry it on .src.
+    // We also remove the source element when promoting it to background
+    // so the design doesn't end up with a duplicate of the image — the
+    // user expects the layer to migrate, not to be cloned.
     const photoSrc = (el.type === "image" || el.type === "frame") ? el.src : null;
     if (photoSrc) {
       items.push({ divider: true });
-      items.push({ label: "Set as background", action: function () { setCanvasBackgroundImage(photoSrc); } });
+      items.push({ label: "Set as background", action: function () {
+        if (el && el.id) {
+          state.elements = state.elements.filter(function (x) { return x.id !== el.id; });
+          state.selectedIds = state.selectedIds.filter(function (id) { return id !== el.id; });
+        }
+        setCanvasBackgroundImage(photoSrc);
+      } });
     }
     if (state.canvas.backgroundImage) {
       items.push({ label: "Clear background image", action: function () { setCanvasBackgroundImage(null); } });
@@ -411,14 +420,50 @@
     if (e.key === "Escape" && !ctxMenu.hidden) hideContextMenu();
   });
 
+  // Bare-canvas right-click — when no element was the target, surface a
+  // tiny menu that lets the user detach the background image. Without
+  // this, they'd have to dive into the Background tab to find the
+  // detach button, which is non-obvious when the image is taking up
+  // the whole canvas.
+  function showBgOnlyContextMenu(x, y) {
+    if (!state.canvas.backgroundImage) return;
+    const items = [{
+      label: "Detach background image",
+      action: function () { setCanvasBackgroundImage(null); },
+    }];
+    ctxMenu.innerHTML = items.map(function (it) {
+      return '<button type="button" class="ed-rclick-item"><span>' + it.label + '</span></button>';
+    }).join("");
+    const w = 220;
+    const h = items.length * 32 + 16;
+    const px = Math.min(x + 2, window.innerWidth - w - 8);
+    const py = Math.min(y + 2, window.innerHeight - h - 8);
+    ctxMenu.style.left = px + "px";
+    ctxMenu.style.top = py + "px";
+    ctxMenu.hidden = false;
+    const buttons = ctxMenu.querySelectorAll(".ed-rclick-item");
+    items.forEach(function (it, i) {
+      buttons[i].addEventListener("click", function () {
+        hideContextMenu();
+        it.action();
+      });
+    });
+  }
+
   // Hook the contextmenu event on the canvas. Resolves which element was
   // clicked by hit-testing against state.elements (top-most first).
+  // If nothing was hit, fall back to the bare-canvas menu (above) so
+  // the user can still detach the background.
   if (canvasEl) {
     canvasEl.addEventListener("contextmenu", function (e) {
-      // Find which element was clicked by walking back-to-front so the
-      // top-most layer wins.
       const target = e.target.closest(".ed-element");
-      if (!target) return;
+      if (!target) {
+        if (state.canvas.backgroundImage) {
+          e.preventDefault();
+          showBgOnlyContextMenu(e.clientX, e.clientY);
+        }
+        return;
+      }
       e.preventDefault();
       const id = target.getAttribute("data-id");
       const el = getEl(id);
@@ -715,6 +760,28 @@
     state.elements = deep(tpl.elements);
     state.selectedIds = [];
     filenameEl.value = tpl.name;
+    // Auto-substitute merge tags ({brand name}, etc.) from the customer's
+    // saved brand kit. Skipped in admin mode so admins can author templates
+    // with the tokens visible and intact. Customers can still hand-edit any
+    // text afterwards — this just gives them a personalised starting point.
+    if (!isAdminMode()) fillTemplateMergeTags();
+    state.history = [];
+    state.historyIndex = -1;
+    pushHistory();
+    fullRender();
+    fitZoom();
+  }
+
+  // ---------- Blank canvas ----------
+  // A truly-empty starting point (the onboarding "Start with a blank canvas"
+  // choice). A violet page with a "Start building here" hint — the hint is
+  // DOM-only (see fullRender), so it never lands in an export.
+  function loadBlank() {
+    state.templateId = null;
+    state.canvas = { width: 1080, height: 1350, background: "#7B5BCF" };
+    state.elements = [];
+    state.selectedIds = [];
+    filenameEl.value = "Untitled";
     state.history = [];
     state.historyIndex = -1;
     pushHistory();
@@ -751,11 +818,29 @@
       canvasEl.appendChild(renderElement(el));
     });
 
+    // Blank-canvas hint: a DOM-only "Start building here" prompt shown while
+    // a from-scratch canvas is still empty. It carries no element data, so
+    // _renderDesignToCanvas (which draws from state) never exports it, and it
+    // disappears the moment the user adds anything.
+    if (state.templateId === null && state.elements.length === 0) {
+      const hint = document.createElement("div");
+      hint.className = "ed-blank-hint";
+      hint.textContent = "Start building here";
+      hint.setAttribute("aria-hidden", "true");
+      canvasEl.appendChild(hint);
+    }
+
     renderHandles();
     renderLayers();
     renderContextBar();
     renderProps();
     renderTemplateGrid();
+
+    // Keep the Background-pane detach button in sync with state. Cheap
+    // here (one DOM toggle per render) and means we never have to
+    // remember to call it from anywhere else.
+    const detachBtn = document.getElementById("ed-bg-detach");
+    if (detachBtn) detachBtn.hidden = !state.canvas.backgroundImage;
   }
 
   // Set or clear the canvas background image. Passing null clears it.
@@ -764,6 +849,12 @@
     pushHistory();
     fullRender();
     toast(src ? "Set as background" : "Background image cleared");
+    // Keep the Background pane's detach button in sync — it only shows
+    // when there's an image to remove.
+    try {
+      const btn = document.getElementById("ed-bg-detach");
+      if (btn) btn.hidden = !state.canvas.backgroundImage;
+    } catch (_) {}
   }
 
   function partialRenderElement(el) {
@@ -918,6 +1009,13 @@
     if (el.type === "line") {
       node.style.background = el.fill || "#000";
     }
+
+    // Shadow / glow — applied as a CSS filter so it follows alpha and clip-paths.
+    // Text elements get their shadow on the inner span instead (handled in
+    // applyTextStyles) so it composes with gradient fill correctly.
+    if (el.type !== "text") {
+      node.style.filter = shadowFilter(el.shadow) || "";
+    }
   }
 
   function applyTextStyles(inner, el) {
@@ -930,6 +1028,64 @@
     inner.style.letterSpacing = (el.letterSpacing || 0) + "px";
     inner.style.lineHeight = el.lineHeight || 1.3;
     inner.style.textDecoration = el.underline ? "underline" : "none";
+
+    // Gradient fill — paints the gradient as a background then clips it to the
+    // glyph outlines. Setting -webkit-text-fill-color (and color) to
+    // transparent is what makes the gradient show through.
+    const gradCss = textGradientCss(el.textGradient);
+    if (gradCss) {
+      inner.style.backgroundImage = gradCss;
+      inner.style.webkitBackgroundClip = "text";
+      inner.style.backgroundClip = "text";
+      inner.style.webkitTextFillColor = "transparent";
+      inner.style.color = "transparent";
+    } else {
+      inner.style.backgroundImage = "";
+      inner.style.webkitBackgroundClip = "";
+      inner.style.backgroundClip = "";
+      inner.style.webkitTextFillColor = "";
+    }
+
+    // Outline — paint-order makes the stroke sit underneath the fill so thin
+    // strokes don't eat into letterforms.
+    if (el.textOutline && el.textOutline.width > 0) {
+      const w = el.textOutline.width;
+      const c = el.textOutline.color || "#1c1d22";
+      inner.style.webkitTextStrokeWidth = w + "px";
+      inner.style.webkitTextStrokeColor = c;
+      inner.style.paintOrder = "stroke fill";
+    } else {
+      inner.style.webkitTextStrokeWidth = "";
+      inner.style.webkitTextStrokeColor = "";
+      inner.style.paintOrder = "";
+    }
+
+    // Text background pill — simple rectangle behind the text block, padding
+    // comes from spreadX/Y. Multi-line pill (box-decoration-break per line) is
+    // deferred; this single block hugging the text area is the common case.
+    const tb = el.textBg;
+    if (tb && tb.enabled) {
+      inner.style.backgroundColor = tb.color || "#FFE066";
+      inner.style.padding = (tb.padY || 6) + "px " + (tb.padX || 12) + "px";
+      inner.style.borderRadius = (tb.radius || 6) + "px";
+      inner.style.boxDecorationBreak = "clone";
+      inner.style.webkitBoxDecorationBreak = "clone";
+      // If gradient text is also on, the gradient background needs to stay
+      // clipped to text — we paint the pill on a wrapping container instead.
+      // Simple compromise: when both are on, drop the pill (rare combo).
+      if (gradCss) inner.style.backgroundColor = "";
+    } else {
+      // Only clear if we don't have a gradient using background. Gradient
+      // text uses backgroundImage; backgroundColor is independent so safe.
+      inner.style.backgroundColor = "";
+      inner.style.padding = "";
+      inner.style.borderRadius = "";
+      inner.style.boxDecorationBreak = "";
+      inner.style.webkitBoxDecorationBreak = "";
+    }
+
+    // Shadow / glow on the inner so it follows the painted text shape.
+    inner.style.filter = textShadowFilter(el.textShadow) || "";
   }
 
   // ---------- Frame helpers ----------
@@ -1399,6 +1555,90 @@
     addElement({ type: "image", x: state.canvas.width / 2 - w / 2, y: state.canvas.height / 2 - h / 2, w, h, src, opacity: 1, rotation: 0 });
   }
 
+  // ---------- SVG shapes + icons ----------
+  // Each entry is a self-contained SVG and the preferred starting size
+  // on the canvas. We render them as `image` elements with a data-URI
+  // src, so they go through the existing image renderer, selection,
+  // resize, history, and export pipelines for free.
+  //
+  // To keep the file readable each SVG uses single-quoted attributes;
+  // the surrounding JS string is backtick-quoted so we don't have to
+  // escape anything.
+  const SVG_SHAPES = {
+    // ----- Shapes (geometric + symbolic) -----
+    heart: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M12 21s-7-4.5-9.5-9C1 8.5 3 4 7 4c2 0 3.5 1 5 3 1.5-2 3-3 5-3 4 0 6 4.5 4.5 8-2.5 4.5-9.5 9-9.5 9z'/></svg>` },
+    cloud: { w: 480, h: 320, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16' fill='#1c1d22'><path d='M18 14H6a4 4 0 0 1-1-7.9 5 5 0 0 1 9.7-1.4 4 4 0 0 1 4.3 4.3A4 4 0 0 1 18 14z'/></svg>` },
+    hexagon: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><polygon points='12,2 21.66,7.5 21.66,16.5 12,22 2.34,16.5 2.34,7.5'/></svg>` },
+    pentagon: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><polygon points='12,2 22.5,9.5 18.5,22 5.5,22 1.5,9.5'/></svg>` },
+    octagon: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><polygon points='8.5,2 15.5,2 22,8.5 22,15.5 15.5,22 8.5,22 2,15.5 2,8.5'/></svg>` },
+    diamond: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><polygon points='12,2 22,12 12,22 2,12'/></svg>` },
+    'arrow-r': { w: 500, h: 360, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 24' fill='#1c1d22'><polygon points='2,9 18,9 18,3 30,12 18,21 18,15 2,15'/></svg>` },
+    'arrow-l': { w: 500, h: 360, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 24' fill='#1c1d22'><polygon points='30,9 14,9 14,3 2,12 14,21 14,15 30,15'/></svg>` },
+    speech: { w: 480, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20' fill='#1c1d22'><path d='M3 2h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-8l-5 4v-4H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z'/></svg>` },
+    lightning: { w: 320, h: 500, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 24' fill='#1c1d22'><polygon points='11,2 2,13 8,13 6,22 16,11 10,11 12,2'/></svg>` },
+    banner: { w: 520, h: 240, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 16' fill='#1c1d22'><polygon points='2,2 28,2 30,8 28,14 2,14 4,8'/></svg>` },
+    plus: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><polygon points='9,2 15,2 15,9 22,9 22,15 15,15 15,22 9,22 9,15 2,15 2,9 9,9'/></svg>` },
+
+    // ----- Social media + contact icons -----
+    // Simple, monochrome, recognisable. Sized 200x200 by default so
+    // they read as "icons" not "shapes" — small accents you drop onto
+    // a design. User can resize freely afterwards.
+    ig:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='5'/><circle cx='12' cy='12' r='4'/><circle cx='17.5' cy='6.5' r='1' fill='#1c1d22' stroke='none'/></svg>` },
+    fb:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M12 2a10 10 0 0 0-1.5 19.9v-7H8v-3h2.5v-2.2c0-2.5 1.5-3.8 3.7-3.8 1.1 0 2.2.2 2.2.2v2.4h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 3h-2.3v7A10 10 0 0 0 12 2z'/></svg>` },
+    li:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.3 18.3H5.7V9.5h2.6v8.8zM7 8.3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm11.3 10h-2.6v-4.3c0-1-.4-1.7-1.3-1.7-.7 0-1.1.5-1.3 1-.1.2-.1.4-.1.6v4.4h-2.6V9.5h2.6v1.1c.3-.5 1-1.3 2.4-1.3 1.7 0 3 1.1 3 3.5v5.5z'/></svg>` },
+    tt:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M16 2v3.5a4.5 4.5 0 0 0 4.5 4.5V13a7.5 7.5 0 0 1-4.5-1.5V16a6 6 0 1 1-6-6v3a3 3 0 1 0 3 3V2h3z'/></svg>` },
+    yt:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M22 7.6c-.2-1.6-1.4-2.8-3-3-2.2-.2-7-.2-7-.2s-4.8 0-7 .2c-1.6.2-2.8 1.4-3 3-.2 1.4-.2 4.4-.2 4.4s0 3 .2 4.4c.2 1.6 1.4 2.8 3 3 2.2.2 7 .2 7 .2s4.8 0 7-.2c1.6-.2 2.8-1.4 3-3 .2-1.4.2-4.4.2-4.4s0-3-.2-4.4zM10 15V9l5 3-5 3z'/></svg>` },
+    x:    { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z'/></svg>` },
+    wa:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M17.5 14.4c-.3-.1-1.7-.8-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-1 1.2-.2.2-.4.2-.6.1-.3-.1-1.2-.5-2.4-1.5-.9-.8-1.4-1.8-1.6-2-.2-.3 0-.4.1-.6.1-.1.3-.4.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.4-.3.3-1 .9-1 2.3 0 1.4 1 2.7 1.2 2.9.1.2 2 3 4.8 4.2 1.7.7 2.3.7 3.1.6.5-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.7 14.9L2 22l5.3-1.4A10 10 0 1 0 12 2z'/></svg>` },
+    pi:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 0-2.9.2-.8 1.2-5.1 1.2-5.1s-.3-.6-.3-1.5c0-1.4.8-2.5 1.9-2.5.9 0 1.3.7 1.3 1.5 0 .9-.6 2.2-.9 3.5-.2 1 .5 1.9 1.6 1.9 1.9 0 3.3-2 3.3-4.8 0-2.5-1.8-4.3-4.4-4.3-3 0-4.7 2.2-4.7 4.5 0 .9.3 1.8.7 2.3.1.1.1.2.1.3l-.3 1.2c-.1.2-.2.3-.4.2-1.4-.7-2.3-2.7-2.3-4.3 0-3.5 2.5-6.7 7.3-6.7 3.8 0 6.8 2.7 6.8 6.4 0 3.8-2.4 6.9-5.8 6.9-1.1 0-2.2-.6-2.6-1.3l-.7 2.7c-.3 1-.9 2.2-1.3 3A10 10 0 1 0 12 2z'/></svg>` },
+    ph:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z'/></svg>` },
+    mail: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/><polyline points='22,6 12,13 2,6'/></svg>` },
+    pin:  { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M12 2C8 2 5 5 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-4-3-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z'/></svg>` },
+    web:  { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round'><circle cx='12' cy='12' r='10'/><line x1='2' y1='12' x2='22' y2='12'/><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/></svg>` },
+  };
+
+  // ----- SVG recolor helpers -----
+  // Every entry in SVG_SHAPES bakes #1c1d22 as the fill/stroke colour.
+  // When the customer picks a different colour in the selection panel,
+  // we regenerate the data-URI src by global-replacing that token.
+  // Cheap, no parser needed — and works for fill, stroke and any
+  // attribute that references the colour.
+  const SVG_DEFAULT_FILL = "#1c1d22";
+  function svgWithFill(key, fill) {
+    const def = SVG_SHAPES[key];
+    if (!def) return null;
+    const safe = (fill && /^#[0-9a-f]{3,8}$/i.test(fill)) ? fill : SVG_DEFAULT_FILL;
+    return def.svg.split(SVG_DEFAULT_FILL).join(safe);
+  }
+  function svgKeyToDataUri(key, fill) {
+    const svg = svgWithFill(key, fill);
+    if (!svg) return null;
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  // Insert an SVG-as-image element. The SVG is encoded as a data URI so
+  // it goes through the standard `image` element path — no changes to
+  // renderer, history, export, or selection.
+  // We stamp the element with `svgKey` + `svgFill` so the selection
+  // panel can offer a colour picker that regenerates the src.
+  function addSvgShape(key) {
+    const def = SVG_SHAPES[key];
+    if (!def) return;
+    const fill = SVG_DEFAULT_FILL;
+    const src = svgKeyToDataUri(key, fill);
+    const w = def.w, h = def.h;
+    addElement({
+      type: "image",
+      svgKey: key,
+      svgFill: fill,
+      x: state.canvas.width / 2 - w / 2,
+      y: state.canvas.height / 2 - h / 2,
+      w, h, src,
+      opacity: 1,
+      rotation: 0,
+    });
+  }
+
   // ---------- Frames ----------
   // Frame presets — w/h are starting sizes (px on the design canvas), and
   // shape is the silhouette the photo will be cropped to.
@@ -1587,14 +1827,37 @@
   });
 
   // ---------- Save / load ----------
+  // Renders a small JPEG preview of the current design (~300px wide,
+  // q=0.72) so /account can surface real thumbnails of the user's work.
+  // Returns a data URL, or null if rasterization fails.
+  async function _renderThumbDataUrl() {
+    try {
+      const full = await _renderDesignToCanvas({ transparent: false });
+      const targetW = 300;
+      const scale = Math.min(1, targetW / full.width);
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(full.width * scale));
+      c.height = Math.max(1, Math.round(full.height * scale));
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(full, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.72);
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function save() {
     if (!state.templateId) return;
+    const thumb = await _renderThumbDataUrl();
     const payload = {
       templateId: state.templateId,
       filename: filenameEl.value,
       canvas: state.canvas,
       elements: state.elements,
       savedAt: Date.now(),
+      thumb,
     };
     // Admin hook (set by editor.astro when ?mode=admin and signed in) — writes
     // back to the Supabase `templates` table instead of localStorage. Falls
@@ -1666,6 +1929,17 @@
       ctx.translate(-el.w / 2, -el.h / 2);
       ctx.globalAlpha = el.opacity != null ? el.opacity : 1;
 
+      // Apply shadow for shape/image/frame elements. Canvas's built-in
+      // shadowBlur/Offset draws a blurred copy of subsequent fills/strokes,
+      // mirroring the DOM filter:drop-shadow look closely enough.
+      const sh = el.type !== "text" ? el.shadow : null;
+      if (sh && sh.enabled) {
+        ctx.shadowColor = hexToRgba(sh.color || "#000000", sh.opacity != null ? sh.opacity : 0.45);
+        ctx.shadowBlur = sh.blur || 0;
+        ctx.shadowOffsetX = sh.offsetX || 0;
+        ctx.shadowOffsetY = sh.offsetY || 0;
+      }
+
       if (el.type === "image") {
         try {
           const img = await loadImage(el.src);
@@ -1703,24 +1977,105 @@
         ctx.fillStyle = el.fill;
         ctx.fillRect(0, 0, el.w, el.h);
       } else if (el.type === "text") {
-        const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
-        ctx.fillStyle = el.color;
-        ctx.font = `${el.italic ? "italic " : ""}${el.weight} ${el.size}px ${font}`;
-        ctx.textBaseline = "top";
-        ctx.textAlign = el.align;
-        const lh = el.size * (el.lineHeight || 1.3);
-        const lines = wrapText(ctx, el.text || "", el.w);
-        let yy = 0;
-        let tx = 0;
-        if (el.align === "center") tx = el.w / 2;
-        else if (el.align === "right") tx = el.w;
-        for (const ln of lines) { ctx.fillText(ln, tx, yy); yy += lh; }
+        drawTextElementToCanvas(ctx, el);
       }
 
       ctx.restore();
     }
 
     return c;
+  }
+
+  // Helper: paint a text element to the canvas, honouring gradient fill,
+  // text shadow, outline and the simple block background. Used by the export
+  // pipeline so PNG/JPG output matches what the editor renders on screen.
+  function drawTextElementToCanvas(ctx, el) {
+    const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+    ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
+    ctx.textBaseline = "top";
+    ctx.textAlign = el.align;
+    const lh = el.size * (el.lineHeight || 1.3);
+    const lines = wrapText(ctx, el.text || "", el.w);
+
+    // Background pill — drawn first so the text sits on top. We measure each
+    // line independently so per-line backgrounds approximate Canva's
+    // box-decoration-break: clone look.
+    if (el.textBg && el.textBg.enabled) {
+      const padX = el.textBg.padX != null ? el.textBg.padX : 12;
+      const padY = el.textBg.padY != null ? el.textBg.padY : 6;
+      const radius = el.textBg.radius || 0;
+      ctx.save();
+      ctx.fillStyle = el.textBg.color || "#FFE066";
+      let yy = 0;
+      for (const ln of lines) {
+        const tw = ctx.measureText(ln).width;
+        let lx = 0;
+        if (el.align === "center") lx = (el.w - tw) / 2;
+        else if (el.align === "right") lx = el.w - tw;
+        roundedRect(ctx, lx - padX, yy - padY, tw + padX * 2, lh + padY * 2, radius);
+        ctx.fill();
+        yy += lh;
+      }
+      ctx.restore();
+    }
+
+    // Build the fill style — solid colour or a gradient. Canvas gradients are
+    // defined in absolute coords, so we work out endpoints from the angle.
+    let fillStyle = el.color;
+    const g = el.textGradient;
+    if (g && g.enabled) {
+      if (g.type === "radial") {
+        const grad = ctx.createRadialGradient(el.w / 2, el.h / 2, 0, el.w / 2, el.h / 2, Math.max(el.w, el.h) / 2);
+        grad.addColorStop(0, g.from || "#B9826A");
+        grad.addColorStop(1, g.to   || "#474254");
+        fillStyle = grad;
+      } else {
+        const angle = (g.angle != null ? g.angle : 90) * Math.PI / 180;
+        // Map CSS gradient angle (0deg = bottom→top in CSS, but we'll use
+        // top→down convention to keep code simple — close enough visually).
+        const x0 = el.w / 2 - Math.cos(angle) * el.w / 2;
+        const y0 = el.h / 2 - Math.sin(angle) * el.h / 2;
+        const x1 = el.w / 2 + Math.cos(angle) * el.w / 2;
+        const y1 = el.h / 2 + Math.sin(angle) * el.h / 2;
+        const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+        grad.addColorStop(0, g.from || "#B9826A");
+        grad.addColorStop(1, g.to   || "#474254");
+        fillStyle = grad;
+      }
+    }
+
+    // Text shadow — applied via the same canvas shadow API. Set before draws.
+    if (el.textShadow && el.textShadow.enabled) {
+      ctx.shadowColor = hexToRgba(el.textShadow.color || "#000000",
+        el.textShadow.opacity != null ? el.textShadow.opacity : 0.45);
+      ctx.shadowBlur = el.textShadow.blur || 0;
+      ctx.shadowOffsetX = el.textShadow.offsetX || 0;
+      ctx.shadowOffsetY = el.textShadow.offsetY || 0;
+    }
+
+    let yy = 0;
+    let tx = 0;
+    if (el.align === "center") tx = el.w / 2;
+    else if (el.align === "right") tx = el.w;
+
+    // Outline — drawn under the fill (matches CSS paint-order: stroke fill).
+    if (el.textOutline && el.textOutline.width > 0) {
+      ctx.save();
+      // Drawing a stroke also picks up shadow — usually we want the shadow on
+      // the visible paint, so clear it before the stroke pass and re-apply
+      // for the fill below.
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = el.textOutline.width * 2; // half outside, half inside → outside-only feel
+      ctx.strokeStyle = el.textOutline.color || "#1c1d22";
+      ctx.lineJoin = "round";
+      let oy = 0;
+      for (const ln of lines) { ctx.strokeText(ln, tx, oy); oy += lh; }
+      ctx.restore();
+    }
+
+    ctx.fillStyle = fillStyle;
+    for (const ln of lines) { ctx.fillText(ln, tx, yy); yy += lh; }
   }
 
   // type can be: "png" | "jpg" | "png-transparent" | "pdf"
@@ -1903,6 +2258,34 @@
     ctx.restore();
   }
 
+  // Shared binder for any DOM subtree that contains [data-prop] inputs.
+  // Used by both the right panel (renderProps) and the top-bar Position
+  // popover so the wiring behaviour is identical wherever the input lives.
+  function bindGenericPropInputs(root) {
+    root.querySelectorAll("[data-prop]").forEach(function (input) {
+      const prop = input.dataset.prop;
+      const ev = (input.type === "range" || input.type === "color") ? "input" : "change";
+      input.addEventListener(ev, function () {
+        const tgt = getEl(state.selectedIds[0]);
+        if (!tgt) return;
+        const val = (input.type === "number" || input.type === "range")
+          ? parseFloat(input.value)
+          : input.value;
+        tgt[prop] = val;
+        // SVG shapes/icons: recompute the data-URI src whenever the colour
+        // changes so the visual updates in lockstep with the picker.
+        if (prop === "svgFill" && tgt.svgKey) {
+          tgt.src = svgKeyToDataUri(tgt.svgKey, val);
+        }
+        fullRender();
+        if (input.type !== "range") pushHistory();
+      });
+      if (input.type === "range") {
+        input.addEventListener("change", function () { pushHistory(); });
+      }
+    });
+  }
+
   // ---------- Property panel ----------
   // Targets `#ed-selection-body` inside the left "Selection" pane (the right
   // properties panel was removed in favour of a unified left rail). On
@@ -1931,48 +2314,14 @@
     const el = getEl(state.selectedIds[0]);
     if (!el) return;
 
-    const html = [];
-    html.push(`<div class="ed-props-section"><h4>Position &amp; size</h4>
-      <div class="ed-props-row">
-        <div class="ed-props-field"><label>X</label><input type="number" data-prop="x" value="${el.x}"></div>
-        <div class="ed-props-field"><label>Y</label><input type="number" data-prop="y" value="${el.y}"></div>
-      </div>
-      <div class="ed-props-row">
-        <div class="ed-props-field"><label>Width</label><input type="number" data-prop="w" value="${el.w}"></div>
-        <div class="ed-props-field"><label>Height</label><input type="number" data-prop="h" value="${el.h}"></div>
-      </div>
-      <div class="ed-props-row">
-        <div class="ed-props-field"><label>Rotation</label><input type="number" data-prop="rotation" value="${el.rotation || 0}"></div>
-        <div class="ed-props-field"><label>Opacity</label><input type="range" min="0" max="1" step="0.05" data-prop="opacity" value="${el.opacity != null ? el.opacity : 1}"></div>
-      </div>
-    </div>`);
+    // Position & size, font/type and the effects panel used to render
+    // here as always-visible sections. They now live as popovers on the
+    // top context bar so the rail isn't dominated by controls the user
+    // only reaches for occasionally. Right-panel sections from here on
+    // are the per-type controls that benefit from being visible: fill /
+    // stroke, image actions, frame controls, arrange, etc.
 
-    if (el.type === "text") {
-      // Font picker mounts here (placeholder div, populated after render).
-      html.push(`<div class="ed-props-section"><h4>Type</h4>
-        <div class="ed-props-field"><label>Font</label>
-          <div data-mount="font-picker"></div>
-        </div>
-        <div class="ed-props-row">
-          <div class="ed-props-field"><label>Size</label><input type="number" data-prop="size" min="6" max="500" value="${el.size}"></div>
-          <div class="ed-props-field"><label>Weight</label>
-            <select data-prop="weight">
-              <option value="300" ${el.weight==300?"selected":""}>Light</option>
-              <option value="400" ${el.weight==400?"selected":""}>Regular</option>
-              <option value="500" ${el.weight==500?"selected":""}>Medium</option>
-              <option value="600" ${el.weight==600?"selected":""}>Semibold</option>
-              <option value="700" ${el.weight==700?"selected":""}>Bold</option>
-              <option value="800" ${el.weight==800?"selected":""}>Black</option>
-            </select>
-          </div>
-        </div>
-        <div class="ed-props-row">
-          <div class="ed-props-field"><label>Letter spacing</label><input type="number" data-prop="letterSpacing" step="0.1" value="${el.letterSpacing||0}"></div>
-          <div class="ed-props-field"><label>Line height</label><input type="number" data-prop="lineHeight" step="0.05" value="${el.lineHeight||1.3}"></div>
-        </div>
-        <div class="ed-props-field"><label>Colour</label><input type="color" data-prop="color" value="${rgbHex(el.color)}"></div>
-      </div>`);
-    }
+    const html = [];
 
     if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
       html.push(`<div class="ed-props-section"><h4>Fill</h4>
@@ -1992,6 +2341,15 @@
     }
 
     if (el.type === "image") {
+      // SVG shapes/icons (added via the More-shapes / Social-icons
+      // grids) are recolourable — their `svgKey` references SVG_SHAPES
+      // and `svgFill` records the current colour. Raster images don't
+      // get this picker because we'd have nothing meaningful to recolour.
+      if (el.svgKey) {
+        html.push(`<div class="ed-props-section"><h4>Colour</h4>
+          <div class="ed-props-field"><input type="color" data-prop="svgFill" value="${rgbHex(el.svgFill || '#1c1d22')}"></div>
+        </div>`);
+      }
       html.push(`<div class="ed-props-section"><h4>Image</h4>
         <button class="ed-btn-ghost" id="ed-replace-img" style="background:rgba(28,29,34,0.06); width:100%">Replace image</button>
       </div>`);
@@ -2027,6 +2385,23 @@
       );
     }
 
+    // Effects now lives in a top-bar popover (see renderContextBar). Admins
+    // still get the merge-tag picker rendered here as its own section so
+    // it doesn't disappear into the popover.
+    if (el.type === "text" && isAdminMode()) {
+      const tagOpts = KNOWN_TAGS.map(function (k) {
+        return '<option value="' + k + '">{' + k + '}</option>';
+      }).join("");
+      html.push(
+        '<div class="ed-props-section"><h4>Merge tag</h4>' +
+          '<div class="ed-props-field"><label>Insert at end</label>' +
+            '<select data-fx="mergetag-pick"><option value="">Pick a tag…</option>' + tagOpts + '</select>' +
+          '</div>' +
+          '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Customers will see their saved brand kit values in place of these tags.</p>' +
+        '</div>'
+      );
+    }
+
     html.push(`<div class="ed-props-section"><h4>Arrange</h4>
       <div class="ed-props-actions">
         <button data-arrange="up">Bring forward</button>
@@ -2058,22 +2433,10 @@
       }, { inline: true }));
     }
 
-    // Bind prop inputs
-    body.querySelectorAll("[data-prop]").forEach((input) => {
-      const prop = input.dataset.prop;
-      const ev = (input.type === "range" || input.type === "color") ? "input" : "change";
-      input.addEventListener(ev, () => {
-        const tgt = getEl(state.selectedIds[0]);
-        if (!tgt) return;
-        const val = input.type === "number" || input.type === "range" ? parseFloat(input.value) : input.value;
-        tgt[prop] = val;
-        fullRender();
-        if (input.type !== "range") pushHistory();
-      });
-      if (input.type === "range") {
-        input.addEventListener("change", () => pushHistory());
-      }
-    });
+    // Bind data-prop inputs inside the right panel — shared with the top-bar
+    // Position popover via bindGenericPropInputs so both surfaces stay
+    // in lockstep.
+    bindGenericPropInputs(body);
 
     body.querySelectorAll("[data-arrange]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -2158,6 +2521,9 @@
         pushHistory(); fullRender();
       });
     }
+
+    // Effects section bindings — shadow/outline/background/gradient + merge tags.
+    bindEffectsInputs(body);
   }
 
   function rgbHex(color) {
@@ -2167,6 +2533,321 @@
       : color;
     // best-effort fallback
     return "#000000";
+  }
+
+  // ---------- Effects (shadow / glow / outline / text background / gradient) ----------
+  // Each preset writes a plain shadow object so the slider UI just edits values
+  // and we never need to keep "current preset" state separate from the values.
+  // Tuned to roughly match Canva's defaults so designers get a familiar starting
+  // point — they can fine-tune from there.
+  const SHADOW_PRESETS = {
+    none:    null,
+    drop:    { offsetX: 8,  offsetY: 12, blur: 18, color: "#000000", opacity: 0.45 },
+    glow:    { offsetX: 0,  offsetY: 0,  blur: 22, color: "#FFFFFF", opacity: 0.8  },
+    outline: { offsetX: 0,  offsetY: 0,  blur: 0,  color: "#1c1d22", opacity: 1, strokePx: 3 },
+    curved:  { offsetX: 0,  offsetY: 24, blur: 30, color: "#000000", opacity: 0.3  },
+    lift:    { offsetX: 0,  offsetY: 4,  blur: 12, color: "#000000", opacity: 0.25 },
+    angled:  { offsetX: 16, offsetY: 16, blur: 6,  color: "#000000", opacity: 0.45 },
+    backdrop:{ offsetX: 0,  offsetY: 0,  blur: 40, color: "#000000", opacity: 0.55 },
+  };
+
+  function hexToRgba(hex, alpha) {
+    const h = rgbHex(hex || "#000000").replace("#", "");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return "rgba(" + r + "," + g + "," + b + "," + (alpha != null ? alpha : 1) + ")";
+  }
+
+  // Build the CSS filter value for an element's shadow. filter:drop-shadow
+  // follows alpha + clip-path + border-radius, so it works for raster images,
+  // frame masks and all the clip-path shapes (triangle/star).
+  function shadowFilter(shadow) {
+    if (!shadow || !shadow.enabled) return "";
+    const color = hexToRgba(shadow.color || "#000000", shadow.opacity != null ? shadow.opacity : 0.45);
+    return "drop-shadow(" + (shadow.offsetX || 0) + "px " + (shadow.offsetY || 0) + "px " +
+      (shadow.blur || 0) + "px " + color + ")";
+  }
+
+  // Text shadow as a CSS `filter` value too (rather than text-shadow), so it
+  // composes correctly with gradient-filled text — text-shadow paints behind
+  // the *background-clipped* glyph, which becomes invisible when the glyph
+  // itself is transparent. filter:drop-shadow paints behind the *rendered*
+  // pixels, which is what we want.
+  function textShadowFilter(shadow) {
+    return shadowFilter(shadow);
+  }
+
+  // Build a CSS background for gradient-filled text. Returns null if disabled.
+  function textGradientCss(grad) {
+    if (!grad || !grad.enabled) return null;
+    const angle = grad.angle != null ? grad.angle : 90;
+    const from = grad.from || "#1c1d22";
+    const to   = grad.to   || "#B9826A";
+    if (grad.type === "radial") {
+      return "radial-gradient(circle, " + from + ", " + to + ")";
+    }
+    return "linear-gradient(" + angle + "deg, " + from + ", " + to + ")";
+  }
+
+  // ---------- Merge tags ({brand name}, {company}, etc.) ----------
+  // Tokens are matched case-insensitively in either {brace} or (paren) form.
+  // We only substitute known keys, so legitimate parenthetical text in
+  // user-written copy isn't accidentally stripped.
+  function mergeTagMap() {
+    const m = {};
+    const b = BRAND || {};
+    const company = (b.company || "").trim();
+    if (company) {
+      m["brand name"] = company;
+      m["brand"]      = company;
+      m["company"]    = company;
+      m["company name"] = company;
+    }
+    // Optional fields — wired up as customers fill them in (kept opt-in so
+    // half-finished brand kits don't push empty strings into templates).
+    if (b.tagline) m["tagline"] = b.tagline;
+    if (b.email)   m["email"]   = b.email;
+    if (b.phone)   m["phone"]   = b.phone;
+    if (b.website) m["website"] = b.website;
+    return m;
+  }
+  // Surface the keys so the admin "insert tag" UI can list them.
+  const KNOWN_TAGS = ["brand name", "brand", "company", "company name", "tagline", "email", "phone", "website"];
+
+  function applyMergeTags(text) {
+    if (!text || typeof text !== "string") return text;
+    const map = mergeTagMap();
+    // Match {key} or (key) where key is one of our known tags. Letter case in
+    // the source is preserved by looking up against the lowercased key.
+    const pattern = /([{(])\s*([a-zA-Z][a-zA-Z ]*?)\s*([})])/g;
+    return text.replace(pattern, function (full, open, key, close) {
+      // Only substitute paired delimiters — `{x)` stays as-is.
+      const paired = (open === "{" && close === "}") || (open === "(" && close === ")");
+      if (!paired) return full;
+      const k = key.toLowerCase().replace(/\s+/g, " ").trim();
+      if (KNOWN_TAGS.indexOf(k) === -1) return full;
+      const val = map[k];
+      // Unknown brand data → leave the placeholder so the customer can fill it
+      // (or the admin can spot what's missing on the template).
+      return val ? val : full;
+    });
+  }
+
+  // Walk every text element and run their copy through applyMergeTags. Called
+  // when a template loads fresh so the customer sees their brand name baked in
+  // straight away. They can still edit any text afterwards as normal.
+  function fillTemplateMergeTags() {
+    state.elements.forEach(function (el) {
+      if (el.type !== "text" || !el.text) return;
+      const replaced = applyMergeTags(el.text);
+      if (replaced !== el.text) el.text = replaced;
+    });
+  }
+
+  // ---------- Effects panel ----------
+  function defaultShadow() {
+    return { enabled: true, offsetX: 8, offsetY: 12, blur: 18, color: "#000000", opacity: 0.45 };
+  }
+  function defaultTextOutline() { return { width: 2, color: "#1c1d22" }; }
+  function defaultTextBg()      { return { enabled: true, color: "#FFE066", radius: 6, padX: 12, padY: 6 }; }
+  function defaultTextGradient(){ return { enabled: true, from: "#B9826A", to: "#474254", angle: 90, type: "linear" }; }
+
+  function renderEffectsSection(el) {
+    const isText = el.type === "text";
+    const shadow = (isText ? el.textShadow : el.shadow) || { enabled: false };
+    const sxOn = !!shadow.enabled;
+    const sx = shadow.offsetX != null ? shadow.offsetX : 8;
+    const sy = shadow.offsetY != null ? shadow.offsetY : 12;
+    const sb = shadow.blur    != null ? shadow.blur    : 18;
+    const sc = rgbHex(shadow.color || "#000000");
+    const so = Math.round((shadow.opacity != null ? shadow.opacity : 0.45) * 100);
+
+    const presetKeys = ["none","drop","glow","curved","lift","angled","backdrop"];
+    const presetLabels = { none:"None", drop:"Drop", glow:"Glow", curved:"Curved", lift:"Page lift", angled:"Angled", backdrop:"Backdrop" };
+    const presetButtons = presetKeys.map(function (k) {
+      return '<button type="button" class="ed-fx-preset" data-shadow-preset="' + k + '" title="' + presetLabels[k] + '">' + presetLabels[k] + '</button>';
+    }).join("");
+
+    let out =
+      '<div class="ed-props-section"><h4>Effects</h4>' +
+        '<div class="ed-fx-preset-grid">' + presetButtons + '</div>' +
+        '<label class="ed-fx-toggle"><input type="checkbox" data-fx="shadow-enabled"' + (sxOn ? " checked" : "") + '><span>Drop shadow</span></label>' +
+        '<div class="ed-fx-controls" data-fx-group="shadow"' + (sxOn ? "" : ' hidden') + '>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Offset X</label><input type="range" min="-100" max="100" step="1" data-fx="shadow-offsetX" value="' + sx + '"></div>' +
+            '<div class="ed-props-field"><label>Offset Y</label><input type="range" min="-100" max="100" step="1" data-fx="shadow-offsetY" value="' + sy + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Blur</label><input type="range" min="0" max="80" step="1" data-fx="shadow-blur" value="' + sb + '"></div>' +
+            '<div class="ed-props-field"><label>Intensity</label><input type="range" min="0" max="100" step="1" data-fx="shadow-opacity" value="' + so + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-field"><label>Colour</label><input type="color" data-fx="shadow-color" value="' + sc + '"></div>' +
+        '</div>';
+
+    if (isText) {
+      const og = el.textOutline || { width: 0, color: "#1c1d22" };
+      out +=
+        '<label class="ed-fx-toggle"><input type="checkbox" data-fx="outline-enabled"' + (og.width > 0 ? " checked" : "") + '><span>Outline</span></label>' +
+        '<div class="ed-fx-controls" data-fx-group="outline"' + (og.width > 0 ? "" : ' hidden') + '>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Width</label><input type="range" min="0" max="20" step="1" data-fx="outline-width" value="' + (og.width || 0) + '"></div>' +
+            '<div class="ed-props-field"><label>Colour</label><input type="color" data-fx="outline-color" value="' + rgbHex(og.color || "#1c1d22") + '"></div>' +
+          '</div>' +
+        '</div>';
+
+      const bg = el.textBg || { enabled: false };
+      out +=
+        '<label class="ed-fx-toggle"><input type="checkbox" data-fx="bg-enabled"' + (bg.enabled ? " checked" : "") + '><span>Background</span></label>' +
+        '<div class="ed-fx-controls" data-fx-group="bg"' + (bg.enabled ? "" : ' hidden') + '>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Colour</label><input type="color" data-fx="bg-color" value="' + rgbHex(bg.color || "#FFE066") + '"></div>' +
+            '<div class="ed-props-field"><label>Roundness</label><input type="range" min="0" max="80" step="1" data-fx="bg-radius" value="' + (bg.radius || 6) + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Spread X</label><input type="range" min="0" max="60" step="1" data-fx="bg-padX" value="' + (bg.padX || 12) + '"></div>' +
+            '<div class="ed-props-field"><label>Spread Y</label><input type="range" min="0" max="60" step="1" data-fx="bg-padY" value="' + (bg.padY || 6) + '"></div>' +
+          '</div>' +
+        '</div>';
+
+      const g = el.textGradient || { enabled: false };
+      out +=
+        '<label class="ed-fx-toggle"><input type="checkbox" data-fx="grad-enabled"' + (g.enabled ? " checked" : "") + '><span>Gradient fill</span></label>' +
+        '<div class="ed-fx-controls" data-fx-group="grad"' + (g.enabled ? "" : ' hidden') + '>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>From</label><input type="color" data-fx="grad-from" value="' + rgbHex(g.from || "#B9826A") + '"></div>' +
+            '<div class="ed-props-field"><label>To</label><input type="color" data-fx="grad-to" value="' + rgbHex(g.to || "#474254") + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Angle</label><input type="range" min="0" max="360" step="1" data-fx="grad-angle" value="' + (g.angle != null ? g.angle : 90) + '"></div>' +
+            '<div class="ed-props-field"><label>Type</label>' +
+              '<select data-fx="grad-type">' +
+                '<option value="linear"' + (g.type === "linear" || !g.type ? " selected" : "") + '>Linear</option>' +
+                '<option value="radial"' + (g.type === "radial" ? " selected" : "") + '>Radial</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      // The merge-tag picker used to live here too, but it's now rendered
+      // as its own right-panel section (see renderProps) — keeps admins
+      // from having to open a popover to insert a token.
+    }
+
+    out += '</div>';
+    return out;
+  }
+
+  // Wire up the inputs rendered by renderEffectsSection. Called from the end
+  // of renderProps after body.innerHTML is set.
+  function bindEffectsInputs(body) {
+    function tgt() { return getEl(state.selectedIds[0]); }
+    function ensureGroup(el, key) {
+      if (key === "shadow") {
+        if (el.type === "text") return (el.textShadow = el.textShadow || defaultShadow());
+        return (el.shadow = el.shadow || defaultShadow());
+      }
+      if (key === "outline")  return (el.textOutline  = el.textOutline  || defaultTextOutline());
+      if (key === "bg")       return (el.textBg       = el.textBg       || defaultTextBg());
+      if (key === "grad")     return (el.textGradient = el.textGradient || defaultTextGradient());
+      return null;
+    }
+    function syncToggle(el, key, on) {
+      // Persist the on/off bit on the relevant group object so reloads pick
+      // it up exactly as the user left it.
+      if (key === "shadow") {
+        const g = ensureGroup(el, "shadow");
+        g.enabled = on;
+      } else if (key === "outline") {
+        if (!on) el.textOutline = { width: 0, color: el.textOutline ? el.textOutline.color : "#1c1d22" };
+        else { const g = ensureGroup(el, "outline"); if (!g.width) g.width = 2; }
+      } else if (key === "bg") {
+        const g = ensureGroup(el, "bg");
+        g.enabled = on;
+      } else if (key === "grad") {
+        const g = ensureGroup(el, "grad");
+        g.enabled = on;
+      }
+    }
+
+    // Shadow preset grid
+    body.querySelectorAll("[data-shadow-preset]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const el = tgt(); if (!el) return;
+        const key = btn.getAttribute("data-shadow-preset");
+        const preset = SHADOW_PRESETS[key];
+        const targetKey = el.type === "text" ? "textShadow" : "shadow";
+        if (!preset) {
+          if (el[targetKey]) el[targetKey].enabled = false;
+        } else {
+          el[targetKey] = Object.assign({ enabled: true }, preset);
+        }
+        pushHistory();
+        fullRender();
+      });
+    });
+
+    // Toggles
+    body.querySelectorAll('[data-fx$="-enabled"]').forEach(function (chk) {
+      chk.addEventListener("change", function () {
+        const el = tgt(); if (!el) return;
+        const key = chk.getAttribute("data-fx").replace(/-enabled$/, "");
+        syncToggle(el, key, chk.checked);
+        // Hide/show the controls panel without a full re-render to avoid
+        // resetting focus on the checkbox.
+        const group = body.querySelector('[data-fx-group="' + key + '"]');
+        if (group) group.hidden = !chk.checked;
+        pushHistory();
+        fullRender();
+      });
+    });
+
+    // Sliders / colours / selects — generic input binding.
+    body.querySelectorAll('[data-fx]:not([data-fx$="-enabled"]):not([data-fx="mergetag-pick"])').forEach(function (input) {
+      const ev = (input.type === "range" || input.type === "color") ? "input" : "change";
+      input.addEventListener(ev, function () {
+        const el = tgt(); if (!el) return;
+        const raw = input.getAttribute("data-fx");
+        const dash = raw.indexOf("-");
+        const groupKey = raw.slice(0, dash);
+        const fieldKey = raw.slice(dash + 1);
+        const group = ensureGroup(el, groupKey);
+        if (!group) return;
+        if (input.type === "range" || input.type === "number") {
+          let v = parseFloat(input.value);
+          if (fieldKey === "opacity") v = v / 100;
+          group[fieldKey] = v;
+        } else {
+          group[fieldKey] = input.value;
+        }
+        // Outline doesn't have an enabled flag — its presence is governed by
+        // width > 0. Mirror the checkbox state if the user nudges width.
+        if (groupKey === "outline" && fieldKey === "width") {
+          const chk = body.querySelector('[data-fx="outline-enabled"]');
+          if (chk) chk.checked = group.width > 0;
+        }
+        fullRender();
+        if (input.type !== "range") pushHistory();
+      });
+      if (input.type === "range") {
+        input.addEventListener("change", function () { pushHistory(); });
+      }
+    });
+
+    // Merge-tag insert (admin only)
+    const tagPicker = body.querySelector('[data-fx="mergetag-pick"]');
+    if (tagPicker) {
+      tagPicker.addEventListener("change", function () {
+        const el = tgt();
+        const key = tagPicker.value;
+        if (!el || el.type !== "text" || !key) return;
+        const token = "{" + key + "}";
+        el.text = (el.text ? el.text + " " : "") + token;
+        tagPicker.value = "";
+        pushHistory();
+        fullRender();
+      });
+    }
   }
 
   // ---------- Context bar (top, when element selected) ----------
@@ -2330,9 +3011,55 @@
       ctxEl.appendChild(g);
     }
 
-    // ===== Common controls — opacity (icon), duplicate, delete =====
+    // ===== Common controls — position, effects, opacity, duplicate, delete =====
     // Z-order (bring forward / send back) moved to the right-click menu.
     // Lock is admin-only — hidden in the customer flow.
+
+    // Position — text-label popover trigger. Holds X / Y / W / H / Rotation
+    // numeric inputs. Lives on the top bar so the right-panel rail doesn't
+    // have to dedicate a section to controls people only reach for sometimes.
+    const positionWrap = popoverIconButton({
+      icon: '<span class="ed-ctx-poplabel">Position</span>',
+      title: "Position & size",
+      render: function () {
+        const panel = document.createElement("div");
+        panel.className = "ed-pop-panel ed-pop-form";
+        panel.innerHTML =
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>X</label><input type="number" data-prop="x" value="' + el.x + '"></div>' +
+            '<div class="ed-props-field"><label>Y</label><input type="number" data-prop="y" value="' + el.y + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Width</label><input type="number" data-prop="w" value="' + el.w + '"></div>' +
+            '<div class="ed-props-field"><label>Height</label><input type="number" data-prop="h" value="' + el.h + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Rotation</label><input type="number" data-prop="rotation" value="' + (el.rotation || 0) + '"></div>' +
+            '<div class="ed-props-field"></div>' +
+          '</div>';
+        bindGenericPropInputs(panel);
+        return panel;
+      },
+    });
+    ctxEl.appendChild(positionWrap);
+
+    // Effects — text-label popover trigger. Reuses renderEffectsSection so
+    // the markup matches what the right panel used to show. Skipped for
+    // line elements (no useful shadow on a 1-axis line).
+    if (el.type !== "line") {
+      const effectsWrap = popoverIconButton({
+        icon: '<span class="ed-ctx-poplabel">Effects</span>',
+        title: "Effects",
+        render: function () {
+          const panel = document.createElement("div");
+          panel.className = "ed-pop-panel ed-pop-form ed-pop-effects";
+          panel.innerHTML = renderEffectsSection(el);
+          bindEffectsInputs(panel);
+          return panel;
+        },
+      });
+      ctxEl.appendChild(effectsWrap);
+    }
 
     // Opacity — icon trigger, popover with a transparency slider.
     const opacityWrap = popoverIconButton({
@@ -2678,13 +3405,28 @@
   });
 
   // ---------- Shapes / text / bg / swatches bindings ----------
-  // A single .ed-shape button might carry data-shape (legacy shapes) OR
-  // data-frame (photo frame presets) — dispatch accordingly.
+  // A single .ed-shape button can carry data-shape (legacy CSS shapes),
+  // data-frame (photo frame presets), or data-svg (SVG shape / icon).
   document.querySelectorAll(".ed-shape").forEach((btn) => {
     btn.addEventListener("click", () => {
       if (btn.dataset.frame) addFrame(btn.dataset.frame);
+      else if (btn.dataset.svg) addSvgShape(btn.dataset.svg);
       else if (btn.dataset.shape) addShape(btn.dataset.shape);
     });
+  });
+
+  // Detach (clear) the canvas background image. The button lives in the
+  // Background pane and is shown only when there's a background image
+  // to remove — otherwise it'd be a confusing dead control.
+  const detachBgBtn = $("ed-bg-detach");
+  function syncDetachBgBtn() {
+    if (!detachBgBtn) return;
+    detachBgBtn.hidden = !state.canvas.backgroundImage;
+  }
+  detachBgBtn?.addEventListener("click", () => {
+    if (!state.canvas.backgroundImage) return;
+    setCanvasBackgroundImage(null);
+    syncDetachBgBtn();
   });
   document.querySelectorAll(".ed-text-add").forEach((btn) => {
     btn.addEventListener("click", () => addText(btn.dataset.text));
@@ -2802,75 +3544,10 @@
   // Chromium). Falls back to a PNG download so the user can post manually.
   $("ed-share")?.addEventListener("click", async function () {
     try {
-      // Re-use the export pipeline. We need a Blob for navigator.share.
-      const c = document.createElement("canvas");
-      c.width = state.canvas.width;
-      c.height = state.canvas.height;
-      const ctx = c.getContext("2d");
-      ctx.fillStyle = state.canvas.background || "#fff";
-      ctx.fillRect(0, 0, c.width, c.height);
-      // Background image (right-click → set as background)
-      if (state.canvas.backgroundImage) {
-        try {
-          const bg = await loadImage(state.canvas.backgroundImage);
-          const cw = state.canvas.width, ch = state.canvas.height;
-          const ar = bg.naturalWidth / bg.naturalHeight;
-          const cr = cw / ch;
-          let dw, dh;
-          if (ar > cr) { dh = ch; dw = ch * ar; }
-          else         { dw = cw; dh = cw / ar; }
-          ctx.drawImage(bg, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
-        } catch (_) {}
-      }
-      // Lean draw loop — same shape as exportImage but inline. Keeping it
-      // duplicated for now until we refactor a shared renderer.
-      for (const el of state.elements) {
-        if (el.hidden) continue;
-        ctx.save();
-        const cx = el.x + el.w / 2;
-        const cy = el.y + el.h / 2;
-        ctx.translate(cx, cy);
-        ctx.rotate((el.rotation || 0) * Math.PI / 180);
-        if (el.flipX || el.flipY) ctx.scale(el.flipX ? -1 : 1, el.flipY ? -1 : 1);
-        ctx.translate(-el.w / 2, -el.h / 2);
-        ctx.globalAlpha = el.opacity != null ? el.opacity : 1;
-        if (el.type === "image") {
-          try { const img = await loadImage(el.src); ctx.drawImage(img, 0, 0, el.w, el.h); } catch (_) {}
-        } else if (el.type === "frame") {
-          await drawFrameToCanvas(ctx, el);
-        } else if (el.type === "rect") {
-          ctx.fillStyle = el.fill || "transparent";
-          if (el.radius) { roundedRect(ctx, 0, 0, el.w, el.h, el.radius); ctx.fill(); }
-          else ctx.fillRect(0, 0, el.w, el.h);
-          if (el.strokeWidth && el.stroke !== "transparent") {
-            ctx.lineWidth = el.strokeWidth; ctx.strokeStyle = el.stroke; ctx.stroke();
-          }
-        } else if (el.type === "ellipse") {
-          ctx.fillStyle = el.fill;
-          ctx.beginPath();
-          ctx.ellipse(el.w / 2, el.h / 2, el.w / 2, el.h / 2, 0, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (el.type === "triangle") {
-          ctx.fillStyle = el.fill;
-          ctx.beginPath(); ctx.moveTo(el.w / 2, 0); ctx.lineTo(el.w, el.h); ctx.lineTo(0, el.h); ctx.closePath(); ctx.fill();
-        } else if (el.type === "star") {
-          ctx.fillStyle = el.fill; drawStar(ctx, el.w, el.h);
-        } else if (el.type === "line") {
-          ctx.fillStyle = el.fill; ctx.fillRect(0, 0, el.w, el.h);
-        } else if (el.type === "text") {
-          const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
-          ctx.fillStyle = el.color;
-          ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
-          ctx.textBaseline = "top"; ctx.textAlign = el.align;
-          const lh = el.size * (el.lineHeight || 1.3);
-          const lines = wrapText(ctx, el.text || "", el.w);
-          let yy = 0, tx = 0;
-          if (el.align === "center") tx = el.w / 2;
-          else if (el.align === "right") tx = el.w;
-          for (const ln of lines) { ctx.fillText(ln, tx, yy); yy += lh; }
-        }
-        ctx.restore();
-      }
+      // Reuse the shared renderer so shadow/gradient/text-effect rules stay
+      // in one place — Share used to duplicate the draw loop verbatim, which
+      // meant any new effect needed touching twice.
+      const c = await _renderDesignToCanvas({ transparent: false });
       const blob = await new Promise(function (r) { c.toBlob(r, "image/png"); });
       if (!blob) throw new Error("Could not encode design");
       const filename = (filenameEl.value || "design").replace(/[^a-z0-9-_]+/gi, "-") + ".png";
@@ -3030,10 +3707,17 @@
   seedBrandIntoBackgroundPane();
   window.addEventListener("resize", () => fitZoom());
 
-  // Read template ID from URL
+  // Read template ID from URL. A `?template=` deep-link (admin / library
+  // "edit this design") loads that specific template; otherwise we open on a
+  // genuinely blank canvas rather than silently dropping the first library
+  // template behind the onboarding overlay.
   const urlParams = new URLSearchParams(window.location.search);
-  const tplId = urlParams.get("template") || (TEMPLATES[0] && TEMPLATES[0].id);
-  loadTemplate(tplId, false);
+  const explicitTpl = urlParams.get("template");
+  if (explicitTpl) {
+    loadTemplate(explicitTpl, false);
+  } else {
+    loadBlank();
+  }
 
   // Persist filename changes
   filenameEl.addEventListener("blur", save);

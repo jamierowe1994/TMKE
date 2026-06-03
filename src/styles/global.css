@@ -11,14 +11,14 @@
   --ink:            #1c1d22;
   --accent:         #B9826A;
 
-  /* ---- Vibrant brand purple stack (used in the signed-in app) ----
-     The desaturated --english-violet stays the editorial brand mark;
-     these brighter purples add life to gradients, CTAs and glows. */
-  --violet:         #7B5BCF;   /* signature vivid purple */
-  --violet-bright:  #9F7AEA;   /* highlight / hover lift */
-  --violet-deep:    #2E1F54;   /* rich dark backdrop */
-  --violet-soft:    #B9A8E8;   /* tint for chips & rings */
-  --lilac:          #E5DEFB;   /* very light wash */
+  /* ---- Brand purple stack (used in the signed-in app) ----
+     Aligned to the editorial English Violet so the dashboard matches the
+     marketing site. Bright / soft / lilac are derived tints of #474254. */
+  --violet:         #474254;   /* signature brand purple — matches --english-violet */
+  --violet-bright:  #5d5870;   /* slight lift for hover states */
+  --violet-deep:    #474254;   /* dark backdrop — same brand purple */
+  --violet-soft:    #b0acba;   /* soft tint for chips & rings */
+  --lilac:          #ebe9ef;   /* very light wash */
   --coral:          #E89B7B;   /* warm punch accent */
   --mint:           #79C9A8;   /* paid / success */
   --gold:           #E0B96A;   /* spend / earnings */
@@ -35,6 +35,22 @@
   --serif: "Cormorant Garamond", "EB Garamond", Georgia, serif;
   --sans:  "Darker Grotesque", "Inter", system-ui, sans-serif;
   --tracking-eyebrow: 0.18em;
+
+  /* ============================================================
+     SHARED TYPE + SPACING SCALE — single source of truth.
+     Derived from the home page; every page should reference these so
+     sizing, line-height and section rhythm stay uniform site-wide.
+     ============================================================ */
+  --sec-top:    clamp(80px, 9vw, 140px);   /* section padding-top    */
+  --sec-bottom: clamp(104px, 12vw, 180px); /* section padding-bottom */
+  /* Type scale — client-locked sizes (desktop values; scale down fluidly). */
+  --fs-display: clamp(92px, 12vw, 160px);  /* giant footer word, e.g. "News" — lh 0.86 */
+  --lh-display: 0.86;
+  --fs-title:   clamp(32px, 4vw, 48px);    /* section titles: "The Edit", "A small studio" — lh 1.0 */
+  --lh-title:   1.0;
+  --fs-quote:   clamp(20px, 2vw, 26px);    /* quote / lead paragraphs — lh 1.2 */
+  --lh-quote:   1.2;
+  --fs-eyebrow: 11px;                       /* chapter / eyebrow label (Darker Grotesque) */
 }
 
 * { box-sizing: border-box; }
@@ -157,7 +173,7 @@ section { position: relative; }
   align-items: center;
   padding: 9px 76px;
   transition: background 0.35s, padding 0.35s, color 0.35s;
-  color: var(--paper);
+  color: var(--ink);
 }
 @media (max-width: 980px) { .nav { padding: 9px 36px; } }
 @media (max-width: 560px) { .nav { padding: 9px 22px; } }
@@ -241,6 +257,32 @@ body.theme-dark .nav.scrolled {
 body.theme-dark .nav-cta { color: var(--paper); border-color: rgba(255,255,255,0.5); }
 body.theme-dark .nav-cta:hover { background: var(--paper); }
 body.theme-dark .nav-cta:hover span { color: #0a0908; }
+
+/* Pages whose hero is a dark, full-bleed image/video (About, Social Media,
+   Contact): the nav sits on top of it, so at the very top show the logo, links
+   and Login in white. The moment the user scrolls (`.scrolled`, >60px) the
+   normal cream + ink state above takes over again. */
+body:has(.about-hero) .nav:not(.scrolled),
+body:has(.smm-hero) .nav:not(.scrolled),
+body:has(.contact-hero) .nav:not(.scrolled),
+body.has-dark-hero .nav:not(.scrolled) {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--paper);
+  border-bottom-color: transparent;
+}
+body:has(.about-hero) .nav:not(.scrolled) .nav-cta,
+body:has(.smm-hero) .nav:not(.scrolled) .nav-cta,
+body:has(.contact-hero) .nav:not(.scrolled) .nav-cta,
+body.has-dark-hero .nav:not(.scrolled) .nav-cta {
+  color: var(--paper);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+body:has(.about-hero) .nav:not(.scrolled) .nav-cta:hover span,
+body:has(.smm-hero) .nav:not(.scrolled) .nav-cta:hover span,
+body:has(.contact-hero) .nav:not(.scrolled) .nav-cta:hover span,
+body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); }
 
 /* ============ Sign-in splash ============ */
 .splash {
@@ -421,7 +463,12 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .splash-title em { font-style: italic; color: var(--french-grey); }
 .splash-word {
   display: block;
+  /* Pad the clip box so italic descenders (the "g"/"y" in "good style.")
+     aren't sliced off by the slide-up reveal's overflow:hidden. The
+     negative margin keeps the visual line spacing unchanged. */
   overflow: hidden;
+  padding-bottom: 0.18em;
+  margin-bottom: -0.18em;
 }
 .splash-word > span {
   display: inline-block;
@@ -485,6 +532,56 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   .splash-eyebrow, .splash-sub, .splash-bar,
   .splash-word > span { opacity: 1 !important; transform: none !important; animation: none !important; }
   .splash-bar-fill { transform: scaleX(1) !important; animation: none !important; }
+  /* Approach stages: drop the blur + 3D theatrics; keep a simple
+     opacity fade so the section is still usable. */
+  .approach-stage {
+    transform: none !important;
+    filter: none !important;
+    transition: opacity 0.45s linear !important;
+  }
+  .approach-stage.is-leaving { transform: none !important; }
+  .approach-stage[data-stage="0"]::before { animation: none !important; }
+  .approach-frame { perspective: none !important; }
+}
+
+/* ============ Front-end page transition ============
+   Two even half-width bars sweep in from opposite directions: the LEFT half
+   rises up from the bottom while the RIGHT half drops down from the top, both
+   in parallel. Each leg eases IN (slow start → fast finish): they cover on
+   leaving, then on arrival reverse and slide back out to reveal the page. A
+   solid purple (#474254) fully hides the page swap underneath.
+   The base layout / colours and the `html.pt-revealing` pre-cover state are
+   inlined critically in BaseLayout so the reveal never flashes; this block
+   carries the animated cover/reveal states. Driven by page-transition.js. */
+:root {
+  --pt-cover: 0.8s;   /* cover duration */
+  --pt-reveal: 0.85s; /* reveal duration */
+  --pt-ease-in: cubic-bezier(0.5, 0, 0.75, 0); /* slow start, fast finish */
+}
+
+/* Cover (leaving): left bar rises from below, right bar drops from above —
+   both settle to translateY(0), covering their half. */
+@keyframes pt-cover-up   { from { transform: translateY(100%); }  to { transform: translateY(0); } }
+@keyframes pt-cover-down { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+/* Reveal (arriving): they reverse — left bar exits downward, right bar exits
+   upward — uncovering the page. */
+@keyframes pt-reveal-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes pt-reveal-up   { from { transform: translateY(0); } to { transform: translateY(-100%); } }
+
+.pt.is-covering { visibility: visible; }
+.pt.is-covering .pt__panel--left  { animation: pt-cover-up   var(--pt-cover) var(--pt-ease-in) both; }
+.pt.is-covering .pt__panel--right { animation: pt-cover-down var(--pt-cover) var(--pt-ease-in) both; }
+
+.pt.is-revealing { visibility: visible; }
+.pt.is-revealing .pt__panel--left  { animation: pt-reveal-down var(--pt-reveal) var(--pt-ease-in) both; }
+.pt.is-revealing .pt__panel--right { animation: pt-reveal-up   var(--pt-reveal) var(--pt-ease-in) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Belt-and-braces — JS already skips the sweep under this preference. */
+  .pt, .pt.is-covering, .pt.is-revealing { visibility: hidden !important; }
+  .pt__panel { animation: none !important; }
+  .pt__panel--left  { transform: translateY(100%) !important; }
+  .pt__panel--right { transform: translateY(-100%) !important; }
 }
 
 /* ============ Hero — cinematic ============ */
@@ -532,20 +629,40 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
     radial-gradient(60% 60% at 50% 50%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.25) 100%);
 }
 
-/* Letterbox bars */
+/* Letterbox + side bars — frame the hero on all four edges with paper
+   slivers so the page reads as wrapping around the video. Top/bottom
+   animate height; left/right animate width. Same timing + ease so the
+   four sides slide in together as one frame. */
 .hero-bar {
   position: absolute;
-  left: 0; right: 0;
-  height: 0;
   background: var(--paper);
   z-index: 4;
+}
+.hero-bar--top,
+.hero-bar--bottom {
+  left: 0; right: 0;
+  height: 0;
   transition: height 1.6s cubic-bezier(.7,0,.2,1) 0.2s;
+}
+.hero-bar--left,
+.hero-bar--right {
+  top: 0; bottom: 0;
+  width: 0;
+  transition: width 1.6s cubic-bezier(.7,0,.2,1) 0.2s;
 }
 .hero-bar--top    { top: 0; }
 .hero-bar--bottom { bottom: 0; }
-.hero.in .hero-bar { height: 56px; }
+.hero-bar--left   { left: 0; }
+.hero-bar--right  { right: 0; }
+.hero.in .hero-bar--top,
+.hero.in .hero-bar--bottom { height: 56px; }
+.hero.in .hero-bar--left,
+.hero.in .hero-bar--right  { width: 40px; }
 @media (max-width: 720px) {
-  .hero.in .hero-bar { height: 36px; }
+  .hero.in .hero-bar--top,
+  .hero.in .hero-bar--bottom { height: 36px; }
+  .hero.in .hero-bar--left,
+  .hero.in .hero-bar--right  { width: 22px; }
 }
 
 .hero-grain {
@@ -671,7 +788,8 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 
 /* ============ Services Grid ============ */
-.services { padding-top: 140px; position: relative; }
+/* Reduced gap from the full-screen hero into Chapter 02 (was 140px). */
+.services { padding-top: clamp(56px, 6vw, 84px); position: relative; }
 .services-eyebrow {
   display: flex; justify-content: space-between; align-items: end;
   margin-bottom: 72px;
@@ -687,27 +805,89 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .services-eyebrow-line {
   display: block;
   white-space: nowrap;
-  /* Auto-shrinks below the headline ceiling on narrower laptops so the line
-     stays on one row rather than wrapping or overflowing. */
-  font-size: clamp(28px, 3.55vw, 58px);
+  /* Client-locked section-title size (48px). Still auto-shrinks fluidly. */
+  font-size: var(--fs-title);
 }
 .services-eyebrow-sub {
   display: block;
   margin-top: 14px;
   font-family: var(--sans);
   font-style: normal;
-  font-weight: 600;
-  font-size: clamp(24px, 2.2vw, 32px);
+  font-weight: 400;          /* de-bolded per client */
+  font-size: clamp(22px, 2vw, 28px);
   letter-spacing: -0.005em;
   color: var(--english-violet);
 }
+/* Bleed wrapper — the inner grid spans wider than .wrap so the ghost
+   cards on either side can disappear off the page edges. Flex-centering
+   on this wrapper keeps the wide grid in the viewport's horizontal
+   middle without relying on a transform (which would clash with the
+   [data-reveal] transition's transform). */
+.services-bleed {
+  position: relative;
+  margin-top: 0;
+  display: flex;
+  justify-content: center;
+  /* clip past the viewport edge so ghost cards taper out cleanly */
+  overflow-x: clip;
+}
+/* The grid has eight visible slots: 2 ghosts left, 4 real cards (aligned
+   to .wrap), 2 ghosts right. Each column width matches a single real
+   card at the current viewport — i.e. (.wrap content) / 4 — so the real
+   four-up rhythm exactly mirrors the editorial section's content rect. */
 .services-grid {
+  --svc-real-cols: 4;
+  --svc-gap: 16px;
+  --svc-page-pad: 76px;
+  --svc-wrap-max: 1360px;
+  --svc-card-w: calc(
+    (min(100vw, var(--svc-wrap-max)) - 2 * var(--svc-page-pad) - (var(--svc-real-cols) - 1) * var(--svc-gap))
+    / var(--svc-real-cols)
+  );
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns:
+    var(--svc-card-w) var(--svc-card-w)
+    repeat(4, var(--svc-card-w))
+    var(--svc-card-w) var(--svc-card-w);
+  gap: var(--svc-gap);
   background: transparent;
   color: var(--ink);
+  /* width: max-content keeps the grid sized to its eight columns; the
+     parent's flex justify-content:center then puts the four real cards
+     dead-centre in the viewport. */
+  width: max-content;
 }
+@media (max-width: 980px) {
+  /* Below laptop width, drop the ghost columns — the row was already
+     getting tight, ghosting it just confuses things. */
+  .services-grid {
+    grid-template-columns: repeat(4, 1fr);
+    width: 100%;
+    padding: 0 36px;
+  }
+  .svc-card--ghost { display: none; }
+}
+@media (max-width: 720px) {
+  .services-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Ghost cards — outline only, no content. Faded near the page edges to
+   sell the "scrolling off" illusion. .svc-card--ghost-near sits next to
+   the real cards (clearer outline); the outer .svc-card--ghost is dimmer. */
+.svc-card--ghost {
+  /* Match the real card footprint so the row visually rhymes. */
+  min-height: 560px;
+  border: 1px solid rgba(71, 66, 84, 0.18);
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
+  /* Subtle fade so the outer ghosts read as "ghosting away". */
+  opacity: 0.35;
+}
+.svc-card--ghost-near { opacity: 0.6; }
+.svc-card--ghost::after,
+.svc-card--ghost .svc-hover-img,
+.svc-card--ghost .svc-watermark { display: none; }
 .svc-card {
   position: relative;
   display: grid;
@@ -908,12 +1088,32 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 .svc-card:hover .svc-arrow { transform: translateX(8px); }
 
 /* ============ Editorial intro ============ */
-.editorial { padding-top: 140px; padding-bottom: 40px; }
+.editorial { padding-top: 90px; padding-bottom: 48px; }
 .editorial-grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
   gap: 80px;
   align-items: start;
+}
+/* Stacked layout (Ch 03 redesign): the editorial lead sits on its own
+   row in the left two-thirds, and the "We don't do generic marketing"
+   block drops into the row below in the right column. The extra spacing
+   underneath buys a clear breath before Chapter 04 begins. */
+.editorial-grid--stack {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 80px 80px;
+  row-gap: 36px;
+}
+.editorial-grid--stack .editorial-lead-col {
+  grid-column: 1 / span 1;
+  grid-row: 1;
+}
+.editorial-grid--stack .editorial-side--below {
+  grid-column: 2 / span 1;
+  grid-row: 2;
+  position: static;
+  margin-top: 0;
+  padding-top: 0;
 }
 .editorial-eyebrow {
   display: flex; align-items: center; gap: 14px;
@@ -928,9 +1128,13 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .editorial-lead em { color: var(--english-violet); font-style: italic; }
 .editorial-side {
-  margin-top: 280px;
+  margin-top: 60px;
   padding-top: 28px;
-  position: sticky; top: 100px;
+  position: sticky; top: 140px;
+  /* Stays above the approach section as you scroll into it.
+     JS in app.js tracks scroll and sets opacity directly (no transition,
+     so the fade is locked to the scroll position rather than lagging). */
+  z-index: 5;
 }
 .editorial-side h3 {
   font-family: var(--sans);
@@ -942,6 +1146,27 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   line-height: 1.6;
   color: rgba(28,29,34,0.72);
   margin-bottom: 14px;
+}
+/* Heading for the redesigned Ch 03 right block — bigger and serif-led so
+   it reads as a deliberate statement, not a sticky note. */
+.editorial-side-heading {
+  font-family: var(--serif);
+  font-size: clamp(22px, 2vw, 32px);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 20px;
+}
+@media (max-width: 880px) {
+  .editorial-grid--stack {
+    grid-template-columns: 1fr;
+    row-gap: 60px;
+  }
+  .editorial-grid--stack .editorial-side--below {
+    grid-column: 1;
+    grid-row: 2;
+  }
 }
 
 /* ============ Approach — pinned cinematic stages ============ */
@@ -957,6 +1182,360 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   margin-top: -120px;
   z-index: 4;
 }
+
+/* ============ Chapter 04 — zoom-takeover (v3) ============
+   Applied alongside .approach so the legacy rules above don't fight
+   the takeover layout. JS in app.js writes the master --progress on
+   .approach-frame and we derive everything else from it:
+     --progress       : 0..1 across the whole pinned section
+     --takeover       : 0 contained → 1 fullscreen (peaks 0.2-0.85, then back)
+     --intro-vis      : 1 at start, 0 once photo is fullscreen
+     --active-photo   : 0..3 (the crossfading hero behind every stage)
+     --active-overlay : 1..4 (which text overlay is current)
+     --parallax-y     : tiny pixel drift so the photo never feels frozen
+   The legacy .approach-stage / .approach-visual rules in this file are
+   now dead code — they don't match anything in the new markup. */
+.approach--takeover {
+  /* Cinematic scroll budget — each stage gets ~3 viewports of scroll
+     so the user "lives in" each frame before the swipe to the next.
+     The animation is deliberately slow; the polish is in the hold,
+     not the transition speed. */
+  height: 1100vh;
+  margin-top: 0;
+  background: var(--paper);
+}
+.approach--takeover .approach-pin {
+  background: var(--paper);
+}
+.approach--takeover .approach-frame {
+  perspective: none;
+  /* Initial state of the master variables — overridden by app.js. */
+  --progress: 0;
+  --takeover: 0;
+  --intro-vis: 1;
+  --active-photo: 0;
+  --active-overlay: 1;
+  --parallax-y: 0px;
+}
+
+/* Photo layer — full-viewport box, masked via clip-path so the photo
+   reads as a contained panel at --takeover=0 and as a fullscreen
+   takeover at --takeover=1. The clip insets interpolate via calc, so
+   the transition is a single smooth easing curve driven by JS. */
+.approach-photo-layer {
+  position: absolute;
+  inset: 0;
+  /* Contained: balanced top/bottom insets so the panel sits centred in
+     the viewport. The intro title now sits over the centre of the photo
+     (rather than in a tall top gutter), so no extra headroom is needed.
+     Side margins match the page wrap. Fullscreen: zero insets. */
+  --inset-top: 12vh;
+  --inset-bottom: 12vh;
+  --inset-side: 40px;   /* matches the hero's 40px side bars for a cohesive frame width */
+  clip-path: inset(
+    calc(var(--inset-top)    * (1 - var(--takeover)))
+    calc(var(--inset-side)   * (1 - var(--takeover)))
+    calc(var(--inset-bottom) * (1 - var(--takeover)))
+    calc(var(--inset-side)   * (1 - var(--takeover)))
+  );
+  /* Soft drop shadow only matters in the contained state — clip-path
+     would chop a hard shadow anyway. Filter:drop-shadow is clip-aware. */
+  filter: drop-shadow(0 30px 60px rgba(28, 29, 34, calc(0.25 * (1 - var(--takeover)))));
+}
+.approach-photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  /* No CSS transition here — the JS controller smoothsteps everything
+     every scroll tick. A CSS transition on top would fight the
+     scroll-driven updates and stall partway.
+     The transform composes three variables:
+       --x       : horizontal swipe between stages (+100vw → 0 → -100vw)
+       --scale   : Ken Burns pull-back during a stage's hold (1.10 → 1.02)
+       --pan-y   : tiny Y drift coupled with the pull-back for parallax
+     The default values keep the photo centered and slightly oversized
+     so the cover-fill doesn't show any edge gap. */
+  --x: 0;
+  --scale: 1.04;
+  --pan-y: 0px;
+  transform: translate3d(var(--x), var(--pan-y), 0) scale(var(--scale));
+  will-change: opacity, transform;
+}
+/* Active-photo selection — each photo's opacity comes from a per-index
+   custom property the controller writes (--photo-0..3). We avoid the
+   CSS abs() function for browser-support reasons; JS does the maths. */
+/* Photo 0 is the intro hero — never swipes, it just opacity-fades out.
+   Photos 1-4 swipe horizontally AND Ken Burns-pan as the controller
+   writes their --x / --scale / --pan-y values. */
+.approach-photo[data-photo="0"] { opacity: var(--photo-0, 0); --x: 0; --scale: var(--scale-0, 1.04); --pan-y: var(--pan-y-0, 0px); }
+.approach-photo[data-photo="1"] { opacity: var(--photo-1, 0); --x: var(--photo-x-1, 0); --scale: var(--scale-1, 1.10); --pan-y: var(--pan-y-1, 0px); }
+.approach-photo[data-photo="2"] { opacity: var(--photo-2, 0); --x: var(--photo-x-2, 0); --scale: var(--scale-2, 1.10); --pan-y: var(--pan-y-2, 0px); }
+.approach-photo[data-photo="3"] { opacity: var(--photo-3, 0); --x: var(--photo-x-3, 0); --scale: var(--scale-3, 1.10); --pan-y: var(--pan-y-3, 0px); }
+.approach-photo[data-photo="4"] { opacity: var(--photo-4, 0); --x: var(--photo-x-4, 0); --scale: var(--scale-4, 1.10); --pan-y: var(--pan-y-4, 0px); }
+/* The intro hero is a slightly darker render of the men-in-suits photo
+   to match its original treatment under the title; the overlay scrim
+   layer handles the rest, but a small built-in dim here keeps the title
+   readable on the contained state too. */
+.approach-photo--intro::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Even base dim plus a soft centre-weighted darkening so the white
+     intro title, now overlaid on the middle of the photo, stays legible
+     without flattening the whole frame. */
+  background:
+    radial-gradient(120% 90% at 50% 50%,
+      rgba(16, 14, 12, 0.5) 0%,
+      rgba(16, 14, 12, 0.28) 55%,
+      rgba(16, 14, 12, 0.22) 100%);
+  pointer-events: none;
+}
+.approach-photo-scrim {
+  position: absolute;
+  inset: 0;
+  /* This scrim lives INSIDE the clipped photo layer, so every layer here only
+     ever covers the image itself — it scales down with the photo and never
+     bleeds onto the surrounding page background.
+     1) Contained state (intro + outro): a fairly dark, edge-weighted wash that
+        scales with (1 - takeover), so the photo is dark when small and Chapter 4
+        bookends on the same dark note.
+     2) Fullscreen state: a softer vignette + flat dim scaling with takeover so
+        the stage copy stays legible. */
+  background:
+    radial-gradient(125% 105% at 50% 50%,
+      rgba(8, 7, 9, calc(0.40 * (1 - var(--takeover)))) 0%,
+      rgba(8, 7, 9, calc(0.58 * (1 - var(--takeover)))) 65%,
+      rgba(8, 7, 9, calc(0.80 * (1 - var(--takeover)))) 100%),
+    radial-gradient(130% 110% at 50% 45%,
+      rgba(0, 0, 0, 0) 30%,
+      rgba(0, 0, 0, calc(0.20 * var(--takeover))) 70%,
+      rgba(0, 0, 0, calc(0.46 * var(--takeover))) 100%),
+    linear-gradient(180deg,
+      rgba(0, 0, 0, calc(0.14 * var(--takeover))) 0%,
+      rgba(0, 0, 0, calc(0.24 * var(--takeover))) 100%);
+  pointer-events: none;
+}
+
+/* Heavy black gradient + backdrop blur pinned to the bottom of the
+   viewport so the bottom-left overlay copy always reads clearly. Lives
+   OUTSIDE .approach-photo-layer so it isn't masked by the photo's
+   clip-path during the contained intro / outro states. Its opacity
+   scales with --takeover so it only appears once the photo is
+   fullscreen (or close to it). Properly black now (was tinted purple)
+   for a stronger cinematic dim under the text. */
+.approach-bottom-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Shorter now that the copy is a single-line title over a paragraph —
+     the dark floor doesn't need to climb as high. */
+  height: 50vh;
+  z-index: 2;
+  pointer-events: none;
+  opacity: var(--takeover, 0);
+  /* Clean single bottom-up fade (no blur, no abstract left-anchored layer)
+     so the copy stays legible without the scrim reading as a hazy blob. */
+  background:
+    linear-gradient(0deg,
+      rgba(0, 0, 0, 0.72) 0%,
+      rgba(0, 0, 0, 0.46) 28%,
+      rgba(0, 0, 0, 0.18) 62%,
+      rgba(0, 0, 0, 0.00) 100%);
+}
+
+/* Intro overlay — sits at the top of the viewport above the contained
+   photo. Fades out as --intro-vis runs from 1 to 0 (driven by JS during
+   the zoom-in phase). */
+.approach-overlay--intro {
+  position: absolute;
+  inset: 0;
+  /* Title block now sits centred over the contained photo rather than in
+     a top gutter. Flex-centre the eyebrow + title as a group; the scroll
+     hint is pinned to the bottom of the frame below. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8vw;
+  text-align: center;
+  z-index: 3;
+  opacity: var(--intro-vis);
+  /* Slight upward drift on exit so the intro feels like it lifts away
+     rather than just disappearing. */
+  transform: translate3d(0, calc((1 - var(--intro-vis)) * -32px), 0);
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+/* Light eyebrow + hairlines so the chapter marker reads over the photo. */
+.approach-overlay--intro .chapter {
+  color: rgba(240, 238, 235, 0.72);
+  margin-bottom: 26px;
+}
+.approach-takeover-title {
+  /* Darker Grotesque display title with tight tracking (per client). */
+  font-family: var(--sans);
+  font-size: clamp(28px, 3.2vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  /* White over the darkened photo, with a soft shadow for legibility. */
+  color: var(--paper);
+  text-shadow: 0 2px 34px rgba(0, 0, 0, 0.45);
+  /* Same double-outline frame as the stage slides, centred. */
+  position: relative;
+  box-sizing: border-box;
+  width: min(600px, 86vw);
+  min-height: 330px;
+  max-width: none;
+  margin: 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  /* Same faint dark tint + blur as the stage boxes. */
+  background: rgba(0, 0, 0, 0.13);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  padding: 44px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.approach-takeover-title::before {
+  content: "";
+  position: absolute;          /* absolute → out of the flex flow, so it can't
+                                  split the title text into separate items */
+  inset: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+.approach-takeover-title > span { text-align: center; }
+.approach-takeover-title em {
+  font-style: italic;
+  color: #cdbce0;
+}
+.approach-overlay--intro .approach-scroll-hint {
+  /* Pinned to the bottom of the frame so the centred title reads cleanly
+     while the scroll cue stays where users expect it. */
+  position: absolute;
+  bottom: 6vh;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(240, 238, 235, 0.66);
+}
+.approach-overlay--intro .approach-scroll-hint-line {
+  background: rgba(240, 238, 235, 0.45);
+}
+.approach-overlay--intro .approach-scroll-hint-line::after {
+  background: rgba(240, 238, 235, 0.95);
+}
+
+/* Stage overlays — pinned to the bottom-left of the viewport with
+   breathing room on both edges so the copy never crowds the corner.
+   Each overlay swipes horizontally in lockstep with its paired photo,
+   driven by --ov-x-N (read in the per-stage rule below). The text
+   travels further than the photo so it reads as "zooming past". */
+.approach-overlay--stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 0 11vh 9vw;
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  /* JS-driven; no CSS transition. */
+  --ox: 0;
+  transform: translate3d(var(--ox), 0, 0);
+  will-change: opacity, transform;
+}
+.approach-overlay--stage[data-overlay="1"] { opacity: var(--ov-1, 0); --ox: var(--ov-x-1, 0); }
+.approach-overlay--stage[data-overlay="2"] { opacity: var(--ov-2, 0); --ox: var(--ov-x-2, 0); }
+.approach-overlay--stage[data-overlay="3"] { opacity: var(--ov-3, 0); --ox: var(--ov-x-3, 0); }
+.approach-overlay--stage[data-overlay="4"] { opacity: var(--ov-4, 0); --ox: var(--ov-x-4, 0); }
+
+.approach-overlay-inner {
+  color: var(--paper);
+  /* Double white outline frame — identical size on every stage, pinned to the
+     same spot, so the slides read as just the wording + photo switching inside
+     a fixed frame. The inner hairline (::before) sits 9px in for a polished,
+     framed feel. */
+  position: relative;
+  box-sizing: border-box;
+  width: min(600px, 86vw);
+  min-height: 330px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  /* Faint dark tint + blur of the photo behind the box so the copy reads
+     clearly without hiding the image. */
+  background: rgba(0, 0, 0, 0.13);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  padding: 44px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+}
+.approach-overlay-inner::before {
+  content: "";
+  position: absolute;          /* absolute → taken out of the flex flow */
+  inset: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+.approach-overlay-h {
+  /* Slide titles in Darker Grotesque, tight tracking (per client). */
+  font-family: var(--sans);
+  font-size: clamp(30px, 3.4vw, 46px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  color: var(--paper);
+  margin: 0;
+  /* Wrap inside the fixed box rather than forcing a single line. */
+  max-width: none;
+  white-space: normal;
+  /* Soft text shadow so the heading stays legible across a wide
+     variety of photo content without needing a full dark scrim. */
+  text-shadow: 0 2px 24px rgba(28, 29, 34, 0.4);
+}
+.approach-overlay-h em {
+  font-style: italic;
+  /* All-white titles on the cinematic dark photos — the italic alone
+     carries the emphasis. The shared parent text-shadow keeps it
+     readable on any frame. */
+  color: inherit;
+}
+.approach-overlay-p {
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  color: rgba(240, 238, 235, 0.88);
+  margin: 0;
+  max-width: 520px;
+  text-shadow: 0 1px 10px rgba(28, 29, 34, 0.5);
+}
+
+@media (max-width: 880px) {
+  .approach--takeover { height: 520vh; }
+  .approach-photo-layer { --inset-top: 15vh; --inset-bottom: 15vh; --inset-side: 22px; }
+  .approach-takeover-title { font-size: clamp(36px, 9vw, 56px); }
+  .approach-overlay--stage { padding-bottom: 10vh; }
+  .approach-overlay-inner { padding: 0 24px; }
+  /* On narrow screens the long titles can't fit on one line — let them
+     wrap again rather than overflow the viewport. */
+  .approach-overlay-h { font-size: clamp(32px, 7vw, 44px); white-space: normal; max-width: 16ch; }
+}
 .approach-pin {
   position: sticky;
   top: 0;
@@ -969,6 +1548,12 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   position: relative;
   width: 100%;
   height: 100%;
+  /* 3D perspective so the per-stage rotateX in the cinematic transition
+     reads as depth, not just a transform. Pin the vanishing point near
+     the centre of the viewport so the tilt feels natural. */
+  perspective: 1800px;
+  perspective-origin: 50% 55%;
+  transform-style: preserve-3d;
 }
 
 /* Body paper texture already provides grain — keep this layer disabled. */
@@ -988,29 +1573,127 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   align-items: center;
   justify-content: center;
   padding: 0 8vw;
+  /* Resting / incoming state — sits LOW, SMALL, BLURRED, and tilted
+     back into depth. The cinematic upgrade trades the old flat slide
+     for a true perspective rise: bigger translate, bigger scale gap,
+     bigger blur, and a forward-tilt rotateX so the frame reads as
+     dropping into place from below the viewport. */
   opacity: 0;
-  transform: translateY(28vh);
+  transform:
+    translate3d(0, 38vh, -260px)
+    scale(0.82)
+    rotateX(14deg);
+  filter: blur(26px);
+  transform-origin: 50% 100%;
   transition:
-    opacity 1.05s cubic-bezier(.2,.7,.2,1),
-    transform 1.25s cubic-bezier(.2,.7,.2,1);
+    opacity 1.0s cubic-bezier(.2,.7,.2,1),
+    transform 1.25s cubic-bezier(.34, 1.18, 0.36, 1),
+    filter 0.85s cubic-bezier(.2,.7,.2,1);
   pointer-events: none;
   z-index: 2;
-  will-change: transform, opacity;
+  will-change: transform, opacity, filter;
+  backface-visibility: hidden;
 }
 .approach-stage.is-active {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0) scale(1) rotateX(0);
+  filter: blur(0);
   pointer-events: auto;
+  z-index: 3;
 }
+/* Outgoing: punches FORWARD toward the camera (positive Z + scale up),
+   tilts away with a counter rotateX, blurs out, and fades. Combined
+   with the incoming stage rising from depth this reads as a true
+   camera-dolly transition rather than a presentation slide. */
 .approach-stage.is-leaving {
   opacity: 0;
-  transform: translateY(-28vh);
+  transform:
+    translate3d(0, -22vh, 180px)
+    scale(1.14)
+    rotateX(-10deg);
+  filter: blur(18px);
+  transform-origin: 50% 0%;
 }
 
-/* ---- Intro stage ---- */
+/* ---- Intro stage ----
+   The stage 0 frame carries a contained photo behind the
+   "Built for Agents…" headline. The photo box matches the side margins
+   and top-edge of the per-stage hero images used by stages 1-4, but is
+   taller so its bottom edge lines up with where their hero-text ends.
+   Stages 1-4 are untouched — they keep their own hero photos. */
+.approach-stage[data-stage="0"] {
+  /* Match the stage padding used by stages 1-4 (their selector
+     `:has(.approach-card-stack--hero)` doesn't fire here because the
+     intro stage uses a different inner). */
+  padding: 0 76px;
+}
+.approach-stage[data-stage="0"]::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  transform: translateY(-50%);
+  /* Match the per-stage hero photo box exactly:
+     same 1360px cap, same 76px stage padding (set on the stage) so the
+     left/right edges hit the same X-positions as .approach-visual--hero
+     does on stages 1-4. The height is taller — extending down to where
+     hero-text ends on those stages. */
+  max-width: 1360px;
+  height: clamp(595px, 82vh, 840px);
+  background-image:
+    linear-gradient(rgba(20, 18, 16, 0.30), rgba(20, 18, 16, 0.30)),
+    url("/assets/chapter%204.png");
+  background-size: cover;
+  background-position: center 38%;
+  background-repeat: no-repeat;
+  /* Same drop shadow as the other hero visuals for consistency. */
+  box-shadow: 0 30px 60px -30px rgba(28, 29, 34, 0.25);
+  z-index: 0;
+  pointer-events: none;
+  will-change: background-position;
+}
+/* Subtle background-position drift while the intro stage is active —
+   keeps the photo feeling alive without expanding its visible box. */
+.approach-stage[data-stage="0"].is-active::before {
+  animation: ch04Drift 22s ease-in-out infinite alternate;
+}
+@keyframes ch04Drift {
+  0%   { background-position: center 34%; }
+  100% { background-position: center 50%; }
+}
 .approach-intro {
   text-align: center;
   max-width: 1100px;
+  /* Keep the headline + chapter rule above the photo box. */
+  position: relative;
+  z-index: 1;
+}
+
+/* Stage 0 sits over a dark photo — flip the headline + chapter + scroll
+   hint to paper-white so they read against the darker tone. Em accent
+   shifts to violet-soft so the brand still shows through. */
+.approach-stage[data-stage="0"] .chapter,
+.approach-stage[data-stage="0"] .chapter::before,
+.approach-stage[data-stage="0"] .chapter::after {
+  color: var(--paper);
+}
+.approach-stage[data-stage="0"] .approach-title {
+  color: var(--paper);
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.35);
+}
+.approach-stage[data-stage="0"] .approach-title em {
+  color: var(--violet-soft);
+}
+.approach-stage[data-stage="0"] .approach-scroll-hint {
+  color: rgba(240, 238, 235, 0.72);
+}
+.approach-stage[data-stage="0"] .approach-scroll-hint-line {
+  background: rgba(240, 238, 235, 0.55);
+}
+.approach-stage[data-stage="0"] .approach-scroll-hint-line::after {
+  background: var(--paper);
 }
 .approach-intro .chapter {
   margin-bottom: 56px;
@@ -1445,45 +2128,93 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
    a CSS-only laptop mockup on the right with a looping Studio demo
    inside the screen.
 */
+/* Chapter 05 redesign — the right image bleeds full-height and full-bleed
+   to the right edge of the viewport, occupying ~70% of the width. The
+   left column compresses to ~30% and stays inside the page wrap. */
 .feature--edit-split {
-  padding: 60px 76px 0;
+  padding: 120px 0 0;
   margin: 60px 0 0;
+  /* The grid below extends past the right edge; clip that overflow at the
+     section level so horizontal scrollbars never appear. */
+  overflow-x: clip;
 }
-@media (max-width: 980px) { .feature--edit-split { padding: 60px 36px 0; } }
-@media (max-width: 560px) { .feature--edit-split { padding: 60px 22px 0; } }
 .feature-edit-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-  gap: 80px;
+  /* Asymmetric: ~30% copy / ~70% image. The right column has no padding
+     and no max-width, so the image reaches the actual viewport edge.
+     align-items: center vertically centres the text column against the
+     full-height image so the copy block sits at the image's midline
+     rather than floating at the top. */
+  grid-template-columns: minmax(0, 32fr) minmax(0, 68fr);
+  gap: 72px;
   align-items: center;
-  max-width: 1360px;
-  margin: 0 auto;
+  margin: 0;
+  padding-left: max(76px, calc((100vw - 1360px) / 2 + 76px));
+  padding-right: 0;
 }
-.feature-edit-left { min-width: 0; }
+.feature-edit-left { min-width: 0; padding-block: 40px 80px; }
 /* Inherit feature--clean text styling rules; override the parts that
    assumed a single full-width column. */
 .feature--edit-split .feature-edit-left .chapter { margin-bottom: 48px; }
 .feature--edit-split .feature-edit-left .feature-title { white-space: normal; }
 .feature--edit-split .feature-edit-left .feature-lead { white-space: normal; max-width: none; }
-.feature--edit-split .feature-edit-left .feature-copy { max-width: 560px; }
+.feature--edit-split .feature-edit-left .feature-copy { max-width: 460px; }
+/* Subtle hairlines — pick up the thin-rule motif already used by the
+   chapter eyebrows to give the Edit block more structure without walling
+   it off. A line opens the copy column, and a second separates the body
+   copy from the CTA / meta cluster below. */
+.feature--edit-split .feature-edit-left {
+  border-top: 1px solid rgba(28, 29, 34, 0.12);
+  padding-top: 40px;
+}
 .feature--edit-split .feature-edit-left .edit-showcase-meta {
-  margin-top: 36px; justify-content: flex-start; gap: 32px;
+  margin-top: 40px;
+  padding-top: 36px;
+  border-top: 1px solid rgba(28, 29, 34, 0.12);
+  justify-content: flex-start;
+  gap: 32px;
 }
 
 .feature-edit-right {
   min-width: 0;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: stretch;
+  align-items: stretch;
   /* Scroll-reveal: faded + lifted until [data-reveal].in flips it. */
   opacity: 0;
-  transform: translateY(28px);
+  transform: translateX(48px);
   transition: opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.feature-edit-right.in { opacity: 1; transform: translateY(0); }
+.feature-edit-right.in { opacity: 1; transform: translateX(0); }
 
-@media (max-width: 960px) {
-  .feature-edit-grid { grid-template-columns: 1fr; gap: 48px; }
+/* Image now fills its column edge-to-edge, top-to-bottom. Square corners
+   on both sides — the right edge bleeds off the viewport so a radius
+   there would never show, and the client wants the left edge sharp too. */
+.feature-edit-image {
+  display: block;
+  width: 100%;
+  /* Capped, much shorter height — the image previously ran floor-to-
+     ceiling and read as oversized. A clamped height keeps it a contained
+     editorial band that the centred copy column sits comfortably beside. */
+  height: clamp(320px, 44vh, 440px);
+  max-width: none;
+  min-height: 0;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+@media (max-width: 980px) {
+  .feature--edit-split { padding: 80px 0 0; }
+  .feature-edit-grid {
+    grid-template-columns: 1fr;
+    gap: 48px;
+    padding-left: 36px;
+    padding-right: 36px;
+  }
+  .feature-edit-image { max-width: 100%; height: clamp(260px, 40vh, 360px); min-height: 0; border-radius: 0; }
+}
+@media (max-width: 560px) {
+  .feature-edit-grid { padding-left: 22px; padding-right: 22px; }
 }
 
 /* ===================== Laptop mockup =====================
@@ -2028,7 +2759,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   font-family: var(--serif);
   font-style: italic;
   font-weight: 400;
-  font-size: 26px;
+  font-size: 20px;
   letter-spacing: 0;
   text-transform: none;
   line-height: 1;
@@ -2289,8 +3020,8 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .quote-text {
   font-family: var(--serif);
-  font-size: clamp(25px, 2.5vw, 40px);
-  line-height: 1.22;
+  font-size: var(--fs-quote);     /* client-locked 26px / 1.2 */
+  line-height: var(--lh-quote);
   letter-spacing: -0.005em;
   color: var(--ink);
   position: relative;
@@ -2377,6 +3108,101 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   margin: 0 0 14px;
 }
 .quote-coda-copy:last-of-type { margin-bottom: 32px; }
+.quote-coda-heading {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  color: var(--english-violet);
+  margin: 0 0 20px;
+}
+
+/* ============ Chapter 06 split layout (client feedback round 1) ============
+   Mirrors the Ch 05 .feature--edit-split pattern: copy on the left lines up
+   with the page wrap, image on the right bleeds toward the viewport edge,
+   and the SMM coda nests under the image column. */
+.quote--split {
+  /* Mirror Chapter 3 (editorial): same vertical rhythm + content frame. */
+  padding: 90px 0 48px;
+  overflow-x: clip;
+}
+.quote-split-grid {
+  display: grid;
+  /* Same column split + wrap as Chapter 3 so the two chapters read identically;
+     the photo lives in the right column — the same gap as Ch3's aside. */
+  grid-template-columns: 7fr 5fr;
+  gap: 80px;
+  align-items: start;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 76px;
+}
+.quote-left { padding-top: 24px; }
+.quote--split .chapter { margin-bottom: 40px; }
+.quote--split .quote-mark {
+  font-size: 162px;
+  line-height: 0.6;
+  color: rgba(71, 66, 84, 0.18);
+  margin: 0 0 -30px;
+  height: 90px;
+}
+.quote--split .quote-text {
+  font-family: var(--serif);
+  /* Matched to Chapter 3's editorial lead — same size, line-height, tracking. */
+  font-size: clamp(25px, 2.3vw, 36px);
+  line-height: 1.22;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  margin: 0;
+}
+.quote--split .quote-text em { color: var(--english-violet); font-style: italic; }
+.quote-right {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 56px;
+}
+/* Photo bleeds to the viewport edge on the right, keeping the arch top
+   silhouette but spanning a much larger footprint than the old quote-photo. */
+.quote-photo--full {
+  position: relative;
+  margin: 0;
+  width: 100%;
+  max-width: none;          /* fill the right column — the same gap as Ch3's aside */
+}
+.quote-photo--full .quote-photo-frame {
+  aspect-ratio: 4 / 5;
+  border-radius: 50% 50% 0 0 / 26% 26% 0 0;   /* gentler arch — less rounded on top */
+}
+/* Show the person reading (upper-right of the source) rather than just the
+   chair: bias the crop up + right and ease off the zoom so more is visible. */
+.quote-photo--full .quote-photo-frame img {
+  object-position: 72% 8%;
+  transform: scale(1.02);
+  animation: none;
+}
+.quote-photo--full .quote-photo-caption { margin-left: 4px; }
+
+.quote--split .quote-coda {
+  margin-top: 0;
+  max-width: 560px;
+}
+
+@media (max-width: 980px) {
+  .quote--split { padding: 80px 0 120px; }
+  .quote-split-grid {
+    grid-template-columns: 1fr;
+    gap: 60px;
+    padding-left: 36px;
+    padding-right: 36px;
+  }
+  .quote-photo--full .quote-photo-frame { aspect-ratio: 4 / 5; }
+}
+@media (max-width: 560px) {
+  .quote-split-grid { padding-left: 22px; padding-right: 22px; }
+}
 
 /* ============ SMM image section ============ */
 .smm { padding-top: 140px; padding-bottom: 180px; }
@@ -2833,7 +3659,9 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   min-height: 720px;
   display: flex;
   align-items: center;
-  margin-top: 120px;
+  /* Framed (40px sides) like the hero, with a gap below so Chapter 7 reads as
+     its own block, broken away from the full-bleed footer underneath it. */
+  margin: 120px 40px 64px;
   overflow: hidden;
   background: var(--gunmetal);
 }
@@ -2864,9 +3692,11 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   margin-bottom: -10px;
 }
 .news-title {
-  font-family: var(--serif);
-  font-size: clamp(108px, 12.6vw, 216px);
-  line-height: 0.86;
+  /* Large word in Darker Grotesque (small eyebrow above stays Cormorant). */
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: var(--fs-display);   /* client-locked 160px / 0.86 */
+  line-height: var(--lh-display);
   letter-spacing: -0.02em;
   margin-bottom: 32px;
 }
@@ -2912,6 +3742,9 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   color: var(--paper);
   position: relative;
   z-index: 2;
+  /* Full-bleed footer — sits apart from the framed News block above it.
+     Hairline top divider reads as the line that separates Chapter 7 from it. */
+  border-top: 1px solid rgba(242, 239, 233, 0.12);
 }
 .footer-grid {
   display: grid;
@@ -2978,7 +3811,91 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 }
 .footer-socials a:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.4); }
 
-/* ============ Scroll reveal ============ */
+/* ============ Scroll reveal ============
+   The base [data-reveal] hook is the IntersectionObserver-driven slide-in.
+   Direction is opt-in via data-reveal-dir, with sensible defaults so any
+   element with just [data-reveal] still animates. The unified cubic-bezier
+   keeps every section feeling like it's part of the same composition as
+   the page builds itself in. */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(48px);
+  transition:
+    opacity 1.1s cubic-bezier(.2,.7,.2,1),
+    transform 1.1s cubic-bezier(.2,.7,.2,1);
+  will-change: opacity, transform;
+}
+[data-reveal][data-reveal-dir="left"]  { transform: translateX(-56px); }
+[data-reveal][data-reveal-dir="right"] { transform: translateX(56px); }
+[data-reveal][data-reveal-dir="up"]    { transform: translateY(56px); }
+[data-reveal][data-reveal-dir="down"]  { transform: translateY(-40px); }
+[data-reveal][data-reveal-dir="scale"] { transform: scale(0.94); }
+[data-reveal].in {
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
+}
+[data-reveal][data-reveal-delay="1"] { transition-delay: 0.08s; }
+[data-reveal][data-reveal-delay="2"] { transition-delay: 0.16s; }
+[data-reveal][data-reveal-delay="3"] { transition-delay: 0.24s; }
+[data-reveal][data-reveal-delay="4"] { transition-delay: 0.32s; }
+[data-reveal][data-reveal-delay="5"] { transition-delay: 0.40s; }
+
+/* When a [data-reveal-root] section enters the viewport, its direct
+   eligible children animate in with a staggered cascade — same shape as
+   the Studio's onboarding build-in, so every section reads as "constructing
+   itself" as the user scrolls in. */
+[data-reveal-root] > .chapter,
+[data-reveal-root] .editorial-lead-col,
+[data-reveal-root] .editorial-side--below,
+[data-reveal-root] .feature-edit-left > *,
+[data-reveal-root] .quote-left > *,
+[data-reveal-root] .quote-right > * {
+  opacity: 0;
+  transform: translateY(40px);
+  transition:
+    opacity 1.05s cubic-bezier(.2,.7,.2,1),
+    transform 1.05s cubic-bezier(.2,.7,.2,1);
+}
+[data-reveal-root].in > .chapter,
+[data-reveal-root].in .editorial-lead-col,
+[data-reveal-root].in .editorial-side--below,
+[data-reveal-root].in .feature-edit-left > *,
+[data-reveal-root].in .quote-left > *,
+[data-reveal-root].in .quote-right > * {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Stagger the cascade — successive children come in 80ms apart, same
+   rhythm as the Studio onboarding. */
+[data-reveal-root].in .feature-edit-left > *:nth-child(1),
+[data-reveal-root].in .quote-left > *:nth-child(1) { transition-delay: 0.05s; }
+[data-reveal-root].in .feature-edit-left > *:nth-child(2),
+[data-reveal-root].in .quote-left > *:nth-child(2) { transition-delay: 0.13s; }
+[data-reveal-root].in .feature-edit-left > *:nth-child(3),
+[data-reveal-root].in .quote-left > *:nth-child(3) { transition-delay: 0.21s; }
+[data-reveal-root].in .feature-edit-left > *:nth-child(4),
+[data-reveal-root].in .quote-left > *:nth-child(4) { transition-delay: 0.29s; }
+[data-reveal-root].in .feature-edit-left > *:nth-child(5),
+[data-reveal-root].in .quote-left > *:nth-child(5) { transition-delay: 0.37s; }
+[data-reveal-root].in .quote-right > *:nth-child(1) { transition-delay: 0.10s; }
+[data-reveal-root].in .quote-right > *:nth-child(2) { transition-delay: 0.22s; }
+
+/* Reduced-motion: collapse the slide-in down to a quick fade so the
+   page still feels animated but never disorienting. */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-reveal-root] > .chapter,
+  [data-reveal-root] .editorial-lead-col,
+  [data-reveal-root] .editorial-side--below,
+  [data-reveal-root] .feature-edit-left > *,
+  [data-reveal-root] .quote-left > *,
+  [data-reveal-root] .quote-right > * {
+    transform: none;
+    transition-duration: 0.4s;
+  }
+}
+
+/* Legacy .reveal class kept for older markup that may still target it. */
 .reveal { opacity: 0; transform: translateY(40px); transition: opacity 1.2s cubic-bezier(.2,.7,.2,1), transform 1.2s cubic-bezier(.2,.7,.2,1); }
 .reveal.in { opacity: 1; transform: translateY(0); }
 .reveal-delay-1 { transition-delay: 0.1s; }
@@ -3008,6 +3925,7 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
   .content-heading, .editorial-side { position: static; }
   .feature-content { padding: 60px 32px; }
   .news-content { padding: 60px 32px; }
+  .news { margin: 80px 22px 44px; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
   .footer { padding: 80px 36px 30px; }
   .hero-foot { padding: 0 36px; }
@@ -3016,4 +3934,591 @@ body.theme-dark .nav-cta:hover span { color: #0a0908; }
 @media (max-width: 560px) {
   .footer { padding: 80px 22px 30px; }
   .hero-foot { padding: 0 22px; }
+}
+
+/* =====================================================================
+   MOBILE — HOMEPAGE
+   Everything below is mobile-only (max-width: 720px). Desktop is
+   intentionally untouched. Rules use higher specificity / media-scope so
+   they cannot leak above the breakpoint.
+   ===================================================================== */
+
+/* ---------- Footer <details> columns: desktop fallback =====
+   The footer now uses <details class="footer-col" open> for each link
+   column so mobile gets accordions. On desktop the details should look
+   identical to the previous <div> + <h5> layout — strip the disclosure
+   widget and show the h5 in its native position. */
+.footer .footer-col { display: block; }
+.footer .footer-col > summary {
+  list-style: none;
+  display: block;
+  padding: 0;
+  cursor: default;
+}
+.footer .footer-col > summary::-webkit-details-marker { display: none; }
+.footer .footer-col > summary::marker { content: ""; }
+.footer .footer-col > summary .footer-col-label { display: none; }
+/* h5 lives inside summary on the new markup — preserve its bottom margin */
+.footer .footer-col > summary > h5 { margin-bottom: 18px; }
+
+/* ---------- Hamburger button (mobile only) ---------- */
+.nav-burger {
+  display: none;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 8px;
+  margin: 0;
+  cursor: pointer;
+  color: currentColor;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+}
+.nav-burger span {
+  display: block;
+  width: 22px;
+  height: 1.5px;
+  background: currentColor;
+  transition: transform 0.3s, opacity 0.3s;
+}
+
+/* ---------- Mobile drawer (rendered always, hidden on desktop) ---------- */
+.nav-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0s 0.35s;
+}
+.nav-drawer.is-open {
+  pointer-events: auto;
+  visibility: visible;
+  transition: visibility 0s;
+}
+.nav-drawer-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 9, 8, 0.5);
+  opacity: 0;
+  transition: opacity 0.35s cubic-bezier(.2,.7,.2,1);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.nav-drawer.is-open .nav-drawer-scrim { opacity: 1; }
+.nav-drawer-panel {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: min(360px, 86vw);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 22px 26px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  transform: translateX(100%);
+  transition: transform 0.42s cubic-bezier(.2,.7,.2,1);
+  box-shadow: -24px 0 60px -20px rgba(0,0,0,0.5);
+  overflow-y: auto;
+}
+.nav-drawer.is-open .nav-drawer-panel { transform: translateX(0); }
+.nav-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+}
+.nav-drawer-mark {
+  font-family: var(--serif);
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+}
+.nav-drawer-close {
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(240,238,235,0.2);
+  border-radius: 50%;
+  color: var(--paper);
+  width: 36px; height: 36px;
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 0 2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-drawer-close:hover {
+  background: rgba(240,238,235,0.08);
+  border-color: rgba(240,238,235,0.5);
+}
+.nav-drawer-login {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--english-violet);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  transition: background 0.3s, transform 0.3s cubic-bezier(.2,.7,.2,1);
+}
+.nav-drawer-login:hover,
+.nav-drawer-login:active {
+  background: var(--paper);
+  color: var(--english-violet);
+}
+.nav-drawer-login-arrow {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 18px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.nav-drawer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+.nav-drawer-link {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 18px 4px;
+  border-bottom: 1px solid rgba(240,238,235,0.08);
+  color: var(--paper);
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: -0.005em;
+  transition: padding 0.3s, color 0.3s;
+}
+.nav-drawer-link:hover,
+.nav-drawer-link.is-active {
+  color: var(--english-violet);
+  padding-left: 10px;
+}
+.nav-drawer-link.is-active { color: #e6dcff; }
+.nav-drawer-link-num {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  font-weight: 700;
+  color: rgba(240,238,235,0.45);
+}
+.nav-drawer-link-arrow {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 18px;
+  color: rgba(240,238,235,0.45);
+}
+.nav-drawer-foot {
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid rgba(240,238,235,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nav-drawer-mail {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--paper);
+  letter-spacing: 0.01em;
+}
+.nav-drawer-meta {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(240,238,235,0.45);
+}
+body.nav-drawer-open { overflow: hidden; }
+
+/* =========================================================
+   ≤ 720px — phone layout
+   ========================================================= */
+@media (max-width: 720px) {
+
+  /* ===== Nav: show hamburger, hide top-bar Login (it lives in the
+     drawer on mobile), grow the bar a touch so the burger sits with
+     comfortable air around it. ===== */
+  .nav { padding: 14px 22px; }
+  .nav.scrolled,
+  body:has(.page-hero) .nav,
+  body.has-page-hero .nav { padding: 16px 22px; }
+  .nav-burger { display: inline-flex; }
+  .nav-cta { display: none; }
+  .nav-actions { gap: 0; }
+
+  /* ===== Services: convert grid → horizontal snap carousel =====
+     Each card becomes ~78vw so the next card peeks off-screen, hinting
+     a swipe. Negative-margin trick lets the carousel use the full
+     viewport width while .wrap padding still indents non-carousel
+     content above it. */
+  .services { padding-top: 80px; }
+  .services-eyebrow {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 40px;
+    gap: 4px;
+  }
+  .services-eyebrow-line { white-space: normal; }
+  .services-grid {
+    display: flex;
+    grid-template-columns: none;
+    gap: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 22px;
+    padding: 4px 22px 24px;
+    margin: 0 -22px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .services-grid::-webkit-scrollbar { display: none; }
+  .svc-card {
+    flex: 0 0 78vw;
+    max-width: 320px;
+    min-height: 420px;
+    padding: 28px 24px 26px;
+    scroll-snap-align: start;
+  }
+  .svc-watermark {
+    font-size: clamp(140px, 38vw, 200px);
+    bottom: 60px;
+  }
+  .svc-title { font-size: 22px; margin: 0 0 18px; }
+  .svc-body { margin-top: 18px; }
+
+  /* On touch devices the hover state never fires, so reveal a subtle
+     accent border so the cards still feel "alive". */
+  .svc-card:focus-within,
+  .svc-card:active { border-color: var(--english-violet); }
+
+  /* ===== Editorial: stack already handled, tighten gap ===== */
+  .editorial-grid { gap: 24px !important; }
+
+  /* ===== Quote / Ch 06: reset the desktop negative top-margin
+     that overlaps the photo with the quote text once stacked. */
+  .quote { padding-top: 80px; padding-bottom: 80px; }
+  .quote-mark { font-size: 100px; margin: 0 0 -10px; height: 50px; }
+  .quote-photo {
+    margin: 8px 0 0;
+    max-width: 280px;
+  }
+  .quote-coda { margin-top: 32px; }
+  .quote-coda .btn { display: inline-flex; }
+
+  /* ===== Edit-split: keep stack, shrink laptop frame ===== */
+  .feature--edit-split { padding-top: 40px; }
+  .feature-edit-grid { gap: 32px; }
+  .laptop { max-width: 100%; }
+  /* The studio demo inside the laptop uses fixed 14px font; the panel
+     gets crowded under 360px. Pulling it down a touch keeps it legible
+     without clipping. */
+  .ed-demo { font-size: 11px; }
+  .ed-demo-filename { font-size: 9px; }
+  .ed-demo-name { font-size: 14px; }
+  .ed-demo-meta, .ed-demo-pill { font-size: 9px; }
+  .ed-demo-panel { padding: 8px; }
+  .ed-demo-panel-h { font-size: 11px; }
+  .ed-demo-panel-sub { font-size: 9px; }
+  .ed-demo-rail { padding: 6px 4px; }
+  .ed-demo-tool { font-size: 12px; }
+
+  /* The typewriter title can get oversized on small phones. */
+  .feature--edit-split .feature-title { font-size: clamp(64px, 22vw, 120px); }
+  /* CTA + meta info shouldn't fight for one row */
+  .feature--edit-split .feature-edit-left .edit-showcase-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .edit-showcase-meta-info { gap: 10px; }
+
+  /* ===== News: full-bleed, reduce huge title, stack form ===== */
+  .news { min-height: 0; margin-top: 60px; }
+  .news-content { padding: 60px 22px; }
+  .news-title { font-size: clamp(72px, 22vw, 120px); margin-bottom: 24px; }
+  .news-eyebrow { font-size: 22px; }
+  .news-form { flex-direction: column; gap: 10px; }
+  .news-form button { padding: 14px 18px; }
+
+  /* ===== Footer: collapse to accordion ===== */
+  .footer { padding: 56px 22px 24px; }
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0;
+    margin-bottom: 32px;
+  }
+  .footer-mark { font-size: 44px; }
+  .footer-tag { font-size: 14px; margin-bottom: 12px; }
+  .footer-blurb { margin-bottom: 22px; }
+  /* Each link column was wrapped in a <details> on the mobile pass. */
+  .footer .footer-col {
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .footer .footer-col:last-of-type {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .footer .footer-col > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 4px;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: rgba(240,238,235,0.7);
+  }
+  .footer .footer-col > summary::-webkit-details-marker { display: none; }
+  /* On mobile, show the inline label and hide the desktop h5 (which lives
+     inside the summary now). The +/- chevron sits on the summary itself. */
+  .footer .footer-col > summary > h5 { display: none; }
+  .footer .footer-col > summary .footer-col-label { display: inline-flex; }
+  .footer .footer-col > summary::after {
+    content: "+";
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1;
+    color: rgba(240,238,235,0.5);
+    transition: transform 0.3s;
+  }
+  .footer .footer-col[open] > summary::after { content: "−"; }
+  .footer .footer-col ul {
+    padding: 4px 4px 18px;
+    gap: 12px;
+  }
+  .footer .footer-col ul a { font-size: 15px; opacity: 0.92; }
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  /* ===== Hero: tighten footer line, shrink wordmark so it fits ===== */
+  .hero-foot { bottom: 36px; font-size: 10px; letter-spacing: 0.22em; }
+  .hero-content { padding: 0 22px; }
+  .hero-chapter { font-size: 9px; letter-spacing: 0.24em; margin-bottom: 28px; gap: 10px; }
+  .hero-chapter::before, .hero-chapter::after { width: 16px; }
+  .hero-mark { font-size: clamp(110px, 38vw, 200px); }
+  .hero-rule { margin: 22px 0 20px; }
+  .hero-sub { font-size: 13px; padding: 0 12px; }
+
+  /* ===== Approach: a touch more breathing room on tiny phones ===== */
+  .approach-visual--hero { height: clamp(280px, 42vh, 420px); }
+  .approach-hero-text { gap: 12px; }
+  .approach-card-stack--hero { gap: 18px; }
+  .approach-card-stack--hero .approach-p { font-size: 14px; }
+  /* Pull the rail right against the screen so it doesn't eat content
+     space, and keep dots tap-friendly. */
+  .approach-rail { right: 10px; }
+}
+
+/* ===== Floating Five & Live tab: hide while the drawer is open so it
+   doesn't fight the menu z-index. ===== */
+body.nav-drawer-open .fa { opacity: 0; pointer-events: none; }
+
+/* ============================================================
+   CH 05 — THE EDIT (records on a shelf)
+   Full-screen wall + the transparent shelf image (shelf3.png, 3 shelves).
+   Three template "records" sit on each shelf (same size, evenly spaced).
+   The top two rows sit BEHIND the shelf image so its front edge tucks their
+   base (looking-up perspective); the bottom row sits in FRONT on the open
+   surface, leaned back with a directional shadow (light from the upper-
+   right). Hover springs a record up and off the shelf.
+   ============================================================ */
+.shelf-scene {
+  position: relative;
+  min-height: 106vh;              /* a touch taller → more header room up top */
+  display: flex;
+  align-items: flex-end;          /* shelves sit low; wall above holds the top row + copy */
+  justify-content: center;
+  padding: 0 4vw 0.5vh;           /* pushed lower — closer to the bottom */
+  /* Flat --paper so The Edit is exactly the same background as every other
+     section — no wall tint, fully cohesive. */
+  background: var(--paper);
+  /* Clip horizontally only — let the shelves' soft drop-shadow spill DOWN into
+     the next section so it fades out naturally instead of cutting a hard line. */
+  overflow-x: clip;
+  overflow-y: visible;
+}
+/* Aligned to the same left edge as Chapter 6's content (1360 wrap + 76px
+   gutter), and a touch wider so the copy isn't cramped. */
+.shelf-copy {
+  position: absolute; top: 8vh; z-index: 5; max-width: 34ch;
+  left: max(76px, calc((100vw - 1360px) / 2 + 76px));
+}
+.shelf-copy .chapter { color: rgba(28, 29, 34, 0.5); margin-bottom: 16px; white-space: nowrap; }
+.shelf-title {
+  font-family: var(--serif); font-weight: 400;
+  font-size: var(--fs-title); line-height: var(--lh-title); letter-spacing: -0.02em;
+  color: var(--ink); margin: 0;
+}
+.shelf-sub {
+  font-family: var(--sans); font-size: clamp(13px, 0.95vw, 15px); line-height: 1.5;
+  color: rgba(28, 29, 34, 0.6); margin: 14px 0 20px; max-width: 34ch;
+}
+.shelf-cta { color: var(--ink); }
+/* CTA in the bottom-right corner (padded off the edge) to balance the
+   top-left copy and even out the composition. */
+.shelf-cta-corner { position: absolute; right: 6vw; bottom: 7vh; z-index: 5; }
+
+/* Stage holds shelf2.png at its native aspect so record %-positions map
+   straight onto the picture. Records overflow upward, so nothing clips. */
+.shelf-stage {
+  position: relative;
+  isolation: isolate;              /* own stacking context for the record/shelf depth ordering */
+  /* Scaled down so the shelf is less dominant vs the assets and leaves
+     the top-left title more breathing room. */
+  /* Wider + dropped lower so the shelves sit closer to the Browse CTA; only a
+     small right nudge now so it reads more centred/full rather than cornered.
+     (The empty space below the bottom shelf in the PNG clips off the bottom.) */
+  width: min(94vw, 100vh);
+  transform: translate(2%, 16%);
+  aspect-ratio: 3000 / 2500;   /* shelf2.png — two shelves, taller frame */
+}
+.shelf-bg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; pointer-events: none; user-select: none;
+  z-index: 2;                      /* between the tucked-under rows (1) and the front row (3) */
+}
+
+/* Records — portrait (3:4) social posts resting on a shelf's front edge
+   (--y = distance from the stage bottom), leaning back via a bottom-pivoted
+   rotateX so they look propped against the shelf rather than floating. The
+   per-shelf modifiers set size / lean / depth so the perspective reads. */
+.shelf-rec {
+  position: absolute;
+  left: var(--x); bottom: var(--y);
+  /* Four records per shelf — wider than the old 3-up layout. */
+  width: 17%; aspect-ratio: 3 / 4;
+  border-radius: 4px; overflow: hidden;
+  background: #cfcfcf;
+  z-index: 1;                       /* behind the shelf image so the front edge tucks the base */
+  transform-origin: center bottom;
+  transform: perspective(1200px) rotateX(var(--lean, 9deg));
+  /* Light from the right → the shadow casts to the LEFT, not downward, so the
+     record reads as leaning against the wall rather than floating off a base. */
+  box-shadow: -24px 2px 30px rgba(0, 0, 0, 0.26), -10px 1px 14px rgba(0, 0, 0, 0.2);
+  transition: transform 0.45s cubic-bezier(.2, .8, .2, 1), box-shadow 0.45s ease;
+  cursor: pointer;
+}
+.shelf-rec img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.shelf-rec::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.16), transparent 42%);
+  pointer-events: none;
+}
+.shelf-rec:hover,
+.shelf-rec:focus-visible {
+  /* Spring up AND out (translateZ toward the viewer) and pop above the shelf
+     image, so even a tucked record springs clear instead of clipping through
+     the shelf. The overshoot easing gives it the "spring". */
+  transform: perspective(1200px) rotateX(2deg) translateY(-15%) translateZ(40px);
+  box-shadow: 0 44px 64px rgba(0, 0, 0, 0.36), 0 16px 24px rgba(0, 0, 0, 0.24);
+  transition: transform 0.5s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.4s ease;
+  z-index: 7 !important;
+  outline: none;
+}
+
+/* Two shelves (shelf2.png). Front edges ~17% (top) and ~60% (bottom) from the
+   top → ~83% / ~40% from the bottom. Records rest on each shelf and lean back;
+   both sit IN FRONT of the shelf image (z3) so all eight are fully visible. */
+/* Both rows tuck under their shelf's front edge (z1) with the SAME tilt. The
+   top row goes a touch further under than the bottom. */
+/* Both rows identical treatment (same tilt + same left-cast shadow); only the
+   shelf they sit on differs. Top row a touch further under than the bottom. */
+.shelf-rec--s1,
+.shelf-rec--s2 {
+  --lean: 15deg; z-index: 1;
+  box-shadow: -28px 2px 38px rgba(0, 0, 0, 0.3), -11px 1px 16px rgba(0, 0, 0, 0.22);
+}
+.shelf-rec--s1 { --y: 80%; } /* top shelf — slightly more under */
+.shelf-rec--s2 { --y: 38%; } /* bottom shelf — just kissing / under */
+
+/* ============ The Edit — full-screen template showcase ============ */
+.edit-modal {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+}
+.edit-modal[hidden] { display: none; }
+.edit-modal-scrim {
+  position: absolute; inset: 0;
+  background: rgba(10, 9, 12, 0.93);
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.edit-modal.is-open .edit-modal-scrim { opacity: 1; }
+.edit-modal-stage {
+  position: relative; z-index: 1; margin: 0;
+  width: 92vw; height: 82vh;
+  display: flex; align-items: center; justify-content: center;
+  transform: scale(0.97); opacity: 0;
+  transition: transform 0.34s cubic-bezier(.2,.7,.2,1), opacity 0.3s ease;
+}
+.edit-modal.is-open .edit-modal-stage { transform: none; opacity: 1; }
+.edit-modal-img {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain; border-radius: 4px;
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
+}
+.edit-modal-close,
+.edit-modal-arrow {
+  position: absolute; z-index: 3;
+  border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.07); color: #fff;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  line-height: 1; transition: background 0.25s, border-color 0.25s;
+}
+.edit-modal-close:hover,
+.edit-modal-arrow:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.6); }
+.edit-modal-close { top: 22px; right: 26px; width: 44px; height: 44px; font-size: 24px; }
+.edit-modal-arrow { top: 50%; transform: translateY(-50%); width: 56px; height: 56px; font-size: 32px; padding-bottom: 4px; }
+.edit-modal-arrow--prev { left: 24px; }
+.edit-modal-arrow--next { right: 24px; }
+.edit-modal-bar {
+  position: absolute; z-index: 3; bottom: 24px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 22px;
+  padding: 9px 11px 9px 22px;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.edit-modal-meta {
+  font-family: var(--sans); font-size: 13px; letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+}
+.edit-modal-dot { opacity: 0.45; margin: 0 5px; }
+body.edit-modal-open { overflow: hidden; }
+@media (max-width: 600px) {
+  .edit-modal-stage { width: 94vw; height: 70vh; }
+  .edit-modal-arrow { width: 44px; height: 44px; font-size: 26px; }
+  .edit-modal-arrow--prev { left: 12px; }
+  .edit-modal-arrow--next { right: 12px; }
+  .edit-modal-bar { flex-direction: column; gap: 10px; bottom: 16px; padding: 12px 18px; }
+}
+
+@media (max-width: 900px) {
+  .shelf-scene { align-items: flex-end; padding-bottom: 6vh; }
+  .shelf-copy { max-width: 60vw; top: 5vh; }
+  .shelf-stage { width: 96vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shelf-rec { transition: none; }
 }

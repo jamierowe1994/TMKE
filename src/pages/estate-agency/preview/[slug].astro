@@ -1,0 +1,61 @@
+---
+// Dynamic preview route — one rendered template per registry slug.
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import PreviewFrame from "../../../components/estate-agency/PreviewFrame.astro";
+import PlaceholderCanvas from "../../../components/estate-agency/PlaceholderCanvas.astro";
+import InterestForm from "../../../components/estate-agency/InterestForm.astro";
+import Belgrave from "../../../components/estate-agency/templates/Belgrave.astro";
+import Wold from "../../../components/estate-agency/templates/Wold.astro";
+import Parade from "../../../components/estate-agency/templates/Parade.astro";
+import { templates } from "../../../data/estate-agency-templates.js";
+
+export function getStaticPaths() {
+  return templates.map((t) => ({ params: { slug: t.slug }, props: { template: t } }));
+}
+
+const { template } = Astro.props;
+
+// Slug → real template component. Adding a new template:
+//   1. Drop the .astro file under src/components/estate-agency/templates/
+//   2. Import it here and add the case below.
+// Anything not in the map falls back to PlaceholderCanvas.
+const TEMPLATE_COMPONENTS = {
+  belgrave: Belgrave,
+  wold: Wold,
+  parade: Parade,
+};
+
+const TemplateComponent = TEMPLATE_COMPONENTS[template.slug];
+---
+
+<BaseLayout
+  title={`${template.name} — Estate Agency Template — TMKE`}
+  description={template.summary}
+  noindex
+  hideNav
+  hideFooter
+>
+  <PreviewFrame
+    templateName={template.name}
+    tagline={template.tagline}
+    accent={template.accent}
+  >
+    {TemplateComponent ? (
+      <TemplateComponent />
+    ) : (
+      <PlaceholderCanvas
+        name={template.name}
+        tagline={template.tagline}
+        hero={template.thumbnail}
+        accent={template.accent}
+        audience={template.audience}
+        features={template.features}
+      />
+    )}
+  </PreviewFrame>
+
+  <InterestForm
+    templateSlug={template.slug}
+    templateName={template.name}
+  />
+</BaseLayout>

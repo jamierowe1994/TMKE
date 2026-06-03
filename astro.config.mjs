@@ -6,8 +6,9 @@ export default defineConfig({
   site: 'https://tmke.co.uk',
   integrations: [
     sitemap({
-      // Keep unlisted/private pages out of the sitemap (and search engines).
-      filter: (page) => !page.includes('/videography/studio'),
+      // Keep work-in-progress areas out of the public sitemap. They're still
+      // reachable via direct URL but won't be advertised to search engines.
+      filter: (page) => !/\/estate-agency(\/|$)/.test(page),
     }),
   ],
   build: {

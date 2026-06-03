@@ -1,0 +1,38 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DashSidebar from "../../components/account/DashSidebar.astro";
+import BlogPanel from "../../components/account/BlogPanel.astro";
+import "../../styles/workspace.css";
+import "../../styles/account-sections.css";
+---
+
+<BaseLayout
+  title="Inside The Edit — members blog"
+  description="Member-exclusive deep dives on platform changes, tactics that are working right now, and what we're testing behind the scenes."
+  hideNav
+  hideFooter
+>
+  <div class="dash-shell">
+    <DashSidebar active="blog" />
+
+    <main class="app-main dash-main">
+      <BlogPanel />
+    </main>
+  </div>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        location.replace('/login?next=' + encodeURIComponent('/account/blog'));
+        return;
+      }
+      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+      document.getElementById('app-signout')?.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        location.replace('/login');
+      });
+    })();
+  </script>
+</BaseLayout>

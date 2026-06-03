@@ -14,7 +14,7 @@ interface Props {
   hideNav?: boolean;
   /** Hide the global footer. */
   hideFooter?: boolean;
-  /** Emit a noindex,nofollow robots tag (for unlisted/private pages). */
+  /** Emit a noindex,nofollow robots tag (for unlisted / WIP pages). */
   noindex?: boolean;
 }
 
@@ -27,6 +27,16 @@ const {
   hideFooter = false,
   noindex = false,
 } = Astro.props;
+
+// Front-end-only page transition. Back-end tools — /admin/* and /editor (the
+// Studio design editor) — keep their plain navigation. The /edit/* "Edit" shop
+// is public front-end, so it opts in. Also skipped on chrome-less pages
+// (hideNav) and whenever an inline content-edit session is in play (?edit=…),
+// so clicks are never hijacked mid-edit.
+const path = Astro.url.pathname;
+const isBackend = path.startsWith("/admin") || path === "/editor" || path === "/editor/";
+const isEditing = Astro.url.searchParams.has("edit");
+const enableTransition = !isBackend && !hideNav && !isEditing;
 ---
 
 <!DOCTYPE html>
@@ -70,11 +80,50 @@ const {
       defer
       src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"
       is:inline></script>
+
+    {
+      enableTransition && (
+        <>
+          {/* Pre-cover: runs before the body paints. If we arrived via a
+              transition, pin the panels over the screen so the new page never
+              flashes before page-transition.js plays the reveal-out. */}
+          <script is:inline>
+            try {
+              if (sessionStorage.getItem("tmke:pt") === "1") {
+                document.documentElement.classList.add("pt-revealing");
+              }
+            } catch (e) {}
+          </script>
+          {/* Critical rules only — must apply before paint. The rest of the
+              transition styling lives in global.css. */}
+          <style is:inline>
+            .pt { position: fixed; inset: 0; z-index: 9500; pointer-events: none; visibility: hidden; }
+            .pt__panel { position: absolute; top: 0; height: 100%; width: 50%; background: #474254; will-change: transform; }
+            .pt__panel--left { left: 0; width: calc(50% + 1px); transform: translateY(100%); }
+            .pt__panel--right { left: 50%; transform: translateY(-100%); }
+            html.pt-revealing .pt { visibility: visible; }
+            html.pt-revealing .pt__panel { transform: translateY(0); }
+          </style>
+        </>
+      )
+    }
   </head>
   <body>
     {!hideNav && <Nav />}
     <slot />
     {!hideFooter && <Footer />}
+
+    {/* Front-end page-transition overlay — two even half-width bars. The left
+        bar rises from the bottom, the right bar drops from the top, in
+        parallel; a translucent purple veil lets the page show through. */}
+    {
+      enableTransition && (
+        <div class="pt" id="page-transition" aria-hidden="true">
+          <div class="pt__panel pt__panel--left" />
+          <div class="pt__panel pt__panel--right" />
+        </div>
+      )
+    }
 
     <!-- Sign-in splash overlay — fired by window.tmkeSplash().
          All-CSS animation: aurora gradient, drifting confetti shapes, and
@@ -130,7 +179,7 @@ const {
       </div>
       <div class="splash-grain"></div>
       <div class="splash-inner">
-        <div class="splash-eyebrow"><span>TMKE</span> &mdash; Members</div>
+        <div class="splash-eyebrow">Members</div>
         <h1 class="splash-title">
           <span class="splash-word"><span>Welcome</span></span>
           <span class="splash-word"><span>to <em>good style.</em></span></span>
@@ -159,5 +208,62 @@ const {
     </script>
 
     <script src="/scripts/app.js" is:inline></script>
+    {enableTransition && <script src="/scripts/page-transition.js" is:inline />}
+
+    <!-- Website Editor — Supabase bridge. Exposes window.tmkeStore (auth +
+         per-page draft/published overrides) for the editor below. Falls back
+         to localStorage when Supabase env vars aren't set. Requires a
+         `site_overrides` table (see docs/website-editor-setup.md). -->
+    <script>
+      import { supabase, isConfigured } from "../lib/supabase.js";
+      const TABLE = "site_overrides";
+      const path = () => (location.pathname.replace(/\/+$/, "") || "/");
+      window.tmkeStore = {
+        configured: isConfigured,
+        async hasSession() {
+          try { const { data } = await supabase.auth.getSession(); return !!(data && data.session); }
+          catch (e) { return false; }
+        },
+        async loadPublished() {
+          try { const { data } = await supabase.from(TABLE).select("published").eq("path", path()).maybeSingle(); return (data && data.published) || {}; }
+          catch (e) { return {}; }
+        },
+        async loadDraft() {
+          try { const { data } = await supabase.from(TABLE).select("draft,published").eq("path", path()).maybeSingle(); return data ? (data.draft || data.published || {}) : {}; }
+          catch (e) { return {}; }
+        },
+        async saveDraft(map) {
+          try { await supabase.from(TABLE).upsert({ path: path(), draft: map, updated_at: new Date().toISOString() }, { onConflict: "path" }); } catch (e) {}
+        },
+        async publish(map) {
+          const { error } = await supabase.from(TABLE).upsert({ path: path(), draft: map, published: map, updated_at: new Date().toISOString() }, { onConflict: "path" });
+          if (error) throw error;
+        },
+        async uploadImage(file) {
+          const ext = (file.name.split(".").pop() || "png").toLowerCase();
+          const key = "uploads/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+          const { error } = await supabase.storage.from("site-media").upload(key, file, { cacheControl: "31536000", upsert: false });
+          if (error) throw error;
+          const { data } = supabase.storage.from("site-media").getPublicUrl(key);
+          return data.publicUrl;
+        },
+        async listImages() {
+          try {
+            const { data } = await supabase.storage.from("site-media").list("uploads", { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+            return (data || []).map((f) => supabase.storage.from("site-media").getPublicUrl("uploads/" + f.name).data.publicUrl);
+          } catch (e) { return []; }
+        },
+      };
+      window.dispatchEvent(new Event("tmke:store-ready"));
+    </script>
+
+    <!-- Website Editor TEMPORARILY DISABLED (hotfix before client demo).
+         The loader script has been removed so NO saved editor overrides are
+         applied to the live pages — every page renders its original designed
+         markup again. The client's earlier edits used fixed pixel values that
+         don't scale, which is what broke the layouts. The editor needs rework
+         before it goes back on; re-enable by restoring this loader:
+         <script src="/scripts/visual-editor.js" is:inline></script>
+         (the tmkeStore bridge above is harmless while the loader is off). -->
   </body>
 </html>

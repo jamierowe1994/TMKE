@@ -1,0 +1,38 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DashSidebar from "../../components/account/DashSidebar.astro";
+import ContactPanel from "../../components/account/ContactPanel.astro";
+import "../../styles/workspace.css";
+import "../../styles/account-sections.css";
+---
+
+<BaseLayout
+  title="Contact — TMKE workspace"
+  description="Pick the right line and reach the right inbox — pack support, managed socials, billing, feedback, press."
+  hideNav
+  hideFooter
+>
+  <div class="dash-shell">
+    <DashSidebar active="contact" />
+
+    <main class="app-main dash-main">
+      <ContactPanel />
+    </main>
+  </div>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        location.replace('/login?next=' + encodeURIComponent('/account/contact'));
+        return;
+      }
+      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+      document.getElementById('app-signout')?.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        location.replace('/login');
+      });
+    })();
+  </script>
+</BaseLayout>

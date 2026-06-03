@@ -1,0 +1,442 @@
+---
+// Member-facing Contact section. Rendered both as a standalone page
+// (/account/contact) and inside the side-drawer on /account.
+//
+// Each card opens an in-app form (or, for billing, the member's invoices)
+// instead of a mailto: link, so requests land in the `enquiries` table and
+// show up in /admin/enquiries with the member's context attached.
+---
+
+<div class="acc-section" data-contact-panel>
+  <header class="acc-section-head">
+    <p class="acc-section-eyebrow">Contact</p>
+    <h2 class="acc-section-title">How can we help?</h2>
+    <p class="acc-section-sub">Pick the line that fits — your message lands in the right inbox with your account details attached, so you get a quicker reply.</p>
+  </header>
+
+  <div class="acc-contact-grid">
+    <button type="button" class="acc-contact-card" data-form="account_general" data-tag="Anything" data-title="Quick question">
+      <span class="acc-contact-card-tag">Anything</span>
+      <h3 class="acc-contact-card-title">Quick question</h3>
+      <p class="acc-contact-card-desc">For everything that doesn't fit the other cards. Same-day reply during UK working hours.</p>
+      <span class="acc-contact-card-cta">Ask us <em>&rarr;</em></span>
+    </button>
+
+    <button type="button" class="acc-contact-card" data-form="account_pack_support" data-tag="Packs" data-title="Pack support">
+      <span class="acc-contact-card-tag">Packs</span>
+      <h3 class="acc-contact-card-title">Pack support</h3>
+      <p class="acc-contact-card-desc">Missing assets, a file that won't open, a typo on a template — anything pack-related.</p>
+      <span class="acc-contact-card-cta">Open a request <em>&rarr;</em></span>
+    </button>
+
+    <button type="button" class="acc-contact-card" data-form="account_managed_socials" data-tag="Done-for-you" data-title="Managed socials enquiry">
+      <span class="acc-contact-card-tag">Done-for-you</span>
+      <h3 class="acc-contact-card-title">Manage my socials</h3>
+      <p class="acc-contact-card-desc">Thinking about handing the channel over? Tell us a bit about you and we'll book a 20-minute call.</p>
+      <span class="acc-contact-card-cta">Start the conversation <em>&rarr;</em></span>
+    </button>
+
+    <button type="button" class="acc-contact-card" data-invoices data-tag="Billing" data-title="Billing &amp; invoices">
+      <span class="acc-contact-card-tag">Billing</span>
+      <h3 class="acc-contact-card-title">Billing &amp; invoices</h3>
+      <p class="acc-contact-card-desc">View every invoice and VAT receipt on your account, or raise a billing query.</p>
+      <span class="acc-contact-card-cta">View invoices <em>&rarr;</em></span>
+    </button>
+
+    <button type="button" class="acc-contact-card" data-form="account_feedback" data-tag="Roadmap" data-title="Feedback &amp; feature ideas">
+      <span class="acc-contact-card-tag">Roadmap</span>
+      <h3 class="acc-contact-card-title">Feedback &amp; feature ideas</h3>
+      <p class="acc-contact-card-desc">Tell us what's getting in your way and what you'd love us to build next. Members shape the roadmap.</p>
+      <span class="acc-contact-card-cta">Share an idea <em>&rarr;</em></span>
+    </button>
+
+    <button type="button" class="acc-contact-card acc-contact-card--soft" data-form="account_press" data-tag="Press" data-title="Press &amp; partnerships">
+      <span class="acc-contact-card-tag">Press</span>
+      <h3 class="acc-contact-card-title">Press &amp; partnerships</h3>
+      <p class="acc-contact-card-desc">Speaking, podcasts, agency partnerships, anything that isn't day-to-day support.</p>
+      <span class="acc-contact-card-cta">Get in touch <em>&rarr;</em></span>
+    </button>
+  </div>
+
+  <footer class="acc-section-foot">
+    <span class="acc-section-foot-tag">Studio hours</span>
+    Mon&ndash;Fri, 09:00&ndash;17:30 GMT. Out of hours, we'll pick it up first thing.
+  </footer>
+
+  <!-- ===== Support request modal ===== -->
+  <div class="cmodal" id="contact-form-modal" hidden>
+    <div class="cmodal-backdrop" data-cmodal-close></div>
+    <div class="cmodal-card" role="dialog" aria-modal="true" aria-labelledby="cmodal-title">
+      <button type="button" class="cmodal-x" data-cmodal-close aria-label="Close">&times;</button>
+      <p class="cmodal-eyebrow" id="cmodal-tag">Contact</p>
+      <h3 class="cmodal-title" id="cmodal-title">How can we help?</h3>
+
+      <form id="contact-form" class="cmodal-form" novalidate>
+        <input type="hidden" name="source" id="contact-source" value="account_general" />
+        <label class="cmodal-field">
+          <span>Your name</span>
+          <input type="text" name="name" id="contact-name" autocomplete="name" required />
+        </label>
+        <label class="cmodal-field">
+          <span>Email</span>
+          <input type="email" name="email" id="contact-email" autocomplete="email" required />
+        </label>
+        <label class="cmodal-field">
+          <span id="contact-msg-label">Your message</span>
+          <textarea name="message" id="contact-message" rows="4" required></textarea>
+        </label>
+        <p class="cmodal-error" id="contact-error" hidden></p>
+        <div class="cmodal-actions">
+          <button type="button" class="cbtn cbtn-ghost" data-cmodal-close>Cancel</button>
+          <button type="submit" class="cbtn cbtn-solid" id="contact-submit">Send <em>&rarr;</em></button>
+        </div>
+      </form>
+
+      <div class="cmodal-success" id="contact-success" hidden>
+        <div class="cmodal-success-mark">&check;</div>
+        <h4>Message sent.</h4>
+        <p>Thanks — it's landed with the team with your account details attached. We'll be in touch shortly.</p>
+        <button type="button" class="cbtn cbtn-solid" data-cmodal-close>Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Invoices modal ===== -->
+  <div class="cmodal" id="invoices-modal" hidden>
+    <div class="cmodal-backdrop" data-cmodal-close></div>
+    <div class="cmodal-card cmodal-card--wide" role="dialog" aria-modal="true" aria-labelledby="invoices-title">
+      <button type="button" class="cmodal-x" data-cmodal-close aria-label="Close">&times;</button>
+      <p class="cmodal-eyebrow">Billing</p>
+      <h3 class="cmodal-title" id="invoices-title">Your invoices</h3>
+      <p class="cmodal-sub">Every pack order on your account. Card payments &amp; downloadable VAT receipts are coming with the Stripe rollout.</p>
+
+      <div class="inv-list" id="inv-list">
+        <p class="inv-state" id="inv-loading">Loading your invoices…</p>
+        <p class="inv-state" id="inv-empty" hidden>No invoices yet — your orders will appear here.</p>
+      </div>
+
+      <div class="cmodal-actions cmodal-actions--split">
+        <button type="button" class="cbtn cbtn-ghost" data-billing-query>Raise a billing query</button>
+        <button type="button" class="cbtn cbtn-solid" data-cmodal-close>Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Make the cards behave as buttons without losing the card look. */
+  button.acc-contact-card {
+    appearance: none;
+    -webkit-appearance: none;
+    font: inherit;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .cmodal {
+    position: fixed; inset: 0; z-index: 400;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .cmodal[hidden] { display: none; }
+  .cmodal-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(20, 18, 26, 0.5);
+    backdrop-filter: blur(3px);
+  }
+  .cmodal-card {
+    position: relative;
+    width: 100%; max-width: 440px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    background: var(--paper);
+    border: 1px solid rgba(28, 29, 34, 0.1);
+    border-radius: 10px;
+    padding: 30px 30px 26px;
+    box-shadow: 0 40px 90px -30px rgba(20, 18, 26, 0.5);
+  }
+  .cmodal-card--wide { max-width: 560px; }
+  .cmodal-x {
+    position: absolute; top: 12px; right: 14px;
+    appearance: none; background: none; border: 0;
+    font-size: 24px; line-height: 1; color: rgba(28,29,34,0.4);
+    cursor: pointer; padding: 4px; transition: color 0.2s;
+  }
+  .cmodal-x:hover { color: var(--ink); }
+  .cmodal-eyebrow {
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--english-violet); margin: 0 0 8px;
+  }
+  .cmodal-title {
+    font-family: var(--serif); font-size: 26px; font-weight: 500;
+    letter-spacing: -0.01em; color: var(--ink); margin: 0 0 6px;
+  }
+  .cmodal-sub {
+    font-family: var(--sans); font-size: 13px; line-height: 1.55;
+    color: rgba(28,29,34,0.6); margin: 0 0 20px;
+  }
+  .cmodal-form { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+  .cmodal-field { display: flex; flex-direction: column; gap: 6px; }
+  .cmodal-field > span {
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55);
+  }
+  .cmodal-field input, .cmodal-field textarea {
+    font-family: var(--sans); font-size: 15px;
+    padding: 11px 13px;
+    border: 1px solid rgba(28, 29, 34, 0.18);
+    border-radius: 5px; background: #fff; color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    resize: vertical;
+  }
+  .cmodal-field input:focus, .cmodal-field textarea:focus {
+    outline: none; border-color: var(--english-violet);
+    box-shadow: 0 0 0 3px rgba(71, 66, 84, 0.12);
+  }
+  .cmodal-error {
+    font-family: var(--sans); font-size: 13px;
+    color: #a23b3b; background: rgba(162, 59, 59, 0.08);
+    border: 1px solid rgba(162, 59, 59, 0.25);
+    padding: 9px 12px; border-radius: 5px; margin: 0;
+  }
+  .cmodal-error[hidden] { display: none; }
+  .cmodal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+  .cmodal-actions--split { justify-content: space-between; }
+
+  .cbtn {
+    appearance: none; cursor: pointer;
+    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 11px 18px; border-radius: 4px;
+    transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.2s;
+  }
+  .cbtn em { font-style: normal; display: inline-block; transition: transform 0.2s; }
+  .cbtn-solid { background: var(--english-violet); color: var(--paper); border: 1px solid var(--english-violet); }
+  .cbtn-solid:hover { background: var(--violet-deep); border-color: var(--violet-deep); }
+  .cbtn-solid:hover em { transform: translateX(3px); }
+  .cbtn-solid[disabled] { opacity: 0.6; cursor: wait; }
+  .cbtn-ghost { background: transparent; color: var(--english-violet); border: 1px solid rgba(71, 66, 84, 0.3); }
+  .cbtn-ghost:hover { background: rgba(71, 66, 84, 0.06); }
+
+  .cmodal-success { text-align: center; padding: 14px 0 6px; }
+  .cmodal-success-mark {
+    width: 52px; height: 52px; margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 999px; font-size: 26px;
+    background: rgba(44, 122, 75, 0.12); color: #2c7a4b;
+  }
+  .cmodal-success h4 { font-family: var(--serif); font-size: 22px; font-weight: 500; margin: 0 0 8px; color: var(--ink); }
+  .cmodal-success p { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.65); margin: 0 0 20px; }
+
+  /* Invoices list */
+  .inv-list { display: flex; flex-direction: column; gap: 1px; background: rgba(28,29,34,0.08); border: 1px solid rgba(28,29,34,0.1); border-radius: 6px; overflow: hidden; margin-bottom: 20px; }
+  .inv-state { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 22px; margin: 0; background: #fff; }
+  .inv-state[hidden] { display: none; }
+  .inv-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 14px; align-items: center;
+    padding: 14px 16px; background: #fff;
+    font-family: var(--sans); font-size: 13px;
+  }
+  .inv-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .inv-row-title { font-weight: 700; color: var(--ink); }
+  .inv-row-meta { font-size: 11px; color: rgba(28,29,34,0.5); }
+  .inv-row-amount { font-family: var(--serif); font-size: 16px; color: var(--ink); }
+  .inv-pill {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px;
+  }
+  .inv-pill.is-paid { color: #2c7a4b; background: rgba(44, 122, 75, 0.1); }
+  .inv-pill.is-gift { color: var(--english-violet); background: rgba(71, 66, 84, 0.1); }
+  .inv-pill.is-other { color: #b78a2e; background: rgba(183, 138, 46, 0.12); }
+  @media (max-width: 520px) {
+    .inv-row { grid-template-columns: 1fr auto; }
+    .inv-row-amount { grid-column: 1 / -1; text-align: left; }
+  }
+</style>
+
+<script>
+  import { supabase } from "../../lib/supabase.js";
+
+  const panel = document.querySelector("[data-contact-panel]");
+  if (panel) {
+    const formModal = document.getElementById("contact-form-modal");
+    const invoicesModal = document.getElementById("invoices-modal");
+    const form = document.getElementById("contact-form");
+    const formSuccess = document.getElementById("contact-success");
+    const errorEl = document.getElementById("contact-error");
+    const nameInput = document.getElementById("contact-name");
+    const emailInput = document.getElementById("contact-email");
+    const sourceInput = document.getElementById("contact-source");
+    const titleEl = document.getElementById("cmodal-title");
+    const tagEl = document.getElementById("cmodal-tag");
+    const submitBtn = document.getElementById("contact-submit");
+
+    let sessionUser = null;
+    let invoicesLoaded = false;
+
+    function gbp(pence) {
+      if (typeof pence !== "number") return "—";
+      if (pence === 0) return "Free";
+      return "£" + (pence / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function fmtDate(iso) {
+      if (!iso) return "";
+      try { return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); }
+      catch (_) { return ""; }
+    }
+    function decode(s) {
+      const t = document.createElement("textarea"); t.innerHTML = s; return t.value;
+    }
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      sessionUser = session ? session.user : null;
+      if (sessionUser) {
+        const meta = sessionUser.user_metadata || {};
+        if (emailInput && !emailInput.value) emailInput.value = sessionUser.email || "";
+        if (nameInput && !nameInput.value) nameInput.value = meta.name || "";
+      }
+    })();
+
+    function openForm({ source, title, tag }) {
+      if (!formModal) return;
+      sourceInput.value = source || "account_general";
+      titleEl.innerHTML = title || "How can we help?";
+      tagEl.innerHTML = tag || "Contact";
+      errorEl.hidden = true;
+      form.hidden = false;
+      formSuccess.hidden = true;
+      // refresh prefill in case the session resolved after first paint
+      if (sessionUser) {
+        const meta = sessionUser.user_metadata || {};
+        if (!emailInput.value) emailInput.value = sessionUser.email || "";
+        if (!nameInput.value) nameInput.value = meta.name || "";
+      }
+      formModal.hidden = false;
+      setTimeout(() => { (nameInput.value ? document.getElementById("contact-message") : nameInput).focus(); }, 40);
+    }
+    function closeModals() {
+      if (formModal) formModal.hidden = true;
+      if (invoicesModal) invoicesModal.hidden = true;
+    }
+
+    async function openInvoices() {
+      if (!invoicesModal) return;
+      invoicesModal.hidden = false;
+      if (invoicesLoaded) return;
+      const listEl = document.getElementById("inv-list");
+      const loadingEl = document.getElementById("inv-loading");
+      const emptyEl = document.getElementById("inv-empty");
+      if (!sessionUser) {
+        if (loadingEl) { loadingEl.textContent = "Sign in to see your invoices."; }
+        return;
+      }
+      const email = sessionUser.email || "";
+      const { data, error } = await supabase
+        .from("orders")
+        .select("invoice_number, pack_title, amount_pence, status, payment_method, created_at")
+        .or(`user_id.eq.${sessionUser.id},buyer_email.eq.${email}`)
+        .order("created_at", { ascending: false });
+
+      invoicesLoaded = true;
+      if (loadingEl) loadingEl.hidden = true;
+      if (error) {
+        if (loadingEl) { loadingEl.hidden = false; loadingEl.textContent = "Couldn't load your invoices — please try again."; }
+        return;
+      }
+      const rows = data || [];
+      if (!rows.length) { if (emptyEl) emptyEl.hidden = false; return; }
+      const html = rows.map((o) => {
+        const pillClass = o.status === "paid"
+          ? (o.payment_method === "gift" ? "is-gift" : "is-paid")
+          : "is-other";
+        const pillText = o.payment_method === "gift" && o.status === "paid" ? "Gifted" : (o.status || "—");
+        return `
+          <div class="inv-row">
+            <div class="inv-row-main">
+              <span class="inv-row-title">${o.pack_title ? String(o.pack_title).replace(/</g, "&lt;") : "Pack order"}</span>
+              <span class="inv-row-meta">${o.invoice_number ? "Invoice " + String(o.invoice_number).replace(/</g, "&lt;") + " · " : ""}${fmtDate(o.created_at)}</span>
+            </div>
+            <span class="inv-pill ${pillClass}">${String(pillText).replace(/</g, "&lt;")}</span>
+            <span class="inv-row-amount">${gbp(o.amount_pence)}</span>
+          </div>`;
+      }).join("");
+      // Insert rows before the (hidden) state messages so they stay in the DOM.
+      const loading = document.getElementById("inv-loading");
+      loading.insertAdjacentHTML("beforebegin", html);
+    }
+
+    // Card clicks
+    panel.querySelectorAll(".acc-contact-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        if (card.hasAttribute("data-invoices")) { openInvoices(); return; }
+        openForm({
+          source: card.getAttribute("data-form"),
+          title: decode(card.getAttribute("data-title") || ""),
+          tag: decode(card.getAttribute("data-tag") || ""),
+        });
+      });
+    });
+
+    // Billing query button inside invoices modal
+    panel.querySelectorAll("[data-billing-query]").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (invoicesModal) invoicesModal.hidden = true;
+        openForm({ source: "account_billing", title: "Billing query", tag: "Billing" });
+      })
+    );
+
+    // Close handlers
+    panel.querySelectorAll("[data-cmodal-close]").forEach((el) =>
+      el.addEventListener("click", closeModals)
+    );
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeModals();
+    });
+
+    // Submit
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.hidden = true;
+      const name = (nameInput.value || "").trim();
+      const email = (emailInput.value || "").trim();
+      const message = (document.getElementById("contact-message").value || "").trim();
+      if (!name || !email || !message) {
+        errorEl.textContent = "Please add your name, email and a short message.";
+        errorEl.hidden = false;
+        return;
+      }
+      const parts = name.split(/\s+/);
+      const first_name = parts.shift() || name;
+      const last_name = parts.join(" ") || null;
+
+      submitBtn.disabled = true;
+      const orig = submitBtn.innerHTML;
+      submitBtn.textContent = "Sending…";
+
+      const { error } = await supabase.from("enquiries").insert({
+        first_name,
+        last_name,
+        email,
+        message,
+        business_name: (sessionUser && sessionUser.user_metadata && sessionUser.user_metadata.company) || null,
+        source: sourceInput.value || "account_general",
+      });
+
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = orig;
+
+      if (error) {
+        errorEl.textContent = "Sorry — we couldn't send that. Please try again.";
+        errorEl.hidden = false;
+        return;
+      }
+      form.hidden = true;
+      formSuccess.hidden = false;
+    });
+  }
+</script>
