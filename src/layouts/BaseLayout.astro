@@ -98,9 +98,9 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
               transition styling lives in global.css. */}
           <style is:inline>
             .pt { position: fixed; inset: 0; z-index: 9500; pointer-events: none; visibility: hidden; }
-            .pt__panel { position: absolute; inset: 0; transform: translateY(-101%); will-change: transform; }
-            .pt__panel--back { background: #474254; }
-            .pt__panel--front { background: #1c1d22; }
+            .pt__panel { position: absolute; top: 0; height: 100%; width: 50%; background: rgba(71, 66, 84, 0.5); will-change: transform; }
+            .pt__panel--left { left: 0; transform: translateY(100%); }
+            .pt__panel--right { left: 50%; transform: translateY(-100%); }
             html.pt-revealing .pt { visibility: visible; }
             html.pt-revealing .pt__panel { transform: translateY(0); }
           </style>
@@ -113,13 +113,14 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
     <slot />
     {!hideFooter && <Footer />}
 
-    {/* Front-end page-transition overlay — two staggered panels. --back
-        (violet) leads, --front (ink) trails, giving the two-bar sweep. */}
+    {/* Front-end page-transition overlay — two even half-width bars. The left
+        bar rises from the bottom, the right bar drops from the top, in
+        parallel; a translucent purple veil lets the page show through. */}
     {
       enableTransition && (
         <div class="pt" id="page-transition" aria-hidden="true">
-          <div class="pt__panel pt__panel--back" />
-          <div class="pt__panel pt__panel--front" />
+          <div class="pt__panel pt__panel--left" />
+          <div class="pt__panel pt__panel--right" />
         </div>
       )
     }

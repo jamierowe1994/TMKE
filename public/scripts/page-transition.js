@@ -11,10 +11,9 @@
   'use strict';
 
   var FLAG = 'tmke:pt';
-  // Must stay in step with the keyframe durations + stagger in global.css.
-  // Cover: front panel ends ~0.8s after a ~0.12s lead — give it a touch of
-  // headroom before navigating so the screen is fully covered.
-  var COVER_MS = 980;
+  // Must stay in step with --pt-cover in global.css. The two bars cover in
+  // parallel (~0.8s); navigate with a touch of headroom so they've fully met.
+  var COVER_MS = 860;
 
   var root = document.documentElement;
   var overlay = document.getElementById('page-transition');
@@ -58,11 +57,10 @@
           overlay.classList.add('is-revealing');
         });
       });
-      // On reveal the ink (front) panel leads out so it must move first; the
-      // violet (back) panel trails and finishes last. Clean up when it ends,
-      // with a safety timeout in case the event is missed.
+      // Both bars reveal in parallel over the same duration; clean up when the
+      // left one ends, with a safety timeout in case the event is missed.
       overlay.addEventListener('animationend', function (e) {
-        if (e.target && e.target.classList.contains('pt__panel--back')) finishReveal();
+        if (e.target && e.target.classList.contains('pt__panel--left')) finishReveal();
       });
       setTimeout(finishReveal, COVER_MS + 400);
     }
