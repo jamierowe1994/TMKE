@@ -1,0 +1,1227 @@
+---
+// Floating "Ask an Expert" chat widget for the Studio.
+// Sits in the bottom-right corner; click to open a chat dialog
+// that POSTs to /api/ask-expert. The endpoint is expected to
+// proxy to an LLM (e.g. Anthropic Claude) and stream back text.
+//
+// Backend contract:
+//   POST /api/ask-expert
+//   Body: { messages: [{ role: 'user'|'assistant', content: string }] }
+//   Returns: { reply: string } or text/event-stream of deltas
+//
+// Since Astro currently builds static, no /api route exists yet.
+// A starter Supabase Edge Function is included at:
+//   supabase/functions/ask-expert/index.ts
+// Deploy it and set ANTHROPIC_API_KEY in the Supabase Functions
+// secrets, then point the fetch URL at the function endpoint.
+---
+
+<button
+  type="button"
+  id="ask-expert-trigger"
+  class="ae-trigger"
+  aria-haspopup="dialog"
+  aria-controls="ask-expert-panel"
+  aria-expanded="false"
+>
+  <span class="ae-trigger-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+    </svg>
+  </span>
+  <span class="ae-trigger-label">Ask an expert</span>
+</button>
+
+<aside
+  id="ask-expert-panel"
+  class="ae-panel"
+  role="dialog"
+  aria-modal="false"
+  aria-labelledby="ae-panel-title"
+  hidden
+>
+  <header class="ae-head">
+    <div>
+      <p class="ae-eyebrow">Studio support</p>
+      <h3 id="ae-panel-title" class="ae-title">Ask an expert</h3>
+    </div>
+    <button type="button" id="ask-expert-close" class="ae-close" aria-label="Close">&times;</button>
+  </header>
+
+  <!-- Two-tab layout: Demos first (most users want a quick walk-
+       through), Chat second for ad-hoc questions. -->
+  <div class="ae-tabs" role="tablist">
+    <button type="button" class="ae-tab is-active" data-tab="demos" role="tab" aria-selected="true">
+      <span aria-hidden="true">&#9758;</span> Live demos
+    </button>
+    <button type="button" class="ae-tab" data-tab="chat" role="tab" aria-selected="false">
+      <span aria-hidden="true">&#9993;</span> Chat to a bot
+    </button>
+  </div>
+
+  <!-- Demos view — the curated quick-pick list. -->
+  <div class="ae-view ae-view--demos is-active" data-view="demos">
+    <p class="ae-view-intro">Tap any of these and we&rsquo;ll walk you through it on screen.</p>
+    <div class="ae-tours-grid" id="ae-tours-grid"></div>
+  </div>
+
+  <!-- Chat view — free-form Q&A with the AI assistant. -->
+  <div class="ae-view ae-view--chat" data-view="chat" hidden>
+    <div id="ae-log" class="ae-log" aria-live="polite">
+      <div class="ae-msg ae-msg--bot">
+        <p>Hi! Ask me anything about the Studio &mdash; I&rsquo;ll explain in plain English. If you&rsquo;d rather see it on screen, switch to <strong>Live demos</strong>.</p>
+      </div>
+    </div>
+
+    <form id="ae-form" class="ae-form">
+      <textarea
+        id="ae-input"
+        class="ae-input"
+        rows="2"
+        placeholder="How do I add my logo to a template?"
+        aria-label="Your question"
+      ></textarea>
+      <button type="submit" class="ae-send" aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </form>
+
+    <p class="ae-foot">Powered by AI &middot; replies may take a few seconds.</p>
+  </div>
+</aside>
+
+<!-- ============================================================
+     Demo overlay — used by the chat to walk users through the
+     editor. Backdrop blurs everything except the highlighted
+     target ("spotlight"); a caption + step controls + animated
+     pointer make it feel like a guided tour.
+     ============================================================ -->
+<div class="ae-tour" id="ae-tour" hidden aria-live="polite">
+  <!-- Pure visual blur. Pointer events stay OFF so it never blocks
+       clicks; the four shields below handle click-blocking around
+       the spotlight, leaving the highlighted area click-through. -->
+  <div class="ae-tour-backdrop"></div>
+
+  <!-- Four shield rectangles surrounding the spotlight. Each is
+       sized/positioned by JS each step. Together they cover the
+       whole viewport EXCEPT the spotlight rectangle, so the only
+       thing the user can click is the highlighted element. -->
+  <div class="ae-tour-shield" id="ae-shield-top"    data-shield="top"></div>
+  <div class="ae-tour-shield" id="ae-shield-bottom" data-shield="bottom"></div>
+  <div class="ae-tour-shield" id="ae-shield-left"   data-shield="left"></div>
+  <div class="ae-tour-shield" id="ae-shield-right"  data-shield="right"></div>
+
+  <div class="ae-tour-spotlight" id="ae-tour-spotlight"></div>
+  <div class="ae-tour-cursor" id="ae-tour-cursor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 2l7.5 18.5 2-7.5 7.5-2L3 2z"/></svg>
+  </div>
+  <div class="ae-tour-card" id="ae-tour-card">
+    <div class="ae-tour-step" id="ae-tour-step">Step 1 of 3</div>
+    <p class="ae-tour-caption" id="ae-tour-caption">&hellip;</p>
+    <div class="ae-tour-actions">
+      <button type="button" class="ae-tour-skip" id="ae-tour-skip">End tour</button>
+      <button type="button" class="ae-tour-next" id="ae-tour-next">Next &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  /* Don't surface Ask an Expert while the Studio is still on its
+     "Pick a pack to open" overlay — a tour fired from that screen
+     would spotlight UI that isn't on screen yet. The overlay
+     element is #ed-onboard; it gets `is-gone` once the user has
+     chosen (or skipped). Hide trigger + panel + tour until then. */
+  body:has(#ed-onboard:not(.is-gone)) .ae-trigger,
+  body:has(#ed-onboard:not(.is-gone)) .ae-panel,
+  body:has(#ed-onboard:not(.is-gone)) .ae-tour {
+    display: none !important;
+  }
+
+  /* ===== Floating trigger — bottom-right of the Studio ===== */
+  .ae-trigger {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 200;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px 14px 16px;
+    background: var(--english-violet);
+    color: var(--paper);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    box-shadow:
+      0 18px 36px -14px rgba(15, 12, 30, 0.55),
+      0 6px 14px -8px rgba(15, 12, 30, 0.30);
+    transition: transform 0.25s cubic-bezier(.2,.7,.2,1), box-shadow 0.25s, background 0.25s;
+  }
+  .ae-trigger:hover {
+    transform: translateY(-2px);
+    background: var(--ink);
+    box-shadow:
+      0 24px 44px -14px rgba(15, 12, 30, 0.65),
+      0 10px 20px -10px rgba(15, 12, 30, 0.35);
+  }
+  .ae-trigger[aria-expanded="true"] {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+  .ae-trigger-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+  }
+  .ae-trigger-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* ===== Chat panel — slides up from bottom-right ===== */
+  .ae-panel {
+    position: fixed;
+    right: 24px;
+    bottom: 92px;
+    z-index: 201;
+    width: min(460px, calc(100vw - 48px));
+    max-height: min(720px, calc(100vh - 140px));
+    display: flex;
+    flex-direction: column;
+    background: var(--paper);
+    border: 1px solid rgba(28, 29, 34, 0.10);
+    border-radius: 14px;
+    box-shadow:
+      0 32px 64px -16px rgba(15, 12, 30, 0.55),
+      0 10px 20px -10px rgba(15, 12, 30, 0.30);
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+    transform-origin: bottom right;
+    transition:
+      opacity 0.3s cubic-bezier(.2,.7,.2,1),
+      transform 0.3s cubic-bezier(.2,.7,.2,1);
+    pointer-events: none;
+  }
+  .ae-panel[hidden] { display: none; }
+  .ae-panel.is-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .ae-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid rgba(28, 29, 34, 0.08);
+  }
+  .ae-eyebrow {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--english-violet);
+  }
+  .ae-title {
+    margin: 4px 0 0;
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .ae-close {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    font-size: 22px;
+    line-height: 1;
+    color: rgba(28, 29, 34, 0.55);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s, color 0.2s;
+  }
+  .ae-close:hover {
+    background: rgba(71, 66, 84, 0.08);
+    color: var(--ink);
+  }
+
+  .ae-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(71,66,84,0.25) transparent;
+  }
+  .ae-msg {
+    max-width: 92%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  /* white-space: pre-wrap so the line breaks Claude returns between
+     "Step 1: …" / "Step 2: …" render as actual visible breaks rather
+     than collapsing into one paragraph. */
+  .ae-msg p {
+    margin: 0 0 8px;
+    white-space: pre-wrap;
+  }
+  .ae-msg p:last-child { margin-bottom: 0; }
+  /* Bold prefix for "Step 1:", "Step 2:" etc. inserted by the renderer. */
+  .ae-msg strong { font-weight: 700; color: var(--english-violet); }
+  .ae-msg--user strong { color: rgba(240, 238, 235, 0.9); }
+  .ae-msg--bot {
+    align-self: flex-start;
+    background: rgba(71, 66, 84, 0.08);
+    color: var(--ink);
+    border-bottom-left-radius: 3px;
+  }
+  .ae-msg--user {
+    align-self: flex-end;
+    background: var(--english-violet);
+    color: var(--paper);
+    border-bottom-right-radius: 3px;
+  }
+  .ae-msg--typing {
+    display: inline-flex;
+    gap: 4px;
+    padding: 12px 14px;
+  }
+  .ae-msg--typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(71, 66, 84, 0.6);
+    animation: aeTyping 1.2s infinite ease-in-out;
+  }
+  .ae-msg--typing span:nth-child(2) { animation-delay: 0.18s; }
+  .ae-msg--typing span:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes aeTyping {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30%           { transform: translateY(-4px); opacity: 1; }
+  }
+  /* ===== Tab strip — Live demos / Chat to a bot ===== */
+  .ae-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid rgba(28, 29, 34, 0.08);
+    padding: 0 14px;
+    flex-shrink: 0;
+  }
+  .ae-tab {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 12px 14px;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(28, 29, 34, 0.45);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .ae-tab:hover { color: var(--ink); }
+  .ae-tab.is-active {
+    color: var(--english-violet);
+    border-bottom-color: var(--english-violet);
+  }
+  .ae-tab span { margin-right: 6px; }
+
+  /* Each view fills the remaining panel height. Only the active one
+     is visible; the chat view has its own internal scroll. */
+  .ae-view {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ae-view[hidden] { display: none; }
+  .ae-view--demos {
+    padding: 18px 22px 22px;
+    overflow-y: auto;
+  }
+  .ae-view-intro {
+    margin: 0 4px 14px;
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(28, 29, 34, 0.65);
+  }
+
+  /* Curated quick-tour list — surfaces the bundled tours so users
+     don't have to phrase a question to discover what's possible. */
+  .ae-tours-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ae-tour-chip {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(71, 66, 84, 0.06);
+    border: 1px solid rgba(71, 66, 84, 0.16);
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--english-violet);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+  }
+  .ae-tour-chip:hover {
+    background: var(--english-violet);
+    color: var(--paper);
+    border-color: var(--english-violet);
+    transform: translateY(-1px);
+  }
+  .ae-tour-chip .ae-tour-chip-arrow {
+    margin-left: auto;
+    transition: transform 0.2s;
+  }
+  .ae-tour-chip:hover .ae-tour-chip-arrow {
+    transform: translateX(3px);
+  }
+
+  .ae-msg--error {
+    background: rgba(184, 130, 106, 0.14);
+    color: #8a4d33;
+    border: 1px solid rgba(184, 130, 106, 0.35);
+    align-self: flex-start;
+  }
+
+  .ae-form {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    padding: 12px 14px;
+    border-top: 1px solid rgba(28, 29, 34, 0.08);
+  }
+  .ae-input {
+    flex: 1;
+    resize: none;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid rgba(28, 29, 34, 0.14);
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .ae-input:focus {
+    outline: none;
+    border-color: var(--english-violet);
+    box-shadow: 0 0 0 3px rgba(71, 66, 84, 0.12);
+  }
+  .ae-send {
+    appearance: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--english-violet);
+    color: var(--paper);
+    border: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+    flex-shrink: 0;
+  }
+  .ae-send:hover { background: var(--ink); transform: translateY(-1px); }
+  .ae-send:disabled { opacity: 0.45; cursor: wait; transform: none; }
+  .ae-send svg { width: 16px; height: 16px; }
+  .ae-foot {
+    margin: 0;
+    padding: 6px 18px 12px;
+    font-family: var(--sans);
+    font-size: 10px;
+    color: rgba(28, 29, 34, 0.45);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ae-trigger, .ae-panel { transition: none; }
+    .ae-msg--typing span { animation: none; }
+  }
+
+  /* ===== Demo overlay ("tour") ===== */
+  .ae-tour {
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    pointer-events: none;
+  }
+  .ae-tour[hidden] { display: none; }
+
+  /* The backdrop element is no longer used for visual effects —
+     the 4 shields handle BOTH the blur and the click-blocking,
+     which leaves the spotlight rectangle completely crystal-clear
+     (no blur, no dim) so it's unambiguous where to click. */
+  .ae-tour-backdrop {
+    display: none;
+  }
+
+  /* Each shield rect covers one band of the viewport around the
+     spotlight (top / bottom / left / right). They each blur + dim
+     their own area; the spotlight rectangle has no shield over it,
+     so it stays fully sharp. */
+  .ae-tour-shield {
+    position: fixed;
+    background: rgba(15, 12, 30, 0.32);
+    backdrop-filter: blur(8px) brightness(0.85);
+    -webkit-backdrop-filter: blur(8px) brightness(0.85);
+    pointer-events: auto;
+    z-index: 1;
+    transition:
+      top 0.45s cubic-bezier(.22,1,.36,1),
+      left 0.45s cubic-bezier(.22,1,.36,1),
+      width 0.45s cubic-bezier(.22,1,.36,1),
+      height 0.45s cubic-bezier(.22,1,.36,1);
+  }
+  /* Spotlight is just the visible ring around the (already clear)
+     target — the dim/blur comes from the four shields. */
+  .ae-tour-spotlight {
+    position: fixed;
+    top: 0; left: 0;
+    width: 0; height: 0;
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 2;
+    box-shadow:
+      0 0 0 3px rgba(255, 255, 255, 0.95),
+      0 0 0 6px rgba(71, 66, 84, 0.7),
+      0 12px 28px -8px rgba(15, 12, 30, 0.6);
+    transition:
+      top 0.45s cubic-bezier(.22,1,.36,1),
+      left 0.45s cubic-bezier(.22,1,.36,1),
+      width 0.45s cubic-bezier(.22,1,.36,1),
+      height 0.45s cubic-bezier(.22,1,.36,1);
+  }
+  .ae-tour-spotlight.is-pulse {
+    animation: aePulse 1.6s cubic-bezier(.2,.7,.2,1) infinite;
+  }
+  @keyframes aePulse {
+    0%, 100% {
+      box-shadow:
+        0 0 0 3px rgba(255, 255, 255, 0.95),
+        0 0 0 6px rgba(71, 66, 84, 0.7),
+        0 12px 28px -8px rgba(15, 12, 30, 0.6);
+    }
+    50% {
+      box-shadow:
+        0 0 0 5px rgba(255, 255, 255, 1),
+        0 0 0 11px rgba(71, 66, 84, 0.9),
+        0 16px 36px -10px rgba(15, 12, 30, 0.7);
+    }
+  }
+
+  /* Animated pointer that flies in to the target. z-index above the
+     shields so the shield's backdrop-filter doesn't blur it. */
+  .ae-tour-cursor {
+    position: fixed;
+    top: 0; left: 0;
+    width: 22px;
+    height: 22px;
+    color: var(--english-violet);
+    filter: drop-shadow(0 4px 8px rgba(15, 12, 30, 0.45));
+    transform: translate3d(-100px, -100px, 0);
+    transition: transform 0.75s cubic-bezier(.22,1,.36,1);
+    pointer-events: none;
+    z-index: 4;
+  }
+  .ae-tour-cursor.is-click::after {
+    content: "";
+    position: absolute;
+    top: -8px; left: -8px;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: 2px solid var(--english-violet);
+    opacity: 0;
+    animation: aeClick 0.5s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes aeClick {
+    0%   { opacity: 0.9; transform: scale(0.3); }
+    100% { opacity: 0;   transform: scale(1.4); }
+  }
+
+  /* Caption card — sits in the corner furthest from the target so it
+     never covers what the user needs to interact with. z-index above
+     the shields so the card itself isn't blurred. */
+  .ae-tour-card {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(360px, calc(100vw - 48px));
+    padding: 18px 20px;
+    background: var(--paper);
+    border: 1px solid rgba(28, 29, 34, 0.10);
+    border-radius: 12px;
+    box-shadow:
+      0 24px 48px -16px rgba(15, 12, 30, 0.55),
+      0 8px 16px -8px rgba(15, 12, 30, 0.30);
+    pointer-events: auto;
+    z-index: 5;
+    transition: top 0.45s cubic-bezier(.22,1,.36,1),
+                left 0.45s cubic-bezier(.22,1,.36,1);
+  }
+  .ae-tour-step {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--english-violet);
+    margin-bottom: 6px;
+  }
+  .ae-tour-caption {
+    margin: 0 0 14px;
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .ae-tour-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .ae-tour-skip,
+  .ae-tour-next {
+    appearance: none;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 8px 14px;
+    transition: background 0.2s, color 0.2s;
+  }
+  .ae-tour-skip {
+    background: transparent;
+    color: rgba(28, 29, 34, 0.55);
+    border: 0;
+  }
+  .ae-tour-skip:hover { color: var(--ink); }
+  .ae-tour-next {
+    background: var(--english-violet);
+    color: var(--paper);
+    border: 0;
+  }
+  .ae-tour-next:hover { background: var(--ink); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ae-tour-backdrop, .ae-tour-spotlight, .ae-tour-cursor, .ae-tour-card {
+      transition: none;
+    }
+    .ae-tour-spotlight.is-pulse { animation: none; }
+  }
+</style>
+
+<script>
+  // Client-side controller for the Ask an Expert widget.
+  // Keeps a rolling conversation in memory and POSTs to the
+  // backend on every send. The fallback when no /api endpoint
+  // exists yet just echoes a friendly stub so the UI is usable
+  // for layout / interaction review.
+  (function setupAskExpert() {
+    const $trigger = document.getElementById("ask-expert-trigger");
+    const $panel   = document.getElementById("ask-expert-panel");
+    const $close   = document.getElementById("ask-expert-close");
+    const $form    = document.getElementById("ae-form");
+    const $input   = document.getElementById("ae-input") as HTMLTextAreaElement | null;
+    const $log     = document.getElementById("ae-log");
+    const $send    = $form ? ($form.querySelector(".ae-send") as HTMLButtonElement | null) : null;
+    if (!$trigger || !$panel || !$form || !$input || !$log) return;
+
+    const history: { role: "user" | "assistant"; content: string }[] = [];
+
+    function openPanel() {
+      $panel.hidden = false;
+      requestAnimationFrame(() => {
+        $panel.classList.add("is-open");
+        $trigger.setAttribute("aria-expanded", "true");
+        // Only auto-focus the chat input if the chat tab is the one
+        // currently visible — otherwise we'd snap focus across views.
+        const chatView = $panel.querySelector<HTMLDivElement>('.ae-view[data-view="chat"]');
+        if (chatView && !chatView.hidden) $input.focus();
+      });
+    }
+    function closePanel() {
+      $panel.classList.remove("is-open");
+      $trigger.setAttribute("aria-expanded", "false");
+      setTimeout(() => {
+        if (!$panel.classList.contains("is-open")) $panel.hidden = true;
+      }, 320);
+    }
+
+    // Tiny "markdown-lite" — preserves the line breaks Claude emits
+    // and bolds the "Step 1:" / "Step 2:" prefixes the system prompt
+    // asks for. Anything else is treated as plain text (escaped).
+    function escapeHtml(s: string): string {
+      return s.replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c] as string));
+    }
+    function renderReply(text: string): string {
+      const escaped = escapeHtml(text);
+      // Bold any "Step N:" / "Step N." prefix at the start of a line.
+      return escaped.replace(
+        /(^|\n)(Step\s+\d+[:.])/g,
+        '$1<strong>$2</strong>'
+      );
+    }
+    function append(role: "user" | "assistant" | "error", text: string): HTMLDivElement {
+      const div = document.createElement("div");
+      div.className = "ae-msg ae-msg--" + (role === "user" ? "user" : role === "error" ? "error" : "bot");
+      const p = document.createElement("p");
+      // Bot replies get the lightweight formatter; user / error stay plain.
+      if (role === "assistant") p.innerHTML = renderReply(text);
+      else p.textContent = text;
+      div.appendChild(p);
+      $log.appendChild(div);
+      $log.scrollTop = $log.scrollHeight;
+      return div;
+    }
+    function appendTyping(): HTMLDivElement {
+      const div = document.createElement("div");
+      div.className = "ae-msg ae-msg--bot ae-msg--typing";
+      div.innerHTML = "<span></span><span></span><span></span>";
+      $log.appendChild(div);
+      $log.scrollTop = $log.scrollHeight;
+      return div;
+    }
+
+    // Backend URL — points at the Supabase Edge Function in production
+    // (set PUBLIC_ASK_EXPERT_URL in .env / Railway vars) or falls back
+    // to a same-origin /api route when an SSR adapter is configured.
+    const BACKEND_URL =
+      (import.meta.env.PUBLIC_ASK_EXPERT_URL as string | undefined) ||
+      "/api/ask-expert";
+
+    async function askBackend(messages: typeof history): Promise<string> {
+      try {
+        const res = await fetch(BACKEND_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ messages }),
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        return data.reply || "(no reply)";
+      } catch (err) {
+        // No backend yet — return a stub so the UI is usable.
+        return (
+          "I'm not wired up to the AI service yet — but when I am, I'll " +
+          "walk you through whatever you're trying to do. In the meantime, " +
+          "drop us a line at hello@tmke.co.uk and we'll get you sorted."
+        );
+      }
+    }
+
+    $trigger.addEventListener("click", () => {
+      if ($panel.hidden) openPanel();
+      else closePanel();
+    });
+    $close.addEventListener("click", closePanel);
+
+    // Tab switching — Live demos / Chat to a bot
+    const $tabs  = $panel.querySelectorAll<HTMLButtonElement>(".ae-tab");
+    const $views = $panel.querySelectorAll<HTMLDivElement>(".ae-view");
+    function switchTab(name: string) {
+      $tabs.forEach((t) => {
+        const match = t.dataset.tab === name;
+        t.classList.toggle("is-active", match);
+        t.setAttribute("aria-selected", match ? "true" : "false");
+      });
+      $views.forEach((v) => {
+        const match = v.dataset.view === name;
+        v.hidden = !match;
+        v.classList.toggle("is-active", match);
+      });
+      if (name === "chat") $input.focus();
+    }
+    $tabs.forEach((t) => {
+      t.addEventListener("click", () => switchTab(t.dataset.tab || "demos"));
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !$panel.hidden) closePanel();
+    });
+
+    $form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = $input.value.trim();
+      if (!text) return;
+      append("user", text);
+      history.push({ role: "user", content: text });
+      $input.value = "";
+      $input.style.height = "";
+      if ($send) $send.disabled = true;
+      const $typing = appendTyping();
+      const reply = await askBackend(history);
+      $typing.remove();
+      // Reply may contain a ```demo ... ``` fenced JSON block with a
+      // guided tour. Strip it from the visible chat message; pass the
+      // parsed steps to the tour runner.
+      const { prose, steps } = splitDemo(reply);
+      append("assistant", prose);
+      history.push({ role: "assistant", content: reply });
+      if ($send) $send.disabled = false;
+      if (steps && steps.length) startTour(steps);
+    });
+
+    // ===== Curated tours =====
+    // Hand-written walk-throughs of the most common Studio tasks.
+    // Surfaced as quick-pick chips in the chat panel — no AI round-trip,
+    // no risk of hallucinated targets. Each entry uses the same step
+    // schema the AI demo block uses, so the same runner plays them.
+    // Tour step rules:
+    //   - default: clicking the spotlighted target advances the step
+    //   - awaitNext: true  ->  user must hit "Next →" (use for steps
+    //     where any panel click would advance prematurely, e.g. while
+    //     the user is uploading a file)
+    const CURATED_TOURS: { label: string; steps: TourStep[] }[] = [
+      {
+        label: "Add my logo",
+        steps: [
+          { target: "uploads-tool", caption: "Click Uploads in the left rail." },
+          { target: "panel",        caption: "Upload your logo here — drop a file in or hit 'Click to upload'. When it appears in the panel, press Next.", awaitNext: true },
+          { target: "panel",        caption: "Now click your logo thumbnail to drop it onto your design." },
+          { target: "canvas",       caption: "Drag your logo where you want it on the canvas. Press Next when you're happy.", awaitNext: true },
+        ],
+      },
+      {
+        label: "Change brand colours",
+        steps: [
+          { target: "brand-tool", caption: "Click Brand in the left rail." },
+          { target: "panel",      caption: "Your saved colours live here. Click any one to apply it to the selected element on your canvas." },
+        ],
+      },
+      {
+        label: "Add a text block",
+        steps: [
+          { target: "text-tool", caption: "Click Text in the left rail." },
+          { target: "panel",     caption: "Pick a heading, subheading or body style — click it to drop it on the canvas." },
+          { target: "canvas",    caption: "Double-click the text on the canvas to start typing. Press Next when you're done.", awaitNext: true },
+        ],
+      },
+      {
+        label: "Add a photo",
+        steps: [
+          { target: "photos-tool", caption: "Click Photos in the left rail." },
+          { target: "panel",       caption: "Search the library or upload your own photo. When you've added it to the canvas, press Next.", awaitNext: true },
+        ],
+      },
+      {
+        label: "Change the background",
+        steps: [
+          { target: "background-tool", caption: "Click Background in the left rail." },
+          { target: "panel",           caption: "Pick a colour, gradient or photo for the page background." },
+        ],
+      },
+      {
+        label: "Schedule this post",
+        steps: [
+          { target: "schedule", caption: "Click Schedule in the top-right of the toolbar." },
+          { target: "stage",    caption: "Pick a date and time, then submit. We'll email you a reminder the morning it's due to go out. Press Next when you're done.", awaitNext: true },
+        ],
+      },
+      {
+        label: "Resize the canvas",
+        steps: [
+          { target: "resize-tool", caption: "Click Resize at the bottom of the left rail." },
+          { target: "panel",       caption: "Pick a format — Instagram post, story, reel — and we'll resize the canvas for you." },
+        ],
+      },
+      {
+        label: "Undo a mistake",
+        steps: [
+          { target: "undo", caption: "This is Undo. Hit it (or press Ctrl+Z) any time to step back. Press Next to see Redo.", awaitNext: true },
+          { target: "redo", caption: "Changed your mind? Redo is right next to it (Ctrl+Shift+Z). Press Finish when you're done.", awaitNext: true },
+        ],
+      },
+    ];
+
+    // ===== Demo tour runner =====
+    // Parses a ```demo JSON``` block out of the assistant reply and
+    // walks the user through the editor: blur + spotlight + caption
+    // + animated pointer + click animation, one step at a time.
+    interface TourStep {
+      target: string;
+      caption: string;
+      action?: "click" | "hover" | "look" | "type";
+      duration?: number;
+      // When true, the step does NOT advance on a click on the target.
+      // The user has to press "Next →" explicitly. Use for multi-action
+      // steps like "upload a file then click the thumbnail" where any
+      // click inside the panel would advance prematurely.
+      awaitNext?: boolean;
+    }
+    // The named keys Claude is told to use, mapped to actual selectors
+    // in the editor. Adding new tour vocabulary = add an entry here AND
+    // mention the key in the system prompt.
+    const TARGET_SELECTORS: Record<string, string> = {
+      "brand-tool":      '[data-tool="brand"]',
+      "elements-tool":   '[data-tool="elements"]',
+      "text-tool":       '[data-tool="text"]',
+      "photos-tool":     '[data-tool="photos"]',
+      "uploads-tool":    '[data-tool="uploads"]',
+      "background-tool": '[data-tool="background"]',
+      "layers-tool":     '[data-tool="layers"]',
+      "resize-tool":     '[data-tool="resize"]',
+      "panel":           "#ed-panel",
+      "canvas":          "#ed-canvas",
+      "stage":           "#ed-stage",
+      "filename":        "#ed-filename, .ed-filename input, .ed-filename",
+      "undo":            "#ed-undo",
+      "redo":            "#ed-redo",
+      "zoom":            "#ed-zoom-display",
+      "share":           "#ed-share",
+      "schedule":        "#ed-schedule",
+      "topbar":          ".ed-topbar",
+      "rail":            ".ed-rail",
+    };
+
+    function splitDemo(reply: string): { prose: string; steps: TourStep[] | null } {
+      const fence = /```demo\s*([\s\S]*?)```/i;
+      const m = reply.match(fence);
+      if (!m) return { prose: reply.trim(), steps: null };
+      const prose = reply.replace(fence, "").trim();
+      let steps: TourStep[] | null = null;
+      try {
+        const parsed = JSON.parse(m[1].trim());
+        if (Array.isArray(parsed)) {
+          steps = parsed.filter((s) => s && typeof s.target === "string" && typeof s.caption === "string");
+        }
+      } catch (_) { /* ignore — show prose only */ }
+      return { prose, steps: steps && steps.length ? steps : null };
+    }
+
+    function resolveTarget(key: string): HTMLElement | null {
+      const sel = TARGET_SELECTORS[key];
+      if (!sel) return null;
+      return document.querySelector(sel) as HTMLElement | null;
+    }
+
+    // Tour state
+    const $tour       = document.getElementById("ae-tour");
+    const $spot       = document.getElementById("ae-tour-spotlight");
+    const $cursor     = document.getElementById("ae-tour-cursor");
+    const $card       = document.getElementById("ae-tour-card");
+    const $stepLabel  = document.getElementById("ae-tour-step");
+    const $caption    = document.getElementById("ae-tour-caption");
+    const $next       = document.getElementById("ae-tour-next");
+    const $skip       = document.getElementById("ae-tour-skip");
+    const $shieldTop  = document.getElementById("ae-shield-top");
+    const $shieldBot  = document.getElementById("ae-shield-bottom");
+    const $shieldLft  = document.getElementById("ae-shield-left");
+    const $shieldRgt  = document.getElementById("ae-shield-right");
+    let currentTour: TourStep[] = [];
+    let stepIdx = -1;
+    let stepTimer: number | null = null;
+    // Cached click-listener so we can remove it cleanly between steps.
+    let stepClickHandler: ((e: Event) => void) | null = null;
+    let stepClickTarget: HTMLElement | null = null;
+
+    // Move the 4 shield rectangles so they fully cover the viewport
+    // except for the spotlight rect. Clicks anywhere outside the
+    // spotlight are silently swallowed; clicks inside go through to
+    // the real underlying element. Pass null to make every shield
+    // cover the full viewport (no click-through).
+    function positionShields(rect: DOMRect | null) {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      if (!rect) {
+        [$shieldTop, $shieldBot, $shieldLft, $shieldRgt].forEach((s) => {
+          if (!s) return;
+          s.style.top = "0"; s.style.left = "0";
+          s.style.width = vw + "px"; s.style.height = vh + "px";
+        });
+        return;
+      }
+      // Top band: full width, from 0 down to the spotlight top
+      if ($shieldTop) {
+        $shieldTop.style.top    = "0px";
+        $shieldTop.style.left   = "0px";
+        $shieldTop.style.width  = vw + "px";
+        $shieldTop.style.height = Math.max(0, rect.top) + "px";
+      }
+      // Bottom band: full width, from spotlight bottom to viewport bottom
+      if ($shieldBot) {
+        $shieldBot.style.top    = rect.bottom + "px";
+        $shieldBot.style.left   = "0px";
+        $shieldBot.style.width  = vw + "px";
+        $shieldBot.style.height = Math.max(0, vh - rect.bottom) + "px";
+      }
+      // Left band: between top and bottom shields
+      if ($shieldLft) {
+        $shieldLft.style.top    = rect.top + "px";
+        $shieldLft.style.left   = "0px";
+        $shieldLft.style.width  = Math.max(0, rect.left) + "px";
+        $shieldLft.style.height = rect.height + "px";
+      }
+      // Right band: between top and bottom shields
+      if ($shieldRgt) {
+        $shieldRgt.style.top    = rect.top + "px";
+        $shieldRgt.style.left   = rect.right + "px";
+        $shieldRgt.style.width  = Math.max(0, vw - rect.right) + "px";
+        $shieldRgt.style.height = rect.height + "px";
+      }
+    }
+
+    // Detach the previous step's click-to-advance listener (if any).
+    function clearStepClick() {
+      if (stepClickTarget && stepClickHandler) {
+        stepClickTarget.removeEventListener("click", stepClickHandler, true);
+      }
+      stepClickHandler = null;
+      stepClickTarget = null;
+    }
+
+    function startTour(steps: TourStep[]) {
+      if (!$tour) return;
+      // Tuck the chat panel out of the way so it doesn't sit on top of
+      // whatever we're highlighting.
+      closePanel();
+      currentTour = steps;
+      stepIdx = -1;
+      $tour.hidden = false;
+      // Force layout, then advance to step 0.
+      requestAnimationFrame(() => advanceTour(0));
+    }
+
+    // Render the curated quick-pick chips at the top of the chat log.
+    const $toursGrid = document.getElementById("ae-tours-grid");
+    if ($toursGrid) {
+      $toursGrid.innerHTML = CURATED_TOURS.map((t, i) =>
+        `<button type="button" class="ae-tour-chip" data-tour-idx="${i}">` +
+          `<span>${t.label}</span>` +
+          `<span class="ae-tour-chip-arrow" aria-hidden="true">&rarr;</span>` +
+        `</button>`
+      ).join("");
+      $toursGrid.addEventListener("click", (e) => {
+        const btn = (e.target as HTMLElement).closest(".ae-tour-chip") as HTMLElement | null;
+        if (!btn) return;
+        const idx = Number(btn.getAttribute("data-tour-idx"));
+        const tour = CURATED_TOURS[idx];
+        if (tour) startTour(tour.steps);
+      });
+    }
+
+    function endTour() {
+      currentTour = [];
+      stepIdx = -1;
+      if (stepTimer) { clearTimeout(stepTimer); stepTimer = null; }
+      clearStepClick();
+      if ($tour) $tour.hidden = true;
+      if ($spot) $spot.classList.remove("is-pulse");
+      if ($cursor) $cursor.classList.remove("is-click");
+    }
+
+    function advanceTour(idx: number) {
+      if (idx >= currentTour.length) return endTour();
+      stepIdx = idx;
+      // Reset any prior step's click listener + timer before kicking
+      // off the new one.
+      clearStepClick();
+      if (stepTimer) { clearTimeout(stepTimer); stepTimer = null; }
+
+      const step = currentTour[idx];
+      const total = currentTour.length;
+      if ($stepLabel) $stepLabel.textContent = "Step " + (idx + 1) + " of " + total;
+      if ($caption) $caption.textContent = step.caption;
+      if ($next) {
+        // Always available, but the tour is click-driven first —
+        // the user almost never needs to use Next manually.
+        $next.textContent = (idx + 1 === total) ? "Finish" : "Next →";
+      }
+
+      const el = resolveTarget(step.target);
+      if (!el) {
+        // Target missing — show caption centered without spotlight and
+        // shield the whole page so a stray click doesn't fire anything.
+        if ($spot) {
+          $spot.style.width = "0px";
+          $spot.style.height = "0px";
+        }
+        positionShields(null);
+        positionCard(null);
+        return;
+      }
+      // Make sure the target is in view before measuring it.
+      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      // Wait for the smooth scroll to settle before measuring + placing
+      // the spotlight.
+      window.setTimeout(() => {
+        const r = el.getBoundingClientRect();
+        const pad = 8;
+        // Spotlight rect for the visible ring, with padding around the
+        // target. The shield rects use the SAME rect (without padding)
+        // so the clickable area precisely matches the target.
+        if ($spot) {
+          $spot.style.top    = (r.top - pad) + "px";
+          $spot.style.left   = (r.left - pad) + "px";
+          $spot.style.width  = (r.width + pad * 2) + "px";
+          $spot.style.height = (r.height + pad * 2) + "px";
+          $spot.classList.add("is-pulse");
+        }
+        positionShields(r);
+        positionCard(r);
+        flyCursorTo(r, /* doClick */ false);
+
+        // Click-driven advancement — the user clicks the highlighted
+        // thing and we advance ~420ms later (page handlers settle).
+        // "End tour" / Esc bail out at any time; "Next →" is a manual
+        // fallback if they're just reading.
+        // Multi-action steps (awaitNext: true) skip the click listener
+        // entirely — those require explicit Next so an early click on
+        // the panel doesn't fire while the user is still mid-action
+        // (e.g. uploading a file).
+        if (!step.awaitNext) {
+          stepClickTarget = el;
+          stepClickHandler = (_e: Event) => {
+            // Tiny delay so the page's own handler can open whatever
+            // panel it needs before we measure the next target.
+            window.setTimeout(() => {
+              if (stepIdx === idx) advanceTour(idx + 1);
+            }, 420);
+          };
+          el.addEventListener("click", stepClickHandler, true);
+        }
+      }, 320);
+    }
+
+    // Place the card in the viewport CORNER furthest from the target's
+    // centre, so it never sits on top of the thing the user needs to
+    // interact with (or the panel that's about to open next to it).
+    // Four corner anchors; we pick whichever sits furthest from the
+    // target centre.
+    function positionCard(targetRect: DOMRect | null) {
+      if (!$card) return;
+      if (!targetRect) {
+        $card.style.top = "50%";
+        $card.style.left = "50%";
+        $card.style.transform = "translate(-50%, -50%)";
+        return;
+      }
+      const cardW = $card.offsetWidth || 360;
+      const cardH = $card.offsetHeight || 160;
+      const margin = 24;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const tcx = targetRect.left + targetRect.width / 2;
+      const tcy = targetRect.top + targetRect.height / 2;
+
+      const corners = [
+        { top: margin,              left: margin                       },
+        { top: margin,              left: Math.max(margin, vw - cardW - margin) },
+        { top: Math.max(margin, vh - cardH - margin), left: margin     },
+        { top: Math.max(margin, vh - cardH - margin), left: Math.max(margin, vw - cardW - margin) },
+      ];
+
+      let best = corners[0];
+      let bestDist = -1;
+      corners.forEach((c) => {
+        const ccx = c.left + cardW / 2;
+        const ccy = c.top + cardH / 2;
+        const dx = ccx - tcx;
+        const dy = ccy - tcy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > bestDist) {
+          bestDist = dist;
+          best = c;
+        }
+      });
+
+      $card.style.top = best.top + "px";
+      $card.style.left = best.left + "px";
+      $card.style.transform = "none";
+    }
+
+    function flyCursorTo(rect: DOMRect, doClick: boolean) {
+      if (!$cursor) return;
+      const x = rect.left + rect.width / 2 - 6;
+      const y = rect.top + rect.height / 2 - 4;
+      $cursor.style.transform = "translate3d(" + x + "px, " + y + "px, 0)";
+      if (doClick) {
+        window.setTimeout(() => {
+          $cursor.classList.remove("is-click");
+          // Re-trigger animation
+          void $cursor.offsetWidth;
+          $cursor.classList.add("is-click");
+        }, 780);
+      }
+    }
+
+    $next?.addEventListener("click", () => advanceTour(stepIdx + 1));
+    $skip?.addEventListener("click", endTour);
+    document.addEventListener("keydown", (e) => {
+      if ($tour && !$tour.hidden) {
+        if (e.key === "Escape") endTour();
+        else if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          advanceTour(stepIdx + 1);
+        }
+      }
+    });
+    window.addEventListener("resize", () => {
+      // Re-place spotlight + shields if a tour is running.
+      if (stepIdx >= 0 && currentTour[stepIdx]) {
+        const el = resolveTarget(currentTour[stepIdx].target);
+        if (el && $spot) {
+          const r = el.getBoundingClientRect();
+          const pad = 8;
+          $spot.style.top    = (r.top - pad) + "px";
+          $spot.style.left   = (r.left - pad) + "px";
+          $spot.style.width  = (r.width + pad * 2) + "px";
+          $spot.style.height = (r.height + pad * 2) + "px";
+          positionShields(r);
+          positionCard(r);
+        }
+      }
+    });
+
+    // Auto-grow textarea so multi-line questions fit.
+    $input.addEventListener("input", () => {
+      $input.style.height = "";
+      $input.style.height = Math.min($input.scrollHeight, 120) + "px";
+    });
+
+    // Submit on Enter (Shift+Enter inserts a newline).
+    $input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        $form.requestSubmit();
+      }
+    });
+  })();
+</script>

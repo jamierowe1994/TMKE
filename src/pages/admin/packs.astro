@@ -68,6 +68,37 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
   <div class="catalogue-toast" id="catalogue-toast" hidden></div>
 
+  <!-- Gift-a-pack modal: drops a pack into someone's library as a £0 order. -->
+  <div class="gift-modal" id="gift-modal" hidden>
+    <div class="gift-modal-backdrop" data-gift-close></div>
+    <div class="gift-modal-card" role="dialog" aria-modal="true" aria-labelledby="gift-modal-title">
+      <button type="button" class="gift-modal-x" data-gift-close aria-label="Close">&times;</button>
+      <p class="gift-modal-eyebrow">Gift a pack</p>
+      <h2 class="gift-modal-title" id="gift-modal-title">Gift &ldquo;<span id="gift-pack-name"></span>&rdquo;</h2>
+      <p class="gift-modal-sub">
+        Drops this pack straight into someone&rsquo;s library as a &pound;0 order &mdash;
+        no payment needed. Use it to set up an example client or comp a customer.
+      </p>
+
+      <label class="gift-field">
+        <span>Recipient email</span>
+        <input type="email" id="gift-email" list="gift-email-list" placeholder="name@company.co.uk" autocomplete="off" />
+        <datalist id="gift-email-list"></datalist>
+      </label>
+      <label class="gift-field">
+        <span>Recipient name <em>(optional)</em></span>
+        <input type="text" id="gift-name" placeholder="e.g. Danielle" autocomplete="off" />
+      </label>
+
+      <p class="gift-error" id="gift-error" hidden></p>
+
+      <div class="gift-actions">
+        <button type="button" class="admin-btn admin-btn-ghost" data-gift-close>Cancel</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="gift-confirm">Gift this pack &rarr;</button>
+      </div>
+    </div>
+  </div>
+
   <style is:global>
     /* ============ Catalogue (admin) ============ */
     body:has(.catalogue-top) { background: var(--paper); }
@@ -469,6 +500,74 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     }
     .catalogue-toast[hidden] { display: none; }
 
+    /* ----- Gift-a-pack modal ----- */
+    .gift-modal {
+      position: fixed; inset: 0; z-index: 300;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .gift-modal[hidden] { display: none; }
+    .gift-modal-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(20, 18, 26, 0.55);
+      backdrop-filter: blur(3px);
+    }
+    .gift-modal-card {
+      position: relative;
+      width: 100%; max-width: 440px;
+      background: var(--paper);
+      border: 1px solid rgba(71, 66, 84, 0.2);
+      border-radius: 8px;
+      padding: 32px 32px 28px;
+      box-shadow: 0 40px 90px -30px rgba(20, 18, 26, 0.55);
+    }
+    .gift-modal-x {
+      position: absolute; top: 14px; right: 16px;
+      appearance: none; background: none; border: 0;
+      font-size: 22px; line-height: 1; color: rgba(28,29,34,0.45);
+      cursor: pointer; padding: 4px; transition: color 0.2s;
+    }
+    .gift-modal-x:hover { color: var(--ink); }
+    .gift-modal-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.24em; text-transform: uppercase;
+      color: var(--english-violet); margin: 0 0 8px;
+    }
+    .gift-modal-title {
+      font-family: var(--serif); font-size: 26px; font-weight: 500;
+      letter-spacing: -0.01em; color: var(--ink); margin: 0 0 8px;
+    }
+    .gift-modal-sub {
+      font-family: var(--sans); font-size: 13px; line-height: 1.55;
+      color: rgba(28,29,34,0.6); margin: 0 0 22px;
+    }
+    .gift-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .gift-field > span {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: rgba(28,29,34,0.55);
+    }
+    .gift-field > span em { font-style: normal; font-weight: 500; color: rgba(28,29,34,0.4); letter-spacing: 0.04em; }
+    .gift-field input {
+      font-family: var(--sans); font-size: 15px;
+      padding: 11px 13px;
+      border: 1px solid rgba(71, 66, 84, 0.28);
+      border-radius: 4px; background: #fff; color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .gift-field input:focus {
+      outline: none; border-color: var(--english-violet);
+      box-shadow: 0 0 0 3px rgba(71, 66, 84, 0.12);
+    }
+    .gift-error {
+      font-family: var(--sans); font-size: 13px;
+      color: #a23b3b; background: rgba(162, 59, 59, 0.08);
+      border: 1px solid rgba(162, 59, 59, 0.25);
+      padding: 9px 12px; border-radius: 4px; margin: 0 0 16px;
+    }
+    .gift-error[hidden] { display: none; }
+    .gift-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+
     @media (max-width: 720px) {
       .catalogue-top { padding: 32px 22px 12px; }
       .catalogue-controls { padding: 14px 22px; }
@@ -562,6 +661,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         ? `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-restore="${p.id}">Restore</button>`
         : `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-archive="${p.id}">Archive</button>`;
       const editBtn = `<a href="${editHref}" class="admin-btn admin-btn-primary admin-btn-sm" data-edit="${p.id}">Edit</a>`;
+      const giftBtn = `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-gift="${p.id}">Gift</button>`;
 
       if (view === "list") {
         return `
@@ -575,7 +675,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
             <div class="pack-meta">${escapeHtml(p.category || "—")}</div>
             ${statusPill}
             <div class="pack-price">${gbpFromPence(p.price_pence)}</div>
-            <div class="pack-actions">${editBtn} ${archiveOrRestore}</div>
+            <div class="pack-actions">${giftBtn} ${editBtn} ${archiveOrRestore}</div>
           </article>
         `;
       }
@@ -592,7 +692,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
             </div>
             <h3 class="pack-title">${escapeHtml(p.title)}</h3>
             <p class="pack-desc">${escapeHtml(p.description || "")}</p>
-            <div class="pack-actions">${editBtn} ${archiveOrRestore}</div>
+            <div class="pack-actions">${giftBtn} ${editBtn} ${archiveOrRestore}</div>
           </div>
         </article>
       `;
@@ -736,6 +836,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       if (!session) return;
       syncInitialUI();
       await loadPacks();
+      loadCustomerEmails();
     })();
 
     // Filter chips
@@ -775,6 +876,107 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       if (archiveId) { e.preventDefault(); archivePack(archiveId); return; }
       const restoreId = target.getAttribute("data-restore");
       if (restoreId) { e.preventDefault(); restorePack(restoreId); return; }
+      const giftId = target.getAttribute("data-gift");
+      if (giftId) { e.preventDefault(); openGift(giftId); return; }
+    });
+
+    // ===== Gift a pack =====
+    // Lets an admin drop a pack into someone's library as a £0 "paid" order,
+    // so it shows up in their /account library without a real purchase.
+    let customerEmails = [];
+    let giftPackId = null;
+
+    async function loadCustomerEmails() {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("buyer_email")
+        .eq("status", "paid");
+      if (error) return;
+      customerEmails = [...new Set((data || []).map((o) => o.buyer_email).filter(Boolean))].sort();
+      const list = document.getElementById("gift-email-list");
+      if (list) list.innerHTML = customerEmails.map((e) => `<option value="${escapeHtml(e)}"></option>`).join("");
+    }
+
+    const giftModal = document.getElementById("gift-modal");
+    const giftEmailInput = document.getElementById("gift-email");
+    const giftNameInput = document.getElementById("gift-name");
+    const giftConfirmBtn = document.getElementById("gift-confirm");
+    const giftErrorEl = document.getElementById("gift-error");
+
+    function showGiftError(msg) {
+      if (!giftErrorEl) return;
+      giftErrorEl.textContent = msg;
+      giftErrorEl.hidden = false;
+    }
+
+    function openGift(id) {
+      const pack = allPacks.find((p) => p.id === id);
+      if (!pack || !giftModal) return;
+      giftPackId = id;
+      const nameEl = document.getElementById("gift-pack-name");
+      if (nameEl) nameEl.textContent = pack.title;
+      if (giftErrorEl) giftErrorEl.hidden = true;
+      if (giftEmailInput) giftEmailInput.value = "";
+      if (giftNameInput) giftNameInput.value = "";
+      giftModal.hidden = false;
+      setTimeout(() => giftEmailInput && giftEmailInput.focus(), 40);
+    }
+
+    function closeGift() {
+      if (giftModal) giftModal.hidden = true;
+      giftPackId = null;
+    }
+
+    async function confirmGift() {
+      const pack = allPacks.find((p) => p.id === giftPackId);
+      if (!pack) return;
+      const email = (giftEmailInput.value || "").trim().toLowerCase();
+      const name = (giftNameInput.value || "").trim();
+      if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        showGiftError("Enter a valid email address for the recipient.");
+        return;
+      }
+      if (giftErrorEl) giftErrorEl.hidden = true;
+      giftConfirmBtn.disabled = true;
+      giftConfirmBtn.textContent = "Gifting…";
+
+      const { error } = await supabase.from("orders").insert({
+        pack_id: pack.id,
+        pack_slug: pack.slug,
+        pack_title: pack.title,
+        amount_pence: 0,
+        buyer_name: name || email.split("@")[0],
+        buyer_email: email,
+        buyer_company: "",
+        payment_method: "gift",
+        payment_ref: "gift_" + Date.now(),
+        status: "paid",
+      });
+
+      giftConfirmBtn.disabled = false;
+      giftConfirmBtn.textContent = "Gift this pack →";
+
+      if (error) {
+        showGiftError(error.message || "Couldn't gift the pack. Please try again.");
+        return;
+      }
+      if (!customerEmails.includes(email)) {
+        customerEmails.push(email);
+        customerEmails.sort();
+        const list = document.getElementById("gift-email-list");
+        if (list) list.innerHTML = customerEmails.map((e) => `<option value="${escapeHtml(e)}"></option>`).join("");
+      }
+      closeGift();
+      toast(`Gifted “${pack.title}” to ${email}.`);
+    }
+
+    giftConfirmBtn?.addEventListener("click", confirmGift);
+    giftEmailInput?.addEventListener("keydown", (e) => { if (e.key === "Enter") confirmGift(); });
+    document.querySelectorAll("[data-gift-close]").forEach((el) =>
+      el.addEventListener("click", closeGift)
+    );
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && giftModal && !giftModal.hidden) closeGift();
     });
   </script>
 </BaseLayout>

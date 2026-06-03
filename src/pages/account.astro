@@ -1,6 +1,12 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import DashSidebar from "../components/account/DashSidebar.astro";
+import ContactPanel from "../components/account/ContactPanel.astro";
+import ServicesPanel from "../components/account/ServicesPanel.astro";
+import GuidesPanel from "../components/account/GuidesPanel.astro";
+import BlogPanel from "../components/account/BlogPanel.astro";
 import "../styles/workspace.css";
+import "../styles/account-sections.css";
 ---
 
 <BaseLayout
@@ -9,44 +15,21 @@ import "../styles/workspace.css";
   hideNav
   hideFooter
 >
-  <!-- Logged-in header. Replaces the global nav once a user has signed in
-       so /account feels like an app surface, not a marketing page. -->
-  <header class="app-header">
-    <a href="/account" class="app-logo">TMKE</a>
-    <nav class="app-header-nav" aria-label="Workspace">
-      <a href="/account" class="app-header-link is-active">Workspace</a>
-      <a href="/editor" class="app-header-link">Studio</a>
-      <button type="button" class="app-header-link app-header-btn" id="open-shop" aria-haspopup="dialog">Browse packs</button>
-      <a href="/account/orders" class="app-header-link">Orders</a>
-      <div class="app-header-dd">
-        <button type="button" class="app-header-link app-header-btn" aria-haspopup="menu" aria-expanded="false">
-          Resources <span aria-hidden="true">▾</span>
-        </button>
-        <div class="app-dd-menu" role="menu">
-          <a href="/services" role="menuitem">
-            <strong>Managed Socials</strong>
-            <span>Hand the channel over.</span>
-          </a>
-          <a href="/blog" role="menuitem">
-            <strong>The Blog</strong>
-            <span>Insights for property marketers.</span>
-          </a>
-          <a href="/contact" role="menuitem">
-            <strong>Contact the team</strong>
-            <span>Get a same-day reply.</span>
-          </a>
-        </div>
-      </div>
-      <a href="/profile" class="app-header-link">Brand kit</a>
-    </nav>
-    <button type="button" id="app-signout" class="app-signout">Sign out</button>
-  </header>
+  <!-- /account uses a left sidebar instead of the shared top header.
+       The same sidebar is reused on every signed-in workspace page so
+       the chrome stays put and the right column behaves like a tab. -->
+  <div class="dash-shell">
+    <DashSidebar active="workspace" />
 
-  <main class="app-main">
+    <main class="app-main dash-main">
+    <!-- Each dash-view is one "tab" in the right column. Only the
+         active one is shown; sidebar links toggle which is visible.
+         No page reload, no drawer overlay. -->
+    <div class="dash-view is-active" data-view="workspace">
     <!-- Welcome hero — 2-column with decorative photo on the right.
          The greeting line below is set client-side based on the
          current hour (Good morning / afternoon / evening). -->
-    <section class="welcome welcome--hero fade-up" data-delay="1">
+    <section class="welcome welcome--hero slide-down" data-d="2">
       <div class="welcome-content">
         <p class="welcome-eyebrow">Workspace</p>
         <h1 class="welcome-h" id="welcome-h">Welcome back, <em>let's get to work.</em></h1>
@@ -57,13 +40,29 @@ import "../styles/workspace.css";
           <span class="welcome-pill"><strong id="pill-spend">£0</strong> lifetime spend</span>
         </div>
       </div>
-      <div class="welcome-art" aria-hidden="true">
-        <img src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
+      <div class="welcome-art" id="welcome-art" data-mode="loading">
+        <img id="welcome-art-img" src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
+        <!-- Contextual overlay — populated by rotateWelcomeArt().
+             Three states:
+               · pack    → "Our newest pack" + Browse-this-pack CTA
+               · fresh   → "Start something new" + Jump-into-Studio pill
+                          (used when the image is a template preview, not
+                           one of the user's own exported designs)
+               · design  → no overlay (the exported asset already carries
+                          their branding so it speaks for itself) -->
+        <div class="welcome-art-overlay" id="welcome-art-overlay" hidden>
+          <span class="welcome-art-eyebrow" id="welcome-art-eyebrow"></span>
+          <span class="welcome-art-headline" id="welcome-art-headline"></span>
+          <a class="welcome-art-pill" id="welcome-art-cta" href="#" hidden>
+            <span id="welcome-art-cta-label">Jump into a new design</span>
+            <em aria-hidden="true">&rarr;</em>
+          </a>
+        </div>
       </div>
     </section>
 
     <!-- Stats row -->
-    <section class="stats fade-up" data-delay="2" aria-label="Your TMKE at a glance">
+    <section class="stats slide-up" data-d="4" aria-label="Your TMKE at a glance">
       <article class="stat">
         <div class="stat-label">Active packs</div>
         <div class="stat-value" id="stat-packs">—</div>
@@ -86,8 +85,47 @@ import "../styles/workspace.css";
       </article>
     </section>
 
+    <!-- Two-up row: Upcoming list on the left, members-blog feature
+         on the right. Each half is a self-contained card. The week
+         strip JS still targets #up-grid / #up-label / #up-prev etc.
+         so the underlying calendar bootstrap is unchanged. -->
+    <section class="dash-pair slide-up" data-d="5" aria-label="This week and what to read">
+      <article id="upcoming" class="dash-pair-card upcoming-card" aria-labelledby="upcoming-h">
+        <header class="dash-pair-head">
+          <span class="dash-pair-eyebrow">This week</span>
+          <h3 id="upcoming-h" class="dash-pair-title">What you've got going out</h3>
+        </header>
+
+        <nav class="upcoming-nav upcoming-nav--compact" aria-label="Week navigation">
+          <div class="upcoming-nav-side">
+            <button type="button" class="upcoming-nav-btn" id="up-prev" aria-label="Previous week">&larr;</button>
+            <button type="button" class="upcoming-nav-today" id="up-today">This week</button>
+          </div>
+          <div class="upcoming-nav-label" id="up-label">&mdash;</div>
+          <div class="upcoming-nav-side" style="justify-content:flex-end;">
+            <button type="button" class="upcoming-nav-btn" id="up-next" aria-label="Next week">&rarr;</button>
+          </div>
+        </nav>
+
+        <div id="up-grid" class="upcoming-grid"></div>
+        <p id="up-state" class="lib-state" hidden></p>
+      </article>
+
+      <a class="dash-pair-card dash-blog-feature" href="/account/blog#instagram-algo-2026" data-view="blog">
+        <div class="dash-blog-feature-art" style="background-image:url('/assets/social-media.png')">
+          <span class="dash-blog-feature-flag">Members only</span>
+        </div>
+        <div class="dash-blog-feature-body">
+          <span class="dash-pair-eyebrow">Inside The Edit &middot; 6 min read</span>
+          <h3 class="dash-pair-title">What just changed in the Instagram ranking signal &mdash; and what to do this week</h3>
+          <p class="dash-blog-feature-desc">Instagram quietly bumped the weight of "shares to non-followers" in mid-May. For property accounts that's a bigger deal than it sounds.</p>
+          <span class="dash-blog-feature-cta">Read the piece <em>&rarr;</em></span>
+        </div>
+      </a>
+    </section>
+
     <!-- Library -->
-    <section id="library" class="library fade-up" data-delay="3" aria-labelledby="library-h">
+    <section id="library" class="library slide-up" data-d="6" aria-labelledby="library-h">
       <header class="section-head">
         <h2 id="library-h" class="section-h">Your library</h2>
         <p class="section-sub">Packs you've purchased from The Edit. <button type="button" class="inline-link" data-shop>Add another pack &rarr;</button></p>
@@ -104,29 +142,37 @@ import "../styles/workspace.css";
     </section>
 
     <!-- Drafts (from localStorage) -->
-    <section id="drafts" class="drafts fade-up" data-delay="4" aria-labelledby="drafts-h" hidden>
+    <section id="drafts" class="drafts slide-up" data-d="7" aria-labelledby="drafts-h" hidden>
       <header class="section-head">
         <h2 id="drafts-h" class="section-h">Designs in progress</h2>
         <p class="section-sub">Drafts saved in this browser. Open one to keep going.</p>
       </header>
       <div id="drafts-grid" class="drafts-grid"></div>
     </section>
+    </div><!-- /dash-view[data-view="workspace"] -->
 
-    <!-- Account footer -->
-    <footer class="app-foot">
-      <div class="app-foot-block">
-        <div class="app-foot-tag">Signed in as</div>
-        <strong id="footer-email">…</strong>
-      </div>
+    <!-- Sibling views — Contact / Services / Guides / Blog. Hidden
+         until the matching sidebar link is clicked. The same panel
+         components also render on the standalone /account/<section>
+         pages, so deep links still work. -->
+    <div class="dash-view" data-view="services" hidden><ServicesPanel /></div>
+    <div class="dash-view" data-view="guides" hidden><GuidesPanel /></div>
+    <div class="dash-view" data-view="blog" hidden><BlogPanel /></div>
+    <div class="dash-view" data-view="contact" hidden><ContactPanel /></div>
+
+    <!-- Account footer — kept lightweight; signed-in chip + sign-out
+         now live in the sidebar; this row is just contact info. -->
+    <footer class="app-foot dash-foot">
       <div class="app-foot-block">
         <div class="app-foot-tag">Help</div>
         <a href="/contact">hello@tmke.co.uk</a>
       </div>
       <div class="app-foot-block app-foot-block--right">
-        <button type="button" id="app-signout-foot" class="app-signout">Sign out</button>
+        <strong id="footer-email" class="dash-foot-email">&hellip;</strong>
       </div>
     </footer>
-  </main>
+    </main>
+  </div>
 
   <!-- Browse packs modal — triggered from the header. Stays inside the
        workspace so customers don't bounce out to the marketing storefront. -->
@@ -155,11 +201,360 @@ import "../styles/workspace.css";
     </div>
   </div>
 
+<!-- Left-edge "Calendar" tab. Persistent on workspace pages; click
+       to open the month-view drawer below. -->
+  <button type="button" class="cal-tab" id="cal-tab-trigger" aria-haspopup="dialog" aria-controls="cal-popup">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    <span class="cal-tab-label">Calendar</span>
+    <span class="cal-tab-count" id="cal-tab-count" hidden>0</span>
+  </button>
+
+  <!-- Month-view pop-out drawer. Slides in from the left when the
+       Calendar tab is clicked. Shares chip styling with the upcoming-
+       week strip so the two read as one feature. -->
+  <div class="cal-popup-backdrop" id="cal-popup" hidden role="dialog" aria-modal="true" aria-labelledby="cal-popup-title">
+    <aside class="cal-popup" aria-label="Content calendar">
+      <header class="cal-popup-head">
+        <h2 class="cal-popup-title" id="cal-popup-title">—</h2>
+        <div class="cal-popup-controls">
+          <button type="button" class="cal-popup-nav" id="cal-popup-prev" aria-label="Previous month">&larr;</button>
+          <button type="button" class="cal-popup-today" id="cal-popup-today">Today</button>
+          <button type="button" class="cal-popup-nav" id="cal-popup-next" aria-label="Next month">&rarr;</button>
+        </div>
+        <a href="/account/schedule" class="cal-popup-expand">Open full &rarr;</a>
+        <button type="button" class="cal-popup-close" id="cal-popup-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="cal-popup-weekhead" aria-hidden="true">
+        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+      </div>
+      <div id="cal-popup-grid" class="cal-popup-grid" role="grid" aria-labelledby="cal-popup-title"></div>
+      <p id="cal-popup-state" class="cal-popup-state" hidden></p>
+    </aside>
+  </div>
+
   <style is:global>
     /* ---------- /account-specific styles ----------
        Shared workspace shell (header, footer, welcome, section heads,
        order rows, etc.) lives in src/styles/workspace.css. Only the
        account-landing-specific bits stay here. */
+
+    /* Dashboard shell / sidebar CSS lives in account-sections.css
+       so it's shared with every signed-in workspace page. */
+
+    /* When welcome-art is showing an unowned pack it doubles as a
+       "discover this pack" CTA — lift on hover so it reads clickable. */
+    #welcome-art-img[data-pack-slug] {
+      transition: transform 0.4s cubic-bezier(.2,.7,.2,1);
+    }
+    #welcome-art-img[data-pack-slug]:hover {
+      transform: scale(1.03);
+    }
+
+    /* ---------- Welcome-art overlay ----------
+       Sits over the bottom of the welcome-art photo and explains what
+       the user is looking at. Three modes (set via [data-mode] on the
+       wrapper):
+         · pack      → "Our newest pack — just launched." + Browse pill
+         · fresh     → "Start something new." + Jump-into-Studio pill
+         · exported  → no overlay (user's own design speaks for itself)
+       Tint colour shifts per mode so the two states feel distinct. */
+    .welcome-art {
+      /* Already position: relative from workspace.css; this is a no-op
+         marker so anyone reading these styles sees it's an overlay
+         anchor. */
+      isolation: isolate;
+    }
+    .welcome-art-overlay {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 18px 20px 18px;
+      color: var(--paper);
+      background: linear-gradient(
+        180deg,
+        rgba(20, 16, 28, 0) 0%,
+        rgba(20, 16, 28, 0.55) 55%,
+        rgba(20, 16, 28, 0.86) 100%
+      );
+      transition: opacity 0.5s cubic-bezier(.2,.7,.2,1),
+                  transform 0.5s cubic-bezier(.2,.7,.2,1);
+    }
+    .welcome-art-overlay > * { pointer-events: auto; }
+    /* Starting state is set inline by JS so the fade-in is guaranteed
+       to run after the image swap regardless of HMR cascade timing. */
+    .welcome-art-eyebrow {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(240, 238, 235, 0.75);
+    }
+    .welcome-art[data-mode="pack"] .welcome-art-eyebrow {
+      color: var(--violet-soft);
+    }
+    .welcome-art-headline {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(15px, 1.4vw, 19px);
+      line-height: 1.25;
+      letter-spacing: -0.005em;
+      color: var(--paper);
+      max-width: 90%;
+    }
+    .welcome-art-pill {
+      align-self: flex-start;
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px 9px 18px;
+      background: var(--paper);
+      color: var(--violet-deep);
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border-radius: 14px;
+      box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.6);
+      transition: transform 0.3s cubic-bezier(.2,.7,.2,1),
+                  background 0.25s, color 0.25s, box-shadow 0.25s;
+    }
+    .welcome-art-pill:hover,
+    .welcome-art-pill:focus-visible {
+      transform: translateY(-1px);
+      background: var(--english-violet, var(--violet-deep));
+      color: var(--paper);
+      box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.7);
+    }
+    .welcome-art-pill em {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+      letter-spacing: 0;
+      text-transform: none;
+      line-height: 1;
+    }
+    @media (max-width: 880px) {
+      .welcome-art-overlay { padding: 14px 16px; gap: 4px; }
+      .welcome-art-headline { font-size: 14px; }
+      .welcome-art-pill { font-size: 10px; padding: 8px 14px; letter-spacing: 0.16em; }
+    }
+
+    /* ---------- Dashboard "this week + members blog" pair ---------- */
+    .dash-pair {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+    @media (max-width: 980px) { .dash-pair { grid-template-columns: 1fr; } }
+
+    .dash-pair-card {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px 26px 24px;
+      background: #fff;
+      border: 1px solid rgba(28, 29, 34, 0.08);
+      border-radius: 14px;
+      box-shadow:
+        0 10px 24px -16px rgba(71, 66, 84, 0.22),
+        0 2px 6px -3px rgba(28, 29, 34, 0.08);
+      min-height: 340px;
+      overflow: hidden;
+    }
+    .dash-pair-head { display: flex; flex-direction: column; gap: 4px; }
+    .dash-pair-eyebrow {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .dash-pair-title {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    /* Compact upcoming nav inside the half-width card */
+    .upcoming-card .upcoming-nav {
+      margin: 0 0 4px;
+      padding: 10px 14px;
+      box-shadow: none;
+      background: rgba(71, 66, 84, 0.06);
+      border-color: rgba(71, 66, 84, 0.14);
+    }
+    .upcoming-card .upcoming-nav-label { font-size: 15px; }
+    .upcoming-card .upcoming-nav-btn { width: 26px; height: 26px; font-size: 12px; }
+    .upcoming-card .upcoming-nav-today { padding: 4px 10px; font-size: 9px; }
+    /* Inside the half-width card the week renders as a stacked list
+       of days, not a 7-column strip. Day cells flow vertically. */
+    .upcoming-card .upcoming-grid {
+      grid-template-columns: 1fr;
+      gap: 6px;
+      max-height: 360px;
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .upcoming-card .upcoming-grid::-webkit-scrollbar { width: 0; display: none; }
+    .upcoming-card .upcoming-day {
+      flex-direction: row;
+      align-items: center;
+      gap: 14px;
+      min-height: 0;
+      padding: 10px 14px;
+    }
+
+    /* Members-blog feature on the right of the pair */
+    .dash-blog-feature {
+      padding: 0;
+      text-decoration: none;
+      color: var(--ink);
+      transition: transform 0.3s cubic-bezier(.2,.7,.2,1), box-shadow 0.3s;
+    }
+    .dash-blog-feature:hover {
+      transform: translateY(-3px);
+      box-shadow:
+        0 22px 44px -16px rgba(71, 66, 84, 0.40),
+        0 8px 16px -8px rgba(28, 29, 34, 0.18);
+    }
+    .dash-blog-feature-art {
+      position: relative;
+      min-height: 200px;
+      background-size: cover;
+      background-position: center;
+      background-color: var(--english-violet);
+    }
+    .dash-blog-feature-flag {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      padding: 5px 12px;
+      background: rgba(15, 12, 30, 0.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: var(--paper);
+      border-radius: 999px;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .dash-blog-feature-body {
+      padding: 22px 26px 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+    .dash-blog-feature-desc {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      color: rgba(28, 29, 34, 0.66);
+      flex: 1;
+    }
+    .dash-blog-feature-cta {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--english-violet);
+    }
+    .dash-blog-feature-cta em { font-style: normal; display: inline-block; transition: transform 0.25s; }
+    .dash-blog-feature:hover .dash-blog-feature-cta em { transform: translateX(4px); }
+
+    /* ---------- Entry animation ----------
+       Reads as the page being assembled in front of the user. Sidebar
+       cascades in first, then the welcome hero drops in with a soft
+       overshoot, then each content section rises up on its own beat.
+       Triggered when body gets .is-loaded (set after the session check).
+       Disabled for prefers-reduced-motion. */
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-60px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes slideDown {
+      0%   { opacity: 0; transform: translateY(-80px) scale(0.97); }
+      70%  { opacity: 1; }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(56px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-in-left { opacity: 0; transform: translateX(-60px); }
+    .slide-down    { opacity: 0; transform: translateY(-80px) scale(0.97); }
+    .slide-up      { opacity: 0; transform: translateY(56px); }
+
+    body.is-loaded .slide-in-left {
+      animation: slideInLeft 1.2s cubic-bezier(.16,.78,.28,1) both;
+    }
+    body.is-loaded .slide-down {
+      /* Slight overshoot easing so the hero "lands" rather than slides */
+      animation: slideDown 1.5s cubic-bezier(.2,1.05,.35,1) both;
+    }
+    body.is-loaded .slide-up {
+      animation: slideUp 1.3s cubic-bezier(.16,.78,.28,1) both;
+    }
+
+    /* Explicit per-element timing per animation type so different parts
+       arrive at different rates (rather than a uniform 70ms march).
+
+       Sidebar — cascades 0 -> 1.21s at 110ms per item:
+         logo (0.00s) -> Workspace link -> ... -> Contact (1.10s)
+         -> Signed-in chip + sign-out (1.21s)
+       Welcome drops in mid-cascade (0.45s) so the chrome and the
+       headline arrive together.
+       Content sections then rise up one at a time after the welcome
+       has settled. */
+    body.is-loaded .slide-in-left[data-d="0"]  { animation-delay: 0.00s; }
+    body.is-loaded .slide-in-left[data-d="1"]  { animation-delay: 0.14s; }
+    body.is-loaded .slide-in-left[data-d="2"]  { animation-delay: 0.28s; }
+    body.is-loaded .slide-in-left[data-d="3"]  { animation-delay: 0.42s; }
+    body.is-loaded .slide-in-left[data-d="4"]  { animation-delay: 0.56s; }
+    body.is-loaded .slide-in-left[data-d="5"]  { animation-delay: 0.70s; }
+    body.is-loaded .slide-in-left[data-d="6"]  { animation-delay: 0.84s; }
+    body.is-loaded .slide-in-left[data-d="7"]  { animation-delay: 0.98s; }
+    body.is-loaded .slide-in-left[data-d="8"]  { animation-delay: 1.12s; }
+    body.is-loaded .slide-in-left[data-d="9"]  { animation-delay: 1.26s; }
+    body.is-loaded .slide-in-left[data-d="10"] { animation-delay: 1.40s; }
+    body.is-loaded .slide-in-left[data-d="11"] { animation-delay: 1.54s; }
+    body.is-loaded .slide-in-left[data-d="12"] { animation-delay: 1.68s; }
+
+    body.is-loaded .slide-down { animation-delay: 0.55s; }
+
+    body.is-loaded .slide-up[data-d="4"] { animation-delay: 1.70s; }
+    body.is-loaded .slide-up[data-d="5"] { animation-delay: 2.10s; }
+    body.is-loaded .slide-up[data-d="6"] { animation-delay: 2.50s; }
+    body.is-loaded .slide-up[data-d="7"] { animation-delay: 2.90s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .slide-in-left, .slide-down, .slide-up {
+        opacity: 1; transform: none; animation: none !important;
+      }
+    }
+
 
     /* ---------- Stats ---------- */
     .stats {
@@ -176,7 +571,7 @@ import "../styles/workspace.css";
       background: #fff;
       border: 1px solid rgba(28,29,34,0.06);
       border-top: 3px solid var(--violet-deep);
-      border-radius: 8px;
+      border-radius: 14px;
       min-height: 150px;
       box-shadow:
         0 10px 24px -14px rgba(46, 31, 84, 0.22),
@@ -227,7 +622,7 @@ import "../styles/workspace.css";
       padding: 40px 36px;
       background: #fff;
       border: 1px dashed rgba(46, 31, 84, 0.35);
-      border-radius: 8px;
+      border-radius: 14px;
       box-shadow:
         0 10px 24px -14px rgba(46, 31, 84, 0.18),
         0 2px 6px -3px rgba(28, 29, 34, 0.08);
@@ -255,7 +650,7 @@ import "../styles/workspace.css";
       padding: 20px;
       background: #fff;
       border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 8px;
+      border-radius: 14px;
       box-shadow:
         0 10px 24px -14px rgba(46, 31, 84, 0.22),
         0 2px 6px -3px rgba(28, 29, 34, 0.10);
@@ -266,7 +661,7 @@ import "../styles/workspace.css";
       background-size: cover;
       background-position: center;
       background-color: var(--platinum);
-      border-radius: 4px;
+      border-radius: 14px;
     }
     .pack-row-cover-tag {
       position: absolute; top: 10px; left: 10px;
@@ -315,7 +710,7 @@ import "../styles/workspace.css";
       color: var(--paper);
       border: 0;
       padding: 11px 18px;
-      border-radius: 4px;
+      border-radius: 14px;
       font-family: var(--sans);
       font-size: 11px;
       font-weight: 700;
@@ -383,7 +778,7 @@ import "../styles/workspace.css";
       padding: 18px 20px;
       background: #fff;
       border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 8px;
+      border-radius: 14px;
       text-decoration: none;
       color: var(--ink);
       box-shadow:
@@ -457,10 +852,14 @@ import "../styles/workspace.css";
         0 -28px 80px -20px rgba(0, 0, 0, 0.5),
         0 -2px 6px -4px rgba(46, 31, 84, 0.25);
       overflow-y: auto;
+      /* Scroll stays functional; just hide the visible scrollbar. */
+      scrollbar-width: none;              /* Firefox */
+      -ms-overflow-style: none;           /* legacy Edge / IE */
       transform: translateY(100%);        /* off-screen until .is-open */
       /* Slow elastic-ish ease — gives the "we spent time on this" feel */
       transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
     }
+    .shop::-webkit-scrollbar { width: 0; height: 0; display: none; } /* Chrome / Safari */
     .shop-backdrop.is-open .shop { transform: translateY(0); }
 
     /* Subtle drag-handle hint at the top of the drawer */
@@ -542,7 +941,7 @@ import "../styles/workspace.css";
       cursor: pointer;
       background: #fff;
       border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 8px;
+      border-radius: 14px;
       overflow: hidden;
       transition:
         border-color 0.25s,
@@ -648,7 +1047,7 @@ import "../styles/workspace.css";
       background-size: cover;
       background-position: center;
       background-color: var(--platinum);
-      border-radius: 6px;
+      border-radius: 14px;
       box-shadow: 0 20px 50px -20px rgba(46, 31, 84, 0.35);
     }
     .shop-detail-body { display: flex; flex-direction: column; gap: 14px; }
@@ -698,7 +1097,7 @@ import "../styles/workspace.css";
       color: var(--paper);
       border: 0;
       padding: 14px 24px;
-      border-radius: 4px;
+      border-radius: 14px;
       font-family: var(--sans);
       font-size: 12px;
       font-weight: 700;
@@ -741,10 +1140,12 @@ import "../styles/workspace.css";
   <script>
     import { supabase, gbpFromPence } from '../lib/supabase.js';
     import { maybeStartTour } from '../lib/tour.js';
+    import * as cal from '../lib/calendar.js';
 
     const $welcomeH = document.getElementById('welcome-h');
     const $welcomeSub = document.getElementById('welcome-sub');
     const $footerEmail = document.getElementById('footer-email');
+    const $sidebarEmail = document.getElementById('sidebar-email');
     const $statPacks = document.getElementById('stat-packs');
     const $statDesigns = document.getElementById('stat-designs');
     const $statSpend = document.getElementById('stat-spend');
@@ -782,6 +1183,44 @@ import "../styles/workspace.css";
     document.getElementById('app-signout')?.addEventListener('click', signOut);
     document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
 
+    // ===== In-place view swap (Workspace / Contact / Services / Guides / Blog) =====
+    // Sidebar links with [data-view="<name>"] swap which .dash-view is
+    // visible in the right column. The sidebar itself stays put; only
+    // the main content changes. Workspace is the default view.
+    // Each link's href still points to the standalone /account/<section>
+    // page so middle-click / cmd-click "Open in new tab" still works.
+    (function setupDashViewSwap() {
+      const $views = document.querySelectorAll('.dash-view');
+      // Scope to actually-clickable elements with data-view; the shop
+      // modal also uses [data-view] on its <section> grid/detail
+      // elements and we don't want to swap on those.
+      const $links = document.querySelectorAll('a[data-view], button[data-view]');
+      if (!$views.length || !$links.length) return;
+
+      function switchView(name) {
+        $views.forEach(function (v) {
+          const match = v.getAttribute('data-view') === name;
+          v.hidden = !match;
+          v.classList.toggle('is-active', match);
+        });
+        $links.forEach(function (a) {
+          a.classList.toggle('is-active', a.getAttribute('data-view') === name);
+        });
+        // Reset scroll so the new view starts at the top.
+        const main = document.querySelector('.dash-main');
+        if (main) main.scrollTop = 0;
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
+
+      $links.forEach(function (el) {
+        el.addEventListener('click', function (e) {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+          e.preventDefault();
+          switchView(el.getAttribute('data-view'));
+        });
+      });
+    })();
+
     // Local drafts — anything in localStorage under `tmke.editor.<id>`.
     function readLocalDrafts() {
       const drafts = [];
@@ -793,12 +1232,191 @@ import "../styles/workspace.css";
           try {
             const v = JSON.parse(localStorage.getItem(key) || 'null');
             if (!v) continue;
-            drafts.push({ id, filename: v.filename || id, savedAt: v.savedAt || 0 });
+            drafts.push({ id, filename: v.filename || id, savedAt: v.savedAt || 0, thumb: v.thumb || null });
           } catch (_) {}
         }
       } catch (_) {}
       drafts.sort((a, b) => b.savedAt - a.savedAt);
       return drafts;
+    }
+
+    // Guaranteed fallback pool — six curated property / lifestyle
+    // photos so the welcome-art ALWAYS has something to rotate to,
+    // even for a fresh account with no orders, no drafts and no
+    // scheduled posts. Hot-linked from Unsplash (same source as
+    // the template library), 1080x1350 portrait crop.
+    const WELCOME_ART_FALLBACK = [
+      'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1080&h=1350&q=80',
+      'https://images.unsplash.com/photo-1567016432779-094069958ea5?auto=format&fit=crop&w=1080&h=1350&q=80',
+    ];
+
+    // Pick a "design" image — what the user has actually been working on.
+    // Priority:
+    //   1. Posts they've scheduled in /account/schedule (real rendered output)
+    //   2. Drafts with thumbnails (work saved but not scheduled yet)
+    //   3. Preview images from packs they ALREADY own (their library —
+    //      not "their" designs but they bought them, so still useful as
+    //      a "your stuff" stand-in until real designs exist)
+    //   4. Curated Unsplash fallback so SOMETHING surfaces even on a
+    //      brand-new account.
+    function pickDesignUrl(scheduled, drafts, ownedPacksWithImages) {
+      // Source tagging lets the welcome-art overlay decide whether to
+      // show the "Jump into a new design" pill. Exported scheduled
+      // assets already carry the user's branding, so they need no pill;
+      // pack previews / fallback photos do, because they're generic.
+      const pools = { scheduled: [], draft: [], owned: [], fallback: WELCOME_ART_FALLBACK };
+      (scheduled || []).forEach((s) => {
+        const url = s.thumbnail_url || s.asset_url;
+        if (url) pools.scheduled.push(url);
+      });
+      (drafts || []).forEach((d) => { if (d.thumb) pools.draft.push(d.thumb); });
+      (ownedPacksWithImages || []).forEach((p) => {
+        const previews = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
+        if (previews.length) pools.owned.push(...previews);
+        else if (p.cover_image_url) pools.owned.push(p.cover_image_url);
+      });
+
+      const order = ['scheduled', 'draft', 'owned', 'fallback'];
+      for (const key of order) {
+        const pool = pools[key];
+        if (pool && pool.length) {
+          return { url: pool[Math.floor(Math.random() * pool.length)], source: key };
+        }
+      }
+      // pools.fallback always has entries so we never get here.
+      return { url: WELCOME_ART_FALLBACK[0], source: 'fallback' };
+    }
+
+    // Pick a pack the user does NOT already own. Returns { url, slug, id }
+    // so the click handler can deep-link into the browse modal at the
+    // matching pack detail view. Returns null if every available pack is
+    // already owned (or none are loaded yet).
+    function pickUnownedPack(allPacks, ownedIds) {
+      const unowned = (allPacks || []).filter((p) => !ownedIds.has(p.id));
+      if (!unowned.length) return null;
+      const p = unowned[Math.floor(Math.random() * unowned.length)];
+      const previews = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
+      const url = previews.length ? previews[Math.floor(Math.random() * previews.length)] : p.cover_image_url;
+      if (!url) return null;
+      return { url, slug: p.slug, id: p.id, title: p.title || '' };
+    }
+
+    // Welcome-art rotation. Alternates each load between a "design"
+    // image and an "unowned pack" image — tracked via localStorage so a
+    // refresh on the same machine swaps to the other type. The pack
+    // image is clickable: clicking it opens the Browse packs modal at
+    // the matching pack detail view.
+    function rotateWelcomeArt({ scheduled, drafts, allPacks, ownedIds }) {
+      const $art      = document.getElementById('welcome-art-img');
+      const $wrap     = document.getElementById('welcome-art');
+      const $overlay  = document.getElementById('welcome-art-overlay');
+      const $eyebrow  = document.getElementById('welcome-art-eyebrow');
+      const $headline = document.getElementById('welcome-art-headline');
+      const $cta      = document.getElementById('welcome-art-cta');
+      const $ctaLbl   = document.getElementById('welcome-art-cta-label');
+      if (!$art) return;
+      let last = null;
+      try { last = localStorage.getItem('tmke.welcome.last'); } catch (_) {}
+
+      const ownedPacks = (allPacks || []).filter((p) => (ownedIds || new Set()).has(p.id));
+      const designPick = pickDesignUrl(scheduled, drafts, ownedPacks);
+      const packPick   = pickUnownedPack(allPacks, ownedIds || new Set());
+
+      // If only one source is available we use it and skip the toggle.
+      let mode;
+      if (!designPick && !packPick) return;
+      else if (!designPick) mode = 'pack';
+      else if (!packPick)   mode = 'design';
+      else                  mode = (last === 'design') ? 'pack' : 'design';
+
+      const url = mode === 'pack' ? packPick.url : designPick.url;
+      // The image source is exported (= already has user's branding) only
+      // when it came from a scheduled / rendered asset.
+      const isExportedDesign = mode === 'design' && designPick.source === 'scheduled';
+
+      // Decide overlay shape up-front so the JS reads as one decision.
+      // overlayState = { hidden, eyebrow, headline, cta: { label, href, view? } | null }
+      let overlayState;
+      if (mode === 'pack') {
+        const title = packPick.title || 'New in the shop';
+        overlayState = {
+          hidden: false,
+          eyebrow: 'Our newest pack',
+          headline: title + ' — just launched.',
+          cta: { label: 'Take a look', href: '#shop', action: 'shop' },
+        };
+      } else if (isExportedDesign) {
+        // Their own rendered design — show their work, no nudge needed.
+        overlayState = { hidden: true };
+      } else {
+        // Generic preview from an owned pack / draft / fallback photo —
+        // nudge them into the studio with a pill.
+        const isDraft = designPick.source === 'draft';
+        overlayState = {
+          hidden: false,
+          eyebrow: isDraft ? 'Pick up where you left off' : 'Start something new',
+          headline: isDraft ? 'Continue your draft.' : 'Make this yours in the Studio.',
+          cta: { label: isDraft ? 'Open in Studio' : 'Jump into a new design', href: '/editor' },
+        };
+      }
+
+      const next = new Image();
+      next.onload = () => {
+        $art.src = url;
+        if (mode === 'pack') {
+          $art.dataset.packSlug = packPick.slug;
+          $art.dataset.packId   = packPick.id;
+          $art.style.cursor     = 'pointer';
+          $art.setAttribute('title', 'Browse this pack');
+        } else {
+          delete $art.dataset.packSlug;
+          delete $art.dataset.packId;
+          $art.style.cursor   = '';
+          $art.removeAttribute('title');
+        }
+        if ($wrap) $wrap.dataset.mode = isExportedDesign ? 'exported' : mode;
+
+        if (!$overlay) return;
+        if (overlayState.hidden) {
+          $overlay.style.opacity = '0';
+          $overlay.style.transform = 'translateY(8px)';
+          $overlay.style.pointerEvents = 'none';
+          $overlay.hidden = true;
+          return;
+        }
+        $overlay.hidden = false;
+        $overlay.style.pointerEvents = 'auto';
+        // Start at the lifted/transparent state, then on the next frame
+        // bump to the rest state so the transition runs every time the
+        // image swaps (rotation, demo refresh, etc.).
+        $overlay.style.opacity = '0';
+        $overlay.style.transform = 'translateY(8px)';
+        if ($eyebrow) $eyebrow.textContent = overlayState.eyebrow || '';
+        if ($headline) $headline.textContent = overlayState.headline || '';
+        if ($cta && $ctaLbl) {
+          if (overlayState.cta) {
+            $cta.hidden = false;
+            $ctaLbl.textContent = overlayState.cta.label;
+            $cta.setAttribute('href', overlayState.cta.href);
+            $cta.dataset.action = overlayState.cta.action || '';
+          } else {
+            $cta.hidden = true;
+          }
+        }
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            $overlay.style.opacity = '1';
+            $overlay.style.transform = 'translateY(0)';
+          });
+        });
+      };
+      next.src = url;
+
+      try { localStorage.setItem('tmke.welcome.last', mode); } catch (_) {}
     }
 
     function renderDrafts(drafts) {
@@ -942,6 +1560,45 @@ import "../styles/workspace.css";
     }
 
     $shopOpen?.addEventListener('click', openShop);
+
+    // Welcome-art click — when rotateWelcomeArt has stamped a pack slug
+    // onto the img we use it as a quick "discover this pack" CTA: open
+    // the Browse packs modal and jump to the matching detail view.
+    async function openShopAtSlug(slug) {
+      if (!slug) return;
+      await openShop();
+      // openShop loads cachedPacks lazily; wait a tick for the fetch
+      // to settle before asking showDetail to find the pack by slug.
+      const waitForCache = () => new Promise((r) => {
+        let tries = 0;
+        (function tick() {
+          if (cachedPacks && cachedPacks.some((p) => p.slug === slug) || tries > 20) return r();
+          tries += 1;
+          setTimeout(tick, 50);
+        })();
+      });
+      await waitForCache();
+      showDetail(slug);
+    }
+
+    document.getElementById('welcome-art-img')?.addEventListener('click', async (e) => {
+      const $img = e.currentTarget;
+      const slug = $img.dataset.packSlug;
+      if (!slug) return;
+      await openShopAtSlug(slug);
+    });
+
+    // Welcome-art overlay CTA: when it's the "Take a look" action on a
+    // newly-launched pack, route through the shop modal instead of
+    // navigating away; the /editor pill is just a plain anchor.
+    document.getElementById('welcome-art-cta')?.addEventListener('click', async (e) => {
+      const $cta = e.currentTarget;
+      if ($cta.dataset.action !== 'shop') return;
+      e.preventDefault();
+      const $img = document.getElementById('welcome-art-img');
+      const slug = $img && $img.dataset.packSlug;
+      await openShopAtSlug(slug);
+    });
     $shopClose?.addEventListener('click', closeShop);
     $shopModal?.addEventListener('click', (e) => { if (e.target === $shopModal) closeShop(); });
     $shopBack?.addEventListener('click', () => setView('grid'));
@@ -964,7 +1621,13 @@ import "../styles/workspace.css";
 
     // ====== Bootstrap ======
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Dev-only preview escape hatch — visit /account?demo=1 under
+      // `astro dev` to render the dashboard with a stub session (no
+      // real Supabase data). import.meta.env.DEV is `false` in any
+      // production build so this CANNOT leak into the live site.
+      const isDemo = import.meta.env.DEV && location.search.includes('demo=1');
+      const { data: { session: realSession } } = await supabase.auth.getSession();
+      const session = realSession || (isDemo ? { user: { id: 'demo', email: 'demo@tmke.co.uk', user_metadata: { name: 'Danni' } } } : null);
       if (!session) {
         location.replace('/login?next=' + encodeURIComponent('/account'));
         return;
@@ -985,6 +1648,7 @@ import "../styles/workspace.css";
       $welcomeH.innerHTML = `${greeting}, <em>${escapeHtml(titleCase(firstName))}.</em>`;
       $welcomeSub.textContent = 'Your studio. Your library. Pick something up where you left off.';
       $footerEmail.textContent = email;
+      if ($sidebarEmail) $sidebarEmail.textContent = email;
 
       // First-time login tour. Starts only when the user has never completed it
       // (flag stamped on their Supabase account); otherwise inert. Skippable.
@@ -998,8 +1662,14 @@ import "../styles/workspace.css";
       // animation starts (so transforms read smoothly).
       requestAnimationFrame(() => document.body.classList.add('is-loaded'));
 
-      renderDrafts(readLocalDrafts());
+      const localDrafts = readLocalDrafts();
+      renderDrafts(localDrafts);
       renderBrandStat();
+      // Fire an early rotation so the welcome-art swaps off the default
+      // photo even if the orders / calendar / packs queries fail or
+      // hang. The post-orders Promise.all will re-rotate with real
+      // data once it resolves.
+      rotateWelcomeArt({ scheduled: [], drafts: localDrafts, allPacks: [], ownedIds: new Set() });
 
       const { data: orders, error } = await supabase
         .from('orders')
@@ -1061,9 +1731,41 @@ import "../styles/workspace.css";
       const packIds = [...byPack.keys()].filter(Boolean);
       const { data: packs } = await supabase
         .from('packs')
-        .select('id, cover_image_url, description, contents, category')
+        .select('id, cover_image_url, preview_images, description, contents, category')
         .in('id', packIds);
       const packMap = new Map((packs ?? []).map((p) => [p.id, p]));
+
+      // ===== Welcome-art rotation =====
+      // Pull two independent data sources in parallel so we can pick
+      // the right one (alternating each load) for the hero image.
+      //   * scheduled  — calendar_items the user has rendered + booked
+      //   * allPacks   — every published pack, so we can offer an
+      //                  unowned one to discover
+      // Both queries are soft-failed: if either errors we fall back to
+      // whatever's available (draft thumbnails / lifestyle photo).
+      Promise.all([
+        supabase
+          .from('calendar_items')
+          .select('asset_url, thumbnail_url, scheduled_date')
+          .eq('user_id', session.user.id)
+          .in('status', ['scheduled', 'reminder_sent', 'done'])
+          .order('scheduled_date', { ascending: false })
+          .limit(20),
+        supabase
+          .from('packs')
+          .select('id, slug, title, cover_image_url, preview_images')
+          .order('sort_order', { ascending: true }),
+      ]).then(([sRes, pRes]) => {
+        rotateWelcomeArt({
+          scheduled: (sRes && sRes.data) || [],
+          drafts: localDrafts,
+          allPacks: (pRes && pRes.data) || [],
+          ownedIds: ownedPackIds,
+        });
+      }).catch(() => {
+        // Last-ditch fallback — use drafts only.
+        rotateWelcomeArt({ scheduled: [], drafts: localDrafts, allPacks: [], ownedIds: ownedPackIds });
+      });
 
       $grid.innerHTML = [...byPack.values()].map(({ order, count }) => {
         const pack = packMap.get(order.pack_id);
@@ -1095,6 +1797,323 @@ import "../styles/workspace.css";
           </article>
         `;
       }).join('');
+    })();
+
+    // ====== Content calendar — upcoming-week strip + month drawer ======
+    // Separate IIFE so a calendar failure (missing table, RLS surprise)
+    // never blocks the library/orders flow above. Runs after the main
+    // bootstrap so the session is already established by then.
+    (async function calendarBootstrap() {
+      const $upGrid    = document.getElementById('up-grid');
+      const $upLabel   = document.getElementById('up-label');
+      const $upPrev    = document.getElementById('up-prev');
+      const $upNext    = document.getElementById('up-next');
+      const $upToday   = document.getElementById('up-today');
+      const $upState   = document.getElementById('up-state');
+
+      const $tab       = document.getElementById('cal-tab-trigger');
+      const $tabCount  = document.getElementById('cal-tab-count');
+      const $sideTrig  = document.getElementById('cal-side-trigger');
+      const $sideCount = document.getElementById('cal-side-count');
+      const $popup     = document.getElementById('cal-popup');
+      const $popupClose= document.getElementById('cal-popup-close');
+      const $popupPrev = document.getElementById('cal-popup-prev');
+      const $popupNext = document.getElementById('cal-popup-next');
+      const $popupToday= document.getElementById('cal-popup-today');
+      const $popupTitle= document.getElementById('cal-popup-title');
+      const $popupGrid = document.getElementById('cal-popup-grid');
+      const $popupState= document.getElementById('cal-popup-state');
+
+      if (!$upGrid || !$tab || !$popup) return;
+
+      // Auth check — reuse the session the main bootstrap already validated.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return; // main bootstrap will have already redirected
+
+      // ---------- State ----------
+      let weekStart   = cal.defaultUpcomingWeekStart(new Date());
+      let popupMonth  = cal.startOfMonth(new Date());
+      let items       = [];
+      let holidays    = [];
+      let loadedRange = null; // { fromYmd, toYmd }
+
+      // ---------- Data ----------
+      // Pull a window wide enough to cover the upcoming-week strip AND
+      // 2 months of drawer navigation either side. Re-fetches when the
+      // user navigates outside this window.
+      async function loadWindow() {
+        const winStart = cal.addDays(weekStart, -45);
+        const winEnd   = cal.addDays(weekStart, 90);
+        const fromYmd  = cal.ymd(winStart);
+        const toYmd    = cal.ymd(winEnd);
+
+        const { items: ii, holidays: hh, itemsError } = await cal.fetchCalendarWindow(supabase, fromYmd, toYmd);
+        items    = ii;
+        holidays = hh;
+        loadedRange = { fromYmd, toYmd };
+
+        if (itemsError && /relation .* does not exist/i.test(itemsError)) {
+          $upState.hidden = false;
+          $upState.textContent = "Calendar table not found — run supabase/calendar.sql in the Supabase SQL editor.";
+        } else {
+          $upState.hidden = true;
+        }
+      }
+
+      async function ensureLoaded() {
+        if (!loadedRange) { await loadWindow(); return; }
+        const refYmd = cal.ymd(weekStart);
+        const popupYmd = cal.ymd(popupMonth);
+        if (refYmd < loadedRange.fromYmd || refYmd > loadedRange.toYmd
+            || popupYmd < loadedRange.fromYmd || popupYmd > loadedRange.toYmd) {
+          await loadWindow();
+        }
+      }
+
+      // ---------- Upcoming-week render ----------
+      function renderWeek() {
+        const itemsByDate    = cal.bucketBy(items,    (i) => i.scheduled_date);
+        const holidaysByDate = cal.bucketBy(holidays, (h) => h.date);
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+        $upLabel.textContent = cal.fmtWeekRange(weekStart);
+
+        const cells = [];
+        for (let i = 0; i < 7; i++) {
+          const d = cal.addDays(weekStart, i);
+          const key = cal.ymd(d);
+          const isToday   = cal.sameDay(d, todayStart);
+          const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+          const isPast    = d < todayStart && !isToday;
+          const dayItems  = itemsByDate.get(key) || [];
+          const dayHols   = holidaysByDate.get(key) || [];
+          const isEmpty   = dayItems.length === 0 && dayHols.length === 0;
+
+          // Show up to 1 holiday + up to 2 posts, then "+N more". A day
+          // with both a bank holiday and 3 scheduled posts shows the
+          // holiday + 2 posts + "+1 more".
+          const visibleHols  = dayHols.slice(0, 1);
+          const visiblePosts = dayItems.slice(0, 2);
+          const hiddenCount  = (dayHols.length - visibleHols.length) + (dayItems.length - visiblePosts.length);
+
+          const cls = [
+            'upcoming-day',
+            isToday   ? 'is-today'   : '',
+            isWeekend ? 'is-weekend' : '',
+            isPast    ? 'is-past'    : '',
+            isEmpty   ? 'is-empty'   : '',
+          ].filter(Boolean).join(' ');
+
+          const dowLabel = d.toLocaleDateString('en-GB', { weekday: 'short' });
+          const holsHtml = visibleHols.map((h) =>
+            `<span class="upcoming-chip upcoming-chip--${h.kind === 'bank' ? 'bank' : 'aware'}" title="${cal.escapeHtml(h.name)}">${cal.escapeHtml(h.name)}</span>`
+          ).join('');
+          const postsHtml = visiblePosts.map((p) => {
+            const sClass = p.status === 'done' ? 'is-done'
+              : p.status === 'reminder_sent' ? 'is-sent'
+              : p.status === 'cancelled' ? 'is-cancelled' : '';
+            return `<span class="upcoming-chip upcoming-chip--post ${sClass}" title="${cal.escapeHtml(p.title)} · ${cal.escapeHtml(cal.fmtTime(p.scheduled_time))}">${cal.escapeHtml(p.title)}</span>`;
+          }).join('');
+          const moreHtml = hiddenCount > 0 ? `<span class="upcoming-day-more">+${hiddenCount} more</span>` : '';
+
+          cells.push(`
+            <button type="button" class="${cls}" data-date="${key}" aria-label="${cal.escapeHtml(cal.fmtFullDate(d))}">
+              <div class="upcoming-day-head">
+                <span class="upcoming-day-dow">${cal.escapeHtml(dowLabel)}</span>
+                <span class="upcoming-day-num">${d.getDate()}</span>
+              </div>
+              ${holsHtml}
+              ${postsHtml}
+              ${moreHtml}
+            </button>
+          `);
+        }
+        $upGrid.innerHTML = cells.join('');
+
+        // Refresh the tab badge with the count of upcoming posts in the
+        // current week (excludes done/cancelled/past — the count means
+        // "things waiting on you").
+        updateTabCount();
+      }
+
+      function updateTabCount() {
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const weekEnd = cal.addDays(weekStart, 7);
+        const weekStartYmd = cal.ymd(weekStart);
+        const weekEndYmd = cal.ymd(weekEnd);
+        const upcoming = items.filter((p) => {
+          if (p.status !== 'scheduled' && p.status !== 'reminder_sent') return false;
+          if (p.scheduled_date < weekStartYmd || p.scheduled_date >= weekEndYmd) return false;
+          // also exclude past-time today
+          const pTs = new Date(`${p.scheduled_date}T${p.scheduled_time || '09:00'}`);
+          return pTs >= todayStart;
+        });
+        if (upcoming.length === 0) {
+          $tabCount.hidden = true;
+          if ($sideCount) $sideCount.hidden = true;
+        } else {
+          $tabCount.hidden = false;
+          $tabCount.textContent = String(upcoming.length);
+          if ($sideCount) {
+            $sideCount.hidden = false;
+            $sideCount.textContent = String(upcoming.length);
+          }
+        }
+      }
+
+      // ---------- Month-drawer render ----------
+      function renderDrawer() {
+        $popupTitle.textContent = cal.fmtMonthYear(popupMonth);
+
+        const first = cal.startOfMonth(popupMonth);
+        const dow = (first.getDay() + 6) % 7;
+        const start = new Date(first);
+        start.setDate(first.getDate() - dow);
+
+        const itemsByDate    = cal.bucketBy(items,    (i) => i.scheduled_date);
+        const holidaysByDate = cal.bucketBy(holidays, (h) => h.date);
+
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+        const cells = [];
+        for (let i = 0; i < 42; i++) {
+          const d = new Date(start);
+          d.setDate(start.getDate() + i);
+          const key       = cal.ymd(d);
+          const isOther   = d.getMonth() !== popupMonth.getMonth();
+          const isToday   = cal.sameDay(d, todayStart);
+          const dayItems  = itemsByDate.get(key) || [];
+          const dayHols   = holidaysByDate.get(key) || [];
+
+          const visibleHols  = dayHols.slice(0, 1);
+          const visiblePosts = dayItems.slice(0, 2 - visibleHols.length);
+          const hiddenCount  = (dayHols.length - visibleHols.length) + (dayItems.length - visiblePosts.length);
+
+          const cls = [
+            'cal-popup-day',
+            isOther ? 'is-other-month' : '',
+            isToday ? 'is-today' : '',
+          ].filter(Boolean).join(' ');
+
+          const holsHtml = visibleHols.map((h) =>
+            `<span class="cal-popup-chip cal-popup-chip--${h.kind === 'bank' ? 'bank' : 'aware'}" title="${cal.escapeHtml(h.name)}">${cal.escapeHtml(h.name)}</span>`
+          ).join('');
+          const postsHtml = visiblePosts.map((p) => {
+            const sClass = p.status === 'done' ? 'is-done'
+              : p.status === 'reminder_sent' ? 'is-sent'
+              : p.status === 'cancelled' ? 'is-cancelled' : '';
+            return `<span class="cal-popup-chip cal-popup-chip--post ${sClass}" title="${cal.escapeHtml(p.title)}">${cal.escapeHtml(p.title)}</span>`;
+          }).join('');
+          const moreHtml = hiddenCount > 0 ? `<span class="cal-popup-day-more">+${hiddenCount}</span>` : '';
+
+          cells.push(`
+            <button type="button" class="${cls}" data-date="${key}" role="gridcell">
+              <span class="cal-popup-day-num">${d.getDate()}</span>
+              ${holsHtml}
+              ${postsHtml}
+              ${moreHtml}
+            </button>
+          `);
+        }
+        $popupGrid.innerHTML = cells.join('');
+      }
+
+      // ---------- Drawer open/close ----------
+      let popupCloseTimer = null;
+      function openPopup() {
+        renderDrawer();
+        $popup.hidden = false;
+        document.body.style.overflow = 'hidden';
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => $popup.classList.add('is-open'));
+        });
+      }
+      function closePopup() {
+        if (!$popup.classList.contains('is-open')) {
+          $popup.hidden = true;
+          document.body.style.overflow = '';
+          return;
+        }
+        $popup.classList.remove('is-open');
+        clearTimeout(popupCloseTimer);
+        popupCloseTimer = setTimeout(() => {
+          $popup.hidden = true;
+          document.body.style.overflow = '';
+        }, 580);
+      }
+
+      // ---------- Event wiring ----------
+      $upPrev?.addEventListener('click', async () => {
+        weekStart = cal.addDays(weekStart, -7);
+        await ensureLoaded();
+        renderWeek();
+      });
+      $upNext?.addEventListener('click', async () => {
+        weekStart = cal.addDays(weekStart, 7);
+        await ensureLoaded();
+        renderWeek();
+      });
+      $upToday?.addEventListener('click', async () => {
+        weekStart = cal.defaultUpcomingWeekStart(new Date());
+        await ensureLoaded();
+        renderWeek();
+      });
+      // Clicking a day on the week strip opens the drawer at that day's
+      // month — gives users a "see more" path without leaving /account.
+      $upGrid?.addEventListener('click', (e) => {
+        const cell = e.target.closest('.upcoming-day');
+        if (!cell) return;
+        const dateStr = cell.getAttribute('data-date');
+        if (dateStr) {
+          popupMonth = cal.startOfMonth(new Date(dateStr + 'T00:00:00'));
+        }
+        openPopup();
+      });
+
+      $tab?.addEventListener('click', openPopup);
+      $sideTrig?.addEventListener('click', openPopup);
+      $popupClose?.addEventListener('click', closePopup);
+      $popup?.addEventListener('click', (e) => { if (e.target === $popup) closePopup(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !$popup.hidden) closePopup();
+      });
+      $popupPrev?.addEventListener('click', async () => {
+        popupMonth = cal.addMonths(popupMonth, -1);
+        await ensureLoaded();
+        renderDrawer();
+      });
+      $popupNext?.addEventListener('click', async () => {
+        popupMonth = cal.addMonths(popupMonth, 1);
+        await ensureLoaded();
+        renderDrawer();
+      });
+      $popupToday?.addEventListener('click', async () => {
+        popupMonth = cal.startOfMonth(new Date());
+        await ensureLoaded();
+        renderDrawer();
+      });
+      // Clicking a day in the drawer deep-links to the full calendar
+      // page focused on that day, where the existing day-detail drawer
+      // can take over (edit/reschedule/cancel).
+      $popupGrid?.addEventListener('click', (e) => {
+        const cell = e.target.closest('.cal-popup-day');
+        if (!cell) return;
+        const dateStr = cell.getAttribute('data-date');
+        if (dateStr) location.href = '/account/schedule?focus=' + encodeURIComponent(dateStr);
+      });
+
+      // Bootstrap
+      try {
+        await loadWindow();
+        renderWeek();
+      } catch (err) {
+        console.warn('[calendar bootstrap]', err);
+        $upState.hidden = false;
+        $upState.textContent = "Couldn't load your calendar — refresh in a moment.";
+      }
     })();
   </script>
 </BaseLayout>

@@ -1,0 +1,363 @@
+---
+// Member-facing Guides section. Rendered both as a standalone page
+// (/account/guides) and inside the side-drawer on /account.
+//
+// Each card opens a one-page guide "reader" overlay: short, practical,
+// step-by-step, with a "where to click" callout on each step pointing at
+// the real spot in the platform. Content lives in the GUIDES map in the
+// script below — add a new entry there to publish a guide.
+---
+
+<div class="acc-section" data-guides-panel>
+  <header class="acc-section-head">
+    <p class="acc-section-eyebrow">Guides</p>
+    <h2 class="acc-section-title">Playbooks for the platform.</h2>
+    <p class="acc-section-sub">Short, do-this-then-that walkthroughs of the things members ask us about most &mdash; each one shows you exactly where to click.</p>
+  </header>
+
+  <div class="acc-guide-grid">
+    <button type="button" class="acc-guide-card" data-guide="brand-kit">
+      <span class="acc-guide-num">01</span>
+      <h3 class="acc-guide-title">Setting up your brand kit</h3>
+      <p class="acc-guide-desc">Get your colours, fonts and logo loaded so every template you open is already on-brand. Five minutes, done once.</p>
+      <span class="acc-guide-meta">5 steps &middot; Essentials</span>
+    </button>
+
+    <button type="button" class="acc-guide-card" data-guide="first-design">
+      <span class="acc-guide-num">02</span>
+      <h3 class="acc-guide-title">Editing your first design</h3>
+      <p class="acc-guide-desc">Open a pack, pick a template, make it yours and download it — the full loop from library to finished post.</p>
+      <span class="acc-guide-meta">6 steps &middot; Essentials</span>
+    </button>
+
+    <button type="button" class="acc-guide-card" data-guide="calendar">
+      <span class="acc-guide-num">03</span>
+      <h3 class="acc-guide-title">Using the content calendar</h3>
+      <p class="acc-guide-desc">Plan the month in one sitting with the Schedule tab and our property awareness calendar.</p>
+      <span class="acc-guide-meta">Coming soon &middot; Platform</span>
+    </button>
+
+    <button type="button" class="acc-guide-card" data-guide="captions">
+      <span class="acc-guide-num">04</span>
+      <h3 class="acc-guide-title">Captions that convert</h3>
+      <p class="acc-guide-desc">A simple three-line structure that takes a listing caption from "12 Park Crescent, &pound;1.25m" to one that actually pulls enquiries.</p>
+      <span class="acc-guide-meta">Coming soon &middot; Copy</span>
+    </button>
+  </div>
+
+  <footer class="acc-section-foot">
+    <span class="acc-section-foot-tag">Missing a topic?</span>
+    Tell us what you'd love a guide on &mdash; the most-requested ones get written first.
+    <a class="acc-section-foot-link" href="/account/contact?from=guides">Request a guide &rarr;</a>
+  </footer>
+
+  <!-- ===== Guide reader overlay ===== -->
+  <div class="guide-reader" id="guide-reader" hidden>
+    <div class="guide-reader-backdrop" data-guide-close></div>
+    <article class="guide-reader-doc" role="dialog" aria-modal="true" aria-labelledby="guide-reader-title">
+      <button type="button" class="guide-reader-x" data-guide-close aria-label="Close guide">&larr; All guides</button>
+      <p class="guide-reader-eyebrow" id="guide-reader-eyebrow">Guide</p>
+      <h1 class="guide-reader-title" id="guide-reader-title">Guide</h1>
+      <p class="guide-reader-intro" id="guide-reader-intro"></p>
+
+      <ol class="guide-steps" id="guide-steps"></ol>
+
+      <div class="guide-reader-cta" id="guide-reader-cta" hidden>
+        <a class="cbtn cbtn-solid" id="guide-reader-cta-link" href="#">Open <em>&rarr;</em></a>
+      </div>
+
+      <div class="guide-reader-soon" id="guide-reader-soon" hidden>
+        <p>We're writing this one right now. Want it bumped up the list?
+          <a href="/account/contact?from=guides">Tell us &rarr;</a></p>
+      </div>
+    </article>
+  </div>
+</div>
+
+<style>
+  button.acc-guide-card {
+    appearance: none; -webkit-appearance: none; font: inherit;
+    width: 100%; text-align: left; cursor: pointer;
+  }
+
+  .guide-reader {
+    position: fixed; inset: 0; z-index: 400;
+    display: flex; justify-content: center;
+    overflow-y: auto;
+    padding: 0;
+  }
+  .guide-reader[hidden] { display: none; }
+  .guide-reader-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(20, 18, 26, 0.5);
+    backdrop-filter: blur(3px);
+  }
+  .guide-reader-doc {
+    position: relative;
+    width: 100%; max-width: 680px;
+    margin: 40px 24px;
+    background: var(--paper);
+    border: 1px solid rgba(28, 29, 34, 0.1);
+    border-radius: 12px;
+    padding: 28px 44px 48px;
+    box-shadow: 0 50px 110px -40px rgba(20, 18, 26, 0.55);
+    height: max-content;
+  }
+  @media (max-width: 600px) { .guide-reader-doc { padding: 24px 22px 40px; margin: 16px 12px; } }
+  .guide-reader-x {
+    appearance: none; background: none; border: 0;
+    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--english-violet); cursor: pointer;
+    padding: 4px 0; margin-bottom: 20px;
+    transition: color 0.2s, transform 0.2s;
+  }
+  .guide-reader-x:hover { color: var(--violet-deep); transform: translateX(-2px); }
+  .guide-reader-eyebrow {
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--english-violet); margin: 0 0 10px;
+  }
+  .guide-reader-title {
+    font-family: var(--serif); font-size: clamp(30px, 4vw, 44px);
+    font-weight: 500; letter-spacing: -0.02em; line-height: 1.05;
+    color: var(--ink); margin: 0 0 14px;
+  }
+  .guide-reader-intro {
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    color: rgba(28, 29, 34, 0.7); margin: 0 0 34px;
+    max-width: 52ch;
+  }
+  .guide-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .guide-step {
+    display: grid; grid-template-columns: 40px 1fr; gap: 16px;
+    padding: 20px 22px;
+    background: #fff;
+    border: 1px solid rgba(28, 29, 34, 0.08);
+    border-radius: 8px;
+  }
+  .guide-step-n {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 999px;
+    background: var(--violet-deep); color: var(--paper);
+    font-family: var(--sans); font-size: 14px; font-weight: 700;
+  }
+  .guide-step-body h4 {
+    font-family: var(--serif); font-size: 20px; font-weight: 500;
+    color: var(--ink); margin: 4px 0 6px;
+  }
+  .guide-step-body p {
+    font-family: var(--sans); font-size: 14px; line-height: 1.6;
+    color: rgba(28, 29, 34, 0.68); margin: 0;
+  }
+  /* "Where to click" callout — a circled target pointing at the real spot. */
+  .guide-click {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-top: 12px;
+    padding: 8px 14px 8px 10px;
+    background: rgba(71, 66, 84, 0.06);
+    border: 1px dashed var(--english-violet);
+    border-radius: 999px;
+  }
+  .guide-click-target {
+    width: 18px; height: 18px; flex: 0 0 auto;
+    border: 2px solid var(--english-violet);
+    border-radius: 999px; position: relative;
+  }
+  .guide-click-target::after {
+    content: ""; position: absolute; inset: 4px;
+    border-radius: 999px; background: var(--english-violet);
+  }
+  .guide-click-text {
+    font-family: var(--sans); font-size: 12px; color: var(--ink);
+  }
+  .guide-click-where {
+    font-weight: 700; letter-spacing: 0.04em;
+    color: var(--english-violet);
+  }
+  .guide-click-label {
+    display: inline-block; margin-left: 4px;
+    padding: 2px 8px; border-radius: 4px;
+    background: var(--violet-deep); color: var(--paper);
+    font-weight: 700; font-size: 11px;
+  }
+  .guide-reader-cta { margin-top: 30px; }
+  .guide-reader-cta[hidden] { display: none; }
+  .guide-reader-soon {
+    margin-top: 24px; padding: 18px 20px;
+    background: rgba(71, 66, 84, 0.05);
+    border: 1px solid rgba(71, 66, 84, 0.16);
+    border-radius: 8px;
+    font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.65);
+  }
+  .guide-reader-soon[hidden] { display: none; }
+  .guide-reader-soon a { color: var(--english-violet); font-weight: 700; }
+
+  /* Shared button (mirrors ContactPanel's .cbtn so the CTA matches) */
+  .guide-reader .cbtn {
+    appearance: none; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 12px 20px; border-radius: 4px;
+    transition: background 0.25s, transform 0.2s;
+  }
+  .guide-reader .cbtn em { font-style: normal; transition: transform 0.2s; }
+  .guide-reader .cbtn-solid { background: var(--english-violet); color: var(--paper); border: 1px solid var(--english-violet); }
+  .guide-reader .cbtn-solid:hover { background: var(--violet-deep); }
+  .guide-reader .cbtn-solid:hover em { transform: translateX(3px); }
+</style>
+
+<script>
+  // Guide content. Add an entry keyed by the card's data-guide value to
+  // publish a guide. `steps[].click` renders the "where to click" callout.
+  const GUIDES = {
+    "brand-kit": {
+      eyebrow: "Guide 01 · Essentials",
+      title: "Setting up your brand kit",
+      intro: "Load your colours, fonts and logo once, and every template you open is already wearing your brand. About five minutes, done one time.",
+      cta: { label: "Open your Brand kit", href: "/profile" },
+      steps: [
+        {
+          title: "Open your Brand kit",
+          body: "Everything about your look lives in one place. You can get to it from anywhere in your workspace.",
+          click: { where: "Left sidebar", label: "Brand kit" },
+        },
+        {
+          title: "Add your brand colours",
+          body: "Add your primary, secondary and accent colours by hex code (for example #1C1D22). These become your one-tap swatches inside the editor, so re-colouring a template takes a click.",
+          click: { where: "Brand kit → Colours", label: "+ Add colour" },
+        },
+        {
+          title: "Choose your fonts",
+          body: "Pick a heading font and a body font. Every template you open re-types itself in your fonts automatically — no fiddling per design.",
+          click: { where: "Brand kit → Fonts", label: "Choose fonts" },
+        },
+        {
+          title: "Upload your logo",
+          body: "Drop in a PNG (a transparent background works best). Once it's saved, it's a single click to place on any design.",
+          click: { where: "Brand kit → Logo", label: "Upload logo" },
+        },
+        {
+          title: "Save — and you're done",
+          body: "Hit save. Now open any template in the Studio and it'll already be on-brand: your colours in the swatches, your fonts in the text, your logo ready to drop in.",
+          click: { where: "Brand kit", label: "Save" },
+        },
+      ],
+    },
+    "first-design": {
+      eyebrow: "Guide 02 · Essentials",
+      title: "Editing your first design",
+      intro: "The full loop, from your library to a finished post you can download and publish. No design experience needed.",
+      cta: { label: "Open the Studio", href: "/editor" },
+      steps: [
+        {
+          title: "Open the Studio",
+          body: "Head into the Studio from your sidebar. If you've got packs, you'll be asked to pick one to open — or start from a blank canvas.",
+          click: { where: "Left sidebar", label: "Studio" },
+        },
+        {
+          title: "Pick a pack",
+          body: "Choose one of your packs. Its designs load into the editor so you can pick the one you want to work on.",
+          click: { where: "Studio onboarding", label: "Choose a pack" },
+        },
+        {
+          title: "Choose a template",
+          body: "Tap any design to drop it onto the canvas. Because your brand kit is set up, it already looks like you.",
+          click: { where: "Left panel", label: "Designs from your pack" },
+        },
+        {
+          title: "Make it yours",
+          body: "Click any text to edit it, swap photos from the Photos tab, and use your brand swatches to recolour. Everything updates live on the canvas.",
+          click: { where: "Canvas", label: "Click to edit" },
+        },
+        {
+          title: "Download or schedule",
+          body: "Happy with it? Export a PNG, JPG or PDF — or send it straight to your content calendar to post later.",
+          click: { where: "Top bar", label: "Share →" },
+        },
+        {
+          title: "Find it again later",
+          body: "Your work saves automatically. Pick it back up any time from your Workspace.",
+          click: { where: "Left sidebar", label: "Workspace" },
+        },
+      ],
+    },
+  };
+
+  const panel = document.querySelector("[data-guides-panel]");
+  if (panel) {
+    const reader = document.getElementById("guide-reader");
+    const eyebrowEl = document.getElementById("guide-reader-eyebrow");
+    const titleEl = document.getElementById("guide-reader-title");
+    const introEl = document.getElementById("guide-reader-intro");
+    const stepsEl = document.getElementById("guide-steps");
+    const ctaEl = document.getElementById("guide-reader-cta");
+    const ctaLink = document.getElementById("guide-reader-cta-link");
+    const soonEl = document.getElementById("guide-reader-soon");
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    }
+
+    function openGuide(key) {
+      const g = GUIDES[key];
+      const title = panel.querySelector(`[data-guide="${key}"] .acc-guide-title`);
+      eyebrowEl.textContent = g ? g.eyebrow : "Guide";
+      titleEl.textContent = g ? g.title : (title ? title.textContent : "Guide");
+
+      if (!g) {
+        introEl.textContent = "This guide is on its way.";
+        stepsEl.innerHTML = "";
+        ctaEl.hidden = true;
+        soonEl.hidden = false;
+      } else {
+        introEl.textContent = g.intro;
+        stepsEl.innerHTML = g.steps.map((s, i) => `
+          <li class="guide-step">
+            <span class="guide-step-n">${i + 1}</span>
+            <div class="guide-step-body">
+              <h4>${esc(s.title)}</h4>
+              <p>${esc(s.body)}</p>
+              ${s.click ? `
+                <span class="guide-click">
+                  <span class="guide-click-target" aria-hidden="true"></span>
+                  <span class="guide-click-text">
+                    <span class="guide-click-where">${esc(s.click.where)}</span>
+                    <span class="guide-click-label">${esc(s.click.label)}</span>
+                  </span>
+                </span>` : ""}
+            </div>
+          </li>`).join("");
+        if (g.cta) {
+          ctaLink.innerHTML = `${esc(g.cta.label)} <em>&rarr;</em>`;
+          ctaLink.setAttribute("href", g.cta.href);
+          ctaEl.hidden = false;
+        } else {
+          ctaEl.hidden = true;
+        }
+        soonEl.hidden = true;
+      }
+
+      reader.hidden = false;
+      reader.scrollTop = 0;
+      document.documentElement.style.overflow = "hidden";
+    }
+
+    function closeReader() {
+      reader.hidden = true;
+      document.documentElement.style.overflow = "";
+    }
+
+    panel.querySelectorAll("[data-guide]").forEach((card) =>
+      card.addEventListener("click", () => openGuide(card.getAttribute("data-guide")))
+    );
+    panel.querySelectorAll("[data-guide-close]").forEach((el) =>
+      el.addEventListener("click", closeReader)
+    );
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && reader && !reader.hidden) closeReader();
+    });
+  }
+</script>

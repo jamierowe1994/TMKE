@@ -1,6 +1,8 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import PageHero from "../components/PageHero.astro";
+import DashSidebar from "../components/account/DashSidebar.astro";
+import "../styles/workspace.css";
+import "../styles/account-sections.css";
 
 const FONTS = [
   "Cormorant Garamond",
@@ -19,14 +21,20 @@ const FONTS = [
 <BaseLayout
   title="Brand kit — TMKE"
   description="Set up your brand colours, fonts and logos so the editor opens with your kit ready to go."
+  hideNav
+  hideFooter
 >
-  <PageHero
-    chapter="Members — Brand kit"
-    title="Set up your <em>brand kit.</em>"
-    sub="Your colours, fonts and logos — saved once, ready on every design."
-  />
+  <div class="dash-shell">
+    <DashSidebar active="brand" />
 
-  <form id="brand-form" class="profile-wrap wrap">
+    <main class="app-main dash-main">
+      <header class="welcome">
+        <p class="welcome-eyebrow">Brand kit</p>
+        <h1 class="welcome-h">Your <em>brand kit.</em></h1>
+        <p class="welcome-sub">Your colours, fonts and logos &mdash; saved once, ready on every design.</p>
+      </header>
+
+      <form id="brand-form" class="profile-wrap">
     <p class="profile-firstrun" id="profile-firstrun" hidden>
       First time in? Take a minute to load your brand. You can change any of it later from this page.
     </p>
@@ -128,7 +136,9 @@ const FONTS = [
       <button type="button" class="profile-skip" id="profile-skip">Skip for now</button>
       <button type="submit" class="btn btn--solid">Save brand kit <span class="btn-arrow">&rarr;</span></button>
     </div>
-  </form>
+      </form>
+    </main>
+  </div>
 
   <style>
     .profile-wrap {
@@ -598,6 +608,16 @@ const FONTS = [
         location.href = "/account";
       });
     })();
+  </script>
+
+  <!-- Sign-out wiring for the sidebar button (separate module so we
+       can import the supabase client). -->
+  <script>
+    import { supabase } from "../lib/supabase.js";
+    document.getElementById('app-signout')?.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      location.replace('/login');
+    });
   </script>
 
   <!-- First-time login tour — resumes here (the final leg) only if in progress. -->

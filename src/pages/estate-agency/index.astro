@@ -1,0 +1,366 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import InterestForm from "../../components/estate-agency/InterestForm.astro";
+import { templates } from "../../data/estate-agency-templates.js";
+---
+
+<BaseLayout
+  title="Estate Agency Websites — TMKE"
+  description="Considered, detail-oriented website templates for UK estate agencies. Browse the showcase and register your interest."
+  noindex
+>
+  <section class="ea-hero">
+    <div class="ea-hero-grain"></div>
+    <div class="ea-hero-inner">
+      <div class="ea-hero-eyebrow"><span>/</span> Estate Agency Websites <span>/</span></div>
+      <h1 class="ea-hero-title">
+        Websites for <em>estate agencies,</em><br />
+        built with the same care as the homes they sell.
+      </h1>
+      <p class="ea-hero-sub">
+        A curated showcase of homepage templates for UK estate agencies — each
+        one designed around how buyers actually browse, and how agents actually
+        sell. Pick a direction, see it in context, and register your interest.
+      </p>
+      <a href="#showcase" class="ea-hero-cta">
+        See the showcase
+        <span aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="ea-intro wrap">
+    <div class="ea-intro-grid">
+      <div>
+        <div class="ea-chapter">/ The idea /</div>
+        <h2 class="ea-intro-title">
+          Pre-designed homepages, finished to a brief.
+        </h2>
+      </div>
+      <div class="ea-intro-body">
+        <p>
+          Most agency websites feel like a search bar bolted to a logo. We make
+          a small, deliberate set of homepage templates that look like the kind
+          of business an owner actually wants to run — calm, considered, and
+          appropriate for the market they sit in.
+        </p>
+        <p>
+          Browse the showcase below. Each template is a self-contained preview
+          you can click through. When one feels right, register your interest
+          and we'll come back with a short proposal — copy, photography, and
+          a build window — usually within 48 hours.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="ea-showcase wrap" id="showcase">
+    <header class="ea-showcase-head">
+      <div class="ea-chapter">/ Showcase /</div>
+      <h2 class="ea-showcase-title">The current set.</h2>
+      <p class="ea-showcase-sub">
+        A small, growing library — more templates added as we design them. Each
+        card opens a full-page preview.
+      </p>
+    </header>
+
+    <div class="ea-grid">
+      {templates.map((t) => (
+        <article class="ea-card" style={`--ea-accent: ${t.accent};`}>
+          <a class="ea-card-link" href={`/estate-agency/preview/${t.slug}`}>
+            <div class="ea-card-media">
+              <img src={t.thumbnail} alt={`${t.name} preview`} loading="lazy" />
+              {t.status === "draft" && <span class="ea-card-badge">Draft</span>}
+            </div>
+            <div class="ea-card-body">
+              <div class="ea-card-category">{t.category}</div>
+              <h3 class="ea-card-name">{t.name}</h3>
+              <p class="ea-card-tagline">{t.tagline}</p>
+              <p class="ea-card-summary">{t.summary}</p>
+              <ul class="ea-card-features">
+                {t.features.slice(0, 4).map((f) => <li>{f}</li>)}
+              </ul>
+              <div class="ea-card-footer">
+                <span class="ea-card-audience">{t.audience}</span>
+                <span class="ea-card-cta">
+                  Open preview <span aria-hidden="true">&rarr;</span>
+                </span>
+              </div>
+            </div>
+          </a>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <InterestForm />
+</BaseLayout>
+
+<style>
+  /* =========== HERO =========== */
+  .ea-hero {
+    position: relative;
+    min-height: 78vh;
+    background: linear-gradient(180deg, #1c1d22 0%, #2b2934 100%);
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 160px 36px 120px;
+    overflow: hidden;
+  }
+  .ea-hero-grain {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch' seed='5'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size: 280px 280px;
+    opacity: 0.08;
+    mix-blend-mode: overlay;
+  }
+  .ea-hero-inner {
+    position: relative;
+    text-align: center;
+    max-width: 920px;
+  }
+  .ea-hero-eyebrow {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(20px, 2.2vw, 30px);
+    color: rgba(240,238,235,0.85);
+    margin-bottom: 36px;
+  }
+  .ea-hero-eyebrow span {
+    color: rgba(240,238,235,0.4);
+    margin: 0 14px;
+    font-style: normal;
+  }
+  .ea-hero-title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(40px, 6vw, 76px);
+    line-height: 1.04;
+    letter-spacing: -0.018em;
+    margin: 0 0 28px;
+    color: var(--paper);
+  }
+  .ea-hero-title em { font-style: italic; color: var(--french-grey); }
+  .ea-hero-sub {
+    font-family: var(--sans);
+    font-size: clamp(15px, 1.5vw, 18px);
+    line-height: 1.7;
+    color: rgba(240,238,235,0.78);
+    max-width: 640px;
+    margin: 0 auto 40px;
+  }
+  .ea-hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 28px;
+    border: 1px solid var(--paper);
+    color: var(--paper);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  .ea-hero-cta:hover { background: var(--paper); color: var(--ink); }
+
+  /* =========== SECTION SCAFFOLD =========== */
+  .wrap {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 120px 36px;
+  }
+  @media (max-width: 720px) {
+    .wrap { padding: 80px 24px; }
+  }
+  .ea-chapter {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(28,29,34,0.55);
+    margin-bottom: 18px;
+  }
+
+  /* =========== INTRO =========== */
+  .ea-intro-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 80px;
+  }
+  @media (max-width: 880px) {
+    .ea-intro-grid { grid-template-columns: 1fr; gap: 32px; }
+  }
+  .ea-intro-title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(32px, 4vw, 52px);
+    line-height: 1.1;
+    letter-spacing: -0.014em;
+    margin: 0;
+    color: var(--ink);
+  }
+  .ea-intro-body p {
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.75;
+    color: rgba(28,29,34,0.78);
+    margin: 0 0 18px;
+    max-width: 60ch;
+  }
+
+  /* =========== SHOWCASE =========== */
+  .ea-showcase-head { margin-bottom: 64px; max-width: 640px; }
+  .ea-showcase-title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(40px, 5vw, 64px);
+    line-height: 1.05;
+    letter-spacing: -0.018em;
+    margin: 0 0 16px;
+  }
+  .ea-showcase-sub {
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+    color: rgba(28,29,34,0.7);
+    margin: 0;
+  }
+
+  .ea-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 32px;
+  }
+  .ea-card {
+    --ea-accent: #474254;
+    border: 1px solid rgba(28,29,34,0.14);
+    background: rgba(255,255,255,0.5);
+    border-radius: 2px;
+    transition: transform 0.4s cubic-bezier(.2,.7,.2,1), border-color 0.3s ease, box-shadow 0.4s ease;
+  }
+  .ea-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--ea-accent);
+    box-shadow: 0 24px 60px -32px rgba(28,29,34,0.35);
+  }
+  .ea-card-link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    color: var(--ink);
+  }
+  .ea-card-media {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: rgba(28,29,34,0.06);
+  }
+  .ea-card-media img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.8s cubic-bezier(.2,.7,.2,1);
+  }
+  .ea-card:hover .ea-card-media img { transform: scale(1.04); }
+  .ea-card-badge {
+    position: absolute;
+    top: 14px; left: 14px;
+    background: rgba(12,11,10,0.7);
+    color: var(--paper);
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 2px;
+  }
+  .ea-card-body {
+    padding: 28px 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  .ea-card-category {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ea-accent);
+  }
+  .ea-card-name {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 28px;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+  }
+  .ea-card-tagline {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ea-accent);
+    margin: 0;
+  }
+  .ea-card-summary {
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.65;
+    color: rgba(28,29,34,0.72);
+    margin: 0;
+  }
+  .ea-card-features {
+    list-style: none;
+    margin: 0;
+    padding: 14px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-top: 1px solid rgba(28,29,34,0.08);
+  }
+  .ea-card-features li {
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: rgba(28,29,34,0.7);
+    padding: 4px 10px;
+    background: rgba(28,29,34,0.05);
+    border-radius: 999px;
+  }
+  .ea-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid rgba(28,29,34,0.08);
+  }
+  .ea-card-audience {
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(28,29,34,0.5);
+  }
+  .ea-card-cta {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ea-accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+</style>

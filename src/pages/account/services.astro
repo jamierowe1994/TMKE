@@ -1,0 +1,38 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DashSidebar from "../../components/account/DashSidebar.astro";
+import ServicesPanel from "../../components/account/ServicesPanel.astro";
+import "../../styles/workspace.css";
+import "../../styles/account-sections.css";
+---
+
+<BaseLayout
+  title="Managed socials — TMKE workspace"
+  description="Hand the channel over. Three tiers, a clear process, and a single point of contact."
+  hideNav
+  hideFooter
+>
+  <div class="dash-shell">
+    <DashSidebar active="services" />
+
+    <main class="app-main dash-main">
+      <ServicesPanel />
+    </main>
+  </div>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        location.replace('/login?next=' + encodeURIComponent('/account/services'));
+        return;
+      }
+      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+      document.getElementById('app-signout')?.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        location.replace('/login');
+      });
+    })();
+  </script>
+</BaseLayout>

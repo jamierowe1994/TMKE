@@ -1,5 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import AskExpert from "../components/AskExpert.astro";
+import ShopModal from "../components/ShopModal.astro";
 import { templates, packages } from "../data/library.js";
 
 const photoLibrary = templates.map((t) => {
@@ -108,6 +110,9 @@ const googleFonts = [
 >
   <!-- =================== ONBOARDING OVERLAY =================== -->
   <div class="ed-onboard" id="ed-onboard">
+    <a href="/account" class="ed-onboard-back" id="ed-onboard-back" aria-label="Back to your workspace">
+      <span aria-hidden="true">&larr;</span> Back
+    </a>
     <div class="ed-onboard-inner">
       <div class="ed-onboard-eyebrow">Welcome to the Studio</div>
       <h1 class="ed-onboard-title">Pick a pack <em>to open.</em></h1>
@@ -295,7 +300,7 @@ const googleFonts = [
 
       <!-- Elements -->
       <section class="ed-panel-pane" data-pane="elements">
-        <div class="ed-pane-header"><h3>Elements</h3><p>Drop shapes, lines and frames onto the canvas.</p></div>
+        <div class="ed-pane-header"><h3>Elements</h3><p>Drop shapes, lines, icons and frames onto the canvas.</p></div>
         <div class="ed-section-title">Shapes</div>
         <div class="ed-shape-grid">
           <button class="ed-shape" data-shape="rect"><div class="sh sh-rect"></div><span>Rectangle</span></button>
@@ -305,10 +310,42 @@ const googleFonts = [
           <button class="ed-shape" data-shape="rounded"><div class="sh sh-round"></div><span>Pill</span></button>
           <button class="ed-shape" data-shape="star"><div class="sh sh-star">★</div><span>Star</span></button>
         </div>
+        <div class="ed-section-title">More shapes</div>
+        <div class="ed-shape-grid">
+          <button class="ed-shape" data-svg="heart"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9C1 8.5 3 4 7 4c2 0 3.5 1 5 3 1.5-2 3-3 5-3 4 0 6 4.5 4.5 8-2.5 4.5-9.5 9-9.5 9z"/></svg></div><span>Heart</span></button>
+          <button class="ed-shape" data-svg="cloud"><div class="sh sh-svg"><svg viewBox="0 0 24 16" fill="currentColor"><path d="M18 14H6a4 4 0 0 1-1-7.9 5 5 0 0 1 9.7-1.4 4 4 0 0 1 4.3 4.3A4 4 0 0 1 18 14z"/></svg></div><span>Cloud</span></button>
+          <button class="ed-shape" data-svg="hexagon"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 21.66,7.5 21.66,16.5 12,22 2.34,16.5 2.34,7.5"/></svg></div><span>Hexagon</span></button>
+          <button class="ed-shape" data-svg="pentagon"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 22.5,9.5 18.5,22 5.5,22 1.5,9.5"/></svg></div><span>Pentagon</span></button>
+          <button class="ed-shape" data-svg="octagon"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="8.5,2 15.5,2 22,8.5 22,15.5 15.5,22 8.5,22 2,15.5 2,8.5"/></svg></div><span>Octagon</span></button>
+          <button class="ed-shape" data-svg="diamond"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 22,12 12,22 2,12"/></svg></div><span>Diamond</span></button>
+          <button class="ed-shape" data-svg="arrow-r"><div class="sh sh-svg"><svg viewBox="0 0 32 24" fill="currentColor"><polygon points="2,9 18,9 18,3 30,12 18,21 18,15 2,15"/></svg></div><span>Arrow right</span></button>
+          <button class="ed-shape" data-svg="arrow-l"><div class="sh sh-svg"><svg viewBox="0 0 32 24" fill="currentColor"><polygon points="30,9 14,9 14,3 2,12 14,21 14,15 30,15"/></svg></div><span>Arrow left</span></button>
+          <button class="ed-shape" data-svg="speech"><div class="sh sh-svg"><svg viewBox="0 0 24 20" fill="currentColor"><path d="M3 2h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-8l-5 4v-4H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/></svg></div><span>Speech</span></button>
+          <button class="ed-shape" data-svg="lightning"><div class="sh sh-svg"><svg viewBox="0 0 18 24" fill="currentColor"><polygon points="11,2 2,13 8,13 6,22 16,11 10,11 12,2"/></svg></div><span>Lightning</span></button>
+          <button class="ed-shape" data-svg="banner"><div class="sh sh-svg"><svg viewBox="0 0 32 16" fill="currentColor"><polygon points="2,2 28,2 30,8 28,14 2,14 4,8"/></svg></div><span>Banner</span></button>
+          <button class="ed-shape" data-svg="plus"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="9,2 15,2 15,9 22,9 22,15 15,15 15,22 9,22 9,15 2,15 2,9 9,9"/></svg></div><span>Plus</span></button>
+        </div>
         <div class="ed-section-title">Lines &amp; rules</div>
         <div class="ed-shape-grid ed-shape-grid--lines">
           <button class="ed-shape" data-shape="hr-thin"><div class="sh sh-hr"></div><span>Thin rule</span></button>
           <button class="ed-shape" data-shape="hr-thick"><div class="sh sh-hr sh-hr-thick"></div><span>Thick rule</span></button>
+        </div>
+
+        <div class="ed-section-title">Social &amp; contact icons</div>
+        <p class="ed-section-hint">Drop a recognisable icon next to your handle, phone number or email.</p>
+        <div class="ed-shape-grid">
+          <button class="ed-shape" data-svg="ig" title="Instagram"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg></div><span>Instagram</span></button>
+          <button class="ed-shape" data-svg="fb" title="Facebook"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-1.5 19.9v-7H8v-3h2.5v-2.2c0-2.5 1.5-3.8 3.7-3.8 1.1 0 2.2.2 2.2.2v2.4h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 3h-2.3v7A10 10 0 0 0 12 2z"/></svg></div><span>Facebook</span></button>
+          <button class="ed-shape" data-svg="li" title="LinkedIn"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.3 18.3H5.7V9.5h2.6v8.8zM7 8.3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm11.3 10h-2.6v-4.3c0-1-.4-1.7-1.3-1.7-.7 0-1.1.5-1.3 1-.1.2-.1.4-.1.6v4.4h-2.6V9.5h2.6v1.1c.3-.5 1-1.3 2.4-1.3 1.7 0 3 1.1 3 3.5v5.5z"/></svg></div><span>LinkedIn</span></button>
+          <button class="ed-shape" data-svg="tt" title="TikTok"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 2v3.5a4.5 4.5 0 0 0 4.5 4.5V13a7.5 7.5 0 0 1-4.5-1.5V16a6 6 0 1 1-6-6v3a3 3 0 1 0 3 3V2h3z"/></svg></div><span>TikTok</span></button>
+          <button class="ed-shape" data-svg="yt" title="YouTube"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 7.6c-.2-1.6-1.4-2.8-3-3-2.2-.2-7-.2-7-.2s-4.8 0-7 .2c-1.6.2-2.8 1.4-3 3-.2 1.4-.2 4.4-.2 4.4s0 3 .2 4.4c.2 1.6 1.4 2.8 3 3 2.2.2 7 .2 7 .2s4.8 0 7-.2c1.6-.2 2.8-1.4 3-3 .2-1.4.2-4.4.2-4.4s0-3-.2-4.4zM10 15V9l5 3-5 3z"/></svg></div><span>YouTube</span></button>
+          <button class="ed-shape" data-svg="x" title="X / Twitter"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg></div><span>X</span></button>
+          <button class="ed-shape" data-svg="wa" title="WhatsApp"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-1 1.2-.2.2-.4.2-.6.1-.3-.1-1.2-.5-2.4-1.5-.9-.8-1.4-1.8-1.6-2-.2-.3 0-.4.1-.6.1-.1.3-.4.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.4-.3.3-1 .9-1 2.3 0 1.4 1 2.7 1.2 2.9.1.2 2 3 4.8 4.2 1.7.7 2.3.7 3.1.6.5-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.7 14.9L2 22l5.3-1.4A10 10 0 1 0 12 2z"/></svg></div><span>WhatsApp</span></button>
+          <button class="ed-shape" data-svg="pi" title="Pinterest"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 0-2.9.2-.8 1.2-5.1 1.2-5.1s-.3-.6-.3-1.5c0-1.4.8-2.5 1.9-2.5.9 0 1.3.7 1.3 1.5 0 .9-.6 2.2-.9 3.5-.2 1 .5 1.9 1.6 1.9 1.9 0 3.3-2 3.3-4.8 0-2.5-1.8-4.3-4.4-4.3-3 0-4.7 2.2-4.7 4.5 0 .9.3 1.8.7 2.3.1.1.1.2.1.3l-.3 1.2c-.1.2-.2.3-.4.2-1.4-.7-2.3-2.7-2.3-4.3 0-3.5 2.5-6.7 7.3-6.7 3.8 0 6.8 2.7 6.8 6.4 0 3.8-2.4 6.9-5.8 6.9-1.1 0-2.2-.6-2.6-1.3l-.7 2.7c-.3 1-.9 2.2-1.3 3A10 10 0 1 0 12 2z"/></svg></div><span>Pinterest</span></button>
+          <button class="ed-shape" data-svg="ph" title="Phone"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"/></svg></div><span>Phone</span></button>
+          <button class="ed-shape" data-svg="mail" title="Email"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><span>Email</span></button>
+          <button class="ed-shape" data-svg="pin" title="Location"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 2 5 5 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-4-3-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></div><span>Location</span></button>
+          <button class="ed-shape" data-svg="web" title="Website"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><span>Website</span></button>
         </div>
         <!-- Photo frames: each frame is an empty masked container. Click to add
              an empty frame to the canvas, then drag a photo onto it (or select
@@ -380,7 +417,13 @@ const googleFonts = [
 
       <!-- Background -->
       <section class="ed-panel-pane" data-pane="background">
-        <div class="ed-pane-header"><h3>Background</h3><p>A solid colour, a brand swatch or a gradient.</p></div>
+        <div class="ed-pane-header"><h3>Background</h3><p>A solid colour, a brand swatch or a gradient. Use right-click → <em>Set as background</em> on an image to drop a photo behind the design.</p></div>
+        <!-- Detach button: shown only when there's a background image
+             attached. Editor.js toggles its `hidden` on every render. -->
+        <button type="button" class="ed-bg-detach" id="ed-bg-detach" hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span>Detach background image</span>
+        </button>
         <div class="ed-section-title">Brand</div>
         <div class="ed-swatches" data-swatch-target="canvas">
           <button class="ed-sw" data-color="#1c1d22" style="background:#1c1d22"></button>
@@ -1100,6 +1143,47 @@ const googleFonts = [
     .ed-shape .sh-hr { width: 100%; height: 1px; background: var(--english-violet); }
     .ed-shape .sh-hr-thick { height: 4px; }
     .ed-shape .sh-star { background: transparent; color: var(--english-violet); font-size: 28px; }
+    /* SVG-backed shape preview — used by the More-shapes and Social-icons
+       grids. Transparent background so each silhouette reads cleanly;
+       inline SVG inherits colour via currentColor. */
+    .ed-shape .sh-svg {
+      background: transparent;
+      color: var(--english-violet);
+    }
+    .ed-shape .sh-svg svg {
+      width: 28px;
+      height: 28px;
+      display: block;
+    }
+
+    /* Detach background image button — small ghost button at the top of
+       the Background pane that appears only when an image background is
+       attached. JS toggles `hidden` on the element on every render. */
+    .ed-bg-detach {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      background: transparent;
+      color: var(--english-violet);
+      border: 1px solid rgba(46, 31, 84, 0.35);
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .ed-bg-detach:hover {
+      background: var(--english-violet);
+      color: #f2efe9;
+      border-color: var(--english-violet);
+    }
+    .ed-bg-detach[hidden] { display: none; }
 
     /* Frame thumbnails — same panel chrome as shapes, but each `.fr` shows
        the silhouette of a photo crop. A subtle inner mountain icon hints
@@ -1455,6 +1539,50 @@ const googleFonts = [
       box-shadow: 0 18px 50px -10px rgba(28,29,34,0.25);
       padding: 14px;
     }
+    /* Form-flavoured popover — used by Position and Effects which want the
+       same input styling as the right panel rather than the lean slider
+       layout that .ed-pop-row gives. */
+    .ed-pop-form { min-width: 280px; max-width: 340px; }
+    .ed-pop-effects { min-width: 300px; max-width: 360px; }
+    .ed-pop-form .ed-props-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: end;
+    }
+    .ed-pop-form .ed-props-field {
+      display: flex; flex-direction: column; gap: 4px; min-width: 0;
+    }
+    .ed-pop-form .ed-props-field > label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(28,29,34,0.6);
+    }
+    .ed-pop-form .ed-props-field input,
+    .ed-pop-form .ed-props-field select {
+      padding: 7px 10px;
+      font-family: var(--sans); font-size: 13px;
+      border: 1px solid rgba(28,29,34,0.15);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+    .ed-pop-form .ed-props-field input[type="color"] { padding: 2px; height: 32px; cursor: pointer; }
+    .ed-pop-form .ed-props-field input[type="range"] { padding: 0; min-height: 32px; }
+    .ed-pop-form .ed-props-section { margin-bottom: 8px; }
+    .ed-pop-form .ed-props-section h4 { display: none; }
+    /* Text label inside an .ed-ctx-btn — same height as icon-only triggers
+       but with a readable label. */
+    .ed-ctx-poplabel {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 0 4px;
+      color: var(--ink);
+    }
     .ed-pop[hidden] { display: none; }
     .ed-pop-panel {
       display: flex; flex-direction: column;
@@ -1549,6 +1677,24 @@ const googleFonts = [
       position: relative;
       overflow: hidden;
       background: #fff;
+    }
+    /* Empty-state prompt for a blank canvas. Sits in the canvas (so it scales
+       with zoom) but is never part of the design data, so it won't export. */
+    .ed-blank-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--serif), Georgia, serif;
+      font-style: italic;
+      font-size: 64px;
+      letter-spacing: -0.01em;
+      color: rgba(255, 255, 255, 0.92);
+      text-align: center;
+      padding: 0 8%;
+      pointer-events: none;
+      user-select: none;
     }
     .ed-element {
       position: absolute;
@@ -1707,6 +1853,55 @@ const googleFonts = [
     }
     .ed-props-actions button:hover { background: rgba(28,29,34,0.1); }
     .ed-props-actions .danger:hover { background: rgba(160, 90, 60, 0.15); color: #a05a3c; }
+
+    /* ============ Effects section (shadow / outline / gradient / bg / merge tags) ============ */
+    .ed-fx-preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .ed-fx-preset {
+      padding: 8px 4px;
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: rgba(28,29,34,0.05);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: var(--ink);
+      cursor: pointer;
+      text-align: center;
+    }
+    .ed-fx-preset:hover {
+      background: rgba(28,29,34,0.1);
+      border-color: rgba(28,29,34,0.15);
+    }
+    .ed-fx-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      margin-top: 6px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      border-top: 1px solid rgba(28,29,34,0.08);
+    }
+    .ed-fx-toggle input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      margin: 0;
+    }
+    .ed-fx-controls {
+      padding: 4px 0 10px;
+    }
+    .ed-fx-controls[hidden] { display: none; }
+    .ed-fx-mergetags { margin-top: 6px; }
 
     /* Toast */
     .ed-toast {
@@ -1973,6 +2168,28 @@ const googleFonts = [
       pointer-events: none;
     }
     .ed-onboard.is-gone { display: none; }
+    /* Back button — exits the Studio to the workspace. */
+    .ed-onboard-back {
+      position: absolute;
+      top: 28px; left: 32px;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 16px;
+      font-family: var(--sans);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--english-violet);
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(71, 66, 84, 0.22);
+      border-radius: 14px;
+      text-decoration: none;
+      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.25s;
+      z-index: 2;
+    }
+    .ed-onboard-back:hover {
+      background: var(--english-violet); color: var(--paper);
+      border-color: var(--english-violet); transform: translateX(-2px);
+    }
+    @media (max-width: 600px) { .ed-onboard-back { top: 16px; left: 16px; } }
     .ed-onboard-inner {
       width: 100%;
       max-width: 1100px;
@@ -2067,6 +2284,70 @@ const googleFonts = [
       color: var(--ink);
       margin: 0;
     }
+    /* "Need more packs?" side cell — sits under the owned packs and teases a
+       couple the user hasn't bought, linking through to the shop. */
+    .ed-onboard-more {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      padding: 20px 22px;
+      margin: 4px 0 36px;
+      border: 1px dashed rgba(71,66,84,0.3);
+      border-radius: 6px;
+      background: rgba(123,91,207,0.05);
+    }
+    .ed-onboard-more-head { display: flex; flex-direction: column; gap: 3px; margin-right: auto; }
+    .ed-onboard-more-head strong {
+      font-family: var(--serif);
+      font-size: 19px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .ed-onboard-more-head span {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: rgba(28,29,34,0.55);
+    }
+    .ed-onboard-more-list { display: flex; gap: 12px; }
+    .ed-onboard-more-pack {
+      display: flex;
+      flex-direction: column;
+      width: 84px;
+      text-decoration: none;
+      transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
+    }
+    .ed-onboard-more-pack:hover { transform: translateY(-3px); }
+    .ed-onboard-more-cover {
+      aspect-ratio: 4 / 3;
+      border-radius: 3px;
+      background-color: var(--platinum);
+      background-size: cover;
+      background-position: center;
+      border: 1px solid rgba(71,66,84,0.18);
+    }
+    .ed-onboard-more-name {
+      margin-top: 6px;
+      font-family: var(--sans);
+      font-size: 11px;
+      color: rgba(28,29,34,0.6);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ed-onboard-more-cta {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--violet, #7B5BCF);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color 0.25s;
+    }
+    .ed-onboard-more-cta:hover { color: var(--english-violet); }
+    .ed-onboard-error a { color: var(--violet, #7B5BCF); text-decoration: underline; }
     .ed-onboard-skip {
       appearance: none;
       background: transparent;
@@ -2652,48 +2933,108 @@ const googleFonts = [
 
     skipBtn.addEventListener("click", () => closeOverlayAndBuild(null));
 
-    (async () => {
-      const { data, error: err } = await supabase
-        .from("packs")
-        .select("id, slug, title, category, cover_image_url")
-        .eq("status", "active")
-        .order("sort_order", { ascending: true });
-
-      loading.hidden = true;
-
-      if (err) {
-        error.textContent = "Couldn't load your packs — start blank or refresh to retry.";
-        error.hidden = false;
-        return;
-      }
-
-      const packs = (data ?? []).slice(0, 8);
-      if (packs.length === 0) {
-        error.textContent = "No packs available yet — start blank to explore the studio.";
-        error.hidden = false;
-        return;
-      }
-
-      grid.innerHTML = packs.map((p) => `
+    function packCard(p) {
+      return `
         <button type="button" class="ed-onboard-card" data-pack-id="${p.id}">
           <div class="ed-onboard-card-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></div>
           <div class="ed-onboard-card-body">
             ${p.category ? `<span class="ed-onboard-card-cat">${escapeHtml(p.category)}</span>` : ""}
             <h3 class="ed-onboard-card-title">${escapeHtml(p.title)}</h3>
           </div>
-        </button>
-      `).join("");
+        </button>`;
+    }
+
+    // "Need more packs?" footer cell — previews a couple of packs the user
+    // doesn't own yet and links through to the shop to buy them.
+    function renderMoreCell(unowned) {
+      if (!unowned.length) return;
+      const previews = unowned.slice(0, 2).map((p) => `
+        <a class="ed-onboard-more-pack" href="#" data-shop data-shop-slug="${escapeHtml(p.slug)}" title="${escapeHtml(p.title)}">
+          <span class="ed-onboard-more-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
+          <span class="ed-onboard-more-name">${escapeHtml(p.title)}</span>
+        </a>`).join("");
+      const cell = document.createElement("div");
+      cell.className = "ed-onboard-more";
+      cell.innerHTML = `
+        <div class="ed-onboard-more-head">
+          <strong>Need more packs?</strong>
+          <span>Download and buy more in The Edit.</span>
+        </div>
+        <div class="ed-onboard-more-list">${previews}</div>
+        <a class="ed-onboard-more-cta" href="#" data-shop>Browse The Edit &rarr;</a>`;
+      grid.insertAdjacentElement("afterend", cell);
+    }
+
+    (async () => {
+      // Who's signed in — drives which packs they already own.
+      const { data: { session } } = await supabase.auth.getSession();
+      const email = session?.user?.email || "";
+
+      // All active packs + the user's paid orders, in parallel.
+      const [packsRes, ordersRes] = await Promise.all([
+        supabase
+          .from("packs")
+          .select("id, slug, title, category, cover_image_url")
+          .eq("status", "active")
+          .order("sort_order", { ascending: true }),
+        session
+          ? supabase
+              .from("orders")
+              .select("pack_id, status")
+              .or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      loading.hidden = true;
+
+      if (packsRes.error) {
+        error.textContent = "Couldn't load your packs — start blank or refresh to retry.";
+        error.hidden = false;
+        return;
+      }
+
+      const allPacks = packsRes.data ?? [];
+      const ownedIds = new Set(
+        (ordersRes.data ?? [])
+          .filter((o) => o.status === "paid" && o.pack_id)
+          .map((o) => o.pack_id)
+      );
+
+      const owned = allPacks.filter((p) => ownedIds.has(p.id));
+      const unowned = allPacks.filter((p) => !ownedIds.has(p.id));
+
+      if (owned.length === 0) {
+        // Nothing purchased yet — nudge toward the shop, but the blank-canvas
+        // skip button below still lets them explore the studio.
+        error.innerHTML = "You haven't added any packs yet — start with a blank canvas below, or pick some up in <a href=\"#\" data-shop>The Edit</a>.";
+        error.hidden = false;
+        renderMoreCell(unowned);
+        return;
+      }
+
+      grid.innerHTML = owned.map(packCard).join("");
       grid.hidden = false;
+      renderMoreCell(unowned);
 
       grid.addEventListener("click", (e) => {
         const btn = e.target instanceof Element ? e.target.closest("[data-pack-id]") : null;
         if (!btn) return;
         const id = btn.getAttribute("data-pack-id");
-        const pack = packs.find((p) => p.id === id);
+        const pack = owned.find((p) => p.id === id);
         closeOverlayAndBuild(pack);
       });
     })();
   </script>
+
+  <!-- Floating "Ask an Expert" chat widget. Lives bottom-right; the
+       backend route /api/ask-expert needs an SSR runtime (or a
+       separate edge function). Until that's wired the widget shows
+       a friendly fallback message so the UI is still usable. -->
+  <AskExpert />
+
+  <!-- Browse-packs shop modal — opened from the onboarding "Need more
+       packs?" cell so users can buy without leaving the Studio. -->
+  <ShopModal />
 
   <!-- First-time login tour — resumes here only if a tour is in progress. -->
   <script>
