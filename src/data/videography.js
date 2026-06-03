@@ -1,139 +1,150 @@
 // Videography section — data model
 // ---------------------------------------------------------------------------
-// ONE templated page set is driven entirely by this file. Adding a service is
-// a new entry in SERVICES; adding a partner price tier is a new entry in
-// PARTNERS plus a `prices` key on each service. No new pages required.
+// ONE page (/videography) renders all products. Each product opens a slide-down
+// modal "pop-out" with a hero image, photo gallery, price tiers, what's
+// included, and example work. Adding a product = a new entry in PRODUCTS.
 //
 // Prices are in PENCE (matches gbpFromPence() in lib/supabase.js).
+// Every product supports multiple price tiers (e.g. Half day / Full day).
 //
 // "Knowing the company without asking": partners arrive via a vanity link
 // (e.g. /videography?p=fine-and-country). resolvePartnerSlug() reads the query
-// param, persists it to localStorage, and falls back to the logged-in account
-// brand later. The matching price tier then renders automatically.
+// param, persists it to localStorage, and the matching tier price renders.
 // ---------------------------------------------------------------------------
 
-/** Partner price tiers. `null`/absent = the public "direct" tier. */
 export const PARTNERS = {
-  "fine-and-country": {
-    slug: "fine-and-country",
-    name: "Fine & Country",
-    tier: "premium",
-    note: "Premium partner rates",
-  },
-  "property-experts": {
-    slug: "property-experts",
-    name: "The Property Experts",
-    tier: "volume",
-    note: "Volume partner rates",
-  },
+  "fine-and-country": { slug: "fine-and-country", name: "Fine & Country", tier: "premium", note: "Premium partner rates" },
+  "property-experts": { slug: "property-experts", name: "The Property Experts", tier: "volume", note: "Volume partner rates" },
 };
-
-/** The public "direct" pricing label when no partner is resolved. */
 export const DIRECT = { slug: "direct", name: "Direct", note: "Standard rates" };
 
-// Stock posters — swap for real branded stills / Cloudflare Stream thumbnails.
-const POSTER = (id, w = 1200, h = 800) =>
+// Stock imagery — swap for real branded stills / Cloudflare Stream thumbnails.
+const IMG = (id, w = 1400, h = 900) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
 
-export const SERVICES = [
+export const PRODUCTS = [
   {
-    slug: "property-films",
-    name: "Property Films",
+    slug: "studio",
+    name: "The Studio",
+    tagline: "Our Rugby podcast & content studio — booked by the half or full day.",
+    summary:
+      "A fully kitted studio with Jack on hand to record everything you need. Multi-camera, broadcast audio, and a producer's eye — then we edit it and send it over ready to publish.",
+    hero: "/assets/podcast-studio.jpeg",
+    gallery: [
+      "/assets/podcast-studio.jpeg",
+      IMG("1598488035139-bdbb2231ce04"), IMG("1478737270239-2f02b77fc618"),
+      IMG("1564424224827-cd24b8915874"), IMG("1505236858219-8359eb29e329"),
+      IMG("1516223725307-6f76b9ec8742"),
+    ],
+    included: [
+      "Half or full-day studio booking",
+      "Jack on-hand to record everything",
+      "Multi-camera + broadcast audio",
+      "Full edit and delivery",
+      "Same-day social clips (full day)",
+    ],
+    priceTiers: [
+      { label: "Half day", prices: { direct: 35000, "fine-and-country": 40000, "property-experts": 30000 } },
+      { label: "Full day", prices: { direct: 60000, "fine-and-country": 70000, "property-experts": 50000 } },
+    ],
+    // Studio is visible but not directly bookable yet — soft "enquire" CTA.
+    bookable: false,
+    // All pop-outs rise from the bottom, near full-screen, close top-right.
+    modal: { from: "bottom", size: "tall", close: "right" },
+    showcase: [
+      { title: "Podcast set", poster: IMG("1589903308904-1010c2294adc") },
+      { title: "Interview format", poster: IMG("1521737604893-d14cc237f11d") },
+    ],
+  },
+  {
+    slug: "personal-branding",
+    name: "Personal Branded Content",
+    tagline: "Intro & welcome videos that put a face to your name.",
+    summary:
+      "Perfect for an agent starting in a new patch — warm, natural intro and welcome videos. “Hi, I'm James, your local agent…” The content that builds trust before the first call.",
+    hero: IMG("1521577352947-9bb58764b69a"),
+    gallery: [
+      IMG("1507003211169-0a1dd7228f2d"), IMG("1500648767791-00dcc994a43e"),
+      IMG("1472099645785-5658abf4ff4e"), IMG("1488161628813-04466f872be2"),
+    ],
+    included: [
+      "Pre-shoot script & direction",
+      "Intro / welcome video set",
+      "On-screen captions + graphics",
+      "Vertical + landscape exports",
+    ],
+    priceTiers: [
+      { label: "Single video", prices: { direct: 25000, "fine-and-country": 32000, "property-experts": 18000 } },
+      { label: "Content day", prices: { direct: 75000, "fine-and-country": 90000, "property-experts": 55000 } },
+    ],
+    bookable: true,
+    // All pop-outs rise from the bottom, near full-screen, close top-right.
+    modal: { from: "bottom", size: "tall", close: "right" },
+    showcase: [
+      { title: "Agent intro", poster: IMG("1560250097-0b93528c311a") },
+      { title: "Welcome video", poster: IMG("1573497019940-1c28c88b4f3e") },
+    ],
+  },
+  {
+    slug: "property-tours",
+    name: "Property Tours",
     tagline: "Cinematic walkthroughs that sell the home before the viewing.",
     summary:
       "A fully produced property film — establishing shots, smooth interior motion, and a paced edit that makes a listing feel like a place people want to live.",
-    deliverables: [
+    hero: IMG("1512917774080-9991f1c4c750"),
+    gallery: [
+      IMG("1568605114967-8130f3a36994"), IMG("1570129477492-45c003edd2be"),
+      IMG("1502672260266-1c1ef2d93688"), IMG("1493809842364-78817add7ffb"),
+      IMG("1484154218962-a197022b5858"),
+    ],
+    included: [
       "Full cinematic property film (60–90s)",
-      "Vertical social cut-down for Reels / TikTok",
+      "Vertical social cut-down",
       "10–15 edited hero stills",
       "Licensed music + colour grade",
     ],
-    // prices in pence
-    prices: { direct: 60000, "fine-and-country": 75000, "property-experts": 45000 },
-    poster: POSTER("1512917774080-9991f1c4c750"),
+    priceTiers: [
+      { label: "Standard tour", prices: { direct: 45000, "fine-and-country": 55000, "property-experts": 35000 } },
+      { label: "Cinematic + aerial", prices: { direct: 75000, "fine-and-country": 90000, "property-experts": 60000 } },
+    ],
+    bookable: true,
+    // Pop-out rises from the bottom, near full-screen, close top-right.
+    modal: { from: "bottom", size: "tall", close: "right" },
     showcase: [
-      { title: "Riverside townhouse", poster: POSTER("1568605114967-8130f3a36994") },
-      { title: "Country manor", poster: POSTER("1570129477492-45c003edd2be") },
-      { title: "City penthouse", poster: POSTER("1502672260266-1c1ef2d93688") },
+      { title: "Riverside townhouse", poster: IMG("1600585154340-be6161a56a0c") },
+      { title: "Country manor", poster: IMG("1600596542815-ffad4c1539a9") },
     ],
   },
   {
-    slug: "social-reels",
-    name: "Social Reels",
-    tagline: "Short, scroll-stopping vertical content built for reach.",
+    slug: "photo-headshots",
+    name: "Photo Packs & Headshots",
+    tagline: "Sharp headshots and a full photo pack for the whole team.",
     summary:
-      "High-tempo vertical films designed for Instagram, TikTok and YouTube Shorts — agent-to-camera, listing teasers, and market updates that actually get watched.",
-    deliverables: [
-      "3× vertical reels (15–30s each)",
-      "On-screen captions + hooks",
-      "Trending-audio sync",
-      "Ready-to-post exports",
+      "Professional headshots and branded photography for your website, socials and listings — consistent, on-brand, and shot in a single efficient session.",
+    hero: IMG("1507003211169-0a1dd7228f2d"),
+    gallery: [
+      IMG("1494790108377-be9c29b29330"), IMG("1500648767791-00dcc994a43e"),
+      IMG("1438761681033-6461ffad8d80"), IMG("1463453091185-61582044d556"),
     ],
-    prices: { direct: 30000, "fine-and-country": 40000, "property-experts": 22500 },
-    poster: POSTER("1611162617213-7d7a39e9b1d7"),
-    showcase: [
-      { title: "Listing teaser", poster: POSTER("1605276374104-dee2a0ed3cd6") },
-      { title: "Agent to camera", poster: POSTER("1521577352947-9bb58764b69a") },
+    included: [
+      "Studio or on-location session",
+      "Retouched headshots per person",
+      "Branded team + office photos",
+      "Web + print-ready exports",
     ],
-  },
-  {
-    slug: "brand-films",
-    name: "Brand & Lifestyle Films",
-    tagline: "The film that tells people why you, not the agent down the road.",
-    summary:
-      "A considered brand film — your team, your story, your local market. The piece that sits on your homepage and pitches you while you sleep.",
-    deliverables: [
-      "Brand film (90–120s)",
-      "Interview direction + scripting support",
-      "Multi-location shoot day",
-      "Social cut-downs + stills",
+    priceTiers: [
+      { label: "Headshots", prices: { direct: 20000, "fine-and-country": 25000, "property-experts": 15000 } },
+      { label: "Full photo pack", prices: { direct: 45000, "fine-and-country": 55000, "property-experts": 35000 } },
     ],
-    prices: { direct: 90000, "fine-and-country": 120000, "property-experts": 70000 },
-    poster: POSTER("1492691527719-9d1e07e534b4"),
-    showcase: [
-      { title: "Agency brand film", poster: POSTER("1497366216548-37526070297c") },
-      { title: "Founder story", poster: POSTER("1556761175-5973dc0f32e7") },
-    ],
-  },
-  {
-    slug: "aerial",
-    name: "Aerial & Drone",
-    tagline: "Context, scale and drama from above — fully licensed.",
-    summary:
-      "CAA-licensed aerial cinematography for estates, developments and location context. The shots that make a property feel like an event.",
-    deliverables: [
-      "Licensed drone operation",
-      "4K aerial footage + stills",
-      "Reveal + context shots",
-      "Graded social-ready exports",
-    ],
-    prices: { direct: 45000, "fine-and-country": 55000, "property-experts": 35000 },
-    poster: POSTER("1473968512647-3e447244af8f"),
-    showcase: [
-      { title: "Estate reveal", poster: POSTER("1518780664697-55e3ad937233") },
-      { title: "Development overview", poster: POSTER("1449844908441-8829872d2607") },
-    ],
+    bookable: true,
+    // Pop-out rises from the bottom, near full-screen, close top-right.
+    modal: { from: "bottom", size: "tall", close: "right" },
+    showcase: [],
   },
 ];
 
-/** Unlisted — not in SERVICES, not in nav, not in the sitemap. */
-export const STUDIO = {
-  slug: "studio",
-  name: "The Rugby Podcast Studio",
-  tagline: "A fully kitted podcast & content studio — partners only.",
-  summary:
-    "Our private podcast studio in Rugby: multi-cam, broadcast audio, and a producer on hand. Available to partner brands by arrangement.",
-  deliverables: [
-    "Multi-camera podcast capture",
-    "Broadcast-quality audio",
-    "Same-day social clips",
-    "Producer + editor included",
-  ],
-  poster: POSTER("1590602847861-f357a9332bbc"),
-};
-
-export function getService(slug) {
-  return SERVICES.find((s) => s.slug === slug) || null;
+export function getProduct(slug) {
+  return PRODUCTS.find((p) => p.slug === slug) || null;
 }
 
 export function getPartner(slug) {
@@ -141,10 +152,10 @@ export function getPartner(slug) {
   return PARTNERS[slug] || DIRECT;
 }
 
-/** Price (pence) for a service under a partner tier, falling back to direct. */
-export function priceFor(service, partnerSlug) {
-  if (!service || !service.prices) return null;
-  return service.prices[partnerSlug] ?? service.prices.direct ?? null;
+/** Price (pence) for a tier under a partner, falling back to the direct rate. */
+export function tierPrice(tier, partnerSlug) {
+  if (!tier || !tier.prices) return null;
+  return tier.prices[partnerSlug] ?? tier.prices.direct ?? null;
 }
 
 // --- Client-only helpers (safe to import in a browser <script>) -------------
@@ -161,16 +172,10 @@ export function resolvePartnerSlug() {
     }
     const stored = window.localStorage.getItem(STORE_KEY);
     if (stored && PARTNERS[stored]) return stored;
-  } catch (_) {
-    /* ignore */
-  }
+  } catch (_) { /* ignore */ }
   return "direct";
 }
 
 export function clearPartner() {
-  try {
-    window.localStorage.removeItem(STORE_KEY);
-  } catch (_) {
-    /* ignore */
-  }
+  try { window.localStorage.removeItem(STORE_KEY); } catch (_) { /* ignore */ }
 }

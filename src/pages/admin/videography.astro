@@ -86,28 +86,40 @@ import PageHero from "../../components/PageHero.astro";
       </div>
     </div>
 
-    <div class="vid-conn-note is-pending">
-      <strong>Upload engine — wiring lands in Phase 4 (Cloudflare R2).</strong>
-      This is the interface Jack will use. The drag-and-drop zone below is the real
-      shape of it; the direct-to-R2 multipart upload + “send gallery” button get
-      connected once the R2 account and the server endpoints are in place.
+    <div class="vid-conn-note is-pending" id="vid-deliver-config" hidden>
+      <strong>Upload backend not connected yet.</strong>
+      Deploy the Cloudflare Worker in <code>worker/</code> and set
+      <code>PUBLIC_R2_WORKER_URL</code> in your env, then reload. See
+      <code>worker/README.md</code>.
     </div>
 
-    <div class="vid-dropzone" id="vid-dropzone" aria-disabled="true">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-        <polyline points="17 8 12 3 7 8" />
-        <line x1="12" y1="3" x2="12" y2="15" />
-      </svg>
-      <div class="vid-dropzone-title">Drag videos &amp; photos here</div>
-      <div class="vid-dropzone-sub">Multi-GB, full-resolution — uploads straight to Cloudflare R2 (not your server)</div>
-      <button type="button" class="admin-btn admin-btn-ghost" disabled>Choose files</button>
-    </div>
+    <div class="vid-deliver">
+      <div class="vid-field vid-deliver-pick">
+        <label>Deliver to booking</label>
+        <select id="vid-deliver-booking">
+          <option value="">— Select a client / shoot —</option>
+        </select>
+      </div>
 
-    <div class="vid-deliver-steps">
-      <div class="vid-step"><span class="vid-step-n">1</span> Pick the client &amp; upload the deliverables</div>
-      <div class="vid-step"><span class="vid-step-n">2</span> Edit the invoice — add travel, extras</div>
-      <div class="vid-step"><span class="vid-step-n">3</span> Send gallery — teaser images free, full set behind Stripe</div>
+      <div class="vid-dropzone" id="vid-dropzone">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <div class="vid-dropzone-title">Drag videos &amp; photos here</div>
+        <div class="vid-dropzone-sub">Multi-GB, full-resolution — uploaded straight to Cloudflare R2 in 50&nbsp;MB parts, resumable per part</div>
+        <button type="button" class="admin-btn admin-btn-ghost" id="vid-pick">Choose files</button>
+        <input type="file" id="vid-file-input" multiple hidden />
+      </div>
+
+      <div class="vid-uploads" id="vid-uploads"></div>
+
+      <div class="vid-files">
+        <h3 class="vid-files-head">Uploaded for this booking</h3>
+        <p class="vid-loading" id="vid-files-empty">Select a booking to see its delivered files.</p>
+        <div class="vid-files-list" id="vid-files-list"></div>
+      </div>
     </div>
   </section>
 
@@ -133,10 +145,10 @@ import PageHero from "../../components/PageHero.astro";
       <div class="vid-conn-card">
         <div class="vid-conn-row">
           <h3>Cloudflare R2 — media storage</h3>
-          <span class="enquiry-status-pill is-pending">Not connected</span>
+          <span class="enquiry-status-pill is-pending" id="vid-r2-pill">Not connected</span>
         </div>
         <p>Fast, high-resolution storage for shoots. Direct-to-edge uploads for Jack, zero-egress fast downloads for clients.</p>
-        <button type="button" class="admin-btn admin-btn-ghost" disabled>Add R2 keys (Phase 4)</button>
+        <p class="vid-conn-meta" id="vid-r2-meta">Deploy the Worker in <code>worker/</code> and set <code>PUBLIC_R2_WORKER_URL</code>.</p>
       </div>
 
       <div class="vid-conn-card">
@@ -329,27 +341,45 @@ import PageHero from "../../components/PageHero.astro";
     .vid-diary-save { margin-top: 8px; }
 
     /* ---- Deliver ---- */
+    .vid-deliver-pick { max-width: 440px; margin-bottom: 20px; }
     .vid-dropzone {
       border: 2px dashed rgba(71, 66, 84, 0.3); border-radius: 6px;
       padding: 48px 24px; text-align: center; color: rgba(28, 29, 34, 0.55);
       display: flex; flex-direction: column; align-items: center; gap: 10px;
-      background: rgba(71, 66, 84, 0.02);
+      background: rgba(71, 66, 84, 0.02); transition: border-color 0.2s, background 0.2s;
     }
+    .vid-dropzone.is-drag { border-color: var(--english-violet); background: rgba(71, 66, 84, 0.06); }
+    .vid-dropzone.is-disabled { opacity: 0.55; }
     .vid-dropzone-title { font-family: var(--serif); font-size: 22px; color: var(--ink); }
-    .vid-dropzone-sub { font-family: var(--sans); font-size: 13px; }
-    .vid-deliver-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
-    .vid-step {
-      padding: 16px 18px; background: rgba(71, 66, 84, 0.04);
-      border: 1px solid rgba(71, 66, 84, 0.15); border-radius: 3px;
-      font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.7);
-      display: flex; align-items: center; gap: 10px;
+    .vid-dropzone-sub { font-family: var(--sans); font-size: 13px; max-width: 460px; }
+
+    .vid-uploads { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+    .vid-up {
+      border: 1px solid rgba(71, 66, 84, 0.18); border-radius: 4px;
+      padding: 14px 16px; background: var(--paper);
     }
-    .vid-step-n {
-      flex: none; width: 24px; height: 24px; border-radius: 50%;
-      background: var(--english-violet); color: var(--paper);
-      display: inline-flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 12px;
-    }
+    .vid-up-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .vid-up-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); word-break: break-all; }
+    .vid-up-stat { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); white-space: nowrap; }
+    .vid-up-stat.is-done { color: #2c7a4b; }
+    .vid-up-stat.is-error { color: #a05a3c; }
+    .vid-up-bar { height: 6px; border-radius: 999px; background: rgba(71,66,84,0.12); margin-top: 10px; overflow: hidden; }
+    .vid-up-fill { height: 100%; width: 0; background: var(--english-violet); border-radius: 999px; transition: width 0.2s ease; }
+    .vid-up-fill.is-done { background: #2c7a4b; }
+    .vid-up-fill.is-error { background: #a05a3c; }
+
+    .vid-files { margin-top: 36px; }
+    .vid-files-head { font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.6); margin: 0 0 14px; }
+    .vid-files-list { display: flex; flex-direction: column; gap: 1px; background: rgba(71,66,84,0.18); border: 1px solid rgba(71,66,84,0.18); border-radius: 3px; overflow: hidden; }
+    .vid-frow { display: grid; grid-template-columns: 1fr 90px 120px 80px; gap: 14px; align-items: center; padding: 12px 16px; background: var(--paper); font-family: var(--sans); font-size: 13px; }
+    .vid-frow-name { color: var(--ink); font-weight: 600; word-break: break-all; }
+    .vid-frow-meta { color: rgba(28,29,34,0.55); font-size: 12px; }
+    .vid-frow-act { text-align: right; }
+    .vid-frow-link { color: var(--english-violet); font-weight: 700; cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 12px; }
+    .vid-frow-del { color: #a05a3c; cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 12px; font-weight: 700; }
+    .vid-conn-meta { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin: 0; }
+    .vid-conn-meta code, .vid-conn-note code { background: rgba(71,66,84,0.1); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+    @media (max-width: 720px) { .vid-frow { grid-template-columns: 1fr auto; } .vid-frow-meta { display: none; } }
 
     /* ---- Connections ---- */
     .vid-conn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
@@ -439,6 +469,10 @@ import PageHero from "../../components/PageHero.astro";
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
+
+    // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
+    const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const PART_SIZE = 50 * 1024 * 1024; // 50 MB parts
 
     const STAGES = [
       { key: "booked",      label: "Booked" },
@@ -674,6 +708,7 @@ import PageHero from "../../components/PageHero.astro";
       if (btn) btn.textContent = "Save booking";
       closeModal();
       renderBoard(); renderBookings(document.getElementById("vid-booking-search")?.value || "");
+      populateDeliverBookings();
     }
 
     async function deleteBooking() {
@@ -684,6 +719,211 @@ import PageHero from "../../components/PageHero.astro";
       bookings = bookings.filter((x) => x.id !== editingId);
       closeModal();
       renderBoard(); renderBookings(document.getElementById("vid-booking-search")?.value || "");
+      populateDeliverBookings();
+    }
+
+    /* ---------- Deliver (R2 uploads attached to a booking) ---------- */
+    function fmtBytes(n) {
+      if (n == null) return "—";
+      const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0; let v = Number(n);
+      while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+      return v.toFixed(v >= 10 || i === 0 ? 0 : 1) + " " + u[i];
+    }
+    function kindFromType(t) {
+      if (!t) return "other";
+      if (t.startsWith("video/")) return "video";
+      if (t.startsWith("image/")) return "image";
+      return "other";
+    }
+    async function authToken() {
+      const { data } = await supabase.auth.getSession();
+      return data.session ? data.session.access_token : "";
+    }
+    function deliverBooking() {
+      const sel = document.getElementById("vid-deliver-booking");
+      return sel ? sel.value : "";
+    }
+    function populateDeliverBookings() {
+      const sel = document.getElementById("vid-deliver-booking");
+      if (!sel) return;
+      const keep = sel.value;
+      const stageLabel = (k) => (STAGES.find((s) => s.key === k) || {}).label || k;
+      sel.innerHTML = '<option value="">— Select a client / shoot —</option>' +
+        bookings.map((b) => `<option value="${b.id}">${escapeHtml(b.client_name)}${b.client_company ? " · " + escapeHtml(b.client_company) : ""} — ${escapeHtml(stageLabel(b.stage))}</option>`).join("");
+      if (keep) sel.value = keep;
+    }
+
+    function initDeliver() {
+      const dz = document.getElementById("vid-dropzone");
+      const input = document.getElementById("vid-file-input");
+      const pick = document.getElementById("vid-pick");
+      const sel = document.getElementById("vid-deliver-booking");
+      if (!dz) return;
+
+      const connected = Boolean(WORKER_URL);
+      const configNote = document.getElementById("vid-deliver-config");
+      const r2pill = document.getElementById("vid-r2-pill");
+      const r2meta = document.getElementById("vid-r2-meta");
+      if (configNote) configNote.hidden = connected;
+      if (!connected) dz.classList.add("is-disabled");
+      if (connected && r2pill) { r2pill.textContent = "Connected"; r2pill.classList.remove("is-pending"); r2pill.classList.add("is-paid"); }
+      if (connected && r2meta) r2meta.textContent = "Worker connected.";
+
+      populateDeliverBookings();
+
+      function guard() {
+        if (!connected) { alert("Upload backend isn't connected yet — deploy the Worker and set PUBLIC_R2_WORKER_URL."); return false; }
+        if (!deliverBooking()) { alert("Pick a booking to deliver to first."); return false; }
+        return true;
+      }
+
+      pick?.addEventListener("click", () => { if (guard()) input?.click(); });
+      input?.addEventListener("change", () => { handleFiles(input.files); input.value = ""; });
+      sel?.addEventListener("change", () => loadDeliverFiles());
+
+      ["dragenter", "dragover"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("is-drag"); }));
+      ["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("is-drag"); }));
+      dz.addEventListener("drop", (e) => { if (guard()) handleFiles(e.dataTransfer.files); });
+    }
+
+    function handleFiles(fileList) {
+      const bookingId = deliverBooking();
+      if (!WORKER_URL || !bookingId) return;
+      Array.from(fileList || []).forEach((file) => uploadFile(file, bookingId));
+    }
+
+    function uploadRowUI(file) {
+      const wrap = document.getElementById("vid-uploads");
+      const row = document.createElement("div");
+      row.className = "vid-up";
+      row.innerHTML =
+        `<div class="vid-up-top"><span class="vid-up-name"></span><span class="vid-up-stat">Starting…</span></div>` +
+        `<div class="vid-up-bar"><div class="vid-up-fill"></div></div>`;
+      row.querySelector(".vid-up-name").textContent = file.name;
+      wrap.prepend(row);
+      return {
+        setStat: (t, cls) => { const s = row.querySelector(".vid-up-stat"); s.textContent = t; s.className = "vid-up-stat" + (cls ? " " + cls : ""); },
+        setPct: (p) => { row.querySelector(".vid-up-fill").style.width = Math.round(p) + "%"; },
+        done: () => row.querySelector(".vid-up-fill").classList.add("is-done"),
+        error: () => row.querySelector(".vid-up-fill").classList.add("is-error"),
+        remove: () => row.remove(),
+      };
+    }
+
+    function putPart(token, key, uploadId, partNumber, blob, onProgress) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const u = `${WORKER_URL}/part?key=${encodeURIComponent(key)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`;
+        xhr.open("PUT", u);
+        xhr.setRequestHeader("Authorization", "Bearer " + token);
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded); };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); } catch (_) { reject(new Error("Bad part response")); }
+          } else reject(new Error("Part " + partNumber + " failed (" + xhr.status + ")"));
+        };
+        xhr.onerror = () => reject(new Error("Network error on part " + partNumber));
+        xhr.send(blob);
+      });
+    }
+
+    async function uploadFile(file, bookingId) {
+      const ui = uploadRowUI(file);
+      try {
+        const token = await authToken();
+        if (!token) throw new Error("Not signed in");
+        ui.setStat("Preparing…");
+        const cRes = await fetch(`${WORKER_URL}/create`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ bookingId, fileName: file.name, contentType: file.type || "application/octet-stream" }),
+        });
+        if (!cRes.ok) throw new Error("Create failed (" + cRes.status + ")");
+        const { key, uploadId } = await cRes.json();
+
+        const total = file.size;
+        const partCount = Math.max(1, Math.ceil(total / PART_SIZE));
+        const parts = [];
+        let baseLoaded = 0;
+        for (let i = 0; i < partCount; i++) {
+          const start = i * PART_SIZE;
+          const blob = file.slice(start, Math.min(start + PART_SIZE, total));
+          const partNumber = i + 1;
+          let attempt = 0;
+          for (;;) {
+            try {
+              const res = await putPart(token, key, uploadId, partNumber, blob, (loaded) => {
+                const pct = total ? ((baseLoaded + loaded) / total) * 100 : 0;
+                ui.setPct(pct);
+                ui.setStat("Uploading " + Math.round(pct) + "% · part " + partNumber + "/" + partCount);
+              });
+              parts.push({ partNumber, etag: res.etag });
+              baseLoaded += blob.size;
+              ui.setPct((baseLoaded / total) * 100);
+              break;
+            } catch (err) {
+              if (++attempt >= 3) throw err;
+              ui.setStat("Retrying part " + partNumber + " (" + attempt + ")…");
+              await new Promise((r) => setTimeout(r, 800 * attempt));
+            }
+          }
+        }
+
+        ui.setStat("Finalising…");
+        const fRes = await fetch(`${WORKER_URL}/complete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ key, uploadId, parts }),
+        });
+        if (!fRes.ok) throw new Error("Complete failed (" + fRes.status + ")");
+
+        await supabase.from("videography_deliverables").insert({
+          booking_id: bookingId, file_name: file.name, r2_key: key,
+          size_bytes: file.size, content_type: file.type || null, kind: kindFromType(file.type),
+        });
+
+        ui.setPct(100); ui.done(); ui.setStat(fmtBytes(file.size) + " · done", "is-done");
+        setTimeout(() => ui.remove(), 2500);
+        if (deliverBooking() === bookingId) loadDeliverFiles();
+      } catch (err) {
+        ui.error(); ui.setStat((err && err.message) || "Upload failed", "is-error");
+      }
+    }
+
+    async function loadDeliverFiles() {
+      const listEl = document.getElementById("vid-files-list");
+      const emptyEl = document.getElementById("vid-files-empty");
+      const bookingId = deliverBooking();
+      if (!listEl) return;
+      if (!bookingId) { listEl.innerHTML = ""; if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "Select a booking to see its delivered files."; } return; }
+      if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "Loading…"; }
+      const { data, error } = await supabase
+        .from("videography_deliverables").select("*")
+        .eq("booking_id", bookingId).order("created_at", { ascending: false });
+      if (error) { if (emptyEl) emptyEl.textContent = "Couldn't load files: " + error.message; listEl.innerHTML = ""; return; }
+      if (!data || !data.length) { if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "No files delivered for this booking yet."; } listEl.innerHTML = ""; return; }
+      if (emptyEl) emptyEl.hidden = true;
+      listEl.innerHTML = data.map((f) => `
+        <div class="vid-frow" data-id="${f.id}" data-key="${escapeHtml(f.r2_key)}">
+          <div class="vid-frow-name">${escapeHtml(f.file_name)}</div>
+          <div class="vid-frow-meta">${escapeHtml(f.kind || "file")}</div>
+          <div class="vid-frow-meta">${fmtBytes(f.size_bytes)}</div>
+          <div class="vid-frow-act"><button class="vid-frow-del" data-del>Delete</button></div>
+        </div>`).join("");
+      listEl.querySelectorAll("[data-del]").forEach((btn) => btn.addEventListener("click", () => deleteDeliverable(btn.closest(".vid-frow"))));
+    }
+
+    async function deleteDeliverable(row) {
+      if (!row) return;
+      const id = row.getAttribute("data-id");
+      const key = row.getAttribute("data-key");
+      if (!confirm("Delete this file? It will be removed from storage.")) return;
+      const token = await authToken();
+      try {
+        await fetch(`${WORKER_URL}/object?key=${encodeURIComponent(key)}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+      } catch (_) { /* still remove the record */ }
+      await supabase.from("videography_deliverables").delete().eq("id", id);
+      loadDeliverFiles();
     }
 
     /* ---------- Boot ---------- */
@@ -710,6 +950,7 @@ import PageHero from "../../components/PageHero.astro";
       if (dl) dl.remove();
       renderDiary();
       renderBookings();
+      initDeliver();
 
       document.getElementById("vid-new-booking")?.addEventListener("click", () => openModal(null));
       document.getElementById("vid-save")?.addEventListener("click", saveBooking);
