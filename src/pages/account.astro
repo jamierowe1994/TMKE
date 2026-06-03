@@ -740,6 +740,7 @@ import "../styles/workspace.css";
 
   <script>
     import { supabase, gbpFromPence } from '../lib/supabase.js';
+    import { maybeStartTour } from '../lib/tour.js';
 
     const $welcomeH = document.getElementById('welcome-h');
     const $welcomeSub = document.getElementById('welcome-sub');
@@ -984,6 +985,13 @@ import "../styles/workspace.css";
       $welcomeH.innerHTML = `${greeting}, <em>${escapeHtml(titleCase(firstName))}.</em>`;
       $welcomeSub.textContent = 'Your studio. Your library. Pick something up where you left off.';
       $footerEmail.textContent = email;
+
+      // First-time login tour. Starts only when the user has never completed it
+      // (flag stamped on their Supabase account); otherwise inert. Skippable.
+      maybeStartTour({
+        firstName: titleCase(firstName),
+        completedAt: meta.tour_completed_at || null,
+      });
 
       // Kick off the entrance animation. Adding the class on the next
       // frame ensures the .fade-up elements have laid out before the
