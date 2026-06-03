@@ -13,19 +13,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        shift dark->light as the photo passes under them. -->
   <section id="top" class="hero-zoom" data-reveal-root>
     <div class="hero-zoom-pin">
-      <!-- Starter texture — bumpy plaster wall behind the word; fades and
-           slides down as the photo irises in. -->
-      <div class="hero-zoom-texture" aria-hidden="true"></div>
       <!-- Layer A — the photo that unfolds to full screen -->
       <div class="hero-zoom-media">
-        <img class="hero-zoom-img" src="/assets/vibes%20two.png" alt="A TMKE interior" />
+        <img class="hero-zoom-img" src="/assets/vibes.jpg" alt="A TMKE interior" />
       </div>
       <!-- Layer B — TMKE wordmark (brand serif), dead centre -->
       <h1 class="hero-zoom-word" aria-label="TMKE">TMKE</h1>
       <!-- Layer C — sofa-cushion cut-out, ABOVE the word so the E tucks behind
            it; revealed by the same iris clip as the photo. -->
       <div class="hero-zoom-fg">
-        <img class="hero-zoom-fg-img" src="/assets/sofa%20invis%202.png" alt="" />
+        <img class="hero-zoom-fg-img" src="/assets/sofa%20invis.png" alt="" />
       </div>
       <!-- Bottom labels: left / centre / right -->
       <div class="hero-zoom-foot">
@@ -158,10 +155,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <div class="ch4-panels">
         <div class="ch4-col ch4-col--left">
           <div class="ch4-strip" data-ch4="left">
-            <div class="ch4-cell"><img src="/assets/orange%201.jpg" alt="" /></div>
-            <div class="ch4-cell"><img src="/assets/white%201.jpg" alt="" /></div>
-            <div class="ch4-cell"><img src="/assets/kitchen%201.jpg" alt="" /></div>
-            <div class="ch4-cell"><img src="/assets/living%201.jpg" alt="" /></div>
+            <div class="ch4-cell">
+              <img src="/assets/orange%201.jpg" alt="" />
+              <div class="ch4-label ch4-label--first">
+                <span class="ch4-label-chapter">Chapter 04 &mdash; Approach</span>
+                Built for agents who want more than just property posts
+              </div>
+            </div>
+            <div class="ch4-cell">
+              <img src="/assets/white%201.jpg" alt="" />
+              <div class="ch4-label">Templates that mean business</div>
+            </div>
+            <div class="ch4-cell">
+              <img src="/assets/kitchen%201.jpg" alt="" />
+              <div class="ch4-label">Made for agents, not anyone</div>
+            </div>
+            <div class="ch4-cell">
+              <img src="/assets/living%201.jpg" alt="" />
+              <div class="ch4-label">Done with you, or done for you</div>
+            </div>
           </div>
         </div>
         <div class="ch4-col ch4-col--right">
@@ -175,11 +187,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </div>
       </div>
 
-      <div class="ch4-overlay">
-        <div class="ch4-imprint">
-          <p class="ch4-imprint-text" data-ch4-text>Built for agents who want more than just property posts</p>
-        </div>
-      </div>
     </div>
   </section>
 
@@ -378,19 +385,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       overflow: hidden;
     }
 
-    /* Starter texture — a bumpy plaster wall (SVG turbulence + diffuse lighting),
-       multiplied over the paper. The controller fades it out + slides it down as
-       the photo irises in. */
-    .hero-zoom-texture {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='480'><filter id='pl'><feTurbulence type='fractalNoise' baseFrequency='0.018' numOctaves='4' seed='7' stitchTiles='stitch' result='n'/><feDiffuseLighting in='n' lighting-color='%23efece6' surfaceScale='2' diffuseConstant='1.05' result='l'><feDistantLight azimuth='235' elevation='58'/></feDiffuseLighting></filter><rect width='100%25' height='100%25' filter='url(%23pl)'/></svg>") center / 480px 480px;
-      mix-blend-mode: multiply;
-      opacity: 0.85;
-      will-change: transform, opacity;
-    }
-
     /* Layer A — the photo, revealed by a circle that irises out from the centre
        of the word to fill a 30px-framed full screen. */
     .hero-zoom-media {
@@ -512,7 +506,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (!hero) return;
       const media = hero.querySelector(".hero-zoom-media");
       const fg = hero.querySelector(".hero-zoom-fg");
-      const tex = hero.querySelector(".hero-zoom-texture");
       const word = hero.querySelector(".hero-zoom-word");
       const foot = hero.querySelector(".hero-zoom-foot");
       const nav = document.getElementById("nav");
@@ -533,11 +526,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
         media.style.clipPath = clip;
         if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
-        // starter texture fades + slides down as the photo takes over
-        if (tex) {
-          tex.style.opacity = (0.85 * (1 - e)).toFixed(3);
-          tex.style.transform = "translateY(" + (e * vh * 0.5).toFixed(0) + "px)";
-        }
         // word: dark purple -> white as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
@@ -584,49 +572,39 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       flex-direction: column;
       will-change: transform;
     }
-    .ch4-cell { height: 25%; overflow: hidden; }
+    .ch4-cell { position: relative; height: 25%; overflow: hidden; }
     .ch4-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    /* Centre imprint — a paper-coloured "cutout" plaque (matches the page bg)
-       with the statement debossed into it. Always visible; never fades. */
-    .ch4-overlay {
+    /* Per-image label — a paper-coloured box in the bottom-left of each left
+       cell, 30px in from the photo edges (matching the frame). It scrolls up
+       with the panel, revealing the next one. */
+    .ch4-label {
       position: absolute;
-      left: 50%; top: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 3;
-      pointer-events: none;
-    }
-    .ch4-imprint {
+      left: 30px;
+      bottom: 30px;
+      max-width: calc(100% - 60px);
       background: var(--paper);
-      padding: 16px 22px;
-      max-width: 460px;
-      /* recessed-plaque edge: light top lip, soft drop so it reads as a cutout */
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.7),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.07),
-        0 2px 6px rgba(0, 0, 0, 0.18);
-    }
-    .ch4-imprint-text {
-      margin: 0;
-      text-align: center;
+      color: var(--ink);
+      padding: 16px 20px;
       font-family: var(--sans);
       font-weight: 800;
-      font-size: clamp(19px, 2.2vw, 30px);
-      line-height: 1.14;
+      font-size: clamp(17px, 1.7vw, 26px);
+      line-height: 1.16;
       letter-spacing: -0.01em;
-      /* debossed / stamped-in: text the paper colour, with a light lip below and
-         a soft shadow above so the letters read as pressed into the surface */
-      color: #e7e2d7;
-      text-shadow:
-        0 1px 1px rgba(255, 255, 255, 0.9),
-        0 -1px 2px rgba(38, 36, 32, 0.32);
-      transition: opacity 0.18s ease;
+    }
+    .ch4-label-chapter {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+      margin-bottom: 10px;
     }
 
     @media (max-width: 860px) {
       .ch4 { height: 560vh; }
-      .ch4-imprint { padding: 14px 18px; max-width: 80vw; }
-      .ch4-imprint-text { font-size: clamp(16px, 4.6vw, 24px); }
+      .ch4-label { left: 22px; bottom: 22px; padding: 12px 14px; font-size: clamp(15px, 4.4vw, 22px); }
     }
     @media (prefers-reduced-motion: reduce) {
       .ch4 { height: 100vh; }
@@ -643,15 +621,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (!ch4) return;
       const left = ch4.querySelector('[data-ch4="left"]');
       const right = ch4.querySelector('[data-ch4="right"]');
-      const textEl = ch4.querySelector("[data-ch4-text]");
       const N = 4;
-      // One line of imprint copy per property pair
-      const TEXTS = [
-        "Built for agents who want more than just property posts",
-        "Templates that mean business",
-        "Made for agents, not anyone",
-        "Done with you, or done for you"
-      ];
       // Stepped scroll: each stage gets a flat HOLD band (image sits still) then
       // a TRANS band (panels move to the next). Long holds = a "viewport break".
       const HOLD = 1.5, TRANS = 1.0;
@@ -659,7 +629,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const clamp01 = (t) => Math.max(0, Math.min(1, t));
       const smooth = (t) => t * t * (3 - 2 * t);
       const lenis = window.__lenis;
-      let snapping = false, snapTimer = 0, curStage = -1;
+      let snapping = false, snapTimer = 0;
 
       const prog = () => {
         const rect = ch4.getBoundingClientRect();
@@ -687,14 +657,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const pos = posFromP(p);
         left.style.transform = "translateY(" + (-pos * 25).toFixed(3) + "%)";
         right.style.transform = "translateY(" + (-(N - 1 - pos) * 25).toFixed(3) + "%)";
-        // swap the imprint copy when the active pair changes (quick crossfade);
-        // the imprint itself never fades.
-        const stage = Math.round(pos);
-        if (stage !== curStage && TEXTS[stage]) {
-          curStage = stage;
-          textEl.style.opacity = "0";
-          setTimeout(() => { textEl.textContent = TEXTS[stage]; textEl.style.opacity = "1"; }, 150);
-        }
       };
 
       // scroll Y that lands on stage i's hold centre
