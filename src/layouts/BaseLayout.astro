@@ -24,6 +24,16 @@ const {
   hideNav = false,
   hideFooter = false,
 } = Astro.props;
+
+// Front-end-only page transition. Back-end tools — /admin/* and /editor (the
+// Studio design editor) — keep their plain navigation. The /edit/* "Edit" shop
+// is public front-end, so it opts in. Also skipped on chrome-less pages
+// (hideNav) and whenever an inline content-edit session is in play (?edit=…),
+// so clicks are never hijacked mid-edit.
+const path = Astro.url.pathname;
+const isBackend = path.startsWith("/admin") || path === "/editor" || path === "/editor/";
+const isEditing = Astro.url.searchParams.has("edit");
+const enableTransition = !isBackend && !hideNav && !isEditing;
 ---
 
 <!DOCTYPE html>
@@ -66,11 +76,49 @@ const {
       defer
       src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"
       is:inline></script>
+
+    {
+      enableTransition && (
+        <>
+          {/* Pre-cover: runs before the body paints. If we arrived via a
+              transition, pin the panels over the screen so the new page never
+              flashes before page-transition.js plays the reveal-out. */}
+          <script is:inline>
+            try {
+              if (sessionStorage.getItem("tmke:pt") === "1") {
+                document.documentElement.classList.add("pt-revealing");
+              }
+            } catch (e) {}
+          </script>
+          {/* Critical rules only — must apply before paint. The rest of the
+              transition styling lives in global.css. */}
+          <style is:inline>
+            .pt { position: fixed; inset: 0; z-index: 9500; pointer-events: none; visibility: hidden; }
+            .pt__panel { position: absolute; inset: 0; transform: translateY(-101%); will-change: transform; }
+            .pt__panel--back { background: #474254; }
+            .pt__panel--front { background: #1c1d22; }
+            html.pt-revealing .pt { visibility: visible; }
+            html.pt-revealing .pt__panel { transform: translateY(0); }
+          </style>
+        </>
+      )
+    }
   </head>
   <body>
     {!hideNav && <Nav />}
     <slot />
     {!hideFooter && <Footer />}
+
+    {/* Front-end page-transition overlay — two staggered panels. --back
+        (violet) leads, --front (ink) trails, giving the two-bar sweep. */}
+    {
+      enableTransition && (
+        <div class="pt" id="page-transition" aria-hidden="true">
+          <div class="pt__panel pt__panel--back" />
+          <div class="pt__panel pt__panel--front" />
+        </div>
+      )
+    }
 
     <!-- Sign-in splash overlay — fired by window.tmkeSplash().
          All-CSS animation: aurora gradient, drifting confetti shapes, and
@@ -155,5 +203,6 @@ const {
     </script>
 
     <script src="/scripts/app.js" is:inline></script>
+    {enableTransition && <script src="/scripts/page-transition.js" is:inline />}
   </body>
 </html>
