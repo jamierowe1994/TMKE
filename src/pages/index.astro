@@ -39,14 +39,14 @@ editCells.splice(2, 0, { brand: true });
     <div class="hero-zoom-pin">
       <!-- Layer A — the photo that unfolds to full screen -->
       <div class="hero-zoom-media">
-        <img class="hero-zoom-img" src="/assets/vibes.jpg" alt="A TMKE interior" />
+        <img class="hero-zoom-img" src="https://assets.tmke.co.uk/vibes.webp" alt="A TMKE interior" />
       </div>
       <!-- Layer B — TMKE wordmark (brand serif), dead centre -->
       <h1 class="hero-zoom-word" aria-label="TMKE">TMKE</h1>
       <!-- Layer C — sofa-cushion cut-out, ABOVE the word so the E tucks behind
            it; revealed by the same iris clip as the photo. -->
       <div class="hero-zoom-fg">
-        <img class="hero-zoom-fg-img" src="/assets/sofa%20invis.png" alt="" />
+        <img class="hero-zoom-fg-img" src="https://assets.tmke.co.uk/sofa-invis.webp" alt="" />
       </div>
       <!-- Bottom labels: left / centre / right -->
       <div class="hero-zoom-foot">
@@ -180,33 +180,43 @@ editCells.splice(2, 0, { brand: true });
         <div class="ch4-col ch4-col--left">
           <div class="ch4-strip" data-ch4="left">
             <div class="ch4-cell">
-              <img src="/assets/orange%201.jpg" alt="" />
+              <img src="https://assets.tmke.co.uk/orange-1.webp" alt="" />
               <div class="ch4-label ch4-label--first">
                 <span class="ch4-label-chapter">Chapter 04 &mdash; Approach</span>
-                Built for agents who want more than just property posts
+                <span class="ch4-label-heading">Built for agents who want more than just property posts</span>
+                <span class="ch4-label-sub">Every piece of content has a reason to exist &mdash; strategy-led and structured from the start, so your social works as a system, not a series of disconnected posts.</span>
               </div>
             </div>
             <div class="ch4-cell">
-              <img src="/assets/white%201.jpg" alt="" />
-              <div class="ch4-label">Templates that mean business</div>
+              <img src="https://assets.tmke.co.uk/white-1.webp" alt="" />
+              <div class="ch4-label">
+                <span class="ch4-label-heading">Templates that mean business</span>
+                <span class="ch4-label-sub">Ready-made social media assets designed for the property sector &mdash; professional, polished, and built to reflect the standard of your agency, not just fill a feed.</span>
+              </div>
             </div>
             <div class="ch4-cell">
-              <img src="/assets/kitchen%201.jpg" alt="" />
-              <div class="ch4-label">Made for agents, not anyone</div>
+              <img src="https://assets.tmke.co.uk/kitchen-1.webp" alt="" />
+              <div class="ch4-label">
+                <span class="ch4-label-heading">Made for agents, not anyone</span>
+                <span class="ch4-label-sub">TMKE works exclusively in property, so we understand the market, the audience, and what actually resonates &mdash; no generalist guesswork.</span>
+              </div>
             </div>
             <div class="ch4-cell">
-              <img src="/assets/living%201.jpg" alt="" />
-              <div class="ch4-label">Done with you, or done for you</div>
+              <img src="https://assets.tmke.co.uk/living-1.webp" alt="" />
+              <div class="ch4-label">
+                <span class="ch4-label-heading">Done with you, or done for you</span>
+                <span class="ch4-label-sub">Whether you want ready-made assets from The Edit or a fully managed service, there&rsquo;s a level of support that fits where your business is right now.</span>
+              </div>
             </div>
           </div>
         </div>
         <div class="ch4-col ch4-col--right">
           <!-- reversed order so this column travels DOWN as the left goes up -->
           <div class="ch4-strip" data-ch4="right">
-            <div class="ch4-cell"><img src="/assets/living%202.jpg" alt="" /></div>
-            <div class="ch4-cell"><img src="/assets/kitchen%202.jpg" alt="" /></div>
-            <div class="ch4-cell"><img src="/assets/white%202.jpg" alt="" /></div>
-            <div class="ch4-cell"><img src="/assets/orange%202.jpg" alt="" /></div>
+            <div class="ch4-cell"><img src="https://assets.tmke.co.uk/living-2.webp" alt="" /></div>
+            <div class="ch4-cell"><img src="https://assets.tmke.co.uk/kitchen-2.webp" alt="" /></div>
+            <div class="ch4-cell"><img src="https://assets.tmke.co.uk/white-2.webp" alt="" /></div>
+            <div class="ch4-cell"><img src="https://assets.tmke.co.uk/orange-2.webp" alt="" /></div>
           </div>
         </div>
       </div>
@@ -325,6 +335,10 @@ editCells.splice(2, 0, { brand: true });
       const lenis = window.__lenis;
       const update = () => {
         const vh = window.innerHeight;
+        // Skip all the per-tile work unless the gallery is near the viewport —
+        // keeps scrolling elsewhere on the page smooth.
+        const sr = section.getBoundingClientRect();
+        if (sr.bottom < -vh * 0.3 || sr.top > vh * 1.3) return;
         // Scroll-scrubbed reveal: each tile grows AND drifts up into place as
         // its row rises through the viewport, starting while still below the
         // fold. It LATCHES — once a tile is in, it stays in (no reverse on the
@@ -380,7 +394,7 @@ editCells.splice(2, 0, { brand: true });
          in line with the Social Media Management piece. Static (no parallax). -->
     <figure class="quote-photo quote-photo--table">
       <div class="quote-photo-frame">
-        <img src="/assets/table.jpg" alt="" loading="lazy" />
+        <img src="https://assets.tmke.co.uk/table.webp" alt="" loading="lazy" />
       </div>
       <figcaption class="quote-photo-caption">
         <span class="quote-photo-line"></span>
@@ -437,6 +451,7 @@ editCells.splice(2, 0, { brand: true });
       overflow: hidden;
       clip-path: circle(0px at 50% 50%);  /* JS grows the radius */
       will-change: clip-path;
+      transform: translateZ(0);           /* isolate the clip-path repaint */
     }
     .hero-zoom-img {
       width: 100%;
@@ -554,6 +569,9 @@ editCells.splice(2, 0, { brand: true });
       const lerp = (a, b, t) => a + (b - a) * t;
       const update = () => {
         const rect = hero.getBoundingClientRect();
+        // Once the hero has fully scrolled past, stop touching it (the nav was
+        // already cleared on the way out) — no per-frame clip-path work.
+        if (rect.bottom < -10) return;
         const total = hero.offsetHeight - window.innerHeight;
         const scrolled = Math.min(Math.max(-rect.top, 0), total);
         const p = total > 0 ? scrolled / total : 0;
@@ -627,19 +645,21 @@ editCells.splice(2, 0, { brand: true });
     /* Per-image label — a paper-coloured box in the bottom-left of each left
        cell, 30px in from the photo edges (matching the frame). It scrolls up
        with the panel, revealing the next one. */
+    /* All label boxes are the same size (set by the fullest one — the chapter
+       box), and the heading + subtext fit inside. */
     .ch4-label {
       position: absolute;
       left: 30px;
       bottom: 30px;
-      max-width: calc(100% - 60px);
+      width: min(400px, 40vw);
+      min-height: 232px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
       background: var(--paper);
       color: var(--ink);
-      padding: 16px 20px;
+      padding: 22px 26px;
       font-family: var(--sans);
-      font-weight: 800;
-      font-size: clamp(17px, 1.7vw, 26px);
-      line-height: 1.16;
-      letter-spacing: -0.01em;
     }
     .ch4-label-chapter {
       display: block;
@@ -648,12 +668,29 @@ editCells.splice(2, 0, { brand: true });
       letter-spacing: 0.24em;
       text-transform: uppercase;
       color: var(--english-violet);
-      margin-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .ch4-label-heading {
+      font-weight: 800;
+      font-size: clamp(18px, 1.5vw, 24px);
+      line-height: 1.14;
+      letter-spacing: -0.01em;
+    }
+    .ch4-label-sub {
+      margin-top: 12px;
+      font-weight: 400;
+      font-size: clamp(12.5px, 0.95vw, 14.5px);
+      line-height: 1.5;
+      color: rgba(28, 29, 34, 0.72);
     }
 
     @media (max-width: 860px) {
       .ch4 { height: 560vh; }
-      .ch4-label { left: 22px; bottom: 22px; padding: 12px 14px; font-size: clamp(15px, 4.4vw, 22px); }
+      .ch4-label {
+        left: 22px; bottom: 22px; padding: 16px 18px;
+        width: min(78vw, 360px); min-height: 0;
+      }
+      .ch4-label-heading { font-size: clamp(16px, 4.4vw, 22px); }
     }
   </style>
 
@@ -699,7 +736,9 @@ editCells.splice(2, 0, { brand: true });
       };
 
       const update = () => {
-        const { p } = prog();
+        const { p, rect } = prog();
+        // Only move the panels while the section is on screen.
+        if (rect.bottom < 0 || rect.top > window.innerHeight) return;
         const pos = posFromP(p);
         left.style.transform = "translateY(" + (-pos * 25).toFixed(3) + "%)";
         right.style.transform = "translateY(" + (-(N - 1 - pos) * 25).toFixed(3) + "%)";
