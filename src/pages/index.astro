@@ -260,7 +260,7 @@ editCells.splice(2, 0, { brand: true });
       /* scale + opacity are scrubbed by the controller from each tile's scroll
          position, so rows grow in as you scroll down and shrink back as you
          scroll up. */
-      transform: scale(0.12);
+      transform: translateY(100px) scale(0.16);
       opacity: 0;
       will-change: transform, opacity;
     }
@@ -326,13 +326,15 @@ editCells.splice(2, 0, { brand: true });
       const update = () => {
         const rect = section.getBoundingClientRect();
         const vh = window.innerHeight;
-        // Scroll-scrubbed reveal: each tile grows from nothing as its row rises
-        // from the bottom of the viewport, and shrinks back when scrolled up.
-        const start = vh * 0.95;   // tile top here -> just appearing
-        const end = vh * 0.45;     // tile top here -> fully in place
+        // Scroll-scrubbed reveal: each tile grows AND drifts up into place as
+        // its row rises through the viewport — and reverses on the way up.
+        // Starts while the tile is still below the fold so it animates early.
+        const start = vh * 1.15;   // tile top here -> just beginning (below fold)
+        const end = vh * 0.55;     // tile top here -> fully in place
         cells.forEach((c) => {
           const e = smooth(clamp01((start - c.getBoundingClientRect().top) / (start - end)));
-          c.style.transform = "scale(" + (0.12 + 0.88 * e).toFixed(3) + ")";
+          const lift = (1 - e) * 100;   // px: starts lower, flows up to its spot
+          c.style.transform = "translateY(" + lift.toFixed(1) + "px) scale(" + (0.16 + 0.84 * e).toFixed(3) + ")";
           c.style.opacity = e.toFixed(3);
         });
         // grid fades out as it nears Chapter 06
