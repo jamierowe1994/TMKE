@@ -22,9 +22,12 @@ function corsHeaders(request, env) {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  // Echo the caller's origin if it's explicitly allowed, or any tmke.co.uk
+  // (sub)domain (apex, www, previews) so a new subdomain can't break CORS.
+  const isTmke = /^https:\/\/([a-z0-9-]+\.)*tmke\.co\.uk$/i.test(origin);
   const allowOrigin = allowed.includes("*")
     ? "*"
-    : allowed.includes(origin)
+    : (allowed.includes(origin) || isTmke)
     ? origin
     : allowed[0] || "";
   return {
