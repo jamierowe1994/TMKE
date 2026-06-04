@@ -1,0 +1,170 @@
+---
+// Lazy video showcase — the "no bog-down" pattern.
+//
+// Each tile renders ONLY a poster image (lazy-loaded) + a play button. The
+// actual player is never in the DOM until the user clicks, so a page can carry
+// dozens of 4K videos without loading a single byte of video up front.
+//
+// When real footage lands, give each item a `streamUid` (Cloudflare Stream)
+// and the click swaps the poster for the Stream iframe. Until then, poster-only
+// tiles render as an elegant placeholder.
+interface ShowcaseItem {
+  title?: string;
+  poster: string;
+  /** Cloudflare Stream video UID. When present, click loads the player. */
+  streamUid?: string;
+}
+interface Props {
+  heading?: string;
+  items: ShowcaseItem[];
+  /** Cloudflare Stream customer subdomain code, e.g. "abcd1234". */
+  streamCustomerCode?: string;
+}
+const { heading, items = [], streamCustomerCode = "" } = Astro.props;
+---
+
+{items.length > 0 && (
+  <section class="vshow wrap" data-stream-code={streamCustomerCode}>
+    {heading && <h2 class="vshow-heading">{heading}</h2>}
+    <div class="vshow-grid">
+      {items.map((item) => (
+        <figure
+          class="vshow-tile"
+          data-uid={item.streamUid || ""}
+          style={`background-image:url('${item.poster}')`}
+        >
+          <button type="button" class="vshow-play" aria-label={`Play ${item.title || "video"}`}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </button>
+          {item.title && <figcaption class="vshow-cap">{item.title}</figcaption>}
+        </figure>
+      ))}
+    </div>
+  </section>
+)}
+
+<style>
+  .vshow { max-width: 1280px; margin: 0 auto; padding: 80px 36px; }
+  .vshow-heading {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(32px, 3.6vw, 52px);
+    letter-spacing: -0.018em;
+    color: var(--ink);
+    margin: 0 0 40px;
+  }
+  .vshow-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .vshow-tile {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background-size: cover;
+    background-position: center;
+    border-radius: 3px;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-end;
+  }
+  .vshow-tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(12,11,10,0.05) 40%, rgba(12,11,10,0.6) 100%);
+    transition: background 0.4s ease;
+  }
+  .vshow-tile:hover::after { background: linear-gradient(180deg, rgba(12,11,10,0.1) 30%, rgba(12,11,10,0.5) 100%); }
+  .vshow-play {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: 1px solid rgba(240, 238, 235, 0.7);
+    background: rgba(20, 18, 26, 0.35);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    color: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.3s ease;
+  }
+  .vshow-play svg { margin-left: 3px; }
+  .vshow-tile:hover .vshow-play { background: var(--english-violet); transform: translate(-50%, -50%) scale(1.08); }
+  .vshow-cap {
+    position: relative;
+    z-index: 2;
+    padding: 18px 20px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--paper);
+  }
+  .vshow-tile.is-playing { cursor: default; }
+  .vshow-tile.is-playing .vshow-play,
+  .vshow-tile.is-playing .vshow-cap,
+  .vshow-tile.is-playing::after { display: none; }
+  .vshow-frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    z-index: 3;
+  }
+  .vshow-soon {
+    position: absolute;
+    z-index: 2;
+    top: 14px; right: 14px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(20, 18, 26, 0.5);
+    color: var(--paper);
+    font-family: var(--sans);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  @media (max-width: 720px) { .vshow { padding: 56px 24px; } }
+</style>
+
+<script is:inline>
+  (function () {
+    document.querySelectorAll(".vshow").forEach(function (section) {
+      var code = section.getAttribute("data-stream-code") || "";
+      section.querySelectorAll(".vshow-tile").forEach(function (tile) {
+        var uid = tile.getAttribute("data-uid");
+        var btn = tile.querySelector(".vshow-play");
+        if (!btn) return;
+        if (!uid || !code) {
+          // No real video wired yet — show a tasteful "coming soon" tag and
+          // do nothing destructive on click.
+          var tag = document.createElement("span");
+          tag.className = "vshow-soon";
+          tag.textContent = "Showreel soon";
+          tile.appendChild(tag);
+          btn.addEventListener("click", function () {});
+          return;
+        }
+        btn.addEventListener("click", function () {
+          var iframe = document.createElement("iframe");
+          iframe.className = "vshow-frame";
+          iframe.allow = "accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;";
+          iframe.allowFullscreen = true;
+          iframe.src =
+            "https://customer-" + code + ".cloudflarestream.com/" + uid + "/iframe?autoplay=true";
+          tile.classList.add("is-playing");
+          tile.appendChild(iframe);
+        });
+      });
+    });
+  })();
+</script>

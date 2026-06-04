@@ -544,6 +544,46 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   .approach-frame { perspective: none !important; }
 }
 
+/* ============ Front-end page transition ============
+   Two even half-width bars sweep in from opposite directions: the LEFT half
+   rises up from the bottom while the RIGHT half drops down from the top, both
+   in parallel. Each leg eases IN (slow start → fast finish): they cover on
+   leaving, then on arrival reverse and slide back out to reveal the page. A
+   solid purple (#474254) fully hides the page swap underneath.
+   The base layout / colours and the `html.pt-revealing` pre-cover state are
+   inlined critically in BaseLayout so the reveal never flashes; this block
+   carries the animated cover/reveal states. Driven by page-transition.js. */
+:root {
+  --pt-cover: 0.8s;   /* cover duration */
+  --pt-reveal: 0.85s; /* reveal duration */
+  --pt-ease-in: cubic-bezier(0.5, 0, 0.75, 0); /* slow start, fast finish */
+}
+
+/* Cover (leaving): left bar rises from below, right bar drops from above —
+   both settle to translateY(0), covering their half. */
+@keyframes pt-cover-up   { from { transform: translateY(100%); }  to { transform: translateY(0); } }
+@keyframes pt-cover-down { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+/* Reveal (arriving): they reverse — left bar exits downward, right bar exits
+   upward — uncovering the page. */
+@keyframes pt-reveal-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes pt-reveal-up   { from { transform: translateY(0); } to { transform: translateY(-100%); } }
+
+.pt.is-covering { visibility: visible; }
+.pt.is-covering .pt__panel--left  { animation: pt-cover-up   var(--pt-cover) var(--pt-ease-in) both; }
+.pt.is-covering .pt__panel--right { animation: pt-cover-down var(--pt-cover) var(--pt-ease-in) both; }
+
+.pt.is-revealing { visibility: visible; }
+.pt.is-revealing .pt__panel--left  { animation: pt-reveal-down var(--pt-reveal) var(--pt-ease-in) both; }
+.pt.is-revealing .pt__panel--right { animation: pt-reveal-up   var(--pt-reveal) var(--pt-ease-in) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Belt-and-braces — JS already skips the sweep under this preference. */
+  .pt, .pt.is-covering, .pt.is-revealing { visibility: hidden !important; }
+  .pt__panel { animation: none !important; }
+  .pt__panel--left  { transform: translateY(100%) !important; }
+  .pt__panel--right { transform: translateY(-100%) !important; }
+}
+
 /* ============ Hero — cinematic ============ */
 .hero {
   position: relative;

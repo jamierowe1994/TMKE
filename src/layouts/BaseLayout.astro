@@ -14,7 +14,7 @@ interface Props {
   hideNav?: boolean;
   /** Hide the global footer. */
   hideFooter?: boolean;
-  /** Emit robots noindex,nofollow — for hidden / WIP pages. */
+  /** Emit a noindex,nofollow robots tag (for unlisted / WIP pages). */
   noindex?: boolean;
 }
 
@@ -27,6 +27,16 @@ const {
   hideFooter = false,
   noindex = false,
 } = Astro.props;
+
+// Front-end-only page transition. Back-end tools — /admin/* and /editor (the
+// Studio design editor) — keep their plain navigation. The /edit/* "Edit" shop
+// is public front-end, so it opts in. Also skipped on chrome-less pages
+// (hideNav) and whenever an inline content-edit session is in play (?edit=…),
+// so clicks are never hijacked mid-edit.
+const path = Astro.url.pathname;
+const isBackend = path.startsWith("/admin") || path === "/editor" || path === "/editor/";
+const isEditing = Astro.url.searchParams.has("edit");
+const enableTransition = !isBackend && !hideNav && !isEditing;
 ---
 
 <!DOCTYPE html>
@@ -38,8 +48,8 @@ const {
 
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
     {noindex && <meta name="robots" content="noindex,nofollow" />}
+    <link rel="canonical" href={canonical} />
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
@@ -70,11 +80,50 @@ const {
       defer
       src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"
       is:inline></script>
+
+    {
+      enableTransition && (
+        <>
+          {/* Pre-cover: runs before the body paints. If we arrived via a
+              transition, pin the panels over the screen so the new page never
+              flashes before page-transition.js plays the reveal-out. */}
+          <script is:inline>
+            try {
+              if (sessionStorage.getItem("tmke:pt") === "1") {
+                document.documentElement.classList.add("pt-revealing");
+              }
+            } catch (e) {}
+          </script>
+          {/* Critical rules only — must apply before paint. The rest of the
+              transition styling lives in global.css. */}
+          <style is:inline>
+            .pt { position: fixed; inset: 0; z-index: 9500; pointer-events: none; visibility: hidden; }
+            .pt__panel { position: absolute; top: 0; height: 100%; width: 50%; background: #474254; will-change: transform; }
+            .pt__panel--left { left: 0; width: calc(50% + 1px); transform: translateY(100%); }
+            .pt__panel--right { left: 50%; transform: translateY(-100%); }
+            html.pt-revealing .pt { visibility: visible; }
+            html.pt-revealing .pt__panel { transform: translateY(0); }
+          </style>
+        </>
+      )
+    }
   </head>
   <body>
     {!hideNav && <Nav />}
     <slot />
     {!hideFooter && <Footer />}
+
+    {/* Front-end page-transition overlay — two even half-width bars. The left
+        bar rises from the bottom, the right bar drops from the top, in
+        parallel; a translucent purple veil lets the page show through. */}
+    {
+      enableTransition && (
+        <div class="pt" id="page-transition" aria-hidden="true">
+          <div class="pt__panel pt__panel--left" />
+          <div class="pt__panel pt__panel--right" />
+        </div>
+      )
+    }
 
     <!-- Static film-grain overlay — sits above the page, below the nav, adding
          a subtle texture across the whole site. Pointer-events: none so it
@@ -164,6 +213,7 @@ const {
     </script>
 
     <script src="/scripts/app.js" is:inline></script>
+    {enableTransition && <script src="/scripts/page-transition.js" is:inline />}
 
     <!-- Website Editor — Supabase bridge. Exposes window.tmkeStore (auth +
          per-page draft/published overrides) for the editor below. Falls back

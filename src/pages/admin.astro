@@ -85,8 +85,17 @@ import PageHero from "../components/PageHero.astro";
         <span class="admin-card-arrow">&rarr;</span>
       </div>
     </a>
-    <a href="/?edit=1" class="admin-card admin-card--editor">
+    <a href="/admin/videography" class="admin-card">
       <div class="admin-card-num">08</div>
+      <h3 class="admin-card-title">Videography</h3>
+      <p>Jack's studio — shoot pipeline, client bookings, diary, delivery, and integrations.</p>
+      <div class="admin-card-meta">
+        <span><span data-stat="vid-active">0</span> in progress &middot; <span data-stat="vid-total">0</span> total</span>
+        <span class="admin-card-arrow">&rarr;</span>
+      </div>
+    </a>
+    <a href="/?edit=1" class="admin-card admin-card--editor">
+      <div class="admin-card-num">09</div>
       <h3 class="admin-card-title">Website Editor</h3>
       <p>Neaten the live website — wording, type, spacing, side margins, colours, backgrounds, images and section layout — then Preview &amp; Publish. Opens the editor on the home page.</p>
       <div class="admin-card-meta">
@@ -236,7 +245,7 @@ import PageHero from "../components/PageHero.astro";
 
       const SIXTY_DAYS_AGO = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [packs, templates, enquiriesNew, enquiriesTotal, paidOrders, subOrders, blogPublished, blogDrafts] =
+      const [packs, templates, enquiriesNew, enquiriesTotal, paidOrders, subOrders, blogPublished, blogDrafts, vidTotal, vidActive] =
         await Promise.all([
           supabase.from('packs').select('*', { count: 'exact', head: true }).eq('status', 'active'),
           supabase.from('templates').select('*', { count: 'exact', head: true }).eq('status', 'active'),
@@ -250,6 +259,8 @@ import PageHero from "../components/PageHero.astro";
             .gte('created_at', SIXTY_DAYS_AGO),
           supabase.from('blog_posts').select('*', { count: 'exact', head: true }).eq('status', 'published'),
           supabase.from('blog_posts').select('*', { count: 'exact', head: true }).eq('status', 'draft'),
+          supabase.from('videography_bookings').select('*', { count: 'exact', head: true }),
+          supabase.from('videography_bookings').select('*', { count: 'exact', head: true }).neq('stage', 'complete'),
         ]);
 
       if (!packs.error && typeof packs.count === 'number') setStat('packs', String(packs.count));
@@ -277,6 +288,12 @@ import PageHero from "../components/PageHero.astro";
         setStat('blog-published', String(blogPublished.count));
       if (!blogDrafts.error && typeof blogDrafts.count === 'number')
         setStat('blog-drafts', String(blogDrafts.count));
+
+      // Videography — fail quiet if the table doesn't exist yet (SQL not run).
+      if (!vidTotal.error && typeof vidTotal.count === 'number')
+        setStat('vid-total', String(vidTotal.count));
+      if (!vidActive.error && typeof vidActive.count === 'number')
+        setStat('vid-active', String(vidActive.count));
     })();
   </script>
 </BaseLayout>

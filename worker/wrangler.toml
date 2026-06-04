@@ -1,0 +1,28 @@
+# Cloudflare Worker — TMKE R2 deliverables API
+# ---------------------------------------------------------------------------
+# A tiny upload/download backend bound directly to the R2 bucket. No secret
+# keys live here — the `BUCKET` binding gives the Worker native R2 access.
+# Requests are authenticated by validating the caller's Supabase session token.
+#
+# Deploy:
+#   cd worker
+#   npm install
+#   npx wrangler deploy
+# Then copy the deployed URL into the site's PUBLIC_R2_WORKER_URL env var.
+# ---------------------------------------------------------------------------
+
+name = "tmke-deliverables-api"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# Native binding to your existing bucket — no Access Key / Secret needed.
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "tmke-deliverables"
+
+[vars]
+# Used to validate the caller's Supabase login (anon key is public — safe here).
+SUPABASE_URL = "https://YOUR-PROJECT.supabase.co"
+SUPABASE_ANON_KEY = "YOUR-SUPABASE-ANON-KEY"
+# Comma-separated list of allowed site origins (CORS). Use * only for local dev.
+ALLOWED_ORIGINS = "http://localhost:4321,http://localhost:4322,https://tmke.co.uk"
