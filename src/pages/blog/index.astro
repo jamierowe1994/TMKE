@@ -1,13 +1,30 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import PageHero from "../../components/PageHero.astro";
-import { getPublishedPosts, categories } from "../../data/blog.js";
+import { getPublishedPosts } from "../../data/blog.js";
 
 // Pulled from Supabase if configured, otherwise from the static fallback.
 const allPosts = await getPublishedPosts();
 const sorted = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
-const featured = sorted[0];
-const rest = sorted.slice(1);
+const featured = sorted[0]; // → right column (newest / feature post)
+const rest = sorted.slice(1); // → left list
+
+// Pad the feed with duplicates so the columns are tall enough to actually show
+// the counter-scroll while there are only a handful of real posts. Remove the
+// padding (use `rest` directly) once there are ~9+ published posts.
+const feed = rest.length >= 9 ? rest : [...rest, ...rest, ...rest].slice(0, 9);
+
+// The left side is a double column whose two halves counter-scroll. Alternate
+// posts between them so both stay populated and balanced.
+const colUp = feed.filter((_, i) => i % 2 === 0);   // left-left column → drifts UP
+const colDown = feed.filter((_, i) => i % 2 === 1); // left-right column → drifts DOWN
+
+// The feature card shows a slightly shorter display title (≈2 lines)
+// without changing the article's canonical title. Keyed by slug so it only
+// applies to the intended post; falls back to the real title otherwise.
+const FEATURE_TITLE = {
+  "why-personal-branding-works-in-estate-agency": "Why personal branding works in estate agency",
+};
+const featTitle = FEATURE_TITLE[featured.slug] || featured.title;
 
 function fmtDate(iso) {
   const d = new Date(iso);
@@ -19,78 +36,71 @@ function fmtDate(iso) {
   title="Insights — TMKE"
   description="Structured insights on social media, brand positioning, content systems, and the future of estate agency marketing — written for UK property professionals."
 >
-  <PageHero
-    chapter="Insights"
-    title="I'm an Estate Agent, <em>not a content creator.</em>"
-    sub="Structured insights on social media, brand positioning, and content systems built for the property sector."
-  />
+  <!-- Page-wide film grain — fixed, sits above the content but below the nav,
+       blended so it adds texture without tinting. Purely decorative. -->
+  <div class="insights-grain" aria-hidden="true"></div>
 
-  <style is:global>
-    /* Insights hero sits further down the page than the default — gives
-       the headline more breathing room beneath the nav. Scoped to this
-       page only — Astro emits the style on /blog alone. */
-    .page-hero { padding-top: 220px; }
-  </style>
-
-  <!-- ============================== FEATURED -->
-  <section class="insights-featured wrap">
-    <a class="feat" href={`/blog/${featured.slug}`}>
-      <div class="feat-media">
-        <img src={featured.hero} alt={featured.title} loading="eager" />
+  <!-- ============================== TWO-COLUMN SPLIT -->
+  <section class="insights2" id="insights2">
+    <!-- LEFT: double column — the two halves counter-scroll (left up, right down) -->
+    <div class="ins-list" id="ins-list">
+      <div class="ins-list-head">
+        <div class="eyebrow">Insights</div>
+        <h1 class="ins-list-title">Notes from <em>the desk.</em></h1>
       </div>
-      <div class="feat-body">
-        <div class="feat-meta">
-          <span class="feat-cat">{featured.category}</span>
-          <span class="feat-dot">·</span>
-          <span>{fmtDate(featured.date)}</span>
-          <span class="feat-dot">·</span>
-          <span>{featured.readTime} min read</span>
+
+      <div class="ins-cols">
+        <div class="ins-col ins-col--up" id="ins-col-up">
+          {colUp.map((p) => (
+            <a class="ins-item" href={`/blog/${p.slug}`}>
+              <h3 class="ins-item-title">{p.title}</h3>
+              <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
+              <p class="ins-item-brief">{p.standfirst}</p>
+            </a>
+          ))}
         </div>
-        <h2 class="feat-title">{featured.title}</h2>
-        <p class="feat-stand">{featured.standfirst}</p>
-        <span class="feat-cta">Read the article <em>&rarr;</em></span>
+        <div class="ins-col ins-col--down" id="ins-col-down">
+          {colDown.map((p) => (
+            <a class="ins-item" href={`/blog/${p.slug}`}>
+              <h3 class="ins-item-title">{p.title}</h3>
+              <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
+              <p class="ins-item-brief">{p.standfirst}</p>
+            </a>
+          ))}
+        </div>
       </div>
-    </a>
-  </section>
-
-  <!-- ============================== FILTER + GRID -->
-  <section class="insights-grid-wrap wrap">
-    <header class="insights-grid-head">
-      <div>
-        <div class="eyebrow">More from the desk</div>
-        <h3 class="insights-grid-title">Every insight, ordered freshly.</h3>
-      </div>
-      <div class="insights-filters" id="insights-filters">
-        <button class="ifilter is-active" data-filter="all">All</button>
-        {categories.map((c) => (
-          <button class="ifilter" data-filter={c}>{c}</button>
-        ))}
-      </div>
-    </header>
-
-    <div class="insights-grid">
-      {rest.map((p) => (
-        <a class="icard" href={`/blog/${p.slug}`} data-category={p.category}>
-          <div class="icard-media">
-            <img src={p.hero} alt={p.title} loading="lazy" />
-            <span class="icard-cat">{p.category}</span>
-          </div>
-          <div class="icard-body">
-            <h4 class="icard-title">{p.title}</h4>
-            <p class="icard-stand">{p.standfirst}</p>
-            <div class="icard-meta">
-              <span>{fmtDate(p.date)}</span>
-              <span class="icard-dot">·</span>
-              <span>{p.readTime} min read</span>
-            </div>
-          </div>
-        </a>
-      ))}
     </div>
+
+    <!-- RIGHT: pinned feature (newest post) -->
+    <aside class="ins-feature" id="ins-feature">
+      <a class="ins-feature-inner" href={`/blog/${featured.slug}`}>
+        <div class="ins-feature-head">
+          <div class="ins-feature-eyebrow">Latest <span class="ins-dot">·</span> {featured.category}</div>
+          <h2 class="ins-feature-title">{featTitle}</h2>
+        </div>
+        <div class="ins-feature-media">
+          <!-- Feature video (/public/assets/book reading.mp4). The poster
+               (the post's hero image) shows until the clip loads. -->
+          <video
+            class="ins-feature-video"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            poster={featured.hero}
+          >
+            <source src="/assets/book%20reading.mp4" type="video/mp4" />
+          </video>
+          <span class="ins-feature-tag">Read the feature <em>&rarr;</em></span>
+        </div>
+        <p class="ins-feature-sub">{featured.standfirst}</p>
+      </a>
+    </aside>
   </section>
 
   <!-- ============================== NEWSLETTER -->
-  <section class="insights-news wrap">
+  <section class="insights-news">
     <div class="news-box">
       <div class="news-eyebrow">/ Newsletter /</div>
       <h3 class="news-title">Get the next insight <em>in your inbox.</em></h3>
@@ -104,213 +114,222 @@ function fmtDate(iso) {
   </section>
 
   <style>
-    /* ============== FEATURED ============== */
-    .insights-featured {
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 0 36px 80px;
+    /* ============== PAGE GRAIN ============== */
+    .insights-grain {
+      position: fixed;
+      inset: 0;
+      z-index: 60; /* above content (z-index:2), below nav (100) */
+      pointer-events: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
+      background-size: 240px 240px;
+      opacity: 0.15;
+      mix-blend-mode: overlay;
     }
-    .feat {
+
+    /* ============== TWO-COLUMN SPLIT ============== */
+    .insights2 {
       display: grid;
-      grid-template-columns: 1.15fr 1fr;
-      gap: 80px;
-      align-items: center;
-      color: var(--ink);
+      /* minmax(0,1fr) keeps both halves a true 50/50 — without the `0` floor
+         the nowrap card titles inflate the left track past half. */
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: clamp(28px, 3.2vw, 60px);
+      align-items: start;
+      max-width: 1640px;
+      margin: 0 auto;
+      padding: clamp(92px, 10vh, 124px) clamp(22px, 4vw, 64px) clamp(80px, 8vw, 120px);
     }
-    @media (max-width: 980px) {
-      .feat { grid-template-columns: 1fr; gap: 32px; }
-    }
-    .feat-media {
-      aspect-ratio: 5 / 4;
-      overflow: hidden;
-      background: rgba(28,29,34,0.06);
-    }
-    .feat-media img {
-      width: 100%; height: 100%; object-fit: cover; display: block;
-      transition: transform 1.6s cubic-bezier(.2,.7,.2,1);
-    }
-    .feat:hover .feat-media img { transform: scale(1.04); }
 
-    .feat-meta {
-      display: flex; align-items: center; gap: 10px;
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: rgba(28,29,34,0.55);
-      margin-bottom: 24px;
+    /* ---- LEFT: double column (the two halves counter-scroll) ---- */
+    .ins-list {
+      display: flex;
+      flex-direction: column;
+      /* Pull the blogs in from the centre so the video has breathing room. */
+      padding-right: clamp(10px, 1.8vw, 36px);
     }
-    .feat-cat { color: var(--english-violet); }
-    .feat-dot { opacity: 0.5; }
-
-    .feat-title {
+    .ins-list-head { margin-bottom: clamp(20px, 3vw, 40px); }
+    .ins-list-head .eyebrow { margin-bottom: 16px; }
+    .ins-list-title {
       font-family: var(--serif);
       font-weight: 400;
-      font-size: clamp(36px, 4.4vw, 60px);
+      font-size: clamp(30px, 3.4vw, 48px);
       line-height: 1.04;
       letter-spacing: -0.018em;
       color: var(--ink);
-      margin: 0 0 22px;
-      max-width: 22ch;
-    }
-    .feat-stand {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(18px, 1.7vw, 22px);
-      line-height: 1.5;
-      color: rgba(28,29,34,0.7);
-      max-width: 50ch;
-      margin: 0 0 36px;
-    }
-    .feat-cta {
-      display: inline-flex; align-items: center; gap: 10px;
-      font-family: var(--sans);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.24em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-      border-bottom: 1px solid currentColor;
-      padding-bottom: 4px;
-    }
-    .feat-cta em {
-      font-style: italic;
-      font-family: var(--serif);
-      font-size: 16px;
-      letter-spacing: 0;
-      text-transform: none;
-      transition: transform 0.3s ease;
-    }
-    .feat:hover .feat-cta em { transform: translateX(4px); }
-
-    /* ============== GRID HEAD ============== */
-    .insights-grid-wrap {
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 80px 36px 80px;
-      border-top: 1px solid rgba(28,29,34,0.1);
-    }
-    .insights-grid-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: end;
-      flex-wrap: wrap;
-      gap: 24px;
-      margin-bottom: 48px;
-    }
-    .insights-grid-head .eyebrow { margin-bottom: 10px; }
-    .insights-grid-title {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(28px, 3vw, 40px);
-      letter-spacing: -0.012em;
-      color: var(--ink);
       margin: 0;
     }
+    .ins-list-title em { font-style: italic; color: var(--english-violet); }
 
-    .insights-filters {
-      display: flex; flex-wrap: wrap; gap: 6px;
-    }
-    .ifilter {
-      background: transparent;
-      border: 1px solid rgba(28,29,34,0.18);
-      padding: 8px 14px;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: rgba(28,29,34,0.65);
-      cursor: pointer;
-      border-radius: 999px;
-      transition: background 0.25s, color 0.25s, border-color 0.25s;
-    }
-    .ifilter:hover { color: var(--ink); }
-    .ifilter.is-active {
-      background: var(--ink);
-      color: var(--paper);
-      border-color: var(--ink);
-    }
-
-    /* ============== CARDS ============== */
-    .insights-grid {
+    .ins-cols {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 36px 28px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: clamp(14px, 1.6vw, 24px);
+      align-items: start;
     }
-    @media (max-width: 980px) { .insights-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 640px) { .insights-grid { grid-template-columns: 1fr; } }
+    .ins-col {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(26px, 3vw, 44px);
+      will-change: transform;
+    }
+    /* Stagger the down column so the two halves interleave (masonry feel). */
+    .ins-col--down { margin-top: clamp(40px, 6vw, 96px); }
 
-    .icard {
+    .ins-item {
       display: block;
       color: var(--ink);
-      transition: transform 0.4s cubic-bezier(.2,.7,.2,1);
+      text-decoration: none;
     }
-    .icard.is-hidden { display: none; }
-    .icard:hover { transform: translateY(-4px); }
-
-    .icard-media {
-      position: relative;
-      aspect-ratio: 4 / 3;
-      overflow: hidden;
-      background: rgba(28,29,34,0.06);
-      margin-bottom: 22px;
-    }
-    .icard-media img {
-      width: 100%; height: 100%; object-fit: cover; display: block;
-      transition: transform 1.4s cubic-bezier(.2,.7,.2,1);
-    }
-    .icard:hover .icard-media img { transform: scale(1.06); }
-
-    .icard-cat {
-      position: absolute;
-      top: 14px; left: 14px;
-      padding: 5px 10px;
-      background: rgba(28,29,34,0.85);
-      color: var(--paper);
-      font-family: var(--sans);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      border-radius: 999px;
-    }
-
-    .icard-title {
+    .ins-item-title {
       font-family: var(--serif);
       font-weight: 400;
-      font-size: clamp(20px, 1.8vw, 26px);
+      font-size: clamp(16px, 1.25vw, 20px);
       line-height: 1.15;
       letter-spacing: -0.01em;
       color: var(--ink);
       margin: 0 0 12px;
-      max-width: 22ch;
+      /* One line maximum. */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.3s ease;
     }
-    .icard-stand {
+    .ins-item:hover .ins-item-title { color: var(--english-violet); }
+
+    .ins-item-media {
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      border-radius: 14px;
+      background: rgba(28, 29, 34, 0.06);
+      margin-bottom: 12px;
+    }
+    .ins-item-media img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 1.4s cubic-bezier(.2, .7, .2, 1);
+    }
+    .ins-item:hover .ins-item-media img { transform: scale(1.05); }
+
+    .ins-item-brief {
       font-family: var(--sans);
-      font-size: 14px;
-      line-height: 1.55;
-      color: rgba(28,29,34,0.62);
-      margin: 0 0 16px;
-      max-width: 42ch;
+      font-size: clamp(12.5px, 0.95vw, 14px);
+      line-height: 1.35;
+      color: rgba(28, 29, 34, 0.6);
+      margin: 0;
+      /* Two lines, tight. */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
-    .icard-meta {
-      display: flex; gap: 8px;
+    .ins-dot { opacity: 0.5; }
+
+    /* ---- RIGHT: pinned feature ---- */
+    .ins-feature {
+      position: sticky;
+      top: clamp(80px, 9vh, 104px);
+      height: calc(100vh - clamp(80px, 9vh, 104px) - clamp(32px, 4vh, 56px));
+      min-height: 540px;
+    }
+    .ins-feature-inner {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      color: var(--ink);
+      text-decoration: none;
+      will-change: transform;
+    }
+    .ins-feature-head { flex: 0 0 auto; margin-bottom: clamp(16px, 1.8vw, 26px); }
+    .ins-feature-eyebrow {
       font-family: var(--sans);
       font-size: 11px;
-      letter-spacing: 0.18em;
+      font-weight: 700;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
-      font-weight: 600;
-      color: rgba(28,29,34,0.5);
+      color: rgba(28, 29, 34, 0.55);
+      margin-bottom: 18px;
     }
-    .icard-dot { opacity: 0.5; }
+    .ins-feature-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(34px, 3.6vw, 62px);
+      line-height: 1.04;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin: 0;
+      max-width: 24ch;
+    }
+    .ins-feature-sub {
+      flex: 0 0 auto;
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(17px, 1.5vw, 22px);
+      line-height: 1.5;
+      color: rgba(28, 29, 34, 0.7);
+      margin: clamp(16px, 1.6vw, 24px) 0 0;
+      max-width: 60ch;
+    }
+    .ins-feature-media {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      border-radius: 14px;
+      background: rgba(28, 29, 34, 0.06);
+    }
+    .ins-feature-media img,
+    .ins-feature-media video {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 1.6s cubic-bezier(.2, .7, .2, 1);
+    }
+    .ins-feature-inner:hover .ins-feature-media img,
+    .ins-feature-inner:hover .ins-feature-media video { transform: scale(1.04); }
+    .ins-feature-tag {
+      position: absolute;
+      left: 18px; bottom: 18px;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 16px;
+      background: rgba(28, 29, 34, 0.85);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      backdrop-filter: blur(4px);
+    }
+    .ins-feature-tag em {
+      font-style: normal;
+      transition: transform 0.3s ease;
+    }
+    .ins-feature-inner:hover .ins-feature-tag em { transform: translateX(4px); }
+
+    /* ---- Responsive: stack, un-pin, no parallax ---- */
+    @media (max-width: 900px) {
+      .insights2 {
+        grid-template-columns: minmax(0, 1fr);
+        gap: clamp(56px, 10vw, 88px);
+        padding-top: clamp(120px, 22vw, 160px);
+      }
+      .ins-list { padding-right: 0; }
+      .ins-feature {
+        position: static;
+        height: auto;
+        min-height: 0;
+        order: -1; /* feature first on mobile */
+      }
+      .ins-feature-media { aspect-ratio: 4 / 3; flex: 0 0 auto; height: auto; }
+      /* Collapse the double column to one; no counter-scroll on small screens. */
+      .ins-cols { grid-template-columns: minmax(0, 1fr); gap: clamp(26px, 6vw, 44px); }
+      .ins-col--down { margin-top: clamp(26px, 6vw, 44px); }
+      /* Parallax transforms are skipped in JS below this width. */
+      .ins-col, .ins-feature-inner { transform: none !important; }
+    }
 
     /* ============== NEWSLETTER ============== */
     .insights-news {
       max-width: 1360px;
       margin: 0 auto;
-      padding: 80px 36px 160px;
+      padding: 40px 36px 160px;
     }
     .news-box {
       background: var(--ink);
@@ -326,7 +345,7 @@ function fmtDate(iso) {
       font-family: var(--serif);
       font-style: italic;
       font-size: 16px;
-      color: rgba(240,238,235,0.6);
+      color: rgba(240, 238, 235, 0.6);
       margin-bottom: 18px;
     }
     .news-title {
@@ -343,7 +362,7 @@ function fmtDate(iso) {
       font-style: italic;
       font-size: clamp(16px, 1.4vw, 19px);
       line-height: 1.5;
-      color: rgba(240,238,235,0.7);
+      color: rgba(240, 238, 235, 0.7);
       max-width: 52ch;
       margin: 0 auto 28px;
     }
@@ -362,15 +381,12 @@ function fmtDate(iso) {
       font-family: var(--sans);
       font-size: 15px;
       background: transparent;
-      border: 1px solid rgba(240,238,235,0.3);
+      border: 1px solid rgba(240, 238, 235, 0.3);
       color: var(--paper);
       border-radius: 1px;
     }
-    .news-form input::placeholder { color: rgba(240,238,235,0.4); }
-    .news-form input:focus {
-      outline: none;
-      border-color: var(--paper);
-    }
+    .news-form input::placeholder { color: rgba(240, 238, 235, 0.4); }
+    .news-form input:focus { outline: none; border-color: var(--paper); }
     .news-form .btn--solid {
       background: var(--paper);
       color: var(--ink);
@@ -386,27 +402,69 @@ function fmtDate(iso) {
       font-size: 11px;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: rgba(240,238,235,0.4);
+      color: rgba(240, 238, 235, 0.4);
       margin-top: 18px;
     }
   </style>
 
+  <!-- Counter-scroll parallax. Only the two LEFT columns move: left-left drifts
+       UP, left-right drifts DOWN as the section scrolls. The right-hand video
+       stays put (sticky, no transform). Hooks the site's global Lenis instance
+       when present, else a passive scroll listener. Skipped on small screens
+       and under reduced-motion. -->
   <script is:inline>
     (function () {
-      const filters = document.querySelectorAll(".ifilter");
-      const cards = document.querySelectorAll(".icard");
-      filters.forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          filters.forEach(function (b) { b.classList.remove("is-active"); });
-          btn.classList.add("is-active");
-          const want = btn.getAttribute("data-filter");
-          cards.forEach(function (c) {
-            const cat = c.getAttribute("data-category");
-            c.classList.toggle("is-hidden", want !== "all" && cat !== want);
-          });
-        });
-      });
+      const colUp = document.getElementById("ins-col-up");
+      const colDown = document.getElementById("ins-col-down");
+      const section = document.getElementById("insights2");
+      if (!colUp || !colDown || !section) return;
 
+      const reduce =
+        window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
+
+      // Max drift each column travels from the neutral mid-scroll position.
+      const RANGE_COL = 90;
+      let ticking = false;
+
+      function apply() {
+        ticking = false;
+        if (reduce || isMobile()) {
+          colUp.style.transform = "";
+          colDown.style.transform = "";
+          return;
+        }
+        const rect = section.getBoundingClientRect();
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+        // progress: 0 when the section first enters from the bottom, 1 when it
+        // has fully passed the top. 0.5 ≈ centred → neutral (no drift).
+        const total = rect.height + vh;
+        const p = Math.max(0, Math.min(1, (vh - rect.top) / total));
+        const col = (p - 0.5) * 2 * RANGE_COL; // -RANGE … +RANGE
+        // As you scroll down (p↑): left-left rises, left-right sinks.
+        colUp.style.transform = "translate3d(0," + (-col).toFixed(2) + "px,0)";
+        colDown.style.transform = "translate3d(0," + col.toFixed(2) + "px,0)";
+      }
+
+      function onScroll() {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(apply);
+        }
+      }
+
+      if (window.__lenis && typeof window.__lenis.on === "function") {
+        window.__lenis.on("scroll", onScroll);
+      } else {
+        window.addEventListener("scroll", onScroll, { passive: true });
+      }
+      window.addEventListener("resize", onScroll);
+      apply();
+    })();
+  </script>
+
+  <script is:inline>
+    (function () {
       const form = document.getElementById("insights-news-form");
       if (form) {
         form.addEventListener("submit", function (e) {
