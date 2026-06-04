@@ -675,6 +675,19 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   mix-blend-mode: overlay;
 }
 
+/* Site-wide static film grain — fixed over the whole viewport, under the nav
+   (z 100) so nav text stays crisp, and non-interactive. Subtle dark speckle
+   that reads as texture on the cream paper and over imagery alike. */
+.site-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
+  background-size: 200px 200px;
+  opacity: 0.14;
+}
+
 .hero-content {
   position: relative;
   z-index: 5;
@@ -1232,11 +1245,14 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   --inset-top: 12vh;
   --inset-bottom: 12vh;
   --inset-side: 40px;   /* matches the hero's 40px side bars for a cohesive frame width */
+  /* Fullscreen state now leaves a 30px cream frame (matching the hero and the
+     news block) instead of bleeding to the very edge. */
+  --frame: 30px;
   clip-path: inset(
-    calc(var(--inset-top)    * (1 - var(--takeover)))
-    calc(var(--inset-side)   * (1 - var(--takeover)))
-    calc(var(--inset-bottom) * (1 - var(--takeover)))
-    calc(var(--inset-side)   * (1 - var(--takeover)))
+    calc(var(--frame) + (var(--inset-top)    - var(--frame)) * (1 - var(--takeover)))
+    calc(var(--frame) + (var(--inset-side)   - var(--frame)) * (1 - var(--takeover)))
+    calc(var(--frame) + (var(--inset-bottom) - var(--frame)) * (1 - var(--takeover)))
+    calc(var(--frame) + (var(--inset-side)   - var(--frame)) * (1 - var(--takeover)))
   );
   /* Soft drop shadow only matters in the contained state — clip-path
      would chop a hard shadow anyway. Filter:drop-shadow is clip-aware. */
@@ -3659,9 +3675,9 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   min-height: 720px;
   display: flex;
   align-items: center;
-  /* Framed (40px sides) like the hero, with a gap below so Chapter 7 reads as
+  /* Framed (30px sides) like the hero, with a gap below so Chapter 7 reads as
      its own block, broken away from the full-bleed footer underneath it. */
-  margin: 120px 40px 64px;
+  margin: 120px 30px 64px;
   overflow: hidden;
   background: var(--gunmetal);
 }
