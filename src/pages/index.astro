@@ -412,7 +412,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       top: 50%;
       /* Nudged down a few px so, once the photo opens, the wordmark rests on the
          shelf just beneath it. */
-      transform: translate(-50%, calc(-50% + 4px));
+      transform: translate(-50%, calc(-50% + 5px));
       z-index: 3;
       margin: 0;
       /* Brand wordmark font — matches the top-left logo (Cormorant) */
@@ -424,12 +424,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       letter-spacing: -0.01em;
       text-align: center;
       color: var(--english-violet);
-      /* Per-letter drop shadow — gives the letters depth, lifting them off the
-         wall at the start and casting onto the photo once it opens. */
-      text-shadow:
-        0 3px 8px rgba(0, 0, 0, 0.30),
-        0 12px 34px rgba(0, 0, 0, 0.22);
-      will-change: color;
+      /* Drop shadow is applied by the controller — only once the photo is behind
+         the letters (no shadow on the blank starter wall). */
+      will-change: color, text-shadow;
     }
 
     /* Layer C — sofa cushions over the word (same iris clip, set by the
@@ -538,6 +535,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
           "rgb(" + Math.round(lerp(71, 255, wc)) + "," + Math.round(lerp(66, 255, wc)) + "," + Math.round(lerp(84, 255, wc)) + ")";
+        // drop shadow fades in only once the photo is behind the letters (none on
+        // the blank starter wall)
+        const sh = smooth(clamp01((e - 0.12) / 0.4));
+        word.style.textShadow =
+          "0 3px 8px rgba(0,0,0," + (0.30 * sh).toFixed(3) + "), 0 12px 34px rgba(0,0,0," + (0.22 * sh).toFixed(3) + ")";
         // bottom labels: ink -> paper as the photo reaches them (late)
         const t = smooth(clamp01((e - 0.55) / 0.4));
         foot.style.color =
