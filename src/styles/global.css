@@ -3692,36 +3692,42 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 .news::after {
   content: "";
   position: absolute; inset: 0;
-  background: linear-gradient(90deg, rgba(20,18,16,0.65) 0%, rgba(20,18,16,0.15) 50%);
+  /* darken the top-left and bottom-right corners so the white text reads */
+  background: linear-gradient(180deg, rgba(20,18,16,0.30) 0%, rgba(20,18,16,0) 38%, rgba(20,18,16,0.55) 100%);
 }
-.news-content {
-  position: relative; z-index: 3;
-  padding: 80px 80px;
-  max-width: 1100px;
+
+/* Top-left: chapter chip + News label */
+.news-tl {
+  position: absolute; top: 36px; left: 36px; z-index: 3;
   color: var(--paper);
 }
-.news-eyebrow {
-  font-family: var(--serif);
-  font-size: 28px;
-  font-style: italic;
-  color: rgba(240,238,235,0.65);
-  margin-bottom: -10px;
+.news-chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: rgba(18, 17, 15, 0.82);
+  color: var(--paper);
+  padding: 11px 16px;
+  font-family: var(--sans);
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.24em; text-transform: uppercase;
 }
-.news-title {
-  /* Large word in Darker Grotesque (small eyebrow above stays Cormorant). */
+.news-chip-mark { width: 7px; height: 7px; background: var(--paper); display: inline-block; }
+.news-label {
   font-family: var(--sans);
   font-weight: 600;
-  font-size: var(--fs-display);   /* client-locked 160px / 0.86 */
-  line-height: var(--lh-display);
-  letter-spacing: -0.02em;
-  margin-bottom: 32px;
+  font-size: 30px;
+  letter-spacing: 0.01em;
+  margin-top: 16px;
 }
-.news-lead { font-size: 16px; font-weight: 600; margin-bottom: 8px; line-height: 1.6; }
-.news-copy {
-  font-size: 16px; line-height: 1.6; max-width: 480px; opacity: 0.86; margin-bottom: 32px;
+
+/* Bottom-right: line + newsletter form */
+.news-br {
+  position: absolute; right: 36px; bottom: 36px; z-index: 3;
+  width: min(460px, 64vw);
+  color: var(--paper);
 }
+.news-lead { font-size: 16px; font-weight: 600; margin: 0 0 18px; line-height: 1.5; }
 .news-form {
-  display: flex; gap: 0; max-width: 480px;
+  display: flex; gap: 0; width: 100%;
 }
 .news-form input {
   flex: 1;
@@ -3940,7 +3946,6 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   }
   .content-heading, .editorial-side { position: static; }
   .feature-content { padding: 60px 32px; }
-  .news-content { padding: 60px 32px; }
   .news { margin: 80px 22px 44px; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
   .footer { padding: 80px 36px 30px; }
@@ -4266,11 +4271,11 @@ body.nav-drawer-open { overflow: hidden; }
   }
   .edit-showcase-meta-info { gap: 10px; }
 
-  /* ===== News: full-bleed, reduce huge title, stack form ===== */
-  .news { min-height: 0; margin-top: 60px; }
-  .news-content { padding: 60px 22px; }
-  .news-title { font-size: clamp(72px, 22vw, 120px); margin-bottom: 24px; }
-  .news-eyebrow { font-size: 22px; }
+  /* ===== News: corners closer in, wider form, stack form ===== */
+  .news { min-height: 460px; margin-top: 60px; }
+  .news-tl { top: 22px; left: 22px; }
+  .news-label { font-size: 24px; }
+  .news-br { right: 22px; left: 22px; bottom: 22px; width: auto; }
   .news-form { flex-direction: column; gap: 10px; }
   .news-form button { padding: 14px 18px; }
 
