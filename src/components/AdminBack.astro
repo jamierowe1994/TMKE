@@ -1,0 +1,51 @@
+---
+// Consistent fixed top-left "back" chip for admin pages.
+// Defaults to the dashboard; pass href/label to point elsewhere.
+interface Props {
+  href?: string;
+  label?: string;
+}
+const { href = "/admin", label = "Dashboard" } = Astro.props;
+---
+
+<a href={href} class="admin-back-fab" aria-label={`Back to ${label}`}>
+  <span class="admin-back-fab-arrow" aria-hidden="true">&larr;</span>
+  <span class="admin-back-fab-label">{label}</span>
+</a>
+
+<style>
+  .admin-back-fab {
+    position: fixed;
+    top: 18px;
+    left: 20px;
+    z-index: 120;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px 9px 13px;
+    border-radius: 999px;
+    background: rgba(242, 239, 233, 0.9);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(71, 66, 84, 0.28);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--english-violet);
+    text-decoration: none;
+    box-shadow: 0 6px 20px rgba(20, 18, 26, 0.08);
+    transition: background 0.2s, color 0.2s, transform 0.2s, border-color 0.2s;
+  }
+  .admin-back-fab:hover {
+    background: var(--english-violet);
+    color: var(--paper);
+    border-color: var(--english-violet);
+    transform: translateX(-2px);
+  }
+  .admin-back-fab-arrow { font-family: var(--serif); font-style: italic; font-size: 16px; }
+  @media (max-width: 720px) {
+    .admin-back-fab { top: 12px; left: 12px; padding: 8px 13px; letter-spacing: 0.12em; }
+  }
+</style>

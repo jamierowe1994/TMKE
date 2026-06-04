@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHero from "../../components/PageHero.astro";
+import AdminBack from "../../components/AdminBack.astro";
 ---
 
 <BaseLayout
@@ -18,7 +19,7 @@ import PageHero from "../../components/PageHero.astro";
   </div>
 
   <section class="admin-bar wrap">
-    <a href="/admin" class="admin-back">&larr; Dashboard</a>
+    <AdminBack />
     <div class="admin-bar-actions">
       <div class="vid-tabs" id="vid-tabs" role="tablist">
         <button type="button" class="enquiry-chip is-active" data-tab="pipeline">Pipeline</button>
@@ -120,6 +121,31 @@ import PageHero from "../../components/PageHero.astro";
         <p class="vid-loading" id="vid-files-empty">Select a booking to see its delivered files.</p>
         <div class="vid-files-list" id="vid-files-list"></div>
       </div>
+
+      <div class="vid-delivery" id="vid-delivery" hidden>
+        <div class="vid-delivery-head">
+          <h3 class="vid-files-head" style="margin:0">Client delivery</h3>
+          <span class="enquiry-status-pill is-pending" id="vid-dlv-status">Draft</span>
+        </div>
+        <p class="vid-panel-sub" style="margin:0 0 18px">Set the price and how many photos are free, create the link, then send it to the client. They preview the teasers and pay to unlock the full set.</p>
+        <div class="vid-dlv-grid">
+          <div class="vid-field"><label>Free teaser images</label><input type="number" id="vid-dlv-teaser" min="0" value="3" /></div>
+          <div class="vid-field"><label>Shoot price (£)</label><input type="number" id="vid-dlv-base" min="0" step="0.01" /></div>
+        </div>
+        <div class="vid-dlv-extras">
+          <span class="vid-field-label">Extras (travel, additional edits…)</span>
+          <div id="vid-dlv-extra-rows"></div>
+          <button type="button" class="admin-btn admin-btn-ghost" id="vid-dlv-add-extra">+ Add extra</button>
+        </div>
+        <div class="vid-dlv-total">Total <strong id="vid-dlv-total">£0</strong></div>
+        <div class="vid-dlv-actions">
+          <button type="button" class="admin-btn admin-btn-primary" id="vid-dlv-save">Save &amp; create link</button>
+          <button type="button" class="admin-btn admin-btn-ghost" id="vid-dlv-copy" hidden>Copy client link</button>
+          <button type="button" class="admin-btn admin-btn-ghost" id="vid-dlv-sent" hidden>Mark sent</button>
+          <button type="button" class="admin-btn admin-btn-ghost" id="vid-dlv-paid" hidden>Mark paid (manual)</button>
+        </div>
+        <p class="vid-dlv-link" id="vid-dlv-link" hidden></p>
+      </div>
     </div>
   </section>
 
@@ -136,10 +162,11 @@ import PageHero from "../../components/PageHero.astro";
       <div class="vid-conn-card">
         <div class="vid-conn-row">
           <h3>Microsoft 365 — Jack's calendar</h3>
-          <span class="enquiry-status-pill is-pending">Not connected</span>
+          <span class="enquiry-status-pill is-pending" id="vid-365-pill">Checking…</span>
         </div>
-        <p>Lets clients book directly into Jack's real diary, and blocks out slots automatically. Native build on Microsoft Graph.</p>
-        <button type="button" class="admin-btn admin-btn-ghost" disabled>Connect 365 (Phase 2)</button>
+        <p>Clients book directly into Jack's real diary (app-only, scoped to his mailbox). Bookings write to his calendar and land in the pipeline.</p>
+        <p class="vid-conn-meta" id="vid-365-meta">Verifying connection…</p>
+        <a href="/book" target="_blank" rel="noopener" class="admin-btn admin-btn-ghost">Open booking page</a>
       </div>
 
       <div class="vid-conn-card">
@@ -377,6 +404,20 @@ import PageHero from "../../components/PageHero.astro";
     .vid-frow-act { text-align: right; }
     .vid-frow-link { color: var(--english-violet); font-weight: 700; cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 12px; }
     .vid-frow-del { color: #a05a3c; cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 12px; font-weight: 700; }
+    .vid-delivery { margin-top: 36px; border-top: 1px solid rgba(71,66,84,0.18); padding-top: 28px; max-width: 640px; }
+    .vid-delivery-head { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+    .vid-dlv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .vid-dlv-extras { margin-top: 18px; }
+    .vid-field-label { display: block; font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.6); margin-bottom: 8px; }
+    .vid-dlv-extra { display: grid; grid-template-columns: 1fr 130px 34px; gap: 8px; margin-bottom: 8px; }
+    .vid-dlv-extra input { padding: 8px 10px; border: 1px solid rgba(71,66,84,0.3); border-radius: 2px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: var(--paper); }
+    .vid-dlv-extra input:focus { outline: none; border-color: var(--english-violet); }
+    .vid-dlv-extra-del { border: none; background: none; color: #a05a3c; cursor: pointer; font-size: 20px; line-height: 1; }
+    .vid-dlv-total { margin-top: 20px; font-family: var(--sans); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.6); }
+    .vid-dlv-total strong { font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--ink); margin-left: 10px; }
+    .vid-dlv-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+    .vid-dlv-link { margin-top: 14px; font-family: var(--sans); font-size: 13px; color: var(--english-violet); word-break: break-all; }
+    @media (max-width: 720px) { .vid-dlv-grid { grid-template-columns: 1fr; } .vid-dlv-extra { grid-template-columns: 1fr 100px 30px; } }
     .vid-conn-meta { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin: 0; }
     .vid-conn-meta code, .vid-conn-note code { background: rgba(71,66,84,0.1); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
     @media (max-width: 720px) { .vid-frow { grid-template-columns: 1fr auto; } .vid-frow-meta { display: none; } }
@@ -779,11 +820,19 @@ import PageHero from "../../components/PageHero.astro";
 
       pick?.addEventListener("click", () => { if (guard()) input?.click(); });
       input?.addEventListener("change", () => { handleFiles(input.files); input.value = ""; });
-      sel?.addEventListener("change", () => loadDeliverFiles());
+      sel?.addEventListener("change", () => { loadDeliverFiles(); loadDelivery(deliverBooking()); });
 
       ["dragenter", "dragover"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("is-drag"); }));
       ["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("is-drag"); }));
       dz.addEventListener("drop", (e) => { if (guard()) handleFiles(e.dataTransfer.files); });
+
+      // Client-delivery panel
+      document.getElementById("vid-dlv-base")?.addEventListener("input", recomputeDlvTotal);
+      document.getElementById("vid-dlv-add-extra")?.addEventListener("click", () => addExtraRow("", null));
+      document.getElementById("vid-dlv-save")?.addEventListener("click", saveDelivery);
+      document.getElementById("vid-dlv-copy")?.addEventListener("click", copyDeliveryLink);
+      document.getElementById("vid-dlv-sent")?.addEventListener("click", () => setDeliveryStatus("sent"));
+      document.getElementById("vid-dlv-paid")?.addEventListener("click", () => setDeliveryStatus("paid"));
     }
 
     function handleFiles(fileList) {
@@ -926,6 +975,133 @@ import PageHero from "../../components/PageHero.astro";
       loadDeliverFiles();
     }
 
+    /* ---------- Client delivery (gallery link + paywall) ---------- */
+    let currentDelivery = null;
+
+    function genToken() {
+      try { return crypto.randomUUID().replace(/-/g, ""); }
+      catch (_) { return "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36); }
+    }
+    function dlvExtrasFromDOM() {
+      return Array.from(document.querySelectorAll("#vid-dlv-extra-rows .vid-dlv-extra")).map((row) => ({
+        label: row.querySelector("[data-x-label]").value.trim(),
+        amount_pence: Math.round((parseFloat(row.querySelector("[data-x-amt]").value) || 0) * 100),
+      })).filter((e) => e.label || e.amount_pence);
+    }
+    function addExtraRow(label, pence) {
+      const wrap = document.getElementById("vid-dlv-extra-rows");
+      const row = document.createElement("div");
+      row.className = "vid-dlv-extra";
+      row.innerHTML = `<input type="text" data-x-label placeholder="e.g. Travel" /><input type="number" data-x-amt min="0" step="0.01" placeholder="£" /><button type="button" class="vid-dlv-extra-del" aria-label="Remove">&times;</button>`;
+      row.querySelector("[data-x-label]").value = label || "";
+      if (pence != null) row.querySelector("[data-x-amt]").value = (pence / 100).toString();
+      row.querySelector("[data-x-amt]").addEventListener("input", recomputeDlvTotal);
+      row.querySelector(".vid-dlv-extra-del").addEventListener("click", () => { row.remove(); recomputeDlvTotal(); });
+      wrap.appendChild(row);
+    }
+    function recomputeDlvTotal() {
+      const base = Math.round((parseFloat(document.getElementById("vid-dlv-base").value) || 0) * 100);
+      const extras = dlvExtrasFromDOM().reduce((s, e) => s + e.amount_pence, 0);
+      document.getElementById("vid-dlv-total").textContent = gbpFromPence(base + extras);
+    }
+    function setDeliveryStatusUI(status, token) {
+      const pill = document.getElementById("vid-dlv-status");
+      const copy = document.getElementById("vid-dlv-copy");
+      const sent = document.getElementById("vid-dlv-sent");
+      const paid = document.getElementById("vid-dlv-paid");
+      const linkEl = document.getElementById("vid-dlv-link");
+      pill.textContent = { draft: "Draft", sent: "Sent", paid: "Paid" }[status] || "Not created";
+      pill.className = "enquiry-status-pill " + (status === "paid" ? "is-paid" : "is-pending");
+      const hasLink = Boolean(token);
+      copy.hidden = !hasLink; sent.hidden = !hasLink; paid.hidden = !hasLink;
+      if (hasLink) {
+        linkEl.textContent = `${location.origin}/deliver?d=${token}`;
+        linkEl.hidden = false;
+        sent.textContent = status === "sent" ? "Re-mark sent" : "Mark sent";
+        paid.textContent = status === "paid" ? "Paid ✓" : "Mark paid (manual)";
+      } else linkEl.hidden = true;
+    }
+    async function loadDelivery(bookingId) {
+      const card = document.getElementById("vid-delivery");
+      if (!card) return;
+      if (!bookingId) { card.hidden = true; currentDelivery = null; return; }
+      const booking = bookings.find((b) => b.id === bookingId);
+      const { data } = await supabase.from("videography_deliveries").select("*").eq("booking_id", bookingId).maybeSingle();
+      currentDelivery = data || null;
+      document.getElementById("vid-dlv-teaser").value = data ? data.teaser_count : 3;
+      const basePence = data ? data.base_pence : (booking && booking.amount_pence) || 0;
+      document.getElementById("vid-dlv-base").value = basePence ? (basePence / 100).toString() : "";
+      const rows = document.getElementById("vid-dlv-extra-rows");
+      rows.innerHTML = "";
+      (data && Array.isArray(data.extras) ? data.extras : []).forEach((e) => addExtraRow(e.label, e.amount_pence));
+      recomputeDlvTotal();
+      setDeliveryStatusUI(data ? data.status : null, data ? data.token : null);
+      card.hidden = false;
+    }
+    async function saveDelivery() {
+      const bookingId = deliverBooking();
+      if (!bookingId) { alert("Pick a booking first."); return; }
+      const booking = bookings.find((b) => b.id === bookingId);
+      const base = Math.round((parseFloat(document.getElementById("vid-dlv-base").value) || 0) * 100);
+      const extras = dlvExtrasFromDOM();
+      const total = base + extras.reduce((s, e) => s + e.amount_pence, 0);
+      const payload = {
+        booking_id: bookingId,
+        token: (currentDelivery && currentDelivery.token) || genToken(),
+        client_name: booking ? booking.client_name : null,
+        client_email: booking ? booking.client_email : null,
+        teaser_count: parseInt(document.getElementById("vid-dlv-teaser").value, 10) || 0,
+        base_pence: base, extras, total_pence: total,
+        status: (currentDelivery && currentDelivery.status) || "draft",
+      };
+      const btn = document.getElementById("vid-dlv-save");
+      btn.textContent = "Saving…";
+      const { data, error } = await supabase.from("videography_deliveries").upsert(payload, { onConflict: "booking_id" }).select().single();
+      btn.textContent = "Save & create link";
+      if (error) { alert("Couldn't save delivery: " + error.message); return; }
+      currentDelivery = data;
+      setDeliveryStatusUI(data.status, data.token);
+    }
+    async function setDeliveryStatus(status) {
+      if (!currentDelivery) return;
+      const patch = { status };
+      if (status === "sent") patch.sent_at = new Date().toISOString();
+      if (status === "paid") patch.paid_at = new Date().toISOString();
+      const { data, error } = await supabase.from("videography_deliveries").update(patch).eq("id", currentDelivery.id).select().single();
+      if (error) { alert("Couldn't update: " + error.message); return; }
+      currentDelivery = data;
+      setDeliveryStatusUI(data.status, data.token);
+    }
+    function copyDeliveryLink() {
+      if (!currentDelivery || !navigator.clipboard) return;
+      navigator.clipboard.writeText(`${location.origin}/deliver?d=${currentDelivery.token}`).then(() => {
+        const b = document.getElementById("vid-dlv-copy"); const t = b.textContent;
+        b.textContent = "Copied ✓"; setTimeout(() => (b.textContent = t), 1500);
+      });
+    }
+
+    async function init365Status() {
+      const pill = document.getElementById("vid-365-pill");
+      const meta = document.getElementById("vid-365-meta");
+      if (!pill) return;
+      if (!WORKER_URL) { pill.textContent = "Not connected"; if (meta) meta.textContent = "Set PUBLIC_R2_WORKER_URL + deploy the Worker."; return; }
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/ms/status`, { headers: { Authorization: "Bearer " + token } });
+        const d = await res.json();
+        if (d && d.connected) {
+          pill.textContent = "Connected"; pill.classList.remove("is-pending"); pill.classList.add("is-paid");
+          if (meta) meta.textContent = `Linked to ${d.name || d.upn || "Jack's calendar"}.`;
+        } else {
+          pill.textContent = "Not connected";
+          if (meta) meta.textContent = (d && d.error) ? ("Graph error: " + d.error) : "Check the Worker's MS_* secrets + Exchange policy.";
+        }
+      } catch (e) {
+        pill.textContent = "Not connected";
+        if (meta) meta.textContent = "Couldn't reach the Worker.";
+      }
+    }
+
     /* ---------- Boot ---------- */
     (async () => {
       const session = await requireAdmin();
@@ -951,6 +1127,7 @@ import PageHero from "../../components/PageHero.astro";
       renderDiary();
       renderBookings();
       initDeliver();
+      init365Status();
 
       document.getElementById("vid-new-booking")?.addEventListener("click", () => openModal(null));
       document.getElementById("vid-save")?.addEventListener("click", saveBooking);

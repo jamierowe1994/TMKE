@@ -76,6 +76,74 @@ async function getUser(request, env) {
   }
 }
 
+// Read from Supabase with the service role (server-side only, never exposed).
+async function sbGet(env, table, qs) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE) return null;
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${qs}`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`,
+    },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+// The free teaser set = the first `teaserCount` image files (created order).
+function teaserKeys(deliverables, teaserCount) {
+  const imgs = (deliverables || []).filter((d) => d.kind === "image");
+  return new Set(imgs.slice(0, Math.max(0, teaserCount || 0)).map((d) => d.r2_key));
+}
+
+// ---- Microsoft Graph (app-only / client credentials) --------------------
+let _msToken = null; // { token, exp } cached per Worker isolate
+async function msToken(env) {
+  if (_msToken && _msToken.exp > Date.now() + 60000) return _msToken.token;
+  const body = new URLSearchParams({
+    client_id: env.MS_CLIENT_ID,
+    client_secret: env.MS_CLIENT_SECRET,
+    scope: "https://graph.microsoft.com/.default",
+    grant_type: "client_credentials",
+  });
+  const res = await fetch(`https://login.microsoftonline.com/${env.MS_TENANT_ID}/oauth2/v2.0/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) throw new Error("Microsoft token request failed (" + res.status + ")");
+  const j = await res.json();
+  _msToken = { token: j.access_token, exp: Date.now() + j.expires_in * 1000 };
+  return _msToken.token;
+}
+async function graph(env, method, path, body) {
+  const token = await msToken(env);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (_) {}
+  if (!res.ok) throw new Error("Graph " + res.status + ": " + (data && data.error ? data.error.message : text));
+  return data;
+}
+// Insert a row into Supabase with the service role.
+async function sbPost(env, table, row) {
+  return fetch(`${env.SUPABASE_URL}/rest/v1/${table}`, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(row),
+  });
+}
+const hmToMin = (hm) => { const [h, m] = String(hm).split(":").map(Number); return h * 60 + m; };
+const minToHm = (min) => String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0");
+
 // Build a safe object key for a booking's file.
 function safeKey(bookingId, fileName) {
   const id = String(bookingId || "unfiled").replace(/[^a-zA-Z0-9_-]/g, "");
@@ -95,6 +163,118 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(request, env) });
     }
 
+    // ---- PUBLIC client gallery (token-gated, NO login required) ----
+    try {
+      if (path.endsWith("/g/meta") && request.method === "GET") {
+        const token = url.searchParams.get("token") || "";
+        const rows = token
+          ? await sbGet(env, "videography_deliveries", `token=eq.${encodeURIComponent(token)}&select=*`)
+          : null;
+        const d = rows && rows[0];
+        if (!d) return json({ error: "Not found" }, 404, request, env);
+        const files =
+          (await sbGet(env, "videography_deliverables",
+            `booking_id=eq.${d.booking_id}&select=r2_key,file_name,kind,size_bytes&order=created_at.asc`)) || [];
+        const teasers = teaserKeys(files, d.teaser_count);
+        const paid = d.status === "paid";
+        return json({
+          clientName: d.client_name, message: d.message, status: d.status,
+          basePence: d.base_pence, extras: d.extras || [], totalPence: d.total_pence,
+          teaserCount: d.teaser_count, paid,
+          files: files.map((f) => ({
+            key: f.r2_key, name: f.file_name, kind: f.kind, size: f.size_bytes,
+            unlocked: paid || teasers.has(f.r2_key),
+          })),
+        }, 200, request, env);
+      }
+
+      if (path.endsWith("/g/file") && request.method === "GET") {
+        const token = url.searchParams.get("token") || "";
+        const key = url.searchParams.get("key") || "";
+        const dl = url.searchParams.get("dl") === "1";
+        const rows = token
+          ? await sbGet(env, "videography_deliveries", `token=eq.${encodeURIComponent(token)}&select=*`)
+          : null;
+        const d = rows && rows[0];
+        if (!d || !key) return json({ error: "Forbidden" }, 403, request, env);
+        const files =
+          (await sbGet(env, "videography_deliverables",
+            `booking_id=eq.${d.booking_id}&select=r2_key,kind&order=created_at.asc`)) || [];
+        if (!files.some((f) => f.r2_key === key)) return json({ error: "Not found" }, 404, request, env);
+        const allowed = d.status === "paid" || teaserKeys(files, d.teaser_count).has(key);
+        if (!allowed) return json({ error: "Locked" }, 403, request, env);
+        const obj = await env.BUCKET.get(key);
+        if (!obj) return json({ error: "Not found" }, 404, request, env);
+        const headers = new Headers(corsHeaders(request, env));
+        obj.writeHttpMetadata(headers);
+        headers.set("etag", obj.httpEtag);
+        const name = key.split("/").pop();
+        headers.set("Content-Disposition", `${dl ? "attachment" : "inline"}; filename="${name}"`);
+        return new Response(obj.body, { headers });
+      }
+
+      // ---- Bookable slots for a day (Jack's diary template minus 365 busy) ----
+      if (path.endsWith("/ms/availability") && request.method === "GET") {
+        const date = url.searchParams.get("date"); // YYYY-MM-DD
+        const duration = parseInt(url.searchParams.get("duration") || "60", 10);
+        if (!date) return json({ error: "Missing date" }, 400, request, env);
+        const wd = new Date(date + "T12:00:00Z").getUTCDay(); // 0=Sun..6=Sat
+        const rows = (await sbGet(env, "videography_availability", `weekday=eq.${wd}&select=*`)) || [];
+        const row = rows[0];
+        if (!row || !row.is_available) return json({ slots: [], duration }, 200, request, env);
+        const STEP = 30;
+        const startMin = hmToMin(row.start_time), endMin = hmToMin(row.end_time);
+        const need = Math.max(1, Math.ceil(duration / STEP));
+        const sched = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
+          schedules: [env.JACK_UPN],
+          startTime: { dateTime: `${date}T${row.start_time}:00`, timeZone: "Europe/London" },
+          endTime: { dateTime: `${date}T${row.end_time}:00`, timeZone: "Europe/London" },
+          availabilityViewInterval: STEP,
+        });
+        const view = (sched.value && sched.value[0] && sched.value[0].availabilityView) || "";
+        const totalSlots = Math.floor((endMin - startMin) / STEP);
+        const slots = [];
+        for (let i = 0; i + need <= totalSlots; i++) {
+          let free = true;
+          for (let k = 0; k < need; k++) { const c = view[i + k]; if (c && c !== "0") { free = false; break; } }
+          if (free) slots.push(minToHm(startMin + i * STEP));
+        }
+        return json({ slots, duration }, 200, request, env);
+      }
+
+      // ---- Create a booking (writes to Jack's calendar + pipeline) ----
+      if (path.endsWith("/ms/book") && request.method === "POST") {
+        const b = await request.json();
+        const { date, start, duration, name, email, phone, service, notes } = b || {};
+        if (!date || !start || !name) return json({ error: "Missing booking details" }, 400, request, env);
+        const dur = parseInt(duration || "60", 10);
+        const endHm = minToHm(hmToMin(start) + dur);
+        // Re-check the slot is still free (guards against double-booking)
+        const check = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
+          schedules: [env.JACK_UPN],
+          startTime: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+          endTime: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          availabilityViewInterval: Math.max(15, dur),
+        });
+        const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
+        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken — please choose another." }, 409, request, env);
+        const ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
+          subject: `${service || "Shoot"} — ${name}`,
+          body: { contentType: "text", content: [notes && `Notes: ${notes}`, phone && `Phone: ${phone}`, email && `Email: ${email}`].filter(Boolean).join("\n") },
+          start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+          end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          attendees: email ? [{ emailAddress: { address: email, name }, type: "required" }] : [],
+        });
+        await sbPost(env, "videography_bookings", {
+          client_name: name, client_email: email || null, client_phone: phone || null,
+          service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
+        });
+        return json({ ok: true, eventId: ev.id }, 200, request, env);
+      }
+    } catch (err) {
+      return json({ error: String(err && err.message ? err.message : err) }, 500, request, env);
+    }
+
     // Auth. Hot upload path (part/complete/abort) uses a fast local expiry check
     // — it already requires an unguessable uploadId minted by the fully-authed
     // /create. Everything else does full Supabase validation.
@@ -107,6 +287,16 @@ export default {
     }
 
     try {
+      // ---- Microsoft 365 connection health (admin) ----
+      if (path.endsWith("/ms/status") && request.method === "GET") {
+        try {
+          const u = await graph(env, "GET", `/users/${encodeURIComponent(env.JACK_UPN)}?$select=displayName,mail,userPrincipalName`);
+          return json({ connected: true, name: u.displayName, upn: u.userPrincipalName || u.mail }, 200, request, env);
+        } catch (e) {
+          return json({ connected: false, error: String(e && e.message ? e.message : e) }, 200, request, env);
+        }
+      }
+
       // ---- Create a multipart upload ----
       if (path.endsWith("/create") && request.method === "POST") {
         const { bookingId, fileName, contentType } = await request.json();

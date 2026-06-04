@@ -30,6 +30,12 @@ import PageHero from "../../components/PageHero.astro";
       </button>
       <p class="login-error" id="login-error" hidden></p>
     </form>
+
+    <div class="login-or"><span>or</span></div>
+    <button type="button" class="login-ms" id="login-ms">
+      <svg width="16" height="16" viewBox="0 0 23 23" aria-hidden="true"><path fill="#f25022" d="M0 0h11v11H0z"/><path fill="#7fba00" d="M12 0h11v11H12z"/><path fill="#00a4ef" d="M0 12h11v11H0z"/><path fill="#ffb900" d="M12 12h11v11H12z"/></svg>
+      Sign in with Microsoft
+    </button>
   </section>
 
   <style>
@@ -91,6 +97,20 @@ import PageHero from "../../components/PageHero.astro";
       color: #a05a3c;
       font-family: var(--sans);
     }
+    .login-or {
+      display: flex; align-items: center; gap: 14px; margin: 22px 0;
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: rgba(28,29,34,0.45);
+    }
+    .login-or::before, .login-or::after { content: ""; flex: 1; height: 1px; background: rgba(71,66,84,0.2); }
+    .login-ms {
+      width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 13px 18px; border: 1px solid rgba(71,66,84,0.35); border-radius: 2px;
+      background: var(--paper); color: var(--ink); font-family: var(--sans);
+      font-size: 13px; font-weight: 700; letter-spacing: 0.04em; cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .login-ms:hover { background: rgba(71,66,84,0.06); border-color: var(--english-violet); }
   </style>
 
   <script>
@@ -136,6 +156,21 @@ import PageHero from "../../components/PageHero.astro";
 
       const params = new URLSearchParams(location.search);
       location.replace(params.get('next') || '/admin');
+    });
+
+    // Microsoft SSO (works once the Azure provider is enabled in Supabase →
+    // Authentication → Providers → Azure).
+    document.getElementById('login-ms')?.addEventListener('click', async () => {
+      errEl.hidden = true;
+      const next = new URLSearchParams(location.search).get('next') || '/admin';
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'azure',
+        options: {
+          scopes: 'openid profile email',
+          redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        },
+      });
+      if (error) showError(error.message || 'Microsoft sign-in is not enabled yet.');
     });
   </script>
 </BaseLayout>
