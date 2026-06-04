@@ -162,10 +162,11 @@ import AdminBack from "../../components/AdminBack.astro";
       <div class="vid-conn-card">
         <div class="vid-conn-row">
           <h3>Microsoft 365 — Jack's calendar</h3>
-          <span class="enquiry-status-pill is-pending">Not connected</span>
+          <span class="enquiry-status-pill is-pending" id="vid-365-pill">Checking…</span>
         </div>
-        <p>Lets clients book directly into Jack's real diary, and blocks out slots automatically. Native build on Microsoft Graph.</p>
-        <button type="button" class="admin-btn admin-btn-ghost" disabled>Connect 365 (Phase 2)</button>
+        <p>Clients book directly into Jack's real diary (app-only, scoped to his mailbox). Bookings write to his calendar and land in the pipeline.</p>
+        <p class="vid-conn-meta" id="vid-365-meta">Verifying connection…</p>
+        <a href="/book" target="_blank" rel="noopener" class="admin-btn admin-btn-ghost">Open booking page</a>
       </div>
 
       <div class="vid-conn-card">
@@ -1079,6 +1080,28 @@ import AdminBack from "../../components/AdminBack.astro";
       });
     }
 
+    async function init365Status() {
+      const pill = document.getElementById("vid-365-pill");
+      const meta = document.getElementById("vid-365-meta");
+      if (!pill) return;
+      if (!WORKER_URL) { pill.textContent = "Not connected"; if (meta) meta.textContent = "Set PUBLIC_R2_WORKER_URL + deploy the Worker."; return; }
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/ms/status`, { headers: { Authorization: "Bearer " + token } });
+        const d = await res.json();
+        if (d && d.connected) {
+          pill.textContent = "Connected"; pill.classList.remove("is-pending"); pill.classList.add("is-paid");
+          if (meta) meta.textContent = `Linked to ${d.name || d.upn || "Jack's calendar"}.`;
+        } else {
+          pill.textContent = "Not connected";
+          if (meta) meta.textContent = (d && d.error) ? ("Graph error: " + d.error) : "Check the Worker's MS_* secrets + Exchange policy.";
+        }
+      } catch (e) {
+        pill.textContent = "Not connected";
+        if (meta) meta.textContent = "Couldn't reach the Worker.";
+      }
+    }
+
     /* ---------- Boot ---------- */
     (async () => {
       const session = await requireAdmin();
@@ -1104,6 +1127,7 @@ import AdminBack from "../../components/AdminBack.astro";
       renderDiary();
       renderBookings();
       initDeliver();
+      init365Status();
 
       document.getElementById("vid-new-booking")?.addEventListener("click", () => openModal(null));
       document.getElementById("vid-save")?.addEventListener("click", saveBooking);

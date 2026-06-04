@@ -1,0 +1,210 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Book a shoot — TMKE"
+  description="Book a videography consultation or shoot with TMKE. Pick a service and a time that suits you."
+>
+  <main class="bk">
+    <header class="bk-head">
+      <div class="bk-eyebrow">Videography</div>
+      <h1 class="bk-title">Book <em>Jack.</em></h1>
+      <p class="bk-sub">Pick what you need and a time that works — it drops straight into the diary and you'll get a calendar invite.</p>
+    </header>
+
+    <!-- Step 1: service -->
+    <section class="bk-step" id="bk-step-service">
+      <h2 class="bk-step-h"><span>1</span> What do you need?</h2>
+      <div class="bk-services" id="bk-services"></div>
+    </section>
+
+    <!-- Step 2: date + time -->
+    <section class="bk-step" id="bk-step-when" hidden>
+      <h2 class="bk-step-h"><span>2</span> Pick a day &amp; time</h2>
+      <div class="bk-dates" id="bk-dates"></div>
+      <div class="bk-slots" id="bk-slots"><p class="bk-hint">Choose a day to see available times.</p></div>
+    </section>
+
+    <!-- Step 3: details -->
+    <section class="bk-step" id="bk-step-details" hidden>
+      <h2 class="bk-step-h"><span>3</span> Your details</h2>
+      <form class="bk-form" id="bk-form">
+        <div class="bk-field"><label>Name *</label><input type="text" name="name" required /></div>
+        <div class="bk-row">
+          <div class="bk-field"><label>Email *</label><input type="email" name="email" required /></div>
+          <div class="bk-field"><label>Phone</label><input type="tel" name="phone" /></div>
+        </div>
+        <div class="bk-field"><label>Anything we should know?</label><textarea name="notes" rows="3"></textarea></div>
+        <label class="bk-agree"><input type="checkbox" id="bk-agree" /> I agree to TMKE's terms &amp; conditions.</label>
+        <button type="submit" class="btn btn--solid bk-submit" id="bk-submit">Confirm booking <span class="btn-arrow">&rarr;</span></button>
+      </form>
+    </section>
+
+    <!-- Confirmation -->
+    <section class="bk-step" id="bk-done" hidden>
+      <div class="bk-done-card">
+        <div class="bk-done-tick">✓</div>
+        <h2 class="bk-done-h">You're booked in.</h2>
+        <p class="bk-done-sub" id="bk-done-sub"></p>
+        <a href="/videography" class="btn btn--ghost">Back to videography</a>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .bk { max-width: 880px; margin: 0 auto; padding: 150px 28px 160px; }
+    .bk-eyebrow { font-family: var(--sans); font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); margin-bottom: 14px; }
+    .bk-title { font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 6vw, 80px); letter-spacing: -0.02em; color: var(--ink); margin: 0 0 14px; }
+    .bk-title em { font-style: italic; color: var(--english-violet); }
+    .bk-sub { font-family: var(--sans); font-size: 16px; line-height: 1.6; color: rgba(28,29,34,0.7); max-width: 56ch; margin: 0 0 48px; }
+
+    .bk-step { margin-bottom: 44px; }
+    .bk-step[hidden] { display: none; }
+    .bk-step-h { font-family: var(--serif); font-weight: 500; font-size: 26px; color: var(--ink); margin: 0 0 22px; display: flex; align-items: center; gap: 14px; }
+    .bk-step-h span { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--english-violet); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-family: var(--sans); font-weight: 700; font-size: 14px; }
+
+    .bk-services { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .bk-svc { text-align: left; cursor: pointer; padding: 20px 22px; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: transparent; transition: border-color 0.2s, background 0.2s, transform 0.2s; }
+    .bk-svc:hover { border-color: var(--english-violet); transform: translateY(-2px); }
+    .bk-svc.is-active { border-color: var(--english-violet); background: rgba(71,66,84,0.06); }
+    .bk-svc-name { font-family: var(--serif); font-size: 20px; color: var(--ink); }
+    .bk-svc-dur { font-family: var(--sans); font-size: 12px; letter-spacing: 0.06em; color: rgba(28,29,34,0.55); margin-top: 4px; }
+
+    .bk-dates { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 22px; }
+    .bk-date { flex: none; cursor: pointer; min-width: 76px; padding: 12px 10px; text-align: center; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: transparent; font-family: var(--sans); transition: border-color 0.2s, background 0.2s; }
+    .bk-date:hover { border-color: var(--english-violet); }
+    .bk-date.is-active { border-color: var(--english-violet); background: var(--english-violet); color: var(--paper); }
+    .bk-date-dow { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; }
+    .bk-date-day { font-family: var(--serif); font-size: 22px; margin-top: 2px; }
+    .bk-date-mon { font-size: 11px; opacity: 0.7; }
+
+    .bk-slots { display: flex; flex-wrap: wrap; gap: 8px; min-height: 44px; }
+    .bk-slot { cursor: pointer; padding: 10px 16px; border: 1px solid rgba(28,29,34,0.2); border-radius: 999px; background: transparent; font-family: var(--sans); font-size: 14px; color: var(--ink); transition: border-color 0.2s, background 0.2s, color 0.2s; }
+    .bk-slot:hover { border-color: var(--english-violet); }
+    .bk-slot.is-active { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+    .bk-hint, .bk-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); }
+
+    .bk-form { max-width: 560px; display: flex; flex-direction: column; gap: 16px; }
+    .bk-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .bk-field { display: flex; flex-direction: column; gap: 6px; }
+    .bk-field label { font-family: var(--sans); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.6); }
+    .bk-field input, .bk-field textarea { padding: 11px 14px; border: 1px solid rgba(28,29,34,0.22); border-radius: 4px; font-family: var(--sans); font-size: 15px; color: var(--ink); background: var(--paper); resize: vertical; }
+    .bk-field input:focus, .bk-field textarea:focus { outline: none; border-color: var(--english-violet); }
+    .bk-agree { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.7); display: flex; align-items: center; gap: 10px; }
+    .bk-submit { align-self: flex-start; margin-top: 6px; }
+    .bk-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .bk-done-card { text-align: center; padding: 60px 24px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; }
+    .bk-done-tick { width: 56px; height: 56px; border-radius: 50%; background: rgba(44,122,75,0.12); color: #2c7a4b; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 18px; }
+    .bk-done-h { font-family: var(--serif); font-weight: 400; font-size: 36px; color: var(--ink); margin: 0 0 10px; }
+    .bk-done-sub { font-family: var(--sans); font-size: 15px; color: rgba(28,29,34,0.7); margin: 0 0 28px; }
+    .btn--ghost { border: 1px solid rgba(71,66,84,0.4); color: var(--english-violet); }
+
+    @media (max-width: 720px) { .bk { padding: 120px 20px 120px; } .bk-row { grid-template-columns: 1fr; } }
+  </style>
+
+  <script>
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const SERVICES = [
+      { id: "consult", label: "Consultation call", minutes: 30 },
+      { id: "half-day", label: "Half-day shoot", minutes: 240 },
+      { id: "full-day", label: "Full-day shoot", minutes: 480 },
+      { id: "personal", label: "Personal branding", minutes: 120 },
+    ];
+    const state = { service: null, date: null, slot: null };
+    const $ = (id) => document.getElementById(id);
+    const fmtDur = (m) => (m >= 60 ? `${m / 60} hr${m >= 120 ? "s" : ""}` : `${m} min`).replace(".5 hrs", "½ hrs");
+
+    function renderServices() {
+      $("bk-services").innerHTML = SERVICES.map((s) =>
+        `<button type="button" class="bk-svc" data-id="${s.id}"><div class="bk-svc-name">${s.label}</div><div class="bk-svc-dur">${fmtDur(s.minutes)}</div></button>`).join("");
+      $("bk-services").querySelectorAll(".bk-svc").forEach((b) => b.addEventListener("click", () => {
+        state.service = SERVICES.find((s) => s.id === b.dataset.id);
+        state.slot = null;
+        $("bk-services").querySelectorAll(".bk-svc").forEach((x) => x.classList.remove("is-active"));
+        b.classList.add("is-active");
+        $("bk-step-when").hidden = false;
+        $("bk-step-details").hidden = true;
+        if (state.date) loadSlots();
+        $("bk-step-when").scrollIntoView({ behavior: "smooth", block: "start" });
+      }));
+    }
+
+    function renderDates() {
+      const days = [];
+      const now = new Date();
+      for (let i = 0; i < 21; i++) {
+        const d = new Date(now); d.setDate(now.getDate() + i);
+        days.push(d);
+      }
+      $("bk-dates").innerHTML = days.map((d) => {
+        const iso = d.toISOString().slice(0, 10);
+        return `<button type="button" class="bk-date" data-iso="${iso}">
+          <div class="bk-date-dow">${d.toLocaleDateString("en-GB", { weekday: "short" })}</div>
+          <div class="bk-date-day">${d.getDate()}</div>
+          <div class="bk-date-mon">${d.toLocaleDateString("en-GB", { month: "short" })}</div></button>`;
+      }).join("");
+      $("bk-dates").querySelectorAll(".bk-date").forEach((b) => b.addEventListener("click", () => {
+        state.date = b.dataset.iso; state.slot = null;
+        $("bk-dates").querySelectorAll(".bk-date").forEach((x) => x.classList.remove("is-active"));
+        b.classList.add("is-active");
+        loadSlots();
+      }));
+    }
+
+    async function loadSlots() {
+      const wrap = $("bk-slots");
+      if (!state.service || !state.date) return;
+      if (!WORKER) { wrap.innerHTML = `<p class="bk-empty">Booking is being set up — please check back shortly.</p>`; return; }
+      wrap.innerHTML = `<p class="bk-hint">Finding times…</p>`;
+      try {
+        const res = await fetch(`${WORKER}/ms/availability?date=${state.date}&duration=${state.service.minutes}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "error");
+        if (!data.slots || !data.slots.length) { wrap.innerHTML = `<p class="bk-empty">No times available that day — try another.</p>`; return; }
+        wrap.innerHTML = data.slots.map((s) => `<button type="button" class="bk-slot" data-t="${s}">${s}</button>`).join("");
+        wrap.querySelectorAll(".bk-slot").forEach((b) => b.addEventListener("click", () => {
+          state.slot = b.dataset.t;
+          wrap.querySelectorAll(".bk-slot").forEach((x) => x.classList.remove("is-active"));
+          b.classList.add("is-active");
+          $("bk-step-details").hidden = false;
+          $("bk-step-details").scrollIntoView({ behavior: "smooth", block: "start" });
+        }));
+      } catch (e) {
+        wrap.innerHTML = `<p class="bk-empty">Couldn't load times. Please try again.</p>`;
+      }
+    }
+
+    $("bk-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!state.service || !state.date || !state.slot) { alert("Please pick a service, day and time."); return; }
+      if (!$("bk-agree").checked) { alert("Please agree to the terms to continue."); return; }
+      const fd = new FormData(e.target);
+      const btn = $("bk-submit"); btn.disabled = true; btn.textContent = "Booking…";
+      try {
+        const res = await fetch(`${WORKER}/ms/book`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: state.date, start: state.slot, duration: state.service.minutes,
+            service: state.service.label, name: fd.get("name"), email: fd.get("email"),
+            phone: fd.get("phone"), notes: fd.get("notes"),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Booking failed");
+        const d = new Date(state.date + "T" + state.slot + ":00");
+        $("bk-done-sub").textContent = `${state.service.label} on ${d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} at ${state.slot}. A calendar invite is on its way to ${fd.get("email")}.`;
+        ["bk-step-service", "bk-step-when", "bk-step-details"].forEach((id) => ($(id).hidden = true));
+        $("bk-done").hidden = false;
+        $("bk-done").scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (err) {
+        alert(err.message || "Sorry, that didn't go through. Please try another time.");
+        btn.disabled = false; btn.textContent = "Confirm booking";
+      }
+    });
+
+    renderServices();
+    renderDates();
+  </script>
+</BaseLayout>
