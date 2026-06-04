@@ -220,11 +220,15 @@ editCells.splice(2, 0, { brand: true });
        cell. Tiles zoom in together on enter; the grid fades out before Ch 06.
        Placeholder Unsplash interiors for now. -->
   <section id="edit" class="edit-gallery" data-reveal-root>
-    <div class="chapter edit-chapter">Chapter 05 &mdash; The Edit</div>
     <div class="edit-grid" id="edit-grid">
       {editCells.map((c) => (
         c.brand ? (
-          <div class="edit-cell edit-cell--brand"><span>The Edit</span></div>
+          <div class="edit-cell edit-cell--brand">
+            <div class="edit-brand-box">
+              <span class="edit-brand-chapter">Chapter 05</span>
+              <span class="edit-brand-title">The Edit</span>
+            </div>
+          </div>
         ) : (
           <a class="edit-cell" href="/edit" aria-label={`The Edit — ${c.name}`}>
             <div class="edit-cell-img" style={`background-image:url('${c.src}')`}></div>
@@ -242,17 +246,14 @@ editCells.splice(2, 0, { brand: true });
       padding: 150px 0 170px;
       overflow: hidden;            /* clip the bleeding edge tiles */
     }
-    .edit-chapter {
-      position: absolute; top: 40px; left: 40px; z-index: 4; margin: 0;
-    }
     .edit-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 56px 3vw;
-      /* wider than the viewport so the first/last columns bleed off-screen,
-         leaving ~4 reading fully across */
-      width: 124vw;
-      margin-left: -12vw;
+      gap: 44px 2.6vw;
+      /* slightly wider than the viewport so the first/last columns bleed off,
+         with smaller tiles than before */
+      width: 112vw;
+      margin-left: -6vw;
     }
     .edit-cell {
       display: block;
@@ -278,15 +279,34 @@ editCells.splice(2, 0, { brand: true });
       font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
       color: var(--english-violet);
     }
-    .edit-cell--brand {
-      display: flex; align-items: center; justify-content: center;
+    /* Brand cell — a tile-sized box (same as the image tiles) with the chapter
+       above "The Edit" and no image inside. */
+    .edit-cell--brand { display: block; }
+    .edit-brand-box {
+      aspect-ratio: 3 / 4;            /* matches the image tiles */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
       background: var(--paper);
+      box-shadow: inset 0 0 0 1px rgba(28, 29, 34, 0.14);
     }
-    .edit-cell--brand span {
+    .edit-brand-chapter {
+      font-family: var(--sans);
+      font-size: clamp(10px, 0.85vw, 12px);
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .edit-brand-title {
       font-family: var(--serif);
-      font-size: clamp(30px, 3.2vw, 60px);
-      letter-spacing: 0.03em; color: var(--ink);
-      text-align: center; line-height: 1.04;
+      font-weight: 500;
+      font-size: clamp(22px, 2.2vw, 40px);
+      letter-spacing: 0.02em;
+      color: var(--ink);
+      line-height: 1;
     }
     @media (max-width: 860px) {
       .edit-grid { grid-template-columns: repeat(3, 1fr); width: 132vw; margin-left: -16vw; gap: 36px 4vw; }
@@ -300,7 +320,6 @@ editCells.splice(2, 0, { brand: true });
       const section = document.querySelector(".edit-gallery");
       if (!section) return;
       const grid = section.querySelector(".edit-grid");
-      const chap = section.querySelector(".edit-chapter");
       const clamp01 = (t) => Math.max(0, Math.min(1, t));
       const lenis = window.__lenis;
       const update = () => {
@@ -312,7 +331,6 @@ editCells.splice(2, 0, { brand: true });
         // toward the top (just before Chapter 06).
         const o = clamp01((rect.bottom - vh * 0.35) / (vh * 0.9));
         grid.style.opacity = o.toFixed(3);
-        chap.style.opacity = o.toFixed(3);
       };
       update();
       if (lenis && typeof lenis.on === "function") lenis.on("scroll", update);
