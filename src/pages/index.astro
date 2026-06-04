@@ -324,22 +324,21 @@ editCells.splice(2, 0, { brand: true });
       const smooth = (t) => t * t * (3 - 2 * t);
       const lenis = window.__lenis;
       const update = () => {
-        const rect = section.getBoundingClientRect();
         const vh = window.innerHeight;
         // Scroll-scrubbed reveal: each tile grows AND drifts up into place as
-        // its row rises through the viewport — and reverses on the way up.
-        // Starts while the tile is still below the fold so it animates early.
+        // its row rises through the viewport, starting while still below the
+        // fold. It LATCHES — once a tile is in, it stays in (no reverse on the
+        // way back up). No fade-out; once they're there, they're there.
         const start = vh * 1.15;   // tile top here -> just beginning (below fold)
         const end = vh * 0.55;     // tile top here -> fully in place
         cells.forEach((c) => {
-          const e = smooth(clamp01((start - c.getBoundingClientRect().top) / (start - end)));
+          const eNow = smooth(clamp01((start - c.getBoundingClientRect().top) / (start - end)));
+          const e = Math.max(c.__editE || 0, eNow);   // latch: never decreases
+          c.__editE = e;
           const lift = (1 - e) * 100;   // px: starts lower, flows up to its spot
           c.style.transform = "translateY(" + lift.toFixed(1) + "px) scale(" + (0.16 + 0.84 * e).toFixed(3) + ")";
           c.style.opacity = e.toFixed(3);
         });
-        // grid fades out as it nears Chapter 06
-        const o = clamp01((rect.bottom - vh * 0.35) / (vh * 0.9));
-        grid.style.opacity = o.toFixed(3);
       };
       update();
       if (lenis && typeof lenis.on === "function") lenis.on("scroll", update);
@@ -536,12 +535,6 @@ editCells.splice(2, 0, { brand: true });
     }
 
     /* Reduced motion: present the full framed photo + labels, no scrub. */
-    @media (prefers-reduced-motion: reduce) {
-      .hero-zoom { height: 100vh; }
-      .hero-zoom-media { clip-path: inset(30px round 0) !important; }
-      .hero-zoom-word { display: none; }
-      .hero-zoom-foot { color: var(--paper); }
-    }
   </style>
 
   <!-- Fold-out controller: the photo unfolds from the centre of the TMKE
@@ -661,9 +654,6 @@ editCells.splice(2, 0, { brand: true });
     @media (max-width: 860px) {
       .ch4 { height: 560vh; }
       .ch4-label { left: 22px; bottom: 22px; padding: 12px 14px; font-size: clamp(15px, 4.4vw, 22px); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .ch4 { height: 100vh; }
     }
   </style>
 
