@@ -257,13 +257,13 @@ editCells.splice(2, 0, { brand: true });
     .edit-cell {
       display: block;
       text-decoration: none;
-      /* zoom-in load — each tile slowly expands from nothing as its row scrolls
-         into view (is-in toggled per cell by the controller) */
+      /* scale + opacity are scrubbed by the controller from each tile's scroll
+         position, so rows grow in as you scroll down and shrink back as you
+         scroll up. */
       transform: scale(0.12);
       opacity: 0;
-      transition: transform 1.7s cubic-bezier(.2,.7,.2,1), opacity 1.2s ease;
+      will-change: transform, opacity;
     }
-    .edit-cell.is-in { transform: scale(1); opacity: 1; }
     .edit-cell-img {
       width: 100%;
       aspect-ratio: 3 / 4;
@@ -321,18 +321,21 @@ editCells.splice(2, 0, { brand: true });
       const grid = section.querySelector(".edit-grid");
       const cells = Array.prototype.slice.call(section.querySelectorAll(".edit-cell"));
       const clamp01 = (t) => Math.max(0, Math.min(1, t));
+      const smooth = (t) => t * t * (3 - 2 * t);
       const lenis = window.__lenis;
       const update = () => {
         const rect = section.getBoundingClientRect();
         const vh = window.innerHeight;
-        // Per-row zoom-in: each tile slowly expands as it scrolls into view.
+        // Scroll-scrubbed reveal: each tile grows from nothing as its row rises
+        // from the bottom of the viewport, and shrinks back when scrolled up.
+        const start = vh * 0.95;   // tile top here -> just appearing
+        const end = vh * 0.45;     // tile top here -> fully in place
         cells.forEach((c) => {
-          if (!c.classList.contains("is-in") && c.getBoundingClientRect().top < vh * 0.82) {
-            c.classList.add("is-in");
-          }
+          const e = smooth(clamp01((start - c.getBoundingClientRect().top) / (start - end)));
+          c.style.transform = "scale(" + (0.12 + 0.88 * e).toFixed(3) + ")";
+          c.style.opacity = e.toFixed(3);
         });
-        // 1 while the gallery fills the view; fades to 0 as its bottom rises
-        // toward the top (just before Chapter 06).
+        // grid fades out as it nears Chapter 06
         const o = clamp01((rect.bottom - vh * 0.35) / (vh * 0.9));
         grid.style.opacity = o.toFixed(3);
       };
