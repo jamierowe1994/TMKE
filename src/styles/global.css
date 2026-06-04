@@ -675,6 +675,19 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   mix-blend-mode: overlay;
 }
 
+/* Site-wide static film grain — fixed over the whole viewport, under the nav
+   (z 100) so nav text stays crisp, and non-interactive. Subtle dark speckle
+   that reads as texture on the cream paper and over imagery alike. */
+.site-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
+  background-size: 200px 200px;
+  opacity: 0.14;
+}
+
 .hero-content {
   position: relative;
   z-index: 5;
@@ -1232,11 +1245,14 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   --inset-top: 12vh;
   --inset-bottom: 12vh;
   --inset-side: 40px;   /* matches the hero's 40px side bars for a cohesive frame width */
+  /* Fullscreen state now leaves a 30px cream frame (matching the hero and the
+     news block) instead of bleeding to the very edge. */
+  --frame: 30px;
   clip-path: inset(
-    calc(var(--inset-top)    * (1 - var(--takeover)))
-    calc(var(--inset-side)   * (1 - var(--takeover)))
-    calc(var(--inset-bottom) * (1 - var(--takeover)))
-    calc(var(--inset-side)   * (1 - var(--takeover)))
+    calc(var(--frame) + (var(--inset-top)    - var(--frame)) * (1 - var(--takeover)))
+    calc(var(--frame) + (var(--inset-side)   - var(--frame)) * (1 - var(--takeover)))
+    calc(var(--frame) + (var(--inset-bottom) - var(--frame)) * (1 - var(--takeover)))
+    calc(var(--frame) + (var(--inset-side)   - var(--frame)) * (1 - var(--takeover)))
   );
   /* Soft drop shadow only matters in the contained state — clip-path
      would chop a hard shadow anyway. Filter:drop-shadow is clip-aware. */
@@ -3659,9 +3675,9 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   min-height: 720px;
   display: flex;
   align-items: center;
-  /* Framed (40px sides) like the hero, with a gap below so Chapter 7 reads as
+  /* Framed (30px sides) like the hero, with a gap below so Chapter 7 reads as
      its own block, broken away from the full-bleed footer underneath it. */
-  margin: 120px 40px 64px;
+  margin: 120px 30px 64px;
   overflow: hidden;
   background: var(--gunmetal);
 }
@@ -3676,36 +3692,43 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 .news::after {
   content: "";
   position: absolute; inset: 0;
-  background: linear-gradient(90deg, rgba(20,18,16,0.65) 0%, rgba(20,18,16,0.15) 50%);
+  /* darken the top-left and bottom-right corners so the white text reads */
+  background: linear-gradient(180deg, rgba(20,18,16,0.30) 0%, rgba(20,18,16,0) 38%, rgba(20,18,16,0.55) 100%);
 }
-.news-content {
-  position: relative; z-index: 3;
-  padding: 80px 80px;
-  max-width: 1100px;
+
+/* Top-left: chapter line (no box) — bolder + a touch bigger, one line */
+.news-tl {
+  position: absolute; top: 40px; left: 40px; z-index: 3;
   color: var(--paper);
 }
-.news-eyebrow {
-  font-family: var(--serif);
-  font-size: 28px;
-  font-style: italic;
-  color: rgba(240,238,235,0.65);
-  margin-bottom: -10px;
+.news-chapter {
+  margin-bottom: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--paper);
 }
-.news-title {
-  /* Large word in Darker Grotesque (small eyebrow above stays Cormorant). */
-  font-family: var(--sans);
-  font-weight: 600;
-  font-size: var(--fs-display);   /* client-locked 160px / 0.86 */
-  line-height: var(--lh-display);
-  letter-spacing: -0.02em;
-  margin-bottom: 32px;
+
+/* Bottom-right: line + subtext + newsletter form */
+.news-br {
+  position: absolute; right: 40px; bottom: 40px; z-index: 3;
+  width: min(640px, 88vw);
+  color: var(--paper);
 }
-.news-lead { font-size: 16px; font-weight: 600; margin-bottom: 8px; line-height: 1.6; }
+.news-lead {
+  font-size: clamp(16px, 1.6vw, 19px);
+  font-weight: 700;
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
 .news-copy {
-  font-size: 16px; line-height: 1.6; max-width: 480px; opacity: 0.86; margin-bottom: 32px;
+  font-size: 15px;
+  line-height: 1.6;
+  opacity: 0.85;
+  margin: 0 0 22px;
+  max-width: 520px;
 }
 .news-form {
-  display: flex; gap: 0; max-width: 480px;
+  display: flex; gap: 0; max-width: 460px;
 }
 .news-form input {
   flex: 1;
@@ -3924,7 +3947,6 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   }
   .content-heading, .editorial-side { position: static; }
   .feature-content { padding: 60px 32px; }
-  .news-content { padding: 60px 32px; }
   .news { margin: 80px 22px 44px; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
   .footer { padding: 80px 36px 30px; }
@@ -4250,11 +4272,11 @@ body.nav-drawer-open { overflow: hidden; }
   }
   .edit-showcase-meta-info { gap: 10px; }
 
-  /* ===== News: full-bleed, reduce huge title, stack form ===== */
-  .news { min-height: 0; margin-top: 60px; }
-  .news-content { padding: 60px 22px; }
-  .news-title { font-size: clamp(72px, 22vw, 120px); margin-bottom: 24px; }
-  .news-eyebrow { font-size: 22px; }
+  /* ===== News: corners closer in, wider form, stack form ===== */
+  .news { min-height: 460px; margin-top: 60px; }
+  .news-tl { top: 22px; left: 22px; }
+  .news-label { font-size: 24px; }
+  .news-br { right: 22px; left: 22px; bottom: 22px; width: auto; }
   .news-form { flex-direction: column; gap: 10px; }
   .news-form button { padding: 14px 18px; }
 
