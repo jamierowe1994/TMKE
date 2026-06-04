@@ -213,31 +213,56 @@ export default {
         return new Response(obj.body, { headers });
       }
 
-      // ---- Bookable slots for a day (Jack's diary template minus 365 busy) ----
+      // Available hours for a weekday row: prefer hours[] (new block model),
+      // fall back to the old start_time/end_time range. Returns a sorted int[].
+      const rowHours = (row) => {
+        let h = Array.isArray(row && row.hours) ? row.hours.slice() : [];
+        if (!h.length && row && row.is_available !== false && row.start_time && row.end_time) {
+          const s = Math.floor(hmToMin(row.start_time) / 60), e = Math.ceil(hmToMin(row.end_time) / 60);
+          for (let x = s; x < e; x++) h.push(x);
+        }
+        return h.filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+      };
+
+      // ---- Which weekdays are bookable (for the booking calendar) ----
+      if (path.endsWith("/ms/config") && request.method === "GET") {
+        const rows = (await sbGet(env, "videography_availability", `select=weekday,hours,is_available,start_time,end_time`)) || [];
+        const weekdays = {};
+        rows.forEach((r) => { const h = rowHours(r); if (h.length) weekdays[r.weekday] = h; });
+        return json({ weekdays }, 200, request, env);
+      }
+
+      // ---- Bookable slots for a day (Jack's diary hours minus 365 busy) ----
       if (path.endsWith("/ms/availability") && request.method === "GET") {
         const date = url.searchParams.get("date"); // YYYY-MM-DD
         const duration = parseInt(url.searchParams.get("duration") || "60", 10);
         if (!date) return json({ error: "Missing date" }, 400, request, env);
         const wd = new Date(date + "T12:00:00Z").getUTCDay(); // 0=Sun..6=Sat
         const rows = (await sbGet(env, "videography_availability", `weekday=eq.${wd}&select=*`)) || [];
-        const row = rows[0];
-        if (!row || !row.is_available) return json({ slots: [], duration }, 200, request, env);
+        const hours = rowHours(rows[0]);
+        if (!hours.length) return json({ slots: [], duration }, 200, request, env);
         const STEP = 30;
-        const startMin = hmToMin(row.start_time), endMin = hmToMin(row.end_time);
+        const openHours = new Set(hours);
+        const dayStartMin = Math.min(...hours) * 60;
+        const dayEndMin = (Math.max(...hours) + 1) * 60;
         const need = Math.max(1, Math.ceil(duration / STEP));
         const sched = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
           schedules: [env.JACK_UPN],
-          startTime: { dateTime: `${date}T${row.start_time}:00`, timeZone: "Europe/London" },
-          endTime: { dateTime: `${date}T${row.end_time}:00`, timeZone: "Europe/London" },
+          startTime: { dateTime: `${date}T${minToHm(dayStartMin)}:00`, timeZone: "Europe/London" },
+          endTime: { dateTime: `${date}T${minToHm(dayEndMin)}:00`, timeZone: "Europe/London" },
           availabilityViewInterval: STEP,
         });
         const view = (sched.value && sched.value[0] && sched.value[0].availabilityView) || "";
-        const totalSlots = Math.floor((endMin - startMin) / STEP);
+        const totalSlots = Math.floor((dayEndMin - dayStartMin) / STEP);
         const slots = [];
         for (let i = 0; i + need <= totalSlots; i++) {
-          let free = true;
-          for (let k = 0; k < need; k++) { const c = view[i + k]; if (c && c !== "0") { free = false; break; } }
-          if (free) slots.push(minToHm(startMin + i * STEP));
+          let ok = true;
+          for (let k = 0; k < need; k++) {
+            const slotMin = dayStartMin + (i + k) * STEP;
+            const busy = view[i + k];
+            if (!openHours.has(Math.floor(slotMin / 60)) || (busy && busy !== "0")) { ok = false; break; }
+          }
+          if (ok) slots.push(minToHm(dayStartMin + i * STEP));
         }
         return json({ slots, duration }, 200, request, env);
       }

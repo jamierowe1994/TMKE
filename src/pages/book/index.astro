@@ -22,8 +22,21 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     <!-- Step 2: date + time -->
     <section class="bk-step" id="bk-step-when" hidden>
       <h2 class="bk-step-h"><span>2</span> Pick a day &amp; time</h2>
-      <div class="bk-dates" id="bk-dates"></div>
-      <div class="bk-slots" id="bk-slots"><p class="bk-hint">Choose a day to see available times.</p></div>
+      <div class="bk-when">
+        <div class="bk-cal">
+          <div class="bk-cal-head">
+            <button type="button" id="bk-prev" class="bk-cal-nav" aria-label="Previous month">&lsaquo;</button>
+            <span id="bk-cal-month" class="bk-cal-month"></span>
+            <button type="button" id="bk-next" class="bk-cal-nav" aria-label="Next month">&rsaquo;</button>
+          </div>
+          <div class="bk-cal-dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+          <div class="bk-cal-grid" id="bk-cal-grid"></div>
+        </div>
+        <div class="bk-times">
+          <div class="bk-times-head" id="bk-times-head">Select a day</div>
+          <div class="bk-slots" id="bk-slots"><p class="bk-hint">Pick a day on the calendar to see Jack's available times.</p></div>
+        </div>
+      </div>
     </section>
 
     <!-- Step 3: details -->
@@ -71,13 +84,24 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .bk-svc-name { font-family: var(--serif); font-size: 20px; color: var(--ink); }
     .bk-svc-dur { font-family: var(--sans); font-size: 12px; letter-spacing: 0.06em; color: rgba(28,29,34,0.55); margin-top: 4px; }
 
-    .bk-dates { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 22px; }
-    .bk-date { flex: none; cursor: pointer; min-width: 76px; padding: 12px 10px; text-align: center; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: transparent; font-family: var(--sans); transition: border-color 0.2s, background 0.2s; }
-    .bk-date:hover { border-color: var(--english-violet); }
-    .bk-date.is-active { border-color: var(--english-violet); background: var(--english-violet); color: var(--paper); }
-    .bk-date-dow { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; }
-    .bk-date-day { font-family: var(--serif); font-size: 22px; margin-top: 2px; }
-    .bk-date-mon { font-size: 11px; opacity: 0.7; }
+    /* ---- Calendar + times ---- */
+    .bk-when { display: grid; grid-template-columns: 1.25fr 1fr; gap: 36px; align-items: start; }
+    @media (max-width: 760px) { .bk-when { grid-template-columns: 1fr; gap: 28px; } }
+    .bk-cal { border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; padding: 18px 20px 22px; }
+    .bk-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .bk-cal-month { font-family: var(--serif); font-size: 22px; color: var(--ink); }
+    .bk-cal-nav { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2); background: transparent; cursor: pointer; font-size: 18px; color: var(--english-violet); line-height: 1; }
+    .bk-cal-nav:hover:not(:disabled) { background: rgba(71,66,84,0.08); }
+    .bk-cal-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+    .bk-cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+    .bk-cal-dow span { text-align: center; font-family: var(--sans); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.45); }
+    .bk-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .bk-cal-day { aspect-ratio: 1; border: none; background: transparent; border-radius: 8px; font-family: var(--sans); font-size: 15px; color: var(--ink); cursor: pointer; transition: background 0.15s, color 0.15s; }
+    .bk-cal-day:hover:not(:disabled) { background: rgba(71,66,84,0.1); }
+    .bk-cal-day:disabled { color: rgba(28,29,34,0.22); cursor: default; }
+    .bk-cal-day.is-empty { visibility: hidden; }
+    .bk-cal-day.is-active { background: var(--english-violet); color: var(--paper); }
+    .bk-times-head { font-family: var(--serif); font-size: 20px; color: var(--ink); margin-bottom: 16px; }
 
     .bk-slots { display: flex; flex-wrap: wrap; gap: 8px; min-height: 44px; }
     .bk-slot { cursor: pointer; padding: 10px 16px; border: 1px solid rgba(28,29,34,0.2); border-radius: 999px; background: transparent; font-family: var(--sans); font-size: 14px; color: var(--ink); transition: border-color 0.2s, background 0.2s, color 0.2s; }
@@ -131,27 +155,54 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       }));
     }
 
-    function renderDates() {
-      const days = [];
-      const now = new Date();
-      for (let i = 0; i < 21; i++) {
-        const d = new Date(now); d.setDate(now.getDate() + i);
-        days.push(d);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const pad = (n) => String(n).padStart(2, "0");
+    const localISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    let viewMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    let availWeekdays = null; // Set of weekdays (0–6) that are bookable; null = unknown
+    const MAX_MONTH = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+
+    async function fetchConfig() {
+      if (!WORKER) return;
+      try {
+        const res = await fetch(`${WORKER}/ms/config`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.weekdays) availWeekdays = new Set(Object.keys(data.weekdays).map(Number));
+      } catch (_) { /* leave null → all days clickable, empty days just show "no times" */ }
+    }
+
+    function renderCalendar() {
+      const grid = $("bk-cal-grid");
+      const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+      $("bk-cal-month").textContent = viewMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+      const lead = (new Date(y, m, 1).getDay() + 6) % 7; // Mon-start offset
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      let cells = "";
+      for (let i = 0; i < lead; i++) cells += `<button class="bk-cal-day is-empty" disabled></button>`;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(y, m, day);
+        const iso = localISO(d);
+        const closed = availWeekdays ? !availWeekdays.has(d.getDay()) : false;
+        const disabled = d < today || closed;
+        cells += `<button type="button" class="bk-cal-day ${state.date === iso ? "is-active" : ""}" data-iso="${iso}" ${disabled ? "disabled" : ""}>${day}</button>`;
       }
-      $("bk-dates").innerHTML = days.map((d) => {
-        const iso = d.toISOString().slice(0, 10);
-        return `<button type="button" class="bk-date" data-iso="${iso}">
-          <div class="bk-date-dow">${d.toLocaleDateString("en-GB", { weekday: "short" })}</div>
-          <div class="bk-date-day">${d.getDate()}</div>
-          <div class="bk-date-mon">${d.toLocaleDateString("en-GB", { month: "short" })}</div></button>`;
-      }).join("");
-      $("bk-dates").querySelectorAll(".bk-date").forEach((b) => b.addEventListener("click", () => {
+      grid.innerHTML = cells;
+      grid.querySelectorAll(".bk-cal-day[data-iso]:not(:disabled)").forEach((b) => b.addEventListener("click", () => {
         state.date = b.dataset.iso; state.slot = null;
-        $("bk-dates").querySelectorAll(".bk-date").forEach((x) => x.classList.remove("is-active"));
-        b.classList.add("is-active");
+        renderCalendar();
+        const d = new Date(state.date + "T12:00:00");
+        $("bk-times-head").textContent = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
         loadSlots();
       }));
+      $("bk-prev").disabled = viewMonth <= new Date(today.getFullYear(), today.getMonth(), 1);
+      $("bk-next").disabled = viewMonth >= MAX_MONTH;
     }
+
+    $("bk-prev").addEventListener("click", () => { viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1); renderCalendar(); });
+    $("bk-next").addEventListener("click", () => { viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1); renderCalendar(); });
+
+    async function initWhen() { await fetchConfig(); renderCalendar(); }
 
     async function loadSlots() {
       const wrap = $("bk-slots");
@@ -205,6 +256,6 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     });
 
     renderServices();
-    renderDates();
+    initWhen();
   </script>
 </BaseLayout>
