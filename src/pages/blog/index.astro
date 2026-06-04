@@ -8,10 +8,15 @@ const sorted = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
 const featured = sorted[0]; // → right column (newest / feature post)
 const rest = sorted.slice(1); // → left list
 
+// Pad the feed with duplicates so the columns are tall enough to actually show
+// the counter-scroll while there are only a handful of real posts. Remove the
+// padding (use `rest` directly) once there are ~9+ published posts.
+const feed = rest.length >= 9 ? rest : [...rest, ...rest, ...rest].slice(0, 9);
+
 // The left side is a double column whose two halves counter-scroll. Alternate
 // posts between them so both stay populated and balanced.
-const colUp = rest.filter((_, i) => i % 2 === 0);   // left-left column → drifts UP
-const colDown = rest.filter((_, i) => i % 2 === 1); // left-right column → drifts DOWN
+const colUp = feed.filter((_, i) => i % 2 === 0);   // left-left column → drifts UP
+const colDown = feed.filter((_, i) => i % 2 === 1); // left-right column → drifts DOWN
 
 // The feature card shows a slightly shorter display title (≈2 lines)
 // without changing the article's canonical title. Keyed by slug so it only
@@ -124,8 +129,10 @@ function fmtDate(iso) {
     /* ============== TWO-COLUMN SPLIT ============== */
     .insights2 {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: clamp(32px, 4vw, 72px);
+      /* minmax(0,1fr) keeps both halves a true 50/50 — without the `0` floor
+         the nowrap card titles inflate the left track past half. */
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: clamp(28px, 3.2vw, 60px);
       align-items: start;
       max-width: 1640px;
       margin: 0 auto;
@@ -136,6 +143,8 @@ function fmtDate(iso) {
     .ins-list {
       display: flex;
       flex-direction: column;
+      /* Pull the blogs in from the centre so the video has breathing room. */
+      padding-right: clamp(10px, 1.8vw, 36px);
     }
     .ins-list-head { margin-bottom: clamp(20px, 3vw, 40px); }
     .ins-list-head .eyebrow { margin-bottom: 16px; }
@@ -152,8 +161,8 @@ function fmtDate(iso) {
 
     .ins-cols {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: clamp(16px, 2vw, 28px);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: clamp(14px, 1.6vw, 24px);
       align-items: start;
     }
     .ins-col {
@@ -297,10 +306,11 @@ function fmtDate(iso) {
     /* ---- Responsive: stack, un-pin, no parallax ---- */
     @media (max-width: 900px) {
       .insights2 {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         gap: clamp(56px, 10vw, 88px);
         padding-top: clamp(120px, 22vw, 160px);
       }
+      .ins-list { padding-right: 0; }
       .ins-feature {
         position: static;
         height: auto;
@@ -309,7 +319,7 @@ function fmtDate(iso) {
       }
       .ins-feature-media { aspect-ratio: 4 / 3; flex: 0 0 auto; height: auto; }
       /* Collapse the double column to one; no counter-scroll on small screens. */
-      .ins-cols { grid-template-columns: 1fr; gap: clamp(26px, 6vw, 44px); }
+      .ins-cols { grid-template-columns: minmax(0, 1fr); gap: clamp(26px, 6vw, 44px); }
       .ins-col--down { margin-top: clamp(26px, 6vw, 44px); }
       /* Parallax transforms are skipped in JS below this width. */
       .ins-col, .ins-feature-inner { transform: none !important; }
@@ -397,26 +407,24 @@ function fmtDate(iso) {
     }
   </style>
 
-  <!-- Counter-scroll parallax. On the left, the two columns drift in opposite
-       directions (left-left UP, left-right DOWN); on the right the feature
-       drifts UP. Hooks the site's global Lenis instance when present, else a
-       passive scroll listener. Skipped on small screens and reduced-motion. -->
+  <!-- Counter-scroll parallax. Only the two LEFT columns move: left-left drifts
+       UP, left-right drifts DOWN as the section scrolls. The right-hand video
+       stays put (sticky, no transform). Hooks the site's global Lenis instance
+       when present, else a passive scroll listener. Skipped on small screens
+       and under reduced-motion. -->
   <script is:inline>
     (function () {
       const colUp = document.getElementById("ins-col-up");
       const colDown = document.getElementById("ins-col-down");
-      const featureInner = document.querySelector("#ins-feature .ins-feature-inner");
       const section = document.getElementById("insights2");
-      if (!colUp || !colDown || !featureInner || !section) return;
+      if (!colUp || !colDown || !section) return;
 
       const reduce =
         window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
 
-      // Max drift from the neutral mid-scroll position. The columns travel
-      // further than the feature so the counter-scroll reads clearly.
-      const RANGE_COL = 80;
-      const RANGE_FEAT = 46;
+      // Max drift each column travels from the neutral mid-scroll position.
+      const RANGE_COL = 90;
       let ticking = false;
 
       function apply() {
@@ -424,7 +432,6 @@ function fmtDate(iso) {
         if (reduce || isMobile()) {
           colUp.style.transform = "";
           colDown.style.transform = "";
-          featureInner.style.transform = "";
           return;
         }
         const rect = section.getBoundingClientRect();
@@ -433,13 +440,10 @@ function fmtDate(iso) {
         // has fully passed the top. 0.5 ≈ centred → neutral (no drift).
         const total = rect.height + vh;
         const p = Math.max(0, Math.min(1, (vh - rect.top) / total));
-        const k = (p - 0.5) * 2; // -1 … +1
-        const col = k * RANGE_COL;
-        const feat = k * RANGE_FEAT;
-        // As you scroll down (p↑): left-left rises, left-right sinks, feature rises.
+        const col = (p - 0.5) * 2 * RANGE_COL; // -RANGE … +RANGE
+        // As you scroll down (p↑): left-left rises, left-right sinks.
         colUp.style.transform = "translate3d(0," + (-col).toFixed(2) + "px,0)";
         colDown.style.transform = "translate3d(0," + col.toFixed(2) + "px,0)";
-        featureInner.style.transform = "translate3d(0," + (-feat).toFixed(2) + "px,0)";
       }
 
       function onScroll() {
