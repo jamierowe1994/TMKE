@@ -11,6 +11,12 @@ const total = PRODUCTS.length + 2;
 
 // Opening + closing imagery — the site's own on-brand R2 stills.
 const R2 = (name) => `https://assets.tmke.co.uk/${name}.webp`;
+
+// Booking data passed to the wizard (DiscoveryPanel) via data attributes.
+const packsOf = (p) => p.priceTiers.map((t) => ({ label: t.label, minutes: t.minutes, price: gbpFromPence(tierPrice(t, "direct")) }));
+const packsJSON = (p) => JSON.stringify(packsOf(p));
+const interestsJSON = JSON.stringify(PRODUCTS.map((p) => p.name));
+const servicesJSON = JSON.stringify(PRODUCTS.map((p) => ({ name: p.name, packs: packsOf(p) })));
 const INTRO_IMG = R2("vibes");
 const CLOSING_IMG = R2("living-2");
 
@@ -89,7 +95,7 @@ const navLinks = [
               <span class="pf-cta-meta">With Jack</span>
             </div>
             <p class="pf-cta-desc">A relaxed call to talk through your goals, your patch and what you want your content to do — then we'll map out a plan.</p>
-            <button type="button" data-discovery-call class="pf-cta-btn">Book a consultation <span class="btn-arrow">&rarr;</span></button>
+            <button type="button" data-discovery-call data-dc-mode="consult" data-dc-interests={interestsJSON} class="pf-cta-btn">Book a consultation <span class="btn-arrow">&rarr;</span></button>
           </article>
 
           <article class="pf-cta-card">
@@ -99,7 +105,7 @@ const navLinks = [
               <span class="pf-cta-meta">A day with the team</span>
             </div>
             <p class="pf-cta-desc">Lock in a shoot day — studio, property tour, headshots or branded content — and we'll handle it end to end, from setup to delivery.</p>
-            <button type="button" data-discovery-call class="pf-cta-btn">Book a shoot <span class="btn-arrow">&rarr;</span></button>
+            <button type="button" data-discovery-call data-dc-mode="shoot" data-dc-services={servicesJSON} class="pf-cta-btn">Book a shoot <span class="btn-arrow">&rarr;</span></button>
           </article>
 
           <aside class="pf-news" aria-label="Newsletter sign-up">
@@ -164,8 +170,11 @@ const navLinks = [
                 ))}
               </div>
               <div class="vmodal-price-note" data-note-svc={p.slug}>Standard rates</div>
-              <button type="button" data-discovery-call class="btn btn--solid vmodal-book">
+              <button type="button" data-discovery-call data-dc-mode="shoot" data-dc-service={p.name} data-dc-packs={packsJSON(p)} class="btn btn--solid vmodal-book">
                 {p.bookable ? "Book this" : "Enquire about availability"} <span class="btn-arrow">&rarr;</span>
+              </button>
+              <button type="button" data-discovery-call data-dc-mode="consult" data-dc-interests={interestsJSON} class="vmodal-consult">
+                Not quite sure about something? <strong>Book a consultation call.</strong>
               </button>
               <p class="vmodal-fine">Final quote confirmed after a quick call — travel &amp; extras itemised separately.</p>
             </div>
@@ -488,6 +497,10 @@ const navLinks = [
     .vmodal-tier-price { font-family: var(--serif); font-size: 28px; font-weight: 500; color: var(--ink); }
     .vmodal-price-note { font-family: var(--sans); font-size: 12px; color: var(--english-violet); font-weight: 700; letter-spacing: 0.04em; margin: 16px 0 20px; }
     .vmodal-book { width: 100%; justify-content: center; }
+    .vmodal-consult { display: block; width: 100%; margin-top: 12px; background: none; border: none; cursor: pointer; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); text-align: center; padding: 4px 0; transition: color .2s; }
+    .vmodal-consult strong { color: var(--english-violet); font-weight: 700; }
+    .vmodal-consult:hover { color: var(--ink); }
+    .vmodal-consult:hover strong { text-decoration: underline; }
     .vmodal-fine { font-family: var(--sans); font-size: 12px; line-height: 1.55; color: rgba(28,29,34,0.55); margin: 14px 0 0; }
     .vmodal-bio { font-family: var(--sans); font-size: 15px; line-height: 1.65; color: rgba(28,29,34,0.72); margin: 0 0 8px; }
     .vdraw-left :global(.vshow) { padding: 32px 0 0; }
@@ -601,6 +614,28 @@ const navLinks = [
     document.querySelectorAll("[data-close]").forEach((btn) => btn.addEventListener("click", closeProduct));
     scrim?.addEventListener("click", closeProduct);
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openSlug) closeProduct(); });
+
+    // Booking from inside a showcase: slide the showcase down and out of the
+    // way first, THEN bring the discovery diary in on top. Capture phase
+    // pre-empts DiscoveryPanel's own opener so the two don't stack.
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest && e.target.closest("[data-discovery-call]");
+      if (!btn || !openSlug) return; // only intercept while a showcase is open
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const opts = {
+        mode: btn.getAttribute("data-dc-mode") || undefined,
+        service: btn.getAttribute("data-dc-service") || undefined,
+        duration: btn.getAttribute("data-dc-duration") || undefined,
+        packs: btn.getAttribute("data-dc-packs") || undefined,
+        services: btn.getAttribute("data-dc-services") || undefined,
+        interests: btn.getAttribute("data-dc-interests") || undefined,
+      };
+      closeProduct();
+      setTimeout(() => {
+        if (typeof window.tmkeDiscoveryOpen === "function") window.tmkeDiscoveryOpen(opts);
+      }, 720);
+    }, true);
 
     // --- Top nav: click "Menu" toggles links (touch); hover handles desktop ---
     const topBar = document.getElementById("pf-top");
