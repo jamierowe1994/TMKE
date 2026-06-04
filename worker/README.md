@@ -17,7 +17,14 @@ validating the caller's Supabase session token.
    - `SUPABASE_URL` → your Supabase project URL (same as `PUBLIC_SUPABASE_URL`)
    - `SUPABASE_ANON_KEY` → your Supabase anon key (public — safe to put here)
    - `ALLOWED_ORIGINS` → your site origins (already includes localhost + tmke.co.uk)
-3. Deploy:
+3. Add the service-role secret (needed for the public client gallery —
+   `/g/meta` + `/g/file` read deliveries securely without exposing client data):
+   ```
+   npx wrangler secret put SUPABASE_SERVICE_ROLE
+   # paste your Supabase service_role key (Project Settings → API). Server-side
+   # only — it lives in the Worker, never in the site/browser.
+   ```
+4. Deploy:
    ```
    npx wrangler login        # first time only
    npx wrangler deploy
