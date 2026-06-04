@@ -534,11 +534,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const t = smooth(clamp01((e - 0.55) / 0.4));
         foot.style.color =
           "rgb(" + Math.round(lerp(28, 242, t)) + "," + Math.round(lerp(29, 239, t)) + "," + Math.round(lerp(34, 233, t)) + ")";
-        // nav: transparent while the hero covers the viewport; flip to white once
-        // the photo has risen behind it
+        // Nav: stay fully transparent the ENTIRE time the hero image still
+        // covers the top of the viewport — including the held-full state and the
+        // scroll-away — so the cream bar never "drops in" over the finished
+        // image. It only gains its background once the hero has scrolled past
+        // the top and the next section reaches it (rect.bottom near 0).
         if (nav) {
-          nav.classList.toggle("nav--over-hero", rect.bottom > vh + 1);
-          nav.classList.toggle("nav--on-image", rect.bottom > vh + 1 && e > 0.5);
+          const heroAtTop = rect.bottom > 80;
+          nav.classList.toggle("nav--over-hero", heroAtTop);
+          nav.classList.toggle("nav--on-image", heroAtTop && e > 0.5);
         }
       };
       update();
