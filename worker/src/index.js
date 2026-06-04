@@ -76,6 +76,25 @@ async function getUser(request, env) {
   }
 }
 
+// Read from Supabase with the service role (server-side only, never exposed).
+async function sbGet(env, table, qs) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE) return null;
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${qs}`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`,
+    },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+// The free teaser set = the first `teaserCount` image files (created order).
+function teaserKeys(deliverables, teaserCount) {
+  const imgs = (deliverables || []).filter((d) => d.kind === "image");
+  return new Set(imgs.slice(0, Math.max(0, teaserCount || 0)).map((d) => d.r2_key));
+}
+
 // Build a safe object key for a booking's file.
 function safeKey(bookingId, fileName) {
   const id = String(bookingId || "unfiled").replace(/[^a-zA-Z0-9_-]/g, "");
@@ -93,6 +112,59 @@ export default {
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders(request, env) });
+    }
+
+    // ---- PUBLIC client gallery (token-gated, NO login required) ----
+    try {
+      if (path.endsWith("/g/meta") && request.method === "GET") {
+        const token = url.searchParams.get("token") || "";
+        const rows = token
+          ? await sbGet(env, "videography_deliveries", `token=eq.${encodeURIComponent(token)}&select=*`)
+          : null;
+        const d = rows && rows[0];
+        if (!d) return json({ error: "Not found" }, 404, request, env);
+        const files =
+          (await sbGet(env, "videography_deliverables",
+            `booking_id=eq.${d.booking_id}&select=r2_key,file_name,kind,size_bytes&order=created_at.asc`)) || [];
+        const teasers = teaserKeys(files, d.teaser_count);
+        const paid = d.status === "paid";
+        return json({
+          clientName: d.client_name, message: d.message, status: d.status,
+          basePence: d.base_pence, extras: d.extras || [], totalPence: d.total_pence,
+          teaserCount: d.teaser_count, paid,
+          files: files.map((f) => ({
+            key: f.r2_key, name: f.file_name, kind: f.kind, size: f.size_bytes,
+            unlocked: paid || teasers.has(f.r2_key),
+          })),
+        }, 200, request, env);
+      }
+
+      if (path.endsWith("/g/file") && request.method === "GET") {
+        const token = url.searchParams.get("token") || "";
+        const key = url.searchParams.get("key") || "";
+        const dl = url.searchParams.get("dl") === "1";
+        const rows = token
+          ? await sbGet(env, "videography_deliveries", `token=eq.${encodeURIComponent(token)}&select=*`)
+          : null;
+        const d = rows && rows[0];
+        if (!d || !key) return json({ error: "Forbidden" }, 403, request, env);
+        const files =
+          (await sbGet(env, "videography_deliverables",
+            `booking_id=eq.${d.booking_id}&select=r2_key,kind&order=created_at.asc`)) || [];
+        if (!files.some((f) => f.r2_key === key)) return json({ error: "Not found" }, 404, request, env);
+        const allowed = d.status === "paid" || teaserKeys(files, d.teaser_count).has(key);
+        if (!allowed) return json({ error: "Locked" }, 403, request, env);
+        const obj = await env.BUCKET.get(key);
+        if (!obj) return json({ error: "Not found" }, 404, request, env);
+        const headers = new Headers(corsHeaders(request, env));
+        obj.writeHttpMetadata(headers);
+        headers.set("etag", obj.httpEtag);
+        const name = key.split("/").pop();
+        headers.set("Content-Disposition", `${dl ? "attachment" : "inline"}; filename="${name}"`);
+        return new Response(obj.body, { headers });
+      }
+    } catch (err) {
+      return json({ error: String(err && err.message ? err.message : err) }, 500, request, env);
     }
 
     // Auth. Hot upload path (part/complete/abort) uses a fast local expiry check
