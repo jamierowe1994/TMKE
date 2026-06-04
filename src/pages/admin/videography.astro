@@ -68,14 +68,16 @@ import AdminBack from "../../components/AdminBack.astro";
     </div>
 
     <div class="vid-conn-note">
-      <strong>Microsoft 365 sync — coming in Phase 2.</strong>
-      For now this is Jack's master availability template. Once his 365 calendar is
-      connected, real events will block out these slots automatically.
+      <strong>These are the hours Jack is bookable.</strong>
+      Click a day, then tap the hours he's available — you can pick more than one
+      block (e.g. 9–1 and 3–6). Anything already in his real 365 calendar is
+      subtracted automatically, so clients only ever see genuinely free times.
     </div>
 
     <div class="vid-diary" id="vid-diary">
       <p class="vid-loading" id="vid-diary-loading">Loading diary…</p>
     </div>
+    <button type="button" class="admin-btn admin-btn-primary vid-diary-save" id="vid-diary-save" hidden>Save diary</button>
   </section>
 
   <!-- ===================== DELIVER (uploads → client) ===================== -->
@@ -164,9 +166,8 @@ import AdminBack from "../../components/AdminBack.astro";
           <h3>Microsoft 365 — Jack's calendar</h3>
           <span class="enquiry-status-pill is-pending" id="vid-365-pill">Checking…</span>
         </div>
-        <p>Clients book directly into Jack's real diary (app-only, scoped to his mailbox). Bookings write to his calendar and land in the pipeline.</p>
+        <p>Status only — nothing to click. This just confirms the booking system can reach Jack's calendar in the background, so new bookings write into his real diary automatically.</p>
         <p class="vid-conn-meta" id="vid-365-meta">Verifying connection…</p>
-        <a href="/book" target="_blank" rel="noopener" class="admin-btn admin-btn-ghost">Open booking page</a>
       </div>
 
       <div class="vid-conn-card">
@@ -292,32 +293,34 @@ import AdminBack from "../../components/AdminBack.astro";
     .vid-panel-sub { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.6); margin: 4px 0 0; }
     .vid-loading { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); padding: 40px 0; }
 
-    /* ---- Kanban board ---- */
-    .vid-board {
-      display: grid; grid-template-columns: repeat(6, minmax(220px, 1fr));
-      gap: 12px; align-items: start; overflow-x: auto; padding-bottom: 8px;
-    }
+    /* ---- Pipeline — full-width stages stacked vertically ---- */
+    .vid-board { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
     .vid-col {
       background: rgba(71, 66, 84, 0.04); border: 1px solid rgba(71, 66, 84, 0.15);
-      border-radius: 4px; min-height: 120px; display: flex; flex-direction: column;
+      border-radius: 4px; display: flex; flex-direction: column;
     }
     .vid-col.is-drop { border-color: var(--english-violet); background: rgba(71, 66, 84, 0.1); }
     .vid-col-head {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 14px; border-bottom: 1px solid rgba(71, 66, 84, 0.12);
-      font-family: var(--sans); font-size: 10px; letter-spacing: 0.18em;
-      text-transform: uppercase; font-weight: 700; color: rgba(28, 29, 34, 0.6);
+      display: flex; justify-content: flex-start; align-items: center; gap: 10px;
+      padding: 12px 18px; border-bottom: 1px solid rgba(71, 66, 84, 0.12);
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em;
+      text-transform: uppercase; font-weight: 700; color: var(--english-violet);
     }
     .vid-col-count {
-      min-width: 18px; text-align: center; padding: 1px 6px; border-radius: 999px;
-      background: rgba(71, 66, 84, 0.12); font-size: 10px;
+      min-width: 18px; text-align: center; padding: 1px 7px; border-radius: 999px;
+      background: rgba(71, 66, 84, 0.12); font-size: 10px; color: rgba(28,29,34,0.7);
     }
-    .vid-col-list { padding: 10px; display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 60px; }
+    /* Cards flow left-to-right and wrap, so a busy stage fills the width */
+    .vid-col-list { padding: 12px; display: flex; flex-wrap: wrap; gap: 10px; min-height: 56px; align-content: flex-start; }
+    .vid-col-list:empty::after,
+    .vid-col-list.is-empty::after { content: "Drop a job here"; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.35); padding: 8px 6px; }
     .vid-card {
-      background: var(--paper); border: 1px solid rgba(71, 66, 84, 0.2); border-radius: 3px;
+      flex: 0 0 clamp(220px, 24%, 280px); background: var(--paper);
+      border: 1px solid rgba(71, 66, 84, 0.2); border-radius: 3px;
       padding: 12px 13px; cursor: grab; box-shadow: 0 1px 2px rgba(20, 18, 26, 0.04);
       transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
     }
+    @media (max-width: 640px) { .vid-card { flex-basis: 100%; } }
     .vid-card:hover { border-color: var(--english-violet); box-shadow: 0 4px 14px rgba(20, 18, 26, 0.1); }
     .vid-card.is-dragging { opacity: 0.5; }
     .vid-card-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
@@ -351,21 +354,30 @@ import AdminBack from "../../components/AdminBack.astro";
     .vid-bname { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
     .vid-bmeta { font-family: var(--sans); font-size: 12px; color: rgba(28, 29, 34, 0.55); margin-top: 2px; }
 
-    /* ---- Diary ---- */
+    /* ---- Diary (per-day hour blocks) ---- */
     .vid-diary { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
-    .vid-day {
-      display: grid; grid-template-columns: 150px 90px 1fr 1fr; gap: 16px; align-items: center;
-      padding: 14px 18px; background: var(--paper);
-      border: 1px solid rgba(71, 66, 84, 0.18); border-radius: 3px;
+    .vid-day { background: var(--paper); border: 1px solid rgba(71, 66, 84, 0.18); border-radius: 4px; overflow: hidden; }
+    .vid-day-head {
+      display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+      padding: 14px 18px; background: transparent; border: none; cursor: pointer;
+      font-family: var(--sans);
     }
-    .vid-day.is-off { opacity: 0.55; }
-    .vid-day-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
-    .vid-day-toggle { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); cursor: pointer; }
-    .vid-day input[type="time"] {
-      padding: 6px 8px; border: 1px solid rgba(71, 66, 84, 0.3); border-radius: 2px;
-      font-family: var(--sans); font-size: 13px; color: var(--ink); background: var(--paper); width: 100%;
+    .vid-day-head:hover { background: rgba(71,66,84,0.04); }
+    .vid-day-name { font-size: 14px; font-weight: 700; color: var(--ink); min-width: 110px; }
+    .vid-day-summary { font-size: 13px; color: rgba(28,29,34,0.6); flex: 1; }
+    .vid-day-summary.is-off { color: rgba(28,29,34,0.4); }
+    .vid-day-chev { font-family: var(--serif); color: var(--english-violet); transition: transform 0.2s; }
+    .vid-day.is-open .vid-day-chev { transform: rotate(90deg); }
+    .vid-day-hours { display: none; flex-wrap: wrap; gap: 6px; padding: 4px 18px 18px; }
+    .vid-day.is-open .vid-day-hours { display: flex; }
+    .vid-hour {
+      padding: 7px 0; width: 64px; text-align: center; border: 1px solid rgba(71,66,84,0.25);
+      border-radius: 999px; background: transparent; font-family: var(--sans); font-size: 12px;
+      color: rgba(28,29,34,0.65); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
-    .vid-diary-save { margin-top: 8px; }
+    .vid-hour:hover { border-color: var(--english-violet); }
+    .vid-hour.is-on { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+    .vid-diary-save { margin-top: 14px; }
 
     /* ---- Deliver ---- */
     .vid-deliver-pick { max-width: 440px; margin-bottom: 20px; }
@@ -657,42 +669,88 @@ import AdminBack from "../../components/AdminBack.astro";
         el.addEventListener("click", () => openModal(el.getAttribute("data-id"))));
     }
 
-    /* ---------- Diary ---------- */
+    /* ---------- Diary (per-day hour blocks) ---------- */
     let availability = [];
+    const DIARY_HOURS = []; for (let h = 6; h <= 21; h++) DIARY_HOURS.push(h); // 06:00–22:00 blocks
+    let diaryState = {};   // weekday -> Set(hours)
+    let diaryOpen = null;  // currently expanded weekday
+    let diaryInit = false;
+
+    function hoursForRow(a) {
+      if (a && Array.isArray(a.hours) && a.hours.length) return a.hours.map(Number);
+      if (a && a.is_available !== false && a.start_time && a.end_time) {
+        const sh = parseInt(a.start_time.split(":")[0], 10);
+        const [eh, em] = a.end_time.split(":").map(Number);
+        const end = em > 0 ? eh + 1 : eh;
+        const out = []; for (let h = sh; h < end; h++) out.push(h); return out;
+      }
+      return [];
+    }
+    function fmtHours(set) {
+      const hrs = [...set].sort((a, b) => a - b);
+      if (!hrs.length) return "Closed";
+      const ranges = []; let start = hrs[0], prev = hrs[0];
+      for (let i = 1; i < hrs.length; i++) {
+        if (hrs[i] === prev + 1) prev = hrs[i];
+        else { ranges.push([start, prev + 1]); start = prev = hrs[i]; }
+      }
+      ranges.push([start, prev + 1]);
+      return ranges.map(([a, b]) => `${String(a).padStart(2, "0")}:00–${String(b).padStart(2, "0")}:00`).join(", ");
+    }
     function renderDiary() {
       const wrap = document.getElementById("vid-diary");
       if (!wrap) return;
-      const byDay = new Map(availability.map((a) => [a.weekday, a]));
+      if (!diaryInit) {
+        const byDay = new Map(availability.map((a) => [a.weekday, a]));
+        DAYS.forEach(({ d }) => { diaryState[d] = new Set(hoursForRow(byDay.get(d))); });
+        diaryInit = true;
+      }
       wrap.innerHTML = DAYS.map(({ d, name }) => {
-        const a = byDay.get(d) || { weekday: d, start_time: "09:00", end_time: "17:30", is_available: false };
+        const set = diaryState[d] || new Set();
+        const open = diaryOpen === d;
         return `
-          <div class="vid-day ${a.is_available ? "" : "is-off"}" data-day="${d}">
-            <div class="vid-day-name">${name}</div>
-            <label class="vid-day-toggle">
-              <input type="checkbox" data-avail ${a.is_available ? "checked" : ""}/> Open
-            </label>
-            <input type="time" data-start value="${a.start_time || "09:00"}"/>
-            <input type="time" data-end value="${a.end_time || "17:30"}"/>
+          <div class="vid-day ${open ? "is-open" : ""}" data-day="${d}">
+            <button type="button" class="vid-day-head" data-day-head="${d}">
+              <span class="vid-day-name">${name}</span>
+              <span class="vid-day-summary ${set.size ? "" : "is-off"}">${fmtHours(set)}</span>
+              <span class="vid-day-chev">›</span>
+            </button>
+            <div class="vid-day-hours">
+              ${DIARY_HOURS.map((h) => `<button type="button" class="vid-hour ${set.has(h) ? "is-on" : ""}" data-day="${d}" data-hour="${h}">${String(h).padStart(2, "0")}:00</button>`).join("")}
+            </div>
           </div>`;
-      }).join("") + `<button type="button" class="admin-btn admin-btn-primary vid-diary-save" id="vid-diary-save">Save diary</button>`;
-
-      wrap.querySelectorAll("[data-avail]").forEach((cb) =>
-        cb.addEventListener("change", (e) => e.target.closest(".vid-day").classList.toggle("is-off", !e.target.checked)));
-      document.getElementById("vid-diary-save")?.addEventListener("click", saveDiary);
+      }).join("");
+      wrap.querySelectorAll("[data-day-head]").forEach((b) => b.addEventListener("click", () => {
+        const d = Number(b.getAttribute("data-day-head"));
+        diaryOpen = diaryOpen === d ? null : d;
+        renderDiary();
+      }));
+      wrap.querySelectorAll(".vid-hour").forEach((b) => b.addEventListener("click", () => {
+        const d = Number(b.getAttribute("data-day")), h = Number(b.getAttribute("data-hour"));
+        const set = diaryState[d] || (diaryState[d] = new Set());
+        if (set.has(h)) set.delete(h); else set.add(h);
+        renderDiary();
+      }));
+      const saveBtn = document.getElementById("vid-diary-save");
+      if (saveBtn) saveBtn.hidden = false;
     }
     async function saveDiary() {
-      const rows = [...document.querySelectorAll(".vid-day")].map((row) => ({
-        weekday: Number(row.getAttribute("data-day")),
-        is_available: row.querySelector("[data-avail]").checked,
-        start_time: row.querySelector("[data-start]").value || "09:00",
-        end_time: row.querySelector("[data-end]").value || "17:30",
-      }));
+      const rows = DAYS.map(({ d }) => {
+        const hrs = [...(diaryState[d] || new Set())].sort((a, b) => a - b);
+        return {
+          weekday: d,
+          hours: hrs,
+          is_available: hrs.length > 0,
+          start_time: hrs.length ? `${String(hrs[0]).padStart(2, "0")}:00` : "09:00",
+          end_time: hrs.length ? `${String(hrs[hrs.length - 1] + 1).padStart(2, "0")}:00` : "17:00",
+        };
+      });
       const btn = document.getElementById("vid-diary-save");
-      if (btn) btn.textContent = "Saving…";
+      if (btn) { btn.textContent = "Saving…"; btn.disabled = true; }
       const { error } = await supabase.from("videography_availability").upsert(rows, { onConflict: "weekday" });
-      if (btn) btn.textContent = error ? "Error — retry" : "Saved ✓";
+      if (btn) { btn.disabled = false; btn.textContent = error ? "Error — run the hours migration?" : "Saved ✓"; }
       if (!error) availability = rows.map((r) => ({ ...r }));
-      setTimeout(() => { if (btn) btn.textContent = "Save diary"; }, 1800);
+      setTimeout(() => { if (btn) btn.textContent = "Save diary"; }, 2200);
     }
 
     /* ---------- Modal (add / edit booking) ---------- */
@@ -1138,6 +1196,7 @@ import AdminBack from "../../components/AdminBack.astro";
         if (e.target instanceof HTMLElement && e.target.id === "vid-modal") closeModal();
       });
       document.getElementById("vid-booking-search")?.addEventListener("input", (e) => renderBookings(e.target.value || ""));
+      document.getElementById("vid-diary-save")?.addEventListener("click", saveDiary);
     })();
   </script>
 </BaseLayout>
