@@ -21,6 +21,8 @@ export const DIRECT = { slug: "direct", name: "Direct", note: "Standard rates" }
 // Stock imagery — swap for real branded stills / Cloudflare Stream thumbnails.
 const IMG = (id, w = 1400, h = 900) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
+// The site's own on-brand property stills on Cloudflare R2.
+const R2 = (name) => `https://assets.tmke.co.uk/${name}.webp`;
 
 export const PRODUCTS = [
   {
@@ -62,11 +64,8 @@ export const PRODUCTS = [
     tagline: "Intro & welcome videos that put a face to your name.",
     summary:
       "Perfect for an agent starting in a new patch — warm, natural intro and welcome videos. “Hi, I'm James, your local agent…” The content that builds trust before the first call.",
-    hero: IMG("1521577352947-9bb58764b69a"),
-    gallery: [
-      IMG("1507003211169-0a1dd7228f2d"), IMG("1500648767791-00dcc994a43e"),
-      IMG("1472099645785-5658abf4ff4e"), IMG("1488161628813-04466f872be2"),
-    ],
+    hero: R2("living-1"),
+    gallery: [R2("living-1"), R2("living-2"), R2("vibes")],
     included: [
       "Pre-shoot script & direction",
       "Intro / welcome video set",
@@ -91,12 +90,8 @@ export const PRODUCTS = [
     tagline: "Cinematic walkthroughs that sell the home before the viewing.",
     summary:
       "A fully produced property film — establishing shots, smooth interior motion, and a paced edit that makes a listing feel like a place people want to live.",
-    hero: IMG("1512917774080-9991f1c4c750"),
-    gallery: [
-      IMG("1568605114967-8130f3a36994"), IMG("1570129477492-45c003edd2be"),
-      IMG("1502672260266-1c1ef2d93688"), IMG("1493809842364-78817add7ffb"),
-      IMG("1484154218962-a197022b5858"),
-    ],
+    hero: R2("kitchen-1"),
+    gallery: [R2("kitchen-1"), R2("kitchen-2"), R2("orange-1"), R2("table")],
     included: [
       "Full cinematic property film (60–90s)",
       "Vertical social cut-down",
@@ -121,11 +116,8 @@ export const PRODUCTS = [
     tagline: "Sharp headshots and a full photo pack for the whole team.",
     summary:
       "Professional headshots and branded photography for your website, socials and listings — consistent, on-brand, and shot in a single efficient session.",
-    hero: IMG("1507003211169-0a1dd7228f2d"),
-    gallery: [
-      IMG("1494790108377-be9c29b29330"), IMG("1500648767791-00dcc994a43e"),
-      IMG("1438761681033-6461ffad8d80"), IMG("1463453091185-61582044d556"),
-    ],
+    hero: R2("orange-2"),
+    gallery: [R2("orange-2"), R2("white-1"), R2("white-2")],
     included: [
       "Studio or on-location session",
       "Retouched headshots per person",
