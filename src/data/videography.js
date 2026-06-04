@@ -46,8 +46,9 @@ export const PRODUCTS = [
       "Same-day social clips (full day)",
     ],
     priceTiers: [
-      { label: "Half day", prices: { direct: 35000, "fine-and-country": 40000, "property-experts": 30000 } },
-      { label: "Full day", prices: { direct: 60000, "fine-and-country": 70000, "property-experts": 50000 } },
+      { label: "2-hour session", minutes: 120, prices: { direct: 20000 } },
+      { label: "Half day", minutes: 240, prices: { direct: 35000, "fine-and-country": 40000, "property-experts": 30000 } },
+      { label: "Full day", minutes: 480, prices: { direct: 60000, "fine-and-country": 70000, "property-experts": 50000 } },
     ],
     // Studio is visible but not directly bookable yet — soft "enquire" CTA.
     bookable: false,
@@ -73,8 +74,8 @@ export const PRODUCTS = [
       "Vertical + landscape exports",
     ],
     priceTiers: [
-      { label: "Single video", prices: { direct: 25000, "fine-and-country": 32000, "property-experts": 18000 } },
-      { label: "Content day", prices: { direct: 75000, "fine-and-country": 90000, "property-experts": 55000 } },
+      { label: "Single video", minutes: 120, prices: { direct: 25000, "fine-and-country": 32000, "property-experts": 18000 } },
+      { label: "Content day", minutes: 480, prices: { direct: 75000, "fine-and-country": 90000, "property-experts": 55000 } },
     ],
     bookable: true,
     // All pop-outs rise from the bottom, near full-screen, close top-right.
@@ -99,8 +100,9 @@ export const PRODUCTS = [
       "Licensed music + colour grade",
     ],
     priceTiers: [
-      { label: "Standard tour", prices: { direct: 45000, "fine-and-country": 55000, "property-experts": 35000 } },
-      { label: "Cinematic + aerial", prices: { direct: 75000, "fine-and-country": 90000, "property-experts": 60000 } },
+      { label: "Standard tour", minutes: 180, prices: { direct: 45000, "fine-and-country": 55000, "property-experts": 35000 } },
+      { label: "Cinematic + aerial", minutes: 300, prices: { direct: 75000, "fine-and-country": 90000, "property-experts": 60000 } },
+      { label: "Full production day", minutes: 480, prices: { direct: 95000 } },
     ],
     bookable: true,
     // Pop-out rises from the bottom, near full-screen, close top-right.
@@ -125,8 +127,8 @@ export const PRODUCTS = [
       "Web + print-ready exports",
     ],
     priceTiers: [
-      { label: "Headshots", prices: { direct: 20000, "fine-and-country": 25000, "property-experts": 15000 } },
-      { label: "Full photo pack", prices: { direct: 45000, "fine-and-country": 55000, "property-experts": 35000 } },
+      { label: "Headshots", minutes: 90, prices: { direct: 20000, "fine-and-country": 25000, "property-experts": 15000 } },
+      { label: "Full photo pack", minutes: 240, prices: { direct: 45000, "fine-and-country": 55000, "property-experts": 35000 } },
     ],
     bookable: true,
     // Pop-out rises from the bottom, near full-screen, close top-right.
