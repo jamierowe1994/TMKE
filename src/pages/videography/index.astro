@@ -223,6 +223,18 @@ const navLinks = [
       overflow: hidden;
     }
 
+    /* First slide entrance — auto-plays on load (pure CSS, no JS dependency):
+       the image sweeps in from the right (dramatic), then the wording follows
+       from the left. animation-fill-mode both holds the hidden start + final. */
+    #pf-deck .pf-panel:first-child .pf-panel-img { animation: pfImgIn 1.15s cubic-bezier(.16,1,.3,1) 0.45s both; }
+    #pf-deck .pf-panel:first-child .pf-panel-text { animation: pfTextIn 1s cubic-bezier(.16,1,.3,1) 1.05s both; }
+    @keyframes pfImgIn { from { opacity: 0; transform: translateX(96px) scale(1.05); } to { opacity: 1; transform: none; } }
+    @keyframes pfTextIn { from { opacity: 0; transform: translateX(-54px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      #pf-deck .pf-panel:first-child .pf-panel-img,
+      #pf-deck .pf-panel:first-child .pf-panel-text { animation-duration: 0.01ms; }
+    }
+
     /* ---- Horizontal deck ---- */
     .pf-deck {
       display: flex;
@@ -733,6 +745,8 @@ const navLinks = [
     });
 
     // --- Horizontal deck controller ---------------------------------------
+    // Play the first-slide entrance once we're on the page (after it loads in),
+    // not while it's still loading — so the animation isn't missed.
     if (window.__lenis && typeof window.__lenis.destroy === "function") {
       try { window.__lenis.destroy(); } catch (e) {}
     }
