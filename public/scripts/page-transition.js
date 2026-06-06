@@ -51,18 +51,41 @@
       };
       // Panels are pinned at translateY(0) by the critical CSS. Flip to the
       // reveal state on the next frame so the browser animates from covered.
-      requestAnimationFrame(function () {
+      var playReveal = function () {
         requestAnimationFrame(function () {
-          root.classList.remove('pt-revealing');
-          overlay.classList.add('is-revealing');
+          requestAnimationFrame(function () {
+            root.classList.remove('pt-revealing');
+            overlay.classList.add('is-revealing');
+          });
         });
-      });
-      // Both bars reveal in parallel over the same duration; clean up when the
-      // left one ends, with a safety timeout in case the event is missed.
-      overlay.addEventListener('animationend', function (e) {
-        if (e.target && e.target.classList.contains('pt__panel--left')) finishReveal();
-      });
-      setTimeout(finishReveal, COVER_MS + 400);
+        // Both bars reveal in parallel over the same duration; clean up when the
+        // left one ends, with a safety timeout in case the event is missed.
+        overlay.addEventListener('animationend', function (e) {
+          if (e.target && e.target.classList.contains('pt__panel--left')) finishReveal();
+        });
+        setTimeout(finishReveal, COVER_MS + 400);
+      };
+      // Hold the cover until the new page is actually ready — fonts loaded and
+      // one paint done — so the reveal never exposes a half-rendered or
+      // font-swapping page (the first-load flicker). Capped so a slow load
+      // never leaves the cover hanging.
+      var begun = false, readied = false;
+      var begin = function () { if (begun) return; begun = true; playReveal(); };
+      var ready = function () {
+        if (readied) return;
+        readied = true;
+        if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+          document.fonts.ready.then(function () { requestAnimationFrame(begin); });
+          setTimeout(begin, 800); // hard cap so the cover never hangs
+        } else {
+          begin();
+        }
+      };
+      if (document.readyState === 'complete') ready();
+      else {
+        window.addEventListener('load', ready, { once: true });
+        setTimeout(ready, 500); // don't wait on slow images/sub-resources
+      }
     }
   }
 
