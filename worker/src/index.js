@@ -22,14 +22,12 @@ function corsHeaders(request, env) {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  // Echo the caller's origin if it's explicitly allowed, or any tmke.co.uk
-  // (sub)domain (apex, www, previews) so a new subdomain can't break CORS.
-  const isTmke = /^https:\/\/([a-z0-9-]+\.)*tmke\.co\.uk$/i.test(origin);
-  const allowOrigin = allowed.includes("*")
-    ? "*"
-    : (allowed.includes(origin) || isTmke)
-    ? origin
-    : allowed[0] || "";
+  // Echo the caller's origin so the booking widget works wherever the site is
+  // hosted (tmke.co.uk, www, the Railway URL, previews, etc.). These endpoints
+  // are either public (availability) or protected by a bearer token (R2 gallery
+  // / uploads), so CORS is not the security boundary here. ALLOWED_ORIGINS is
+  // kept as documentation / an easy way to force "*" if ever needed.
+  const allowOrigin = allowed.includes("*") ? "*" : (origin || allowed[0] || "");
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
