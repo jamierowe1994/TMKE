@@ -52,7 +52,7 @@ function fmtDate(iso) {
 
       <div class="ins-cols">
         <div class="ins-col ins-col--up" id="ins-col-up">
-          {[...colUp, ...colUp].map((p) => (
+          {colUp.map((p) => (
             <a class="ins-item" href={`/blog/${p.slug}`}>
               <h3 class="ins-item-title">{p.title}</h3>
               <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
@@ -61,7 +61,7 @@ function fmtDate(iso) {
           ))}
         </div>
         <div class="ins-col ins-col--down" id="ins-col-down">
-          {[...colDown, ...colDown].map((p) => (
+          {colDown.map((p) => (
             <a class="ins-item" href={`/blog/${p.slug}`}>
               <h3 class="ins-item-title">{p.title}</h3>
               <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
@@ -170,16 +170,8 @@ function fmtDate(iso) {
       gap: 0;
       will-change: transform;
     }
-    /* Continuous counter-scroll: left column drifts up, right drifts down,
-       looping seamlessly (content is duplicated 2× in the markup). */
-    .ins-col--up { animation: insMarqueeUp 40s linear infinite; }
-    .ins-col--down { animation: insMarqueeDown 40s linear infinite; }
-    @keyframes insMarqueeUp { from { transform: translateY(0); } to { transform: translateY(-50%); } }
-    @keyframes insMarqueeDown { from { transform: translateY(-50%); } to { transform: translateY(0); } }
-    .ins-col:hover { animation-play-state: paused; }
-    @media (prefers-reduced-motion: reduce) {
-      .ins-col--up, .ins-col--down { animation: none; }
-    }
+    /* The two columns counter-scroll on wheel (driven by JS) — left drifts up,
+       right drifts down — instead of auto-scrolling. */
 
     .ins-item {
       display: block;
@@ -317,7 +309,11 @@ function fmtDate(iso) {
         grid-template-columns: minmax(0, 1fr);
         gap: clamp(56px, 10vw, 88px);
         padding-top: clamp(120px, 22vw, 160px);
+        /* Mobile scrolls normally — drop the fixed one-pager. */
+        height: auto;
+        overflow: visible;
       }
+      .ins-cols { overflow: visible; }
       .ins-list { padding-right: 0; }
       .ins-feature {
         position: static;
@@ -415,5 +411,41 @@ function fmtDate(iso) {
     }
   </style>
 
-  <!-- Insights is a fixed one-pager; columns counter-scroll via pure-CSS marquee (no JS). -->
+  <!-- Insights is a fixed one-pager. The page doesn't scroll; the wheel drives
+       the two left columns in OPPOSITE directions (left up, right down) with a
+       little smoothing. Desktop only — mobile scrolls normally. -->
+  <script is:inline>
+    (function () {
+      const colUp = document.getElementById("ins-col-up");
+      const colDown = document.getElementById("ins-col-down");
+      const cols = document.querySelector(".ins-cols");
+      if (!colUp || !colDown || !cols) return;
+      const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
+      const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let target = 0, current = 0, raf = null;
+      const rng = (c) => Math.max(0, c.scrollHeight - cols.clientHeight);
+      function render() {
+        colUp.style.transform = "translate3d(0," + (-current * rng(colUp)).toFixed(1) + "px,0)";
+        colDown.style.transform = "translate3d(0," + (-(1 - current) * rng(colDown)).toFixed(1) + "px,0)";
+      }
+      function tick() {
+        current += (target - current) * 0.12;
+        if (Math.abs(target - current) < 0.0008) current = target;
+        render();
+        raf = current !== target ? requestAnimationFrame(tick) : null;
+      }
+      render();
+      window.addEventListener("wheel", function (e) {
+        if (isMobile()) return;
+        const span = Math.max(rng(colUp), rng(colDown)) || 1;
+        target = Math.min(1, Math.max(0, target + e.deltaY / span));
+        if (reduce) { current = target; render(); }
+        else if (!raf) raf = requestAnimationFrame(tick);
+      }, { passive: true });
+      window.addEventListener("resize", function () {
+        if (isMobile()) { colUp.style.transform = ""; colDown.style.transform = ""; }
+        else render();
+      });
+    })();
+  </script>
 </BaseLayout>
