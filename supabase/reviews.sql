@@ -21,6 +21,14 @@ create table if not exists public.reviews (
   updated_at         timestamptz not null default now()
 );
 
+-- Visual review/annotation columns (added later — safe to re-run).
+--   page_elements : per-page element boxes (normalised) so the reviewer can
+--                   click an element to comment on it.
+--   annotations   : shapes/pins/element-notes the reviewer + designer draw on
+--                   the pages, colour-coded and linked to notes.
+alter table public.reviews add column if not exists page_elements jsonb not null default '[]'::jsonb;
+alter table public.reviews add column if not exists annotations   jsonb not null default '[]'::jsonb;
+
 create index if not exists reviews_requested_by_idx on public.reviews (requested_by);
 create index if not exists reviews_status_idx on public.reviews (status);
 

@@ -439,14 +439,30 @@ const googleFonts = [
 
         <!-- Admin-only: bulk-import Canva page exports. Shown via JS in ?mode=admin. -->
         <div class="ed-canva" id="ed-canva-import" hidden>
-          <div class="ed-canva-sep"><span>Bulk import</span></div>
-          <label class="ed-upload-drop ed-canva-drop" id="ed-canva-drop">
-            <input type="file" id="ed-canva-zip" accept=".zip,application/zip,application/x-zip-compressed" hidden />
-            <strong>Designed on Canva?</strong>
-            <span>Drop a .zip of background images — each becomes a page.</span>
+          <div class="ed-canva-sep"><span>Import from Canva</span></div>
+          <p class="ed-canva-intro">Two steps. Drop the <strong>finished designs</strong> (words included), then the same pages as <strong>plain backgrounds</strong>. We read the wording off the finished ones and lay it onto the backgrounds as editable text — so there's no duplicate words baked into the image.</p>
+
+          <label class="ed-upload-drop ed-canva-drop" id="ed-canva-drop-final">
+            <input type="file" id="ed-canva-zip-final" accept=".zip,application/zip,application/x-zip-compressed" hidden />
+            <strong>1 · Finished designs</strong>
+            <span>The full Canva exports — text and all. We read these.</span>
+            <span class="ed-canva-badge" id="ed-canva-final-badge" hidden></span>
           </label>
+
+          <label class="ed-upload-drop ed-canva-drop" id="ed-canva-drop-bg">
+            <input type="file" id="ed-canva-zip-bg" accept=".zip,application/zip,application/x-zip-compressed" hidden />
+            <strong>2 · Plain backgrounds</strong>
+            <span>The same pages with the words removed. These become the canvas.</span>
+            <span class="ed-canva-badge" id="ed-canva-bg-badge" hidden></span>
+          </label>
+
+          <button type="button" class="ed-ai-btn" id="ed-canva-build" disabled>
+            <span aria-hidden="true">✨</span> Build pages <small id="ed-canva-build-sub">— add backgrounds first</small>
+          </button>
           <p class="ed-canva-status" id="ed-canva-status" hidden></p>
-          <button type="button" class="ed-ai-btn" id="ed-ai-read">
+
+          <div class="ed-canva-sep ed-canva-sep--minor"><span>On a single page</span></div>
+          <button type="button" class="ed-ai-btn ed-ai-btn--ghost" id="ed-ai-read">
             <span aria-hidden="true">✨</span> Read text with AI <small>(this page)</small>
           </button>
           <button type="button" class="ed-ai-btn ed-ai-btn--ghost" id="ed-ai-read-all">
@@ -1438,6 +1454,17 @@ const googleFonts = [
     .ed-canva-status { font-family: var(--sans); font-size: 12px; color: var(--english-violet); margin: 10px 0 0; }
     .ed-canva-status.is-error { color: #a05a3c; }
     .ed-canva-status[hidden] { display: none; }
+    .ed-canva-intro { font-family: var(--sans); font-size: 12px; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 14px; }
+    .ed-canva-intro strong { color: var(--ink); font-weight: 700; }
+    .ed-canva-drop { margin-bottom: 10px; position: relative; }
+    .ed-canva-drop.is-loaded { border-color: rgba(46,125,82,0.5); background: rgba(46,125,82,0.06); }
+    .ed-canva-badge {
+      display: inline-block; margin-top: 6px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.04em; color: #2e7d52; background: rgba(46,125,82,0.12); border-radius: 999px; padding: 2px 10px;
+    }
+    .ed-canva-badge[hidden] { display: none; }
+    .ed-canva-sep--minor { margin-top: 16px; }
+    .ed-canva-sep--minor span { font-size: 9px; color: rgba(28,29,34,0.35); }
     .ed-ai-btn {
       width: 100%; margin-top: 12px; padding: 11px 14px; cursor: pointer;
       font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--paper);
@@ -3535,12 +3562,15 @@ const googleFonts = [
 
     if (isAdmin && publishBtn) publishBtn.addEventListener("click", doPublish);
 
-    // ---- Canva bulk import (admin): a .zip of page backgrounds → a multi-page
-    // design, one page per image. Text is re-added in the studio. ----
+    // ---- Canva import (admin): a TWO-STAGE flow that fixes the duplicate-words
+    // problem. Stage 1 = the finished designs (text baked in) — we read the
+    // wording off these. Stage 2 = the same pages as plain backgrounds — these
+    // become the editable canvas. We lay the read text onto the backgrounds, so
+    // nothing is doubled up. (Backgrounds alone still work: you just get blank
+    // pages to type on.) ----
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     if (isAdmin) {
       const canvaWrap = document.getElementById("ed-canva-import");
-      const zipInput = document.getElementById("ed-canva-zip");
-      const drop = document.getElementById("ed-canva-drop");
       const cstatus = document.getElementById("ed-canva-status");
       if (canvaWrap) canvaWrap.hidden = false;
 
@@ -3548,21 +3578,18 @@ const googleFonts = [
       const blobToDataURL = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
       const imgDims = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res({ w: i.naturalWidth, h: i.naturalHeight }); i.onerror = () => res({ w: 1080, h: 1350 }); i.src = src; });
 
-      async function importZip(file) {
-        if (!file) return;
-        setC("Reading zip…");
+      // Read every image out of a .zip into [{src,w,h}], sorted by filename.
+      async function parseZipImages(file) {
         let JSZip;
         try { ({ default: JSZip } = await import("https://esm.sh/jszip@3.10.1")); }
-        catch (e) { setC("Couldn’t load the zip reader — check your connection.", true); return; }
+        catch (e) { throw new Error("Couldn’t load the zip reader — check your connection."); }
         let zip;
-        try { zip = await JSZip.loadAsync(file); } catch (e) { setC("That doesn’t look like a valid .zip.", true); return; }
+        try { zip = await JSZip.loadAsync(file); } catch (e) { throw new Error("That doesn’t look like a valid .zip."); }
         const entries = [];
         zip.forEach((path, entry) => {
           if (!entry.dir && /\.(png|jpe?g|webp)$/i.test(path) && !/__MACOSX|\/\._/.test(path)) entries.push(entry);
         });
         entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-        if (!entries.length) { setC("No images found in that zip.", true); return; }
-        setC(`Importing ${entries.length} background${entries.length === 1 ? "" : "s"}…`);
         const images = [];
         for (const e of entries) {
           try {
@@ -3572,38 +3599,114 @@ const googleFonts = [
             images.push({ src: dataUrl, w: dims.w, h: dims.h });
           } catch (_) { /* skip a bad entry */ }
         }
-        if (!images.length) { setC("Couldn’t read the images in that zip.", true); return; }
-        if (typeof window.__TMKE_IMPORT_BACKGROUNDS__ === "function") window.__TMKE_IMPORT_BACKGROUNDS__(images);
-        setC(`${images.length} page${images.length === 1 ? "" : "s"} created — add your text, then Publish.`);
+        return images;
       }
 
-      if (zipInput) zipInput.addEventListener("change", () => { importZip(zipInput.files[0]); zipInput.value = ""; });
-      if (drop) {
-        drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("is-drag"); });
-        drop.addEventListener("dragleave", () => drop.classList.remove("is-drag"));
-        drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-drag"); importZip(e.dataTransfer.files[0]); });
+      let finalImages = [];   // stage 1 — finished designs (read these)
+      let bgImages = [];      // stage 2 — plain backgrounds (canvas)
+      const buildBtn = document.getElementById("ed-canva-build");
+      const buildSub = document.getElementById("ed-canva-build-sub");
+
+      function refreshBuild() {
+        if (!buildBtn) return;
+        buildBtn.disabled = !bgImages.length;
+        if (!bgImages.length) { if (buildSub) buildSub.textContent = "— add backgrounds first"; return; }
+        if (finalImages.length) { if (buildSub) buildSub.textContent = "— " + bgImages.length + " page" + (bgImages.length === 1 ? "" : "s") + ", text read from finished"; }
+        else { if (buildSub) buildSub.textContent = "— " + bgImages.length + " blank page" + (bgImages.length === 1 ? "" : "s"); }
       }
 
-      // ---- "Read text with AI": send the current page image to the Worker's
-      // /ai/parse route (which calls Claude) and place the returned text. ----
+      function wireDrop(dropId, inputId, badgeId, onImages) {
+        const drop = document.getElementById(dropId);
+        const input = document.getElementById(inputId);
+        const badge = document.getElementById(badgeId);
+        const handle = async (file) => {
+          if (!file) return;
+          setC("Reading zip…");
+          try {
+            const imgs = await parseZipImages(file);
+            if (!imgs.length) { setC("No images found in that zip.", true); return; }
+            onImages(imgs);
+            if (badge) { badge.hidden = false; badge.textContent = imgs.length + " image" + (imgs.length === 1 ? "" : "s") + " ✓"; }
+            if (drop) drop.classList.add("is-loaded");
+            setC("");
+            refreshBuild();
+          } catch (e) { setC(e.message || "Couldn’t read that zip.", true); }
+        };
+        if (input) input.addEventListener("change", () => { handle(input.files[0]); input.value = ""; });
+        if (drop) {
+          drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("is-drag"); });
+          drop.addEventListener("dragleave", () => drop.classList.remove("is-drag"));
+          drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-drag"); handle(e.dataTransfer.files[0]); });
+        }
+      }
+      wireDrop("ed-canva-drop-final", "ed-canva-zip-final", "ed-canva-final-badge", (imgs) => { finalImages = imgs; });
+      wireDrop("ed-canva-drop-bg", "ed-canva-zip-bg", "ed-canva-bg-badge", (imgs) => { bgImages = imgs; });
+
+      if (buildBtn) buildBtn.addEventListener("click", async () => {
+        if (!bgImages.length) return;
+        // Create the editable pages from the plain backgrounds first.
+        if (typeof window.__TMKE_IMPORT_BACKGROUNDS__ === "function") window.__TMKE_IMPORT_BACKGROUNDS__(bgImages);
+
+        if (!finalImages.length) {
+          setC(bgImages.length + " blank page" + (bgImages.length === 1 ? "" : "s") + " created — type your text, then Publish.");
+          return;
+        }
+        // Read the wording off the finished designs and lay it onto each page.
+        const n = Math.min(bgImages.length, finalImages.length);
+        if (finalImages.length !== bgImages.length) {
+          if (!confirm("You dropped " + finalImages.length + " finished design" + (finalImages.length === 1 ? "" : "s") + " and " + bgImages.length + " background" + (bgImages.length === 1 ? "" : "s") + ". I'll match the first " + n + " by order. Continue?")) return;
+        }
+        const token = await aiPrechecks(); if (!token) { setC("Sign in / set the AI worker to read text.", true); return; }
+        if (!confirm("Read text from " + n + " finished design" + (n === 1 ? "" : "s") + "? This makes " + n + " AI requests (a few pence each).")) return;
+        buildBtn.disabled = true;
+        let total = 0;
+        try {
+          for (let i = 0; i < n; i++) {
+            setC("Reading page " + (i + 1) + " of " + n + "…");
+            if (typeof window.__TMKE_GOTO_PAGE__ === "function") window.__TMKE_GOTO_PAGE__(i);
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            try {
+              const fin = finalImages[i], bg = bgImages[i];
+              const blocks = await aiParse(token, { image: fin.src, width: fin.w, height: fin.h });
+              // Map coordinates from the finished image into the background's space.
+              const sx = (bg.w || fin.w) / (fin.w || 1), sy = (bg.h || fin.h) / (fin.h || 1);
+              const scaled = (blocks || []).map((b) => Object.assign({}, b, {
+                x: (b.x || 0) * sx, y: (b.y || 0) * sy,
+                w: (b.w || 0) * sx, h: (b.h || 0) * sy,
+                fontSize: (b.fontSize || 32) * ((sx + sy) / 2),
+              }));
+              total += (typeof window.__TMKE_AI_PLACE_TEXT__ === "function") ? window.__TMKE_AI_PLACE_TEXT__(scaled) : 0;
+            } catch (e) { console.error("[canva build page " + i + "]", e); }
+          }
+          setC("Done — " + total + " text box" + (total === 1 ? "" : "es") + " placed across " + n + " page" + (n === 1 ? "" : "s") + ". Tweak fonts/positions, then Publish.");
+        } catch (err) { console.error("[canva build]", err); setC("Couldn’t finish: " + (err.message || err), true); }
+        finally { buildBtn.disabled = false; }
+      });
+
+      // ---- "Read text with AI": send a page image to the Worker's /ai/parse
+      // route (which calls Claude) and place the returned text. ----
       const aiBtn = document.getElementById("ed-ai-read");
       const aiAllBtn = document.getElementById("ed-ai-read-all");
       const aiStatus = document.getElementById("ed-ai-status");
-      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const setAi = (msg, err) => { if (!aiStatus) return; aiStatus.hidden = false; aiStatus.textContent = msg; aiStatus.classList.toggle("is-error", !!err); };
 
-      // Read the CURRENT page: snapshot → Worker → place text. Returns count.
-      async function aiReadCurrentPage(token) {
-        const page = await window.__TMKE_PAGE_IMAGE__();
-        if (!page.image) throw new Error("Couldn't snapshot this page.");
+      // POST an image payload to the parser and return the raw text blocks.
+      async function aiParse(token, payload) {
         const res = await fetch(`${WORKER}/ai/parse`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(page),
+          body: JSON.stringify(payload),
         });
         const out = await res.json();
         if (!res.ok) throw new Error(out.error || ("AI failed (" + res.status + ")"));
-        return (typeof window.__TMKE_AI_PLACE_TEXT__ === "function") ? window.__TMKE_AI_PLACE_TEXT__(out.blocks || []) : 0;
+        return out.blocks || [];
+      }
+      // Read the CURRENT page: snapshot → parse → place text. Returns count.
+      async function aiReadCurrentPage(token) {
+        const page = await window.__TMKE_PAGE_IMAGE__();
+        if (!page.image) throw new Error("Couldn't snapshot this page.");
+        const blocks = await aiParse(token, page);
+        return (typeof window.__TMKE_AI_PLACE_TEXT__ === "function") ? window.__TMKE_AI_PLACE_TEXT__(blocks) : 0;
       }
       async function aiPrechecks() {
         if (!WORKER) { setAi("Set PUBLIC_R2_WORKER_URL to use the AI parser.", true); return null; }
@@ -3706,7 +3809,9 @@ const googleFonts = [
           const { data, error } = await supabase.from("reviews").insert({
             title: design.filename || "Design",
             page_images: design.pageImages,
+            page_elements: design.pageElements || [],
             design_comments: design.comments || [],
+            annotations: [],
             reviewer_email: email,
             message: msg || null,
             requested_by: session ? session.user.id : null,
