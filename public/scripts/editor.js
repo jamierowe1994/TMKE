@@ -23,6 +23,38 @@
     { name: "Courier", stack: '"Courier New", monospace', category: "System" },
   ];
 
+  // Self-hosted house fonts baked into the studio (separate from per-customer
+  // uploads via /admin/fonts). Files live on R2 under /fonts/. Each face is
+  // registered with the document so the canvas renders it; if a file isn't
+  // there yet the family simply falls back to the stack below.
+  const CUSTOM_FONTS = [
+    {
+      name: "The Seasons",
+      stack: '"The Seasons", "Cormorant Garamond", Georgia, serif',
+      category: "TMKE · House",
+      faces: [
+        { url: "https://assets.tmke.co.uk/fonts/the-seasons-light.woff2", weight: 300, style: "normal" },
+        { url: "https://assets.tmke.co.uk/fonts/the-seasons-regular.woff2", weight: 400, style: "normal" },
+        { url: "https://assets.tmke.co.uk/fonts/the-seasons-bold.woff2", weight: 700, style: "normal" },
+      ],
+    },
+  ];
+  (function registerCustomFonts() {
+    if (typeof document === "undefined" || typeof window.FontFace !== "function") return;
+    CUSTOM_FONTS.forEach(function (cf) {
+      (cf.faces || []).forEach(function (face) {
+        try {
+          const ff = new FontFace(cf.name, 'url("' + face.url + '")', {
+            weight: String(face.weight || 400),
+            style: face.style || "normal",
+            display: "swap",
+          });
+          ff.load().then(function (loaded) { document.fonts.add(loaded); }).catch(function () { /* not uploaded yet — fall back */ });
+        } catch (_) { /* ignore individual face failures */ }
+      });
+    });
+  })();
+
   // Google Fonts catalogue baked into editor.astro and injected as JSON.
   // We don't load any of the actual CSS yet — `loadGoogleFont` does that on
   // demand the first time a user picks one (or a template uses one).
@@ -95,7 +127,7 @@
   // BASE_FONTS retained as a name so the rest of the code (export canvas,
   // brand kit logic) keeps working — it now points at the combined catalogue:
   // custom brand fonts (pinned first) > system fonts > Google Fonts.
-  const BASE_FONTS = BRAND_FONTS.concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
+  const BASE_FONTS = BRAND_FONTS.concat(CUSTOM_FONTS).concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
 
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   function loadBrand() {
@@ -829,7 +861,13 @@
       const hint = document.createElement("div");
       hint.className = "ed-blank-hint";
       hint.textContent = "Start building here";
-      hint.setAttribute("aria-hidden", "true");
+      hint.title = "Click to add a text box";
+      // Click the prompt to drop a real, editable + deletable text box (Canva-
+      // style) rather than it being a stuck, undeletable label.
+      hint.addEventListener("click", function (e) {
+        e.stopPropagation();
+        addText("body");
+      });
       canvasEl.appendChild(hint);
     }
 
@@ -3731,7 +3769,12 @@
   // template behind the onboarding overlay.
   const urlParams = new URLSearchParams(window.location.search);
   const explicitTpl = urlParams.get("template");
-  if (explicitTpl) {
+  if (isAdminMode() && TEMPLATES.length) {
+    // Admin: the bootstrap moved the requested template to index 0. Load it so
+    // editing an existing template shows its design, and a freshly-created one
+    // (empty elements) opens as a blank canvas to build from scratch.
+    loadTemplate(TEMPLATES[0].id, false);
+  } else if (explicitTpl) {
     loadTemplate(explicitTpl, false);
   } else {
     loadBlank();

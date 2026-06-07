@@ -1693,9 +1693,13 @@ const googleFonts = [
       color: rgba(255, 255, 255, 0.92);
       text-align: center;
       padding: 0 8%;
-      pointer-events: none;
+      /* Clickable: a click drops a real, editable + deletable text box here. */
+      pointer-events: auto;
+      cursor: text;
       user-select: none;
+      transition: opacity 0.2s;
     }
+    .ed-blank-hint:hover { opacity: 0.65; }
     .ed-element {
       position: absolute;
       box-sizing: border-box;
@@ -2998,6 +3002,16 @@ const googleFonts = [
     }
 
     (async () => {
+      // Admin mode is not the customer pack-picker flow — admins design fresh.
+      // Skip the onboarding overlay entirely and reveal the studio straight away
+      // (editor.js loads the requested template, blank for a new one).
+      if (new URLSearchParams(location.search).get("mode") === "admin") {
+        overlay.classList.add("is-gone");
+        editor.classList.remove("is-onboarding");
+        editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
+        return;
+      }
+
       const isDemo = import.meta.env.DEV && new URLSearchParams(location.search).has("demo");
       if (isDemo) {
         loading.hidden = true;
