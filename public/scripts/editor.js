@@ -1427,6 +1427,16 @@
     if (el.locked) node.classList.add("is-locked");
     if (el.hidden) node.classList.add("is-hidden");
 
+    // Comment badge — visible even when the element isn't selected.
+    const openCmts = el.comments ? el.comments.filter((c) => !c.resolved).length : 0;
+    if (openCmts) {
+      const badge = document.createElement("div");
+      badge.className = "ed-cmt-badge";
+      badge.textContent = openCmts;
+      badge.title = openCmts + " comment" + (openCmts === 1 ? "" : "s");
+      node.appendChild(badge);
+    }
+
     bindElementInteractions(node, el);
     return node;
   }
@@ -1654,9 +1664,9 @@
     handlesEl.innerHTML = "";
     handlesEl.style.width = state.canvas.width + "px";
     handlesEl.style.height = state.canvas.height + "px";
-    if (state.selectedIds.length !== 1) return;
+    if (state.selectedIds.length !== 1) { hideFloatBar(); return; }
     const el = getEl(state.selectedIds[0]);
-    if (!el || el.locked) return;
+    if (!el || el.locked) { hideFloatBar(); return; }
 
     // Bounds
     const bounds = document.createElement("div");
@@ -1668,6 +1678,11 @@
     bounds.style.transform = "rotate(" + (el.rotation || 0) + "deg)";
     bounds.style.transformOrigin = "center center";
     handlesEl.appendChild(bounds);
+
+    // Floating quick-action toolbar above the element (hidden while editing text).
+    const elNode = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+    if (elNode && elNode.classList.contains("is-editing")) hideFloatBar();
+    else positionFloatBar(bounds.getBoundingClientRect(), el);
 
     // Resize handles
     const positions = [
@@ -1710,6 +1725,101 @@
     handlesEl.appendChild(rotHandle);
     rotHandle.addEventListener("pointerdown", (ev) => startRotate(ev, el));
   }
+
+  // ---------- Floating selection toolbar (Canva-style quick actions) ----------
+  function cmtEscape(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  const ICON_FB = {
+    comment: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg>',
+    duplicate: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    more: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  };
+  const floatBar = document.createElement("div");
+  floatBar.className = "ed-floatbar";
+  floatBar.hidden = true;
+  floatBar.innerHTML =
+    '<button type="button" class="ed-fb-btn" data-fb="comment" title="Comment">' + ICON_FB.comment + '<span class="ed-fb-count" hidden></span></button>' +
+    '<button type="button" class="ed-fb-btn" data-fb="duplicate" title="Duplicate">' + ICON_FB.duplicate + '</button>' +
+    '<button type="button" class="ed-fb-btn ed-fb-danger" data-fb="delete" title="Delete">' + ICON_FB.delete + '</button>' +
+    '<span class="ed-fb-sep"></span>' +
+    '<button type="button" class="ed-fb-btn" data-fb="more" title="More">' + ICON_FB.more + '</button>';
+  document.body.appendChild(floatBar);
+  // Don't let clicks on the bar bubble to the canvas (which would deselect).
+  floatBar.addEventListener("pointerdown", (e) => e.stopPropagation());
+  floatBar.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-fb]"); if (!b) return;
+    const el = getEl(state.selectedIds[0]); if (!el) return;
+    const act = b.dataset.fb;
+    if (act === "duplicate") duplicateSelected();
+    else if (act === "delete") deleteSelected();
+    else if (act === "more") { const r = b.getBoundingClientRect(); showContextMenu(r.left - 4, r.bottom + 2, el); }
+    else if (act === "comment") openCommentPopover(el, b);
+  });
+
+  function positionFloatBar(rect, el) {
+    if (!rect) { hideFloatBar(); return; }
+    floatBar.hidden = false;
+    // Comment count badge.
+    const open = (el && el.comments ? el.comments.filter((c) => !c.resolved).length : 0);
+    const countEl = floatBar.querySelector(".ed-fb-count");
+    if (countEl) { countEl.hidden = !open; countEl.textContent = open || ""; }
+    const bw = floatBar.offsetWidth || 168;
+    const bh = floatBar.offsetHeight || 40;
+    let left = rect.left + rect.width / 2 - bw / 2;
+    let top = rect.top - bh - 12;
+    if (top < 70) top = rect.bottom + 12; // no room above → go below
+    left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+    floatBar.style.left = left + "px";
+    floatBar.style.top = top + "px";
+  }
+  function hideFloatBar() { floatBar.hidden = true; }
+
+  // ---------- Comments (per element; the review-workflow foundation) ----------
+  let commentPop = null;
+  function closeCommentPopover() { if (commentPop) { commentPop.remove(); commentPop = null; } }
+  function openCommentPopover(el, anchorBtn) {
+    closeCommentPopover();
+    if (!el.comments) el.comments = [];
+    commentPop = document.createElement("div");
+    commentPop.className = "ed-cmt-pop";
+    commentPop.addEventListener("pointerdown", (e) => e.stopPropagation());
+    document.body.appendChild(commentPop);
+    drawCommentPop(el);
+    const r = anchorBtn.getBoundingClientRect();
+    commentPop.style.left = Math.max(8, Math.min(r.left - 20, window.innerWidth - 312)) + "px";
+    commentPop.style.top = (r.bottom + 8) + "px";
+    const ta = commentPop.querySelector("textarea"); if (ta) ta.focus();
+  }
+  function drawCommentPop(el) {
+    if (!commentPop) return;
+    const list = (el.comments || []).map((c, i) =>
+      '<div class="ed-cmt' + (c.resolved ? " is-resolved" : "") + '"><p>' + cmtEscape(c.text) + '</p>' +
+      '<div class="ed-cmt-acts"><button type="button" data-cmt-resolve="' + i + '">' + (c.resolved ? "Reopen" : "Resolve") + '</button>' +
+      '<button type="button" data-cmt-del="' + i + '">Delete</button></div></div>'
+    ).join("");
+    commentPop.innerHTML =
+      '<div class="ed-cmt-head">Comments</div>' +
+      '<div class="ed-cmt-list">' + (list || '<p class="ed-cmt-empty">No comments yet.</p>') + '</div>' +
+      '<div class="ed-cmt-add"><textarea rows="2" placeholder="Add a comment…"></textarea><button type="button" class="ed-cmt-send">Comment</button></div>';
+    commentPop.querySelector(".ed-cmt-send").addEventListener("click", () => {
+      const ta = commentPop.querySelector("textarea");
+      const txt = (ta.value || "").trim();
+      if (!txt) return;
+      el.comments.push({ id: uid("cmt"), text: txt, resolved: false, ts: Date.now() });
+      pushHistory(); fullRender(); drawCommentPop(el);
+    });
+    commentPop.querySelectorAll("[data-cmt-resolve]").forEach((b) => b.addEventListener("click", () => {
+      const i = +b.dataset.cmtResolve; el.comments[i].resolved = !el.comments[i].resolved; pushHistory(); fullRender(); drawCommentPop(el);
+    }));
+    commentPop.querySelectorAll("[data-cmt-del]").forEach((b) => b.addEventListener("click", () => {
+      const i = +b.dataset.cmtDel; el.comments.splice(i, 1); pushHistory(); fullRender(); drawCommentPop(el);
+    }));
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (commentPop && !commentPop.contains(e.target) && !(e.target.closest && e.target.closest('[data-fb="comment"]'))) closeCommentPopover();
+  });
 
   // ---------- Interactions ----------
   function bindElementInteractions(node, el) {
@@ -2029,6 +2139,7 @@
       }
       inner.removeEventListener("input", grow);
       inner.removeEventListener("blur", commit);
+      renderHandles(); // bring the floating toolbar back now editing is done
     }
     inner.addEventListener("blur", commit);
   }
