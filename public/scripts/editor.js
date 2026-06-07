@@ -4288,6 +4288,27 @@
     loadTemplate(scoped[0].id, false);
   };
 
+  // Open a pack whose templates come from Supabase (a pack an admin published).
+  // The customer studio's bundled library doesn't contain them, so inject the
+  // rows into TEMPLATES first, then scope + open the first.
+  window.__TMKE_OPEN_PACK_TEMPLATES__ = function (rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const shaped = list.map((r) => ({
+      id: r.id,
+      name: r.name,
+      category: r.category || null,
+      thumb: r.thumb_url || null,
+      canvas: r.canvas || { width: 1080, height: 1350, background: "#F2EFE9" },
+      elements: r.elements || [],
+    })).filter((t) => t.id);
+    if (!shaped.length) { window.__TMKE_OPEN_PACK__([]); return; } // fallback to library
+    shaped.forEach((t) => { if (!TEMPLATES.find((x) => x.id === t.id)) TEMPLATES.push(t); });
+    PACK_TEMPLATES = shaped;
+    tplGridEl.innerHTML = "";
+    renderTemplateGrid();
+    loadTemplate(shaped[0].id, false);
+  };
+
   // If a stock-photo search panel is taking over the Photos tab, skip
   // rendering the bundled library — its results will fill the grid instead.
   if (!window.__TMKE_STOCK_SEARCH_ACTIVE__) renderPhotoGrid();
