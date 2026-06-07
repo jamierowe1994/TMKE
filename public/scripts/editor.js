@@ -4427,6 +4427,33 @@
     };
   };
 
+  // Review snapshot — rasterises EVERY page to a JPEG so the reviewer page can
+  // show the design as flat images (no editor needed). Plus the comments left
+  // on elements, flattened with their page index for the reviewer's notes list.
+  window.__TMKE_REVIEW_DATA__ = async function () {
+    const orig = state.currentPage;
+    const pageImages = [];
+    const comments = [];
+    for (let i = 0; i < state.pages.length; i++) {
+      state.currentPage = i; // _renderDesignToCanvas draws the active page
+      try {
+        const c = await _renderDesignToCanvas({ transparent: false });
+        pageImages.push(c.toDataURL("image/jpeg", 0.82));
+      } catch (_) { pageImages.push(null); }
+      (state.pages[i].elements || []).forEach(function (el) {
+        (el.comments || []).forEach(function (cm) {
+          if (!cm.resolved) comments.push({ page: i, text: cm.text });
+        });
+      });
+    }
+    state.currentPage = orig;
+    return {
+      filename: (filenameEl && filenameEl.value) || "Design",
+      pageImages: pageImages,
+      comments: comments,
+    };
+  };
+
   // Onboarding pack-picker hook. Scopes the studio's template grid to a chosen
   // pack and opens its first design for editing. `templateIds` is the pack's
   // list; if it's empty or none resolve, we fall back to the full library so a

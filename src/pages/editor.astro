@@ -3515,15 +3515,16 @@ const googleFonts = [
         const email = scrim.querySelector(".ed-rev-email").value.trim();
         const msg = scrim.querySelector(".ed-rev-msg").value.trim();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setStatus("Enter a valid email for your teammate.", true); return; }
-        if (typeof window.__TMKE_PUBLISH_DATA__ !== "function") { setStatus("Editor isn't ready — try again.", true); return; }
-        setStatus("Sending…");
+        if (typeof window.__TMKE_REVIEW_DATA__ !== "function") { setStatus("Editor isn't ready — try again.", true); return; }
+        setStatus("Preparing the design…");
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          const design = await window.__TMKE_PUBLISH_DATA__();
+          const design = await window.__TMKE_REVIEW_DATA__();
+          setStatus("Sending…");
           const { data, error } = await supabase.from("reviews").insert({
             title: design.filename || "Design",
-            pages: design.pages,
-            cover_url: null,
+            page_images: design.pageImages,
+            design_comments: design.comments || [],
             reviewer_email: email,
             message: msg || null,
             requested_by: session ? session.user.id : null,
@@ -3531,7 +3532,7 @@ const googleFonts = [
             status: "pending",
           }).select("id").single();
           if (error) throw error;
-          const link = location.origin + "/review/" + data.id;
+          const link = location.origin + "/review?id=" + data.id;
           status.innerHTML = "Sent ✓ — share this link with " + email + ":<br><a href=\"" + link + "\">" + link + "</a>";
           status.hidden = false; status.classList.remove("is-error");
         } catch (err) {

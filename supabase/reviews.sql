@@ -6,8 +6,9 @@
 create table if not exists public.reviews (
   id                 uuid primary key default gen_random_uuid(),
   title              text not null,
-  pages              jsonb not null default '[]'::jsonb,   -- snapshot: [{canvas, elements}]
-  cover_url          text,
+  page_images        jsonb not null default '[]'::jsonb,   -- rasterised pages: [dataURL|null]
+  design_comments    jsonb not null default '[]'::jsonb,   -- comments left in the editor: [{page, text}]
+  review_comments    jsonb not null default '[]'::jsonb,   -- comments the reviewer adds: [{text, ts}]
   reviewer_email     text not null,
   message            text,
   requested_by       uuid,                                 -- auth.users id of the sender
