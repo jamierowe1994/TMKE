@@ -173,6 +173,13 @@
   const ctxEl = $("ed-context");
   const layersEl = $("ed-layers");
   const filenameEl = $("ed-filename");
+  // A title passed in via ?title= (e.g. when an admin names a design in the
+  // front-end before opening the studio) wins over the default/saved filename on
+  // the FIRST load only, then is consumed so switching designs doesn't re-apply it.
+  let _pendingTitle = (function () {
+    try { return new URLSearchParams(location.search).get("title"); } catch (_) { return null; }
+  })();
+  function takeInitialTitle() { const t = _pendingTitle; _pendingTitle = null; return t && t.trim() ? t.trim() : null; }
   const zoomDisplayEl = $("ed-zoom-display");
   const tplGridEl = $("ed-template-grid");
   const photoGridEl = $("ed-photo-grid");
@@ -1086,7 +1093,7 @@
             state.elements = saved.elements;
           }
           state.selectedIds = [];
-          filenameEl.value = saved.filename || tpl.name;
+          filenameEl.value = takeInitialTitle() || saved.filename || tpl.name;
           state.history = [];
           state.historyIndex = -1;
           state.pages.forEach((pg) => preloadFontsForElements(pg.elements));
@@ -1102,7 +1109,7 @@
     state.canvas = deep(tpl.canvas);
     state.elements = deep(tpl.elements);
     state.selectedIds = [];
-    filenameEl.value = tpl.name;
+    filenameEl.value = takeInitialTitle() || tpl.name;
     // Auto-substitute merge tags ({brand name}, etc.) from the customer's
     // saved brand kit. Skipped in admin mode so admins can author templates
     // with the tokens visible and intact. Customers can still hand-edit any
@@ -1124,7 +1131,7 @@
     state.templateId = null;
     state.elements = [];
     state.selectedIds = [];
-    filenameEl.value = "Untitled";
+    filenameEl.value = takeInitialTitle() || "Untitled";
     state.history = [];
     state.historyIndex = -1;
     pushHistory();
@@ -4659,7 +4666,7 @@
     state.currentPage = 0;
     state.selectedIds = [];
     state.history = []; state.historyIndex = -1;
-    if (filenameEl) filenameEl.value = "Canva import";
+    if (filenameEl) filenameEl.value = takeInitialTitle() || filenameEl.value || "Canva import";
     state.pages.forEach(function (pg) { /* nothing to preload */ });
     pushHistory();
     fullRender();
@@ -4719,23 +4726,36 @@
     const orig = state.currentPage;
     const pageImages = [];
     const comments = [];
+    const pageElements = [];   // per-page element boxes (normalised) so the
+                               // reviewer can click an element to comment on it
     for (let i = 0; i < state.pages.length; i++) {
       state.currentPage = i; // _renderDesignToCanvas draws the active page
       try {
         const c = await _renderDesignToCanvas({ transparent: false });
         pageImages.push(c.toDataURL("image/jpeg", 0.82));
       } catch (_) { pageImages.push(null); }
+      const W = (state.pages[i].canvas && state.pages[i].canvas.width) || 1080;
+      const H = (state.pages[i].canvas && state.pages[i].canvas.height) || 1350;
+      const boxes = [];
       (state.pages[i].elements || []).forEach(function (el) {
         (el.comments || []).forEach(function (cm) {
           if (!cm.resolved) comments.push({ page: i, text: cm.text });
         });
+        boxes.push({
+          id: el.id,
+          type: el.type,
+          label: el.type === "text" ? String(el.text || "").replace(/\s+/g, " ").trim().slice(0, 48) : el.type,
+          x: el.x / W, y: el.y / H, w: el.w / W, h: el.h / H,
+        });
       });
+      pageElements.push(boxes);
     }
     state.currentPage = orig;
     return {
       filename: (filenameEl && filenameEl.value) || "Design",
       pageImages: pageImages,
       comments: comments,
+      pageElements: pageElements,
     };
   };
 

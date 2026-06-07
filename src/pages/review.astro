@@ -1,13 +1,15 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 // Link-based design review. A teammate opens /review?id=<uuid> (no account),
-// sees the rasterised pages + the comments left in the studio, can add notes,
-// and Approve or Request changes. State lives in the Supabase `reviews` row.
+// sees the rasterised pages, and can ANNOTATE them visually: drop comment pins,
+// draw boxes / circles / lines / arrows / freehand, click an element to comment
+// on it — all colour-coded and linked to a note. Then Approve or Request changes.
+// State lives in the Supabase `reviews` row (annotations jsonb).
 ---
 
 <BaseLayout
   title="Review a design — TMKE"
-  description="Review a TMKE design — leave notes, then approve or request changes."
+  description="Review a TMKE design — annotate, leave notes, then approve or request changes."
   hideNav
   hideFooter
 >
@@ -24,15 +26,31 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <span class="rev-status" id="rev-status">Pending</span>
       </header>
 
+      <!-- Annotation toolbar -->
+      <div class="rev-toolbar" id="rev-toolbar">
+        <div class="rev-tools" id="rev-tools">
+          <button type="button" class="rev-tool is-active" data-tool="select" title="Select / move (V)"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M5 3l15 8-6 1.5L11 19z"/></svg></button>
+          <button type="button" class="rev-tool" data-tool="comment" title="Comment pin (C)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg></button>
+          <button type="button" class="rev-tool" data-tool="element" title="Comment on an element"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></button>
+          <span class="rev-tool-sep"></span>
+          <button type="button" class="rev-tool" data-tool="rect" title="Rectangle (R)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg></button>
+          <button type="button" class="rev-tool" data-tool="ellipse" title="Circle (O)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="7.5"/></svg></button>
+          <button type="button" class="rev-tool" data-tool="arrow" title="Arrow (A)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5M19 5h-7M19 5v7"/></svg></button>
+          <button type="button" class="rev-tool" data-tool="line" title="Line (L)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 19L19 5"/></svg></button>
+          <button type="button" class="rev-tool" data-tool="pen" title="Draw (P)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3-1 5-2 7-5 1.5-2.2 2-5 4-7 1-1 2-1 3 0s1 2 0 3c-2 2-4.8 2.5-7 4-3 2-4 4-5 7"/></svg></button>
+        </div>
+        <div class="rev-colors" id="rev-colors"></div>
+      </div>
+
       <div class="rev-body">
         <div class="rev-pages" id="rev-pages"></div>
 
         <aside class="rev-side">
           <div class="rev-notes-card">
-            <h2 class="rev-h2">Notes</h2>
+            <h2 class="rev-h2">Notes &amp; annotations</h2>
             <div class="rev-notes-list" id="rev-notes-list"></div>
             <div class="rev-add">
-              <textarea id="rev-add-text" rows="3" placeholder="Add a note for the designer…"></textarea>
+              <textarea id="rev-add-text" rows="3" placeholder="Add a general note for the designer…"></textarea>
               <button type="button" id="rev-add-btn" class="rev-add-btn">Add note</button>
             </div>
           </div>
@@ -40,10 +58,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <div class="rev-decide" id="rev-decide">
             <button type="button" id="rev-approve" class="rev-approve">Approve &amp; ready to publish</button>
             <button type="button" id="rev-changes" class="rev-changes">Request changes</button>
-            <p class="rev-decide-hint">Requesting changes? Add your notes above first.</p>
+            <p class="rev-decide-hint">Requesting changes? Add your notes/annotations first.</p>
           </div>
           <div class="rev-decided" id="rev-decided" hidden></div>
         </aside>
+      </div>
+    </div>
+
+    <!-- Floating note composer/popover (re-used for every annotation) -->
+    <div class="rev-pop" id="rev-pop" hidden>
+      <div class="rev-pop-card">
+        <span class="rev-pop-dot" id="rev-pop-dot"></span>
+        <textarea id="rev-pop-text" rows="3" placeholder="What should they change here?"></textarea>
+        <div class="rev-pop-actions">
+          <button type="button" class="rev-pop-del" id="rev-pop-del">Delete</button>
+          <button type="button" class="rev-pop-save" id="rev-pop-save">Save</button>
+        </div>
       </div>
     </div>
   </main>
@@ -52,9 +82,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .rev-page { min-height: 100vh; background: #f5f4f1; padding: clamp(24px, 5vw, 64px) clamp(16px, 4vw, 56px) 100px; }
     .rev-loading, .rev-error { font-family: var(--sans); font-size: 15px; color: rgba(28,29,34,0.6); text-align: center; margin-top: 22vh; }
     .rev-error { color: #a05a3c; }
-    .rev-error[hidden], .rev-wrap[hidden], .rev-message[hidden], .rev-decided[hidden] { display: none; }
+    .rev-error[hidden], .rev-wrap[hidden], .rev-message[hidden], .rev-decided[hidden], .rev-pop[hidden] { display: none; }
 
-    .rev-head { max-width: 1240px; margin: 0 auto 28px; }
+    .rev-head { max-width: 1240px; margin: 0 auto 18px; }
     .rev-eyebrow { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 8px; }
     .rev-title { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 5vw, 56px); letter-spacing: -0.02em; margin: 0; }
     .rev-from { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.6); margin: 8px 0 0; }
@@ -67,22 +97,69 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .rev-status.is-approved { background: rgba(46,125,82,0.14); color: #2e7d52; }
     .rev-status.is-changes { background: rgba(160,90,60,0.14); color: #a05a3c; }
 
+    /* Toolbar */
+    .rev-toolbar {
+      position: sticky; top: 10px; z-index: 30; max-width: 1240px; margin: 0 auto 18px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+      background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 999px;
+      padding: 7px 12px; box-shadow: 0 10px 30px -18px rgba(28,29,34,0.4); width: fit-content;
+    }
+    .rev-tools, .rev-colors { display: flex; align-items: center; gap: 4px; }
+    .rev-tool {
+      width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+      border: none; background: none; border-radius: 8px; cursor: pointer; color: rgba(28,29,34,0.66);
+    }
+    .rev-tool:hover { background: rgba(71,66,84,0.08); color: var(--ink); }
+    .rev-tool.is-active { background: var(--english-violet); color: #fff; }
+    .rev-tool-sep, .rev-color-sep { width: 1px; height: 22px; background: rgba(28,29,34,0.12); margin: 0 4px; }
+    .rev-colors { padding-left: 8px; border-left: 1px solid rgba(28,29,34,0.12); }
+    .rev-color {
+      width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; cursor: pointer;
+      box-shadow: 0 0 0 1px rgba(28,29,34,0.15); padding: 0;
+    }
+    .rev-color.is-active { box-shadow: 0 0 0 2px var(--ink); transform: scale(1.12); }
+
     .rev-body { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 1fr 340px; gap: clamp(20px, 3vw, 44px); align-items: start; }
     @media (max-width: 900px) { .rev-body { grid-template-columns: 1fr; } }
 
     .rev-pages { display: flex; flex-direction: column; gap: 22px; }
     .rev-page-card { position: relative; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 18px 50px -24px rgba(28,29,34,0.4); }
-    .rev-page-card img { display: block; width: 100%; height: auto; }
-    .rev-page-num { position: absolute; top: 10px; left: 12px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #fff; background: rgba(16,14,22,0.55); border-radius: 999px; padding: 3px 10px; }
+    .rev-page-card img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; }
+    .rev-page-num { position: absolute; top: 10px; left: 12px; z-index: 6; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #fff; background: rgba(16,14,22,0.55); border-radius: 999px; padding: 3px 10px; pointer-events: none; }
     .rev-page-missing { aspect-ratio: 4/5; display: flex; align-items: center; justify-content: center; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.4); background: #ecebe7; }
 
-    .rev-side { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px; }
+    /* Annotation overlays */
+    .rev-anno { position: absolute; inset: 0; z-index: 4; }
+    .rev-anno-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .rev-anno.is-draw { cursor: crosshair; }
+    .rev-anno.is-draw.tool-comment { cursor: copy; }
+    .rev-elements { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+    .rev-elements.is-on { pointer-events: auto; }
+    .rev-el-hit { position: absolute; border: 1.5px dashed rgba(71,66,84,0.5); border-radius: 4px; background: rgba(123,91,207,0.06); cursor: pointer; }
+    .rev-el-hit:hover { border-color: var(--english-violet); background: rgba(123,91,207,0.16); }
+    .rev-el-hl { position: absolute; border-radius: 4px; pointer-events: none; }
+
+    .rev-badges { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
+    .rev-badge {
+      position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
+      min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; border: 2px solid #fff;
+      color: #fff; font-family: var(--sans); font-size: 12px; font-weight: 800; line-height: 22px; text-align: center;
+      box-shadow: 0 3px 10px rgba(16,14,22,0.4);
+    }
+    .rev-badge.is-focus { animation: rev-pulse 1.1s ease 2; }
+    @keyframes rev-pulse { 0%,100% { box-shadow: 0 3px 10px rgba(16,14,22,0.4);} 50% { box-shadow: 0 0 0 7px rgba(123,91,207,0.35);} }
+
+    .rev-side { position: sticky; top: 70px; display: flex; flex-direction: column; gap: 16px; }
     .rev-notes-card, .rev-decide, .rev-decided { background: #fff; border: 1px solid rgba(28,29,34,0.08); border-radius: 12px; padding: 18px; box-shadow: 0 10px 30px -20px rgba(28,29,34,0.3); }
     .rev-h2 { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); margin: 0 0 12px; }
-    .rev-notes-list { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; margin-bottom: 12px; }
-    .rev-note { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink); padding: 10px 12px; border-radius: 8px; background: rgba(28,29,34,0.04); }
+    .rev-notes-list { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; margin-bottom: 12px; }
+    .rev-note { position: relative; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink); padding: 10px 12px 10px 30px; border-radius: 8px; background: rgba(28,29,34,0.04); }
     .rev-note small { display: block; font-size: 11px; color: rgba(28,29,34,0.45); margin-bottom: 3px; }
+    .rev-note--design { padding-left: 12px; }
     .rev-note--design small { color: var(--english-violet); }
+    .rev-note--anno { cursor: pointer; }
+    .rev-note--anno:hover { background: rgba(71,66,84,0.09); }
+    .rev-note-dot { position: absolute; left: 10px; top: 12px; width: 14px; height: 14px; border-radius: 999px; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(28,29,34,0.15); font-size: 9px; font-weight: 800; color: #fff; text-align: center; line-height: 11px; }
     .rev-note-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.4); }
     .rev-add { display: flex; flex-direction: column; gap: 8px; }
     .rev-add textarea { resize: vertical; font-family: var(--sans); font-size: 13px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; }
@@ -99,6 +176,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .rev-decide-hint { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); margin: 2px 0 0; text-align: center; }
     .rev-decided { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ink); }
     .rev-decided strong { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+
+    /* Note popover */
+    .rev-pop { position: fixed; z-index: 90; }
+    .rev-pop-card { width: 260px; background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px; padding: 12px; box-shadow: 0 22px 60px -22px rgba(28,29,34,0.5); }
+    .rev-pop-dot { display: inline-block; width: 14px; height: 14px; border-radius: 999px; margin-bottom: 8px; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(28,29,34,0.15); }
+    .rev-pop-card textarea { width: 100%; resize: vertical; font-family: var(--sans); font-size: 13px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; box-sizing: border-box; }
+    .rev-pop-card textarea:focus { outline: none; border-color: var(--english-violet); }
+    .rev-pop-actions { display: flex; justify-content: space-between; margin-top: 10px; }
+    .rev-pop-del { font-family: var(--sans); font-size: 12px; font-weight: 700; color: #a05a3c; background: none; border: none; cursor: pointer; }
+    .rev-pop-save { font-family: var(--sans); font-size: 12px; font-weight: 700; color: #fff; background: var(--english-violet); border: none; border-radius: 999px; padding: 7px 16px; cursor: pointer; }
   </style>
 
   <script>
@@ -111,11 +198,73 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     const errEl = $("rev-error");
     const wrapEl = $("rev-wrap");
 
+    const COLORS = [
+      { key: "red", hex: "#E23B3B" },
+      { key: "amber", hex: "#F0913B" },
+      { key: "green", hex: "#46C06A" },
+      { key: "blue", hex: "#2F7FE0" },
+      { key: "violet", hex: "#7B5BCF" },
+    ];
+    const SVG_NS = "http://www.w3.org/2000/svg";
+
     function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
     function fail(msg) { loadingEl.hidden = true; errEl.hidden = false; errEl.textContent = msg; }
+    function uid() { return "an_" + Math.random().toString(36).slice(2, 9); }
+    function now() { return Date.now(); }
 
     let review = null;
+    let tool = "select";
+    let color = COLORS[4].hex;          // violet default
+    let activeAnno = null;              // annotation being composed/edited in the popover
+    const pageEls = [];                 // cached page-card DOM refs
 
+    // ---------- Toolbar ----------
+    function buildColors() {
+      const wrap = $("rev-colors");
+      wrap.innerHTML = "";
+      COLORS.forEach((c) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "rev-color" + (c.hex === color ? " is-active" : "");
+        b.style.background = c.hex; b.title = c.key; b.dataset.hex = c.hex;
+        b.addEventListener("click", () => { color = c.hex; buildColors(); });
+        wrap.appendChild(b);
+      });
+    }
+    function setTool(t) {
+      tool = t;
+      $("rev-tools").querySelectorAll(".rev-tool").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === t));
+      // toggle element hit layers + draw cursor
+      pageEls.forEach((p) => {
+        if (!p) return;
+        p.anno.classList.toggle("is-draw", t !== "select");
+        p.anno.classList.toggle("tool-comment", t === "comment");
+        p.elements.classList.toggle("is-on", t === "element");
+      });
+    }
+    function wireToolbar() {
+      $("rev-tools").addEventListener("click", (e) => {
+        const b = e.target.closest(".rev-tool"); if (b) setTool(b.dataset.tool);
+      });
+      document.addEventListener("keydown", (e) => {
+        if (/INPUT|TEXTAREA/.test((e.target || {}).tagName || "")) return;
+        const map = { v: "select", c: "comment", e: "element", r: "rect", o: "ellipse", a: "arrow", l: "line", p: "pen" };
+        if (map[e.key]) setTool(map[e.key]);
+        if (e.key === "Escape") closePop();
+      });
+    }
+
+    // ---------- Annotations data ----------
+    function annos() { return review.annotations || (review.annotations = []); }
+    function annosForPage(i) { return annos().filter((a) => a.page === i); }
+    function annoNumber(a) { return annos().indexOf(a) + 1; }
+
+    async function persistAnnos() {
+      const { error } = await supabase.from("reviews").update({ annotations: annos() }).eq("id", id);
+      if (error) { console.error("[review anno]", error); alert("Couldn't save annotations: " + error.message); return false; }
+      return true;
+    }
+
+    // ---------- Rendering ----------
     function render() {
       $("rev-title").textContent = review.title || "Design";
       $("rev-from").textContent = review.requested_by_email ? ("Sent by " + review.requested_by_email) : "Sent for your review";
@@ -127,25 +276,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       else if (review.status === "changes_requested") { st.textContent = "Changes requested"; st.classList.add("is-changes"); }
       else st.textContent = "Pending review";
 
-      // Pages
-      const pagesEl = $("rev-pages");
-      pagesEl.innerHTML = (review.page_images || []).map((src, i) =>
-        '<div class="rev-page-card"><span class="rev-page-num">Page ' + (i + 1) + '</span>' +
-        (src ? '<img src="' + src + '" alt="Page ' + (i + 1) + '" />' : '<div class="rev-page-missing">Page preview unavailable</div>') +
-        '</div>'
-      ).join("") || '<div class="rev-page-missing">No pages in this design.</div>';
+      buildPages();
+      renderNotes();
 
-      // Notes — designer's in-editor comments + the reviewer's notes
-      const design = (review.design_comments || []).map((c) =>
-        '<div class="rev-note rev-note--design"><small>From the designer · Page ' + ((c.page || 0) + 1) + '</small>' + esc(c.text) + '</div>'
-      );
-      const mine = (review.review_comments || []).map((c) =>
-        '<div class="rev-note"><small>Your note</small>' + esc(c.text) + '</div>'
-      );
-      const all = design.concat(mine);
-      $("rev-notes-list").innerHTML = all.length ? all.join("") : '<p class="rev-note-empty">No notes yet.</p>';
-
-      // Decision area
       const decided = review.status && review.status !== "pending";
       $("rev-decide").hidden = decided;
       const dEl = $("rev-decided");
@@ -156,6 +289,315 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       } else { dEl.hidden = true; }
     }
 
+    function buildPages() {
+      const host = $("rev-pages");
+      host.innerHTML = "";
+      pageEls.length = 0;
+      const imgs = review.page_images || [];
+      const pageElems = review.page_elements || [];
+      if (!imgs.length) { host.innerHTML = '<div class="rev-page-missing">No pages in this design.</div>'; return; }
+
+      imgs.forEach((src, i) => {
+        const card = document.createElement("div");
+        card.className = "rev-page-card";
+        card.innerHTML = '<span class="rev-page-num">Page ' + (i + 1) + '</span>';
+        if (!src) { card.innerHTML += '<div class="rev-page-missing">Page preview unavailable</div>'; host.appendChild(card); pageEls.push(null); return; }
+
+        const img = document.createElement("img");
+        img.src = src; img.alt = "Page " + (i + 1); img.draggable = false;
+        card.appendChild(img);
+
+        // SVG shape layer
+        const anno = document.createElement("div");
+        anno.className = "rev-anno";
+        const svg = document.createElementNS(SVG_NS, "svg");
+        svg.setAttribute("class", "rev-anno-svg");
+        svg.setAttribute("viewBox", "0 0 1000 1000");
+        svg.setAttribute("preserveAspectRatio", "none");
+        anno.appendChild(svg);
+        card.appendChild(anno);
+
+        // element hit + highlight layer
+        const elements = document.createElement("div");
+        elements.className = "rev-elements";
+        card.appendChild(elements);
+
+        // badges
+        const badges = document.createElement("div");
+        badges.className = "rev-badges";
+        card.appendChild(badges);
+
+        host.appendChild(card);
+        const ref = { card, anno, svg, elements, badges, index: i, boxes: pageElems[i] || [] };
+        pageEls.push(ref);
+        wirePage(ref);
+        paintPage(ref);
+      });
+      setTool(tool); // re-apply cursor/hit-layer state
+    }
+
+    // Draw all committed shapes + badges for a page (optionally with a live draft).
+    function paintPage(ref, draft) {
+      const list = annosForPage(ref.index).concat(draft ? [draft] : []);
+      // shapes
+      ref.svg.innerHTML = "";
+      // element highlights
+      ref.elements.querySelectorAll(".rev-el-hl").forEach((n) => n.remove());
+      // badges
+      ref.badges.innerHTML = "";
+
+      list.forEach((a) => {
+        const isDraft = a === draft;
+        if (a.tool === "rect" || a.tool === "ellipse" || a.tool === "line" || a.tool === "arrow" || a.tool === "pen") {
+          if (a.tool === "arrow") ensureArrowDefs(ref, a.color);
+          ref.svg.appendChild(shapeNode(a));
+        }
+        if (a.tool === "element") {
+          const box = (ref.boxes || []).find((b) => b.id === a.elementId);
+          if (box) {
+            const hl = document.createElement("div");
+            hl.className = "rev-el-hl";
+            hl.style.left = (box.x * 100) + "%"; hl.style.top = (box.y * 100) + "%";
+            hl.style.width = (box.w * 100) + "%"; hl.style.height = (box.h * 100) + "%";
+            hl.style.boxShadow = "0 0 0 2px " + a.color;
+            hl.style.background = a.color + "22";
+            ref.elements.appendChild(hl);
+          }
+        }
+        if (!isDraft) ref.badges.appendChild(badgeNode(a));
+      });
+    }
+
+    function shapeNode(a) {
+      const p = a.pts || [];
+      const X = (n) => n * 1000, Y = (n) => n * 1000;
+      let node;
+      if (a.tool === "rect") {
+        node = document.createElementNS(SVG_NS, "rect");
+        const x = Math.min(p[0].x, p[1].x), y = Math.min(p[0].y, p[1].y);
+        node.setAttribute("x", X(x)); node.setAttribute("y", Y(y));
+        node.setAttribute("width", X(Math.abs(p[1].x - p[0].x))); node.setAttribute("height", Y(Math.abs(p[1].y - p[0].y)));
+        node.setAttribute("rx", 6); node.setAttribute("fill", "none");
+      } else if (a.tool === "ellipse") {
+        node = document.createElementNS(SVG_NS, "ellipse");
+        node.setAttribute("cx", X((p[0].x + p[1].x) / 2)); node.setAttribute("cy", Y((p[0].y + p[1].y) / 2));
+        node.setAttribute("rx", X(Math.abs(p[1].x - p[0].x) / 2)); node.setAttribute("ry", Y(Math.abs(p[1].y - p[0].y) / 2));
+        node.setAttribute("fill", "none");
+      } else if (a.tool === "line" || a.tool === "arrow") {
+        node = document.createElementNS(SVG_NS, "line");
+        node.setAttribute("x1", X(p[0].x)); node.setAttribute("y1", Y(p[0].y));
+        node.setAttribute("x2", X(p[1].x)); node.setAttribute("y2", Y(p[1].y));
+        if (a.tool === "arrow") node.setAttribute("marker-end", arrowMarker(a.color));
+      } else if (a.tool === "pen") {
+        node = document.createElementNS(SVG_NS, "polyline");
+        node.setAttribute("points", p.map((pt) => X(pt.x) + "," + Y(pt.y)).join(" "));
+        node.setAttribute("fill", "none");
+      }
+      node.setAttribute("stroke", a.color);
+      node.setAttribute("stroke-width", "3");
+      node.setAttribute("vector-effect", "non-scaling-stroke");
+      node.setAttribute("stroke-linecap", "round");
+      node.setAttribute("stroke-linejoin", "round");
+      return node;
+    }
+
+    // Unique arrowhead marker per colour (defs live in each svg).
+    function arrowMarker(hex) { return "url(#arrow-" + hex.replace("#", "") + ")"; }
+    function ensureArrowDefs(ref, hex) {
+      const mkId = "arrow-" + hex.replace("#", "");
+      if (ref.svg.querySelector("#" + mkId)) return;
+      let defs = ref.svg.querySelector("defs");
+      if (!defs) { defs = document.createElementNS(SVG_NS, "defs"); ref.svg.appendChild(defs); }
+      const m = document.createElementNS(SVG_NS, "marker");
+      m.setAttribute("id", mkId); m.setAttribute("viewBox", "0 0 10 10");
+      m.setAttribute("refX", "8"); m.setAttribute("refY", "5"); m.setAttribute("markerWidth", "6"); m.setAttribute("markerHeight", "6"); m.setAttribute("orient", "auto-start-reverse");
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", "M0,0 L10,5 L0,10 z"); path.setAttribute("fill", hex);
+      m.appendChild(path); defs.appendChild(m);
+    }
+
+    function anchorOf(a) {
+      const p = a.pts || [];
+      if (a.tool === "element") {
+        const box = ((review.page_elements || [])[a.page] || []).find((b) => b.id === a.elementId);
+        if (box) return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+      }
+      if (a.tool === "pin" || a.tool === "comment") return p[0] || { x: 0.5, y: 0.5 };
+      if (a.tool === "rect" || a.tool === "ellipse" || a.tool === "line" || a.tool === "arrow") {
+        return { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 };
+      }
+      if (a.tool === "pen" && p.length) return p[0];
+      return { x: 0.5, y: 0.5 };
+    }
+
+    function badgeNode(a) {
+      const an = anchorOf(a);
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "rev-badge"; b.dataset.id = a.id;
+      b.style.left = (an.x * 100) + "%"; b.style.top = (an.y * 100) + "%";
+      b.style.background = a.color;
+      b.textContent = annoNumber(a);
+      b.title = a.note ? a.note : "Add a note";
+      b.addEventListener("click", (e) => { e.stopPropagation(); openPop(a, e.clientX, e.clientY); });
+      return b;
+    }
+
+    // ---------- Page interaction (drawing) ----------
+    function localPoint(ref, ev) {
+      const r = ref.anno.getBoundingClientRect();
+      return {
+        x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
+        y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)),
+      };
+    }
+
+    function wirePage(ref) {
+      // element clicks → element comment
+      ref.elements.addEventListener("click", (e) => {
+        if (tool !== "element") return;
+        const hit = e.target.closest(".rev-el-hit"); if (!hit) return;
+        const elementId = hit.dataset.elid;
+        const a = { id: uid(), page: ref.index, tool: "element", color, elementId, note: "", author: "reviewer", ts: now() };
+        annos().push(a); paintPage(ref);
+        const r = hit.getBoundingClientRect();
+        openPop(a, r.left + r.width / 2, r.top + r.height / 2, true);
+      });
+      // build element hit boxes
+      (ref.boxes || []).forEach((box) => {
+        const hit = document.createElement("div");
+        hit.className = "rev-el-hit"; hit.dataset.elid = box.id;
+        hit.style.left = (box.x * 100) + "%"; hit.style.top = (box.y * 100) + "%";
+        hit.style.width = (box.w * 100) + "%"; hit.style.height = (box.h * 100) + "%";
+        hit.title = box.label || box.type;
+        ref.elements.appendChild(hit);
+      });
+
+      // drawing on the SVG layer
+      ref.anno.addEventListener("pointerdown", (ev) => {
+        if (tool === "select" || tool === "element") return;
+        ev.preventDefault();
+        ev.stopPropagation();   // don't let the pop's click-away close what we open
+        const start = localPoint(ref, ev);
+
+        if (tool === "comment") {
+          const a = { id: uid(), page: ref.index, tool: "comment", color, pts: [start], note: "", author: "reviewer", ts: now() };
+          annos().push(a); paintPage(ref);
+          openPop(a, ev.clientX, ev.clientY, true);
+          return;
+        }
+
+        const draft = { id: uid(), page: ref.index, tool, color, pts: tool === "pen" ? [start] : [start, start], note: "", author: "reviewer", ts: now() };
+        if (tool === "arrow") ensureArrowDefs(ref, color);
+        const move = (e2) => {
+          const pt = localPoint(ref, e2);
+          if (tool === "pen") draft.pts.push(pt); else draft.pts[1] = pt;
+          paintPage(ref, draft);
+        };
+        const up = (e2) => {
+          ref.anno.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+          // ignore tiny accidental drags
+          const a0 = draft.pts[0], a1 = draft.pts[draft.pts.length - 1];
+          const tiny = Math.hypot((a1.x - a0.x), (a1.y - a0.y)) < 0.01 && tool !== "pen";
+          if (tiny) { paintPage(ref); return; }
+          annos().push(draft); paintPage(ref);
+          openPop(draft, e2.clientX, e2.clientY, true);
+        };
+        ref.anno.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+      });
+    }
+
+    // ---------- Note popover ----------
+    function openPop(a, clientX, clientY, isNew) {
+      activeAnno = a;
+      const pop = $("rev-pop");
+      $("rev-pop-dot").style.background = a.color;
+      const ta = $("rev-pop-text");
+      ta.value = a.note || "";
+      pop.hidden = false;
+      // position near the click, kept on-screen
+      const pw = 284, ph = 150;
+      let left = Math.min(clientX + 12, window.innerWidth - pw - 10);
+      let top = Math.min(clientY + 12, window.innerHeight - ph - 10);
+      left = Math.max(10, left); top = Math.max(10, top);
+      pop.style.left = left + "px"; pop.style.top = top + "px";
+      setTimeout(() => ta.focus(), 30);
+      // remember if this is a freshly-created annotation not yet persisted
+      pop.dataset.fresh = isNew ? "1" : "";
+    }
+    function closePop() { $("rev-pop").hidden = true; activeAnno = null; }
+    function wirePop() {
+      $("rev-pop-save").addEventListener("click", async () => {
+        if (!activeAnno) return;
+        activeAnno.note = ($("rev-pop-text").value || "").trim();
+        await persistAnnos();
+        closePop();
+        repaintAll(); renderNotes();
+      });
+      $("rev-pop-del").addEventListener("click", async () => {
+        if (!activeAnno) return;
+        const i = annos().indexOf(activeAnno);
+        if (i >= 0) annos().splice(i, 1);
+        await persistAnnos();
+        closePop();
+        repaintAll(); renderNotes();
+      });
+      // click-away closes (and drops an empty fresh pin)
+      document.addEventListener("pointerdown", (e) => {
+        const pop = $("rev-pop");
+        if (pop.hidden) return;
+        if (pop.contains(e.target) || (e.target.closest && e.target.closest(".rev-badge"))) return;
+        // discard a brand-new annotation with no note typed
+        if (pop.dataset.fresh === "1" && activeAnno && !($("rev-pop-text").value || "").trim()) {
+          const i = annos().indexOf(activeAnno); if (i >= 0) annos().splice(i, 1);
+          repaintAll(); renderNotes();
+        }
+        closePop();
+      });
+    }
+
+    function repaintAll() { pageEls.forEach((ref) => { if (ref) paintPage(ref); }); }
+
+    // ---------- Side notes list ----------
+    function renderNotes() {
+      const rows = [];
+      // designer's in-editor comments
+      (review.design_comments || []).forEach((c) => {
+        rows.push('<div class="rev-note rev-note--design"><small>From the designer · Page ' + ((c.page || 0) + 1) + '</small>' + esc(c.text) + '</div>');
+      });
+      // annotations with notes
+      annos().forEach((a) => {
+        if (!a.note) return;
+        const who = a.author === "designer" ? "Designer" : "Reviewer";
+        rows.push(
+          '<div class="rev-note rev-note--anno" data-focus="' + a.id + '">' +
+          '<span class="rev-note-dot" style="background:' + a.color + '">' + annoNumber(a) + '</span>' +
+          '<small>' + who + ' · Page ' + (a.page + 1) + ' · ' + esc(toolLabel(a.tool)) + '</small>' +
+          esc(a.note) + '</div>'
+        );
+      });
+      // legacy plain notes
+      (review.review_comments || []).forEach((c) => {
+        rows.push('<div class="rev-note"><small>Your note</small>' + esc(c.text) + '</div>');
+      });
+      const list = $("rev-notes-list");
+      list.innerHTML = rows.length ? rows.join("") : '<p class="rev-note-empty">No notes yet — pick a tool above and mark up the design.</p>';
+      list.querySelectorAll("[data-focus]").forEach((el) => {
+        el.addEventListener("click", () => focusAnno(el.dataset.focus));
+      });
+    }
+    function toolLabel(t) { return ({ comment: "Pin", element: "Element", rect: "Box", ellipse: "Circle", line: "Line", arrow: "Arrow", pen: "Drawing" }[t]) || "Note"; }
+
+    function focusAnno(aid) {
+      const a = annos().find((x) => x.id === aid); if (!a) return;
+      const ref = pageEls[a.page]; if (!ref) return;
+      ref.card.scrollIntoView({ behavior: "smooth", block: "center" });
+      const badge = ref.badges.querySelector('[data-id="' + aid + '"]');
+      if (badge) { badge.classList.remove("is-focus"); void badge.offsetWidth; badge.classList.add("is-focus"); }
+    }
+
+    // ---------- Persist plain notes + decisions ----------
     async function persist(patch) {
       const { error } = await supabase.from("reviews").update(patch).eq("id", id);
       if (error) { alert("Couldn't save: " + error.message); return false; }
@@ -169,18 +611,26 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const ta = $("rev-add-text");
         const txt = (ta.value || "").trim();
         if (!txt) return;
-        const list = (review.review_comments || []).concat([{ text: txt, ts: Date.now() }]);
+        const list = (review.review_comments || []).concat([{ text: txt, ts: now() }]);
         if (await persist({ review_comments: list })) ta.value = "";
       });
       $("rev-approve").addEventListener("click", async () => {
         await persist({ status: "approved", decided_at: new Date().toISOString(), decision_note: null });
       });
       $("rev-changes").addEventListener("click", async () => {
-        const notes = (review.review_comments || []);
-        const note = notes.length ? notes[notes.length - 1].text : ($("rev-add-text").value || "").trim();
-        if (!note) { alert("Add a note describing the changes first."); $("rev-add-text").focus(); return; }
-        await persist({ status: "changes_requested", decided_at: new Date().toISOString(), decision_note: note });
+        const noted = annos().some((a) => a.note) || (review.review_comments || []).length;
+        const note = (review.review_comments || []).slice(-1).map((c) => c.text)[0]
+          || (annos().filter((a) => a.note).slice(-1).map((a) => a.note)[0])
+          || ($("rev-add-text").value || "").trim();
+        if (!noted && !note) { alert("Add a note or annotation describing the changes first."); $("rev-add-text").focus(); return; }
+        await persist({ status: "changes_requested", decided_at: new Date().toISOString(), decision_note: note || "See the annotations." });
       });
+    }
+
+    function boot() {
+      buildColors(); wireToolbar(); wirePop(); wire();
+      loadingEl.hidden = true; wrapEl.hidden = false;
+      render();
     }
 
     (async () => {
@@ -191,11 +641,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           requested_by_email: "danni@harbourandco.co.uk",
           message: "Quick check before this goes out — happy with the headline and the location line?",
           page_images: ["https://assets.tmke.co.uk/kitchen-1.webp", "https://assets.tmke.co.uk/living-1.webp"],
+          page_elements: [
+            [{ id: "t1", type: "text", label: "JUST LISTED", x: 0.12, y: 0.1, w: 0.5, h: 0.12 }, { id: "t2", type: "text", label: "Maple Avenue", x: 0.12, y: 0.74, w: 0.6, h: 0.1 }],
+            [{ id: "t3", type: "text", label: "Book a viewing", x: 0.2, y: 0.8, w: 0.5, h: 0.09 }],
+          ],
           design_comments: [{ page: 0, text: "Make this headline a touch bigger." }],
-          review_comments: [{ text: "Looks great — just tighten the spacing under the title." }],
+          review_comments: [],
+          annotations: [],
           status: "pending",
         };
-        loadingEl.hidden = true; wrapEl.hidden = false; render(); wire();
+        boot();
         return;
       }
       if (!id) { fail("No review id in the link."); return; }
@@ -203,10 +658,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const { data, error } = await supabase.from("reviews").select("*").eq("id", id).single();
         if (error || !data) throw (error || new Error("Not found"));
         review = data;
-        loadingEl.hidden = true;
-        wrapEl.hidden = false;
-        render();
-        wire();
+        if (!Array.isArray(review.annotations)) review.annotations = [];
+        boot();
       } catch (e) {
         console.error("[review]", e);
         fail("Couldn't load this review — the link may be wrong, or the review backend isn't set up yet.");
