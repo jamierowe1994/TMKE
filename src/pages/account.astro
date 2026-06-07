@@ -27,22 +27,22 @@ import "../styles/account-sections.css";
          active one is shown; sidebar links toggle which is visible.
          No page reload, no drawer overlay. -->
     <div class="dash-view is-active" data-view="workspace">
-    <!-- ============ Workspace header — two soft glass cards ============
-         Left: avatar + greeting + this-month headline metric + 3 mini stats.
-         Right: the rotating "jump into a new design" art. Sits on a soft
-         iridescent panel so the cards read as frosted glass. JS hooks
-         (#welcome-h, #welcome-sub, #stat-*, #welcome-art*) are unchanged. -->
+    <!-- ============ Workspace header — three separate glass boxes ============
+         Greeting · rotating photo · stats. Each is its own thin frosted card
+         floating on the light-purple page, all matched to the photo's height.
+         JS hooks (#welcome-h/#welcome-sub, #dash-views, #stat-*, #welcome-art*)
+         are unchanged. -->
     <section class="dash-top slide-down" data-d="2" aria-label="Your workspace at a glance">
-      <div class="dash-hero-card">
+      <!-- 1 · Greeting + this-month headline -->
+      <div class="dash-card dash-greet">
         <div class="dash-hero-head">
           <div class="dash-avatar" id="dash-avatar" aria-hidden="true"></div>
           <div class="dash-hero-greet">
             <p class="dash-eyebrow">This month</p>
             <h1 class="welcome-h" id="welcome-h">Welcome back, <em>let's get to work.</em></h1>
-            <p class="welcome-sub" id="welcome-sub">Your designs, packs and account in one place.</p>
           </div>
         </div>
-
+        <p class="welcome-sub" id="welcome-sub">Your designs, packs and account in one place.</p>
         <div class="dash-headline">
           <div class="dash-headline-num" id="dash-views">—</div>
           <p class="dash-headline-label">
@@ -50,30 +50,10 @@ import "../styles/account-sections.css";
             <span class="dash-info" title="An estimate based on the designs you've published this month. Connect Instagram for live figures.">&#9432;</span>
           </p>
         </div>
-
-        <div class="dash-mini">
-          <div class="dash-mini-box">
-            <span class="dash-mini-label">Active packs</span>
-            <span class="dash-mini-val" id="stat-packs">—</span>
-          </div>
-          <div class="dash-mini-box">
-            <span class="dash-mini-label">In progress</span>
-            <span class="dash-mini-val" id="stat-designs">—</span>
-          </div>
-          <div class="dash-mini-box">
-            <span class="dash-mini-label">Lifetime spend</span>
-            <span class="dash-mini-val" id="stat-spend">£0</span>
-            <span class="dash-mini-foot" id="stat-spend-foot"></span>
-          </div>
-        </div>
-
-        <a class="dash-brandchip" href="/profile">
-          <span>Brand kit · <strong id="stat-brand">—</strong></span>
-          <em>Edit &rarr;</em>
-        </a>
       </div>
 
-      <div class="dash-newdesign welcome-art" id="welcome-art" data-mode="loading">
+      <!-- 2 · Rotating "jump into a new design" photo -->
+      <div class="dash-card dash-newdesign welcome-art" id="welcome-art" data-mode="loading">
         <img id="welcome-art-img" src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
         <div class="welcome-art-overlay" id="welcome-art-overlay" hidden>
           <span class="welcome-art-eyebrow" id="welcome-art-eyebrow"></span>
@@ -84,6 +64,27 @@ import "../styles/account-sections.css";
           </a>
         </div>
         <span class="dash-newdesign-tag" id="dash-newdesign-tag">Jump into a new design <em aria-hidden="true">&rarr;</em></span>
+      </div>
+
+      <!-- 3 · Stats -->
+      <div class="dash-card dash-stats">
+        <div class="dash-stat-row">
+          <span class="dash-stat-label">Active packs</span>
+          <span class="dash-stat-val" id="stat-packs">—</span>
+        </div>
+        <div class="dash-stat-row">
+          <span class="dash-stat-label">In progress</span>
+          <span class="dash-stat-val" id="stat-designs">—</span>
+        </div>
+        <div class="dash-stat-row">
+          <span class="dash-stat-label">Lifetime spend</span>
+          <span class="dash-stat-val" id="stat-spend">£0</span>
+          <span class="dash-stat-foot" id="stat-spend-foot"></span>
+        </div>
+        <a class="dash-brandchip" href="/profile">
+          <span>Brand kit · <strong id="stat-brand">—</strong></span>
+          <em>Edit &rarr;</em>
+        </a>
       </div>
     </section>
 
@@ -558,105 +559,74 @@ import "../styles/account-sections.css";
     }
 
 
-    /* ---------- Workspace header — two soft glass cards ---------- */
-    .dash-top {
-      position: relative;
-      display: grid;
-      grid-template-columns: 1.3fr 0.92fr;
-      gap: 16px;
-      padding: 16px;
-      border-radius: 24px;
-      /* Soft iridescent panel — peach top-left, lilac top-right, blue below —
-         so the frosted cards have something colourful to blur over. */
+    /* Light-purple iridescent background for the whole dashboard. */
+    .dash-shell {
       background:
-        radial-gradient(115% 130% at 0% 0%, rgba(255, 206, 178, 0.55), transparent 46%),
-        radial-gradient(120% 130% at 100% 4%, rgba(198, 170, 232, 0.52), transparent 52%),
-        radial-gradient(150% 150% at 72% 132%, rgba(160, 192, 232, 0.5), transparent 55%),
-        linear-gradient(120deg, #f1ecf3 0%, #eef1f8 52%, #f6efe9 100%);
-      box-shadow: 0 26px 64px -34px rgba(71, 66, 84, 0.45);
-      overflow: hidden;
-    }
-    @media (max-width: 900px) { .dash-top { grid-template-columns: 1fr; } }
-
-    .dash-hero-card, .dash-newdesign {
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.58);
-      -webkit-backdrop-filter: blur(20px) saturate(1.4);
-      backdrop-filter: blur(20px) saturate(1.4);
-      border: 1px solid rgba(255, 255, 255, 0.75);
-      box-shadow: 0 12px 32px -20px rgba(71, 66, 84, 0.4);
+        radial-gradient(70% 55% at 0% 0%, rgba(255, 206, 178, 0.38), transparent 50%),
+        radial-gradient(75% 65% at 100% 0%, rgba(199, 170, 232, 0.46), transparent 55%),
+        radial-gradient(85% 75% at 60% 115%, rgba(170, 196, 236, 0.36), transparent 55%),
+        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f3eef1 100%) !important;
     }
 
-    /* Left card */
-    .dash-hero-card { padding: 26px 28px; display: flex; flex-direction: column; gap: 20px; }
-    .dash-hero-head { display: flex; align-items: center; gap: 16px; }
+    /* ---------- Workspace header — three separate thin glass boxes ---------- */
+    .dash-top {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr 0.78fr;
+      gap: 16px;
+      align-items: stretch;   /* all three match the photo's height */
+    }
+    @media (max-width: 920px) { .dash-top { grid-template-columns: 1fr; } }
+
+    /* Thin frosted card floating on the purple page — lighter than before. */
+    .dash-card {
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.46);
+      -webkit-backdrop-filter: blur(22px) saturate(1.3);
+      backdrop-filter: blur(22px) saturate(1.3);
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      box-shadow: 0 16px 40px -28px rgba(71, 66, 84, 0.5);
+    }
+
+    /* 1 · Greeting */
+    .dash-greet { padding: 24px 26px 22px; display: flex; flex-direction: column; gap: 12px; }
+    .dash-hero-head { display: flex; align-items: center; gap: 14px; }
     .dash-avatar {
       flex: 0 0 auto;
-      width: 58px; height: 58px; border-radius: 50%;
+      width: 52px; height: 52px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-family: var(--serif); font-size: 23px; font-weight: 600; color: #fff;
+      font-family: var(--serif); font-size: 21px; font-weight: 600; color: #fff;
       background: linear-gradient(140deg, #c9a7e6, #9a7bd6 55%, #f0a98a);
       box-shadow: 0 8px 20px -8px rgba(71,66,84,0.5), inset 0 0 0 2px rgba(255,255,255,0.5);
     }
     .dash-hero-greet { min-width: 0; }
     .dash-eyebrow {
       font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em;
-      text-transform: uppercase; color: var(--violet-deep); margin: 0 0 6px;
+      text-transform: uppercase; color: var(--violet-deep); margin: 0 0 5px;
     }
-    .dash-hero-card .welcome-h {
-      font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 2.4vw, 32px);
-      line-height: 1.05; letter-spacing: -0.015em; color: var(--ink); margin: 0;
+    .dash-greet .welcome-h {
+      font-family: var(--serif); font-weight: 500; font-size: clamp(22px, 2vw, 29px);
+      line-height: 1.06; letter-spacing: -0.015em; color: var(--ink); margin: 0;
     }
-    .dash-hero-card .welcome-h em { font-style: italic; color: var(--violet-deep); }
-    .dash-hero-card .welcome-sub {
-      font-family: var(--sans); font-size: 13px; line-height: 1.5;
-      color: rgba(28,29,34,0.58); margin: 6px 0 0;
+    .dash-greet .welcome-h em { font-style: italic; color: var(--violet-deep); }
+    .dash-greet .welcome-sub {
+      font-family: var(--sans); font-size: 12.5px; line-height: 1.5;
+      color: rgba(28,29,34,0.55); margin: 0;
     }
-
-    .dash-headline { margin-top: 2px; }
+    .dash-headline { margin-top: auto; }   /* sit the headline metric at the bottom */
     .dash-headline-num {
-      font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 5vw, 60px);
+      font-family: var(--serif); font-weight: 500; font-size: clamp(38px, 4.6vw, 54px);
       line-height: 1; letter-spacing: -0.02em; color: var(--ink);
     }
     .dash-headline-label {
-      font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(28,29,34,0.55);
-      margin: 8px 0 0; display: flex; align-items: center; gap: 6px;
+      font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.55);
+      margin: 8px 0 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
     }
     .dash-headline-sub { color: rgba(28,29,34,0.4); font-weight: 500; }
     .dash-info { color: rgba(28,29,34,0.35); cursor: help; font-size: 13px; }
 
-    .dash-mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .dash-mini-box {
-      display: flex; flex-direction: column; gap: 5px;
-      padding: 13px 15px; border-radius: 13px;
-      background: rgba(255,255,255,0.5);
-      border: 1px solid rgba(255,255,255,0.7);
-    }
-    .dash-mini-label {
-      font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em;
-      text-transform: uppercase; color: rgba(28,29,34,0.5);
-    }
-    .dash-mini-val {
-      font-family: var(--serif); font-size: 27px; line-height: 1; letter-spacing: -0.02em; color: var(--ink);
-    }
-    .dash-mini-foot { font-family: var(--sans); font-size: 10px; color: rgba(28,29,34,0.45); }
-
-    .dash-brandchip {
-      margin-top: auto;
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 11px 16px; border-radius: 999px;
-      background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.7);
-      font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.7); text-decoration: none;
-      transition: background 0.25s;
-    }
-    .dash-brandchip strong { color: var(--ink); font-weight: 700; }
-    .dash-brandchip em { font-style: normal; font-weight: 700; color: var(--violet-deep); }
-    .dash-brandchip:hover { background: rgba(255,255,255,0.82); }
-
-    /* Right card — rotating "new design" art (reuses #welcome-art hooks) */
+    /* 2 · Photo — sets the row height; the others stretch to match. */
     .dash-newdesign {
-      position: relative; overflow: hidden; padding: 0;
-      aspect-ratio: auto; min-height: 300px;
+      position: relative; overflow: hidden; padding: 0; min-height: 286px;
     }
     .dash-newdesign img {
       position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
@@ -664,18 +634,44 @@ import "../styles/account-sections.css";
     }
     .dash-newdesign:hover img { transform: scale(1.05); }
     .dash-newdesign-tag {
-      position: absolute; left: 16px; bottom: 16px; z-index: 2;
+      position: absolute; left: 14px; bottom: 14px; z-index: 2;
       display: inline-flex; align-items: center; gap: 8px;
-      padding: 9px 15px; border-radius: 999px;
+      padding: 8px 14px; border-radius: 999px;
       background: rgba(255,255,255,0.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase;
       color: var(--ink); pointer-events: none; transition: opacity 0.4s;
     }
     .dash-newdesign-tag em { font-style: normal; }
-    /* When the rotation surfaces its own overlay CTA, hide the persistent tag. */
     .dash-newdesign[data-mode="pack"] .dash-newdesign-tag,
     .dash-newdesign[data-mode="design"] .dash-newdesign-tag { opacity: 0; }
-    @media (max-width: 900px) { .dash-newdesign { min-height: 220px; } }
+    @media (max-width: 920px) { .dash-newdesign { min-height: 220px; } }
+
+    /* 3 · Stats — three rows that share the height, plus a brand-kit chip. */
+    .dash-stats { padding: 20px 22px 18px; display: flex; flex-direction: column; }
+    .dash-stat-row {
+      display: flex; flex-direction: column; gap: 3px;
+      flex: 1 1 0; justify-content: center; padding: 8px 2px;
+      border-bottom: 1px solid rgba(71,66,84,0.1);
+    }
+    .dash-stat-label {
+      font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5);
+    }
+    .dash-stat-val {
+      font-family: var(--serif); font-size: 30px; line-height: 1; letter-spacing: -0.02em; color: var(--ink);
+    }
+    .dash-stat-foot { font-family: var(--sans); font-size: 10px; color: rgba(28,29,34,0.45); }
+    .dash-brandchip {
+      margin-top: 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 15px; border-radius: 999px;
+      background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.7);
+      font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.7); text-decoration: none;
+      transition: background 0.25s;
+    }
+    .dash-brandchip strong { color: var(--ink); font-weight: 700; }
+    .dash-brandchip em { font-style: normal; font-weight: 700; color: var(--violet-deep); }
+    .dash-brandchip:hover { background: rgba(255,255,255,0.82); }
 
     /* ---------- Library ---------- */
     .lib-empty {
