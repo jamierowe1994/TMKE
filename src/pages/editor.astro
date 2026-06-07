@@ -545,6 +545,11 @@ const googleFonts = [
          while we transition; renderProps now targets the new pane. -->
     <aside class="ed-props" id="ed-props" hidden></aside>
 
+    <!-- Colour panel — opens over the left panel column when a colour swatch is
+         clicked. Rich picker: hex, in-design colours, brand palette, photo
+         colours, solids and gradients. Populated by editor.js. -->
+    <div class="ed-colorpanel" id="ed-colorpanel" hidden></div>
+
     <!-- Toast -->
     <div class="ed-toast" id="ed-toast" hidden></div>
 
@@ -1703,6 +1708,38 @@ const googleFonts = [
       display: flex; align-items: center; justify-content: center;
       padding: 40px;
     }
+
+    /* ---- Colour panel (left, over the panel column) ---- */
+    .ed-colorpanel {
+      position: absolute; left: 100px; top: 64px; width: 360px; bottom: 0; z-index: 40;
+      background: #fff; border-right: 1px solid rgba(28,29,34,0.08);
+      display: flex; flex-direction: column;
+      box-shadow: 8px 0 28px -18px rgba(28,29,34,0.4);
+    }
+    .ed-colorpanel[hidden] { display: none; }
+    .ed-cp-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 12px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ed-cp-title { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink); }
+    .ed-cp-close { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; cursor: pointer; font-size: 18px; color: rgba(28,29,34,0.55); }
+    .ed-cp-close:hover { background: rgba(28,29,34,0.06); color: var(--ink); }
+    .ed-cp-scroll { flex: 1; overflow-y: auto; padding: 14px 18px 28px; scrollbar-width: thin; }
+    .ed-cp-hex {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; margin-bottom: 16px;
+      font-family: var(--sans); font-size: 14px; border: 1px solid rgba(28,29,34,0.2); border-radius: 8px; background: var(--paper);
+    }
+    .ed-cp-hex:focus { outline: none; border-color: var(--english-violet); }
+    .ed-cp-sec { margin-bottom: 18px; }
+    .ed-cp-sec h5 { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 9px; }
+    .ed-cp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    .ed-cp-grid--grad { grid-template-columns: repeat(6, 1fr); }
+    .ed-cp-sw {
+      width: 100%; aspect-ratio: 1; border-radius: 50%; cursor: pointer;
+      border: 1px solid rgba(28,29,34,0.14); padding: 0; transition: transform 0.12s;
+      background-size: cover; background-position: center;
+    }
+    .ed-cp-sw:hover { transform: scale(1.12); }
+    .ed-cp-sw.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--english-violet); }
+    .ed-cp-grid--grad .ed-cp-sw { border-radius: 8px; }
+    .ed-cp-empty { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.45); }
 
     /* ---- Page strip (multi-page designs) ---- */
     .ed-pages {
@@ -3034,6 +3071,9 @@ const googleFonts = [
       if (scheduleBtn) scheduleBtn.hidden = true;          // posting is a customer action
       if (downloadWrap) downloadWrap.style.display = "none"; // buried — admins publish, not download
       if (publishBtn) publishBtn.hidden = false;
+      // Admins don't need the customer-facing help widget.
+      document.getElementById("ask-expert-trigger")?.remove();
+      document.getElementById("ask-expert-panel")?.remove();
     } else if (publishBtn) {
       publishBtn.hidden = true;
     }

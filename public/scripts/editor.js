@@ -319,6 +319,28 @@
     return wrap;
   }
 
+  // Circular swatch that opens the rich left-hand colour panel (not the OS
+  // picker). getCurrent() returns the live colour; onSolid(hex)/onGradient(g)
+  // mutate the element — render + history handled here.
+  function colorSwatchButton(getCurrent, opts) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ed-circle-swatch";
+    btn.title = opts.title || "Colour";
+    const paint = () => { btn.style.background = getCurrent() || "#000000"; };
+    paint();
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      openColorPanel({
+        title: opts.title || "Colour",
+        current: getCurrent(),
+        onSolid: function (hex) { opts.onSolid(hex); paint(); fullRender(); pushHistory(); },
+        onGradient: opts.onGradient ? function (g) { opts.onGradient(g); paint(); fullRender(); pushHistory(); } : null,
+      });
+    });
+    return btn;
+  }
+
   // Font-size control: a typeable number + a caret that drops a quick list of
   // common sizes (Canva-style). onChange(size) is called with the new value.
   const SIZE_PRESETS = [6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 80, 88, 96, 104, 120, 144];
@@ -356,6 +378,151 @@
     wrap.appendChild(pop);
     return wrap;
   }
+
+  // ---------- Colour panel ----------
+  // A rich left-hand colour picker (Canva-style): hex/search, colours already in
+  // the design, the brand palette, photo colours sampled from the design's
+  // imagery, default solids, and gradients. Replaces the native colour popup.
+  const CP_DEFAULT_SOLIDS = [
+    "#000000", "#3A3A3A", "#5C5C5C", "#8C8C8C", "#BFBFBF", "#E6E6E6", "#FFFFFF",
+    "#E23B3B", "#F06543", "#FF7AAE", "#C98BD9", "#9B6BE0", "#5B6BF0", "#2F50C9",
+    "#1C9BD1", "#16C0C8", "#3FD0A8", "#46C06A", "#9BD13E", "#F0C23B", "#F0913B",
+    "#1c1d22", "#474254", "#B9826A", "#DFDCDE", "#F2EFE9", "#BCB3B9", "#333747",
+  ];
+  const CP_DEFAULT_GRADS = [
+    { from: "#1c1d22", to: "#474254", angle: 135 },
+    { from: "#B9826A", to: "#F2EFE9", angle: 135 },
+    { from: "#5B6BF0", to: "#16C0C8", angle: 135 },
+    { from: "#F06543", to: "#F0C23B", angle: 135 },
+    { from: "#9B6BE0", to: "#FF7AAE", angle: 135 },
+    { from: "#46C06A", to: "#9BD13E", angle: 135 },
+    { from: "#1C9BD1", to: "#9B6BE0", angle: 135 },
+    { from: "#000000", to: "#5C5C5C", angle: 135 },
+    { from: "#474254", to: "#B9826A", angle: 135 },
+    { from: "#F0913B", to: "#E23B3B", angle: 135 },
+    { from: "#16C0C8", to: "#46C06A", angle: 135 },
+    { from: "#C98BD9", to: "#5B6BF0", angle: 135 },
+  ];
+
+  function normHex(v) {
+    if (!v) return null;
+    let s = String(v).trim();
+    if (/^[0-9a-f]{6}$/i.test(s)) s = "#" + s;
+    if (/^#[0-9a-f]{6}$/i.test(s)) return s.toUpperCase();
+    if (/^#[0-9a-f]{3}$/i.test(s)) {
+      return ("#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toUpperCase();
+    }
+    const named = { white: "#FFFFFF", black: "#000000", red: "#E23B3B", blue: "#2F50C9", green: "#46C06A", grey: "#8C8C8C", gray: "#8C8C8C" };
+    return named[s.toLowerCase()] || null;
+  }
+
+  // Every solid colour currently used on the active page.
+  function collectDesignColors() {
+    const seen = new Set(); const out = [];
+    const add = (c) => { const h = normHex(c); if (h && !seen.has(h)) { seen.add(h); out.push(h); } };
+    add(state.canvas.background);
+    state.elements.forEach((el) => { add(el.color); add(el.fill); add(el.stroke); add(el.svgFill); });
+    return out.slice(0, 14);
+  }
+
+  // Sample dominant colours from the design's imagery (background image + image /
+  // frame elements). Cross-origin images are loaded anonymously; a tainted draw
+  // just yields no colours for that source.
+  async function extractPhotoColors() {
+    const srcs = [];
+    if (state.canvas.backgroundImage) srcs.push(state.canvas.backgroundImage);
+    state.elements.forEach((el) => { if ((el.type === "image" || el.type === "frame") && el.src) srcs.push(el.src); });
+    const uniq = srcs.filter((s, i) => srcs.indexOf(s) === i).slice(0, 3);
+    const buckets = {};
+    for (const src of uniq) {
+      try {
+        const img = await loadImage(src);
+        const c = document.createElement("canvas");
+        c.width = 40; c.height = 40;
+        const ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, 40, 40);
+        const data = ctx.getImageData(0, 0, 40, 40).data;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 128) continue;
+          const r = data[i] & 0xE0, g = data[i + 1] & 0xE0, b = data[i + 2] & 0xE0;
+          const key = r + "," + g + "," + b;
+          buckets[key] = (buckets[key] || 0) + 1;
+        }
+      } catch (_) { /* tainted / failed load — skip */ }
+    }
+    const toHex = (n) => ("0" + n.toString(16)).slice(-2);
+    return Object.entries(buckets)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([k]) => { const [r, g, b] = k.split(",").map(Number); return ("#" + toHex(r) + toHex(g) + toHex(b)).toUpperCase(); });
+  }
+
+  function closeColorPanel() {
+    const panel = document.getElementById("ed-colorpanel");
+    if (panel) { panel.hidden = true; panel._onSolid = null; panel._onGradient = null; }
+  }
+
+  function openColorPanel(opts) {
+    const panel = document.getElementById("ed-colorpanel");
+    if (!panel) return;
+    panel._onSolid = opts.onSolid || null;
+    panel._onGradient = opts.onGradient || null;
+    const current = normHex(opts.current);
+
+    const swHtml = (c) => '<button class="ed-cp-sw' + (c === current ? " is-current" : "") + '" data-hex="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
+    const gradHtml = (g) => '<button class="ed-cp-sw" data-grad=\'' + JSON.stringify(g) + '\' style="background:linear-gradient(' + (g.angle || 135) + 'deg,' + g.from + ',' + g.to + ')" title="Gradient"></button>';
+
+    const brand = (BRAND && Array.isArray(BRAND.colors)) ? BRAND.colors.map((c) => normHex(c.hex)).filter(Boolean) : [];
+    const brandName = (BRAND && BRAND.company) ? (BRAND.company + "’s kit") : "Brand colours";
+    const design = collectDesignColors();
+
+    const sec = (title, inner) => '<div class="ed-cp-sec"><h5>' + title + '</h5>' + inner + '</div>';
+    const grid = (cells, mod) => '<div class="ed-cp-grid' + (mod || "") + '">' + cells + '</div>';
+
+    panel.innerHTML =
+      '<div class="ed-cp-head"><span class="ed-cp-title">' + (opts.title || "Colour") + '</span><button class="ed-cp-close" title="Close">&times;</button></div>' +
+      '<div class="ed-cp-scroll">' +
+        '<input class="ed-cp-hex" placeholder="Type a colour or #hex" value="' + (current || "") + '">' +
+        sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
+        sec(brandName, brand.length ? grid(brand.map(swHtml)) : '<p class="ed-cp-empty">No brand colours saved.</p>') +
+        sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') +
+        sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
+        (panel._onGradient ? sec("Gradients", grid(CP_DEFAULT_GRADS.map(gradHtml), " ed-cp-grid--grad")) : "") +
+      '</div>';
+
+    panel.hidden = false;
+
+    // Async photo colours fill in when ready.
+    extractPhotoColors().then((cols) => {
+      const slot = panel.querySelector("[data-photo]");
+      if (!slot) return;
+      slot.innerHTML = cols.length ? cols.map(swHtml).join("") : '<p class="ed-cp-empty">No photos in this design.</p>';
+    });
+  }
+
+  // One-time delegated wiring for the colour panel (its contents are rebuilt
+  // each open, so delegate from the stable root).
+  (function wireColorPanel() {
+    const panel = document.getElementById("ed-colorpanel");
+    if (!panel) return;
+    panel.addEventListener("click", (e) => {
+      if (e.target.closest(".ed-cp-close")) { closeColorPanel(); return; }
+      const sw = e.target.closest(".ed-cp-sw");
+      if (!sw) return;
+      if (sw.dataset.grad && panel._onGradient) {
+        try { panel._onGradient(JSON.parse(sw.dataset.grad)); } catch (_) {}
+      } else if (sw.dataset.hex && panel._onSolid) {
+        panel._onSolid(sw.dataset.hex);
+      }
+    });
+    panel.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const inp = e.target.closest(".ed-cp-hex");
+      if (!inp) return;
+      const h = normHex(inp.value);
+      if (h && panel._onSolid) panel._onSolid(h);
+    });
+  })();
 
   // ---------- Right-click context menu ----------
   // Replaces the in-toolbar Bring forward / Send back buttons. Right-click
@@ -1026,12 +1193,13 @@
       const hint = document.createElement("div");
       hint.className = "ed-blank-hint";
       hint.textContent = "Start building here";
-      hint.title = "Click to add a text box";
-      // Click the prompt to drop a real, editable + deletable text box (Canva-
-      // style) rather than it being a stuck, undeletable label.
+      hint.title = "Click to edit";
+      // Click the prompt to turn it into a real, editable text box that already
+      // contains "Start building here" (select-all, so typing replaces it) —
+      // rather than dropping a tiny separate body text box.
       hint.addEventListener("click", function (e) {
         e.stopPropagation();
-        addText("body");
+        addPlaceholderText();
       });
       canvasEl.appendChild(hint);
     }
@@ -1511,6 +1679,7 @@
       if (!state.selectedIds.includes(el.id)) {
         if (multi) state.selectedIds.push(el.id);
         else state.selectedIds = [el.id];
+        closeColorPanel(); // a different element is now selected
         fullRender();
       } else if (multi) {
         state.selectedIds = state.selectedIds.filter((x) => x !== el.id);
@@ -1525,12 +1694,24 @@
         ev.stopPropagation();
         startTextEdit(node, el);
       });
+      // Click-to-edit: the first click selects (a full re-render replaces this
+      // node, so this handler won't fire then); a second click on the already-
+      // selected box drops the caret where you clicked — no double-click needed.
+      node.addEventListener("click", (ev) => {
+        if (el.locked || node.classList.contains("is-editing")) return;
+        if (ev.shiftKey || _dragMoved) return;
+        if (state.selectedIds.length === 1 && state.selectedIds[0] === el.id) {
+          startTextEdit(node, el, { x: ev.clientX, y: ev.clientY });
+        }
+      });
     }
   }
 
   let dragging = null;
+  let _dragMoved = false; // true if the last pointer gesture actually moved an element
   function startDrag(ev) {
     ev.preventDefault();
+    _dragMoved = false;
     const startX = ev.clientX, startY = ev.clientY;
     const initial = selectedElements().map((e) => ({ id: e.id, x: e.x, y: e.y }));
     let moved = false;
@@ -1538,7 +1719,7 @@
     function onMove(e) {
       const dx = (e.clientX - startX) / state.zoom;
       const dy = (e.clientY - startY) / state.zoom;
-      if (!moved && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) moved = true;
+      if (!moved && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) { moved = true; _dragMoved = true; }
       initial.forEach((m) => {
         const el = getEl(m.id);
         if (!el) return;
@@ -1602,6 +1783,9 @@
         el.y = handle.includes("n") ? Math.round(o.y + o.h - el.h) : o.y;
         partialRenderElement(el);
         renderHandles();
+        // Live size readout in the context bar so you can see the number change.
+        const sizeInput = document.querySelector("#ed-context .ed-size-ctl .ed-ctx-num");
+        if (sizeInput) sizeInput.value = el.size;
         return;
       }
 
@@ -1720,14 +1904,63 @@
     });
   }
 
+  // A large, centred, editable "Start building here" text box — what the blank
+  // hint becomes on click (text pre-selected so typing replaces it).
+  function addPlaceholderText() {
+    const cw = state.canvas.width, ch = state.canvas.height;
+    const w = Math.min(900, cw - 120);
+    addElement({
+      type: "text", text: "Start building here",
+      font: "Cormorant Garamond", size: 64, weight: 500, italic: false,
+      color: textContrastColor(state.canvas.background),
+      align: "center", letterSpacing: 0, lineHeight: 1.1,
+      x: Math.round((cw - w) / 2), y: Math.round(ch / 2 - 64), w: w, h: 128,
+      rotation: 0, opacity: 1,
+    });
+    requestAnimationFrame(() => {
+      const id = state.selectedIds[0];
+      const node = canvasEl.querySelector('.ed-element[data-id="' + id + '"]');
+      if (node) startTextEdit(node, getEl(id)); // select-all, ready to type over
+    });
+  }
+
+  // Pick black or white text for legibility against a (possibly hex) background.
+  function textContrastColor(bg) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(bg || "").trim());
+    if (!m) return "#1c1d22";
+    const n = parseInt(m[1], 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.55 ? "#1c1d22" : "#FFFFFF";
+  }
+
   // ---------- Text editing ----------
-  function startTextEdit(node, el) {
+  function startTextEdit(node, el, point) {
     const inner = node.querySelector(".ed-text-inner");
     if (!inner) return;
     node.classList.add("is-editing");
     inner.contentEditable = "true";
     inner.focus();
-    document.execCommand("selectAll", false, null);
+    // Click-to-edit places the caret where you clicked; double-click / new box
+    // selects everything.
+    let placed = false;
+    if (point) {
+      try {
+        let range = null;
+        if (document.caretRangeFromPoint) {
+          range = document.caretRangeFromPoint(point.x, point.y);
+        } else if (document.caretPositionFromPoint) {
+          const pos = document.caretPositionFromPoint(point.x, point.y);
+          if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); range.collapse(true); }
+        }
+        if (range && inner.contains(range.startContainer)) {
+          const sel = window.getSelection();
+          sel.removeAllRanges(); sel.addRange(range);
+          placed = true;
+        }
+      } catch (_) { /* fall back to select-all */ }
+    }
+    if (!placed) document.execCommand("selectAll", false, null);
 
     // Grow (or shrink) the box live as lines are added/removed, and keep the
     // selection outline glued to it.
@@ -1761,12 +1994,14 @@
   canvasEl.addEventListener("pointerdown", (ev) => {
     if (ev.target === canvasEl) {
       state.selectedIds = [];
+      closeColorPanel();
       fullRender();
     }
   });
   stageEl.addEventListener("pointerdown", (ev) => {
     if (ev.target === stageEl || ev.target === shadowEl) {
       state.selectedIds = [];
+      closeColorPanel();
       fullRender();
     }
   });
@@ -2570,6 +2805,7 @@
     if (!body) return;
 
     if (state.selectedIds.length !== 1) {
+      closeColorPanel();
       body.innerHTML = state.selectedIds.length > 1
         ? '<p class="ed-selection-empty">' + state.selectedIds.length + ' elements selected.</p>'
         : '';
@@ -3169,14 +3405,24 @@
       });
       ctxEl.appendChild(g3);
 
-      // Colour — circular swatch, no label (Canva-style).
+      // Colour — opens the rich left-hand colour panel (solid or gradient).
       const g4 = group();
-      g4.appendChild(circleColorInput(el.color, function (hex) { el.color = hex; }, "Text colour"));
+      g4.appendChild(colorSwatchButton(
+        function () { return el.color; },
+        {
+          title: "Text colour",
+          onSolid: function (hex) { el.color = hex; el.textGradient = null; },
+          onGradient: function (g) { el.textGradient = { enabled: true, type: "linear", angle: g.angle || 135, from: g.from, to: g.to }; },
+        }
+      ));
       ctxEl.appendChild(g4);
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
-      // Fill — circle swatch
+      // Fill — opens the rich colour panel.
       const g = group();
-      g.appendChild(circleColorInput(el.fill, function (hex) { el.fill = hex; }, "Fill"));
+      g.appendChild(colorSwatchButton(
+        function () { return el.fill; },
+        { title: "Fill", onSolid: function (hex) { el.fill = hex; } }
+      ));
       ctxEl.appendChild(g);
 
       // Stroke — icon-only trigger; click opens a popover with colour
