@@ -546,23 +546,27 @@
     }
 
     const items = [
-      // Z-order
-      { label: "Bring forward",   action: function () { bringForward(); } },
-      { label: "Send back",       action: function () { sendBack(); } },
-      { label: "Bring to front",  action: function () { bringToFront(); } },
-      { label: "Send to back",    action: function () { sendToBack(); } },
-      { divider: true },
-      // Align (snaps the element to a canvas edge / centre, not a sibling)
-      { label: "Align left",      action: function () { alignSelected("left"); } },
-      { label: "Align centre",    action: function () { alignSelected("centerX"); } },
-      { label: "Align right",     action: function () { alignSelected("right"); } },
-      { label: "Align top",       action: function () { alignSelected("top"); } },
-      { label: "Align middle",    action: function () { alignSelected("centerY"); } },
-      { label: "Align bottom",    action: function () { alignSelected("bottom"); } },
-      { divider: true },
-      // Flip — works on any element but is most useful for images.
-      { label: "Flip horizontal", action: function () { flipSelected("h"); } },
-      { label: "Flip vertical",   action: function () { flipSelected("v"); } },
+      // Z-order — collapsed into a hover fly-out so the menu isn't a wall of
+      // options you rarely need all at once.
+      { label: "Layer", submenu: [
+        { label: "Bring forward",  action: function () { bringForward(); } },
+        { label: "Send back",      action: function () { sendBack(); } },
+        { label: "Bring to front", action: function () { bringToFront(); } },
+        { label: "Send to back",   action: function () { sendToBack(); } },
+      ] },
+      // Align to the page — fly-out submenu.
+      { label: "Align to page", submenu: [
+        { label: "Left",   action: function () { alignSelected("left"); } },
+        { label: "Centre", action: function () { alignSelected("centerX"); } },
+        { label: "Right",  action: function () { alignSelected("right"); } },
+        { label: "Top",    action: function () { alignSelected("top"); } },
+        { label: "Middle", action: function () { alignSelected("centerY"); } },
+        { label: "Bottom", action: function () { alignSelected("bottom"); } },
+      ] },
+      { label: "Flip", submenu: [
+        { label: "Horizontal", action: function () { flipSelected("h"); } },
+        { label: "Vertical",   action: function () { flipSelected("v"); } },
+      ] },
       { divider: true },
       { label: "Copy",            hint: "Ctrl+C", action: function () { copySelectedToClipboard(); } },
       { label: "Duplicate",       hint: "Ctrl+D", action: function () { duplicateSelected(); } },
@@ -599,8 +603,19 @@
       items.push({ label: "Clear background image", action: function () { setCanvasBackgroundImage(null); } });
     }
 
+    let subIdx = 0;
+    const subDefs = [];
     ctxMenu.innerHTML = items.map(function (it) {
       if (it.divider) return '<div class="ed-rclick-divider"></div>';
+      if (it.submenu) {
+        const id = subIdx++;
+        subDefs.push({ id: id, submenu: it.submenu });
+        return (
+          '<button type="button" class="ed-rclick-item has-sub" data-sub="' + id + '">' +
+            '<span>' + it.label + '</span><span class="ed-rclick-arrow">&rsaquo;</span>' +
+          '</button>'
+        );
+      }
       return (
         '<button type="button" class="ed-rclick-item' + (it.danger ? ' is-danger' : '') + '">' +
           '<span>' + it.label + '</span>' +
@@ -609,25 +624,53 @@
       );
     }).join("");
 
+    // Fly-out panels (one per submenu) — appended after the list so they sit on
+    // top and are positioned beside their parent item on hover.
+    subDefs.forEach(function (def) {
+      const fl = document.createElement("div");
+      fl.className = "ed-rclick-flyout";
+      fl.dataset.flyout = def.id;
+      fl.innerHTML = def.submenu.map(function (s) {
+        return '<button type="button" class="ed-rclick-item"><span>' + s.label + '</span></button>';
+      }).join("");
+      ctxMenu.appendChild(fl);
+      const sbtns = fl.querySelectorAll(".ed-rclick-item");
+      def.submenu.forEach(function (s, k) {
+        sbtns[k].addEventListener("click", function () { hideContextMenu(); s.action(); });
+      });
+    });
+
     // Position with a small offset; if it would overflow the viewport, flip.
     const w = 220;
-    const h = items.length * 32 + 16;
+    const h = items.length * 34 + 16;
     const px = Math.min(x + 2, window.innerWidth - w - 8);
     const py = Math.min(y + 2, window.innerHeight - h - 8);
     ctxMenu.style.left = px + "px";
     ctxMenu.style.top = py + "px";
     ctxMenu.hidden = false;
 
-    // Wire up — re-query because we just innerHTML'd.
-    const buttons = ctxMenu.querySelectorAll(".ed-rclick-item");
+    const closeFlyouts = function () { ctxMenu.querySelectorAll(".ed-rclick-flyout").forEach(function (f) { f.classList.remove("is-open"); }); };
+    const flipLeft = (ctxMenu.getBoundingClientRect().right + 180 > window.innerWidth);
+
+    // Wire top-level items (direct-child buttons only — not the fly-out buttons).
+    const topBtns = ctxMenu.querySelectorAll(":scope > .ed-rclick-item");
     let i = 0;
     items.forEach(function (it) {
       if (it.divider) return;
-      const btn = buttons[i++];
-      btn.addEventListener("click", function () {
-        hideContextMenu();
-        it.action();
-      });
+      const btn = topBtns[i++];
+      if (it.submenu) {
+        const fl = ctxMenu.querySelector('.ed-rclick-flyout[data-flyout="' + btn.dataset.sub + '"]');
+        btn.addEventListener("mouseenter", function () {
+          closeFlyouts();
+          if (!fl) return;
+          fl.style.top = (btn.offsetTop - 6) + "px";
+          fl.classList.toggle("flip-left", flipLeft);
+          fl.classList.add("is-open");
+        });
+      } else {
+        btn.addEventListener("mouseenter", closeFlyouts);
+        btn.addEventListener("click", function () { hideContextMenu(); it.action(); });
+      }
     });
   }
 
