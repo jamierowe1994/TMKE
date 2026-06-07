@@ -36,10 +36,15 @@ create trigger reviews_set_updated_at
 -- ============================================================
 alter table public.reviews enable row level security;
 
+-- Insert is allowed for anon + authenticated: the studio sender may be a
+-- signed-in admin OR a signed-in customer, and the whole flow is secured by the
+-- unguessable UUID link, not by the row's owner. (Allowing anon too means the
+-- insert never trips RLS if the request isn't carrying the session.)
 drop policy if exists "reviews insert authed" on public.reviews;
-create policy "reviews insert authed"
+drop policy if exists "reviews insert" on public.reviews;
+create policy "reviews insert"
   on public.reviews for insert
-  to authenticated
+  to anon, authenticated
   with check (true);
 
 drop policy if exists "reviews read" on public.reviews;

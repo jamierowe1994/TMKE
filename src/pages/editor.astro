@@ -1607,8 +1607,10 @@ const googleFonts = [
       background: #fff; cursor: pointer; font-size: 10px; color: rgba(28,29,34,0.6);
     }
     .ed-size-caret:hover { background: var(--paper); color: var(--ink); }
+    /* Fixed + high z-index so it always floats over the top of the canvas
+       (JS positions it under the caret). */
     .ed-size-pop {
-      position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+      position: fixed; z-index: 320;
       width: 84px; max-height: 280px; overflow-y: auto;
       background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px;
       box-shadow: 0 16px 40px -16px rgba(28,29,34,0.4); padding: 5px;
@@ -1620,7 +1622,7 @@ const googleFonts = [
       background: none; border: none; border-radius: 5px; cursor: pointer;
     }
     .ed-size-opt:hover { background: rgba(71,66,84,0.09); }
-    .ed-size-opt.is-current { color: var(--english-violet); font-weight: 700; }
+    .ed-size-opt.is-current { color: var(--english-violet); font-weight: 700; background: rgba(71,66,84,0.1); }
     /* Legacy square colour input — kept for any callers we haven't migrated
        to the circular swatch yet. New code should use .ed-circle-swatch. */
     .ed-ctx-color {
@@ -1912,8 +1914,10 @@ const googleFonts = [
       background: #ecebe7;
       border-top: 1px solid rgba(28,29,34,0.08);
       overflow-x: auto; overflow-y: hidden;
-      scrollbar-width: thin;
+      /* No visible scrollbar — hover + mouse-wheel scrolls the pages (wired in JS). */
+      scrollbar-width: none; -ms-overflow-style: none;
     }
+    .ed-pages::-webkit-scrollbar { width: 0; height: 0; display: none; }
     .ed-pages:empty { display: none; }
     .ed-page-tile {
       position: relative; flex: 0 0 auto;
@@ -2784,6 +2788,7 @@ const googleFonts = [
   -->
   <script type="module">
     import { supabase } from '../lib/supabase.js';
+    import { isAdminUser } from '../lib/admin-gate.js';
 
     const params = new URLSearchParams(location.search);
     const wantAdmin = params.get('mode') === 'admin';
@@ -2794,6 +2799,10 @@ const googleFonts = [
         // Not signed in — bounce to admin login, preserve where we wanted to go.
         const next = encodeURIComponent(location.pathname + location.search);
         location.replace(`/admin/login?next=${next}`);
+      } else if (!(await isAdminUser(session.user))) {
+        // Signed in but not an admin (e.g. a customer poking at ?mode=admin) —
+        // never load the admin studio chrome or templates for them.
+        location.replace('/admin/login?denied=1');
       } else {
         // Pull all admin-visible templates and replace the static JSON blob.
         const { data: rows, error } = await supabase
@@ -3408,6 +3417,15 @@ const googleFonts = [
       // Admins don't need the customer-facing help widget.
       document.getElementById("ask-expert-trigger")?.remove();
       document.getElementById("ask-expert-panel")?.remove();
+      // Keep navigation INSIDE the admin section — the studio's back arrow / logo
+      // / onboarding "Back" otherwise point at /account and /, bouncing admins
+      // out to the customer login.
+      const backLink = document.querySelector(".ed-back");
+      if (backLink) { backLink.setAttribute("href", "/admin/templates"); backLink.setAttribute("title", "Back to templates"); }
+      const logoLink = document.querySelector(".ed-logo");
+      if (logoLink) logoLink.setAttribute("href", "/admin");
+      const onboardBack = document.getElementById("ed-onboard-back");
+      if (onboardBack) { onboardBack.setAttribute("href", "/admin"); onboardBack.setAttribute("aria-label", "Back to admin"); }
     } else if (publishBtn) {
       publishBtn.hidden = true;
     }
