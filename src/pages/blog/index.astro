@@ -55,7 +55,11 @@ function fmtDate(iso) {
           {colUp.map((p) => (
             <a class="ins-item" href={`/blog/${p.slug}`}>
               <h3 class="ins-item-title">{p.title}</h3>
-              <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
+              <div class="ins-item-media">
+                {p.video
+                  ? <video autoplay muted loop playsinline preload="metadata" poster={p.hero}><source src={p.video} type="video/mp4" /></video>
+                  : <img src={p.hero} alt={p.title} loading="lazy" />}
+              </div>
               <p class="ins-item-brief">{p.standfirst}</p>
             </a>
           ))}
@@ -64,7 +68,11 @@ function fmtDate(iso) {
           {colDown.map((p) => (
             <a class="ins-item" href={`/blog/${p.slug}`}>
               <h3 class="ins-item-title">{p.title}</h3>
-              <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
+              <div class="ins-item-media">
+                {p.video
+                  ? <video autoplay muted loop playsinline preload="metadata" poster={p.hero}><source src={p.video} type="video/mp4" /></video>
+                  : <img src={p.hero} alt={p.title} loading="lazy" />}
+              </div>
               <p class="ins-item-brief">{p.standfirst}</p>
             </a>
           ))}
@@ -198,15 +206,20 @@ function fmtDate(iso) {
     .ins-item-media {
       aspect-ratio: 4 / 3;
       overflow: hidden;
-      border-radius: 14px;
+      border-radius: 22px;            /* clearly rounded — the left blocks */
       background: rgba(28, 29, 34, 0.06);
       margin-bottom: 12px;
+      /* keep the rounded corners crisp while the inner media scales on hover */
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
+      isolation: isolate;
     }
-    .ins-item-media img {
+    .ins-item-media img,
+    .ins-item-media video {
       width: 100%; height: 100%; object-fit: cover; display: block;
       transition: transform 1.4s cubic-bezier(.2, .7, .2, 1);
     }
-    .ins-item:hover .ins-item-media img { transform: scale(1.05); }
+    .ins-item:hover .ins-item-media img,
+    .ins-item:hover .ins-item-media video { transform: scale(1.05); }
 
     .ins-item-brief {
       font-family: var(--sans);

@@ -336,6 +336,294 @@ export const STATIC_POSTS = [
       <p>This audit takes thirty minutes and improves your inbound rate within a week. Most agents don't run it once a year. The ones who run it once a quarter are quietly winning the instructions.</p>
     `,
   },
+
+  // ══════════════════════════════════════════════════════════════════
+  // INTERIM IMAGERY NOTE: the seven posts below use existing R2 property
+  // photos as placeholders (assets.tmke.co.uk/*.webp). Swap each `hero` (and
+  // add `video:` where wanted) to the client's newly-uploaded R2 files once the
+  // filenames are confirmed — one unique image/video per post, no reuse.
+  // ══════════════════════════════════════════════════════════════════
+
+  {
+    slug: "hyperlocal-facebook-groups-win-instructions",
+    title: "How hyperlocal Facebook groups quietly win instructions",
+    eyebrow: "Community · Local marketing",
+    category: "Strategy",
+    standfirst:
+      "Almost every village and neighbourhood in the UK has its own Facebook group — and most agents ignore them. Done right, they're the warmest, most trusted route to local instructions there is.",
+    hero: "https://assets.tmke.co.uk/white-1.webp",
+    date: "2026-04-12",
+    readTime: 6,
+    keywords: [
+      "estate agent facebook group",
+      "local community marketing property",
+      "hyperlocal estate agency",
+      "village facebook group estate agent",
+    ],
+    body: `
+      <p class="lede">Open Facebook and search your patch — the village, the estate, the postcode. You'll almost always find a group: "Cobham Community," "Life in Sevenoaks," "Spotters of [your town]." A few thousand locals, posting about lost cats, road closures, school fairs, and recommendations. This is the most trusted marketing channel in your area, and most agents never touch it.</p>
+
+      <h2>Why these groups matter so much</h2>
+      <p>Estate agency is a hyperlocal, high-trust business. People don't instruct a stranger with a megaphone — they instruct the agent the neighbour mentioned, the one who sponsored the summer fête, the face they recognise from the group. A village Facebook group is where that trust is built in public, slowly, before anyone is thinking about moving.</p>
+
+      <blockquote>You're not trying to sell to the group. You're trying to become a known, useful, local face — so that when someone <em>does</em> decide to sell, you're the obvious call.</blockquote>
+
+      <h2>The rules of the road</h2>
+      <p>These groups have admins, and they have a finely-tuned allergy to advertising. Drop a listing with a phone number and you'll be removed by lunchtime. The whole game is being a genuine local first and an agent a distant second.</p>
+      <ul>
+        <li><strong>Be a person, not a brand.</strong> Post from your own profile, not the agency page. People connect with Jamie who lives two villages over, not "TMKE Property Ltd."</li>
+        <li><strong>Give before you take.</strong> Local market snippets, "what sold and for how much" without the hard sell, answers to "is now a good time to sell?" questions. Be the helpful one.</li>
+        <li><strong>Show up offline too.</strong> The school fair, the quiz night, the litter pick. The group is the digital shadow of a real community — be in both.</li>
+        <li><strong>Read the room on promotion.</strong> Most groups allow a genuine local business an occasional, tasteful post. Earn it first, ask the admin, keep it rare.</li>
+      </ul>
+
+      <h2>The compounding effect</h2>
+      <p>One helpful comment does nothing. Six months of being the recognisable, generous local face in three or four area groups builds something no boosted post can buy: you become "our" agent in the minds of a few thousand people who haven't moved yet — but one day will. When that day comes, you're not competing on fee. You're already the trusted name.</p>
+
+      <p>It costs nothing but time and genuine presence. In a business built on local trust, that's the highest return on effort available.</p>
+    `,
+  },
+
+  {
+    slug: "the-follow-method-done-properly",
+    title: "The follow method, done properly (and without the spam)",
+    eyebrow: "Growth · Social media",
+    category: "Content",
+    standfirst:
+      "Following local accounts to grow your own is one of the oldest tactics in the book — and one of the most abused. Here's how to use it deliberately to build a genuinely local audience, not a vanity number.",
+    hero: "https://assets.tmke.co.uk/orange-1.webp",
+    date: "2026-04-08",
+    readTime: 5,
+    keywords: [
+      "grow instagram following estate agent",
+      "follow unfollow method property",
+      "local audience social media",
+      "estate agent instagram growth",
+    ],
+    body: `
+      <p class="lede">The follow method gets a bad name because most people do it badly: mass-follow a thousand random accounts, unfollow them all a week later, repeat. That's spam, the platforms throttle it, and it builds an audience of no one. Done with intent, though, deliberately following the <em>right</em> local accounts is still one of the most effective ways to build a genuinely local following.</p>
+
+      <h2>The point is relevance, not volume</h2>
+      <p>A property business doesn't need 50,000 followers in Manila. It needs 2,000 followers who live within ten miles. The follow method, used properly, is simply a way to put yourself in front of the right local people and let the genuinely interested ones follow back.</p>
+
+      <h2>How to do it deliberately</h2>
+      <ul>
+        <li><strong>Build a target list.</strong> Local cafés, gyms, schools, interiors shops, community groups, "things to do in [town]" accounts. Follow the businesses, then the people who engage with them.</li>
+        <li><strong>Engage before you follow.</strong> A thoughtful comment on a local café's post does more than a silent follow. You become a familiar name in the local feed.</li>
+        <li><strong>Keep it human and slow.</strong> Ten to twenty intentional follows a day, not two hundred. The platforms reward natural behaviour and punish bursts.</li>
+        <li><strong>Don't mass-unfollow.</strong> The aggressive follow-then-dump cycle is what tanks accounts. If you followed relevant local accounts, why would you want to unfollow them? Keep the ones that matter.</li>
+      </ul>
+
+      <blockquote>Following is just the knock on the door. What makes someone follow back — and stay — is content worth following.</blockquote>
+
+      <h2>It only works on top of good content</h2>
+      <p>This is the part everyone skips. The follow method gets eyes on your profile; your grid decides whether they stay. If your last nine tiles are nine identical listing cards, a curious local takes one look and leaves. Pair deliberate local following with a feed that has a face, a voice, and useful local content, and you'll grow a small, dense, genuinely local audience — which, in property, is worth a hundred times more than a big anonymous one.</p>
+    `,
+  },
+
+  {
+    slug: "how-long-to-build-a-property-following",
+    title: "How long it really takes to build a property following",
+    eyebrow: "Strategy · Expectations",
+    category: "Strategy",
+    standfirst:
+      "Everyone wants the audience; almost no one is told the honest timeline. Here's what actually happens, month by month, when an estate agent commits to building a social presence properly.",
+    hero: "https://assets.tmke.co.uk/living-2.webp",
+    date: "2026-04-03",
+    readTime: 6,
+    keywords: [
+      "how long to grow social media following",
+      "estate agent social media timeline",
+      "building an audience property",
+      "realistic social media growth",
+    ],
+    body: `
+      <p class="lede">The single biggest reason estate agents quit social media is a mismatch of expectations. They post consistently for six weeks, see little, and conclude it doesn't work. The truth is that the timeline for building a real, local, trust-based following is measured in quarters, not weeks — and it follows a fairly predictable curve.</p>
+
+      <h2>Month 0–2: the quiet build</h2>
+      <p>Almost nothing visible happens. You're posting into what feels like a void. Numbers barely move. This is normal and it is not failure — you are laying down the back catalogue and the habit. The work here is establishing a voice and a cadence you can actually keep.</p>
+
+      <h2>Month 3–4: the first signals</h2>
+      <p>Comments start. A DM here and there. Someone mentions they "saw your post." The algorithm has enough consistent data to start showing your content beyond your existing followers. This is the stage most people never reach because they quit in month two.</p>
+
+      <blockquote>The agents who win aren't the ones with the best content. They're the ones who were still posting in month four.</blockquote>
+
+      <h2>Month 5–8: compounding</h2>
+      <p>Now the back catalogue is doing work. New followers binge old posts. Recognisability kicks in — people have seen your face enough times that it registers as trust. The first "I've been watching your stuff for a while and we're thinking of selling" message arrives. This is the inflection point.</p>
+
+      <h2>Month 9–12: the asset</h2>
+      <p>By the end of a year of consistent, person-led posting, you have something an agency logo can't buy: a local audience that knows your face, trusts your read on the market, and thinks of you first. Inbound enquiries become a steady trickle rather than a fluke.</p>
+
+      <h2>The honest summary</h2>
+      <ul>
+        <li><strong>Weeks 1–8:</strong> build the habit. Expect silence.</li>
+        <li><strong>Months 3–4:</strong> first real signals. Don't quit here.</li>
+        <li><strong>Months 5–8:</strong> compounding and first enquiries.</li>
+        <li><strong>Months 9–12:</strong> a genuine local asset.</li>
+      </ul>
+
+      <p>None of this works without consistency, and none of it works fast. But twelve months of steady, person-led posting reliably beats two years of stop-start brilliance. The agents who treat it as a slow build, not a quick campaign, are the ones still standing when it pays off.</p>
+    `,
+  },
+
+  {
+    slug: "five-video-editing-tools-for-estate-agents",
+    title: "Five video editing tools every estate agent should know",
+    eyebrow: "Toolkit · Video",
+    category: "Content",
+    standfirst:
+      "Video earns the reach, but the editing is where most agents get stuck. These five tools cover everything from a thirty-second phone reel to a polished property film — most of them free to start.",
+    hero: "https://assets.tmke.co.uk/kitchen-2.webp",
+    date: "2026-03-28",
+    readTime: 5,
+    keywords: [
+      "video editing tools estate agents",
+      "best video editing apps property",
+      "property reel editing",
+      "estate agent video software",
+    ],
+    body: `
+      <p class="lede">You don't need a production company to make video that performs — you need the right tool for the job and the discipline to actually publish. Here are five we'd put in any estate agent's kit, from "edit on the train home" to "proper property film."</p>
+
+      <h2>1. CapCut — the everyday workhorse</h2>
+      <p>Free, fast, and built for exactly the vertical, captioned, social-first video the platforms reward. Auto-captions, trendy templates, easy text and music. If you make one reel a week on your phone, this is almost certainly all you need. Start here.</p>
+
+      <h2>2. Adobe Premiere Rush — a step up, still simple</h2>
+      <p>When you outgrow CapCut and want more control over colour, audio, and multi-clip edits without learning full Premiere Pro, Rush is the bridge. Works across phone and desktop, syncs projects, and produces a noticeably more "finished" result.</p>
+
+      <h2>3. DaVinci Resolve — free, but properly powerful</h2>
+      <p>The free version of Resolve is genuinely professional-grade, particularly for colour. If you're filming polished property walkthroughs and want them to look cinematic — the warm, graded look that makes an interior sing — this is the tool. Steeper learning curve, worth it for hero content.</p>
+
+      <blockquote>Match the tool to the job: CapCut for the weekly reel, Resolve for the property film. Don't open the cinema camera to cut a thirty-second clip.</blockquote>
+
+      <h2>4. Descript — editing by editing the words</h2>
+      <p>Descript transcribes your video and lets you edit it like a document — delete a sentence, the footage goes with it. For talking-head content (the trust-building piece-to-camera), it's a revelation. It also strips out "ums" automatically. A huge time-saver for agents who talk to camera.</p>
+
+      <h2>5. Canva — the quick-and-cohesive option</h2>
+      <p>Not a deep editor, but for stitching clips, adding on-brand text and your colours, and turning a few phone snaps into a tidy listing reel, it's fast and keeps everything consistent with the rest of your brand. Best when speed and brand-consistency matter more than fine control.</p>
+
+      <h2>The honest advice</h2>
+      <p>Pick one, learn it properly, and ship. The agent who masters CapCut and posts weekly will always beat the one who bought the expensive software and never published. The tool is not the bottleneck — the publishing habit is.</p>
+    `,
+  },
+
+  {
+    slug: "filming-a-property-walkthrough-on-your-phone",
+    title: "Filming a property walkthrough on just your phone",
+    eyebrow: "How-to · Video",
+    category: "Content",
+    standfirst:
+      "You don't need a gimbal, a drone, or a videographer to make a walkthrough that sells. You need a phone, a bit of technique, and a repeatable routine. Here's the whole thing.",
+    hero: "https://assets.tmke.co.uk/white-2.webp",
+    date: "2026-03-22",
+    readTime: 6,
+    keywords: [
+      "property walkthrough video phone",
+      "how to film a house tour",
+      "estate agent video tips",
+      "phone property videography",
+    ],
+    body: `
+      <p class="lede">The best property video isn't always the most expensive one. A confident, well-lit, steady phone walkthrough — with a real agent talking through the home — often outperforms a glossy drone production, because it feels honest and human. Here's how to shoot one that actually moves a buyer.</p>
+
+      <h2>Before you press record</h2>
+      <ul>
+        <li><strong>Open every curtain and turn on every light.</strong> Light is everything. A bright room photographs and films twice as well as a dim one.</li>
+        <li><strong>Tidy ruthlessly.</strong> Clear surfaces, square the cushions, hide the bins. The camera exaggerates clutter.</li>
+        <li><strong>Plan the route.</strong> Walk the home the way a buyer would experience it — in the front door, through to the heart of the house, finish on the best feature.</li>
+        <li><strong>Wipe the lens.</strong> The single most common reason phone footage looks foggy. Ten seconds, every time.</li>
+      </ul>
+
+      <h2>Shooting technique</h2>
+      <p>Hold the phone in both hands, elbows tucked into your body for stability, and <em>walk heel-to-toe</em>, slowly, like you're carrying a full cup of coffee. Move the camera deliberately — slow pans, no whip-arounds. Film in landscape for the website and portrait for social; if in doubt, shoot a vertical pass for reels and a horizontal pass for the listing.</p>
+
+      <blockquote>Slow and steady reads as premium. Fast and shaky reads as amateur — even in a beautiful home.</blockquote>
+
+      <h2>The agent-led version</h2>
+      <p>The version that builds your brand as well as selling the house is the one with you in it. Walk and talk: "Through here is the kitchen — and this is the bit everyone falls for…" It's harder, it takes a couple of takes, and it's worth it. A face and a voice turn a property tour into a piece of personal-brand content that works long after the house is sold.</p>
+
+      <h2>A simple, repeatable routine</h2>
+      <p>Natural light, lens wiped, both hands, slow heel-to-toe, best feature last, one vertical pass and one horizontal. Edit in CapCut, add captions, keep it under sixty seconds for social. Do it on every instruction and within a month you'll have a body of work — and a noticeably stronger feed — for the price of fifteen extra minutes per viewing.</p>
+    `,
+  },
+
+  {
+    slug: "the-reviews-engine-google-business-profile",
+    title: "The reviews engine most agents are leaving switched off",
+    eyebrow: "Local SEO · Reputation",
+    category: "Strategy",
+    standfirst:
+      "Before a vendor calls, they Google you — and what they find is your star rating. A steady stream of recent, genuine reviews is the cheapest, highest-trust marketing an agency can build. Most agents barely touch it.",
+    hero: "https://assets.tmke.co.uk/orange-2.webp",
+    date: "2026-03-16",
+    readTime: 5,
+    keywords: [
+      "google reviews estate agent",
+      "google business profile property",
+      "estate agency reputation marketing",
+      "local seo estate agents",
+    ],
+    body: `
+      <p class="lede">A prospective vendor's research almost always includes one quiet step: they type your name into Google. What surfaces — your star rating, your recent reviews, your map pin — is doing more to win or lose the instruction than most of your paid marketing. And it's largely free.</p>
+
+      <h2>Why reviews punch above their weight</h2>
+      <p>Property is a high-stakes, infrequent, trust-led purchase. A vendor choosing between agents reads reviews the way they'd read references for a builder. A wall of recent, specific, five-star reviews does more to reassure them than any brochure. It's social proof at the exact moment of decision.</p>
+
+      <h2>Google Business Profile is the centre of it</h2>
+      <p>Your Google Business Profile is the listing that shows up when someone searches your agency or "estate agents near me." It feeds the map, the star rating, and the reviews. Claiming it, completing it fully, and keeping it active is the single highest-leverage local-SEO move an agency can make — and it's free.</p>
+
+      <ul>
+        <li><strong>Claim and complete it.</strong> Photos, hours, services, a real description. A complete profile ranks higher and converts better.</li>
+        <li><strong>Ask for reviews systematically.</strong> Not "leave us a review if you fancy it" — a built-in step at completion, with a direct link, every single time.</li>
+        <li><strong>Make it effortless.</strong> A short link or QR code that lands straight on the review box. Every extra click loses you reviews.</li>
+        <li><strong>Reply to all of them.</strong> Every review, good or bad, gets a warm, human reply. It signals you care and it feeds the ranking.</li>
+      </ul>
+
+      <blockquote>Recency matters as much as the average. Twenty reviews from this year beats a hundred from 2019.</blockquote>
+
+      <h2>The handling-the-bad-one rule</h2>
+      <p>You'll get the occasional unfair review. Don't panic and don't argue. A calm, professional, brief reply — "I'm sorry your experience fell short; we'd genuinely like to put it right, please call us" — reassures the hundred future readers far more than a defensive essay. The reply is for the audience, not the reviewer.</p>
+
+      <p>Switch the reviews engine on, make asking a habit at the end of every transaction, and within a year you'll have the kind of recent, specific, five-star wall that quietly wins the close calls.</p>
+    `,
+  },
+
+  {
+    slug: "showing-up-offline-local-events",
+    title: "Showing up offline: why local events still win online",
+    eyebrow: "Community · Brand",
+    category: "Branding",
+    standfirst:
+      "The most effective property marketing isn't always on a screen. The summer fête, the quiz night, the school fair — being a real, recognisable local face is what makes all your online content land.",
+    hero: "https://assets.tmke.co.uk/table.webp",
+    date: "2026-03-10",
+    readTime: 5,
+    keywords: [
+      "estate agent community marketing",
+      "local events estate agency",
+      "sponsorship estate agent",
+      "offline marketing property",
+    ],
+    body: `
+      <p class="lede">In a business obsessed with reach and algorithms, it's easy to forget the oldest truth in estate agency: people instruct the agent they know and like. And the fastest way to be known and liked locally is still to turn up — in person, in the community, where your future clients actually live.</p>
+
+      <h2>Offline and online aren't separate</h2>
+      <p>The agent who sponsors the village cricket team, runs a stand at the summer fête, and judges the school's poster competition isn't doing "old-fashioned" marketing instead of social — they're doing the thing that makes the social work. Every local who meets you in person and then sees your face in their feed gets a double hit of familiarity. The offline presence is what gives the online presence its trust.</p>
+
+      <blockquote>Online builds reach. Offline builds the relationships that turn reach into instructions.</blockquote>
+
+      <h2>What actually works</h2>
+      <ul>
+        <li><strong>Sponsor things people love.</strong> The youth football kit, the fête, the village hall quiz. Visible, community-first, not a hard sell.</li>
+        <li><strong>Show up as a person.</strong> Behind the stand, in the photos, shaking hands. Send the agent whose personal brand you're building, not a leaflet.</li>
+        <li><strong>Bring it back to the feed.</strong> Film and photograph the event (with permission), and your content becomes "here's us at the fête," not "here's another listing." Community content out-performs sales content every time.</li>
+        <li><strong>Tie it to the local groups.</strong> The same village Facebook group that talks about the fête will happily see the local agent who sponsored it. Offline and online reinforce each other.</li>
+      </ul>
+
+      <h2>The compounding local brand</h2>
+      <p>One event does little. A year of being the recognisable, generous local presence — at the events, in the groups, on the feed — builds a brand that no national agency can replicate, because it's rooted in a place and a person. In a hyperlocal business, being genuinely <em>of</em> the community is the most durable competitive advantage there is.</p>
+    `,
+  },
 ];
 
 // Back-compat — pages that haven't been moved to the async helpers yet.
