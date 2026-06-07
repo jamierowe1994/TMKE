@@ -172,16 +172,29 @@ const googleFonts = [
           </svg>
           Schedule
         </button>
-        <button class="ed-btn-ghost" id="ed-share" title="Share to your socials">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="18" cy="5" r="3"/>
-            <circle cx="6" cy="12" r="3"/>
-            <circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-          Share
-        </button>
+        <div class="ed-share" id="ed-share-wrap">
+          <button class="ed-btn-ghost" id="ed-share-trigger" aria-haspopup="menu" aria-expanded="false" title="Share">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Share
+            <span class="ed-share-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="ed-share-menu" id="ed-share-menu" role="menu" hidden>
+            <button class="ed-share-item" id="ed-share-review" role="menuitem">
+              <strong>Send for review…</strong>
+              <span>Ask a teammate to check &amp; approve before publishing</span>
+            </button>
+            <button class="ed-share-item" id="ed-share-image" role="menuitem">
+              <strong>Share / save image</strong>
+              <span>Web share, or download a PNG of this page</span>
+            </button>
+          </div>
+        </div>
         <!-- Publish — admin only; shown via JS when ?mode=admin. -->
         <button class="ed-btn-solid" id="ed-publish" hidden>Publish</button>
         <div class="ed-download" id="ed-download">
@@ -1794,6 +1807,59 @@ const googleFonts = [
     .ed-cp-grid--grad .ed-cp-sw { width: 40px; height: 28px; border-radius: 6px; }
     .ed-cp-empty { flex: 1 1 100%; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.45); white-space: nowrap; margin: 0; }
 
+    /* ---- Share dropdown ---- */
+    .ed-share { position: relative; }
+    .ed-share-caret { font-size: 9px; margin-left: 2px; color: rgba(28,29,34,0.5); }
+    .ed-share-menu {
+      position: absolute; top: calc(100% + 8px); right: 0; z-index: 80;
+      min-width: 280px; background: #fff; border: 1px solid rgba(28,29,34,0.12);
+      border-radius: 12px; box-shadow: 0 18px 50px -12px rgba(28,29,34,0.4); padding: 6px;
+    }
+    .ed-share-menu[hidden] { display: none; }
+    .ed-share-item {
+      display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+      padding: 10px 12px; background: transparent; border: none; border-radius: 8px; cursor: pointer;
+    }
+    .ed-share-item:hover { background: rgba(71,66,84,0.08); }
+    .ed-share-item strong { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
+    .ed-share-item span { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); }
+
+    /* ---- Send-for-review modal ---- */
+    .ed-rev-scrim {
+      position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center;
+      padding: 24px; background: rgba(16,14,22,0.55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      opacity: 0; transition: opacity 0.2s ease;
+    }
+    .ed-rev-scrim.is-open { opacity: 1; }
+    .ed-rev {
+      width: 100%; max-width: 460px; background: var(--paper); color: var(--ink);
+      border-radius: 16px; padding: 32px 34px 26px; box-shadow: 0 30px 80px -20px rgba(16,14,22,0.6);
+      transform: translateY(12px) scale(0.98); transition: transform 0.22s cubic-bezier(.16,1,.3,1);
+    }
+    .ed-rev-scrim.is-open .ed-rev { transform: none; }
+    .ed-rev-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 10px; }
+    .ed-rev-title { font-family: var(--serif); font-weight: 400; font-size: 30px; letter-spacing: -0.015em; margin: 0 0 8px; }
+    .ed-rev-title em { font-style: italic; color: var(--english-violet); }
+    .ed-rev-sub { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.65); margin: 0 0 20px; }
+    .ed-rev-label { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 14px 0 7px; }
+    .ed-rev-label span { font-weight: 500; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); }
+    .ed-rev-email, .ed-rev-msg {
+      width: 100%; box-sizing: border-box; padding: 12px 14px; font-family: var(--sans); font-size: 15px;
+      border: 1px solid rgba(28,29,34,0.2); border-radius: 8px; background: #fff; color: var(--ink);
+    }
+    .ed-rev-msg { resize: vertical; }
+    .ed-rev-email:focus, .ed-rev-msg:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(71,66,84,0.12); }
+    .ed-rev-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+    .ed-rev-cancel, .ed-rev-send { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; padding: 12px 24px; border-radius: 999px; cursor: pointer; border: 1px solid transparent; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+    .ed-rev-cancel { background: transparent; color: rgba(28,29,34,0.6); border-color: rgba(28,29,34,0.2); }
+    .ed-rev-cancel:hover { color: var(--ink); border-color: rgba(28,29,34,0.45); }
+    .ed-rev-send { background: var(--english-violet); color: var(--paper); }
+    .ed-rev-send:hover { background: var(--ink); }
+    .ed-rev-status { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: #2e7d52; margin: 14px 0 0; }
+    .ed-rev-status.is-error { color: #a05a3c; }
+    .ed-rev-status[hidden] { display: none; }
+    .ed-rev-status a { color: var(--english-violet); word-break: break-all; }
+
     /* ---- Page strip (multi-page designs) ---- */
     .ed-pages {
       grid-area: pages;
@@ -3395,6 +3461,88 @@ const googleFonts = [
         drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-drag"); importZip(e.dataTransfer.files[0]); });
       }
     }
+  </script>
+
+  <!-- Share menu: "Send for review" (ask a teammate to approve) or share/save
+       the image. The review request stores the design + reviewer in Supabase;
+       the reviewer's viewing experience is the next pass. -->
+  <script>
+    import { supabase } from "../lib/supabase.js";
+
+    const shareWrap = document.getElementById("ed-share-wrap");
+    const shareTrigger = document.getElementById("ed-share-trigger");
+    const shareMenu = document.getElementById("ed-share-menu");
+    const reviewItem = document.getElementById("ed-share-review");
+
+    function closeShareMenu() { if (shareMenu) shareMenu.hidden = true; if (shareTrigger) shareTrigger.setAttribute("aria-expanded", "false"); }
+    if (shareTrigger) {
+      shareTrigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = shareMenu.hidden;
+        shareMenu.hidden = !open;
+        shareTrigger.setAttribute("aria-expanded", String(open));
+      });
+      document.addEventListener("click", (e) => { if (!shareWrap.contains(e.target)) closeShareMenu(); });
+      shareMenu.querySelectorAll(".ed-share-item").forEach((b) => b.addEventListener("click", closeShareMenu));
+    }
+
+    function openReviewModal() {
+      const scrim = document.createElement("div");
+      scrim.className = "ed-rev-scrim";
+      scrim.innerHTML = `
+        <div class="ed-rev" role="dialog" aria-modal="true">
+          <div class="ed-rev-eyebrow">Send for review</div>
+          <h2 class="ed-rev-title">Ask a teammate <em>to take a look.</em></h2>
+          <p class="ed-rev-sub">They'll be able to open this design, leave comments, then approve it or send it back with changes.</p>
+          <label class="ed-rev-label">Teammate's email</label>
+          <input type="email" class="ed-rev-email" placeholder="name@agency.co.uk" autocomplete="email" />
+          <label class="ed-rev-label">Message <span>(optional)</span></label>
+          <textarea class="ed-rev-msg" rows="3" placeholder="Anything you'd like them to focus on?"></textarea>
+          <div class="ed-rev-actions">
+            <button type="button" class="ed-rev-cancel">Cancel</button>
+            <button type="button" class="ed-rev-send">Send for review</button>
+          </div>
+          <p class="ed-rev-status" hidden></p>
+        </div>`;
+      document.body.appendChild(scrim);
+      const close = () => { scrim.classList.remove("is-open"); setTimeout(() => scrim.remove(), 200); };
+      scrim.querySelector(".ed-rev-cancel").addEventListener("click", close);
+      scrim.addEventListener("mousedown", (e) => { if (e.target === scrim) close(); });
+      const status = scrim.querySelector(".ed-rev-status");
+      const setStatus = (m, err) => { status.hidden = false; status.textContent = m; status.classList.toggle("is-error", !!err); };
+
+      scrim.querySelector(".ed-rev-send").addEventListener("click", async () => {
+        const email = scrim.querySelector(".ed-rev-email").value.trim();
+        const msg = scrim.querySelector(".ed-rev-msg").value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setStatus("Enter a valid email for your teammate.", true); return; }
+        if (typeof window.__TMKE_PUBLISH_DATA__ !== "function") { setStatus("Editor isn't ready — try again.", true); return; }
+        setStatus("Sending…");
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const design = await window.__TMKE_PUBLISH_DATA__();
+          const { data, error } = await supabase.from("reviews").insert({
+            title: design.filename || "Design",
+            pages: design.pages,
+            cover_url: null,
+            reviewer_email: email,
+            message: msg || null,
+            requested_by: session ? session.user.id : null,
+            requested_by_email: session ? session.user.email : null,
+            status: "pending",
+          }).select("id").single();
+          if (error) throw error;
+          const link = location.origin + "/review/" + data.id;
+          status.innerHTML = "Sent ✓ — share this link with " + email + ":<br><a href=\"" + link + "\">" + link + "</a>";
+          status.hidden = false; status.classList.remove("is-error");
+        } catch (err) {
+          console.error("[review]", err);
+          if (/relation .*reviews.* does not exist/i.test(err.message || "")) setStatus("Review backend isn't set up yet — run supabase/reviews.sql.", true);
+          else setStatus("Couldn't send: " + (err.message || err), true);
+        }
+      });
+      requestAnimationFrame(() => { scrim.classList.add("is-open"); scrim.querySelector(".ed-rev-email").focus(); });
+    }
+    if (reviewItem) reviewItem.addEventListener("click", openReviewModal);
   </script>
 
   <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
