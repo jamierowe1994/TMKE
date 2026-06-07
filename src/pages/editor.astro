@@ -1487,6 +1487,29 @@ const googleFonts = [
       border-radius: 4px; background: #fff;
       text-align: center;
     }
+    /* Font-size control: number input + caret with a quick-pick dropdown */
+    .ed-size-ctl { position: relative; display: inline-flex; align-items: center; }
+    .ed-size-ctl .ed-ctx-num { width: 56px; border-radius: 4px 0 0 4px; border-right: none; }
+    .ed-size-caret {
+      height: 30px; width: 22px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 0 4px 4px 0;
+      background: #fff; cursor: pointer; font-size: 10px; color: rgba(28,29,34,0.6);
+    }
+    .ed-size-caret:hover { background: var(--paper); color: var(--ink); }
+    .ed-size-pop {
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+      width: 84px; max-height: 280px; overflow-y: auto;
+      background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px;
+      box-shadow: 0 16px 40px -16px rgba(28,29,34,0.4); padding: 5px;
+    }
+    .ed-size-pop[hidden] { display: none; }
+    .ed-size-opt {
+      display: block; width: 100%; text-align: left; padding: 7px 12px;
+      font-family: var(--sans); font-size: 14px; color: var(--ink);
+      background: none; border: none; border-radius: 5px; cursor: pointer;
+    }
+    .ed-size-opt:hover { background: rgba(71,66,84,0.09); }
+    .ed-size-opt.is-current { color: var(--english-violet); font-weight: 700; }
     /* Legacy square colour input — kept for any callers we haven't migrated
        to the circular swatch yet. New code should use .ed-circle-swatch. */
     .ed-ctx-color {
@@ -1693,9 +1716,13 @@ const googleFonts = [
       color: rgba(255, 255, 255, 0.92);
       text-align: center;
       padding: 0 8%;
-      pointer-events: none;
+      /* Clickable: a click drops a real, editable + deletable text box here. */
+      pointer-events: auto;
+      cursor: text;
       user-select: none;
+      transition: opacity 0.2s;
     }
+    .ed-blank-hint:hover { opacity: 0.65; }
     .ed-element {
       position: absolute;
       box-sizing: border-box;
@@ -1740,12 +1767,16 @@ const googleFonts = [
       pointer-events: none;
       transform-origin: center center;
     }
+    /* High-contrast selection colour — must stand out over any photo, so a
+       bright blue with a white halo rather than the muted brand violet. */
+    .ed-stage { --ed-select: #1F8BFF; }
     .ed-handle {
       position: absolute;
-      width: 10px; height: 10px;
+      width: 11px; height: 11px;
       background: #fff;
-      border: 1.5px solid var(--english-violet);
+      border: 2px solid var(--ed-select);
       border-radius: 50%;
+      box-shadow: 0 0 0 1.5px rgba(255,255,255,0.9), 0 1px 4px rgba(0,0,0,0.35);
       pointer-events: auto;
       cursor: nwse-resize;
       z-index: 50;
@@ -1754,15 +1785,16 @@ const googleFonts = [
     .ed-handle[data-h="e"], .ed-handle[data-h="w"] { cursor: ew-resize; }
     .ed-handle[data-h="ne"], .ed-handle[data-h="sw"] { cursor: nesw-resize; }
     .ed-handle[data-h="rot"] {
-      width: 14px; height: 14px;
+      width: 15px; height: 15px;
       border-radius: 50%;
-      background: var(--english-violet);
+      background: var(--ed-select);
       border-color: #fff;
       cursor: grab;
     }
     .ed-bounds {
       position: absolute;
-      border: 1.5px solid var(--english-violet);
+      border: 2px solid var(--ed-select);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.85);
       pointer-events: none;
       box-sizing: border-box;
     }
@@ -2922,6 +2954,12 @@ const googleFonts = [
       if (selectedPack) {
         try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify(selectedPack)); }
         catch (_) { /* ignore */ }
+        // Load the pack's designs into the editor so they're ready to edit the
+        // moment the overlay clears. Falls back to the full library if the pack
+        // has no linked templates yet (real packs until the DB link lands).
+        if (typeof window.__TMKE_OPEN_PACK__ === "function") {
+          window.__TMKE_OPEN_PACK__(selectedPack.templateIds || []);
+        }
       }
       overlay.classList.add("is-leaving");
       // Wait for fade, then hide entirely and start the sequence.
@@ -2965,7 +3003,53 @@ const googleFonts = [
       grid.insertAdjacentElement("afterend", cell);
     }
 
+    // Dev-only preview: visit /editor?demo=1 under `astro dev` to fill the
+    // pack-picker with a few gifted example packs (no Supabase needed). This
+    // is gated on import.meta.env.DEV so it can NEVER ship to production.
+    // Demo packs carry real library template ids so clicking one opens its
+    // designs in the studio (see __TMKE_OPEN_PACK__ in editor.js).
+    const DEMO_PACKS = [
+      { id: "demo-just-listed", slug: "just-listed-spring", title: "Just Listed — Spring", category: "Listings", cover_image_url: "https://assets.tmke.co.uk/kitchen-1.webp", templateIds: ["tmpl-01", "tmpl-02", "tmpl-13", "tmpl-14", "tmpl-17", "tmpl-26"] },
+      { id: "demo-sold", slug: "sold-celebrating", title: "Sold & Celebrating", category: "Milestones", cover_image_url: "https://assets.tmke.co.uk/living-1.webp", templateIds: ["tmpl-04", "tmpl-16", "tmpl-20", "tmpl-25"] },
+      { id: "demo-market", slug: "market-update", title: "Market Update", category: "Insights", cover_image_url: "https://assets.tmke.co.uk/orange-1.webp", templateIds: ["tmpl-09", "tmpl-18", "tmpl-28"] },
+      { id: "demo-team", slug: "meet-the-team", title: "Meet the Team", category: "Brand", cover_image_url: "https://assets.tmke.co.uk/white-1.webp", templateIds: ["tmpl-10", "tmpl-12", "tmpl-24", "tmpl-29"] },
+    ];
+    const DEMO_UNOWNED = [
+      { id: "demo-open-house", slug: "open-house", title: "Open House", category: "Listings", cover_image_url: "https://assets.tmke.co.uk/table.webp" },
+      { id: "demo-testimonials", slug: "testimonials", title: "Testimonials", category: "Social proof", cover_image_url: "https://assets.tmke.co.uk/vibes.webp" },
+    ];
+
+    function wirePackGrid(owned) {
+      grid.addEventListener("click", (e) => {
+        const btn = e.target instanceof Element ? e.target.closest("[data-pack-id]") : null;
+        if (!btn) return;
+        const id = btn.getAttribute("data-pack-id");
+        const pack = owned.find((p) => p.id === id);
+        closeOverlayAndBuild(pack);
+      });
+    }
+
     (async () => {
+      // Admin mode is not the customer pack-picker flow — admins design fresh.
+      // Skip the onboarding overlay entirely and reveal the studio straight away
+      // (editor.js loads the requested template, blank for a new one).
+      if (new URLSearchParams(location.search).get("mode") === "admin") {
+        overlay.classList.add("is-gone");
+        editor.classList.remove("is-onboarding");
+        editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
+        return;
+      }
+
+      const isDemo = import.meta.env.DEV && new URLSearchParams(location.search).has("demo");
+      if (isDemo) {
+        loading.hidden = true;
+        grid.innerHTML = DEMO_PACKS.map(packCard).join("");
+        grid.hidden = false;
+        renderMoreCell(DEMO_UNOWNED);
+        wirePackGrid(DEMO_PACKS);
+        return;
+      }
+
       // Who's signed in — drives which packs they already own.
       const { data: { session } } = await supabase.auth.getSession();
       const email = session?.user?.email || "";
@@ -3015,14 +3099,7 @@ const googleFonts = [
       grid.innerHTML = owned.map(packCard).join("");
       grid.hidden = false;
       renderMoreCell(unowned);
-
-      grid.addEventListener("click", (e) => {
-        const btn = e.target instanceof Element ? e.target.closest("[data-pack-id]") : null;
-        if (!btn) return;
-        const id = btn.getAttribute("data-pack-id");
-        const pack = owned.find((p) => p.id === id);
-        closeOverlayAndBuild(pack);
-      });
+      wirePackGrid(owned);
     })();
   </script>
 

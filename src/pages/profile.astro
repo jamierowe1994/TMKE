@@ -3,19 +3,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import DashSidebar from "../components/account/DashSidebar.astro";
 import "../styles/workspace.css";
 import "../styles/account-sections.css";
-
-const FONTS = [
-  "Cormorant Garamond",
-  "Darker Grotesque",
-  "Georgia",
-  "Times New Roman",
-  "Helvetica",
-  "Arial",
-  "Inter",
-  "Trebuchet MS",
-  "Verdana",
-  "Courier New",
-];
 ---
 
 <BaseLayout
@@ -31,110 +18,141 @@ const FONTS = [
       <header class="welcome">
         <p class="welcome-eyebrow">Brand kit</p>
         <h1 class="welcome-h">Your <em>brand kit.</em></h1>
-        <p class="welcome-sub">Your colours, fonts and logos &mdash; saved once, ready on every design.</p>
+        <p class="welcome-sub">Your colours, fonts and logos &mdash; saved automatically, ready on every design.</p>
+        <span class="brand-save" id="brand-save" data-state="idle">
+          <span class="brand-save-dot" aria-hidden="true"></span>
+          <span class="brand-save-text">All changes saved</span>
+        </span>
       </header>
 
       <form id="brand-form" class="profile-wrap">
     <p class="profile-firstrun" id="profile-firstrun" hidden>
-      First time in? Take a minute to load your brand. You can change any of it later from this page.
+      First time in? Take a minute to load your brand. Everything saves as you go &mdash; no need to hit a button.
     </p>
 
-    <!-- Company -->
-    <section class="profile-section">
-      <header class="profile-section-head">
-        <div>
-          <div class="eyebrow">01</div>
-          <h2>Company</h2>
-        </div>
-        <p>Used on internal exports and inside the editor.</p>
-      </header>
-      <div class="profile-row">
-        <label class="profile-field profile-field--full">
-          <span>Company name</span>
-          <input type="text" name="company" placeholder="The Agency Co." />
-        </label>
-      </div>
-    </section>
-
-    <!-- Colours -->
-    <section class="profile-section">
-      <header class="profile-section-head">
-        <div>
-          <div class="eyebrow">02</div>
-          <h2>Brand colours</h2>
-        </div>
-        <p>Pick up to six. These appear as quick-swatches inside the editor.</p>
-      </header>
-
-      <div class="colour-grid" id="colour-grid">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <div class="colour-slot" data-i={i}>
-            <label class="colour-tile">
-              <input type="color" data-colour-picker={i} value={["#1c1d22","#474254","#B9826A","#DFDCDE","#F2EFE9","#FFFFFF"][i]} />
-              <span class="colour-tile-fill" data-colour-fill={i} style={`background:${["#1c1d22","#474254","#B9826A","#DFDCDE","#F2EFE9","#FFFFFF"][i]}`}></span>
+    <div class="brand-grid">
+      <!-- LEFT: company + logos -->
+      <div class="brand-col">
+        <!-- Company -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">01</div>
+              <h2>Company</h2>
+            </div>
+            <p>Used on internal exports and inside the editor.</p>
+          </header>
+          <div class="profile-row">
+            <label class="profile-field profile-field--full">
+              <span>Company name</span>
+              <div class="field-wrap">
+                <input type="text" name="company" placeholder="The Agency Co." autocomplete="organization" />
+                <span class="field-ok" id="company-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
+              </div>
             </label>
-            <input type="text" class="colour-hex" data-colour-hex={i} maxlength="7" value={["#1c1d22","#474254","#B9826A","#DFDCDE","#F2EFE9","#FFFFFF"][i]} />
-            <input type="text" class="colour-name" data-colour-name={i} placeholder={`Colour 0${i+1}`} />
-            <button type="button" class="colour-clear" data-colour-clear={i} title="Clear">&times;</button>
           </div>
-        ))}
-      </div>
-    </section>
+        </section>
 
-    <!-- Typography -->
-    <section class="profile-section">
-      <header class="profile-section-head">
-        <div>
-          <div class="eyebrow">03</div>
-          <h2>Typography</h2>
-        </div>
-        <p>Your heading and body fonts. The editor pins these to the top of the font menu.</p>
-      </header>
+        <!-- Logos -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">02</div>
+              <h2>Logos</h2>
+            </div>
+            <p>Drop your wordmark, monogram and variants. PNGs with transparent backgrounds work best.</p>
+          </header>
 
-      <div class="profile-row">
-        <label class="profile-field">
-          <span>Heading font</span>
-          <select name="headingFont">
-            {FONTS.map((f) => <option value={f} selected={f === "Cormorant Garamond"}>{f}</option>)}
-          </select>
-        </label>
-        <label class="profile-field">
-          <span>Body font</span>
-          <select name="bodyFont">
-            {FONTS.map((f) => <option value={f} selected={f === "Darker Grotesque"}>{f}</option>)}
-          </select>
-        </label>
+          <label class="logo-drop" id="logo-drop">
+            <input type="file" id="logo-input" accept="image/*" multiple hidden />
+            <strong>Click to upload</strong>
+            <span>or drag your logo files here</span>
+          </label>
+
+          <div class="logo-grid" id="logo-grid"></div>
+        </section>
       </div>
 
-      <div class="type-preview" id="type-preview">
-        <div class="type-preview-h">Headline goes here.</div>
-        <div class="type-preview-b">A short paragraph in your body face — used for captions, CTAs and the readable bits.</div>
+      <!-- RIGHT: colours + typography -->
+      <div class="brand-col">
+        <!-- Colours -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">03</div>
+              <h2>Brand colours</h2>
+            </div>
+            <p>Pick up to six. These appear as quick-swatches inside the editor.</p>
+          </header>
+
+          <div class="colour-grid" id="colour-grid">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div class="colour-slot" data-i={i}>
+                <label class="colour-tile">
+                  <input type="color" data-colour-picker={i} value={["#1c1d22","#474254","#B9826A","#DFDCDE","#F2EFE9","#FFFFFF"][i]} />
+                  <span class="colour-tile-fill" data-colour-fill={i} style={`background:${["#1c1d22","#474254","#B9826A","#DFDCDE","#F2EFE9","#FFFFFF"][i]}`}></span>
+                </label>
+                <input type="text" class="colour-hex" data-colour-hex={i} maxlength="7" value={["#1c1d22","#474254","#B9826A","#DFDCDE","#F2EFE9","#FFFFFF"][i]} />
+                <input type="text" class="colour-name" data-colour-name={i} placeholder={`Colour 0${i+1}`} />
+                <button type="button" class="colour-clear" data-colour-clear={i} title="Clear">&times;</button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <!-- Typography -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">04</div>
+              <h2>Typography</h2>
+            </div>
+            <p>Search the full Google Fonts library. Set a heading and a body face &mdash; pinned to the top of the editor's font menu.</p>
+          </header>
+
+          <div class="profile-row">
+            <label class="profile-field">
+              <span>Heading font</span>
+              <div class="font-picker" data-role="heading">
+                <input type="hidden" name="headingFont" value="Cormorant Garamond" />
+                <button type="button" class="font-picker-btn" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="font-picker-current">Cormorant Garamond</span>
+                  <span class="font-picker-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="font-picker-pop" hidden>
+                  <input type="text" class="font-picker-search" placeholder="Search fonts…" autocomplete="off" />
+                  <ul class="font-picker-list" role="listbox"></ul>
+                </div>
+              </div>
+            </label>
+            <label class="profile-field">
+              <span>Body font</span>
+              <div class="font-picker" data-role="body">
+                <input type="hidden" name="bodyFont" value="Darker Grotesque" />
+                <button type="button" class="font-picker-btn" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="font-picker-current">Darker Grotesque</span>
+                  <span class="font-picker-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="font-picker-pop" hidden>
+                  <input type="text" class="font-picker-search" placeholder="Search fonts…" autocomplete="off" />
+                  <ul class="font-picker-list" role="listbox"></ul>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="type-preview" id="type-preview">
+            <div class="type-preview-h">Headline goes here.</div>
+            <div class="type-preview-b">A short paragraph in your body face — used for captions, CTAs and the readable bits.</div>
+          </div>
+        </section>
       </div>
-    </section>
+    </div>
 
-    <!-- Logos -->
-    <section class="profile-section">
-      <header class="profile-section-head">
-        <div>
-          <div class="eyebrow">04</div>
-          <h2>Logos</h2>
-        </div>
-        <p>Drop your wordmark, monogram, and any variants. PNGs with transparent backgrounds work best.</p>
-      </header>
-
-      <label class="logo-drop" id="logo-drop">
-        <input type="file" id="logo-input" accept="image/*" multiple hidden />
-        <strong>Click to upload</strong>
-        <span>or drag your logo files here</span>
-      </label>
-
-      <div class="logo-grid" id="logo-grid"></div>
-    </section>
-
-    <!-- Actions -->
+    <!-- Actions — everything autosaves; this just returns you to the workspace -->
     <div class="profile-actions">
-      <button type="button" class="profile-skip" id="profile-skip">Skip for now</button>
-      <button type="submit" class="btn btn--solid">Save brand kit <span class="btn-arrow">&rarr;</span></button>
+      <button type="button" class="profile-skip" id="profile-skip">Back to workspace</button>
+      <button type="submit" class="btn btn--solid">Done <span class="btn-arrow">&rarr;</span></button>
     </div>
       </form>
     </main>
@@ -142,13 +160,39 @@ const FONTS = [
 
   <style>
     .profile-wrap {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 0 36px 200px;
+      max-width: 1500px;
+      margin: 0;
+      padding: 0 clamp(24px, 4vw, 72px) 140px;
       display: flex;
       flex-direction: column;
-      gap: 80px;
+      gap: 40px;
     }
+    /* Full-width two-column layout: company + logos (left), colours +
+       typography (right). Stacks on narrow screens. */
+    .brand-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(32px, 4vw, 72px);
+      align-items: start;
+    }
+    .brand-col { display: flex; flex-direction: column; gap: clamp(40px, 5vw, 72px); }
+    @media (max-width: 1080px) { .brand-grid { grid-template-columns: 1fr; gap: 48px; } }
+
+    /* Autosave status pill in the header */
+    .brand-save {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 14px;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(28,29,34,0.45);
+      transition: color 0.25s;
+    }
+    .brand-save-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(28,29,34,0.3); transition: background 0.25s; }
+    .brand-save[data-state="saving"] { color: var(--english-violet); }
+    .brand-save[data-state="saving"] .brand-save-dot { background: var(--english-violet); animation: brandPulse 0.9s ease-in-out infinite; }
+    .brand-save[data-state="saved"] { color: #2e7d52; }
+    .brand-save[data-state="saved"] .brand-save-dot { background: #2e7d52; }
+    @keyframes brandPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
     .profile-firstrun {
       background: rgba(71, 66, 84, 0.08);
       border: 1px solid rgba(71, 66, 84, 0.2);
@@ -158,32 +202,29 @@ const FONTS = [
       font-size: 14px;
       margin: 0;
     }
-    .profile-section { display: flex; flex-direction: column; gap: 28px; }
+    .profile-section { display: flex; flex-direction: column; gap: 24px; }
     .profile-section-head {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
-      padding-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 16px;
       border-bottom: 1px solid rgba(28, 29, 34, 0.12);
-      align-items: end;
     }
-    .profile-section-head .eyebrow { margin-bottom: 6px; }
+    .profile-section-head .eyebrow { margin-bottom: 2px; }
     .profile-section-head h2 {
       font-family: var(--serif);
       font-weight: 400;
-      font-size: clamp(32px, 3.4vw, 44px);
+      font-size: clamp(28px, 2.6vw, 36px);
       letter-spacing: -0.015em;
       margin: 0;
     }
     .profile-section-head p {
       font-family: var(--serif);
       font-style: italic;
-      font-size: 17px;
+      font-size: 16px;
       color: rgba(28,29,34,0.6);
       margin: 0;
-      max-width: 40ch;
-      justify-self: end;
-      text-align: right;
+      max-width: 46ch;
     }
 
     .profile-row {
@@ -217,11 +258,63 @@ const FONTS = [
       box-shadow: 0 0 0 3px rgba(71, 66, 84, 0.12);
     }
 
+    /* Company field "Saved ✓" inline feedback */
+    .field-wrap { position: relative; }
+    .field-wrap input { width: 100%; box-sizing: border-box; padding-right: 92px; }
+    .field-ok {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #2e7d52;
+      opacity: 0; transition: opacity 0.25s; pointer-events: none;
+    }
+    .field-ok[hidden] { display: none; }
+    .field-ok.is-show { opacity: 1; }
+    .field-ok-tick {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #2e7d52; color: #fff; font-size: 10px; line-height: 1;
+    }
+
+    /* Searchable font picker */
+    .font-picker { position: relative; }
+    .font-picker-btn {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 14px 16px; background: #fff; cursor: pointer; text-align: left;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 2px; color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .font-picker-btn:hover { border-color: rgba(28,29,34,0.4); }
+    .font-picker.is-open .font-picker-btn { border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(71,66,84,0.12); }
+    .font-picker-current { font-size: 20px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .font-picker-caret { font-size: 11px; color: rgba(28,29,34,0.5); transition: transform 0.2s; }
+    .font-picker.is-open .font-picker-caret { transform: rotate(180deg); }
+    .font-picker-pop {
+      position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0;
+      background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px;
+      box-shadow: 0 18px 44px -18px rgba(28,29,34,0.35); overflow: hidden;
+      display: flex; flex-direction: column; max-height: 340px;
+    }
+    .font-picker-pop[hidden] { display: none; }
+    .font-picker-search {
+      margin: 10px; padding: 10px 12px; font-family: var(--sans); font-size: 14px;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: var(--paper);
+    }
+    .font-picker-search:focus { outline: none; border-color: var(--english-violet); }
+    .font-picker-list { list-style: none; margin: 0; padding: 0 6px 8px; overflow-y: auto; }
+    .font-picker-opt {
+      padding: 9px 12px; font-size: 19px; line-height: 1.15; color: var(--ink);
+      border-radius: 6px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .font-picker-opt:hover, .font-picker-opt.is-active { background: rgba(71,66,84,0.09); }
+    .font-picker-opt.is-current { color: var(--english-violet); }
+    .font-picker-empty { padding: 18px 12px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); }
+
     /* Colour grid */
     .colour-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 16px;
     }
     .colour-slot {
       position: relative;
@@ -409,7 +502,9 @@ const FONTS = [
     }
   </style>
 
-  <script is:inline>
+  <script>
+    import { GOOGLE_FONTS, loadGoogleFont } from "../data/google-fonts.js";
+
     (function () {
       const form = document.getElementById("brand-form");
       const firstrun = document.getElementById("profile-firstrun");
@@ -420,6 +515,16 @@ const FONTS = [
       const preview = document.getElementById("type-preview");
       const previewH = preview.querySelector(".type-preview-h");
       const previewB = preview.querySelector(".type-preview-b");
+      const companyInput = form.elements["company"];
+      const companyOk = document.getElementById("company-ok");
+      const saveEl = document.getElementById("brand-save");
+      const saveText = saveEl.querySelector(".brand-save-text");
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        }[c]));
+      }
 
       // ---- Load existing brand or seed defaults ----
       const DEFAULT_COLOURS = [
@@ -438,14 +543,123 @@ const FONTS = [
         ? brand.colors.concat(Array(Math.max(0, 6 - brand.colors.length)).fill(null)).slice(0, 6)
         : DEFAULT_COLOURS.slice(0, 6);
 
-      // Hydrate company / fonts
-      if (brand) {
-        form.elements["company"].value = brand.company || "";
-        if (brand.fonts) {
-          if (brand.fonts.heading) form.elements["headingFont"].value = brand.fonts.heading;
-          if (brand.fonts.body) form.elements["bodyFont"].value = brand.fonts.body;
+      const initialHeading = (brand && brand.fonts && brand.fonts.heading) || "Cormorant Garamond";
+      const initialBody = (brand && brand.fonts && brand.fonts.body) || "Darker Grotesque";
+      if (brand) companyInput.value = brand.company || "";
+
+      // ---- Autosave ----
+      let saveTimer = null, okTimer = null, ready = false;
+      function setStatus(state) {
+        saveEl.dataset.state = state;
+        saveText.textContent = state === "saving" ? "Saving…" : "All changes saved";
+      }
+      function doSave(flashCompany) {
+        const kit = collect();
+        try { localStorage.setItem("tmke.brand", JSON.stringify(kit)); } catch (_) {}
+        firstrun.hidden = true;
+        setStatus("saved");
+        if (flashCompany && companyInput.value.trim()) {
+          companyOk.hidden = false;
+          requestAnimationFrame(() => companyOk.classList.add("is-show"));
+          clearTimeout(okTimer);
+          okTimer = setTimeout(() => {
+            companyOk.classList.remove("is-show");
+            setTimeout(() => { companyOk.hidden = true; }, 260);
+          }, 2200);
         }
       }
+      function scheduleSave(opts) {
+        if (!ready) return;
+        const flashCompany = !!(opts && opts.company);
+        setStatus("saving");
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => doSave(flashCompany), 450);
+      }
+
+      // ---- Searchable Google-Fonts picker ----
+      function setupFontPicker(role, initial, onPick) {
+        const root = form.querySelector('.font-picker[data-role="' + role + '"]');
+        const hidden = root.querySelector('input[type="hidden"]');
+        const btn = root.querySelector(".font-picker-btn");
+        const current = root.querySelector(".font-picker-current");
+        const pop = root.querySelector(".font-picker-pop");
+        const search = root.querySelector(".font-picker-search");
+        const list = root.querySelector(".font-picker-list");
+        let value = initial;
+
+        const io = ("IntersectionObserver" in window)
+          ? new IntersectionObserver((ents) => {
+              ents.forEach((e) => {
+                if (e.isIntersecting) { loadGoogleFont(e.target.dataset.font); io.unobserve(e.target); }
+              });
+            }, { root: list, rootMargin: "120px" })
+          : null;
+
+        function apply(f) {
+          value = f;
+          hidden.value = f;
+          current.textContent = f;
+          current.style.fontFamily = '"' + f + '", sans-serif';
+          loadGoogleFont(f);
+        }
+        function choose(f) { apply(f); onPick && onPick(f); close(); }
+
+        function render(filter) {
+          const q = (filter || "").trim().toLowerCase();
+          const matches = GOOGLE_FONTS.filter((f) => !q || f.toLowerCase().includes(q));
+          list.innerHTML = "";
+          if (!matches.length) {
+            list.innerHTML = '<li class="font-picker-empty">No fonts match &ldquo;' + escapeHtml(filter) + '&rdquo;.</li>';
+            return;
+          }
+          matches.slice(0, 400).forEach((f) => {
+            const li = document.createElement("li");
+            li.className = "font-picker-opt" + (f === value ? " is-current" : "");
+            li.setAttribute("role", "option");
+            li.dataset.font = f;
+            li.textContent = f;
+            li.style.fontFamily = '"' + f + '", sans-serif';
+            li.addEventListener("click", () => choose(f));
+            list.appendChild(li);
+            if (io) io.observe(li); else loadGoogleFont(f);
+          });
+        }
+        function open() {
+          root.classList.add("is-open");
+          btn.setAttribute("aria-expanded", "true");
+          pop.hidden = false;
+          search.value = "";
+          render("");
+          search.focus();
+        }
+        function close() {
+          root.classList.remove("is-open");
+          btn.setAttribute("aria-expanded", "false");
+          pop.hidden = true;
+        }
+
+        btn.addEventListener("click", (e) => { e.stopPropagation(); pop.hidden ? open() : close(); });
+        search.addEventListener("input", () => render(search.value));
+        search.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); const first = list.querySelector(".font-picker-opt"); if (first) choose(first.dataset.font); }
+          else if (e.key === "Escape") { close(); btn.focus(); }
+        });
+        document.addEventListener("click", (e) => { if (!root.contains(e.target)) close(); });
+
+        apply(initial); // initialise label + load font, no autosave
+        return { value: () => value };
+      }
+
+      const headingPicker = setupFontPicker("heading", initialHeading, (f) => {
+        previewH.style.fontFamily = '"' + f + '", serif';
+        scheduleSave();
+      });
+      const bodyPicker = setupFontPicker("body", initialBody, (f) => {
+        previewB.style.fontFamily = '"' + f + '", sans-serif';
+        scheduleSave();
+      });
+      previewH.style.fontFamily = '"' + initialHeading + '", serif';
+      previewB.style.fontFamily = '"' + initialBody + '", sans-serif';
 
       // Hydrate colour slots
       initialColours.forEach(function (c, i) {
@@ -468,12 +682,11 @@ const FONTS = [
         }
       });
 
-      // Colour picker → updates hex + tile
+      // Colour picker → updates hex + tile (and autosaves)
       grid.addEventListener("input", function (e) {
         const t = e.target;
         const slot = t.closest(".colour-slot");
         if (!slot) return;
-        const i = slot.dataset.i;
         const fill = slot.querySelector('[data-colour-fill]');
         const hex = slot.querySelector('[data-colour-hex]');
         if (t.matches('[data-colour-picker]')) {
@@ -489,6 +702,7 @@ const FONTS = [
             slot.classList.remove("is-empty");
           }
         }
+        scheduleSave();
       });
 
       // Clear a colour slot
@@ -499,16 +713,11 @@ const FONTS = [
         slot.querySelector('[data-colour-name]').value = "";
         slot.querySelector('[data-colour-fill]').style.background = "transparent";
         slot.classList.add("is-empty");
+        scheduleSave();
       });
 
-      // Typography preview
-      function syncPreview() {
-        previewH.style.fontFamily = '"' + form.elements["headingFont"].value + '", serif';
-        previewB.style.fontFamily = '"' + form.elements["bodyFont"].value + '", sans-serif';
-      }
-      form.elements["headingFont"].addEventListener("change", syncPreview);
-      form.elements["bodyFont"].addEventListener("change", syncPreview);
-      syncPreview();
+      // ---- Company ----
+      companyInput.addEventListener("input", function () { scheduleSave({ company: true }); });
 
       // ---- Logos ----
       let logos = (brand && Array.isArray(brand.logos)) ? brand.logos.slice() : [];
@@ -535,14 +744,16 @@ const FONTS = [
         if (p !== null) {
           logos = logos.map(function (lg, idx) { return Object.assign({}, lg, { primary: idx === parseInt(p, 10) }); });
           renderLogos();
+          scheduleSave();
         } else if (r !== null) {
           logos.splice(parseInt(r, 10), 1);
           renderLogos();
+          scheduleSave();
         }
       });
       logoGrid.addEventListener("input", function (e) {
         const i = e.target.getAttribute("data-i");
-        if (i !== null) logos[parseInt(i, 10)].name = e.target.value;
+        if (i !== null) { logos[parseInt(i, 10)].name = e.target.value; scheduleSave(); }
       });
 
       function handleLogoFiles(files) {
@@ -556,6 +767,7 @@ const FONTS = [
               primary: logos.length === 0,
             });
             renderLogos();
+            scheduleSave();
           };
           reader.readAsDataURL(f);
         });
@@ -569,7 +781,7 @@ const FONTS = [
         handleLogoFiles(e.dataTransfer.files);
       });
 
-      // ---- Save / skip ----
+      // ---- Collect / submit ----
       function collect() {
         const colours = [];
         for (let i = 0; i < 6; i++) {
@@ -583,12 +795,9 @@ const FONTS = [
           });
         }
         return {
-          company: form.elements["company"].value.trim(),
+          company: companyInput.value.trim(),
           colors: colours,
-          fonts: {
-            heading: form.elements["headingFont"].value,
-            body: form.elements["bodyFont"].value,
-          },
+          fonts: { heading: headingPicker.value(), body: bodyPicker.value() },
           logos: logos,
           updatedAt: Date.now(),
         };
@@ -596,17 +805,19 @@ const FONTS = [
 
       form.addEventListener("submit", function (e) {
         e.preventDefault();
-        const kit = collect();
-        try { localStorage.setItem("tmke.brand", JSON.stringify(kit)); } catch (_) {}
+        clearTimeout(saveTimer);
+        doSave(false);
         const next = new URLSearchParams(location.search).get("next") || "/account";
         location.href = next;
       });
 
       document.getElementById("profile-skip").addEventListener("click", function () {
-        // Mark as visited so we don't redirect them here again
         try { localStorage.setItem("tmke.brand.skipped", "1"); } catch (_) {}
         location.href = "/account";
       });
+
+      // Everything is wired — allow autosave to fire from here on.
+      ready = true;
     })();
   </script>
 

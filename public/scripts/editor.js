@@ -7,6 +7,9 @@
 
   // ---------- Data ----------
   const TEMPLATES = JSON.parse(document.getElementById("ed-templates-data").textContent || "[]");
+  // The template grid shows this list. Defaults to every template; the
+  // onboarding pack-picker narrows it to the chosen pack via __TMKE_OPEN_PACK__.
+  let PACK_TEMPLATES = TEMPLATES;
   const PHOTOS = JSON.parse(document.getElementById("ed-photos-data").textContent || "[]");
 
   // System fonts that are always available without any web-font load.
@@ -19,6 +22,38 @@
     { name: "Verdana", stack: 'Verdana, sans-serif', category: "System" },
     { name: "Courier", stack: '"Courier New", monospace', category: "System" },
   ];
+
+  // Self-hosted house fonts baked into the studio (separate from per-customer
+  // uploads via /admin/fonts). Files live on R2 under /fonts/. Each face is
+  // registered with the document so the canvas renders it; if a file isn't
+  // there yet the family simply falls back to the stack below.
+  const CUSTOM_FONTS = [
+    {
+      name: "The Seasons",
+      stack: '"The Seasons", "Cormorant Garamond", Georgia, serif',
+      category: "TMKE · House",
+      faces: [
+        { url: "https://assets.tmke.co.uk/fonts/the-seasons-light.woff2", weight: 300, style: "normal" },
+        { url: "https://assets.tmke.co.uk/fonts/the-seasons-regular.woff2", weight: 400, style: "normal" },
+        { url: "https://assets.tmke.co.uk/fonts/the-seasons-bold.woff2", weight: 700, style: "normal" },
+      ],
+    },
+  ];
+  (function registerCustomFonts() {
+    if (typeof document === "undefined" || typeof window.FontFace !== "function") return;
+    CUSTOM_FONTS.forEach(function (cf) {
+      (cf.faces || []).forEach(function (face) {
+        try {
+          const ff = new FontFace(cf.name, 'url("' + face.url + '")', {
+            weight: String(face.weight || 400),
+            style: face.style || "normal",
+            display: "swap",
+          });
+          ff.load().then(function (loaded) { document.fonts.add(loaded); }).catch(function () { /* not uploaded yet — fall back */ });
+        } catch (_) { /* ignore individual face failures */ }
+      });
+    });
+  })();
 
   // Google Fonts catalogue baked into editor.astro and injected as JSON.
   // We don't load any of the actual CSS yet — `loadGoogleFont` does that on
@@ -92,7 +127,7 @@
   // BASE_FONTS retained as a name so the rest of the code (export canvas,
   // brand kit logic) keeps working — it now points at the combined catalogue:
   // custom brand fonts (pinned first) > system fonts > Google Fonts.
-  const BASE_FONTS = BRAND_FONTS.concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
+  const BASE_FONTS = BRAND_FONTS.concat(CUSTOM_FONTS).concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
 
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   function loadBrand() {
@@ -258,6 +293,44 @@
       fullRender();
     });
     input.addEventListener("change", function () { pushHistory(); });
+    return wrap;
+  }
+
+  // Font-size control: a typeable number + a caret that drops a quick list of
+  // common sizes (Canva-style). onChange(size) is called with the new value.
+  const SIZE_PRESETS = [6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 80, 88, 96, 104, 120, 144];
+  function createSizeControl(initial, onChange) {
+    const wrap = document.createElement("div");
+    wrap.className = "ed-size-ctl";
+    const input = document.createElement("input");
+    input.type = "number"; input.className = "ed-ctx-num"; input.value = initial; input.min = 6; input.max = 600;
+    const caret = document.createElement("button");
+    caret.type = "button"; caret.className = "ed-size-caret"; caret.title = "Sizes";
+    caret.textContent = "▾";
+    const pop = document.createElement("div");
+    pop.className = "ed-size-pop"; pop.hidden = true;
+    pop.innerHTML = SIZE_PRESETS.map(function (s) {
+      return '<button type="button" class="ed-size-opt' + (s === initial ? " is-current" : "") + '" data-size="' + s + '">' + s + "</button>";
+    }).join("");
+
+    function apply(v) {
+      v = Math.max(6, Math.min(600, parseInt(v, 10) || initial));
+      input.value = v;
+      onChange(v);
+    }
+    input.addEventListener("change", function () { apply(input.value); });
+    caret.addEventListener("click", function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; });
+    pop.addEventListener("click", function (e) {
+      const b = e.target.closest("[data-size]");
+      if (!b) return;
+      pop.hidden = true;
+      apply(b.getAttribute("data-size"));
+    });
+    document.addEventListener("click", function (e) { if (!wrap.contains(e.target)) pop.hidden = true; });
+
+    wrap.appendChild(input);
+    wrap.appendChild(caret);
+    wrap.appendChild(pop);
     return wrap;
   }
 
@@ -826,10 +899,17 @@
       const hint = document.createElement("div");
       hint.className = "ed-blank-hint";
       hint.textContent = "Start building here";
-      hint.setAttribute("aria-hidden", "true");
+      hint.title = "Click to add a text box";
+      // Click the prompt to drop a real, editable + deletable text box (Canva-
+      // style) rather than it being a stuck, undeletable label.
+      hint.addEventListener("click", function (e) {
+        e.stopPropagation();
+        addText("body");
+      });
       canvasEl.appendChild(hint);
     }
 
+    autosizeTextElements();
     renderHandles();
     renderLayers();
     renderContextBar();
@@ -841,6 +921,21 @@
     // remember to call it from anywhere else.
     const detachBtn = document.getElementById("ed-bg-detach");
     if (detachBtn) detachBtn.hidden = !state.canvas.backgroundImage;
+  }
+
+  // Text boxes auto-grow to contain their text (Canva-style) so adding lines
+  // (Enter) or wrapping never overflows the bounding box. Grow-only here so a
+  // user's larger manual height is respected; live editing tracks both ways.
+  function autosizeTextElements() {
+    state.elements.forEach(function (el) {
+      if (el.type !== "text") return;
+      const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+      if (!node) return;
+      const inner = node.querySelector(".ed-text-inner");
+      if (!inner) return;
+      const h = Math.ceil(inner.offsetHeight);
+      if (h > 0 && h > el.h + 1) { el.h = h; node.style.height = h + "px"; }
+    });
   }
 
   // Set or clear the canvas background image. Passing null clears it.
@@ -1471,14 +1566,29 @@
     inner.focus();
     document.execCommand("selectAll", false, null);
 
+    // Grow (or shrink) the box live as lines are added/removed, and keep the
+    // selection outline glued to it.
+    function grow() {
+      const h = Math.ceil(inner.offsetHeight);
+      if (h > 0 && h !== el.h) {
+        el.h = h;
+        node.style.height = h + "px";
+        renderHandles();
+      }
+    }
+    inner.addEventListener("input", grow);
+    grow();
+
     function commit() {
       inner.contentEditable = "false";
       node.classList.remove("is-editing");
-      const newText = inner.textContent;
+      // innerText preserves the line breaks from Enter (textContent drops them).
+      const newText = inner.innerText.replace(/\n$/, "");
       if (newText !== el.text) {
         el.text = newText;
         pushHistory();
       }
+      inner.removeEventListener("input", grow);
       inner.removeEventListener("blur", commit);
     }
     inner.addEventListener("blur", commit);
@@ -2871,11 +2981,7 @@
       });
       g1.appendChild(picker);
 
-      const sizeIn = document.createElement("input");
-      sizeIn.type = "number"; sizeIn.className = "ed-ctx-num";
-      sizeIn.value = el.size; sizeIn.min = 6; sizeIn.max = 600;
-      sizeIn.addEventListener("change", () => { el.size = parseInt(sizeIn.value, 10); fullRender(); pushHistory(); });
-      g1.appendChild(sizeIn);
+      g1.appendChild(createSizeControl(el.size, function (v) { el.size = v; fullRender(); pushHistory(); }));
       ctxEl.appendChild(g1);
 
       // B I U
@@ -3225,7 +3331,7 @@
       });
       return;
     }
-    TEMPLATES.forEach((t) => {
+    PACK_TEMPLATES.forEach((t) => {
       const b = document.createElement("button");
       b.dataset.id = t.id;
       b.title = t.name;
@@ -3700,6 +3806,21 @@
     };
   };
 
+  // Onboarding pack-picker hook. Scopes the studio's template grid to a chosen
+  // pack and opens its first design for editing. `templateIds` is the pack's
+  // list; if it's empty or none resolve, we fall back to the full library so a
+  // click always lands on something editable.
+  window.__TMKE_OPEN_PACK__ = function (templateIds) {
+    const ids = Array.isArray(templateIds) ? templateIds.filter(Boolean) : [];
+    let scoped = ids.map((id) => TEMPLATES.find((t) => t.id === id)).filter(Boolean);
+    if (!scoped.length) scoped = TEMPLATES.slice();
+    if (!scoped.length) return;
+    PACK_TEMPLATES = scoped;
+    tplGridEl.innerHTML = "";   // force a fresh, scoped render
+    renderTemplateGrid();
+    loadTemplate(scoped[0].id, false);
+  };
+
   // If a stock-photo search panel is taking over the Photos tab, skip
   // rendering the bundled library — its results will fill the grid instead.
   if (!window.__TMKE_STOCK_SEARCH_ACTIVE__) renderPhotoGrid();
@@ -3713,7 +3834,12 @@
   // template behind the onboarding overlay.
   const urlParams = new URLSearchParams(window.location.search);
   const explicitTpl = urlParams.get("template");
-  if (explicitTpl) {
+  if (isAdminMode() && TEMPLATES.length) {
+    // Admin: the bootstrap moved the requested template to index 0. Load it so
+    // editing an existing template shows its design, and a freshly-created one
+    // (empty elements) opens as a blank canvas to build from scratch.
+    loadTemplate(TEMPLATES[0].id, false);
+  } else if (explicitTpl) {
     loadTemplate(explicitTpl, false);
   } else {
     loadBlank();
