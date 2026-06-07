@@ -361,10 +361,26 @@
     function apply(v) {
       v = Math.max(6, Math.min(600, parseInt(v, 10) || initial));
       input.value = v;
+      // Highlight the nearest preset so the list shows "where you are".
+      let nearest = null, best = Infinity;
+      pop.querySelectorAll(".ed-size-opt").forEach(function (b) {
+        b.classList.remove("is-current");
+        const d = Math.abs(parseInt(b.dataset.size, 10) - v);
+        if (d < best) { best = d; nearest = b; }
+      });
+      if (nearest) nearest.classList.add("is-current");
       onChange(v);
     }
     input.addEventListener("change", function () { apply(input.value); });
-    caret.addEventListener("click", function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; });
+    caret.addEventListener("click", function (e) {
+      e.stopPropagation();
+      pop.hidden = !pop.hidden;
+      // Open scrolled to the current size, centred, so options appear either side.
+      if (!pop.hidden) {
+        const cur = pop.querySelector(".ed-size-opt.is-current");
+        if (cur) requestAnimationFrame(function () { cur.scrollIntoView({ block: "center" }); });
+      }
+    });
     pop.addEventListener("click", function (e) {
       const b = e.target.closest("[data-size]");
       if (!b) return;
@@ -1426,6 +1442,7 @@
     }
     if (el.locked) node.classList.add("is-locked");
     if (el.hidden) node.classList.add("is-hidden");
+    if (el.type === "text" && el.vcenter) node.classList.add("ed-text-vcenter");
 
     // Comment badge — visible even when the element isn't selected.
     const openCmts = el.comments ? el.comments.filter((c) => !c.resolved).length : 0;
@@ -1664,6 +1681,23 @@
     handlesEl.innerHTML = "";
     handlesEl.style.width = state.canvas.width + "px";
     handlesEl.style.height = state.canvas.height + "px";
+
+    // Multi-selection — a combined dashed box + the group action bar.
+    if (state.selectedIds.length > 1) {
+      hideFloatBar();
+      const els = selectedElements().filter((e) => !e.locked);
+      if (!els.length) { hideGroupBar(); return; }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      els.forEach((e) => { minX = Math.min(minX, e.x); minY = Math.min(minY, e.y); maxX = Math.max(maxX, e.x + e.w); maxY = Math.max(maxY, e.y + e.h); });
+      const mb = document.createElement("div");
+      mb.className = "ed-bounds ed-bounds--multi";
+      mb.style.left = minX + "px"; mb.style.top = minY + "px";
+      mb.style.width = (maxX - minX) + "px"; mb.style.height = (maxY - minY) + "px";
+      handlesEl.appendChild(mb);
+      positionGroupBar(mb.getBoundingClientRect());
+      return;
+    }
+    hideGroupBar();
     if (state.selectedIds.length !== 1) { hideFloatBar(); return; }
     const el = getEl(state.selectedIds[0]);
     if (!el || el.locked) { hideFloatBar(); return; }
@@ -1735,11 +1769,13 @@
     duplicate: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
     delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
     more: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+    convert: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
   };
   const floatBar = document.createElement("div");
   floatBar.className = "ed-floatbar";
   floatBar.hidden = true;
   floatBar.innerHTML =
+    '<button type="button" class="ed-fb-btn" data-fb="convert" title="Add a text label beside this icon (matched & linked)" hidden>' + ICON_FB.convert + '</button>' +
     '<button type="button" class="ed-fb-btn" data-fb="comment" title="Comment">' + ICON_FB.comment + '<span class="ed-fb-count" hidden></span></button>' +
     '<button type="button" class="ed-fb-btn" data-fb="duplicate" title="Duplicate">' + ICON_FB.duplicate + '</button>' +
     '<button type="button" class="ed-fb-btn ed-fb-danger" data-fb="delete" title="Delete">' + ICON_FB.delete + '</button>' +
@@ -1756,11 +1792,15 @@
     else if (act === "delete") deleteSelected();
     else if (act === "more") { const r = b.getBoundingClientRect(); showContextMenu(r.left - 4, r.bottom + 2, el); }
     else if (act === "comment") openCommentPopover(el, b);
+    else if (act === "convert") convertIconToText(el);
   });
 
   function positionFloatBar(rect, el) {
     if (!rect) { hideFloatBar(); return; }
     floatBar.hidden = false;
+    // "Convert to text" shows for icons / images (add a matched, linked label).
+    const convertBtn = floatBar.querySelector('[data-fb="convert"]');
+    if (convertBtn) convertBtn.hidden = !(el && (el.svgKey || el.type === "image"));
     // Comment count badge.
     const open = (el && el.comments ? el.comments.filter((c) => !c.resolved).length : 0);
     const countEl = floatBar.querySelector(".ed-fb-count");
@@ -1775,6 +1815,78 @@
     floatBar.style.top = top + "px";
   }
   function hideFloatBar() { floatBar.hidden = true; }
+
+  // Add a text label beside an icon: same height, vertically centred, and
+  // grouped so the two stay matched + aligned and move together. Then edit it.
+  function convertIconToText(icon) {
+    if (!icon) return;
+    const gid = icon.group || uid("grp");
+    icon.group = gid;
+    const gap = Math.round(icon.h * 0.25);
+    const size = Math.max(8, Math.round(icon.h * 0.66));
+    const tx = icon.x + icon.w + gap;
+    const tw = Math.max(120, Math.round(icon.w * 3));
+    const th = icon.h;
+    const t = {
+      id: uid("text"), type: "text", text: "Add text",
+      x: tx, y: icon.y, w: tw, h: th, rotation: 0, opacity: 1,
+      font: "Cormorant Garamond", size: size, weight: 500, italic: false,
+      color: icon.svgFill && /^#[0-9a-f]{6}$/i.test(icon.svgFill) ? icon.svgFill : "#1c1d22",
+      align: "left", letterSpacing: 0, lineHeight: 1, group: gid,
+      vcenter: true, // vertically centre within its box so it lines up with the icon
+    };
+    state.elements.push(t);
+    state.selectedIds = [icon.id, t.id];
+    pushHistory();
+    fullRender();
+    requestAnimationFrame(() => {
+      const node = canvasEl.querySelector('.ed-element[data-id="' + t.id + '"]');
+      if (node) { state.selectedIds = [t.id]; fullRender(); startTextEdit(canvasEl.querySelector('.ed-element[data-id="' + t.id + '"]'), getEl(t.id)); }
+    });
+  }
+
+  // ---------- Multi-select group bar ----------
+  const ICON_GRP = {
+    group: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  };
+  const groupBar = document.createElement("div");
+  groupBar.className = "ed-floatbar";
+  groupBar.hidden = true;
+  groupBar.innerHTML =
+    '<button type="button" class="ed-fb-btn ed-fb-text" data-gb="group"><span></span></button>' +
+    '<span class="ed-fb-sep"></span>' +
+    '<button type="button" class="ed-fb-btn" data-gb="duplicate" title="Duplicate">' + ICON_FB.duplicate + '</button>' +
+    '<button type="button" class="ed-fb-btn ed-fb-danger" data-gb="delete" title="Delete">' + ICON_FB.delete + '</button>';
+  document.body.appendChild(groupBar);
+  groupBar.addEventListener("pointerdown", (e) => e.stopPropagation());
+  groupBar.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-gb]"); if (!b) return;
+    const act = b.dataset.gb;
+    if (act === "duplicate") duplicateSelected();
+    else if (act === "delete") deleteSelected();
+    else if (act === "group") {
+      const els = selectedElements();
+      const allGrouped = els.length && els.every((e2) => e2.group && e2.group === els[0].group);
+      if (allGrouped) { els.forEach((e2) => { delete e2.group; }); }   // ungroup
+      else { const gid = uid("grp"); els.forEach((e2) => { e2.group = gid; }); } // group
+      pushHistory(); fullRender();
+    }
+  });
+  function hideGroupBar() { groupBar.hidden = true; }
+  function positionGroupBar(rect) {
+    groupBar.hidden = false;
+    const els = selectedElements();
+    const grouped = els.length && els.every((e2) => e2.group && e2.group === els[0].group);
+    const label = groupBar.querySelector('[data-gb="group"] span');
+    if (label) label.textContent = grouped ? "Ungroup" : "Group";
+    const bw = groupBar.offsetWidth || 180, bh = groupBar.offsetHeight || 40;
+    let left = rect.left + rect.width / 2 - bw / 2;
+    let top = rect.top - bh - 12;
+    if (top < 70) top = rect.bottom + 12;
+    left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+    groupBar.style.left = left + "px";
+    groupBar.style.top = top + "px";
+  }
 
   // ---------- Comments (per element; the review-workflow foundation) ----------
   let commentPop = null;
@@ -1821,6 +1933,12 @@
     if (commentPop && !commentPop.contains(e.target) && !(e.target.closest && e.target.closest('[data-fb="comment"]'))) closeCommentPopover();
   });
 
+  // Grouped elements move + select as a unit. Returns the ids to select for el.
+  function groupIdsFor(el) {
+    if (el && el.group) return state.elements.filter((e) => e.group === el.group).map((e) => e.id);
+    return el ? [el.id] : [];
+  }
+
   // ---------- Interactions ----------
   function bindElementInteractions(node, el) {
     node.addEventListener("pointerdown", (ev) => {
@@ -1829,13 +1947,15 @@
       ev.stopPropagation();
 
       const multi = ev.shiftKey;
+      const ids = groupIdsFor(el); // the whole group if el is grouped
       if (!state.selectedIds.includes(el.id)) {
-        if (multi) state.selectedIds.push(el.id);
-        else state.selectedIds = [el.id];
+        if (multi) ids.forEach((id) => { if (!state.selectedIds.includes(id)) state.selectedIds.push(id); });
+        else state.selectedIds = ids;
         closeColorPanel(); // a different element is now selected
         fullRender();
       } else if (multi) {
-        state.selectedIds = state.selectedIds.filter((x) => x !== el.id);
+        // Shift-click a selected group toggles the whole group off.
+        state.selectedIds = state.selectedIds.filter((x) => ids.indexOf(x) === -1);
         fullRender();
         return;
       }
@@ -2144,13 +2264,43 @@
     inner.addEventListener("blur", commit);
   }
 
-  // ---------- Canvas click to deselect ----------
+  // ---------- Canvas: drag a marquee to multi-select, or click to deselect ----
   canvasEl.addEventListener("pointerdown", (ev) => {
-    if (ev.target === canvasEl) {
-      state.selectedIds = [];
-      closeColorPanel();
+    if (ev.target !== canvasEl || ev.button !== 0) return;
+    closeColorPanel();
+    const rect = canvasEl.getBoundingClientRect();
+    const z = state.zoom || 1;
+    const sx = (ev.clientX - rect.left) / z, sy = (ev.clientY - rect.top) / z;
+    let moved = false;
+    const box = document.createElement("div");
+    box.className = "ed-marquee";
+    handlesEl.appendChild(box);
+    const draw = (x, y, w, h) => { box.style.left = x + "px"; box.style.top = y + "px"; box.style.width = w + "px"; box.style.height = h + "px"; };
+    draw(sx, sy, 0, 0);
+    function onMove(e) {
+      const cx = (e.clientX - rect.left) / z, cy = (e.clientY - rect.top) / z;
+      if (Math.abs(cx - sx) > 3 || Math.abs(cy - sy) > 3) moved = true;
+      draw(Math.min(sx, cx), Math.min(sy, cy), Math.abs(cx - sx), Math.abs(cy - sy));
+    }
+    function onUp(e) {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      box.remove();
+      if (!moved) { state.selectedIds = []; fullRender(); return; }
+      const cx = (e.clientX - rect.left) / z, cy = (e.clientY - rect.top) / z;
+      const rx = Math.min(sx, cx), ry = Math.min(sy, cy), rw = Math.abs(cx - sx), rh = Math.abs(cy - sy);
+      const ids = new Set();
+      state.elements.forEach((el) => {
+        if (el.locked) return;
+        if (el.x < rx + rw && el.x + el.w > rx && el.y < ry + rh && el.y + el.h > ry) {
+          groupIdsFor(el).forEach((id) => ids.add(id));
+        }
+      });
+      state.selectedIds = Array.from(ids);
       fullRender();
     }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
   });
   stageEl.addEventListener("pointerdown", (ev) => {
     if (ev.target === stageEl || ev.target === shadowEl) {
@@ -4434,6 +4584,9 @@
     try { const c = await _renderDesignToCanvas({ transparent: false }); image = c.toDataURL("image/jpeg", 0.85); } catch (_) {}
     return { image: image, width: state.canvas.width, height: state.canvas.height };
   };
+  // Page navigation hooks for the "Read all pages" AI pass.
+  window.__TMKE_PAGE_COUNT__ = function () { return state.pages.length; };
+  window.__TMKE_GOTO_PAGE__ = function (i) { goToPage(i); };
   window.__TMKE_AI_PLACE_TEXT__ = function (blocks) {
     if (!Array.isArray(blocks) || !blocks.length) return 0;
     let added = 0;
