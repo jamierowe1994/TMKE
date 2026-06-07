@@ -2965,7 +2965,41 @@ const googleFonts = [
       grid.insertAdjacentElement("afterend", cell);
     }
 
+    // Dev-only preview: visit /editor?demo=1 under `astro dev` to fill the
+    // pack-picker with a few gifted example packs (no Supabase needed). This
+    // is gated on import.meta.env.DEV so it can NEVER ship to production.
+    const DEMO_PACKS = [
+      { id: "demo-just-listed", slug: "just-listed-spring", title: "Just Listed — Spring", category: "Listings", cover_image_url: "https://assets.tmke.co.uk/kitchen-1.webp" },
+      { id: "demo-sold", slug: "sold-celebrating", title: "Sold & Celebrating", category: "Milestones", cover_image_url: "https://assets.tmke.co.uk/living-1.webp" },
+      { id: "demo-market", slug: "market-update", title: "Market Update", category: "Insights", cover_image_url: "https://assets.tmke.co.uk/orange-1.webp" },
+      { id: "demo-team", slug: "meet-the-team", title: "Meet the Team", category: "Brand", cover_image_url: "https://assets.tmke.co.uk/white-1.webp" },
+    ];
+    const DEMO_UNOWNED = [
+      { id: "demo-open-house", slug: "open-house", title: "Open House", category: "Listings", cover_image_url: "https://assets.tmke.co.uk/table.webp" },
+      { id: "demo-testimonials", slug: "testimonials", title: "Testimonials", category: "Social proof", cover_image_url: "https://assets.tmke.co.uk/vibes.webp" },
+    ];
+
+    function wirePackGrid(owned) {
+      grid.addEventListener("click", (e) => {
+        const btn = e.target instanceof Element ? e.target.closest("[data-pack-id]") : null;
+        if (!btn) return;
+        const id = btn.getAttribute("data-pack-id");
+        const pack = owned.find((p) => p.id === id);
+        closeOverlayAndBuild(pack);
+      });
+    }
+
     (async () => {
+      const isDemo = import.meta.env.DEV && new URLSearchParams(location.search).has("demo");
+      if (isDemo) {
+        loading.hidden = true;
+        grid.innerHTML = DEMO_PACKS.map(packCard).join("");
+        grid.hidden = false;
+        renderMoreCell(DEMO_UNOWNED);
+        wirePackGrid(DEMO_PACKS);
+        return;
+      }
+
       // Who's signed in — drives which packs they already own.
       const { data: { session } } = await supabase.auth.getSession();
       const email = session?.user?.email || "";
@@ -3015,14 +3049,7 @@ const googleFonts = [
       grid.innerHTML = owned.map(packCard).join("");
       grid.hidden = false;
       renderMoreCell(unowned);
-
-      grid.addEventListener("click", (e) => {
-        const btn = e.target instanceof Element ? e.target.closest("[data-pack-id]") : null;
-        if (!btn) return;
-        const id = btn.getAttribute("data-pack-id");
-        const pack = owned.find((p) => p.id === id);
-        closeOverlayAndBuild(pack);
-      });
+      wirePackGrid(owned);
     })();
   </script>
 
