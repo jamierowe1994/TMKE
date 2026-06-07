@@ -3356,16 +3356,38 @@ const googleFonts = [
       });
     }
 
+    async function loadPackIntoStudio(selectedPack) {
+      // Demo packs carry library template ids directly.
+      if (selectedPack.templateIds && selectedPack.templateIds.length) {
+        if (typeof window.__TMKE_OPEN_PACK__ === "function") window.__TMKE_OPEN_PACK__(selectedPack.templateIds);
+        return;
+      }
+      // A real (published) pack — fetch its templates from Supabase and inject
+      // them into the studio. Falls back to the library if it has none yet.
+      if (selectedPack.id) {
+        try {
+          const { data: tpls } = await supabase
+            .from("templates")
+            .select("id, name, category, thumb_url, canvas, elements")
+            .eq("pack_id", selectedPack.id)
+            .eq("status", "active")
+            .order("sort_order", { ascending: true });
+          if (tpls && tpls.length && typeof window.__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
+            window.__TMKE_OPEN_PACK_TEMPLATES__(tpls);
+            return;
+          }
+        } catch (_) { /* fall through to library */ }
+      }
+      if (typeof window.__TMKE_OPEN_PACK__ === "function") window.__TMKE_OPEN_PACK__([]);
+    }
+
     function closeOverlayAndBuild(selectedPack) {
       if (selectedPack) {
-        try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify(selectedPack)); }
+        try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify({ id: selectedPack.id, title: selectedPack.title })); }
         catch (_) { /* ignore */ }
-        // Load the pack's designs into the editor so they're ready to edit the
-        // moment the overlay clears. Falls back to the full library if the pack
-        // has no linked templates yet (real packs until the DB link lands).
-        if (typeof window.__TMKE_OPEN_PACK__ === "function") {
-          window.__TMKE_OPEN_PACK__(selectedPack.templateIds || []);
-        }
+        // Kick off pack loading (async) so the designs are ready as the overlay
+        // clears; don't block the fade on the network.
+        loadPackIntoStudio(selectedPack);
       }
       overlay.classList.add("is-leaving");
       // Wait for fade, then hide entirely and start the sequence.
