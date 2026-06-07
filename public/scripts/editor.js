@@ -4230,7 +4230,7 @@
 
   // Share — uses the Web Share API where available (mobile, modern desktop
   // Chromium). Falls back to a PNG download so the user can post manually.
-  $("ed-share")?.addEventListener("click", async function () {
+  $("ed-share-image")?.addEventListener("click", async function () {
     try {
       // Reuse the shared renderer so shadow/gradient/text-effect rules stay
       // in one place — Share used to duplicate the draw loop verbatim, which
