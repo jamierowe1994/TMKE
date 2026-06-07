@@ -16,6 +16,8 @@ interface Props {
   hideFooter?: boolean;
   /** Emit a noindex,nofollow robots tag (for unlisted / WIP pages). */
   noindex?: boolean;
+  /** Apply the customer-dashboard typography: The Seasons headers + Montserrat body. */
+  dashboard?: boolean;
 }
 
 const {
@@ -26,6 +28,7 @@ const {
   hideNav = false,
   hideFooter = false,
   noindex = false,
+  dashboard = false,
 } = Astro.props;
 
 // Front-end-only page transition. Back-end tools — /admin/* and /editor (the
@@ -73,6 +76,28 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
       rel="stylesheet"
     />
 
+    {/* Customer-dashboard typography: The Seasons (headers) + Montserrat (body).
+        Only loaded on dashboard pages. The Seasons files live on R2 under
+        /fonts/ (same path the Studio uses); until they're uploaded, headers
+        fall back gracefully to the serif stack. */}
+    {dashboard && (
+      <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap"
+        rel="stylesheet"
+      />
+    )}
+    <style is:global>
+      @font-face { font-family: "The Seasons"; src: url("https://assets.tmke.co.uk/fonts/the-seasons-light.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: swap; }
+      @font-face { font-family: "The Seasons"; src: url("https://assets.tmke.co.uk/fonts/the-seasons-regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+      @font-face { font-family: "The Seasons"; src: url("https://assets.tmke.co.uk/fonts/the-seasons-bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+      /* Dashboard-only: headers → The Seasons, body → Montserrat. Re-points the
+         existing --serif/--sans tokens so every page picks it up automatically. */
+      body[data-dashboard] {
+        --serif: "The Seasons", "Cormorant Garamond", Georgia, serif;
+        --sans: "Montserrat", "Darker Grotesque", system-ui, sans-serif;
+      }
+    </style>
+
     <!-- Lenis — smooth, momentum-based scrolling.
          `defer` makes the CDN fetch non-blocking; Lenis still runs after
          DOMContentLoaded which is fine for scroll enhancement. -->
@@ -108,7 +133,7 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
       )
     }
   </head>
-  <body>
+  <body data-dashboard={dashboard ? "" : undefined}>
     {!hideNav && <Nav />}
     <slot />
     {!hideFooter && <Footer />}
