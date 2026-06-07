@@ -477,7 +477,7 @@
     const design = collectDesignColors();
 
     const sec = (title, inner) => '<div class="ed-cp-sec"><h5>' + title + '</h5>' + inner + '</div>';
-    const grid = (cells, mod) => '<div class="ed-cp-grid' + (mod || "") + '">' + cells + '</div>';
+    const grid = (cells, mod) => '<div class="ed-cp-grid' + (mod || "") + '">' + (Array.isArray(cells) ? cells.join("") : cells) + '</div>';
 
     panel.innerHTML =
       '<div class="ed-cp-head"><span class="ed-cp-title">' + (opts.title || "Colour") + '</span><button class="ed-cp-close" title="Close">&times;</button></div>' +
@@ -4232,6 +4232,31 @@
       width: state.canvas && state.canvas.width,
       height: state.canvas && state.canvas.height,
     };
+  };
+
+  // Canva bulk import — turn a set of background images into a multi-page
+  // design (one page per image, sized to the image). Admins then add text.
+  window.__TMKE_IMPORT_BACKGROUNDS__ = function (images) {
+    if (!images || !images.length) return;
+    state.templateId = null;
+    state.pages = images.map(function (im, i) {
+      return {
+        id: uid("page"), name: "Page " + (i + 1),
+        canvas: {
+          width: im.w || 1080, height: im.h || 1350,
+          background: "#FFFFFF", backgroundImage: im.src,
+        },
+        elements: [],
+      };
+    });
+    state.currentPage = 0;
+    state.selectedIds = [];
+    state.history = []; state.historyIndex = -1;
+    if (filenameEl) filenameEl.value = "Canva import";
+    state.pages.forEach(function (pg) { /* nothing to preload */ });
+    pushHistory();
+    fullRender();
+    fitZoom();
   };
 
   // Publish hook — admin Publish flow reads every page + a cover thumb so it

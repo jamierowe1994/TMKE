@@ -401,6 +401,12 @@ const googleFonts = [
             <label><input type="checkbox" data-stock-src="unsplash" checked /> Unsplash</label>
           </div>
         </div>
+        <!-- Paste a Pexels OR Unsplash collection link — we work out which and
+             pull every photo in it. -->
+        <div class="ed-collect">
+          <input type="url" id="ed-collect-input" placeholder="Paste a Pexels / Unsplash collection link…" autocomplete="off" />
+          <button type="button" id="ed-collect-pull">Pull</button>
+        </div>
         <p class="ed-stock-status" id="ed-stock-status">Type to search — results from both sources appear here.</p>
         <div class="ed-photo-grid" id="ed-photo-grid"></div>
         <p class="ed-stock-credit">Photos via <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> &amp; <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>. Hover an image to credit the photographer.</p>
@@ -415,6 +421,17 @@ const googleFonts = [
           <span>or drag images here</span>
         </label>
         <div class="ed-photo-grid" id="ed-upload-grid"></div>
+
+        <!-- Admin-only: bulk-import Canva page exports. Shown via JS in ?mode=admin. -->
+        <div class="ed-canva" id="ed-canva-import" hidden>
+          <div class="ed-canva-sep"><span>Bulk import</span></div>
+          <label class="ed-upload-drop ed-canva-drop" id="ed-canva-drop">
+            <input type="file" id="ed-canva-zip" accept=".zip,application/zip,application/x-zip-compressed" hidden />
+            <strong>Designed on Canva?</strong>
+            <span>Drop a .zip of background images — each becomes a page.</span>
+          </label>
+          <p class="ed-canva-status" id="ed-canva-status" hidden></p>
+        </div>
       </section>
 
       <!-- Background -->
@@ -1096,6 +1113,18 @@ const googleFonts = [
       user-select: none;
     }
     .ed-stock-sources input[type="checkbox"] { accent-color: var(--english-violet); }
+    .ed-collect { display: flex; gap: 8px; margin: 10px 0 4px; }
+    .ed-collect input[type="url"] {
+      flex: 1; min-width: 0; padding: 9px 12px; font-family: var(--sans); font-size: 13px;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; background: #fff;
+    }
+    .ed-collect input[type="url"]:focus { outline: none; border-color: var(--english-violet); }
+    .ed-collect button {
+      flex: 0 0 auto; padding: 9px 16px; font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.06em; color: var(--paper); background: var(--english-violet);
+      border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s;
+    }
+    .ed-collect button:hover { background: var(--ink); }
     .ed-stock-status {
       margin: 0 0 10px;
       font-size: 11px; color: rgba(28,29,34,0.5);
@@ -1358,6 +1387,14 @@ const googleFonts = [
       background: rgba(71,66,84,0.1);
       border-color: var(--english-violet);
     }
+    /* Canva bulk import (admin) */
+    .ed-canva[hidden] { display: none; }
+    .ed-canva-sep { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+    .ed-canva-sep::before, .ed-canva-sep::after { content: ""; flex: 1; height: 1px; background: rgba(28,29,34,0.12); }
+    .ed-canva-sep span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .ed-canva-status { font-family: var(--sans); font-size: 12px; color: var(--english-violet); margin: 10px 0 0; }
+    .ed-canva-status.is-error { color: #a05a3c; }
+    .ed-canva-status[hidden] { display: none; }
 
     /* Background swatches */
     .ed-swatches {
@@ -1729,17 +1766,16 @@ const googleFonts = [
     .ed-cp-hex:focus { outline: none; border-color: var(--english-violet); }
     .ed-cp-sec { margin-bottom: 18px; }
     .ed-cp-sec h5 { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 9px; }
-    .ed-cp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-    .ed-cp-grid--grad { grid-template-columns: repeat(6, 1fr); }
+    .ed-cp-grid { display: flex; flex-wrap: wrap; gap: 7px; }
     .ed-cp-sw {
-      width: 100%; aspect-ratio: 1; border-radius: 50%; cursor: pointer;
+      width: 26px; height: 26px; flex: 0 0 auto; border-radius: 50%; cursor: pointer;
       border: 1px solid rgba(28,29,34,0.14); padding: 0; transition: transform 0.12s;
       background-size: cover; background-position: center;
     }
-    .ed-cp-sw:hover { transform: scale(1.12); }
-    .ed-cp-sw.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--english-violet); }
-    .ed-cp-grid--grad .ed-cp-sw { border-radius: 8px; }
-    .ed-cp-empty { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.45); }
+    .ed-cp-sw:hover { transform: scale(1.15); }
+    .ed-cp-sw.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--english-violet); }
+    .ed-cp-grid--grad .ed-cp-sw { width: 40px; height: 28px; border-radius: 6px; }
+    .ed-cp-empty { flex: 1 1 100%; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.45); white-space: nowrap; margin: 0; }
 
     /* ---- Page strip (multi-page designs) ---- */
     .ed-pages {
@@ -2838,6 +2874,61 @@ const googleFonts = [
         })
       );
 
+      // ---- Pull a whole collection from a pasted Pexels / Unsplash link ----
+      async function fetchPexelsCollection(id) {
+        if (!PEXELS_KEY) return [];
+        try {
+          const res = await fetch(`https://api.pexels.com/v1/collections/${encodeURIComponent(id)}?type=photos&per_page=80`, { headers: { Authorization: PEXELS_KEY } });
+          if (!res.ok) throw new Error(`Pexels ${res.status}`);
+          const json = await res.json();
+          return (json.media || []).filter((m) => m.src).map((p) => ({
+            source: 'pexels', id: String(p.id), thumb: p.src.medium,
+            full: p.src.large2x || p.src.large || p.src.original,
+            credit: `${p.photographer} on Pexels`, creditUrl: p.url,
+          }));
+        } catch (e) { console.warn('Pexels collection failed', e); return []; }
+      }
+      async function fetchUnsplashCollection(id) {
+        if (!UNSPLASH_KEY) return [];
+        try {
+          const res = await fetch(`https://api.unsplash.com/collections/${encodeURIComponent(id)}/photos?per_page=30`, { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` } });
+          if (!res.ok) throw new Error(`Unsplash ${res.status}`);
+          const json = await res.json();
+          return (json || []).map((r) => ({
+            source: 'unsplash', id: r.id, thumb: r.urls.small, full: r.urls.regular,
+            credit: `${r.user.name} on Unsplash`, creditUrl: r.links.html, downloadLocation: r.links.download_location,
+          }));
+        } catch (e) { console.warn('Unsplash collection failed', e); return []; }
+      }
+      async function pullCollection(url) {
+        url = (url || '').trim();
+        if (!url) return;
+        let service = null, id = null;
+        try {
+          const u = new URL(url);
+          if (/pexels\.com/i.test(u.hostname)) {
+            service = 'pexels';
+            const seg = u.pathname.split('/').filter(Boolean).pop() || '';
+            const parts = seg.split('-'); id = parts[parts.length - 1];
+          } else if (/unsplash\.com/i.test(u.hostname)) {
+            service = 'unsplash';
+            const segs = u.pathname.split('/').filter(Boolean);
+            const ci = segs.indexOf('collections');
+            id = ci >= 0 ? segs[ci + 1] : null;
+          }
+        } catch (_) { /* not a URL */ }
+        if (!service || !id) { setStatus('That doesn’t look like a Pexels or Unsplash collection link.', true); return; }
+        setStatus('Pulling collection…');
+        const results = service === 'pexels' ? await fetchPexelsCollection(id) : await fetchUnsplashCollection(id);
+        if (!results.length) { gridEl.innerHTML = ''; setStatus('Couldn’t pull that collection — check it’s public and the link is right.', true); return; }
+        renderResults(results);
+        setStatus(`${results.length} photo${results.length === 1 ? '' : 's'} from the collection. Click one to add it.`);
+      }
+      const collectInput = document.getElementById('ed-collect-input');
+      const collectBtn = document.getElementById('ed-collect-pull');
+      if (collectBtn) collectBtn.addEventListener('click', () => pullCollection(collectInput.value));
+      if (collectInput) collectInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); pullCollection(collectInput.value); } });
+
       if (!PEXELS_KEY && !UNSPLASH_KEY) {
         setStatus('No stock photo API keys configured. Set PUBLIC_PEXELS_API_KEY / PUBLIC_UNSPLASH_ACCESS_KEY.', true);
         inputEl.disabled = true;
@@ -3182,6 +3273,56 @@ const googleFonts = [
     }
 
     if (isAdmin && publishBtn) publishBtn.addEventListener("click", doPublish);
+
+    // ---- Canva bulk import (admin): a .zip of page backgrounds → a multi-page
+    // design, one page per image. Text is re-added in the studio. ----
+    if (isAdmin) {
+      const canvaWrap = document.getElementById("ed-canva-import");
+      const zipInput = document.getElementById("ed-canva-zip");
+      const drop = document.getElementById("ed-canva-drop");
+      const cstatus = document.getElementById("ed-canva-status");
+      if (canvaWrap) canvaWrap.hidden = false;
+
+      const setC = (msg, err) => { if (!cstatus) return; cstatus.hidden = false; cstatus.textContent = msg; cstatus.classList.toggle("is-error", !!err); };
+      const blobToDataURL = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+      const imgDims = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res({ w: i.naturalWidth, h: i.naturalHeight }); i.onerror = () => res({ w: 1080, h: 1350 }); i.src = src; });
+
+      async function importZip(file) {
+        if (!file) return;
+        setC("Reading zip…");
+        let JSZip;
+        try { ({ default: JSZip } = await import("https://esm.sh/jszip@3.10.1")); }
+        catch (e) { setC("Couldn’t load the zip reader — check your connection.", true); return; }
+        let zip;
+        try { zip = await JSZip.loadAsync(file); } catch (e) { setC("That doesn’t look like a valid .zip.", true); return; }
+        const entries = [];
+        zip.forEach((path, entry) => {
+          if (!entry.dir && /\.(png|jpe?g|webp)$/i.test(path) && !/__MACOSX|\/\._/.test(path)) entries.push(entry);
+        });
+        entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        if (!entries.length) { setC("No images found in that zip.", true); return; }
+        setC(`Importing ${entries.length} background${entries.length === 1 ? "" : "s"}…`);
+        const images = [];
+        for (const e of entries) {
+          try {
+            const blob = await e.async("blob");
+            const dataUrl = await blobToDataURL(blob);
+            const dims = await imgDims(dataUrl);
+            images.push({ src: dataUrl, w: dims.w, h: dims.h });
+          } catch (_) { /* skip a bad entry */ }
+        }
+        if (!images.length) { setC("Couldn’t read the images in that zip.", true); return; }
+        if (typeof window.__TMKE_IMPORT_BACKGROUNDS__ === "function") window.__TMKE_IMPORT_BACKGROUNDS__(images);
+        setC(`${images.length} page${images.length === 1 ? "" : "s"} created — add your text, then Publish.`);
+      }
+
+      if (zipInput) zipInput.addEventListener("change", () => { importZip(zipInput.files[0]); zipInput.value = ""; });
+      if (drop) {
+        drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("is-drag"); });
+        drop.addEventListener("dragleave", () => drop.classList.remove("is-drag"));
+        drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-drag"); importZip(e.dataTransfer.files[0]); });
+      }
+    }
   </script>
 
   <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
