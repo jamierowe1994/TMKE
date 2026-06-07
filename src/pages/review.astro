@@ -1,0 +1,216 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+// Link-based design review. A teammate opens /review?id=<uuid> (no account),
+// sees the rasterised pages + the comments left in the studio, can add notes,
+// and Approve or Request changes. State lives in the Supabase `reviews` row.
+---
+
+<BaseLayout
+  title="Review a design — TMKE"
+  description="Review a TMKE design — leave notes, then approve or request changes."
+  hideNav
+  hideFooter
+>
+  <main class="rev-page">
+    <p class="rev-loading" id="rev-loading">Loading the design…</p>
+    <p class="rev-error" id="rev-error" hidden></p>
+
+    <div class="rev-wrap" id="rev-wrap" hidden>
+      <header class="rev-head">
+        <p class="rev-eyebrow">Review request</p>
+        <h1 class="rev-title" id="rev-title">Design</h1>
+        <p class="rev-from" id="rev-from"></p>
+        <p class="rev-message" id="rev-message" hidden></p>
+        <span class="rev-status" id="rev-status">Pending</span>
+      </header>
+
+      <div class="rev-body">
+        <div class="rev-pages" id="rev-pages"></div>
+
+        <aside class="rev-side">
+          <div class="rev-notes-card">
+            <h2 class="rev-h2">Notes</h2>
+            <div class="rev-notes-list" id="rev-notes-list"></div>
+            <div class="rev-add">
+              <textarea id="rev-add-text" rows="3" placeholder="Add a note for the designer…"></textarea>
+              <button type="button" id="rev-add-btn" class="rev-add-btn">Add note</button>
+            </div>
+          </div>
+
+          <div class="rev-decide" id="rev-decide">
+            <button type="button" id="rev-approve" class="rev-approve">Approve &amp; ready to publish</button>
+            <button type="button" id="rev-changes" class="rev-changes">Request changes</button>
+            <p class="rev-decide-hint">Requesting changes? Add your notes above first.</p>
+          </div>
+          <div class="rev-decided" id="rev-decided" hidden></div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <style>
+    .rev-page { min-height: 100vh; background: #f5f4f1; padding: clamp(24px, 5vw, 64px) clamp(16px, 4vw, 56px) 100px; }
+    .rev-loading, .rev-error { font-family: var(--sans); font-size: 15px; color: rgba(28,29,34,0.6); text-align: center; margin-top: 22vh; }
+    .rev-error { color: #a05a3c; }
+    .rev-error[hidden], .rev-wrap[hidden], .rev-message[hidden], .rev-decided[hidden] { display: none; }
+
+    .rev-head { max-width: 1240px; margin: 0 auto 28px; }
+    .rev-eyebrow { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 8px; }
+    .rev-title { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 5vw, 56px); letter-spacing: -0.02em; margin: 0; }
+    .rev-from { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.6); margin: 8px 0 0; }
+    .rev-message { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink); background: #fff; border-left: 3px solid var(--english-violet); border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 16px 0 0; max-width: 70ch; }
+    .rev-status {
+      display: inline-block; margin-top: 16px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px;
+      background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.6);
+    }
+    .rev-status.is-approved { background: rgba(46,125,82,0.14); color: #2e7d52; }
+    .rev-status.is-changes { background: rgba(160,90,60,0.14); color: #a05a3c; }
+
+    .rev-body { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 1fr 340px; gap: clamp(20px, 3vw, 44px); align-items: start; }
+    @media (max-width: 900px) { .rev-body { grid-template-columns: 1fr; } }
+
+    .rev-pages { display: flex; flex-direction: column; gap: 22px; }
+    .rev-page-card { position: relative; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 18px 50px -24px rgba(28,29,34,0.4); }
+    .rev-page-card img { display: block; width: 100%; height: auto; }
+    .rev-page-num { position: absolute; top: 10px; left: 12px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #fff; background: rgba(16,14,22,0.55); border-radius: 999px; padding: 3px 10px; }
+    .rev-page-missing { aspect-ratio: 4/5; display: flex; align-items: center; justify-content: center; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.4); background: #ecebe7; }
+
+    .rev-side { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .rev-notes-card, .rev-decide, .rev-decided { background: #fff; border: 1px solid rgba(28,29,34,0.08); border-radius: 12px; padding: 18px; box-shadow: 0 10px 30px -20px rgba(28,29,34,0.3); }
+    .rev-h2 { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); margin: 0 0 12px; }
+    .rev-notes-list { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; margin-bottom: 12px; }
+    .rev-note { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink); padding: 10px 12px; border-radius: 8px; background: rgba(28,29,34,0.04); }
+    .rev-note small { display: block; font-size: 11px; color: rgba(28,29,34,0.45); margin-bottom: 3px; }
+    .rev-note--design small { color: var(--english-violet); }
+    .rev-note-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.4); }
+    .rev-add { display: flex; flex-direction: column; gap: 8px; }
+    .rev-add textarea { resize: vertical; font-family: var(--sans); font-size: 13px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; }
+    .rev-add textarea:focus { outline: none; border-color: var(--english-violet); }
+    .rev-add-btn { align-self: flex-end; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); background: rgba(71,66,84,0.08); border: none; border-radius: 999px; padding: 8px 16px; cursor: pointer; }
+    .rev-add-btn:hover { background: rgba(71,66,84,0.16); }
+
+    .rev-decide { display: flex; flex-direction: column; gap: 10px; }
+    .rev-approve, .rev-changes { font-family: var(--sans); font-size: 13px; font-weight: 700; padding: 13px; border-radius: 999px; cursor: pointer; border: none; }
+    .rev-approve { background: #2e7d52; color: #fff; }
+    .rev-approve:hover { background: #266b46; }
+    .rev-changes { background: transparent; color: #a05a3c; border: 1px solid rgba(160,90,60,0.4); }
+    .rev-changes:hover { background: rgba(160,90,60,0.08); }
+    .rev-decide-hint { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); margin: 2px 0 0; text-align: center; }
+    .rev-decided { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ink); }
+    .rev-decided strong { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+  </style>
+
+  <script>
+    import { supabase } from "../lib/supabase.js";
+
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
+    const $ = (x) => document.getElementById(x);
+    const loadingEl = $("rev-loading");
+    const errEl = $("rev-error");
+    const wrapEl = $("rev-wrap");
+
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+    function fail(msg) { loadingEl.hidden = true; errEl.hidden = false; errEl.textContent = msg; }
+
+    let review = null;
+
+    function render() {
+      $("rev-title").textContent = review.title || "Design";
+      $("rev-from").textContent = review.requested_by_email ? ("Sent by " + review.requested_by_email) : "Sent for your review";
+      if (review.message) { const m = $("rev-message"); m.hidden = false; m.textContent = review.message; }
+
+      const st = $("rev-status");
+      st.classList.remove("is-approved", "is-changes");
+      if (review.status === "approved") { st.textContent = "Approved"; st.classList.add("is-approved"); }
+      else if (review.status === "changes_requested") { st.textContent = "Changes requested"; st.classList.add("is-changes"); }
+      else st.textContent = "Pending review";
+
+      // Pages
+      const pagesEl = $("rev-pages");
+      pagesEl.innerHTML = (review.page_images || []).map((src, i) =>
+        '<div class="rev-page-card"><span class="rev-page-num">Page ' + (i + 1) + '</span>' +
+        (src ? '<img src="' + src + '" alt="Page ' + (i + 1) + '" />' : '<div class="rev-page-missing">Page preview unavailable</div>') +
+        '</div>'
+      ).join("") || '<div class="rev-page-missing">No pages in this design.</div>';
+
+      // Notes — designer's in-editor comments + the reviewer's notes
+      const design = (review.design_comments || []).map((c) =>
+        '<div class="rev-note rev-note--design"><small>From the designer · Page ' + ((c.page || 0) + 1) + '</small>' + esc(c.text) + '</div>'
+      );
+      const mine = (review.review_comments || []).map((c) =>
+        '<div class="rev-note"><small>Your note</small>' + esc(c.text) + '</div>'
+      );
+      const all = design.concat(mine);
+      $("rev-notes-list").innerHTML = all.length ? all.join("") : '<p class="rev-note-empty">No notes yet.</p>';
+
+      // Decision area
+      const decided = review.status && review.status !== "pending";
+      $("rev-decide").hidden = decided;
+      const dEl = $("rev-decided");
+      if (decided) {
+        dEl.hidden = false;
+        dEl.innerHTML = "<strong>" + (review.status === "approved" ? "Approved" : "Changes requested") + "</strong>" +
+          (review.decision_note ? esc(review.decision_note) : (review.status === "approved" ? "Good to publish." : "See the notes above."));
+      } else { dEl.hidden = true; }
+    }
+
+    async function persist(patch) {
+      const { error } = await supabase.from("reviews").update(patch).eq("id", id);
+      if (error) { alert("Couldn't save: " + error.message); return false; }
+      Object.assign(review, patch);
+      render();
+      return true;
+    }
+
+    function wire() {
+      $("rev-add-btn").addEventListener("click", async () => {
+        const ta = $("rev-add-text");
+        const txt = (ta.value || "").trim();
+        if (!txt) return;
+        const list = (review.review_comments || []).concat([{ text: txt, ts: Date.now() }]);
+        if (await persist({ review_comments: list })) ta.value = "";
+      });
+      $("rev-approve").addEventListener("click", async () => {
+        await persist({ status: "approved", decided_at: new Date().toISOString(), decision_note: null });
+      });
+      $("rev-changes").addEventListener("click", async () => {
+        const notes = (review.review_comments || []);
+        const note = notes.length ? notes[notes.length - 1].text : ($("rev-add-text").value || "").trim();
+        if (!note) { alert("Add a note describing the changes first."); $("rev-add-text").focus(); return; }
+        await persist({ status: "changes_requested", decided_at: new Date().toISOString(), decision_note: note });
+      });
+    }
+
+    (async () => {
+      // Dev-only layout preview: /review?demo=1 renders a mock review.
+      if (import.meta.env.DEV && params.get("demo") === "1") {
+        review = {
+          id: "demo", title: "Neighbourhood Spotlight — Spring",
+          requested_by_email: "danni@harbourandco.co.uk",
+          message: "Quick check before this goes out — happy with the headline and the location line?",
+          page_images: ["https://assets.tmke.co.uk/kitchen-1.webp", "https://assets.tmke.co.uk/living-1.webp"],
+          design_comments: [{ page: 0, text: "Make this headline a touch bigger." }],
+          review_comments: [{ text: "Looks great — just tighten the spacing under the title." }],
+          status: "pending",
+        };
+        loadingEl.hidden = true; wrapEl.hidden = false; render(); wire();
+        return;
+      }
+      if (!id) { fail("No review id in the link."); return; }
+      try {
+        const { data, error } = await supabase.from("reviews").select("*").eq("id", id).single();
+        if (error || !data) throw (error || new Error("Not found"));
+        review = data;
+        loadingEl.hidden = true;
+        wrapEl.hidden = false;
+        render();
+        wire();
+      } catch (e) {
+        console.error("[review]", e);
+        fail("Couldn't load this review — the link may be wrong, or the review backend isn't set up yet.");
+      }
+    })();
+  </script>
+</BaseLayout>
