@@ -2922,6 +2922,12 @@ const googleFonts = [
       if (selectedPack) {
         try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify(selectedPack)); }
         catch (_) { /* ignore */ }
+        // Load the pack's designs into the editor so they're ready to edit the
+        // moment the overlay clears. Falls back to the full library if the pack
+        // has no linked templates yet (real packs until the DB link lands).
+        if (typeof window.__TMKE_OPEN_PACK__ === "function") {
+          window.__TMKE_OPEN_PACK__(selectedPack.templateIds || []);
+        }
       }
       overlay.classList.add("is-leaving");
       // Wait for fade, then hide entirely and start the sequence.
@@ -2968,11 +2974,13 @@ const googleFonts = [
     // Dev-only preview: visit /editor?demo=1 under `astro dev` to fill the
     // pack-picker with a few gifted example packs (no Supabase needed). This
     // is gated on import.meta.env.DEV so it can NEVER ship to production.
+    // Demo packs carry real library template ids so clicking one opens its
+    // designs in the studio (see __TMKE_OPEN_PACK__ in editor.js).
     const DEMO_PACKS = [
-      { id: "demo-just-listed", slug: "just-listed-spring", title: "Just Listed — Spring", category: "Listings", cover_image_url: "https://assets.tmke.co.uk/kitchen-1.webp" },
-      { id: "demo-sold", slug: "sold-celebrating", title: "Sold & Celebrating", category: "Milestones", cover_image_url: "https://assets.tmke.co.uk/living-1.webp" },
-      { id: "demo-market", slug: "market-update", title: "Market Update", category: "Insights", cover_image_url: "https://assets.tmke.co.uk/orange-1.webp" },
-      { id: "demo-team", slug: "meet-the-team", title: "Meet the Team", category: "Brand", cover_image_url: "https://assets.tmke.co.uk/white-1.webp" },
+      { id: "demo-just-listed", slug: "just-listed-spring", title: "Just Listed — Spring", category: "Listings", cover_image_url: "https://assets.tmke.co.uk/kitchen-1.webp", templateIds: ["tmpl-01", "tmpl-02", "tmpl-13", "tmpl-14", "tmpl-17", "tmpl-26"] },
+      { id: "demo-sold", slug: "sold-celebrating", title: "Sold & Celebrating", category: "Milestones", cover_image_url: "https://assets.tmke.co.uk/living-1.webp", templateIds: ["tmpl-04", "tmpl-16", "tmpl-20", "tmpl-25"] },
+      { id: "demo-market", slug: "market-update", title: "Market Update", category: "Insights", cover_image_url: "https://assets.tmke.co.uk/orange-1.webp", templateIds: ["tmpl-09", "tmpl-18", "tmpl-28"] },
+      { id: "demo-team", slug: "meet-the-team", title: "Meet the Team", category: "Brand", cover_image_url: "https://assets.tmke.co.uk/white-1.webp", templateIds: ["tmpl-10", "tmpl-12", "tmpl-24", "tmpl-29"] },
     ];
     const DEMO_UNOWNED = [
       { id: "demo-open-house", slug: "open-house", title: "Open House", category: "Listings", cover_image_url: "https://assets.tmke.co.uk/table.webp" },

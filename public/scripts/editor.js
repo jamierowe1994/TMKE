@@ -7,6 +7,9 @@
 
   // ---------- Data ----------
   const TEMPLATES = JSON.parse(document.getElementById("ed-templates-data").textContent || "[]");
+  // The template grid shows this list. Defaults to every template; the
+  // onboarding pack-picker narrows it to the chosen pack via __TMKE_OPEN_PACK__.
+  let PACK_TEMPLATES = TEMPLATES;
   const PHOTOS = JSON.parse(document.getElementById("ed-photos-data").textContent || "[]");
 
   // System fonts that are always available without any web-font load.
@@ -3225,7 +3228,7 @@
       });
       return;
     }
-    TEMPLATES.forEach((t) => {
+    PACK_TEMPLATES.forEach((t) => {
       const b = document.createElement("button");
       b.dataset.id = t.id;
       b.title = t.name;
@@ -3698,6 +3701,21 @@
       width: state.canvas && state.canvas.width,
       height: state.canvas && state.canvas.height,
     };
+  };
+
+  // Onboarding pack-picker hook. Scopes the studio's template grid to a chosen
+  // pack and opens its first design for editing. `templateIds` is the pack's
+  // list; if it's empty or none resolve, we fall back to the full library so a
+  // click always lands on something editable.
+  window.__TMKE_OPEN_PACK__ = function (templateIds) {
+    const ids = Array.isArray(templateIds) ? templateIds.filter(Boolean) : [];
+    let scoped = ids.map((id) => TEMPLATES.find((t) => t.id === id)).filter(Boolean);
+    if (!scoped.length) scoped = TEMPLATES.slice();
+    if (!scoped.length) return;
+    PACK_TEMPLATES = scoped;
+    tplGridEl.innerHTML = "";   // force a fresh, scoped render
+    renderTemplateGrid();
+    loadTemplate(scoped[0].id, false);
   };
 
   // If a stock-photo search panel is taking over the Photos tab, skip
