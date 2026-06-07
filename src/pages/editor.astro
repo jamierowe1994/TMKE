@@ -444,6 +444,10 @@ const googleFonts = [
             <span>Drop a .zip of background images — each becomes a page.</span>
           </label>
           <p class="ed-canva-status" id="ed-canva-status" hidden></p>
+          <button type="button" class="ed-ai-btn" id="ed-ai-read">
+            <span aria-hidden="true">✨</span> Read text with AI <small>(this page)</small>
+          </button>
+          <p class="ed-ai-status" id="ed-ai-status" hidden></p>
         </div>
       </section>
 
@@ -1408,6 +1412,18 @@ const googleFonts = [
     .ed-canva-status { font-family: var(--sans); font-size: 12px; color: var(--english-violet); margin: 10px 0 0; }
     .ed-canva-status.is-error { color: #a05a3c; }
     .ed-canva-status[hidden] { display: none; }
+    .ed-ai-btn {
+      width: 100%; margin-top: 12px; padding: 11px 14px; cursor: pointer;
+      font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--paper);
+      background: var(--english-violet); border: none; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; gap: 7px; transition: background 0.2s, opacity 0.2s;
+    }
+    .ed-ai-btn small { font-weight: 500; opacity: 0.75; }
+    .ed-ai-btn:hover { background: var(--ink); }
+    .ed-ai-btn:disabled { opacity: 0.6; cursor: default; }
+    .ed-ai-status { font-family: var(--sans); font-size: 12px; color: var(--english-violet); margin: 8px 0 0; }
+    .ed-ai-status.is-error { color: #a05a3c; }
+    .ed-ai-status[hidden] { display: none; }
 
     /* Background swatches */
     .ed-swatches {
@@ -3460,6 +3476,36 @@ const googleFonts = [
         drop.addEventListener("dragleave", () => drop.classList.remove("is-drag"));
         drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-drag"); importZip(e.dataTransfer.files[0]); });
       }
+
+      // ---- "Read text with AI": send the current page image to the Worker's
+      // /ai/parse route (which calls Claude) and place the returned text. ----
+      const aiBtn = document.getElementById("ed-ai-read");
+      const aiStatus = document.getElementById("ed-ai-status");
+      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+      const setAi = (msg, err) => { if (!aiStatus) return; aiStatus.hidden = false; aiStatus.textContent = msg; aiStatus.classList.toggle("is-error", !!err); };
+      if (aiBtn) aiBtn.addEventListener("click", async () => {
+        if (!WORKER) { setAi("Set PUBLIC_R2_WORKER_URL to use the AI parser.", true); return; }
+        if (typeof window.__TMKE_PAGE_IMAGE__ !== "function") { setAi("Editor isn't ready — try again.", true); return; }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { setAi("Sign in to use the AI parser.", true); return; }
+        aiBtn.disabled = true; setAi("Reading this page…");
+        try {
+          const page = await window.__TMKE_PAGE_IMAGE__();
+          if (!page.image) throw new Error("Couldn't snapshot this page.");
+          const res = await fetch(`${WORKER}/ai/parse`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify(page),
+          });
+          const out = await res.json();
+          if (!res.ok) throw new Error(out.error || ("AI failed (" + res.status + ")"));
+          const n = (typeof window.__TMKE_AI_PLACE_TEXT__ === "function") ? window.__TMKE_AI_PLACE_TEXT__(out.blocks || []) : 0;
+          setAi(n ? ("Added " + n + " text box" + (n === 1 ? "" : "es") + " — tweak as needed.") : "No text found on this page.");
+        } catch (err) {
+          console.error("[ai]", err);
+          setAi("Couldn't read this page: " + (err.message || err), true);
+        } finally { aiBtn.disabled = false; }
+      });
     }
   </script>
 
