@@ -40,6 +40,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <button type="button" class="rev-tool" data-tool="pen" title="Draw (P)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3-1 5-2 7-5 1.5-2.2 2-5 4-7 1-1 2-1 3 0s1 2 0 3c-2 2-4.8 2.5-7 4-3 2-4 4-5 7"/></svg></button>
         </div>
         <div class="rev-colors" id="rev-colors"></div>
+        <span class="rev-tool-sep"></span>
+        <div class="rev-zoom">
+          <button type="button" class="rev-zbtn" data-z="out" title="Zoom out">−</button>
+          <button type="button" class="rev-zbtn rev-zdisp" id="rev-zoom-disp" title="Fit whole page ⟷ full width">Fit</button>
+          <button type="button" class="rev-zbtn" data-z="in" title="Zoom in">+</button>
+        </div>
       </div>
 
       <div class="rev-body">
@@ -118,18 +124,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       box-shadow: 0 0 0 1px rgba(28,29,34,0.15); padding: 0;
     }
     .rev-color.is-active { box-shadow: 0 0 0 2px var(--ink); transform: scale(1.12); }
+    .rev-zoom { display: flex; align-items: center; gap: 2px; }
+    .rev-zbtn { min-width: 30px; height: 30px; padding: 0 8px; border: none; background: none; border-radius: 8px; cursor: pointer; font-family: var(--sans); font-size: 14px; font-weight: 700; color: rgba(28,29,34,0.66); }
+    .rev-zbtn:hover { background: rgba(71,66,84,0.08); color: var(--ink); }
+    .rev-zdisp { font-size: 11px; min-width: 46px; letter-spacing: 0.02em; }
 
     .rev-body { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 1fr 340px; gap: clamp(20px, 3vw, 44px); align-items: start; }
     @media (max-width: 900px) { .rev-body { grid-template-columns: 1fr; } }
 
-    .rev-pages { display: flex; flex-direction: column; gap: 22px; }
-    .rev-page-card { position: relative; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 18px 50px -24px rgba(28,29,34,0.4); }
+    .rev-pages { display: flex; flex-direction: column; align-items: center; gap: 22px; overflow-x: auto; padding-bottom: 4px; }
+    .rev-page-card { position: relative; flex: none; width: calc(var(--rev-zoom, 1) * 100%); background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 18px 50px -24px rgba(28,29,34,0.4); }
     .rev-page-card img { display: block; width: 100%; height: auto; -webkit-user-drag: none; user-select: none; }
     .rev-page-num { position: absolute; top: 10px; left: 12px; z-index: 6; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #fff; background: rgba(16,14,22,0.55); border-radius: 999px; padding: 3px 10px; pointer-events: none; }
     .rev-page-missing { aspect-ratio: 4/5; display: flex; align-items: center; justify-content: center; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.4); background: #ecebe7; }
 
     /* Annotation overlays */
-    .rev-anno { position: absolute; inset: 0; z-index: 4; }
+    .rev-anno { position: absolute; inset: 0; z-index: 4; touch-action: none; -webkit-user-select: none; user-select: none; }
     .rev-anno-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
     .rev-anno.is-draw { cursor: crosshair; }
     .rev-anno.is-draw.tool-comment { cursor: copy; }
@@ -240,6 +250,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         p.anno.classList.toggle("tool-comment", t === "comment");
         p.elements.classList.toggle("is-on", t === "element");
       });
+      repaintAll();  // refresh each page's transparent hit surface for the new tool
     }
     function wireToolbar() {
       $("rev-tools").addEventListener("click", (e) => {
@@ -249,8 +260,50 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         if (/INPUT|TEXTAREA/.test((e.target || {}).tagName || "")) return;
         const map = { v: "select", c: "comment", e: "element", r: "rect", o: "ellipse", a: "arrow", l: "line", p: "pen" };
         if (map[e.key]) setTool(map[e.key]);
+        if (e.key === "+" || e.key === "=") setZoom(zoom + 0.15);
+        if (e.key === "-" || e.key === "_") setZoom(zoom - 0.15);
         if (e.key === "Escape") closePop();
       });
+    }
+
+    // ---------- Zoom ----------
+    // The page is rasterised at full width by default — fine for detail, but a
+    // tall portrait design won't fit a laptop screen. Zoom scales the displayed
+    // card width; annotation coords use getBoundingClientRect so they stay exact.
+    let zoom = 1, fitMode = true;
+    function applyZoom() {
+      $("rev-pages").style.setProperty("--rev-zoom", zoom);
+      const disp = $("rev-zoom-disp");
+      if (disp) disp.textContent = fitMode ? "Fit" : Math.round(zoom * 100) + "%";
+    }
+    function setZoom(z) {
+      zoom = Math.max(0.25, Math.min(3, Math.round(z * 100) / 100));
+      fitMode = false;
+      applyZoom();
+    }
+    // Scale so the first page fits ~the viewport height (the "see the whole thing" view).
+    function fitZoom() {
+      const ref = pageEls.find(Boolean);
+      const host = $("rev-pages");
+      if (!ref || !host) { zoom = 1; fitMode = true; applyZoom(); return; }
+      const img = ref.card.querySelector("img");
+      const natW = (img && img.naturalWidth) || 800, natH = (img && img.naturalHeight) || 1000;
+      const colW = host.clientWidth || 800;
+      const vh = window.innerHeight || 900;
+      const fullH = colW * (natH / natW);            // displayed height at zoom 1
+      zoom = Math.max(0.25, Math.min(1, (vh * 0.82) / fullH));
+      fitMode = true;
+      applyZoom();
+    }
+    function wireZoom() {
+      const z = $("rev-pages"); // ensure var applied
+      document.querySelector(".rev-zoom").addEventListener("click", (e) => {
+        const b = e.target.closest(".rev-zbtn"); if (!b) return;
+        if (b.dataset.z === "in") setZoom(zoom + 0.15);
+        else if (b.dataset.z === "out") setZoom(zoom - 0.15);
+        else { if (fitMode) setZoom(1); else fitZoom(); }   // display button toggles Fit ⟷ 100%
+      });
+      window.addEventListener("resize", () => { if (fitMode) fitZoom(); });
     }
 
     // ---------- Annotations data ----------
@@ -305,6 +358,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
         const img = document.createElement("img");
         img.src = src; img.alt = "Page " + (i + 1); img.draggable = false;
+        if (i === 0) img.addEventListener("load", () => { if (fitMode) fitZoom(); }, { once: true });
         card.appendChild(img);
 
         // SVG shape layer
@@ -341,6 +395,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const list = annosForPage(ref.index).concat(draft ? [draft] : []);
       // shapes
       ref.svg.innerHTML = "";
+      // Transparent full-bleed hit surface so a press anywhere on the page is
+      // reliably captured by the draw layer (empty SVG regions can otherwise let
+      // the event slip past). Inert in select mode so badges/click-away still work.
+      const hit = document.createElementNS(SVG_NS, "rect");
+      hit.setAttribute("x", "0"); hit.setAttribute("y", "0");
+      hit.setAttribute("width", "1000"); hit.setAttribute("height", "1000");
+      hit.setAttribute("fill", "transparent");
+      hit.setAttribute("pointer-events", tool === "select" || tool === "element" ? "none" : "all");
+      ref.svg.appendChild(hit);
       // element highlights
       ref.elements.querySelectorAll(".rev-el-hl").forEach((n) => n.remove());
       // badges
@@ -488,6 +551,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
         const draft = { id: uid(), page: ref.index, tool, color, pts: tool === "pen" ? [start] : [start, start], note: "", author: "reviewer", ts: now() };
         if (tool === "arrow") ensureArrowDefs(ref, color);
+        // Capture the pointer so the WHOLE drag is delivered here, even if the
+        // cursor leaves the layer or the page would otherwise scroll/select.
+        try { ref.anno.setPointerCapture(ev.pointerId); } catch (_) {}
         const move = (e2) => {
           const pt = localPoint(ref, e2);
           if (tool === "pen") draft.pts.push(pt); else draft.pts[1] = pt;
@@ -495,7 +561,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         };
         const up = (e2) => {
           ref.anno.removeEventListener("pointermove", move);
-          window.removeEventListener("pointerup", up);
+          ref.anno.removeEventListener("pointerup", up);
+          ref.anno.removeEventListener("pointercancel", up);
+          try { ref.anno.releasePointerCapture(ev.pointerId); } catch (_) {}
           // ignore tiny accidental drags
           const a0 = draft.pts[0], a1 = draft.pts[draft.pts.length - 1];
           const tiny = Math.hypot((a1.x - a0.x), (a1.y - a0.y)) < 0.01 && tool !== "pen";
@@ -504,7 +572,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           openPop(draft, e2.clientX, e2.clientY, true);
         };
         ref.anno.addEventListener("pointermove", move);
-        window.addEventListener("pointerup", up);
+        ref.anno.addEventListener("pointerup", up);
+        ref.anno.addEventListener("pointercancel", up);
       });
     }
 
@@ -628,9 +697,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     function boot() {
-      buildColors(); wireToolbar(); wirePop(); wire();
+      buildColors(); wireToolbar(); wireZoom(); wirePop(); wire();
       loadingEl.hidden = true; wrapEl.hidden = false;
       render();
+      applyZoom();
     }
 
     (async () => {
