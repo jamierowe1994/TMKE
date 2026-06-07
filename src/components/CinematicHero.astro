@@ -108,22 +108,40 @@ const pad2 = (n) => String(n).padStart(2, "0");
     const lock = () => { document.documentElement.style.overflow = "hidden"; document.body.style.overflow = "hidden"; };
     const unlock = () => { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; };
 
-    // ---- intro timeline (slow + exaggerated) ----
-    lock(); document.body.classList.add("sh-lock");
-    setTimeout(() => sh.classList.add("s-lists"), 900);
-    setTimeout(() => sh.classList.add("s-clear"), 4400);
-    setTimeout(() => sh.classList.add("s-collapse"), 5400);
-    setTimeout(() => { sh.classList.add("s-brand"); document.body.classList.remove("sh-lock"); }, 6100); // nav drops in
-    // gradual build of the resting state: centre → sides → copy → scroller
-    const reveal = (sel, t) => setTimeout(() => { const el = sh.querySelector(sel); if (el) el.classList.add("is-in"); }, t);
-    reveal(".sh-photo--centre", 6550);
-    reveal(".sh-photo--left", 7100);
-    reveal(".sh-photo--right", 7350);
-    reveal(".sh-text--left", 7750);
-    reveal(".sh-text--right", 8000);
-    reveal(".sh-scroller", 8400);
-    setTimeout(() => { sh.classList.add("s-done"); unlock(); }, 8900);
-    setTimeout(unlock, 10500); // safety
+    // ---- intro timeline — plays ONCE per browser session ----
+    // First visit gets the full cinematic intro; once it's been seen we skip
+    // straight to the resting "Strategic thinkers / Smart strategy" state on
+    // every later load (no TMKE loader, no team portraits). The flag lives in
+    // sessionStorage, so closing the browser and returning replays the intro.
+    const SEEN_KEY = "tmke.editIntroSeen";
+    let introSeen = false;
+    try { introSeen = sessionStorage.getItem(SEEN_KEY) === "1"; } catch (_) {}
+
+    const restEls = [".sh-photo--centre", ".sh-photo--left", ".sh-photo--right", ".sh-text--left", ".sh-text--right", ".sh-scroller"];
+
+    if (introSeen) {
+      // Land directly on the resting state — fast, no intro, nav not locked.
+      sh.classList.add("sh-instant", "s-lists", "s-clear", "s-collapse", "s-brand", "s-done");
+      document.body.classList.remove("sh-lock");
+      restEls.forEach((sel) => { const el = sh.querySelector(sel); if (el) el.classList.add("is-in"); });
+    } else {
+      try { sessionStorage.setItem(SEEN_KEY, "1"); } catch (_) {}
+      lock(); document.body.classList.add("sh-lock");
+      setTimeout(() => sh.classList.add("s-lists"), 900);
+      setTimeout(() => sh.classList.add("s-clear"), 4400);
+      setTimeout(() => sh.classList.add("s-collapse"), 5400);
+      setTimeout(() => { sh.classList.add("s-brand"); document.body.classList.remove("sh-lock"); }, 6100); // nav drops in
+      // gradual build of the resting state: centre → sides → copy → scroller
+      const reveal = (sel, t) => setTimeout(() => { const el = sh.querySelector(sel); if (el) el.classList.add("is-in"); }, t);
+      reveal(".sh-photo--centre", 6550);
+      reveal(".sh-photo--left", 7100);
+      reveal(".sh-photo--right", 7350);
+      reveal(".sh-text--left", 7750);
+      reveal(".sh-text--right", 8000);
+      reveal(".sh-scroller", 8400);
+      setTimeout(() => { sh.classList.add("s-done"); unlock(); }, 8900);
+      setTimeout(unlock, 10500); // safety
+    }
 
     // ---- photos ----
     const pl = document.getElementById("sh-pl"), pr = document.getElementById("sh-pr");
@@ -215,6 +233,14 @@ const pad2 = (n) => String(n).padStart(2, "0");
 <style is:global>
   body.sh-lock #nav { transform: translateY(-115%) !important; transition: none !important; }
   #nav { transition: transform 0.8s cubic-bezier(.2,.75,.2,1); }
+
+  /* Returning visit (intro already seen this session) — snap to the resting
+     "Strategic thinkers / Smart strategy" state: hide the intro instantly and
+     bring the resting photos/copy/scroller in with a quick fade, no stagger. */
+  .sh.sh-instant .sh-intro { transition: none !important; opacity: 0 !important; pointer-events: none; }
+  .sh.sh-instant .sh-photo,
+  .sh.sh-instant .sh-text,
+  .sh.sh-instant .sh-scroller { transition-duration: 0.35s !important; transition-delay: 0s !important; }
 
   /* Template names — global because they're created in JS (no scoped attribute).
      Pure text, no button chrome. */
