@@ -43,8 +43,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <span class="rev-tool-sep"></span>
         <div class="rev-zoom">
           <button type="button" class="rev-zbtn" data-z="out" title="Zoom out">−</button>
-          <button type="button" class="rev-zbtn rev-zdisp" id="rev-zoom-disp" title="Fit whole page ⟷ full width">Fit</button>
+          <button type="button" class="rev-zbtn rev-zdisp" id="rev-zoom-disp" aria-haspopup="menu" title="Choose a zoom level">Fit ▾</button>
           <button type="button" class="rev-zbtn" data-z="in" title="Zoom in">+</button>
+          <div class="rev-zoom-menu" id="rev-zoom-menu" hidden>
+            <button type="button" data-zoom="fit">Fit page</button>
+            <button type="button" data-zoom="0.5">50%</button>
+            <button type="button" data-zoom="0.75">75%</button>
+            <button type="button" data-zoom="1">100%</button>
+            <button type="button" data-zoom="1.5">150%</button>
+            <button type="button" data-zoom="2">200%</button>
+          </div>
         </div>
       </div>
 
@@ -130,10 +138,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       box-shadow: 0 0 0 1px rgba(28,29,34,0.15); padding: 0;
     }
     .rev-color.is-active { box-shadow: 0 0 0 2px var(--ink); transform: scale(1.12); }
-    .rev-zoom { display: flex; align-items: center; gap: 2px; }
+    .rev-zoom { display: flex; align-items: center; gap: 2px; position: relative; }
     .rev-zbtn { min-width: 30px; height: 30px; padding: 0 8px; border: none; background: none; border-radius: 8px; cursor: pointer; font-family: var(--sans); font-size: 14px; font-weight: 700; color: rgba(28,29,34,0.66); }
     .rev-zbtn:hover { background: rgba(71,66,84,0.08); color: var(--ink); }
-    .rev-zdisp { font-size: 11px; min-width: 46px; letter-spacing: 0.02em; }
+    .rev-zdisp { font-size: 11px; min-width: 56px; letter-spacing: 0.02em; }
+    .rev-zoom-menu {
+      position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
+      background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px;
+      box-shadow: 0 16px 40px -16px rgba(28,29,34,0.45); padding: 5px; min-width: 116px;
+    }
+    .rev-zoom-menu[hidden] { display: none; }
+    .rev-zoom-menu button {
+      display: block; width: 100%; text-align: left; padding: 8px 12px; border: none; background: none;
+      border-radius: 6px; cursor: pointer; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink);
+    }
+    .rev-zoom-menu button:hover { background: rgba(71,66,84,0.09); }
+    .rev-zoom-menu button.is-current { color: var(--english-violet); background: rgba(71,66,84,0.1); }
 
     .rev-body { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 1fr 340px; gap: clamp(20px, 3vw, 44px); align-items: start; }
     @media (max-width: 900px) { .rev-body { grid-template-columns: 1fr; } }
@@ -280,7 +300,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     function applyZoom() {
       $("rev-pages").style.setProperty("--rev-zoom", zoom);
       const disp = $("rev-zoom-disp");
-      if (disp) disp.textContent = fitMode ? "Fit" : Math.round(zoom * 100) + "%";
+      if (disp) disp.textContent = (fitMode ? "Fit" : Math.round(zoom * 100) + "%") + " ▾";
+      // Highlight the matching preset in the menu.
+      const menu = $("rev-zoom-menu");
+      if (menu) menu.querySelectorAll("button").forEach((b) => {
+        const v = b.dataset.zoom;
+        const on = v === "fit" ? fitMode : (!fitMode && Math.abs(parseFloat(v) - zoom) < 0.001);
+        b.classList.toggle("is-current", on);
+      });
     }
     function setZoom(z) {
       zoom = Math.max(0.25, Math.min(3, Math.round(z * 100) / 100));
@@ -301,11 +328,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       applyZoom();
     }
     function wireZoom() {
+      const menu = $("rev-zoom-menu");
+      const closeMenu = () => { if (menu) menu.hidden = true; };
       document.querySelector(".rev-zoom").addEventListener("click", (e) => {
         const b = e.target.closest(".rev-zbtn"); if (!b) return;
-        if (b.dataset.z === "in") setZoom(zoom + 0.15);
-        else if (b.dataset.z === "out") setZoom(zoom - 0.15);
-        else { if (fitMode) setZoom(1); else fitZoom(); }
+        if (b.dataset.z === "in") { setZoom(zoom + 0.25); closeMenu(); }
+        else if (b.dataset.z === "out") { setZoom(zoom - 0.25); closeMenu(); }
+        else if (menu) { menu.hidden = !menu.hidden; applyZoom(); }  // display → open the % picker
+      });
+      if (menu) menu.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-zoom]"); if (!b) return;
+        if (b.dataset.zoom === "fit") fitZoom(); else setZoom(parseFloat(b.dataset.zoom));
+        closeMenu();
+      });
+      document.addEventListener("pointerdown", (e) => {
+        if (menu && !menu.hidden && !e.target.closest(".rev-zoom")) closeMenu();
       });
       window.addEventListener("resize", () => { if (fitMode) fitZoom(); });
     }
