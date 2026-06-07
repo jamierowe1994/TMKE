@@ -422,6 +422,12 @@ const googleFonts = [
         </div>
         <button type="button" id="ed-collect-save" class="ed-collect-save" hidden>★ Save this collection to Photos</button>
         <div class="ed-collect-saved" id="ed-collect-saved"></div>
+        <!-- Shows while a collection's photos are open — click to withdraw them
+             (collapse back to the folder list). -->
+        <div class="ed-collect-open" id="ed-collect-open" hidden>
+          <span class="ed-collect-open-name" id="ed-collect-open-name"></span>
+          <button type="button" class="ed-collect-close" id="ed-collect-close" title="Withdraw these photos">Close <span aria-hidden="true">&times;</span></button>
+        </div>
         <p class="ed-stock-status" id="ed-stock-status">Type to search — results from both sources appear here.</p>
         <div class="ed-photo-grid" id="ed-photo-grid"></div>
         <p class="ed-stock-credit">Photos via <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> &amp; <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>. Hover an image to credit the photographer.</p>
@@ -1178,6 +1184,13 @@ const googleFonts = [
       font-family: var(--sans); font-size: 12px; color: var(--ink); cursor: pointer; max-width: 100%;
     }
     .ed-collect-chip:hover { border-color: var(--english-violet); }
+    .ed-collect-chip.is-open { border-color: var(--english-violet); background: rgba(71,66,84,0.1); font-weight: 700; }
+    .ed-collect-open { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 0; padding: 7px 10px; background: rgba(71,66,84,0.08); border: 1px solid rgba(71,66,84,0.18); border-radius: 8px; }
+    .ed-collect-open[hidden] { display: none; }
+    .ed-collect-open-name { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ed-collect-close { flex: 0 0 auto; border: none; background: none; cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.6); display: inline-flex; align-items: center; gap: 5px; }
+    .ed-collect-close span { font-size: 15px; }
+    .ed-collect-close:hover { color: #c0392b; }
     .ed-collect-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
     .ed-collect-pexels { background: #05a081; }
     .ed-collect-unsplash { background: #111; }
@@ -3155,8 +3168,22 @@ const googleFonts = [
       }
 
       let lastCollection = null;
+      let activeKey = null;   // service:id of the collection whose photos are open
       const collectSaveBtn = document.getElementById('ed-collect-save');
       const collectSavedEl = document.getElementById('ed-collect-saved');
+      const collectOpenEl = document.getElementById('ed-collect-open');
+      const collectOpenName = document.getElementById('ed-collect-open-name');
+      const DEFAULT_STOCK_STATUS = 'Type to search — results from both sources appear here.';
+
+      // Withdraw the open collection's photos and collapse back to the folder list.
+      function clearResults() {
+        gridEl.innerHTML = '';
+        activeKey = null; lastCollection = null;
+        if (collectOpenEl) collectOpenEl.hidden = true;
+        if (collectSaveBtn) collectSaveBtn.hidden = true;
+        setStatus(DEFAULT_STOCK_STATUS);
+        renderSaved();
+      }
 
       async function pullCollection(url) {
         const c = parseCollection(url);
@@ -3166,9 +3193,16 @@ const googleFonts = [
         if (!results.length) { gridEl.innerHTML = ''; setStatus('Couldn’t pull that collection — check it’s public and the link is right.', true); return; }
         renderResults(results);
         setStatus(`${results.length} photo${results.length === 1 ? '' : 's'} from the collection. Click one to add it.`);
-        // Offer to save it (unless already saved).
+        // Mark it open + offer to save it (unless already saved).
         lastCollection = c;
-        if (collectSaveBtn) collectSaveBtn.hidden = savedCollections().some((s) => s.service === c.service && s.id === c.id);
+        activeKey = c.service + ':' + c.id;
+        const saved = savedCollections().find((s) => s.service === c.service && s.id === c.id);
+        if (collectOpenEl && collectOpenName) {
+          collectOpenName.textContent = (saved && saved.name) || c.name || (c.service + ' collection');
+          collectOpenEl.hidden = false;
+        }
+        if (collectSaveBtn) collectSaveBtn.hidden = !!saved;
+        renderSaved();
       }
 
       // ---- Saved collections (localStorage) — click to re-pull, no re-typing ----
@@ -3179,13 +3213,14 @@ const googleFonts = [
       function renderSaved() {
         if (!collectSavedEl) return;
         const list = savedCollections();
-        collectSavedEl.innerHTML = list.map((s, i) =>
-          '<span class="ed-collect-chip" data-i="' + i + '" title="' + s.url.replace(/"/g, '&quot;') + '">' +
+        collectSavedEl.innerHTML = list.map((s, i) => {
+          const open = activeKey === (s.service + ':' + s.id);
+          return '<span class="ed-collect-chip' + (open ? ' is-open' : '') + '" data-i="' + i + '" title="' + s.url.replace(/"/g, '&quot;') + '">' +
             '<span class="ed-collect-chip-dot ed-collect-' + s.service + '"></span>' +
             '<span class="ed-collect-chip-name">' + (s.name || s.service).replace(/</g, '&lt;') + '</span>' +
             '<button type="button" class="ed-collect-chip-x" data-rm="' + i + '" title="Remove">&times;</button>' +
-          '</span>'
-        ).join('');
+          '</span>';
+        }).join('');
       }
       if (collectSaveBtn) collectSaveBtn.addEventListener('click', () => {
         if (!lastCollection) return;
@@ -3197,10 +3232,24 @@ const googleFonts = [
       });
       if (collectSavedEl) collectSavedEl.addEventListener('click', (e) => {
         const rm = e.target.closest('[data-rm]');
-        if (rm) { e.stopPropagation(); const list = savedCollections(); list.splice(parseInt(rm.dataset.rm, 10), 1); writeSaved(list); renderSaved(); return; }
+        if (rm) {
+          e.stopPropagation();
+          const list = savedCollections(); const removed = list.splice(parseInt(rm.dataset.rm, 10), 1)[0];
+          // If we deleted the folder that's currently open, withdraw its photos too.
+          if (removed && activeKey === (removed.service + ':' + removed.id)) { writeSaved(list); clearResults(); return; }
+          writeSaved(list); renderSaved(); return;
+        }
         const chip = e.target.closest('.ed-collect-chip');
-        if (chip) { const s = savedCollections()[parseInt(chip.dataset.i, 10)]; if (s) { document.getElementById('ed-collect-input').value = s.url; pullCollection(s.url); } }
+        if (chip) {
+          const s = savedCollections()[parseInt(chip.dataset.i, 10)];
+          if (!s) return;
+          // Click an already-open folder to withdraw its photos; otherwise open it.
+          if (activeKey === (s.service + ':' + s.id)) { clearResults(); return; }
+          document.getElementById('ed-collect-input').value = s.url; pullCollection(s.url);
+        }
       });
+      const collectCloseBtn = document.getElementById('ed-collect-close');
+      if (collectCloseBtn) collectCloseBtn.addEventListener('click', clearResults);
       renderSaved();
 
       const collectInput = document.getElementById('ed-collect-input');
