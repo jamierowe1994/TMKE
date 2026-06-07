@@ -296,6 +296,44 @@
     return wrap;
   }
 
+  // Font-size control: a typeable number + a caret that drops a quick list of
+  // common sizes (Canva-style). onChange(size) is called with the new value.
+  const SIZE_PRESETS = [6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 80, 88, 96, 104, 120, 144];
+  function createSizeControl(initial, onChange) {
+    const wrap = document.createElement("div");
+    wrap.className = "ed-size-ctl";
+    const input = document.createElement("input");
+    input.type = "number"; input.className = "ed-ctx-num"; input.value = initial; input.min = 6; input.max = 600;
+    const caret = document.createElement("button");
+    caret.type = "button"; caret.className = "ed-size-caret"; caret.title = "Sizes";
+    caret.textContent = "▾";
+    const pop = document.createElement("div");
+    pop.className = "ed-size-pop"; pop.hidden = true;
+    pop.innerHTML = SIZE_PRESETS.map(function (s) {
+      return '<button type="button" class="ed-size-opt' + (s === initial ? " is-current" : "") + '" data-size="' + s + '">' + s + "</button>";
+    }).join("");
+
+    function apply(v) {
+      v = Math.max(6, Math.min(600, parseInt(v, 10) || initial));
+      input.value = v;
+      onChange(v);
+    }
+    input.addEventListener("change", function () { apply(input.value); });
+    caret.addEventListener("click", function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; });
+    pop.addEventListener("click", function (e) {
+      const b = e.target.closest("[data-size]");
+      if (!b) return;
+      pop.hidden = true;
+      apply(b.getAttribute("data-size"));
+    });
+    document.addEventListener("click", function (e) { if (!wrap.contains(e.target)) pop.hidden = true; });
+
+    wrap.appendChild(input);
+    wrap.appendChild(caret);
+    wrap.appendChild(pop);
+    return wrap;
+  }
+
   // ---------- Right-click context menu ----------
   // Replaces the in-toolbar Bring forward / Send back buttons. Right-click
   // any selected element (or anywhere on the canvas; we'll try to hit-test)
@@ -871,6 +909,7 @@
       canvasEl.appendChild(hint);
     }
 
+    autosizeTextElements();
     renderHandles();
     renderLayers();
     renderContextBar();
@@ -882,6 +921,21 @@
     // remember to call it from anywhere else.
     const detachBtn = document.getElementById("ed-bg-detach");
     if (detachBtn) detachBtn.hidden = !state.canvas.backgroundImage;
+  }
+
+  // Text boxes auto-grow to contain their text (Canva-style) so adding lines
+  // (Enter) or wrapping never overflows the bounding box. Grow-only here so a
+  // user's larger manual height is respected; live editing tracks both ways.
+  function autosizeTextElements() {
+    state.elements.forEach(function (el) {
+      if (el.type !== "text") return;
+      const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+      if (!node) return;
+      const inner = node.querySelector(".ed-text-inner");
+      if (!inner) return;
+      const h = Math.ceil(inner.offsetHeight);
+      if (h > 0 && h > el.h + 1) { el.h = h; node.style.height = h + "px"; }
+    });
   }
 
   // Set or clear the canvas background image. Passing null clears it.
@@ -1512,14 +1566,29 @@
     inner.focus();
     document.execCommand("selectAll", false, null);
 
+    // Grow (or shrink) the box live as lines are added/removed, and keep the
+    // selection outline glued to it.
+    function grow() {
+      const h = Math.ceil(inner.offsetHeight);
+      if (h > 0 && h !== el.h) {
+        el.h = h;
+        node.style.height = h + "px";
+        renderHandles();
+      }
+    }
+    inner.addEventListener("input", grow);
+    grow();
+
     function commit() {
       inner.contentEditable = "false";
       node.classList.remove("is-editing");
-      const newText = inner.textContent;
+      // innerText preserves the line breaks from Enter (textContent drops them).
+      const newText = inner.innerText.replace(/\n$/, "");
       if (newText !== el.text) {
         el.text = newText;
         pushHistory();
       }
+      inner.removeEventListener("input", grow);
       inner.removeEventListener("blur", commit);
     }
     inner.addEventListener("blur", commit);
@@ -2912,11 +2981,7 @@
       });
       g1.appendChild(picker);
 
-      const sizeIn = document.createElement("input");
-      sizeIn.type = "number"; sizeIn.className = "ed-ctx-num";
-      sizeIn.value = el.size; sizeIn.min = 6; sizeIn.max = 600;
-      sizeIn.addEventListener("change", () => { el.size = parseInt(sizeIn.value, 10); fullRender(); pushHistory(); });
-      g1.appendChild(sizeIn);
+      g1.appendChild(createSizeControl(el.size, function (v) { el.size = v; fullRender(); pushHistory(); }));
       ctxEl.appendChild(g1);
 
       // B I U

@@ -1487,6 +1487,29 @@ const googleFonts = [
       border-radius: 4px; background: #fff;
       text-align: center;
     }
+    /* Font-size control: number input + caret with a quick-pick dropdown */
+    .ed-size-ctl { position: relative; display: inline-flex; align-items: center; }
+    .ed-size-ctl .ed-ctx-num { width: 56px; border-radius: 4px 0 0 4px; border-right: none; }
+    .ed-size-caret {
+      height: 30px; width: 22px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 0 4px 4px 0;
+      background: #fff; cursor: pointer; font-size: 10px; color: rgba(28,29,34,0.6);
+    }
+    .ed-size-caret:hover { background: var(--paper); color: var(--ink); }
+    .ed-size-pop {
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+      width: 84px; max-height: 280px; overflow-y: auto;
+      background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px;
+      box-shadow: 0 16px 40px -16px rgba(28,29,34,0.4); padding: 5px;
+    }
+    .ed-size-pop[hidden] { display: none; }
+    .ed-size-opt {
+      display: block; width: 100%; text-align: left; padding: 7px 12px;
+      font-family: var(--sans); font-size: 14px; color: var(--ink);
+      background: none; border: none; border-radius: 5px; cursor: pointer;
+    }
+    .ed-size-opt:hover { background: rgba(71,66,84,0.09); }
+    .ed-size-opt.is-current { color: var(--english-violet); font-weight: 700; }
     /* Legacy square colour input — kept for any callers we haven't migrated
        to the circular swatch yet. New code should use .ed-circle-swatch. */
     .ed-ctx-color {
@@ -1744,12 +1767,16 @@ const googleFonts = [
       pointer-events: none;
       transform-origin: center center;
     }
+    /* High-contrast selection colour — must stand out over any photo, so a
+       bright blue with a white halo rather than the muted brand violet. */
+    .ed-stage { --ed-select: #1F8BFF; }
     .ed-handle {
       position: absolute;
-      width: 10px; height: 10px;
+      width: 11px; height: 11px;
       background: #fff;
-      border: 1.5px solid var(--english-violet);
+      border: 2px solid var(--ed-select);
       border-radius: 50%;
+      box-shadow: 0 0 0 1.5px rgba(255,255,255,0.9), 0 1px 4px rgba(0,0,0,0.35);
       pointer-events: auto;
       cursor: nwse-resize;
       z-index: 50;
@@ -1758,15 +1785,16 @@ const googleFonts = [
     .ed-handle[data-h="e"], .ed-handle[data-h="w"] { cursor: ew-resize; }
     .ed-handle[data-h="ne"], .ed-handle[data-h="sw"] { cursor: nesw-resize; }
     .ed-handle[data-h="rot"] {
-      width: 14px; height: 14px;
+      width: 15px; height: 15px;
       border-radius: 50%;
-      background: var(--english-violet);
+      background: var(--ed-select);
       border-color: #fff;
       cursor: grab;
     }
     .ed-bounds {
       position: absolute;
-      border: 1.5px solid var(--english-violet);
+      border: 2px solid var(--ed-select);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.85);
       pointer-events: none;
       box-sizing: border-box;
     }
