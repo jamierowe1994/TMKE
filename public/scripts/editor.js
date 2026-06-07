@@ -956,6 +956,12 @@
     const node = canvasEl.querySelector('[data-id="' + el.id + '"]');
     if (!node) return;
     applyElementStyles(node, el);
+    // For text, re-apply type styles so live changes (e.g. font scaling on a
+    // corner resize) show immediately, not only after a full render.
+    if (el.type === "text") {
+      const inner = node.querySelector(".ed-text-inner");
+      if (inner) applyTextStyles(inner, el);
+    }
     // For frames, also re-apply the inner image transform — a resize
     // changes the cover-fit base, and a viewpoint drag changes the offsets.
     if (el.type === "frame") {
@@ -1431,17 +1437,46 @@
     document.addEventListener("pointerup", onUp);
   }
 
+  // Re-measure a single text element's height to its content and update the
+  // node + bounds (used live during text scaling/resizing).
+  function fitTextHeight(el) {
+    const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+    if (!node) return;
+    const inner = node.querySelector(".ed-text-inner");
+    if (!inner) return;
+    const h = Math.ceil(inner.offsetHeight);
+    if (h > 0) { el.h = h; node.style.height = h + "px"; }
+  }
+
   function startResize(ev, el, handle) {
     ev.preventDefault();
     ev.stopPropagation();
     const startX = ev.clientX, startY = ev.clientY;
-    const o = { x: el.x, y: el.y, w: el.w, h: el.h };
+    const o = { x: el.x, y: el.y, w: el.w, h: el.h, size: el.size };
     const aspect = o.w / o.h;
     const lockAspect = (el.type === "image" || el.type === "ellipse");
+    // Text + corner handle → Canva-style scale: the font grows/shrinks with the
+    // box (and the box width follows), so you size by dragging, not guessing.
+    const textScale = (el.type === "text" && handle.length === 2);
 
     function onMove(e) {
       let dx = (e.clientX - startX) / state.zoom;
       let dy = (e.clientY - startY) / state.zoom;
+
+      if (textScale) {
+        const nw = handle.includes("e") ? Math.max(20, o.w + dx) : Math.max(20, o.w - dx);
+        const scale = nw / o.w;
+        el.w = Math.round(nw);
+        el.size = Math.max(6, Math.round(o.size * scale));
+        el.x = handle.includes("w") ? Math.round(o.x + (o.w - el.w)) : o.x;
+        partialRenderElement(el);
+        fitTextHeight(el); // height follows the wrapped, rescaled text
+        el.y = handle.includes("n") ? Math.round(o.y + o.h - el.h) : o.y;
+        partialRenderElement(el);
+        renderHandles();
+        return;
+      }
+
       let nx = o.x, ny = o.y, nw = o.w, nh = o.h;
       const shift = e.shiftKey || lockAspect;
 
@@ -3120,6 +3155,24 @@
     // ===== Common controls — position, effects, opacity, duplicate, delete =====
     // Z-order (bring forward / send back) moved to the right-click menu.
     // Lock is admin-only — hidden in the customer flow.
+
+    // Centre on the page — drop the element onto the vertical centre line
+    // (horizontal centre), the horizontal centre line (vertical centre), or
+    // both for dead centre. (A handy thing even Canva doesn't offer.)
+    const gCentre = group();
+    const vBtn = document.createElement("button");
+    vBtn.type = "button"; vBtn.className = "ed-ctx-btn";
+    vBtn.title = "Centre on the vertical line";
+    vBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7.5" y="6" width="9" height="12" rx="1" fill="currentColor" stroke="none" opacity="0.25"/><line x1="12" y1="2.5" x2="12" y2="21.5"/></svg>';
+    vBtn.addEventListener("click", function () { alignSelected("centerX"); });
+    const hBtn = document.createElement("button");
+    hBtn.type = "button"; hBtn.className = "ed-ctx-btn";
+    hBtn.title = "Centre on the horizontal line";
+    hBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="7.5" width="12" height="9" rx="1" fill="currentColor" stroke="none" opacity="0.25"/><line x1="2.5" y1="12" x2="21.5" y2="12"/></svg>';
+    hBtn.addEventListener("click", function () { alignSelected("centerY"); });
+    gCentre.appendChild(vBtn);
+    gCentre.appendChild(hBtn);
+    ctxEl.appendChild(gCentre);
 
     // Position — text-label popover trigger. Holds X / Y / W / H / Rotation
     // numeric inputs. Lives on the top bar so the right-panel rail doesn't
