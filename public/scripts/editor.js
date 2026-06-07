@@ -192,6 +192,29 @@
     uploads: [],
   };
 
+  // ---------- Multi-page model ----------
+  // A design holds one or more pages. `state.canvas` / `state.elements` proxy to
+  // the ACTIVE page so every bit of existing single-page code keeps working;
+  // `state.pages` is the source of truth and drives the page strip.
+  (function initPages() {
+    const initCanvas = state.canvas;
+    const initElements = state.elements;
+    delete state.canvas;
+    delete state.elements;
+    state.pages = [{ id: uid("page"), name: "Page 1", canvas: initCanvas, elements: initElements }];
+    state.currentPage = 0;
+    Object.defineProperty(state, "canvas", {
+      get() { return state.pages[state.currentPage].canvas; },
+      set(v) { state.pages[state.currentPage].canvas = v; },
+      configurable: true,
+    });
+    Object.defineProperty(state, "elements", {
+      get() { return state.pages[state.currentPage].elements; },
+      set(v) { state.pages[state.currentPage].elements = v; },
+      configurable: true,
+    });
+  })();
+
   // ---------- Utilities ----------
   function uid(prefix) {
     return prefix + "-" + Math.random().toString(36).slice(2, 9);
@@ -806,20 +829,26 @@
     let tpl = TEMPLATES.find((t) => t.id === tplId);
     if (!tpl) tpl = TEMPLATES[0];
     if (!tpl) return;
+    resetToSinglePage(tpl.canvas && tpl.canvas.background);
     state.templateId = tpl.id;
 
     // Try to restore saved state
     if (!fresh) {
       try {
         const saved = JSON.parse(localStorage.getItem("tmke.editor." + tpl.id) || "null");
-        if (saved && saved.elements) {
-          state.canvas = saved.canvas;
-          state.elements = saved.elements;
+        if (saved && (saved.pages || saved.elements)) {
+          if (saved.pages && saved.pages.length) {
+            state.pages = saved.pages;
+            state.currentPage = 0;
+          } else {
+            state.canvas = saved.canvas;
+            state.elements = saved.elements;
+          }
           state.selectedIds = [];
           filenameEl.value = saved.filename || tpl.name;
           state.history = [];
           state.historyIndex = -1;
-          preloadFontsForElements(state.elements);
+          state.pages.forEach((pg) => preloadFontsForElements(pg.elements));
           pushHistory();
           fullRender();
           fitZoom();
@@ -850,8 +879,8 @@
   // choice). A violet page with a "Start building here" hint — the hint is
   // DOM-only (see fullRender), so it never lands in an export.
   function loadBlank() {
+    resetToSinglePage("#7B5BCF");
     state.templateId = null;
-    state.canvas = { width: 1080, height: 1350, background: "#7B5BCF" };
     state.elements = [];
     state.selectedIds = [];
     filenameEl.value = "Untitled";
@@ -860,6 +889,104 @@
     pushHistory();
     fullRender();
     fitZoom();
+  }
+
+  // ---------- Pages ----------
+  // Collapse back to a single page (used whenever a whole template/blank is
+  // loaded — that's a one-page design until the user adds more).
+  function resetToSinglePage(bg) {
+    state.pages = [{
+      id: uid("page"), name: "Page 1",
+      canvas: { width: 1080, height: 1350, background: bg || "#F2EFE9" },
+      elements: [],
+    }];
+    state.currentPage = 0;
+  }
+
+  function loadPage(i) {
+    state.currentPage = Math.max(0, Math.min(state.pages.length - 1, i));
+    state.selectedIds = [];
+    state.history = [];
+    state.historyIndex = -1;
+    preloadFontsForElements(state.elements);
+    pushHistory();
+    fullRender();
+    fitZoom();
+  }
+
+  function goToPage(i) {
+    if (i === state.currentPage) return;
+    loadPage(i);
+  }
+
+  function addPage() {
+    const cur = state.pages[state.currentPage].canvas;
+    state.pages.splice(state.currentPage + 1, 0, {
+      id: uid("page"), name: "Page " + (state.pages.length + 1),
+      canvas: { width: cur.width, height: cur.height, background: cur.background },
+      elements: [],
+    });
+    loadPage(state.currentPage + 1);
+  }
+
+  function duplicatePage(i) {
+    const src = state.pages[i];
+    state.pages.splice(i + 1, 0, {
+      id: uid("page"), name: src.name + " copy",
+      canvas: deep(src.canvas), elements: deep(src.elements),
+    });
+    loadPage(i + 1);
+  }
+
+  function deletePage(i) {
+    if (state.pages.length <= 1) { toast("A design needs at least one page."); return; }
+    state.pages.splice(i, 1);
+    let next = state.currentPage > i ? state.currentPage - 1 : state.currentPage;
+    if (next >= state.pages.length) next = state.pages.length - 1;
+    loadPage(next);
+  }
+
+  function renderPageStrip() {
+    const strip = document.getElementById("ed-pages");
+    if (!strip) return;
+    strip.innerHTML = "";
+    const multi = state.pages.length > 1;
+    state.pages.forEach((pg, i) => {
+      const tile = document.createElement("button");
+      tile.type = "button";
+      tile.className = "ed-page-tile" + (i === state.currentPage ? " is-current" : "");
+      tile.title = "Page " + (i + 1);
+      tile.style.background = (pg.canvas && pg.canvas.background) || "#fff";
+      tile.addEventListener("click", () => goToPage(i));
+
+      const num = document.createElement("span");
+      num.className = "ed-page-num";
+      num.textContent = i + 1;
+      tile.appendChild(num);
+
+      const acts = document.createElement("span");
+      acts.className = "ed-page-acts";
+      const dup = document.createElement("span");
+      dup.className = "ed-page-act"; dup.title = "Duplicate page"; dup.innerHTML = "&#10697;";
+      dup.addEventListener("click", (e) => { e.stopPropagation(); duplicatePage(i); });
+      acts.appendChild(dup);
+      if (multi) {
+        const del = document.createElement("span");
+        del.className = "ed-page-act ed-page-del"; del.title = "Delete page"; del.innerHTML = "&times;";
+        del.addEventListener("click", (e) => { e.stopPropagation(); deletePage(i); });
+        acts.appendChild(del);
+      }
+      tile.appendChild(acts);
+      strip.appendChild(tile);
+    });
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "ed-page-add";
+    add.title = "Add a page";
+    add.innerHTML = '<span>+</span><small>Add page</small>';
+    add.addEventListener("click", addPage);
+    strip.appendChild(add);
   }
 
   // ---------- Rendering ----------
@@ -895,7 +1022,7 @@
     // a from-scratch canvas is still empty. It carries no element data, so
     // _renderDesignToCanvas (which draws from state) never exports it, and it
     // disappears the moment the user adds anything.
-    if (state.templateId === null && state.elements.length === 0) {
+    if (state.elements.length === 0 && !state.canvas.backgroundImage) {
       const hint = document.createElement("div");
       hint.className = "ed-blank-hint";
       hint.textContent = "Start building here";
@@ -915,6 +1042,7 @@
     renderContextBar();
     renderProps();
     renderTemplateGrid();
+    renderPageStrip();
 
     // Keep the Background-pane detach button in sync with state. Cheap
     // here (one DOM toggle per render) and means we never have to
@@ -2001,6 +2129,7 @@
       filename: filenameEl.value,
       canvas: state.canvas,
       elements: state.elements,
+      pages: deep(state.pages),
       savedAt: Date.now(),
       thumb,
     };
@@ -3856,6 +3985,20 @@
       templateId: state.templateId || null,
       width: state.canvas && state.canvas.width,
       height: state.canvas && state.canvas.height,
+    };
+  };
+
+  // Publish hook — admin Publish flow reads every page + a cover thumb so it
+  // can write each page as a template (optionally linked to a pack).
+  window.__TMKE_PUBLISH_DATA__ = async function () {
+    let cover = "";
+    try { cover = await _renderThumbDataUrl(); } catch (_) {}
+    return {
+      filename: (filenameEl && filenameEl.value) || "Design",
+      pages: state.pages.map(function (p) {
+        return { canvas: deep(p.canvas), elements: deep(p.elements) };
+      }),
+      cover: cover,
     };
   };
 
