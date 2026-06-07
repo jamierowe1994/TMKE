@@ -1607,8 +1607,10 @@ const googleFonts = [
       background: #fff; cursor: pointer; font-size: 10px; color: rgba(28,29,34,0.6);
     }
     .ed-size-caret:hover { background: var(--paper); color: var(--ink); }
+    /* Fixed + high z-index so it always floats over the top of the canvas
+       (JS positions it under the caret). */
     .ed-size-pop {
-      position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+      position: fixed; z-index: 320;
       width: 84px; max-height: 280px; overflow-y: auto;
       background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px;
       box-shadow: 0 16px 40px -16px rgba(28,29,34,0.4); padding: 5px;
@@ -1620,7 +1622,7 @@ const googleFonts = [
       background: none; border: none; border-radius: 5px; cursor: pointer;
     }
     .ed-size-opt:hover { background: rgba(71,66,84,0.09); }
-    .ed-size-opt.is-current { color: var(--english-violet); font-weight: 700; }
+    .ed-size-opt.is-current { color: var(--english-violet); font-weight: 700; background: rgba(71,66,84,0.1); }
     /* Legacy square colour input — kept for any callers we haven't migrated
        to the circular swatch yet. New code should use .ed-circle-swatch. */
     .ed-ctx-color {
@@ -1912,8 +1914,10 @@ const googleFonts = [
       background: #ecebe7;
       border-top: 1px solid rgba(28,29,34,0.08);
       overflow-x: auto; overflow-y: hidden;
-      scrollbar-width: thin;
+      /* No visible scrollbar — hover + mouse-wheel scrolls the pages (wired in JS). */
+      scrollbar-width: none; -ms-overflow-style: none;
     }
+    .ed-pages::-webkit-scrollbar { width: 0; height: 0; display: none; }
     .ed-pages:empty { display: none; }
     .ed-page-tile {
       position: relative; flex: 0 0 auto;

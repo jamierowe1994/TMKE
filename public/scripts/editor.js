@@ -377,8 +377,23 @@
       pop.hidden = !pop.hidden;
       // Open scrolled to the current size, centred, so options appear either side.
       if (!pop.hidden) {
-        const cur = pop.querySelector(".ed-size-opt.is-current");
-        if (cur) requestAnimationFrame(function () { cur.scrollIntoView({ block: "center" }); });
+        // The pop is position:fixed (escapes the context bar's stacking + clipping)
+        // so it always floats over the top of the canvas. Anchor it under the caret.
+        const r = caret.getBoundingClientRect();
+        pop.style.visibility = "hidden";
+        pop.style.left = "0px"; pop.style.top = "0px";
+        requestAnimationFrame(function () {
+          const ph = pop.offsetHeight || 240, pw = pop.offsetWidth || 64;
+          let top = r.bottom + 6;
+          if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+          let left = r.right - pw;
+          left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+          pop.style.left = left + "px";
+          pop.style.top = top + "px";
+          pop.style.visibility = "";
+          const cur = pop.querySelector(".ed-size-opt.is-current");
+          if (cur) cur.scrollIntoView({ block: "center" });
+        });
       }
     });
     pop.addEventListener("click", function (e) {
@@ -1175,6 +1190,18 @@
   function renderPageStrip() {
     const strip = document.getElementById("ed-pages");
     if (!strip) return;
+    // No visible scrollbar — hover the strip and scroll the wheel to move through
+    // the pages horizontally. Bound once (the container is stable across renders).
+    if (!strip.dataset.wheelBound) {
+      strip.dataset.wheelBound = "1";
+      strip.addEventListener("wheel", (e) => {
+        if (strip.scrollWidth <= strip.clientWidth) return; // nothing to scroll
+        const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (!delta) return;
+        strip.scrollLeft += delta;
+        e.preventDefault();
+      }, { passive: false });
+    }
     strip.innerHTML = "";
     const multi = state.pages.length > 1;
     state.pages.forEach((pg, i) => {
@@ -1694,6 +1721,25 @@
       mb.style.left = minX + "px"; mb.style.top = minY + "px";
       mb.style.width = (maxX - minX) + "px"; mb.style.height = (maxY - minY) + "px";
       handlesEl.appendChild(mb);
+
+      // Scale handles on the combined box — drag to resize/reshape everything
+      // inside as one group (text sizes scale too).
+      const gbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+      const mpos = [
+        ["nw", 0, 0], ["n", 0.5, 0], ["ne", 1, 0],
+        ["e", 1, 0.5], ["se", 1, 1],
+        ["s", 0.5, 1], ["sw", 0, 1], ["w", 0, 0.5],
+      ];
+      mpos.forEach(([h, fx, fy]) => {
+        const handle = document.createElement("div");
+        handle.className = "ed-handle";
+        handle.dataset.h = h;
+        handle.style.left = (gbox.x + fx * gbox.w - 5) + "px";
+        handle.style.top = (gbox.y + fy * gbox.h - 5) + "px";
+        handlesEl.appendChild(handle);
+        handle.addEventListener("pointerdown", (ev) => startGroupResize(ev, els, gbox, h));
+      });
+
       positionGroupBar(mb.getBoundingClientRect());
       return;
     }
@@ -1823,13 +1869,16 @@
     const gid = icon.group || uid("grp");
     icon.group = gid;
     const gap = Math.round(icon.h * 0.25);
-    const size = Math.max(8, Math.round(icon.h * 0.66));
+    // Match the icon's height: a cap-height of ~0.72·fontSize means the text
+    // visually reads the same height as the icon glyph beside it.
+    const size = Math.max(8, Math.round(icon.h * 0.92));
     const tx = icon.x + icon.w + gap;
     const tw = Math.max(120, Math.round(icon.w * 3));
-    const th = icon.h;
+    const th = Math.round(size * 1.25);              // box tall enough for the glyph
+    const ty = Math.round(icon.y + icon.h / 2 - th / 2); // centre on the icon
     const t = {
       id: uid("text"), type: "text", text: "Add text",
-      x: tx, y: icon.y, w: tw, h: th, rotation: 0, opacity: 1,
+      x: tx, y: ty, w: tw, h: th, rotation: 0, opacity: 1,
       font: "Cormorant Garamond", size: size, weight: 500, italic: false,
       color: icon.svgFill && /^#[0-9a-f]{6}$/i.test(icon.svgFill) ? icon.svgFill : "#1c1d22",
       align: "left", letterSpacing: 0, lineHeight: 1, group: gid,
@@ -2087,6 +2136,53 @@
       el.x = Math.round(nx); el.y = Math.round(ny);
       el.w = Math.round(nw); el.h = Math.round(nh);
       partialRenderElement(el);
+      renderHandles();
+    }
+    function onUp() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      pushHistory();
+      renderProps();
+    }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  }
+
+  // Resize a multi-selection as one group: drag a handle on the combined box and
+  // every element repositions + rescales proportionally (text font-size included).
+  function startGroupResize(ev, els, gbox, handle) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const startX = ev.clientX, startY = ev.clientY;
+    const o = { x: gbox.x, y: gbox.y, w: gbox.w, h: gbox.h };
+    const orig = els.map((e) => ({ el: e, x: e.x, y: e.y, w: e.w, h: e.h, size: e.size }));
+    function onMove(e) {
+      const dx = (e.clientX - startX) / state.zoom;
+      const dy = (e.clientY - startY) / state.zoom;
+      let nx = o.x, ny = o.y, nw = o.w, nh = o.h;
+      if (handle.includes("e")) nw = Math.max(16, o.w + dx);
+      if (handle.includes("s")) nh = Math.max(16, o.h + dy);
+      if (handle.includes("w")) { nw = Math.max(16, o.w - dx); nx = o.x + (o.w - nw); }
+      if (handle.includes("n")) { nh = Math.max(16, o.h - dy); ny = o.y + (o.h - nh); }
+      if (handle === "n" || handle === "s") nw = o.w;
+      if (handle === "e" || handle === "w") nh = o.h;
+      // Shift (or a corner) keeps the group's aspect so nothing skews.
+      if ((e.shiftKey || handle.length === 2)) {
+        const s = Math.min(nw / o.w, nh / o.h);
+        nw = o.w * s; nh = o.h * s;
+        if (handle.includes("w")) nx = o.x + (o.w - nw);
+        if (handle.includes("n")) ny = o.y + (o.h - nh);
+      }
+      const sx = nw / o.w, sy = nh / o.h;
+      const sAvg = (sx + sy) / 2;
+      orig.forEach((r) => {
+        r.el.x = Math.round(nx + (r.x - o.x) * sx);
+        r.el.y = Math.round(ny + (r.y - o.y) * sy);
+        r.el.w = Math.max(4, Math.round(r.w * sx));
+        r.el.h = Math.max(4, Math.round(r.h * sy));
+        if (r.el.type === "text" && r.size) r.el.size = Math.max(6, Math.round(r.size * sAvg));
+        partialRenderElement(r.el);
+      });
       renderHandles();
     }
     function onUp() {
@@ -2806,7 +2902,8 @@
     const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
     ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
     ctx.textBaseline = "top";
-    ctx.textAlign = el.align;
+    // Canvas has no "justify" — fall back to left for the static snapshot.
+    ctx.textAlign = el.align === "justify" ? "left" : el.align;
     const lh = el.size * (el.lineHeight || 1.3);
     const lines = wrapText(ctx, el.text || "", el.w);
 
@@ -3701,12 +3798,18 @@
       }, "Underline"));
       ctxEl.appendChild(g2);
 
-      // Align
+      // Align — one button that cycles through the four alignments on each click
+      // (left → centre → right → justified), so it stays compact.
+      const ALIGN_CYCLE = ["left", "center", "right", "justify"];
+      const ALIGN_LABEL = { left: "Left", center: "Centre", right: "Right", justify: "Justified" };
       const g3 = group();
-      ["left", "center", "right"].forEach((a) => {
-        const b = toggleBtn(alignIcon(a), el.align === a, () => { el.align = a; fullRender(); pushHistory(); }, "Align " + a);
-        g3.appendChild(b);
-      });
+      const curAlign = ALIGN_CYCLE.indexOf(el.align) >= 0 ? el.align : "left";
+      const alignBtn = toggleBtn(alignIcon(curAlign), false, () => {
+        const i = ALIGN_CYCLE.indexOf(el.align) >= 0 ? ALIGN_CYCLE.indexOf(el.align) : 0;
+        el.align = ALIGN_CYCLE[(i + 1) % ALIGN_CYCLE.length];
+        fullRender(); pushHistory();
+      }, "Alignment: " + ALIGN_LABEL[curAlign] + " — click to cycle");
+      g3.appendChild(alignBtn);
       ctxEl.appendChild(g3);
 
       // Colour — opens the rich left-hand colour panel (solid or gradient).
@@ -3974,7 +4077,7 @@
       return b;
     }
     function alignIcon(a) {
-      return a === "left" ? "≡↤" : a === "center" ? "≡" : "≡↦";
+      return a === "left" ? "≡↤" : a === "center" ? "≡" : a === "right" ? "≡↦" : "≣";
     }
   }
 
