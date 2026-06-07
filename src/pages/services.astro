@@ -4,9 +4,8 @@ import DiscoveryPanel from "../components/DiscoveryPanel.astro";
 
 // Horizontal slide deck (videography-style). Placeholder portfolio imagery on R2.
 const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
-// SMM dictionary-hero side image. TODO: swap for the client's "SSSM hero" still
-// once the exact R2 filename is confirmed (placeholder shown for now).
-const SMM_HERO_IMG = R2("vibes");
+// SMM dictionary-hero backdrop — the client's "Smm hero" still on R2.
+const SMM_HERO_IMG = "https://assets.tmke.co.uk/Smm%20hero.jpg";
 const BRANDS = [
   { name: "Crescent Lettings", meta: "Lettings · Manchester", blurb: "Always-on content and monthly reels for a fast-growing lettings brand.", images: [R2("white-1"), R2("living-1"), R2("kitchen-1")] },
   { name: "Harbour & Co", meta: "Premium sales · Poole", blurb: "Full management for a premium coastal agency — strategy through to delivery.", images: [R2("orange-1"), R2("table"), R2("white-2")] },
@@ -41,8 +40,10 @@ const total = 4;
     </header>
 
     <div class="pf-deck" id="pf-deck">
-      <!-- Slide 1 — dictionary hero (text left, image right) -->
+      <!-- Slide 1 — full-screen dictionary hero (matches /videography) -->
       <section class="pf-panel sm-hero">
+        <div class="sm-hero-bg" style={`background-image:url('${SMM_HERO_IMG}')`}></div>
+        <div class="sm-hero-overlay"></div>
         <div class="sm-hero-inner">
           <p class="sm-eyebrow"><span>/</span> Social Media Management <span>/</span></p>
           <h1 class="sm-word">SMM</h1>
@@ -50,7 +51,6 @@ const total = 4;
           <p class="sm-lead">Full-service social media management for agents who want a consistent, professional presence. Everything from strategy to execution, delivered to a standard that reflects your business.</p>
           <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
         </div>
-        <div class="sm-hero-img" style={`background-image:url('${SMM_HERO_IMG}')`}></div>
       </section>
 
       <!-- Slide 2 — Intro & Why (stacked + centred; room beside it for photos) -->
@@ -137,10 +137,28 @@ const total = 4;
     .pf-scroll-hint { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
     .pf-scroll-hint em { font-style: normal; margin-left: 8px; }
 
-    /* Slide 1 — dictionary hero (text left, full-bleed image right) */
-    .sm-hero { padding: 0; align-items: stretch; }
-    .sm-hero-inner { max-width: 620px; width: 52%; display: flex; flex-direction: column; justify-content: center; padding: 96px clamp(28px, 5vw, 96px) 80px clamp(28px, 8vw, 140px); }
-    .sm-hero-img { flex: 1; align-self: stretch; background-size: cover; background-position: center; background-color: #e9e4da; }
+    /* Slide 1 — full-screen dictionary hero (matches /videography .vh) */
+    .sm-hero { position: relative; overflow: hidden; padding: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; }
+    .sm-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #2a2733; }
+    .sm-hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.55) 0%, rgba(20,18,26,0.4) 45%, rgba(20,18,26,0.68) 100%); }
+    .sm-hero-inner { position: relative; z-index: 2; max-width: 860px; margin: 0; padding: 0 clamp(28px, 6vw, 120px) clamp(64px, 11vh, 120px); color: var(--paper); }
+    .sm-hero .sm-eyebrow { color: rgba(240,238,235,0.85); }
+    .sm-hero .sm-eyebrow span { opacity: 0.55; }
+    .sm-hero .sm-word { color: var(--paper); }
+    .sm-hero .sm-phon { color: var(--paper); }
+    .sm-hero .sm-pron em { color: rgba(240,238,235,0.7); }
+    .sm-hero .sm-lead { color: rgba(240,238,235,0.92); }
+    .sm-hero .pf-scroll-hint { color: rgba(240,238,235,0.7); }
+
+    /* First-slide entrance — image settles, then the wording rises (as /videography) */
+    #pf-deck .pf-panel:first-child .sm-hero-bg { animation: smImgIn 2.4s cubic-bezier(.16,1,.3,1) 0.2s both; }
+    #pf-deck .pf-panel:first-child .sm-hero-inner { animation: smTextIn 1.6s cubic-bezier(.16,1,.3,1) 0.9s both; }
+    @keyframes smImgIn { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
+    @keyframes smTextIn { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      #pf-deck .pf-panel:first-child .sm-hero-bg,
+      #pf-deck .pf-panel:first-child .sm-hero-inner { animation-duration: 0.01ms; }
+    }
     .sm-word { font-family: var(--serif); font-weight: 500; font-size: clamp(80px, 16vw, 240px); line-height: 0.9; letter-spacing: -0.03em; margin: 0; color: var(--ink); }
     .sm-pron { display: flex; align-items: baseline; gap: 16px; margin: 10px 0 28px; }
     .sm-phon { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2vw, 28px); color: rgba(28,29,34,0.6); }
@@ -216,9 +234,8 @@ const total = 4;
 
     @media (max-width: 760px) {
       .pf-panel { padding: 96px 28px 80px; }
-      .sm-hero { flex-direction: column; padding: 0; }
-      .sm-hero-inner { width: 100%; max-width: none; padding: 92px 28px 32px; }
-      .sm-hero-img { flex: 0 0 auto; min-height: 34vh; }
+      .sm-hero { padding: 0; }
+      .sm-hero-inner { max-width: none; padding: 0 24px clamp(56px, 12vh, 90px); }
       .sm-cols { flex-direction: column; align-items: flex-start; gap: 28px; overflow-y: auto; }
       .pf-top-links { display: none; }
     }
