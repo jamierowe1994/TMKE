@@ -420,6 +420,8 @@ const googleFonts = [
           <input type="url" id="ed-collect-input" placeholder="Paste a Pexels / Unsplash collection link…" autocomplete="off" />
           <button type="button" id="ed-collect-pull">Pull</button>
         </div>
+        <button type="button" id="ed-collect-save" class="ed-collect-save" hidden>★ Save this collection to Photos</button>
+        <div class="ed-collect-saved" id="ed-collect-saved"></div>
         <p class="ed-stock-status" id="ed-stock-status">Type to search — results from both sources appear here.</p>
         <div class="ed-photo-grid" id="ed-photo-grid"></div>
         <p class="ed-stock-credit">Photos via <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> &amp; <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>. Hover an image to credit the photographer.</p>
@@ -446,6 +448,9 @@ const googleFonts = [
           <p class="ed-canva-status" id="ed-canva-status" hidden></p>
           <button type="button" class="ed-ai-btn" id="ed-ai-read">
             <span aria-hidden="true">✨</span> Read text with AI <small>(this page)</small>
+          </button>
+          <button type="button" class="ed-ai-btn ed-ai-btn--ghost" id="ed-ai-read-all">
+            <span aria-hidden="true">✨</span> Read text on all pages
           </button>
           <p class="ed-ai-status" id="ed-ai-status" hidden></p>
         </div>
@@ -1142,6 +1147,27 @@ const googleFonts = [
       border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s;
     }
     .ed-collect button:hover { background: var(--ink); }
+    .ed-collect-save {
+      width: 100%; margin: 4px 0 0; padding: 8px; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet);
+      background: rgba(71,66,84,0.08); border: 1px dashed rgba(71,66,84,0.35); border-radius: 8px;
+    }
+    .ed-collect-save:hover { background: rgba(71,66,84,0.16); }
+    .ed-collect-save[hidden] { display: none; }
+    .ed-collect-saved { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .ed-collect-saved:empty { display: none; }
+    .ed-collect-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 9px;
+      background: var(--paper); border: 1px solid rgba(28,29,34,0.14); border-radius: 999px;
+      font-family: var(--sans); font-size: 12px; color: var(--ink); cursor: pointer; max-width: 100%;
+    }
+    .ed-collect-chip:hover { border-color: var(--english-violet); }
+    .ed-collect-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+    .ed-collect-pexels { background: #05a081; }
+    .ed-collect-unsplash { background: #111; }
+    .ed-collect-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .ed-collect-chip-x { border: none; background: none; cursor: pointer; color: rgba(28,29,34,0.45); font-size: 15px; line-height: 1; padding: 0 2px; }
+    .ed-collect-chip-x:hover { color: #c0392b; }
     .ed-stock-status {
       margin: 0 0 10px;
       font-size: 11px; color: rgba(28,29,34,0.5);
@@ -1421,6 +1447,8 @@ const googleFonts = [
     .ed-ai-btn small { font-weight: 500; opacity: 0.75; }
     .ed-ai-btn:hover { background: var(--ink); }
     .ed-ai-btn:disabled { opacity: 0.6; cursor: default; }
+    .ed-ai-btn--ghost { margin-top: 8px; background: transparent; color: var(--english-violet); border: 1px solid rgba(71,66,84,0.35); }
+    .ed-ai-btn--ghost:hover { background: rgba(71,66,84,0.08); color: var(--english-violet); }
     .ed-ai-status { font-family: var(--sans); font-size: 12px; color: var(--english-violet); margin: 8px 0 0; }
     .ed-ai-status.is-error { color: #a05a3c; }
     .ed-ai-status[hidden] { display: none; }
@@ -2094,6 +2122,19 @@ const googleFonts = [
       font-family: var(--sans); font-size: 9px; font-weight: 700; line-height: 15px; text-align: center;
     }
     .ed-fb-count[hidden] { display: none; }
+    .ed-fb-text { width: auto; padding: 0 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); }
+
+    /* Marquee drag-select box (canvas space) */
+    .ed-marquee {
+      position: absolute; z-index: 48; pointer-events: none;
+      border: 1.5px solid var(--ed-select, #1F8BFF);
+      background: rgba(31,139,255,0.10); box-sizing: border-box;
+    }
+    .ed-bounds--multi { border-style: dashed; }
+
+    /* Text vertically centred in its box (icon labels stay on the icon's line) */
+    .ed-element.ed-text-vcenter { display: flex; align-items: center; }
+    .ed-element.ed-text-vcenter .ed-text-inner { width: 100%; }
 
     /* Comment popover */
     .ed-cmt-pop {
@@ -3054,30 +3095,78 @@ const googleFonts = [
           }));
         } catch (e) { console.warn('Unsplash collection failed', e); return []; }
       }
-      async function pullCollection(url) {
+      // Parse a Pexels/Unsplash collection link into { service, id, name, url }.
+      function parseCollection(url) {
         url = (url || '').trim();
-        if (!url) return;
-        let service = null, id = null;
+        if (!url) return null;
         try {
           const u = new URL(url);
           if (/pexels\.com/i.test(u.hostname)) {
-            service = 'pexels';
             const seg = u.pathname.split('/').filter(Boolean).pop() || '';
-            const parts = seg.split('-'); id = parts[parts.length - 1];
-          } else if (/unsplash\.com/i.test(u.hostname)) {
-            service = 'unsplash';
+            const parts = seg.split('-'); const id = parts[parts.length - 1];
+            const name = parts.slice(0, -1).join(' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Pexels collection';
+            return { service: 'pexels', id, name, url };
+          }
+          if (/unsplash\.com/i.test(u.hostname)) {
             const segs = u.pathname.split('/').filter(Boolean);
             const ci = segs.indexOf('collections');
-            id = ci >= 0 ? segs[ci + 1] : null;
+            const id = ci >= 0 ? segs[ci + 1] : null;
+            const name = (ci >= 0 && segs[ci + 2] ? segs[ci + 2].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Unsplash collection');
+            return id ? { service: 'unsplash', id, name, url } : null;
           }
         } catch (_) { /* not a URL */ }
-        if (!service || !id) { setStatus('That doesn’t look like a Pexels or Unsplash collection link.', true); return; }
+        return null;
+      }
+
+      let lastCollection = null;
+      const collectSaveBtn = document.getElementById('ed-collect-save');
+      const collectSavedEl = document.getElementById('ed-collect-saved');
+
+      async function pullCollection(url) {
+        const c = parseCollection(url);
+        if (!c) { setStatus('That doesn’t look like a Pexels or Unsplash collection link.', true); return; }
         setStatus('Pulling collection…');
-        const results = service === 'pexels' ? await fetchPexelsCollection(id) : await fetchUnsplashCollection(id);
+        const results = c.service === 'pexels' ? await fetchPexelsCollection(c.id) : await fetchUnsplashCollection(c.id);
         if (!results.length) { gridEl.innerHTML = ''; setStatus('Couldn’t pull that collection — check it’s public and the link is right.', true); return; }
         renderResults(results);
         setStatus(`${results.length} photo${results.length === 1 ? '' : 's'} from the collection. Click one to add it.`);
+        // Offer to save it (unless already saved).
+        lastCollection = c;
+        if (collectSaveBtn) collectSaveBtn.hidden = savedCollections().some((s) => s.service === c.service && s.id === c.id);
       }
+
+      // ---- Saved collections (localStorage) — click to re-pull, no re-typing ----
+      function savedCollections() {
+        try { return JSON.parse(localStorage.getItem('tmke.collections') || '[]'); } catch (_) { return []; }
+      }
+      function writeSaved(list) { try { localStorage.setItem('tmke.collections', JSON.stringify(list)); } catch (_) {} }
+      function renderSaved() {
+        if (!collectSavedEl) return;
+        const list = savedCollections();
+        collectSavedEl.innerHTML = list.map((s, i) =>
+          '<span class="ed-collect-chip" data-i="' + i + '" title="' + s.url.replace(/"/g, '&quot;') + '">' +
+            '<span class="ed-collect-chip-dot ed-collect-' + s.service + '"></span>' +
+            '<span class="ed-collect-chip-name">' + (s.name || s.service).replace(/</g, '&lt;') + '</span>' +
+            '<button type="button" class="ed-collect-chip-x" data-rm="' + i + '" title="Remove">&times;</button>' +
+          '</span>'
+        ).join('');
+      }
+      if (collectSaveBtn) collectSaveBtn.addEventListener('click', () => {
+        if (!lastCollection) return;
+        const list = savedCollections();
+        if (!list.some((s) => s.service === lastCollection.service && s.id === lastCollection.id)) {
+          list.push(lastCollection); writeSaved(list); renderSaved();
+        }
+        collectSaveBtn.hidden = true;
+      });
+      if (collectSavedEl) collectSavedEl.addEventListener('click', (e) => {
+        const rm = e.target.closest('[data-rm]');
+        if (rm) { e.stopPropagation(); const list = savedCollections(); list.splice(parseInt(rm.dataset.rm, 10), 1); writeSaved(list); renderSaved(); return; }
+        const chip = e.target.closest('.ed-collect-chip');
+        if (chip) { const s = savedCollections()[parseInt(chip.dataset.i, 10)]; if (s) { document.getElementById('ed-collect-input').value = s.url; pullCollection(s.url); } }
+      });
+      renderSaved();
+
       const collectInput = document.getElementById('ed-collect-input');
       const collectBtn = document.getElementById('ed-collect-pull');
       if (collectBtn) collectBtn.addEventListener('click', () => pullCollection(collectInput.value));
@@ -3480,31 +3569,60 @@ const googleFonts = [
       // ---- "Read text with AI": send the current page image to the Worker's
       // /ai/parse route (which calls Claude) and place the returned text. ----
       const aiBtn = document.getElementById("ed-ai-read");
+      const aiAllBtn = document.getElementById("ed-ai-read-all");
       const aiStatus = document.getElementById("ed-ai-status");
       const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const setAi = (msg, err) => { if (!aiStatus) return; aiStatus.hidden = false; aiStatus.textContent = msg; aiStatus.classList.toggle("is-error", !!err); };
-      if (aiBtn) aiBtn.addEventListener("click", async () => {
-        if (!WORKER) { setAi("Set PUBLIC_R2_WORKER_URL to use the AI parser.", true); return; }
-        if (typeof window.__TMKE_PAGE_IMAGE__ !== "function") { setAi("Editor isn't ready — try again.", true); return; }
+
+      // Read the CURRENT page: snapshot → Worker → place text. Returns count.
+      async function aiReadCurrentPage(token) {
+        const page = await window.__TMKE_PAGE_IMAGE__();
+        if (!page.image) throw new Error("Couldn't snapshot this page.");
+        const res = await fetch(`${WORKER}/ai/parse`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(page),
+        });
+        const out = await res.json();
+        if (!res.ok) throw new Error(out.error || ("AI failed (" + res.status + ")"));
+        return (typeof window.__TMKE_AI_PLACE_TEXT__ === "function") ? window.__TMKE_AI_PLACE_TEXT__(out.blocks || []) : 0;
+      }
+      async function aiPrechecks() {
+        if (!WORKER) { setAi("Set PUBLIC_R2_WORKER_URL to use the AI parser.", true); return null; }
+        if (typeof window.__TMKE_PAGE_IMAGE__ !== "function") { setAi("Editor isn't ready — try again.", true); return null; }
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { setAi("Sign in to use the AI parser.", true); return; }
-        aiBtn.disabled = true; setAi("Reading this page…");
+        if (!session) { setAi("Sign in to use the AI parser.", true); return null; }
+        return session.access_token;
+      }
+
+      if (aiBtn) aiBtn.addEventListener("click", async () => {
+        const token = await aiPrechecks(); if (!token) return;
+        aiBtn.disabled = true; if (aiAllBtn) aiAllBtn.disabled = true;
+        setAi("Reading this page…");
         try {
-          const page = await window.__TMKE_PAGE_IMAGE__();
-          if (!page.image) throw new Error("Couldn't snapshot this page.");
-          const res = await fetch(`${WORKER}/ai/parse`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify(page),
-          });
-          const out = await res.json();
-          if (!res.ok) throw new Error(out.error || ("AI failed (" + res.status + ")"));
-          const n = (typeof window.__TMKE_AI_PLACE_TEXT__ === "function") ? window.__TMKE_AI_PLACE_TEXT__(out.blocks || []) : 0;
+          const n = await aiReadCurrentPage(token);
           setAi(n ? ("Added " + n + " text box" + (n === 1 ? "" : "es") + " — tweak as needed.") : "No text found on this page.");
-        } catch (err) {
-          console.error("[ai]", err);
-          setAi("Couldn't read this page: " + (err.message || err), true);
-        } finally { aiBtn.disabled = false; }
+        } catch (err) { console.error("[ai]", err); setAi("Couldn't read this page: " + (err.message || err), true); }
+        finally { aiBtn.disabled = false; if (aiAllBtn) aiAllBtn.disabled = false; }
+      });
+
+      if (aiAllBtn) aiAllBtn.addEventListener("click", async () => {
+        const token = await aiPrechecks(); if (!token) return;
+        const count = (typeof window.__TMKE_PAGE_COUNT__ === "function") ? window.__TMKE_PAGE_COUNT__() : 1;
+        if (count > 1 && !confirm("Read text on all " + count + " pages? This makes " + count + " AI requests (a few pence each).")) return;
+        aiBtn.disabled = true; aiAllBtn.disabled = true;
+        let total = 0;
+        try {
+          for (let i = 0; i < count; i++) {
+            if (typeof window.__TMKE_GOTO_PAGE__ === "function") window.__TMKE_GOTO_PAGE__(i);
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            setAi("Reading page " + (i + 1) + " of " + count + "…");
+            try { total += await aiReadCurrentPage(token); }
+            catch (e) { console.error("[ai page " + i + "]", e); }
+          }
+          setAi("Done — added " + total + " text box" + (total === 1 ? "" : "es") + " across " + count + " page" + (count === 1 ? "" : "s") + ".");
+        } catch (err) { console.error("[ai all]", err); setAi("Couldn't finish: " + (err.message || err), true); }
+        finally { aiBtn.disabled = false; aiAllBtn.disabled = false; }
       });
     }
   </script>
