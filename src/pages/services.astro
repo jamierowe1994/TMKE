@@ -47,9 +47,8 @@ const total = 4;
         <div class="sm-hero-bg" style={`background-image:url('${SMM_HERO_IMG}')`}></div>
         <div class="sm-hero-overlay"></div>
         <div class="sm-hero-inner">
-          <p class="sm-eyebrow"><span>/</span> Social Media Management <span>/</span></p>
-          <h1 class="sm-word">SMM</h1>
-          <div class="sm-pron"><span class="sm-phon">/&thinsp;es em &#712;em&thinsp;/</span> <em>noun</em></div>
+          <h1 class="sm-word">Social Media Management</h1>
+          <div class="sm-pron"><span class="sm-abbr">SMM</span> <span class="sm-phon">/&thinsp;es em &#712;em&thinsp;/</span> <em>noun</em></div>
           <p class="sm-lead">Full-service social media management for agents who want a consistent, professional presence. Everything from strategy to execution, delivered to a standard that reflects your business.</p>
           <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
         </div>
@@ -150,6 +149,7 @@ const total = 4;
     .sm-hero .sm-eyebrow { color: rgba(240,238,235,0.85); }
     .sm-hero .sm-eyebrow span { opacity: 0.55; }
     .sm-hero .sm-word { color: var(--paper); }
+    .sm-hero .sm-abbr { color: var(--paper); }
     .sm-hero .sm-phon { color: var(--paper); }
     .sm-hero .sm-pron em { color: rgba(240,238,235,0.7); }
     .sm-hero .sm-lead { color: rgba(240,238,235,0.92); }
@@ -164,8 +164,11 @@ const total = 4;
       #pf-deck .pf-panel:first-child .sm-hero-bg,
       #pf-deck .pf-panel:first-child .sm-hero-inner { animation-duration: 0.01ms; }
     }
-    .sm-word { font-family: var(--serif); font-weight: 500; font-size: clamp(80px, 16vw, 240px); line-height: 0.9; letter-spacing: -0.03em; margin: 0; color: var(--ink); }
-    .sm-pron { display: flex; align-items: baseline; gap: 16px; margin: 10px 0 28px; }
+    /* The full term is the headline; the abbreviation + pronunciation sit small
+       beneath it on one line (dictionary style). */
+    .sm-word { font-family: var(--serif); font-weight: 500; font-size: clamp(46px, 8vw, 116px); line-height: 0.98; letter-spacing: -0.025em; margin: 0; color: var(--ink); max-width: 13ch; }
+    .sm-pron { display: flex; align-items: baseline; flex-wrap: wrap; gap: 14px; margin: 18px 0 28px; }
+    .sm-abbr { font-family: var(--serif); font-weight: 600; font-size: clamp(20px, 2.2vw, 30px); letter-spacing: 0.02em; color: rgba(28,29,34,0.85); }
     .sm-phon { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2vw, 28px); color: rgba(28,29,34,0.6); }
     .sm-pron em { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); font-style: normal; }
     .sm-lead { font-family: var(--sans); font-size: clamp(16px, 1.4vw, 19px); line-height: 1.65; color: rgba(28,29,34,0.72); max-width: 54ch; margin: 0 0 36px; }
@@ -212,6 +215,12 @@ const total = 4;
     /* Top nav (logo left, Menu right; hover the strip to reveal links) */
     .pf-top { position: fixed; top: 0; left: 0; right: 0; z-index: 60; display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 40px; min-height: 78px; transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease; border-bottom: 1px solid transparent; }
     .pf-top:hover, .pf-top.is-open { background: rgba(242,239,233,0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom-color: rgba(28,29,34,0.08); }
+    /* Slide 1 is a dark full-screen image — flip the logo + Menu to white so
+       they're legible. Reverts to dark when the nav strip is opened (it gets a
+       light backdrop) and on every later, light slide. */
+    .pf-top.nav-on-dark .pf-top-logo, .pf-top.nav-on-dark .pf-top-menu { color: var(--paper); }
+    .pf-top.nav-on-dark:hover .pf-top-logo, .pf-top.nav-on-dark.is-open .pf-top-logo,
+    .pf-top.nav-on-dark:hover .pf-top-menu, .pf-top.nav-on-dark.is-open .pf-top-menu { color: var(--ink); }
     body.pf-modal-open .pf-top { pointer-events: none; }
     .pf-top-logo { font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em; color: var(--ink); line-height: 1; position: relative; z-index: 2; }
     .pf-top-menu { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); background: none; border: none; cursor: pointer; padding: 4px 0; line-height: 1; position: relative; z-index: 2; transition: opacity 0.25s; }
@@ -296,8 +305,13 @@ const total = 4;
       const curEl = document.getElementById("pf-cur");
       const pad = (n) => String(n + 1).padStart(2, "0");
       let idx = 0, cooling = false, settle;
-      // Replay each slide's entrance whenever it becomes the active panel.
-      const reveal = () => panels.forEach((p, i) => p.classList.toggle("is-in", i === idx));
+      const topBarEl = document.getElementById("pf-top");
+      // Replay each slide's entrance whenever it becomes the active panel, and
+      // flip the nav to white while the dark first slide is showing.
+      const reveal = () => {
+        panels.forEach((p, i) => p.classList.toggle("is-in", i === idx));
+        if (topBarEl) topBarEl.classList.toggle("nav-on-dark", idx === 0);
+      };
       const go = (i) => { idx = Math.max(0, Math.min(panels.length - 1, i)); deck.scrollTo({ left: idx * deck.clientWidth, behavior: "smooth" }); if (curEl) curEl.textContent = pad(idx); reveal(); };
       reveal();
       deck.addEventListener("wheel", (e) => {
