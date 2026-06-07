@@ -4427,6 +4427,35 @@
     };
   };
 
+  // AI text parser — snapshot the active page (the imported design) so it can be
+  // sent to the parser, then place the returned text blocks as editable layers.
+  window.__TMKE_PAGE_IMAGE__ = async function () {
+    let image = "";
+    try { const c = await _renderDesignToCanvas({ transparent: false }); image = c.toDataURL("image/jpeg", 0.85); } catch (_) {}
+    return { image: image, width: state.canvas.width, height: state.canvas.height };
+  };
+  window.__TMKE_AI_PLACE_TEXT__ = function (blocks) {
+    if (!Array.isArray(blocks) || !blocks.length) return 0;
+    let added = 0;
+    blocks.forEach(function (b) {
+      if (!b || !b.text) return;
+      state.elements.push({
+        id: uid("text"), type: "text", text: String(b.text),
+        x: Math.round(b.x || 0), y: Math.round(b.y || 0),
+        w: Math.max(20, Math.round(b.w || 320)), h: Math.max(20, Math.round(b.h || 60)),
+        rotation: 0, opacity: 1,
+        font: "Cormorant Garamond", size: Math.max(6, Math.round(b.fontSize || 32)),
+        weight: (b.weight >= 600 ? 700 : 400), italic: false,
+        color: /^#[0-9a-f]{6}$/i.test(b.color || "") ? b.color : "#1c1d22",
+        align: ["left", "center", "right"].includes(b.align) ? b.align : "left",
+        letterSpacing: 0, lineHeight: 1.2,
+      });
+      added++;
+    });
+    if (added) { state.selectedIds = []; pushHistory(); fullRender(); }
+    return added;
+  };
+
   // Review snapshot — rasterises EVERY page to a JPEG so the reviewer page can
   // show the design as flat images (no editor needed). Plus the comments left
   // on elements, flattened with their page index for the reviewer's notes list.
