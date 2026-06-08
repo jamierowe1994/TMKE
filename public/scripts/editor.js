@@ -1216,12 +1216,14 @@
       tile.type = "button";
       tile.className = "ed-page-tile" + (i === state.currentPage ? " is-current" : "");
       tile.title = "Page " + (i + 1);
-      // Show a real preview: the page's background image (e.g. a Canva import)
-      // as a cover thumbnail, falling back to the solid background colour.
+      // Live preview: a rendered thumbnail of the page (background + text),
+      // cached on the page as _thumb. Falls back to the raw background image,
+      // then the solid colour, until the thumbnail is generated.
       const cvs = pg.canvas || {};
       tile.style.backgroundColor = cvs.background || "#fff";
-      if (cvs.backgroundImage) {
-        tile.style.backgroundImage = "url('" + cvs.backgroundImage + "')";
+      const preview = pg._thumb || cvs.backgroundImage;
+      if (preview) {
+        tile.style.backgroundImage = "url('" + preview + "')";
         tile.style.backgroundSize = "cover";
         tile.style.backgroundPosition = "center";
       } else {
@@ -1314,6 +1316,9 @@
     renderProps();
     renderTemplateGrid();
     renderPageStrip();
+    // Keep the page-strip preview of the page being edited live (only while the
+    // strip is visible, debounced, so editing stays snappy).
+    scheduleCurrentThumb();
 
     // Keep the Background-pane detach button in sync with state. Cheap
     // here (one DOM toggle per render) and means we never have to
@@ -1321,6 +1326,72 @@
     const detachBtn = document.getElementById("ed-bg-detach");
     if (detachBtn) detachBtn.hidden = !state.canvas.backgroundImage;
   }
+
+  // ---- Page-strip live previews + busy lock -----------------------------
+  // Render a page (background + every element) to a small JPEG thumbnail so the
+  // strip shows what each page actually looks like, text and all.
+  let _thumbBusy = false, _thumbTimer = null;
+  async function buildThumb(i, maxEdge) {
+    const orig = state.currentPage;
+    state.currentPage = i;              // _renderDesignToCanvas draws the active page
+    let url = null;
+    try {
+      const c = await _renderDesignToCanvas({ transparent: false });
+      const long = Math.max(c.width, c.height) || 1;
+      const k = long > (maxEdge || 220) ? (maxEdge || 220) / long : 1;
+      const t = document.createElement("canvas");
+      t.width = Math.max(1, Math.round(c.width * k));
+      t.height = Math.max(1, Math.round(c.height * k));
+      t.getContext("2d").drawImage(c, 0, 0, t.width, t.height);
+      url = t.toDataURL("image/jpeg", 0.72);
+    } catch (_) {}
+    state.currentPage = orig;
+    return url;
+  }
+  function applyThumbToTile(i, url) {
+    if (!url) return;
+    const strip = document.getElementById("ed-pages");
+    if (!strip) return;
+    const tile = strip.querySelectorAll(".ed-page-tile")[i];
+    if (tile) {
+      tile.style.backgroundImage = "url('" + url + "')";
+      tile.style.backgroundSize = "cover";
+      tile.style.backgroundPosition = "center";
+    }
+  }
+  // Regenerate every page's thumbnail (after a build, page add/delete, or when
+  // the strip is opened).
+  async function refreshPageThumbs() {
+    if (_thumbBusy) return;
+    _thumbBusy = true;
+    try {
+      for (let i = 0; i < state.pages.length; i++) {
+        const url = await buildThumb(i, 220);
+        if (url) { state.pages[i]._thumb = url; applyThumbToTile(i, url); }
+      }
+    } finally { _thumbBusy = false; }
+  }
+  // After an edit, refresh just the current page's thumbnail — but only while
+  // the strip is on screen, and debounced so typing stays smooth.
+  function scheduleCurrentThumb() {
+    const ed = document.getElementById("editor");
+    if (!ed || !ed.classList.contains("show-pages")) return;
+    clearTimeout(_thumbTimer);
+    _thumbTimer = setTimeout(async () => {
+      const i = state.currentPage;
+      const url = await buildThumb(i, 220);
+      if (url && state.pages[i]) { state.pages[i]._thumb = url; applyThumbToTile(i, url); }
+    }, 450);
+  }
+  window.__TMKE_REFRESH_THUMBS__ = refreshPageThumbs;
+
+  // Busy lock — while the Canva build is placing text page-by-page, stop the
+  // user clicking page tiles (which would redirect the text to the wrong page).
+  window.__TMKE_SET_BUSY__ = function (on) {
+    const ed = document.getElementById("editor");
+    if (ed) ed.classList.toggle("ed-busy", !!on);
+    if (!on) refreshPageThumbs(); // build finished — refresh previews with the new text
+  };
 
   // Text boxes auto-grow to contain their text (Canva-style) so adding lines
   // (Enter) or wrapping never overflows the bounding box. Grow-only here so a
