@@ -292,13 +292,21 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
       window.dispatchEvent(new Event("tmke:store-ready"));
     </script>
 
-    <!-- Website Editor TEMPORARILY DISABLED (hotfix before client demo).
-         The loader script has been removed so NO saved editor overrides are
-         applied to the live pages — every page renders its original designed
-         markup again. The client's earlier edits used fixed pixel values that
-         don't scale, which is what broke the layouts. The editor needs rework
-         before it goes back on; re-enable by restoring this loader:
-         <script src="/scripts/visual-editor.js" is:inline></script>
-         (the tmkeStore bridge above is harmless while the loader is off). -->
+    <!-- Website Editor — RE-ENABLED for client editing across every page.
+         Because this loader lives in BaseLayout, it applies to all pages (home,
+         about, services, contact, ...) — not just the home page. Edit mode is
+         gated by the ?edit query param + a Supabase login at /admin/login; the
+         editor stores changes in the `site_overrides` table per page path as a
+         draft, and only applies them to live visitors once "Publish" is used.
+
+         REVERT / CLEAN-SLATE NOTES:
+         - Design CODE baseline is git tag `clean-baseline-2026-06-02`.
+         - Client CONTENT edits live in Supabase `site_overrides` (NOT in git),
+           so reverting code does not undo published edits. To roll content
+           back, use the editor's Restore / ResetAll, or clear the table's
+           `published` (and `draft`) columns for the affected path.
+         - This loader re-applies any rows already PUBLISHED in `site_overrides`.
+           Confirm that table is empty before deploying so we start clean. -->
+    <script src="/scripts/visual-editor.js" is:inline></script>
   </body>
 </html>
