@@ -1,0 +1,407 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+// MOCK / concept page — not part of the live nav. Reachable only via a
+// discreet "Memberships" link in the footer, so it can be shown to the
+// client to pitch a tiered membership without committing the pricing.
+
+const tiers = [
+  {
+    name: "Free",
+    tag: "Pay as you go",
+    price: "£0",
+    cadence: "forever",
+    blurb: "For agents getting started — browse, buy the packs you want, and design when you need to.",
+    cta: "Start free",
+    href: "/edit",
+    featured: false,
+    features: [
+      "Browse & buy packs in The Edit",
+      "Open designs in the Studio editor",
+      "1 brand kit — colours, fonts & a logo",
+      "Your library of purchased packs",
+      "Community support",
+    ],
+  },
+  {
+    name: "Pro",
+    tag: "Most popular",
+    price: "£39",
+    cadence: "per month",
+    blurb: "For agents posting every week. Every pack, the full studio, and the tools to stay consistent.",
+    cta: "Go Pro",
+    href: "/contact",
+    featured: true,
+    features: [
+      "Everything in Free, plus —",
+      "Every pack included — no per-pack fees",
+      "Unlimited designs & downloads",
+      "The scheduling calendar",
+      "Consistency streak & insights",
+      "Headshots & multiple brand kits",
+      "Priority support",
+    ],
+  },
+  {
+    name: "Managed",
+    tag: "Done for you",
+    price: "£499",
+    cadence: "per month",
+    blurb: "We run the channel for you — strategy, content and posting, with a person who knows your brand.",
+    cta: "Book a call",
+    href: "/contact",
+    featured: false,
+    features: [
+      "Everything in Pro, plus —",
+      "Done-for-you content, posted for you",
+      "A dedicated account manager",
+      "12–16 bespoke posts a month",
+      "Monthly strategy & reporting",
+      "Captions, hashtags & scheduling handled",
+    ],
+  },
+];
+
+// Comparison matrix — rows of capability across the three tiers.
+const matrix = [
+  { label: "Browse & buy in The Edit", free: true, pro: true, managed: true },
+  { label: "Studio editor", free: true, pro: true, managed: true },
+  { label: "Packs included", free: "Pay per pack", pro: "All included", managed: "All included" },
+  { label: "Designs & downloads", free: "Per pack", pro: "Unlimited", managed: "Unlimited" },
+  { label: "Scheduling calendar", free: false, pro: true, managed: true },
+  { label: "Brand kits", free: "1", pro: "Unlimited", managed: "Unlimited" },
+  { label: "Insights & consistency streak", free: false, pro: true, managed: true },
+  { label: "Done-for-you content", free: false, pro: false, managed: true },
+  { label: "Dedicated account manager", free: false, pro: false, managed: true },
+  { label: "Strategy & monthly reporting", free: false, pro: false, managed: true },
+  { label: "Support", free: "Community", pro: "Priority", managed: "Dedicated" },
+];
+---
+
+<BaseLayout
+  title="Memberships — TMKE"
+  description="A membership for every kind of agent — from pay-as-you-go to fully managed socials."
+  noindex={true}
+>
+  <main class="mem">
+    <!-- Hero -->
+    <section class="mem-hero wrap">
+      <p class="mem-eyebrow">Membership <span class="mem-concept">Concept preview</span></p>
+      <h1 class="mem-title">Your studio, on a <em>plan that fits.</em></h1>
+      <p class="mem-lede">
+        Pick packs as you go, unlock the whole library, or hand the channel over
+        entirely. One membership scales from your first post to a fully managed
+        presence — and you can move between tiers whenever you like.
+      </p>
+    </section>
+
+    <!-- Tier cards -->
+    <section class="mem-tiers wrap" aria-label="Membership tiers">
+      {tiers.map((t) => (
+        <article class={`mem-card${t.featured ? " mem-card--featured" : ""}`}>
+          {t.featured && <span class="mem-flag">{t.tag}</span>}
+          <header class="mem-card-head">
+            {!t.featured && <span class="mem-card-tag">{t.tag}</span>}
+            <h2 class="mem-card-name">{t.name}</h2>
+            <p class="mem-card-price">
+              <strong>{t.price}</strong><span>/ {t.cadence}</span>
+            </p>
+            <p class="mem-card-blurb">{t.blurb}</p>
+          </header>
+          <ul class="mem-card-list">
+            {t.features.map((f) => (
+              <li class={f.endsWith("—") ? "is-lead" : ""}>{f}</li>
+            ))}
+          </ul>
+          <a class="mem-card-cta" href={t.href}>{t.cta} <em>&rarr;</em></a>
+        </article>
+      ))}
+    </section>
+
+    <p class="mem-finepoint wrap">
+      Prices shown exclude VAT. This is a concept for review — memberships aren't live yet.
+    </p>
+
+    <!-- Comparison matrix -->
+    <section class="mem-compare wrap" aria-label="What's included">
+      <header class="mem-compare-head">
+        <p class="mem-eyebrow">What you get</p>
+        <h2 class="mem-compare-title">Everything, side by side.</h2>
+      </header>
+
+      <div class="mem-table-scroll">
+        <table class="mem-table">
+          <thead>
+            <tr>
+              <th scope="col" class="mem-th-feature">Feature</th>
+              <th scope="col">Free</th>
+              <th scope="col" class="is-pro">Pro</th>
+              <th scope="col">Managed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.map((row) => (
+              <tr>
+                <th scope="row">{row.label}</th>
+                {["free", "pro", "managed"].map((k) => (
+                  <td class={k === "pro" ? "is-pro" : ""}>
+                    {row[k] === true && <span class="mem-tick" aria-label="Included">&#10003;</span>}
+                    {row[k] === false && <span class="mem-dash" aria-label="Not included">&ndash;</span>}
+                    {typeof row[k] === "string" && <span class="mem-val">{row[k]}</span>}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Reassurance strip -->
+    <section class="mem-reassure wrap">
+      <div class="mem-reassure-item">
+        <h3>Move tiers anytime</h3>
+        <p>Start free, upgrade when you're posting weekly, step up to Managed for a launch — and back down after.</p>
+      </div>
+      <div class="mem-reassure-item">
+        <h3>No lock-in</h3>
+        <p>Monthly rolling. Cancel or pause whenever. Your library and brand kits stay with you.</p>
+      </div>
+      <div class="mem-reassure-item">
+        <h3>One studio throughout</h3>
+        <p>Every tier uses the same editor and brand kit — so what you build is always on-brand.</p>
+      </div>
+    </section>
+
+    <!-- Closing CTA -->
+    <section class="mem-final">
+      <div class="wrap mem-final-inner">
+        <h2 class="mem-final-title">Not sure which fits?</h2>
+        <p class="mem-final-sub">Tell us how often you post and who runs your socials — we'll point you to the right tier.</p>
+        <a class="mem-final-cta" href="/contact">Talk it through <em>&rarr;</em></a>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .mem {
+      /* Soft light-purple wash behind the whole page, matching the hub. */
+      background:
+        radial-gradient(60% 40% at 0% 0%, rgba(255, 206, 178, 0.28), transparent 55%),
+        radial-gradient(60% 45% at 100% 2%, rgba(199, 170, 232, 0.34), transparent 55%),
+        radial-gradient(70% 60% at 50% 120%, rgba(170, 196, 236, 0.26), transparent 55%),
+        linear-gradient(180deg, #f4f1f8 0%, #f1f0f6 60%, #f5f1f1 100%);
+      padding-top: 120px;
+    }
+
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(22px, 5vw, 76px); }
+
+    /* ---- Hero ---- */
+    .mem-hero { padding-top: 40px; padding-bottom: 18px; text-align: center; }
+    .mem-eyebrow {
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.28em; text-transform: uppercase;
+      color: var(--english-violet); margin: 0 0 18px;
+      display: inline-flex; align-items: center; gap: 12px;
+    }
+    .mem-concept {
+      font-weight: 700; letter-spacing: 0.16em; font-size: 10px;
+      color: var(--english-violet); background: rgba(71, 66, 84, 0.1);
+      border: 1px solid rgba(71, 66, 84, 0.2);
+      padding: 4px 10px; border-radius: 999px;
+    }
+    .mem-title {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(44px, 6vw, 82px); line-height: 1.02;
+      letter-spacing: -0.02em; color: var(--ink); margin: 0 auto 22px;
+      max-width: 16ch;
+    }
+    .mem-title em { font-style: italic; color: var(--english-violet); }
+    .mem-lede {
+      font-family: var(--sans); font-size: clamp(16px, 1.5vw, 19px);
+      line-height: 1.6; color: rgba(28, 29, 34, 0.66);
+      max-width: 60ch; margin: 0 auto;
+    }
+
+    /* ---- Tier cards ---- */
+    .mem-tiers {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px; align-items: stretch; margin-top: 54px;
+    }
+    .mem-card {
+      position: relative;
+      display: flex; flex-direction: column;
+      padding: 30px 28px 28px;
+      background: rgba(255, 255, 255, 0.72);
+      -webkit-backdrop-filter: blur(20px) saturate(1.2);
+      backdrop-filter: blur(20px) saturate(1.2);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 20px;
+      box-shadow: 0 22px 48px -28px rgba(71, 66, 84, 0.4), 0 5px 14px -8px rgba(71, 66, 84, 0.2);
+    }
+    .mem-card--featured {
+      background: var(--english-violet);
+      border-color: var(--english-violet);
+      color: var(--paper);
+      box-shadow: 0 34px 70px -28px rgba(46, 31, 84, 0.6), 0 8px 20px -8px rgba(46, 31, 84, 0.4);
+      transform: translateY(-10px);
+    }
+    .mem-flag {
+      position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+      padding: 6px 14px; border-radius: 999px;
+      background: var(--paper); color: var(--english-violet);
+      font-family: var(--sans); font-size: 10px; font-weight: 800;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      box-shadow: 0 8px 18px -10px rgba(46, 31, 84, 0.5);
+    }
+    .mem-card-tag {
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .mem-card-name {
+      font-family: var(--serif); font-weight: 500; font-size: 30px;
+      letter-spacing: -0.01em; margin: 8px 0 10px;
+    }
+    .mem-card-price { font-family: var(--sans); font-size: 13px; margin: 0 0 14px; opacity: 0.8; }
+    .mem-card-price strong {
+      font-family: var(--serif); font-weight: 500; font-size: 40px;
+      letter-spacing: -0.02em; margin-right: 6px;
+    }
+    .mem-card--featured .mem-card-tag,
+    .mem-card--featured .mem-card-price { color: rgba(240, 238, 235, 0.85); }
+    .mem-card-blurb {
+      font-family: var(--sans); font-size: 14px; line-height: 1.55;
+      color: rgba(28, 29, 34, 0.62); margin: 0 0 22px;
+    }
+    .mem-card--featured .mem-card-blurb { color: rgba(240, 238, 235, 0.82); }
+
+    .mem-card-list {
+      list-style: none; margin: 0 0 26px; padding: 0;
+      display: flex; flex-direction: column; gap: 11px; flex: 1;
+    }
+    .mem-card-list li {
+      position: relative; padding-left: 26px;
+      font-family: var(--sans); font-size: 14px; line-height: 1.45;
+      color: rgba(28, 29, 34, 0.8);
+    }
+    .mem-card-list li::before {
+      content: "✓"; position: absolute; left: 0; top: 0;
+      font-size: 13px; font-weight: 700; color: var(--english-violet);
+    }
+    .mem-card-list li.is-lead {
+      padding-left: 0; font-weight: 700; color: var(--ink);
+      letter-spacing: 0.01em; margin-top: 2px;
+    }
+    .mem-card-list li.is-lead::before { content: ""; }
+    .mem-card--featured .mem-card-list li { color: rgba(240, 238, 235, 0.9); }
+    .mem-card--featured .mem-card-list li::before { color: var(--paper); }
+    .mem-card--featured .mem-card-list li.is-lead { color: #fff; }
+
+    .mem-card-cta {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px 18px; border-radius: 8px; text-decoration: none;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--english-violet); border: 1px solid var(--english-violet);
+      background: transparent; transition: background 0.25s, color 0.25s, transform 0.2s;
+    }
+    .mem-card-cta em { font-style: normal; display: inline-block; transition: transform 0.2s; }
+    .mem-card-cta:hover { background: var(--english-violet); color: var(--paper); transform: translateY(-1px); }
+    .mem-card-cta:hover em { transform: translateX(3px); }
+    .mem-card--featured .mem-card-cta {
+      background: var(--paper); color: var(--english-violet); border-color: var(--paper);
+    }
+    .mem-card--featured .mem-card-cta:hover { background: #fff; color: var(--ink); }
+
+    .mem-finepoint {
+      text-align: center; margin: 22px auto 0;
+      font-family: var(--sans); font-size: 12.5px; color: rgba(28, 29, 34, 0.5);
+    }
+
+    /* ---- Comparison matrix ---- */
+    .mem-compare { margin-top: 100px; }
+    .mem-compare-head { text-align: center; margin-bottom: 36px; }
+    .mem-compare-title {
+      font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 4vw, 46px);
+      letter-spacing: -0.015em; color: var(--ink); margin: 10px 0 0;
+    }
+    .mem-table-scroll { overflow-x: auto; }
+    .mem-table {
+      width: 100%; border-collapse: collapse; min-width: 640px;
+      background: rgba(255, 255, 255, 0.7);
+      -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+      border: 1px solid rgba(28, 29, 34, 0.08); border-radius: 16px; overflow: hidden;
+    }
+    .mem-table th, .mem-table td {
+      padding: 16px 18px; text-align: center; font-family: var(--sans);
+      border-bottom: 1px solid rgba(28, 29, 34, 0.07);
+    }
+    .mem-table thead th {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink); background: rgba(255, 255, 255, 0.5);
+    }
+    .mem-table thead th.is-pro { color: var(--english-violet); }
+    .mem-th-feature, .mem-table tbody th { text-align: left; }
+    .mem-table tbody th {
+      font-size: 14px; font-weight: 600; color: var(--ink);
+      width: 36%; min-width: 200px;
+    }
+    .mem-table td { font-size: 14px; color: rgba(28, 29, 34, 0.75); }
+    .mem-table td.is-pro { background: rgba(71, 66, 84, 0.05); }
+    .mem-table tbody tr:last-child th,
+    .mem-table tbody tr:last-child td { border-bottom: none; }
+    .mem-tick { color: var(--english-violet); font-size: 16px; font-weight: 700; }
+    .mem-dash { color: rgba(28, 29, 34, 0.3); }
+    .mem-val { font-size: 13px; font-weight: 600; color: var(--ink); }
+
+    /* ---- Reassurance ---- */
+    .mem-reassure {
+      margin-top: 90px;
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px;
+    }
+    .mem-reassure-item h3 {
+      font-family: var(--serif); font-weight: 500; font-size: 21px;
+      color: var(--ink); margin: 0 0 8px;
+    }
+    .mem-reassure-item p {
+      font-family: var(--sans); font-size: 14px; line-height: 1.6;
+      color: rgba(28, 29, 34, 0.62); margin: 0;
+    }
+
+    /* ---- Final CTA ---- */
+    .mem-final { margin-top: 96px; padding: 0 0 110px; }
+    .mem-final-inner {
+      text-align: center;
+      padding: 64px 40px;
+      background: linear-gradient(150deg, #3b3647, var(--english-violet));
+      border-radius: 24px;
+      color: var(--paper);
+    }
+    .mem-final-title {
+      font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 4vw, 48px);
+      letter-spacing: -0.015em; margin: 0 0 12px; color: var(--paper);
+    }
+    .mem-final-sub {
+      font-family: var(--sans); font-size: 16px; line-height: 1.6;
+      color: rgba(240, 238, 235, 0.78); margin: 0 auto 28px; max-width: 52ch;
+    }
+    .mem-final-cta {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 15px 28px; border-radius: 999px; text-decoration: none;
+      background: var(--paper); color: var(--english-violet);
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .mem-final-cta em { font-style: normal; display: inline-block; transition: transform 0.2s; }
+    .mem-final-cta:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -16px rgba(0,0,0,0.5); }
+    .mem-final-cta:hover em { transform: translateX(3px); }
+
+    @media (max-width: 880px) {
+      .mem-tiers { grid-template-columns: 1fr; max-width: 460px; margin-left: auto; margin-right: auto; }
+      .mem-card--featured { transform: none; }
+      .mem-reassure { grid-template-columns: 1fr; gap: 22px; }
+    }
+  </style>
+</BaseLayout>
