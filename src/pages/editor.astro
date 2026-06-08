@@ -471,20 +471,22 @@ const googleFonts = [
         <!-- Admin-only: bulk-import Canva page exports. Shown via JS in ?mode=admin. -->
         <div class="ed-canva" id="ed-canva-import" hidden>
           <div class="ed-canva-sep"><span>Import from Canva</span></div>
-          <p class="ed-canva-intro">Two steps. Drop the <strong>finished designs</strong> (words included), then the same pages as <strong>plain backgrounds</strong>. We read the wording off the finished ones and lay it onto the backgrounds as editable text — so there's no duplicate words baked into the image.</p>
+          <p class="ed-canva-intro">Two steps. Add the <strong>finished designs</strong> (words included), then the same pages as <strong>plain backgrounds</strong>. We read the wording off the finished ones and lay it onto the backgrounds as editable text. Drop the images straight in (PNG/JPG) or a <strong>.zip</strong> — multiple at once is fine.</p>
 
           <label class="ed-upload-drop ed-canva-drop" id="ed-canva-drop-final">
-            <input type="file" id="ed-canva-zip-final" accept=".zip,application/zip,application/x-zip-compressed" hidden />
+            <input type="file" id="ed-canva-zip-final" accept=".zip,application/zip,application/x-zip-compressed,image/png,image/jpeg,image/webp" multiple hidden />
             <strong>1 · Finished designs</strong>
-            <span>The full Canva exports — text and all. We read these.</span>
+            <span>The full Canva exports — text and all. We read these. <em>Drop images or a .zip.</em></span>
             <span class="ed-canva-badge" id="ed-canva-final-badge" hidden></span>
+            <div class="ed-canva-thumbs" id="ed-canva-final-thumbs" hidden></div>
           </label>
 
           <label class="ed-upload-drop ed-canva-drop" id="ed-canva-drop-bg">
-            <input type="file" id="ed-canva-zip-bg" accept=".zip,application/zip,application/x-zip-compressed" hidden />
+            <input type="file" id="ed-canva-zip-bg" accept=".zip,application/zip,application/x-zip-compressed,image/png,image/jpeg,image/webp" multiple hidden />
             <strong>2 · Plain backgrounds</strong>
-            <span>The same pages with the words removed. These become the canvas.</span>
+            <span>The same pages with the words removed. These become the canvas. <em>Drop images or a .zip.</em></span>
             <span class="ed-canva-badge" id="ed-canva-bg-badge" hidden></span>
+            <div class="ed-canva-thumbs" id="ed-canva-bg-thumbs" hidden></div>
           </label>
 
           <button type="button" class="ed-ai-btn" id="ed-canva-build" disabled>
@@ -1509,6 +1511,26 @@ const googleFonts = [
     .ed-canva-intro { font-family: var(--sans); font-size: 12px; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 14px; }
     .ed-canva-intro strong { color: var(--ink); font-weight: 700; }
     .ed-canva-drop { margin-bottom: 10px; position: relative; }
+    .ed-canva-drop.is-loaded { border-color: var(--english-violet); background: rgba(71,66,84,0.05); }
+    .ed-canva-drop.is-loading { border-color: var(--english-violet); }
+    /* spinner shown while a drop is being read */
+    .ed-canva-drop.is-loading::after {
+      content: ""; position: absolute; top: 10px; right: 10px;
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid rgba(71,66,84,0.25); border-top-color: var(--english-violet);
+      animation: edSpin 0.7s linear infinite;
+    }
+    @keyframes edSpin { to { transform: rotate(360deg); } }
+    .ed-canva-thumbs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+    .ed-canva-thumbs[hidden] { display: none; }
+    .ed-canva-thumb {
+      width: 34px; height: 42px; border-radius: 3px;
+      background-size: cover; background-position: center;
+      border: 1px solid rgba(28,29,34,0.15);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.55);
+    }
+    .ed-canva-thumb--more { background: rgba(71,66,84,0.08); }
     .ed-canva-drop.is-loaded { border-color: rgba(46,125,82,0.5); background: rgba(46,125,82,0.06); }
     .ed-canva-badge {
       display: inline-block; margin-top: 6px; font-family: var(--sans); font-size: 11px; font-weight: 700;
@@ -2017,7 +2039,7 @@ const googleFonts = [
     }
     .ed-page-tile {
       position: relative; flex: 0 0 auto;
-      width: 58px; height: 72px;
+      width: 68px; height: 85px;
       border: 2px solid rgba(28,29,34,0.18); border-radius: 6px;
       background: #fff; cursor: pointer; padding: 0;
       box-shadow: 0 1px 3px rgba(28,29,34,0.12);
@@ -2045,7 +2067,7 @@ const googleFonts = [
     .ed-page-act:hover { background: var(--english-violet); }
     .ed-page-del:hover { background: #c0392b; }
     .ed-page-add {
-      flex: 0 0 auto; width: 58px; height: 72px;
+      flex: 0 0 auto; width: 68px; height: 85px;
       border: 2px dashed rgba(28,29,34,0.25); border-radius: 6px;
       background: transparent; cursor: pointer;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
@@ -3775,32 +3797,78 @@ const googleFonts = [
         else { if (buildSub) buildSub.textContent = "— " + bgImages.length + " blank page" + (bgImages.length === 1 ? "" : "s"); }
       }
 
-      function wireDrop(dropId, inputId, badgeId, onImages) {
+      // Read images from a drop: a .zip (expand it) OR one-or-more image files
+      // dropped directly. Returns [{src,w,h}] in filename order.
+      async function readDropped(fileList) {
+        const files = Array.from(fileList || []);
+        if (!files.length) return [];
+        const zips = files.filter((f) => /\.zip$/i.test(f.name) || /zip/i.test(f.type));
+        if (zips.length) {
+          let all = [];
+          for (const z of zips) all = all.concat(await parseZipImages(z));
+          return all;
+        }
+        const imgFiles = files
+          .filter((f) => /^image\//i.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name))
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        const images = [];
+        for (const f of imgFiles) {
+          try {
+            const dataUrl = await blobToDataURL(f);
+            const dims = await imgDims(dataUrl);
+            images.push({ src: dataUrl, w: dims.w, h: dims.h });
+          } catch (_) { /* skip a bad file */ }
+        }
+        return images;
+      }
+
+      // Show little thumbnails of what was loaded, so a drop is clearly visible.
+      function renderThumbs(el, imgs) {
+        if (!el) return;
+        if (!imgs.length) { el.hidden = true; el.innerHTML = ""; return; }
+        el.hidden = false;
+        el.innerHTML =
+          imgs.slice(0, 12).map((im) => '<span class="ed-canva-thumb" style="background-image:url(' + JSON.stringify(im.src) + ')"></span>').join("") +
+          (imgs.length > 12 ? '<span class="ed-canva-thumb ed-canva-thumb--more">+' + (imgs.length - 12) + '</span>' : "");
+      }
+
+      function wireDrop(dropId, inputId, badgeId, thumbsId, onImages) {
         const drop = document.getElementById(dropId);
         const input = document.getElementById(inputId);
         const badge = document.getElementById(badgeId);
-        const handle = async (file) => {
-          if (!file) return;
-          setC("Reading zip…");
+        const thumbs = document.getElementById(thumbsId);
+        const handle = async (fileList) => {
+          const files = Array.from(fileList || []);
+          if (!files.length) return;
+          if (drop) drop.classList.add("is-loading");
+          setC("Reading " + files.length + " file" + (files.length === 1 ? "" : "s") + "…");
           try {
-            const imgs = await parseZipImages(file);
-            if (!imgs.length) { setC("No images found in that zip.", true); return; }
+            const imgs = await readDropped(files);
+            if (!imgs.length) {
+              if (drop) drop.classList.remove("is-loading");
+              setC("No images found — drop PNG/JPG files, or a .zip of them.", true);
+              return;
+            }
             onImages(imgs);
             if (badge) { badge.hidden = false; badge.textContent = imgs.length + " image" + (imgs.length === 1 ? "" : "s") + " ✓"; }
-            if (drop) drop.classList.add("is-loaded");
+            renderThumbs(thumbs, imgs);
+            if (drop) { drop.classList.remove("is-loading"); drop.classList.add("is-loaded"); }
             setC("");
             refreshBuild();
-          } catch (e) { setC(e.message || "Couldn’t read that zip.", true); }
+          } catch (e) {
+            if (drop) drop.classList.remove("is-loading");
+            setC(e.message || "Couldn’t read those files.", true);
+          }
         };
-        if (input) input.addEventListener("change", () => { handle(input.files[0]); input.value = ""; });
+        if (input) input.addEventListener("change", () => { handle(input.files); input.value = ""; });
         if (drop) {
           drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("is-drag"); });
           drop.addEventListener("dragleave", () => drop.classList.remove("is-drag"));
-          drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-drag"); handle(e.dataTransfer.files[0]); });
+          drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-drag"); handle(e.dataTransfer.files); });
         }
       }
-      wireDrop("ed-canva-drop-final", "ed-canva-zip-final", "ed-canva-final-badge", (imgs) => { finalImages = imgs; });
-      wireDrop("ed-canva-drop-bg", "ed-canva-zip-bg", "ed-canva-bg-badge", (imgs) => { bgImages = imgs; });
+      wireDrop("ed-canva-drop-final", "ed-canva-zip-final", "ed-canva-final-badge", "ed-canva-final-thumbs", (imgs) => { finalImages = imgs; });
+      wireDrop("ed-canva-drop-bg", "ed-canva-zip-bg", "ed-canva-bg-badge", "ed-canva-bg-thumbs", (imgs) => { bgImages = imgs; });
 
       if (buildBtn) buildBtn.addEventListener("click", async () => {
         if (!bgImages.length) return;
@@ -3819,7 +3887,7 @@ const googleFonts = [
         const token = await aiPrechecks(); if (!token) { setC("Sign in / set the AI worker to read text.", true); return; }
         if (!confirm("Read text from " + n + " finished design" + (n === 1 ? "" : "s") + "? This makes " + n + " AI requests (a few pence each).")) return;
         buildBtn.disabled = true;
-        let total = 0;
+        let total = 0, lastErr = null, failed = 0;
         try {
           for (let i = 0; i < n; i++) {
             setC("Reading page " + (i + 1) + " of " + n + "…");
@@ -3836,9 +3904,16 @@ const googleFonts = [
                 fontSize: (b.fontSize || 32) * ((sx + sy) / 2),
               }));
               total += (typeof window.__TMKE_AI_PLACE_TEXT__ === "function") ? window.__TMKE_AI_PLACE_TEXT__(scaled) : 0;
-            } catch (e) { console.error("[canva build page " + i + "]", e); }
+            } catch (e) { failed++; lastErr = e; console.error("[canva build page " + i + "]", e); }
           }
-          setC("Done — " + total + " text box" + (total === 1 ? "" : "es") + " placed across " + n + " page" + (n === 1 ? "" : "s") + ". Tweak fonts/positions, then Publish.");
+          if (total === 0 && lastErr) {
+            // Don't claim success when every page failed (e.g. the AI worker
+            // isn't configured) — show why.
+            setC("Pages created, but text couldn't be read: " + (lastErr.message || lastErr) + " — you can still type on each page, or use “Read text with AI” once that's set up.", true);
+          } else {
+            const note = failed ? " (" + failed + " page" + (failed === 1 ? "" : "s") + " couldn't be read)" : "";
+            setC("Done — " + total + " text box" + (total === 1 ? "" : "es") + " placed across " + n + " page" + (n === 1 ? "" : "s") + note + ". Tweak fonts/positions, then Publish.");
+          }
         } catch (err) { console.error("[canva build]", err); setC("Couldn’t finish: " + (err.message || err), true); }
         finally { buildBtn.disabled = false; }
       });
