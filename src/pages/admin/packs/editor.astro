@@ -1,8 +1,10 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import "../../../styles/admin.css";
 ---
 
 <BaseLayout
+  dashboard
   title="Edit pack — Admin · TMKE"
   description="Create or edit a pack in The Edit catalogue."
   hideNav
@@ -136,10 +138,13 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
           <p class="editor-help">The first thing buyers see on the storefront card.</p>
           <div class="cover-uploader">
             <div class="cover-preview" id="cover-preview"></div>
-            <label class="admin-btn admin-btn-ghost">
-              <input type="file" id="cover-file" accept="image/*" hidden />
-              <span>Upload cover</span>
-            </label>
+            <div class="cover-actions">
+              <label class="admin-btn admin-btn-ghost">
+                <input type="file" id="cover-file" accept="image/*" hidden />
+                <span>Upload cover</span>
+              </label>
+              <button type="button" id="cover-from-template" class="admin-btn admin-btn-ghost">+ Pick from a template</button>
+            </div>
             <input type="hidden" name="cover_image_url" />
             <button type="button" id="cover-clear" class="admin-btn admin-btn-ghost admin-btn-sm" hidden>Remove cover</button>
             <small id="cover-status"></small>
@@ -289,6 +294,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 
     /* Cover */
     .cover-uploader { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .cover-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .cover-preview {
       width: 100%;
       aspect-ratio: 4 / 3;
@@ -790,9 +796,9 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     async function loadTemplates() {
       const { data, error } = await supabase
         .from("templates")
-        .select("id, name, category, thumb_url, pack_id, status")
+        .select("id, name, category, thumb_url, canvas, pack_id, status")
         .neq("status", "archived")
-        .order("sort_order", { ascending: true });
+        .order("created_at", { ascending: false });   // newest first so just-made templates show up top
       if (error) {
         tplLoading.textContent = `Couldn't load templates: ${error.message}`;
         return;
@@ -817,6 +823,18 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       }
     }
 
+    // A preview image for a template: its saved thumb, else the page's
+    // background image, else the first image element — so designs show even
+    // before a thumb_url is generated.
+    function tplPreview(t) {
+      if (t.thumb_url) return t.thumb_url;
+      const cv = t.canvas || {};
+      if (cv.backgroundImage) return cv.backgroundImage;
+      const els = (cv.elements) || (t.elements) || [];
+      const img = Array.isArray(els) ? els.find((e) => e && e.type === "image" && e.src) : null;
+      return img ? img.src : "";
+    }
+
     function renderTemplatePool() {
       const q = tplSearchTerm.toLowerCase();
       const visible = allTemplates.filter((t) => {
@@ -831,7 +849,8 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       tplGrid.innerHTML = visible.map((t) => {
         const isSel = selectedTplIds.has(t.id);
         const lockedElsewhere = t.pack_id && t.pack_id !== editingId && !isSel;
-        const bg = t.thumb_url ? `style="background-image:url('${escapeHtml(t.thumb_url)}')"` : "";
+        const prev = tplPreview(t);
+        const bg = prev ? `style="background-image:url('${escapeHtml(prev)}')"` : "";
         return `
           <div class="tpl-pick-card ${isSel ? "is-selected" : ""} ${lockedElsewhere ? "is-locked-elsewhere" : ""}"
                data-id="${escapeHtml(t.id)}" ${bg} role="button" tabindex="0"
@@ -861,8 +880,10 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       renderTemplatePool();
     }
 
-    // ============ Picker modal (gallery thumbnails) ============
-    function openPicker() {
+    // ============ Picker modal — pick a template image for the gallery OR cover ============
+    let pickerMode = "gallery";   // "gallery" | "cover"
+    function openPicker(mode) {
+      pickerMode = mode === "cover" ? "cover" : "gallery";
       pickerBackdrop.hidden = false;
       document.body.style.overflow = "hidden";
       pickerSearch.value = "";
@@ -876,14 +897,14 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     function renderTemplatePicker() {
       const q = pickerSearch.value.toLowerCase();
       const visible = allTemplates
-        .filter((t) => t.thumb_url) // can only pull a thumb if one exists
+        .filter((t) => tplPreview(t)) // needs some image (thumb or page background)
         .filter((t) => !q
           || (t.name || "").toLowerCase().includes(q)
           || (t.category || "").toLowerCase().includes(q));
       pickerEmpty.hidden = visible.length > 0;
       pickerGrid.innerHTML = visible.map((t) => `
         <div class="tpl-pick-card" data-pull="${escapeHtml(t.id)}"
-             style="background-image:url('${escapeHtml(t.thumb_url)}')"
+             style="background-image:url('${escapeHtml(tplPreview(t))}')"
              role="button" tabindex="0">
           <span class="tpl-pick-name">${escapeHtml(t.name || "(untitled)")}</span>
         </div>
@@ -1134,8 +1155,9 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       previewMirror.textContent = String(previewInput.value || 0);
     });
 
-    // ============ "Pull from a template" picker (gallery thumbnails) ============
-    galleryFromTplBtn?.addEventListener("click", openPicker);
+    // ============ "Pull from a template" picker (gallery thumbnails + cover) ============
+    galleryFromTplBtn?.addEventListener("click", () => openPicker("gallery"));
+    document.getElementById("cover-from-template")?.addEventListener("click", () => openPicker("cover"));
     pickerClose?.addEventListener("click", closePicker);
     pickerBackdrop?.addEventListener("click", (e) => {
       if (e.target === pickerBackdrop) closePicker();
@@ -1149,11 +1171,15 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       if (!card) return;
       const id = card.getAttribute("data-pull");
       const t = allTemplates.find((x) => x.id === id);
-      if (!t || !t.thumb_url) return;
-      if (galleryUrls.includes(t.thumb_url)) {
+      const img = t ? tplPreview(t) : "";
+      if (!img) return;
+      if (pickerMode === "cover") {
+        setCover(img);
+        if (coverStatus) coverStatus.textContent = `Cover set from "${t.name}".`;
+      } else if (galleryUrls.includes(img)) {
         galleryStatus.textContent = "Already in the gallery.";
       } else {
-        galleryUrls = [...galleryUrls, t.thumb_url];
+        galleryUrls = [...galleryUrls, img];
         renderGallery();
         galleryStatus.textContent = `Added "${t.name}".`;
       }

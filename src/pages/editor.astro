@@ -214,7 +214,7 @@ const googleFonts = [
           </div>
         </div>
         <!-- Publish — admin only; shown via JS when ?mode=admin. -->
-        <button class="ed-btn-solid" id="ed-publish" hidden>Publish</button>
+        <button class="ed-btn-solid" id="ed-publish" hidden>Send to catalogue</button>
         <div class="ed-download" id="ed-download">
           <button class="ed-btn-solid" id="ed-download-trigger" aria-haspopup="menu" aria-expanded="false">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -3852,8 +3852,11 @@ const googleFonts = [
         // Resolve the target pack id (or null).
         let packId = null;
         if (choice.mode === "new") {
+          // New packs land as a DRAFT — they only go on the catalogue once an
+          // admin adds a cover, description, price etc. and sets them Active in
+          // the catalogue editor. Stops half-finished packs hitting the storefront.
           const { data: pack, error } = await supabase.from("packs").insert({
-            slug: slugify(choice.name), title: choice.name, status: "active", sort_order: 9000,
+            slug: slugify(choice.name), title: choice.name, status: "draft", sort_order: 9000,
           }).select("id").single();
           if (error) throw error;
           packId = pack.id;
@@ -3861,13 +3864,21 @@ const googleFonts = [
           packId = choice.packId;
         }
 
+        // First image (page background, then any image element) → the template's
+        // thumbnail, so the catalogue + pack editor show a real preview.
+        const pageThumb = (pg) => {
+          if (pg.canvas && pg.canvas.backgroundImage) return pg.canvas.backgroundImage;
+          const img = (pg.elements || []).find((e) => e && e.type === "image" && e.src);
+          return img ? img.src : null;
+        };
+
         // Write each page as a template row, linked to the pack.
         const rows = data.pages.map((pg, i) => ({
           id: "tmpl-" + Math.random().toString(36).slice(2, 9),
           name: data.filename + (data.pages.length > 1 ? " — " + String(i + 1).padStart(2, "0") : ""),
           canvas: pg.canvas,
           elements: pg.elements,
-          thumb_url: null,
+          thumb_url: pageThumb(pg),
           pack_id: packId,
           status: "active",
           sort_order: i,
@@ -3875,7 +3886,8 @@ const googleFonts = [
         const { error: tErr } = await supabase.from("templates").insert(rows);
         if (tErr) throw tErr;
 
-        publishBtn.textContent = "Published ✓";
+        publishBtn.textContent = "Sent to catalogue ✓";
+        alert("Saved to the Catalogue as a draft. Add a cover, description and price in Admin → Catalogue, then set it Active to put it live.");
         setTimeout(() => { publishBtn.textContent = original; publishBtn.disabled = false; }, 1800);
       } catch (err) {
         console.error("[publish]", err);
