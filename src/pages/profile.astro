@@ -71,6 +71,21 @@ import "../styles/account-sections.css";
           </label>
 
           <div class="logo-grid" id="logo-grid"></div>
+
+          <!-- Headshot (optional) — a photo of the user for their dashboard/profile. -->
+          <div class="headshot-block">
+            <h3 class="headshot-h">Headshot <span>· optional</span></h3>
+            <div class="headshot-row">
+              <label class="headshot-drop" id="headshot-drop">
+                <input type="file" id="headshot-input" accept="image/*" hidden />
+                <div class="headshot-circle" id="headshot-circle"><span class="headshot-plus" aria-hidden="true">+</span></div>
+              </label>
+              <div class="headshot-text">
+                <p>Add a photo of yourself if you like &mdash; it can show on your dashboard and review requests.</p>
+                <button type="button" class="headshot-remove" id="headshot-remove" hidden>Remove photo</button>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -476,6 +491,29 @@ import "../styles/account-sections.css";
     .logo-tile-action:hover { color: var(--ink); background: rgba(28,29,34,0.06); }
     .logo-tile-action.is-on { color: var(--english-violet); }
 
+    /* Headshot (optional) */
+    .headshot-block { margin-top: 30px; padding-top: 22px; border-top: 1px solid rgba(28,29,34,0.08); }
+    .headshot-h { font-family: var(--serif); font-weight: 500; font-size: 18px; color: var(--ink); margin: 0; }
+    .headshot-h span { font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.45); letter-spacing: 0.02em; }
+    .headshot-row { display: flex; align-items: center; gap: 18px; margin-top: 14px; }
+    .headshot-drop { flex: 0 0 auto; cursor: pointer; }
+    .headshot-circle {
+      width: 84px; height: 84px; border-radius: 50%;
+      border: 2px dashed rgba(71,66,84,0.4);
+      display: flex; align-items: center; justify-content: center;
+      background-size: cover; background-position: center; background-color: #f5f4f1;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .headshot-drop:hover .headshot-circle { border-color: var(--english-violet); transform: scale(1.03); }
+    .headshot-circle.has-img { border-style: solid; border-color: rgba(71,66,84,0.25); }
+    .headshot-plus { font-family: var(--sans); font-size: 30px; font-weight: 300; color: var(--english-violet); line-height: 1; }
+    .headshot-circle.has-img .headshot-plus { display: none; }
+    .headshot-text { min-width: 0; }
+    .headshot-text p { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 0; max-width: 32ch; }
+    .headshot-remove { margin-top: 8px; background: none; border: none; padding: 0; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; color: #a05a3c; }
+    .headshot-remove[hidden] { display: none; }
+    .headshot-remove:hover { text-decoration: underline; }
+
     .profile-actions {
       display: flex;
       justify-content: space-between;
@@ -782,6 +820,38 @@ import "../styles/account-sections.css";
         handleLogoFiles(e.dataTransfer.files);
       });
 
+      // ---- Headshot (optional, single image) ----
+      const headshotInput = document.getElementById("headshot-input");
+      const headshotCircle = document.getElementById("headshot-circle");
+      const headshotRemove = document.getElementById("headshot-remove");
+      const headshotDrop = document.getElementById("headshot-drop");
+      let headshot = (brand && typeof brand.headshot === "string") ? brand.headshot : null;
+      function renderHeadshot() {
+        if (!headshotCircle) return;
+        if (headshot) {
+          headshotCircle.style.backgroundImage = "url(" + JSON.stringify(headshot) + ")";
+          headshotCircle.classList.add("has-img");
+          if (headshotRemove) headshotRemove.hidden = false;
+        } else {
+          headshotCircle.style.backgroundImage = "";
+          headshotCircle.classList.remove("has-img");
+          if (headshotRemove) headshotRemove.hidden = true;
+        }
+      }
+      renderHeadshot();
+      function setHeadshotFile(f) {
+        if (!f || !f.type.startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = function () { headshot = reader.result; renderHeadshot(); scheduleSave(); };
+        reader.readAsDataURL(f);
+      }
+      if (headshotInput) headshotInput.addEventListener("change", function () { setHeadshotFile(headshotInput.files[0]); headshotInput.value = ""; });
+      if (headshotDrop) {
+        headshotDrop.addEventListener("dragover", function (e) { e.preventDefault(); });
+        headshotDrop.addEventListener("drop", function (e) { e.preventDefault(); setHeadshotFile(e.dataTransfer.files[0]); });
+      }
+      if (headshotRemove) headshotRemove.addEventListener("click", function (e) { e.preventDefault(); headshot = null; renderHeadshot(); scheduleSave(); });
+
       // ---- Collect / submit ----
       function collect() {
         const colours = [];
@@ -800,6 +870,7 @@ import "../styles/account-sections.css";
           colors: colours,
           fonts: { heading: headingPicker.value(), body: bodyPicker.value() },
           logos: logos,
+          headshot: headshot,
           updatedAt: Date.now(),
         };
       }
