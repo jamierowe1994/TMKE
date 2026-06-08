@@ -244,7 +244,7 @@ export default {
         if (!d) return json({ error: "Not found" }, 404, request, env);
         const files =
           (await sbGet(env, "videography_deliverables",
-            `booking_id=eq.${d.booking_id}&select=r2_key,file_name,kind,size_bytes&order=created_at.asc`)) || [];
+            `booking_id=eq.${d.booking_id}&select=r2_key,file_name,kind,size_bytes,category&order=created_at.asc`)) || [];
         const teasers = teaserKeys(files, d.teaser_count);
         const paid = d.status === "paid";
         return json({
@@ -253,6 +253,7 @@ export default {
           teaserCount: d.teaser_count, paid,
           files: files.map((f) => ({
             key: f.r2_key, name: f.file_name, kind: f.kind, size: f.size_bytes,
+            category: f.category || null,
             unlocked: paid || teasers.has(f.r2_key),
           })),
         }, 200, request, env);

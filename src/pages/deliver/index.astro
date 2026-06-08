@@ -37,6 +37,19 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .dlv-title em { font-style: italic; color: var(--english-violet); }
     .dlv-note { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(28,29,34,0.7); max-width: 60ch; margin: 0; }
 
+    .dlv-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+    .dlv-chip {
+      appearance: none; cursor: pointer;
+      font-family: var(--sans); font-size: 13px; font-weight: 600;
+      padding: 8px 14px; border-radius: 999px;
+      border: 1px solid rgba(28,29,34,0.18); background: #fff; color: var(--ink);
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+    }
+    .dlv-chip span { opacity: 0.5; margin-left: 4px; font-weight: 700; }
+    .dlv-chip:hover { border-color: var(--english-violet); }
+    .dlv-chip.is-on { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+    .dlv-chip.is-on span { opacity: 0.75; }
+
     .dlv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
     .dlv-tile { position: relative; aspect-ratio: 4/3; border-radius: 6px; overflow: hidden; background: rgba(28,29,34,0.06); border: 1px solid rgba(28,29,34,0.1); }
     .dlv-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -79,22 +92,37 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     const LOCK_SVG = '<svg class="dlv-lock-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 
     function tile(f) {
+      const cat = esc(f.category || "Other");
       if (!f.unlocked) {
-        return `<figure class="dlv-tile"><div class="dlv-blur"></div><div class="dlv-tile-locked">${LOCK_SVG}<span class="dlv-lock-txt">Locked</span></div></figure>`;
+        return `<figure class="dlv-tile" data-cat="${cat}"><div class="dlv-blur"></div><div class="dlv-tile-locked">${LOCK_SVG}<span class="dlv-lock-txt">Locked</span></div></figure>`;
       }
       if (f.kind === "image") {
-        return `<figure class="dlv-tile">
+        return `<figure class="dlv-tile" data-cat="${cat}">
           <img src="${fileUrl(f.key)}" alt="${esc(f.name)}" loading="lazy" />
           <figcaption class="dlv-tile-foot"><span class="dlv-tile-name">${esc(f.name)}</span><a class="dlv-dl" href="${fileUrl(f.key, true)}">Save</a></figcaption>
         </figure>`;
       }
       // video / other
-      return `<figure class="dlv-tile"><div class="dlv-vid">
+      return `<figure class="dlv-tile" data-cat="${cat}"><div class="dlv-vid">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         <span class="dlv-lock-txt">${esc(f.kind || "file")}</span></div>
         <figcaption class="dlv-tile-foot"><span class="dlv-tile-name">${esc(f.name)}</span>
         <span><a class="dlv-dl" href="${fileUrl(f.key)}" target="_blank" rel="noopener">View</a> <a class="dlv-dl" href="${fileUrl(f.key, true)}">Save</a></span></figcaption>
       </figure>`;
+    }
+
+    // Filter chips — "All" + each category present (with counts). Clicking one
+    // shows only that category. Built in a stable, sensible order.
+    const CAT_ORDER = ["Headshots", "Exteriors", "Interiors", "Twilight", "Drone", "Video", "Other"];
+    function filterBar(files) {
+      const counts = {};
+      files.forEach((f) => { const c = f.category || "Other"; counts[c] = (counts[c] || 0) + 1; });
+      const cats = Object.keys(counts);
+      if (cats.length < 2) return ""; // nothing to filter
+      const ordered = CAT_ORDER.filter((c) => counts[c]).concat(cats.filter((c) => !CAT_ORDER.includes(c)));
+      const chips = [`<button class="dlv-chip is-on" data-filter="*">All <span>${files.length}</span></button>`]
+        .concat(ordered.map((c) => `<button class="dlv-chip" data-filter="${esc(c)}">${esc(c)} <span>${counts[c]}</span></button>`));
+      return `<div class="dlv-filters" id="dlv-filters">${chips.join("")}</div>`;
     }
 
     function render(d) {
@@ -122,8 +150,25 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
           <p class="dlv-note">${d.message ? esc(d.message) : (d.paid ? "Everything's unlocked — view and download below." : `Here's a preview. ${locked} more ${locked === 1 ? "file is" : "files are"} ready — unlock the full gallery to view and download everything in full resolution.`)}</p>
         </div>
         ${paidBanner}
-        <div class="dlv-grid">${d.files.map(tile).join("")}</div>
+        ${filterBar(d.files)}
+        <div class="dlv-grid" id="dlv-grid">${d.files.map(tile).join("")}</div>
         ${payBar}`;
+
+      // Category filtering — show only the chosen category's tiles.
+      const filters = document.getElementById("dlv-filters");
+      if (filters) {
+        const grid = document.getElementById("dlv-grid");
+        filters.addEventListener("click", (e) => {
+          const chip = e.target.closest(".dlv-chip");
+          if (!chip) return;
+          filters.querySelectorAll(".dlv-chip").forEach((c) => c.classList.remove("is-on"));
+          chip.classList.add("is-on");
+          const f = chip.getAttribute("data-filter");
+          grid.querySelectorAll(".dlv-tile").forEach((t) => {
+            t.style.display = (f === "*" || t.getAttribute("data-cat") === f) ? "" : "none";
+          });
+        });
+      }
 
       const pay = document.getElementById("dlv-pay");
       if (pay) pay.addEventListener("click", () => {

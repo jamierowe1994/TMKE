@@ -13,11 +13,18 @@ create table if not exists public.videography_deliverables (
   size_bytes   bigint,
   content_type text,
   kind         text,   -- 'video' | 'image' | 'other' (derived from content_type)
+  -- Free-text category Jack assigns at upload (Headshots, Exteriors, Drone,
+  -- Video, …) so the client gallery can be grouped/filtered. Null = Other.
+  category     text,
   -- 'uploaded' once in R2; 'sent' once included in a client delivery (Phase 5).
   status       text not null default 'uploaded'
                check (status in ('uploaded', 'sent', 'archived')),
   created_at   timestamptz default now()
 );
+
+-- Bring existing databases in line (create-table-if-not-exists won't add the
+-- column to an already-created table). Safe to run repeatedly.
+alter table public.videography_deliverables add column if not exists category text;
 
 create index if not exists videography_deliverables_booking_idx
   on public.videography_deliverables (booking_id, created_at desc);
