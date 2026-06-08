@@ -35,7 +35,8 @@ create table if not exists public.orders (
 
   -- Payment metadata. payment_method tells us which UI tab was used;
   -- payment_ref is a stub id (Stripe PaymentIntent id once wired up).
-  payment_method  text not null check (payment_method in ('apple_pay', 'google_pay', 'card')),
+  -- 'gift' is used by the admin "Gift a pack" tool (a £0 comp order).
+  payment_method  text not null check (payment_method in ('apple_pay', 'google_pay', 'card', 'gift')),
   payment_ref     text,
   status          text not null default 'paid'
                   check (status in ('paid', 'refunded', 'failed', 'pending')),
@@ -53,6 +54,14 @@ create table if not exists public.orders (
 create index if not exists orders_buyer_email_idx on public.orders (lower(buyer_email));
 create index if not exists orders_user_id_idx     on public.orders (user_id);
 create index if not exists orders_created_at_idx  on public.orders (created_at desc);
+
+-- Bring existing databases in line with the constraint above (create table
+-- if-not-exists won't alter an existing table). Safe to run repeatedly. This
+-- is what fixes the admin "Gift a pack" tool failing with
+-- "violates check constraint orders_payment_method_check".
+alter table public.orders drop constraint if exists orders_payment_method_check;
+alter table public.orders add constraint orders_payment_method_check
+  check (payment_method in ('apple_pay', 'google_pay', 'card', 'gift'));
 
 -- Touch updated_at
 drop trigger if exists orders_set_updated_at on public.orders;
