@@ -3773,10 +3773,16 @@ const googleFonts = [
           try {
             const c = document.createElement("canvas"); c.width = w; c.height = h;
             c.getContext("2d").drawImage(img, 0, 0, w, h);
-            res({ src: c.toDataURL("image/jpeg", 0.9), w, h });
-          } catch (_) { res({ src, w: img.naturalWidth, h: img.naturalHeight }); }
+            // Step the JPEG quality down if the encoded copy is somehow still
+            // heavy, so we never hand Claude something over its 10 MB limit.
+            let q = 0.9, out = c.toDataURL("image/jpeg", q);
+            while (out.length > 9_000_000 && q > 0.4) { q -= 0.15; out = c.toDataURL("image/jpeg", q); }
+            res({ src: out, w, h });
+          } catch (_) { res({ src: null, w: 0, h: 0 }); }
         };
-        img.onerror = () => res({ src, w: 0, h: 0 });
+        // If the image can't even be decoded, return no src — never fall back
+        // to posting the (possibly huge) original.
+        img.onerror = () => res({ src: null, w: 0, h: 0 });
         img.src = src;
       });
 
@@ -3917,6 +3923,7 @@ const googleFonts = [
               const fin = finalImages[i], bg = bgImages[i];
               // Downscale before sending so big Canva exports aren't rejected.
               const ai = await downscaleForAI(fin.src, 1568);
+              if (!ai.src) throw new Error("couldn't read that image file");
               const baseW = ai.w || fin.w, baseH = ai.h || fin.h;
               const blocks = await aiParse(token, { image: ai.src, width: baseW, height: baseH });
               // Map coordinates from the (downscaled) finished image into the
