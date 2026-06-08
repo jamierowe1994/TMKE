@@ -26,7 +26,7 @@ import "../styles/account-sections.css";
     <!-- Each dash-view is one "tab" in the right column. Only the
          active one is shown; sidebar links toggle which is visible.
          No page reload, no drawer overlay. -->
-    <div class="dash-view is-active" data-view="workspace">
+    <div class="dash-view is-active entrance" data-view="workspace">
     <!-- ============ Workspace header — three separate glass boxes ============
          Greeting · rotating photo · stats. Each is its own thin frosted card
          floating on the light-purple page, all matched to the photo's height.
@@ -34,19 +34,19 @@ import "../styles/account-sections.css";
          are unchanged. -->
     <!-- Greeting sits OUTSIDE the boxes, as the page header, so it has room
          to breathe. The boxes drop in below it. -->
-    <header class="dash-head slide-down" data-d="2">
-      <div class="dash-avatar" id="dash-avatar" aria-hidden="true"></div>
+    <header class="dash-head" data-d="2">
+      <div class="dash-avatar anim-pop" id="dash-avatar" aria-hidden="true"></div>
       <div class="dash-head-text">
-        <p class="dash-eyebrow">This month</p>
+        <p class="dash-eyebrow anim-pop">This month</p>
         <h1 class="welcome-h" id="welcome-h">Welcome back, <em>let's get to work.</em></h1>
-        <p class="welcome-sub" id="welcome-sub">Your designs, packs and account in one place.</p>
+        <p class="welcome-sub anim-pop" id="welcome-sub">Your designs, packs and account in one place.</p>
       </div>
     </header>
 
-    <section class="dash-top slide-up" data-d="4" aria-label="Your workspace at a glance">
+    <section class="dash-top" aria-label="Your workspace at a glance">
       <!-- LEFT half: reach over stats, each ~half the photo's height -->
       <div class="dash-left">
-        <div class="dash-card dash-reach">
+        <div class="dash-card dash-reach anim-left">
           <div class="dash-headline-num" id="dash-views">—</div>
           <p class="dash-headline-label">
             Est. profile reach <span class="dash-headline-sub">· Instagram</span>
@@ -54,7 +54,7 @@ import "../styles/account-sections.css";
           </p>
         </div>
 
-        <div class="dash-card dash-stats">
+        <div class="dash-card dash-stats anim-left">
           <div class="dash-stat-grid">
             <div class="dash-stat">
               <span class="dash-stat-label">Active packs</span>
@@ -78,7 +78,7 @@ import "../styles/account-sections.css";
       </div>
 
       <!-- RIGHT half: rotating "jump into a new design" photo -->
-      <div class="dash-card dash-newdesign welcome-art" id="welcome-art" data-mode="loading">
+      <div class="dash-card dash-newdesign welcome-art anim-left" id="welcome-art" data-mode="loading">
         <img id="welcome-art-img" src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
         <div class="welcome-art-overlay" id="welcome-art-overlay" hidden>
           <span class="welcome-art-eyebrow" id="welcome-art-eyebrow"></span>
@@ -96,8 +96,8 @@ import "../styles/account-sections.css";
          on the right. Each half is a self-contained card. The week
          strip JS still targets #up-grid / #up-label / #up-prev etc.
          so the underlying calendar bootstrap is unchanged. -->
-    <section class="dash-pair slide-up" data-d="5" aria-label="This week and what to read">
-      <article id="upcoming" class="dash-pair-card upcoming-card" aria-labelledby="upcoming-h">
+    <section class="dash-pair" aria-label="This week and what to read">
+      <article id="upcoming" class="dash-pair-card upcoming-card anim-up" aria-labelledby="upcoming-h">
         <header class="dash-pair-head">
           <span class="dash-pair-eyebrow">This week</span>
           <h3 id="upcoming-h" class="dash-pair-title">What you've got going out</h3>
@@ -118,7 +118,7 @@ import "../styles/account-sections.css";
         <p id="up-state" class="lib-state" hidden></p>
       </article>
 
-      <a class="dash-pair-card dash-blog-feature" href="/account/blog#instagram-algo-2026" data-view="blog">
+      <a class="dash-pair-card dash-blog-feature anim-up" href="/account/blog#instagram-algo-2026" data-view="blog">
         <div class="dash-blog-feature-art" style="background-image:url('/assets/social-media.png')">
           <span class="dash-blog-feature-flag">Members only</span>
         </div>
@@ -371,12 +371,13 @@ import "../styles/account-sections.css";
       flex-direction: column;
       gap: 16px;
       padding: 24px 26px 24px;
-      background: #fff;
-      border: 1px solid rgba(28, 29, 34, 0.08);
-      border-radius: 14px;
-      box-shadow:
-        0 10px 24px -16px rgba(71, 66, 84, 0.22),
-        0 2px 6px -3px rgba(28, 29, 34, 0.08);
+      /* Match the frosted-glass top boxes instead of solid white. */
+      background: rgba(255, 255, 255, 0.46);
+      -webkit-backdrop-filter: blur(22px) saturate(1.3);
+      backdrop-filter: blur(22px) saturate(1.3);
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      border-radius: 18px;
+      box-shadow: 0 16px 40px -28px rgba(71, 66, 84, 0.5);
       min-height: 340px;
       overflow: hidden;
     }
@@ -560,6 +561,31 @@ import "../styles/account-sections.css";
       .slide-in-left, .slide-down, .slide-up {
         opacity: 1; transform: none; animation: none !important;
       }
+    }
+
+    /* ---------- Orchestrated login entrance (driven by playEntrance) ----------
+       Elements start hidden ONLY while .dash-view.entrance is armed by JS;
+       each gets .is-in on its own beat. Pop = scale-in (greeting eyebrow/sub,
+       avatar); left = slide in from behind the sidebar (the boxes); up = rise
+       from below (this-week / the-edit). The big greeting flies from centre to
+       the corner via JS (FLIP). */
+    .anim-pop, .anim-left, .anim-up {
+      transition: opacity 0.55s ease, transform 0.85s cubic-bezier(.2,.85,.25,1);
+      will-change: transform, opacity;
+    }
+    .dash-view.entrance .anim-pop:not(.is-in)  { opacity: 0; transform: scale(0.8); }
+    .dash-view.entrance .anim-left:not(.is-in) { opacity: 0; transform: translateX(-110px); }
+    .dash-view.entrance .anim-up:not(.is-in)   { opacity: 0; transform: translateY(80px); }
+    /* The greeting is hidden until the JS FLIP places it in the centre. */
+    .dash-view.entrance .welcome-h { opacity: 0; }
+    /* Greeting floats above everything while it flies in. */
+    .welcome-h.is-hero { z-index: 70; position: relative; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dash-view.entrance .anim-pop,
+      .dash-view.entrance .anim-left,
+      .dash-view.entrance .anim-up,
+      .dash-view.entrance .welcome-h { opacity: 1 !important; transform: none !important; }
     }
 
 
@@ -1380,6 +1406,52 @@ import "../styles/account-sections.css";
     // refresh on the same machine swaps to the other type. The pack
     // image is clickable: clicking it opens the Browse packs modal at
     // the matching pack detail view.
+    // Orchestrated login entrance: the greeting flies in big from the centre to
+    // the corner (FLIP), then the chrome pops / slides / rises in on its beats.
+    function playEntrance() {
+      const view = document.querySelector('.dash-view[data-view="workspace"]');
+      const h1 = document.getElementById('welcome-h');
+      if (!view) return;
+      const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reveal = (sel) => document.querySelectorAll(sel).forEach((e) => e.classList.add('is-in'));
+      if (reduce || !h1) {
+        ['.anim-pop', '.anim-left', '.anim-up'].forEach(reveal);
+        if (h1) h1.style.opacity = '1';
+        return;
+      }
+
+      // 1. Place the greeting big in the centre, then fly it to its corner spot.
+      const r = h1.getBoundingClientRect();
+      const cx = window.innerWidth / 2;
+      const cy = Math.min(window.innerHeight * 0.42, 380);
+      const dx = cx - (r.left + r.width / 2);
+      const dy = cy - (r.top + r.height / 2);
+      const scale = Math.max(1.5, Math.min(2.8, (window.innerWidth * 0.5) / Math.max(1, r.width)));
+      h1.classList.add('is-hero');
+      h1.style.transformOrigin = 'center center';
+      h1.style.transition = 'none';
+      h1.style.opacity = '1';
+      h1.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + scale + ')';
+      void h1.offsetWidth; // commit the centred state before transitioning
+      setTimeout(() => {
+        h1.style.transition = 'transform 1.05s cubic-bezier(.5,.05,.15,1)';
+        h1.style.transform = 'none';
+      }, 850);
+      setTimeout(() => { h1.style.transition = ''; h1.style.transform = ''; h1.classList.remove('is-hero'); }, 2050);
+
+      // 2. The rest, on staggered beats (greeting lands ~1.9s).
+      const at = (t, fn) => setTimeout(fn, t);
+      at(1500, () => reveal('.dash-head .dash-eyebrow'));      // "This month" pops
+      at(1560, () => reveal('.dash-avatar'));
+      at(1640, () => reveal('.dash-head .welcome-sub'));       // "Your studio…" pops
+      at(1520, () => reveal('.dash-reach'));                   // reach slides in from the left
+      at(1660, () => { reveal('.dash-stats'); reveal('.dash-newdesign'); }); // packs + photo slide in
+      at(1980, () => reveal('.upcoming-card'));                // "This week" rises up
+      at(2230, () => reveal('.dash-blog-feature'));            // "Inside The Edit" rises just after
+      // Safety: make sure everything is visible even if a beat was missed.
+      at(3200, () => ['.anim-pop', '.anim-left', '.anim-up'].forEach(reveal));
+    }
+
     let _welcomeArtData = null, _welcomeFlicker = null;
     function rotateWelcomeArt({ scheduled, drafts, allPacks, ownedIds }) {
       const $art      = document.getElementById('welcome-art-img');
@@ -1729,21 +1801,35 @@ import "../styles/account-sections.css";
       $welcomeH.innerHTML = `${greeting}, <em>${escapeHtml(titleCase(firstName))}.</em>`;
       $welcomeSub.textContent = 'Your studio. Your library. Pick something up where you left off.';
       const $avatar = document.getElementById('dash-avatar');
-      if ($avatar) $avatar.textContent = (titleCase(firstName).trim()[0] || 'T').toUpperCase();
+      if ($avatar) {
+        $avatar.textContent = (titleCase(firstName).trim()[0] || 'T').toUpperCase();
+        // If they've uploaded a headshot in the brand kit, show it instead of initials.
+        try {
+          const bk = JSON.parse(localStorage.getItem('tmke.brand') || 'null');
+          if (bk && typeof bk.headshot === 'string' && bk.headshot) {
+            $avatar.style.backgroundImage = 'url(' + JSON.stringify(bk.headshot) + ')';
+            $avatar.style.backgroundSize = 'cover';
+            $avatar.style.backgroundPosition = 'center';
+            $avatar.textContent = '';
+          }
+        } catch (_) {}
+      }
       $footerEmail.textContent = email;
       if ($sidebarEmail) $sidebarEmail.textContent = email;
 
+      // Kick off the entrance animation FIRST so it always plays regardless of
+      // anything below. A short timer (rather than rAF) guarantees it fires even
+      // when the tab isn't actively painting.
+      setTimeout(() => { document.body.classList.add('is-loaded'); playEntrance(); }, 30);
+
       // First-time login tour. Starts only when the user has never completed it
       // (flag stamped on their Supabase account); otherwise inert. Skippable.
-      maybeStartTour({
-        firstName: titleCase(firstName),
-        completedAt: meta.tour_completed_at || null,
-      });
-
-      // Kick off the entrance animation. Adding the class on the next
-      // frame ensures the .fade-up elements have laid out before the
-      // animation starts (so transforms read smoothly).
-      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+      try {
+        maybeStartTour({
+          firstName: titleCase(firstName),
+          completedAt: meta.tour_completed_at || null,
+        });
+      } catch (e) { console.error('[tour]', e); }
 
       const localDrafts = readLocalDrafts();
       renderDrafts(localDrafts);
