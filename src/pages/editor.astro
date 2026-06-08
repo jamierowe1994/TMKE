@@ -2982,6 +2982,48 @@ const googleFonts = [
     import { supabase } from '../lib/supabase.js';
     import { isAdminUser } from '../lib/admin-gate.js';
 
+    // ---- Externalise embedded images before writing to Supabase ----------
+    // Canva imports (and pasted images) embed full-resolution pictures as
+    // base64 data URLs inside canvas.backgroundImage / element.src. Writing
+    // those straight into the `templates` row makes it multi-MB, which makes
+    // the save/publish request fail ("Failed to fetch") or time out
+    // ("canceling statement due to statement timeout"). So before saving we
+    // upload each data-URL image to the public `site-media` bucket and swap in
+    // its URL — the row stays tiny, the image stays full-res in storage.
+    const _imgUrlCache = new Map();
+    async function externUploadDataUrl(dataUrl) {
+      const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+      if (!m) return dataUrl;
+      const mime = m[1], b64 = m[2];
+      let h = 5381; for (let i = 0; i < dataUrl.length; i++) h = ((h * 33) ^ dataUrl.charCodeAt(i)) >>> 0;
+      const ext = ((mime.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '')) || 'png';
+      const key = 'templates/' + h.toString(36) + '-' + dataUrl.length.toString(36) + '.' + ext;
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
+      const { error } = await supabase.storage.from('site-media').upload(key, blob, { cacheControl: '31536000', upsert: true, contentType: mime });
+      if (error && !/exists|duplicate/i.test(error.message || '')) throw error;
+      const { data } = supabase.storage.from('site-media').getPublicUrl(key);
+      return (data && data.publicUrl) || dataUrl;
+    }
+    async function externUrl(v) {
+      if (typeof v !== 'string' || !v.startsWith('data:')) return v;
+      if (_imgUrlCache.has(v)) return _imgUrlCache.get(v);
+      const url = await externUploadDataUrl(v);
+      _imgUrlCache.set(v, url);
+      return url;
+    }
+    // Walk a list of pages ({canvas, elements}) and externalise every image.
+    async function externalizePages(pages) {
+      for (const pg of (pages || [])) {
+        if (pg && pg.canvas && typeof pg.canvas.backgroundImage === 'string') pg.canvas.backgroundImage = await externUrl(pg.canvas.backgroundImage);
+        for (const el of ((pg && pg.elements) || [])) { if (el && typeof el.src === 'string') el.src = await externUrl(el.src); }
+      }
+      return pages;
+    }
+    // Shared with the Publish flow (a separate script below).
+    window.__TMKE_EXTERNALIZE_PAGES__ = externalizePages;
+
     const params = new URLSearchParams(location.search);
     const wantAdmin = params.get('mode') === 'admin';
 
@@ -3039,6 +3081,8 @@ const googleFonts = [
         // also the Supabase row id (we keep ids stable end-to-end).
         window.__TMKE_ADMIN_SAVE__ = async (payload) => {
           if (!payload?.templateId) return false;
+          // Upload any embedded data-URL images to storage first (keeps the row small).
+          try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (e) { console.error('[save: externalize]', e); }
           const { error: saveErr } = await supabase
             .from('templates')
             .update({
@@ -3745,6 +3789,15 @@ const googleFonts = [
       publishBtn.textContent = "Publishing…";
       try {
         const data = await window.__TMKE_PUBLISH_DATA__();
+
+        // Upload embedded data-URL images to storage so the template rows stay
+        // small (otherwise the insert fails / times out on big Canva imports).
+        if (typeof window.__TMKE_EXTERNALIZE_PAGES__ === "function") {
+          publishBtn.textContent = "Uploading images…";
+          try { await window.__TMKE_EXTERNALIZE_PAGES__(data.pages); }
+          catch (e) { console.error("[publish: externalize]", e); }
+          publishBtn.textContent = "Publishing…";
+        }
 
         // Resolve the target pack id (or null).
         let packId = null;
