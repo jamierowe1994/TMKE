@@ -44,16 +44,40 @@ import "../styles/account-sections.css";
     </header>
 
     <section class="dash-top slide-up" data-d="4" aria-label="Your workspace at a glance">
-      <!-- 1 · This-month reach metric -->
-      <div class="dash-card dash-reach">
-        <div class="dash-headline-num" id="dash-views">—</div>
-        <p class="dash-headline-label">
-          Est. profile reach <span class="dash-headline-sub">· Instagram</span>
-          <span class="dash-info" title="An estimate based on the designs you've published this month. Connect Instagram for live figures.">&#9432;</span>
-        </p>
+      <!-- LEFT half: reach over stats, each ~half the photo's height -->
+      <div class="dash-left">
+        <div class="dash-card dash-reach">
+          <div class="dash-headline-num" id="dash-views">—</div>
+          <p class="dash-headline-label">
+            Est. profile reach <span class="dash-headline-sub">· Instagram</span>
+            <span class="dash-info" title="An estimate based on the designs you've published this month. Connect Instagram for live figures.">&#9432;</span>
+          </p>
+        </div>
+
+        <div class="dash-card dash-stats">
+          <div class="dash-stat-grid">
+            <div class="dash-stat">
+              <span class="dash-stat-label">Active packs</span>
+              <span class="dash-stat-val" id="stat-packs">—</span>
+            </div>
+            <div class="dash-stat">
+              <span class="dash-stat-label">In progress</span>
+              <span class="dash-stat-val" id="stat-designs">—</span>
+            </div>
+            <div class="dash-stat">
+              <span class="dash-stat-label">Lifetime spend</span>
+              <span class="dash-stat-val" id="stat-spend">£0</span>
+              <span class="dash-stat-foot" id="stat-spend-foot"></span>
+            </div>
+          </div>
+          <a class="dash-brandchip" href="/profile">
+            <span>Brand kit · <strong id="stat-brand">—</strong></span>
+            <em>Edit &rarr;</em>
+          </a>
+        </div>
       </div>
 
-      <!-- 2 · Rotating "jump into a new design" photo -->
+      <!-- RIGHT half: rotating "jump into a new design" photo -->
       <div class="dash-card dash-newdesign welcome-art" id="welcome-art" data-mode="loading">
         <img id="welcome-art-img" src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
         <div class="welcome-art-overlay" id="welcome-art-overlay" hidden>
@@ -65,30 +89,6 @@ import "../styles/account-sections.css";
           </a>
         </div>
         <span class="dash-newdesign-tag" id="dash-newdesign-tag">Jump into a new design <em aria-hidden="true">&rarr;</em></span>
-      </div>
-
-      <!-- 3 · Stats — sits under the reach box on the left; stats laid out
-           across since the box is now wider and shorter. -->
-      <div class="dash-card dash-stats">
-        <div class="dash-stat-grid">
-          <div class="dash-stat">
-            <span class="dash-stat-label">Active packs</span>
-            <span class="dash-stat-val" id="stat-packs">—</span>
-          </div>
-          <div class="dash-stat">
-            <span class="dash-stat-label">In progress</span>
-            <span class="dash-stat-val" id="stat-designs">—</span>
-          </div>
-          <div class="dash-stat">
-            <span class="dash-stat-label">Lifetime spend</span>
-            <span class="dash-stat-val" id="stat-spend">£0</span>
-            <span class="dash-stat-foot" id="stat-spend-foot"></span>
-          </div>
-        </div>
-        <a class="dash-brandchip" href="/profile">
-          <span>Brand kit · <strong id="stat-brand">—</strong></span>
-          <em>Edit &rarr;</em>
-        </a>
       </div>
     </section>
 
@@ -576,18 +576,13 @@ import "../styles/account-sections.css";
     .dash-top {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto auto;
-      grid-template-areas:
-        "reach photo"
-        "stats photo";
       gap: 16px;
+      align-items: stretch;   /* photo matches the left stack's height */
     }
-    .dash-reach { grid-area: reach; min-height: 150px; }
-    .dash-stats { grid-area: stats; min-height: 150px; }
-    .dash-newdesign { grid-area: photo; }
-    @media (max-width: 920px) {
-      .dash-top { grid-template-columns: 1fr; grid-template-rows: auto; grid-template-areas: "reach" "stats" "photo"; }
-    }
+    .dash-left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .dash-reach { min-height: 78px; }
+    .dash-stats { min-height: 78px; }
+    @media (max-width: 920px) { .dash-top { grid-template-columns: 1fr; } }
 
     /* Thin frosted card floating on the purple page — lighter than before. */
     .dash-card {
@@ -629,14 +624,14 @@ import "../styles/account-sections.css";
     }
 
     /* 1 · This-month reach metric box */
-    .dash-reach { padding: 20px 24px; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+    .dash-reach { padding: 14px 22px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
     .dash-headline-num {
-      font-family: var(--serif); font-weight: 500; font-size: clamp(32px, 3.6vw, 46px);
+      font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 2.8vw, 38px);
       line-height: 1; letter-spacing: -0.02em; color: var(--ink);
     }
     .dash-headline-label {
-      font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: rgba(28,29,34,0.55);
-      margin: 6px 0 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      font-family: var(--sans); font-size: 11px; font-weight: 600; color: rgba(28,29,34,0.55);
+      margin: 5px 0 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
     }
     .dash-headline-sub { color: rgba(28,29,34,0.4); font-weight: 500; }
     .dash-info { color: rgba(28,29,34,0.35); cursor: help; font-size: 13px; }
@@ -645,7 +640,7 @@ import "../styles/account-sections.css";
        Explicit height (not min-height) so the image's natural size can't drive
        the grid rows. */
     .dash-newdesign {
-      position: relative; overflow: hidden; padding: 0; height: 332px;
+      position: relative; overflow: hidden; padding: 0; min-height: 0;
       width: 100%; aspect-ratio: auto !important;   /* beat .welcome-art's 4/5 */
     }
     /* !important so it beats the shared .welcome-art img rule — otherwise the
@@ -670,20 +665,20 @@ import "../styles/account-sections.css";
     @media (max-width: 920px) { .dash-newdesign { min-height: 220px; } }
 
     /* 3 · Stats — laid across now the box is wide + short, with a brand chip. */
-    .dash-stats { padding: 18px 22px; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
-    .dash-stat-grid { display: flex; gap: 18px; }
-    .dash-stat { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+    .dash-stats { padding: 12px 20px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+    .dash-stat-grid { display: flex; gap: 16px; }
+    .dash-stat { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
     .dash-stat-label {
-      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
       text-transform: uppercase; color: rgba(28,29,34,0.5); white-space: nowrap;
     }
     .dash-stat-val {
-      font-family: var(--serif); font-size: 26px; line-height: 1; letter-spacing: -0.02em; color: var(--ink);
+      font-family: var(--serif); font-size: 22px; line-height: 1; letter-spacing: -0.02em; color: var(--ink);
     }
     .dash-stat-foot { font-family: var(--sans); font-size: 9.5px; color: rgba(28,29,34,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .dash-brandchip {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 10px 15px; border-radius: 999px;
+      padding: 8px 14px; border-radius: 999px;
       background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.7);
       font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.7); text-decoration: none;
       transition: background 0.25s;
