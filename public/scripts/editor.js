@@ -4760,24 +4760,29 @@
   };
 
   // Onboarding pack-picker hook. Scopes the studio's template grid to a chosen
-  // pack and opens its first design for editing. `templateIds` is the pack's
-  // list; if it's empty or none resolve, we fall back to the full library so a
-  // click always lands on something editable.
-  window.__TMKE_OPEN_PACK__ = function (templateIds) {
+  // pack's designs. `templateIds` is the pack's list. Returns a lightweight
+  // [{id,name,thumb,category}] list so the onboarding overlay can render a
+  // "pick a design" chooser. Pass { load: false } to only scope/register
+  // WITHOUT opening a design (the overlay opens the one the user clicks).
+  // When ids don't resolve, falls back to the full library so the studio is
+  // never empty.
+  window.__TMKE_OPEN_PACK__ = function (templateIds, opts) {
     const ids = Array.isArray(templateIds) ? templateIds.filter(Boolean) : [];
     let scoped = ids.map((id) => TEMPLATES.find((t) => t.id === id)).filter(Boolean);
     if (!scoped.length) scoped = TEMPLATES.slice();
-    if (!scoped.length) return;
+    if (!scoped.length) return [];
     PACK_TEMPLATES = scoped;
     tplGridEl.innerHTML = "";   // force a fresh, scoped render
     renderTemplateGrid();
-    loadTemplate(scoped[0].id, false);
+    if (!opts || opts.load !== false) loadTemplate(scoped[0].id, false);
+    return scoped.map((t) => ({ id: t.id, name: t.name, thumb: t.thumb || null, category: t.category || null }));
   };
 
   // Open a pack whose templates come from Supabase (a pack an admin published).
   // The customer studio's bundled library doesn't contain them, so inject the
-  // rows into TEMPLATES first, then scope + open the first.
-  window.__TMKE_OPEN_PACK_TEMPLATES__ = function (rows) {
+  // rows into TEMPLATES first, then scope. Returns the design list; honours
+  // { load: false } the same way as __TMKE_OPEN_PACK__.
+  window.__TMKE_OPEN_PACK_TEMPLATES__ = function (rows, opts) {
     const list = Array.isArray(rows) ? rows : [];
     const shaped = list.map((r) => ({
       id: r.id,
@@ -4787,12 +4792,19 @@
       canvas: r.canvas || { width: 1080, height: 1350, background: "#F2EFE9" },
       elements: r.elements || [],
     })).filter((t) => t.id);
-    if (!shaped.length) { window.__TMKE_OPEN_PACK__([]); return; } // fallback to library
+    if (!shaped.length) return window.__TMKE_OPEN_PACK__([], opts); // fallback to library
     shaped.forEach((t) => { if (!TEMPLATES.find((x) => x.id === t.id)) TEMPLATES.push(t); });
     PACK_TEMPLATES = shaped;
     tplGridEl.innerHTML = "";
     renderTemplateGrid();
-    loadTemplate(shaped[0].id, false);
+    if (!opts || opts.load !== false) loadTemplate(shaped[0].id, false);
+    return shaped.map((t) => ({ id: t.id, name: t.name, thumb: t.thumb || null, category: t.category || null }));
+  };
+
+  // Load one specific design from the already-scoped pack (used when the user
+  // picks a design in the onboarding chooser).
+  window.__TMKE_LOAD_TEMPLATE__ = function (id) {
+    if (id) loadTemplate(id, false);
   };
 
   // If a stock-photo search panel is taking over the Photos tab, skip

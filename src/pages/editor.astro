@@ -115,17 +115,34 @@ const googleFonts = [
       <span aria-hidden="true">&larr;</span> Back
     </a>
     <div class="ed-onboard-inner">
-      <div class="ed-onboard-eyebrow">Welcome to the Studio</div>
-      <h1 class="ed-onboard-title">Pick a pack <em>to open.</em></h1>
-      <p class="ed-onboard-sub">Choose one of your design packs to load into the editor — you can switch any time from the left rail. Prefer to start clean? Skip below.</p>
+      <!-- Step 1 — pick a pack -->
+      <div id="ed-onboard-step1">
+        <div class="ed-onboard-eyebrow">Welcome to the Studio</div>
+        <h1 class="ed-onboard-title">Pick a pack <em>to open.</em></h1>
+        <p class="ed-onboard-sub">Choose one of your design packs — then pick which design inside it you'd like to work on. Prefer to start clean? Skip below.</p>
 
-      <div class="ed-onboard-loading" id="ed-onboard-loading">Loading your packs…</div>
-      <div class="ed-onboard-grid" id="ed-onboard-grid" hidden></div>
-      <div class="ed-onboard-error" id="ed-onboard-error" hidden></div>
+        <div class="ed-onboard-loading" id="ed-onboard-loading">Loading your packs…</div>
+        <div class="ed-onboard-grid" id="ed-onboard-grid" hidden></div>
+        <div class="ed-onboard-error" id="ed-onboard-error" hidden></div>
 
-      <button type="button" class="ed-onboard-skip" id="ed-onboard-skip">
-        Start with a blank canvas <em>&rarr;</em>
-      </button>
+        <button type="button" class="ed-onboard-skip" id="ed-onboard-skip">
+          Start with a blank canvas <em>&rarr;</em>
+        </button>
+      </div>
+
+      <!-- Step 2 — pick a design from the opened pack -->
+      <div id="ed-onboard-step2" hidden>
+        <button type="button" class="ed-onboard-back2" id="ed-onboard-back2">
+          <span aria-hidden="true">&larr;</span> All packs
+        </button>
+        <div class="ed-onboard-eyebrow" id="ed-onboard-pack-cat">The pack</div>
+        <h1 class="ed-onboard-title" id="ed-onboard-pack-title">Pick a <em>design.</em></h1>
+        <p class="ed-onboard-sub" id="ed-onboard-pack-sub">Choose a design from this pack to open in the studio — you can switch to any of the others at any time.</p>
+
+        <div class="ed-onboard-loading" id="ed-onboard-designs-loading" hidden>Loading this pack's designs…</div>
+        <div class="ed-onboard-grid" id="ed-onboard-design-grid"></div>
+        <div class="ed-onboard-error" id="ed-onboard-designs-empty" hidden></div>
+      </div>
     </div>
   </div>
 
@@ -2877,6 +2894,22 @@ const googleFonts = [
       transform: translateY(-1px);
     }
     .ed-onboard-skip:hover em { transform: translateX(3px); }
+    /* "All packs" back link on the design-chooser step */
+    .ed-onboard-back2 {
+      appearance: none; background: transparent; border: 0; padding: 0;
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-bottom: 18px; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(28,29,34,0.55); transition: color 0.2s, transform 0.2s;
+    }
+    .ed-onboard-back2 span { font-size: 14px; }
+    .ed-onboard-back2:hover { color: var(--english-violet); transform: translateX(-2px); }
+    .ed-onboard-skip-inline {
+      appearance: none; background: transparent; border: 0; padding: 0; margin-left: 6px;
+      font-family: var(--sans); font-size: inherit; font-weight: 700;
+      color: var(--english-violet); cursor: pointer; text-decoration: underline;
+    }
   </style>
 
   <!--
@@ -3970,6 +4003,15 @@ const googleFonts = [
     const error = document.getElementById("ed-onboard-error");
     const skipBtn = document.getElementById("ed-onboard-skip");
     const editor = document.getElementById("editor");
+    // Step 2 (design chooser) elements.
+    const step1El = document.getElementById("ed-onboard-step1");
+    const step2El = document.getElementById("ed-onboard-step2");
+    const designGrid = document.getElementById("ed-onboard-design-grid");
+    const designsLoading = document.getElementById("ed-onboard-designs-loading");
+    const designsEmpty = document.getElementById("ed-onboard-designs-empty");
+    const packTitleEl = document.getElementById("ed-onboard-pack-title");
+    const packCatEl = document.getElementById("ed-onboard-pack-cat");
+    const back2Btn = document.getElementById("ed-onboard-back2");
 
     function escapeHtml(s) {
       return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -3991,15 +4033,67 @@ const googleFonts = [
       });
     }
 
-    async function loadPackIntoStudio(selectedPack) {
-      // Demo packs carry library template ids directly.
+    // Reveal the studio with the staged build-in. Used after a design is
+    // chosen (or "start blank") — what to load is already decided.
+    function revealStudio() {
+      overlay.classList.add("is-leaving");
+      // Wait for fade, then hide entirely and start the sequence.
+      setTimeout(() => {
+        overlay.classList.add("is-gone");
+        playBuildIn();
+      }, 420);
+    }
+    // "Start with a blank canvas" — no pack, just reveal.
+    skipBtn.addEventListener("click", () => revealStudio());
+
+    function showStep2() { if (step1El) step1El.hidden = true; if (step2El) step2El.hidden = false; }
+    function showStep1() { if (step2El) step2El.hidden = true; if (step1El) step1El.hidden = false; }
+    if (back2Btn) back2Btn.addEventListener("click", showStep1);
+
+    // A design card in the step-2 chooser (mirrors packCard).
+    function designCard(d) {
+      return `
+        <button type="button" class="ed-onboard-card ed-onboard-design" data-template-id="${escapeHtml(d.id)}">
+          <div class="ed-onboard-card-cover"${d.thumb ? ` style="background-image:url('${escapeHtml(d.thumb)}')"` : ""}></div>
+          <div class="ed-onboard-card-body">
+            ${d.category ? `<span class="ed-onboard-card-cat">${escapeHtml(d.category)}</span>` : ""}
+            <h3 class="ed-onboard-card-title">${escapeHtml(d.name || "Design")}</h3>
+          </div>
+        </button>`;
+    }
+
+    // Picking a design loads just that one, then reveals the studio.
+    if (designGrid) {
+      designGrid.addEventListener("click", (e) => {
+        const btn = e.target instanceof Element ? e.target.closest("[data-template-id]") : null;
+        if (!btn) return;
+        if (typeof window.__TMKE_LOAD_TEMPLATE__ === "function") window.__TMKE_LOAD_TEMPLATE__(btn.getAttribute("data-template-id"));
+        revealStudio();
+      });
+    }
+
+    // Pick a pack → register its designs and show the chooser (step 2). Nothing
+    // is loaded onto the canvas until the user picks one of the designs.
+    async function showPackDesigns(selectedPack) {
+      if (!selectedPack) return;
+      try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify({ id: selectedPack.id, title: selectedPack.title })); }
+      catch (_) { /* ignore */ }
+
+      packTitleEl.innerHTML = escapeHtml(selectedPack.title || "This pack") + " <em>designs.</em>";
+      packCatEl.textContent = selectedPack.category || "The pack";
+      designGrid.innerHTML = "";
+      designsEmpty.hidden = true;
+      showStep2();
+
+      let designs = [];
       if (selectedPack.templateIds && selectedPack.templateIds.length) {
-        if (typeof window.__TMKE_OPEN_PACK__ === "function") window.__TMKE_OPEN_PACK__(selectedPack.templateIds);
-        return;
-      }
-      // A real (published) pack — fetch its templates from Supabase and inject
-      // them into the studio. Falls back to the library if it has none yet.
-      if (selectedPack.id) {
+        // Demo packs carry library template ids directly.
+        if (typeof window.__TMKE_OPEN_PACK__ === "function") {
+          designs = window.__TMKE_OPEN_PACK__(selectedPack.templateIds, { load: false }) || [];
+        }
+      } else if (selectedPack.id) {
+        // A real (published) pack — fetch its templates from Supabase.
+        designsLoading.hidden = false;
         try {
           const { data: tpls } = await supabase
             .from("templates")
@@ -4008,31 +4102,23 @@ const googleFonts = [
             .eq("status", "active")
             .order("sort_order", { ascending: true });
           if (tpls && tpls.length && typeof window.__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
-            window.__TMKE_OPEN_PACK_TEMPLATES__(tpls);
-            return;
+            designs = window.__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false }) || [];
           }
-        } catch (_) { /* fall through to library */ }
+        } catch (_) { /* leave designs empty */ }
+        designsLoading.hidden = true;
       }
-      if (typeof window.__TMKE_OPEN_PACK__ === "function") window.__TMKE_OPEN_PACK__([]);
-    }
 
-    function closeOverlayAndBuild(selectedPack) {
-      if (selectedPack) {
-        try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify({ id: selectedPack.id, title: selectedPack.title })); }
-        catch (_) { /* ignore */ }
-        // Kick off pack loading (async) so the designs are ready as the overlay
-        // clears; don't block the fade on the network.
-        loadPackIntoStudio(selectedPack);
+      if (!designs.length) {
+        // Real pack with no designs yet — say so rather than dropping into a
+        // random design.
+        designsEmpty.innerHTML = "No designs in this pack yet — they're being added. <button type=\"button\" class=\"ed-onboard-skip-inline\" data-blank>Start with a blank canvas &rarr;</button>";
+        designsEmpty.hidden = false;
+        const blank = designsEmpty.querySelector("[data-blank]");
+        if (blank) blank.addEventListener("click", () => revealStudio());
+        return;
       }
-      overlay.classList.add("is-leaving");
-      // Wait for fade, then hide entirely and start the sequence.
-      setTimeout(() => {
-        overlay.classList.add("is-gone");
-        playBuildIn();
-      }, 420);
+      designGrid.innerHTML = designs.map(designCard).join("");
     }
-
-    skipBtn.addEventListener("click", () => closeOverlayAndBuild(null));
 
     function packCard(p) {
       return `
@@ -4088,7 +4174,7 @@ const googleFonts = [
         if (!btn) return;
         const id = btn.getAttribute("data-pack-id");
         const pack = owned.find((p) => p.id === id);
-        closeOverlayAndBuild(pack);
+        showPackDesigns(pack);
       });
     }
 
