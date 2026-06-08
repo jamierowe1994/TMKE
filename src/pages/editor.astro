@@ -103,6 +103,7 @@ const googleFonts = [
 ---
 
 <BaseLayout
+  dashboard
   title="Editor — TMKE"
   description="Edit your purchased templates in the TMKE design studio."
   hideNav={true}
@@ -258,6 +259,13 @@ const googleFonts = [
         <span>Layers</span>
       </button>
       <div class="ed-rail-spacer"></div>
+      <!-- Pages toggle: pops the page strip up from the bottom on demand.
+           Deliberately NOT an .ed-rail-btn so editor.js's tool handler skips
+           it; wired by a small inline script below. -->
+      <button class="ed-rail-toggle" id="ed-pages-toggle" type="button" aria-pressed="false" title="Pages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="12" height="16" rx="1.5"/><path d="M8 21h12V7"/></svg>
+        <span>Pages</span>
+      </button>
       <button class="ed-rail-btn" data-tool="resize" title="Resize">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 3h-7M21 3v7M3 21h7M3 21v-7"/><path d="M3 3l7 7M21 21l-7-7"/></svg>
         <span>Resize</span>
@@ -711,7 +719,17 @@ const googleFonts = [
   <script id="ed-google-fonts-data" type="application/json" set:html={JSON.stringify(googleFonts)}></script>
 
   <style is:global>
-    body { background: #f5f4f1; overflow: hidden; }
+    /* Soft light-purple iridescent wash — matches the rest of the hub
+       (the .dash-shell background). The white chrome (top bar, rail,
+       panel, canvas) sits on top of it. */
+    body {
+      overflow: hidden;
+      background:
+        radial-gradient(70% 55% at 0% 0%, rgba(255, 206, 178, 0.38), transparent 50%),
+        radial-gradient(75% 65% at 100% 0%, rgba(199, 170, 232, 0.46), transparent 55%),
+        radial-gradient(85% 75% at 60% 115%, rgba(170, 196, 236, 0.36), transparent 55%),
+        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f3eef1 100%);
+    }
 
     .editor {
       position: fixed;
@@ -727,7 +745,11 @@ const googleFonts = [
         "rail  panel ctx"
         "rail  panel stage"
         "rail  panel pages";
-      background: #f5f4f1;
+      background:
+        radial-gradient(70% 55% at 0% 0%, rgba(255, 206, 178, 0.38), transparent 50%),
+        radial-gradient(75% 65% at 100% 0%, rgba(199, 170, 232, 0.46), transparent 55%),
+        radial-gradient(85% 75% at 60% 115%, rgba(170, 196, 236, 0.36), transparent 55%),
+        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f3eef1 100%);
       font-family: var(--sans);
       color: var(--ink);
     }
@@ -986,7 +1008,7 @@ const googleFonts = [
       z-index: 25;
     }
     .ed-rail-spacer { flex: 1; }
-    .ed-rail-btn {
+    .ed-rail-btn, .ed-rail-toggle {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 4px;
       width: 100%; padding: 12px 4px;
@@ -996,12 +1018,12 @@ const googleFonts = [
       font-family: var(--sans);
       transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
-    .ed-rail-btn svg { width: 22px; height: 22px; }
-    .ed-rail-btn span {
+    .ed-rail-btn svg, .ed-rail-toggle svg { width: 22px; height: 22px; }
+    .ed-rail-btn span, .ed-rail-toggle span {
       font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
     }
-    .ed-rail-btn:hover { color: var(--ink); background: rgba(28,29,34,0.04); }
-    .ed-rail-btn.is-active {
+    .ed-rail-btn:hover, .ed-rail-toggle:hover { color: var(--ink); background: rgba(28,29,34,0.04); }
+    .ed-rail-btn.is-active, .ed-rail-toggle.is-active {
       color: var(--english-violet);
       background: rgba(71, 66, 84, 0.08);
       border-left-color: var(--english-violet);
@@ -1857,7 +1879,9 @@ const googleFonts = [
       grid-area: stage;
       position: relative;
       overflow: auto;
-      background: #f5f4f1;
+      /* Transparent so the editor's purple wash shows through behind the
+         white canvas. */
+      background: transparent;
       display: flex; align-items: center; justify-content: center;
       padding: 40px;
     }
@@ -1946,19 +1970,34 @@ const googleFonts = [
     .ed-rev-status[hidden] { display: none; }
     .ed-rev-status a { color: var(--english-violet); word-break: break-all; }
 
-    /* ---- Page strip (multi-page designs) ---- */
+    /* ---- Page strip (multi-page designs) ----
+       Hidden by default so the canvas gets the full height. The "Pages"
+       toggle in the left rail pops it up from the bottom on demand. Never
+       shows a scrollbar — hover + mouse-wheel scrolls the pages (wired in JS). */
     .ed-pages {
       grid-area: pages;
-      display: flex; align-items: center; gap: 12px;
+      display: none;
+      align-items: center; gap: 12px;
       padding: 12px 18px;
-      background: #ecebe7;
+      background: rgba(255,255,255,0.62);
+      backdrop-filter: blur(10px) saturate(1.2);
+      -webkit-backdrop-filter: blur(10px) saturate(1.2);
       border-top: 1px solid rgba(28,29,34,0.08);
       overflow-x: auto; overflow-y: hidden;
-      /* No visible scrollbar — hover + mouse-wheel scrolls the pages (wired in JS). */
       scrollbar-width: none; -ms-overflow-style: none;
     }
     .ed-pages::-webkit-scrollbar { width: 0; height: 0; display: none; }
-    .ed-pages:empty { display: none; }
+    .editor.show-pages .ed-pages {
+      display: flex;
+      animation: edPagesUp 0.34s cubic-bezier(.2,.75,.2,1) both;
+    }
+    @keyframes edPagesUp {
+      from { opacity: 0; transform: translateY(100%); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .editor.show-pages .ed-pages { animation: none; }
+    }
     .ed-page-tile {
       position: relative; flex: 0 0 auto;
       width: 58px; height: 72px;
@@ -2597,9 +2636,12 @@ const googleFonts = [
     .ed-onboard {
       position: fixed; inset: 0;
       z-index: 200;
+      /* Same light-purple iridescent wash as the rest of the hub. */
       background:
-        radial-gradient(120% 80% at 20% 0%, rgba(71,66,84,0.12), transparent 60%),
-        linear-gradient(180deg, #f7f6f2, #efece6);
+        radial-gradient(70% 55% at 0% 0%, rgba(255, 206, 178, 0.40), transparent 50%),
+        radial-gradient(75% 65% at 100% 0%, rgba(199, 170, 232, 0.50), transparent 55%),
+        radial-gradient(85% 75% at 60% 115%, rgba(170, 196, 236, 0.40), transparent 55%),
+        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f3eef1 100%);
       display: flex; align-items: center; justify-content: center;
       padding: 60px 36px;
       overflow-y: auto;
@@ -2644,13 +2686,18 @@ const googleFonts = [
       to   { opacity: 1; transform: translateY(0); }
     }
     .ed-onboard-eyebrow {
+      display: inline-block;
       font-family: var(--sans);
       font-size: 11px;
       letter-spacing: 0.32em;
       text-transform: uppercase;
       font-weight: 700;
-      color: var(--english-violet);
-      margin-bottom: 18px;
+      color: var(--violet-deep);
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      padding: 6px 12px;
+      border-radius: 999px;
+      margin-bottom: 20px;
     }
     .ed-onboard-title {
       font-family: var(--serif);
@@ -2687,13 +2734,16 @@ const googleFonts = [
     }
     .ed-onboard-card {
       appearance: none;
-      background: rgba(255,255,255,0.6);
-      border: 1px solid rgba(71,66,84,0.18);
-      border-radius: 3px;
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: blur(12px) saturate(1.2);
+      -webkit-backdrop-filter: blur(12px) saturate(1.2);
+      border: 1px solid rgba(71,66,84,0.16);
+      border-radius: 14px;
       padding: 0;
       cursor: pointer;
       text-align: left;
       overflow: hidden;
+      box-shadow: 0 14px 34px -22px rgba(71,66,84,0.4);
       transition: transform 0.45s cubic-bezier(.2,.7,.2,1), border-color 0.3s, box-shadow 0.4s;
       display: flex; flex-direction: column;
     }
@@ -2735,23 +2785,26 @@ const googleFonts = [
       align-items: center;
       gap: 24px;
       flex-wrap: wrap;
-      padding: 20px 22px;
+      padding: 20px 24px;
       margin: 4px 0 36px;
-      border: 1px dashed rgba(71,66,84,0.3);
-      border-radius: 6px;
-      background: rgba(123,91,207,0.05);
+      border: 1px solid rgba(71,66,84,0.16);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(12px) saturate(1.2);
+      -webkit-backdrop-filter: blur(12px) saturate(1.2);
+      box-shadow: 0 14px 34px -24px rgba(71,66,84,0.38);
     }
     .ed-onboard-more-head { display: flex; flex-direction: column; gap: 3px; margin-right: auto; }
     .ed-onboard-more-head strong {
       font-family: var(--serif);
-      font-size: 19px;
+      font-size: 20px;
       font-weight: 500;
-      color: var(--paper);
+      color: var(--ink);
     }
     .ed-onboard-more-head span {
       font-family: var(--sans);
       font-size: 13px;
-      color: rgba(240, 238, 235, 0.7);
+      color: rgba(28, 29, 34, 0.6);
     }
     .ed-onboard-more-list { display: flex; gap: 12px; }
     .ed-onboard-more-pack {
@@ -2794,27 +2847,36 @@ const googleFonts = [
     .ed-onboard-error a { color: var(--violet, #7B5BCF); text-decoration: underline; }
     .ed-onboard-skip {
       appearance: none;
-      background: transparent;
-      border: 0;
-      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid rgba(71, 66, 84, 0.25);
+      padding: 13px 24px;
+      border-radius: 999px;
       font-family: var(--sans);
       font-size: 12px;
       font-weight: 700;
-      letter-spacing: 0.24em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: rgba(28,29,34,0.55);
+      color: var(--english-violet);
       cursor: pointer;
-      transition: color 0.25s;
+      box-shadow: 0 10px 26px -18px rgba(71, 66, 84, 0.5);
+      transition: color 0.25s, background 0.25s, border-color 0.25s, transform 0.2s;
     }
     .ed-onboard-skip em {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 16px;
+      font-style: normal;
       letter-spacing: 0;
-      text-transform: none;
-      margin-left: 8px;
+      margin-left: 10px;
+      transition: transform 0.2s;
+      display: inline-block;
     }
-    .ed-onboard-skip:hover { color: var(--english-violet); }
+    .ed-onboard-skip:hover {
+      color: var(--paper);
+      background: var(--english-violet);
+      border-color: var(--english-violet);
+      transform: translateY(-1px);
+    }
+    .ed-onboard-skip:hover em { transform: translateX(3px); }
   </style>
 
   <!--
@@ -3265,6 +3327,22 @@ const googleFonts = [
   </script>
 
   <script src="/scripts/editor.js" is:inline type="module"></script>
+
+  <!-- Pages toggle: the page strip is hidden by default (so the canvas gets
+       the full height); this pops it up from the bottom on demand. Standalone
+       so it doesn't depend on editor.js's tool-rail handler. -->
+  <script is:inline>
+    (function () {
+      var ed = document.getElementById("editor");
+      var toggle = document.getElementById("ed-pages-toggle");
+      if (!ed || !toggle) return;
+      toggle.addEventListener("click", function () {
+        var on = ed.classList.toggle("show-pages");
+        toggle.classList.toggle("is-active", on);
+        toggle.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    })();
+  </script>
 
   <!--
     Schedule-to-calendar wiring.
