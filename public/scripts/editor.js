@@ -1033,6 +1033,32 @@
   }
 
   // ---------- History ----------
+  // ---- Autosave drafts (admin only) ------------------------------------
+  // While editing in admin mode, persist a draft to localStorage shortly after
+  // each change, and once more right before the tab unloads — so work is never
+  // lost. Gated on window.__TMKE_AUTOSAVE__ (set by the admin bootstrap).
+  let _autosaveTimer = null;
+  function autosaveDraft() {
+    if (!window.__TMKE_AUTOSAVE__) return;
+    if (!state.templateId) state.templateId = "draft-" + Date.now(); // new / imported designs get a stable key
+    try {
+      localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify({
+        templateId: state.templateId,
+        filename: filenameEl ? filenameEl.value : "Draft",
+        canvas: state.canvas,
+        elements: state.elements,
+        pages: deep(state.pages),
+        savedAt: Date.now(),
+      }));
+    } catch (_) {}
+  }
+  function scheduleAutosave() {
+    if (!window.__TMKE_AUTOSAVE__) return;
+    clearTimeout(_autosaveTimer);
+    _autosaveTimer = setTimeout(autosaveDraft, 1200);
+  }
+  window.addEventListener("beforeunload", function () { try { if (window.__TMKE_AUTOSAVE__) autosaveDraft(); } catch (_) {} });
+
   function pushHistory() {
     // Drop forward history
     state.history = state.history.slice(0, state.historyIndex + 1);
@@ -1043,6 +1069,7 @@
     if (state.history.length > 80) state.history.shift();
     state.historyIndex = state.history.length - 1;
     updateUndoRedoButtons();
+    scheduleAutosave();   // admin: persist a draft shortly after each change
   }
 
   function undo() {
@@ -1075,15 +1102,20 @@
   // ---------- Load template ----------
   function loadTemplate(tplId, fresh) {
     let tpl = TEMPLATES.find((t) => t.id === tplId);
+    // If the id isn't a bundled/pack template but a saved draft exists for it
+    // (a Canva import or blank design autosaved under a "draft-…" id), keep the
+    // id so we restore THAT draft rather than falling back to the first template.
+    let draftRaw = null;
+    if (!tpl && tplId) { try { draftRaw = localStorage.getItem("tmke.editor." + tplId); } catch (_) {} }
     if (!tpl) tpl = TEMPLATES[0];
     if (!tpl) return;
     resetToSinglePage(tpl.canvas && tpl.canvas.background);
-    state.templateId = tpl.id;
+    state.templateId = draftRaw ? tplId : tpl.id;
 
     // Try to restore saved state
     if (!fresh) {
       try {
-        const saved = JSON.parse(localStorage.getItem("tmke.editor." + tpl.id) || "null");
+        const saved = JSON.parse((draftRaw != null ? draftRaw : localStorage.getItem("tmke.editor." + tpl.id)) || "null");
         if (saved && (saved.pages || saved.elements)) {
           if (saved.pages && saved.pages.length) {
             state.pages = saved.pages;
