@@ -23,20 +23,18 @@
     { name: "Courier", stack: '"Courier New", monospace', category: "System" },
   ];
 
-  // Self-hosted house fonts baked into the studio (separate from per-customer
-  // uploads via /admin/fonts). Files live on R2 under /fonts/. Each face is
-  // registered with the document so the canvas renders it; if a file isn't
-  // there yet the family simply falls back to the stack below.
+  // House fonts available in the studio picker (separate from per-customer
+  // uploads via /admin/fonts). The actual font faces are loaded by the page —
+  // The Seasons comes from the Typographer.io embed that the dashboard layout
+  // includes (a real webfont CDN that serves the right CORS headers). We do NOT
+  // register faces from assets.tmke.co.uk here: those files aren't hosted (404),
+  // and cross-origin FontFace loads need CORS — so it only spammed the console.
   const CUSTOM_FONTS = [
     {
       name: "The Seasons",
       stack: '"The Seasons", "Cormorant Garamond", Georgia, serif',
       category: "TMKE · House",
-      faces: [
-        { url: "https://assets.tmke.co.uk/fonts/the-seasons-light.woff2", weight: 300, style: "normal" },
-        { url: "https://assets.tmke.co.uk/fonts/the-seasons-regular.woff2", weight: 400, style: "normal" },
-        { url: "https://assets.tmke.co.uk/fonts/the-seasons-bold.woff2", weight: 700, style: "normal" },
-      ],
+      faces: [],
     },
   ];
   (function registerCustomFonts() {
