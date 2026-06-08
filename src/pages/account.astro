@@ -1749,9 +1749,13 @@ import "../styles/account-sections.css";
       $shopModal.hidden = false;
       document.body.style.overflow = 'hidden';
       setView('grid');
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => $shopModal.classList.add('is-open'));
-      });
+      // Commit the un-hidden "closed" state with a forced reflow, then add
+      // .is-open so the transition fires. This is reliable everywhere — the
+      // old double-requestAnimationFrame could silently fail to add .is-open
+      // (deferred paint), leaving the modal open in the DOM but invisible
+      // (transparent backdrop + off-screen panel), so the button "did nothing".
+      void $shopModal.offsetWidth;
+      $shopModal.classList.add('is-open');
       if (!cachedPacks) {
         $shopLoading.hidden = false;
         const { data, error } = await supabase
