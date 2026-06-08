@@ -1464,7 +1464,7 @@ import "../styles/account-sections.css";
     // the matching pack detail view.
     // Orchestrated login entrance: the greeting flies in big from the centre to
     // the corner (FLIP), then the chrome pops / slides / rises in on its beats.
-    function playEntrance() {
+    function playEntrance(full) {
       const view = document.querySelector('.dash-view[data-view="workspace"]');
       const h1 = document.getElementById('welcome-h');
       if (!view) return;
@@ -1476,6 +1476,33 @@ import "../styles/account-sections.css";
         return;
       }
 
+      const at = (t, fn) => setTimeout(fn, t);
+
+      // LITE entrance — same greeting/title as last visit, so skip the big
+      // centre-stage reveal. The greeting just slides in from the left to its
+      // corner spot, and the rest of the chrome animates on a compact stagger.
+      if (!full) {
+        h1.style.transition = 'none';
+        h1.style.opacity = '0';
+        h1.style.transform = 'translateX(-48px)';
+        void h1.offsetWidth;
+        h1.style.transition = 'transform 0.6s cubic-bezier(.2,.7,.2,1), opacity 0.55s ease';
+        h1.style.opacity = '1';
+        h1.style.transform = 'none';
+        setTimeout(() => { h1.style.transition = ''; h1.style.transform = ''; }, 720);
+
+        at(140, () => reveal('.dash-head .dash-eyebrow'));
+        at(200, () => reveal('.dash-avatar'));
+        at(280, () => reveal('.dash-head .welcome-sub'));
+        at(180, () => reveal('.dash-reach'));
+        at(320, () => { reveal('.dash-stats'); reveal('.dash-newdesign'); });
+        at(560, () => reveal('.upcoming-card'));
+        at(760, () => reveal('.dash-blog-feature'));
+        at(1300, () => ['.anim-pop', '.anim-left', '.anim-up'].forEach(reveal));
+        return;
+      }
+
+      // FULL entrance.
       // 1. Place the greeting big in the centre, then fly it to its corner spot.
       const r = h1.getBoundingClientRect();
       const cx = window.innerWidth / 2;
@@ -1496,7 +1523,6 @@ import "../styles/account-sections.css";
       setTimeout(() => { h1.style.transition = ''; h1.style.transform = ''; h1.classList.remove('is-hero'); }, 2050);
 
       // 2. The rest, on staggered beats (greeting lands ~1.9s).
-      const at = (t, fn) => setTimeout(fn, t);
       at(1500, () => reveal('.dash-head .dash-eyebrow'));      // "This month" pops
       at(1560, () => reveal('.dash-avatar'));
       at(1640, () => reveal('.dash-head .welcome-sub'));       // "Your studio…" pops
@@ -1915,10 +1941,23 @@ import "../styles/account-sections.css";
       $footerEmail.textContent = email;
       if ($sidebarEmail) $sidebarEmail.textContent = email;
 
+      // Decide between the full centre-stage entrance and the lite slide-in.
+      // The full reveal only plays when the greeting *title* (time-of-day +
+      // who's signed in) differs from what they last saw — so it fires on a
+      // fresh login, when morning rolls into afternoon, or for a new user, but
+      // NOT when they just hop Workspace → Studio → Workspace within the same
+      // session/period. Persisted in localStorage so it follows page reloads.
+      let fullEntrance = true;
+      try {
+        const greetKey = greeting + '|' + firstName;
+        fullEntrance = localStorage.getItem('tmke.greet.last') !== greetKey;
+        localStorage.setItem('tmke.greet.last', greetKey);
+      } catch (_) {}
+
       // Kick off the entrance animation FIRST so it always plays regardless of
       // anything below. A short timer (rather than rAF) guarantees it fires even
       // when the tab isn't actively painting.
-      setTimeout(() => { document.body.classList.add('is-loaded'); playEntrance(); }, 30);
+      setTimeout(() => { document.body.classList.add('is-loaded'); playEntrance(fullEntrance); }, 30);
 
       // First-time login tour. Starts only when the user has never completed it
       // (flag stamped on their Supabase account); otherwise inert. Skippable.
