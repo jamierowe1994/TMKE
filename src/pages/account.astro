@@ -420,6 +420,9 @@ import "../styles/account-sections.css";
       overflow-y: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;
+      /* Breathing room so the top row's hover lift + outline isn't clipped by
+         the scroll edge (it was seeping into the "This week" header). */
+      padding: 6px 3px;
     }
     .upcoming-card .upcoming-grid::-webkit-scrollbar { width: 0; display: none; }
     .upcoming-card .upcoming-day {
@@ -428,6 +431,14 @@ import "../styles/account-sections.css";
       gap: 14px;
       min-height: 0;
       padding: 10px 14px;
+    }
+    /* The hovered row lifts above its neighbours rather than under them. */
+    .upcoming-card .upcoming-day:hover { z-index: 2; }
+    /* "+ Open" sits on the right, vertically centred — never over the date. */
+    .upcoming-card .upcoming-day.is-empty:hover::after {
+      left: auto; bottom: auto;
+      right: 16px; top: 50%;
+      transform: translateY(-50%);
     }
 
     /* Members-blog feature on the right of the pair */
