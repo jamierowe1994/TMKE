@@ -3759,6 +3759,26 @@ const googleFonts = [
       const setC = (msg, err) => { if (!cstatus) return; cstatus.hidden = false; cstatus.textContent = msg; cstatus.classList.toggle("is-error", !!err); };
       const blobToDataURL = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
       const imgDims = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res({ w: i.naturalWidth, h: i.naturalHeight }); i.onerror = () => res({ w: 1080, h: 1350 }); i.src = src; });
+      // Downscale an image to a sane max edge before sending to the AI. Claude
+      // resizes anything over ~1568px anyway, and oversized Canva exports get
+      // rejected by Anthropic with "Could not process image" — so cap it here.
+      // Returns { src, w, h } in the downscaled space so coordinates map back.
+      const downscaleForAI = (src, maxEdge = 1568) => new Promise((res) => {
+        const img = new Image();
+        img.onload = () => {
+          const long = Math.max(img.naturalWidth, img.naturalHeight) || 1;
+          const k = long > maxEdge ? maxEdge / long : 1;
+          const w = Math.max(1, Math.round(img.naturalWidth * k));
+          const h = Math.max(1, Math.round(img.naturalHeight * k));
+          try {
+            const c = document.createElement("canvas"); c.width = w; c.height = h;
+            c.getContext("2d").drawImage(img, 0, 0, w, h);
+            res({ src: c.toDataURL("image/jpeg", 0.9), w, h });
+          } catch (_) { res({ src, w: img.naturalWidth, h: img.naturalHeight }); }
+        };
+        img.onerror = () => res({ src, w: 0, h: 0 });
+        img.src = src;
+      });
 
       // Read every image out of a .zip into [{src,w,h}], sorted by filename.
       async function parseZipImages(file) {
@@ -3895,9 +3915,13 @@ const googleFonts = [
             await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
             try {
               const fin = finalImages[i], bg = bgImages[i];
-              const blocks = await aiParse(token, { image: fin.src, width: fin.w, height: fin.h });
-              // Map coordinates from the finished image into the background's space.
-              const sx = (bg.w || fin.w) / (fin.w || 1), sy = (bg.h || fin.h) / (fin.h || 1);
+              // Downscale before sending so big Canva exports aren't rejected.
+              const ai = await downscaleForAI(fin.src, 1568);
+              const baseW = ai.w || fin.w, baseH = ai.h || fin.h;
+              const blocks = await aiParse(token, { image: ai.src, width: baseW, height: baseH });
+              // Map coordinates from the (downscaled) finished image into the
+              // background's space.
+              const sx = (bg.w || baseW) / (baseW || 1), sy = (bg.h || baseH) / (baseH || 1);
               const scaled = (blocks || []).map((b) => Object.assign({}, b, {
                 x: (b.x || 0) * sx, y: (b.y || 0) * sy,
                 w: (b.w || 0) * sx, h: (b.h || 0) * sy,
