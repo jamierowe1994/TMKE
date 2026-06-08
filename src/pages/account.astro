@@ -131,22 +131,32 @@ import "../styles/account-sections.css";
       </a>
     </section>
 
-    <!-- Library -->
-    <section id="library" class="library slide-up" data-d="6" aria-labelledby="library-h">
-      <header class="section-head">
-        <h2 id="library-h" class="section-h">Your library</h2>
-        <p class="section-sub">Packs you've purchased from The Edit. <button type="button" class="inline-link" data-shop>Add another pack &rarr;</button></p>
-      </header>
+    <!-- Library (75%) + consistency streak (25%) -->
+    <div class="dash-lib-row slide-up" data-d="6">
+      <section id="library" class="library" aria-labelledby="library-h">
+        <header class="section-head">
+          <h2 id="library-h" class="section-h">Your library</h2>
+          <p class="section-sub">Packs you've purchased from The Edit. <button type="button" class="inline-link" data-shop>Add another pack &rarr;</button></p>
+        </header>
 
-      <div id="library-loading" class="lib-state">Loading your library…</div>
+        <div id="library-loading" class="lib-state">Loading your library…</div>
 
-      <div id="library-empty" class="lib-empty" hidden>
-        <h3>Nothing here yet.</h3>
-        <p>You haven't purchased a pack yet. <button type="button" class="lib-link" data-shop>Browse The Edit</button> to find one.</p>
-      </div>
+        <div id="library-empty" class="lib-empty" hidden>
+          <h3>Nothing here yet.</h3>
+          <p>You haven't purchased a pack yet. <button type="button" class="lib-link" data-shop>Browse The Edit</button> to find one.</p>
+        </div>
 
-      <div id="library-grid" class="library-grid"></div>
-    </section>
+        <div id="library-grid" class="library-grid"></div>
+      </section>
+
+      <aside class="dash-streak" aria-label="Posting consistency">
+        <div class="dash-streak-eyebrow">Consistency</div>
+        <div class="dash-streak-num"><span id="streak-count">0</span><small>wk</small></div>
+        <p class="dash-streak-label" id="streak-label">weeks posting in a row</p>
+        <div class="dash-streak-dots" id="streak-dots" aria-hidden="true"></div>
+        <p class="dash-streak-note" id="streak-note">Consistency compounds — keep showing up each week.</p>
+      </aside>
+    </div>
 
     <!-- Drafts (from localStorage) -->
     <section id="drafts" class="drafts slide-up" data-d="7" aria-labelledby="drafts-h" hidden>
@@ -727,6 +737,43 @@ import "../styles/account-sections.css";
     .dash-brandchip strong { color: rgba(28,29,34,0.7); font-weight: 500; font-size: inherit; }
     .dash-brandchip em { font-style: normal; font-weight: 600; color: var(--violet-deep); }
     .dash-brandchip:hover { background: rgba(255,255,255,0.82); }
+
+    /* ---------- Library + consistency streak (75 / 25) ---------- */
+    .dash-lib-row {
+      display: grid;
+      grid-template-columns: 3fr 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+    @media (max-width: 900px) { .dash-lib-row { grid-template-columns: 1fr; } }
+    .dash-lib-row .library { min-width: 0; }
+
+    .dash-streak {
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 22px 22px 20px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.5);
+      -webkit-backdrop-filter: blur(22px) saturate(1.3);
+      backdrop-filter: blur(22px) saturate(1.3);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: 0 22px 48px -26px rgba(71, 66, 84, 0.42), 0 5px 14px -6px rgba(71, 66, 84, 0.22);
+    }
+    .dash-streak-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em;
+      text-transform: uppercase; color: var(--violet-deep);
+    }
+    .dash-streak-num {
+      display: flex; align-items: baseline; gap: 6px;
+      font-family: var(--serif); font-weight: 500; font-size: clamp(44px, 4vw, 60px);
+      line-height: 1; letter-spacing: -0.02em; color: var(--ink); margin-top: 2px;
+    }
+    .dash-streak-num small { font-family: var(--sans); font-size: 15px; font-weight: 700; color: rgba(28,29,34,0.4); }
+    .dash-streak-label { font-family: var(--sans); font-size: 13px; line-height: 1.4; color: rgba(28,29,34,0.6); margin: 0; }
+    .dash-streak-dots { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; }
+    .dash-streak-dot { width: 15px; height: 15px; border-radius: 5px; background: rgba(71,66,84,0.13); transition: background 0.3s; }
+    .dash-streak-dot.is-on { background: var(--violet-deep); }
+    .dash-streak-dot.is-cur { box-shadow: 0 0 0 2px rgba(71,66,84,0.28); }
+    .dash-streak-note { font-family: var(--sans); font-size: 12px; line-height: 1.45; color: rgba(28,29,34,0.5); margin: auto 0 0; }
 
     /* ---------- Library ---------- */
     .lib-empty {
@@ -1467,6 +1514,49 @@ import "../styles/account-sections.css";
       at(3200, () => ['.anim-pop', '.anim-left', '.anim-up'].forEach(reveal));
     }
 
+    // Consistency streak — consecutive weeks (Mon-start) with at least one
+    // scheduled/posted item, from the content calendar. Renders the count, a
+    // friendly note, and a 12-week dot trail.
+    function renderStreak(scheduled) {
+      const $count = document.getElementById('streak-count');
+      const $label = document.getElementById('streak-label');
+      const $dots = document.getElementById('streak-dots');
+      const $note = document.getElementById('streak-note');
+      if (!$count) return;
+      const mondayKey = (d) => {
+        const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const off = (dt.getDay() + 6) % 7; // 0 = Monday
+        dt.setDate(dt.getDate() - off);
+        return dt.getFullYear() + '-' + (dt.getMonth() + 1) + '-' + dt.getDate();
+      };
+      const posted = new Set();
+      (scheduled || []).forEach((s) => {
+        if (s && s.scheduled_date) { const d = new Date(s.scheduled_date); if (!isNaN(d.getTime())) posted.add(mondayKey(d)); }
+      });
+      const now = new Date();
+      const keyAgo = (i) => { const d = new Date(now); d.setDate(d.getDate() - i * 7); return mondayKey(d); };
+      // Grace for the in-progress week: if this week has no post yet, start the
+      // count from last week so an active streak isn't shown as broken.
+      let i = posted.has(keyAgo(0)) ? 0 : 1;
+      let streak = 0;
+      while (i < 104 && posted.has(keyAgo(i))) { streak++; i++; }
+      $count.textContent = String(streak);
+      if ($label) $label.textContent = streak === 1 ? 'week posting in a row' : 'weeks posting in a row';
+      if ($note) {
+        $note.textContent = streak === 0
+          ? 'Schedule a post this week to start your streak.'
+          : (streak >= 4 ? "You're on a roll — keep the run going." : 'Consistency compounds — keep showing up each week.');
+      }
+      if ($dots) {
+        $dots.innerHTML = '';
+        for (let w = 11; w >= 0; w--) {
+          const dot = document.createElement('span');
+          dot.className = 'dash-streak-dot' + (posted.has(keyAgo(w)) ? ' is-on' : '') + (w === 0 ? ' is-cur' : '');
+          $dots.appendChild(dot);
+        }
+      }
+    }
+
     let _welcomeArtData = null, _welcomeFlicker = null;
     function rotateWelcomeArt({ scheduled, drafts, allPacks, ownedIds }) {
       const $art      = document.getElementById('welcome-art-img');
@@ -1854,6 +1944,19 @@ import "../styles/account-sections.css";
       // data once it resolves.
       rotateWelcomeArt({ scheduled: [], drafts: localDrafts, allPacks: [], ownedIds: new Set() });
 
+      // Consistency streak — fetched independently of orders so it always shows
+      // (a user can have a posting streak without having bought a pack).
+      renderStreak([]);
+      supabase
+        .from('calendar_items')
+        .select('scheduled_date')
+        .eq('user_id', session.user.id)
+        .in('status', ['scheduled', 'reminder_sent', 'done'])
+        .order('scheduled_date', { ascending: false })
+        .limit(120)
+        .then(({ data }) => renderStreak(data || []))
+        .catch(() => {});
+
       const { data: orders, error } = await supabase
         .from('orders')
         .select('id, pack_id, pack_slug, pack_title, amount_pence, invoice_number, status, payment_method, created_at, buyer_company')
@@ -1942,7 +2045,7 @@ import "../styles/account-sections.css";
           .eq('user_id', session.user.id)
           .in('status', ['scheduled', 'reminder_sent', 'done'])
           .order('scheduled_date', { ascending: false })
-          .limit(20),
+          .limit(60),
         supabase
           .from('packs')
           .select('id, slug, title, cover_image_url, preview_images')
