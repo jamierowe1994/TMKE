@@ -175,6 +175,8 @@ import "../styles/account-sections.css";
   </div>
 
   <style>
+    /* Nudge the page title down a touch from the top of the view. */
+    .welcome { padding-top: 20px; }
     .profile-wrap {
       max-width: 1500px;
       margin: 0;
@@ -443,53 +445,11 @@ import "../styles/account-sections.css";
 
     .logo-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
       gap: 14px;
     }
-    .logo-tile {
-      position: relative;
-      background: #fff;
-      border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 3px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    .logo-tile.is-primary { border-color: var(--english-violet); box-shadow: 0 0 0 2px rgba(71,66,84,0.15); }
-    .logo-tile-img {
-      aspect-ratio: 4/3;
-      background-color: #f5f4f1;
-      background-size: contain;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
-    .logo-tile-meta {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 6px;
-      align-items: center;
-      padding: 8px 10px;
-      border-top: 1px solid rgba(28,29,34,0.06);
-    }
-    .logo-tile-name {
-      padding: 4px 6px;
-      font-family: var(--sans);
-      font-size: 12px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--ink);
-      min-width: 0;
-    }
-    .logo-tile-name:focus { outline: none; border-color: var(--english-violet); background: rgba(71,66,84,0.05); }
-    .logo-tile-action {
-      width: 24px; height: 24px;
-      background: transparent; border: none; cursor: pointer;
-      color: rgba(28,29,34,0.45);
-      font-size: 14px;
-      border-radius: 3px;
-    }
-    .logo-tile-action:hover { color: var(--ink); background: rgba(28,29,34,0.06); }
-    .logo-tile-action.is-on { color: var(--english-violet); }
+    /* Logo tile display rules live in the is:global block below (the tiles
+       are created in JS, so Astro's scoped CSS would not reach them). */
 
     /* Headshot (optional) */
     .headshot-block { margin-top: 30px; padding-top: 22px; border-top: 1px solid rgba(28,29,34,0.08); }
@@ -539,6 +499,78 @@ import "../styles/account-sections.css";
       .colour-grid { grid-template-columns: repeat(2, 1fr); }
       .profile-row { grid-template-columns: 1fr; }
     }
+  </style>
+
+  <!-- Logo tiles are built in JS, so their styles must be global (Astro's
+       scoped CSS only rewrites selectors for elements present at build time). -->
+  <style is:global>
+    .logo-tile {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.1);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .logo-tile.is-primary { border-color: var(--english-violet); box-shadow: 0 0 0 2px rgba(71,66,84,0.18); }
+    .logo-tile-img {
+      width: 100%;
+      height: 100%;
+      background-color: #fff;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    /* "Main" badge shown on the primary logo (always visible) */
+    .logo-tile-badge {
+      position: absolute;
+      top: 8px; left: 8px;
+      z-index: 2;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--english-violet);
+      color: #fff;
+      font-family: var(--sans);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    /* hover controls */
+    .logo-tile-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: rgba(28,29,34,0.42);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .logo-tile:hover .logo-tile-overlay,
+    .logo-tile:focus-within .logo-tile-overlay { opacity: 1; }
+    .logo-tile-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      background: rgba(255,255,255,0.94);
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      line-height: 1;
+      transition: background 0.2s, color 0.2s, transform 0.15s;
+    }
+    .logo-tile-btn:hover { transform: scale(1.08); }
+    .logo-tile-btn--star.is-on { background: var(--english-violet); color: #fff; }
+    .logo-tile-btn--del:hover { background: #c0392b; color: #fff; }
   </style>
 
   <script>
@@ -766,33 +798,38 @@ import "../styles/account-sections.css";
           const tile = document.createElement("div");
           tile.className = "logo-tile" + (lg.primary ? " is-primary" : "");
           tile.innerHTML =
-            '<div class="logo-tile-img" style="background-image:url(' + JSON.stringify(lg.src) + ')"></div>' +
-            '<div class="logo-tile-meta">' +
-              '<input class="logo-tile-name" value="' + (lg.name || "").replace(/"/g, "&quot;") + '" data-i="' + i + '" placeholder="Logo name">' +
-              '<button type="button" class="logo-tile-action ' + (lg.primary ? "is-on" : "") + '" data-primary="' + i + '" title="Set primary">★</button>' +
-              '<button type="button" class="logo-tile-action" data-remove="' + i + '" title="Remove">&times;</button>' +
+            (lg.primary ? '<span class="logo-tile-badge">Main</span>' : '') +
+            '<div class="logo-tile-img"></div>' +
+            '<div class="logo-tile-overlay">' +
+              '<button type="button" class="logo-tile-btn logo-tile-btn--star ' + (lg.primary ? "is-on" : "") + '" data-primary="' + i + '" title="' + (lg.primary ? "Main logo" : "Set as main logo") + '" aria-label="Set as main logo">&#9733;</button>' +
+              '<button type="button" class="logo-tile-btn logo-tile-btn--del" data-remove="' + i + '" title="Remove" aria-label="Remove logo">&times;</button>' +
             '</div>';
+          // Set the image via DOM (data URLs contain quotes that break inline style attrs).
+          tile.querySelector(".logo-tile-img").style.backgroundImage = "url(" + JSON.stringify(lg.src) + ")";
           logoGrid.appendChild(tile);
         });
       }
       renderLogos();
 
       logoGrid.addEventListener("click", function (e) {
-        const p = e.target.getAttribute("data-primary");
-        const r = e.target.getAttribute("data-remove");
-        if (p !== null) {
-          logos = logos.map(function (lg, idx) { return Object.assign({}, lg, { primary: idx === parseInt(p, 10) }); });
+        const primaryBtn = e.target.closest("[data-primary]");
+        const removeBtn = e.target.closest("[data-remove]");
+        if (primaryBtn) {
+          const p = parseInt(primaryBtn.getAttribute("data-primary"), 10);
+          logos = logos.map(function (lg, idx) { return Object.assign({}, lg, { primary: idx === p }); });
           renderLogos();
           scheduleSave();
-        } else if (r !== null) {
-          logos.splice(parseInt(r, 10), 1);
+        } else if (removeBtn) {
+          const r = parseInt(removeBtn.getAttribute("data-remove"), 10);
+          const wasPrimary = logos[r] && logos[r].primary;
+          logos.splice(r, 1);
+          // If we removed the primary, promote the first remaining logo.
+          if (wasPrimary && logos.length && !logos.some(function (lg) { return lg.primary; })) {
+            logos[0].primary = true;
+          }
           renderLogos();
           scheduleSave();
         }
-      });
-      logoGrid.addEventListener("input", function (e) {
-        const i = e.target.getAttribute("data-i");
-        if (i !== null) { logos[parseInt(i, 10)].name = e.target.value; scheduleSave(); }
       });
 
       function handleLogoFiles(files) {
