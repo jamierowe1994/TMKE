@@ -1216,7 +1216,17 @@
       tile.type = "button";
       tile.className = "ed-page-tile" + (i === state.currentPage ? " is-current" : "");
       tile.title = "Page " + (i + 1);
-      tile.style.background = (pg.canvas && pg.canvas.background) || "#fff";
+      // Show a real preview: the page's background image (e.g. a Canva import)
+      // as a cover thumbnail, falling back to the solid background colour.
+      const cvs = pg.canvas || {};
+      tile.style.backgroundColor = cvs.background || "#fff";
+      if (cvs.backgroundImage) {
+        tile.style.backgroundImage = "url('" + cvs.backgroundImage + "')";
+        tile.style.backgroundSize = "cover";
+        tile.style.backgroundPosition = "center";
+      } else {
+        tile.style.backgroundImage = "";
+      }
       tile.addEventListener("click", () => goToPage(i));
 
       const num = document.createElement("span");
