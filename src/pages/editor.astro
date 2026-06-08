@@ -2991,19 +2991,27 @@ const googleFonts = [
     // upload each data-URL image to the public `site-media` bucket and swap in
     // its URL — the row stays tiny, the image stays full-res in storage.
     const _imgUrlCache = new Map();
+    let _externUid = null;
+    async function _externGetUid() {
+      if (_externUid) return _externUid;
+      try { const { data } = await supabase.auth.getSession(); _externUid = (data && data.session && data.session.user && data.session.user.id) || null; } catch (_) {}
+      return _externUid;
+    }
     async function externUploadDataUrl(dataUrl) {
       const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
       if (!m) return dataUrl;
       const mime = m[1], b64 = m[2];
       let h = 5381; for (let i = 0; i < dataUrl.length; i++) h = ((h * 33) ^ dataUrl.charCodeAt(i)) >>> 0;
       const ext = ((mime.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '')) || 'png';
-      const key = 'templates/' + h.toString(36) + '-' + dataUrl.length.toString(36) + '.' + ext;
+      // calendar-assets RLS requires the first folder to be the user's id.
+      const uid = await _externGetUid();
+      const key = (uid ? uid + '/' : '') + 'templates/' + h.toString(36) + '-' + dataUrl.length.toString(36) + '.' + ext;
       const bin = atob(b64); const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: mime });
-      const { error } = await supabase.storage.from('site-media').upload(key, blob, { cacheControl: '31536000', upsert: true, contentType: mime });
+      const { error } = await supabase.storage.from('calendar-assets').upload(key, blob, { cacheControl: '31536000', upsert: true, contentType: mime });
       if (error && !/exists|duplicate/i.test(error.message || '')) throw error;
-      const { data } = supabase.storage.from('site-media').getPublicUrl(key);
+      const { data } = supabase.storage.from('calendar-assets').getPublicUrl(key);
       return (data && data.publicUrl) || dataUrl;
     }
     async function externUrl(v) {
@@ -3698,6 +3706,46 @@ const googleFonts = [
   <script>
     import { supabase } from "../lib/supabase.js";
 
+    // Self-contained image externaliser for Publish (doesn't rely on the admin
+    // bootstrap module, which loads separately). Uploads any embedded base64
+    // data-URL images to the public `calendar-assets` bucket and swaps in the
+    // URL, so the `templates` rows stay small (otherwise the insert is rejected
+    // as too large → "Failed to fetch" / statement timeout).
+    const _pubImgCache = new Map();
+    let _pubUid = null;
+    async function _pubGetUid() {
+      if (_pubUid) return _pubUid;
+      try { const { data } = await supabase.auth.getSession(); _pubUid = (data && data.session && data.session.user && data.session.user.id) || null; } catch (_) {}
+      return _pubUid;
+    }
+    async function _pubUpload(dataUrl) {
+      const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+      if (!m) return dataUrl;
+      const mime = m[1], b64 = m[2];
+      let h = 5381; for (let i = 0; i < dataUrl.length; i++) h = ((h * 33) ^ dataUrl.charCodeAt(i)) >>> 0;
+      const ext = ((mime.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '')) || 'png';
+      // calendar-assets RLS requires the first folder to be the user's id.
+      const uid = await _pubGetUid();
+      const key = (uid ? uid + '/' : '') + 'templates/' + h.toString(36) + '-' + dataUrl.length.toString(36) + '.' + ext;
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const { error } = await supabase.storage.from('calendar-assets').upload(key, new Blob([bytes], { type: mime }), { cacheControl: '31536000', upsert: true, contentType: mime });
+      if (error && !/exists|duplicate/i.test(error.message || '')) throw error;
+      return supabase.storage.from('calendar-assets').getPublicUrl(key).data.publicUrl || dataUrl;
+    }
+    async function _pubExternUrl(v) {
+      if (typeof v !== 'string' || !v.startsWith('data:')) return v;
+      if (_pubImgCache.has(v)) return _pubImgCache.get(v);
+      const url = await _pubUpload(v); _pubImgCache.set(v, url); return url;
+    }
+    async function externalizePagesLocal(pages) {
+      for (const pg of (pages || [])) {
+        if (pg && pg.canvas && typeof pg.canvas.backgroundImage === 'string') pg.canvas.backgroundImage = await _pubExternUrl(pg.canvas.backgroundImage);
+        for (const el of ((pg && pg.elements) || [])) { if (el && typeof el.src === 'string') el.src = await _pubExternUrl(el.src); }
+      }
+      return pages;
+    }
+
     const isAdmin = new URLSearchParams(location.search).get("mode") === "admin";
     const publishBtn = document.getElementById("ed-publish");
     const scheduleBtn = document.getElementById("ed-schedule");
@@ -3792,12 +3840,14 @@ const googleFonts = [
 
         // Upload embedded data-URL images to storage so the template rows stay
         // small (otherwise the insert fails / times out on big Canva imports).
-        if (typeof window.__TMKE_EXTERNALIZE_PAGES__ === "function") {
-          publishBtn.textContent = "Uploading images…";
-          try { await window.__TMKE_EXTERNALIZE_PAGES__(data.pages); }
-          catch (e) { console.error("[publish: externalize]", e); }
-          publishBtn.textContent = "Publishing…";
+        publishBtn.textContent = "Uploading images…";
+        try {
+          await externalizePagesLocal(data.pages);
+        } catch (e) {
+          console.error("[publish: externalize]", e);
+          throw new Error("Couldn't upload the design images to storage: " + (e.message || e) + ". (Check the 'calendar-assets' bucket exists and is public.)");
         }
+        publishBtn.textContent = "Publishing…";
 
         // Resolve the target pack id (or null).
         let packId = null;
