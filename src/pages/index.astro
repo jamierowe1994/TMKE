@@ -475,12 +475,22 @@ editCells.splice(2, 0, { brand: true });
       /* Brand wordmark font — matches the top-left logo (Cormorant) */
       font-family: var(--serif);
       font-weight: 600;
-      font-size: clamp(96px, 15vw, 230px);
+      font-size: clamp(104px, 16vw, 250px);
       line-height: 1;
       /* tighter than before so the trailing E isn't clipped */
       letter-spacing: -0.01em;
       text-align: center;
-      color: var(--english-violet);
+      /* Resting state = debossed cream wordmark for depth; the controller
+         lerps this to white and swaps the carve shadows for a drop shadow
+         as the fold-out photo irises open. */
+      color: #e6e0d2;
+      text-shadow:
+        0 -1px 1px rgba(36, 30, 18, 0.34),
+        0 -2px 4px rgba(36, 30, 18, 0.18),
+        0 -4px 7px rgba(36, 30, 18, 0.10),
+        0 1px 1px rgba(255, 255, 255, 0.98),
+        0 2px 4px rgba(255, 255, 255, 0.6),
+        0 4px 8px rgba(255, 255, 255, 0.4);
       /* Drop shadow is applied by the controller — only once the photo is behind
          the letters (no shadow on the blank starter wall). */
       will-change: color, text-shadow;
@@ -546,7 +556,7 @@ editCells.splice(2, 0, { brand: true });
 
     @media (max-width: 860px) {
       .hero-zoom { height: 200vh; }
-      .hero-zoom-word { font-size: clamp(64px, 24vw, 150px); -webkit-text-stroke-width: 1.5px; }
+      .hero-zoom-word { font-size: clamp(72px, 24vw, 168px); }
       .hero-zoom-foot { font-size: 10px; padding: 0 22px; gap: 12px; bottom: 28px; }
     }
 
@@ -585,26 +595,23 @@ editCells.splice(2, 0, { brand: true });
         const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
         media.style.clipPath = clip;
         if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
-        // word: dark purple -> white as the photo irises past it
+        // word: debossed cream at rest -> white as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
-          "rgb(" + Math.round(lerp(71, 255, wc)) + "," + Math.round(lerp(66, 255, wc)) + "," + Math.round(lerp(84, 255, wc)) + ")";
-        // Long, soft cast shadow — as if the letters are standing on a table
-        // with a light from above (offsets drop down + slightly right, growing
-        // softer and fainter with distance). Bold on the blank starter wall;
-        // fades out as the photo irises in and the word turns white.
-        const castA = 1 - wc;
-        const cast =
-          "8px 17px 12px rgba(20,18,26," + (0.40 * castA).toFixed(3) + ")," +
-          "19px 42px 30px rgba(20,18,26," + (0.30 * castA).toFixed(3) + ")," +
-          "38px 84px 58px rgba(20,18,26," + (0.20 * castA).toFixed(3) + ")," +
-          "64px 140px 96px rgba(20,18,26," + (0.13 * castA).toFixed(3) + ")";
-        // Once the photo is behind the letters, a tighter drop shadow takes over.
+          "rgb(" + Math.round(lerp(230, 255, wc)) + "," + Math.round(lerp(224, 255, wc)) + "," + Math.round(lerp(210, 255, wc)) + ")";
+        // Carve shadows (the deboss) are full at rest and fade out over the first
+        // sliver of scroll; the drop shadow fades in once the photo is behind.
+        const carve = clamp01(1 - e / 0.1);
         const sh = smooth(clamp01((e - 0.12) / 0.4));
-        const drop =
+        word.style.textShadow =
+          "0 -1px 1px rgba(36,30,18," + (0.34 * carve).toFixed(3) + ")," +
+          "0 -2px 4px rgba(36,30,18," + (0.18 * carve).toFixed(3) + ")," +
+          "0 -4px 7px rgba(36,30,18," + (0.10 * carve).toFixed(3) + ")," +
+          "0 1px 1px rgba(255,255,255," + (0.98 * carve).toFixed(3) + ")," +
+          "0 2px 4px rgba(255,255,255," + (0.60 * carve).toFixed(3) + ")," +
+          "0 4px 8px rgba(255,255,255," + (0.40 * carve).toFixed(3) + ")," +
           "0 3px 8px rgba(0,0,0," + (0.30 * sh).toFixed(3) + ")," +
           "0 12px 34px rgba(0,0,0," + (0.22 * sh).toFixed(3) + ")";
-        word.style.textShadow = cast + "," + drop;
         // bottom labels: ink -> paper as the photo reaches them (late)
         const t = smooth(clamp01((e - 0.55) / 0.4));
         foot.style.color =

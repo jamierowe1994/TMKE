@@ -1767,7 +1767,13 @@ import "../styles/account-sections.css";
           .eq('status', 'active')
           .order('sort_order', { ascending: true });
         $shopLoading.hidden = true;
-        if (error || !data || !data.length) {
+        if (error) {
+          $shopEmpty.hidden = false;
+          $shopEmpty.textContent = 'Could not load packs: ' + error.message;
+          console.error('[shop] packs load failed:', error);
+          return;
+        }
+        if (!data || !data.length) {
           $shopEmpty.hidden = false;
           return;
         }
@@ -2401,15 +2407,12 @@ import "../styles/account-sections.css";
       $upGrid?.addEventListener('click', (e) => {
         const cell = e.target.closest('.upcoming-day');
         if (!cell) return;
-        const dateStr = cell.getAttribute('data-date');
-        if (dateStr) {
-          popupMonth = cal.startOfMonth(new Date(dateStr + 'T00:00:00'));
-        }
-        openPopup();
+        // Take them to the full calendar page rather than a pop-out drawer.
+        location.href = '/account/schedule';
       });
 
-      $tab?.addEventListener('click', openPopup);
-      $sideTrig?.addEventListener('click', openPopup);
+      $tab?.addEventListener('click', () => { location.href = '/account/schedule'; });
+      $sideTrig?.addEventListener('click', () => { location.href = '/account/schedule'; });
       $popupClose?.addEventListener('click', closePopup);
       $popup?.addEventListener('click', (e) => { if (e.target === $popup) closePopup(); });
       document.addEventListener('keydown', (e) => {

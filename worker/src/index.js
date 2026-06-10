@@ -155,7 +155,93 @@ function safeKey(bookingId, fileName) {
   return `${PART_PREFIX}/${id}/${clean}`;
 }
 
+// ---- Scheduled-post reminder emails (Resend) ----------------------------
+async function sbPatch(env, table, qs, body) {
+  return fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${qs}`, {
+    method: "PATCH",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(body),
+  });
+}
+async function sbAdminUserEmail(env, userId) {
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+    headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+  });
+  if (!res.ok) return null;
+  const u = await res.json();
+  return u && u.email ? u.email : null;
+}
+function bufToBase64(buf) {
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+function reminderHtml(item, platform, caption) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const cap = esc(caption);
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+    <h1 style="font-size:22px;margin:0 0 6px">Your post is ready to go out today</h1>
+    <p style="color:#555;font-size:14px;margin:0 0 20px">Here's your scheduled <strong>${esc(platform)}</strong> post${item.title ? ` &mdash; &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached &mdash; copy your caption below and you're set.</p>
+    ${cap ? `<div style="background:#f2efe9;border-left:3px solid #474254;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${cap}</div>` : `<p style="color:#888;font-size:13px">No caption saved for this post.</p>`}
+    <p style="font-size:13px;color:#555;margin:18px 0 0">&#128206; Your post image is attached to this email.</p>
+    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#474254">View your calendar</a></p>
+  </div>`;
+}
+async function runReminders(env) {
+  if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
+  const due = (await sbGet(env, "calendar_items",
+    `status=eq.scheduled&scheduled_date=eq.${today}&select=*`)) || [];
+  for (const item of due) {
+    try {
+      const email = await sbAdminUserEmail(env, item.user_id);
+      if (!email) continue;
+      const attachments = [];
+      if (item.asset_url) {
+        try {
+          const aRes = await fetch(item.asset_url);
+          if (aRes.ok) {
+            const buf = await aRes.arrayBuffer();
+            const name = (item.asset_url.split("/").pop() || "post.png").split("?")[0] || "post.png";
+            attachments.push({ filename: name, content: bufToBase64(buf) });
+          }
+        } catch (_) { /* attach nothing if the asset can't be fetched */ }
+      }
+      const platform = item.platform_hint || "instagram";
+      const sent = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>",
+          to: email,
+          subject: `Your ${platform} post is scheduled for today`,
+          html: reminderHtml(item, platform, item.caption || ""),
+          attachments: attachments.length ? attachments : undefined,
+        }),
+      });
+      if (sent.ok) {
+        await sbPatch(env, "calendar_items", `id=eq.${item.id}`,
+          { status: "reminder_sent", reminder_sent_at: new Date().toISOString() });
+      }
+    } catch (_) { /* skip this item, keep going */ }
+  }
+}
+
 export default {
+  // Daily cron (see wrangler.toml [triggers]) — emails posts due today.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runReminders(env));
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "");

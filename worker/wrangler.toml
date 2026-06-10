@@ -33,10 +33,19 @@ MS_CLIENT_ID = "543c20ac-6cf8-4191-96ca-3d83d775d3fb"
 MS_TENANT_ID = "bd9416b6-3621-41ee-bc8f-6ad7988c0618"
 JACK_UPN = "jack@tmke.co.uk"
 
+# Scheduled-post reminder emails (Resend). The verified sender address.
+MAIL_FROM = "TMKE <posts@tmke.co.uk>"
+
 # AI text parser (studio "Read text with AI"). Model is public; the key is a secret.
 AI_MODEL = "claude-sonnet-4-6"
 
+# Daily reminder cron — 07:00 UTC. Fires the scheduled() handler which emails
+# customers any posts due that day with the asset attached.
+[triggers]
+crons = ["0 7 * * *"]
+
 # Secrets to set (not stored here):
 #   wrangler secret put MS_CLIENT_SECRET       # Entra app client secret
-#   wrangler secret put SUPABASE_SERVICE_ROLE  # Supabase service_role key (gallery + booking writes)
+#   wrangler secret put SUPABASE_SERVICE_ROLE  # Supabase service_role key
+#   wrangler secret put RESEND_API_KEY         # Resend API key (reminder emails)
 #   wrangler secret put ANTHROPIC_API_KEY      # Claude API key (sk-ant-…) for the AI text parser
