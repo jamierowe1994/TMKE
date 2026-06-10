@@ -1,7 +1,20 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import "../../styles/admin.css";
 import PageHero from "../../components/PageHero.astro";
 import AdminBack from "../../components/AdminBack.astro";
+
+// Drop-box categories on the Deliver tab. Jack drags files into the right
+// box so the client gallery can be grouped/filtered. "Other" is the catch-all.
+const DELIVER_CATEGORIES = [
+  "Headshots",
+  "Exteriors",
+  "Interiors",
+  "Twilight",
+  "Drone",
+  "Video",
+  "Other",
+];
 ---
 
 <BaseLayout
@@ -104,16 +117,26 @@ import AdminBack from "../../components/AdminBack.astro";
         </select>
       </div>
 
-      <div class="vid-dropzone" id="vid-dropzone">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
-        <div class="vid-dropzone-title">Drag videos &amp; photos here</div>
-        <div class="vid-dropzone-sub">Multi-GB, full-resolution — uploaded straight to Cloudflare R2 in 50&nbsp;MB parts, resumable per part</div>
-        <button type="button" class="admin-btn admin-btn-ghost" id="vid-pick">Choose files</button>
-        <input type="file" id="vid-file-input" multiple hidden />
+      <p class="vid-catgrid-intro" id="vid-catgrid-intro">Drag photos &amp; videos into a category — or hit <em>Add</em>. Files go straight to Cloudflare R2 (50&nbsp;MB parts, resumable). The category is how the client's gallery is grouped.</p>
+      <div class="vid-catgrid" id="vid-catgrid">
+        {DELIVER_CATEGORIES.map((cat) => (
+          <div class="vid-catbox" data-category={cat}>
+            <div class="vid-catbox-top">
+              <span class="vid-catbox-name">{cat}</span>
+              <span class="vid-catbox-count" data-cat-count>0</span>
+            </div>
+            <div class="vid-catbox-drop">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <span>Drag here</span>
+            </div>
+            <button type="button" class="vid-catbox-pick">+ Add files</button>
+            <input type="file" class="vid-catbox-input" multiple hidden />
+          </div>
+        ))}
       </div>
 
       <div class="vid-uploads" id="vid-uploads"></div>
@@ -271,7 +294,7 @@ import AdminBack from "../../components/AdminBack.astro";
     .vid-tabs { display: inline-flex; gap: 4px; flex-wrap: wrap; }
     .enquiry-chip {
       display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
-      background: transparent; border: 1px solid rgba(71, 66, 84, 0.3);
+      background: #fff; border: 1px solid rgba(71, 66, 84, 0.3);
       border-radius: 999px; font-family: var(--sans); font-size: 11px;
       letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
       color: var(--english-violet); cursor: pointer;
@@ -381,16 +404,43 @@ import AdminBack from "../../components/AdminBack.astro";
 
     /* ---- Deliver ---- */
     .vid-deliver-pick { max-width: 440px; margin-bottom: 20px; }
-    .vid-dropzone {
-      border: 2px dashed rgba(71, 66, 84, 0.3); border-radius: 6px;
-      padding: 48px 24px; text-align: center; color: rgba(28, 29, 34, 0.55);
-      display: flex; flex-direction: column; align-items: center; gap: 10px;
-      background: rgba(71, 66, 84, 0.02); transition: border-color 0.2s, background 0.2s;
+    /* ---- Category drop-boxes ---- */
+    .vid-catgrid-intro { font-family: var(--sans); font-size: 13px; line-height: 1.55; color: rgba(28,29,34,0.6); max-width: 640px; margin: 0 0 16px; }
+    .vid-catgrid-intro em { font-style: normal; font-weight: 700; color: var(--english-violet); }
+    .vid-catgrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
     }
-    .vid-dropzone.is-drag { border-color: var(--english-violet); background: rgba(71, 66, 84, 0.06); }
-    .vid-dropzone.is-disabled { opacity: 0.55; }
-    .vid-dropzone-title { font-family: var(--serif); font-size: 22px; color: var(--ink); }
-    .vid-dropzone-sub { font-family: var(--sans); font-size: 13px; max-width: 460px; }
+    .vid-catbox {
+      display: flex; flex-direction: column; gap: 10px;
+      border: 2px dashed rgba(71, 66, 84, 0.28); border-radius: 10px;
+      padding: 16px 16px 14px;
+      background: rgba(255, 255, 255, 0.5);
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+    .vid-catbox.is-drag { border-color: var(--english-violet); background: rgba(71, 66, 84, 0.08); transform: translateY(-2px); }
+    .vid-catgrid.is-disabled { opacity: 0.5; pointer-events: none; }
+    .vid-catbox-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .vid-catbox-name { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--ink); }
+    .vid-catbox-count {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      min-width: 22px; text-align: center; padding: 2px 7px; border-radius: 999px;
+      background: rgba(71, 66, 84, 0.1); color: var(--english-violet);
+    }
+    .vid-catbox-drop {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px 0; color: rgba(28,29,34,0.45);
+      font-family: var(--sans); font-size: 12px; letter-spacing: 0.04em;
+    }
+    .vid-catbox-pick {
+      appearance: none; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.06em; color: var(--english-violet);
+      background: rgba(71, 66, 84, 0.06); border: 1px solid rgba(71, 66, 84, 0.2);
+      border-radius: 8px; padding: 9px 12px; transition: background 0.2s, color 0.2s;
+    }
+    .vid-catbox-pick:hover { background: var(--english-violet); color: var(--paper); }
 
     .vid-uploads { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
     .vid-up {
@@ -410,9 +460,22 @@ import AdminBack from "../../components/AdminBack.astro";
     .vid-files { margin-top: 36px; }
     .vid-files-head { font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.6); margin: 0 0 14px; }
     .vid-files-list { display: flex; flex-direction: column; gap: 1px; background: rgba(71,66,84,0.18); border: 1px solid rgba(71,66,84,0.18); border-radius: 3px; overflow: hidden; }
-    .vid-frow { display: grid; grid-template-columns: 1fr 90px 120px 80px; gap: 14px; align-items: center; padding: 12px 16px; background: var(--paper); font-family: var(--sans); font-size: 13px; }
+    .vid-fgroup {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px; background: rgba(71, 66, 84, 0.07);
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet);
+    }
+    .vid-fgroup-count { color: rgba(28,29,34,0.45); font-weight: 600; letter-spacing: 0.04em; }
+    .vid-frow { display: grid; grid-template-columns: 1fr 130px 80px 100px 70px; gap: 14px; align-items: center; padding: 12px 16px; background: var(--paper); font-family: var(--sans); font-size: 13px; }
     .vid-frow-name { color: var(--ink); font-weight: 600; word-break: break-all; }
     .vid-frow-meta { color: rgba(28,29,34,0.55); font-size: 12px; }
+    .vid-frow-cat select {
+      width: 100%; font-family: var(--sans); font-size: 12px;
+      padding: 6px 8px; border: 1px solid rgba(71,66,84,0.22); border-radius: 6px;
+      background: #fff; color: var(--ink); cursor: pointer;
+    }
+    .vid-frow-cat select:focus { outline: none; border-color: var(--english-violet); }
     .vid-frow-act { text-align: right; }
     .vid-frow-link { color: var(--english-violet); font-weight: 700; cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 12px; }
     .vid-frow-del { color: #a05a3c; cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 12px; font-weight: 700; }
@@ -852,19 +915,22 @@ import AdminBack from "../../components/AdminBack.astro";
       if (keep) sel.value = keep;
     }
 
+    // The set of category drop-boxes (also used to build the recategorise
+    // dropdowns and to know which file-list groups to show).
+    const DELIVER_CATS = Array.from(document.querySelectorAll(".vid-catbox"))
+      .map((b) => b.getAttribute("data-category"));
+
     function initDeliver() {
-      const dz = document.getElementById("vid-dropzone");
-      const input = document.getElementById("vid-file-input");
-      const pick = document.getElementById("vid-pick");
+      const grid = document.getElementById("vid-catgrid");
       const sel = document.getElementById("vid-deliver-booking");
-      if (!dz) return;
+      if (!grid) return;
 
       const connected = Boolean(WORKER_URL);
       const configNote = document.getElementById("vid-deliver-config");
       const r2pill = document.getElementById("vid-r2-pill");
       const r2meta = document.getElementById("vid-r2-meta");
       if (configNote) configNote.hidden = connected;
-      if (!connected) dz.classList.add("is-disabled");
+      if (!connected) grid.classList.add("is-disabled");
       if (connected && r2pill) { r2pill.textContent = "Connected"; r2pill.classList.remove("is-pending"); r2pill.classList.add("is-paid"); }
       if (connected && r2meta) r2meta.textContent = "Worker connected.";
 
@@ -876,13 +942,19 @@ import AdminBack from "../../components/AdminBack.astro";
         return true;
       }
 
-      pick?.addEventListener("click", () => { if (guard()) input?.click(); });
-      input?.addEventListener("change", () => { handleFiles(input.files); input.value = ""; });
-      sel?.addEventListener("change", () => { loadDeliverFiles(); loadDelivery(deliverBooking()); });
+      // Wire each category box: its own drop target + "Add files" button.
+      grid.querySelectorAll(".vid-catbox").forEach((box) => {
+        const category = box.getAttribute("data-category");
+        const input = box.querySelector(".vid-catbox-input");
+        const pick = box.querySelector(".vid-catbox-pick");
+        pick?.addEventListener("click", () => { if (guard()) input?.click(); });
+        input?.addEventListener("change", () => { handleFiles(input.files, category); input.value = ""; });
+        ["dragenter", "dragover"].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); box.classList.add("is-drag"); }));
+        ["dragleave", "drop"].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); box.classList.remove("is-drag"); }));
+        box.addEventListener("drop", (e) => { if (guard()) handleFiles(e.dataTransfer.files, category); });
+      });
 
-      ["dragenter", "dragover"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("is-drag"); }));
-      ["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("is-drag"); }));
-      dz.addEventListener("drop", (e) => { if (guard()) handleFiles(e.dataTransfer.files); });
+      sel?.addEventListener("change", () => { loadDeliverFiles(); loadDelivery(deliverBooking()); });
 
       // Client-delivery panel
       document.getElementById("vid-dlv-base")?.addEventListener("input", recomputeDlvTotal);
@@ -893,20 +965,20 @@ import AdminBack from "../../components/AdminBack.astro";
       document.getElementById("vid-dlv-paid")?.addEventListener("click", () => setDeliveryStatus("paid"));
     }
 
-    function handleFiles(fileList) {
+    function handleFiles(fileList, category) {
       const bookingId = deliverBooking();
       if (!WORKER_URL || !bookingId) return;
-      Array.from(fileList || []).forEach((file) => uploadFile(file, bookingId));
+      Array.from(fileList || []).forEach((file) => uploadFile(file, bookingId, category || null));
     }
 
-    function uploadRowUI(file) {
+    function uploadRowUI(file, category) {
       const wrap = document.getElementById("vid-uploads");
       const row = document.createElement("div");
       row.className = "vid-up";
       row.innerHTML =
         `<div class="vid-up-top"><span class="vid-up-name"></span><span class="vid-up-stat">Starting…</span></div>` +
         `<div class="vid-up-bar"><div class="vid-up-fill"></div></div>`;
-      row.querySelector(".vid-up-name").textContent = file.name;
+      row.querySelector(".vid-up-name").textContent = (category ? category + " · " : "") + file.name;
       wrap.prepend(row);
       return {
         setStat: (t, cls) => { const s = row.querySelector(".vid-up-stat"); s.textContent = t; s.className = "vid-up-stat" + (cls ? " " + cls : ""); },
@@ -934,8 +1006,8 @@ import AdminBack from "../../components/AdminBack.astro";
       });
     }
 
-    async function uploadFile(file, bookingId) {
-      const ui = uploadRowUI(file);
+    async function uploadFile(file, bookingId, category) {
+      const ui = uploadRowUI(file, category);
       try {
         const token = await authToken();
         if (!token) throw new Error("Not signed in");
@@ -987,6 +1059,7 @@ import AdminBack from "../../components/AdminBack.astro";
         await supabase.from("videography_deliverables").insert({
           booking_id: bookingId, file_name: file.name, r2_key: key,
           size_bytes: file.size, content_type: file.type || null, kind: kindFromType(file.type),
+          category: category || null,
         });
 
         ui.setPct(100); ui.done(); ui.setStat(fmtBytes(file.size) + " · done", "is-done");
@@ -997,27 +1070,68 @@ import AdminBack from "../../components/AdminBack.astro";
       }
     }
 
+    // Reset the per-box counts on the category drop-boxes.
+    function setCatCounts(counts) {
+      document.querySelectorAll(".vid-catbox").forEach((box) => {
+        const cat = box.getAttribute("data-category");
+        const el = box.querySelector("[data-cat-count]");
+        if (el) el.textContent = String(counts[cat] || 0);
+      });
+    }
+
+    function catOptions(selected) {
+      return DELIVER_CATS.map((c) =>
+        `<option value="${escapeHtml(c)}"${c === selected ? " selected" : ""}>${escapeHtml(c)}</option>`
+      ).join("");
+    }
+
     async function loadDeliverFiles() {
       const listEl = document.getElementById("vid-files-list");
       const emptyEl = document.getElementById("vid-files-empty");
       const bookingId = deliverBooking();
       if (!listEl) return;
-      if (!bookingId) { listEl.innerHTML = ""; if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "Select a booking to see its delivered files."; } return; }
+      if (!bookingId) { listEl.innerHTML = ""; setCatCounts({}); if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "Select a booking to see its delivered files."; } return; }
       if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "Loading…"; }
       const { data, error } = await supabase
         .from("videography_deliverables").select("*")
         .eq("booking_id", bookingId).order("created_at", { ascending: false });
       if (error) { if (emptyEl) emptyEl.textContent = "Couldn't load files: " + error.message; listEl.innerHTML = ""; return; }
-      if (!data || !data.length) { if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "No files delivered for this booking yet."; } listEl.innerHTML = ""; return; }
+      if (!data || !data.length) { setCatCounts({}); if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "No files delivered for this booking yet."; } listEl.innerHTML = ""; return; }
       if (emptyEl) emptyEl.hidden = true;
-      listEl.innerHTML = data.map((f) => `
-        <div class="vid-frow" data-id="${f.id}" data-key="${escapeHtml(f.r2_key)}">
-          <div class="vid-frow-name">${escapeHtml(f.file_name)}</div>
-          <div class="vid-frow-meta">${escapeHtml(f.kind || "file")}</div>
-          <div class="vid-frow-meta">${fmtBytes(f.size_bytes)}</div>
-          <div class="vid-frow-act"><button class="vid-frow-del" data-del>Delete</button></div>
-        </div>`).join("");
+
+      // Group by category, in the drop-box order, with anything unknown last.
+      const counts = {};
+      data.forEach((f) => { const c = f.category || "Other"; counts[c] = (counts[c] || 0) + 1; });
+      setCatCounts(counts);
+      const order = DELIVER_CATS.slice();
+      Object.keys(counts).forEach((c) => { if (!order.includes(c)) order.push(c); });
+
+      let html = "";
+      order.forEach((cat) => {
+        const rows = data.filter((f) => (f.category || "Other") === cat);
+        if (!rows.length) return;
+        html += `<div class="vid-fgroup">${escapeHtml(cat)} <span class="vid-fgroup-count">· ${rows.length}</span></div>`;
+        html += rows.map((f) => `
+          <div class="vid-frow" data-id="${f.id}" data-key="${escapeHtml(f.r2_key)}">
+            <div class="vid-frow-name">${escapeHtml(f.file_name)}</div>
+            <div class="vid-frow-cat"><select data-recat>${catOptions(f.category || "Other")}</select></div>
+            <div class="vid-frow-meta">${escapeHtml(f.kind || "file")}</div>
+            <div class="vid-frow-meta">${fmtBytes(f.size_bytes)}</div>
+            <div class="vid-frow-act"><button class="vid-frow-del" data-del>Delete</button></div>
+          </div>`).join("");
+      });
+      listEl.innerHTML = html;
       listEl.querySelectorAll("[data-del]").forEach((btn) => btn.addEventListener("click", () => deleteDeliverable(btn.closest(".vid-frow"))));
+      listEl.querySelectorAll("[data-recat]").forEach((seln) => seln.addEventListener("change", () => {
+        const row = seln.closest(".vid-frow");
+        recategorise(row && row.getAttribute("data-id"), seln.value);
+      }));
+    }
+
+    async function recategorise(id, category) {
+      if (!id) return;
+      await supabase.from("videography_deliverables").update({ category: category || null }).eq("id", id);
+      loadDeliverFiles();
     }
 
     async function deleteDeliverable(row) {

@@ -2,733 +2,342 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import DiscoveryPanel from "../components/DiscoveryPanel.astro";
 
-// Stock Unsplash photos — swap for branded shots later.
-const UNSPLASH = (id, w = 1600, h = 1000) =>
-  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
-
-// Local branded hero. Drop the file into /public/assets/swag.jpg.
-const HERO_IMG     = "/assets/swag.jpg";
-const CAROUSEL = [
-  { src: UNSPLASH("1506905925346-21bda4d32df4", 1400, 900), caption: "Reflective lake, considered tone" },
-  { src: UNSPLASH("1480714378408-67cf0d13bc1b", 1400, 900), caption: "Architectural lines, neutral palette" },
-  { src: UNSPLASH("1469854523086-cc02fe5d8800", 1400, 900), caption: "Forest cabin, lifestyle frame" },
-  { src: UNSPLASH("1496564203457-11bb12075d90", 1400, 900), caption: "Modern facade, clean light" },
-  { src: UNSPLASH("1502672260266-1c1ef2d93688", 1400, 900), caption: "Interior detail, warm palette" },
-  { src: UNSPLASH("1521017432531-fbd92d768814", 1400, 900), caption: "Quiet street, dusk light" },
-  { src: UNSPLASH("1505691938895-1758d7feb511", 1400, 900), caption: "Marble kitchen, soft daylight" },
+// Horizontal slide deck (videography-style). Placeholder portfolio imagery on R2.
+const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
+// SMM dictionary-hero backdrop — the client's "Smm hero" still on R2.
+const SMM_HERO_IMG = "https://assets.tmke.co.uk/Smm%20hero.jpg";
+// Slide 2 (Intro & Why) side image — the client's "Living Texture" still.
+const LIVING_TEXTURE = "https://assets.tmke.co.uk/living%20texture.jpg";
+const BRANDS = [
+  { name: "Crescent Lettings", meta: "Lettings · Manchester", blurb: "Always-on content and monthly reels for a fast-growing lettings brand.", images: [R2("white-1"), R2("living-1"), R2("kitchen-1")] },
+  { name: "Harbour & Co", meta: "Premium sales · Poole", blurb: "Full management for a premium coastal agency — strategy through to delivery.", images: [R2("orange-1"), R2("table"), R2("white-2")] },
+  { name: "Bush & Co", meta: "Independent · London", blurb: "Brand refresh and a consistent social presence for an independent agent.", images: [R2("kitchen-2"), R2("living-2"), R2("orange-2")] },
 ];
-// Warmer, more editorial interior — closer to the brand than the old desk shot.
-// (Placeholder until a branded image is supplied.)
-const TALK_BG = UNSPLASH("1524758631624-e2822e304c36", 2000, 1200);
-
-const TESTIMONIALS = [
-  {
-    quote: "Honestly, the content they've delivered for us feels better than anything we've tried before. Consistent, considered, and properly aligned with how we want to come across.",
-    name: "Zara Bush",
-    role: "Founder, Bush & Co.",
-    avatar: UNSPLASH("1494790108377-be9c29b29330", 200, 200),
-    logo: "Bush & Co.",
-  },
-  {
-    quote: "We were sceptical about outsourcing our socials — but having a real person plan and create the content has made the difference. It feels like ours.",
-    name: "Ashwin Santiago",
-    role: "Director, Crescent Lettings",
-    avatar: UNSPLASH("1507003211169-0a1dd7228f2d", 200, 200),
-    logo: "Crescent",
-  },
-  {
-    quote: "The reporting alone has changed how we think about marketing. We know what's working, what isn't, and what to do next month — without us having to guess.",
-    name: "Kaden Scott",
-    role: "Marketing Lead, Harbour & Co.",
-    avatar: UNSPLASH("1500648767791-00dcc994a43e", 200, 200),
-    logo: "Harbour & Co.",
-  },
+const navLinks = [
+  { label: "About", href: "/about" },
+  { label: "Social Media", href: "/services", current: true },
+  { label: "Videography", href: "/videography" },
+  { label: "The Edit", href: "/edit" },
+  { label: "Insights", href: "/blog" },
+  { label: "Contact", href: "/contact" },
 ];
-
-const LOGO_STRIP = [
-  "Crescent", "Bush & Co.", "Harbour & Co.", "Northgate", "Lume Property",
-  "Atelier Homes", "Maven", "Stari", "Light AI", "Liva", "Aven.",
-];
+const total = 4;
 ---
 
 <BaseLayout
   title="Social Media Management — TMKE"
-  description="Done-for-you social media management for estate agents and property brands who want a consistent, professional presence without creating content themselves."
+  description="Full-service social media management for property agents — strategy to execution, delivered to a standard that reflects your business."
+  hideNav
+  hideFooter
 >
-  <!-- =============================== HERO -->
-  <section class="smm-hero" style={`background-image: linear-gradient(180deg, rgba(12,11,10,0.62), rgba(12,11,10,0.86)), url(${HERO_IMG});`}>
-    <div class="smm-hero-grain"></div>
-    <div class="smm-hero-inner">
-      <div class="smm-hero-eyebrow"><span>/</span> Social Media Management <span>/</span></div>
-      <p class="smm-hero-sub">
-        <strong>Done-for-you</strong> social media management<br />
-        for <strong>estate agents</strong> who want a <strong>consistent, professional</strong> presence<br />
-        without creating content themselves.
-      </p>
-      <a href="#brochure" class="smm-hero-cta">
-        Download a brochure
-        <span class="smm-hero-cta-arrow" aria-hidden="true">&rarr;</span>
-      </a>
-    </div>
-  </section>
+  <div class="pf">
+    <!-- Top nav -->
+    <header class="pf-top" id="pf-top">
+      <a href="/" class="pf-top-logo">TMKE</a>
+      <nav class="pf-top-links" aria-label="Primary">
+        {navLinks.map((l) => (<a href={l.href} class:list={[l.current && "is-current"]}>{l.label}</a>))}
+        <a href="/login" class="pf-top-login">Login</a>
+      </nav>
+      <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Show menu">Menu</button>
+    </header>
 
-  <!-- =============================== MANAGED FOR ESTATE AGENTS -->
-  <section class="smm-section smm-managed wrap">
-    <div class="chapter" data-reveal>Managed for Estate Agents</div>
+    <div class="pf-deck" id="pf-deck">
+      <!-- Slide 1 — full-screen dictionary hero (matches /videography) -->
+      <section class="pf-panel sm-hero">
+        <div class="sm-hero-bg" style={`background-image:url('${SMM_HERO_IMG}')`}></div>
+        <div class="sm-hero-overlay"></div>
+        <div class="sm-hero-inner">
+          <h1 class="sm-word">Social Media Management</h1>
+          <div class="sm-pron"><span class="sm-abbr">SMM</span> <span class="sm-phon">/&thinsp;es em &#712;em&thinsp;/</span> <em>noun</em></div>
+          <p class="sm-lead">Full-service social media management for agents who want a consistent, professional presence. Everything from strategy to execution, delivered to a standard that reflects your business.</p>
+          <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
+        </div>
+      </section>
 
-    <div class="smm-managed-grid">
-      <div class="smm-managed-body" data-reveal data-reveal-delay="1">
-        <p class="smm-prose">
-          We plan, create, and manage your social media so it's consistent,
-          considered, and aligned with your business.
-        </p>
-        <p class="smm-prose">
-          That means structured content planning, design-led posts, clear
-          messaging, and regular activity across your platforms.<br />
-          Everything is created around your brand, your audience, and your
-          local market, not pulled from templates or recycled ideas.
-        </p>
-        <p class="smm-prose">
-          You stay visible, relevant, and recognisable online, without needing
-          to think about what to post, when to post it, or how it should look.
-        </p>
-      </div>
-
-      <aside class="smm-managed-aside" data-reveal data-reveal-delay="2">
-        <h3 class="smm-aside-head">Why Your Socials Matter.</h3>
-        <p>
-          Your social media is often the first impression people get of your
-          business, and in many cases, it decides whether they take the next
-          step.
-        </p>
-        <p>
-          Inconsistent or outdated content doesn't just get ignored, it quietly
-          undermines the quality of your service.
-        </p>
-        <p>
-          In a competitive market, the agents who show up clearly and
-          consistently are the ones who stay visible, build trust, and win
-          attention before the conversation even starts.
-        </p>
-        <button type="button" data-discovery-call class="btn smm-discovery">
-          Book a Discovery Call <span class="btn-arrow">&rarr;</span>
-        </button>
-      </aside>
-    </div>
-  </section>
-
-  <!-- =============================== WHO IT'S FOR -->
-  <section class="smm-section wrap">
-    <article class="smm-card smm-card--frame" data-reveal>
-      <h2 class="smm-card-title">For Property Professionals Who Want It Done Properly</h2>
-      <p>
-        Social media management is for estate agents, lettings businesses,
-        mortgage brokers, and property recruiters who know their online
-        presence matters, but don't have the time or headspace to manage it
-        properly themselves.
-      </p>
-      <p>
-        It suits busy independents, growing businesses, and premium agents
-        who want their brand to look consistent, credible, and aligned,
-        without creating content day-to-day.
-      </p>
-      <p>
-        If how your business shows up matters to you and you want it handled
-        properly, this is where it fits.
-      </p>
-    </article>
-  </section>
-
-  <!-- =============================== HOW IT WORKS -->
-  <section class="smm-section smm-how wrap">
-    <div class="smm-how-grid">
-      <div class="smm-how-media" data-reveal data-reveal-dir="left">
-        <div class="smm-carousel" id="smm-carousel">
-          {CAROUSEL.map((slide, i) => (
-            <figure class={`smm-slide ${i === 0 ? "is-active" : ""}`} data-i={i}>
-              <img src={slide.src} alt={slide.caption} loading="lazy" />
-            </figure>
-          ))}
-          <div class="smm-carousel-dots" role="tablist" aria-label="Gallery">
-            {CAROUSEL.map((_, i) => (
-              <button
-                type="button"
-                class={`smm-dot ${i === 0 ? "is-active" : ""}`}
-                data-go={i}
-                aria-label={`Slide ${i + 1}`}
-              ></button>
-            ))}
+      <!-- Slide 2 — Intro & Why (text left, image right; slides in like /videography) -->
+      <section class="pf-panel pf-panel--slide sm-why">
+        <div class="sm-why-text">
+          <div class="sm-stack">
+            <div class="sm-col">
+              <h3 class="sm-col-h">For property professionals who want it done properly</h3>
+              <p>Social media management is for those who know their online presence matters, but don't have the time or headspace to manage it properly themselves.</p>
+              <p>It suits busy independents, growing businesses, and premium agents who want their brand to look consistent, credible, and aligned &mdash; without creating content day-to-day.</p>
+              <p>If how your business shows up matters to you, and you want it handled properly, this is where it fits.</p>
+            </div>
+            <div class="sm-col">
+              <span class="sm-kicker">Managed for Estate Agents</span>
+              <p>We plan, create, and manage your social media so it's consistent, considered, and aligned with your business.</p>
+              <p>Everything is built around your brand, your audience, and your local market &mdash; so you stay visible, relevant, and recognisable, without having to think about what to post or how it should look.</p>
+            </div>
           </div>
         </div>
-      </div>
+        <div class="sm-why-img" style={`background-image:url('${LIVING_TEXTURE}')`}></div>
+      </section>
 
-      <div class="smm-how-body" data-reveal data-reveal-dir="right" data-reveal-delay="1">
-        <h2 class="smm-how-title">How It Works</h2>
-        <p class="smm-how-lede">
-          <strong>We don't rely on automation to run your social media.</strong>
-        </p>
-        <p>
-          Every account we manage is handled by a person, from planning and
-          strategy through to content creation and day-to-day management.
-          Because understanding people, your audience, your market, your
-          business, is what actually makes marketing work.
-        </p>
-        <p>
-          Everything we create is tailored to your brand and your customers,
-          not pulled from generic ideas or recycled content.
-        </p>
-        <p>
-          And where needed, we can support this with in-house videography,
-          so your content feels complete, consistent, and fully taken care of.
-        </p>
-      </div>
+      <!-- Slide 3 — How It Works -->
+      <section class="pf-panel sm-how">
+        <div class="sm-how-inner">
+          <span class="sm-kicker">How It Works</span>
+          <p class="sm-how-lead">We don't rely on automation to run your social media.</p>
+          <p>Every account we manage is handled by a person &mdash; from strategy and planning through to content creation and day-to-day management. Because understanding people &mdash; your audience, your market, your business &mdash; is what actually makes marketing work.</p>
+          <p>Everything we create is tailored to your brand and your customers, not pulled from generic ideas or recycled content. And where needed, we support it with in-house videography, so your content feels complete, consistent, and fully taken care of.</p>
+          <button type="button" class="pf-cta" data-portfolio>See portfolio <em>&rarr;</em></button>
+        </div>
+      </section>
+
+      <!-- Slide 4 — Contact + brochure -->
+      <section class="pf-panel sm-contact">
+        <div class="sm-contact-inner">
+          <p class="sm-eyebrow"><span>&mdash;</span> Let's talk</p>
+          <h2 class="sm-contact-h">Let's make it <em>consistent.</em></h2>
+          <p class="sm-lead">Tell us about your brand and where you want it to go &mdash; we'll put a plan together.</p>
+          <div class="sm-actions">
+            <button type="button" data-discovery-call class="btn btn--solid sm-book">Book a call <span class="btn-arrow">&rarr;</span></button>
+            <a href="/assets/tmke-services.pdf" class="sm-brochure" download>Download services brochure <span aria-hidden="true">&darr;</span></a>
+          </div>
+        </div>
+      </section>
     </div>
-  </section>
 
-  <!-- =============================== TRUSTED BY -->
-  <section class="smm-section smm-trusted wrap">
-    <h2 class="smm-trusted-title" data-reveal>Trusted By</h2>
+    <div class="pf-counter"><span id="pf-cur">01</span> <span class="pf-counter-sep">/</span> {String(total).padStart(2, "0")}</div>
+  </div>
 
-    <div class="smm-testimonials">
-      {TESTIMONIALS.map((t, i) => (
-        <article class="smm-card smm-testimonial" data-reveal data-reveal-dir="up" data-reveal-delay={String(i + 1)}>
-          <div class="smm-stars" aria-label="5 out of 5 stars">★ ★ ★ ★ ★</div>
-          <p class="smm-quote">{t.quote}</p>
-          <a class="smm-readmore" href="#">Read more</a>
-          <footer class="smm-testimonial-foot">
-            <div class="smm-testimonial-author">
-              <img class="smm-avatar" src={t.avatar} alt={t.name} loading="lazy" />
-              <div>
-                <div class="smm-author-name">{t.name}</div>
-                <div class="smm-author-role">{t.role}</div>
-              </div>
+  <!-- Portfolio pop-out -->
+  <div class="sm-scrim" id="sm-scrim" hidden></div>
+  <button type="button" class="sm-close" id="sm-close" aria-label="Close" hidden>&times;</button>
+  <section class="sm-portfolio" id="sm-portfolio" aria-label="Portfolio" hidden>
+    <div class="sm-portfolio-scroll">
+      <header class="sm-portfolio-head">
+        <div class="sm-kicker">Portfolio</div>
+        <h2>Brands we work with</h2>
+      </header>
+      <div class="sm-portfolio-grid">
+        {BRANDS.map((b) => (
+          <article class="sm-brand">
+            <div class="sm-brand-imgs">
+              {b.images.map((src) => <div class="sm-brand-img" style={`background-image:url('${src}')`}></div>)}
             </div>
-            <div class="smm-testimonial-logo">{t.logo}</div>
-          </footer>
-        </article>
-      ))}
-    </div>
-
-    <div class="smm-marquee" aria-hidden="true" data-reveal>
-      <div class="smm-marquee-track">
-        {[...LOGO_STRIP, ...LOGO_STRIP].map((name) => (
-          <span class="smm-marquee-item">{name}</span>
+            <div class="sm-brand-foot">
+              <h3 class="sm-brand-name">{b.name}</h3>
+              <span class="sm-brand-meta">{b.meta}</span>
+              <p class="sm-brand-blurb">{b.blurb}</p>
+            </div>
+          </article>
         ))}
       </div>
-    </div>
-  </section>
-
-  <!-- =============================== LET'S TALK -->
-  <section
-    class="smm-talk"
-    id="discovery"
-    style={`background-image: linear-gradient(120deg, rgba(12,11,10,0.7), rgba(12,11,10,0.45)), url(${TALK_BG});`}
-  >
-    <div class="smm-talk-inner">
-      <div class="smm-talk-eyebrow" data-reveal>Let's</div>
-      <h2 class="smm-talk-mark" data-reveal data-reveal-delay="1">Talk<em>.</em></h2>
-      <p class="smm-talk-sub" data-reveal data-reveal-delay="2">
-        Have a quick conversation about how your social media could look,
-        feel, and perform — with no commitment beyond half an hour of your time.
-      </p>
-      <button type="button" data-discovery-call class="btn btn--ghost-light smm-talk-cta" data-reveal data-reveal-delay="3">
-        Book a Discovery Call <span class="btn-arrow">&rarr;</span>
-      </button>
     </div>
   </section>
 
   <DiscoveryPanel />
 
   <style>
-    /* ============== HERO ============== */
-    .smm-hero {
-      position: relative;
-      min-height: 100vh;        /* full-screen hero */
-      background-size: cover;
-      background-position: center;
-      color: var(--paper);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 160px 36px 120px;
-      overflow: hidden;
-    }
-    /* Subtle blur layer sitting between the photo + dim gradient and the
-       hero copy — softens the photo so the text stays comfortably
-       legible without losing the underlying scene. */
-    .smm-hero::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      backdrop-filter: blur(3px);
-      -webkit-backdrop-filter: blur(3px);
-      z-index: 1;
-      pointer-events: none;
-    }
-    .smm-hero-grain {
-      position: absolute; inset: 0;
-      pointer-events: none;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch' seed='5'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-      background-size: 280px 280px;
-      opacity: 0.08;
-      mix-blend-mode: overlay;
-    }
-    .smm-hero-inner {
-      position: relative; z-index: 2;
-      text-align: center;
-      max-width: 920px;
-    }
-    .smm-hero-eyebrow {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(22px, 2.4vw, 32px);
-      letter-spacing: 0.02em;
-      color: var(--paper);
-      margin-bottom: 36px;
-    }
-    .smm-hero-eyebrow span {
-      color: rgba(240, 238, 235, 0.45);
-      margin: 0 14px;
-      font-style: normal;
-      font-weight: 300;
-    }
-    .smm-hero-sub {
-      font-family: var(--sans);
-      font-weight: 400;
-      font-size: clamp(16px, 1.6vw, 21px);
-      line-height: 1.55;          /* reduced per client */
-      color: rgba(240, 238, 235, 0.88);
-      max-width: 800px;           /* shared hero text-column width (matches About) */
-      margin: 0 auto 44px;
-    }
-    .smm-hero-sub strong {
-      font-weight: 600;
-      color: var(--paper);
-    }
-    .smm-hero-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 32px;
-      border: 1px solid var(--paper);
-      font-family: var(--sans);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: var(--paper);
-      transition: background 0.3s ease, color 0.3s ease;
-    }
-    .smm-hero-cta:hover { background: var(--paper); color: var(--ink); }
-    .smm-hero-cta-arrow {
-      font-family: var(--serif);
-      font-size: 16px;
-      letter-spacing: 0;
-      transition: transform 0.3s ease;
-    }
-    .smm-hero-cta:hover .smm-hero-cta-arrow { transform: translateX(4px); }
+    .pf { position: fixed; inset: 0; background: var(--paper); color: var(--ink); overflow: hidden; }
+    .pf-deck { display: flex; height: 100vh; width: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; }
+    .pf-deck::-webkit-scrollbar { display: none; }
+    .pf-panel { flex: 0 0 100vw; width: 100vw; height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; display: flex; align-items: center; padding: 96px clamp(28px, 8vw, 140px) 80px; }
 
-    /* ============== SECTION SCAFFOLD ============== */
-    .smm-section {
-      max-width: 1360px;          /* match home content width */
-      margin: 0 auto;
-      /* Tightened per client — the page had a lot of dead vertical space. */
-      padding: clamp(56px, 6vw, 96px) 76px;
-    }
-    @media (max-width: 720px) {
-      .smm-section { padding: 56px 24px; }
-    }
-    .smm-section .chapter { margin-bottom: 36px; }
-    /* Close the gap under "Why Your Socials Matter" (managed section) before
-       the "For Property Professionals" block. */
-    .smm-managed { padding-bottom: 20px; }
-    .smm-managed + .smm-section { padding-top: 24px; }
+    .sm-eyebrow { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 22px; }
+    .sm-eyebrow span { opacity: 0.6; }
+    .pf-scroll-hint { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .pf-scroll-hint em { font-style: normal; margin-left: 8px; }
 
-    /* ============== MANAGED FOR ESTATE AGENTS ==============
-       Single-column stack: the editorial prose runs wide and the
-       "Why Your Socials Matter" panel sits beneath it, pushed to
-       the right so it reads as a footnote to the main argument. */
-    /* Stacked, with the "Why Your Socials Matter" panel sitting just below
-       where the opening prose ends (small gap), pushed to the right so it
-       reads as an editorial follow-on rather than a parallel column. */
-    .smm-managed-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 28px;
-    }
-    .smm-managed-body { display: flex; flex-direction: column; gap: 28px; }
-    .smm-prose {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: var(--fs-quote);     /* reduced to the shared quote size */
-      line-height: var(--lh-quote);
-      letter-spacing: -0.008em;
-      color: var(--ink);
-      max-width: 38ch;
-      margin: 0;
-    }
-    .smm-prose:nth-child(2),
-    .smm-prose:nth-child(3) {
-      max-width: 46ch;
-    }
-    .smm-managed-aside {
-      align-self: flex-end;
-      max-width: 420px;
-      display: flex; flex-direction: column; gap: 18px;
-    }
-    @media (max-width: 980px) {
-      .smm-managed-grid { gap: 32px; }
-      .smm-managed-aside {
-        align-self: stretch;
-        max-width: none;
-      }
-    }
-    .smm-aside-head {
-      font-family: var(--sans);
-      font-weight: 700;
-      font-size: 16px;
-      letter-spacing: 0;
-      color: var(--ink);
-      margin: 0 0 8px;
-    }
-    .smm-managed-aside p {
-      font-family: var(--sans);
-      font-size: 14px;
-      line-height: 1.7;
-      color: rgba(28,29,34,0.72);
-      margin: 0;
-    }
-    .smm-discovery {
-      margin-top: 28px;
-      align-self: flex-start;
-      padding: 12px 22px;
-      font-size: 11px;
-      letter-spacing: 0.24em;
-      color: var(--english-violet);
-      border-color: var(--english-violet);
-    }
-    .smm-discovery:hover { background: var(--english-violet); color: var(--paper); }
+    /* Slide 1 — full-screen dictionary hero (matches /videography .vh) */
+    .sm-hero { position: relative; overflow: hidden; padding: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; }
+    .sm-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #2a2733; }
+    .sm-hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.55) 0%, rgba(20,18,26,0.4) 45%, rgba(20,18,26,0.68) 100%); }
+    .sm-hero-inner { position: relative; z-index: 2; max-width: 860px; margin: 0; padding: 0 clamp(28px, 6vw, 120px) clamp(64px, 11vh, 120px); color: var(--paper); }
+    .sm-hero .sm-eyebrow { color: rgba(240,238,235,0.85); }
+    .sm-hero .sm-eyebrow span { opacity: 0.55; }
+    .sm-hero .sm-word { color: var(--paper); }
+    .sm-hero .sm-abbr { color: var(--paper); }
+    .sm-hero .sm-phon { color: var(--paper); }
+    .sm-hero .sm-pron em { color: rgba(240,238,235,0.7); }
+    .sm-hero .sm-lead { color: rgba(240,238,235,0.92); }
+    .sm-hero .pf-scroll-hint { color: rgba(240,238,235,0.7); }
 
-    /* ============== WHO IT'S FOR CARD ============== */
-    .smm-card {
-      border: 1px solid rgba(28,29,34,0.18);
-      padding: 64px 64px 56px;
-      border-radius: 2px;
-      background: transparent;
+    /* First-slide entrance — image settles, then the wording rises (as /videography) */
+    #pf-deck .pf-panel:first-child .sm-hero-bg { animation: smImgIn 2.4s cubic-bezier(.16,1,.3,1) 0.2s both; }
+    #pf-deck .pf-panel:first-child .sm-hero-inner { animation: smTextIn 1.6s cubic-bezier(.16,1,.3,1) 0.9s both; }
+    @keyframes smImgIn { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
+    @keyframes smTextIn { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      #pf-deck .pf-panel:first-child .sm-hero-bg,
+      #pf-deck .pf-panel:first-child .sm-hero-inner { animation-duration: 0.01ms; }
     }
-    @media (max-width: 720px) {
-      .smm-card { padding: 40px 28px; }
-    }
-    .smm-card-title {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(28px, 3vw, 40px);
-      letter-spacing: -0.012em;
-      color: var(--ink);
-      margin: 0 0 28px;
-    }
-    .smm-card p {
-      font-family: var(--sans);
-      font-size: 15px;
-      line-height: 1.75;
-      color: rgba(28,29,34,0.75);
-      margin: 0 0 18px;
-      max-width: 78ch;
-    }
-    .smm-card p:last-child { margin-bottom: 0; }
+    /* The full term is the headline; the abbreviation + pronunciation sit small
+       beneath it on one line (dictionary style). */
+    .sm-word { font-family: var(--serif); font-weight: 500; font-size: clamp(46px, 8vw, 116px); line-height: 0.98; letter-spacing: -0.025em; margin: 0; color: var(--ink); max-width: 13ch; }
+    .sm-pron { display: flex; align-items: baseline; flex-wrap: wrap; gap: 14px; margin: 18px 0 28px; }
+    .sm-abbr { font-family: var(--serif); font-weight: 600; font-size: clamp(20px, 2.2vw, 30px); letter-spacing: 0.02em; color: rgba(28,29,34,0.85); }
+    .sm-phon { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2vw, 28px); color: rgba(28,29,34,0.6); }
+    .sm-pron em { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); font-style: normal; }
+    .sm-lead { font-family: var(--sans); font-size: clamp(16px, 1.4vw, 19px); line-height: 1.65; color: rgba(28,29,34,0.72); max-width: 54ch; margin: 0 0 36px; }
 
-    /* Double-line frame — the same box-in-box treatment as the home page's
-       Chapter 4 panels, carried across for cohesion. Crisp outer rule with a
-       finer inner rule inset just inside it, here in ink tones for the light
-       background. */
-    .smm-card--frame {
-      position: relative;
-      border: 1.5px solid rgba(28, 29, 34, 0.42);
-      border-radius: 2px;
+    /* Slide 2 — Intro & Why: text left, full-bleed image right (matches /videography) */
+    .sm-why { padding: 0; align-items: stretch; }
+    .sm-why-text {
+      width: 50%; min-width: 340px;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 96px clamp(28px, 4vw, 72px) 80px clamp(28px, 8vw, 140px);
     }
-    .smm-card--frame::before {
-      content: "";
-      position: absolute;
-      inset: 9px;
-      border: 1px solid rgba(28, 29, 34, 0.2);
-      border-radius: 1px;
-      pointer-events: none;
+    .sm-why-img { flex: 1; align-self: stretch; background-size: cover; background-position: center; background-color: #e9e4da; }
+    /* Slide-in entrance — image from the right, wording from the left, replayed
+       each time you land on the slide (driven by .is-in from the deck script). */
+    .sm-why-text { opacity: 0; transform: translateX(-46px); transition: opacity 0.9s cubic-bezier(.16,1,.3,1) 0.12s, transform 0.9s cubic-bezier(.16,1,.3,1) 0.12s; }
+    .sm-why-img { opacity: 0; transform: translateX(64px) scale(1.04); transition: opacity 1.1s cubic-bezier(.16,1,.3,1), transform 1.1s cubic-bezier(.16,1,.3,1); }
+    .sm-why.is-in .sm-why-text, .sm-why.is-in .sm-why-img { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .sm-why-text, .sm-why-img { transition: none; opacity: 1; transform: none; }
     }
+    .sm-stack { display: flex; flex-direction: column; gap: clamp(22px, 3vw, 40px); max-width: 56ch; }
+    .sm-col { max-width: 54ch; }
+    .sm-kicker { display: block; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 22px; }
+    .sm-col-h { font-family: var(--serif); font-weight: 400; font-size: clamp(23px, 2vw, 31px); line-height: 1.18; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 16px; }
+    .sm-col p, .sm-how p { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 17px); line-height: 1.7; color: rgba(28,29,34,0.72); margin: 0 0 16px; }
 
-    /* ============== HOW IT WORKS ============== */
-    /* Two-thirds photo, one-third text — never a flat 50/50. */
-    .smm-how-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 80px;
-      align-items: center;
-    }
-    @media (max-width: 980px) {
-      .smm-how-grid { grid-template-columns: 1fr; gap: 56px; }
-    }
-    .smm-carousel {
-      position: relative;
-      overflow: hidden;
-      border-radius: 2px;
-      background: rgba(28,29,34,0.06);
-      aspect-ratio: 4 / 3;
-    }
-    .smm-slide {
-      position: absolute; inset: 0;
-      margin: 0;
-      opacity: 0;
-      transition: opacity 1s cubic-bezier(.2,.7,.2,1);
-    }
-    .smm-slide.is-active { opacity: 1; }
-    .smm-slide img {
-      width: 100%; height: 100%;
-      object-fit: cover; display: block;
-    }
-    .smm-carousel-dots {
-      position: absolute;
-      bottom: 22px; left: 50%;
-      transform: translateX(-50%);
-      z-index: 3;
-      display: flex;
-      gap: 10px;
-    }
-    .smm-dot {
-      width: 8px; height: 8px;
-      padding: 0; border: 0;
-      border-radius: 50%;
-      background: rgba(240, 238, 235, 0.6);
-      cursor: pointer;
-      transition: background 0.3s ease, transform 0.3s ease;
-    }
-    .smm-dot:hover { background: var(--paper); transform: scale(1.2); }
-    .smm-dot.is-active { background: var(--english-violet); transform: scale(1.4); }
+    /* Slide 3 — how it works */
+    .sm-how-inner { max-width: 660px; }
+    .sm-how-lead { font-family: var(--serif) !important; font-style: italic; font-size: clamp(22px, 2.4vw, 34px) !important; line-height: 1.3 !important; color: var(--ink) !important; margin: 0 0 22px !important; }
+    .pf-cta { align-self: flex-start; background: none; border: none; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); padding: 12px 0; margin-top: 12px; border-bottom: 1px solid rgba(28,29,34,0.25); transition: color 0.25s, border-color 0.25s; }
+    .pf-cta em { font-style: normal; margin-left: 10px; display: inline-block; transition: margin 0.25s; }
+    .pf-cta:hover { color: var(--english-violet); border-color: var(--english-violet); }
+    .pf-cta:hover em { margin-left: 16px; }
 
-    .smm-how-title {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(40px, 4.4vw, 60px);
-      letter-spacing: -0.018em;
-      color: var(--ink);
-      margin: 0 0 24px;
-    }
-    .smm-how-lede {
-      font-family: var(--sans);
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--ink);
-      margin: 0 0 18px;
-    }
-    .smm-how-body p {
-      font-family: var(--sans);
-      font-size: 14px;
-      line-height: 1.75;
-      color: rgba(28,29,34,0.72);
-      margin: 0 0 18px;
-      max-width: 56ch;
-    }
+    /* Slide 4 — contact */
+    .sm-contact-inner { max-width: 680px; }
+    .sm-contact-h { font-family: var(--serif); font-weight: 400; font-size: clamp(44px, 6vw, 96px); line-height: 0.98; letter-spacing: -0.025em; color: var(--ink); margin: 0 0 22px; }
+    .sm-contact-h em { font-style: italic; color: var(--english-violet); }
+    .sm-actions { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin-top: 8px; }
+    .sm-brochure { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-decoration: none; border-bottom: 1px solid rgba(28,29,34,0.3); padding-bottom: 4px; transition: color 0.25s, border-color 0.25s; }
+    .sm-brochure span { margin-left: 8px; }
+    .sm-brochure:hover { color: var(--english-violet); border-color: var(--english-violet); }
 
-    /* ============== TRUSTED BY ============== */
-    .smm-trusted-title {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(40px, 4.4vw, 60px);
-      letter-spacing: -0.018em;
-      color: var(--ink);
-      margin: 0 0 64px;
-    }
-    .smm-testimonials {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
-    }
-    @media (max-width: 980px) {
-      .smm-testimonials { grid-template-columns: 1fr; }
-    }
-    .smm-testimonial {
-      padding: 28px 26px 22px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      background: rgba(255,255,255,0.45);
-    }
-    .smm-stars {
-      color: var(--french-grey);
-      font-size: 14px;
-      letter-spacing: 2px;
-    }
-    .smm-quote {
-      font-family: var(--sans);
-      font-size: 14px !important;
-      line-height: 1.65;
-      color: rgba(28,29,34,0.85) !important;
-      margin: 0 !important;
-      flex: 1;
-    }
-    .smm-readmore {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--english-violet);
-      align-self: flex-start;
-    }
-    .smm-readmore:hover { border-bottom: 1px solid currentColor; }
-    .smm-testimonial-foot {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 14px;
-      margin-top: 8px;
-      padding-top: 18px;
-      border-top: 1px solid rgba(28,29,34,0.1);
-    }
-    .smm-testimonial-author {
-      display: flex; align-items: center; gap: 12px;
-    }
-    .smm-avatar {
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .smm-author-name {
-      font-family: var(--sans);
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--ink);
-    }
-    .smm-author-role {
-      font-family: var(--sans);
-      font-size: 11px;
-      color: rgba(28,29,34,0.55);
-    }
-    .smm-testimonial-logo {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 14px;
-      color: rgba(28,29,34,0.4);
-    }
+    /* Top nav (logo left, Menu right; hover the strip to reveal links) */
+    .pf-top { position: fixed; top: 0; left: 0; right: 0; z-index: 60; display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 40px; min-height: 78px; transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease; border-bottom: 1px solid transparent; }
+    .pf-top:hover, .pf-top.is-open { background: rgba(242,239,233,0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom-color: rgba(28,29,34,0.08); }
+    /* Slide 1 is a dark full-screen image — flip the logo + Menu to white so
+       they're legible. Reverts to dark when the nav strip is opened (it gets a
+       light backdrop) and on every later, light slide. */
+    .pf-top.nav-on-dark .pf-top-logo, .pf-top.nav-on-dark .pf-top-menu { color: var(--paper); }
+    .pf-top.nav-on-dark:hover .pf-top-logo, .pf-top.nav-on-dark.is-open .pf-top-logo,
+    .pf-top.nav-on-dark:hover .pf-top-menu, .pf-top.nav-on-dark.is-open .pf-top-menu { color: var(--ink); }
+    body.pf-modal-open .pf-top { pointer-events: none; }
+    .pf-top-logo { font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em; color: var(--ink); line-height: 1; position: relative; z-index: 2; }
+    .pf-top-menu { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); background: none; border: none; cursor: pointer; padding: 4px 0; line-height: 1; position: relative; z-index: 2; transition: opacity 0.25s; }
+    .pf-top:hover .pf-top-menu, .pf-top.is-open .pf-top-menu { opacity: 0; }
+    .pf-top-links { position: absolute; left: 50%; top: 0; transform: translateX(-50%); min-height: 78px; display: flex; align-items: center; gap: 30px; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    .pf-top:hover .pf-top-links, .pf-top.is-open .pf-top-links { opacity: 1; pointer-events: auto; }
+    body.pf-modal-open .pf-top-links { opacity: 0 !important; pointer-events: none !important; }
+    .pf-top-links a { font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+    .pf-top-links a:hover { color: var(--english-violet); }
+    .pf-top-links a.is-current { color: var(--english-violet); font-weight: 700; }
+    .pf-top-login { font-weight: 700 !important; letter-spacing: 0.14em; text-transform: uppercase; font-size: 12px !important; }
 
-    /* ============== LOGO MARQUEE ============== */
-    .smm-marquee {
-      margin-top: 80px;
-      overflow: hidden;
-      mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
-      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
-    }
-    .smm-marquee-track {
-      display: flex;
-      gap: 80px;
-      align-items: center;
-      width: max-content;
-      animation: marquee 38s linear infinite;
-    }
-    .smm-marquee-item {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(28px, 3vw, 44px);
-      color: rgba(28,29,34,0.32);
-      letter-spacing: -0.01em;
-      white-space: nowrap;
-    }
-    @keyframes marquee {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
-    }
+    .pf-counter { position: fixed; right: 36px; bottom: 30px; z-index: 55; font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.18em; color: rgba(28,29,34,0.6); }
+    .pf-counter-sep { margin: 0 6px; opacity: 0.5; }
 
-    /* ============== LET'S TALK ============== */
-    .smm-talk {
-      position: relative;
-      background-size: cover;
-      background-position: center;
-      min-height: 64vh;           /* match the About "Working Together" section */
-      color: var(--paper);
-      display: flex;
-      align-items: center;
-      padding: 120px 36px;
-      overflow: hidden;
-      /* Inset frame so "Let's Talk" breaks away as its own block before the
-         full-bleed footer (matches the home page treatment). */
-      margin: 0 40px 64px;
+    /* Portfolio pop-out (slides up from the bottom) */
+    .sm-scrim { position: fixed; inset: 0; z-index: 290; background: rgba(16,14,22,0.62); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); opacity: 0; transition: opacity 0.5s ease; }
+    .sm-scrim[hidden] { display: none; }
+    .sm-scrim.is-open { opacity: 1; }
+    .sm-portfolio { position: fixed; top: 40px; left: 0; right: 0; bottom: 0; z-index: 300; background: var(--paper); border-radius: 18px 18px 0 0; overflow: hidden; box-shadow: 0 -24px 90px rgba(16,14,22,0.42); transform: translateY(100%); transition: transform 0.8s cubic-bezier(.16,1,.3,1); }
+    .sm-portfolio[hidden] { display: none; }
+    .sm-portfolio.is-open { transform: translateY(0); }
+    .sm-portfolio-scroll { height: 100%; overflow-y: auto; scrollbar-width: none; padding: clamp(36px, 5vw, 72px); }
+    .sm-portfolio-scroll::-webkit-scrollbar { display: none; }
+    .sm-portfolio-head { margin-bottom: 36px; }
+    .sm-portfolio-head h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 4vw, 56px); letter-spacing: -0.02em; color: var(--ink); margin: 8px 0 0; }
+    .sm-portfolio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px, 2.4vw, 40px); }
+    @media (max-width: 900px) { .sm-portfolio-grid { grid-template-columns: 1fr; } }
+    .sm-brand-imgs { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 110px; gap: 8px; }
+    .sm-brand-imgs .sm-brand-img:first-child { grid-column: 1 / -1; height: 200px; }
+    .sm-brand-img { background-size: cover; background-position: center; background-color: #e9e4da; border-radius: 4px; }
+    .sm-brand-foot { padding-top: 16px; }
+    .sm-brand-name { font-family: var(--serif); font-weight: 500; font-size: 24px; color: var(--ink); margin: 0; }
+    .sm-brand-meta { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+    .sm-brand-blurb { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.7); margin: 10px 0 0; }
+    .sm-close { position: fixed; top: 56px; right: 40px; z-index: 320; width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(240,238,235,0.55); background: rgba(16,14,22,0.35); color: var(--paper); font-size: 30px; line-height: 1; cursor: pointer; backdrop-filter: blur(4px); transition: background 0.25s, transform 0.4s; }
+    .sm-close[hidden] { display: none; }
+    .sm-close:hover { background: var(--english-violet); border-color: var(--english-violet); transform: rotate(90deg); }
+
+    @media (max-width: 760px) {
+      .pf-panel { padding: 96px 28px 80px; }
+      .sm-hero { padding: 0; }
+      .sm-hero-inner { max-width: none; padding: 0 24px clamp(56px, 12vh, 90px); }
+      .sm-why { flex-direction: column; padding: 0; }
+      .sm-why-text { width: 100%; min-width: 0; padding: 88px 28px 30px; }
+      .sm-why-img { flex: 0 0 auto; min-height: 36vh; }
+      .pf-top-links { display: none; }
     }
-    @media (max-width: 720px) {
-      .smm-talk { margin: 0 22px 44px; min-height: 58vh; }
-    }
-    .smm-talk-inner {
-      position: relative;
-      max-width: 1360px;          /* match the About "Working Together" grid */
-      width: 100%;
-      margin: 0 auto;
-    }
-    /* Type scale matched to the About page's "Working Together" CTA so the two
-       closing sections share one system: eyebrow = "Working", mark =
-       "Together", sub = the lede. */
-    .smm-talk-eyebrow {
-      font-family: var(--serif);
-      font-size: clamp(22px, 2.3vw, 32px);
-      color: rgba(240, 238, 235, 0.85);
-      margin-bottom: 8px;
-      padding-left: 4px;
-    }
-    .smm-talk-mark {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-style: italic;
-      font-size: clamp(60px, 9.5vw, 148px);
-      line-height: 1;
-      letter-spacing: -0.02em;
-      color: rgba(240, 238, 235, 0.92);
-      margin: 0 0 36px;
-      /* No drop-shadow — "Together" on About has none, so dropping it here
-         keeps the two marks visually identical in weight as well as size. */
-    }
-    .smm-talk-mark em {
-      font-style: italic;
-      color: var(--french-grey);
-    }
-    .smm-talk-sub {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(15px, 1.2vw, 17px);
-      line-height: 1.7;
-      color: rgba(240, 238, 235, 0.78);
-      max-width: 540px;
-      margin: 0 0 28px;
-    }
-    .smm-talk-cta { color: var(--paper); }
   </style>
 
-  <script is:inline>
-    (function () {
-      // Carousel
-      const slides = document.querySelectorAll(".smm-slide");
-      const dots = document.querySelectorAll(".smm-dot");
-      if (!slides.length) return;
-      let i = 0;
-      let timer = null;
+  <script>
+    if (window.__lenis && typeof window.__lenis.destroy === "function") { try { window.__lenis.destroy(); } catch (e) {} }
 
-      function go(n) {
-        slides.forEach(function (s, idx) {
-          s.classList.toggle("is-active", idx === n);
-        });
-        dots.forEach(function (d, idx) {
-          d.classList.toggle("is-active", idx === n);
-        });
-        i = n;
-      }
-      function next() { go((i + 1) % slides.length); }
-      function start() { stop(); timer = setInterval(next, 4800); }
-      function stop()  { if (timer) clearInterval(timer); }
+    // Portfolio pop-out
+    const scrim = document.getElementById("sm-scrim");
+    const portfolio = document.getElementById("sm-portfolio");
+    const closeBtn = document.getElementById("sm-close");
+    let portfolioOpen = false, closeTimer = null;
+    function openPortfolio() {
+      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+      portfolioOpen = true; scrim.hidden = false; portfolio.hidden = false; closeBtn.hidden = false;
+      portfolio.querySelector(".sm-portfolio-scroll").scrollTop = 0;
+      document.documentElement.style.overflow = "hidden"; document.body.classList.add("pf-modal-open");
+      requestAnimationFrame(() => requestAnimationFrame(() => { scrim.classList.add("is-open"); portfolio.classList.add("is-open"); }));
+    }
+    function closePortfolio() {
+      if (!portfolioOpen) return;
+      portfolioOpen = false; scrim.classList.remove("is-open"); portfolio.classList.remove("is-open"); closeBtn.hidden = true;
+      document.documentElement.style.overflow = ""; document.body.classList.remove("pf-modal-open");
+      closeTimer = setTimeout(() => { scrim.hidden = true; portfolio.hidden = true; }, 820);
+    }
+    document.querySelectorAll("[data-portfolio]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); openPortfolio(); }));
+    scrim.addEventListener("click", closePortfolio);
+    closeBtn.addEventListener("click", closePortfolio);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && portfolioOpen) closePortfolio(); });
 
-      dots.forEach(function (d) {
-        d.addEventListener("click", function () {
-          const n = parseInt(d.getAttribute("data-go"), 10);
-          go(n);
-          start();
-        });
+    // Horizontal deck — one panel per wheel gesture
+    (function deck() {
+      const deck = document.getElementById("pf-deck");
+      if (!deck) return;
+      const panels = deck.querySelectorAll(".pf-panel");
+      const curEl = document.getElementById("pf-cur");
+      const pad = (n) => String(n + 1).padStart(2, "0");
+      let idx = 0, cooling = false, settle;
+      const topBarEl = document.getElementById("pf-top");
+      // Replay each slide's entrance whenever it becomes the active panel, and
+      // flip the nav to white while the dark first slide is showing.
+      const reveal = () => {
+        panels.forEach((p, i) => p.classList.toggle("is-in", i === idx));
+        if (topBarEl) topBarEl.classList.toggle("nav-on-dark", idx === 0);
+      };
+      const go = (i) => { idx = Math.max(0, Math.min(panels.length - 1, i)); deck.scrollTo({ left: idx * deck.clientWidth, behavior: "smooth" }); if (curEl) curEl.textContent = pad(idx); reveal(); };
+      reveal();
+      deck.addEventListener("wheel", (e) => {
+        if (portfolioOpen) return;
+        e.preventDefault();
+        if (cooling) return;
+        const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (Math.abs(d) < 6) return;
+        cooling = true; setTimeout(() => { cooling = false; }, 620);
+        go(idx + (d > 0 ? 1 : -1));
+      }, { passive: false });
+      window.addEventListener("keydown", (e) => {
+        if (portfolioOpen) return;
+        if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); go(idx + 1); }
+        else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); go(idx - 1); }
       });
-
-      start();
+      window.addEventListener("resize", () => deck.scrollTo({ left: idx * deck.clientWidth }));
+      deck.addEventListener("scroll", () => { clearTimeout(settle); settle = setTimeout(() => { const i = Math.round(deck.scrollLeft / deck.clientWidth); if (i !== idx) { idx = i; if (curEl) curEl.textContent = pad(idx); reveal(); } }, 120); }, { passive: true });
     })();
+
+    // Top nav menu toggle (touch)
+    const topBar = document.getElementById("pf-top");
+    const topMenu = document.getElementById("pf-top-menu");
+    if (topBar && topMenu) {
+      topMenu.addEventListener("click", (e) => { e.stopPropagation(); if (portfolioOpen) return; topBar.classList.toggle("is-open"); });
+      document.addEventListener("click", (e) => { if (!topBar.contains(e.target)) topBar.classList.remove("is-open"); });
+    }
   </script>
 </BaseLayout>

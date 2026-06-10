@@ -10,6 +10,7 @@ import "../styles/account-sections.css";
 ---
 
 <BaseLayout
+  dashboard
   title="Your TMKE — workspace"
   description="Your purchased packs, designs in progress, and account details — all in one place."
   hideNav
@@ -25,31 +26,60 @@ import "../styles/account-sections.css";
     <!-- Each dash-view is one "tab" in the right column. Only the
          active one is shown; sidebar links toggle which is visible.
          No page reload, no drawer overlay. -->
-    <div class="dash-view is-active" data-view="workspace">
-    <!-- Welcome hero — 2-column with decorative photo on the right.
-         The greeting line below is set client-side based on the
-         current hour (Good morning / afternoon / evening). -->
-    <section class="welcome welcome--hero slide-down" data-d="2">
-      <div class="welcome-content">
-        <p class="welcome-eyebrow">Workspace</p>
+    <div class="dash-view is-active entrance" data-view="workspace">
+    <!-- ============ Workspace header — three separate glass boxes ============
+         Greeting · rotating photo · stats. Each is its own thin frosted card
+         floating on the light-purple page, all matched to the photo's height.
+         JS hooks (#welcome-h/#welcome-sub, #dash-views, #stat-*, #welcome-art*)
+         are unchanged. -->
+    <!-- Greeting sits OUTSIDE the boxes, as the page header, so it has room
+         to breathe. The boxes drop in below it. -->
+    <header class="dash-head" data-d="2">
+      <div class="dash-avatar anim-pop" id="dash-avatar" aria-hidden="true"></div>
+      <div class="dash-head-text">
+        <p class="dash-eyebrow anim-pop">This month</p>
         <h1 class="welcome-h" id="welcome-h">Welcome back, <em>let's get to work.</em></h1>
-        <p class="welcome-sub" id="welcome-sub">Your designs, packs and account in one place.</p>
-        <div class="welcome-pills" id="welcome-pills" hidden>
-          <span class="welcome-pill"><strong id="pill-packs">0</strong> active packs</span>
-          <span class="welcome-pill"><strong id="pill-designs">0</strong> designs in progress</span>
-          <span class="welcome-pill"><strong id="pill-spend">£0</strong> lifetime spend</span>
+        <p class="welcome-sub anim-pop" id="welcome-sub">Your designs, packs and account in one place.</p>
+      </div>
+    </header>
+
+    <section class="dash-top" aria-label="Your workspace at a glance">
+      <!-- LEFT half: reach over stats, each ~half the photo's height -->
+      <div class="dash-left">
+        <div class="dash-card dash-reach anim-left">
+          <div class="dash-headline-num" id="dash-views">—</div>
+          <p class="dash-headline-label">
+            Est. profile reach <span class="dash-headline-sub">· Instagram</span>
+            <span class="dash-info" title="An estimate based on the designs you've published this month. Connect Instagram for live figures.">&#9432;</span>
+          </p>
+        </div>
+
+        <div class="dash-card dash-stats anim-left">
+          <div class="dash-stat-grid">
+            <div class="dash-stat">
+              <span class="dash-stat-label">Active packs</span>
+              <span class="dash-stat-val" id="stat-packs">—</span>
+            </div>
+            <div class="dash-stat">
+              <span class="dash-stat-label">In progress</span>
+              <span class="dash-stat-val" id="stat-designs">—</span>
+            </div>
+            <div class="dash-stat">
+              <span class="dash-stat-label">Lifetime spend</span>
+              <span class="dash-stat-val" id="stat-spend">£0</span>
+              <span class="dash-stat-foot" id="stat-spend-foot"></span>
+            </div>
+          </div>
+          <a class="dash-brandchip" href="/profile">
+            <span>Brand kit · <strong id="stat-brand">—</strong></span>
+            <em>Edit &rarr;</em>
+          </a>
         </div>
       </div>
-      <div class="welcome-art" id="welcome-art" data-mode="loading">
+
+      <!-- RIGHT half: rotating "jump into a new design" photo -->
+      <div class="dash-card dash-newdesign welcome-art anim-left" id="welcome-art" data-mode="loading">
         <img id="welcome-art-img" src="/assets/social-media.png" alt="" loading="eager" decoding="async" />
-        <!-- Contextual overlay — populated by rotateWelcomeArt().
-             Three states:
-               · pack    → "Our newest pack" + Browse-this-pack CTA
-               · fresh   → "Start something new" + Jump-into-Studio pill
-                          (used when the image is a template preview, not
-                           one of the user's own exported designs)
-               · design  → no overlay (the exported asset already carries
-                          their branding so it speaks for itself) -->
         <div class="welcome-art-overlay" id="welcome-art-overlay" hidden>
           <span class="welcome-art-eyebrow" id="welcome-art-eyebrow"></span>
           <span class="welcome-art-headline" id="welcome-art-headline"></span>
@@ -58,33 +88,8 @@ import "../styles/account-sections.css";
             <em aria-hidden="true">&rarr;</em>
           </a>
         </div>
+        <span class="dash-newdesign-tag" id="dash-newdesign-tag">Jump into a new design <em aria-hidden="true">&rarr;</em></span>
       </div>
-    </section>
-
-    <!-- Grouped overview — stats + this-week + members feature, one white box -->
-    <section class="dash-group slide-up" data-d="4">
-    <!-- Stats row -->
-    <section class="stats" aria-label="Your TMKE at a glance">
-      <article class="stat">
-        <div class="stat-label">Active packs</div>
-        <div class="stat-value" id="stat-packs">—</div>
-        <div class="stat-foot">From The Edit</div>
-      </article>
-      <article class="stat">
-        <div class="stat-label">Designs in progress</div>
-        <div class="stat-value" id="stat-designs">—</div>
-        <div class="stat-foot">Saved locally</div>
-      </article>
-      <article class="stat">
-        <div class="stat-label">Lifetime spend</div>
-        <div class="stat-value" id="stat-spend">£0</div>
-        <div class="stat-foot" id="stat-spend-foot">No orders yet</div>
-      </article>
-      <article class="stat stat--brand">
-        <div class="stat-label">Brand kit</div>
-        <div class="stat-value" id="stat-brand">—</div>
-        <div class="stat-foot"><a href="/profile">Edit kit &rarr;</a></div>
-      </article>
     </section>
 
     <!-- Two-up row: Upcoming list on the left, members-blog feature
@@ -92,7 +97,7 @@ import "../styles/account-sections.css";
          strip JS still targets #up-grid / #up-label / #up-prev etc.
          so the underlying calendar bootstrap is unchanged. -->
     <section class="dash-pair" aria-label="This week and what to read">
-      <article id="upcoming" class="dash-pair-card upcoming-card" aria-labelledby="upcoming-h">
+      <article id="upcoming" class="dash-pair-card upcoming-card anim-up" aria-labelledby="upcoming-h">
         <header class="dash-pair-head">
           <span class="dash-pair-eyebrow">This week</span>
           <h3 id="upcoming-h" class="dash-pair-title">What you've got going out</h3>
@@ -113,7 +118,7 @@ import "../styles/account-sections.css";
         <p id="up-state" class="lib-state" hidden></p>
       </article>
 
-      <a class="dash-pair-card dash-blog-feature" href="/account/blog#instagram-algo-2026" data-view="blog">
+      <a class="dash-pair-card dash-blog-feature anim-up" href="/account/blog#instagram-algo-2026" data-view="blog">
         <div class="dash-blog-feature-art" style="background-image:url('/assets/social-media.png')">
           <span class="dash-blog-feature-flag">Members only</span>
         </div>
@@ -125,24 +130,33 @@ import "../styles/account-sections.css";
         </div>
       </a>
     </section>
-    </section><!-- /dash-group -->
 
-    <!-- Library -->
-    <section id="library" class="library slide-up" data-d="6" aria-labelledby="library-h">
-      <header class="section-head">
-        <h2 id="library-h" class="section-h">Your library</h2>
-        <p class="section-sub">Packs you've purchased from The Edit. <button type="button" class="inline-link" data-shop>Add another pack &rarr;</button></p>
-      </header>
+    <!-- Library (75%) + consistency streak (25%) -->
+    <div class="dash-lib-row slide-up" data-d="6">
+      <section id="library" class="library" aria-labelledby="library-h">
+        <header class="section-head">
+          <h2 id="library-h" class="section-h">Your library</h2>
+          <p class="section-sub">Packs you've purchased from The Edit. <button type="button" class="inline-link" data-shop>Add another pack &rarr;</button></p>
+        </header>
 
-      <div id="library-loading" class="lib-state">Loading your library…</div>
+        <div id="library-loading" class="lib-state">Loading your library…</div>
 
-      <div id="library-empty" class="lib-empty" hidden>
-        <h3>Nothing here yet.</h3>
-        <p>You haven't purchased a pack yet. <button type="button" class="lib-link" data-shop>Browse The Edit</button> to find one.</p>
-      </div>
+        <div id="library-empty" class="lib-empty" hidden>
+          <h3>Nothing here yet.</h3>
+          <p>You haven't purchased a pack yet. <button type="button" class="lib-link" data-shop>Browse The Edit</button> to find one.</p>
+        </div>
 
-      <div id="library-grid" class="library-grid"></div>
-    </section>
+        <div id="library-grid" class="library-grid"></div>
+      </section>
+
+      <aside class="dash-streak" aria-label="Posting consistency">
+        <div class="dash-streak-eyebrow">Consistency</div>
+        <div class="dash-streak-num"><span id="streak-count">0</span><small>wk</small></div>
+        <p class="dash-streak-label" id="streak-label">weeks posting in a row</p>
+        <div class="dash-streak-dots" id="streak-dots" aria-hidden="true"></div>
+        <p class="dash-streak-note" id="streak-note">Consistency compounds — keep showing up each week.</p>
+      </aside>
+    </div>
 
     <!-- Drafts (from localStorage) -->
     <section id="drafts" class="drafts slide-up" data-d="7" aria-labelledby="drafts-h" hidden>
@@ -320,7 +334,7 @@ import "../styles/account-sections.css";
       align-items: center;
       gap: 8px;
       padding: 9px 16px 9px 18px;
-      background: var(--paper);
+      background: #fff;
       color: var(--violet-deep);
       font-family: var(--sans);
       font-size: 11px;
@@ -357,7 +371,7 @@ import "../styles/account-sections.css";
     .dash-pair {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 16px;
+      gap: 18px;
       align-items: stretch;
     }
     @media (max-width: 980px) { .dash-pair { grid-template-columns: 1fr; } }
@@ -367,10 +381,13 @@ import "../styles/account-sections.css";
       flex-direction: column;
       gap: 16px;
       padding: 24px 26px 24px;
-      /* Cream base so it sits inside the white grouping box with the stats */
-      background: var(--paper);
-      border: 1px solid rgba(28, 29, 34, 0.08);
-      border-radius: 12px;
+      /* Match the frosted-glass top boxes instead of solid white. */
+      background: rgba(255, 255, 255, 0.5);
+      -webkit-backdrop-filter: blur(22px) saturate(1.3);
+      backdrop-filter: blur(22px) saturate(1.3);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: 18px;
+      box-shadow: 0 22px 48px -26px rgba(71, 66, 84, 0.42), 0 5px 14px -6px rgba(71, 66, 84, 0.22);
       min-height: 340px;
       overflow: hidden;
     }
@@ -413,6 +430,9 @@ import "../styles/account-sections.css";
       overflow-y: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;
+      /* Breathing room so the top row's hover lift + outline isn't clipped by
+         the scroll edge (it was seeping into the "This week" header). */
+      padding: 6px 3px;
     }
     .upcoming-card .upcoming-grid::-webkit-scrollbar { width: 0; display: none; }
     .upcoming-card .upcoming-day {
@@ -422,12 +442,22 @@ import "../styles/account-sections.css";
       min-height: 0;
       padding: 10px 14px;
     }
+    /* The hovered row lifts above its neighbours rather than under them. */
+    .upcoming-card .upcoming-day:hover { z-index: 2; }
+    /* "+ Open" sits on the right, vertically centred — never over the date. */
+    .upcoming-card .upcoming-day.is-empty:hover::after {
+      left: auto; bottom: auto;
+      right: 16px; top: 50%;
+      transform: translateY(-50%);
+    }
 
     /* Members-blog feature on the right of the pair */
     .dash-blog-feature {
       padding: 0;
       text-decoration: none;
       color: var(--ink);
+      /* Solid white instead of the frosted-glass tint. */
+      background: #fff;
       transition: transform 0.3s cubic-bezier(.2,.7,.2,1), box-shadow 0.3s;
     }
     .dash-blog-feature:hover {
@@ -556,78 +586,190 @@ import "../styles/account-sections.css";
       }
     }
 
+    /* ---------- Orchestrated login entrance (driven by playEntrance) ----------
+       Elements start hidden ONLY while .dash-view.entrance is armed by JS;
+       each gets .is-in on its own beat. Pop = scale-in (greeting eyebrow/sub,
+       avatar); left = slide in from behind the sidebar (the boxes); up = rise
+       from below (this-week / the-edit). The big greeting flies from centre to
+       the corner via JS (FLIP). */
+    .anim-pop, .anim-left, .anim-up {
+      transition: opacity 0.55s ease, transform 0.85s cubic-bezier(.2,.85,.25,1);
+      will-change: transform, opacity;
+    }
+    .dash-view.entrance .anim-pop:not(.is-in)  { opacity: 0; transform: scale(0.8); }
+    .dash-view.entrance .anim-left:not(.is-in) { opacity: 0; transform: translateX(-110px); }
+    .dash-view.entrance .anim-up:not(.is-in)   { opacity: 0; transform: translateY(80px); }
+    /* The greeting is hidden until the JS FLIP places it in the centre. */
+    .dash-view.entrance .welcome-h { opacity: 0; }
+    /* Greeting floats above everything while it flies in. */
+    .welcome-h.is-hero { z-index: 70; position: relative; }
 
-    /* ---------- Stats ---------- */
-    /* One white box grouping the stats + the this-week/members pair */
-    .dash-group {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      background: #fff;
-      padding: 18px;
-      border-radius: 18px;
-      border: 1px solid rgba(28, 29, 34, 0.08);
-      box-shadow:
-        0 10px 24px -16px rgba(71, 66, 84, 0.22),
-        0 2px 6px -3px rgba(28, 29, 34, 0.08);
+    @media (prefers-reduced-motion: reduce) {
+      .dash-view.entrance .anim-pop,
+      .dash-view.entrance .anim-left,
+      .dash-view.entrance .anim-up,
+      .dash-view.entrance .welcome-h { opacity: 1 !important; transform: none !important; }
     }
-    .stats {
+
+
+    /* (Hub background lives in account-sections.css .dash-shell — shared across
+       every workspace tab for consistency.) */
+
+    /* ---------- Workspace header — 50/50: stacked text boxes | big photo ---------- */
+    .dash-top {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: 1fr 1fr;
       gap: 16px;
+      align-items: stretch;   /* photo matches the left stack's height */
     }
-    @media (max-width: 980px) { .stats { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 560px) { .stats { grid-template-columns: 1fr; } }
-    .stat {
-      position: relative;
-      display: flex; flex-direction: column; gap: 6px;
-      padding: 24px 26px 20px;
-      /* Inner cards drop to the cream base so they sit inside the white group */
-      background: var(--paper);
-      border: 1px solid rgba(28,29,34,0.06);
-      border-top: 3px solid var(--violet-deep);
-      border-radius: 12px;
-      min-height: 150px;
+    .dash-left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .dash-reach { min-height: 104px; }
+    .dash-stats { min-height: 104px; }
+    @media (max-width: 920px) { .dash-top { grid-template-columns: 1fr; } }
+    /* Tighten the vertical spacing so "This week / The Edit" sits closer up. */
+    .dash-view[data-view="workspace"] { gap: 54px; }
+
+    /* Thin frosted card floating on the purple page — lighter than before. */
+    .dash-card {
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.5);
+      -webkit-backdrop-filter: blur(22px) saturate(1.3);
+      backdrop-filter: blur(22px) saturate(1.3);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      /* Two-stop shadow — a soft cast plus a tighter contact shadow for depth. */
+      box-shadow: 0 22px 48px -26px rgba(71, 66, 84, 0.42), 0 5px 14px -6px rgba(71, 66, 84, 0.22);
     }
-    .stat--brand {
-      background: var(--violet-deep);
-      border-color: var(--violet-deep);
+
+    /* Greeting header — sits ON the purple page, outside any box, with room
+       above the boxes to breathe. */
+    .dash-head {
+      display: flex; align-items: center; gap: 16px;
+      padding: 84px 6px 0; margin-bottom: 30px;   /* drop it in line with the Workspace tab */
     }
-    .stat--brand .stat-label { color: rgba(240, 238, 235, 0.62); }
-    .stat--brand .stat-value { color: var(--paper); }
-    .stat--brand .stat-foot { color: rgba(240, 238, 235, 0.7); }
-    .stat--brand .stat-foot a { color: var(--violet-soft); }
-    .stat--brand .stat-foot a:hover { color: var(--paper); }
-    .stat-label {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: rgba(28,29,34,0.55);
+    .dash-avatar {
+      flex: 0 0 auto;
+      width: 56px; height: 56px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--serif); font-size: 23px; font-weight: 600; color: #fff;
+      background: linear-gradient(140deg, #c9a7e6, #9a7bd6 55%, #f0a98a);
+      box-shadow: 0 10px 24px -10px rgba(71,66,84,0.55), inset 0 0 0 2px rgba(255,255,255,0.55);
     }
-    .stat-value {
-      font-family: var(--serif);
-      font-size: 48px;
-      line-height: 1;
-      letter-spacing: -0.02em;
-      margin-top: 10px;
-      color: var(--ink);
+    .dash-head-text { min-width: 0; }
+    .dash-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em;
+      text-transform: uppercase; color: var(--violet-deep); margin: 0 0 5px;
     }
-    .stat-foot {
-      margin-top: auto;
-      font-family: var(--sans);
-      font-size: 12px;
-      color: rgba(28,29,34,0.6);
+    .dash-head .welcome-h {
+      font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 2.7vw, 38px);
+      line-height: 1.04; letter-spacing: -0.02em; color: var(--ink); margin: 0;
     }
-    .stat-foot a {
-      color: var(--violet-deep);
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-decoration: none;
-      transition: color 0.2s;
+    .dash-head .welcome-h em { font-style: italic; color: var(--violet-deep); }
+    .dash-head .welcome-sub {
+      font-family: var(--sans); font-size: 13px; line-height: 1.5;
+      color: rgba(28,29,34,0.55); margin: 6px 0 0;
     }
-    .stat-foot a:hover { color: var(--ink); text-decoration: underline; }
+
+    /* 1 · This-month reach metric box */
+    .dash-reach { padding: 18px 24px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+    .dash-headline-num {
+      font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 3.1vw, 44px);
+      line-height: 1; letter-spacing: -0.02em; color: var(--ink);
+    }
+    .dash-headline-label {
+      font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: rgba(28,29,34,0.55);
+      margin: 6px 0 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .dash-headline-sub { color: rgba(28,29,34,0.4); font-weight: 500; }
+    .dash-info { color: rgba(28,29,34,0.35); cursor: help; font-size: 13px; }
+
+    /* 2 · Photo — spans both rows in the right half, so it's the bigger box.
+       Explicit height (not min-height) so the image's natural size can't drive
+       the grid rows. */
+    .dash-newdesign {
+      position: relative; overflow: hidden; padding: 0; min-height: 0;
+      width: 100%; aspect-ratio: auto !important;   /* beat .welcome-art's 4/5 */
+    }
+    /* !important so it beats the shared .welcome-art img rule — otherwise the
+       image renders in-flow and its natural height blows the box up. */
+    .dash-newdesign img {
+      position: absolute !important; inset: 0 !important;
+      width: 100% !important; height: 100% !important; object-fit: cover; display: block;
+      transition: transform 6s cubic-bezier(.2,.7,.2,1), opacity 0.55s ease;
+    }
+    .dash-newdesign:hover img { transform: scale(1.05); }
+    .dash-newdesign-tag {
+      position: absolute; left: 14px; bottom: 14px; z-index: 2;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px; border-radius: 999px;
+      background: #fff;
+      font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase;
+      color: var(--ink); pointer-events: none; transition: opacity 0.4s;
+    }
+    .dash-newdesign-tag em { font-style: normal; }
+    .dash-newdesign[data-mode="pack"] .dash-newdesign-tag,
+    .dash-newdesign[data-mode="design"] .dash-newdesign-tag { opacity: 0; }
+    @media (max-width: 920px) { .dash-newdesign { min-height: 220px; } }
+
+    /* 3 · Stats — laid across now the box is wide + short, with a brand chip. */
+    .dash-stats { padding: 16px 22px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+    .dash-stat-grid { display: flex; gap: 18px; }
+    .dash-stat { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+    .dash-stat-label {
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5); white-space: nowrap;
+    }
+    .dash-stat-val {
+      font-family: var(--serif); font-size: 26px; line-height: 1; letter-spacing: -0.02em; color: var(--ink);
+    }
+    .dash-stat-foot { font-family: var(--sans); font-size: 10px; color: rgba(28,29,34,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dash-brandchip {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 9px 15px; border-radius: 999px;
+      background: #fff; border: 1px solid rgba(28,29,34,0.08);
+      font-family: var(--sans); font-size: 12.5px; font-weight: 500; color: rgba(28,29,34,0.7); text-decoration: none;
+      transition: background 0.25s, box-shadow 0.25s;
+    }
+    /* Match the rest of the chip — not bold, not bigger. */
+    .dash-brandchip strong { color: rgba(28,29,34,0.7); font-weight: 500; font-size: inherit; }
+    .dash-brandchip em { font-style: normal; font-weight: 600; color: var(--violet-deep); }
+    .dash-brandchip:hover { background: #fff; box-shadow: 0 4px 12px -6px rgba(71,66,84,0.28); }
+
+    /* ---------- Library + consistency streak (75 / 25) ---------- */
+    .dash-lib-row {
+      display: grid;
+      grid-template-columns: 3fr 1fr;
+      gap: 18px;
+      align-items: start;   /* streak sizes to its content (≈ the first library card), not the whole library */
+    }
+    @media (max-width: 900px) { .dash-lib-row { grid-template-columns: 1fr; } }
+    .dash-lib-row .library { min-width: 0; }
+
+    .dash-streak {
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 22px 22px 20px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.5);
+      -webkit-backdrop-filter: blur(22px) saturate(1.3);
+      backdrop-filter: blur(22px) saturate(1.3);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: 0 22px 48px -26px rgba(71, 66, 84, 0.42), 0 5px 14px -6px rgba(71, 66, 84, 0.22);
+    }
+    .dash-streak-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em;
+      text-transform: uppercase; color: var(--violet-deep);
+    }
+    .dash-streak-num {
+      display: flex; align-items: baseline; gap: 6px;
+      font-family: var(--serif); font-weight: 500; font-size: clamp(44px, 4vw, 60px);
+      line-height: 1; letter-spacing: -0.02em; color: var(--ink); margin-top: 2px;
+    }
+    .dash-streak-num small { font-family: var(--sans); font-size: 15px; font-weight: 700; color: rgba(28,29,34,0.4); }
+    .dash-streak-label { font-family: var(--sans); font-size: 13px; line-height: 1.4; color: rgba(28,29,34,0.6); margin: 0; }
+    .dash-streak-dots { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; }
+    .dash-streak-dot { width: 15px; height: 15px; border-radius: 5px; background: rgba(71,66,84,0.13); transition: background 0.3s; }
+    .dash-streak-dot.is-on { background: var(--violet-deep); }
+    .dash-streak-dot.is-cur { box-shadow: 0 0 0 2px rgba(71,66,84,0.28); }
+    .dash-streak-note { font-family: var(--sans); font-size: 12px; line-height: 1.45; color: rgba(28,29,34,0.5); margin: auto 0 0; }
 
     /* ---------- Library ---------- */
     .lib-empty {
@@ -649,10 +791,9 @@ import "../styles/account-sections.css";
 
     .library-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 22px;
+      grid-template-columns: 1fr;   /* one pack per line — room to breathe */
+      gap: 18px;
     }
-    @media (max-width: 980px) { .library-grid { grid-template-columns: 1fr; } }
 
     .pack-row {
       display: grid;
@@ -856,7 +997,13 @@ import "../styles/account-sections.css";
       width: 100%;
       max-width: 1280px;
       max-height: 90vh;
-      background: var(--paper);
+      /* Same light-purple iridescent wash as the rest of the hub (the cards
+         inside stay white). */
+      background:
+        radial-gradient(70% 55% at 0% 0%, rgba(255, 206, 178, 0.38), transparent 50%),
+        radial-gradient(75% 65% at 100% 0%, rgba(199, 170, 232, 0.46), transparent 55%),
+        radial-gradient(85% 75% at 60% 115%, rgba(170, 196, 236, 0.36), transparent 55%),
+        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f3eef1 100%);
       border: 1px solid rgba(28, 29, 34, 0.1);
       border-bottom: none;                /* drawer sits against viewport edge */
       border-radius: 18px 18px 0 0;       /* drawer-style top corners */
@@ -1322,6 +1469,122 @@ import "../styles/account-sections.css";
     // refresh on the same machine swaps to the other type. The pack
     // image is clickable: clicking it opens the Browse packs modal at
     // the matching pack detail view.
+    // Orchestrated login entrance: the greeting flies in big from the centre to
+    // the corner (FLIP), then the chrome pops / slides / rises in on its beats.
+    function playEntrance(full) {
+      const view = document.querySelector('.dash-view[data-view="workspace"]');
+      const h1 = document.getElementById('welcome-h');
+      if (!view) return;
+      const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reveal = (sel) => document.querySelectorAll(sel).forEach((e) => e.classList.add('is-in'));
+      if (reduce || !h1) {
+        ['.anim-pop', '.anim-left', '.anim-up'].forEach(reveal);
+        if (h1) h1.style.opacity = '1';
+        return;
+      }
+
+      const at = (t, fn) => setTimeout(fn, t);
+
+      // LITE entrance — same greeting/title as last visit, so skip the big
+      // centre-stage reveal. The greeting just slides in from the left to its
+      // corner spot, and the rest of the chrome animates on a compact stagger.
+      if (!full) {
+        h1.style.transition = 'none';
+        h1.style.opacity = '0';
+        h1.style.transform = 'translateX(-48px)';
+        void h1.offsetWidth;
+        h1.style.transition = 'transform 0.6s cubic-bezier(.2,.7,.2,1), opacity 0.55s ease';
+        h1.style.opacity = '1';
+        h1.style.transform = 'none';
+        setTimeout(() => { h1.style.transition = ''; h1.style.transform = ''; }, 720);
+
+        at(140, () => reveal('.dash-head .dash-eyebrow'));
+        at(200, () => reveal('.dash-avatar'));
+        at(280, () => reveal('.dash-head .welcome-sub'));
+        at(180, () => reveal('.dash-reach'));
+        at(320, () => { reveal('.dash-stats'); reveal('.dash-newdesign'); });
+        at(560, () => reveal('.upcoming-card'));
+        at(760, () => reveal('.dash-blog-feature'));
+        at(1300, () => ['.anim-pop', '.anim-left', '.anim-up'].forEach(reveal));
+        return;
+      }
+
+      // FULL entrance.
+      // 1. Place the greeting big in the centre, then fly it to its corner spot.
+      const r = h1.getBoundingClientRect();
+      const cx = window.innerWidth / 2;
+      const cy = Math.min(window.innerHeight * 0.42, 380);
+      const dx = cx - (r.left + r.width / 2);
+      const dy = cy - (r.top + r.height / 2);
+      const scale = Math.max(1.5, Math.min(2.8, (window.innerWidth * 0.5) / Math.max(1, r.width)));
+      h1.classList.add('is-hero');
+      h1.style.transformOrigin = 'center center';
+      h1.style.transition = 'none';
+      h1.style.opacity = '1';
+      h1.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + scale + ')';
+      void h1.offsetWidth; // commit the centred state before transitioning
+      setTimeout(() => {
+        h1.style.transition = 'transform 1.05s cubic-bezier(.5,.05,.15,1)';
+        h1.style.transform = 'none';
+      }, 850);
+      setTimeout(() => { h1.style.transition = ''; h1.style.transform = ''; h1.classList.remove('is-hero'); }, 2050);
+
+      // 2. The rest, on staggered beats (greeting lands ~1.9s).
+      at(1500, () => reveal('.dash-head .dash-eyebrow'));      // "This month" pops
+      at(1560, () => reveal('.dash-avatar'));
+      at(1640, () => reveal('.dash-head .welcome-sub'));       // "Your studio…" pops
+      at(1520, () => reveal('.dash-reach'));                   // reach slides in from the left
+      at(1660, () => { reveal('.dash-stats'); reveal('.dash-newdesign'); }); // packs + photo slide in
+      at(1980, () => reveal('.upcoming-card'));                // "This week" rises up
+      at(2230, () => reveal('.dash-blog-feature'));            // "Inside The Edit" rises just after
+      // Safety: make sure everything is visible even if a beat was missed.
+      at(3200, () => ['.anim-pop', '.anim-left', '.anim-up'].forEach(reveal));
+    }
+
+    // Consistency streak — consecutive weeks (Mon-start) with at least one
+    // scheduled/posted item, from the content calendar. Renders the count, a
+    // friendly note, and a 12-week dot trail.
+    function renderStreak(scheduled) {
+      const $count = document.getElementById('streak-count');
+      const $label = document.getElementById('streak-label');
+      const $dots = document.getElementById('streak-dots');
+      const $note = document.getElementById('streak-note');
+      if (!$count) return;
+      const mondayKey = (d) => {
+        const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const off = (dt.getDay() + 6) % 7; // 0 = Monday
+        dt.setDate(dt.getDate() - off);
+        return dt.getFullYear() + '-' + (dt.getMonth() + 1) + '-' + dt.getDate();
+      };
+      const posted = new Set();
+      (scheduled || []).forEach((s) => {
+        if (s && s.scheduled_date) { const d = new Date(s.scheduled_date); if (!isNaN(d.getTime())) posted.add(mondayKey(d)); }
+      });
+      const now = new Date();
+      const keyAgo = (i) => { const d = new Date(now); d.setDate(d.getDate() - i * 7); return mondayKey(d); };
+      // Grace for the in-progress week: if this week has no post yet, start the
+      // count from last week so an active streak isn't shown as broken.
+      let i = posted.has(keyAgo(0)) ? 0 : 1;
+      let streak = 0;
+      while (i < 104 && posted.has(keyAgo(i))) { streak++; i++; }
+      $count.textContent = String(streak);
+      if ($label) $label.textContent = streak === 1 ? 'week posting in a row' : 'weeks posting in a row';
+      if ($note) {
+        $note.textContent = streak === 0
+          ? 'Schedule a post this week to start your streak.'
+          : (streak >= 4 ? "You're on a roll — keep the run going." : 'Consistency compounds — keep showing up each week.');
+      }
+      if ($dots) {
+        $dots.innerHTML = '';
+        for (let w = 11; w >= 0; w--) {
+          const dot = document.createElement('span');
+          dot.className = 'dash-streak-dot' + (posted.has(keyAgo(w)) ? ' is-on' : '') + (w === 0 ? ' is-cur' : '');
+          $dots.appendChild(dot);
+        }
+      }
+    }
+
+    let _welcomeArtData = null, _welcomeFlicker = null;
     function rotateWelcomeArt({ scheduled, drafts, allPacks, ownedIds }) {
       const $art      = document.getElementById('welcome-art-img');
       const $wrap     = document.getElementById('welcome-art');
@@ -1331,6 +1594,14 @@ import "../styles/account-sections.css";
       const $cta      = document.getElementById('welcome-art-cta');
       const $ctaLbl   = document.getElementById('welcome-art-cta-label');
       if (!$art) return;
+      // Remember the latest data + start a gentle auto-rotation so the photo
+      // keeps changing on its own ("flicker and change").
+      _welcomeArtData = { scheduled, drafts, allPacks, ownedIds };
+      if (!_welcomeFlicker) {
+        _welcomeFlicker = setInterval(() => {
+          if (_welcomeArtData && !document.hidden) rotateWelcomeArt(_welcomeArtData);
+        }, 6800);
+      }
       let last = null;
       try { last = localStorage.getItem('tmke.welcome.last'); } catch (_) {}
 
@@ -1378,7 +1649,9 @@ import "../styles/account-sections.css";
 
       const next = new Image();
       next.onload = () => {
-        $art.src = url;
+        // Soft cross-fade the photo as it changes (the "flicker" on the card).
+        $art.style.opacity = '0';
+        setTimeout(() => { $art.src = url; requestAnimationFrame(() => { $art.style.opacity = '1'; }); }, 240);
         if (mode === 'pack') {
           $art.dataset.packSlug = packPick.slug;
           $art.dataset.packId   = packPick.id;
@@ -1460,7 +1733,6 @@ import "../styles/account-sections.css";
         if (fontCount) parts.push(fontCount + ' font' + (fontCount === 1 ? '' : 's'));
         if (logoCount) parts.push(logoCount + ' logo' + (logoCount === 1 ? '' : 's'));
         $statBrand.textContent = parts.length ? parts.join(' · ') : 'Empty';
-        $statBrand.style.fontSize = '20px';
       } catch (_) {
         $statBrand.textContent = 'Not set';
       }
@@ -1665,20 +1937,49 @@ import "../styles/account-sections.css";
 
       $welcomeH.innerHTML = `${greeting}, <em>${escapeHtml(titleCase(firstName))}.</em>`;
       $welcomeSub.textContent = 'Your studio. Your library. Pick something up where you left off.';
+      const $avatar = document.getElementById('dash-avatar');
+      if ($avatar) {
+        $avatar.textContent = (titleCase(firstName).trim()[0] || 'T').toUpperCase();
+        // If they've uploaded a headshot in the brand kit, show it instead of initials.
+        try {
+          const bk = JSON.parse(localStorage.getItem('tmke.brand') || 'null');
+          if (bk && typeof bk.headshot === 'string' && bk.headshot) {
+            $avatar.style.backgroundImage = 'url(' + JSON.stringify(bk.headshot) + ')';
+            $avatar.style.backgroundSize = 'cover';
+            $avatar.style.backgroundPosition = 'center';
+            $avatar.textContent = '';
+          }
+        } catch (_) {}
+      }
       $footerEmail.textContent = email;
       if ($sidebarEmail) $sidebarEmail.textContent = email;
 
+      // Decide between the full centre-stage entrance and the lite slide-in.
+      // The full reveal only plays when the greeting *title* (time-of-day +
+      // who's signed in) differs from what they last saw — so it fires on a
+      // fresh login, when morning rolls into afternoon, or for a new user, but
+      // NOT when they just hop Workspace → Studio → Workspace within the same
+      // session/period. Persisted in localStorage so it follows page reloads.
+      let fullEntrance = true;
+      try {
+        const greetKey = greeting + '|' + firstName;
+        fullEntrance = localStorage.getItem('tmke.greet.last') !== greetKey;
+        localStorage.setItem('tmke.greet.last', greetKey);
+      } catch (_) {}
+
+      // Kick off the entrance animation FIRST so it always plays regardless of
+      // anything below. A short timer (rather than rAF) guarantees it fires even
+      // when the tab isn't actively painting.
+      setTimeout(() => { document.body.classList.add('is-loaded'); playEntrance(fullEntrance); }, 30);
+
       // First-time login tour. Starts only when the user has never completed it
       // (flag stamped on their Supabase account); otherwise inert. Skippable.
-      maybeStartTour({
-        firstName: titleCase(firstName),
-        completedAt: meta.tour_completed_at || null,
-      });
-
-      // Kick off the entrance animation. Adding the class on the next
-      // frame ensures the .fade-up elements have laid out before the
-      // animation starts (so transforms read smoothly).
-      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+      try {
+        maybeStartTour({
+          firstName: titleCase(firstName),
+          completedAt: meta.tour_completed_at || null,
+        });
+      } catch (e) { console.error('[tour]', e); }
 
       const localDrafts = readLocalDrafts();
       renderDrafts(localDrafts);
@@ -1688,6 +1989,19 @@ import "../styles/account-sections.css";
       // hang. The post-orders Promise.all will re-rotate with real
       // data once it resolves.
       rotateWelcomeArt({ scheduled: [], drafts: localDrafts, allPacks: [], ownedIds: new Set() });
+
+      // Consistency streak — fetched independently of orders so it always shows
+      // (a user can have a posting streak without having bought a pack).
+      renderStreak([]);
+      supabase
+        .from('calendar_items')
+        .select('scheduled_date')
+        .eq('user_id', session.user.id)
+        .in('status', ['scheduled', 'reminder_sent', 'done'])
+        .order('scheduled_date', { ascending: false })
+        .limit(120)
+        .then(({ data }) => renderStreak(data || []))
+        .catch(() => {});
 
       const { data: orders, error } = await supabase
         .from('orders')
@@ -1735,6 +2049,15 @@ import "../styles/account-sections.css";
         pillsEl.hidden = false;
       }
 
+      // Headline metric — an estimate of monthly profile reach from what
+      // they've published (a heuristic until Instagram is connected for live
+      // figures). Roughly: each owned pack + in-progress design ~ a post.
+      const $views = document.getElementById('dash-views');
+      if ($views) {
+        const reach = uniquePacks.size * 1800 + draftCount * 1400;
+        $views.textContent = reach > 0 ? reach.toLocaleString('en-GB') : '—';
+      }
+
       if (!orders || orders.length === 0) {
         $empty.hidden = false;
         return;
@@ -1768,7 +2091,7 @@ import "../styles/account-sections.css";
           .eq('user_id', session.user.id)
           .in('status', ['scheduled', 'reminder_sent', 'done'])
           .order('scheduled_date', { ascending: false })
-          .limit(20),
+          .limit(60),
         supabase
           .from('packs')
           .select('id, slug, title, cover_image_url, preview_images')
@@ -2084,7 +2407,6 @@ import "../styles/account-sections.css";
       $upGrid?.addEventListener('click', (e) => {
         const cell = e.target.closest('.upcoming-day');
         if (!cell) return;
-        const dateStr = cell.getAttribute('data-date');
         // Take them to the full calendar page rather than a pop-out drawer.
         location.href = '/account/schedule';
       });

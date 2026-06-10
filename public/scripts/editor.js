@@ -7,6 +7,9 @@
 
   // ---------- Data ----------
   const TEMPLATES = JSON.parse(document.getElementById("ed-templates-data").textContent || "[]");
+  // The template grid shows this list. Defaults to every template; the
+  // onboarding pack-picker narrows it to the chosen pack via __TMKE_OPEN_PACK__.
+  let PACK_TEMPLATES = TEMPLATES;
   const PHOTOS = JSON.parse(document.getElementById("ed-photos-data").textContent || "[]");
 
   // System fonts that are always available without any web-font load.
@@ -19,6 +22,36 @@
     { name: "Verdana", stack: 'Verdana, sans-serif', category: "System" },
     { name: "Courier", stack: '"Courier New", monospace', category: "System" },
   ];
+
+  // House fonts available in the studio picker (separate from per-customer
+  // uploads via /admin/fonts). The actual font faces are loaded by the page —
+  // The Seasons comes from the Typographer.io embed that the dashboard layout
+  // includes (a real webfont CDN that serves the right CORS headers). We do NOT
+  // register faces from assets.tmke.co.uk here: those files aren't hosted (404),
+  // and cross-origin FontFace loads need CORS — so it only spammed the console.
+  const CUSTOM_FONTS = [
+    {
+      name: "The Seasons",
+      stack: '"The Seasons", "Cormorant Garamond", Georgia, serif',
+      category: "TMKE · House",
+      faces: [],
+    },
+  ];
+  (function registerCustomFonts() {
+    if (typeof document === "undefined" || typeof window.FontFace !== "function") return;
+    CUSTOM_FONTS.forEach(function (cf) {
+      (cf.faces || []).forEach(function (face) {
+        try {
+          const ff = new FontFace(cf.name, 'url("' + face.url + '")', {
+            weight: String(face.weight || 400),
+            style: face.style || "normal",
+            display: "swap",
+          });
+          ff.load().then(function (loaded) { document.fonts.add(loaded); }).catch(function () { /* not uploaded yet — fall back */ });
+        } catch (_) { /* ignore individual face failures */ }
+      });
+    });
+  })();
 
   // Google Fonts catalogue baked into editor.astro and injected as JSON.
   // We don't load any of the actual CSS yet — `loadGoogleFont` does that on
@@ -92,7 +125,7 @@
   // BASE_FONTS retained as a name so the rest of the code (export canvas,
   // brand kit logic) keeps working — it now points at the combined catalogue:
   // custom brand fonts (pinned first) > system fonts > Google Fonts.
-  const BASE_FONTS = BRAND_FONTS.concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
+  const BASE_FONTS = BRAND_FONTS.concat(CUSTOM_FONTS).concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
 
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   function loadBrand() {
@@ -138,6 +171,13 @@
   const ctxEl = $("ed-context");
   const layersEl = $("ed-layers");
   const filenameEl = $("ed-filename");
+  // A title passed in via ?title= (e.g. when an admin names a design in the
+  // front-end before opening the studio) wins over the default/saved filename on
+  // the FIRST load only, then is consumed so switching designs doesn't re-apply it.
+  let _pendingTitle = (function () {
+    try { return new URLSearchParams(location.search).get("title"); } catch (_) { return null; }
+  })();
+  function takeInitialTitle() { const t = _pendingTitle; _pendingTitle = null; return t && t.trim() ? t.trim() : null; }
   const zoomDisplayEl = $("ed-zoom-display");
   const tplGridEl = $("ed-template-grid");
   const photoGridEl = $("ed-photo-grid");
@@ -156,6 +196,29 @@
     clipboard: null,
     uploads: [],
   };
+
+  // ---------- Multi-page model ----------
+  // A design holds one or more pages. `state.canvas` / `state.elements` proxy to
+  // the ACTIVE page so every bit of existing single-page code keeps working;
+  // `state.pages` is the source of truth and drives the page strip.
+  (function initPages() {
+    const initCanvas = state.canvas;
+    const initElements = state.elements;
+    delete state.canvas;
+    delete state.elements;
+    state.pages = [{ id: uid("page"), name: "Page 1", canvas: initCanvas, elements: initElements }];
+    state.currentPage = 0;
+    Object.defineProperty(state, "canvas", {
+      get() { return state.pages[state.currentPage].canvas; },
+      set(v) { state.pages[state.currentPage].canvas = v; },
+      configurable: true,
+    });
+    Object.defineProperty(state, "elements", {
+      get() { return state.pages[state.currentPage].elements; },
+      set(v) { state.pages[state.currentPage].elements = v; },
+      configurable: true,
+    });
+  })();
 
   // ---------- Utilities ----------
   function uid(prefix) {
@@ -261,6 +324,242 @@
     return wrap;
   }
 
+  // Circular swatch that opens the rich left-hand colour panel (not the OS
+  // picker). getCurrent() returns the live colour; onSolid(hex)/onGradient(g)
+  // mutate the element — render + history handled here.
+  function colorSwatchButton(getCurrent, opts) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ed-circle-swatch";
+    btn.title = opts.title || "Colour";
+    const paint = () => { btn.style.background = getCurrent() || "#000000"; };
+    paint();
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      openColorPanel({
+        title: opts.title || "Colour",
+        current: getCurrent(),
+        onSolid: function (hex) { opts.onSolid(hex); paint(); fullRender(); pushHistory(); },
+        onGradient: opts.onGradient ? function (g) { opts.onGradient(g); paint(); fullRender(); pushHistory(); } : null,
+      });
+    });
+    return btn;
+  }
+
+  // Font-size control: a typeable number + a caret that drops a quick list of
+  // common sizes (Canva-style). onChange(size) is called with the new value.
+  const SIZE_PRESETS = [6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 80, 88, 96, 104, 120, 144];
+  function createSizeControl(initial, onChange) {
+    const wrap = document.createElement("div");
+    wrap.className = "ed-size-ctl";
+    const input = document.createElement("input");
+    input.type = "number"; input.className = "ed-ctx-num"; input.value = initial; input.min = 6; input.max = 600;
+    const caret = document.createElement("button");
+    caret.type = "button"; caret.className = "ed-size-caret"; caret.title = "Sizes";
+    caret.textContent = "▾";
+    const pop = document.createElement("div");
+    pop.className = "ed-size-pop"; pop.hidden = true;
+    pop.innerHTML = SIZE_PRESETS.map(function (s) {
+      return '<button type="button" class="ed-size-opt' + (s === initial ? " is-current" : "") + '" data-size="' + s + '">' + s + "</button>";
+    }).join("");
+
+    function apply(v) {
+      v = Math.max(6, Math.min(600, parseInt(v, 10) || initial));
+      input.value = v;
+      // Highlight the nearest preset so the list shows "where you are".
+      let nearest = null, best = Infinity;
+      pop.querySelectorAll(".ed-size-opt").forEach(function (b) {
+        b.classList.remove("is-current");
+        const d = Math.abs(parseInt(b.dataset.size, 10) - v);
+        if (d < best) { best = d; nearest = b; }
+      });
+      if (nearest) nearest.classList.add("is-current");
+      onChange(v);
+    }
+    input.addEventListener("change", function () { apply(input.value); });
+    caret.addEventListener("click", function (e) {
+      e.stopPropagation();
+      pop.hidden = !pop.hidden;
+      // Open scrolled to the current size, centred, so options appear either side.
+      if (!pop.hidden) {
+        // The pop is position:fixed (escapes the context bar's stacking + clipping)
+        // so it always floats over the top of the canvas. Anchor it under the caret.
+        const r = caret.getBoundingClientRect();
+        pop.style.visibility = "hidden";
+        pop.style.left = "0px"; pop.style.top = "0px";
+        requestAnimationFrame(function () {
+          const ph = pop.offsetHeight || 240, pw = pop.offsetWidth || 64;
+          let top = r.bottom + 6;
+          if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+          let left = r.right - pw;
+          left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+          pop.style.left = left + "px";
+          pop.style.top = top + "px";
+          pop.style.visibility = "";
+          const cur = pop.querySelector(".ed-size-opt.is-current");
+          if (cur) cur.scrollIntoView({ block: "center" });
+        });
+      }
+    });
+    pop.addEventListener("click", function (e) {
+      const b = e.target.closest("[data-size]");
+      if (!b) return;
+      pop.hidden = true;
+      apply(b.getAttribute("data-size"));
+    });
+    document.addEventListener("click", function (e) { if (!wrap.contains(e.target)) pop.hidden = true; });
+
+    wrap.appendChild(input);
+    wrap.appendChild(caret);
+    wrap.appendChild(pop);
+    return wrap;
+  }
+
+  // ---------- Colour panel ----------
+  // A rich left-hand colour picker (Canva-style): hex/search, colours already in
+  // the design, the brand palette, photo colours sampled from the design's
+  // imagery, default solids, and gradients. Replaces the native colour popup.
+  const CP_DEFAULT_SOLIDS = [
+    "#000000", "#3A3A3A", "#5C5C5C", "#8C8C8C", "#BFBFBF", "#E6E6E6", "#FFFFFF",
+    "#E23B3B", "#F06543", "#FF7AAE", "#C98BD9", "#9B6BE0", "#5B6BF0", "#2F50C9",
+    "#1C9BD1", "#16C0C8", "#3FD0A8", "#46C06A", "#9BD13E", "#F0C23B", "#F0913B",
+    "#1c1d22", "#474254", "#B9826A", "#DFDCDE", "#F2EFE9", "#BCB3B9", "#333747",
+  ];
+  const CP_DEFAULT_GRADS = [
+    { from: "#1c1d22", to: "#474254", angle: 135 },
+    { from: "#B9826A", to: "#F2EFE9", angle: 135 },
+    { from: "#5B6BF0", to: "#16C0C8", angle: 135 },
+    { from: "#F06543", to: "#F0C23B", angle: 135 },
+    { from: "#9B6BE0", to: "#FF7AAE", angle: 135 },
+    { from: "#46C06A", to: "#9BD13E", angle: 135 },
+    { from: "#1C9BD1", to: "#9B6BE0", angle: 135 },
+    { from: "#000000", to: "#5C5C5C", angle: 135 },
+    { from: "#474254", to: "#B9826A", angle: 135 },
+    { from: "#F0913B", to: "#E23B3B", angle: 135 },
+    { from: "#16C0C8", to: "#46C06A", angle: 135 },
+    { from: "#C98BD9", to: "#5B6BF0", angle: 135 },
+  ];
+
+  function normHex(v) {
+    if (!v) return null;
+    let s = String(v).trim();
+    if (/^[0-9a-f]{6}$/i.test(s)) s = "#" + s;
+    if (/^#[0-9a-f]{6}$/i.test(s)) return s.toUpperCase();
+    if (/^#[0-9a-f]{3}$/i.test(s)) {
+      return ("#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toUpperCase();
+    }
+    const named = { white: "#FFFFFF", black: "#000000", red: "#E23B3B", blue: "#2F50C9", green: "#46C06A", grey: "#8C8C8C", gray: "#8C8C8C" };
+    return named[s.toLowerCase()] || null;
+  }
+
+  // Every solid colour currently used on the active page.
+  function collectDesignColors() {
+    const seen = new Set(); const out = [];
+    const add = (c) => { const h = normHex(c); if (h && !seen.has(h)) { seen.add(h); out.push(h); } };
+    add(state.canvas.background);
+    state.elements.forEach((el) => { add(el.color); add(el.fill); add(el.stroke); add(el.svgFill); });
+    return out.slice(0, 14);
+  }
+
+  // Sample dominant colours from the design's imagery (background image + image /
+  // frame elements). Cross-origin images are loaded anonymously; a tainted draw
+  // just yields no colours for that source.
+  async function extractPhotoColors() {
+    const srcs = [];
+    if (state.canvas.backgroundImage) srcs.push(state.canvas.backgroundImage);
+    state.elements.forEach((el) => { if ((el.type === "image" || el.type === "frame") && el.src) srcs.push(el.src); });
+    const uniq = srcs.filter((s, i) => srcs.indexOf(s) === i).slice(0, 3);
+    const buckets = {};
+    for (const src of uniq) {
+      try {
+        const img = await loadImage(src);
+        const c = document.createElement("canvas");
+        c.width = 40; c.height = 40;
+        const ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, 40, 40);
+        const data = ctx.getImageData(0, 0, 40, 40).data;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 128) continue;
+          const r = data[i] & 0xE0, g = data[i + 1] & 0xE0, b = data[i + 2] & 0xE0;
+          const key = r + "," + g + "," + b;
+          buckets[key] = (buckets[key] || 0) + 1;
+        }
+      } catch (_) { /* tainted / failed load — skip */ }
+    }
+    const toHex = (n) => ("0" + n.toString(16)).slice(-2);
+    return Object.entries(buckets)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([k]) => { const [r, g, b] = k.split(",").map(Number); return ("#" + toHex(r) + toHex(g) + toHex(b)).toUpperCase(); });
+  }
+
+  function closeColorPanel() {
+    const panel = document.getElementById("ed-colorpanel");
+    if (panel) { panel.hidden = true; panel._onSolid = null; panel._onGradient = null; }
+  }
+
+  function openColorPanel(opts) {
+    const panel = document.getElementById("ed-colorpanel");
+    if (!panel) return;
+    panel._onSolid = opts.onSolid || null;
+    panel._onGradient = opts.onGradient || null;
+    const current = normHex(opts.current);
+
+    const swHtml = (c) => '<button class="ed-cp-sw' + (c === current ? " is-current" : "") + '" data-hex="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
+    const gradHtml = (g) => '<button class="ed-cp-sw" data-grad=\'' + JSON.stringify(g) + '\' style="background:linear-gradient(' + (g.angle || 135) + 'deg,' + g.from + ',' + g.to + ')" title="Gradient"></button>';
+
+    const brand = (BRAND && Array.isArray(BRAND.colors)) ? BRAND.colors.map((c) => normHex(c.hex)).filter(Boolean) : [];
+    const brandName = (BRAND && BRAND.company) ? (BRAND.company + "’s kit") : "Brand colours";
+    const design = collectDesignColors();
+
+    const sec = (title, inner) => '<div class="ed-cp-sec"><h5>' + title + '</h5>' + inner + '</div>';
+    const grid = (cells, mod) => '<div class="ed-cp-grid' + (mod || "") + '">' + (Array.isArray(cells) ? cells.join("") : cells) + '</div>';
+
+    panel.innerHTML =
+      '<div class="ed-cp-head"><span class="ed-cp-title">' + (opts.title || "Colour") + '</span><button class="ed-cp-close" title="Close">&times;</button></div>' +
+      '<div class="ed-cp-scroll">' +
+        '<input class="ed-cp-hex" placeholder="Type a colour or #hex" value="' + (current || "") + '">' +
+        sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
+        sec(brandName, brand.length ? grid(brand.map(swHtml)) : '<p class="ed-cp-empty">No brand colours saved.</p>') +
+        sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') +
+        sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
+        (panel._onGradient ? sec("Gradients", grid(CP_DEFAULT_GRADS.map(gradHtml), " ed-cp-grid--grad")) : "") +
+      '</div>';
+
+    panel.hidden = false;
+
+    // Async photo colours fill in when ready.
+    extractPhotoColors().then((cols) => {
+      const slot = panel.querySelector("[data-photo]");
+      if (!slot) return;
+      slot.innerHTML = cols.length ? cols.map(swHtml).join("") : '<p class="ed-cp-empty">No photos in this design.</p>';
+    });
+  }
+
+  // One-time delegated wiring for the colour panel (its contents are rebuilt
+  // each open, so delegate from the stable root).
+  (function wireColorPanel() {
+    const panel = document.getElementById("ed-colorpanel");
+    if (!panel) return;
+    panel.addEventListener("click", (e) => {
+      if (e.target.closest(".ed-cp-close")) { closeColorPanel(); return; }
+      const sw = e.target.closest(".ed-cp-sw");
+      if (!sw) return;
+      if (sw.dataset.grad && panel._onGradient) {
+        try { panel._onGradient(JSON.parse(sw.dataset.grad)); } catch (_) {}
+      } else if (sw.dataset.hex && panel._onSolid) {
+        panel._onSolid(sw.dataset.hex);
+      }
+    });
+    panel.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const inp = e.target.closest(".ed-cp-hex");
+      if (!inp) return;
+      const h = normHex(inp.value);
+      if (h && panel._onSolid) panel._onSolid(h);
+    });
+  })();
+
   // ---------- Right-click context menu ----------
   // Replaces the in-toolbar Bring forward / Send back buttons. Right-click
   // any selected element (or anywhere on the canvas; we'll try to hit-test)
@@ -283,23 +582,27 @@
     }
 
     const items = [
-      // Z-order
-      { label: "Bring forward",   action: function () { bringForward(); } },
-      { label: "Send back",       action: function () { sendBack(); } },
-      { label: "Bring to front",  action: function () { bringToFront(); } },
-      { label: "Send to back",    action: function () { sendToBack(); } },
-      { divider: true },
-      // Align (snaps the element to a canvas edge / centre, not a sibling)
-      { label: "Align left",      action: function () { alignSelected("left"); } },
-      { label: "Align centre",    action: function () { alignSelected("centerX"); } },
-      { label: "Align right",     action: function () { alignSelected("right"); } },
-      { label: "Align top",       action: function () { alignSelected("top"); } },
-      { label: "Align middle",    action: function () { alignSelected("centerY"); } },
-      { label: "Align bottom",    action: function () { alignSelected("bottom"); } },
-      { divider: true },
-      // Flip — works on any element but is most useful for images.
-      { label: "Flip horizontal", action: function () { flipSelected("h"); } },
-      { label: "Flip vertical",   action: function () { flipSelected("v"); } },
+      // Z-order — collapsed into a hover fly-out so the menu isn't a wall of
+      // options you rarely need all at once.
+      { label: "Layer", submenu: [
+        { label: "Bring forward",  action: function () { bringForward(); } },
+        { label: "Send back",      action: function () { sendBack(); } },
+        { label: "Bring to front", action: function () { bringToFront(); } },
+        { label: "Send to back",   action: function () { sendToBack(); } },
+      ] },
+      // Align to the page — fly-out submenu.
+      { label: "Align to page", submenu: [
+        { label: "Left",   action: function () { alignSelected("left"); } },
+        { label: "Centre", action: function () { alignSelected("centerX"); } },
+        { label: "Right",  action: function () { alignSelected("right"); } },
+        { label: "Top",    action: function () { alignSelected("top"); } },
+        { label: "Middle", action: function () { alignSelected("centerY"); } },
+        { label: "Bottom", action: function () { alignSelected("bottom"); } },
+      ] },
+      { label: "Flip", submenu: [
+        { label: "Horizontal", action: function () { flipSelected("h"); } },
+        { label: "Vertical",   action: function () { flipSelected("v"); } },
+      ] },
       { divider: true },
       { label: "Copy",            hint: "Ctrl+C", action: function () { copySelectedToClipboard(); } },
       { label: "Duplicate",       hint: "Ctrl+D", action: function () { duplicateSelected(); } },
@@ -336,8 +639,19 @@
       items.push({ label: "Clear background image", action: function () { setCanvasBackgroundImage(null); } });
     }
 
+    let subIdx = 0;
+    const subDefs = [];
     ctxMenu.innerHTML = items.map(function (it) {
       if (it.divider) return '<div class="ed-rclick-divider"></div>';
+      if (it.submenu) {
+        const id = subIdx++;
+        subDefs.push({ id: id, submenu: it.submenu });
+        return (
+          '<button type="button" class="ed-rclick-item has-sub" data-sub="' + id + '">' +
+            '<span>' + it.label + '</span><span class="ed-rclick-arrow">&rsaquo;</span>' +
+          '</button>'
+        );
+      }
       return (
         '<button type="button" class="ed-rclick-item' + (it.danger ? ' is-danger' : '') + '">' +
           '<span>' + it.label + '</span>' +
@@ -346,25 +660,53 @@
       );
     }).join("");
 
+    // Fly-out panels (one per submenu) — appended after the list so they sit on
+    // top and are positioned beside their parent item on hover.
+    subDefs.forEach(function (def) {
+      const fl = document.createElement("div");
+      fl.className = "ed-rclick-flyout";
+      fl.dataset.flyout = def.id;
+      fl.innerHTML = def.submenu.map(function (s) {
+        return '<button type="button" class="ed-rclick-item"><span>' + s.label + '</span></button>';
+      }).join("");
+      ctxMenu.appendChild(fl);
+      const sbtns = fl.querySelectorAll(".ed-rclick-item");
+      def.submenu.forEach(function (s, k) {
+        sbtns[k].addEventListener("click", function () { hideContextMenu(); s.action(); });
+      });
+    });
+
     // Position with a small offset; if it would overflow the viewport, flip.
     const w = 220;
-    const h = items.length * 32 + 16;
+    const h = items.length * 34 + 16;
     const px = Math.min(x + 2, window.innerWidth - w - 8);
     const py = Math.min(y + 2, window.innerHeight - h - 8);
     ctxMenu.style.left = px + "px";
     ctxMenu.style.top = py + "px";
     ctxMenu.hidden = false;
 
-    // Wire up — re-query because we just innerHTML'd.
-    const buttons = ctxMenu.querySelectorAll(".ed-rclick-item");
+    const closeFlyouts = function () { ctxMenu.querySelectorAll(".ed-rclick-flyout").forEach(function (f) { f.classList.remove("is-open"); }); };
+    const flipLeft = (ctxMenu.getBoundingClientRect().right + 180 > window.innerWidth);
+
+    // Wire top-level items (direct-child buttons only — not the fly-out buttons).
+    const topBtns = ctxMenu.querySelectorAll(":scope > .ed-rclick-item");
     let i = 0;
     items.forEach(function (it) {
       if (it.divider) return;
-      const btn = buttons[i++];
-      btn.addEventListener("click", function () {
-        hideContextMenu();
-        it.action();
-      });
+      const btn = topBtns[i++];
+      if (it.submenu) {
+        const fl = ctxMenu.querySelector('.ed-rclick-flyout[data-flyout="' + btn.dataset.sub + '"]');
+        btn.addEventListener("mouseenter", function () {
+          closeFlyouts();
+          if (!fl) return;
+          fl.style.top = (btn.offsetTop - 6) + "px";
+          fl.classList.toggle("flip-left", flipLeft);
+          fl.classList.add("is-open");
+        });
+      } else {
+        btn.addEventListener("mouseenter", closeFlyouts);
+        btn.addEventListener("click", function () { hideContextMenu(); it.action(); });
+      }
     });
   }
 
@@ -689,6 +1031,32 @@
   }
 
   // ---------- History ----------
+  // ---- Autosave drafts (admin only) ------------------------------------
+  // While editing in admin mode, persist a draft to localStorage shortly after
+  // each change, and once more right before the tab unloads — so work is never
+  // lost. Gated on window.__TMKE_AUTOSAVE__ (set by the admin bootstrap).
+  let _autosaveTimer = null;
+  function autosaveDraft() {
+    if (!window.__TMKE_AUTOSAVE__) return;
+    if (!state.templateId) state.templateId = "draft-" + Date.now(); // new / imported designs get a stable key
+    try {
+      localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify({
+        templateId: state.templateId,
+        filename: filenameEl ? filenameEl.value : "Draft",
+        canvas: state.canvas,
+        elements: state.elements,
+        pages: deep(state.pages),
+        savedAt: Date.now(),
+      }));
+    } catch (_) {}
+  }
+  function scheduleAutosave() {
+    if (!window.__TMKE_AUTOSAVE__) return;
+    clearTimeout(_autosaveTimer);
+    _autosaveTimer = setTimeout(autosaveDraft, 1200);
+  }
+  window.addEventListener("beforeunload", function () { try { if (window.__TMKE_AUTOSAVE__) autosaveDraft(); } catch (_) {} });
+
   function pushHistory() {
     // Drop forward history
     state.history = state.history.slice(0, state.historyIndex + 1);
@@ -699,6 +1067,7 @@
     if (state.history.length > 80) state.history.shift();
     state.historyIndex = state.history.length - 1;
     updateUndoRedoButtons();
+    scheduleAutosave();   // admin: persist a draft shortly after each change
   }
 
   function undo() {
@@ -731,22 +1100,33 @@
   // ---------- Load template ----------
   function loadTemplate(tplId, fresh) {
     let tpl = TEMPLATES.find((t) => t.id === tplId);
+    // If the id isn't a bundled/pack template but a saved draft exists for it
+    // (a Canva import or blank design autosaved under a "draft-…" id), keep the
+    // id so we restore THAT draft rather than falling back to the first template.
+    let draftRaw = null;
+    if (!tpl && tplId) { try { draftRaw = localStorage.getItem("tmke.editor." + tplId); } catch (_) {} }
     if (!tpl) tpl = TEMPLATES[0];
     if (!tpl) return;
-    state.templateId = tpl.id;
+    resetToSinglePage(tpl.canvas && tpl.canvas.background);
+    state.templateId = draftRaw ? tplId : tpl.id;
 
     // Try to restore saved state
     if (!fresh) {
       try {
-        const saved = JSON.parse(localStorage.getItem("tmke.editor." + tpl.id) || "null");
-        if (saved && saved.elements) {
-          state.canvas = saved.canvas;
-          state.elements = saved.elements;
+        const saved = JSON.parse((draftRaw != null ? draftRaw : localStorage.getItem("tmke.editor." + tpl.id)) || "null");
+        if (saved && (saved.pages || saved.elements)) {
+          if (saved.pages && saved.pages.length) {
+            state.pages = saved.pages;
+            state.currentPage = 0;
+          } else {
+            state.canvas = saved.canvas;
+            state.elements = saved.elements;
+          }
           state.selectedIds = [];
-          filenameEl.value = saved.filename || tpl.name;
+          filenameEl.value = takeInitialTitle() || saved.filename || tpl.name;
           state.history = [];
           state.historyIndex = -1;
-          preloadFontsForElements(state.elements);
+          state.pages.forEach((pg) => preloadFontsForElements(pg.elements));
           pushHistory();
           fullRender();
           fitZoom();
@@ -759,7 +1139,7 @@
     state.canvas = deep(tpl.canvas);
     state.elements = deep(tpl.elements);
     state.selectedIds = [];
-    filenameEl.value = tpl.name;
+    filenameEl.value = takeInitialTitle() || tpl.name;
     // Auto-substitute merge tags ({brand name}, etc.) from the customer's
     // saved brand kit. Skipped in admin mode so admins can author templates
     // with the tokens visible and intact. Customers can still hand-edit any
@@ -777,16 +1157,138 @@
   // choice). A violet page with a "Start building here" hint — the hint is
   // DOM-only (see fullRender), so it never lands in an export.
   function loadBlank() {
+    resetToSinglePage("#7B5BCF");
     state.templateId = null;
-    state.canvas = { width: 1080, height: 1350, background: "#7B5BCF" };
     state.elements = [];
     state.selectedIds = [];
-    filenameEl.value = "Untitled";
+    filenameEl.value = takeInitialTitle() || "Untitled";
     state.history = [];
     state.historyIndex = -1;
     pushHistory();
     fullRender();
     fitZoom();
+  }
+
+  // ---------- Pages ----------
+  // Collapse back to a single page (used whenever a whole template/blank is
+  // loaded — that's a one-page design until the user adds more).
+  function resetToSinglePage(bg) {
+    state.pages = [{
+      id: uid("page"), name: "Page 1",
+      canvas: { width: 1080, height: 1350, background: bg || "#F2EFE9" },
+      elements: [],
+    }];
+    state.currentPage = 0;
+  }
+
+  function loadPage(i) {
+    state.currentPage = Math.max(0, Math.min(state.pages.length - 1, i));
+    state.selectedIds = [];
+    state.history = [];
+    state.historyIndex = -1;
+    preloadFontsForElements(state.elements);
+    pushHistory();
+    fullRender();
+    fitZoom();
+  }
+
+  function goToPage(i) {
+    if (i === state.currentPage) return;
+    loadPage(i);
+  }
+
+  function addPage() {
+    const cur = state.pages[state.currentPage].canvas;
+    state.pages.splice(state.currentPage + 1, 0, {
+      id: uid("page"), name: "Page " + (state.pages.length + 1),
+      canvas: { width: cur.width, height: cur.height, background: cur.background },
+      elements: [],
+    });
+    loadPage(state.currentPage + 1);
+  }
+
+  function duplicatePage(i) {
+    const src = state.pages[i];
+    state.pages.splice(i + 1, 0, {
+      id: uid("page"), name: src.name + " copy",
+      canvas: deep(src.canvas), elements: deep(src.elements),
+    });
+    loadPage(i + 1);
+  }
+
+  function deletePage(i) {
+    if (state.pages.length <= 1) { toast("A design needs at least one page."); return; }
+    state.pages.splice(i, 1);
+    let next = state.currentPage > i ? state.currentPage - 1 : state.currentPage;
+    if (next >= state.pages.length) next = state.pages.length - 1;
+    loadPage(next);
+  }
+
+  function renderPageStrip() {
+    const strip = document.getElementById("ed-pages");
+    if (!strip) return;
+    // No visible scrollbar — hover the strip and scroll the wheel to move through
+    // the pages horizontally. Bound once (the container is stable across renders).
+    if (!strip.dataset.wheelBound) {
+      strip.dataset.wheelBound = "1";
+      strip.addEventListener("wheel", (e) => {
+        if (strip.scrollWidth <= strip.clientWidth) return; // nothing to scroll
+        const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (!delta) return;
+        strip.scrollLeft += delta;
+        e.preventDefault();
+      }, { passive: false });
+    }
+    strip.innerHTML = "";
+    const multi = state.pages.length > 1;
+    state.pages.forEach((pg, i) => {
+      const tile = document.createElement("button");
+      tile.type = "button";
+      tile.className = "ed-page-tile" + (i === state.currentPage ? " is-current" : "");
+      tile.title = "Page " + (i + 1);
+      // Live preview: a rendered thumbnail of the page (background + text),
+      // cached on the page as _thumb. Falls back to the raw background image,
+      // then the solid colour, until the thumbnail is generated.
+      const cvs = pg.canvas || {};
+      tile.style.backgroundColor = cvs.background || "#fff";
+      const preview = pg._thumb || cvs.backgroundImage;
+      if (preview) {
+        tile.style.backgroundImage = "url('" + preview + "')";
+        tile.style.backgroundSize = "cover";
+        tile.style.backgroundPosition = "center";
+      } else {
+        tile.style.backgroundImage = "";
+      }
+      tile.addEventListener("click", () => goToPage(i));
+
+      const num = document.createElement("span");
+      num.className = "ed-page-num";
+      num.textContent = i + 1;
+      tile.appendChild(num);
+
+      const acts = document.createElement("span");
+      acts.className = "ed-page-acts";
+      const dup = document.createElement("span");
+      dup.className = "ed-page-act"; dup.title = "Duplicate page"; dup.innerHTML = "&#10697;";
+      dup.addEventListener("click", (e) => { e.stopPropagation(); duplicatePage(i); });
+      acts.appendChild(dup);
+      if (multi) {
+        const del = document.createElement("span");
+        del.className = "ed-page-act ed-page-del"; del.title = "Delete page"; del.innerHTML = "&times;";
+        del.addEventListener("click", (e) => { e.stopPropagation(); deletePage(i); });
+        acts.appendChild(del);
+      }
+      tile.appendChild(acts);
+      strip.appendChild(tile);
+    });
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "ed-page-add";
+    add.title = "Add a page";
+    add.innerHTML = '<span>+</span><small>Add page</small>';
+    add.addEventListener("click", addPage);
+    strip.appendChild(add);
   }
 
   // ---------- Rendering ----------
@@ -822,25 +1324,118 @@
     // a from-scratch canvas is still empty. It carries no element data, so
     // _renderDesignToCanvas (which draws from state) never exports it, and it
     // disappears the moment the user adds anything.
-    if (state.templateId === null && state.elements.length === 0) {
+    if (state.elements.length === 0 && !state.canvas.backgroundImage) {
       const hint = document.createElement("div");
       hint.className = "ed-blank-hint";
       hint.textContent = "Start building here";
-      hint.setAttribute("aria-hidden", "true");
+      hint.title = "Click to edit";
+      // Click the prompt to turn it into a real, editable text box that already
+      // contains "Start building here" (select-all, so typing replaces it) —
+      // rather than dropping a tiny separate body text box.
+      hint.addEventListener("click", function (e) {
+        e.stopPropagation();
+        addPlaceholderText();
+      });
       canvasEl.appendChild(hint);
     }
 
+    autosizeTextElements();
     renderHandles();
     renderLayers();
     renderContextBar();
     renderProps();
     renderTemplateGrid();
+    renderPageStrip();
+    // Keep the page-strip preview of the page being edited live (only while the
+    // strip is visible, debounced, so editing stays snappy).
+    scheduleCurrentThumb();
 
     // Keep the Background-pane detach button in sync with state. Cheap
     // here (one DOM toggle per render) and means we never have to
     // remember to call it from anywhere else.
     const detachBtn = document.getElementById("ed-bg-detach");
     if (detachBtn) detachBtn.hidden = !state.canvas.backgroundImage;
+  }
+
+  // ---- Page-strip live previews + busy lock -----------------------------
+  // Render a page (background + every element) to a small JPEG thumbnail so the
+  // strip shows what each page actually looks like, text and all.
+  let _thumbBusy = false, _thumbTimer = null;
+  async function buildThumb(i, maxEdge) {
+    const orig = state.currentPage;
+    state.currentPage = i;              // _renderDesignToCanvas draws the active page
+    let url = null;
+    try {
+      const c = await _renderDesignToCanvas({ transparent: false });
+      const long = Math.max(c.width, c.height) || 1;
+      const k = long > (maxEdge || 220) ? (maxEdge || 220) / long : 1;
+      const t = document.createElement("canvas");
+      t.width = Math.max(1, Math.round(c.width * k));
+      t.height = Math.max(1, Math.round(c.height * k));
+      t.getContext("2d").drawImage(c, 0, 0, t.width, t.height);
+      url = t.toDataURL("image/jpeg", 0.72);
+    } catch (_) {}
+    state.currentPage = orig;
+    return url;
+  }
+  function applyThumbToTile(i, url) {
+    if (!url) return;
+    const strip = document.getElementById("ed-pages");
+    if (!strip) return;
+    const tile = strip.querySelectorAll(".ed-page-tile")[i];
+    if (tile) {
+      tile.style.backgroundImage = "url('" + url + "')";
+      tile.style.backgroundSize = "cover";
+      tile.style.backgroundPosition = "center";
+    }
+  }
+  // Regenerate every page's thumbnail (after a build, page add/delete, or when
+  // the strip is opened).
+  async function refreshPageThumbs() {
+    if (_thumbBusy) return;
+    _thumbBusy = true;
+    try {
+      for (let i = 0; i < state.pages.length; i++) {
+        const url = await buildThumb(i, 220);
+        if (url) { state.pages[i]._thumb = url; applyThumbToTile(i, url); }
+      }
+    } finally { _thumbBusy = false; }
+  }
+  // After an edit, refresh just the current page's thumbnail — but only while
+  // the strip is on screen, and debounced so typing stays smooth.
+  function scheduleCurrentThumb() {
+    const ed = document.getElementById("editor");
+    if (!ed || !ed.classList.contains("show-pages")) return;
+    clearTimeout(_thumbTimer);
+    _thumbTimer = setTimeout(async () => {
+      const i = state.currentPage;
+      const url = await buildThumb(i, 220);
+      if (url && state.pages[i]) { state.pages[i]._thumb = url; applyThumbToTile(i, url); }
+    }, 450);
+  }
+  window.__TMKE_REFRESH_THUMBS__ = refreshPageThumbs;
+
+  // Busy lock — while the Canva build is placing text page-by-page, stop the
+  // user clicking page tiles (which would redirect the text to the wrong page).
+  window.__TMKE_SET_BUSY__ = function (on) {
+    const ed = document.getElementById("editor");
+    if (ed) ed.classList.toggle("ed-busy", !!on);
+    if (!on) refreshPageThumbs(); // build finished — refresh previews with the new text
+  };
+
+  // Text boxes auto-grow to contain their text (Canva-style) so adding lines
+  // (Enter) or wrapping never overflows the bounding box. Grow-only here so a
+  // user's larger manual height is respected; live editing tracks both ways.
+  function autosizeTextElements() {
+    state.elements.forEach(function (el) {
+      if (el.type !== "text") return;
+      const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+      if (!node) return;
+      const inner = node.querySelector(".ed-text-inner");
+      if (!inner) return;
+      const h = Math.ceil(inner.offsetHeight);
+      if (h > 0 && h > el.h + 1) { el.h = h; node.style.height = h + "px"; }
+    });
   }
 
   // Set or clear the canvas background image. Passing null clears it.
@@ -861,6 +1456,12 @@
     const node = canvasEl.querySelector('[data-id="' + el.id + '"]');
     if (!node) return;
     applyElementStyles(node, el);
+    // For text, re-apply type styles so live changes (e.g. font scaling on a
+    // corner resize) show immediately, not only after a full render.
+    if (el.type === "text") {
+      const inner = node.querySelector(".ed-text-inner");
+      if (inner) applyTextStyles(inner, el);
+    }
     // For frames, also re-apply the inner image transform — a resize
     // changes the cover-fit base, and a viewpoint drag changes the offsets.
     if (el.type === "frame") {
@@ -986,6 +1587,17 @@
     }
     if (el.locked) node.classList.add("is-locked");
     if (el.hidden) node.classList.add("is-hidden");
+    if (el.type === "text" && el.vcenter) node.classList.add("ed-text-vcenter");
+
+    // Comment badge — visible even when the element isn't selected.
+    const openCmts = el.comments ? el.comments.filter((c) => !c.resolved).length : 0;
+    if (openCmts) {
+      const badge = document.createElement("div");
+      badge.className = "ed-cmt-badge";
+      badge.textContent = openCmts;
+      badge.title = openCmts + " comment" + (openCmts === 1 ? "" : "s");
+      node.appendChild(badge);
+    }
 
     bindElementInteractions(node, el);
     return node;
@@ -1214,9 +1826,45 @@
     handlesEl.innerHTML = "";
     handlesEl.style.width = state.canvas.width + "px";
     handlesEl.style.height = state.canvas.height + "px";
-    if (state.selectedIds.length !== 1) return;
+
+    // Multi-selection — a combined dashed box + the group action bar.
+    if (state.selectedIds.length > 1) {
+      hideFloatBar();
+      const els = selectedElements().filter((e) => !e.locked);
+      if (!els.length) { hideGroupBar(); return; }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      els.forEach((e) => { minX = Math.min(minX, e.x); minY = Math.min(minY, e.y); maxX = Math.max(maxX, e.x + e.w); maxY = Math.max(maxY, e.y + e.h); });
+      const mb = document.createElement("div");
+      mb.className = "ed-bounds ed-bounds--multi";
+      mb.style.left = minX + "px"; mb.style.top = minY + "px";
+      mb.style.width = (maxX - minX) + "px"; mb.style.height = (maxY - minY) + "px";
+      handlesEl.appendChild(mb);
+
+      // Scale handles on the combined box — drag to resize/reshape everything
+      // inside as one group (text sizes scale too).
+      const gbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+      const mpos = [
+        ["nw", 0, 0], ["n", 0.5, 0], ["ne", 1, 0],
+        ["e", 1, 0.5], ["se", 1, 1],
+        ["s", 0.5, 1], ["sw", 0, 1], ["w", 0, 0.5],
+      ];
+      mpos.forEach(([h, fx, fy]) => {
+        const handle = document.createElement("div");
+        handle.className = "ed-handle";
+        handle.dataset.h = h;
+        handle.style.left = (gbox.x + fx * gbox.w - 5) + "px";
+        handle.style.top = (gbox.y + fy * gbox.h - 5) + "px";
+        handlesEl.appendChild(handle);
+        handle.addEventListener("pointerdown", (ev) => startGroupResize(ev, els, gbox, h));
+      });
+
+      positionGroupBar(mb.getBoundingClientRect());
+      return;
+    }
+    hideGroupBar();
+    if (state.selectedIds.length !== 1) { hideFloatBar(); return; }
     const el = getEl(state.selectedIds[0]);
-    if (!el || el.locked) return;
+    if (!el || el.locked) { hideFloatBar(); return; }
 
     // Bounds
     const bounds = document.createElement("div");
@@ -1228,6 +1876,11 @@
     bounds.style.transform = "rotate(" + (el.rotation || 0) + "deg)";
     bounds.style.transformOrigin = "center center";
     handlesEl.appendChild(bounds);
+
+    // Floating quick-action toolbar above the element (hidden while editing text).
+    const elNode = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+    if (elNode && elNode.classList.contains("is-editing")) hideFloatBar();
+    else positionFloatBar(bounds.getBoundingClientRect(), el);
 
     // Resize handles
     const positions = [
@@ -1271,6 +1924,188 @@
     rotHandle.addEventListener("pointerdown", (ev) => startRotate(ev, el));
   }
 
+  // ---------- Floating selection toolbar (Canva-style quick actions) ----------
+  function cmtEscape(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  const ICON_FB = {
+    comment: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg>',
+    duplicate: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    more: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+    convert: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
+  };
+  const floatBar = document.createElement("div");
+  floatBar.className = "ed-floatbar";
+  floatBar.hidden = true;
+  floatBar.innerHTML =
+    '<button type="button" class="ed-fb-btn" data-fb="convert" title="Add a text label beside this icon (matched & linked)" hidden>' + ICON_FB.convert + '</button>' +
+    '<button type="button" class="ed-fb-btn" data-fb="comment" title="Comment">' + ICON_FB.comment + '<span class="ed-fb-count" hidden></span></button>' +
+    '<button type="button" class="ed-fb-btn" data-fb="duplicate" title="Duplicate">' + ICON_FB.duplicate + '</button>' +
+    '<button type="button" class="ed-fb-btn ed-fb-danger" data-fb="delete" title="Delete">' + ICON_FB.delete + '</button>' +
+    '<span class="ed-fb-sep"></span>' +
+    '<button type="button" class="ed-fb-btn" data-fb="more" title="More">' + ICON_FB.more + '</button>';
+  document.body.appendChild(floatBar);
+  // Don't let clicks on the bar bubble to the canvas (which would deselect).
+  floatBar.addEventListener("pointerdown", (e) => e.stopPropagation());
+  floatBar.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-fb]"); if (!b) return;
+    const el = getEl(state.selectedIds[0]); if (!el) return;
+    const act = b.dataset.fb;
+    if (act === "duplicate") duplicateSelected();
+    else if (act === "delete") deleteSelected();
+    else if (act === "more") { const r = b.getBoundingClientRect(); showContextMenu(r.left - 4, r.bottom + 2, el); }
+    else if (act === "comment") openCommentPopover(el, b);
+    else if (act === "convert") convertIconToText(el);
+  });
+
+  function positionFloatBar(rect, el) {
+    if (!rect) { hideFloatBar(); return; }
+    floatBar.hidden = false;
+    // "Convert to text" shows for icons / images (add a matched, linked label).
+    const convertBtn = floatBar.querySelector('[data-fb="convert"]');
+    if (convertBtn) convertBtn.hidden = !(el && (el.svgKey || el.type === "image"));
+    // Comment count badge.
+    const open = (el && el.comments ? el.comments.filter((c) => !c.resolved).length : 0);
+    const countEl = floatBar.querySelector(".ed-fb-count");
+    if (countEl) { countEl.hidden = !open; countEl.textContent = open || ""; }
+    const bw = floatBar.offsetWidth || 168;
+    const bh = floatBar.offsetHeight || 40;
+    let left = rect.left + rect.width / 2 - bw / 2;
+    let top = rect.top - bh - 12;
+    if (top < 70) top = rect.bottom + 12; // no room above → go below
+    left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+    floatBar.style.left = left + "px";
+    floatBar.style.top = top + "px";
+  }
+  function hideFloatBar() { floatBar.hidden = true; }
+
+  // Add a text label beside an icon: same height, vertically centred, and
+  // grouped so the two stay matched + aligned and move together. Then edit it.
+  function convertIconToText(icon) {
+    if (!icon) return;
+    const gid = icon.group || uid("grp");
+    icon.group = gid;
+    const gap = Math.round(icon.h * 0.25);
+    // Match the icon's height: a cap-height of ~0.72·fontSize means the text
+    // visually reads the same height as the icon glyph beside it.
+    const size = Math.max(8, Math.round(icon.h * 0.92));
+    const tx = icon.x + icon.w + gap;
+    const tw = Math.max(120, Math.round(icon.w * 3));
+    const th = Math.round(size * 1.25);              // box tall enough for the glyph
+    const ty = Math.round(icon.y + icon.h / 2 - th / 2); // centre on the icon
+    const t = {
+      id: uid("text"), type: "text", text: "Add text",
+      x: tx, y: ty, w: tw, h: th, rotation: 0, opacity: 1,
+      font: "Cormorant Garamond", size: size, weight: 500, italic: false,
+      color: icon.svgFill && /^#[0-9a-f]{6}$/i.test(icon.svgFill) ? icon.svgFill : "#1c1d22",
+      align: "left", letterSpacing: 0, lineHeight: 1, group: gid,
+      vcenter: true, // vertically centre within its box so it lines up with the icon
+    };
+    state.elements.push(t);
+    state.selectedIds = [icon.id, t.id];
+    pushHistory();
+    fullRender();
+    requestAnimationFrame(() => {
+      const node = canvasEl.querySelector('.ed-element[data-id="' + t.id + '"]');
+      if (node) { state.selectedIds = [t.id]; fullRender(); startTextEdit(canvasEl.querySelector('.ed-element[data-id="' + t.id + '"]'), getEl(t.id)); }
+    });
+  }
+
+  // ---------- Multi-select group bar ----------
+  const ICON_GRP = {
+    group: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  };
+  const groupBar = document.createElement("div");
+  groupBar.className = "ed-floatbar";
+  groupBar.hidden = true;
+  groupBar.innerHTML =
+    '<button type="button" class="ed-fb-btn ed-fb-text" data-gb="group"><span></span></button>' +
+    '<span class="ed-fb-sep"></span>' +
+    '<button type="button" class="ed-fb-btn" data-gb="duplicate" title="Duplicate">' + ICON_FB.duplicate + '</button>' +
+    '<button type="button" class="ed-fb-btn ed-fb-danger" data-gb="delete" title="Delete">' + ICON_FB.delete + '</button>';
+  document.body.appendChild(groupBar);
+  groupBar.addEventListener("pointerdown", (e) => e.stopPropagation());
+  groupBar.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-gb]"); if (!b) return;
+    const act = b.dataset.gb;
+    if (act === "duplicate") duplicateSelected();
+    else if (act === "delete") deleteSelected();
+    else if (act === "group") {
+      const els = selectedElements();
+      const allGrouped = els.length && els.every((e2) => e2.group && e2.group === els[0].group);
+      if (allGrouped) { els.forEach((e2) => { delete e2.group; }); }   // ungroup
+      else { const gid = uid("grp"); els.forEach((e2) => { e2.group = gid; }); } // group
+      pushHistory(); fullRender();
+    }
+  });
+  function hideGroupBar() { groupBar.hidden = true; }
+  function positionGroupBar(rect) {
+    groupBar.hidden = false;
+    const els = selectedElements();
+    const grouped = els.length && els.every((e2) => e2.group && e2.group === els[0].group);
+    const label = groupBar.querySelector('[data-gb="group"] span');
+    if (label) label.textContent = grouped ? "Ungroup" : "Group";
+    const bw = groupBar.offsetWidth || 180, bh = groupBar.offsetHeight || 40;
+    let left = rect.left + rect.width / 2 - bw / 2;
+    let top = rect.top - bh - 12;
+    if (top < 70) top = rect.bottom + 12;
+    left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+    groupBar.style.left = left + "px";
+    groupBar.style.top = top + "px";
+  }
+
+  // ---------- Comments (per element; the review-workflow foundation) ----------
+  let commentPop = null;
+  function closeCommentPopover() { if (commentPop) { commentPop.remove(); commentPop = null; } }
+  function openCommentPopover(el, anchorBtn) {
+    closeCommentPopover();
+    if (!el.comments) el.comments = [];
+    commentPop = document.createElement("div");
+    commentPop.className = "ed-cmt-pop";
+    commentPop.addEventListener("pointerdown", (e) => e.stopPropagation());
+    document.body.appendChild(commentPop);
+    drawCommentPop(el);
+    const r = anchorBtn.getBoundingClientRect();
+    commentPop.style.left = Math.max(8, Math.min(r.left - 20, window.innerWidth - 312)) + "px";
+    commentPop.style.top = (r.bottom + 8) + "px";
+    const ta = commentPop.querySelector("textarea"); if (ta) ta.focus();
+  }
+  function drawCommentPop(el) {
+    if (!commentPop) return;
+    const list = (el.comments || []).map((c, i) =>
+      '<div class="ed-cmt' + (c.resolved ? " is-resolved" : "") + '"><p>' + cmtEscape(c.text) + '</p>' +
+      '<div class="ed-cmt-acts"><button type="button" data-cmt-resolve="' + i + '">' + (c.resolved ? "Reopen" : "Resolve") + '</button>' +
+      '<button type="button" data-cmt-del="' + i + '">Delete</button></div></div>'
+    ).join("");
+    commentPop.innerHTML =
+      '<div class="ed-cmt-head">Comments</div>' +
+      '<div class="ed-cmt-list">' + (list || '<p class="ed-cmt-empty">No comments yet.</p>') + '</div>' +
+      '<div class="ed-cmt-add"><textarea rows="2" placeholder="Add a comment…"></textarea><button type="button" class="ed-cmt-send">Comment</button></div>';
+    commentPop.querySelector(".ed-cmt-send").addEventListener("click", () => {
+      const ta = commentPop.querySelector("textarea");
+      const txt = (ta.value || "").trim();
+      if (!txt) return;
+      el.comments.push({ id: uid("cmt"), text: txt, resolved: false, ts: Date.now() });
+      pushHistory(); fullRender(); drawCommentPop(el);
+    });
+    commentPop.querySelectorAll("[data-cmt-resolve]").forEach((b) => b.addEventListener("click", () => {
+      const i = +b.dataset.cmtResolve; el.comments[i].resolved = !el.comments[i].resolved; pushHistory(); fullRender(); drawCommentPop(el);
+    }));
+    commentPop.querySelectorAll("[data-cmt-del]").forEach((b) => b.addEventListener("click", () => {
+      const i = +b.dataset.cmtDel; el.comments.splice(i, 1); pushHistory(); fullRender(); drawCommentPop(el);
+    }));
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (commentPop && !commentPop.contains(e.target) && !(e.target.closest && e.target.closest('[data-fb="comment"]'))) closeCommentPopover();
+  });
+
+  // Grouped elements move + select as a unit. Returns the ids to select for el.
+  function groupIdsFor(el) {
+    if (el && el.group) return state.elements.filter((e) => e.group === el.group).map((e) => e.id);
+    return el ? [el.id] : [];
+  }
+
   // ---------- Interactions ----------
   function bindElementInteractions(node, el) {
     node.addEventListener("pointerdown", (ev) => {
@@ -1279,12 +2114,15 @@
       ev.stopPropagation();
 
       const multi = ev.shiftKey;
+      const ids = groupIdsFor(el); // the whole group if el is grouped
       if (!state.selectedIds.includes(el.id)) {
-        if (multi) state.selectedIds.push(el.id);
-        else state.selectedIds = [el.id];
+        if (multi) ids.forEach((id) => { if (!state.selectedIds.includes(id)) state.selectedIds.push(id); });
+        else state.selectedIds = ids;
+        closeColorPanel(); // a different element is now selected
         fullRender();
       } else if (multi) {
-        state.selectedIds = state.selectedIds.filter((x) => x !== el.id);
+        // Shift-click a selected group toggles the whole group off.
+        state.selectedIds = state.selectedIds.filter((x) => ids.indexOf(x) === -1);
         fullRender();
         return;
       }
@@ -1296,12 +2134,24 @@
         ev.stopPropagation();
         startTextEdit(node, el);
       });
+      // Click-to-edit: the first click selects (a full re-render replaces this
+      // node, so this handler won't fire then); a second click on the already-
+      // selected box drops the caret where you clicked — no double-click needed.
+      node.addEventListener("click", (ev) => {
+        if (el.locked || node.classList.contains("is-editing")) return;
+        if (ev.shiftKey || _dragMoved) return;
+        if (state.selectedIds.length === 1 && state.selectedIds[0] === el.id) {
+          startTextEdit(node, el, { x: ev.clientX, y: ev.clientY });
+        }
+      });
     }
   }
 
   let dragging = null;
+  let _dragMoved = false; // true if the last pointer gesture actually moved an element
   function startDrag(ev) {
     ev.preventDefault();
+    _dragMoved = false;
     const startX = ev.clientX, startY = ev.clientY;
     const initial = selectedElements().map((e) => ({ id: e.id, x: e.x, y: e.y }));
     let moved = false;
@@ -1309,7 +2159,7 @@
     function onMove(e) {
       const dx = (e.clientX - startX) / state.zoom;
       const dy = (e.clientY - startY) / state.zoom;
-      if (!moved && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) moved = true;
+      if (!moved && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) { moved = true; _dragMoved = true; }
       initial.forEach((m) => {
         const el = getEl(m.id);
         if (!el) return;
@@ -1336,17 +2186,49 @@
     document.addEventListener("pointerup", onUp);
   }
 
+  // Re-measure a single text element's height to its content and update the
+  // node + bounds (used live during text scaling/resizing).
+  function fitTextHeight(el) {
+    const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+    if (!node) return;
+    const inner = node.querySelector(".ed-text-inner");
+    if (!inner) return;
+    const h = Math.ceil(inner.offsetHeight);
+    if (h > 0) { el.h = h; node.style.height = h + "px"; }
+  }
+
   function startResize(ev, el, handle) {
     ev.preventDefault();
     ev.stopPropagation();
     const startX = ev.clientX, startY = ev.clientY;
-    const o = { x: el.x, y: el.y, w: el.w, h: el.h };
+    const o = { x: el.x, y: el.y, w: el.w, h: el.h, size: el.size };
     const aspect = o.w / o.h;
     const lockAspect = (el.type === "image" || el.type === "ellipse");
+    // Text + corner handle → Canva-style scale: the font grows/shrinks with the
+    // box (and the box width follows), so you size by dragging, not guessing.
+    const textScale = (el.type === "text" && handle.length === 2);
 
     function onMove(e) {
       let dx = (e.clientX - startX) / state.zoom;
       let dy = (e.clientY - startY) / state.zoom;
+
+      if (textScale) {
+        const nw = handle.includes("e") ? Math.max(20, o.w + dx) : Math.max(20, o.w - dx);
+        const scale = nw / o.w;
+        el.w = Math.round(nw);
+        el.size = Math.max(6, Math.round(o.size * scale));
+        el.x = handle.includes("w") ? Math.round(o.x + (o.w - el.w)) : o.x;
+        partialRenderElement(el);
+        fitTextHeight(el); // height follows the wrapped, rescaled text
+        el.y = handle.includes("n") ? Math.round(o.y + o.h - el.h) : o.y;
+        partialRenderElement(el);
+        renderHandles();
+        // Live size readout in the context bar so you can see the number change.
+        const sizeInput = document.querySelector("#ed-context .ed-size-ctl .ed-ctx-num");
+        if (sizeInput) sizeInput.value = el.size;
+        return;
+      }
+
       let nx = o.x, ny = o.y, nw = o.w, nh = o.h;
       const shift = e.shiftKey || lockAspect;
 
@@ -1372,6 +2254,53 @@
       el.x = Math.round(nx); el.y = Math.round(ny);
       el.w = Math.round(nw); el.h = Math.round(nh);
       partialRenderElement(el);
+      renderHandles();
+    }
+    function onUp() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      pushHistory();
+      renderProps();
+    }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  }
+
+  // Resize a multi-selection as one group: drag a handle on the combined box and
+  // every element repositions + rescales proportionally (text font-size included).
+  function startGroupResize(ev, els, gbox, handle) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const startX = ev.clientX, startY = ev.clientY;
+    const o = { x: gbox.x, y: gbox.y, w: gbox.w, h: gbox.h };
+    const orig = els.map((e) => ({ el: e, x: e.x, y: e.y, w: e.w, h: e.h, size: e.size }));
+    function onMove(e) {
+      const dx = (e.clientX - startX) / state.zoom;
+      const dy = (e.clientY - startY) / state.zoom;
+      let nx = o.x, ny = o.y, nw = o.w, nh = o.h;
+      if (handle.includes("e")) nw = Math.max(16, o.w + dx);
+      if (handle.includes("s")) nh = Math.max(16, o.h + dy);
+      if (handle.includes("w")) { nw = Math.max(16, o.w - dx); nx = o.x + (o.w - nw); }
+      if (handle.includes("n")) { nh = Math.max(16, o.h - dy); ny = o.y + (o.h - nh); }
+      if (handle === "n" || handle === "s") nw = o.w;
+      if (handle === "e" || handle === "w") nh = o.h;
+      // Shift (or a corner) keeps the group's aspect so nothing skews.
+      if ((e.shiftKey || handle.length === 2)) {
+        const s = Math.min(nw / o.w, nh / o.h);
+        nw = o.w * s; nh = o.h * s;
+        if (handle.includes("w")) nx = o.x + (o.w - nw);
+        if (handle.includes("n")) ny = o.y + (o.h - nh);
+      }
+      const sx = nw / o.w, sy = nh / o.h;
+      const sAvg = (sx + sy) / 2;
+      orig.forEach((r) => {
+        r.el.x = Math.round(nx + (r.x - o.x) * sx);
+        r.el.y = Math.round(ny + (r.y - o.y) * sy);
+        r.el.w = Math.max(4, Math.round(r.w * sx));
+        r.el.h = Math.max(4, Math.round(r.h * sy));
+        if (r.el.type === "text" && r.size) r.el.size = Math.max(6, Math.round(r.size * sAvg));
+        partialRenderElement(r.el);
+      });
       renderHandles();
     }
     function onUp() {
@@ -1462,38 +2391,135 @@
     });
   }
 
+  // A large, centred, editable "Start building here" text box — what the blank
+  // hint becomes on click (text pre-selected so typing replaces it).
+  function addPlaceholderText() {
+    const cw = state.canvas.width, ch = state.canvas.height;
+    const w = Math.min(900, cw - 120);
+    addElement({
+      type: "text", text: "Start building here",
+      font: "Cormorant Garamond", size: 64, weight: 500, italic: false,
+      color: textContrastColor(state.canvas.background),
+      align: "center", letterSpacing: 0, lineHeight: 1.1,
+      x: Math.round((cw - w) / 2), y: Math.round(ch / 2 - 64), w: w, h: 128,
+      rotation: 0, opacity: 1,
+    });
+    requestAnimationFrame(() => {
+      const id = state.selectedIds[0];
+      const node = canvasEl.querySelector('.ed-element[data-id="' + id + '"]');
+      if (node) startTextEdit(node, getEl(id)); // select-all, ready to type over
+    });
+  }
+
+  // Pick black or white text for legibility against a (possibly hex) background.
+  function textContrastColor(bg) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(bg || "").trim());
+    if (!m) return "#1c1d22";
+    const n = parseInt(m[1], 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.55 ? "#1c1d22" : "#FFFFFF";
+  }
+
   // ---------- Text editing ----------
-  function startTextEdit(node, el) {
+  function startTextEdit(node, el, point) {
     const inner = node.querySelector(".ed-text-inner");
     if (!inner) return;
     node.classList.add("is-editing");
     inner.contentEditable = "true";
     inner.focus();
-    document.execCommand("selectAll", false, null);
+    // Click-to-edit places the caret where you clicked; double-click / new box
+    // selects everything.
+    let placed = false;
+    if (point) {
+      try {
+        let range = null;
+        if (document.caretRangeFromPoint) {
+          range = document.caretRangeFromPoint(point.x, point.y);
+        } else if (document.caretPositionFromPoint) {
+          const pos = document.caretPositionFromPoint(point.x, point.y);
+          if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); range.collapse(true); }
+        }
+        if (range && inner.contains(range.startContainer)) {
+          const sel = window.getSelection();
+          sel.removeAllRanges(); sel.addRange(range);
+          placed = true;
+        }
+      } catch (_) { /* fall back to select-all */ }
+    }
+    if (!placed) document.execCommand("selectAll", false, null);
+
+    // Grow (or shrink) the box live as lines are added/removed, and keep the
+    // selection outline glued to it.
+    function grow() {
+      const h = Math.ceil(inner.offsetHeight);
+      if (h > 0 && h !== el.h) {
+        el.h = h;
+        node.style.height = h + "px";
+        renderHandles();
+      }
+    }
+    inner.addEventListener("input", grow);
+    grow();
 
     function commit() {
       inner.contentEditable = "false";
       node.classList.remove("is-editing");
-      const newText = inner.textContent;
+      // innerText preserves the line breaks from Enter (textContent drops them).
+      const newText = inner.innerText.replace(/\n$/, "");
       if (newText !== el.text) {
         el.text = newText;
         pushHistory();
       }
+      inner.removeEventListener("input", grow);
       inner.removeEventListener("blur", commit);
+      renderHandles(); // bring the floating toolbar back now editing is done
     }
     inner.addEventListener("blur", commit);
   }
 
-  // ---------- Canvas click to deselect ----------
+  // ---------- Canvas: drag a marquee to multi-select, or click to deselect ----
   canvasEl.addEventListener("pointerdown", (ev) => {
-    if (ev.target === canvasEl) {
-      state.selectedIds = [];
+    if (ev.target !== canvasEl || ev.button !== 0) return;
+    closeColorPanel();
+    const rect = canvasEl.getBoundingClientRect();
+    const z = state.zoom || 1;
+    const sx = (ev.clientX - rect.left) / z, sy = (ev.clientY - rect.top) / z;
+    let moved = false;
+    const box = document.createElement("div");
+    box.className = "ed-marquee";
+    handlesEl.appendChild(box);
+    const draw = (x, y, w, h) => { box.style.left = x + "px"; box.style.top = y + "px"; box.style.width = w + "px"; box.style.height = h + "px"; };
+    draw(sx, sy, 0, 0);
+    function onMove(e) {
+      const cx = (e.clientX - rect.left) / z, cy = (e.clientY - rect.top) / z;
+      if (Math.abs(cx - sx) > 3 || Math.abs(cy - sy) > 3) moved = true;
+      draw(Math.min(sx, cx), Math.min(sy, cy), Math.abs(cx - sx), Math.abs(cy - sy));
+    }
+    function onUp(e) {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      box.remove();
+      if (!moved) { state.selectedIds = []; fullRender(); return; }
+      const cx = (e.clientX - rect.left) / z, cy = (e.clientY - rect.top) / z;
+      const rx = Math.min(sx, cx), ry = Math.min(sy, cy), rw = Math.abs(cx - sx), rh = Math.abs(cy - sy);
+      const ids = new Set();
+      state.elements.forEach((el) => {
+        if (el.locked) return;
+        if (el.x < rx + rw && el.x + el.w > rx && el.y < ry + rh && el.y + el.h > ry) {
+          groupIdsFor(el).forEach((id) => ids.add(id));
+        }
+      });
+      state.selectedIds = Array.from(ids);
       fullRender();
     }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
   });
   stageEl.addEventListener("pointerdown", (ev) => {
     if (ev.target === stageEl || ev.target === shadowEl) {
       state.selectedIds = [];
+      closeColorPanel();
       fullRender();
     }
   });
@@ -1856,6 +2882,7 @@
       filename: filenameEl.value,
       canvas: state.canvas,
       elements: state.elements,
+      pages: deep(state.pages),
       savedAt: Date.now(),
       thumb,
     };
@@ -1993,7 +3020,8 @@
     const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
     ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
     ctx.textBaseline = "top";
-    ctx.textAlign = el.align;
+    // Canvas has no "justify" — fall back to left for the static snapshot.
+    ctx.textAlign = el.align === "justify" ? "left" : el.align;
     const lh = el.size * (el.lineHeight || 1.3);
     const lines = wrapText(ctx, el.text || "", el.w);
 
@@ -2296,6 +3324,7 @@
     if (!body) return;
 
     if (state.selectedIds.length !== 1) {
+      closeColorPanel();
       body.innerHTML = state.selectedIds.length > 1
         ? '<p class="ed-selection-empty">' + state.selectedIds.length + ' elements selected.</p>'
         : '';
@@ -2871,11 +3900,7 @@
       });
       g1.appendChild(picker);
 
-      const sizeIn = document.createElement("input");
-      sizeIn.type = "number"; sizeIn.className = "ed-ctx-num";
-      sizeIn.value = el.size; sizeIn.min = 6; sizeIn.max = 600;
-      sizeIn.addEventListener("change", () => { el.size = parseInt(sizeIn.value, 10); fullRender(); pushHistory(); });
-      g1.appendChild(sizeIn);
+      g1.appendChild(createSizeControl(el.size, function (v) { el.size = v; fullRender(); pushHistory(); }));
       ctxEl.appendChild(g1);
 
       // B I U
@@ -2891,22 +3916,38 @@
       }, "Underline"));
       ctxEl.appendChild(g2);
 
-      // Align
+      // Align — one button that cycles through the four alignments on each click
+      // (left → centre → right → justified), so it stays compact.
+      const ALIGN_CYCLE = ["left", "center", "right", "justify"];
+      const ALIGN_LABEL = { left: "Left", center: "Centre", right: "Right", justify: "Justified" };
       const g3 = group();
-      ["left", "center", "right"].forEach((a) => {
-        const b = toggleBtn(alignIcon(a), el.align === a, () => { el.align = a; fullRender(); pushHistory(); }, "Align " + a);
-        g3.appendChild(b);
-      });
+      const curAlign = ALIGN_CYCLE.indexOf(el.align) >= 0 ? el.align : "left";
+      const alignBtn = toggleBtn(alignIcon(curAlign), false, () => {
+        const i = ALIGN_CYCLE.indexOf(el.align) >= 0 ? ALIGN_CYCLE.indexOf(el.align) : 0;
+        el.align = ALIGN_CYCLE[(i + 1) % ALIGN_CYCLE.length];
+        fullRender(); pushHistory();
+      }, "Alignment: " + ALIGN_LABEL[curAlign] + " — click to cycle");
+      g3.appendChild(alignBtn);
       ctxEl.appendChild(g3);
 
-      // Colour — circular swatch, no label (Canva-style).
+      // Colour — opens the rich left-hand colour panel (solid or gradient).
       const g4 = group();
-      g4.appendChild(circleColorInput(el.color, function (hex) { el.color = hex; }, "Text colour"));
+      g4.appendChild(colorSwatchButton(
+        function () { return el.color; },
+        {
+          title: "Text colour",
+          onSolid: function (hex) { el.color = hex; el.textGradient = null; },
+          onGradient: function (g) { el.textGradient = { enabled: true, type: "linear", angle: g.angle || 135, from: g.from, to: g.to }; },
+        }
+      ));
       ctxEl.appendChild(g4);
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
-      // Fill — circle swatch
+      // Fill — opens the rich colour panel.
       const g = group();
-      g.appendChild(circleColorInput(el.fill, function (hex) { el.fill = hex; }, "Fill"));
+      g.appendChild(colorSwatchButton(
+        function () { return el.fill; },
+        { title: "Fill", onSolid: function (hex) { el.fill = hex; } }
+      ));
       ctxEl.appendChild(g);
 
       // Stroke — icon-only trigger; click opens a popover with colour
@@ -3014,6 +4055,24 @@
     // ===== Common controls — position, effects, opacity, duplicate, delete =====
     // Z-order (bring forward / send back) moved to the right-click menu.
     // Lock is admin-only — hidden in the customer flow.
+
+    // Centre on the page — drop the element onto the vertical centre line
+    // (horizontal centre), the horizontal centre line (vertical centre), or
+    // both for dead centre. (A handy thing even Canva doesn't offer.)
+    const gCentre = group();
+    const vBtn = document.createElement("button");
+    vBtn.type = "button"; vBtn.className = "ed-ctx-btn";
+    vBtn.title = "Centre on the vertical line";
+    vBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7.5" y="6" width="9" height="12" rx="1" fill="currentColor" stroke="none" opacity="0.25"/><line x1="12" y1="2.5" x2="12" y2="21.5"/></svg>';
+    vBtn.addEventListener("click", function () { alignSelected("centerX"); });
+    const hBtn = document.createElement("button");
+    hBtn.type = "button"; hBtn.className = "ed-ctx-btn";
+    hBtn.title = "Centre on the horizontal line";
+    hBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="7.5" width="12" height="9" rx="1" fill="currentColor" stroke="none" opacity="0.25"/><line x1="2.5" y1="12" x2="21.5" y2="12"/></svg>';
+    hBtn.addEventListener("click", function () { alignSelected("centerY"); });
+    gCentre.appendChild(vBtn);
+    gCentre.appendChild(hBtn);
+    ctxEl.appendChild(gCentre);
 
     // Position — text-label popover trigger. Holds X / Y / W / H / Rotation
     // numeric inputs. Lives on the top bar so the right-panel rail doesn't
@@ -3136,7 +4195,7 @@
       return b;
     }
     function alignIcon(a) {
-      return a === "left" ? "≡↤" : a === "center" ? "≡" : "≡↦";
+      return a === "left" ? "≡↤" : a === "center" ? "≡" : a === "right" ? "≡↦" : "≣";
     }
   }
 
@@ -3225,7 +4284,7 @@
       });
       return;
     }
-    TEMPLATES.forEach((t) => {
+    PACK_TEMPLATES.forEach((t) => {
       const b = document.createElement("button");
       b.dataset.id = t.id;
       b.title = t.name;
@@ -3542,7 +4601,7 @@
 
   // Share — uses the Web Share API where available (mobile, modern desktop
   // Chromium). Falls back to a PNG download so the user can post manually.
-  $("ed-share")?.addEventListener("click", async function () {
+  $("ed-share-image")?.addEventListener("click", async function () {
     try {
       // Reuse the shared renderer so shadow/gradient/text-effect rules stay
       // in one place — Share used to duplicate the draw loop verbatim, which
@@ -3700,6 +4759,165 @@
     };
   };
 
+  // Canva bulk import — turn a set of background images into a multi-page
+  // design (one page per image, sized to the image). Admins then add text.
+  window.__TMKE_IMPORT_BACKGROUNDS__ = function (images) {
+    if (!images || !images.length) return;
+    state.templateId = null;
+    state.pages = images.map(function (im, i) {
+      return {
+        id: uid("page"), name: "Page " + (i + 1),
+        canvas: {
+          width: im.w || 1080, height: im.h || 1350,
+          background: "#FFFFFF", backgroundImage: im.src,
+        },
+        elements: [],
+      };
+    });
+    state.currentPage = 0;
+    state.selectedIds = [];
+    state.history = []; state.historyIndex = -1;
+    if (filenameEl) filenameEl.value = takeInitialTitle() || filenameEl.value || "Canva import";
+    state.pages.forEach(function (pg) { /* nothing to preload */ });
+    pushHistory();
+    fullRender();
+    fitZoom();
+  };
+
+  // Publish hook — admin Publish flow reads every page + a cover thumb so it
+  // can write each page as a template (optionally linked to a pack).
+  window.__TMKE_PUBLISH_DATA__ = async function () {
+    let cover = "";
+    try { cover = await _renderThumbDataUrl(); } catch (_) {}
+    return {
+      filename: (filenameEl && filenameEl.value) || "Design",
+      pages: state.pages.map(function (p) {
+        return { canvas: deep(p.canvas), elements: deep(p.elements) };
+      }),
+      cover: cover,
+    };
+  };
+
+  // AI text parser — snapshot the active page (the imported design) so it can be
+  // sent to the parser, then place the returned text blocks as editable layers.
+  window.__TMKE_PAGE_IMAGE__ = async function () {
+    let image = "";
+    try { const c = await _renderDesignToCanvas({ transparent: false }); image = c.toDataURL("image/jpeg", 0.85); } catch (_) {}
+    return { image: image, width: state.canvas.width, height: state.canvas.height };
+  };
+  // Page navigation hooks for the "Read all pages" AI pass.
+  window.__TMKE_PAGE_COUNT__ = function () { return state.pages.length; };
+  window.__TMKE_GOTO_PAGE__ = function (i) { goToPage(i); };
+  window.__TMKE_AI_PLACE_TEXT__ = function (blocks) {
+    if (!Array.isArray(blocks) || !blocks.length) return 0;
+    let added = 0;
+    blocks.forEach(function (b) {
+      if (!b || !b.text) return;
+      state.elements.push({
+        id: uid("text"), type: "text", text: String(b.text),
+        x: Math.round(b.x || 0), y: Math.round(b.y || 0),
+        w: Math.max(20, Math.round(b.w || 320)), h: Math.max(20, Math.round(b.h || 60)),
+        rotation: 0, opacity: 1,
+        font: "Cormorant Garamond", size: Math.max(6, Math.round(b.fontSize || 32)),
+        weight: (b.weight >= 600 ? 700 : 400), italic: false,
+        color: /^#[0-9a-f]{6}$/i.test(b.color || "") ? b.color : "#1c1d22",
+        align: ["left", "center", "right"].includes(b.align) ? b.align : "left",
+        letterSpacing: 0, lineHeight: 1.2,
+      });
+      added++;
+    });
+    if (added) { state.selectedIds = []; pushHistory(); fullRender(); }
+    return added;
+  };
+
+  // Review snapshot — rasterises EVERY page to a JPEG so the reviewer page can
+  // show the design as flat images (no editor needed). Plus the comments left
+  // on elements, flattened with their page index for the reviewer's notes list.
+  window.__TMKE_REVIEW_DATA__ = async function () {
+    const orig = state.currentPage;
+    const pageImages = [];
+    const comments = [];
+    const pageElements = [];   // per-page element boxes (normalised) so the
+                               // reviewer can click an element to comment on it
+    for (let i = 0; i < state.pages.length; i++) {
+      state.currentPage = i; // _renderDesignToCanvas draws the active page
+      try {
+        const c = await _renderDesignToCanvas({ transparent: false });
+        pageImages.push(c.toDataURL("image/jpeg", 0.82));
+      } catch (_) { pageImages.push(null); }
+      const W = (state.pages[i].canvas && state.pages[i].canvas.width) || 1080;
+      const H = (state.pages[i].canvas && state.pages[i].canvas.height) || 1350;
+      const boxes = [];
+      (state.pages[i].elements || []).forEach(function (el) {
+        (el.comments || []).forEach(function (cm) {
+          if (!cm.resolved) comments.push({ page: i, text: cm.text });
+        });
+        boxes.push({
+          id: el.id,
+          type: el.type,
+          label: el.type === "text" ? String(el.text || "").replace(/\s+/g, " ").trim().slice(0, 48) : el.type,
+          x: el.x / W, y: el.y / H, w: el.w / W, h: el.h / H,
+        });
+      });
+      pageElements.push(boxes);
+    }
+    state.currentPage = orig;
+    return {
+      filename: (filenameEl && filenameEl.value) || "Design",
+      pageImages: pageImages,
+      comments: comments,
+      pageElements: pageElements,
+    };
+  };
+
+  // Onboarding pack-picker hook. Scopes the studio's template grid to a chosen
+  // pack's designs. `templateIds` is the pack's list. Returns a lightweight
+  // [{id,name,thumb,category}] list so the onboarding overlay can render a
+  // "pick a design" chooser. Pass { load: false } to only scope/register
+  // WITHOUT opening a design (the overlay opens the one the user clicks).
+  // When ids don't resolve, falls back to the full library so the studio is
+  // never empty.
+  window.__TMKE_OPEN_PACK__ = function (templateIds, opts) {
+    const ids = Array.isArray(templateIds) ? templateIds.filter(Boolean) : [];
+    let scoped = ids.map((id) => TEMPLATES.find((t) => t.id === id)).filter(Boolean);
+    if (!scoped.length) scoped = TEMPLATES.slice();
+    if (!scoped.length) return [];
+    PACK_TEMPLATES = scoped;
+    tplGridEl.innerHTML = "";   // force a fresh, scoped render
+    renderTemplateGrid();
+    if (!opts || opts.load !== false) loadTemplate(scoped[0].id, false);
+    return scoped.map((t) => ({ id: t.id, name: t.name, thumb: t.thumb || null, category: t.category || null }));
+  };
+
+  // Open a pack whose templates come from Supabase (a pack an admin published).
+  // The customer studio's bundled library doesn't contain them, so inject the
+  // rows into TEMPLATES first, then scope. Returns the design list; honours
+  // { load: false } the same way as __TMKE_OPEN_PACK__.
+  window.__TMKE_OPEN_PACK_TEMPLATES__ = function (rows, opts) {
+    const list = Array.isArray(rows) ? rows : [];
+    const shaped = list.map((r) => ({
+      id: r.id,
+      name: r.name,
+      category: r.category || null,
+      thumb: r.thumb_url || null,
+      canvas: r.canvas || { width: 1080, height: 1350, background: "#F2EFE9" },
+      elements: r.elements || [],
+    })).filter((t) => t.id);
+    if (!shaped.length) return window.__TMKE_OPEN_PACK__([], opts); // fallback to library
+    shaped.forEach((t) => { if (!TEMPLATES.find((x) => x.id === t.id)) TEMPLATES.push(t); });
+    PACK_TEMPLATES = shaped;
+    tplGridEl.innerHTML = "";
+    renderTemplateGrid();
+    if (!opts || opts.load !== false) loadTemplate(shaped[0].id, false);
+    return shaped.map((t) => ({ id: t.id, name: t.name, thumb: t.thumb || null, category: t.category || null }));
+  };
+
+  // Load one specific design from the already-scoped pack (used when the user
+  // picks a design in the onboarding chooser).
+  window.__TMKE_LOAD_TEMPLATE__ = function (id) {
+    if (id) loadTemplate(id, false);
+  };
+
   // If a stock-photo search panel is taking over the Photos tab, skip
   // rendering the bundled library — its results will fill the grid instead.
   if (!window.__TMKE_STOCK_SEARCH_ACTIVE__) renderPhotoGrid();
@@ -3713,7 +4931,12 @@
   // template behind the onboarding overlay.
   const urlParams = new URLSearchParams(window.location.search);
   const explicitTpl = urlParams.get("template");
-  if (explicitTpl) {
+  if (isAdminMode() && TEMPLATES.length) {
+    // Admin: the bootstrap moved the requested template to index 0. Load it so
+    // editing an existing template shows its design, and a freshly-created one
+    // (empty elements) opens as a blank canvas to build from scratch.
+    loadTemplate(TEMPLATES[0].id, false);
+  } else if (explicitTpl) {
     loadTemplate(explicitTpl, false);
   } else {
     loadBlank();

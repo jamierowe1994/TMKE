@@ -35,6 +35,7 @@ function fmtDate(iso) {
 <BaseLayout
   title="Insights — TMKE"
   description="Structured insights on social media, brand positioning, content systems, and the future of estate agency marketing — written for UK property professionals."
+  hideFooter
 >
   <!-- Page-wide film grain — fixed, sits above the content but below the nav,
        blended so it adds texture without tinting. Purely decorative. -->
@@ -54,7 +55,11 @@ function fmtDate(iso) {
           {colUp.map((p) => (
             <a class="ins-item" href={`/blog/${p.slug}`}>
               <h3 class="ins-item-title">{p.title}</h3>
-              <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
+              <div class="ins-item-media">
+                {p.video
+                  ? <video autoplay muted loop playsinline preload="metadata" poster={p.hero}><source src={p.video} type="video/mp4" /></video>
+                  : <img src={p.hero} alt={p.title} loading="lazy" />}
+              </div>
               <p class="ins-item-brief">{p.standfirst}</p>
             </a>
           ))}
@@ -63,7 +68,11 @@ function fmtDate(iso) {
           {colDown.map((p) => (
             <a class="ins-item" href={`/blog/${p.slug}`}>
               <h3 class="ins-item-title">{p.title}</h3>
-              <div class="ins-item-media"><img src={p.hero} alt={p.title} loading="lazy" /></div>
+              <div class="ins-item-media">
+                {p.video
+                  ? <video autoplay muted loop playsinline preload="metadata" poster={p.hero}><source src={p.video} type="video/mp4" /></video>
+                  : <img src={p.hero} alt={p.title} loading="lazy" />}
+              </div>
               <p class="ins-item-brief">{p.standfirst}</p>
             </a>
           ))}
@@ -99,19 +108,8 @@ function fmtDate(iso) {
     </aside>
   </section>
 
-  <!-- ============================== NEWSLETTER -->
-  <section class="insights-news">
-    <div class="news-box">
-      <div class="news-eyebrow">/ Newsletter /</div>
-      <h3 class="news-title">Get the next insight <em>in your inbox.</em></h3>
-      <p class="news-sub">One considered email every other Friday. No filler, no automation — written by the TMKE desk for UK property professionals.</p>
-      <form class="news-form" id="insights-news-form" novalidate>
-        <input type="email" name="email" placeholder="you@agency.co.uk" required autocomplete="email" />
-        <button type="submit" class="btn btn--solid">Subscribe <span class="btn-arrow">&rarr;</span></button>
-      </form>
-      <p class="news-fine">No spam. Unsubscribe in one click.</p>
-    </div>
-  </section>
+  <!-- Newsletter + footer removed — Insights is a fixed one-pager. -->
+
 
   <style>
     /* ============== PAGE GRAIN ============== */
@@ -133,16 +131,20 @@ function fmtDate(iso) {
          the nowrap card titles inflate the left track past half. */
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: clamp(28px, 3.2vw, 60px);
-      align-items: start;
+      align-items: stretch;
       max-width: 1640px;
       margin: 0 auto;
-      padding: clamp(92px, 10vh, 124px) clamp(22px, 4vw, 64px) clamp(80px, 8vw, 120px);
+      /* Fixed one-pager — fills the viewport, never scrolls. */
+      height: 100vh;
+      overflow: hidden;
+      padding: clamp(92px, 10vh, 116px) clamp(22px, 4vw, 64px) clamp(28px, 4vh, 56px);
     }
 
     /* ---- LEFT: double column (the two halves counter-scroll) ---- */
     .ins-list {
       display: flex;
       flex-direction: column;
+      min-height: 0; /* allow the marquee area to clip inside the fixed page */
       /* Pull the blogs in from the centre so the video has breathing room. */
       padding-right: clamp(10px, 1.8vw, 36px);
     }
@@ -164,20 +166,26 @@ function fmtDate(iso) {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: clamp(14px, 1.6vw, 24px);
       align-items: start;
+      /* Clipped marquee viewport — fills the remaining height, no page scroll. */
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
     }
     .ins-col {
       display: flex;
       flex-direction: column;
-      gap: clamp(26px, 3vw, 44px);
+      gap: 0;
       will-change: transform;
     }
-    /* Stagger the down column so the two halves interleave (masonry feel). */
-    .ins-col--down { margin-top: clamp(40px, 6vw, 96px); }
+    /* The two columns counter-scroll on wheel (driven by JS) — left drifts up,
+       right drifts down — instead of auto-scrolling. */
 
     .ins-item {
       display: block;
       color: var(--ink);
       text-decoration: none;
+      margin-bottom: clamp(26px, 3vw, 44px); /* uniform spacing for the seamless marquee loop */
     }
     .ins-item-title {
       font-family: var(--serif);
@@ -198,15 +206,17 @@ function fmtDate(iso) {
     .ins-item-media {
       aspect-ratio: 4 / 3;
       overflow: hidden;
-      border-radius: 14px;
+      border-radius: 0;               /* square corners — the left blocks */
       background: rgba(28, 29, 34, 0.06);
       margin-bottom: 12px;
     }
-    .ins-item-media img {
+    .ins-item-media img,
+    .ins-item-media video {
       width: 100%; height: 100%; object-fit: cover; display: block;
       transition: transform 1.4s cubic-bezier(.2, .7, .2, 1);
     }
-    .ins-item:hover .ins-item-media img { transform: scale(1.05); }
+    .ins-item:hover .ins-item-media img,
+    .ins-item:hover .ins-item-media video { transform: scale(1.05); }
 
     .ins-item-brief {
       font-family: var(--sans);
@@ -309,7 +319,11 @@ function fmtDate(iso) {
         grid-template-columns: minmax(0, 1fr);
         gap: clamp(56px, 10vw, 88px);
         padding-top: clamp(120px, 22vw, 160px);
+        /* Mobile scrolls normally — drop the fixed one-pager. */
+        height: auto;
+        overflow: visible;
       }
+      .ins-cols { overflow: visible; }
       .ins-list { padding-right: 0; }
       .ins-feature {
         position: static;
@@ -407,79 +421,41 @@ function fmtDate(iso) {
     }
   </style>
 
-  <!-- Counter-scroll parallax. Only the two LEFT columns move: left-left drifts
-       UP, left-right drifts DOWN as the section scrolls. The right-hand video
-       stays put (sticky, no transform). Hooks the site's global Lenis instance
-       when present, else a passive scroll listener. Skipped on small screens
-       and under reduced-motion. -->
+  <!-- Insights is a fixed one-pager. The page doesn't scroll; the wheel drives
+       the two left columns in OPPOSITE directions (left up, right down) with a
+       little smoothing. Desktop only — mobile scrolls normally. -->
   <script is:inline>
     (function () {
       const colUp = document.getElementById("ins-col-up");
       const colDown = document.getElementById("ins-col-down");
-      const section = document.getElementById("insights2");
-      if (!colUp || !colDown || !section) return;
-
-      const reduce =
-        window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const cols = document.querySelector(".ins-cols");
+      if (!colUp || !colDown || !cols) return;
       const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
-
-      // Max drift each column travels from the neutral mid-scroll position.
-      const RANGE_COL = 90;
-      let ticking = false;
-
-      function apply() {
-        ticking = false;
-        if (reduce || isMobile()) {
-          colUp.style.transform = "";
-          colDown.style.transform = "";
-          return;
-        }
-        const rect = section.getBoundingClientRect();
-        const vh = window.innerHeight || document.documentElement.clientHeight;
-        // progress: 0 when the section first enters from the bottom, 1 when it
-        // has fully passed the top. 0.5 ≈ centred → neutral (no drift).
-        const total = rect.height + vh;
-        const p = Math.max(0, Math.min(1, (vh - rect.top) / total));
-        const col = (p - 0.5) * 2 * RANGE_COL; // -RANGE … +RANGE
-        // As you scroll down (p↑): left-left rises, left-right sinks.
-        colUp.style.transform = "translate3d(0," + (-col).toFixed(2) + "px,0)";
-        colDown.style.transform = "translate3d(0," + col.toFixed(2) + "px,0)";
+      const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let target = 0, current = 0, raf = null;
+      const rng = (c) => Math.max(0, c.scrollHeight - cols.clientHeight);
+      function render() {
+        colUp.style.transform = "translate3d(0," + (-current * rng(colUp)).toFixed(1) + "px,0)";
+        colDown.style.transform = "translate3d(0," + (-(1 - current) * rng(colDown)).toFixed(1) + "px,0)";
       }
-
-      function onScroll() {
-        if (!ticking) {
-          ticking = true;
-          requestAnimationFrame(apply);
-        }
+      function tick() {
+        current += (target - current) * 0.12;
+        if (Math.abs(target - current) < 0.0008) current = target;
+        render();
+        raf = current !== target ? requestAnimationFrame(tick) : null;
       }
-
-      if (window.__lenis && typeof window.__lenis.on === "function") {
-        window.__lenis.on("scroll", onScroll);
-      } else {
-        window.addEventListener("scroll", onScroll, { passive: true });
-      }
-      window.addEventListener("resize", onScroll);
-      apply();
-    })();
-  </script>
-
-  <script is:inline>
-    (function () {
-      const form = document.getElementById("insights-news-form");
-      if (form) {
-        form.addEventListener("submit", function (e) {
-          e.preventDefault();
-          const input = form.querySelector("input");
-          const btn = form.querySelector("button");
-          if (!input.value) return;
-          const original = btn.innerHTML;
-          btn.textContent = "You're in ✓";
-          setTimeout(function () {
-            btn.innerHTML = original;
-            input.value = "";
-          }, 2400);
-        });
-      }
+      render();
+      window.addEventListener("wheel", function (e) {
+        if (isMobile()) return;
+        const span = Math.max(rng(colUp), rng(colDown)) || 1;
+        target = Math.min(1, Math.max(0, target + e.deltaY / span));
+        if (reduce) { current = target; render(); }
+        else if (!raf) raf = requestAnimationFrame(tick);
+      }, { passive: true });
+      window.addEventListener("resize", function () {
+        if (isMobile()) { colUp.style.transform = ""; colDown.style.transform = ""; }
+        else render();
+      });
     })();
   </script>
 </BaseLayout>

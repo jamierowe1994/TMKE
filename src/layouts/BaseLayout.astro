@@ -16,6 +16,8 @@ interface Props {
   hideFooter?: boolean;
   /** Emit a noindex,nofollow robots tag (for unlisted / WIP pages). */
   noindex?: boolean;
+  /** Apply the customer-dashboard typography: The Seasons headers + Montserrat body. */
+  dashboard?: boolean;
 }
 
 const {
@@ -26,6 +28,7 @@ const {
   hideNav = false,
   hideFooter = false,
   noindex = false,
+  dashboard = false,
 } = Astro.props;
 
 // Front-end-only page transition. Back-end tools — /admin/* and /editor (the
@@ -73,6 +76,33 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
       rel="stylesheet"
     />
 
+    {/* Customer-dashboard typography: The Seasons (headers) + Montserrat (body),
+        loaded only on dashboard pages. The Seasons is served by Typographer.io
+        (licensed, hosted webfont — its CSS defines @font-face for family
+        "The Seasons"); Montserrat comes from Google Fonts. */}
+    {dashboard && (
+      <>
+        <link rel="preconnect" href="https://typographer.io/" />
+        <link
+          rel="stylesheet"
+          href="https://typographer.io/1/users/467c83a44f61441cb50105908eaff74438db1e54235bde171a5c44f6c7fc83aa/487431c25f60d82971ce153174b4c5091c0b39b71709285ba4d15aaa1a147485/css?token=b2fe187212"
+        />
+        <script type="module" is:inline>try{navigator.sendBeacon("https://use.typographer.io/1/users/467c83a44f61441cb50105908eaff74438db1e54235bde171a5c44f6c7fc83aa/487431c25f60d82971ce153174b4c5091c0b39b71709285ba4d15aaa1a147485/css?token=b2fe187212")}catch{}</script>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap"
+          rel="stylesheet"
+        />
+      </>
+    )}
+    <style is:global>
+      /* Dashboard-only: headers → The Seasons, body → Montserrat. Re-points the
+         existing --serif/--sans tokens so every page picks it up automatically. */
+      body[data-dashboard] {
+        --serif: "The Seasons", "Cormorant Garamond", Georgia, serif;
+        --sans: "Montserrat", "Darker Grotesque", system-ui, sans-serif;
+      }
+    </style>
+
     <!-- Lenis — smooth, momentum-based scrolling.
          `defer` makes the CDN fetch non-blocking; Lenis still runs after
          DOMContentLoaded which is fine for scroll enhancement. -->
@@ -108,7 +138,7 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
       )
     }
   </head>
-  <body>
+  <body data-dashboard={dashboard ? "" : undefined}>
     {!hideNav && <Nav />}
     <slot />
     {!hideFooter && <Footer />}
@@ -262,13 +292,21 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
       window.dispatchEvent(new Event("tmke:store-ready"));
     </script>
 
-    <!-- Website Editor TEMPORARILY DISABLED (hotfix before client demo).
-         The loader script has been removed so NO saved editor overrides are
-         applied to the live pages — every page renders its original designed
-         markup again. The client's earlier edits used fixed pixel values that
-         don't scale, which is what broke the layouts. The editor needs rework
-         before it goes back on; re-enable by restoring this loader:
-         <script src="/scripts/visual-editor.js" is:inline></script>
-         (the tmkeStore bridge above is harmless while the loader is off). -->
+    <!-- Website Editor — RE-ENABLED for client editing across every page.
+         Because this loader lives in BaseLayout, it applies to all pages (home,
+         about, services, contact, ...) — not just the home page. Edit mode is
+         gated by the ?edit query param + a Supabase login at /admin/login; the
+         editor stores changes in the `site_overrides` table per page path as a
+         draft, and only applies them to live visitors once "Publish" is used.
+
+         REVERT / CLEAN-SLATE NOTES:
+         - Design CODE baseline is git tag `clean-baseline-2026-06-02`.
+         - Client CONTENT edits live in Supabase `site_overrides` (NOT in git),
+           so reverting code does not undo published edits. To roll content
+           back, use the editor's Restore / ResetAll, or clear the table's
+           `published` (and `draft`) columns for the affected path.
+         - This loader re-applies any rows already PUBLISHED in `site_overrides`.
+           Confirm that table is empty before deploying so we start clean. -->
+    <script src="/scripts/visual-editor.js" is:inline></script>
   </body>
 </html>

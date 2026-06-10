@@ -5,6 +5,9 @@
 // Each card opens an in-app form (or, for billing, the member's invoices)
 // instead of a mailto: link, so requests land in the `enquiries` table and
 // show up in /admin/enquiries with the member's context attached.
+//
+// Each card carries its own accent colour (data-accent) and the modal it
+// opens is themed to match and asks tailored questions for that line.
 ---
 
 <div class="acc-section" data-contact-panel>
@@ -15,42 +18,42 @@
   </header>
 
   <div class="acc-contact-grid">
-    <button type="button" class="acc-contact-card" data-form="account_general" data-tag="Anything" data-title="Quick question">
+    <button type="button" class="acc-contact-card" data-accent="violet" data-form="account_general" data-tag="Anything" data-title="Quick question">
       <span class="acc-contact-card-tag">Anything</span>
       <h3 class="acc-contact-card-title">Quick question</h3>
       <p class="acc-contact-card-desc">For everything that doesn't fit the other cards. Same-day reply during UK working hours.</p>
       <span class="acc-contact-card-cta">Ask us <em>&rarr;</em></span>
     </button>
 
-    <button type="button" class="acc-contact-card" data-form="account_pack_support" data-tag="Packs" data-title="Pack support">
+    <button type="button" class="acc-contact-card" data-accent="tan" data-form="account_pack_support" data-tag="Packs" data-title="Pack support">
       <span class="acc-contact-card-tag">Packs</span>
       <h3 class="acc-contact-card-title">Pack support</h3>
       <p class="acc-contact-card-desc">Missing assets, a file that won't open, a typo on a template — anything pack-related.</p>
       <span class="acc-contact-card-cta">Open a request <em>&rarr;</em></span>
     </button>
 
-    <button type="button" class="acc-contact-card" data-form="account_managed_socials" data-tag="Done-for-you" data-title="Managed socials enquiry">
+    <button type="button" class="acc-contact-card" data-accent="blue" data-form="account_managed_socials" data-tag="Done-for-you" data-title="Managed socials enquiry">
       <span class="acc-contact-card-tag">Done-for-you</span>
       <h3 class="acc-contact-card-title">Manage my socials</h3>
       <p class="acc-contact-card-desc">Thinking about handing the channel over? Tell us a bit about you and we'll book a 20-minute call.</p>
       <span class="acc-contact-card-cta">Start the conversation <em>&rarr;</em></span>
     </button>
 
-    <button type="button" class="acc-contact-card" data-invoices data-tag="Billing" data-title="Billing &amp; invoices">
+    <button type="button" class="acc-contact-card" data-accent="green" data-invoices data-tag="Billing" data-title="Billing &amp; invoices">
       <span class="acc-contact-card-tag">Billing</span>
       <h3 class="acc-contact-card-title">Billing &amp; invoices</h3>
       <p class="acc-contact-card-desc">View every invoice and VAT receipt on your account, or raise a billing query.</p>
       <span class="acc-contact-card-cta">View invoices <em>&rarr;</em></span>
     </button>
 
-    <button type="button" class="acc-contact-card" data-form="account_feedback" data-tag="Roadmap" data-title="Feedback &amp; feature ideas">
+    <button type="button" class="acc-contact-card" data-accent="plum" data-form="account_feedback" data-tag="Roadmap" data-title="Feedback &amp; feature ideas">
       <span class="acc-contact-card-tag">Roadmap</span>
       <h3 class="acc-contact-card-title">Feedback &amp; feature ideas</h3>
       <p class="acc-contact-card-desc">Tell us what's getting in your way and what you'd love us to build next. Members shape the roadmap.</p>
       <span class="acc-contact-card-cta">Share an idea <em>&rarr;</em></span>
     </button>
 
-    <button type="button" class="acc-contact-card acc-contact-card--soft" data-form="account_press" data-tag="Press" data-title="Press &amp; partnerships">
+    <button type="button" class="acc-contact-card" data-accent="ink" data-form="account_press" data-tag="Press" data-title="Press &amp; partnerships">
       <span class="acc-contact-card-tag">Press</span>
       <h3 class="acc-contact-card-title">Press &amp; partnerships</h3>
       <p class="acc-contact-card-desc">Speaking, podcasts, agency partnerships, anything that isn't day-to-day support.</p>
@@ -66,13 +69,16 @@
   <!-- ===== Support request modal ===== -->
   <div class="cmodal" id="contact-form-modal" hidden>
     <div class="cmodal-backdrop" data-cmodal-close></div>
-    <div class="cmodal-card" role="dialog" aria-modal="true" aria-labelledby="cmodal-title">
+    <div class="cmodal-card" data-accent="violet" role="dialog" aria-modal="true" aria-labelledby="cmodal-title">
       <button type="button" class="cmodal-x" data-cmodal-close aria-label="Close">&times;</button>
       <p class="cmodal-eyebrow" id="cmodal-tag">Contact</p>
       <h3 class="cmodal-title" id="cmodal-title">How can we help?</h3>
+      <p class="cmodal-sub" id="contact-sub" hidden></p>
 
       <form id="contact-form" class="cmodal-form" novalidate>
         <input type="hidden" name="source" id="contact-source" value="account_general" />
+        <!-- Tailored questions for the chosen line get injected here. -->
+        <div class="cmodal-extra" id="contact-extra"></div>
         <label class="cmodal-field">
           <span>Your name</span>
           <input type="text" name="name" id="contact-name" autocomplete="name" required />
@@ -104,7 +110,7 @@
   <!-- ===== Invoices modal ===== -->
   <div class="cmodal" id="invoices-modal" hidden>
     <div class="cmodal-backdrop" data-cmodal-close></div>
-    <div class="cmodal-card cmodal-card--wide" role="dialog" aria-modal="true" aria-labelledby="invoices-title">
+    <div class="cmodal-card cmodal-card--wide" data-accent="green" role="dialog" aria-modal="true" aria-labelledby="invoices-title">
       <button type="button" class="cmodal-x" data-cmodal-close aria-label="Close">&times;</button>
       <p class="cmodal-eyebrow">Billing</p>
       <h3 class="cmodal-title" id="invoices-title">Your invoices</h3>
@@ -123,7 +129,10 @@
   </div>
 </div>
 
-<style>
+<!-- Global (not scoped): the modal is portaled onto <body> and its tailored
+     fields are built in JS, so scoped CSS wouldn't reach them. All selectors
+     here are component-specific (.cmodal*, .acc-contact-*), so global is safe. -->
+<style is:global>
   /* Make the cards behave as buttons without losing the card look. */
   button.acc-contact-card {
     appearance: none;
@@ -134,28 +143,74 @@
     cursor: pointer;
   }
 
+  /* ---- Per-card accent colours so each line feels distinct ---- */
+  .acc-contact-card { --ac: var(--english-violet); }
+  .acc-contact-card[data-accent="violet"] { --ac: #5b5470; }
+  .acc-contact-card[data-accent="tan"]    { --ac: #a9784f; }
+  .acc-contact-card[data-accent="blue"]   { --ac: #5566a0; }
+  .acc-contact-card[data-accent="green"]  { --ac: #3f7d6e; }
+  .acc-contact-card[data-accent="plum"]   { --ac: #7a5388; }
+  .acc-contact-card[data-accent="ink"]    { --ac: #3a3146; }
+
+  /* Recolour the card's left rail + give the tag a tinted pill so the
+     six lines read as a related-but-distinct set. */
+  .acc-contact-card { border-left-color: var(--ac); }
+  .acc-contact-card .acc-contact-card-tag {
+    color: var(--ac);
+    background: color-mix(in srgb, var(--ac) 12%, transparent);
+    padding: 3px 9px; border-radius: 999px;
+  }
+  .acc-contact-card .acc-contact-card-cta { color: var(--ac); }
+
+  /* ===== Modal ===== */
   .cmodal {
-    position: fixed; inset: 0; z-index: 400;
+    position: fixed; inset: 0; z-index: 4000;
     display: flex; align-items: center; justify-content: center;
     padding: 24px;
   }
   .cmodal[hidden] { display: none; }
+  /* Full-page dim + blur. This sits at body level (the script portals the
+     modal onto <body>) so it covers the whole viewport — sidebar and all —
+     rather than just the content column. */
   .cmodal-backdrop {
     position: absolute; inset: 0;
-    background: rgba(20, 18, 26, 0.5);
-    backdrop-filter: blur(3px);
+    background: rgba(24, 21, 31, 0.42);
+    backdrop-filter: blur(7px) saturate(1.05);
+    -webkit-backdrop-filter: blur(7px) saturate(1.05);
+    animation: cmodalFade 0.22s ease both;
   }
+  @keyframes cmodalFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes cmodalPop {
+    from { opacity: 0; transform: translateY(10px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
   .cmodal-card {
+    --ac: var(--english-violet);
     position: relative;
-    width: 100%; max-width: 440px;
+    width: 100%; max-width: 460px;
     max-height: calc(100vh - 48px);
     overflow-y: auto;
     background: var(--paper);
     border: 1px solid rgba(28, 29, 34, 0.1);
-    border-radius: 10px;
+    border-radius: 14px;
     padding: 30px 30px 26px;
-    box-shadow: 0 40px 90px -30px rgba(20, 18, 26, 0.5);
+    box-shadow: 0 40px 90px -30px rgba(20, 18, 26, 0.55);
+    animation: cmodalPop 0.28s cubic-bezier(.2,.7,.2,1) both;
   }
+  /* A soft tinted top band carrying the line's accent. */
+  .cmodal-card::before {
+    content: "";
+    position: absolute; left: 0; right: 0; top: 0; height: 4px;
+    background: var(--ac);
+    border-radius: 14px 14px 0 0;
+  }
+  .cmodal-card[data-accent="violet"] { --ac: #5b5470; }
+  .cmodal-card[data-accent="tan"]    { --ac: #a9784f; }
+  .cmodal-card[data-accent="blue"]   { --ac: #5566a0; }
+  .cmodal-card[data-accent="green"]  { --ac: #3f7d6e; }
+  .cmodal-card[data-accent="plum"]   { --ac: #7a5388; }
+  .cmodal-card[data-accent="ink"]    { --ac: #3a3146; }
   .cmodal-card--wide { max-width: 560px; }
   .cmodal-x {
     position: absolute; top: 12px; right: 14px;
@@ -167,7 +222,7 @@
   .cmodal-eyebrow {
     font-family: var(--sans); font-size: 11px; font-weight: 700;
     letter-spacing: 0.24em; text-transform: uppercase;
-    color: var(--english-violet); margin: 0 0 8px;
+    color: var(--ac); margin: 0 0 8px;
   }
   .cmodal-title {
     font-family: var(--serif); font-size: 26px; font-weight: 500;
@@ -175,26 +230,49 @@
   }
   .cmodal-sub {
     font-family: var(--sans); font-size: 13px; line-height: 1.55;
-    color: rgba(28,29,34,0.6); margin: 0 0 20px;
+    color: rgba(28,29,34,0.6); margin: 0 0 4px;
   }
+  .cmodal-sub[hidden] { display: none; }
   .cmodal-form { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+  .cmodal-extra { display: flex; flex-direction: column; gap: 14px; }
+  .cmodal-extra:empty { display: none; }
   .cmodal-field { display: flex; flex-direction: column; gap: 6px; }
   .cmodal-field > span {
     font-family: var(--sans); font-size: 11px; font-weight: 700;
     letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55);
   }
-  .cmodal-field input, .cmodal-field textarea {
+  .cmodal-field input, .cmodal-field textarea, .cmodal-field select {
     font-family: var(--sans); font-size: 15px;
     padding: 11px 13px;
     border: 1px solid rgba(28, 29, 34, 0.18);
-    border-radius: 5px; background: #fff; color: var(--ink);
+    border-radius: 7px; background: #fff; color: var(--ink);
     transition: border-color 0.2s, box-shadow 0.2s;
     resize: vertical;
   }
-  .cmodal-field input:focus, .cmodal-field textarea:focus {
-    outline: none; border-color: var(--english-violet);
-    box-shadow: 0 0 0 3px rgba(71, 66, 84, 0.12);
+  .cmodal-field select { appearance: none; -webkit-appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23555' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px;
   }
+  .cmodal-field input:focus, .cmodal-field textarea:focus, .cmodal-field select:focus {
+    outline: none; border-color: var(--ac);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent);
+  }
+
+  /* Chip-style single-select (used for "what kind of idea?") */
+  .cmodal-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cmodal-chip {
+    appearance: none; cursor: pointer;
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    padding: 9px 14px; border-radius: 999px;
+    border: 1px solid rgba(28,29,34,0.2); background: #fff; color: var(--ink);
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+  }
+  .cmodal-chip[aria-pressed="true"] {
+    border-color: var(--ac);
+    background: color-mix(in srgb, var(--ac) 12%, transparent);
+    color: var(--ac);
+  }
+
   .cmodal-error {
     font-family: var(--sans); font-size: 13px;
     color: #a23b3b; background: rgba(162, 59, 59, 0.08);
@@ -209,16 +287,16 @@
     appearance: none; cursor: pointer;
     font-family: var(--sans); font-size: 12px; font-weight: 700;
     letter-spacing: 0.16em; text-transform: uppercase;
-    padding: 11px 18px; border-radius: 4px;
+    padding: 11px 18px; border-radius: 6px;
     transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.2s;
   }
   .cbtn em { font-style: normal; display: inline-block; transition: transform 0.2s; }
-  .cbtn-solid { background: var(--english-violet); color: var(--paper); border: 1px solid var(--english-violet); }
-  .cbtn-solid:hover { background: var(--violet-deep); border-color: var(--violet-deep); }
+  .cbtn-solid { background: var(--ac); color: var(--paper); border: 1px solid var(--ac); }
+  .cbtn-solid:hover { filter: brightness(0.92); }
   .cbtn-solid:hover em { transform: translateX(3px); }
   .cbtn-solid[disabled] { opacity: 0.6; cursor: wait; }
-  .cbtn-ghost { background: transparent; color: var(--english-violet); border: 1px solid rgba(71, 66, 84, 0.3); }
-  .cbtn-ghost:hover { background: rgba(71, 66, 84, 0.06); }
+  .cbtn-ghost { background: transparent; color: var(--ac); border: 1px solid color-mix(in srgb, var(--ac) 35%, transparent); }
+  .cbtn-ghost:hover { background: color-mix(in srgb, var(--ac) 8%, transparent); }
 
   .cmodal-success { text-align: center; padding: 14px 0 6px; }
   .cmodal-success-mark {
@@ -231,7 +309,7 @@
   .cmodal-success p { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.65); margin: 0 0 20px; }
 
   /* Invoices list */
-  .inv-list { display: flex; flex-direction: column; gap: 1px; background: rgba(28,29,34,0.08); border: 1px solid rgba(28,29,34,0.1); border-radius: 6px; overflow: hidden; margin-bottom: 20px; }
+  .inv-list { display: flex; flex-direction: column; gap: 1px; background: rgba(28,29,34,0.08); border: 1px solid rgba(28,29,34,0.1); border-radius: 6px; overflow: hidden; margin: 16px 0 20px; }
   .inv-state { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 22px; margin: 0; background: #fff; }
   .inv-state[hidden] { display: none; }
   .inv-row {
@@ -256,6 +334,9 @@
     .inv-row { grid-template-columns: 1fr auto; }
     .inv-row-amount { grid-column: 1 / -1; text-align: left; }
   }
+  @media (prefers-reduced-motion: reduce) {
+    .cmodal-backdrop, .cmodal-card { animation: none; }
+  }
 </style>
 
 <script>
@@ -273,7 +354,70 @@
     const sourceInput = document.getElementById("contact-source");
     const titleEl = document.getElementById("cmodal-title");
     const tagEl = document.getElementById("cmodal-tag");
+    const subEl = document.getElementById("contact-sub");
+    const extraEl = document.getElementById("contact-extra");
+    const msgLabelEl = document.getElementById("contact-msg-label");
     const submitBtn = document.getElementById("contact-submit");
+    const formCard = formModal ? formModal.querySelector(".cmodal-card") : null;
+
+    // Portal the modals onto <body> so their fixed full-screen backdrop
+    // blurs the entire page (including the sidebar), not just the content
+    // column. Without this, a positioned/animated ancestor can trap the
+    // "fixed" layer inside the main column.
+    [formModal, invoicesModal].forEach((m) => { if (m && m.parentElement !== document.body) document.body.appendChild(m); });
+
+    // Tailored copy + questions per line. Keyed by the card's data-form.
+    const FORMS = {
+      account_general: {
+        accent: "violet",
+        sub: "For anything that doesn't fit the other lines — we'll point it at the right person.",
+        msgLabel: "Your message",
+        fields: [],
+      },
+      account_pack_support: {
+        accent: "tan",
+        sub: "Tell us which pack and what's up, and we'll get it sorted.",
+        msgLabel: "What do you need?",
+        fields: [
+          { key: "Pack", label: "Which pack is this about?", type: "text", placeholder: "e.g. Modern Mews" },
+          { key: "Issue", label: "What kind of issue?", type: "select", options: ["Missing asset or file", "A file won't open", "Typo or error on a template", "Something else"] },
+        ],
+      },
+      account_managed_socials: {
+        accent: "blue",
+        sub: "Tell us a little about your channel and we'll book a 20-minute call.",
+        msgLabel: "Anything else we should know?",
+        fields: [
+          { key: "Service", label: "What kind of managed service?", type: "select", options: ["Full management — you run it for me", "Content creation only", "Strategy & setup", "Just exploring options"] },
+          { key: "Platforms", label: "Which platforms?", type: "text", placeholder: "e.g. Instagram, LinkedIn" },
+        ],
+      },
+      account_billing: {
+        accent: "green",
+        sub: "Tell us what's wrong with your billing and we'll look into it right away.",
+        msgLabel: "Details",
+        fields: [
+          { key: "Issue", label: "What's the issue?", type: "select", options: ["Wrong amount charged", "Missing invoice or VAT receipt", "Refund request", "Update payment details", "Something else"] },
+        ],
+      },
+      account_feedback: {
+        accent: "plum",
+        sub: "Members shape the roadmap — tell us what would make the biggest difference.",
+        msgLabel: "What would it do for you?",
+        fields: [
+          { key: "Type", label: "What kind of idea?", type: "chips", options: ["Brand-new feature", "Improve something existing"] },
+          { key: "Area", label: "Which part of the app?", type: "select", options: ["The editor / studio", "Design packs", "Scheduling & calendar", "Brand kit", "Dashboard & insights", "Something else"] },
+        ],
+      },
+      account_press: {
+        accent: "ink",
+        sub: "Press, partnerships, speaking — tell us what you have in mind.",
+        msgLabel: "Tell us more",
+        fields: [
+          { key: "About", label: "What's this about?", type: "select", options: ["A partnership", "Speaking or a podcast", "A guest post or feature", "A press / media enquiry", "Something else"] },
+        ],
+      },
+    };
 
     let sessionUser = null;
     let invoicesLoaded = false;
@@ -291,6 +435,9 @@
     function decode(s) {
       const t = document.createElement("textarea"); t.innerHTML = s; return t.value;
     }
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
 
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -302,11 +449,73 @@
       }
     })();
 
+    // Build the tailored question fields for a given config into #contact-extra.
+    function renderExtra(cfg) {
+      if (!extraEl) return;
+      extraEl.innerHTML = "";
+      (cfg.fields || []).forEach((f, i) => {
+        const id = "cx-" + i;
+        const wrap = document.createElement("div");
+        if (f.type === "chips") {
+          wrap.className = "cmodal-field";
+          let html = '<span>' + esc(f.label) + '</span><div class="cmodal-chips" data-chip-group="' + esc(f.key) + '">';
+          (f.options || []).forEach((opt, j) => {
+            html += '<button type="button" class="cmodal-chip" data-chip-value="' + esc(opt) + '" aria-pressed="' + (j === 0 ? "true" : "false") + '">' + esc(opt) + '</button>';
+          });
+          html += '</div>';
+          wrap.innerHTML = html;
+        } else if (f.type === "select") {
+          wrap.className = "cmodal-field";
+          let html = '<span>' + esc(f.label) + '</span><select data-field-key="' + esc(f.key) + '" id="' + id + '">';
+          html += '<option value="">Select…</option>';
+          (f.options || []).forEach((opt) => { html += '<option value="' + esc(opt) + '">' + esc(opt) + '</option>'; });
+          html += '</select>';
+          wrap.innerHTML = html;
+        } else {
+          wrap.className = "cmodal-field";
+          wrap.innerHTML = '<span>' + esc(f.label) + '</span><input type="text" data-field-key="' + esc(f.key) + '" id="' + id + '" placeholder="' + esc(f.placeholder || "") + '" />';
+        }
+        extraEl.appendChild(wrap);
+      });
+      // Chip group behaves as a single-select.
+      extraEl.querySelectorAll("[data-chip-group]").forEach((group) => {
+        group.addEventListener("click", (e) => {
+          const chip = e.target.closest(".cmodal-chip");
+          if (!chip) return;
+          group.querySelectorAll(".cmodal-chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
+          chip.setAttribute("aria-pressed", "true");
+        });
+      });
+    }
+
+    // Read the tailored answers back as "Key: value" lines.
+    function collectExtra() {
+      const lines = [];
+      if (!extraEl) return lines;
+      extraEl.querySelectorAll("[data-field-key]").forEach((el) => {
+        const v = (el.value || "").trim();
+        if (v) lines.push(el.getAttribute("data-field-key") + ": " + v);
+      });
+      extraEl.querySelectorAll("[data-chip-group]").forEach((group) => {
+        const on = group.querySelector('.cmodal-chip[aria-pressed="true"]');
+        if (on) lines.push(group.getAttribute("data-chip-group") + ": " + on.getAttribute("data-chip-value"));
+      });
+      return lines;
+    }
+
     function openForm({ source, title, tag }) {
       if (!formModal) return;
+      const cfg = FORMS[source] || FORMS.account_general;
       sourceInput.value = source || "account_general";
       titleEl.innerHTML = title || "How can we help?";
       tagEl.innerHTML = tag || "Contact";
+      if (formCard) formCard.setAttribute("data-accent", cfg.accent || "violet");
+      if (subEl) {
+        if (cfg.sub) { subEl.textContent = cfg.sub; subEl.hidden = false; }
+        else { subEl.hidden = true; }
+      }
+      if (msgLabelEl) msgLabelEl.textContent = cfg.msgLabel || "Your message";
+      renderExtra(cfg);
       errorEl.hidden = true;
       form.hidden = false;
       formSuccess.hidden = true;
@@ -317,7 +526,11 @@
         if (!nameInput.value) nameInput.value = meta.name || "";
       }
       formModal.hidden = false;
-      setTimeout(() => { (nameInput.value ? document.getElementById("contact-message") : nameInput).focus(); }, 40);
+      const firstExtra = extraEl && extraEl.querySelector("input, select, .cmodal-chip");
+      setTimeout(() => {
+        const target = nameInput.value ? (firstExtra || document.getElementById("contact-message")) : nameInput;
+        if (target && target.focus) target.focus();
+      }, 40);
     }
     function closeModals() {
       if (formModal) formModal.hidden = true;
@@ -328,7 +541,6 @@
       if (!invoicesModal) return;
       invoicesModal.hidden = false;
       if (invoicesLoaded) return;
-      const listEl = document.getElementById("inv-list");
       const loadingEl = document.getElementById("inv-loading");
       const emptyEl = document.getElementById("inv-empty");
       if (!sessionUser) {
@@ -365,7 +577,6 @@
             <span class="inv-row-amount">${gbp(o.amount_pence)}</span>
           </div>`;
       }).join("");
-      // Insert rows before the (hidden) state messages so they stay in the DOM.
       const loading = document.getElementById("inv-loading");
       loading.insertAdjacentHTML("beforebegin", html);
     }
@@ -383,17 +594,20 @@
     });
 
     // Billing query button inside invoices modal
-    panel.querySelectorAll("[data-billing-query]").forEach((b) =>
-      b.addEventListener("click", () => {
-        if (invoicesModal) invoicesModal.hidden = true;
-        openForm({ source: "account_billing", title: "Billing query", tag: "Billing" });
-      })
-    );
+    [formModal, invoicesModal].forEach((m) => {
+      if (!m) return;
+      m.querySelectorAll("[data-billing-query]").forEach((b) =>
+        b.addEventListener("click", () => {
+          if (invoicesModal) invoicesModal.hidden = true;
+          openForm({ source: "account_billing", title: "Billing query", tag: "Billing" });
+        })
+      );
+      // Close handlers (modals now live on <body>, so bind on each modal).
+      m.querySelectorAll("[data-cmodal-close]").forEach((el) =>
+        el.addEventListener("click", closeModals)
+      );
+    });
 
-    // Close handlers
-    panel.querySelectorAll("[data-cmodal-close]").forEach((el) =>
-      el.addEventListener("click", closeModals)
-    );
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeModals();
     });
@@ -404,8 +618,8 @@
       errorEl.hidden = true;
       const name = (nameInput.value || "").trim();
       const email = (emailInput.value || "").trim();
-      const message = (document.getElementById("contact-message").value || "").trim();
-      if (!name || !email || !message) {
+      const userMessage = (document.getElementById("contact-message").value || "").trim();
+      if (!name || !email || !userMessage) {
         errorEl.textContent = "Please add your name, email and a short message.";
         errorEl.hidden = false;
         return;
@@ -413,6 +627,11 @@
       const parts = name.split(/\s+/);
       const first_name = parts.shift() || name;
       const last_name = parts.join(" ") || null;
+
+      // Fold the tailored answers into the message body so /admin/enquiries
+      // sees the full context without any schema change.
+      const extraLines = collectExtra();
+      const message = extraLines.length ? extraLines.join("\n") + "\n\n" + userMessage : userMessage;
 
       submitBtn.disabled = true;
       const orig = submitBtn.innerHTML;

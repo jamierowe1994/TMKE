@@ -22,11 +22,12 @@ function corsHeaders(request, env) {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  const allowOrigin = allowed.includes("*")
-    ? "*"
-    : allowed.includes(origin)
-    ? origin
-    : allowed[0] || "";
+  // Echo the caller's origin so the booking widget works wherever the site is
+  // hosted (tmke.co.uk, www, the Railway URL, previews, etc.). These endpoints
+  // are either public (availability) or protected by a bearer token (R2 gallery
+  // / uploads), so CORS is not the security boundary here. ALLOWED_ORIGINS is
+  // kept as documentation / an easy way to force "*" if ever needed.
+  const allowOrigin = allowed.includes("*") ? "*" : (origin || allowed[0] || "");
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
@@ -249,8 +250,77 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(request, env) });
     }
 
-    // ---- PUBLIC client gallery (token-gated, NO login required) ----
     try {
+      // ---- AI: read text + positions from a finished design image ----
+      // Powers the studio's "Read text with AI" (Canva import). Holds the
+      // Anthropic key as a Worker secret so it never reaches the browser.
+      if (path.endsWith("/ai/parse") && request.method === "POST") {
+        if (!cheapValid(request)) return json({ error: "Sign in to use AI." }, 401, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker (wrangler secret put ANTHROPIC_API_KEY)." }, 503, request, env);
+        let body;
+        try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        const W = Math.max(1, Math.round(body.width || 1080));
+        const H = Math.max(1, Math.round(body.height || 1350));
+        const raw = String(body.image || "");
+        const m = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(raw);
+        const mediaType = m ? m[1] : "image/jpeg";
+        const b64 = m ? m[2] : raw;
+        if (!b64) return json({ error: "Missing image" }, 400, request, env);
+        const clampN = (v, lo, hi) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n))) : lo; };
+        const prompt =
+          "The attached image is a finished social-media graphic, exactly " + W + "x" + H + " pixels. " +
+          "Identify every distinct piece of TEXT visible in it and report it so it can be recreated as editable layers. " +
+          "Respond with ONLY a JSON array (no prose, no markdown fences). Each item: " +
+          '{"text": string (the exact words; keep line breaks as \\n), ' +
+          '"x": number (left edge in px), "y": number (top edge in px), ' +
+          '"w": number (block width px), "h": number (block height px), ' +
+          '"fontSize": number (approx px), "color": "#rrggbb", "weight": 400 or 700, ' +
+          '"align": "left"|"center"|"right"}. ' +
+          "All coordinates are in the " + W + "x" + H + " pixel space of the image. " +
+          "Group words that share a line/paragraph and style into one block. " +
+          "Only include real text — ignore logos drawn as images, photographic content, and decorative graphics. " +
+          "If there is no text, return [].";
+        let aiRes;
+        try {
+          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({
+              model: env.AI_MODEL || "claude-sonnet-4-6",
+              max_tokens: 4000,
+              messages: [{ role: "user", content: [
+                { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } },
+                { type: "text", text: prompt },
+              ] }],
+            }),
+          });
+        } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
+        if (!aiRes.ok) {
+          const t = await aiRes.text().catch(() => "");
+          return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env);
+        }
+        const data = await aiRes.json();
+        const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+        let parsed = [];
+        try {
+          const s = text.indexOf("["), e = text.lastIndexOf("]");
+          parsed = JSON.parse(text.slice(s, e + 1));
+        } catch (_) { return json({ error: "Couldn't read the AI output.", raw: text.slice(0, 200) }, 502, request, env); }
+        const blocks = (Array.isArray(parsed) ? parsed : [])
+          .filter((b) => b && typeof b.text === "string" && b.text.trim())
+          .map((b) => ({
+            text: String(b.text),
+            x: clampN(b.x, 0, W), y: clampN(b.y, 0, H),
+            w: clampN(b.w, 12, W), h: clampN(b.h, 12, H),
+            fontSize: clampN(b.fontSize != null ? b.fontSize : b.size, 6, 400),
+            color: /^#[0-9a-f]{6}$/i.test(b.color || "") ? b.color : "#1c1d22",
+            weight: parseInt(b.weight, 10) >= 600 ? 700 : 400,
+            align: ["left", "center", "right"].includes(b.align) ? b.align : "left",
+          }));
+        return json({ blocks, usage: data.usage || null }, 200, request, env);
+      }
+
+    // ---- PUBLIC client gallery (token-gated, NO login required) ----
       if (path.endsWith("/g/meta") && request.method === "GET") {
         const token = url.searchParams.get("token") || "";
         const rows = token
@@ -260,7 +330,7 @@ export default {
         if (!d) return json({ error: "Not found" }, 404, request, env);
         const files =
           (await sbGet(env, "videography_deliverables",
-            `booking_id=eq.${d.booking_id}&select=r2_key,file_name,kind,size_bytes&order=created_at.asc`)) || [];
+            `booking_id=eq.${d.booking_id}&select=r2_key,file_name,kind,size_bytes,category&order=created_at.asc`)) || [];
         const teasers = teaserKeys(files, d.teaser_count);
         const paid = d.status === "paid";
         return json({
@@ -269,6 +339,7 @@ export default {
           teaserCount: d.teaser_count, paid,
           files: files.map((f) => ({
             key: f.r2_key, name: f.file_name, kind: f.kind, size: f.size_bytes,
+            category: f.category || null,
             unlocked: paid || teasers.has(f.r2_key),
           })),
         }, 200, request, env);

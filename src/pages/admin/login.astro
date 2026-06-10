@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import "../../styles/admin.css";
 import AdminBack from "../../components/AdminBack.astro";
 ---
 
@@ -17,6 +18,11 @@ import AdminBack from "../../components/AdminBack.astro";
       <div class="login-eyebrow">TMKE &middot; Admin</div>
       <h1 class="login-h">Sign <em>in.</em></h1>
       <p class="login-note">Team access only.</p>
+
+      <p class="login-denied" id="login-denied" hidden>
+        This account doesn't have admin access. If you're a customer, head to
+        <a href="/account">your workspace</a> instead.
+      </p>
 
       <form id="login-form" class="login-form" novalidate>
         <label class="login-field">
@@ -72,6 +78,12 @@ import AdminBack from "../../components/AdminBack.astro";
     .login-submit:hover { background: var(--ink); }
     .login-submit[disabled] { opacity: 0.55; cursor: progress; }
     .login-error { margin: 2px 0 0; font-size: 13px; color: #a05a3c; font-family: var(--sans); text-align: center; }
+    .login-denied {
+      margin: 0 0 22px; padding: 12px 14px; font-size: 13px; line-height: 1.5;
+      font-family: var(--sans); text-align: center; color: #8a4a2f;
+      background: rgba(185, 130, 106, 0.12); border: 1px solid rgba(185, 130, 106, 0.4); border-radius: 6px;
+    }
+    .login-denied a { color: var(--english-violet); font-weight: 700; }
     .login-or { display: flex; align-items: center; gap: 14px; margin: 24px 0; font-family: var(--sans); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28, 29, 34, 0.4); }
     .login-or::before, .login-or::after { content: ""; flex: 1; height: 1px; background: rgba(71, 66, 84, 0.18); }
     .login-ms {
@@ -85,16 +97,28 @@ import AdminBack from "../../components/AdminBack.astro";
 
   <script>
     import { supabase } from '../../lib/supabase.js';
+    import { isAdminUser } from '../../lib/admin-gate.js';
 
     const form = document.getElementById('login-form');
     const errEl = document.getElementById('login-error');
+    const deniedEl = document.getElementById('login-denied');
     const submitBtn = form?.querySelector('button[type="submit"]');
     const labelEl = submitBtn?.querySelector('[data-label]');
+    const params = new URLSearchParams(location.search);
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        const params = new URLSearchParams(location.search);
+    function showDenied() { if (deniedEl) deniedEl.hidden = false; }
+
+    // Arrived here because the gate refused a signed-in non-admin.
+    if (params.get('denied')) showDenied();
+
+    // Only forward an EXISTING session if it actually belongs to an admin — a
+    // signed-in customer must not be bounced into /admin.
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      if (await isAdminUser(data.session.user)) {
         location.replace(params.get('next') || '/admin');
+      } else {
+        showDenied();
       }
     });
 
@@ -107,6 +131,7 @@ import AdminBack from "../../components/AdminBack.astro";
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
       errEl.hidden = true;
+      if (deniedEl) deniedEl.hidden = true;
       submitBtn.setAttribute('disabled', 'true');
       labelEl.textContent = 'Signing in…';
 
@@ -114,14 +139,22 @@ import AdminBack from "../../components/AdminBack.astro";
       const email = String(fd.get('email') || '').trim();
       const password = String(fd.get('password') || '');
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         submitBtn.removeAttribute('disabled');
         labelEl.textContent = 'Sign in';
         showError(error.message || 'Could not sign in.');
         return;
       }
-      const params = new URLSearchParams(location.search);
+      // Valid credentials, but not an admin → sign back out so a customer can't
+      // sit on an admin session, and tell them why.
+      if (!(await isAdminUser(signInData.user))) {
+        await supabase.auth.signOut();
+        submitBtn.removeAttribute('disabled');
+        labelEl.textContent = 'Sign in';
+        showDenied();
+        return;
+      }
       location.replace(params.get('next') || '/admin');
     });
 

@@ -326,6 +326,89 @@
     }
     window.addEventListener('resize', updateTakeover);
     updateTakeover();
+
+    // ---------- Snap-to-stage (Ch 04) ----------
+    // Free scrolling can strand the user mid-transition ("halfway house").
+    // The section has a handful of clean rest states: the contained intro,
+    // each fullscreen stage, and the zoomed-out outro. This waits for the
+    // scroll to settle, reads travel direction, and glides to the right rest
+    // state so a stage always lands cleanly. Hysteresis (COMMIT) means a small
+    // nudge inside a stage snaps back to it rather than skipping ahead.
+    const lenis = window.__lenis;
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (lenis && typeof lenis.scrollTo === 'function' && !prefersReduced) {
+      // Snap targets in master-progress space, derived from the same phase
+      // constants the renderer uses above.
+      const slot = (STAGE_END - STAGE_START) / N_OVERLAYS;
+      const snaps = [ZOOM_IN_START * 0.5];                                  // contained intro
+      for (let i = 0; i < N_OVERLAYS; i++) snaps.push(STAGE_START + (i + 0.5) * slot); // stage holds
+      snaps.push(ZOOM_OUT_END - (ZOOM_OUT_END - ZOOM_OUT_START) * 0.15);   // contained outro
+
+      const COMMIT = 0.3;     // fraction of a gap you must cross to commit forward/back
+      const EPS = 0.008;      // "already there" tolerance
+      const SETTLE_MS = 150;  // quiet period that counts as "stopped scrolling"
+
+      let lastY = window.scrollY;
+      let dir = 0;
+      let settleTimer = null;
+      let snapping = false;
+
+      const metrics = () => {
+        const rect = takeover.getBoundingClientRect();
+        const total = takeover.offsetHeight - window.innerHeight;
+        const scrolled = -rect.top;
+        const progress = total > 0 ? Math.max(0, Math.min(1, scrolled / total)) : 0;
+        const sectionTop = rect.top + window.scrollY;
+        return { total, scrolled, progress, sectionTop };
+      };
+
+      // Choose a target snap point given current progress + travel direction.
+      const pickTarget = (p, d) => {
+        const first = snaps[0], last = snaps[snaps.length - 1];
+        if (p <= first) return d > 0 ? first : null;   // entering — pull to intro; leaving up — let go
+        if (p >= last)  return d < 0 ? last : null;    // leaving down — let go
+        let prev = first, next = last;
+        for (let i = 0; i < snaps.length - 1; i++) {
+          if (p >= snaps[i] && p <= snaps[i + 1]) { prev = snaps[i]; next = snaps[i + 1]; break; }
+        }
+        const frac = (p - prev) / (next - prev);
+        let t;
+        if (d > 0) t = frac > COMMIT ? next : prev;
+        else if (d < 0) t = frac < (1 - COMMIT) ? prev : next;
+        else t = frac < 0.5 ? prev : next;
+        return Math.abs(t - p) < EPS ? null : t;
+      };
+
+      const doSnap = () => {
+        if (snapping) return;
+        const { total, scrolled, progress, sectionTop } = metrics();
+        if (total <= 0 || scrolled <= 1 || scrolled >= total - 1) return; // not pinned
+        const target = pickTarget(progress, dir);
+        if (target == null) return;
+        const targetY = Math.round(sectionTop + target * total);
+        const dist = Math.abs(targetY - window.scrollY);
+        if (dist < 2) return;
+        const dur = Math.min(1.0, Math.max(0.45, dist / 2600));   // longer glides for bigger jumps
+        snapping = true;
+        lenis.scrollTo(targetY, {
+          duration: dur,
+          easing: (t) => 1 - Math.pow(1 - t, 3),                  // easeOutCubic
+          onComplete: () => { snapping = false; },
+        });
+        // Fallback unlock in case onComplete never fires (e.g. user interrupts).
+        setTimeout(() => { snapping = false; }, dur * 1000 + 260);
+      };
+
+      const onSnapScroll = () => {
+        const y = window.scrollY;
+        if (y !== lastY) { dir = y > lastY ? 1 : -1; lastY = y; }
+        if (snapping) return;
+        if (settleTimer) clearTimeout(settleTimer);
+        settleTimer = setTimeout(doSnap, SETTLE_MS);
+      };
+
+      lenis.on('scroll', onSnapScroll);
+    }
   }
 
   // ---------- Approach: legacy cinematic-stages controller (no-op now) ----------

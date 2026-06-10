@@ -103,6 +103,7 @@ const googleFonts = [
 ---
 
 <BaseLayout
+  dashboard
   title="Editor — TMKE"
   description="Edit your purchased templates in the TMKE design studio."
   hideNav={true}
@@ -114,17 +115,34 @@ const googleFonts = [
       <span aria-hidden="true">&larr;</span> Back
     </a>
     <div class="ed-onboard-inner">
-      <div class="ed-onboard-eyebrow">Welcome to the Studio</div>
-      <h1 class="ed-onboard-title">Pick a pack <em>to open.</em></h1>
-      <p class="ed-onboard-sub">Choose one of your design packs to load into the editor — you can switch any time from the left rail. Prefer to start clean? Skip below.</p>
+      <!-- Step 1 — pick a pack -->
+      <div id="ed-onboard-step1">
+        <div class="ed-onboard-eyebrow">Welcome to the Studio</div>
+        <h1 class="ed-onboard-title">Pick a pack <em>to open.</em></h1>
+        <p class="ed-onboard-sub">Choose one of your design packs — then pick which design inside it you'd like to work on. Prefer to start clean? Skip below.</p>
 
-      <div class="ed-onboard-loading" id="ed-onboard-loading">Loading your packs…</div>
-      <div class="ed-onboard-grid" id="ed-onboard-grid" hidden></div>
-      <div class="ed-onboard-error" id="ed-onboard-error" hidden></div>
+        <div class="ed-onboard-loading" id="ed-onboard-loading">Loading your packs…</div>
+        <div class="ed-onboard-grid" id="ed-onboard-grid" hidden></div>
+        <div class="ed-onboard-error" id="ed-onboard-error" hidden></div>
 
-      <button type="button" class="ed-onboard-skip" id="ed-onboard-skip">
-        Start with a blank canvas <em>&rarr;</em>
-      </button>
+        <button type="button" class="ed-onboard-skip" id="ed-onboard-skip">
+          Start with a blank canvas <em>&rarr;</em>
+        </button>
+      </div>
+
+      <!-- Step 2 — pick a design from the opened pack -->
+      <div id="ed-onboard-step2" hidden>
+        <button type="button" class="ed-onboard-back2" id="ed-onboard-back2">
+          <span aria-hidden="true">&larr;</span> All packs
+        </button>
+        <div class="ed-onboard-eyebrow" id="ed-onboard-pack-cat">The pack</div>
+        <h1 class="ed-onboard-title" id="ed-onboard-pack-title">Pick a <em>design.</em></h1>
+        <p class="ed-onboard-sub" id="ed-onboard-pack-sub">Choose a design from this pack to open in the studio — you can switch to any of the others at any time.</p>
+
+        <div class="ed-onboard-loading" id="ed-onboard-designs-loading" hidden>Loading this pack's designs…</div>
+        <div class="ed-onboard-grid" id="ed-onboard-design-grid"></div>
+        <div class="ed-onboard-error" id="ed-onboard-designs-empty" hidden></div>
+      </div>
     </div>
   </div>
 
@@ -172,16 +190,31 @@ const googleFonts = [
           </svg>
           Schedule
         </button>
-        <button class="ed-btn-ghost" id="ed-share" title="Share to your socials">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="18" cy="5" r="3"/>
-            <circle cx="6" cy="12" r="3"/>
-            <circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-          Share
-        </button>
+        <div class="ed-share" id="ed-share-wrap">
+          <button class="ed-btn-ghost" id="ed-share-trigger" aria-haspopup="menu" aria-expanded="false" title="Share">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Share
+            <span class="ed-share-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="ed-share-menu" id="ed-share-menu" role="menu" hidden>
+            <button class="ed-share-item" id="ed-share-review" role="menuitem">
+              <strong>Send for review…</strong>
+              <span>Ask a teammate to check &amp; approve before publishing</span>
+            </button>
+            <button class="ed-share-item" id="ed-share-image" role="menuitem">
+              <strong>Share / save image</strong>
+              <span>Web share, or download a PNG of this page</span>
+            </button>
+          </div>
+        </div>
+        <!-- Publish — admin only; shown via JS when ?mode=admin. -->
+        <button class="ed-btn-solid" id="ed-publish" hidden>Send to catalogue</button>
         <div class="ed-download" id="ed-download">
           <button class="ed-btn-solid" id="ed-download-trigger" aria-haspopup="menu" aria-expanded="false">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -243,6 +276,13 @@ const googleFonts = [
         <span>Layers</span>
       </button>
       <div class="ed-rail-spacer"></div>
+      <!-- Pages toggle: pops the page strip up from the bottom on demand.
+           Deliberately NOT an .ed-rail-btn so editor.js's tool handler skips
+           it; wired by a small inline script below. -->
+      <button class="ed-rail-toggle" id="ed-pages-toggle" type="button" aria-pressed="false" title="Pages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="12" height="16" rx="1.5"/><path d="M8 21h12V7"/></svg>
+        <span>Pages</span>
+      </button>
       <button class="ed-rail-btn" data-tool="resize" title="Resize">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 3h-7M21 3v7M3 21h7M3 21v-7"/><path d="M3 3l7 7M21 21l-7-7"/></svg>
         <span>Resize</span>
@@ -399,6 +439,20 @@ const googleFonts = [
             <label><input type="checkbox" data-stock-src="unsplash" checked /> Unsplash</label>
           </div>
         </div>
+        <!-- Paste a Pexels OR Unsplash collection link — we work out which and
+             pull every photo in it. -->
+        <div class="ed-collect">
+          <input type="url" id="ed-collect-input" placeholder="Paste a Pexels / Unsplash collection link…" autocomplete="off" />
+          <button type="button" id="ed-collect-pull">Pull</button>
+        </div>
+        <button type="button" id="ed-collect-save" class="ed-collect-save" hidden>★ Save this collection to Photos</button>
+        <div class="ed-collect-saved" id="ed-collect-saved"></div>
+        <!-- Shows while a collection's photos are open — click to withdraw them
+             (collapse back to the folder list). -->
+        <div class="ed-collect-open" id="ed-collect-open" hidden>
+          <span class="ed-collect-open-name" id="ed-collect-open-name"></span>
+          <button type="button" class="ed-collect-close" id="ed-collect-close" title="Withdraw these photos">Close <span aria-hidden="true">&times;</span></button>
+        </div>
         <p class="ed-stock-status" id="ed-stock-status">Type to search — results from both sources appear here.</p>
         <div class="ed-photo-grid" id="ed-photo-grid"></div>
         <p class="ed-stock-credit">Photos via <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> &amp; <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>. Hover an image to credit the photographer.</p>
@@ -413,6 +467,42 @@ const googleFonts = [
           <span>or drag images here</span>
         </label>
         <div class="ed-photo-grid" id="ed-upload-grid"></div>
+
+        <!-- Admin-only: bulk-import Canva page exports. Shown via JS in ?mode=admin. -->
+        <div class="ed-canva" id="ed-canva-import" hidden>
+          <div class="ed-canva-sep"><span>Import from Canva</span></div>
+          <p class="ed-canva-intro">Two steps. Add the <strong>finished designs</strong> (words included), then the same pages as <strong>plain backgrounds</strong>. We read the wording off the finished ones and lay it onto the backgrounds as editable text. Drop the images straight in (PNG/JPG) or a <strong>.zip</strong> — multiple at once is fine.</p>
+
+          <label class="ed-upload-drop ed-canva-drop" id="ed-canva-drop-final">
+            <input type="file" id="ed-canva-zip-final" accept=".zip,application/zip,application/x-zip-compressed,image/png,image/jpeg,image/webp" multiple hidden />
+            <strong>1 · Finished designs</strong>
+            <span>The full Canva exports — text and all. We read these. <em>Drop images or a .zip.</em></span>
+            <span class="ed-canva-badge" id="ed-canva-final-badge" hidden></span>
+            <div class="ed-canva-thumbs" id="ed-canva-final-thumbs" hidden></div>
+          </label>
+
+          <label class="ed-upload-drop ed-canva-drop" id="ed-canva-drop-bg">
+            <input type="file" id="ed-canva-zip-bg" accept=".zip,application/zip,application/x-zip-compressed,image/png,image/jpeg,image/webp" multiple hidden />
+            <strong>2 · Plain backgrounds</strong>
+            <span>The same pages with the words removed. These become the canvas. <em>Drop images or a .zip.</em></span>
+            <span class="ed-canva-badge" id="ed-canva-bg-badge" hidden></span>
+            <div class="ed-canva-thumbs" id="ed-canva-bg-thumbs" hidden></div>
+          </label>
+
+          <button type="button" class="ed-ai-btn" id="ed-canva-build" disabled>
+            <span aria-hidden="true">✨</span> Build pages <small id="ed-canva-build-sub">— add backgrounds first</small>
+          </button>
+          <p class="ed-canva-status" id="ed-canva-status" hidden></p>
+
+          <div class="ed-canva-sep ed-canva-sep--minor"><span>On a single page</span></div>
+          <button type="button" class="ed-ai-btn ed-ai-btn--ghost" id="ed-ai-read">
+            <span aria-hidden="true">✨</span> Read text with AI <small>(this page)</small>
+          </button>
+          <button type="button" class="ed-ai-btn ed-ai-btn--ghost" id="ed-ai-read-all">
+            <span aria-hidden="true">✨</span> Read text on all pages
+          </button>
+          <p class="ed-ai-status" id="ed-ai-status" hidden></p>
+        </div>
       </section>
 
       <!-- Background -->
@@ -533,12 +623,20 @@ const googleFonts = [
       </div>
     </main>
 
+    <!-- Page strip — flip between / add / duplicate / delete pages in this design -->
+    <div class="ed-pages" id="ed-pages"></div>
+
     <!-- Right properties panel removed — its controls now live inside
          the "Selection" pane on the left, which auto-opens when an
          element is selected. The #ed-props node is kept as an empty
          placeholder so any existing JS that queried it doesn't NPE
          while we transition; renderProps now targets the new pane. -->
     <aside class="ed-props" id="ed-props" hidden></aside>
+
+    <!-- Colour panel — opens over the left panel column when a colour swatch is
+         clicked. Rich picker: hex, in-design colours, brand palette, photo
+         colours, solids and gradients. Populated by editor.js. -->
+    <div class="ed-colorpanel" id="ed-colorpanel" hidden></div>
 
     <!-- Toast -->
     <div class="ed-toast" id="ed-toast" hidden></div>
@@ -640,7 +738,17 @@ const googleFonts = [
   <script id="ed-google-fonts-data" type="application/json" set:html={JSON.stringify(googleFonts)}></script>
 
   <style is:global>
-    body { background: #f5f4f1; overflow: hidden; }
+    /* Soft light-purple iridescent wash — matches the rest of the hub
+       (the .dash-shell background). The white chrome (top bar, rail,
+       panel, canvas) sits on top of it. */
+    body {
+      overflow: hidden;
+      background:
+        radial-gradient(70% 55% at 0% 0%, rgba(255, 206, 178, 0.38), transparent 50%),
+        radial-gradient(75% 65% at 100% 0%, rgba(199, 170, 232, 0.46), transparent 55%),
+        radial-gradient(85% 75% at 60% 115%, rgba(170, 196, 236, 0.36), transparent 55%),
+        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f3eef1 100%);
+    }
 
     .editor {
       position: fixed;
@@ -650,12 +758,17 @@ const googleFonts = [
          left panel's "Selection" pane now. Rail bumped 80→100,
          panel bumped 320→360 for more room. */
       grid-template-columns: 100px 360px 1fr;
-      grid-template-rows: 64px 44px 1fr;
+      grid-template-rows: 64px 44px 1fr auto;
       grid-template-areas:
         "top   top   top"
         "rail  panel ctx"
-        "rail  panel stage";
-      background: #f5f4f1;
+        "rail  panel stage"
+        "rail  panel pages";
+      background:
+        radial-gradient(70% 55% at 0% 0%, rgba(255, 206, 178, 0.38), transparent 50%),
+        radial-gradient(75% 65% at 100% 0%, rgba(199, 170, 232, 0.46), transparent 55%),
+        radial-gradient(85% 75% at 60% 115%, rgba(170, 196, 236, 0.36), transparent 55%),
+        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f3eef1 100%);
       font-family: var(--sans);
       color: var(--ink);
     }
@@ -883,7 +996,13 @@ const googleFonts = [
       font-size: 13px; font-weight: 600;
       color: var(--ink);
       border-radius: 4px;
+      /* Centre the leading icon with the label (was baseline-misaligned). */
+      display: inline-flex; align-items: center; gap: 7px;
     }
+    .ed-btn-ghost svg { display: block; flex: 0 0 auto; }
+    /* The flex display above (and on solid buttons) would otherwise override the
+       [hidden] attribute — keep hidden meaning hidden. */
+    .ed-btn-ghost[hidden], .ed-btn-solid[hidden] { display: none !important; }
     .ed-btn-ghost:hover { background: rgba(28,29,34,0.07); }
 
     .ed-btn-solid {
@@ -908,7 +1027,7 @@ const googleFonts = [
       z-index: 25;
     }
     .ed-rail-spacer { flex: 1; }
-    .ed-rail-btn {
+    .ed-rail-btn, .ed-rail-toggle {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 4px;
       width: 100%; padding: 12px 4px;
@@ -918,12 +1037,12 @@ const googleFonts = [
       font-family: var(--sans);
       transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
-    .ed-rail-btn svg { width: 22px; height: 22px; }
-    .ed-rail-btn span {
+    .ed-rail-btn svg, .ed-rail-toggle svg { width: 22px; height: 22px; }
+    .ed-rail-btn span, .ed-rail-toggle span {
       font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
     }
-    .ed-rail-btn:hover { color: var(--ink); background: rgba(28,29,34,0.04); }
-    .ed-rail-btn.is-active {
+    .ed-rail-btn:hover, .ed-rail-toggle:hover { color: var(--ink); background: rgba(28,29,34,0.04); }
+    .ed-rail-btn.is-active, .ed-rail-toggle.is-active {
       color: var(--english-violet);
       background: rgba(71, 66, 84, 0.08);
       border-left-color: var(--english-violet);
@@ -1079,6 +1198,46 @@ const googleFonts = [
       user-select: none;
     }
     .ed-stock-sources input[type="checkbox"] { accent-color: var(--english-violet); }
+    .ed-collect { display: flex; gap: 8px; margin: 10px 0 4px; }
+    .ed-collect input[type="url"] {
+      flex: 1; min-width: 0; padding: 9px 12px; font-family: var(--sans); font-size: 13px;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; background: #fff;
+    }
+    .ed-collect input[type="url"]:focus { outline: none; border-color: var(--english-violet); }
+    .ed-collect button {
+      flex: 0 0 auto; padding: 9px 16px; font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.06em; color: var(--paper); background: var(--english-violet);
+      border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s;
+    }
+    .ed-collect button:hover { background: var(--ink); }
+    .ed-collect-save {
+      width: 100%; margin: 4px 0 0; padding: 8px; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet);
+      background: rgba(71,66,84,0.08); border: 1px dashed rgba(71,66,84,0.35); border-radius: 8px;
+    }
+    .ed-collect-save:hover { background: rgba(71,66,84,0.16); }
+    .ed-collect-save[hidden] { display: none; }
+    .ed-collect-saved { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .ed-collect-saved:empty { display: none; }
+    .ed-collect-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 9px;
+      background: var(--paper); border: 1px solid rgba(28,29,34,0.14); border-radius: 999px;
+      font-family: var(--sans); font-size: 12px; color: var(--ink); cursor: pointer; max-width: 100%;
+    }
+    .ed-collect-chip:hover { border-color: var(--english-violet); }
+    .ed-collect-chip.is-open { border-color: var(--english-violet); background: rgba(71,66,84,0.1); font-weight: 700; }
+    .ed-collect-open { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 0; padding: 7px 10px; background: rgba(71,66,84,0.08); border: 1px solid rgba(71,66,84,0.18); border-radius: 8px; }
+    .ed-collect-open[hidden] { display: none; }
+    .ed-collect-open-name { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ed-collect-close { flex: 0 0 auto; border: none; background: none; cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.6); display: inline-flex; align-items: center; gap: 5px; }
+    .ed-collect-close span { font-size: 15px; }
+    .ed-collect-close:hover { color: #c0392b; }
+    .ed-collect-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+    .ed-collect-pexels { background: #05a081; }
+    .ed-collect-unsplash { background: #111; }
+    .ed-collect-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .ed-collect-chip-x { border: none; background: none; cursor: pointer; color: rgba(28,29,34,0.45); font-size: 15px; line-height: 1; padding: 0 2px; }
+    .ed-collect-chip-x:hover { color: #c0392b; }
     .ed-stock-status {
       margin: 0 0 10px;
       font-size: 11px; color: rgba(28,29,34,0.5);
@@ -1341,6 +1500,94 @@ const googleFonts = [
       background: rgba(71,66,84,0.1);
       border-color: var(--english-violet);
     }
+    /* Canva bulk import (admin) */
+    .ed-canva[hidden] { display: none; }
+    .ed-canva-sep { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+    .ed-canva-sep::before, .ed-canva-sep::after { content: ""; flex: 1; height: 1px; background: rgba(28,29,34,0.12); }
+    .ed-canva-sep span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .ed-canva-status { font-family: var(--sans); font-size: 12px; color: var(--english-violet); margin: 10px 0 0; }
+    .ed-canva-status.is-error { color: #a05a3c; }
+    .ed-canva-status[hidden] { display: none; }
+    .ed-canva-intro { font-family: var(--sans); font-size: 12px; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 14px; }
+    .ed-canva-intro strong { color: var(--ink); font-weight: 700; }
+    .ed-canva-drop { margin-bottom: 10px; position: relative; }
+    .ed-canva-drop.is-loaded { border-color: var(--english-violet); background: rgba(71,66,84,0.05); }
+    .ed-canva-drop.is-loading { border-color: var(--english-violet); }
+    /* spinner shown while a drop is being read */
+    .ed-canva-drop.is-loading::after {
+      content: ""; position: absolute; top: 10px; right: 10px;
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid rgba(71,66,84,0.25); border-top-color: var(--english-violet);
+      animation: edSpin 0.7s linear infinite;
+    }
+    @keyframes edSpin { to { transform: rotate(360deg); } }
+    .ed-canva-thumbs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+    .ed-canva-thumbs[hidden] { display: none; }
+    .ed-canva-thumb {
+      width: 34px; height: 42px; border-radius: 3px;
+      background-size: cover; background-position: center;
+      border: 1px solid rgba(28,29,34,0.15);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.55);
+    }
+    .ed-canva-thumb--more { background: rgba(71,66,84,0.08); }
+
+    /* Busy lock — block page-strip (and canvas) clicks while the AI build
+       places text page-by-page, so a stray click can't redirect it. */
+    .editor.ed-busy #ed-pages { pointer-events: none; opacity: 0.5; }
+    .editor.ed-busy .ed-stage { pointer-events: none; }
+
+    /* Compare modal — studio render vs original Canva design */
+    .ed-cmp-scrim {
+      position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center;
+      padding: 24px; background: rgba(16,14,22,0.6);
+      backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+      opacity: 0; transition: opacity 0.22s ease;
+    }
+    .ed-cmp-scrim.is-open { opacity: 1; }
+    .ed-cmp {
+      width: 100%; max-width: 1100px; max-height: 90vh; display: flex; flex-direction: column;
+      background: var(--paper); border-radius: 16px; overflow: hidden;
+      box-shadow: 0 40px 90px -30px rgba(16,14,22,0.6);
+      transform: translateY(12px); transition: transform 0.24s cubic-bezier(.2,.7,.2,1);
+    }
+    .ed-cmp-scrim.is-open .ed-cmp { transform: none; }
+    .ed-cmp-head { display: flex; align-items: center; gap: 16px; padding: 20px 24px; border-bottom: 1px solid rgba(28,29,34,0.1); }
+    .ed-cmp-check { width: 38px; height: 38px; border-radius: 50%; background: rgba(44,122,75,0.14); color: #2c7a4b; display: flex; align-items: center; justify-content: center; font-size: 20px; flex: 0 0 auto; }
+    .ed-cmp-title { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); }
+    .ed-cmp-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); margin-top: 2px; max-width: 60ch; }
+    .ed-cmp-done { margin-left: auto; flex: 0 0 auto; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--paper); background: var(--english-violet); border: none; border-radius: 999px; padding: 12px 22px; cursor: pointer; transition: background 0.2s; }
+    .ed-cmp-done:hover { background: var(--ink); }
+    .ed-cmp-body { overflow-y: auto; padding: 20px 24px 28px; display: flex; flex-direction: column; gap: 22px; }
+    .ed-cmp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .ed-cmp-cell { position: relative; background: rgba(28,29,34,0.04); border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 12px; }
+    .ed-cmp-cell img { display: block; width: 100%; height: auto; border-radius: 4px; }
+    .ed-cmp-tag { display: inline-block; margin-bottom: 8px; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+    .ed-cmp-tag--alt { color: rgba(28,29,34,0.5); }
+    .ed-cmp-missing { aspect-ratio: 4/5; display: flex; align-items: center; justify-content: center; color: rgba(28,29,34,0.3); }
+    @media (max-width: 640px) { .ed-cmp-row { grid-template-columns: 1fr; } }
+    .ed-canva-drop.is-loaded { border-color: rgba(46,125,82,0.5); background: rgba(46,125,82,0.06); }
+    .ed-canva-badge {
+      display: inline-block; margin-top: 6px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.04em; color: #2e7d52; background: rgba(46,125,82,0.12); border-radius: 999px; padding: 2px 10px;
+    }
+    .ed-canva-badge[hidden] { display: none; }
+    .ed-canva-sep--minor { margin-top: 16px; }
+    .ed-canva-sep--minor span { font-size: 9px; color: rgba(28,29,34,0.35); }
+    .ed-ai-btn {
+      width: 100%; margin-top: 12px; padding: 11px 14px; cursor: pointer;
+      font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--paper);
+      background: var(--english-violet); border: none; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; gap: 7px; transition: background 0.2s, opacity 0.2s;
+    }
+    .ed-ai-btn small { font-weight: 500; opacity: 0.75; }
+    .ed-ai-btn:hover { background: var(--ink); }
+    .ed-ai-btn:disabled { opacity: 0.6; cursor: default; }
+    .ed-ai-btn--ghost { margin-top: 8px; background: transparent; color: var(--english-violet); border: 1px solid rgba(71,66,84,0.35); }
+    .ed-ai-btn--ghost:hover { background: rgba(71,66,84,0.08); color: var(--english-violet); }
+    .ed-ai-status { font-family: var(--sans); font-size: 12px; color: var(--english-violet); margin: 8px 0 0; }
+    .ed-ai-status.is-error { color: #a05a3c; }
+    .ed-ai-status[hidden] { display: none; }
 
     /* Background swatches */
     .ed-swatches {
@@ -1487,6 +1734,31 @@ const googleFonts = [
       border-radius: 4px; background: #fff;
       text-align: center;
     }
+    /* Font-size control: number input + caret with a quick-pick dropdown */
+    .ed-size-ctl { position: relative; display: inline-flex; align-items: center; }
+    .ed-size-ctl .ed-ctx-num { width: 56px; border-radius: 4px 0 0 4px; border-right: none; }
+    .ed-size-caret {
+      height: 30px; width: 22px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 0 4px 4px 0;
+      background: #fff; cursor: pointer; font-size: 10px; color: rgba(28,29,34,0.6);
+    }
+    .ed-size-caret:hover { background: var(--paper); color: var(--ink); }
+    /* Fixed + high z-index so it always floats over the top of the canvas
+       (JS positions it under the caret). */
+    .ed-size-pop {
+      position: fixed; z-index: 320;
+      width: 84px; max-height: 280px; overflow-y: auto;
+      background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px;
+      box-shadow: 0 16px 40px -16px rgba(28,29,34,0.4); padding: 5px;
+    }
+    .ed-size-pop[hidden] { display: none; }
+    .ed-size-opt {
+      display: block; width: 100%; text-align: left; padding: 7px 12px;
+      font-family: var(--sans); font-size: 14px; color: var(--ink);
+      background: none; border: none; border-radius: 5px; cursor: pointer;
+    }
+    .ed-size-opt:hover { background: rgba(71,66,84,0.09); }
+    .ed-size-opt.is-current { color: var(--english-violet); font-weight: 700; background: rgba(71,66,84,0.1); }
     /* Legacy square colour input — kept for any callers we haven't migrated
        to the circular swatch yet. New code should use .ed-circle-swatch. */
     .ed-ctx-color {
@@ -1647,6 +1919,23 @@ const googleFonts = [
     .ed-rclick-item:hover { background: rgba(28,29,34,0.06); }
     .ed-rclick-item.is-danger { color: #a05a3c; }
     .ed-rclick-item.is-danger:hover { background: rgba(160,90,60,0.1); }
+    /* Hover fly-out submenus (Layer / Align / Flip) */
+    .ed-rclick-item.has-sub .ed-rclick-arrow { color: rgba(28,29,34,0.4); font-size: 16px; line-height: 1; }
+    .ed-rclick-flyout {
+      position: absolute;
+      left: calc(100% + 4px);
+      min-width: 168px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.12);
+      border-radius: 6px;
+      box-shadow: 0 18px 50px -10px rgba(28,29,34,0.3);
+      padding: 6px;
+      display: none;
+      flex-direction: column;
+      z-index: 1;
+    }
+    .ed-rclick-flyout.is-open { display: flex; }
+    .ed-rclick-flyout.flip-left { left: auto; right: calc(100% + 4px); }
     .ed-rclick-hint {
       font-size: 11px;
       color: rgba(28,29,34,0.45);
@@ -1664,10 +1953,201 @@ const googleFonts = [
       grid-area: stage;
       position: relative;
       overflow: auto;
-      background: #f5f4f1;
+      /* Transparent so the editor's purple wash shows through behind the
+         white canvas. */
+      background: transparent;
       display: flex; align-items: center; justify-content: center;
       padding: 40px;
     }
+
+    /* ---- Colour panel (left, over the panel column) ---- */
+    .ed-colorpanel {
+      position: absolute; left: 100px; top: 64px; width: 360px; bottom: 0; z-index: 40;
+      background: #fff; border-right: 1px solid rgba(28,29,34,0.08);
+      display: flex; flex-direction: column;
+      box-shadow: 8px 0 28px -18px rgba(28,29,34,0.4);
+    }
+    .ed-colorpanel[hidden] { display: none; }
+    .ed-cp-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 12px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ed-cp-title { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink); }
+    .ed-cp-close { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; cursor: pointer; font-size: 18px; color: rgba(28,29,34,0.55); }
+    .ed-cp-close:hover { background: rgba(28,29,34,0.06); color: var(--ink); }
+    .ed-cp-scroll { flex: 1; overflow-y: auto; padding: 14px 18px 28px; scrollbar-width: thin; }
+    .ed-cp-hex {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; margin-bottom: 16px;
+      font-family: var(--sans); font-size: 14px; border: 1px solid rgba(28,29,34,0.2); border-radius: 8px; background: var(--paper);
+    }
+    .ed-cp-hex:focus { outline: none; border-color: var(--english-violet); }
+    .ed-cp-sec { margin-bottom: 18px; }
+    .ed-cp-sec h5 { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 9px; }
+    .ed-cp-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+    .ed-cp-sw {
+      width: 26px; height: 26px; flex: 0 0 auto; border-radius: 50%; cursor: pointer;
+      border: 1px solid rgba(28,29,34,0.14); padding: 0; transition: transform 0.12s;
+      background-size: cover; background-position: center;
+    }
+    .ed-cp-sw:hover { transform: scale(1.15); }
+    .ed-cp-sw.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--english-violet); }
+    .ed-cp-grid--grad .ed-cp-sw { width: 40px; height: 28px; border-radius: 6px; }
+    .ed-cp-empty { flex: 1 1 100%; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.45); white-space: nowrap; margin: 0; }
+
+    /* ---- Share dropdown ---- */
+    .ed-share { position: relative; }
+    .ed-share-caret { font-size: 9px; margin-left: 2px; color: rgba(28,29,34,0.5); }
+    .ed-share-menu {
+      position: absolute; top: calc(100% + 8px); right: 0; z-index: 80;
+      min-width: 280px; background: #fff; border: 1px solid rgba(28,29,34,0.12);
+      border-radius: 12px; box-shadow: 0 18px 50px -12px rgba(28,29,34,0.4); padding: 6px;
+    }
+    .ed-share-menu[hidden] { display: none; }
+    .ed-share-item {
+      display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+      padding: 10px 12px; background: transparent; border: none; border-radius: 8px; cursor: pointer;
+    }
+    .ed-share-item:hover { background: rgba(71,66,84,0.08); }
+    .ed-share-item strong { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
+    .ed-share-item span { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); }
+
+    /* ---- Send-for-review modal ---- */
+    .ed-rev-scrim {
+      position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center;
+      padding: 24px; background: rgba(16,14,22,0.55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      opacity: 0; transition: opacity 0.2s ease;
+    }
+    .ed-rev-scrim.is-open { opacity: 1; }
+    .ed-rev {
+      width: 100%; max-width: 460px; background: var(--paper); color: var(--ink);
+      border-radius: 16px; padding: 32px 34px 26px; box-shadow: 0 30px 80px -20px rgba(16,14,22,0.6);
+      transform: translateY(12px) scale(0.98); transition: transform 0.22s cubic-bezier(.16,1,.3,1);
+    }
+    .ed-rev-scrim.is-open .ed-rev { transform: none; }
+    .ed-rev-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 10px; }
+    .ed-rev-title { font-family: var(--serif); font-weight: 400; font-size: 30px; letter-spacing: -0.015em; margin: 0 0 8px; }
+    .ed-rev-title em { font-style: italic; color: var(--english-violet); }
+    .ed-rev-sub { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.65); margin: 0 0 20px; }
+    .ed-rev-label { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 14px 0 7px; }
+    .ed-rev-label span { font-weight: 500; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); }
+    .ed-rev-email, .ed-rev-msg {
+      width: 100%; box-sizing: border-box; padding: 12px 14px; font-family: var(--sans); font-size: 15px;
+      border: 1px solid rgba(28,29,34,0.2); border-radius: 8px; background: #fff; color: var(--ink);
+    }
+    .ed-rev-msg { resize: vertical; }
+    .ed-rev-email:focus, .ed-rev-msg:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(71,66,84,0.12); }
+    .ed-rev-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+    .ed-rev-cancel, .ed-rev-send { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; padding: 12px 24px; border-radius: 999px; cursor: pointer; border: 1px solid transparent; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+    .ed-rev-cancel { background: transparent; color: rgba(28,29,34,0.6); border-color: rgba(28,29,34,0.2); }
+    .ed-rev-cancel:hover { color: var(--ink); border-color: rgba(28,29,34,0.45); }
+    .ed-rev-send { background: var(--english-violet); color: var(--paper); }
+    .ed-rev-send:hover { background: var(--ink); }
+    .ed-rev-status { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: #2e7d52; margin: 14px 0 0; }
+    .ed-rev-status.is-error { color: #a05a3c; }
+    .ed-rev-status[hidden] { display: none; }
+    .ed-rev-status a { color: var(--english-violet); word-break: break-all; }
+
+    /* ---- Page strip (multi-page designs) ----
+       Hidden by default so the canvas gets the full height. The "Pages"
+       toggle in the left rail pops it up from the bottom on demand. Never
+       shows a scrollbar — hover + mouse-wheel scrolls the pages (wired in JS). */
+    .ed-pages {
+      grid-area: pages;
+      display: none;
+      align-items: center; gap: 12px;
+      padding: 12px 18px;
+      background: rgba(255,255,255,0.62);
+      backdrop-filter: blur(10px) saturate(1.2);
+      -webkit-backdrop-filter: blur(10px) saturate(1.2);
+      border-top: 1px solid rgba(28,29,34,0.08);
+      overflow-x: auto; overflow-y: hidden;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .ed-pages::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    .editor.show-pages .ed-pages {
+      display: flex;
+      animation: edPagesUp 0.34s cubic-bezier(.2,.75,.2,1) both;
+    }
+    @keyframes edPagesUp {
+      from { opacity: 0; transform: translateY(100%); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .editor.show-pages .ed-pages { animation: none; }
+    }
+    .ed-page-tile {
+      position: relative; flex: 0 0 auto;
+      width: 68px; height: 85px;
+      border: 2px solid rgba(28,29,34,0.18); border-radius: 6px;
+      background: #fff; cursor: pointer; padding: 0;
+      box-shadow: 0 1px 3px rgba(28,29,34,0.12);
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .ed-page-tile:hover { transform: translateY(-2px); }
+    .ed-page-tile.is-current { border-color: var(--english-violet); box-shadow: 0 0 0 2px rgba(71,66,84,0.18), 0 2px 6px rgba(28,29,34,0.18); }
+    .ed-page-num {
+      position: absolute; left: 4px; bottom: 3px;
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      color: rgba(28,29,34,0.55); background: rgba(255,255,255,0.85);
+      border-radius: 3px; padding: 0 4px; line-height: 1.4;
+    }
+    .ed-page-acts {
+      position: absolute; top: 3px; right: 3px; display: flex; gap: 2px;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .ed-page-tile:hover .ed-page-acts, .ed-page-tile.is-current .ed-page-acts { opacity: 1; }
+    .ed-page-act {
+      width: 16px; height: 16px; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; line-height: 1; color: #fff;
+      background: rgba(28,29,34,0.55); cursor: pointer;
+    }
+    .ed-page-act:hover { background: var(--english-violet); }
+    .ed-page-del:hover { background: #c0392b; }
+    .ed-page-add {
+      flex: 0 0 auto; width: 68px; height: 85px;
+      border: 2px dashed rgba(28,29,34,0.25); border-radius: 6px;
+      background: transparent; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      color: rgba(28,29,34,0.55); transition: border-color 0.2s, color 0.2s;
+    }
+    .ed-page-add span { font-size: 20px; line-height: 1; }
+    .ed-page-add small { font-size: 8px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    .ed-page-add:hover { border-color: var(--english-violet); color: var(--english-violet); }
+
+    /* ---- Publish → Pack modal (admin) ---- */
+    .ed-pub-scrim {
+      position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center;
+      padding: 24px; background: rgba(16,14,22,0.55);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      opacity: 0; transition: opacity 0.2s ease;
+    }
+    .ed-pub-scrim.is-open { opacity: 1; }
+    .ed-pub {
+      width: 100%; max-width: 480px; background: var(--paper); color: var(--ink);
+      border-radius: 16px; padding: 32px 34px 26px;
+      box-shadow: 0 30px 80px -20px rgba(16,14,22,0.6);
+      transform: translateY(12px) scale(0.98); transition: transform 0.22s cubic-bezier(.16,1,.3,1);
+    }
+    .ed-pub-scrim.is-open .ed-pub { transform: none; }
+    .ed-pub-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 10px; }
+    .ed-pub-title { font-family: var(--serif); font-weight: 400; font-size: 30px; letter-spacing: -0.015em; margin: 0 0 8px; }
+    .ed-pub-title em { font-style: italic; color: var(--english-violet); }
+    .ed-pub-sub { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.65); margin: 0 0 22px; }
+    .ed-pub-choices { display: flex; flex-direction: column; gap: 12px; }
+    .ed-pub-choice { display: flex; align-items: center; gap: 10px; font-family: var(--sans); font-size: 15px; color: var(--ink); cursor: pointer; }
+    .ed-pub-choice.is-disabled { opacity: 0.4; }
+    .ed-pub-newname, .ed-pub-existing {
+      margin: -4px 0 4px 26px; padding: 11px 14px; font-family: var(--sans); font-size: 15px;
+      border: 1px solid rgba(28,29,34,0.2); border-radius: 6px; background: #fff; color: var(--ink);
+    }
+    .ed-pub-newname:focus, .ed-pub-existing:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(71,66,84,0.12); }
+    .ed-pub-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 26px; }
+    .ed-pub-cancel, .ed-pub-ok {
+      font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+      padding: 12px 24px; border-radius: 999px; cursor: pointer; border: 1px solid transparent; transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .ed-pub-cancel { background: transparent; color: rgba(28,29,34,0.6); border-color: rgba(28,29,34,0.2); }
+    .ed-pub-cancel:hover { color: var(--ink); border-color: rgba(28,29,34,0.45); }
+    .ed-pub-ok { background: var(--english-violet); color: var(--paper); }
+    .ed-pub-ok:hover { background: var(--ink); }
     .ed-canvas-shadow {
       position: relative;
       box-shadow: 0 30px 90px -30px rgba(28,29,34,0.35), 0 4px 12px -6px rgba(28,29,34,0.18);
@@ -1693,9 +2173,13 @@ const googleFonts = [
       color: rgba(255, 255, 255, 0.92);
       text-align: center;
       padding: 0 8%;
-      pointer-events: none;
+      /* Clickable: a click drops a real, editable + deletable text box here. */
+      pointer-events: auto;
+      cursor: text;
       user-select: none;
+      transition: opacity 0.2s;
     }
+    .ed-blank-hint:hover { opacity: 0.65; }
     .ed-element {
       position: absolute;
       box-sizing: border-box;
@@ -1740,12 +2224,16 @@ const googleFonts = [
       pointer-events: none;
       transform-origin: center center;
     }
+    /* High-contrast selection colour — must stand out over any photo, so a
+       bright blue with a white halo rather than the muted brand violet. */
+    .ed-stage { --ed-select: #1F8BFF; }
     .ed-handle {
       position: absolute;
-      width: 10px; height: 10px;
+      width: 11px; height: 11px;
       background: #fff;
-      border: 1.5px solid var(--english-violet);
+      border: 2px solid var(--ed-select);
       border-radius: 50%;
+      box-shadow: 0 0 0 1.5px rgba(255,255,255,0.9), 0 1px 4px rgba(0,0,0,0.35);
       pointer-events: auto;
       cursor: nwse-resize;
       z-index: 50;
@@ -1754,17 +2242,86 @@ const googleFonts = [
     .ed-handle[data-h="e"], .ed-handle[data-h="w"] { cursor: ew-resize; }
     .ed-handle[data-h="ne"], .ed-handle[data-h="sw"] { cursor: nesw-resize; }
     .ed-handle[data-h="rot"] {
-      width: 14px; height: 14px;
+      width: 15px; height: 15px;
       border-radius: 50%;
-      background: var(--english-violet);
+      background: var(--ed-select);
       border-color: #fff;
       cursor: grab;
     }
     .ed-bounds {
       position: absolute;
-      border: 1.5px solid var(--english-violet);
+      border: 2px solid var(--ed-select);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.85);
       pointer-events: none;
       box-sizing: border-box;
+    }
+
+    /* Floating selection toolbar (Canva-style quick actions, screen-space) */
+    .ed-floatbar {
+      position: fixed; z-index: 120;
+      display: flex; align-items: center; gap: 2px;
+      padding: 4px; background: #fff; border-radius: 10px;
+      box-shadow: 0 8px 28px -8px rgba(28,29,34,0.4), 0 2px 6px rgba(28,29,34,0.14);
+      border: 1px solid rgba(28,29,34,0.08);
+    }
+    .ed-floatbar[hidden] { display: none; }
+    .ed-fb-btn {
+      position: relative; width: 32px; height: 32px; border: none; background: transparent;
+      border-radius: 7px; cursor: pointer; color: var(--ink);
+      display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s;
+    }
+    .ed-fb-btn:hover { background: rgba(28,29,34,0.07); }
+    .ed-fb-danger:hover { background: rgba(192,57,43,0.12); color: #c0392b; }
+    .ed-fb-sep { width: 1px; height: 20px; background: rgba(28,29,34,0.12); margin: 0 3px; }
+    .ed-fb-count {
+      position: absolute; top: -3px; right: -3px; min-width: 15px; height: 15px; padding: 0 3px;
+      border-radius: 999px; background: var(--english-violet); color: #fff;
+      font-family: var(--sans); font-size: 9px; font-weight: 700; line-height: 15px; text-align: center;
+    }
+    .ed-fb-count[hidden] { display: none; }
+    .ed-fb-text { width: auto; padding: 0 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); }
+
+    /* Marquee drag-select box (canvas space) */
+    .ed-marquee {
+      position: absolute; z-index: 48; pointer-events: none;
+      border: 1.5px solid var(--ed-select, #1F8BFF);
+      background: rgba(31,139,255,0.10); box-sizing: border-box;
+    }
+    .ed-bounds--multi { border-style: dashed; }
+
+    /* Text vertically centred in its box (icon labels stay on the icon's line) */
+    .ed-element.ed-text-vcenter { display: flex; align-items: center; }
+    .ed-element.ed-text-vcenter .ed-text-inner { width: 100%; }
+
+    /* Comment popover */
+    .ed-cmt-pop {
+      position: fixed; z-index: 130; width: 300px;
+      background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px;
+      box-shadow: 0 18px 50px -12px rgba(28,29,34,0.4); overflow: hidden;
+    }
+    .ed-cmt-head { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink); padding: 12px 14px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ed-cmt-list { max-height: 220px; overflow-y: auto; padding: 6px; }
+    .ed-cmt-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.45); padding: 10px 8px; margin: 0; }
+    .ed-cmt { padding: 9px 10px; border-radius: 8px; }
+    .ed-cmt:hover { background: rgba(28,29,34,0.04); }
+    .ed-cmt p { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink); margin: 0 0 6px; white-space: pre-wrap; word-break: break-word; }
+    .ed-cmt.is-resolved p { color: rgba(28,29,34,0.4); text-decoration: line-through; }
+    .ed-cmt-acts { display: flex; gap: 12px; }
+    .ed-cmt-acts button { background: none; border: none; cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: var(--english-violet); padding: 0; }
+    .ed-cmt-acts button:hover { text-decoration: underline; }
+    .ed-cmt-add { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid rgba(28,29,34,0.08); }
+    .ed-cmt-add textarea { resize: vertical; font-family: var(--sans); font-size: 13px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; }
+    .ed-cmt-add textarea:focus { outline: none; border-color: var(--english-violet); }
+    .ed-cmt-send { align-self: flex-end; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--paper); background: var(--english-violet); border: none; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+    .ed-cmt-send:hover { background: var(--ink); }
+
+    /* Comment badge on an element */
+    .ed-cmt-badge {
+      position: absolute; top: -10px; right: -10px; z-index: 6;
+      min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px 999px 999px 2px;
+      background: #F0C23B; color: #1c1d22; border: 1.5px solid #fff;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+      box-shadow: 0 2px 6px rgba(28,29,34,0.25); pointer-events: none;
     }
 
     .ed-guides {
@@ -2153,9 +2710,12 @@ const googleFonts = [
     .ed-onboard {
       position: fixed; inset: 0;
       z-index: 200;
+      /* Same light-purple iridescent wash as the rest of the hub. */
       background:
-        radial-gradient(120% 80% at 20% 0%, rgba(71,66,84,0.12), transparent 60%),
-        linear-gradient(180deg, #f7f6f2, #efece6);
+        radial-gradient(70% 55% at 0% 0%, rgba(255, 206, 178, 0.40), transparent 50%),
+        radial-gradient(75% 65% at 100% 0%, rgba(199, 170, 232, 0.50), transparent 55%),
+        radial-gradient(85% 75% at 60% 115%, rgba(170, 196, 236, 0.40), transparent 55%),
+        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f3eef1 100%);
       display: flex; align-items: center; justify-content: center;
       padding: 60px 36px;
       overflow-y: auto;
@@ -2200,13 +2760,18 @@ const googleFonts = [
       to   { opacity: 1; transform: translateY(0); }
     }
     .ed-onboard-eyebrow {
+      display: inline-block;
       font-family: var(--sans);
       font-size: 11px;
       letter-spacing: 0.32em;
       text-transform: uppercase;
       font-weight: 700;
-      color: var(--english-violet);
-      margin-bottom: 18px;
+      color: var(--violet-deep);
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid rgba(71, 66, 84, 0.18);
+      padding: 6px 12px;
+      border-radius: 999px;
+      margin-bottom: 20px;
     }
     .ed-onboard-title {
       font-family: var(--serif);
@@ -2243,13 +2808,16 @@ const googleFonts = [
     }
     .ed-onboard-card {
       appearance: none;
-      background: rgba(255,255,255,0.6);
-      border: 1px solid rgba(71,66,84,0.18);
-      border-radius: 3px;
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: blur(12px) saturate(1.2);
+      -webkit-backdrop-filter: blur(12px) saturate(1.2);
+      border: 1px solid rgba(71,66,84,0.16);
+      border-radius: 14px;
       padding: 0;
       cursor: pointer;
       text-align: left;
       overflow: hidden;
+      box-shadow: 0 14px 34px -22px rgba(71,66,84,0.4);
       transition: transform 0.45s cubic-bezier(.2,.7,.2,1), border-color 0.3s, box-shadow 0.4s;
       display: flex; flex-direction: column;
     }
@@ -2291,23 +2859,26 @@ const googleFonts = [
       align-items: center;
       gap: 24px;
       flex-wrap: wrap;
-      padding: 20px 22px;
+      padding: 20px 24px;
       margin: 4px 0 36px;
-      border: 1px dashed rgba(71,66,84,0.3);
-      border-radius: 6px;
-      background: rgba(123,91,207,0.05);
+      border: 1px solid rgba(71,66,84,0.16);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(12px) saturate(1.2);
+      -webkit-backdrop-filter: blur(12px) saturate(1.2);
+      box-shadow: 0 14px 34px -24px rgba(71,66,84,0.38);
     }
     .ed-onboard-more-head { display: flex; flex-direction: column; gap: 3px; margin-right: auto; }
     .ed-onboard-more-head strong {
       font-family: var(--serif);
-      font-size: 19px;
+      font-size: 20px;
       font-weight: 500;
-      color: var(--paper);
+      color: var(--ink);
     }
     .ed-onboard-more-head span {
       font-family: var(--sans);
       font-size: 13px;
-      color: rgba(240, 238, 235, 0.7);
+      color: rgba(28, 29, 34, 0.6);
     }
     .ed-onboard-more-list { display: flex; gap: 12px; }
     .ed-onboard-more-pack {
@@ -2350,27 +2921,52 @@ const googleFonts = [
     .ed-onboard-error a { color: var(--violet, #7B5BCF); text-decoration: underline; }
     .ed-onboard-skip {
       appearance: none;
-      background: transparent;
-      border: 0;
-      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid rgba(71, 66, 84, 0.25);
+      padding: 13px 24px;
+      border-radius: 999px;
       font-family: var(--sans);
       font-size: 12px;
       font-weight: 700;
-      letter-spacing: 0.24em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: rgba(28,29,34,0.55);
+      color: var(--english-violet);
       cursor: pointer;
-      transition: color 0.25s;
+      box-shadow: 0 10px 26px -18px rgba(71, 66, 84, 0.5);
+      transition: color 0.25s, background 0.25s, border-color 0.25s, transform 0.2s;
     }
     .ed-onboard-skip em {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 16px;
+      font-style: normal;
       letter-spacing: 0;
-      text-transform: none;
-      margin-left: 8px;
+      margin-left: 10px;
+      transition: transform 0.2s;
+      display: inline-block;
     }
-    .ed-onboard-skip:hover { color: var(--english-violet); }
+    .ed-onboard-skip:hover {
+      color: var(--paper);
+      background: var(--english-violet);
+      border-color: var(--english-violet);
+      transform: translateY(-1px);
+    }
+    .ed-onboard-skip:hover em { transform: translateX(3px); }
+    /* "All packs" back link on the design-chooser step */
+    .ed-onboard-back2 {
+      appearance: none; background: transparent; border: 0; padding: 0;
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-bottom: 18px; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(28,29,34,0.55); transition: color 0.2s, transform 0.2s;
+    }
+    .ed-onboard-back2 span { font-size: 14px; }
+    .ed-onboard-back2:hover { color: var(--english-violet); transform: translateX(-2px); }
+    .ed-onboard-skip-inline {
+      appearance: none; background: transparent; border: 0; padding: 0; margin-left: 6px;
+      font-family: var(--sans); font-size: inherit; font-weight: 700;
+      color: var(--english-violet); cursor: pointer; text-decoration: underline;
+    }
   </style>
 
   <!--
@@ -2384,6 +2980,57 @@ const googleFonts = [
   -->
   <script type="module">
     import { supabase } from '../lib/supabase.js';
+    import { isAdminUser } from '../lib/admin-gate.js';
+
+    // ---- Externalise embedded images before writing to Supabase ----------
+    // Canva imports (and pasted images) embed full-resolution pictures as
+    // base64 data URLs inside canvas.backgroundImage / element.src. Writing
+    // those straight into the `templates` row makes it multi-MB, which makes
+    // the save/publish request fail ("Failed to fetch") or time out
+    // ("canceling statement due to statement timeout"). So before saving we
+    // upload each data-URL image to the public `site-media` bucket and swap in
+    // its URL — the row stays tiny, the image stays full-res in storage.
+    const _imgUrlCache = new Map();
+    let _externUid = null;
+    async function _externGetUid() {
+      if (_externUid) return _externUid;
+      try { const { data } = await supabase.auth.getSession(); _externUid = (data && data.session && data.session.user && data.session.user.id) || null; } catch (_) {}
+      return _externUid;
+    }
+    async function externUploadDataUrl(dataUrl) {
+      const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+      if (!m) return dataUrl;
+      const mime = m[1], b64 = m[2];
+      let h = 5381; for (let i = 0; i < dataUrl.length; i++) h = ((h * 33) ^ dataUrl.charCodeAt(i)) >>> 0;
+      const ext = ((mime.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '')) || 'png';
+      // calendar-assets RLS requires the first folder to be the user's id.
+      const uid = await _externGetUid();
+      const key = (uid ? uid + '/' : '') + 'templates/' + h.toString(36) + '-' + dataUrl.length.toString(36) + '.' + ext;
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
+      const { error } = await supabase.storage.from('calendar-assets').upload(key, blob, { cacheControl: '31536000', upsert: true, contentType: mime });
+      if (error && !/exists|duplicate/i.test(error.message || '')) throw error;
+      const { data } = supabase.storage.from('calendar-assets').getPublicUrl(key);
+      return (data && data.publicUrl) || dataUrl;
+    }
+    async function externUrl(v) {
+      if (typeof v !== 'string' || !v.startsWith('data:')) return v;
+      if (_imgUrlCache.has(v)) return _imgUrlCache.get(v);
+      const url = await externUploadDataUrl(v);
+      _imgUrlCache.set(v, url);
+      return url;
+    }
+    // Walk a list of pages ({canvas, elements}) and externalise every image.
+    async function externalizePages(pages) {
+      for (const pg of (pages || [])) {
+        if (pg && pg.canvas && typeof pg.canvas.backgroundImage === 'string') pg.canvas.backgroundImage = await externUrl(pg.canvas.backgroundImage);
+        for (const el of ((pg && pg.elements) || [])) { if (el && typeof el.src === 'string') el.src = await externUrl(el.src); }
+      }
+      return pages;
+    }
+    // Shared with the Publish flow (a separate script below).
+    window.__TMKE_EXTERNALIZE_PAGES__ = externalizePages;
 
     const params = new URLSearchParams(location.search);
     const wantAdmin = params.get('mode') === 'admin';
@@ -2394,6 +3041,10 @@ const googleFonts = [
         // Not signed in — bounce to admin login, preserve where we wanted to go.
         const next = encodeURIComponent(location.pathname + location.search);
         location.replace(`/admin/login?next=${next}`);
+      } else if (!(await isAdminUser(session.user))) {
+        // Signed in but not an admin (e.g. a customer poking at ?mode=admin) —
+        // never load the admin studio chrome or templates for them.
+        location.replace('/admin/login?denied=1');
       } else {
         // Pull all admin-visible templates and replace the static JSON blob.
         const { data: rows, error } = await supabase
@@ -2438,6 +3089,8 @@ const googleFonts = [
         // also the Supabase row id (we keep ids stable end-to-end).
         window.__TMKE_ADMIN_SAVE__ = async (payload) => {
           if (!payload?.templateId) return false;
+          // Upload any embedded data-URL images to storage first (keeps the row small).
+          try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (e) { console.error('[save: externalize]', e); }
           const { error: saveErr } = await supabase
             .from('templates')
             .update({
@@ -2448,6 +3101,9 @@ const googleFonts = [
             .eq('id', payload.templateId);
           return !saveErr;
         };
+        // Turn on autosave-as-draft (admin only for now) — editor.js persists a
+        // draft to localStorage shortly after each change and before unload.
+        window.__TMKE_AUTOSAVE__ = true;
       }
     }
 
@@ -2669,6 +3325,145 @@ const googleFonts = [
         })
       );
 
+      // ---- Pull a whole collection from a pasted Pexels / Unsplash link ----
+      async function fetchPexelsCollection(id) {
+        if (!PEXELS_KEY) return [];
+        try {
+          const res = await fetch(`https://api.pexels.com/v1/collections/${encodeURIComponent(id)}?type=photos&per_page=80`, { headers: { Authorization: PEXELS_KEY } });
+          if (!res.ok) throw new Error(`Pexels ${res.status}`);
+          const json = await res.json();
+          return (json.media || []).filter((m) => m.src).map((p) => ({
+            source: 'pexels', id: String(p.id), thumb: p.src.medium,
+            full: p.src.large2x || p.src.large || p.src.original,
+            credit: `${p.photographer} on Pexels`, creditUrl: p.url,
+          }));
+        } catch (e) { console.warn('Pexels collection failed', e); return []; }
+      }
+      async function fetchUnsplashCollection(id) {
+        if (!UNSPLASH_KEY) return [];
+        try {
+          const res = await fetch(`https://api.unsplash.com/collections/${encodeURIComponent(id)}/photos?per_page=30`, { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` } });
+          if (!res.ok) throw new Error(`Unsplash ${res.status}`);
+          const json = await res.json();
+          return (json || []).map((r) => ({
+            source: 'unsplash', id: r.id, thumb: r.urls.small, full: r.urls.regular,
+            credit: `${r.user.name} on Unsplash`, creditUrl: r.links.html, downloadLocation: r.links.download_location,
+          }));
+        } catch (e) { console.warn('Unsplash collection failed', e); return []; }
+      }
+      // Parse a Pexels/Unsplash collection link into { service, id, name, url }.
+      function parseCollection(url) {
+        url = (url || '').trim();
+        if (!url) return null;
+        try {
+          const u = new URL(url);
+          if (/pexels\.com/i.test(u.hostname)) {
+            const seg = u.pathname.split('/').filter(Boolean).pop() || '';
+            const parts = seg.split('-'); const id = parts[parts.length - 1];
+            const name = parts.slice(0, -1).join(' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Pexels collection';
+            return { service: 'pexels', id, name, url };
+          }
+          if (/unsplash\.com/i.test(u.hostname)) {
+            const segs = u.pathname.split('/').filter(Boolean);
+            const ci = segs.indexOf('collections');
+            const id = ci >= 0 ? segs[ci + 1] : null;
+            const name = (ci >= 0 && segs[ci + 2] ? segs[ci + 2].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Unsplash collection');
+            return id ? { service: 'unsplash', id, name, url } : null;
+          }
+        } catch (_) { /* not a URL */ }
+        return null;
+      }
+
+      let lastCollection = null;
+      let activeKey = null;   // service:id of the collection whose photos are open
+      const collectSaveBtn = document.getElementById('ed-collect-save');
+      const collectSavedEl = document.getElementById('ed-collect-saved');
+      const collectOpenEl = document.getElementById('ed-collect-open');
+      const collectOpenName = document.getElementById('ed-collect-open-name');
+      const DEFAULT_STOCK_STATUS = 'Type to search — results from both sources appear here.';
+
+      // Withdraw the open collection's photos and collapse back to the folder list.
+      function clearResults() {
+        gridEl.innerHTML = '';
+        activeKey = null; lastCollection = null;
+        if (collectOpenEl) collectOpenEl.hidden = true;
+        if (collectSaveBtn) collectSaveBtn.hidden = true;
+        setStatus(DEFAULT_STOCK_STATUS);
+        renderSaved();
+      }
+
+      async function pullCollection(url) {
+        const c = parseCollection(url);
+        if (!c) { setStatus('That doesn’t look like a Pexels or Unsplash collection link.', true); return; }
+        setStatus('Pulling collection…');
+        const results = c.service === 'pexels' ? await fetchPexelsCollection(c.id) : await fetchUnsplashCollection(c.id);
+        if (!results.length) { gridEl.innerHTML = ''; setStatus('Couldn’t pull that collection — check it’s public and the link is right.', true); return; }
+        renderResults(results);
+        setStatus(`${results.length} photo${results.length === 1 ? '' : 's'} from the collection. Click one to add it.`);
+        // Mark it open + offer to save it (unless already saved).
+        lastCollection = c;
+        activeKey = c.service + ':' + c.id;
+        const saved = savedCollections().find((s) => s.service === c.service && s.id === c.id);
+        if (collectOpenEl && collectOpenName) {
+          collectOpenName.textContent = (saved && saved.name) || c.name || (c.service + ' collection');
+          collectOpenEl.hidden = false;
+        }
+        if (collectSaveBtn) collectSaveBtn.hidden = !!saved;
+        renderSaved();
+      }
+
+      // ---- Saved collections (localStorage) — click to re-pull, no re-typing ----
+      function savedCollections() {
+        try { return JSON.parse(localStorage.getItem('tmke.collections') || '[]'); } catch (_) { return []; }
+      }
+      function writeSaved(list) { try { localStorage.setItem('tmke.collections', JSON.stringify(list)); } catch (_) {} }
+      function renderSaved() {
+        if (!collectSavedEl) return;
+        const list = savedCollections();
+        collectSavedEl.innerHTML = list.map((s, i) => {
+          const open = activeKey === (s.service + ':' + s.id);
+          return '<span class="ed-collect-chip' + (open ? ' is-open' : '') + '" data-i="' + i + '" title="' + s.url.replace(/"/g, '&quot;') + '">' +
+            '<span class="ed-collect-chip-dot ed-collect-' + s.service + '"></span>' +
+            '<span class="ed-collect-chip-name">' + (s.name || s.service).replace(/</g, '&lt;') + '</span>' +
+            '<button type="button" class="ed-collect-chip-x" data-rm="' + i + '" title="Remove">&times;</button>' +
+          '</span>';
+        }).join('');
+      }
+      if (collectSaveBtn) collectSaveBtn.addEventListener('click', () => {
+        if (!lastCollection) return;
+        const list = savedCollections();
+        if (!list.some((s) => s.service === lastCollection.service && s.id === lastCollection.id)) {
+          list.push(lastCollection); writeSaved(list); renderSaved();
+        }
+        collectSaveBtn.hidden = true;
+      });
+      if (collectSavedEl) collectSavedEl.addEventListener('click', (e) => {
+        const rm = e.target.closest('[data-rm]');
+        if (rm) {
+          e.stopPropagation();
+          const list = savedCollections(); const removed = list.splice(parseInt(rm.dataset.rm, 10), 1)[0];
+          // If we deleted the folder that's currently open, withdraw its photos too.
+          if (removed && activeKey === (removed.service + ':' + removed.id)) { writeSaved(list); clearResults(); return; }
+          writeSaved(list); renderSaved(); return;
+        }
+        const chip = e.target.closest('.ed-collect-chip');
+        if (chip) {
+          const s = savedCollections()[parseInt(chip.dataset.i, 10)];
+          if (!s) return;
+          // Click an already-open folder to withdraw its photos; otherwise open it.
+          if (activeKey === (s.service + ':' + s.id)) { clearResults(); return; }
+          document.getElementById('ed-collect-input').value = s.url; pullCollection(s.url);
+        }
+      });
+      const collectCloseBtn = document.getElementById('ed-collect-close');
+      if (collectCloseBtn) collectCloseBtn.addEventListener('click', clearResults);
+      renderSaved();
+
+      const collectInput = document.getElementById('ed-collect-input');
+      const collectBtn = document.getElementById('ed-collect-pull');
+      if (collectBtn) collectBtn.addEventListener('click', () => pullCollection(collectInput.value));
+      if (collectInput) collectInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); pullCollection(collectInput.value); } });
+
       if (!PEXELS_KEY && !UNSPLASH_KEY) {
         setStatus('No stock photo API keys configured. Set PUBLIC_PEXELS_API_KEY / PUBLIC_UNSPLASH_ACCESS_KEY.', true);
         inputEl.disabled = true;
@@ -2677,6 +3472,24 @@ const googleFonts = [
   </script>
 
   <script src="/scripts/editor.js" is:inline type="module"></script>
+
+  <!-- Pages toggle: the page strip is hidden by default (so the canvas gets
+       the full height); this pops it up from the bottom on demand. Standalone
+       so it doesn't depend on editor.js's tool-rail handler. -->
+  <script is:inline>
+    (function () {
+      var ed = document.getElementById("editor");
+      var toggle = document.getElementById("ed-pages-toggle");
+      if (!ed || !toggle) return;
+      toggle.addEventListener("click", function () {
+        var on = ed.classList.toggle("show-pages");
+        toggle.classList.toggle("is-active", on);
+        toggle.setAttribute("aria-pressed", on ? "true" : "false");
+        // Generate live previews (background + text) when the strip opens.
+        if (on && typeof window.__TMKE_REFRESH_THUMBS__ === "function") window.__TMKE_REFRESH_THUMBS__();
+      });
+    })();
+  </script>
 
   <!--
     Schedule-to-calendar wiring.
@@ -2887,6 +3700,609 @@ const googleFonts = [
     } // end wireSchedule
   </script>
 
+  <!-- Admin chrome + Publish → Pack. In admin mode the studio is an authoring
+       tool, not a posting tool: drop Schedule, bury Download, surface Publish.
+       Publish writes each page as a template, optionally linked to a pack. -->
+  <script>
+    import { supabase } from "../lib/supabase.js";
+
+    // Self-contained image externaliser for Publish (doesn't rely on the admin
+    // bootstrap module, which loads separately). Uploads any embedded base64
+    // data-URL images to the public `calendar-assets` bucket and swaps in the
+    // URL, so the `templates` rows stay small (otherwise the insert is rejected
+    // as too large → "Failed to fetch" / statement timeout).
+    const _pubImgCache = new Map();
+    let _pubUid = null;
+    async function _pubGetUid() {
+      if (_pubUid) return _pubUid;
+      try { const { data } = await supabase.auth.getSession(); _pubUid = (data && data.session && data.session.user && data.session.user.id) || null; } catch (_) {}
+      return _pubUid;
+    }
+    async function _pubUpload(dataUrl) {
+      const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+      if (!m) return dataUrl;
+      const mime = m[1], b64 = m[2];
+      let h = 5381; for (let i = 0; i < dataUrl.length; i++) h = ((h * 33) ^ dataUrl.charCodeAt(i)) >>> 0;
+      const ext = ((mime.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '')) || 'png';
+      // calendar-assets RLS requires the first folder to be the user's id.
+      const uid = await _pubGetUid();
+      const key = (uid ? uid + '/' : '') + 'templates/' + h.toString(36) + '-' + dataUrl.length.toString(36) + '.' + ext;
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const { error } = await supabase.storage.from('calendar-assets').upload(key, new Blob([bytes], { type: mime }), { cacheControl: '31536000', upsert: true, contentType: mime });
+      if (error && !/exists|duplicate/i.test(error.message || '')) throw error;
+      return supabase.storage.from('calendar-assets').getPublicUrl(key).data.publicUrl || dataUrl;
+    }
+    async function _pubExternUrl(v) {
+      if (typeof v !== 'string' || !v.startsWith('data:')) return v;
+      if (_pubImgCache.has(v)) return _pubImgCache.get(v);
+      const url = await _pubUpload(v); _pubImgCache.set(v, url); return url;
+    }
+    async function externalizePagesLocal(pages) {
+      for (const pg of (pages || [])) {
+        if (pg && pg.canvas && typeof pg.canvas.backgroundImage === 'string') pg.canvas.backgroundImage = await _pubExternUrl(pg.canvas.backgroundImage);
+        for (const el of ((pg && pg.elements) || [])) { if (el && typeof el.src === 'string') el.src = await _pubExternUrl(el.src); }
+      }
+      return pages;
+    }
+
+    const isAdmin = new URLSearchParams(location.search).get("mode") === "admin";
+    const publishBtn = document.getElementById("ed-publish");
+    const scheduleBtn = document.getElementById("ed-schedule");
+    const downloadWrap = document.getElementById("ed-download");
+
+    if (isAdmin) {
+      if (scheduleBtn) scheduleBtn.hidden = true;          // posting is a customer action
+      if (downloadWrap) downloadWrap.style.display = "none"; // buried — admins publish, not download
+      if (publishBtn) publishBtn.hidden = false;
+      // Admins don't need the customer-facing help widget.
+      document.getElementById("ask-expert-trigger")?.remove();
+      document.getElementById("ask-expert-panel")?.remove();
+      // Keep navigation INSIDE the admin section — the studio's back arrow / logo
+      // / onboarding "Back" otherwise point at /account and /, bouncing admins
+      // out to the customer login.
+      const backLink = document.querySelector(".ed-back");
+      if (backLink) { backLink.setAttribute("href", "/admin/templates"); backLink.setAttribute("title", "Back to templates"); }
+      const logoLink = document.querySelector(".ed-logo");
+      if (logoLink) logoLink.setAttribute("href", "/admin");
+      const onboardBack = document.getElementById("ed-onboard-back");
+      if (onboardBack) { onboardBack.setAttribute("href", "/admin"); onboardBack.setAttribute("aria-label", "Back to admin"); }
+    } else if (publishBtn) {
+      publishBtn.hidden = true;
+    }
+
+    function slugify(s) {
+      return String(s || "").toLowerCase().trim()
+        .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || ("pack-" + Date.now());
+    }
+
+    // Styled, centred publish modal. Resolves to a choice object or null.
+    function openPublishModal(packs) {
+      return new Promise((resolve) => {
+        const scrim = document.createElement("div");
+        scrim.className = "ed-pub-scrim";
+        const opts = packs.map((p) => `<option value="${p.id}">${(p.title || p.slug).replace(/</g, "&lt;")}</option>`).join("");
+        scrim.innerHTML = `
+          <div class="ed-pub" role="dialog" aria-modal="true">
+            <div class="ed-pub-eyebrow">Publish</div>
+            <h2 class="ed-pub-title">Save this design <em>to a pack?</em></h2>
+            <p class="ed-pub-sub">These pages become editable templates. Add them to a pack now, or publish without one.</p>
+            <div class="ed-pub-choices">
+              <label class="ed-pub-choice"><input type="radio" name="ed-pub" value="new" checked> <span>Create a new pack</span></label>
+              <input type="text" class="ed-pub-newname" placeholder="Pack name — e.g. Community Spotlight" />
+              <label class="ed-pub-choice ${packs.length ? "" : "is-disabled"}"><input type="radio" name="ed-pub" value="existing" ${packs.length ? "" : "disabled"}> <span>Add to an existing pack</span></label>
+              <select class="ed-pub-existing" ${packs.length ? "" : "disabled"}>${opts || '<option>No packs yet</option>'}</select>
+              <label class="ed-pub-choice"><input type="radio" name="ed-pub" value="none"> <span>Not yet — just publish the templates</span></label>
+            </div>
+            <div class="ed-pub-actions">
+              <button type="button" class="ed-pub-cancel">Cancel</button>
+              <button type="button" class="ed-pub-ok">Publish</button>
+            </div>
+          </div>`;
+        document.body.appendChild(scrim);
+        const done = (val) => { scrim.classList.remove("is-open"); setTimeout(() => scrim.remove(), 200); resolve(val); };
+        scrim.querySelector(".ed-pub-cancel").addEventListener("click", () => done(null));
+        scrim.addEventListener("mousedown", (e) => { if (e.target === scrim) done(null); });
+        scrim.querySelector(".ed-pub-ok").addEventListener("click", () => {
+          const mode = scrim.querySelector('input[name="ed-pub"]:checked').value;
+          if (mode === "new") {
+            const name = scrim.querySelector(".ed-pub-newname").value.trim();
+            if (!name) { scrim.querySelector(".ed-pub-newname").focus(); return; }
+            done({ mode, name });
+          } else if (mode === "existing") {
+            done({ mode, packId: scrim.querySelector(".ed-pub-existing").value });
+          } else { done({ mode: "none" }); }
+        });
+        requestAnimationFrame(() => scrim.classList.add("is-open"));
+      });
+    }
+
+    async function doPublish() {
+      if (typeof window.__TMKE_PUBLISH_DATA__ !== "function") return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { alert("Sign in as an admin to publish."); return; }
+
+      // Load existing packs for the "add to existing" option.
+      let packs = [];
+      try {
+        const { data } = await supabase.from("packs").select("id, slug, title").order("sort_order", { ascending: true });
+        packs = data || [];
+      } catch (_) {}
+
+      const choice = await openPublishModal(packs);
+      if (!choice) return;
+
+      publishBtn.disabled = true;
+      const original = publishBtn.textContent;
+      publishBtn.textContent = "Publishing…";
+      try {
+        const data = await window.__TMKE_PUBLISH_DATA__();
+
+        // Upload embedded data-URL images to storage so the template rows stay
+        // small (otherwise the insert fails / times out on big Canva imports).
+        publishBtn.textContent = "Uploading images…";
+        try {
+          await externalizePagesLocal(data.pages);
+        } catch (e) {
+          console.error("[publish: externalize]", e);
+          throw new Error("Couldn't upload the design images to storage: " + (e.message || e) + ". (Check the 'calendar-assets' bucket exists and is public.)");
+        }
+        publishBtn.textContent = "Publishing…";
+
+        // Resolve the target pack id (or null).
+        let packId = null;
+        if (choice.mode === "new") {
+          // New packs land as a DRAFT — they only go on the catalogue once an
+          // admin adds a cover, description, price etc. and sets them Active in
+          // the catalogue editor. Stops half-finished packs hitting the storefront.
+          const { data: pack, error } = await supabase.from("packs").insert({
+            slug: slugify(choice.name), title: choice.name, status: "draft", sort_order: 9000,
+          }).select("id").single();
+          if (error) throw error;
+          packId = pack.id;
+        } else if (choice.mode === "existing") {
+          packId = choice.packId;
+        }
+
+        // First image (page background, then any image element) → the template's
+        // thumbnail, so the catalogue + pack editor show a real preview.
+        const pageThumb = (pg) => {
+          if (pg.canvas && pg.canvas.backgroundImage) return pg.canvas.backgroundImage;
+          const img = (pg.elements || []).find((e) => e && e.type === "image" && e.src);
+          return img ? img.src : null;
+        };
+
+        // Write each page as a template row, linked to the pack.
+        const rows = data.pages.map((pg, i) => ({
+          id: "tmpl-" + Math.random().toString(36).slice(2, 9),
+          name: data.filename + (data.pages.length > 1 ? " — " + String(i + 1).padStart(2, "0") : ""),
+          canvas: pg.canvas,
+          elements: pg.elements,
+          thumb_url: pageThumb(pg),
+          pack_id: packId,
+          status: "active",
+          sort_order: i,
+        }));
+        const { error: tErr } = await supabase.from("templates").insert(rows);
+        if (tErr) throw tErr;
+
+        publishBtn.textContent = "Sent to catalogue ✓";
+        alert("Saved to the Catalogue as a draft. Add a cover, description and price in Admin → Catalogue, then set it Active to put it live.");
+        setTimeout(() => { publishBtn.textContent = original; publishBtn.disabled = false; }, 1800);
+      } catch (err) {
+        console.error("[publish]", err);
+        alert("Publish failed: " + (err.message || err));
+        publishBtn.textContent = original;
+        publishBtn.disabled = false;
+      }
+    }
+
+    if (isAdmin && publishBtn) publishBtn.addEventListener("click", doPublish);
+
+    // ---- Canva import (admin): a TWO-STAGE flow that fixes the duplicate-words
+    // problem. Stage 1 = the finished designs (text baked in) — we read the
+    // wording off these. Stage 2 = the same pages as plain backgrounds — these
+    // become the editable canvas. We lay the read text onto the backgrounds, so
+    // nothing is doubled up. (Backgrounds alone still work: you just get blank
+    // pages to type on.) ----
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    if (isAdmin) {
+      const canvaWrap = document.getElementById("ed-canva-import");
+      const cstatus = document.getElementById("ed-canva-status");
+      if (canvaWrap) canvaWrap.hidden = false;
+
+      const setC = (msg, err) => { if (!cstatus) return; cstatus.hidden = false; cstatus.textContent = msg; cstatus.classList.toggle("is-error", !!err); };
+      const blobToDataURL = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+      const imgDims = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res({ w: i.naturalWidth, h: i.naturalHeight }); i.onerror = () => res({ w: 1080, h: 1350 }); i.src = src; });
+      // Downscale an image to a sane max edge before sending to the AI. Claude
+      // resizes anything over ~1568px anyway, and oversized Canva exports get
+      // rejected by Anthropic with "Could not process image" — so cap it here.
+      // Returns { src, w, h } in the downscaled space so coordinates map back.
+      const downscaleForAI = (src, maxEdge = 1568) => new Promise((res) => {
+        const img = new Image();
+        img.onload = () => {
+          const long = Math.max(img.naturalWidth, img.naturalHeight) || 1;
+          const k = long > maxEdge ? maxEdge / long : 1;
+          const w = Math.max(1, Math.round(img.naturalWidth * k));
+          const h = Math.max(1, Math.round(img.naturalHeight * k));
+          try {
+            const c = document.createElement("canvas"); c.width = w; c.height = h;
+            c.getContext("2d").drawImage(img, 0, 0, w, h);
+            // Step the JPEG quality down if the encoded copy is somehow still
+            // heavy, so we never hand Claude something over its 10 MB limit.
+            let q = 0.9, out = c.toDataURL("image/jpeg", q);
+            while (out.length > 9_000_000 && q > 0.4) { q -= 0.15; out = c.toDataURL("image/jpeg", q); }
+            res({ src: out, w, h });
+          } catch (_) { res({ src: null, w: 0, h: 0 }); }
+        };
+        // If the image can't even be decoded, return no src — never fall back
+        // to posting the (possibly huge) original.
+        img.onerror = () => res({ src: null, w: 0, h: 0 });
+        img.src = src;
+      });
+
+      // Read every image out of a .zip into [{src,w,h}], sorted by filename.
+      async function parseZipImages(file) {
+        let JSZip;
+        try { ({ default: JSZip } = await import("https://esm.sh/jszip@3.10.1")); }
+        catch (e) { throw new Error("Couldn’t load the zip reader — check your connection."); }
+        let zip;
+        try { zip = await JSZip.loadAsync(file); } catch (e) { throw new Error("That doesn’t look like a valid .zip."); }
+        const entries = [];
+        zip.forEach((path, entry) => {
+          if (!entry.dir && /\.(png|jpe?g|webp)$/i.test(path) && !/__MACOSX|\/\._/.test(path)) entries.push(entry);
+        });
+        entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        const images = [];
+        for (const e of entries) {
+          try {
+            const blob = await e.async("blob");
+            const dataUrl = await blobToDataURL(blob);
+            const dims = await imgDims(dataUrl);
+            images.push({ src: dataUrl, w: dims.w, h: dims.h });
+          } catch (_) { /* skip a bad entry */ }
+        }
+        return images;
+      }
+
+      let finalImages = [];   // stage 1 — finished designs (read these)
+      let bgImages = [];      // stage 2 — plain backgrounds (canvas)
+      const buildBtn = document.getElementById("ed-canva-build");
+      const buildSub = document.getElementById("ed-canva-build-sub");
+
+      function refreshBuild() {
+        if (!buildBtn) return;
+        buildBtn.disabled = !bgImages.length;
+        if (!bgImages.length) { if (buildSub) buildSub.textContent = "— add backgrounds first"; return; }
+        if (finalImages.length) { if (buildSub) buildSub.textContent = "— " + bgImages.length + " page" + (bgImages.length === 1 ? "" : "s") + ", text read from finished"; }
+        else { if (buildSub) buildSub.textContent = "— " + bgImages.length + " blank page" + (bgImages.length === 1 ? "" : "s"); }
+      }
+
+      // Read images from a drop: a .zip (expand it) OR one-or-more image files
+      // dropped directly. Returns [{src,w,h}] in filename order.
+      async function readDropped(fileList) {
+        const files = Array.from(fileList || []);
+        if (!files.length) return [];
+        const zips = files.filter((f) => /\.zip$/i.test(f.name) || /zip/i.test(f.type));
+        if (zips.length) {
+          let all = [];
+          for (const z of zips) all = all.concat(await parseZipImages(z));
+          return all;
+        }
+        const imgFiles = files
+          .filter((f) => /^image\//i.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name))
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        const images = [];
+        for (const f of imgFiles) {
+          try {
+            const dataUrl = await blobToDataURL(f);
+            const dims = await imgDims(dataUrl);
+            images.push({ src: dataUrl, w: dims.w, h: dims.h });
+          } catch (_) { /* skip a bad file */ }
+        }
+        return images;
+      }
+
+      // Show little thumbnails of what was loaded, so a drop is clearly visible.
+      function renderThumbs(el, imgs) {
+        if (!el) return;
+        if (!imgs.length) { el.hidden = true; el.innerHTML = ""; return; }
+        el.hidden = false;
+        el.innerHTML =
+          imgs.slice(0, 12).map((im) => '<span class="ed-canva-thumb" style="background-image:url(' + JSON.stringify(im.src) + ')"></span>').join("") +
+          (imgs.length > 12 ? '<span class="ed-canva-thumb ed-canva-thumb--more">+' + (imgs.length - 12) + '</span>' : "");
+      }
+
+      function wireDrop(dropId, inputId, badgeId, thumbsId, onImages) {
+        const drop = document.getElementById(dropId);
+        const input = document.getElementById(inputId);
+        const badge = document.getElementById(badgeId);
+        const thumbs = document.getElementById(thumbsId);
+        const handle = async (fileList) => {
+          const files = Array.from(fileList || []);
+          if (!files.length) return;
+          if (drop) drop.classList.add("is-loading");
+          setC("Reading " + files.length + " file" + (files.length === 1 ? "" : "s") + "…");
+          try {
+            const imgs = await readDropped(files);
+            if (!imgs.length) {
+              if (drop) drop.classList.remove("is-loading");
+              setC("No images found — drop PNG/JPG files, or a .zip of them.", true);
+              return;
+            }
+            onImages(imgs);
+            if (badge) { badge.hidden = false; badge.textContent = imgs.length + " image" + (imgs.length === 1 ? "" : "s") + " ✓"; }
+            renderThumbs(thumbs, imgs);
+            if (drop) { drop.classList.remove("is-loading"); drop.classList.add("is-loaded"); }
+            setC("");
+            refreshBuild();
+          } catch (e) {
+            if (drop) drop.classList.remove("is-loading");
+            setC(e.message || "Couldn’t read those files.", true);
+          }
+        };
+        if (input) input.addEventListener("change", () => { handle(input.files); input.value = ""; });
+        if (drop) {
+          drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("is-drag"); });
+          drop.addEventListener("dragleave", () => drop.classList.remove("is-drag"));
+          drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-drag"); handle(e.dataTransfer.files); });
+        }
+      }
+      wireDrop("ed-canva-drop-final", "ed-canva-zip-final", "ed-canva-final-badge", "ed-canva-final-thumbs", (imgs) => { finalImages = imgs; });
+      wireDrop("ed-canva-drop-bg", "ed-canva-zip-bg", "ed-canva-bg-badge", "ed-canva-bg-thumbs", (imgs) => { bgImages = imgs; });
+
+      if (buildBtn) buildBtn.addEventListener("click", async () => {
+        if (!bgImages.length) return;
+        // Create the editable pages from the plain backgrounds first.
+        if (typeof window.__TMKE_IMPORT_BACKGROUNDS__ === "function") window.__TMKE_IMPORT_BACKGROUNDS__(bgImages);
+
+        if (!finalImages.length) {
+          setC(bgImages.length + " blank page" + (bgImages.length === 1 ? "" : "s") + " created — type your text, then Publish.");
+          return;
+        }
+        // Read the wording off the finished designs and lay it onto each page.
+        const n = Math.min(bgImages.length, finalImages.length);
+        if (finalImages.length !== bgImages.length) {
+          if (!confirm("You dropped " + finalImages.length + " finished design" + (finalImages.length === 1 ? "" : "s") + " and " + bgImages.length + " background" + (bgImages.length === 1 ? "" : "s") + ". I'll match the first " + n + " by order. Continue?")) return;
+        }
+        const token = await aiPrechecks(); if (!token) { setC("Sign in / set the AI worker to read text.", true); return; }
+        if (!confirm("Read text from " + n + " finished design" + (n === 1 ? "" : "s") + "? This makes " + n + " AI requests (a few pence each).")) return;
+        buildBtn.disabled = true;
+        if (typeof window.__TMKE_SET_BUSY__ === "function") window.__TMKE_SET_BUSY__(true); // lock page clicks
+        let total = 0, lastErr = null, failed = 0;
+        try {
+          for (let i = 0; i < n; i++) {
+            setC("Reading page " + (i + 1) + " of " + n + "…");
+            if (typeof window.__TMKE_GOTO_PAGE__ === "function") window.__TMKE_GOTO_PAGE__(i);
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            try {
+              const fin = finalImages[i], bg = bgImages[i];
+              // Downscale before sending so big Canva exports aren't rejected.
+              const ai = await downscaleForAI(fin.src, 1568);
+              if (!ai.src) throw new Error("couldn't read that image file");
+              const baseW = ai.w || fin.w, baseH = ai.h || fin.h;
+              const blocks = await aiParse(token, { image: ai.src, width: baseW, height: baseH });
+              // Map coordinates from the (downscaled) finished image into the
+              // background's space.
+              const sx = (bg.w || baseW) / (baseW || 1), sy = (bg.h || baseH) / (baseH || 1);
+              const scaled = (blocks || []).map((b) => Object.assign({}, b, {
+                x: (b.x || 0) * sx, y: (b.y || 0) * sy,
+                w: (b.w || 0) * sx, h: (b.h || 0) * sy,
+                fontSize: (b.fontSize || 32) * ((sx + sy) / 2),
+              }));
+              total += (typeof window.__TMKE_AI_PLACE_TEXT__ === "function") ? window.__TMKE_AI_PLACE_TEXT__(scaled) : 0;
+            } catch (e) { failed++; lastErr = e; console.error("[canva build page " + i + "]", e); }
+          }
+          if (total === 0 && lastErr) {
+            // Don't claim success when every page failed (e.g. the AI worker
+            // isn't configured) — show why.
+            setC("Pages created, but text couldn't be read: " + (lastErr.message || lastErr) + " — you can still type on each page, or use “Read text with AI” once that's set up.", true);
+          } else {
+            const note = failed ? " (" + failed + " page" + (failed === 1 ? "" : "s") + " couldn't be read)" : "";
+            setC("Done — " + total + " text box" + (total === 1 ? "" : "es") + " placed across " + n + " page" + (n === 1 ? "" : "s") + note + ". Tweak fonts/positions, then Publish.");
+            // Open the side-by-side compare so they can check it's like-for-like.
+            try { await openCompare(finalImages.slice(0, n)); } catch (_) {}
+          }
+        } catch (err) { console.error("[canva build]", err); setC("Couldn’t finish: " + (err.message || err), true); }
+        finally {
+          buildBtn.disabled = false;
+          if (typeof window.__TMKE_SET_BUSY__ === "function") window.__TMKE_SET_BUSY__(false); // unlock
+        }
+      });
+
+      // ---- Side-by-side compare: studio render (left) vs Canva original
+      // (right), one row per page, so admins can confirm it's like-for-like. ----
+      async function openCompare(canvaImgs) {
+        let studio = [];
+        try {
+          const data = (typeof window.__TMKE_REVIEW_DATA__ === "function") ? await window.__TMKE_REVIEW_DATA__() : null;
+          studio = (data && data.pageImages) || [];
+        } catch (_) {}
+        const n = Math.min(studio.length, canvaImgs.length);
+        if (!n) return;
+        const rows = [];
+        for (let i = 0; i < n; i++) {
+          rows.push(
+            '<div class="ed-cmp-row">' +
+              '<div class="ed-cmp-cell"><span class="ed-cmp-tag">Studio design</span>' +
+                (studio[i] ? '<img src="' + studio[i] + '" alt="Studio page ' + (i + 1) + '" />' : '<div class="ed-cmp-missing">—</div>') +
+              '</div>' +
+              '<div class="ed-cmp-cell"><span class="ed-cmp-tag ed-cmp-tag--alt">Canva design</span>' +
+                '<img src="' + canvaImgs[i].src + '" alt="Canva page ' + (i + 1) + '" />' +
+              '</div>' +
+            '</div>'
+          );
+        }
+        const scrim = document.createElement("div");
+        scrim.className = "ed-cmp-scrim";
+        scrim.innerHTML =
+          '<div class="ed-cmp" role="dialog" aria-modal="true">' +
+            '<div class="ed-cmp-head">' +
+              '<div class="ed-cmp-check" aria-hidden="true">✓</div>' +
+              '<div><div class="ed-cmp-title">Pages built — compare</div>' +
+              '<div class="ed-cmp-sub">Your studio version (left) next to the original Canva design (right). Tweak anything that’s off, then Publish.</div></div>' +
+              '<button type="button" class="ed-cmp-done" id="ed-cmp-done">Looks good →</button>' +
+            '</div>' +
+            '<div class="ed-cmp-body">' + rows.join("") + '</div>' +
+          '</div>';
+        document.body.appendChild(scrim);
+        requestAnimationFrame(() => scrim.classList.add("is-open"));
+        const close = () => { scrim.classList.remove("is-open"); setTimeout(() => scrim.remove(), 250); };
+        scrim.querySelector("#ed-cmp-done").addEventListener("click", close);
+        scrim.addEventListener("mousedown", (e) => { if (e.target === scrim) close(); });
+        document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
+      }
+
+      // ---- "Read text with AI": send a page image to the Worker's /ai/parse
+      // route (which calls Claude) and place the returned text. ----
+      const aiBtn = document.getElementById("ed-ai-read");
+      const aiAllBtn = document.getElementById("ed-ai-read-all");
+      const aiStatus = document.getElementById("ed-ai-status");
+      const setAi = (msg, err) => { if (!aiStatus) return; aiStatus.hidden = false; aiStatus.textContent = msg; aiStatus.classList.toggle("is-error", !!err); };
+
+      // POST an image payload to the parser and return the raw text blocks.
+      async function aiParse(token, payload) {
+        const res = await fetch(`${WORKER}/ai/parse`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        });
+        const out = await res.json();
+        if (!res.ok) throw new Error(out.error || ("AI failed (" + res.status + ")"));
+        return out.blocks || [];
+      }
+      // Read the CURRENT page: snapshot → parse → place text. Returns count.
+      async function aiReadCurrentPage(token) {
+        const page = await window.__TMKE_PAGE_IMAGE__();
+        if (!page.image) throw new Error("Couldn't snapshot this page.");
+        const blocks = await aiParse(token, page);
+        return (typeof window.__TMKE_AI_PLACE_TEXT__ === "function") ? window.__TMKE_AI_PLACE_TEXT__(blocks) : 0;
+      }
+      async function aiPrechecks() {
+        if (!WORKER) { setAi("Set PUBLIC_R2_WORKER_URL to use the AI parser.", true); return null; }
+        if (typeof window.__TMKE_PAGE_IMAGE__ !== "function") { setAi("Editor isn't ready — try again.", true); return null; }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { setAi("Sign in to use the AI parser.", true); return null; }
+        return session.access_token;
+      }
+
+      if (aiBtn) aiBtn.addEventListener("click", async () => {
+        const token = await aiPrechecks(); if (!token) return;
+        aiBtn.disabled = true; if (aiAllBtn) aiAllBtn.disabled = true;
+        setAi("Reading this page…");
+        try {
+          const n = await aiReadCurrentPage(token);
+          setAi(n ? ("Added " + n + " text box" + (n === 1 ? "" : "es") + " — tweak as needed.") : "No text found on this page.");
+        } catch (err) { console.error("[ai]", err); setAi("Couldn't read this page: " + (err.message || err), true); }
+        finally { aiBtn.disabled = false; if (aiAllBtn) aiAllBtn.disabled = false; }
+      });
+
+      if (aiAllBtn) aiAllBtn.addEventListener("click", async () => {
+        const token = await aiPrechecks(); if (!token) return;
+        const count = (typeof window.__TMKE_PAGE_COUNT__ === "function") ? window.__TMKE_PAGE_COUNT__() : 1;
+        if (count > 1 && !confirm("Read text on all " + count + " pages? This makes " + count + " AI requests (a few pence each).")) return;
+        aiBtn.disabled = true; aiAllBtn.disabled = true;
+        let total = 0;
+        try {
+          for (let i = 0; i < count; i++) {
+            if (typeof window.__TMKE_GOTO_PAGE__ === "function") window.__TMKE_GOTO_PAGE__(i);
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            setAi("Reading page " + (i + 1) + " of " + count + "…");
+            try { total += await aiReadCurrentPage(token); }
+            catch (e) { console.error("[ai page " + i + "]", e); }
+          }
+          setAi("Done — added " + total + " text box" + (total === 1 ? "" : "es") + " across " + count + " page" + (count === 1 ? "" : "s") + ".");
+        } catch (err) { console.error("[ai all]", err); setAi("Couldn't finish: " + (err.message || err), true); }
+        finally { aiBtn.disabled = false; aiAllBtn.disabled = false; }
+      });
+    }
+  </script>
+
+  <!-- Share menu: "Send for review" (ask a teammate to approve) or share/save
+       the image. The review request stores the design + reviewer in Supabase;
+       the reviewer's viewing experience is the next pass. -->
+  <script>
+    import { supabase } from "../lib/supabase.js";
+
+    const shareWrap = document.getElementById("ed-share-wrap");
+    const shareTrigger = document.getElementById("ed-share-trigger");
+    const shareMenu = document.getElementById("ed-share-menu");
+    const reviewItem = document.getElementById("ed-share-review");
+
+    function closeShareMenu() { if (shareMenu) shareMenu.hidden = true; if (shareTrigger) shareTrigger.setAttribute("aria-expanded", "false"); }
+    if (shareTrigger) {
+      shareTrigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = shareMenu.hidden;
+        shareMenu.hidden = !open;
+        shareTrigger.setAttribute("aria-expanded", String(open));
+      });
+      document.addEventListener("click", (e) => { if (!shareWrap.contains(e.target)) closeShareMenu(); });
+      shareMenu.querySelectorAll(".ed-share-item").forEach((b) => b.addEventListener("click", closeShareMenu));
+    }
+
+    function openReviewModal() {
+      const scrim = document.createElement("div");
+      scrim.className = "ed-rev-scrim";
+      scrim.innerHTML = `
+        <div class="ed-rev" role="dialog" aria-modal="true">
+          <div class="ed-rev-eyebrow">Send for review</div>
+          <h2 class="ed-rev-title">Ask a teammate <em>to take a look.</em></h2>
+          <p class="ed-rev-sub">They'll be able to open this design, leave comments, then approve it or send it back with changes.</p>
+          <label class="ed-rev-label">Teammate's email</label>
+          <input type="email" class="ed-rev-email" placeholder="name@agency.co.uk" autocomplete="email" />
+          <label class="ed-rev-label">Message <span>(optional)</span></label>
+          <textarea class="ed-rev-msg" rows="3" placeholder="Anything you'd like them to focus on?"></textarea>
+          <div class="ed-rev-actions">
+            <button type="button" class="ed-rev-cancel">Cancel</button>
+            <button type="button" class="ed-rev-send">Send for review</button>
+          </div>
+          <p class="ed-rev-status" hidden></p>
+        </div>`;
+      document.body.appendChild(scrim);
+      const close = () => { scrim.classList.remove("is-open"); setTimeout(() => scrim.remove(), 200); };
+      scrim.querySelector(".ed-rev-cancel").addEventListener("click", close);
+      scrim.addEventListener("mousedown", (e) => { if (e.target === scrim) close(); });
+      const status = scrim.querySelector(".ed-rev-status");
+      const setStatus = (m, err) => { status.hidden = false; status.textContent = m; status.classList.toggle("is-error", !!err); };
+
+      scrim.querySelector(".ed-rev-send").addEventListener("click", async () => {
+        const email = scrim.querySelector(".ed-rev-email").value.trim();
+        const msg = scrim.querySelector(".ed-rev-msg").value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setStatus("Enter a valid email for your teammate.", true); return; }
+        if (typeof window.__TMKE_REVIEW_DATA__ !== "function") { setStatus("Editor isn't ready — try again.", true); return; }
+        setStatus("Preparing the design…");
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const design = await window.__TMKE_REVIEW_DATA__();
+          setStatus("Sending…");
+          const { data, error } = await supabase.from("reviews").insert({
+            title: design.filename || "Design",
+            page_images: design.pageImages,
+            page_elements: design.pageElements || [],
+            design_comments: design.comments || [],
+            annotations: [],
+            reviewer_email: email,
+            message: msg || null,
+            requested_by: session ? session.user.id : null,
+            requested_by_email: session ? session.user.email : null,
+            status: "pending",
+          }).select("id").single();
+          if (error) throw error;
+          const link = location.origin + "/review?id=" + data.id;
+          status.innerHTML = "Sent ✓ — share this link with " + email + ":<br><a href=\"" + link + "\">" + link + "</a>";
+          status.hidden = false; status.classList.remove("is-error");
+        } catch (err) {
+          console.error("[review]", err);
+          if (/relation .*reviews.* does not exist/i.test(err.message || "")) setStatus("Review backend isn't set up yet — run supabase/reviews.sql.", true);
+          else setStatus("Couldn't send: " + (err.message || err), true);
+        }
+      });
+      requestAnimationFrame(() => { scrim.classList.add("is-open"); scrim.querySelector(".ed-rev-email").focus(); });
+    }
+    if (reviewItem) reviewItem.addEventListener("click", openReviewModal);
+  </script>
+
   <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
   <script>
     import { supabase } from "../lib/supabase.js";
@@ -2897,6 +4313,15 @@ const googleFonts = [
     const error = document.getElementById("ed-onboard-error");
     const skipBtn = document.getElementById("ed-onboard-skip");
     const editor = document.getElementById("editor");
+    // Step 2 (design chooser) elements.
+    const step1El = document.getElementById("ed-onboard-step1");
+    const step2El = document.getElementById("ed-onboard-step2");
+    const designGrid = document.getElementById("ed-onboard-design-grid");
+    const designsLoading = document.getElementById("ed-onboard-designs-loading");
+    const designsEmpty = document.getElementById("ed-onboard-designs-empty");
+    const packTitleEl = document.getElementById("ed-onboard-pack-title");
+    const packCatEl = document.getElementById("ed-onboard-pack-cat");
+    const back2Btn = document.getElementById("ed-onboard-back2");
 
     function escapeHtml(s) {
       return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -2918,11 +4343,9 @@ const googleFonts = [
       });
     }
 
-    function closeOverlayAndBuild(selectedPack) {
-      if (selectedPack) {
-        try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify(selectedPack)); }
-        catch (_) { /* ignore */ }
-      }
+    // Reveal the studio with the staged build-in. Used after a design is
+    // chosen (or "start blank") — what to load is already decided.
+    function revealStudio() {
       overlay.classList.add("is-leaving");
       // Wait for fade, then hide entirely and start the sequence.
       setTimeout(() => {
@@ -2930,8 +4353,82 @@ const googleFonts = [
         playBuildIn();
       }, 420);
     }
+    // "Start with a blank canvas" — no pack, just reveal.
+    skipBtn.addEventListener("click", () => revealStudio());
 
-    skipBtn.addEventListener("click", () => closeOverlayAndBuild(null));
+    function showStep2() { if (step1El) step1El.hidden = true; if (step2El) step2El.hidden = false; }
+    function showStep1() { if (step2El) step2El.hidden = true; if (step1El) step1El.hidden = false; }
+    if (back2Btn) back2Btn.addEventListener("click", showStep1);
+
+    // A design card in the step-2 chooser (mirrors packCard).
+    function designCard(d) {
+      return `
+        <button type="button" class="ed-onboard-card ed-onboard-design" data-template-id="${escapeHtml(d.id)}">
+          <div class="ed-onboard-card-cover"${d.thumb ? ` style="background-image:url('${escapeHtml(d.thumb)}')"` : ""}></div>
+          <div class="ed-onboard-card-body">
+            ${d.category ? `<span class="ed-onboard-card-cat">${escapeHtml(d.category)}</span>` : ""}
+            <h3 class="ed-onboard-card-title">${escapeHtml(d.name || "Design")}</h3>
+          </div>
+        </button>`;
+    }
+
+    // Picking a design loads just that one, then reveals the studio.
+    if (designGrid) {
+      designGrid.addEventListener("click", (e) => {
+        const btn = e.target instanceof Element ? e.target.closest("[data-template-id]") : null;
+        if (!btn) return;
+        if (typeof window.__TMKE_LOAD_TEMPLATE__ === "function") window.__TMKE_LOAD_TEMPLATE__(btn.getAttribute("data-template-id"));
+        revealStudio();
+      });
+    }
+
+    // Pick a pack → register its designs and show the chooser (step 2). Nothing
+    // is loaded onto the canvas until the user picks one of the designs.
+    async function showPackDesigns(selectedPack) {
+      if (!selectedPack) return;
+      try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify({ id: selectedPack.id, title: selectedPack.title })); }
+      catch (_) { /* ignore */ }
+
+      packTitleEl.innerHTML = escapeHtml(selectedPack.title || "This pack") + " <em>designs.</em>";
+      packCatEl.textContent = selectedPack.category || "The pack";
+      designGrid.innerHTML = "";
+      designsEmpty.hidden = true;
+      showStep2();
+
+      let designs = [];
+      if (selectedPack.templateIds && selectedPack.templateIds.length) {
+        // Demo packs carry library template ids directly.
+        if (typeof window.__TMKE_OPEN_PACK__ === "function") {
+          designs = window.__TMKE_OPEN_PACK__(selectedPack.templateIds, { load: false }) || [];
+        }
+      } else if (selectedPack.id) {
+        // A real (published) pack — fetch its templates from Supabase.
+        designsLoading.hidden = false;
+        try {
+          const { data: tpls } = await supabase
+            .from("templates")
+            .select("id, name, category, thumb_url, canvas, elements")
+            .eq("pack_id", selectedPack.id)
+            .eq("status", "active")
+            .order("sort_order", { ascending: true });
+          if (tpls && tpls.length && typeof window.__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
+            designs = window.__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false }) || [];
+          }
+        } catch (_) { /* leave designs empty */ }
+        designsLoading.hidden = true;
+      }
+
+      if (!designs.length) {
+        // Real pack with no designs yet — say so rather than dropping into a
+        // random design.
+        designsEmpty.innerHTML = "No designs in this pack yet — they're being added. <button type=\"button\" class=\"ed-onboard-skip-inline\" data-blank>Start with a blank canvas &rarr;</button>";
+        designsEmpty.hidden = false;
+        const blank = designsEmpty.querySelector("[data-blank]");
+        if (blank) blank.addEventListener("click", () => revealStudio());
+        return;
+      }
+      designGrid.innerHTML = designs.map(designCard).join("");
+    }
 
     function packCard(p) {
       return `
@@ -2965,7 +4462,53 @@ const googleFonts = [
       grid.insertAdjacentElement("afterend", cell);
     }
 
+    // Dev-only preview: visit /editor?demo=1 under `astro dev` to fill the
+    // pack-picker with a few gifted example packs (no Supabase needed). This
+    // is gated on import.meta.env.DEV so it can NEVER ship to production.
+    // Demo packs carry real library template ids so clicking one opens its
+    // designs in the studio (see __TMKE_OPEN_PACK__ in editor.js).
+    const DEMO_PACKS = [
+      { id: "demo-just-listed", slug: "just-listed-spring", title: "Just Listed — Spring", category: "Listings", cover_image_url: "https://assets.tmke.co.uk/kitchen-1.webp", templateIds: ["tmpl-01", "tmpl-02", "tmpl-13", "tmpl-14", "tmpl-17", "tmpl-26"] },
+      { id: "demo-sold", slug: "sold-celebrating", title: "Sold & Celebrating", category: "Milestones", cover_image_url: "https://assets.tmke.co.uk/living-1.webp", templateIds: ["tmpl-04", "tmpl-16", "tmpl-20", "tmpl-25"] },
+      { id: "demo-market", slug: "market-update", title: "Market Update", category: "Insights", cover_image_url: "https://assets.tmke.co.uk/orange-1.webp", templateIds: ["tmpl-09", "tmpl-18", "tmpl-28"] },
+      { id: "demo-team", slug: "meet-the-team", title: "Meet the Team", category: "Brand", cover_image_url: "https://assets.tmke.co.uk/white-1.webp", templateIds: ["tmpl-10", "tmpl-12", "tmpl-24", "tmpl-29"] },
+    ];
+    const DEMO_UNOWNED = [
+      { id: "demo-open-house", slug: "open-house", title: "Open House", category: "Listings", cover_image_url: "https://assets.tmke.co.uk/table.webp" },
+      { id: "demo-testimonials", slug: "testimonials", title: "Testimonials", category: "Social proof", cover_image_url: "https://assets.tmke.co.uk/vibes.webp" },
+    ];
+
+    function wirePackGrid(owned) {
+      grid.addEventListener("click", (e) => {
+        const btn = e.target instanceof Element ? e.target.closest("[data-pack-id]") : null;
+        if (!btn) return;
+        const id = btn.getAttribute("data-pack-id");
+        const pack = owned.find((p) => p.id === id);
+        showPackDesigns(pack);
+      });
+    }
+
     (async () => {
+      // Admin mode is not the customer pack-picker flow — admins design fresh.
+      // Skip the onboarding overlay entirely and reveal the studio straight away
+      // (editor.js loads the requested template, blank for a new one).
+      if (new URLSearchParams(location.search).get("mode") === "admin") {
+        overlay.classList.add("is-gone");
+        editor.classList.remove("is-onboarding");
+        editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
+        return;
+      }
+
+      const isDemo = import.meta.env.DEV && new URLSearchParams(location.search).has("demo");
+      if (isDemo) {
+        loading.hidden = true;
+        grid.innerHTML = DEMO_PACKS.map(packCard).join("");
+        grid.hidden = false;
+        renderMoreCell(DEMO_UNOWNED);
+        wirePackGrid(DEMO_PACKS);
+        return;
+      }
+
       // Who's signed in — drives which packs they already own.
       const { data: { session } } = await supabase.auth.getSession();
       const email = session?.user?.email || "";
@@ -3015,14 +4558,7 @@ const googleFonts = [
       grid.innerHTML = owned.map(packCard).join("");
       grid.hidden = false;
       renderMoreCell(unowned);
-
-      grid.addEventListener("click", (e) => {
-        const btn = e.target instanceof Element ? e.target.closest("[data-pack-id]") : null;
-        if (!btn) return;
-        const id = btn.getAttribute("data-pack-id");
-        const pack = owned.find((p) => p.id === id);
-        closeOverlayAndBuild(pack);
-      });
+      wirePackGrid(owned);
     })();
   </script>
 

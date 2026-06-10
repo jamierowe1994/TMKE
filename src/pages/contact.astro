@@ -11,258 +11,114 @@ const industries = [
   "Other Property Services",
   "Other",
 ];
-
 ---
 
 <BaseLayout
   title="Contact — TMKE"
-  description="Not sure what you need or where to start? Send us a message and we'll help you figure out the right next step."
+  description="Get in touch with TMKE — send us a message and we'll point you in the right direction."
 >
-  <section class="contact-hero">
-    <!-- Was an mp4 — swapped for a still image to keep the page light.
-         Keeps the same `.contact-hero-video` class so existing CSS
-         (object-fit, cinematic drift animation) still applies. -->
-    <img
-      class="contact-hero-video"
-      src="/assets/contact%20hero.jpg"
-      alt=""
-      loading="eager"
-      decoding="async"
-      aria-hidden="true"
-    />
-    <div class="contact-hero-overlay"></div>
-    <div class="contact-hero-vignette"></div>
-    <div class="contact-hero-inner">
-      <div class="contact-hero-chapter">/ Contact /</div>
-      <p class="contact-hero-text">
-        Not sure what you <strong>need</strong> or where to <strong>start</strong>?<br />
-        Send us a <strong>message</strong> and we'll help you figure out<br />
-        the right <strong>next step</strong>.
-      </p>
-      <a href="#contact-form" class="contact-hero-btn">Say Hello</a>
-    </div>
-  </section>
+  <!-- One-screen contact page. No hero, no scrolling — people come here to get
+       in touch, so that's all this is: an intro and a simple, elegant form. -->
+  <section class="gt">
+    <div class="gt-inner">
+      <div class="gt-intro">
+        <p class="gt-eyebrow">/ Contact /</p>
+        <h1 class="gt-title">Get in <em>touch.</em></h1>
+        <p class="gt-sub">
+          Tell us a little about what you need and we'll point you in the right
+          direction. No hard sell — just a useful reply.
+        </p>
+        <div class="gt-meta">
+          <a href="mailto:hello@tmke.co.uk">hello@tmke.co.uk</a>
+          <span class="gt-meta-dot" aria-hidden="true">·</span>
+          <button type="button" class="gt-call" data-discovery-call>
+            Prefer a call? Book a slot <span aria-hidden="true">&rarr;</span>
+          </button>
+        </div>
+      </div>
 
-  <section class="contact-form-section" id="contact-form">
-    <div class="contact-form-wrap">
-      <h2 class="contact-form-title">Get In Touch.</h2>
-
-      <p class="contact-form-intro">
-        Whether you've got a question, want to learn more, or just need pointing in
-        the right direction, we're here to help.
-      </p>
-
-      <form class="contact-form" id="tmke-contact-form" novalidate>
-        <div class="contact-form-card">
-          <div class="contact-field">
-            <label for="cf-first">First Name <span>*</span></label>
-            <input id="cf-first" name="first_name" type="text" placeholder="First Name" required />
-          </div>
-
-          <div class="contact-field">
-            <label for="cf-last">Last Name <span>*</span></label>
-            <input id="cf-last" name="last_name" type="text" placeholder="Last Name" required />
-          </div>
-
-          <div class="contact-field">
-            <label for="cf-phone">Phone <span>*</span></label>
-            <input id="cf-phone" name="phone" type="tel" placeholder="Phone" required />
-          </div>
-
-          <div class="contact-field">
-            <label for="cf-email">Email <span>*</span></label>
-            <div class="contact-input-with-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <path d="M3 7l9 6 9-6" />
-              </svg>
-              <input id="cf-email" name="email" type="email" placeholder="Email" required />
+      <form class="gt-form" id="tmke-contact-form" novalidate>
+        <div class="gt-card" id="gt-card">
+          <div class="gt-grid">
+            <div class="gt-field">
+              <label for="cf-first">First name <span>*</span></label>
+              <input id="cf-first" name="first_name" type="text" placeholder="First name" autocomplete="given-name" required />
+            </div>
+            <div class="gt-field">
+              <label for="cf-last">Last name <span>*</span></label>
+              <input id="cf-last" name="last_name" type="text" placeholder="Last name" autocomplete="family-name" required />
+            </div>
+            <div class="gt-field">
+              <label for="cf-email">Email <span>*</span></label>
+              <input id="cf-email" name="email" type="email" placeholder="you@business.co.uk" autocomplete="email" required />
+            </div>
+            <div class="gt-field">
+              <label for="cf-phone">Phone <span>*</span></label>
+              <input id="cf-phone" name="phone" type="tel" placeholder="Phone" autocomplete="tel" required />
+            </div>
+            <div class="gt-field">
+              <label for="cf-business">Business name</label>
+              <input id="cf-business" name="business_name" type="text" placeholder="Business name" autocomplete="organization" />
+            </div>
+            <div class="gt-field">
+              <label for="cf-industry">Industry</label>
+              <select id="cf-industry" name="industry">
+                <option value="" disabled selected>Please select</option>
+                {industries.map((i) => <option value={i}>{i}</option>)}
+              </select>
+            </div>
+            <div class="gt-field gt-field--full">
+              <label for="cf-message">How can we help?</label>
+              <textarea id="cf-message" name="message" rows="3" placeholder="Tell us a bit about what you're looking for"></textarea>
             </div>
           </div>
 
-          <div class="contact-field">
-            <label for="cf-business">Business Name <span>*</span></label>
-            <input id="cf-business" name="business_name" type="text" placeholder="Business Name" required />
-          </div>
-
-          <div class="contact-field">
-            <label for="cf-industry">Industry <span>*</span></label>
-            <select id="cf-industry" name="industry" required>
-              <option value="" disabled selected>Please Select One</option>
-              {industries.map((i) => <option value={i}>{i}</option>)}
-            </select>
-          </div>
-
-          <div class="contact-field contact-field--full">
-            <label for="cf-message">How Can We Help?</label>
-            <textarea
-              id="cf-message"
-              name="message"
-              rows="5"
-              placeholder="Tell Us A Bit About What You're Looking For"
-            ></textarea>
-          </div>
-
-          <div class="contact-field contact-field--full contact-submit-row">
-            <button type="submit" class="btn btn--solid contact-submit">
-              <span class="contact-submit-label">Send Message</span>
-              <span class="contact-submit-spinner" aria-hidden="true"></span>
+          <div class="gt-submit-row">
+            <button type="submit" class="gt-submit" id="gt-submit">
+              <span class="gt-submit-label">Send Message</span>
+              <span class="gt-submit-spinner" aria-hidden="true"></span>
             </button>
-            <p class="contact-form-error" role="alert" hidden></p>
           </div>
-        </div>
+          <p class="gt-error" id="gt-error" role="alert" hidden></p>
 
-        <!-- Success state. Hidden by default; revealed (and the form
-             card hidden) once the enquiry has been written to Supabase. -->
-        <div class="contact-form-success" id="contact-form-success" hidden>
-          <div class="contact-form-success-tick" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M8 12.5l3 3 5-6"></path>
-            </svg>
+          <!-- Success state — collapses into the middle of the card. -->
+          <div class="gt-success" id="gt-success" aria-hidden="true">
+            <div class="gt-success-tick" aria-hidden="true">
+              <svg viewBox="0 0 52 52">
+                <circle class="gt-tick-circle" cx="26" cy="26" r="24" />
+                <path class="gt-tick-check" d="M15 27 l7.5 7.5 L37 18" />
+              </svg>
+            </div>
+            <p class="gt-success-h">Message sent.</p>
+            <p class="gt-success-p">We'll be back in touch within <strong>24 hours</strong>.</p>
           </div>
-          <h3 class="contact-form-success-h">Thank you.</h3>
-          <p class="contact-form-success-p">
-            We've received your enquiry and will get back to you within
-            <strong>48 hours</strong>. If it's urgent, drop us an email at
-            <a href="mailto:hello@tmke.co.uk">hello@tmke.co.uk</a>.
-          </p>
         </div>
       </form>
-    </div>
-  </section>
-
-  <!-- Or skip the form — book a discovery call directly via the slide-in calendar. -->
-  <section class="contact-direct">
-    <div class="contact-direct-wrap">
-      <div>
-        <div class="contact-direct-eyebrow">Rather skip the form?</div>
-        <h2 class="contact-direct-title">Book a discovery call instead.</h2>
-        <p class="contact-direct-sub">Thirty minutes on Google Meet — we'll find a slot that works for both of us.</p>
-      </div>
-      <button type="button" data-discovery-call class="contact-direct-cta">
-        Open the calendar <span class="contact-direct-arrow">&rarr;</span>
-      </button>
-    </div>
-  </section>
-
-  <section class="contact-channels">
-    <div class="contact-channels-wrap">
-      <a
-        class="contact-channel"
-        href="mailto:info@themarketingexperts.co.uk"
-        style="background-image: url('/assets/Danni.png')"
-      >
-        <div class="contact-channel-overlay">
-          <div class="contact-channel-label">Email</div>
-          <div class="contact-channel-value">info@themarketingexperts.co.uk</div>
-        </div>
-      </a>
-
-      <a
-        class="contact-channel"
-        href="#"
-        style="background-image: url('https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80')"
-      >
-        <div class="contact-channel-overlay">
-          <div class="contact-channel-label">LinkedIn</div>
-          <div class="contact-channel-value">info@themarketingexperts.co.uk</div>
-        </div>
-      </a>
-
-      <a
-        class="contact-channel"
-        href="https://instagram.com/tmke_propertymarketing"
-        target="_blank"
-        rel="noopener noreferrer"
-        style="background-image: url('/assets/Abbie.png')"
-      >
-        <div class="contact-channel-overlay">
-          <div class="contact-channel-label">Instagram</div>
-          <div class="contact-channel-value">@tmke_propertymarketing</div>
-        </div>
-      </a>
-    </div>
-  </section>
-
-  <section class="contact-insta">
-    <div class="contact-insta-wrap">
-      <h2 class="contact-insta-title">Take a Look</h2>
-
-      <div class="contact-insta-intro">
-        <div class="contact-insta-copy">
-          <p>
-            If you want to get a feel for how we work, check out our Instagram —
-            everything you see reflects the standard we help our clients achieve
-            online. We also share content designed to help property professionals
-            get better at their marketing, from simple ideas to practical ways to
-            stay consistent.
-          </p>
-          <p>
-            Explore our page to see the content we create and what showing up
-            consistently and professionally looks like in practice.<br />
-            Don't forget to follow along to keep up with what we're working on.
-          </p>
-        </div>
-        <a href="#" class="btn btn--solid contact-insta-follow" aria-label="Follow TMKE on Instagram">
-          Follow
-        </a>
-      </div>
-    </div>
-
-    <div class="contact-insta-embed">
-      <iframe
-        onload="iFrameSetup(this)"
-        src="https://app.mirror-app.com/feed-instagram/f9155035-02f1-4d8e-ac66-872645986785/preview"
-        style="width:100%;border:none;overflow:hidden;"
-        scrolling="no"
-        title="TMKE on Instagram"
-      ></iframe>
-      <script
-        src="https://cdn.jsdelivr.net/npm/@mirrorapp/iframe-bridge@latest/dist/index.umd.js"
-        is:inline></script>
     </div>
   </section>
 
   <DiscoveryPanel />
 </BaseLayout>
 
-<!-- Hero-video lazy-loader removed — the hero is now a still image
-     and doesn't need the intersection-observer arm-on-scroll dance. -->
-
-
 <script>
   import { supabase } from "../lib/supabase.js";
 
   const form = document.getElementById("tmke-contact-form");
   if (form) {
-    const card = form.querySelector(".contact-form-card");
-    const success = form.querySelector("#contact-form-success");
-    const error = form.querySelector(".contact-form-error");
-    const btn = form.querySelector(".contact-submit");
-    const btnLabel = btn?.querySelector(".contact-submit-label");
-
-    function setSending(on) {
-      if (!btn) return;
-      if (on) {
-        btn.setAttribute("disabled", "true");
-        btn.classList.add("is-sending");
-        if (btnLabel) btnLabel.textContent = "Sending…";
-      } else {
-        btn.removeAttribute("disabled");
-        btn.classList.remove("is-sending");
-        if (btnLabel) btnLabel.textContent = "Send Message";
-      }
-    }
+    const card = document.getElementById("gt-card");
+    const submit = document.getElementById("gt-submit");
+    const success = document.getElementById("gt-success");
+    const errorEl = document.getElementById("gt-error");
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-      }
-      if (error) error.hidden = true;
-      setSending(true);
+      if (!form.checkValidity()) { form.reportValidity(); return; }
+      if (errorEl) errorEl.hidden = true;
+
+      // 1. Collapse the button into a loading circle.
+      submit.setAttribute("disabled", "true");
+      submit.classList.add("is-sending");
 
       const fd = new FormData(form);
       const payload = {
@@ -276,573 +132,303 @@ const industries = [
         source: "contact_form",
       };
 
-      const { error: insertError } = await supabase
-        .from("enquiries")
-        .insert(payload);
+      // 2. Run the insert, but hold the loading state for a beat regardless so
+      //    the moment feels deliberate and cohesive (min ~2s of spinner).
+      const [result] = await Promise.all([
+        supabase.from("enquiries").insert(payload),
+        delay(2000),
+      ]);
 
-      if (insertError) {
-        console.error("[TMKE] enquiry insert failed", insertError);
-        setSending(false);
-        if (error) {
-          error.textContent =
-            "Sorry — we couldn't send that. Please try again, or email hello@tmke.co.uk.";
-          error.hidden = false;
+      if (result && result.error) {
+        console.error("[TMKE] enquiry insert failed", result.error);
+        submit.classList.remove("is-sending");
+        submit.removeAttribute("disabled");
+        if (errorEl) {
+          errorEl.textContent = "Sorry — we couldn't send that. Please try again, or email hello@tmke.co.uk.";
+          errorEl.hidden = false;
         }
         return;
       }
 
-      // Success — drop the form card, fade the success panel in. Two-step
-      // animation: fade the card out, swap displays, fade the success panel
-      // in. Keeps the button transition feeling intentional instead of an
-      // abrupt jump.
-      if (card) {
-        card.classList.add("is-leaving");
-        await new Promise((r) => setTimeout(r, 260));
-        card.hidden = true;
-      }
+      // 3. Fade the button out, then reveal the tick + message in the middle.
+      submit.classList.add("is-done");
+      await delay(420);
+      if (card) card.classList.add("is-done");
       if (success) {
-        success.hidden = false;
-        // Force a paint, then add the visible class so the fade-in animates.
-        requestAnimationFrame(() => success.classList.add("is-visible"));
-        success.scrollIntoView({ behavior: "smooth", block: "center" });
+        success.classList.add("is-visible");
+        success.setAttribute("aria-hidden", "false");
       }
       form.reset();
-      setSending(false);
     });
   }
 </script>
 
 <style is:global>
-  /* ============ Contact — hero ============ */
-  .contact-hero {
-    position: relative;
-    min-height: 100vh;          /* full-screen hero image */
+  /* ============ Contact — full-screen one-pager ============ */
+  .gt {
+    min-height: 100vh;
     display: flex;
     align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    color: var(--paper);
-    background: #0e0d12;
-  }
-  .contact-hero-video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    transform: scale(1.06);
-    animation: hero-cinematic-drift 22s ease-in-out infinite alternate;
-    will-change: transform;
-    filter: saturate(0.92) contrast(1.04);
-    pointer-events: none;
-  }
-  .contact-hero-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    /* Darker top-to-bottom gradient matched to the Social hero, so both pages
-       sit the copy on the same depth of shadow. */
-    background:
-      linear-gradient(
-        180deg,
-        rgba(12, 11, 10, 0.62) 0%,
-        rgba(12, 11, 10, 0.86) 100%
-      );
-    /* Subtle softening of the photo behind the copy — matches the Social hero. */
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-  }
-  .contact-hero-vignette {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    background:
-      radial-gradient(
-        ellipse at center,
-        rgba(14, 13, 18, 0) 30%,
-        rgba(14, 13, 18, 0.45) 80%,
-        rgba(14, 13, 18, 0.85) 100%
-      );
-  }
-  .contact-hero-inner {
-    position: relative;
-    z-index: 2;
-    text-align: center;
-    padding: 160px 28px 120px;
-    max-width: 800px;          /* shared hero text-column width */
-    text-shadow: 0 1px 30px rgba(14, 13, 18, 0.55);
-  }
-  .contact-hero-chapter {
-    font-family: var(--serif);
-    font-style: italic;
-    font-weight: 500;
-    font-size: clamp(32px, 3.6vw, 52px);
-    letter-spacing: 0.02em;
-    margin-bottom: 36px;
-    color: var(--paper);
-    text-shadow: 0 2px 24px rgba(14, 13, 18, 0.6);
-  }
-  .contact-hero-text {
-    font-family: var(--sans);
-    font-size: clamp(16px, 1.4vw, 19px);
-    font-weight: 400;
-    line-height: 1.75;
-    color: rgba(242, 239, 233, 0.95);
-    margin: 0 0 44px;
-  }
-  .contact-hero-text strong {
-    font-weight: 700;
-    color: var(--paper);
-  }
-  .contact-hero-btn {
-    display: inline-block;
-    padding: 14px 30px;
-    border: 1px solid rgba(242, 239, 233, 0.9);
-    background: rgba(14, 13, 18, 0.25);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
-    color: var(--paper);
-    font-family: var(--sans);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    transition: background 0.3s, color 0.3s, border-color 0.3s;
-    text-shadow: none;
-  }
-  .contact-hero-btn:hover {
     background: var(--paper);
-    color: var(--ink);
-    border-color: var(--paper);
+    padding: clamp(110px, 16vh, 160px) clamp(22px, 6vw, 96px) clamp(48px, 8vh, 90px);
   }
-  @keyframes hero-cinematic-drift {
-    0%   { transform: scale(1.06) translate3d(0, 0, 0); }
-    100% { transform: scale(1.12) translate3d(-1.5%, -1%, 0); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .contact-hero-video { animation: none; transform: scale(1.04); }
+  .gt-inner {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1fr);
+    gap: clamp(40px, 6vw, 110px);
+    align-items: center;
   }
 
-  /* ============ Contact — form ============ */
-  .contact-form-section {
-    background: var(--paper);
-    padding: var(--sec-top) 76px var(--sec-bottom);
-  }
-  .contact-form-wrap {
-    max-width: 1360px;
-    margin: 0 auto;
-  }
-  .contact-form-title {
-    font-family: var(--serif);
-    font-weight: 500;
-    font-size: clamp(56px, 8vw, 128px);
-    line-height: 1;
-    letter-spacing: -0.02em;
-    color: var(--gunmetal);
-    margin: 0 0 80px;
-  }
-  .contact-form-intro {
+  /* Intro column */
+  .gt-eyebrow {
     font-family: var(--sans);
-    font-size: clamp(15px, 1.2vw, 17px);
-    line-height: 1.6;
-    color: var(--gunmetal);
-    max-width: 720px;
-    margin: 0 0 40px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--english-violet);
+    margin: 0 0 22px;
   }
-  .contact-form {
-    margin: 0;
+  .gt-title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(52px, 7vw, 104px);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin: 0 0 26px;
   }
-  .contact-form-card {
-    border: 1px solid rgba(51, 55, 71, 0.55);
-    border-radius: 6px;
-    padding: 64px clamp(32px, 8vw, 140px);
-    background: transparent;
+  .gt-title em { font-style: italic; color: var(--english-violet); }
+  .gt-sub {
+    font-family: var(--sans);
+    font-size: clamp(15px, 1.2vw, 18px);
+    line-height: 1.65;
+    color: rgba(28, 29, 34, 0.66);
+    max-width: 40ch;
+    margin: 0 0 34px;
+  }
+  .gt-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-family: var(--sans);
+    font-size: 14px;
+  }
+  .gt-meta a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(28, 29, 34, 0.3);
+    padding-bottom: 2px;
+    transition: color 0.25s, border-color 0.25s;
+  }
+  .gt-meta a:hover { color: var(--english-violet); border-color: var(--english-violet); }
+  .gt-meta-dot { color: rgba(28, 29, 34, 0.3); }
+  .gt-call {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--english-violet);
+    padding: 0;
+    transition: opacity 0.2s;
+  }
+  .gt-call:hover { opacity: 0.7; }
+
+  /* Form card */
+  .gt-card {
+    position: relative;
+    border: 1px solid rgba(51, 55, 71, 0.4);
+    border-radius: 14px;
+    padding: clamp(28px, 3.2vw, 48px);
+    background: #fff;
+    box-shadow: 0 30px 70px -40px rgba(28, 29, 34, 0.35);
+  }
+  .gt-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    column-gap: 56px;
-    row-gap: 32px;
-    width: 100%;
-    margin: 0;
+    column-gap: 28px;
+    row-gap: 22px;
+    transition: opacity 0.4s ease;
   }
-  .contact-field {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .contact-field label {
+  .gt-field { display: flex; flex-direction: column; gap: 7px; }
+  .gt-field--full { grid-column: 1 / -1; }
+  .gt-field label {
     font-family: var(--sans);
-    font-size: 14px;
+    font-size: 12.5px;
     font-weight: 600;
-    color: var(--gunmetal);
-    letter-spacing: 0;
+    letter-spacing: 0.02em;
+    color: rgba(28, 29, 34, 0.7);
   }
-  .contact-field label span {
-    color: var(--gunmetal);
-    margin-left: 2px;
-  }
-  .contact-field input,
-  .contact-field select,
-  .contact-field textarea {
+  .gt-field label span { color: var(--english-violet); margin-left: 2px; }
+  .gt-field input,
+  .gt-field select,
+  .gt-field textarea {
     font-family: var(--sans);
     font-size: 15px;
-    color: var(--gunmetal);
+    color: var(--ink);
     background: transparent;
     border: none;
-    border-bottom: 1px solid rgba(51, 55, 71, 0.45);
-    padding: 10px 0 12px;
+    border-bottom: 1px solid rgba(51, 55, 71, 0.32);
+    padding: 8px 0 9px;
     width: 100%;
     outline: none;
-    transition: border-color 0.25s;
     border-radius: 0;
+    transition: border-color 0.25s;
   }
-  .contact-field input::placeholder,
-  .contact-field textarea::placeholder {
-    color: rgba(51, 55, 71, 0.35);
-    font-family: var(--sans);
-  }
-  .contact-field input:focus,
-  .contact-field select:focus,
-  .contact-field textarea:focus {
-    border-bottom-color: var(--gunmetal);
-  }
-  .contact-field select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
+  .gt-field input::placeholder,
+  .gt-field textarea::placeholder { color: rgba(51, 55, 71, 0.32); }
+  .gt-field input:focus,
+  .gt-field select:focus,
+  .gt-field textarea:focus { border-bottom-color: var(--english-violet); }
+  .gt-field select {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23333747' stroke-width='1.5'><path d='M1 1l5 5 5-5'/></svg>");
     background-repeat: no-repeat;
-    background-position: right 4px center;
-    padding-right: 28px;
+    background-position: right 2px center;
+    padding-right: 26px;
   }
-  .contact-field select:invalid {
-    color: rgba(51, 55, 71, 0.35);
-  }
-  .contact-field textarea {
-    resize: vertical;
-    min-height: 96px;
-    line-height: 1.5;
-  }
-  .contact-input-with-icon {
-    position: relative;
+  .gt-field select:invalid { color: rgba(51, 55, 71, 0.4); }
+  .gt-field textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+
+  .gt-submit-row {
     display: flex;
-    align-items: center;
-    border-bottom: 1px solid rgba(51, 55, 71, 0.45);
-    transition: border-color 0.25s;
+    justify-content: center;
+    margin-top: 30px;
+    transition: opacity 0.4s ease;
   }
-  .contact-input-with-icon:focus-within {
-    border-bottom-color: var(--gunmetal);
-  }
-  .contact-input-with-icon svg {
-    color: rgba(51, 55, 71, 0.55);
-    margin-right: 10px;
-    flex: 0 0 auto;
-  }
-  .contact-input-with-icon input {
-    border-bottom: none;
-    padding: 10px 0 12px;
-  }
-  .contact-field--full {
-    grid-column: 1 / -1;
-  }
-  .contact-submit-row {
-    margin-top: 16px;
-    align-items: flex-start;
-    gap: 16px;
-  }
-  .contact-submit {
-    align-self: flex-start;
-  }
-  .contact-form-error {
-    font-family: var(--sans);
-    font-size: 14px;
-    color: #b03a2e;
-    margin: 0;
-  }
-
-  /* Submit button spinner — shown when .is-sending is set on the button. */
-  .contact-submit { position: relative; }
-  .contact-submit-spinner {
-    display: none;
-    width: 14px;
-    height: 14px;
-    margin-left: 10px;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    vertical-align: middle;
-    animation: contact-spin 0.7s linear infinite;
-  }
-  .contact-submit.is-sending .contact-submit-spinner { display: inline-block; }
-  @keyframes contact-spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* Card fade-out before the success panel takes over. */
-  .contact-form-card {
-    transition: opacity 0.25s ease, transform 0.32s cubic-bezier(.2,.7,.2,1);
-  }
-  .contact-form-card.is-leaving {
-    opacity: 0;
-    transform: translateY(-12px);
-    pointer-events: none;
-  }
-
-  /* Success panel. Hidden by default; fades + lifts into place once the
-     enquiry lands in Supabase. */
-  .contact-form-success {
-    margin-top: 36px;
-    padding: 56px 48px;
-    background: rgba(71, 66, 84, 0.05);
-    border: 1px solid rgba(71, 66, 84, 0.2);
-    border-radius: 4px;
-    text-align: center;
-    opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 0.45s ease, transform 0.5s cubic-bezier(.2,.7,.2,1);
-  }
-  .contact-form-success.is-visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  .contact-form-success-tick {
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 24px;
-    color: var(--english-violet);
-  }
-  .contact-form-success-tick svg {
-    width: 100%; height: 100%;
-  }
-  .contact-form-success-h {
-    font-family: var(--serif);
-    font-size: clamp(32px, 3vw, 44px);
-    line-height: 1.05;
-    letter-spacing: -0.015em;
-    margin: 0 0 14px;
-    color: var(--ink);
-    font-weight: 500;
-  }
-  .contact-form-success-p {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 18px;
-    line-height: 1.55;
-    color: rgba(28, 29, 34, 0.7);
-    max-width: 540px;
-    margin: 0 auto;
-  }
-  .contact-form-success-p strong { color: var(--ink); font-style: normal; }
-  .contact-form-success-p a { color: var(--english-violet); border-bottom: 1px solid currentColor; }
-  @media (max-width: 720px) {
-    .contact-form-success { padding: 40px 24px; }
-    .contact-form-success-tick { width: 52px; height: 52px; margin-bottom: 18px; }
-  }
-
-  /* ============ Contact — channel cards (Email / LinkedIn / Instagram) ============ */
-  .contact-channels {
-    background: var(--paper);
-    padding: 60px 76px var(--sec-bottom);
-  }
-  .contact-channels-wrap {
-    max-width: 1360px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-  }
-  .contact-channel {
+  /* Pill that collapses into a loading circle (from both sides → middle). */
+  .gt-submit {
     position: relative;
-    display: block;
-    aspect-ratio: 3 / 5;
-    background-color: var(--platinum);
-    background-size: cover;
-    background-position: center;
-    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    height: 56px;
+    border: none;
+    border-radius: 999px;
+    background: var(--english-violet);
     color: var(--paper);
-    isolation: isolate;
+    cursor: pointer;
+    overflow: hidden;
+    font-family: var(--sans);
+    transition: width 0.55s cubic-bezier(.7,0,.2,1), border-radius 0.55s cubic-bezier(.7,0,.2,1),
+                opacity 0.4s ease, transform 0.4s ease;
   }
-  .contact-channel::after {
-    content: "";
+  .gt-submit:hover { background: var(--ink); }
+  .gt-submit-label {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(20, 18, 26, 0) 35%,
-      rgba(20, 18, 26, 0.55) 65%,
-      rgba(20, 18, 26, 0.92) 100%
-    );
-    transition: background 0.4s;
-  }
-  .contact-channel:hover::after {
-    background: linear-gradient(
-      180deg,
-      rgba(20, 18, 26, 0.1) 25%,
-      rgba(20, 18, 26, 0.65) 60%,
-      rgba(20, 18, 26, 0.95) 100%
-    );
-  }
-  .contact-channel-overlay {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1;
-    padding: 32px 28px 36px;
-    color: var(--paper);
-  }
-  .contact-channel-label {
-    font-family: var(--serif);
-    font-weight: 500;
-    font-size: clamp(26px, 2.4vw, 34px);
-    line-height: 1;
-    margin-bottom: 14px;
-    color: var(--paper);
-  }
-  .contact-channel-value {
-    font-family: var(--sans);
-    font-size: 15px;
-    font-weight: 400;
-    letter-spacing: 0.01em;
-    color: rgba(242, 239, 233, 0.85);
-    word-break: break-word;
-  }
-
-  /* ============ Contact — Instagram preview ============ */
-  .contact-insta {
-    background: var(--paper);
-    padding: 60px 76px 140px;   /* 76px gutter on the section — matches the form + photos */
-    overflow: hidden;
-  }
-  .contact-insta-wrap {
-    max-width: 1360px;
-    margin: 0 auto;
-  }
-  .contact-insta-title {
-    font-family: var(--serif);
-    font-weight: 500;
-    font-size: clamp(28px, 2.6vw, 36px);
-    color: var(--gunmetal);
-    margin: 0 0 28px;
-  }
-  .contact-insta-intro {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 40px;
-    align-items: end;
-    margin-bottom: 56px;
-  }
-  .contact-insta-copy p {
-    font-family: var(--sans);
-    font-size: 16px;
-    line-height: 1.65;
-    color: var(--gunmetal);
-    max-width: 760px;
-    margin: 0 0 16px;
-  }
-  .contact-insta-copy p:last-child {
-    margin-bottom: 0;
-  }
-  .contact-insta-follow {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
     white-space: nowrap;
+    transition: opacity 0.2s ease;
   }
+  .gt-submit-spinner {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 22px; height: 22px;
+    margin: -11px 0 0 -11px;
+    border: 2.5px solid rgba(242, 239, 233, 0.4);
+    border-top-color: var(--paper);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.25s ease 0.3s;
+  }
+  .gt-submit.is-sending {
+    width: 56px;
+    border-radius: 50%;
+    cursor: default;
+  }
+  .gt-submit.is-sending .gt-submit-label { opacity: 0; }
+  .gt-submit.is-sending .gt-submit-spinner { opacity: 1; animation: gt-spin 0.7s linear infinite; }
+  .gt-submit.is-done { opacity: 0; transform: scale(0.7); pointer-events: none; }
+  @keyframes gt-spin { to { transform: rotate(360deg); } }
 
-  .contact-insta-embed {
-    width: 100%;
-    max-width: 1360px;
-    margin: 0 auto;
+  .gt-error {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    color: #b03a2e;
+    text-align: center;
+    margin: 14px 0 0;
   }
-  .contact-insta-embed iframe {
-    display: block;
-    width: 100%;
-    min-height: 420px;
-  }
+  .gt-error[hidden] { display: none; }
 
-  /* ============ Contact — responsive ============ */
-  @media (max-width: 720px) {
-    .contact-hero { min-height: 92vh; }
-    .contact-hero-inner { padding: 140px 22px 100px; }
-    .contact-form-section { padding: 80px 22px 60px; }
-    .contact-form-title { margin: 0 0 48px; }
-    .contact-form-card { padding: 36px 22px; grid-template-columns: 1fr; column-gap: 0; row-gap: 22px; }
-    .contact-channels { padding: 40px 22px 60px; }
-    .contact-channels-wrap { grid-template-columns: 1fr; gap: 4px; }
-    .contact-channel { aspect-ratio: 4 / 5; }
-    .contact-insta { padding: 56px 22px 100px; }
-    .contact-insta-intro {
-      grid-template-columns: 1fr;
-      align-items: start;
-      gap: 24px;
-    }
-    .contact-insta-follow { justify-self: start; }
-  }
-
-  /* ============ Skip-the-form direct CTA strip ============ */
-  .contact-direct {
-    background: var(--ink);
-    color: var(--paper);
-  }
-  .contact-direct-wrap {
-    max-width: 1360px;
-    margin: 0 auto;
-    padding: 60px 36px;
-    display: grid;
-    grid-template-columns: 1.4fr auto;
-    gap: 36px;
+  /* Success — fades up in the centre of the card once the fields collapse. */
+  .gt-card.is-done .gt-grid,
+  .gt-card.is-done .gt-submit-row { opacity: 0; pointer-events: none; }
+  .gt-success {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 32px;
+    background: #fff;
+    border-radius: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
   }
-  @media (max-width: 800px) {
-    .contact-direct-wrap { grid-template-columns: 1fr; padding: 48px 24px; }
+  .gt-success.is-visible { opacity: 1; }
+  .gt-success-tick { width: 88px; height: 88px; margin-bottom: 22px; }
+  .gt-success-tick svg { width: 100%; height: 100%; overflow: visible; }
+  .gt-tick-circle {
+    fill: #2e7d52;
+    transform: scale(0);
+    transform-box: fill-box;
+    transform-origin: center;
   }
-  .contact-direct-eyebrow {
-    font-family: var(--sans);
-    font-size: 11px;
-    letter-spacing: 0.32em;
-    text-transform: uppercase;
-    font-weight: 700;
-    color: rgba(242, 239, 233, 0.6);
-    margin-bottom: 12px;
+  .gt-tick-check {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 44;
+    stroke-dashoffset: 44;
   }
-  .contact-direct-title {
+  .gt-success.is-visible .gt-tick-circle { animation: gt-pop 0.45s cubic-bezier(.2,1.4,.4,1) forwards; }
+  .gt-success.is-visible .gt-tick-check { animation: gt-draw 0.4s ease 0.32s forwards; }
+  @keyframes gt-pop { to { transform: scale(1); } }
+  @keyframes gt-draw { to { stroke-dashoffset: 0; } }
+  .gt-success-h {
     font-family: var(--serif);
-    font-weight: 400;
-    font-size: clamp(28px, 3vw, 44px);
+    font-weight: 500;
+    font-size: clamp(30px, 3.2vw, 44px);
+    line-height: 1.04;
     letter-spacing: -0.015em;
-    line-height: 1.1;
-    margin: 0 0 10px;
-    color: var(--paper);
+    color: #2e7d52;
+    margin: 0 0 12px;
   }
-  .contact-direct-sub {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 18px;
-    color: rgba(242, 239, 233, 0.7);
-    margin: 0;
-  }
-  .contact-direct-cta {
-    appearance: none;
-    background: var(--paper);
-    color: var(--ink);
-    border: 0;
-    padding: 16px 26px;
-    border-radius: 2px;
+  .gt-success-p {
     font-family: var(--sans);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.25s, color 0.25s, transform 0.4s cubic-bezier(.2,.7,.2,1);
-    justify-self: start;
+    font-size: clamp(15px, 1.2vw, 17px);
+    line-height: 1.55;
+    color: rgba(28, 29, 34, 0.66);
+    margin: 0;
+    max-width: 36ch;
   }
-  .contact-direct-cta:hover { background: var(--english-violet); color: var(--paper); transform: translateX(2px); }
-  .contact-direct-arrow {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 16px;
-    letter-spacing: 0;
-    text-transform: none;
-    margin-left: 8px;
+  .gt-success-p strong { color: #2e7d52; font-weight: 700; }
+  @media (prefers-reduced-motion: reduce) {
+    .gt-tick-circle { transform: scale(1); }
+    .gt-tick-check { stroke-dashoffset: 0; }
+    .gt-submit { transition: opacity 0.3s ease; }
+  }
+
+  /* ============ Responsive ============ */
+  @media (max-width: 920px) {
+    .gt { align-items: flex-start; }
+    .gt-inner { grid-template-columns: 1fr; gap: 38px; }
+    .gt-title { margin-bottom: 18px; }
+    .gt-sub { margin-bottom: 24px; }
+  }
+  @media (max-width: 560px) {
+    .gt-grid { grid-template-columns: 1fr; column-gap: 0; row-gap: 18px; }
   }
 </style>

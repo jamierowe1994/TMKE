@@ -1,0 +1,367 @@
+---
+// Full-screen cinematic hero for the Social Media page. A slow, exaggerated
+// intro (load → lists fill → 3 team portraits → lists clear → collapse to the
+// middle portrait → flip to brand colour) settles into an interactive resting
+// state: a wide fanned trio of photos, flanking copy aligned to the fan line,
+// and an INFINITE template scroller (with a measuring ruler) along the bottom.
+// Switching templates scrolls the names like a counter and changes the photos —
+// the centre scrolls down, the sides push out from behind.
+// Placeholders: R2 brand stills + Unsplash. Real team shots + a centre video
+// (assets.tmke.co.uk/social-belgrave.mp4) drop straight in.
+const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
+const U = (id, w = 900, h = 900) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
+const UP = (id) => U(id, 640, 880); // portrait
+
+const PROJECTS = ["Belgrave Launch","Riverside Reveal","The Parade","Wold House","Harbour & Co","Crescent Lettings","Northgate","Lume Property","Atelier Homes","Maven Estates","Stari Living","Glasshouse","Marlow Quarter","Aven."];
+const DIRECTORS = ["Jack Ellis","Zoe Donahue","Sean Thomas","Bergh // Moder","Jason Bergh","Marlow // Bergh","Joe Bressler","Harper // Dealy","Pol Kurucz","Nabil","Daniella Midenge","Clennon // Lamar","Bergh // Porat","Marlow // Bergh"];
+const LOCATIONS = ["London, UK","Prime Central London","Manchester, UK","Cotswolds Estate","Notting Hill, London","Riverside, Henley","Knightsbridge, London","Cheshire, UK","Mayfair, London","Surrey Hills","On location — Bath","Edinburgh, UK","Sandbanks, Poole","Belgravia, London"];
+
+// Three portrait team photos shown during the intro (swap for real shots).
+const TEAM = [
+  { name: "Samantha", src: UP("1494790108377-be9c29b29330") }, // placeholder — awaiting Sam's photo
+  { name: "Danielle", src: "/assets/Danni.png" },
+  { name: "Abby",     src: "/assets/Abbie.png" },
+];
+
+// Each template: 3 photos. First centre is a video.
+const TEMPLATES = [
+  { name: "Belgrave",     left: R2("kitchen-1"), centre: R2("living-1"), right: R2("white-1"), video: "https://assets.tmke.co.uk/social-belgrave.mp4" },
+  { name: "Riverside",    left: R2("orange-1"),  centre: R2("table"),    right: R2("living-2") },
+  { name: "The Parade",   left: R2("kitchen-2"), centre: R2("white-2"),  right: R2("orange-2") },
+  { name: "Wold House",   left: U("1570129477492-45c003edd2be",1000,1200), centre: U("1600585154340-be6161a56a0c",1000,1200), right: U("1568605114967-8130f3a36994",1000,1200) },
+  { name: "Harbour & Co", left: U("1484154218962-a197022b5858",1000,1200), centre: U("1493809842364-78817add7ffb",1000,1200), right: U("1600607687939-ce8a6c25118c",1000,1200) },
+  { name: "Crescent",     left: U("1505693416388-ac5ce068fe85",1000,1200), centre: R2("vibes"), right: U("1586023492125-27b2c045efd7",1000,1200) },
+];
+const t0 = TEMPLATES[0];
+const pad2 = (n) => String(n).padStart(2, "0");
+---
+
+<section class="sh" id="sh" aria-label="TMKE social media">
+  <div class="sh-bg"></div>
+
+  <!-- ============ INTRO ============ -->
+  <div class="sh-intro" id="sh-intro">
+    <div class="sh-load" id="sh-load">TMKE</div>
+
+    <div class="sh-lists sh-lists--left">
+      <div class="sh-row sh-row--head" style="--i:0">Project</div>
+      {PROJECTS.map((p, i) => (
+        <div class="sh-row" style={`--i:${i + 1}`}>{p}</div>
+      ))}
+    </div>
+
+    <div class="sh-lists sh-lists--right">
+      <div class="sh-row sh-row--head" style="--i:0">Director // Editor</div>
+      {DIRECTORS.map((d, i) => (
+        <div class="sh-row" style={`--i:${i + 1}`}>{d}</div>
+      ))}
+    </div>
+
+    <!-- three portrait team photos -->
+    <div class="sh-team" id="sh-team">
+      {TEAM.map((m, i) => (
+        <figure class={`sh-portrait${i === 1 ? " is-centre" : ""}`} style={`--i:${i};background-image:url('${m.src}')`}>
+          <figcaption>{m.name}</figcaption>
+        </figure>
+      ))}
+    </div>
+  </div>
+
+  <!-- ============ RESTING ============ -->
+  <div class="sh-rest" id="sh-rest">
+    <div class="sh-text sh-text--left"><h2>Strategic&nbsp;thinkers.<br /><em>Smart strategy.</em></h2></div>
+
+    <div class="sh-stage" id="sh-stage">
+      <div class="sh-photo sh-photo--left" id="sh-pl" style={`background-image:url('${t0.left}')`}></div>
+      <div class="sh-photo sh-photo--right" id="sh-pr" style={`background-image:url('${t0.right}')`}></div>
+      <div class="sh-photo sh-photo--centre" id="sh-pc">
+        <div class="sh-cl sh-cl--a" id="sh-ca" style={`background-image:url('${t0.centre}')`}></div>
+        <div class="sh-cl sh-cl--b" id="sh-cb"></div>
+        <video class="sh-video" id="sh-video" autoplay muted loop playsinline poster={t0.centre}>
+          <source src={t0.video} type="video/mp4" />
+        </video>
+      </div>
+
+      <a class="sh-view" id="sh-view" href="/edit">View <span id="sh-view-name">{t0.name}</span> <em>&rarr;</em></a>
+    </div>
+
+    <div class="sh-text sh-text--right"><h2>Thoughtful&nbsp;execution.<br /><em>Bold brands.</em></h2></div>
+  </div>
+
+  <!-- ============ INFINITE TEMPLATE SCROLLER ============ -->
+  <div class="sh-scroller" id="sh-scroller">
+    <div class="sh-ruler sh-ruler--top" aria-hidden="true"></div>
+    <div class="sh-track" id="sh-track"></div>
+    <div class="sh-ruler sh-ruler--bottom" aria-hidden="true"></div>
+    <div class="sh-controls">
+      <button type="button" class="sh-arrow" id="sh-prev" aria-label="Previous template">&#9664;&#9664;</button>
+      <span class="sh-counter"><b id="sh-cur">01</b> <span>/</span> {pad2(TEMPLATES.length)}</span>
+      <button type="button" class="sh-arrow" id="sh-next" aria-label="Next template">&#9654;&#9654;</button>
+    </div>
+  </div>
+</section>
+
+<script is:inline define:vars={{ TEMPLATES }}>
+  (function () {
+    const sh = document.getElementById("sh");
+    if (!sh) return;
+    const lock = () => { document.documentElement.style.overflow = "hidden"; document.body.style.overflow = "hidden"; };
+    const unlock = () => { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; };
+
+    // ---- intro timeline — plays ONCE per browser session ----
+    // First visit gets the full cinematic intro; once it's been seen we skip
+    // straight to the resting "Strategic thinkers / Smart strategy" state on
+    // every later load (no TMKE loader, no team portraits). The flag lives in
+    // sessionStorage, so closing the browser and returning replays the intro.
+    const SEEN_KEY = "tmke.editIntroSeen";
+    let introSeen = false;
+    try { introSeen = sessionStorage.getItem(SEEN_KEY) === "1"; } catch (_) {}
+
+    const restEls = [".sh-photo--centre", ".sh-photo--left", ".sh-photo--right", ".sh-text--left", ".sh-text--right", ".sh-scroller"];
+
+    if (introSeen) {
+      // Land directly on the resting state — fast, no intro, nav not locked.
+      sh.classList.add("sh-instant", "s-lists", "s-clear", "s-collapse", "s-brand", "s-done");
+      document.body.classList.remove("sh-lock");
+      restEls.forEach((sel) => { const el = sh.querySelector(sel); if (el) el.classList.add("is-in"); });
+    } else {
+      try { sessionStorage.setItem(SEEN_KEY, "1"); } catch (_) {}
+      lock(); document.body.classList.add("sh-lock");
+      setTimeout(() => sh.classList.add("s-lists"), 900);
+      setTimeout(() => sh.classList.add("s-clear"), 4400);
+      setTimeout(() => sh.classList.add("s-collapse"), 5400);
+      setTimeout(() => { sh.classList.add("s-brand"); document.body.classList.remove("sh-lock"); }, 6100); // nav drops in
+      // gradual build of the resting state: centre → sides → copy → scroller
+      const reveal = (sel, t) => setTimeout(() => { const el = sh.querySelector(sel); if (el) el.classList.add("is-in"); }, t);
+      reveal(".sh-photo--centre", 6550);
+      reveal(".sh-photo--left", 7100);
+      reveal(".sh-photo--right", 7350);
+      reveal(".sh-text--left", 7750);
+      reveal(".sh-text--right", 8000);
+      reveal(".sh-scroller", 8400);
+      setTimeout(() => { sh.classList.add("s-done"); unlock(); }, 8900);
+      setTimeout(unlock, 10500); // safety
+    }
+
+    // ---- photos ----
+    const pl = document.getElementById("sh-pl"), pr = document.getElementById("sh-pr");
+    const ca = document.getElementById("sh-ca"), cb = document.getElementById("sh-cb");
+    const video = document.getElementById("sh-video");
+    if (!TEMPLATES[0].video) video.style.display = "none";
+
+    function setSide(el, src) {
+      el.style.backgroundImage = `url('${src}')`;
+      el.classList.add("is-emerging");
+      void el.offsetWidth;
+      el.classList.remove("is-emerging"); // animates out from behind centre
+    }
+    function setCentre(src, isVideo) {
+      // incoming scrolls down over the current image
+      cb.style.backgroundImage = `url('${src}')`;
+      cb.style.transition = "none"; cb.style.transform = "translateY(-101%)"; cb.style.opacity = "1";
+      void cb.offsetWidth;
+      cb.style.transition = "transform 0.7s cubic-bezier(.7,0,.2,1)";
+      cb.style.transform = "translateY(0)";
+      video.style.opacity = "0";
+      setTimeout(() => {
+        ca.style.backgroundImage = `url('${src}')`;
+        cb.style.transition = "none"; cb.style.transform = "translateY(-101%)";
+        if (isVideo) {
+          video.style.display = ""; video.poster = src;
+          const s = video.querySelector("source");
+          if (s && s.getAttribute("src") !== TEMPLATES[0].video) { s.setAttribute("src", TEMPLATES[0].video); video.load(); }
+          try { video.play(); } catch (_) {}
+          video.style.opacity = "1";
+        } else { video.style.display = "none"; }
+      }, 700);
+    }
+    let current = -1;
+    function applyTemplate(i) {
+      if (i === current) return;
+      const t = TEMPLATES[i]; if (!t) return;
+      current = i;
+      setSide(pl, t.left); setSide(pr, t.right);
+      setCentre(t.centre, !!t.video);
+      document.getElementById("sh-cur").textContent = String(i + 1).padStart(2, "0");
+      const vn = document.getElementById("sh-view-name"); if (vn) vn.textContent = t.name;
+    }
+    // init centre video for template 0
+    if (TEMPLATES[0].video) { video.style.opacity = "1"; }
+
+    // ---- infinite scroller (fixed slots, 3 copies, wrap) ----
+    const track = document.getElementById("sh-track");
+    const n = TEMPLATES.length;
+    const items = [];
+    for (let c = 0; c < 3; c++) for (let i = 0; i < n; i++) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "sh-name"; b.textContent = TEMPLATES[i].name;
+      b.dataset.i = i; b.dataset.abs = String(c * n + i);
+      track.appendChild(b); items.push(b);
+    }
+    let slot = 0, pos = n; // start at first item of middle copy
+    function layout() {
+      slot = Math.min(540, Math.max(280, window.innerWidth * 0.42));
+      items.forEach((b, idx) => { b.style.width = slot + "px"; b.style.left = idx * slot + "px"; });
+      track.style.width = items.length * slot + "px";
+      place(false);
+    }
+    function place(animate) {
+      const x = window.innerWidth / 2 - (pos * slot + slot / 2);
+      track.style.transition = animate ? "transform 0.6s cubic-bezier(.5,0,.15,1)" : "none";
+      track.style.transform = `translateX(${x}px)`;
+      const logical = ((pos % n) + n) % n;
+      items.forEach((b) => b.classList.toggle("is-active", +b.dataset.abs === pos));
+      applyTemplate(logical);
+    }
+    function normalize() { // keep pos inside the middle copy for seamless looping
+      if (pos >= 2 * n) pos -= n; else if (pos < n) pos += n; else return;
+      place(false);
+    }
+    function go(delta) { pos += delta; place(true); setTimeout(normalize, 640); }
+    document.getElementById("sh-next").addEventListener("click", () => go(1));
+    document.getElementById("sh-prev").addEventListener("click", () => go(-1));
+    track.addEventListener("click", (e) => {
+      const b = e.target.closest(".sh-name"); if (!b) return;
+      const abs = +b.dataset.abs; if (abs === pos) return;
+      pos = abs; place(true); setTimeout(normalize, 640);
+    });
+    window.addEventListener("resize", layout);
+    layout();
+  })();
+</script>
+
+<style is:global>
+  body.sh-lock #nav { transform: translateY(-115%) !important; transition: none !important; }
+  #nav { transition: transform 0.8s cubic-bezier(.2,.75,.2,1); }
+
+  /* Returning visit (intro already seen this session) — snap to the resting
+     "Strategic thinkers / Smart strategy" state: hide the intro instantly and
+     bring the resting photos/copy/scroller in with a quick fade, no stagger. */
+  .sh.sh-instant .sh-intro { transition: none !important; opacity: 0 !important; pointer-events: none; }
+  .sh.sh-instant .sh-photo,
+  .sh.sh-instant .sh-text,
+  .sh.sh-instant .sh-scroller { transition-duration: 0.35s !important; transition-delay: 0s !important; }
+
+  /* Template names — global because they're created in JS (no scoped attribute).
+     Pure text, no button chrome. */
+  .sh-name {
+    position: absolute; top: 0; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    appearance: none; -webkit-appearance: none;
+    background: transparent; border: 0; outline: 0; box-shadow: none;
+    cursor: pointer; padding: 0; margin: 0; -webkit-tap-highlight-color: transparent;
+    font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.4vw, 58px);
+    letter-spacing: -0.01em; color: rgba(28,29,34,0.24); white-space: nowrap;
+    transition: color 0.35s;
+  }
+  .sh-name:focus, .sh-name:focus-visible { outline: 0; }
+  .sh-name:hover { color: rgba(28,29,34,0.5); }
+  .sh-name.is-active { color: var(--ink); }
+</style>
+
+<style>
+  .sh { position: relative; height: 100vh; width: 100%; overflow: hidden; background: #0b0b0d; color: var(--paper); font-family: var(--sans); }
+  .sh-bg { position: absolute; inset: 0; background: #0b0b0d; transition: background 1.1s ease; z-index: 0; }
+  .sh.s-brand .sh-bg { background: var(--paper); }
+
+  /* ---------- INTRO ---------- */
+  .sh-intro { position: absolute; inset: 0; z-index: 2; }
+  .sh.s-brand .sh-intro { opacity: 0; transition: opacity 0.7s ease; pointer-events: none; }
+
+  .sh-load { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: var(--serif); font-weight: 600; font-size: clamp(44px, 6.5vw, 96px); letter-spacing: 0.04em; opacity: 0; transition: opacity 0.8s ease; }
+  .sh:not(.s-lists) .sh-load { opacity: 1; }
+  .sh.s-lists .sh-load { opacity: 0; }
+
+  .sh-lists { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 7px; }
+  .sh-lists--left { left: clamp(20px, 4vw, 72px); width: min(24vw, 320px); text-align: left; }
+  .sh-lists--right { right: clamp(20px, 4vw, 72px); width: min(24vw, 320px); text-align: right; }
+  .sh-row { font-size: clamp(11px, 0.9vw, 14px); letter-spacing: 0.05em; text-transform: uppercase; color: rgba(240,238,235,0.22); opacity: 0; transform: translateY(10px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sh-row--head { color: rgba(240,238,235,0.5); font-weight: 700; letter-spacing: 0.18em; margin-bottom: 10px; font-size: 10px; }
+  .sh.s-lists .sh-row { opacity: 1; transform: none; color: rgba(240,238,235,0.9); transition: opacity 0.7s ease, color 0.8s ease, transform 0.7s ease; transition-delay: calc(var(--i) * 110ms); }
+  .sh.s-clear .sh-row { opacity: 0; transform: translateY(-8px); transition: opacity 0.6s ease, transform 0.6s ease; transition-delay: calc(var(--i) * 60ms); }
+
+  /* three portrait team photos */
+  .sh-team { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; gap: clamp(14px, 1.6vw, 28px); align-items: center; }
+  .sh-portrait { position: relative; margin: 0; width: min(14vw, 26vh, 210px); aspect-ratio: 3 / 4.4; background-size: cover; background-position: center; background-color: #1a1a1d; border-radius: 3px; opacity: 0; transform: scale(0.82) translateY(18px); }
+  .sh-portrait figcaption { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(240,238,235,0.92); text-shadow: 0 1px 8px rgba(0,0,0,0.6); opacity: 0; transition: opacity 0.5s ease; }
+  .sh.s-lists .sh-portrait { opacity: 1; transform: none; transition: opacity 0.9s ease, transform 0.9s cubic-bezier(.16,1,.3,1); transition-delay: calc(0.5s + var(--i) * 200ms); }
+  .sh.s-lists .sh-portrait figcaption { opacity: 1; transition-delay: calc(1.1s + var(--i) * 200ms); }
+  .sh.s-collapse .sh-portrait:not(.is-centre) { opacity: 0; transform: scale(0.8); transition: opacity 0.6s ease, transform 0.6s ease; }
+  .sh.s-collapse .sh-portrait figcaption { opacity: 0; transition: opacity 0.4s ease; }
+  .sh.s-brand .sh-portrait { opacity: 0; transition: opacity 0.6s ease; }
+
+  /* ---------- RESTING ---------- */
+  .sh-rest { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+  .sh.s-brand .sh-rest { pointer-events: auto; }
+
+  /* copy aligned to the top of the fanned side photos; pops in from each side */
+  .sh-text { position: absolute; top: 24%; max-width: 26vw; color: var(--ink); opacity: 0; transition: opacity 0.7s ease, transform 0.7s cubic-bezier(.16,1,.3,1); }
+  .sh-text.is-in { opacity: 1; transform: none; }
+  .sh-text h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 2.2vw, 38px); line-height: 1.1; letter-spacing: -0.01em; margin: 0; }
+  .sh-text h2 em { font-style: italic; color: var(--english-violet); }
+  .sh-text--left { left: clamp(20px, 4vw, 84px); transform: translateX(-28px); }
+  .sh-text--right { right: clamp(20px, 4vw, 84px); text-align: right; transform: translateX(28px); }
+
+  .sh-stage { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); width: min(40vw, 520px); height: min(56vh, 520px); perspective: 1700px; }
+  /* Photos scale with BOTH width and HEIGHT (vh) so they never sit on the copy
+     on shorter laptop screens; the px value is the original (PC) cap. */
+  .sh-photo { position: absolute; top: 50%; left: 50%; background-size: cover; background-position: center; background-color: #d8d3c8; border-radius: 4px; box-shadow: 0 22px 60px rgba(16,14,22,0.28); transition: transform 0.8s cubic-bezier(.16,1,.3,1), opacity 0.7s ease, filter 0.35s ease; }
+  .sh-photo--centre { width: min(34vw, 46vh, 440px); aspect-ratio: 4 / 5; z-index: 3; overflow: hidden; background: none; opacity: 0; transform: translate(-50%, -50%) scale(0.86); }
+  .sh-photo--centre.is-in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  /* Straight cards that cascade out sideways; a slight inward depth tilt
+     (rotateY) pushes the outer edge back to reveal the card and add depth. */
+  .sh-photo--left { width: min(24vw, 34vh, 300px); aspect-ratio: 4 / 5; z-index: 2; opacity: 0; transform: translate(-58%, -50%) rotateY(18deg); }
+  .sh-photo--left.is-in { opacity: 1; transform: translate(-116%, -50%) rotateY(18deg); filter: brightness(0.97); }
+  .sh-photo--right { width: min(24vw, 34vh, 300px); aspect-ratio: 4 / 5; z-index: 1; opacity: 0; transform: translate(-42%, -50%) rotateY(-18deg); }
+  .sh-photo--right.is-in { opacity: 1; transform: translate(16%, -50%) rotateY(-18deg); filter: brightness(0.97); }
+  /* template change: dive back behind the centre, then cascade out with the new image */
+  .sh-photo--left.is-emerging { transform: translate(-58%, -50%) rotateY(18deg); opacity: 0.3; transition: none; }
+  .sh-photo--right.is-emerging { transform: translate(-42%, -50%) rotateY(-18deg); opacity: 0.3; transition: none; }
+
+  /* hover: light blur + a "View …" button */
+  .sh-stage:hover .sh-photo { filter: blur(3px) brightness(0.9); }
+  .sh-view { position: absolute; left: 50%; top: 50%; z-index: 6; transform: translate(-50%, -42%); opacity: 0; pointer-events: none;
+    background: var(--ink); color: var(--paper); text-decoration: none; padding: 15px 28px; border-radius: 3px;
+    font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; white-space: nowrap;
+    transition: opacity 0.3s ease, transform 0.4s cubic-bezier(.16,1,.3,1), background 0.25s; }
+  .sh-view em { font-family: var(--serif); font-style: italic; font-size: 15px; letter-spacing: 0; text-transform: none; margin-left: 8px; }
+  .sh-view:hover { background: var(--english-violet); }
+  .sh-stage:hover .sh-view { opacity: 1; transform: translate(-50%, -50%); pointer-events: auto; }
+  /* centre scroll layers */
+  .sh-cl { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #d8d3c8; }
+  .sh-cl--b { transform: translateY(-101%); }
+  .sh-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; transition: opacity 0.5s ease; }
+
+  /* ---------- INFINITE SCROLLER ---------- */
+  .sh-scroller { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; padding-bottom: 22px; opacity: 0; transform: translateY(26px); pointer-events: none; transition: opacity 0.8s ease, transform 0.8s cubic-bezier(.16,1,.3,1); }
+  .sh-scroller.is-in { opacity: 1; transform: none; pointer-events: auto; }
+
+  .sh-track { position: relative; height: clamp(54px, 6.5vw, 88px); margin: 6px 0; }
+  /* .sh-name styles are global (the names are created in JS, so they don't carry
+     the scoped attribute) — see the is:global block below. */
+
+  /* ruler ticks above + below; longer centre tick on each, aligned to the active name */
+  .sh-ruler { position: relative; height: 16px; }
+  .sh-ruler::before { content: ""; position: absolute; left: 0; right: 0; height: 7px; background-image: repeating-linear-gradient(90deg, rgba(28,29,34,0.26) 0 1px, transparent 1px 13px); }
+  .sh-ruler--top::before { bottom: 0; }
+  .sh-ruler--bottom::before { top: 0; }
+  .sh-ruler::after { content: ""; position: absolute; left: 50%; width: 2px; height: 30px; background: var(--ink); transform: translateX(-50%); }
+  .sh-ruler--top::after { top: 0; }          /* extends down toward the name */
+  .sh-ruler--bottom::after { bottom: 0; }    /* extends up toward the name */
+
+  .sh-controls { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 14px; }
+  .sh-arrow { background: none; border: none; cursor: pointer; color: rgba(28,29,34,0.55); font-size: 12px; letter-spacing: 0.1em; padding: 4px 8px; transition: color 0.2s; }
+  .sh-arrow:hover { color: var(--ink); }
+  .sh-counter { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; color: rgba(28,29,34,0.7); min-width: 64px; text-align: center; }
+  .sh-counter span { opacity: 0.5; margin: 0 4px; }
+
+  @media (max-width: 760px) {
+    .sh-lists--left { width: 44vw; } .sh-lists--right { width: 30vw; }
+    .sh-text { display: none; }
+    .sh-stage { width: 86vw; }
+    .sh-photo--centre { width: 56vw; } .sh-photo--left { width: 40vw; transform: translate(-112%,-44%) rotate(-13deg); } .sh-photo--right { width: 40vw; transform: translate(12%,-56%) rotate(13deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sh-row, .sh-portrait, .sh-load { transition-duration: 0.01ms !important; }
+  }
+</style>
