@@ -38,14 +38,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     /* Very faint fractal-noise grain, multiplied over the paper so the
        deboss highlights/shadows have texture to catch. */
+    /* Leather-like grain: a fine fractal grain layered over a coarser mottle
+       so the surface reads as hide, not paper. Multiplied over the field. */
     .db-grain {
       position: absolute;
       inset: 0;
       pointer-events: none;
-      opacity: 0.5;
+      opacity: 0.85;
       mix-blend-mode: multiply;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-      background-size: 220px 220px;
+      background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.09 0'/></filter><rect width='100%25' height='100%25' filter='url(%23f)'/></svg>"),
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='480'><filter id='c'><feTurbulence type='turbulence' baseFrequency='0.018' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23c)'/></svg>");
+      background-size: 180px 180px, 480px 480px;
     }
 
     .db-stage { position: relative; z-index: 1; }
@@ -65,20 +69,28 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       letter-spacing: 0.02em;
       line-height: 1;
 
-      /* Visible warm-grey face, darker at the top so the surface reads as
-         tilted down into the recess. */
-      background: linear-gradient(180deg, #847d6d 0%, #a39c8b 55%, #b4ad9c 100%);
+      /* Recessed face: a grain texture blended over a top-dark gradient so
+         the pressed letters show the same hide as the surface. */
+      background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='0.45'/></feComponentTransfer></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>"),
+        linear-gradient(180deg, #6c6555 0%, #968f7d 58%, #aaa392 100%);
+      background-size: 160px 160px, 100% 100%;
+      background-blend-mode: overlay, normal;
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
       color: transparent;
 
-      /* Carved edges: dark on the top-left wall, light highlight on the
-         bottom-right lip. This is what sells the "pressed in" look. */
+      /* Layered carve — stacked dark shadows climb the top inner wall, then
+         a crisp light lip + a pool of light spilling into the bottom of the
+         recess. Reads as a deep press, not a flat engrave. */
       text-shadow:
-        -1px -1px 1px rgba(40, 34, 20, 0.45),
-        1px 2px 1px rgba(255, 255, 255, 0.95),
-        0 4px 7px rgba(255, 255, 255, 0.5);
+        0 -1px 1px rgba(26, 20, 10, 0.6),
+        0 -2px 3px rgba(26, 20, 10, 0.34),
+        0 -4px 6px rgba(26, 20, 10, 0.18),
+        0 1px 0 rgba(255, 255, 255, 0.98),
+        0 3px 3px rgba(255, 255, 255, 0.6),
+        0 6px 10px rgba(255, 255, 255, 0.35);
     }
 
     .db-cap {
