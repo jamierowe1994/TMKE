@@ -1,0 +1,95 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Debossed wordmark — TMKE"
+  description="A pure-CSS debossed (letterpress) TMKE wordmark experiment."
+  noindex
+>
+  <section class="db-hero">
+    <!-- Faint paper texture under the wordmark — deboss reads better on
+         a surface with a little grain than on flat colour. -->
+    <div class="db-grain" aria-hidden="true"></div>
+
+    <div class="db-stage">
+      <h1 class="db-word">TMKE</h1>
+    </div>
+
+    <p class="db-cap">Pure CSS &middot; no image &middot; debossed / letterpress</p>
+  </section>
+
+  <style>
+    .db-hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      /* Soft paper field — a gentle vignette gives the surface some form
+         so the carved letters have something to sit in. */
+      background:
+        radial-gradient(120% 120% at 50% 35%, #f6f3ec 0%, var(--paper) 55%, #e7e2d6 100%);
+      overflow: hidden;
+      padding: 120px 24px;
+    }
+
+    /* Very faint fractal-noise grain, multiplied over the paper so the
+       deboss highlights/shadows have texture to catch. */
+    .db-grain {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.5;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      background-size: 220px 220px;
+    }
+
+    .db-stage { position: relative; z-index: 1; }
+
+    /* ---------- The debossed wordmark ----------
+       1. The face is filled with a top-dark → bottom-light gradient via
+          background-clip, so the letter surface itself looks recessed.
+       2. text-shadow adds the carved edges:
+            · dark shadow ABOVE  (the top inner wall, away from light)
+            · light highlight BELOW (the bottom lip catching the light)
+       Flip those two and it becomes embossed (raised) instead. */
+    .db-word {
+      margin: 0;
+      font-family: var(--sans);
+      font-weight: 800;
+      font-size: clamp(84px, 19vw, 320px);
+      letter-spacing: 0.02em;
+      line-height: 1;
+
+      background: linear-gradient(180deg, #d7d1c4 0%, #efece3 52%, #f4f1e9 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+
+      text-shadow:
+        0 -2px 2px rgba(28, 24, 16, 0.28),   /* top edge in shadow  */
+        0 1px 0   rgba(255, 255, 255, 0.85), /* crisp bottom lip    */
+        0 2px 4px rgba(255, 255, 255, 0.55); /* soft light spill    */
+      -webkit-text-stroke: 0.5px rgba(28, 24, 16, 0.06);
+    }
+
+    .db-cap {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.4);
+    }
+
+    @media (prefers-reduced-motion: reduce) { .db-grain { display: none; } }
+  </style>
+</BaseLayout>
