@@ -8,10 +8,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   noindex
 >
   <section class="db-hero">
-    <!-- Faint paper texture under the wordmark — deboss reads better on
-         a surface with a little grain than on flat colour. -->
-    <div class="db-grain" aria-hidden="true"></div>
-
     <div class="db-stage">
       <h1 class="db-word">TMKE</h1>
     </div>
@@ -31,7 +27,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       /* Soft paper field — a gentle vignette gives the surface some form
          so the carved letters have something to sit in. */
       background:
-        radial-gradient(120% 120% at 50% 35%, #f6f3ec 0%, var(--paper) 55%, #e7e2d6 100%);
+        radial-gradient(130% 130% at 50% 38%, #f6f3ec 0%, var(--paper) 62%, #ebe6da 100%);
       overflow: hidden;
       padding: 120px 24px;
     }
@@ -40,18 +36,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        deboss highlights/shadows have texture to catch. */
     /* Leather-like grain: a fine fractal grain layered over a coarser mottle
        so the surface reads as hide, not paper. Multiplied over the field. */
-    .db-grain {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0.85;
-      mix-blend-mode: multiply;
-      background-image:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.09 0'/></filter><rect width='100%25' height='100%25' filter='url(%23f)'/></svg>"),
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='480'><filter id='c'><feTurbulence type='turbulence' baseFrequency='0.018' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23c)'/></svg>");
-      background-size: 180px 180px, 480px 480px;
-    }
-
     .db-stage { position: relative; z-index: 1; }
 
     /* ---------- The debossed wordmark ----------
@@ -71,26 +55,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       /* Recessed face: a grain texture blended over a top-dark gradient so
          the pressed letters show the same hide as the surface. */
-      background-image:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='0.45'/></feComponentTransfer></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>"),
-        linear-gradient(180deg, #6c6555 0%, #968f7d 58%, #aaa392 100%);
-      background-size: 160px 160px, 100% 100%;
-      background-blend-mode: overlay, normal;
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      color: transparent;
+      /* Face = the paper colour a couple of shades darker. Subtle, but
+         enough to read; the depth comes entirely from the edge shadows. */
+      color: #e6e0d2;
 
       /* Layered carve — stacked dark shadows climb the top inner wall, then
          a crisp light lip + a pool of light spilling into the bottom of the
          recess. Reads as a deep press, not a flat engrave. */
       text-shadow:
-        0 -1px 1px rgba(26, 20, 10, 0.6),
-        0 -2px 3px rgba(26, 20, 10, 0.34),
-        0 -4px 6px rgba(26, 20, 10, 0.18),
-        0 1px 0 rgba(255, 255, 255, 0.98),
-        0 3px 3px rgba(255, 255, 255, 0.6),
-        0 6px 10px rgba(255, 255, 255, 0.35);
+        0 -1px 1px rgba(36, 30, 18, 0.24),    /* top inner wall, in shadow */
+        0 -2px 4px rgba(36, 30, 18, 0.12),    /* soft depth up the wall     */
+        0 1px 1px rgba(255, 255, 255, 0.95),  /* crisp lit bottom lip       */
+        0 2px 5px rgba(255, 255, 255, 0.55);  /* light pooling below        */
     }
 
     .db-cap {
