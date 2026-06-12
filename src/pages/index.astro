@@ -51,6 +51,29 @@ editCells.splice(2, 0, { brand: true });
        so the home override wins over the critical inline rule. */
     body .pt__panel { background: #371e28; }
     body .splash-blob--3 { background: radial-gradient(circle, #371e28 0%, transparent 65%); }
+
+    /* Footer: confirmed to the deep brand purple (was --ink near-black). */
+    body .footer { background: #371e28; }
+
+    /* Buttons — reverse the fill (deep purple at rest, black on hover) and add a
+       tactile feel: lift on hover, press in (slightly smaller) on click. */
+    body .btn--solid {
+      background: var(--english-violet);   /* #371e28 */
+      border-color: var(--english-violet);
+      color: var(--paper);
+    }
+    body .btn--solid:hover {
+      background: var(--ink);              /* black */
+      border-color: var(--ink);
+      color: var(--paper);
+    }
+    /* nav-cta's own transition omits transform, so add it here for the lift. */
+    body .nav-cta { transition: background 0.3s, color 0.3s, transform 0.25s cubic-bezier(.2,.7,.2,1); }
+    body .btn:hover, body .nav-cta:hover { transform: translateY(-2px); }
+    body .btn:active, body .nav-cta:active {
+      transform: translateY(0) scale(0.96);
+      transition-duration: 0.08s;
+    }
   </style>
 
   <!-- ============================== HERO (TMKE fold-out)
@@ -503,10 +526,11 @@ editCells.splice(2, 0, { brand: true });
       /* tighter than before so the trailing E isn't clipped */
       letter-spacing: -0.01em;
       text-align: center;
-      /* Resting state = debossed cream wordmark for depth; the controller
-         lerps this to white and swaps the carve shadows for a drop shadow
+      /* Resting state = debossed wordmark in secondary #eae5e1 (a shade darker
+         than the paper) for carved depth; the controller lerps this to the
+         secondary taupe #7e6765 and swaps the carve shadows for a drop shadow
          as the fold-out photo irises open. */
-      color: #e6e0d2;
+      color: #eae5e1;
       text-shadow:
         0 -1px 1px rgba(36, 30, 18, 0.34),
         0 -2px 4px rgba(36, 30, 18, 0.18),
@@ -618,10 +642,10 @@ editCells.splice(2, 0, { brand: true });
         const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
         media.style.clipPath = clip;
         if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
-        // word: debossed cream at rest -> brand plum (#371e28) as the photo irises past it
+        // word: debossed #eae5e1 at rest -> secondary taupe #7e6765 as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
-          "rgb(" + Math.round(lerp(230, 55, wc)) + "," + Math.round(lerp(224, 30, wc)) + "," + Math.round(lerp(210, 40, wc)) + ")";
+          "rgb(" + Math.round(lerp(234, 126, wc)) + "," + Math.round(lerp(229, 103, wc)) + "," + Math.round(lerp(225, 101, wc)) + ")";
         // Carve shadows (the deboss) are full at rest and fade out over the first
         // sliver of scroll; the drop shadow fades in once the photo is behind.
         const carve = clamp01(1 - e / 0.1);
