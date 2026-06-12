@@ -24,12 +24,63 @@ const editCells = EDIT_IMG_IDS.map((id, i) => ({
   src: U(id), name: EDIT_NAMES[i], fmt: EDIT_FORMATS[i % EDIT_FORMATS.length],
 }));
 editCells.splice(2, 0, { brand: true });
+// Swap the "Tip Tuesday" tile (lower-right of the grid) for a call-to-action
+// cell: an outlined box matching the brand cell, with a "View The Edit" link
+// near the bottom that sends people through to The Edit.
+const ctaIdx = editCells.findIndex((c) => c.name === "Tip Tuesday");
+if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 ---
 
 <BaseLayout
   title="TMKE — The Marketing Experts"
   description="A specialist social media and marketing agency for the UK property sector. Premium templates, fully managed channels, structured content."
 >
+  <!-- ============================== PALETTE TRIAL (home only)
+       Redefining the brand variables on <body> overrides the global :root
+       values for everything inside the page — nav, sections, modals, footer,
+       hover states — without touching the rest of the site. This <style> ships
+       only on the home page, so it's a self-contained trial of the new palette.
+         dark purple  #474254 -> #371e28
+         light bg     #F2EFE9 -> #f4f2f1                                      -->
+  <style is:global>
+    body {
+      --english-violet: #371e28;
+      --violet:         #371e28;
+      --violet-deep:    #371e28;
+      --violet-bright:  #50303d;  /* hover lift derived from #371e28 */
+      --paper:          #f4f2f1;
+      --paper-shadow:   #e7e3e2;  /* cooler shadow to match the new paper */
+    }
+    /* Two brand-purple literals that aren't var-driven: the page-transition
+       curtain (BaseLayout inline) and the splash intro blob. Higher specificity
+       so the home override wins over the critical inline rule. */
+    body .pt__panel { background: #371e28; }
+    body .splash-blob--3 { background: radial-gradient(circle, #371e28 0%, transparent 65%); }
+
+    /* Footer: confirmed to the deep brand purple (was --ink near-black). */
+    body .footer { background: #371e28; }
+
+    /* Buttons — reverse the fill (deep purple at rest, black on hover) and add a
+       tactile feel: lift on hover, press in (slightly smaller) on click. */
+    body .btn--solid {
+      background: var(--english-violet);   /* #371e28 */
+      border-color: var(--english-violet);
+      color: var(--paper);
+    }
+    body .btn--solid:hover {
+      background: var(--ink);              /* black */
+      border-color: var(--ink);
+      color: var(--paper);
+    }
+    /* nav-cta's own transition omits transform, so add it here for the lift. */
+    body .nav-cta { transition: background 0.3s, color 0.3s, transform 0.25s cubic-bezier(.2,.7,.2,1); }
+    body .btn:hover, body .nav-cta:hover { transform: translateY(-2px); }
+    body .btn:active, body .nav-cta:active {
+      transform: translateY(0) scale(0.96);
+      transition-duration: 0.08s;
+    }
+  </style>
+
   <!-- ============================== HERO (TMKE fold-out)
        Centre: "TMKE" with the image showing through the letterforms + a dark
        outline. As you scroll the full image unfolds from the centre of the word
@@ -242,6 +293,13 @@ editCells.splice(2, 0, { brand: true });
               <span class="edit-brand-title">The Edit</span>
             </div>
           </div>
+        ) : c.cta ? (
+          <a class="edit-cell edit-cell--cta" href="/edit" aria-label="View The Edit">
+            <div class="edit-cta-box">
+              <span class="edit-cta-eyebrow">Templates</span>
+              <span class="edit-cta-link">View The Edit <em class="edit-cta-arrow" aria-hidden="true">&rarr;</em></span>
+            </div>
+          </a>
         ) : (
           <a class="edit-cell" href="/edit" aria-label={`The Edit — ${c.name}`}>
             <div class="edit-cell-img" style={`background-image:url('${c.src}')`}></div>
@@ -320,6 +378,41 @@ editCells.splice(2, 0, { brand: true });
       color: var(--ink);
       line-height: 1;
     }
+    /* CTA cell — same outlined box as the brand cell, with a link sitting
+       towards the bottom that sends people through to The Edit. */
+    .edit-cell--cta { display: block; }
+    .edit-cta-box {
+      aspect-ratio: 3 / 4;            /* matches the image + brand tiles */
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between; /* eyebrow at top, link at the bottom */
+      align-items: flex-start;
+      padding: clamp(14px, 1.4vw, 22px);
+      background: var(--paper);
+      box-shadow: inset 0 0 0 1px rgba(28, 29, 34, 0.14);
+      transition: box-shadow 0.3s, background 0.3s;
+    }
+    .edit-cta-eyebrow {
+      font-family: var(--sans);
+      font-size: clamp(10px, 0.85vw, 12px);
+      font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .edit-cta-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--sans);
+      font-size: clamp(12px, 1vw, 15px);
+      font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--ink);
+      transition: color 0.3s;
+    }
+    .edit-cta-arrow { font-style: normal; transition: transform 0.3s cubic-bezier(.2,.7,.2,1); }
+    .edit-cell--cta:hover .edit-cta-box {
+      box-shadow: inset 0 0 0 1.5px var(--english-violet);
+      background: rgba(55, 30, 40, 0.03);
+    }
+    .edit-cell--cta:hover .edit-cta-link { color: var(--english-violet); }
+    .edit-cell--cta:hover .edit-cta-arrow { transform: translateX(5px); }
     @media (max-width: 860px) {
       .edit-grid { grid-template-columns: repeat(3, 1fr); width: 132vw; margin-left: -16vw; gap: 36px 4vw; }
       .edit-gallery { padding: 110px 0 120px; }
@@ -480,10 +573,11 @@ editCells.splice(2, 0, { brand: true });
       /* tighter than before so the trailing E isn't clipped */
       letter-spacing: -0.01em;
       text-align: center;
-      /* Resting state = debossed cream wordmark for depth; the controller
-         lerps this to white and swaps the carve shadows for a drop shadow
+      /* Resting state = debossed wordmark in secondary #eae5e1 (a shade darker
+         than the paper) for carved depth; the controller lerps this to the
+         secondary taupe #7e6765 and swaps the carve shadows for a drop shadow
          as the fold-out photo irises open. */
-      color: #e6e0d2;
+      color: #eae5e1;
       text-shadow:
         0 -1px 1px rgba(36, 30, 18, 0.34),
         0 -2px 4px rgba(36, 30, 18, 0.18),
@@ -595,10 +689,10 @@ editCells.splice(2, 0, { brand: true });
         const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
         media.style.clipPath = clip;
         if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
-        // word: debossed cream at rest -> white as the photo irises past it
+        // word: debossed #eae5e1 at rest -> secondary taupe #7e6765 as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
-          "rgb(" + Math.round(lerp(230, 255, wc)) + "," + Math.round(lerp(224, 255, wc)) + "," + Math.round(lerp(210, 255, wc)) + ")";
+          "rgb(" + Math.round(lerp(234, 126, wc)) + "," + Math.round(lerp(229, 103, wc)) + "," + Math.round(lerp(225, 101, wc)) + ")";
         // Carve shadows (the deboss) are full at rest and fade out over the first
         // sliver of scroll; the drop shadow fades in once the photo is behind.
         const carve = clamp01(1 - e / 0.1);
