@@ -24,6 +24,11 @@ const editCells = EDIT_IMG_IDS.map((id, i) => ({
   src: U(id), name: EDIT_NAMES[i], fmt: EDIT_FORMATS[i % EDIT_FORMATS.length],
 }));
 editCells.splice(2, 0, { brand: true });
+// Swap the "Tip Tuesday" tile (lower-right of the grid) for a call-to-action
+// cell: an outlined box matching the brand cell, with a "View The Edit" link
+// near the bottom that sends people through to The Edit.
+const ctaIdx = editCells.findIndex((c) => c.name === "Tip Tuesday");
+if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 ---
 
 <BaseLayout
@@ -288,6 +293,13 @@ editCells.splice(2, 0, { brand: true });
               <span class="edit-brand-title">The Edit</span>
             </div>
           </div>
+        ) : c.cta ? (
+          <a class="edit-cell edit-cell--cta" href="/edit" aria-label="View The Edit">
+            <div class="edit-cta-box">
+              <span class="edit-cta-eyebrow">Templates</span>
+              <span class="edit-cta-link">View The Edit <em class="edit-cta-arrow" aria-hidden="true">&rarr;</em></span>
+            </div>
+          </a>
         ) : (
           <a class="edit-cell" href="/edit" aria-label={`The Edit — ${c.name}`}>
             <div class="edit-cell-img" style={`background-image:url('${c.src}')`}></div>
@@ -366,6 +378,41 @@ editCells.splice(2, 0, { brand: true });
       color: var(--ink);
       line-height: 1;
     }
+    /* CTA cell — same outlined box as the brand cell, with a link sitting
+       towards the bottom that sends people through to The Edit. */
+    .edit-cell--cta { display: block; }
+    .edit-cta-box {
+      aspect-ratio: 3 / 4;            /* matches the image + brand tiles */
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between; /* eyebrow at top, link at the bottom */
+      align-items: flex-start;
+      padding: clamp(14px, 1.4vw, 22px);
+      background: var(--paper);
+      box-shadow: inset 0 0 0 1px rgba(28, 29, 34, 0.14);
+      transition: box-shadow 0.3s, background 0.3s;
+    }
+    .edit-cta-eyebrow {
+      font-family: var(--sans);
+      font-size: clamp(10px, 0.85vw, 12px);
+      font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase;
+      color: var(--english-violet);
+    }
+    .edit-cta-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--sans);
+      font-size: clamp(12px, 1vw, 15px);
+      font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--ink);
+      transition: color 0.3s;
+    }
+    .edit-cta-arrow { font-style: normal; transition: transform 0.3s cubic-bezier(.2,.7,.2,1); }
+    .edit-cell--cta:hover .edit-cta-box {
+      box-shadow: inset 0 0 0 1.5px var(--english-violet);
+      background: rgba(55, 30, 40, 0.03);
+    }
+    .edit-cell--cta:hover .edit-cta-link { color: var(--english-violet); }
+    .edit-cell--cta:hover .edit-cta-arrow { transform: translateX(5px); }
     @media (max-width: 860px) {
       .edit-grid { grid-template-columns: repeat(3, 1fr); width: 132vw; margin-left: -16vw; gap: 36px 4vw; }
       .edit-gallery { padding: 110px 0 120px; }
