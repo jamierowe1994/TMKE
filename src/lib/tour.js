@@ -172,8 +172,8 @@ function injectStyles() {
   }
   .tmke-tour-ring {
     position: fixed; border-radius: 8px; pointer-events: none;
-    outline: 2px solid var(--english-violet, #474254); outline-offset: 0;
-    box-shadow: 0 0 0 1px rgba(189,179,185,0.6) inset, 0 0 0 6px rgba(71,66,84,0.18);
+    outline: 2px solid var(--english-violet, #371e28); outline-offset: 0;
+    box-shadow: 0 0 0 1px rgba(189,179,185,0.6) inset, 0 0 0 6px rgba(55, 30, 40,0.18);
     transition: top .36s cubic-bezier(.4,.7,.2,1), left .36s cubic-bezier(.4,.7,.2,1),
                 width .36s cubic-bezier(.4,.7,.2,1), height .36s cubic-bezier(.4,.7,.2,1);
   }
@@ -181,7 +181,7 @@ function injectStyles() {
   .tmke-tour-card {
     position: fixed; width: min(380px, calc(100vw - 32px));
     background: #f7f6f2; color: var(--ink, #1c1d22);
-    border: 1px solid rgba(71,66,84,0.18); border-radius: 6px;
+    border: 1px solid rgba(55, 30, 40,0.18); border-radius: 6px;
     box-shadow: 0 30px 70px -28px rgba(28,29,34,0.55);
     padding: 24px 24px 18px;
     opacity: 0; transform: translateY(8px);
@@ -195,14 +195,14 @@ function injectStyles() {
   .tmke-tour-card.is-center.is-in { transform: translate(-50%, -50%); }
   .tmke-tour-eyebrow {
     font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; font-weight: 700;
-    color: var(--english-violet, #474254); margin: 0 0 12px;
+    color: var(--english-violet, #371e28); margin: 0 0 12px;
   }
   .tmke-tour-title {
     font-family: var(--serif, Georgia, serif); font-weight: 400; letter-spacing: -0.02em;
     font-size: clamp(26px, 3.4vw, 34px); line-height: 1.06; color: var(--ink, #1c1d22); margin: 0 0 12px;
   }
   .tmke-tour-card.is-center .tmke-tour-title { font-size: clamp(34px, 5vw, 52px); margin-bottom: 16px; }
-  .tmke-tour-title em { font-style: italic; color: var(--english-violet, #474254); }
+  .tmke-tour-title em { font-style: italic; color: var(--english-violet, #371e28); }
   .tmke-tour-body {
     font-family: var(--serif, Georgia, serif); font-size: 16px; line-height: 1.55;
     color: rgba(28,29,34,0.72); margin: 0 0 22px;
@@ -216,7 +216,7 @@ function injectStyles() {
     font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700;
     color: rgba(28,29,34,0.45); transition: color .2s;
   }
-  .tmke-tour-skip:hover { color: var(--english-violet, #474254); }
+  .tmke-tour-skip:hover { color: var(--english-violet, #371e28); }
   .tmke-tour-back {
     appearance: none; background: none; border: 0; padding: 9px 4px; cursor: pointer;
     font-family: var(--serif, Georgia, serif); font-style: italic; font-size: 15px;
@@ -225,7 +225,7 @@ function injectStyles() {
   .tmke-tour-back:hover { color: var(--ink, #1c1d22); }
   .tmke-tour-next {
     appearance: none; cursor: pointer; border: 0; border-radius: 3px;
-    background: var(--english-violet, #474254); color: #fff;
+    background: var(--english-violet, #371e28); color: #fff;
     font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
     padding: 11px 20px; transition: background .2s, transform .2s;
   }
