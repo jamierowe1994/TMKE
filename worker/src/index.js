@@ -196,6 +196,22 @@ function reminderHtml(item, platform, caption) {
     <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#474254">View your calendar</a></p>
   </div>`;
 }
+function waitlistHtml({ name, service, pkg, date, time }) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  let niceDate = esc(date);
+  try { niceDate = new Date(date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) {}
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+    <h1 style="font-size:22px;margin:0 0 6px">You're on the cancellation list</h1>
+    <p style="color:#555;font-size:14px;margin:0 0 20px">Hi ${esc(name)}, thanks for registering your interest in <strong>${esc(service)}</strong>. We're fully booked right now, but you're on the list &mdash; we'll message you the moment a slot opens that matches what you're after.</p>
+    <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.7">
+      ${pkg ? `<div><strong>Package:</strong> ${esc(pkg)}</div>` : ""}
+      <div><strong>Preferred date:</strong> ${niceDate}</div>
+      <div><strong>Preferred time:</strong> ${esc(time)}</div>
+    </div>
+    <p style="font-size:13px;color:#555;margin:18px 0 0">No need to do anything &mdash; we'll be in touch. If your plans change, just reply to this email.</p>
+    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p>
+  </div>`;
+}
 async function runReminders(env) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
@@ -452,6 +468,42 @@ export default {
           service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
         });
         return json({ ok: true, eventId: ev.id }, 200, request, env);
+      }
+
+      // Cancellation waitlist (gated). The studio/section is "fully booked", so we
+      // capture an approved-domain partner's details + preferred slot and email a
+      // confirmation. The allow-list is server-side (NOT client-supplied).
+      if (path.endsWith("/waitlist/register") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const { section, name, email, phone, date, time, service } = b || {};
+        const pkg = (b && b.package) || "";
+        if (!name || !email || !date || !time) return json({ error: "Missing details" }, 400, request, env);
+        const allowed = (env.WAITLIST_DOMAINS || "fineandcountry.com,thepropertyexperts.co.uk")
+          .split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
+        const mm = String(email).toLowerCase().trim().match(/@([^@\s]+)$/);
+        const dom = mm ? mm[1] : "";
+        const ok = dom && allowed.some((d) => dom === d || dom.endsWith("." + d));
+        if (!ok) return json({ error: "That email isn't on an approved partner domain." }, 403, request, env);
+        await sbPost(env, "session_waitlist", {
+          section: section || "studio", package: pkg || null,
+          name, email, phone: phone || null, email_domain: dom,
+          preferred_date: date, preferred_time: time, status: "waiting",
+        });
+        if (env.RESEND_API_KEY) {
+          try {
+            await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>",
+                to: email,
+                subject: `You're on the cancellation list — ${service || section || "The Studio"}`,
+                html: waitlistHtml({ name, service: service || section || "The Studio", pkg, date, time }),
+              }),
+            });
+          } catch (_) { /* email is best-effort */ }
+        }
+        return json({ ok: true }, 200, request, env);
       }
     } catch (err) {
       return json({ error: String(err && err.message ? err.message : err) }, 500, request, env);

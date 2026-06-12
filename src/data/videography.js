@@ -23,6 +23,12 @@ export const PARTNERS = {
 };
 export const DIRECT = { slug: "direct", name: "Direct", note: "Standard rates" };
 
+// Gated-access work-email domains. The Studio (and other gated sections) only
+// accept a work email on one of these domains. Subdomains are allowed too
+// (e.g. rugby.fineandcountry.com) — see emailDomainAllowed() in DiscoveryPanel.
+// Extend this list as new partner groups are onboarded.
+export const GATED_DOMAINS = ["fineandcountry.com", "thepropertyexperts.co.uk"];
+
 // Stock imagery — swap for real branded stills / Cloudflare Stream thumbnails.
 const IMG = (id, w = 1400, h = 900) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
@@ -65,6 +71,10 @@ export const PRODUCTS = [
       { label: "Full Day", sub: "8 hours of filming · 60 short-form videos", minutes: 480, prices: { direct: 67300 } },
     ],
     bookCtaLabel: "Book a Session",
+    // Gated waitlist flow: pick package -> work-email-gated details -> preferred
+    // date/time -> "fully booked, register for a cancellation". Studio access is
+    // limited to the GATED_DOMAINS partner groups.
+    bookMode: "waitlist",
     aboutHeading: "About The Studio",
     about: [
       "The Studio is a professionally equipped content space in Rugby, designed specifically for agents who want high-quality short-form video without the complexity of a traditional shoot. The space is clean, neutral, and camera-ready, built to keep sessions moving efficiently without sacrificing the quality of the finish.",

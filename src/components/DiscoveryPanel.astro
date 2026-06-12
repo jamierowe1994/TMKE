@@ -57,6 +57,20 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         <div class="dc-choices" id="dc-packs"></div>
       </section>
 
+      <!-- gated details (waitlist) — collected BEFORE the date so we can check
+           the work-email domain and only let approved partners continue. -->
+      <section class="dc-step" id="dc-step-gate" hidden>
+        <h2 class="dc-step-title">Your <em>details.</em></h2>
+        <p class="dc-step-sub" id="dc-gate-sub">The Studio is for Fine &amp; Country and The Property Experts teams. Add your <strong>work email</strong> so we can check you're on the list.</p>
+        <form class="dc-panel-form" id="dc-gate-form">
+          <label class="dc-field"><span>Full name *</span><input name="name" autocomplete="name" required /></label>
+          <label class="dc-field"><span>Work email *</span><input name="email" type="email" autocomplete="email" required placeholder="you@fineandcountry.com" /></label>
+          <label class="dc-field"><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" required /></label>
+          <p class="dc-gate-error" id="dc-gate-error" hidden></p>
+          <button type="submit" class="dc-form-cta" id="dc-gate-cta">Continue <em>&rarr;</em></button>
+        </form>
+      </section>
+
       <!-- day -->
       <section class="dc-step" id="dc-step-day" hidden>
         <h2 class="dc-step-title">Pick a <em>day.</em></h2>
@@ -133,6 +147,15 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         </form>
       </section>
 
+      <!-- register (waitlist) — fully booked, offer cancellation registration -->
+      <section class="dc-step" id="dc-step-register" hidden>
+        <h2 class="dc-step-title">We're <em>fully booked.</em></h2>
+        <p class="dc-form-summary" id="dc-register-summary"></p>
+        <p class="dc-step-sub">We're really sorry — the Studio is fully booked at the moment. Register for a cancellation and we'll message you the moment a slot opens that matches what you're after.</p>
+        <p class="dc-gate-error" id="dc-register-error" hidden></p>
+        <button type="button" class="dc-form-cta" id="dc-register-cta">Register for a cancellation <em>&rarr;</em></button>
+      </section>
+
       <!-- success -->
       <section class="dc-step dc-success" id="dc-success" hidden>
         <div class="dc-tick" aria-hidden="true">
@@ -164,7 +187,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   }
   .dc-panel-stage::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
-  .dc-panel-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 18px 32px; background: rgba(242,239,233,0.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid rgba(28,29,34,0.08); }
+  .dc-panel-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 18px 32px; background: rgba(244, 242, 241,0.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid rgba(28,29,34,0.08); }
   .dc-head-left { display: flex; align-items: center; gap: 18px; }
   .dc-panel-close, .dc-panel-back { appearance: none; background: transparent; border: 0; color: var(--english-violet); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 0; transition: color .2s; }
   .dc-panel-close:hover, .dc-panel-back:hover { color: var(--ink); }
@@ -196,12 +219,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .dc-choice-meta { font-family: var(--sans); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
   .dc-choice-price { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--english-violet); margin-top: 4px; }
   .dc-choices--multi .dc-choice { flex-direction: row; align-items: center; gap: 14px; }
-  .dc-choice-check { flex: none; width: 22px; height: 22px; border: 1px solid rgba(71,66,84,0.4); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; color: transparent; transition: background .15s, color .15s, border-color .15s; }
+  .dc-choice-check { flex: none; width: 22px; height: 22px; border: 1px solid rgba(55, 30, 40,0.4); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; color: transparent; transition: background .15s, color .15s, border-color .15s; }
   .dc-choices--multi .dc-choice.is-active { transform: none; box-shadow: none; }
   .dc-choice.is-active .dc-choice-check { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
 
   .dc-scope { display: flex; flex-wrap: wrap; gap: 8px; }
-  .dc-pill { appearance: none; background: #fff; border: 1px solid rgba(71,66,84,0.25); border-radius: 999px; padding: 10px 18px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s; }
+  .dc-pill { appearance: none; background: #fff; border: 1px solid rgba(55, 30, 40,0.25); border-radius: 999px; padding: 10px 18px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s; }
   .dc-pill:hover { border-color: var(--english-violet); }
   .dc-pill.is-active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
@@ -215,12 +238,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .dc-cal { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 20px 20px 22px; }
   .dc-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   .dc-cal-label { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); }
-  .dc-cal-nav { appearance: none; background: transparent; border: 1px solid rgba(71,66,84,0.25); border-radius: 50%; width: 36px; height: 36px; color: var(--english-violet); cursor: pointer; transition: background 0.25s, border-color 0.25s; }
-  .dc-cal-nav:hover { background: rgba(71,66,84,0.06); border-color: var(--english-violet); }
+  .dc-cal-nav { appearance: none; background: transparent; border: 1px solid rgba(55, 30, 40,0.25); border-radius: 50%; width: 36px; height: 36px; color: var(--english-violet); cursor: pointer; transition: background 0.25s, border-color 0.25s; }
+  .dc-cal-nav:hover { background: rgba(55, 30, 40,0.06); border-color: var(--english-violet); }
   .dc-cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 8px; font-family: var(--sans); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.45); text-align: center; }
   .dc-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
   .dc-cal-day { appearance: none; background: transparent; border: 1px solid transparent; border-radius: 8px; aspect-ratio: 1 / 1; font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s; }
-  .dc-cal-day:hover:not([disabled]) { background: rgba(71,66,84,0.1); }
+  .dc-cal-day:hover:not([disabled]) { background: rgba(55, 30, 40,0.1); }
   .dc-cal-day[disabled] { color: rgba(28,29,34,0.22); cursor: not-allowed; }
   .dc-cal-day.is-today { font-weight: 700; color: var(--english-violet); }
   .dc-cal-day.is-active { background: var(--ink); color: var(--paper); }
@@ -229,7 +252,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   /* Time slots */
   .dc-slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
   .dc-slots-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); margin: 0; grid-column: 1 / -1; }
-  .dc-slot { appearance: none; background: #fff; border: 1px solid rgba(71,66,84,0.25); border-radius: 8px; padding: 14px 12px; font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s; }
+  .dc-slot { appearance: none; background: #fff; border: 1px solid rgba(55, 30, 40,0.25); border-radius: 8px; padding: 14px 12px; font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s; }
   .dc-slot:hover { border-color: var(--english-violet); transform: translateY(-2px); }
   .dc-slot.is-active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
@@ -239,10 +262,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   @media (max-width: 560px) { .dc-field-row { grid-template-columns: 1fr; } }
   .dc-field { display: flex; flex-direction: column; gap: 7px; }
   .dc-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); }
-  .dc-field input, .dc-field textarea { font-family: var(--sans); font-size: 15px; padding: 13px 15px; border: 1px solid rgba(71,66,84,0.28); border-radius: 8px; background: #fff; color: var(--ink); transition: border-color 0.25s, box-shadow 0.25s; resize: vertical; }
-  .dc-field input:focus, .dc-field textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(71,66,84,0.12); }
-  .dc-form-summary { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.7); margin: 0 0 22px; padding: 14px 16px; background: rgba(71,66,84,0.07); border-left: 3px solid var(--english-violet); border-radius: 0 6px 6px 0; }
+  .dc-field input, .dc-field textarea { font-family: var(--sans); font-size: 15px; padding: 13px 15px; border: 1px solid rgba(55, 30, 40,0.28); border-radius: 8px; background: #fff; color: var(--ink); transition: border-color 0.25s, box-shadow 0.25s; resize: vertical; }
+  .dc-field input:focus, .dc-field textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55, 30, 40,0.12); }
+  .dc-form-summary { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.7); margin: 0 0 22px; padding: 14px 16px; background: rgba(55, 30, 40,0.07); border-left: 3px solid var(--english-violet); border-radius: 0 6px 6px 0; }
   .dc-form-summary:empty { display: none; }
+  .dc-gate-error { font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: #8a3b2f; background: rgba(185,90,70,0.10); border: 1px solid rgba(185,90,70,0.32); border-radius: 8px; padding: 12px 14px; margin: 2px 0 0; }
+  .dc-gate-error[hidden] { display: none; }
   .dc-form-cta { appearance: none; background: var(--ink); color: var(--paper); border: 0; padding: 17px 24px; border-radius: 4px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; cursor: pointer; transition: background 0.25s, opacity 0.25s; margin-top: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; }
   .dc-form-cta:hover { background: var(--english-violet); }
   .dc-form-cta:disabled { opacity: 0.45; cursor: not-allowed; background: var(--ink); }
@@ -253,7 +278,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   @keyframes dcSpin { to { transform: rotate(360deg); } }
 
   /* Contract */
-  .dc-terms { max-height: 300px; overflow-y: auto; border: 1px solid rgba(71,66,84,0.25); border-radius: 10px; padding: 22px 24px; background: #fff; }
+  .dc-terms { max-height: 300px; overflow-y: auto; border: 1px solid rgba(55, 30, 40,0.25); border-radius: 10px; padding: 22px 24px; background: #fff; }
   .dc-terms:focus { outline: none; border-color: var(--english-violet); }
   .dc-terms.is-read { border-color: rgba(46,106,74,0.5); }
   .dc-terms h4 { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); margin: 0 0 8px; }
@@ -291,6 +316,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const slotsGrid = $("dc-slots-grid"), timeSub = $("dc-time-sub"), daySub = $("dc-day-sub");
     const form = $("dc-form"), formCta = $("dc-form-cta"), formSummary = $("dc-form-summary");
     const successMsg = $("dc-success-msg");
+    const gateForm = $("dc-gate-form"), gateCta = $("dc-gate-cta"), gateError = $("dc-gate-error");
+    const registerSummary = $("dc-register-summary"), registerCta = $("dc-register-cta"), registerError = $("dc-register-error");
     const interestsWrap = $("dc-interests"), servicesWrap = $("dc-services"), packsWrap = $("dc-packs"), scopeWrap = $("dc-scope");
     const terms = $("dc-terms"), agree = $("dc-agree"), signName = $("dc-sign-name"), signDate = $("dc-sign-date"), contractCta = $("dc-contract-cta"), contractSummary = $("dc-contract-summary");
 
@@ -304,6 +331,17 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let mode = "call", service = "Booking", duration = 30, serviceBase = "";
     let packs = null, services = null, interests = null;
     let chosenInterests = [], chosenScope = "Not sure yet", chosenPack = null;
+    // waitlist (gated) state
+    let allowedDomains = ["fineandcountry.com", "thepropertyexperts.co.uk"];
+    let gateName = "", gateEmail = "", gatePhone = "";
+
+    // True if the email's domain (or a subdomain of it) is on the allowed list.
+    function emailDomainAllowed(email) {
+      const m = String(email || "").toLowerCase().trim().match(/@([^@\s]+)$/);
+      if (!m) return false;
+      const dom = m[1];
+      return allowedDomains.some((d) => dom === d || dom.endsWith("." + d));
+    }
     let viewMonth = new Date(); viewMonth.setDate(1);
     let selectedDate = null, selectedSlot = null;
     let availWeekdays = null, configFetched = false;
@@ -328,7 +366,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     backBtn.addEventListener("click", back);
 
     function hideAllSteps() {
-      ["interest","service","pack","day","time","contract","details"].forEach((n) => { const e = stepEl(n); if (e) { e.hidden = true; e.classList.remove("dc-anim-in","dc-anim-out"); } });
+      ["interest","service","pack","gate","day","time","contract","details","register"].forEach((n) => { const e = stepEl(n); if (e) { e.hidden = true; e.classList.remove("dc-anim-in","dc-anim-out"); } });
       const s = stepEl("success"); if (s) { s.hidden = true; s.classList.remove("dc-anim-in","dc-anim-out"); }
     }
 
@@ -341,22 +379,34 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       opts = opts || {};
       mode = opts.mode || "call";
       packs = parseList(opts.packs); services = parseList(opts.services); interests = parseList(opts.interests);
-      service = opts.service || (mode === "consult" ? "Consultation call" : mode === "shoot" ? "Shoot" : "Discovery call");
+      const dl = parseList(opts.domains); if (dl && dl.length) allowedDomains = dl.map((d) => String(d).toLowerCase());
+      service = opts.service || (mode === "consult" ? "Consultation call" : (mode === "shoot" || mode === "waitlist") ? "Shoot" : "Discovery call");
       serviceBase = service;
-      duration = parseInt(opts.duration, 10) || (mode === "shoot" && packs && packs[0] ? packs[0].minutes : 30);
+      duration = parseInt(opts.duration, 10) || ((mode === "shoot" || mode === "waitlist") && packs && packs[0] ? packs[0].minutes : 30);
       chosenInterests = []; chosenScope = "Not sure yet"; chosenPack = null;
+      gateName = ""; gateEmail = ""; gatePhone = "";
       selectedDate = null; selectedSlot = null; history = [];
       hideAllSteps(); activeStep = null;
-      if (form) form.reset(); formSummary.textContent = ""; contractSummary.textContent = "";
+      if (form) form.reset(); if (gateForm) gateForm.reset();
+      if (gateError) gateError.hidden = true; if (registerError) registerError.hidden = true;
+      if (registerCta) { registerCta.disabled = false; registerCta.classList.remove("is-loading"); registerCta.innerHTML = 'Register for a cancellation <em>&rarr;</em>'; }
+      formSummary.textContent = ""; contractSummary.textContent = "";
       if (agree) { agree.checked = false; agree.disabled = true; } if (terms) terms.classList.remove("is-read");
       if (contractCta) contractCta.disabled = true;
       if (formCta) { formCta.disabled = false; formCta.classList.remove("is-loading"); formCta.innerHTML = 'Confirm booking <em>&rarr;</em>'; }
       eyebrow.textContent = `TMKE — ${service}`;
+      if (daySub) daySub.textContent = mode === "waitlist"
+        ? "Pick the date you'd ideally like — we'll match it to the first cancellation that fits."
+        : "Choose a date that suits you — weekdays, 9am–5pm.";
       panel.setAttribute("aria-hidden", "false"); panel.classList.add("is-open");
       document.documentElement.style.overflow = "hidden"; if (stage) stage.scrollTop = 0;
       renderCalendar(); fetchConfig().then(renderCalendar);
 
       if (mode === "consult") { renderInterests(); showStepRaw("interest"); }
+      else if (mode === "waitlist") {
+        if (packs && packs.length) { renderPacks(); showStepRaw("pack"); }
+        else showStepRaw("gate");
+      }
       else if (mode === "shoot") {
         if (services && services.length) { renderServices(); showStepRaw("service"); }
         else if (packs && packs.length) { renderPacks(); showStepRaw("pack"); }
@@ -388,9 +438,26 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       packsWrap.querySelectorAll(".dc-choice").forEach((b) => b.addEventListener("click", () => {
         chosenPack = packs[+b.dataset.i]; duration = chosenPack.minutes; service = `${serviceBase} — ${chosenPack.label}`;
         eyebrow.textContent = `TMKE — ${service}`; selectedSlot = null;
-        goTo("day");
+        goTo(mode === "waitlist" ? "gate" : "day");
       }));
     }
+
+    // ---- gated details (waitlist) — work-email domain check before the date ----
+    if (gateForm) gateForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(gateForm);
+      const name = String(fd.get("name") || "").trim();
+      const email = String(fd.get("email") || "").trim();
+      const phone = String(fd.get("phone") || "").trim();
+      gateError.hidden = true;
+      if (!name || !email || !phone) { gateError.textContent = "Please add your name, work email and phone to continue."; gateError.hidden = false; return; }
+      if (!emailDomainAllowed(email)) {
+        gateError.innerHTML = 'Sorry — the Studio is currently available only to <strong>Fine &amp; Country</strong> and <strong>The Property Experts</strong> teams. Please use your work email, or <a href="/contact" style="color:inherit;text-decoration:underline;">get in touch</a> if you think this is a mistake.';
+        gateError.hidden = false; return;
+      }
+      gateName = name; gateEmail = email; gatePhone = phone;
+      goTo("day");
+    });
 
     // ---- calendar (day) ----
     function sameDay(a, b) { return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
@@ -421,6 +488,14 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     async function renderSlots() {
       if (!selectedDate) return;
       const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+      // Waitlist mode captures a PREFERRED time (the studio is fully booked), so
+      // show fixed hourly options rather than querying live availability.
+      if (mode === "waitlist") {
+        timeSub.textContent = `${service} · ${dt} · preferred time`;
+        const times = ["09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00"];
+        slotsGrid.innerHTML = times.map((s) => `<button type="button" class="dc-slot" data-slot="${s}">${s}</button>`).join("");
+        return;
+      }
       timeSub.textContent = `${service} · ${dt} · ${fmtDur(duration)}`;
       if (!WORKER) { slotsGrid.innerHTML = `<p class="dc-slots-empty">Booking is being set up — please check back shortly.</p>`; return; }
       slotsGrid.innerHTML = `<p class="dc-slots-empty">Finding times…</p>`;
@@ -435,6 +510,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const btn = e.target.closest(".dc-slot"); if (!btn) return;
       selectedSlot = btn.dataset.slot;
       const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      if (mode === "waitlist") {
+        registerSummary.textContent = `${service} — you'd ideally like ${dt} at ${selectedSlot}.`;
+        goTo("register"); return;
+      }
       const summary = `${service} — ${dt} at ${selectedSlot} GMT (${fmtDur(duration)}).`;
       formSummary.textContent = summary; contractSummary.textContent = summary;
       if (mode === "shoot") {
@@ -485,12 +564,36 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       }
     }
 
+    // ---- register for cancellation (waitlist final step) ----
+    if (registerCta) registerCta.addEventListener("click", async () => {
+      registerError.hidden = true;
+      if (!selectedDate || !selectedSlot) { registerError.textContent = "Please pick a preferred date and time first."; registerError.hidden = false; return; }
+      registerCta.disabled = true; registerCta.classList.add("is-loading"); registerCta.innerHTML = '<span class="dc-spinner"></span> Registering…';
+      const t0 = Date.now();
+      try {
+        if (!WORKER) throw new Error("Registration is being set up — please check back shortly.");
+        const res = await fetch(`${WORKER}/waitlist/register`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ section: serviceBase || "The Studio", service, package: chosenPack ? chosenPack.label : "", name: gateName, email: gateEmail, phone: gatePhone, date: localISO(selectedDate), time: selectedSlot, domains: allowedDomains }),
+        });
+        const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || "Couldn't register — please try again.");
+        const wait = 1000 - (Date.now() - t0); if (wait > 0) await sleep(wait);
+        const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+        successMsg.textContent = `You're on the cancellation list for ${service}. We've noted ${dt} at ${selectedSlot} as your preference and emailed ${gateEmail} to confirm — we'll message you the moment a matching slot opens.`;
+        history = []; goTo("success"); history = []; backBtn.hidden = true;
+        registerCta.classList.remove("is-loading"); registerCta.disabled = false; registerCta.innerHTML = 'Register for a cancellation <em>&rarr;</em>';
+      } catch (err) {
+        registerCta.classList.remove("is-loading"); registerCta.disabled = false; registerCta.innerHTML = 'Register for a cancellation <em>&rarr;</em>';
+        registerError.textContent = (err && err.message) || "Sorry, that didn't go through — please try again."; registerError.hidden = false;
+      }
+    });
+
     // ---- close + openers ----
     panel.addEventListener("click", (e) => { if (e.target.closest("[data-dc-close]")) close(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panel.classList.contains("is-open")) close(); });
     document.addEventListener("click", (e) => {
       const o = e.target.closest?.("[data-discovery-call]"); if (!o) return; e.preventDefault();
-      open({ mode: o.getAttribute("data-dc-mode"), service: o.getAttribute("data-dc-service"), duration: o.getAttribute("data-dc-duration"), packs: o.getAttribute("data-dc-packs"), services: o.getAttribute("data-dc-services"), interests: o.getAttribute("data-dc-interests") });
+      open({ mode: o.getAttribute("data-dc-mode"), service: o.getAttribute("data-dc-service"), duration: o.getAttribute("data-dc-duration"), packs: o.getAttribute("data-dc-packs"), services: o.getAttribute("data-dc-services"), interests: o.getAttribute("data-dc-interests"), domains: o.getAttribute("data-dc-domains") });
     });
     window.tmkeDiscoveryOpen = open;
   })();

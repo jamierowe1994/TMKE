@@ -119,8 +119,8 @@ const TEMPLATE_SUBS = [
 
 const palettes = [
   { bg: "#1c1d22", fg: "#F0EEEB", accent: "#B9826A" },
-  { bg: "#F2EFE9", fg: "#1c1d22", accent: "#474254" },
-  { bg: "#474254", fg: "#F0EEEB", accent: "#BCB3B9" },
+  { bg: "#f4f2f1", fg: "#1c1d22", accent: "#371e28" },
+  { bg: "#371e28", fg: "#F0EEEB", accent: "#BCB3B9" },
   { bg: "#DFDCDE", fg: "#333747", accent: "#B9826A" },
   { bg: "#B9826A", fg: "#F0EEEB", accent: "#1c1d22" },
 ];
