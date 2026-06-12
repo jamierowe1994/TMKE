@@ -30,6 +30,29 @@ editCells.splice(2, 0, { brand: true });
   title="TMKE — The Marketing Experts"
   description="A specialist social media and marketing agency for the UK property sector. Premium templates, fully managed channels, structured content."
 >
+  <!-- ============================== PALETTE TRIAL (home only)
+       Redefining the brand variables on <body> overrides the global :root
+       values for everything inside the page — nav, sections, modals, footer,
+       hover states — without touching the rest of the site. This <style> ships
+       only on the home page, so it's a self-contained trial of the new palette.
+         dark purple  #474254 -> #371e28
+         light bg     #F2EFE9 -> #f4f2f1                                      -->
+  <style is:global>
+    body {
+      --english-violet: #371e28;
+      --violet:         #371e28;
+      --violet-deep:    #371e28;
+      --violet-bright:  #50303d;  /* hover lift derived from #371e28 */
+      --paper:          #f4f2f1;
+      --paper-shadow:   #e7e3e2;  /* cooler shadow to match the new paper */
+    }
+    /* Two brand-purple literals that aren't var-driven: the page-transition
+       curtain (BaseLayout inline) and the splash intro blob. Higher specificity
+       so the home override wins over the critical inline rule. */
+    body .pt__panel { background: #371e28; }
+    body .splash-blob--3 { background: radial-gradient(circle, #371e28 0%, transparent 65%); }
+  </style>
+
   <!-- ============================== HERO (TMKE fold-out)
        Centre: "TMKE" with the image showing through the letterforms + a dark
        outline. As you scroll the full image unfolds from the centre of the word
@@ -595,10 +618,10 @@ editCells.splice(2, 0, { brand: true });
         const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
         media.style.clipPath = clip;
         if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
-        // word: debossed cream at rest -> white as the photo irises past it
+        // word: debossed cream at rest -> brand plum (#371e28) as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
-          "rgb(" + Math.round(lerp(230, 255, wc)) + "," + Math.round(lerp(224, 255, wc)) + "," + Math.round(lerp(210, 255, wc)) + ")";
+          "rgb(" + Math.round(lerp(230, 55, wc)) + "," + Math.round(lerp(224, 30, wc)) + "," + Math.round(lerp(210, 40, wc)) + ")";
         // Carve shadows (the deboss) are full at rest and fade out over the first
         // sliver of scroll; the drop shadow fades in once the photo is behind.
         const carve = clamp01(1 - e / 0.1);
