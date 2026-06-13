@@ -191,8 +191,8 @@ section { position: relative; }
   border-color: var(--english-violet);
 }
 .btn--solid:hover { background: var(--ink); border-color: var(--ink); }  /* -> black on hover */
-/* Ch6 "Get Started" — slimmer than the default button (less vertical padding). */
-.quote-coda .btn { padding-top: 9px; padding-bottom: 9px; }
+/* Ch6 "Get Started" — slimmer than the default button (less vertical padding) + 6px rounded. */
+.quote-coda .btn { padding-top: 9px; padding-bottom: 9px; border-radius: 6px; }
 .btn--ghost-light { color: var(--paper); border-color: rgba(255,255,255,0.6); }
 .btn--ghost-light:hover { background: rgba(255,255,255,0.08); border-color: var(--paper); }
 /* Tactile feel for every button — lift on hover, press in (smaller) on click. */
@@ -271,7 +271,6 @@ body.has-page-hero .nav {
 .nav-links a:hover::after { transform: scaleX(1); transform-origin: left; }
 .nav-cta {
   border: 1px solid currentColor;
-  border-radius: 6px;
   padding: 9px 18px;
   font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
   transition: background 0.3s, color 0.3s, transform 0.25s cubic-bezier(.2,.7,.2,1);
@@ -979,16 +978,15 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   border-color: var(--english-violet);
 }
 
-/* B&W hover image removed — cards now use solid brand colour on hover */
+/* Hover background — the brand colour-palette mockup fades + scales in on
+   hover (same image on all four cards, overriding the per-card inline urls). */
 .svc-hover-img {
-  display: none;
+  display: block;
   position: absolute;
   inset: 0;
+  background-image: url("https://assets.tmke.co.uk/TMKE%20Home%20Page/Copy%20of%20TMKE%20Insta%20Templates%20-%20Colour%20Palette%201%20Mockup.png") !important;
   background-size: cover;
   background-position: center;
-  /* Clean black-and-white photograph — full grayscale, gentle contrast lift,
-     no blur, only a touch of darkening so text still reads cleanly on top. */
-  filter: grayscale(100%) contrast(1.08) brightness(0.85);
   opacity: 0;
   transform: scale(1.06);
   transition:
@@ -1013,10 +1011,8 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
   pointer-events: none;
   z-index: 1;
 }
-.svc-card:hover {
-  background: var(--english-violet);
-  border-color: var(--english-violet);
-}
+.svc-card:hover .svc-hover-img { opacity: 1; transform: scale(1.0); }
+.svc-card:hover::after { opacity: 1; }
 
 /* Flip text to #f4f2f1 on hover */
 .svc-card:hover .svc-title { color: #f4f2f1; }
