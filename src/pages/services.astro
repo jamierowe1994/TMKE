@@ -86,12 +86,12 @@ const total = 4;
       </section>
 
       <!-- Slide 4 — Let's talk (centred) + slide-in "Book a call" reveal.
-           Mirrors the videography closing panel: at the last slide, scrolling a
-           touch more (or clicking the tab) slides the track to bring "Book a
-           call" in from the right, easing "Let's talk" out of the way. -->
+           At the last slide, scrolling a touch more (or clicking the tab) slides
+           "Book a call" in from the right while "Let's talk" eases left and stays
+           on screen (never leaves the page). -->
       <section class="pf-panel sm-contact sm-final" id="sm-final">
-        <div class="sm-final-track" id="sm-final-track">
-          <div class="sm-contact-inner">
+        <div class="sm-contact-inner">
+          <div class="sm-contact-content">
             <p class="sm-eyebrow"><span>&mdash;</span> Let's talk</p>
             <h2 class="sm-contact-h">Let's make it <em>consistent.</em></h2>
             <p class="sm-lead">Tell us about your brand and where you want it to go &mdash; we'll put a plan together.</p>
@@ -99,12 +99,12 @@ const total = 4;
               <a href="/assets/tmke-services.pdf" class="sm-brochure" download>Download services brochure <span aria-hidden="true">&darr;</span></a>
             </div>
           </div>
-          <aside class="sm-book-panel" aria-label="Book a call">
-            <h2 class="sm-book-title">Book a<br />call</h2>
-            <p class="sm-book-desc">Prefer to talk it through? Grab a time that suits you and we'll get to know your brand and where you want it to go.</p>
-            <button type="button" data-discovery-call class="sm-book-cta">Pick a time <span class="btn-arrow">&rarr;</span></button>
-          </aside>
         </div>
+        <aside class="sm-book-panel" aria-label="Book a call">
+          <h2 class="sm-book-title">Book a<br />call</h2>
+          <p class="sm-book-desc">Prefer to talk it through? Grab a time that suits you and we'll get to know your brand and where you want it to go.</p>
+          <button type="button" data-discovery-call data-dc-side="right" class="sm-book-cta">Pick a time <span class="btn-arrow">&rarr;</span></button>
+        </aside>
         <button type="button" class="sm-reveal-tab" id="sm-reveal-tab" aria-label="Reveal book a call">
           <span class="sm-reveal-arrow" aria-hidden="true">&rarr;</span>
         </button>
@@ -215,43 +215,56 @@ const total = 4;
     .pf-cta:hover { color: var(--english-violet); border-color: var(--english-violet); }
     .pf-cta:hover em { margin-left: 16px; }
 
-    /* Slide 4 — Let's talk + slide-in "Book a call" reveal (videography pattern) */
-    .sm-final { position: relative; overflow: hidden; padding: 0; }
-    .sm-final-track { display: flex; height: 100%; width: max-content; transition: transform 0.75s cubic-bezier(.16,1,.3,1); will-change: transform; }
-    /* "Let's talk" — now a full-width, centred panel that eases left as the
-       book panel slides in. */
+    /* Slide 4 — Let's talk + slide-in "Book a call" reveal. The book panel slides
+       in from the right; "Let's talk" eases left (transform) and never leaves the
+       screen. --bookw is the book panel's width. */
+    .sm-final { position: relative; overflow: hidden; padding: 0; --bookw: min(46vw, 560px); }
     .sm-contact-inner {
-      flex: 0 0 100vw; height: 100%; max-width: none;
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      text-align: center; gap: 0; padding: 96px clamp(28px, 8vw, 140px) 80px;
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      padding: 96px clamp(28px, 8vw, 140px) 80px;
     }
-    .sm-contact-inner .sm-lead { max-width: 52ch; }
-    /* "Book a call" panel — sits off-screen right until revealed. */
+    /* The text block is centred at rest, then slides left into the space left of
+       the book panel when revealed (stays fully on screen). */
+    .sm-contact-content {
+      max-width: 640px; text-align: center;
+      display: flex; flex-direction: column; align-items: center;
+      transition: transform 0.7s cubic-bezier(.16,1,.3,1);
+    }
+    .sm-contact-content .sm-lead { max-width: 52ch; }
+    .sm-final.is-revealed .sm-contact-content { transform: translateX(calc(var(--bookw) / -2)); }
+    /* "Book a call" panel — off-screen right until revealed, then slides in. */
     .sm-book-panel {
-      flex: 0 0 min(46vw, 560px); height: 100%;
+      position: absolute; top: 0; right: 0; z-index: 4;
+      width: var(--bookw); height: 100%;
       background: var(--english-violet); color: var(--paper);
       display: flex; flex-direction: column; justify-content: center; gap: 24px;
       padding: 96px clamp(40px, 4vw, 80px) 80px;
+      transform: translateX(100%);
+      transition: transform 0.7s cubic-bezier(.16,1,.3,1);
     }
+    .sm-final.is-revealed .sm-book-panel { transform: translateX(0); }
     .sm-book-title { font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 4vw, 72px); line-height: 0.98; letter-spacing: -0.025em; margin: 0; }
     .sm-book-desc { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(240,238,235,0.8); max-width: 38ch; margin: 0; }
     .sm-book-cta { align-self: flex-start; background: var(--paper); color: var(--ink); border: none; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; padding: 15px 28px; transition: opacity .25s; }
     .sm-book-cta:hover { opacity: 0.85; }
     .sm-book-cta .btn-arrow { margin-left: 10px; display: inline-block; transition: margin .25s; }
     .sm-book-cta:hover .btn-arrow { margin-left: 16px; }
-    /* Reveal handle on the right edge — slides left to the panel edge when open. */
+    /* Reveal handle on the right edge — rides in to the panel's left edge. */
     .sm-reveal-tab {
       position: absolute; top: 50%; right: 0; transform: translateY(-50%);
       z-index: 6; width: 40px; height: 104px; border: none; cursor: pointer;
       background: var(--english-violet); color: var(--paper);
       border-radius: 10px 0 0 10px; display: flex; align-items: center; justify-content: center;
-      transition: right 0.75s cubic-bezier(.16,1,.3,1), background .25s;
+      transition: right 0.7s cubic-bezier(.16,1,.3,1), background .25s;
     }
     .sm-reveal-tab:hover { background: var(--ink); }
     .sm-reveal-arrow { font-size: 18px; transition: transform .5s cubic-bezier(.16,1,.3,1); }
+    .sm-final.is-revealed .sm-reveal-tab { right: var(--bookw); }
     .sm-final.is-revealed .sm-reveal-arrow { transform: rotate(180deg); }
     @media (max-width: 760px) {
-      .sm-book-panel { flex: 0 0 86vw; }
+      .sm-final { --bookw: 86vw; }
+      .sm-final.is-revealed .sm-contact-content { transform: translateX(-12vw); }
     }
     .sm-contact-h { font-family: var(--serif); font-weight: 400; font-size: clamp(44px, 6vw, 96px); line-height: 0.98; letter-spacing: -0.025em; color: var(--ink); margin: 0 0 22px; }
     .sm-contact-h em { font-style: italic; color: var(--english-violet); }
@@ -364,17 +377,12 @@ const total = 4;
       // "Book a call" reveal on the final slide — slides the track to bring the
       // book panel in from the right (mirrors the videography newsletter reveal).
       const finalPanel = document.getElementById("sm-final");
-      const finalTrack = document.getElementById("sm-final-track");
       const revealTab = document.getElementById("sm-reveal-tab");
-      const bookEl = finalPanel ? finalPanel.querySelector(".sm-book-panel") : null;
       let bookRevealed = false;
-      const bookAmt = () => (finalTrack ? Math.max(0, finalTrack.scrollWidth - finalPanel.clientWidth) : 0);
       const setBookReveal = (on) => {
-        if (!finalTrack) return;
+        if (!finalPanel) return;
         bookRevealed = on;
-        finalTrack.style.transform = on ? `translateX(-${bookAmt()}px)` : "translateX(0)";
-        if (revealTab) revealTab.style.right = on && bookEl ? bookEl.offsetWidth + "px" : "0px";
-        finalPanel.classList.toggle("is-revealed", on);
+        finalPanel.classList.toggle("is-revealed", on);   // CSS slides the panel + shifts "Let's talk"
       };
       const go = (i) => { idx = Math.max(0, Math.min(last, i)); if (idx !== last && bookRevealed) setBookReveal(false); deck.scrollTo({ left: idx * deck.clientWidth, behavior: "smooth" }); if (curEl) curEl.textContent = pad(idx); reveal(); };
       reveal();

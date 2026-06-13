@@ -175,6 +175,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .dc-panel.is-open { pointer-events: auto; }
   .dc-panel[aria-hidden="true"] .dc-panel-stage { transform: translateX(-100%); }
   .dc-panel[aria-hidden="true"] .dc-panel-scrim { opacity: 0; }
+  /* Right-hand variant (opened with data-dc-side="right") — the stage docks on
+     the right and slides in from there instead of the left. */
+  .dc-panel.dc-from-right .dc-panel-stage { left: auto; right: 0; box-shadow: -30px 0 80px rgba(0,0,0,0.28); }
+  .dc-panel.dc-from-right[aria-hidden="true"] .dc-panel-stage { transform: translateX(100%); }
 
   .dc-panel-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.5); opacity: 1; transition: opacity 0.55s ease-out; }
 
@@ -395,6 +399,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (contractCta) contractCta.disabled = true;
       if (formCta) { formCta.disabled = false; formCta.classList.remove("is-loading"); formCta.innerHTML = 'Confirm booking <em>&rarr;</em>'; }
       eyebrow.textContent = `TMKE — ${service}`;
+      panel.classList.toggle("dc-from-right", opts.side === "right");
       if (daySub) daySub.textContent = mode === "waitlist"
         ? "Pick the date you'd ideally like — we'll match it to the first cancellation that fits."
         : "Choose a date that suits you — weekdays, 9am–5pm.";
@@ -593,7 +598,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panel.classList.contains("is-open")) close(); });
     document.addEventListener("click", (e) => {
       const o = e.target.closest?.("[data-discovery-call]"); if (!o) return; e.preventDefault();
-      open({ mode: o.getAttribute("data-dc-mode"), service: o.getAttribute("data-dc-service"), duration: o.getAttribute("data-dc-duration"), packs: o.getAttribute("data-dc-packs"), services: o.getAttribute("data-dc-services"), interests: o.getAttribute("data-dc-interests"), domains: o.getAttribute("data-dc-domains") });
+      open({ mode: o.getAttribute("data-dc-mode"), service: o.getAttribute("data-dc-service"), duration: o.getAttribute("data-dc-duration"), packs: o.getAttribute("data-dc-packs"), services: o.getAttribute("data-dc-services"), interests: o.getAttribute("data-dc-interests"), domains: o.getAttribute("data-dc-domains"), side: o.getAttribute("data-dc-side") });
     });
     window.tmkeDiscoveryOpen = open;
   })();

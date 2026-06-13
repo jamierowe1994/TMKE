@@ -92,8 +92,8 @@ export const PRODUCTS = [
     slideBlurb:
       "From presenter-led video tours and drone footage to portal-ready photography and 360 virtual tours — everything a property needs to generate more clicks, more enquiries, and more viewings.",
     ctaLabel: "Discover our Property Packages",
-    hero: "https://assets.tmke.co.uk/Twilight2.png",
-    gallery: ["https://assets.tmke.co.uk/Twilight2.png", R2("kitchen-2"), R2("living-1"), R2("orange-1"), R2("table")],
+    hero: "https://assets.tmke.co.uk/Jack%20Photos%20-%20Homepage/Twilight2.png",
+    gallery: ["https://assets.tmke.co.uk/Jack%20Photos%20-%20Homepage/Twilight2.png", R2("kitchen-2"), R2("living-1"), R2("orange-1"), R2("table")],
     popLede: "First impressions are made online, long before anyone steps through the door.",
     popIntro: [
       "On the portals, that impression comes down entirely to the quality of the media. Listings with professional photography and video consistently outperform those without, generating more clicks, more enquiries, and more viewings.",
