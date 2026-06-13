@@ -42,6 +42,11 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
        shift dark->light as the photo passes under them. -->
   <section id="top" class="hero-zoom" data-reveal-root>
     <div class="hero-zoom-pin">
+      <!-- Snakeskin resting surface — the texture the home page opens on, behind
+           the photo. The controller fades it out as the photo irises in, so the
+           snakeskin is only there BEFORE the animation. Only shown once the image
+           loads (.has-snakeskin), so nothing breaks if the asset is missing. -->
+      <div class="hero-zoom-skin" aria-hidden="true"></div>
       <!-- Layer A — the photo that unfolds to full screen -->
       <div class="hero-zoom-media">
         <img class="hero-zoom-img" src="https://assets.tmke.co.uk/vibes.webp" alt="A TMKE interior" />
@@ -542,18 +547,33 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
          the letters (no shadow on the blank starter wall). */
       will-change: color, text-shadow;
     }
-    /* Snakeskin fill — added by JS (.has-snakeskin) only once the texture image
-       actually loads, so the wordmark never goes invisible if the asset is
-       missing. The carve shadows above stay, so it reads as the snakeskin
-       imprinted into the page with depth (one continuous material). */
-    .hero-zoom-word.has-snakeskin {
-      background-image: var(--snakeskin);
-      background-size: cover;
+    /* Snakeskin resting surface — fills the hero behind the photo. Opacity is
+       driven by the controller (full at rest, fades as the photo irises in).
+       Only painted once the image loads (.has-snakeskin). */
+    .hero-zoom-skin {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
       background-position: center;
-      background-repeat: no-repeat;
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
+      background-size: cover;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .hero-zoom.has-snakeskin .hero-zoom-skin { background-image: var(--snakeskin); }
+    /* TMKE stamped INTO the leather: the letters are a translucent dark fill, so
+       the snakeskin surface BEHIND them shows through, darkened — a real recess
+       in the same material (perfectly aligned, since it's literally the surface
+       showing through). The controller's carve shadows light the edges (lit lip
+       below, shadow above) to complete the pressed-in look. Toggled on (.is-skin)
+       only at rest; removed as the fold-out begins so the word transitions
+       normally after the animation. */
+    .hero-zoom-word.is-skin {
+      /* Near-transparent so the snakeskin surface shows through the letters at
+         (almost) full texture + colour — only a faint recess shadow. The carve
+         edges (controller) do the "impressed" work, so it reads as the SAME
+         leather pushed in, not a dark word over the top. */
+      color: rgba(10, 7, 5, 0.18);
+      -webkit-text-fill-color: rgba(10, 7, 5, 0.18);
     }
 
     /* Layer C — sofa cushions over the word (same iris clip, set by the
@@ -633,16 +653,23 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const media = hero.querySelector(".hero-zoom-media");
       const fg = hero.querySelector(".hero-zoom-fg");
       const word = hero.querySelector(".hero-zoom-word");
-      // Snakeskin texture fill — applied only once the image actually loads, so
-      // the wordmark never goes invisible (it uses background-clip:text) if the
-      // asset is missing. Tries the common extensions on the assets bucket.
-      if (word) (function () {
-        const exts = [".webp", ".jpg", ".png"]; let i = 0;
+      const skin = hero.querySelector(".hero-zoom-skin");
+      // Snakeskin texture — set on the hero (so the surface layer + the wordmark
+      // both inherit --snakeskin) only once the image actually loads, so nothing
+      // breaks if the asset is missing. Tries the known filename + fallbacks.
+      (function () {
+        const urls = [
+          "https://assets.tmke.co.uk/snake%20skin.png",
+          "https://assets.tmke.co.uk/snakeskin.webp",
+          "https://assets.tmke.co.uk/snakeskin.jpg",
+          "https://assets.tmke.co.uk/snakeskin.png",
+        ];
+        let i = 0;
         (function next() {
-          if (i >= exts.length) return;
-          const url = "https://assets.tmke.co.uk/snakeskin" + exts[i++];
+          if (i >= urls.length) return;
+          const url = urls[i++];
           const im = new Image();
-          im.onload = () => { word.style.setProperty("--snakeskin", "url('" + url + "')"); word.classList.add("has-snakeskin"); };
+          im.onload = () => { hero.style.setProperty("--snakeskin", "url('" + url + "')"); hero.classList.add("has-snakeskin"); update(); };
           im.onerror = next;
           im.src = url;
         })();
@@ -669,6 +696,13 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
         media.style.clipPath = clip;
         if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
+        // Snakeskin resting surface: full at rest, fades out as the photo opens
+        // (snakeskin is only there BEFORE the animation). The wordmark is stamped
+        // into it only while resting (.is-skin); once the fold-out begins we drop
+        // the snakeskin so the word transitions to its normal state.
+        const hasSkin = hero.classList.contains("has-snakeskin");
+        if (skin) skin.style.opacity = hasSkin ? clamp01(1 - e / 0.18).toFixed(3) : "0";
+        if (word) { if (hasSkin && e < 0.06) word.classList.add("is-skin"); else word.classList.remove("is-skin"); }
         // word: debossed #eae5e1 at rest -> secondary taupe #7e6765 as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
@@ -677,13 +711,15 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         // sliver of scroll; the drop shadow fades in once the photo is behind.
         const carve = clamp01(1 - e / 0.1);
         const sh = smooth(clamp01((e - 0.12) / 0.4));
+        // Stamped-into-leather edges: a shadow cast DOWN into the top of the
+        // impression, and a warm lit lip on the bottom edge below it.
         word.style.textShadow =
-          "0 -1px 1px rgba(36,30,18," + (0.34 * carve).toFixed(3) + ")," +
-          "0 -2px 4px rgba(36,30,18," + (0.18 * carve).toFixed(3) + ")," +
-          "0 -4px 7px rgba(36,30,18," + (0.10 * carve).toFixed(3) + ")," +
-          "0 1px 1px rgba(255,255,255," + (0.98 * carve).toFixed(3) + ")," +
-          "0 2px 4px rgba(255,255,255," + (0.60 * carve).toFixed(3) + ")," +
-          "0 4px 8px rgba(255,255,255," + (0.40 * carve).toFixed(3) + ")," +
+          "0 -1px 1px rgba(18,12,8," + (0.60 * carve).toFixed(3) + ")," +
+          "0 -2px 5px rgba(18,12,8," + (0.40 * carve).toFixed(3) + ")," +
+          "0 -5px 10px rgba(18,12,8," + (0.18 * carve).toFixed(3) + ")," +
+          "0 2px 1px rgba(255,248,238," + (0.70 * carve).toFixed(3) + ")," +
+          "0 3px 6px rgba(255,248,238," + (0.42 * carve).toFixed(3) + ")," +
+          "0 6px 12px rgba(255,248,238," + (0.26 * carve).toFixed(3) + ")," +
           "0 3px 8px rgba(0,0,0," + (0.30 * sh).toFixed(3) + ")," +
           "0 12px 34px rgba(0,0,0," + (0.22 * sh).toFixed(3) + ")";
         // bottom labels: ink -> paper as the photo reaches them (late)

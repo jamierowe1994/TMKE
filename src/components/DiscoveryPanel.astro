@@ -175,6 +175,34 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .dc-panel.is-open { pointer-events: auto; }
   .dc-panel[aria-hidden="true"] .dc-panel-stage { transform: translateX(-100%); }
   .dc-panel[aria-hidden="true"] .dc-panel-scrim { opacity: 0; }
+  /* Right-hand variant (opened with data-dc-side="right") — the stage docks on
+     the right and slides in from there instead of the left. */
+  .dc-panel.dc-from-right .dc-panel-stage { left: auto; right: 0; box-shadow: -30px 0 80px rgba(0,0,0,0.28); }
+  .dc-panel.dc-from-right[aria-hidden="true"] .dc-panel-stage { transform: translateX(100%); }
+  /* Inline mode — the stage is mounted inside a host element (e.g. the services
+     book-a-call panel). The empty overlay stops blocking; the stage fills its
+     host with no slide/scrim/shadow. */
+  .dc-panel.dc-inline { position: static; pointer-events: none; }
+  .dc-panel.dc-inline .dc-panel-scrim { display: none; }
+  .dc-panel-stage.dc-inline-mounted {
+    position: relative; inset: auto; width: 100%; max-width: none; height: 100%;
+    transform: none !important; box-shadow: none; pointer-events: auto;
+    /* Purple, so the booking reads as part of the pulled-out tab (the white
+       calendar / slot / input cards sit on top and stay legible). */
+    background: var(--english-violet);
+  }
+  .dc-inline-mounted .dc-panel-head { background: transparent; border-bottom-color: rgba(255,255,255,0.14); }
+  .dc-inline-mounted .dc-panel-close, .dc-inline-mounted .dc-panel-back { color: rgba(255,255,255,0.82); }
+  .dc-inline-mounted .dc-panel-close:hover, .dc-inline-mounted .dc-panel-back:hover { color: #fff; }
+  .dc-inline-mounted .dc-panel-eyebrow { color: rgba(255,255,255,0.62); }
+  .dc-inline-mounted .dc-step-title { color: var(--paper); }
+  .dc-inline-mounted .dc-step-title em { color: #e7d7de; }
+  .dc-inline-mounted .dc-step-sub, .dc-inline-mounted .dc-step-sub2, .dc-inline-mounted #dc-day-sub, .dc-inline-mounted #dc-time-sub { color: rgba(244,242,241,0.72); }
+  .dc-inline-mounted .dc-field > span { color: rgba(244,242,241,0.7); }
+  .dc-inline-mounted .dc-form-summary { color: rgba(244,242,241,0.88); background: rgba(255,255,255,0.08); border-left-color: var(--paper); }
+  /* CTAs flip to paper so they pop on the purple. */
+  .dc-inline-mounted .dc-next, .dc-inline-mounted .dc-form-cta { background: var(--paper); color: var(--ink); }
+  .dc-inline-mounted .dc-next:hover, .dc-inline-mounted .dc-form-cta:hover { background: #fff; }
 
   .dc-panel-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.5); opacity: 1; transition: opacity 0.55s ease-out; }
 
@@ -187,7 +215,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   }
   .dc-panel-stage::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
-  .dc-panel-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 18px 32px; background: rgba(244, 242, 241,0.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid rgba(28,29,34,0.08); }
+  /* Top padding clears the fixed nav / top bar so the Close / Back / eyebrow sit
+     BELOW it and are reachable (reaching the very top edge otherwise triggers the
+     menu bar). */
+  .dc-panel-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 92px 32px 16px; background: rgba(244, 242, 241,0.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid rgba(28,29,34,0.08); }
   .dc-head-left { display: flex; align-items: center; gap: 18px; }
   .dc-panel-close, .dc-panel-back { appearance: none; background: transparent; border: 0; color: var(--english-violet); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 0; transition: color .2s; }
   .dc-panel-close:hover, .dc-panel-back:hover { color: var(--ink); }
@@ -310,6 +341,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     if (!panel) return;
     const WORKER = (panel.dataset.worker || "").replace(/\/+$/, "");
     const stage = panel.querySelector(".dc-panel-stage");
+    let inlineHost = null;   // set when the wizard is mounted inline in a target
     const $ = (id) => document.getElementById(id);
     const eyebrow = $("dc-eyebrow"), backBtn = $("dc-back");
     const calLabel = $("dc-cal-label"), calGrid = $("dc-cal-grid");
@@ -395,11 +427,23 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (contractCta) contractCta.disabled = true;
       if (formCta) { formCta.disabled = false; formCta.classList.remove("is-loading"); formCta.innerHTML = 'Confirm booking <em>&rarr;</em>'; }
       eyebrow.textContent = `TMKE — ${service}`;
+      panel.classList.toggle("dc-from-right", opts.side === "right");
+      // Inline mode: mount the wizard inside a target element (in-place) rather
+      // than as a full-screen pop-out — used by the /services book-a-call panel.
+      const inlineTarget = opts.inline ? document.querySelector(opts.inline) : null;
+      if (inlineTarget) {
+        inlineHost = inlineTarget;
+        inlineTarget.appendChild(stage);
+        panel.classList.add("dc-inline"); stage.classList.add("dc-inline-mounted");
+      } else if (inlineHost) {
+        panel.appendChild(stage); panel.classList.remove("dc-inline"); stage.classList.remove("dc-inline-mounted"); inlineHost = null;
+      }
       if (daySub) daySub.textContent = mode === "waitlist"
         ? "Pick the date you'd ideally like — we'll match it to the first cancellation that fits."
         : "Choose a date that suits you — weekdays, 9am–5pm.";
       panel.setAttribute("aria-hidden", "false"); panel.classList.add("is-open");
-      document.documentElement.style.overflow = "hidden"; if (stage) stage.scrollTop = 0;
+      if (!inlineTarget) document.documentElement.style.overflow = "hidden";
+      if (stage) stage.scrollTop = 0;
       renderCalendar(); fetchConfig().then(renderCalendar);
 
       if (mode === "consult") { renderInterests(); showStepRaw("interest"); }
@@ -413,7 +457,11 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         else showStepRaw("day");
       } else showStepRaw("day");
     }
-    function close() { panel.setAttribute("aria-hidden", "true"); panel.classList.remove("is-open"); document.documentElement.style.overflow = ""; }
+    function close() {
+      panel.setAttribute("aria-hidden", "true"); panel.classList.remove("is-open"); document.documentElement.style.overflow = "";
+      if (inlineHost) { panel.appendChild(stage); panel.classList.remove("dc-inline"); stage.classList.remove("dc-inline-mounted"); inlineHost = null; }
+      window.dispatchEvent(new CustomEvent("dc:close"));
+    }
 
     // ---- interest (consult) ----
     function renderInterests() {
@@ -589,11 +637,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     });
 
     // ---- close + openers ----
-    panel.addEventListener("click", (e) => { if (e.target.closest("[data-dc-close]")) close(); });
+    // Document-level so it still works when the stage is mounted inline (moved
+    // out of .dc-panel) — close/back/done buttons live inside the stage.
+    document.addEventListener("click", (e) => { if (e.target.closest("[data-dc-close]")) close(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panel.classList.contains("is-open")) close(); });
     document.addEventListener("click", (e) => {
       const o = e.target.closest?.("[data-discovery-call]"); if (!o) return; e.preventDefault();
-      open({ mode: o.getAttribute("data-dc-mode"), service: o.getAttribute("data-dc-service"), duration: o.getAttribute("data-dc-duration"), packs: o.getAttribute("data-dc-packs"), services: o.getAttribute("data-dc-services"), interests: o.getAttribute("data-dc-interests"), domains: o.getAttribute("data-dc-domains") });
+      open({ mode: o.getAttribute("data-dc-mode"), service: o.getAttribute("data-dc-service"), duration: o.getAttribute("data-dc-duration"), packs: o.getAttribute("data-dc-packs"), services: o.getAttribute("data-dc-services"), interests: o.getAttribute("data-dc-interests"), domains: o.getAttribute("data-dc-domains"), side: o.getAttribute("data-dc-side"), inline: o.getAttribute("data-dc-inline") });
     });
     window.tmkeDiscoveryOpen = open;
   })();

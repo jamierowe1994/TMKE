@@ -92,8 +92,8 @@ export const PRODUCTS = [
     slideBlurb:
       "From presenter-led video tours and drone footage to portal-ready photography and 360 virtual tours — everything a property needs to generate more clicks, more enquiries, and more viewings.",
     ctaLabel: "Discover our Property Packages",
-    hero: R2("kitchen-1"),
-    gallery: [R2("kitchen-1"), R2("kitchen-2"), R2("living-1"), R2("orange-1"), R2("table")],
+    hero: "https://assets.tmke.co.uk/Jack%20Photos%20-%20Homepage/LeahMusana-7.jpg",
+    gallery: ["https://assets.tmke.co.uk/Jack%20Photos%20-%20Homepage/LeahMusana-7.jpg", R2("kitchen-2"), R2("living-1"), R2("orange-1"), R2("table")],
     popLede: "First impressions are made online, long before anyone steps through the door.",
     popIntro: [
       "On the portals, that impression comes down entirely to the quality of the media. Listings with professional photography and video consistently outperform those without, generating more clicks, more enquiries, and more viewings.",
@@ -143,8 +143,12 @@ export const PRODUCTS = [
     slideBlurb:
       "Elevator pitch videos, lifestyle portraits, and professional headshots — created on location to keep you visible, credible, and front of mind in your local market.",
     ctaLabel: "Discover our Agent Edit",
-    hero: R2("orange-2"),
-    gallery: [R2("orange-2"), R2("white-1"), R2("white-2"), R2("living-2")],
+    hero: "https://assets.tmke.co.uk/Jack%20-%20headshots/Z63_2337-63.jpg",
+    gallery: ["https://assets.tmke.co.uk/Jack%20-%20headshots/Z63_2337-63.jpg", R2("white-1"), R2("white-2"), R2("living-2")],
+    // Main media is a fixed video (replaces the main image); the gallery
+    // thumbnails are populated live from the "Jack - headshots" folder (newest 8).
+    heroVideo: "https://assets.tmke.co.uk/Jack%20-%20headshots/IntroVideoWidescreen.mp4",
+    liveHeadshots: true,
     popLede: "Professional video and photography content built around you, not just your listings.",
     popIntro: [
       "The agents who win instructions consistently aren't always the most experienced — they're the ones who show up, stay visible, and build genuine trust with their audience over time.",
