@@ -405,6 +405,21 @@ export default {
         return json({ weekdays }, 200, request, env);
       }
 
+      // ---- Live headshots: newest N images in the assets "Jack - headshots/"
+      // folder. Public GET; powers the auto-updating Agent gallery. ----
+      if (path.endsWith("/headshots") && request.method === "GET") {
+        if (!env.ASSETS) return json({ images: [] }, 200, request, env);
+        const limit = Math.min(24, Math.max(1, parseInt(url.searchParams.get("limit") || "8", 10)));
+        const prefix = "Jack - headshots/";
+        const listed = await env.ASSETS.list({ prefix });
+        const imgs = (listed.objects || [])
+          .filter((o) => /\.(jpe?g|png|webp|avif)$/i.test(o.key))     // images only (skip the intro video etc.)
+          .sort((a, b) => new Date(b.uploaded) - new Date(a.uploaded)) // newest first
+          .slice(0, limit)
+          .map((o) => "https://assets.tmke.co.uk/" + o.key.split("/").map(encodeURIComponent).join("/"));
+        return json({ images: imgs }, 200, request, env);
+      }
+
       // ---- Bookable slots for a day (Jack's diary hours minus 365 busy) ----
       if (path.endsWith("/ms/availability") && request.method === "GET") {
         const date = url.searchParams.get("date"); // YYYY-MM-DD

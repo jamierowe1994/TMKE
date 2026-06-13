@@ -145,6 +145,10 @@ export const PRODUCTS = [
     ctaLabel: "Discover our Agent Edit",
     hero: R2("orange-2"),
     gallery: [R2("orange-2"), R2("white-1"), R2("white-2"), R2("living-2")],
+    // Main media is a fixed video (replaces the main image); the gallery
+    // thumbnails are populated live from the "Jack - headshots" folder (newest 8).
+    heroVideo: "https://assets.tmke.co.uk/Jack%20-%20headshots/IntroVideoWidescreen.mp4",
+    liveHeadshots: true,
     popLede: "Professional video and photography content built around you, not just your listings.",
     popIntro: [
       "The agents who win instructions consistently aren't always the most experienced — they're the ones who show up, stay visible, and build genuine trust with their audience over time.",
