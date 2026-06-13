@@ -542,6 +542,19 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
          the letters (no shadow on the blank starter wall). */
       will-change: color, text-shadow;
     }
+    /* Snakeskin fill — added by JS (.has-snakeskin) only once the texture image
+       actually loads, so the wordmark never goes invisible if the asset is
+       missing. The carve shadows above stay, so it reads as the snakeskin
+       imprinted into the page with depth (one continuous material). */
+    .hero-zoom-word.has-snakeskin {
+      background-image: var(--snakeskin);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
 
     /* Layer C — sofa cushions over the word (same iris clip, set by the
        controller). object-fit/position mirror the photo so they line up. */
@@ -620,6 +633,20 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const media = hero.querySelector(".hero-zoom-media");
       const fg = hero.querySelector(".hero-zoom-fg");
       const word = hero.querySelector(".hero-zoom-word");
+      // Snakeskin texture fill — applied only once the image actually loads, so
+      // the wordmark never goes invisible (it uses background-clip:text) if the
+      // asset is missing. Tries the common extensions on the assets bucket.
+      if (word) (function () {
+        const exts = [".webp", ".jpg", ".png"]; let i = 0;
+        (function next() {
+          if (i >= exts.length) return;
+          const url = "https://assets.tmke.co.uk/snakeskin" + exts[i++];
+          const im = new Image();
+          im.onload = () => { word.style.setProperty("--snakeskin", "url('" + url + "')"); word.classList.add("has-snakeskin"); };
+          im.onerror = next;
+          im.src = url;
+        })();
+      })();
       const foot = hero.querySelector(".hero-zoom-foot");
       const nav = document.getElementById("nav");
       const smooth = (t) => t * t * (3 - 2 * t);
