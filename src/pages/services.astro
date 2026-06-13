@@ -85,20 +85,27 @@ const total = 4;
         </div>
       </section>
 
-      <!-- Slide 4 — Contact + brochure -->
-      <section class="pf-panel sm-contact">
-        <div class="sm-contact-inner">
-          <p class="sm-eyebrow"><span>&mdash;</span> Let's talk</p>
-          <h2 class="sm-contact-h">Let's make it <em>consistent.</em></h2>
-          <p class="sm-lead">Tell us about your brand and where you want it to go &mdash; we'll put a plan together.</p>
-          <div class="sm-actions">
-            <a href="/assets/tmke-services.pdf" class="sm-brochure" download>Download services brochure <span aria-hidden="true">&darr;</span></a>
+      <!-- Slide 4 — Let's talk (centred) + slide-in "Book a call" reveal.
+           Mirrors the videography closing panel: at the last slide, scrolling a
+           touch more (or clicking the tab) slides the track to bring "Book a
+           call" in from the right, easing "Let's talk" out of the way. -->
+      <section class="pf-panel sm-contact sm-final" id="sm-final">
+        <div class="sm-final-track" id="sm-final-track">
+          <div class="sm-contact-inner">
+            <p class="sm-eyebrow"><span>&mdash;</span> Let's talk</p>
+            <h2 class="sm-contact-h">Let's make it <em>consistent.</em></h2>
+            <p class="sm-lead">Tell us about your brand and where you want it to go &mdash; we'll put a plan together.</p>
+            <div class="sm-actions">
+              <a href="/assets/tmke-services.pdf" class="sm-brochure" download>Download services brochure <span aria-hidden="true">&darr;</span></a>
+            </div>
           </div>
+          <aside class="sm-book-panel" aria-label="Book a call">
+            <h2 class="sm-book-title">Book a<br />call</h2>
+            <p class="sm-book-desc">Prefer to talk it through? Grab a time that suits you and we'll get to know your brand and where you want it to go.</p>
+            <button type="button" data-discovery-call class="sm-book-cta">Pick a time <span class="btn-arrow">&rarr;</span></button>
+          </aside>
         </div>
-        <!-- Edge tab — pulls out the booking day-picker (the DiscoveryPanel diary),
-             the same handle pattern as the videography newsletter reveal tab. -->
-        <button type="button" data-discovery-call class="sm-reveal-tab" aria-label="Book a call — pick a day">
-          <span class="sm-reveal-label">Book a call</span>
+        <button type="button" class="sm-reveal-tab" id="sm-reveal-tab" aria-label="Reveal book a call">
           <span class="sm-reveal-arrow" aria-hidden="true">&rarr;</span>
         </button>
       </section>
@@ -208,31 +215,43 @@ const total = 4;
     .pf-cta:hover { color: var(--english-violet); border-color: var(--english-violet); }
     .pf-cta:hover em { margin-left: 16px; }
 
-    /* Slide 4 — contact */
-    .sm-contact { position: relative; }
-    .sm-contact-inner { max-width: 680px; }
-    /* Edge "Book a call" tab — handle on the right edge that pulls out the
-       booking day-picker (DiscoveryPanel), mirroring the videography reveal tab. */
+    /* Slide 4 — Let's talk + slide-in "Book a call" reveal (videography pattern) */
+    .sm-final { position: relative; overflow: hidden; padding: 0; }
+    .sm-final-track { display: flex; height: 100%; width: max-content; transition: transform 0.75s cubic-bezier(.16,1,.3,1); will-change: transform; }
+    /* "Let's talk" — now a full-width, centred panel that eases left as the
+       book panel slides in. */
+    .sm-contact-inner {
+      flex: 0 0 100vw; height: 100%; max-width: none;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center; gap: 0; padding: 96px clamp(28px, 8vw, 140px) 80px;
+    }
+    .sm-contact-inner .sm-lead { max-width: 52ch; }
+    /* "Book a call" panel — sits off-screen right until revealed. */
+    .sm-book-panel {
+      flex: 0 0 min(46vw, 560px); height: 100%;
+      background: var(--english-violet); color: var(--paper);
+      display: flex; flex-direction: column; justify-content: center; gap: 24px;
+      padding: 96px clamp(40px, 4vw, 80px) 80px;
+    }
+    .sm-book-title { font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 4vw, 72px); line-height: 0.98; letter-spacing: -0.025em; margin: 0; }
+    .sm-book-desc { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(240,238,235,0.8); max-width: 38ch; margin: 0; }
+    .sm-book-cta { align-self: flex-start; background: var(--paper); color: var(--ink); border: none; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; padding: 15px 28px; transition: opacity .25s; }
+    .sm-book-cta:hover { opacity: 0.85; }
+    .sm-book-cta .btn-arrow { margin-left: 10px; display: inline-block; transition: margin .25s; }
+    .sm-book-cta:hover .btn-arrow { margin-left: 16px; }
+    /* Reveal handle on the right edge — slides left to the panel edge when open. */
     .sm-reveal-tab {
       position: absolute; top: 50%; right: 0; transform: translateY(-50%);
-      z-index: 6; border: none; cursor: pointer;
+      z-index: 6; width: 40px; height: 104px; border: none; cursor: pointer;
       background: var(--english-violet); color: var(--paper);
-      border-radius: 12px 0 0 12px;
-      display: flex; flex-direction: column; align-items: center; gap: 12px;
-      padding: 22px 12px;
-      font-family: var(--sans); font-weight: 700; font-size: 11px;
-      letter-spacing: 0.22em; text-transform: uppercase;
-      box-shadow: -6px 0 24px rgba(20,18,26,0.18);
-      transition: background 0.25s, transform 0.4s cubic-bezier(.16,1,.3,1);
+      border-radius: 10px 0 0 10px; display: flex; align-items: center; justify-content: center;
+      transition: right 0.75s cubic-bezier(.16,1,.3,1), background .25s;
     }
-    .sm-reveal-label { writing-mode: vertical-rl; }
-    .sm-reveal-arrow { font-size: 15px; transition: transform 0.4s cubic-bezier(.16,1,.3,1); }
-    .sm-reveal-tab:hover { background: var(--ink); transform: translateY(-50%) translateX(-4px); }
-    .sm-reveal-tab:hover .sm-reveal-arrow { transform: translateX(4px); }
+    .sm-reveal-tab:hover { background: var(--ink); }
+    .sm-reveal-arrow { font-size: 18px; transition: transform .5s cubic-bezier(.16,1,.3,1); }
+    .sm-final.is-revealed .sm-reveal-arrow { transform: rotate(180deg); }
     @media (max-width: 760px) {
-      .sm-reveal-tab { flex-direction: row; gap: 8px; top: auto; bottom: 28px; transform: none; border-radius: 12px; padding: 12px 18px; }
-      .sm-reveal-label { writing-mode: horizontal-tb; }
-      .sm-reveal-tab:hover { transform: translateX(0); }
+      .sm-book-panel { flex: 0 0 86vw; }
     }
     .sm-contact-h { font-family: var(--serif); font-weight: 400; font-size: clamp(44px, 6vw, 96px); line-height: 0.98; letter-spacing: -0.025em; color: var(--ink); margin: 0 0 22px; }
     .sm-contact-h em { font-style: italic; color: var(--english-violet); }
@@ -341,8 +360,25 @@ const total = 4;
         panels.forEach((p, i) => p.classList.toggle("is-in", i === idx));
         if (topBarEl) topBarEl.classList.toggle("nav-on-dark", idx === 0);
       };
-      const go = (i) => { idx = Math.max(0, Math.min(panels.length - 1, i)); deck.scrollTo({ left: idx * deck.clientWidth, behavior: "smooth" }); if (curEl) curEl.textContent = pad(idx); reveal(); };
+      const last = panels.length - 1;
+      // "Book a call" reveal on the final slide — slides the track to bring the
+      // book panel in from the right (mirrors the videography newsletter reveal).
+      const finalPanel = document.getElementById("sm-final");
+      const finalTrack = document.getElementById("sm-final-track");
+      const revealTab = document.getElementById("sm-reveal-tab");
+      const bookEl = finalPanel ? finalPanel.querySelector(".sm-book-panel") : null;
+      let bookRevealed = false;
+      const bookAmt = () => (finalTrack ? Math.max(0, finalTrack.scrollWidth - finalPanel.clientWidth) : 0);
+      const setBookReveal = (on) => {
+        if (!finalTrack) return;
+        bookRevealed = on;
+        finalTrack.style.transform = on ? `translateX(-${bookAmt()}px)` : "translateX(0)";
+        if (revealTab) revealTab.style.right = on && bookEl ? bookEl.offsetWidth + "px" : "0px";
+        finalPanel.classList.toggle("is-revealed", on);
+      };
+      const go = (i) => { idx = Math.max(0, Math.min(last, i)); if (idx !== last && bookRevealed) setBookReveal(false); deck.scrollTo({ left: idx * deck.clientWidth, behavior: "smooth" }); if (curEl) curEl.textContent = pad(idx); reveal(); };
       reveal();
+      if (revealTab) revealTab.addEventListener("click", (ev) => { ev.stopPropagation(); setBookReveal(!bookRevealed); });
       deck.addEventListener("wheel", (e) => {
         if (portfolioOpen) return;
         e.preventDefault();
@@ -350,14 +386,15 @@ const total = 4;
         const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
         if (Math.abs(d) < 6) return;
         cooling = true; setTimeout(() => { cooling = false; }, 620);
-        go(idx + (d > 0 ? 1 : -1));
+        if (d > 0) { if (idx === last) { if (!bookRevealed) setBookReveal(true); } else go(idx + 1); }
+        else { if (idx === last && bookRevealed) setBookReveal(false); else go(idx - 1); }
       }, { passive: false });
       window.addEventListener("keydown", (e) => {
         if (portfolioOpen) return;
-        if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); go(idx + 1); }
-        else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); go(idx - 1); }
+        if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); if (idx === last) { if (!bookRevealed) setBookReveal(true); } else go(idx + 1); }
+        else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); if (idx === last && bookRevealed) setBookReveal(false); else go(idx - 1); }
       });
-      window.addEventListener("resize", () => deck.scrollTo({ left: idx * deck.clientWidth }));
+      window.addEventListener("resize", () => { deck.scrollTo({ left: idx * deck.clientWidth }); if (bookRevealed) setBookReveal(true); });
       deck.addEventListener("scroll", () => { clearTimeout(settle); settle = setTimeout(() => { const i = Math.round(deck.scrollLeft / deck.clientWidth); if (i !== idx) { idx = i; if (curEl) curEl.textContent = pad(idx); reveal(); } }, 120); }, { passive: true });
     })();
 
