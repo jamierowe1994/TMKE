@@ -542,6 +542,19 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
          the letters (no shadow on the blank starter wall). */
       will-change: color, text-shadow;
     }
+    /* Snakeskin fill — added by JS (.has-snakeskin) only once the texture image
+       actually loads, so the wordmark never goes invisible if the asset is
+       missing. The carve shadows above stay, so it reads as the snakeskin
+       imprinted into the page with depth (one continuous material). */
+    .hero-zoom-word.has-snakeskin {
+      background-image: var(--snakeskin);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
 
     /* Layer C — sofa cushions over the word (same iris clip, set by the
        controller). object-fit/position mirror the photo so they line up. */
@@ -620,6 +633,20 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const media = hero.querySelector(".hero-zoom-media");
       const fg = hero.querySelector(".hero-zoom-fg");
       const word = hero.querySelector(".hero-zoom-word");
+      // Snakeskin texture fill — applied only once the image actually loads, so
+      // the wordmark never goes invisible (it uses background-clip:text) if the
+      // asset is missing. Tries the common extensions on the assets bucket.
+      if (word) (function () {
+        const exts = [".webp", ".jpg", ".png"]; let i = 0;
+        (function next() {
+          if (i >= exts.length) return;
+          const url = "https://assets.tmke.co.uk/snakeskin" + exts[i++];
+          const im = new Image();
+          im.onload = () => { word.style.setProperty("--snakeskin", "url('" + url + "')"); word.classList.add("has-snakeskin"); };
+          im.onerror = next;
+          im.src = url;
+        })();
+      })();
       const foot = hero.querySelector(".hero-zoom-foot");
       const nav = document.getElementById("nav");
       const smooth = (t) => t * t * (3 - 2 * t);
@@ -844,16 +871,19 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 
   <!-- ===================== Chapter 06 — Table photo ===================== -->
   <style>
-    /* Ch06 holds the bleeding photo; clip it at the viewport's right edge. */
-    #social.quote--split { position: relative; overflow: hidden; min-height: 52vw; }
-    /* Square table photo, static, anchored to the right and ~25% off-screen,
-       vertically centred so it's in line with the SMM piece on the left. */
+    /* Ch06 holds the bleeding photo. Capped + centred on wide screens so the
+       composition scales with the viewport up to 1800px, then sits centred
+       (the photo bleeds off the capped section edge, not off into dead space). */
+    #social.quote--split { position: relative; overflow: hidden; min-height: min(52vw, 936px); max-width: 1800px; margin-left: auto; margin-right: auto; }
+    /* Square table photo, static, anchored to the right and ~25% off the section
+       edge, vertically centred so it's in line with the SMM piece on the left.
+       vw is capped (min/max) so it stops growing/bleeding once the section caps. */
     #social .quote-photo--table {
       position: absolute;
       top: 50%;
-      right: -11.5vw;                 /* 25% of the 46vw square sits off-screen */
+      right: max(-207px, -11.5vw);    /* ~25% of the square sits off the edge */
       transform: translateY(-50%);
-      width: 46vw;
+      width: min(46vw, 828px);
       margin: 0;
       max-width: none;
       z-index: 1;
