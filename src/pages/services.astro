@@ -92,10 +92,15 @@ const total = 4;
           <h2 class="sm-contact-h">Let's make it <em>consistent.</em></h2>
           <p class="sm-lead">Tell us about your brand and where you want it to go &mdash; we'll put a plan together.</p>
           <div class="sm-actions">
-            <button type="button" data-discovery-call class="btn btn--solid sm-book">Book a call <span class="btn-arrow">&rarr;</span></button>
             <a href="/assets/tmke-services.pdf" class="sm-brochure" download>Download services brochure <span aria-hidden="true">&darr;</span></a>
           </div>
         </div>
+        <!-- Edge tab — pulls out the booking day-picker (the DiscoveryPanel diary),
+             the same handle pattern as the videography newsletter reveal tab. -->
+        <button type="button" data-discovery-call class="sm-reveal-tab" aria-label="Book a call — pick a day">
+          <span class="sm-reveal-label">Book a call</span>
+          <span class="sm-reveal-arrow" aria-hidden="true">&rarr;</span>
+        </button>
       </section>
     </div>
 
@@ -204,7 +209,31 @@ const total = 4;
     .pf-cta:hover em { margin-left: 16px; }
 
     /* Slide 4 — contact */
+    .sm-contact { position: relative; }
     .sm-contact-inner { max-width: 680px; }
+    /* Edge "Book a call" tab — handle on the right edge that pulls out the
+       booking day-picker (DiscoveryPanel), mirroring the videography reveal tab. */
+    .sm-reveal-tab {
+      position: absolute; top: 50%; right: 0; transform: translateY(-50%);
+      z-index: 6; border: none; cursor: pointer;
+      background: var(--english-violet); color: var(--paper);
+      border-radius: 12px 0 0 12px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      padding: 22px 12px;
+      font-family: var(--sans); font-weight: 700; font-size: 11px;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      box-shadow: -6px 0 24px rgba(20,18,26,0.18);
+      transition: background 0.25s, transform 0.4s cubic-bezier(.16,1,.3,1);
+    }
+    .sm-reveal-label { writing-mode: vertical-rl; }
+    .sm-reveal-arrow { font-size: 15px; transition: transform 0.4s cubic-bezier(.16,1,.3,1); }
+    .sm-reveal-tab:hover { background: var(--ink); transform: translateY(-50%) translateX(-4px); }
+    .sm-reveal-tab:hover .sm-reveal-arrow { transform: translateX(4px); }
+    @media (max-width: 760px) {
+      .sm-reveal-tab { flex-direction: row; gap: 8px; top: auto; bottom: 28px; transform: none; border-radius: 12px; padding: 12px 18px; }
+      .sm-reveal-label { writing-mode: horizontal-tb; }
+      .sm-reveal-tab:hover { transform: translateX(0); }
+    }
     .sm-contact-h { font-family: var(--serif); font-weight: 400; font-size: clamp(44px, 6vw, 96px); line-height: 0.98; letter-spacing: -0.025em; color: var(--ink); margin: 0 0 22px; }
     .sm-contact-h em { font-style: italic; color: var(--english-violet); }
     .sm-actions { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin-top: 8px; }
