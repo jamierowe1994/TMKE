@@ -560,20 +560,20 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       pointer-events: none;
     }
     .hero-zoom.has-snakeskin .hero-zoom-skin { background-image: var(--snakeskin); }
-    /* TMKE stamped INTO the leather: the letters are a translucent dark fill, so
-       the snakeskin surface BEHIND them shows through, darkened — a real recess
-       in the same material (perfectly aligned, since it's literally the surface
-       showing through). The controller's carve shadows light the edges (lit lip
-       below, shadow above) to complete the pressed-in look. Toggled on (.is-skin)
-       only at rest; removed as the fold-out begins so the word transitions
-       normally after the animation. */
+    /* TMKE embossed UP out of the leather: the letters are the same snakeskin
+       surface raised, so we keep the fill near-transparent (the texture shows
+       straight through the letter faces). A faint warm-light tint lets the
+       raised faces read as catching the light slightly. The controller's relief
+       shadows light the edges (highlight on the TOP edge, shadow on the BOTTOM
+       edge) to complete the raised look. Toggled on (.is-skin) only at rest;
+       removed as the fold-out begins so the word transitions normally after. */
     .hero-zoom-word.is-skin {
-      /* Near-transparent so the snakeskin surface shows through the letters at
-         (almost) full texture + colour — only a faint recess shadow. The carve
-         edges (controller) do the "impressed" work, so it reads as the SAME
-         leather pushed in, not a dark word over the top. */
-      color: rgba(10, 7, 5, 0.18);
-      -webkit-text-fill-color: rgba(10, 7, 5, 0.18);
+      /* Faint warm-light fill so the raised letter faces sit at (almost) full
+         snakeskin texture, just catching a touch more light than the surround.
+         The relief edges (controller) do the "raised" work, so it reads as the
+         SAME leather pushed OUT, not a light word over the top. */
+      color: rgba(255, 249, 242, 0.10);
+      -webkit-text-fill-color: rgba(255, 249, 242, 0.10);
     }
 
     /* Layer C — sofa cushions over the word (same iris clip, set by the
@@ -703,23 +703,24 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         const hasSkin = hero.classList.contains("has-snakeskin");
         if (skin) skin.style.opacity = hasSkin ? clamp01(1 - e / 0.18).toFixed(3) : "0";
         if (word) { if (hasSkin && e < 0.06) word.classList.add("is-skin"); else word.classList.remove("is-skin"); }
-        // word: debossed #eae5e1 at rest -> secondary taupe #7e6765 as the photo irises past it
+        // word: embossed #eae5e1 at rest -> secondary taupe #7e6765 as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
           "rgb(" + Math.round(lerp(234, 126, wc)) + "," + Math.round(lerp(229, 103, wc)) + "," + Math.round(lerp(225, 101, wc)) + ")";
-        // Carve shadows (the deboss) are full at rest and fade out over the first
+        // Relief edges (the emboss) are full at rest and fade out over the first
         // sliver of scroll; the drop shadow fades in once the photo is behind.
         const carve = clamp01(1 - e / 0.1);
         const sh = smooth(clamp01((e - 0.12) / 0.4));
-        // Stamped-into-leather edges: a shadow cast DOWN into the top of the
-        // impression, and a warm lit lip on the bottom edge below it.
+        // Raised-out-of-leather edges (light from above): a warm highlight on the
+        // TOP edge where the raised face catches the light, and a soft shadow on
+        // the BOTTOM edge that the raised letter casts down onto the surround.
         word.style.textShadow =
-          "0 -1px 1px rgba(18,12,8," + (0.60 * carve).toFixed(3) + ")," +
-          "0 -2px 5px rgba(18,12,8," + (0.40 * carve).toFixed(3) + ")," +
-          "0 -5px 10px rgba(18,12,8," + (0.18 * carve).toFixed(3) + ")," +
-          "0 2px 1px rgba(255,248,238," + (0.70 * carve).toFixed(3) + ")," +
-          "0 3px 6px rgba(255,248,238," + (0.42 * carve).toFixed(3) + ")," +
-          "0 6px 12px rgba(255,248,238," + (0.26 * carve).toFixed(3) + ")," +
+          "0 -1px 1px rgba(255,248,238," + (0.65 * carve).toFixed(3) + ")," +
+          "0 -2px 4px rgba(255,248,238," + (0.40 * carve).toFixed(3) + ")," +
+          "0 -4px 9px rgba(255,248,238," + (0.20 * carve).toFixed(3) + ")," +
+          "0 1px 1px rgba(18,12,8," + (0.58 * carve).toFixed(3) + ")," +
+          "0 3px 6px rgba(18,12,8," + (0.42 * carve).toFixed(3) + ")," +
+          "0 6px 13px rgba(18,12,8," + (0.22 * carve).toFixed(3) + ")," +
           "0 3px 8px rgba(0,0,0," + (0.30 * sh).toFixed(3) + ")," +
           "0 12px 34px rgba(0,0,0," + (0.22 * sh).toFixed(3) + ")";
         // bottom labels: ink -> paper as the photo reaches them (late)
