@@ -529,8 +529,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       font-weight: 600;
       font-size: clamp(80px, 12vw, 190px);
       line-height: 1;
-      /* tighter than before so the trailing E isn't clipped */
-      letter-spacing: -0.01em;
+      letter-spacing: 0.04em;
       text-align: center;
       /* Resting state = debossed wordmark in secondary #eae5e1 (a shade darker
          than the paper) for carved depth; the controller lerps this to the
@@ -538,10 +537,10 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
          as the fold-out photo irises open. */
       color: #eae5e1;
       text-shadow:
-        0 -1px 1px rgba(18, 12, 8, 0.22),
-        0 -2px 4px rgba(18, 12, 8, 0.12),
-        0 1px 1px rgba(255, 248, 238, 0.30),
-        0 2px 5px rgba(255, 248, 238, 0.18);
+        0 -1px 1px rgba(255, 248, 238, 0.55),
+        0 -2px 5px rgba(255, 248, 238, 0.30),
+        0 1px 1px rgba(18, 12, 8, 0.22),
+        0 2px 5px rgba(18, 12, 8, 0.12);
       /* Drop shadow is applied by the controller — only once the photo is behind
          the letters (no shadow on the blank starter wall). */
       will-change: color, text-shadow;
@@ -559,15 +558,13 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       pointer-events: none;
     }
     .hero-zoom.has-snakeskin .hero-zoom-skin { background-image: var(--snakeskin); }
-    /* TMKE debossed INTO the leather: the letters are pressed in, so the fill
-       is a faint dark tint (slightly recessed = slightly less lit than the
-       surface). The controller's relief edges do the work: shadow on the TOP
-       edge, highlight on the BOTTOM edge. Toggled on (.is-skin) only at rest;
-       removed as the fold-out begins so the word transitions normally after. */
+    /* TMKE embossed OUT of the leather: the letters are raised, so the fill
+       is near-transparent warm so the texture shows through the faces.
+       Light on the TOP edge, shadow on the BOTTOM edge. Toggled on (.is-skin)
+       only at rest; removed as the fold-out begins. */
     .hero-zoom-word.is-skin {
-      /* Very faint dark tint — pressed-in face catches slightly less light. */
-      color: rgba(10, 8, 5, 0.10);
-      -webkit-text-fill-color: rgba(10, 8, 5, 0.10);
+      color: rgba(255, 249, 242, 0.10);
+      -webkit-text-fill-color: rgba(255, 249, 242, 0.10);
     }
 
     /* Layer C — sofa cushions over the word (same iris clip, set by the
@@ -706,19 +703,17 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         // sliver of scroll; the drop shadow fades in once the photo is behind.
         const carve = clamp01(1 - e / 0.1);
         const sh = smooth(clamp01((e - 0.12) / 0.4));
-        // Pressed-into-leather edges (light from above): dark shadow on the
-        // TOP edge (the undercut is in shadow), warm highlight on the BOTTOM
-        // edge (the lower ledge catches light from above). No drop shadow —
-        // debossed letters don't project above the surface.
+        // Raised-out-of-leather edges (light from above): warm highlight on
+        // the TOP edge, soft shadow on the BOTTOM edge.
         word.style.textShadow =
-          "0 -1px 1px rgba(18,12,8," + (0.22 * carve).toFixed(3) + ")," +
-          "0 -2px 4px rgba(18,12,8," + (0.12 * carve).toFixed(3) + ")," +
-          "0 -4px 9px rgba(18,12,8," + (0.06 * carve).toFixed(3) + ")," +
-          "0 1px 1px rgba(255,248,238," + (0.30 * carve).toFixed(3) + ")," +
-          "0 2px 5px rgba(255,248,238," + (0.18 * carve).toFixed(3) + ")," +
-          "0 4px 10px rgba(255,248,238," + (0.08 * carve).toFixed(3) + ")," +
-          "0 1px 3px rgba(0,0,0," + (0.06 * sh).toFixed(3) + ")," +
-          "0 4px 12px rgba(0,0,0," + (0.04 * sh).toFixed(3) + ")";
+          "0 -1px 1px rgba(255,248,238," + (0.55 * carve).toFixed(3) + ")," +
+          "0 -2px 5px rgba(255,248,238," + (0.30 * carve).toFixed(3) + ")," +
+          "0 -4px 10px rgba(255,248,238," + (0.15 * carve).toFixed(3) + ")," +
+          "0 1px 1px rgba(18,12,8," + (0.22 * carve).toFixed(3) + ")," +
+          "0 3px 6px rgba(18,12,8," + (0.14 * carve).toFixed(3) + ")," +
+          "0 6px 13px rgba(18,12,8," + (0.07 * carve).toFixed(3) + ")," +
+          "0 3px 8px rgba(0,0,0," + (0.18 * sh).toFixed(3) + ")," +
+          "0 12px 34px rgba(0,0,0," + (0.12 * sh).toFixed(3) + ")";
         // bottom labels: ink -> paper as the photo reaches them (late)
         const t = smooth(clamp01((e - 0.55) / 0.4));
         foot.style.color =
