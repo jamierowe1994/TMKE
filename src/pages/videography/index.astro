@@ -433,14 +433,19 @@ const navLinks = [
     }
     .pf-cta-card {
       flex: 0 0 50vw; height: 100%;
-      display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
-      gap: 22px; padding: 96px 48px 56px;
+      /* Top-aligned so the two cards' images + titles line up across the pair
+         (a longer description no longer pushes one card's content up/down). */
+      display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start;
+      gap: 22px; padding: clamp(96px, 12vh, 150px) 48px 56px;
     }
     /* Consultation card nudged in from the left edge (~150px on desktop) so it
        sits closer to the "Book a shoot" card and off the screen edge. */
     .pf-cta-card:first-child { padding-left: clamp(40px, 10vw, 190px); }
     .pf-cta-img {
-      width: 100%; max-width: 360px; height: 52vh;
+      /* Fixed (no flex-shrink) + capped height so both cards' images match —
+         a longer description no longer shrinks one image and drops its title. */
+      flex: 0 0 auto;
+      width: 100%; max-width: 360px; height: clamp(200px, 34vh, 380px);
       background-size: cover; background-position: center; background-color: #e9e4da;
     }
     .pf-cta-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; width: 100%; max-width: 360px; }
@@ -880,7 +885,7 @@ const navLinks = [
       document.querySelectorAll('.vdraw-right[data-live-headshots="1"]').forEach((right) => {
         const gal = right.querySelector(".vmodal-gallery");
         if (!gal) return;
-        fetch(`${WORKER}/headshots?limit=8`).then((r) => r.json()).then((d) => {
+        fetch(`${WORKER}/headshots?limit=100`).then((r) => r.json()).then((d) => {
           const imgs = (d && d.images) || [];
           if (!imgs.length) return;
           // Keep the video thumb (if any), drop the placeholder image thumbs,

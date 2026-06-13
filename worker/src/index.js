@@ -409,7 +409,7 @@ export default {
       // folder. Public GET; powers the auto-updating Agent gallery. ----
       if (path.endsWith("/headshots") && request.method === "GET") {
         if (!env.ASSETS) return json({ images: [] }, 200, request, env);
-        const limit = Math.min(24, Math.max(1, parseInt(url.searchParams.get("limit") || "8", 10)));
+        const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "60", 10)));
         const prefix = "Jack - headshots/";
         const listed = await env.ASSETS.list({ prefix });
         const imgs = (listed.objects || [])
