@@ -42,6 +42,11 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
        shift dark->light as the photo passes under them. -->
   <section id="top" class="hero-zoom" data-reveal-root>
     <div class="hero-zoom-pin">
+      <!-- Snakeskin resting surface — the texture the home page opens on, behind
+           the photo. The controller fades it out as the photo irises in, so the
+           snakeskin is only there BEFORE the animation. Only shown once the image
+           loads (.has-snakeskin), so nothing breaks if the asset is missing. -->
+      <div class="hero-zoom-skin" aria-hidden="true"></div>
       <!-- Layer A — the photo that unfolds to full screen -->
       <div class="hero-zoom-media">
         <img class="hero-zoom-img" src="https://assets.tmke.co.uk/vibes.webp" alt="A TMKE interior" />
@@ -542,15 +547,32 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
          the letters (no shadow on the blank starter wall). */
       will-change: color, text-shadow;
     }
-    /* Snakeskin fill — added by JS (.has-snakeskin) only once the texture image
-       actually loads, so the wordmark never goes invisible if the asset is
-       missing. The carve shadows above stay, so it reads as the snakeskin
-       imprinted into the page with depth (one continuous material). */
-    .hero-zoom-word.has-snakeskin {
-      background-image: var(--snakeskin);
-      background-size: cover;
+    /* Snakeskin resting surface — fills the hero behind the photo. Fixed
+       attachment so the texture is viewport-anchored and lines up seamlessly
+       with the wordmark's clipped snakeskin (below) = one continuous material.
+       Opacity is driven by the controller (full at rest, fades as the photo
+       irises in). Only painted once the image loads (.has-snakeskin). */
+    .hero-zoom-skin {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
       background-position: center;
-      background-repeat: no-repeat;
+      background-size: cover;
+      background-attachment: fixed;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .hero-zoom.has-snakeskin .hero-zoom-skin { background-image: var(--snakeskin); }
+    /* Wordmark stamped INTO the snakeskin: same fixed texture clipped to the
+       letters (so they vanish into the surface) + the carve shadows above =
+       the TMKE pressed into the snakeskin. Toggled on (.is-skin) only at rest;
+       the controller removes it as the fold-out begins so the word transitions
+       normally after the animation. */
+    .hero-zoom-word.is-skin {
+      background-image: var(--snakeskin);
+      background-position: center;
+      background-size: cover;
+      background-attachment: fixed;
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -633,10 +655,11 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const media = hero.querySelector(".hero-zoom-media");
       const fg = hero.querySelector(".hero-zoom-fg");
       const word = hero.querySelector(".hero-zoom-word");
-      // Snakeskin texture fill — applied only once the image actually loads, so
-      // the wordmark never goes invisible (it uses background-clip:text) if the
-      // asset is missing. Tries the common extensions on the assets bucket.
-      if (word) (function () {
+      const skin = hero.querySelector(".hero-zoom-skin");
+      // Snakeskin texture — set on the hero (so the surface layer + the wordmark
+      // both inherit --snakeskin) only once the image actually loads, so nothing
+      // breaks if the asset is missing. Tries the known filename + fallbacks.
+      (function () {
         const urls = [
           "https://assets.tmke.co.uk/snake%20skin.png",
           "https://assets.tmke.co.uk/snakeskin.webp",
@@ -648,7 +671,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
           if (i >= urls.length) return;
           const url = urls[i++];
           const im = new Image();
-          im.onload = () => { word.style.setProperty("--snakeskin", "url('" + url + "')"); word.classList.add("has-snakeskin"); };
+          im.onload = () => { hero.style.setProperty("--snakeskin", "url('" + url + "')"); hero.classList.add("has-snakeskin"); update(); };
           im.onerror = next;
           im.src = url;
         })();
@@ -675,6 +698,13 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
         media.style.clipPath = clip;
         if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
+        // Snakeskin resting surface: full at rest, fades out as the photo opens
+        // (snakeskin is only there BEFORE the animation). The wordmark is stamped
+        // into it only while resting (.is-skin); once the fold-out begins we drop
+        // the snakeskin so the word transitions to its normal state.
+        const hasSkin = hero.classList.contains("has-snakeskin");
+        if (skin) skin.style.opacity = hasSkin ? clamp01(1 - e / 0.18).toFixed(3) : "0";
+        if (word) { if (hasSkin && e < 0.06) word.classList.add("is-skin"); else word.classList.remove("is-skin"); }
         // word: debossed #eae5e1 at rest -> secondary taupe #7e6765 as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
