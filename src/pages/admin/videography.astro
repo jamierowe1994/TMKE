@@ -44,6 +44,7 @@ const DELIVER_CATEGORIES = [
           <button type="button" data-go="clients">Clients</button>
           <button type="button" data-go="diary">Diary &amp; availability</button>
           <button type="button" data-go="deliver">Deliver work</button>
+          <button type="button" data-go="settings">Pricing &amp; travel settings</button>
           <button type="button" data-go="connections">Connections</button>
         </div>
       </div>
@@ -170,6 +171,34 @@ const DELIVER_CATEGORIES = [
         </div>
         <p class="vid-dlv-link" id="vid-dlv-link" hidden></p>
       </div>
+    </div>
+  </section>
+
+  <!-- ===================== SETTINGS (pricing & travel) ===================== -->
+  <section class="vid-panel wrap" data-panel="settings">
+    <div class="vid-panel-head">
+      <div>
+        <h2 class="vid-panel-title">Pricing &amp; travel settings</h2>
+        <p class="vid-panel-sub">Jack's base postcode and the travel surcharge that drives the booking quotes.</p>
+      </div>
+    </div>
+    <div class="vid-conn-note">
+      <strong>Jack's base postcode must be set before travel charges go live.</strong>
+      Distance is measured from here to the shoot postcode; shoots within the free
+      radius carry no surcharge, and every mile beyond it is charged at the rate below.
+    </div>
+    <div class="vid-settings">
+      <div class="vid-field">
+        <label>Jack's base postcode</label>
+        <input type="text" id="vid-set-postcode" placeholder="NN14 1AA" />
+      </div>
+      <div class="vid-field-row">
+        <div class="vid-field"><label>Free radius (miles)</label><input type="number" id="vid-set-radius" min="0" /></div>
+        <div class="vid-field"><label>Surcharge per extra mile (pence)</label><input type="number" id="vid-set-rate" min="0" /></div>
+        <div class="vid-field"><label>VAT rate (%)</label><input type="number" id="vid-set-vat" min="0" step="0.1" /></div>
+      </div>
+      <button type="button" class="admin-btn admin-btn-primary" id="vid-set-save">Save settings</button>
+      <span class="vid-set-status" id="vid-set-status"></span>
     </div>
   </section>
 
@@ -410,6 +439,11 @@ const DELIVER_CATEGORIES = [
     .vid-cand-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 14px; }
     .vid-cand-form .vid-field { flex: 1; min-width: 160px; }
     .vid-cand-form .vid-field input { width: 100%; }
+
+    /* ---- Settings ---- */
+    .vid-settings { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
+    .vid-settings .vid-field input { width: 100%; }
+    .vid-set-status { font-family: var(--sans); font-size: 13px; color: #2c7a4b; margin-left: 12px; }
 
     /* ---- Pipeline — full-width stages stacked vertically ---- */
     .vid-board { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
@@ -716,6 +750,8 @@ const DELIVER_CATEGORIES = [
     };
 
     let bookings = [];
+    let vidSettings = { base_postcode: "NN14 1AA", free_radius_miles: 40, surcharge_pence_per_mile: 55, vat_rate: 0.20 };
+    let baseCoords = null;
 
     /* ---------- Panel switching + settings cog ---------- */
     function showPanel(name) {
@@ -1020,11 +1056,12 @@ const DELIVER_CATEGORIES = [
       const m = (b.location || "").match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
       if (!m) { span.textContent = "add a postcode"; return; }
       try {
+        const base = await getBaseCoords();
         const r = await fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(m[0].replace(/\s+/g, "")));
         const d = await r.json();
         if (!d.result) { span.textContent = "postcode not found"; return; }
-        const miles = haversineMiles(52.3936, -0.7281, d.result.latitude, d.result.longitude);
-        span.textContent = Math.round(miles) + " mi from Kettering";
+        const miles = haversineMiles(base.lat, base.lon, d.result.latitude, d.result.longitude);
+        span.textContent = Math.round(miles) + " mi from base";
       } catch (_) { span.textContent = "unknown"; }
     }
 
@@ -1594,6 +1631,48 @@ const DELIVER_CATEGORIES = [
       }
     }
 
+    /* ---------- Settings (Jack's base postcode + travel surcharge) ---------- */
+    async function initSettings() {
+      const { data } = await supabase.from("videography_settings").select("*").eq("id", 1).maybeSingle();
+      if (data) vidSettings = data;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      set("vid-set-postcode", vidSettings.base_postcode || "");
+      set("vid-set-radius", vidSettings.free_radius_miles ?? 40);
+      set("vid-set-rate", vidSettings.surcharge_pence_per_mile ?? 55);
+      set("vid-set-vat", Math.round((vidSettings.vat_rate ?? 0.2) * 100));
+      document.getElementById("vid-set-save")?.addEventListener("click", saveSettings);
+    }
+    async function saveSettings() {
+      const num = (id, d) => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? d : v; };
+      const payload = {
+        id: 1,
+        base_postcode: (document.getElementById("vid-set-postcode")?.value || "").trim().toUpperCase(),
+        free_radius_miles: Math.round(num("vid-set-radius", 40)),
+        surcharge_pence_per_mile: Math.round(num("vid-set-rate", 55)),
+        vat_rate: num("vid-set-vat", 20) / 100,
+        updated_at: new Date().toISOString(),
+      };
+      const status = document.getElementById("vid-set-status");
+      const btn = document.getElementById("vid-set-save");
+      if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+      const { error } = await supabase.from("videography_settings").upsert(payload, { onConflict: "id" });
+      if (btn) { btn.disabled = false; btn.textContent = "Save settings"; }
+      if (error) { if (status) { status.style.color = "#a05a3c"; status.textContent = "Couldn't save: " + error.message + " — run supabase/videography_booking_flow.sql?"; } return; }
+      vidSettings = { ...vidSettings, ...payload };
+      baseCoords = null; // re-geocode on next distance lookup
+      if (status) { status.style.color = "#2c7a4b"; status.textContent = "Saved ✓"; setTimeout(() => (status.textContent = ""), 2200); }
+    }
+    async function getBaseCoords() {
+      if (baseCoords) return baseCoords;
+      const pc = (vidSettings.base_postcode || "NN14 1AA").replace(/\s+/g, "");
+      try {
+        const r = await fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(pc));
+        const d = await r.json();
+        if (d.result) baseCoords = { lat: d.result.latitude, lon: d.result.longitude };
+      } catch (_) { /* fall through */ }
+      return baseCoords || { lat: 52.3936, lon: -0.7281 };
+    }
+
     /* ---------- Boot ---------- */
     (async () => {
       const session = await requireAdmin();
@@ -1620,6 +1699,7 @@ const DELIVER_CATEGORIES = [
       renderDiary();
       initDeliver();
       init365Status();
+      initSettings();
 
       document.getElementById("vid-new-booking")?.addEventListener("click", () => openModal(null));
       document.getElementById("vid-save")?.addEventListener("click", saveBooking);
