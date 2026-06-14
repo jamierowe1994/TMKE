@@ -17,6 +17,7 @@
 // confirm step books into Jack's 365 diary via the existing Worker endpoint and
 // carries the captured account/opt-in fields forward.
 // ============================================================================
+import "../styles/booking-wizard.css";  // shared .dc-* wizard chrome (self-contained — no DiscoveryPanel needed)
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 ---
 
@@ -38,6 +39,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     </header>
 
     <div class="dc-panel-body">
+      <!-- 0. Service chooser ("Book a Shoot" generic entry) -->
+      <section class="dc-step" id="vb-step-service" hidden>
+        <h2 class="dc-step-title">What would you like to <em>book?</em></h2>
+        <p class="dc-step-sub">Choose a service to get started.</p>
+        <div class="dc-choices" id="vb-services"></div>
+      </section>
+
       <!-- 1. Email gate -->
       <section class="dc-step" id="vb-step-email" hidden>
         <h2 class="dc-step-title">Let's <em>get started.</em></h2>
@@ -66,6 +74,34 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         <p class="dc-step-sub" id="vb-options-sub">All prices are plus VAT.</p>
         <div id="vb-options"></div>
         <div class="dc-step-actions" id="vb-options-actions" hidden><button type="button" class="dc-next" id="vb-options-next">Continue <em>&rarr;</em></button></div>
+      </section>
+
+      <!-- 2b. Enquiry (non-member, Property / Agent) -->
+      <section class="dc-step" id="vb-step-enquiry" hidden>
+        <h2 class="dc-step-title">Tell us about your <em>project.</em></h2>
+        <p class="dc-step-sub" id="vb-enquiry-sub">Leave your details and Jack will be in touch with a tailored quote.</p>
+        <form class="dc-panel-form" id="vb-enquiry-form">
+          <label class="dc-field"><span>Full name *</span><input name="name" autocomplete="name" required /></label>
+          <div class="dc-field-row">
+            <label class="dc-field"><span>Email *</span><input name="email" type="email" autocomplete="email" required /></label>
+            <label class="dc-field"><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" required /></label>
+          </div>
+          <div class="dc-field-row">
+            <label class="dc-field"><span>Company / Brand</span><input name="company" /></label>
+            <label class="dc-field"><span>Property / shoot postcode</span><input name="postcode" autocomplete="postal-code" /></label>
+          </div>
+          <label class="dc-field"><span>What do you need? *</span><textarea name="message" rows="3" required placeholder="Tell us about the property or shoot, timings, and anything specific you're after."></textarea></label>
+          <p class="dc-gate-error" id="vb-enquiry-error" hidden></p>
+          <button type="submit" class="dc-form-cta" id="vb-enquiry-cta">Send enquiry <em>&rarr;</em></button>
+        </form>
+      </section>
+
+      <!-- 2c. Interests (Discovery call) -->
+      <section class="dc-step" id="vb-step-interests" hidden>
+        <h2 class="dc-step-title">What are you <em>interested in?</em></h2>
+        <p class="dc-step-sub">Pick anything that applies — it just helps Jack prep for your call.</p>
+        <div class="dc-choices dc-choices--multi" id="vb-interests"></div>
+        <div class="dc-step-actions"><button type="button" class="dc-next" id="vb-interests-next">Continue <em>&rarr;</em></button></div>
       </section>
 
       <!-- 3b. Postcode (Property / Agent — for the travel surcharge) -->
@@ -145,6 +181,23 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
           <label class="dc-field"><span>Date</span><input id="vb-sign-date" type="date" required /></label>
         </div>
         <div class="dc-step-actions"><button type="button" class="dc-next" id="vb-terms-cta" disabled>Agree &amp; continue <em>&rarr;</em></button></div>
+      </section>
+
+      <!-- 7b. Call details (Discovery — no account / no terms) -->
+      <section class="dc-step" id="vb-step-call-details" hidden>
+        <h2 class="dc-step-title">Your <em>details.</em></h2>
+        <p class="dc-form-summary" id="vb-call-summary"></p>
+        <form class="dc-panel-form" id="vb-call-form">
+          <label class="dc-field"><span>Full name *</span><input name="name" autocomplete="name" required /></label>
+          <div class="dc-field-row">
+            <label class="dc-field"><span>Email *</span><input name="email" type="email" autocomplete="email" required /></label>
+            <label class="dc-field"><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" required /></label>
+          </div>
+          <label class="dc-field"><span>Company / Brand</span><input name="company" /></label>
+          <label class="dc-field"><span>Anything you'd like to cover?</span><textarea name="message" rows="2"></textarea></label>
+          <p class="dc-gate-error" id="vb-call-error" hidden></p>
+          <button type="submit" class="dc-form-cta" id="vb-call-cta">Book the call <em>&rarr;</em></button>
+        </form>
       </section>
 
       <!-- 8. Details + account -->
@@ -230,6 +283,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let postcode = "";         // shoot postcode (property/agent)
     let distanceMiles = null;  // distance from base
     let surchargeP = 0;        // travel surcharge in pence (ex-VAT)
+    let flow = "booking";      // "booking" | "discovery"
+    let selectedInterests = []; // discovery-call interests
     let duration = 90;         // minutes (for availability)
     let selectedDate = null, selectedSlot = null;
     let viewMonth = new Date(); viewMonth.setDate(1);
@@ -254,7 +309,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     }
     function back() { const prev = history.pop(); if (prev) showStepRaw(prev); }
     backBtn.addEventListener("click", back);
-    function hideAll() { ["email","register","options","postcode","day","time","summary","terms","details"].forEach((n) => { const e = stepEl(n); if (e) { e.hidden = true; e.classList.remove("dc-anim-in","dc-anim-out"); } }); const s = stepEl("success"); if (s) { s.hidden = true; s.classList.remove("dc-anim-in","dc-anim-out"); } }
+    function hideAll() { ["service","email","register","enquiry","interests","options","postcode","day","time","summary","terms","call-details","details"].forEach((n) => { const e = stepEl(n); if (e) { e.hidden = true; e.classList.remove("dc-anim-in","dc-anim-out"); } }); const s = stepEl("success"); if (s) { s.hidden = true; s.classList.remove("dc-anim-in","dc-anim-out"); } }
 
     async function fetchConfig() {
       if (configFetched) return; configFetched = true; if (!WORKER) return;
@@ -263,15 +318,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     // ---- open / close ----
     function open(serviceKey) {
-      svc = SERVICES[serviceKey];
-      if (!svc) return;
       audience = null; chosen = null; selectedAddOns = []; selectedPackages = [];
-      postcode = ""; distanceMiles = null; surchargeP = 0;
-      selectedDate = null; selectedSlot = null; history = []; activeStep = null;
+      postcode = ""; distanceMiles = null; surchargeP = 0; selectedInterests = []; flow = "booking";
+      duration = 90; selectedDate = null; selectedSlot = null; history = []; activeStep = null;
       hideAll();
-      eyebrow.textContent = `TMKE — ${svc.name}`;
-      $("vb-email-form")?.reset(); $("vb-register-form")?.reset(); $("vb-details-form")?.reset();
-      $("vb-email-error").hidden = true; $("vb-register-error").hidden = true; $("vb-details-error").hidden = true;
+      ["vb-email-form", "vb-register-form", "vb-details-form", "vb-enquiry-form", "vb-call-form"].forEach((id) => $(id)?.reset());
+      ["vb-email-error", "vb-register-error", "vb-details-error", "vb-enquiry-error", "vb-call-error"].forEach((id) => { const e = $(id); if (e) e.hidden = true; });
       const agree = $("vb-agree"); if (agree) { agree.checked = false; agree.disabled = true; }
       $("vb-terms")?.classList.remove("is-read");
       $("vb-terms-cta").disabled = true;
@@ -280,8 +332,39 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       document.documentElement.style.overflow = "hidden";
       if (stage) stage.scrollTop = 0;
       renderCalendar(); fetchConfig().then(renderCalendar);
+
+      if (serviceKey === "choose") { svc = null; eyebrow.textContent = "TMKE — Booking"; renderServices(); showStepRaw("service"); return; }
+      svc = SERVICES[serviceKey];
+      if (!svc) return;
+      eyebrow.textContent = `TMKE — ${svc.name}`;
+      if (svc.key === "discovery") { flow = "discovery"; duration = 30; renderInterests(); showStepRaw("interests"); return; }
       showStepRaw("email");
     }
+
+    // Service chooser (the generic "Book a Shoot" entry).
+    function renderServices() {
+      const wrap = $("vb-services"); if (!wrap) return;
+      const subs = { "content-studio": "Studio sessions", "property": "Property packages", "agent": "Agent / location shoots" };
+      wrap.innerHTML = ["content-studio", "property", "agent"].map((k) => {
+        const s = SERVICES[k];
+        return `<button type="button" class="dc-choice" data-svc="${k}"><span class="dc-choice-name">${s.name}</span><span class="dc-choice-meta">${subs[k]}</span></button>`;
+      }).join("");
+      wrap.querySelectorAll("[data-svc]").forEach((b) => b.addEventListener("click", () => {
+        svc = SERVICES[b.dataset.svc]; eyebrow.textContent = `TMKE — ${svc.name}`; goTo("email");
+      }));
+    }
+
+    // Discovery interests (multi-select).
+    function renderInterests() {
+      const wrap = $("vb-interests"); if (!wrap || !svc.interests) return;
+      selectedInterests = [];
+      wrap.innerHTML = svc.interests.map((it, i) => `<button type="button" class="dc-choice" data-int="${i}"><span class="dc-choice-check">✓</span><span class="dc-choice-name" style="font-size:18px">${it.name}</span></button>`).join("");
+      wrap.querySelectorAll("[data-int]").forEach((b) => b.addEventListener("click", () => {
+        b.classList.toggle("is-active"); const name = svc.interests[+b.dataset.int].name;
+        if (b.classList.contains("is-active")) selectedInterests.push(name); else selectedInterests = selectedInterests.filter((x) => x !== name);
+      }));
+    }
+    $("vb-interests-next")?.addEventListener("click", () => { duration = 30; goTo("day"); });
     function close() {
       panel.setAttribute("aria-hidden", "true"); panel.classList.remove("is-open");
       document.documentElement.style.overflow = "";
@@ -297,14 +380,46 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (!email) { err.textContent = "Please enter your work email."; err.hidden = false; return; }
       gateEmail = email;
       audience = audienceForEmail(email);
-      if (audience.audience !== "member" && svc.membersOnly) {
-        // Members-only service → register interest.
-        $("vb-register-form").querySelector('[name="email"]').value = email;
-        goTo("register"); return;
+      if (audience.audience !== "member") {
+        if (svc.membersOnly) {
+          // Members-only service (Content Studio) → register interest.
+          $("vb-register-form").querySelector('[name="email"]').value = email;
+          goTo("register"); return;
+        }
+        // Non-member on Property / Agent → enquiry (Jack quotes manually).
+        $("vb-enquiry-form").querySelector('[name="email"]').value = email;
+        goTo("enquiry"); return;
       }
-      // Member (or non-member on a non-members-only service) → show options.
+      // Member → show options.
       renderOptions();
       goTo("options");
+    });
+
+    // ---- 2b. enquiry (non-member, Property / Agent) ----
+    $("vb-enquiry-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const err = $("vb-enquiry-error"); err.hidden = true;
+      const email = String(fd.get("email") || gateEmail || "").trim();
+      const btn = $("vb-enquiry-cta"); loadingCta(btn, "Sending…");
+      try {
+        if (!WORKER) throw new Error("This isn't quite live yet — please email jack@tmke.co.uk and we'll sort it.");
+        const res = await fetch(`${WORKER}/videography/enquiry`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            service: svc.name, service_type: svc.key, name: fd.get("name"), email,
+            phone: fd.get("phone"), company: fd.get("company"), postcode: fd.get("postcode"), message: fd.get("message"),
+          }),
+        });
+        const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || "Couldn't send your enquiry");
+        $("vb-success-title").textContent = "Thanks — enquiry received";
+        $("vb-success-msg").textContent = `Jack will be in touch shortly about your ${svc.name.toLowerCase()} enquiry. We've sent a confirmation to ${email}.`;
+        history = []; goTo("success"); history = []; backBtn.hidden = true;
+        resetCta(btn, "Send enquiry");
+      } catch (e2) {
+        resetCta(btn, "Send enquiry");
+        err.textContent = (e2 && e2.message) || "Sorry, that didn't send — please try again."; err.hidden = false;
+      }
     });
 
     // ---- 2. register interest (members-only, non-member) ----
@@ -510,7 +625,41 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     }
     $("vb-slots-grid")?.addEventListener("click", (e) => {
       const btn = e.target.closest(".dc-slot"); if (!btn) return;
-      selectedSlot = btn.dataset.slot; renderSummary(); goTo("summary");
+      selectedSlot = btn.dataset.slot;
+      if (flow === "discovery") { renderCallSummary(); goTo("call-details"); }
+      else { renderSummary(); goTo("summary"); }
+    });
+    function renderCallSummary() {
+      const dt = selectedDate ? selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) : "";
+      $("vb-call-summary").textContent = `Discovery call — ${dt} at ${selectedSlot} (about 30 minutes).`;
+    }
+    // ---- 7b. discovery call → confirm ----
+    $("vb-call-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const err = $("vb-call-error"); err.hidden = true;
+      const btn = $("vb-call-cta"); loadingCta(btn, "Booking…");
+      const t0 = Date.now();
+      try {
+        if (!WORKER) throw new Error("Booking is being set up — please check back shortly.");
+        const res = await fetch(`${WORKER}/videography/discovery`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: localISO(selectedDate), start: selectedSlot, duration: 30, interests: selectedInterests,
+            name: fd.get("name"), email: fd.get("email"), phone: fd.get("phone"), company: fd.get("company"), message: fd.get("message"),
+          }),
+        });
+        const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || "Booking failed");
+        const wait = 1100 - (Date.now() - t0); if (wait > 0) await sleep(wait);
+        const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+        $("vb-success-title").textContent = "Call booked";
+        $("vb-success-msg").textContent = `Your discovery call with Jack is set for ${dt} at ${selectedSlot}. A calendar invite is on its way.`;
+        history = []; goTo("success"); history = []; backBtn.hidden = true;
+        resetCta(btn, "Book the call");
+      } catch (e2) {
+        resetCta(btn, "Book the call");
+        err.textContent = (e2 && e2.message) || "Sorry, that didn't go through — please try another time."; err.hidden = false;
+      }
     });
 
     // ---- 6. summary ----

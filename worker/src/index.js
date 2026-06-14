@@ -700,6 +700,103 @@ export default {
         return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
       }
 
+      // ---- Non-member enquiry (Property / Agent) — a CRM lead, no calendar ---
+      if (path.endsWith("/videography/enquiry") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const { service, service_type, name, email, phone, company, postcode, message } = b || {};
+        if (!name || !email) return json({ error: "Please add your name and email." }, 400, request, env);
+        await sbPost(env, "videography_bookings", {
+          kind: "enquiry", service_type: service_type || null, audience: "non-member",
+          client_name: name, client_email: email, client_phone: phone || null, company: company || null,
+          postcode: postcode || null, service: service || null, stage: "enquiry_non_member",
+          enquiry_message: message || null, notes: message || null,
+        });
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        await sendEmail(env, {
+          to: email, subject: `Thanks for your enquiry — ${service || "TMKE"}`,
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:22px;margin:0 0 6px">Thanks — we'll be in touch</h1>
+            <p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(name)}, thanks for your interest in ${esc(service || "our videography")}. Jack will be in touch shortly to talk through what you need and put a quote together.</p>
+            ${message ? `<div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(message)}</div>` : ""}
+            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p></div>`,
+        });
+        await sendEmail(env, {
+          to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New enquiry — ${service || "Videography"} — ${name}`,
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:20px;margin:0 0 6px">New enquiry — ${esc(service || "Videography")}</h1>
+            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+              <div><span style="color:#888">Client:</span> ${esc(name)}</div>
+              ${company ? `<div><span style="color:#888">Company:</span> ${esc(company)}</div>` : ""}
+              <div><span style="color:#888">Email:</span> ${esc(email)}</div>
+              ${phone ? `<div><span style="color:#888">Phone:</span> ${esc(phone)}</div>` : ""}
+              ${postcode ? `<div><span style="color:#888">Location:</span> ${esc(postcode)}</div>` : ""}
+              ${message ? `<div><span style="color:#888">Message:</span> ${esc(message)}</div>` : ""}
+            </div>
+            <p style="font-size:12px;color:#999;margin:18px 0 0">In the CRM pipeline as a lead (enquiry_non_member).</p></div>`,
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Discovery call — books a short call + a CRM lead ------------------
+      if (path.endsWith("/videography/discovery") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const { date, start, duration, interests, name, email, phone, company, message } = b || {};
+        if (!date || !start || !name || !email) return json({ error: "Missing call details" }, 400, request, env);
+        const dur = parseInt(duration || "30", 10);
+        const endHm = minToHm(hmToMin(start) + dur);
+        const check = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
+          schedules: [env.JACK_UPN],
+          startTime: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+          endTime: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          availabilityViewInterval: Math.max(15, dur),
+        });
+        const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
+        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken — please choose another." }, 409, request, env);
+        const interestList = Array.isArray(interests) ? interests : [];
+        const ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
+          subject: `Discovery Call — ${name}`,
+          body: { contentType: "text", content: [interestList.length && `Interested in: ${interestList.join(", ")}`, message && `Notes: ${message}`, phone && `Phone: ${phone}`, company && `Company: ${company}`].filter(Boolean).join("\n") },
+          start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+          end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          attendees: [{ emailAddress: { address: email, name }, type: "required" }],
+          isOnlineMeeting: true,
+        });
+        const token = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}`;
+        await sbPost(env, "videography_bookings", {
+          kind: "discovery", service_type: "discovery", client_name: name, client_email: email,
+          client_phone: phone || null, company: company || null, service: "Discovery Call",
+          shoot_date: `${date}T${start}:00`, stage: "discovery_call_booked",
+          discovery_interests: interestList, notes: message || null, reschedule_token: token, ms_event_id: ev.id || null,
+        });
+        const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
+        const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call — TMKE", description: ["A quick call with Jack to talk through your videography.", interestList.length && `Interested in: ${interestList.join(", ")}`].filter(Boolean).join("\n"), location: "Online / phone", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name });
+        const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        await sendEmail(env, {
+          to: email, subject: `Your discovery call is booked — ${dateNice}`,
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:22px;margin:0 0 6px">Your call is booked</h1>
+            <p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(name)}, your discovery call with Jack is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
+            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p></div>`,
+          attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
+        });
+        await sendEmail(env, {
+          to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New discovery call — ${name} — ${dateNice} ${start}`,
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:20px;margin:0 0 6px">Discovery call booked</h1>
+            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+              <div><span style="color:#888">Client:</span> ${esc(name)}</div>
+              ${company ? `<div><span style="color:#888">Company:</span> ${esc(company)}</div>` : ""}
+              <div><span style="color:#888">Email:</span> ${esc(email)}</div>
+              ${phone ? `<div><span style="color:#888">Phone:</span> ${esc(phone)}</div>` : ""}
+              <div><span style="color:#888">When:</span> ${esc(dateNice)} at ${esc(start)}</div>
+              ${interestList.length ? `<div><span style="color:#888">Interested in:</span> ${esc(interestList.join(", "))}</div>` : ""}
+              ${message ? `<div><span style="color:#888">Notes:</span> ${esc(message)}</div>` : ""}
+            </div></div>`,
+        });
+        return json({ ok: true, eventId: ev.id }, 200, request, env);
+      }
+
       // Cancellation waitlist (gated). The studio/section is "fully booked", so we
       // capture an approved-domain partner's details + preferred slot and email a
       // confirmation. The allow-list is server-side (NOT client-supplied).

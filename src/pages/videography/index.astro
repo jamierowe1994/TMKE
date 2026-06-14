@@ -1,12 +1,9 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import DiscoveryPanel from "../../components/DiscoveryPanel.astro";
 import VideographyBooking from "../../components/VideographyBooking.astro";
 import VideoShowcase from "../../components/VideoShowcase.astro";
-import { PRODUCTS, tierPrice, GATED_DOMAINS } from "../../data/videography.js";
+import { PRODUCTS, tierPrice } from "../../data/videography.js";
 import { gbpFromPence } from "../../lib/supabase.js";
-
-const domainsJSON = JSON.stringify(GATED_DOMAINS);
 
 // Deck panels: dictionary hero + intro/why + one per product + closing booking.
 const total = PRODUCTS.length + 3;
@@ -14,11 +11,8 @@ const total = PRODUCTS.length + 3;
 // Opening + closing imagery — the site's own on-brand R2 stills.
 const R2 = (name) => `https://assets.tmke.co.uk/${name}.webp`;
 
-// Booking data passed to the wizard (DiscoveryPanel) via data attributes.
-const packsOf = (p) => p.priceTiers.map((t) => ({ label: t.label, minutes: t.minutes, price: gbpFromPence(tierPrice(t, "direct")) }));
-const packsJSON = (p) => JSON.stringify(packsOf(p));
-const interestsJSON = JSON.stringify(PRODUCTS.map((p) => p.name));
-const servicesJSON = JSON.stringify(PRODUCTS.map((p) => ({ name: p.name, packs: packsOf(p) })));
+// Map a product to its booking-flow service key (Studio = Content Studio).
+const serviceKey = (p) => (p.slug === "studio" ? "content-studio" : p.slug);
 // Dictionary-hero backdrop — the client's "Camera View" still on R2.
 const HERO_IMG = "https://assets.tmke.co.uk/camera%20view.jpg";
 
@@ -112,7 +106,7 @@ const navLinks = [
               <h2 class="pf-cta-title">Book a Consultation</h2>
             </div>
             <p class="pf-cta-desc">Not sure which service is right for you, or want to talk through what you need before committing to a booking? Jump on a quick call with Jack directly — no pressure and no sales pitch.</p>
-            <button type="button" data-discovery-call data-dc-mode="consult" data-dc-interests={interestsJSON} class="pf-cta-btn">Book a time that suits you <span class="btn-arrow">&rarr;</span></button>
+            <button type="button" data-vbook="discovery" class="pf-cta-btn">Book a time that suits you <span class="btn-arrow">&rarr;</span></button>
           </article>
 
           <article class="pf-cta-card">
@@ -122,7 +116,7 @@ const navLinks = [
               <span class="pf-cta-meta">A day with the team</span>
             </div>
             <p class="pf-cta-desc">Ready to go? Browse our full range of videography and photography services, choose what works for you, and secure your session in minutes.</p>
-            <button type="button" data-discovery-call data-dc-mode="shoot" data-dc-services={servicesJSON} class="pf-cta-btn">Book a shoot <span class="btn-arrow">&rarr;</span></button>
+            <button type="button" data-vbook="choose" class="pf-cta-btn">Book a shoot <span class="btn-arrow">&rarr;</span></button>
           </article>
 
           <aside class="pf-news" aria-label="Newsletter sign-up">
@@ -218,16 +212,10 @@ const navLinks = [
                 <div class="vmodal-price-note" data-note-svc={p.slug}>Standard rates</div>
               )}
 
-              {p.slug === "studio" ? (
-                <button type="button" data-vbook="content-studio" class="btn btn--solid vmodal-book">
-                  {p.bookCtaLabel} <span class="btn-arrow">&rarr;</span>
-                </button>
-              ) : (
-                <button type="button" data-discovery-call data-dc-mode={p.bookMode || "shoot"} data-dc-service={p.name} data-dc-packs={packsJSON(p)} data-dc-domains={p.bookMode === "waitlist" ? domainsJSON : undefined} class="btn btn--solid vmodal-book">
-                  {p.bookCtaLabel} <span class="btn-arrow">&rarr;</span>
-                </button>
-              )}
-              <button type="button" data-discovery-call data-dc-mode="consult" data-dc-interests={interestsJSON} class="vmodal-consult">
+              <button type="button" data-vbook={serviceKey(p)} class="btn btn--solid vmodal-book">
+                {p.bookCtaLabel} <span class="btn-arrow">&rarr;</span>
+              </button>
+              <button type="button" data-vbook="discovery" class="vmodal-consult">
                 Not quite sure about something? <strong>Book a consultation call.</strong>
               </button>
             </div>
@@ -276,7 +264,6 @@ const navLinks = [
     </section>
   ))}
 
-  <DiscoveryPanel />
   <VideographyBooking />
 
   <style>
@@ -801,24 +788,18 @@ const navLinks = [
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openSlug) closeProduct(); });
 
     // Booking from inside a showcase: slide the showcase down and out of the
-    // way first, THEN bring the discovery diary in on top. Capture phase
-    // pre-empts DiscoveryPanel's own opener so the two don't stack.
+    // way first, THEN bring the booking flow in on top. Capture phase pre-empts
+    // VideographyBooking's own opener (only while a showcase is open) so the two
+    // don't stack; when nothing is open, its global opener handles the click.
     document.addEventListener("click", (e) => {
-      const btn = e.target.closest && e.target.closest("[data-discovery-call]");
+      const btn = e.target.closest && e.target.closest("[data-vbook]");
       if (!btn || !openSlug) return; // only intercept while a showcase is open
       e.preventDefault();
       e.stopImmediatePropagation();
-      const opts = {
-        mode: btn.getAttribute("data-dc-mode") || undefined,
-        service: btn.getAttribute("data-dc-service") || undefined,
-        duration: btn.getAttribute("data-dc-duration") || undefined,
-        packs: btn.getAttribute("data-dc-packs") || undefined,
-        services: btn.getAttribute("data-dc-services") || undefined,
-        interests: btn.getAttribute("data-dc-interests") || undefined,
-      };
+      const key = btn.getAttribute("data-vbook");
       closeProduct();
       setTimeout(() => {
-        if (typeof window.tmkeDiscoveryOpen === "function") window.tmkeDiscoveryOpen(opts);
+        if (typeof window.tmkeVideographyBook === "function") window.tmkeVideographyBook(key);
       }, 720);
     }, true);
 
