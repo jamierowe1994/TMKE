@@ -508,7 +508,6 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     /* Layer B — TMKE, solid dark purple, dead centre; recolours to white as the
        photo irises out behind it (colour set by the controller). */
     .hero-zoom-word {
-      display: none;
       position: absolute;
       left: 50%;
       top: 50%;
@@ -520,22 +519,21 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       /* Brand wordmark font — matches the top-left logo (Cormorant) */
       font-family: var(--serif);
       font-weight: 600;
-      font-size: clamp(80px, 12vw, 190px);
+      font-size: clamp(82px, 13vw, 200px);
       line-height: 1;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.015em;
       text-align: center;
-      /* Resting state = debossed wordmark in secondary #eae5e1 (a shade darker
-         than the paper) for carved depth; the controller lerps this to the
-         secondary taupe #7e6765 and swaps the carve shadows for a drop shadow
-         as the fold-out photo irises open. */
-      color: rgba(255, 252, 248, 0.18);
+      /* Debossed INTO the leather: the fill is transparent so the same surface
+         texture runs straight through the letters (set per-frame by the
+         controller). The bevel is a crisp dark top lip + light bottom lip, so the
+         glyphs read as pressed in, not a separate stamp. */
+      color: transparent;
+      -webkit-text-fill-color: transparent;
       text-shadow:
-        -1px -1px 1px rgba(255, 252, 245, 0.70),
-        -2px -2px 5px rgba(255, 252, 245, 0.35),
-        1px 1px 1px rgba(18, 12, 8, 0.28),
-        2px 2px 6px rgba(18, 12, 8, 0.15);
-      /* Drop shadow is applied by the controller — only once the photo is behind
-         the letters (no shadow on the blank starter wall). */
+        0 1px 0 rgba(255, 255, 255, 0.85),
+        0 2px 4px rgba(255, 255, 255, 0.40),
+        0 -1px 0 rgba(44, 28, 34, 0.52),
+        0 -2px 5px rgba(44, 28, 34, 0.22);
       will-change: color, text-shadow;
     }
     /* Snakeskin resting surface — fills the hero behind the photo. Opacity is
@@ -545,19 +543,35 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       position: absolute;
       inset: 0;
       z-index: 1;
-      background-position: center;
-      background-size: cover;
       opacity: 0;
       pointer-events: none;
+      /* CSS-generated warm leather surface — soft top light over a taupe base,
+         no background image. */
+      background: radial-gradient(135% 95% at 50% 16%, #efe7df 0%, #e3dacf 52%, #d3c8bb 100%);
     }
-    .hero-zoom.has-snakeskin .hero-zoom-skin { background-image: var(--snakeskin); }
-    /* TMKE embossed OUT of the leather: the letters are raised, so the fill
-       is near-transparent warm so the texture shows through the faces.
-       Light on the TOP edge, shadow on the BOTTOM edge. Toggled on (.is-skin)
-       only at rest; removed as the fold-out begins. */
+    /* Fine fractal grain so the surface reads as textured leather, not a flat fill. */
+    .hero-zoom-skin::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      background-size: 170px 170px;
+      opacity: 0.62;
+      mix-blend-mode: soft-light;
+    }
+    /* Gentle vignette for depth toward the edges. */
+    .hero-zoom-skin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(120% 120% at 50% 42%, transparent 55%, rgba(70, 52, 46, 0.16) 100%);
+    }
+    /* TMKE debossed INTO the leather: fully transparent fill so the texture runs
+       straight through the letters; the bevel shadows alone define the groove.
+       Toggled on (.is-skin) only at rest; removed as the fold-out begins. */
     .hero-zoom-word.is-skin {
-      color: rgba(255, 252, 248, 0.06);
-      -webkit-text-fill-color: rgba(255, 252, 248, 0.06);
+      color: transparent;
+      -webkit-text-fill-color: transparent;
     }
 
     /* Layer C — sofa cushions over the word (same iris clip, set by the
@@ -638,27 +652,10 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const fg = hero.querySelector(".hero-zoom-fg");
       const word = hero.querySelector(".hero-zoom-word");
       const skin = hero.querySelector(".hero-zoom-skin");
-      // Snakeskin texture — set on the hero (so the surface layer + the wordmark
-      // both inherit --snakeskin) only once the image actually loads, so nothing
-      // breaks if the asset is missing. Tries the known filename + fallbacks.
-      (function () {
-        const urls = [
-          "https://assets.tmke.co.uk/TMKE%20Home%20Page/TMKE%20Leather%20Background%20.png",
-          "https://assets.tmke.co.uk/snake%20skin.png",
-          "https://assets.tmke.co.uk/snakeskin.webp",
-          "https://assets.tmke.co.uk/snakeskin.jpg",
-          "https://assets.tmke.co.uk/snakeskin.png",
-        ];
-        let i = 0;
-        (function next() {
-          if (i >= urls.length) return;
-          const url = urls[i++];
-          const im = new Image();
-          im.onload = () => { hero.style.setProperty("--snakeskin", "url('" + url + "')"); hero.classList.add("has-snakeskin"); update(); };
-          im.onerror = next;
-          im.src = url;
-        })();
-      })();
+      // The resting surface is now a CSS-generated leather texture (no image) —
+      // flag it on so the controller treats the skin as present (full at rest,
+      // fading as the fold-out photo irises in).
+      hero.classList.add("has-snakeskin");
       const foot = hero.querySelector(".hero-zoom-foot");
       const nav = document.getElementById("nav");
       const smooth = (t) => t * t * (3 - 2 * t);
@@ -692,17 +689,17 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         const wc = smooth(clamp01((e - 0.04) / 0.42));
         word.style.color =
           "rgb(" + Math.round(lerp(234, 126, wc)) + "," + Math.round(lerp(229, 103, wc)) + "," + Math.round(lerp(225, 101, wc)) + ")";
-        // Relief edges (the emboss) are full at rest and fade out over the first
-        // sliver of scroll; the drop shadow fades in once the photo is behind.
+        // Debossed edges are full at rest and fade out over the first sliver of
+        // scroll; the drop shadow fades in once the photo is behind.
         const carve = clamp01(1 - e / 0.1);
         const sh = smooth(clamp01((e - 0.12) / 0.4));
-        // Raised-out-of-leather edges (light from above): warm highlight on
-        // the TOP edge, soft shadow on the BOTTOM edge.
+        // Pressed-into-leather groove (light from above): crisp dark lip on the
+        // TOP edge, crisp light lip on the BOTTOM edge.
         word.style.textShadow =
-          "-1px -1px 1px rgba(255,252,245," + (0.70 * carve).toFixed(3) + ")," +
-          "-2px -2px 5px rgba(255,252,245," + (0.35 * carve).toFixed(3) + ")," +
-          "1px 1px 1px rgba(18,12,8," + (0.28 * carve).toFixed(3) + ")," +
-          "2px 2px 6px rgba(18,12,8," + (0.15 * carve).toFixed(3) + ")," +
+          "0 1px 0 rgba(255,255,255," + (0.85 * carve).toFixed(3) + ")," +
+          "0 2px 4px rgba(255,255,255," + (0.40 * carve).toFixed(3) + ")," +
+          "0 -1px 0 rgba(44,28,34," + (0.52 * carve).toFixed(3) + ")," +
+          "0 -2px 5px rgba(44,28,34," + (0.22 * carve).toFixed(3) + ")," +
           "0 3px 8px rgba(0,0,0," + (0.18 * sh).toFixed(3) + ")," +
           "0 12px 34px rgba(0,0,0," + (0.12 * sh).toFixed(3) + ")";
         // bottom labels: ink -> paper as the photo reaches them (late)
