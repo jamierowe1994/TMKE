@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import DiscoveryPanel from "../../components/DiscoveryPanel.astro";
+import VideographyBooking from "../../components/VideographyBooking.astro";
 import VideoShowcase from "../../components/VideoShowcase.astro";
 import { PRODUCTS, tierPrice, GATED_DOMAINS } from "../../data/videography.js";
 import { gbpFromPence } from "../../lib/supabase.js";
@@ -217,9 +218,15 @@ const navLinks = [
                 <div class="vmodal-price-note" data-note-svc={p.slug}>Standard rates</div>
               )}
 
-              <button type="button" data-discovery-call data-dc-mode={p.bookMode || "shoot"} data-dc-service={p.name} data-dc-packs={packsJSON(p)} data-dc-domains={p.bookMode === "waitlist" ? domainsJSON : undefined} class="btn btn--solid vmodal-book">
-                {p.bookCtaLabel} <span class="btn-arrow">&rarr;</span>
-              </button>
+              {p.slug === "studio" ? (
+                <button type="button" data-vbook="content-studio" class="btn btn--solid vmodal-book">
+                  {p.bookCtaLabel} <span class="btn-arrow">&rarr;</span>
+                </button>
+              ) : (
+                <button type="button" data-discovery-call data-dc-mode={p.bookMode || "shoot"} data-dc-service={p.name} data-dc-packs={packsJSON(p)} data-dc-domains={p.bookMode === "waitlist" ? domainsJSON : undefined} class="btn btn--solid vmodal-book">
+                  {p.bookCtaLabel} <span class="btn-arrow">&rarr;</span>
+                </button>
+              )}
               <button type="button" data-discovery-call data-dc-mode="consult" data-dc-interests={interestsJSON} class="vmodal-consult">
                 Not quite sure about something? <strong>Book a consultation call.</strong>
               </button>
@@ -270,6 +277,7 @@ const navLinks = [
   ))}
 
   <DiscoveryPanel />
+  <VideographyBooking />
 
   <style>
     .pf {

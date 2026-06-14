@@ -1,0 +1,633 @@
+---
+// ============================================================================
+// Videography service booking flow (brief v3.0) — replaces the waitlist flow for
+// the videography services. Phase 1: Content Studio member happy-path +
+// non-member "register interest". Property / Agent (add-ons, postcode, surcharge)
+// layer onto the same component in later phases.
+//
+// Flow (member): work-email gate → route → session/package → day → time →
+//   summary → T&Cs (sign) → details + account → confirm.
+// Non-member (Content Studio is members-only): register-interest capture.
+//
+// Reuses the global `.dc-*` wizard styles (from DiscoveryPanel, present on the
+// videography page) for visual consistency; uses `vb-` ids + its own module
+// script so it never collides with the discovery/consult panel.
+//
+// Backend booking + account creation + emails are wired in Phase 3; for now the
+// confirm step books into Jack's 365 diary via the existing Worker endpoint and
+// carries the captured account/opt-in fields forward.
+// ============================================================================
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+---
+
+<aside class="dc-panel vb-panel" id="vb-panel" aria-hidden="true" data-worker={WORKER}>
+  <div class="dc-panel-scrim" data-vb-close></div>
+  <div class="dc-panel-stage">
+    <header class="dc-panel-head">
+      <div class="dc-head-left">
+        <button type="button" class="dc-panel-close" data-vb-close aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          <span>Close</span>
+        </button>
+        <button type="button" class="dc-panel-back" id="vb-back" hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          <span>Back</span>
+        </button>
+      </div>
+      <div class="dc-panel-eyebrow" id="vb-eyebrow">TMKE — Booking</div>
+    </header>
+
+    <div class="dc-panel-body">
+      <!-- 1. Email gate -->
+      <section class="dc-step" id="vb-step-email" hidden>
+        <h2 class="dc-step-title">Let's <em>get started.</em></h2>
+        <p class="dc-step-sub" id="vb-email-sub">Pop in your work email so we can show you the right options.</p>
+        <form class="dc-panel-form" id="vb-email-form">
+          <label class="dc-field"><span>Work email address *</span><input name="email" type="email" autocomplete="email" required placeholder="you@thepropertyexperts.co.uk" /></label>
+          <p class="dc-gate-error" id="vb-email-error" hidden></p>
+          <button type="submit" class="dc-form-cta" id="vb-email-cta">Continue <em>&rarr;</em></button>
+        </form>
+      </section>
+
+      <!-- 2. Register interest (non-member, members-only service) -->
+      <section class="dc-step" id="vb-step-register" hidden>
+        <h2 class="dc-step-title">Members <em>only — for now.</em></h2>
+        <p class="dc-step-sub" id="vb-register-sub">The Content Studio is currently available exclusively to members of The Experts Group. If you're interested in future access, leave your email and we'll keep you updated.</p>
+        <form class="dc-panel-form" id="vb-register-form">
+          <label class="dc-field"><span>Email *</span><input name="email" type="email" required /></label>
+          <p class="dc-gate-error" id="vb-register-error" hidden></p>
+          <button type="submit" class="dc-form-cta" id="vb-register-cta">Register interest <em>&rarr;</em></button>
+        </form>
+      </section>
+
+      <!-- 3. Session / package -->
+      <section class="dc-step" id="vb-step-options" hidden>
+        <h2 class="dc-step-title" id="vb-options-title">Choose your <em>session.</em></h2>
+        <p class="dc-step-sub" id="vb-options-sub">All prices are plus VAT.</p>
+        <div id="vb-options"></div>
+        <div class="dc-step-actions" id="vb-options-actions" hidden><button type="button" class="dc-next" id="vb-options-next">Continue <em>&rarr;</em></button></div>
+      </section>
+
+      <!-- 3b. Postcode (Property / Agent — for the travel surcharge) -->
+      <section class="dc-step" id="vb-step-postcode" hidden>
+        <h2 class="dc-step-title">Where's the <em>shoot?</em></h2>
+        <p class="dc-step-sub">Pop in the shoot postcode so we can confirm any travel charge before you book.</p>
+        <form class="dc-panel-form" id="vb-postcode-form">
+          <label class="dc-field"><span>Shoot postcode *</span><input name="postcode" autocomplete="postal-code" required placeholder="e.g. NN1 1AA" /></label>
+          <p class="vb-surcharge-note" id="vb-surcharge-note" hidden></p>
+          <p class="dc-gate-error" id="vb-postcode-error" hidden></p>
+          <button type="submit" class="dc-form-cta" id="vb-postcode-cta">Continue <em>&rarr;</em></button>
+        </form>
+      </section>
+
+      <!-- 4. Day -->
+      <section class="dc-step" id="vb-step-day" hidden>
+        <h2 class="dc-step-title">Pick a <em>day.</em></h2>
+        <p class="dc-step-sub" id="vb-day-sub">Choose a date that suits you.</p>
+        <div class="dc-cal">
+          <header class="dc-cal-head">
+            <button type="button" class="dc-cal-nav" id="vb-prev-month" aria-label="Previous month">&larr;</button>
+            <div class="dc-cal-label" id="vb-cal-label">…</div>
+            <button type="button" class="dc-cal-nav" id="vb-next-month" aria-label="Next month">&rarr;</button>
+          </header>
+          <div class="dc-cal-weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+          <div class="dc-cal-grid" id="vb-cal-grid"></div>
+        </div>
+      </section>
+
+      <!-- 5. Time -->
+      <section class="dc-step" id="vb-step-time" hidden>
+        <h2 class="dc-step-title">Pick a <em>time.</em></h2>
+        <p class="dc-step-sub" id="vb-time-sub">…</p>
+        <div class="dc-slots-grid" id="vb-slots-grid"></div>
+      </section>
+
+      <!-- 6. Summary -->
+      <section class="dc-step" id="vb-step-summary" hidden>
+        <h2 class="dc-step-title">Your <em>booking.</em></h2>
+        <p class="dc-step-sub">Check everything's right before you sign.</p>
+        <div class="vb-summary" id="vb-summary"></div>
+        <div class="dc-step-actions"><button type="button" class="dc-next" id="vb-summary-next">Continue <em>&rarr;</em></button></div>
+      </section>
+
+      <!-- 7. Terms -->
+      <section class="dc-step" id="vb-step-terms" hidden>
+        <h2 class="dc-step-title">The <em>agreement.</em></h2>
+        <p class="dc-step-sub">Please read the terms, then sign to confirm your booking.</p>
+        <div class="dc-terms" id="vb-terms" tabindex="0">
+          <h4>TMKE — Shoot booking terms</h4>
+          <p class="dc-terms-note"><strong>Draft for review.</strong> A plain-English working agreement to confirm your booking and set expectations. The final wording will be confirmed by TMKE.</p>
+          <h5>1. Booking &amp; confirmation</h5>
+          <p>Your booking is confirmed once this agreement is signed and you receive our email confirmation. Your time is held in Jack's diary on a first-come basis.</p>
+          <h5>2. Cancellations</h5>
+          <p>We ask for a minimum of <strong>three (3) days' notice</strong> to cancel. Cancellations within <strong>48 hours</strong>, or a no-show, are chargeable in full. All changes must be made in writing to jack@tmke.co.uk.</p>
+          <h5>3. Rescheduling</h5>
+          <p>To rearrange, please give at least <strong>two (2) days' notice</strong>. We'll send a link to pick a new time that suits you.</p>
+          <h5>4. Use of content</h5>
+          <p>TMKE may use the content produced as showcase and marketing material across our website, social media and portfolio, crediting you where appropriate.</p>
+          <h5>5. Access to your content &amp; payment</h5>
+          <p>Final edited content remains the property of TMKE and is not released for your use until payment has been received in full.</p>
+          <h5>6. Delivery</h5>
+          <p>Edited content is typically delivered within a few working days of the shoot unless otherwise agreed.</p>
+          <h5>7. On the day</h5>
+          <p>Please ensure safe and timely access, and that you have the consent of any people or properties featured. Travel beyond the free radius is itemised separately.</p>
+          <h5>8. Liability &amp; circumstances beyond control</h5>
+          <p>TMKE is not liable for delays or cancellations caused by circumstances beyond our reasonable control (weather, illness, equipment failure); in such cases we'll reschedule at the earliest opportunity.</p>
+          <h5>9. Governing law</h5>
+          <p>This agreement is governed by the laws of England &amp; Wales.</p>
+        </div>
+        <label class="dc-agree-row">
+          <input type="checkbox" id="vb-agree" disabled required />
+          <span>I have read and agree to the Terms &amp; Conditions above.</span>
+        </label>
+        <div class="dc-sign">
+          <label class="dc-field"><span>Sign — type your full name</span><input id="vb-sign-name" autocomplete="name" required /></label>
+          <label class="dc-field"><span>Date</span><input id="vb-sign-date" type="date" required /></label>
+        </div>
+        <div class="dc-step-actions"><button type="button" class="dc-next" id="vb-terms-cta" disabled>Agree &amp; continue <em>&rarr;</em></button></div>
+      </section>
+
+      <!-- 8. Details + account -->
+      <section class="dc-step" id="vb-step-details" hidden>
+        <h2 class="dc-step-title">Your <em>details.</em></h2>
+        <p class="dc-form-summary" id="vb-details-summary"></p>
+        <form class="dc-panel-form" id="vb-details-form">
+          <label class="dc-field"><span>Full name *</span><input name="name" autocomplete="name" required /></label>
+          <div class="dc-field-row">
+            <label class="dc-field"><span>Email</span><input name="email" type="email" readonly /></label>
+            <label class="dc-field"><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" required /></label>
+          </div>
+          <label class="dc-field"><span>Company / Brand *</span><input name="company" required /></label>
+          <label class="dc-field"><span>Anything we should know?</span><textarea name="notes" rows="2"></textarea></label>
+          <div class="dc-field-row">
+            <label class="dc-field"><span>Create a password *</span><input name="password" type="password" autocomplete="new-password" minlength="8" required /></label>
+            <label class="dc-field"><span>Confirm password *</span><input name="password2" type="password" autocomplete="new-password" minlength="8" required /></label>
+          </div>
+          <label class="vb-optin"><input type="checkbox" name="optin" /><span>I'd like to receive information about TMKE services, updates and promotions.</span></label>
+          <p class="dc-gate-error" id="vb-details-error" hidden></p>
+          <button type="submit" class="dc-form-cta" id="vb-details-cta">Confirm booking <em>&rarr;</em></button>
+        </form>
+      </section>
+
+      <!-- success -->
+      <section class="dc-step dc-success" id="vb-success" hidden>
+        <div class="dc-tick" aria-hidden="true">
+          <svg viewBox="0 0 52 52"><circle class="dc-tick-circle" cx="26" cy="26" r="24"/><path class="dc-tick-path" fill="none" d="M14 27l8 8 16-18"/></svg>
+        </div>
+        <h3 id="vb-success-title">Booking confirmed</h3>
+        <p id="vb-success-msg">You'll shortly receive an email to confirm your booking.</p>
+        <button type="button" class="dc-form-cta dc-success-done" data-vb-close>Done <em>&rarr;</em></button>
+      </section>
+    </div>
+  </div>
+</aside>
+
+<style is:global>
+  /* Booking summary + opt-in (chrome reuses the global .dc-* styles). */
+  .vb-summary { display: flex; flex-direction: column; gap: 2px; border: 1px solid rgba(55,30,40,0.16); border-radius: 12px; overflow: hidden; background: #fff; }
+  .vb-srow { display: flex; justify-content: space-between; gap: 16px; padding: 14px 18px; font-family: var(--sans); font-size: 14px; color: var(--ink); border-bottom: 1px solid rgba(55,30,40,0.08); }
+  .vb-srow:last-child { border-bottom: 0; }
+  .vb-srow span:first-child { color: rgba(28,29,34,0.6); }
+  .vb-srow.vb-total { background: rgba(55,30,40,0.05); }
+  .vb-srow.vb-total span { font-family: var(--serif); font-size: 20px; font-weight: 500; color: var(--ink); }
+  .vb-optin { display: flex; align-items: flex-start; gap: 11px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.78); cursor: pointer; }
+  .vb-optin input { margin-top: 2px; width: 18px; height: 18px; accent-color: var(--english-violet); }
+  .dc-choice-output { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); margin-top: 2px; }
+  .dc-choice-incl { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.6); margin-top: 6px; }
+  .vb-running { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 0 0; padding: 14px 18px; background: rgba(55,30,40,0.05); border-radius: 10px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
+  .vb-running strong { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); }
+  .vb-surcharge-note { font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: rgba(28,29,34,0.78); background: rgba(55,30,40,0.06); border-radius: 8px; padding: 12px 14px; margin: 2px 0 0; }
+  .vb-surcharge-note[hidden] { display: none; }
+  .vb-surcharge-note strong { color: var(--english-violet); }
+</style>
+
+<script>
+  import {
+    SERVICES, audienceForEmail, propertyTierForBrand,
+    gbp, vatOf, withVat, surchargePence, SURCHARGE_DEFAULTS,
+  } from "../lib/videography-config.js";
+
+  (function () {
+    const panel = document.getElementById("vb-panel");
+    if (!panel) return;
+    const WORKER = (panel.dataset.worker || "").replace(/\/+$/, "");
+    const stage = panel.querySelector(".dc-panel-stage");
+    const $ = (id) => document.getElementById(id);
+    const eyebrow = $("vb-eyebrow"), backBtn = $("vb-back");
+
+    const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const pad = (n) => String(n).padStart(2, "0");
+    const localISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    // ---- state ----
+    let svc = null;            // SERVICES entry
+    let audience = null;       // { audience, brand, label, domain }
+    let gateEmail = "";        // the validated work email from the gate
+    let chosen = null;         // single selection (content-studio session / property package)
+    let selectedAddOns = [];   // property add-ons
+    let selectedPackages = []; // agent multi-select packages
+    let postcode = "";         // shoot postcode (property/agent)
+    let distanceMiles = null;  // distance from base
+    let surchargeP = 0;        // travel surcharge in pence (ex-VAT)
+    let duration = 90;         // minutes (for availability)
+    let selectedDate = null, selectedSlot = null;
+    let viewMonth = new Date(); viewMonth.setDate(1);
+    let availWeekdays = null, configFetched = false;
+    let activeStep = null, history = [];
+    const SESSION_MINUTES = { single: 90, half: 180, full: 480 };
+
+    // ---- step nav (one at a time, sliding — same feel as DiscoveryPanel) ----
+    const stepEl = (name) => name === "success" ? $("vb-success") : $("vb-step-" + name);
+    function goTo(name) { if (activeStep) history.push(activeStep); showStepRaw(name); }
+    function showStepRaw(name) {
+      const next = stepEl(name); if (!next) return;
+      const cur = activeStep ? stepEl(activeStep) : null;
+      const enter = () => {
+        next.hidden = false; next.classList.remove("dc-anim-out", "dc-anim-in"); void next.offsetWidth; next.classList.add("dc-anim-in");
+        if (stage) stage.scrollTop = 0; activeStep = name;
+        backBtn.hidden = history.length === 0;
+        if (name === "time") renderSlots();
+      };
+      if (cur && cur !== next) { cur.classList.remove("dc-anim-in"); cur.classList.add("dc-anim-out"); setTimeout(() => { cur.hidden = true; cur.classList.remove("dc-anim-out"); enter(); }, 230); }
+      else enter();
+    }
+    function back() { const prev = history.pop(); if (prev) showStepRaw(prev); }
+    backBtn.addEventListener("click", back);
+    function hideAll() { ["email","register","options","postcode","day","time","summary","terms","details"].forEach((n) => { const e = stepEl(n); if (e) { e.hidden = true; e.classList.remove("dc-anim-in","dc-anim-out"); } }); const s = stepEl("success"); if (s) { s.hidden = true; s.classList.remove("dc-anim-in","dc-anim-out"); } }
+
+    async function fetchConfig() {
+      if (configFetched) return; configFetched = true; if (!WORKER) return;
+      try { const res = await fetch(`${WORKER}/ms/config`); if (!res.ok) return; const d = await res.json(); if (d && d.weekdays) availWeekdays = new Set(Object.keys(d.weekdays).map(Number)); } catch (_) {}
+    }
+
+    // ---- open / close ----
+    function open(serviceKey) {
+      svc = SERVICES[serviceKey];
+      if (!svc) return;
+      audience = null; chosen = null; selectedAddOns = []; selectedPackages = [];
+      postcode = ""; distanceMiles = null; surchargeP = 0;
+      selectedDate = null; selectedSlot = null; history = []; activeStep = null;
+      hideAll();
+      eyebrow.textContent = `TMKE — ${svc.name}`;
+      $("vb-email-form")?.reset(); $("vb-register-form")?.reset(); $("vb-details-form")?.reset();
+      $("vb-email-error").hidden = true; $("vb-register-error").hidden = true; $("vb-details-error").hidden = true;
+      const agree = $("vb-agree"); if (agree) { agree.checked = false; agree.disabled = true; }
+      $("vb-terms")?.classList.remove("is-read");
+      $("vb-terms-cta").disabled = true;
+      resetCta($("vb-details-cta"), "Confirm booking");
+      panel.setAttribute("aria-hidden", "false"); panel.classList.add("is-open");
+      document.documentElement.style.overflow = "hidden";
+      if (stage) stage.scrollTop = 0;
+      renderCalendar(); fetchConfig().then(renderCalendar);
+      showStepRaw("email");
+    }
+    function close() {
+      panel.setAttribute("aria-hidden", "true"); panel.classList.remove("is-open");
+      document.documentElement.style.overflow = "";
+    }
+    function resetCta(btn, label) { if (!btn) return; btn.disabled = false; btn.classList.remove("is-loading"); btn.innerHTML = label + ' <em>&rarr;</em>'; }
+    function loadingCta(btn, label) { if (!btn) return; btn.disabled = true; btn.classList.add("is-loading"); btn.innerHTML = '<span class="dc-spinner"></span> ' + label; }
+
+    // ---- 1. email gate + routing ----
+    $("vb-email-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const email = String(new FormData(e.target).get("email") || "").trim();
+      const err = $("vb-email-error"); err.hidden = true;
+      if (!email) { err.textContent = "Please enter your work email."; err.hidden = false; return; }
+      gateEmail = email;
+      audience = audienceForEmail(email);
+      if (audience.audience !== "member" && svc.membersOnly) {
+        // Members-only service → register interest.
+        $("vb-register-form").querySelector('[name="email"]').value = email;
+        goTo("register"); return;
+      }
+      // Member (or non-member on a non-members-only service) → show options.
+      renderOptions();
+      goTo("options");
+    });
+
+    // ---- 2. register interest (members-only, non-member) ----
+    $("vb-register-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = String(new FormData(e.target).get("email") || "").trim();
+      const err = $("vb-register-error"); err.hidden = true;
+      const btn = $("vb-register-cta");
+      loadingCta(btn, "Registering…");
+      try {
+        if (WORKER) {
+          await fetch(`${WORKER}/videography/register-interest`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, service: svc.key }),
+          }).catch(() => {});
+        }
+        await sleep(700);
+        $("vb-success-title").textContent = "Thanks — we'll be in touch";
+        $("vb-success-msg").textContent = `We've noted your interest in the ${svc.name}. We'll email you the moment access opens up.`;
+        history = []; goTo("success"); history = []; backBtn.hidden = true;
+        resetCta(btn, "Register interest");
+      } catch (_) { resetCta(btn, "Register interest"); err.textContent = "Sorry, that didn't go through — please try again."; err.hidden = false; }
+    });
+
+    // ---- 3. options (Content Studio sessions / Property package + add-ons / Agent multi) ----
+    function renderOptions() {
+      const wrap = $("vb-options"), actions = $("vb-options-actions");
+      selectedAddOns = []; selectedPackages = []; chosen = null;
+
+      if (svc.key === "content-studio") {
+        $("vb-options-title").innerHTML = "Choose your <em>session.</em>";
+        actions.hidden = true;
+        wrap.innerHTML = `<div class="dc-choices">` + svc.sessions.map((s, i) => `
+          <button type="button" class="dc-choice" data-i="${i}">
+            <span class="dc-choice-name">${s.name}</span>
+            <span class="dc-choice-output">${s.output}</span>
+            <span class="dc-choice-meta">${s.desc}</span>
+            <span class="dc-choice-price">${gbp(s.price_pence)} + VAT</span>
+          </button>`).join("") + `</div>`;
+        wrap.querySelectorAll(".dc-choice").forEach((b) => b.addEventListener("click", () => {
+          chosen = svc.sessions[+b.dataset.i];
+          duration = SESSION_MINUTES[chosen.key] || 90;
+          goTo("day");
+        }));
+        return;
+      }
+
+      if (svc.key === "property") {
+        const tier = propertyTierForBrand(audience && audience.brand) || "gold";
+        chosen = svc.packagesByTier[tier];
+        duration = 240; // property shoot block (interim — refined in scheduling phase)
+        $("vb-options-title").innerHTML = "Your <em>package.</em>";
+        const incl = chosen.inclusions.map((x) => "· " + x).join("<br>");
+        const pkg = `<div class="dc-choice" style="cursor:default">
+          <span class="dc-choice-name">${chosen.name}</span>
+          <span class="dc-choice-price">from ${gbp(chosen.from_pence)} + VAT</span>
+          <span class="dc-choice-incl">${incl}</span></div>`;
+        const addons = `<p class="dc-step-sub" style="margin:22px 0 10px">Optional add-ons</p><div class="dc-choices dc-choices--multi">` +
+          svc.addOns.map((a, i) => `<button type="button" class="dc-choice" data-addon="${i}">
+            <span class="dc-choice-check">✓</span>
+            <span style="display:flex;flex-direction:column;gap:3px">
+              <span class="dc-choice-name" style="font-size:18px">${a.name}</span>
+              <span class="dc-choice-meta">${gbp(a.price_pence)}${a.perImage ? " / image" : ""} + VAT</span></span>
+          </button>`).join("") + `</div>`;
+        wrap.innerHTML = pkg + addons + `<div class="vb-running" id="vb-running"></div>`;
+        wrap.querySelectorAll("[data-addon]").forEach((b) => b.addEventListener("click", () => {
+          b.classList.toggle("is-active");
+          const a = svc.addOns[+b.dataset.addon];
+          if (b.classList.contains("is-active")) selectedAddOns.push(a);
+          else selectedAddOns = selectedAddOns.filter((x) => x.key !== a.key);
+          renderRunning();
+        }));
+        renderRunning(); actions.hidden = false;
+        return;
+      }
+
+      if (svc.key === "agent") {
+        $("vb-options-title").innerHTML = "Choose your <em>packages.</em>";
+        wrap.innerHTML = `<div class="dc-choices dc-choices--multi">` +
+          svc.packages.map((p, i) => `<button type="button" class="dc-choice" data-pkg="${i}">
+            <span class="dc-choice-check">✓</span>
+            <span style="display:flex;flex-direction:column;gap:3px">
+              <span class="dc-choice-name" style="font-size:18px">${p.name} — ${gbp(p.price_pence)} + VAT</span>
+              <span class="dc-choice-meta" style="text-transform:none;letter-spacing:0;font-size:12.5px">${p.desc}</span></span>
+          </button>`).join("") + `</div><div class="vb-running" id="vb-running"></div>`;
+        wrap.querySelectorAll("[data-pkg]").forEach((b) => b.addEventListener("click", () => {
+          b.classList.toggle("is-active");
+          const p = svc.packages[+b.dataset.pkg];
+          if (b.classList.contains("is-active")) selectedPackages.push(p);
+          else selectedPackages = selectedPackages.filter((x) => x.key !== p.key);
+          renderRunning();
+        }));
+        renderRunning(); actions.hidden = false;
+        return;
+      }
+    }
+
+    function optionsBasePence() {
+      if (svc && svc.key === "agent") return selectedPackages.reduce((s, p) => s + p.price_pence, 0);
+      if (svc && svc.key === "property") return chosen ? chosen.from_pence : 0;
+      return chosen ? chosen.price_pence : 0;
+    }
+    function addOnsPence() { return selectedAddOns.reduce((s, a) => s + a.price_pence, 0); }
+    function renderRunning() {
+      const el = $("vb-running"); if (!el) return;
+      el.innerHTML = `<span>Running total — ex VAT, before travel</span><strong>${gbp(optionsBasePence() + addOnsPence())}</strong>`;
+      const next = $("vb-options-next");
+      if (next && svc && svc.key === "agent") next.disabled = selectedPackages.length === 0;
+    }
+
+    // Property/Agent: Continue → postcode (surcharge) → day. (Content Studio jumps
+    // straight to day from its session card above.)
+    $("vb-options-next")?.addEventListener("click", () => {
+      if (svc.key === "agent" && !selectedPackages.length) return;
+      if (svc.key === "agent") duration = Math.max(120, selectedPackages.length * 60);
+      $("vb-surcharge-note").hidden = true;
+      if (svc.surcharge) goTo("postcode"); else goTo("day");
+    });
+
+    // ---- 3b. postcode + travel surcharge ----
+    function haversineMiles(la1, lo1, la2, lo2) {
+      const R = 3958.8, rad = (x) => (x * Math.PI) / 180;
+      const dLa = rad(la2 - la1), dLo = rad(lo2 - lo1);
+      const a = Math.sin(dLa / 2) ** 2 + Math.cos(rad(la1)) * Math.cos(rad(la2)) * Math.sin(dLo / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    }
+    async function lookupDistance(pc) {
+      // 1) Worker's Google Distance Matrix endpoint = accurate driving distance.
+      if (WORKER) {
+        try {
+          const res = await fetch(`${WORKER}/videography/distance?to=${encodeURIComponent(pc)}`);
+          if (res.ok) { const d = await res.json(); if (d && typeof d.miles === "number") return { ok: true, miles: d.miles, surcharge_pence: d.surcharge_pence, source: d.source || "drive" }; }
+        } catch (_) {}
+      }
+      // 2) Fallback — straight-line estimate via postcodes.io (free, no key).
+      try {
+        const base = SURCHARGE_DEFAULTS.base_postcode.replace(/\s+/g, "");
+        const [b, t] = await Promise.all([
+          fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(base)).then((r) => r.json()),
+          fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(pc.replace(/\s+/g, ""))).then((r) => r.json()),
+        ]);
+        if (!b.result || !t.result) return { ok: false, error: "We couldn't find that postcode — please check and try again." };
+        const miles = haversineMiles(b.result.latitude, b.result.longitude, t.result.latitude, t.result.longitude);
+        return { ok: true, miles, surcharge_pence: surchargePence(miles), source: "estimate" };
+      } catch (_) { return { ok: false, error: "We couldn't check the distance just now — please try again." }; }
+    }
+    $("vb-postcode-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      postcode = String(new FormData(e.target).get("postcode") || "").trim().toUpperCase();
+      const err = $("vb-postcode-error"), note = $("vb-surcharge-note"); err.hidden = true;
+      if (!postcode) { err.textContent = "Please enter the shoot postcode."; err.hidden = false; return; }
+      const btn = $("vb-postcode-cta"); loadingCta(btn, "Checking distance…");
+      const r = await lookupDistance(postcode);
+      resetCta(btn, "Continue");
+      if (!r.ok) { err.textContent = r.error; err.hidden = false; return; }
+      distanceMiles = r.miles; surchargeP = (r.surcharge_pence != null) ? r.surcharge_pence : surchargePence(r.miles);
+      const approx = r.source === "estimate" ? "approx " : "";
+      note.hidden = false;
+      note.innerHTML = surchargeP > 0
+        ? `${chosen ? "" : ""}This shoot is ${approx}<strong>${Math.round(r.miles)} miles</strong> from base — a travel surcharge of <strong>${gbp(surchargeP)} + VAT</strong> applies.`
+        : `This shoot is ${approx}<strong>${Math.round(r.miles)} miles</strong> from base — <strong>within the free radius</strong>, so there's no travel charge.`;
+      setTimeout(() => goTo("day"), 1100);
+    });
+
+    // ---- 4. calendar ----
+    const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    function renderCalendar() {
+      const calLabel = $("vb-cal-label"), calGrid = $("vb-cal-grid"); if (!calGrid) return;
+      calLabel.textContent = `${MONTHS[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`;
+      const first = new Date(viewMonth), off = (first.getDay() + 6) % 7;
+      const gs = new Date(first); gs.setDate(first.getDate() - off);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const cells = [];
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(gs); d.setDate(gs.getDate() + i);
+        const inM = d.getMonth() === viewMonth.getMonth(), past = d < today;
+        const closed = availWeekdays ? !availWeekdays.has(d.getDay()) : (d.getDay() === 0 || d.getDay() === 6);
+        const cl = ["dc-cal-day"]; if (!inM) cl.push("is-other-month"); if (sameDay(d, today)) cl.push("is-today"); if (sameDay(d, selectedDate)) cl.push("is-active");
+        cells.push(`<button type="button" class="${cl.join(" ")}" data-date="${localISO(d)}" ${past || closed ? "disabled" : ""}>${d.getDate()}</button>`);
+      }
+      calGrid.innerHTML = cells.join("");
+    }
+    $("vb-prev-month")?.addEventListener("click", () => { viewMonth.setMonth(viewMonth.getMonth() - 1); renderCalendar(); });
+    $("vb-next-month")?.addEventListener("click", () => { viewMonth.setMonth(viewMonth.getMonth() + 1); renderCalendar(); });
+    $("vb-cal-grid")?.addEventListener("click", (e) => {
+      const btn = e.target.closest(".dc-cal-day"); if (!btn || btn.hasAttribute("disabled")) return;
+      selectedDate = new Date(btn.dataset.date + "T12:00:00"); selectedSlot = null; renderCalendar(); goTo("time");
+    });
+
+    // ---- 5. time slots ----
+    async function renderSlots() {
+      const grid = $("vb-slots-grid"), sub = $("vb-time-sub"); if (!selectedDate) return;
+      const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+      sub.textContent = `${svc.name} · ${dt}`;
+      if (!WORKER) { grid.innerHTML = `<p class="dc-slots-empty">Booking is being set up — please check back shortly.</p>`; return; }
+      grid.innerHTML = `<p class="dc-slots-empty">Finding times…</p>`;
+      try {
+        const res = await fetch(`${WORKER}/ms/availability?date=${localISO(selectedDate)}&duration=${duration}`);
+        const data = await res.json(); if (!res.ok) throw new Error(data.error || "error");
+        if (!data.slots || !data.slots.length) { grid.innerHTML = `<p class="dc-slots-empty">No times available that day — go back and try another.</p>`; return; }
+        grid.innerHTML = data.slots.map((s) => `<button type="button" class="dc-slot" data-slot="${s}">${s}</button>`).join("");
+      } catch (_) { grid.innerHTML = `<p class="dc-slots-empty">Couldn't load times. Please try again.</p>`; }
+    }
+    $("vb-slots-grid")?.addEventListener("click", (e) => {
+      const btn = e.target.closest(".dc-slot"); if (!btn) return;
+      selectedSlot = btn.dataset.slot; renderSummary(); goTo("summary");
+    });
+
+    // ---- 6. summary ----
+    function bookingLabel() {
+      if (svc.key === "agent") return selectedPackages.map((p) => p.name).join(" + ") || "—";
+      return chosen ? chosen.name : "—";
+    }
+    function subtotalPence() { return optionsBasePence() + addOnsPence() + (surchargeP || 0); }
+    function renderSummary() {
+      const baseLabel = svc.key === "content-studio" ? "Session" : svc.key === "agent" ? "Packages" : "Package";
+      const sub = subtotalPence();
+      const vat = vatOf(sub);
+      const dt = selectedDate ? selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "—";
+      const rows = [
+        ["Service", svc.name],
+        [baseLabel, bookingLabel()],
+        ...(svc.key === "property" && optionsBasePence() ? [["Package price", gbp(optionsBasePence()) + (svc.key === "property" ? " (from)" : "")]] : []),
+        ...selectedAddOns.map((a) => [`Add-on — ${a.name}`, gbp(a.price_pence)]),
+        ...(postcode ? [["Shoot postcode", postcode]] : []),
+        ...(svc.surcharge ? [["Travel" + (distanceMiles != null ? ` (${Math.round(distanceMiles)} mi)` : ""), surchargeP > 0 ? gbp(surchargeP) : "No charge"]] : []),
+        ["Date", dt],
+        ["Time", selectedSlot || "—"],
+        ["Subtotal (ex VAT)", gbp(sub)],
+        ["VAT (20%)", gbp(vat)],
+      ];
+      $("vb-summary").innerHTML = rows.map(([k, v]) => `<div class="vb-srow"><span>${k}</span><span>${v}</span></div>`).join("") +
+        `<div class="vb-srow vb-total"><span>Total</span><span>${gbp(sub + vat)}</span></div>`;
+      $("vb-details-summary").textContent = `${svc.name} — ${bookingLabel()}, ${dt} at ${selectedSlot}. ${gbp(withVat(sub))} inc. VAT.`;
+    }
+    $("vb-summary-next")?.addEventListener("click", () => {
+      const sd = $("vb-sign-date"); if (sd && !sd.value) sd.value = localISO(new Date());
+      const terms = $("vb-terms"), agree = $("vb-agree");
+      if (terms && terms.scrollHeight <= terms.clientHeight + 4) { agree.disabled = false; terms.classList.add("is-read"); }
+      goTo("terms");
+    });
+
+    // ---- 7. terms ----
+    const terms = $("vb-terms"), agree = $("vb-agree"), signName = $("vb-sign-name"), signDate = $("vb-sign-date"), termsCta = $("vb-terms-cta");
+    function refreshTerms() { termsCta.disabled = !(agree && !agree.disabled && agree.checked && signName.value.trim() && signDate.value); }
+    terms?.addEventListener("scroll", () => { if (terms.scrollTop + terms.clientHeight >= terms.scrollHeight - 8) { agree.disabled = false; terms.classList.add("is-read"); refreshTerms(); } });
+    agree?.addEventListener("change", refreshTerms);
+    signName?.addEventListener("input", refreshTerms);
+    signDate?.addEventListener("input", refreshTerms);
+    termsCta?.addEventListener("click", () => {
+      if (termsCta.disabled) return;
+      const f = $("vb-details-form");
+      if (f) f.querySelector('[name="email"]').value = gateEmail;   // pre-fill from the gate
+      goTo("details");
+    });
+
+    // ---- 8. details → confirm ----
+    $("vb-details-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const err = $("vb-details-error"); err.hidden = true;
+      const pw = String(fd.get("password") || ""), pw2 = String(fd.get("password2") || "");
+      if (pw.length < 8) { err.textContent = "Password must be at least 8 characters."; err.hidden = false; return; }
+      if (pw !== pw2) { err.textContent = "Passwords don't match."; err.hidden = false; return; }
+      const btn = $("vb-details-cta");
+      loadingCta(btn, "Confirming…");
+      const t0 = Date.now();
+      const sub = subtotalPence();
+      const summaryLine = `${svc.name} — ${bookingLabel()}`;
+      const notes = [
+        summaryLine,
+        selectedAddOns.length ? `Add-ons: ${selectedAddOns.map((a) => a.name).join(", ")}` : "",
+        postcode ? `Shoot postcode: ${postcode}` : "",
+        svc.surcharge ? `Travel: ${distanceMiles != null ? Math.round(distanceMiles) + " mi, " : ""}${surchargeP > 0 ? gbp(surchargeP) + " + VAT" : "no charge"}` : "",
+        fd.get("company") ? `Company: ${fd.get("company")}` : "",
+        fd.get("phone") ? `Phone: ${fd.get("phone")}` : "",
+        fd.get("notes") ? String(fd.get("notes")) : "",
+        `Agreement: signed "${signName.value.trim()}" on ${signDate.value}.`,
+        fd.get("optin") ? "Marketing opt-in: yes" : "Marketing opt-in: no",
+        `Total: ${gbp(withVat(sub))} inc VAT.`,
+      ].filter(Boolean).join(" | ");
+      const bookEmail = gateEmail || String(fd.get("email") || "");
+      try {
+        if (!WORKER) throw new Error("Booking is being set up — please check back shortly.");
+        // Books Jack's 365 diary, creates/links the account, writes the full
+        // pipeline row, and sends the confirmation (with .ics) + Jack's notice.
+        const res = await fetch(`${WORKER}/videography/book`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: localISO(selectedDate), start: selectedSlot, duration,
+            service: svc.name, service_type: svc.key,
+            audience: audience && audience.audience, brand: (audience && audience.brand) || null,
+            package: svc.key === "agent" ? selectedPackages.map((p) => p.key).join(",") : (chosen && chosen.key) || null,
+            package_label: bookingLabel(),
+            add_ons: selectedAddOns.map((a) => ({ key: a.key, name: a.name, price_pence: a.price_pence })),
+            postcode: postcode || null, distance_miles: distanceMiles, surcharge_pence: surchargeP || 0,
+            name: fd.get("name"), email: bookEmail, phone: fd.get("phone"), company: fd.get("company"), notes,
+            signed_name: signName.value.trim(), signed_at: signDate.value ? `${signDate.value}T12:00:00` : null,
+            marketing_opt_in: !!fd.get("optin"), password: pw, total_pence: withVat(sub),
+          }),
+        });
+        const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || "Booking failed");
+        // Best-effort: sign the new account in so the portal works immediately.
+        try { const m = await import("../lib/supabase.js"); if (m && m.isConfigured && m.supabase) await m.supabase.auth.signInWithPassword({ email: bookEmail, password: pw }); } catch (_) {}
+        const wait = 1100 - (Date.now() - t0); if (wait > 0) await sleep(wait);
+        const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+        $("vb-success-title").textContent = "Booking confirmed";
+        $("vb-success-msg").textContent = `We've booked ${svc.name} for ${dt} at ${selectedSlot}, and set up your account so you can manage it any time. A confirmation email with a calendar invite is on its way.`;
+        history = []; goTo("success"); history = []; backBtn.hidden = true;
+        resetCta(btn, "Confirm booking");
+      } catch (e2) {
+        resetCta(btn, "Confirm booking");
+        err.textContent = (e2 && e2.message) || "Sorry, that didn't go through — please try another time."; err.hidden = false;
+      }
+    });
+
+    // ---- openers / close ----
+    document.addEventListener("click", (e) => { if (e.target.closest("[data-vb-close]")) close(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panel.classList.contains("is-open")) close(); });
+    document.addEventListener("click", (e) => {
+      const o = e.target.closest?.("[data-vbook]"); if (!o) return; e.preventDefault();
+      open(o.getAttribute("data-vbook"));
+    });
+    window.tmkeVideographyBook = open;
+  })();
+</script>
