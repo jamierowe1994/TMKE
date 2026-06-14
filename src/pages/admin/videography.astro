@@ -34,41 +34,40 @@ const DELIVER_CATEGORIES = [
   <section class="admin-bar wrap">
     <AdminBack />
     <div class="admin-bar-actions">
-      <div class="vid-tabs" id="vid-tabs" role="tablist">
-        <button type="button" class="enquiry-chip is-active" data-tab="pipeline">Pipeline</button>
-        <button type="button" class="enquiry-chip" data-tab="bookings">Bookings</button>
-        <button type="button" class="enquiry-chip" data-tab="diary">Diary</button>
-        <button type="button" class="enquiry-chip" data-tab="deliver">Deliver</button>
-        <button type="button" class="enquiry-chip" data-tab="connections">Connections</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== PIPELINE (kanban / mini-CRM) ===================== -->
-  <section class="vid-panel wrap is-active" data-panel="pipeline">
-    <div class="vid-panel-head">
-      <div>
-        <h2 class="vid-panel-title">Pipeline</h2>
-        <p class="vid-panel-sub">Drag a job between stages as it moves. Click a card to edit details.</p>
-      </div>
       <button type="button" class="admin-btn admin-btn-primary" id="vid-new-booking">+ New booking</button>
+      <div class="vid-cog-wrap">
+        <button type="button" class="vid-cog" id="vid-cog" aria-label="Studio settings" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Settings</span>
+        </button>
+        <div class="vid-cog-menu" id="vid-cog-menu" hidden>
+          <button type="button" data-go="clients">Clients</button>
+          <button type="button" data-go="diary">Diary &amp; availability</button>
+          <button type="button" data-go="deliver">Deliver work</button>
+          <button type="button" data-go="connections">Connections</button>
+        </div>
+      </div>
     </div>
-
-    <p class="vid-loading" id="vid-board-loading">Loading pipeline…</p>
-    <div class="vid-board" id="vid-board" hidden></div>
   </section>
 
-  <!-- ===================== BOOKINGS (client list) ===================== -->
-  <section class="vid-panel wrap" data-panel="bookings">
+  <!-- ===================== CLIENTS (prioritised list) ===================== -->
+  <section class="vid-panel wrap is-active" data-panel="clients">
     <div class="vid-panel-head">
       <div>
-        <h2 class="vid-panel-title">Bookings &amp; clients</h2>
-        <p class="vid-panel-sub">Every client who's booked Jack — pulled from the pipeline.</p>
+        <h2 class="vid-panel-title">Clients</h2>
+        <p class="vid-panel-sub">Everyone Jack's working with right now, soonest first. Click a name to open their file.</p>
       </div>
-      <input type="search" id="vid-booking-search" class="admin-search" placeholder="Search client, company, brand…" />
+      <input type="search" id="vid-client-search" class="admin-search" placeholder="Search client, company…" />
     </div>
-    <p class="vid-loading" id="vid-bookings-empty" hidden>No bookings yet.</p>
-    <div class="enquiry-table" id="vid-bookings-table"></div>
+    <p class="vid-loading" id="vid-clients-loading">Loading clients…</p>
+    <div class="vid-clients" id="vid-clients" hidden></div>
+    <p class="vid-loading" id="vid-clients-empty" hidden>No clients yet — add a booking to get started.</p>
+  </section>
+
+  <!-- ===================== CANDIDATE FILE (CRM one-pager) ===================== -->
+  <section class="vid-panel wrap" data-panel="candidate">
+    <button type="button" class="vid-cand-back" id="vid-cand-back">&larr; All clients</button>
+    <div class="vid-cand" id="vid-cand"></div>
   </section>
 
   <!-- ===================== DIARY (weekly availability) ===================== -->
@@ -315,6 +314,102 @@ const DELIVER_CATEGORIES = [
     .vid-panel-title { font-family: var(--serif); font-size: 30px; font-weight: 500; color: var(--ink); margin: 0; }
     .vid-panel-sub { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.6); margin: 4px 0 0; }
     .vid-loading { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); padding: 40px 0; }
+
+    /* ---- Settings cog ---- */
+    .vid-cog-wrap { position: relative; }
+    .vid-cog {
+      display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px;
+      background: #fff; border: 1px solid rgba(55, 30, 40, 0.3); border-radius: 999px;
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      font-weight: 700; color: var(--english-violet); cursor: pointer; transition: background 0.2s;
+    }
+    .vid-cog:hover { background: rgba(55, 30, 40, 0.06); }
+    .vid-cog-menu {
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 30;
+      background: var(--paper); border: 1px solid rgba(55, 30, 40, 0.2); border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(20, 18, 26, 0.18); padding: 6px; min-width: 220px;
+      display: flex; flex-direction: column;
+    }
+    .vid-cog-menu[hidden] { display: none; }
+    .vid-cog-menu button {
+      text-align: left; background: none; border: none; cursor: pointer; border-radius: 6px;
+      font-family: var(--sans); font-size: 13px; color: var(--ink); padding: 11px 12px;
+    }
+    .vid-cog-menu button:hover { background: rgba(55, 30, 40, 0.07); color: var(--english-violet); }
+
+    /* ---- Clients list ---- */
+    .vid-clients { display: flex; flex-direction: column; gap: 10px; }
+    .vid-client {
+      display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 18px; align-items: center;
+      background: var(--paper); border: 1px solid rgba(55, 30, 40, 0.18); border-radius: 8px;
+      padding: 18px 22px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    }
+    .vid-client:hover { border-color: var(--english-violet); box-shadow: 0 6px 20px rgba(20, 18, 26, 0.08); transform: translateY(-1px); }
+    .vid-client.is-complete { opacity: 0.6; }
+    .vid-client-name { font-family: var(--serif); font-size: 20px; font-weight: 500; color: var(--ink); }
+    .vid-client-co { font-family: var(--sans); font-size: 12px; color: rgba(28, 29, 34, 0.55); margin-top: 2px; }
+    .vid-client-next { font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.7); }
+    .vid-client-stage {
+      justify-self: end; display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--sans); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+      font-weight: 700; color: var(--english-violet);
+      background: rgba(55, 30, 40, 0.08); padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+    }
+    .vid-client-when { font-family: var(--sans); font-size: 12px; color: rgba(28, 29, 34, 0.5); margin-top: 4px; }
+    @media (max-width: 720px) { .vid-client { grid-template-columns: 1fr; gap: 8px; } .vid-client-stage { justify-self: start; } }
+
+    /* ---- Candidate file (CRM one-pager) ---- */
+    .vid-cand-back {
+      background: none; border: none; cursor: pointer; font-family: var(--sans);
+      font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700;
+      color: var(--english-violet); padding: 0; margin-bottom: 28px;
+    }
+    .vid-cand-back:hover { color: var(--ink); }
+    .vid-cand {
+      max-width: 820px; margin: 0 auto; text-align: center;
+      background: var(--paper); border: 1px solid rgba(55, 30, 40, 0.16); border-radius: 14px;
+      padding: clamp(32px, 5vw, 64px) clamp(24px, 5vw, 64px) clamp(36px, 5vw, 56px);
+    }
+    .vid-cand-who { font-family: var(--sans); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: rgba(28, 29, 34, 0.5); }
+    .vid-cand-co { font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.55); margin-top: 4px; }
+    .vid-cand-big {
+      font-family: var(--serif); font-weight: 500; color: var(--ink);
+      font-size: clamp(34px, 5.5vw, 60px); line-height: 1.05; letter-spacing: -0.01em;
+      margin: 22px 0 6px;
+    }
+    .vid-cand-sub { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2vw, 24px); color: var(--english-violet); margin: 0 0 18px; }
+    .vid-cand-next {
+      font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(28, 29, 34, 0.72);
+      max-width: 52ch; margin: 0 auto 8px;
+    }
+    .vid-cand-meta {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 26px;
+      font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.6);
+      margin: 22px 0 4px; padding-top: 22px; border-top: 1px solid rgba(55, 30, 40, 0.12);
+    }
+    .vid-cand-meta strong { color: var(--ink); font-weight: 700; }
+    .vid-cand-advance { margin: 30px 0 10px; }
+    .vid-cand-advance .admin-btn { font-size: 12px; padding: 14px 28px; }
+    .vid-cand-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
+    .vid-cand-drawer {
+      margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(55, 30, 40, 0.12);
+      text-align: left; display: none;
+    }
+    .vid-cand-drawer.is-open { display: block; }
+    .vid-cand-drawer h4 { font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55); margin: 0 0 12px; }
+    .vid-add-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    @media (max-width: 640px) { .vid-add-opts { grid-template-columns: 1fr; } }
+    .vid-add-opt {
+      text-align: left; background: rgba(55, 30, 40, 0.04); border: 1px solid rgba(55, 30, 40, 0.16);
+      border-radius: 8px; padding: 14px 16px; cursor: pointer; font-family: var(--sans);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .vid-add-opt:hover { border-color: var(--english-violet); background: rgba(55, 30, 40, 0.07); }
+    .vid-add-opt strong { display: block; font-size: 14px; color: var(--ink); margin-bottom: 3px; }
+    .vid-add-opt span { font-size: 12px; color: rgba(28,29,34,0.6); }
+    .vid-cand-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 14px; }
+    .vid-cand-form .vid-field { flex: 1; min-width: 160px; }
+    .vid-cand-form .vid-field input { width: 100%; }
 
     /* ---- Pipeline — full-width stages stacked vertically ---- */
     .vid-board { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
@@ -622,19 +717,38 @@ const DELIVER_CATEGORIES = [
 
     let bookings = [];
 
-    /* ---------- Tabs ---------- */
-    function initTabs() {
-      const tabs = document.getElementById("vid-tabs");
-      tabs?.addEventListener("click", (e) => {
-        const btn = e.target.closest(".enquiry-chip");
-        if (!btn) return;
-        const tab = btn.getAttribute("data-tab");
-        tabs.querySelectorAll(".enquiry-chip").forEach((c) => c.classList.remove("is-active"));
-        btn.classList.add("is-active");
-        document.querySelectorAll(".vid-panel").forEach((p) => {
-          p.classList.toggle("is-active", p.getAttribute("data-panel") === tab);
-        });
+    /* ---------- Panel switching + settings cog ---------- */
+    function showPanel(name) {
+      document.querySelectorAll(".vid-panel").forEach((p) => {
+        p.classList.toggle("is-active", p.getAttribute("data-panel") === name);
       });
+      try { window.scrollTo({ top: 0, behavior: "instant" }); } catch (_) { window.scrollTo(0, 0); }
+    }
+    function initNav() {
+      const cog = document.getElementById("vid-cog");
+      const menu = document.getElementById("vid-cog-menu");
+      cog?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const willOpen = menu.hidden;
+        menu.hidden = !willOpen;
+        cog.setAttribute("aria-expanded", String(willOpen));
+      });
+      document.addEventListener("click", () => { if (menu && !menu.hidden) menu.hidden = true; });
+      menu?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-go]");
+        if (!btn) return;
+        e.stopPropagation();
+        menu.hidden = true;
+        const go = btn.getAttribute("data-go");
+        showPanel(go);
+        if (go === "deliver") populateDeliverBookings();
+        if (go === "clients") renderClients(document.getElementById("vid-client-search")?.value || "");
+      });
+      document.getElementById("vid-cand-back")?.addEventListener("click", () => {
+        showPanel("clients");
+        renderClients(document.getElementById("vid-client-search")?.value || "");
+      });
+      document.getElementById("vid-client-search")?.addEventListener("input", (e) => renderClients(e.target.value || ""));
     }
 
     /* ---------- Pipeline (kanban) ---------- */
@@ -730,6 +844,199 @@ const DELIVER_CATEGORIES = [
           </div>`).join("");
       table.querySelectorAll("[data-id]").forEach((el) =>
         el.addEventListener("click", () => openModal(el.getAttribute("data-id"))));
+    }
+
+    /* ---------- Clients list + candidate file (CRM) ---------- */
+    const STAGE_FLOW = {
+      booked:      { sub: "Booked in",   big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Confirm the details and prep the kit. This moves to Shoot day on its own when the day arrives.", advance: { to: "shoot_day",   label: "Start shoot day" } },
+      shoot_day:   { sub: "Shoot day",   big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Today",          next: "Shoot the job, then move it into editing.",                                                  advance: { to: "editing",     label: "Shot — move to editing" } },
+      editing:     { sub: "In editing",  big: () => "Editing",                                                next: "Edit the footage, then prepare the final draft.",                                            advance: { to: "final_draft", label: "Editing done — final draft" } },
+      final_draft: { sub: "Final draft", big: () => "Final draft",                                            next: "Send the draft for approval, then raise the invoice.",                                        advance: { to: "invoice_out", label: "Approved — raise invoice" } },
+      invoice_out: { sub: "Invoice out", big: () => "Awaiting payment",                                       next: "Invoice is out. This completes on its own once the client pays.",                             advance: { to: "complete",    label: "Mark paid — complete" } },
+      complete:    { sub: "Complete",    big: () => "Complete",                                               next: "All wrapped up — nothing left to do here.",                                                  advance: null },
+    };
+    function fmtBig(iso) {
+      return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+    }
+    function nextActionHint(b) {
+      if (b.stage === "booked" && b.shoot_date) return "Shoot " + fmtBig(b.shoot_date);
+      return (STAGE_FLOW[b.stage] || {}).sub || b.stage;
+    }
+    function clientSort(a, b) {
+      const order = STAGES.map((s) => s.key);
+      const ac = a.stage === "complete", bc = b.stage === "complete";
+      if (ac !== bc) return ac ? 1 : -1;
+      const ad = a.shoot_date ? new Date(a.shoot_date).getTime() : Infinity;
+      const bd = b.shoot_date ? new Date(b.shoot_date).getTime() : Infinity;
+      if (ad !== bd) return ad - bd;
+      return order.indexOf(a.stage) - order.indexOf(b.stage);
+    }
+    function renderClients(filter = "") {
+      const wrap = document.getElementById("vid-clients");
+      const loading = document.getElementById("vid-clients-loading");
+      const empty = document.getElementById("vid-clients-empty");
+      if (!wrap) return;
+      if (loading) loading.hidden = true;
+      const q = filter.trim().toLowerCase();
+      const rows = bookings
+        .filter((b) => !q || [b.client_name, b.client_company, b.service, b.client_email].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)))
+        .sort(clientSort);
+      if (!rows.length) { wrap.hidden = true; if (empty) empty.hidden = false; return; }
+      if (empty) empty.hidden = true;
+      wrap.hidden = false;
+      const stageLabel = (k) => (STAGES.find((s) => s.key === k) || {}).label || k;
+      wrap.innerHTML = rows.map((b) => `
+        <div class="vid-client ${b.stage === "complete" ? "is-complete" : ""}" data-id="${b.id}">
+          <div>
+            <div class="vid-client-name">${escapeHtml(b.client_name)}</div>
+            <div class="vid-client-co">${escapeHtml(b.client_company || b.service || "—")}</div>
+          </div>
+          <div>
+            <div class="vid-client-next">${escapeHtml(nextActionHint(b))}</div>
+            ${b.shoot_date ? `<div class="vid-client-when">${escapeHtml(fmtWhen(b.shoot_date))}</div>` : ""}
+          </div>
+          <div class="vid-client-stage">${escapeHtml(stageLabel(b.stage))}</div>
+        </div>`).join("");
+      wrap.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => openCandidate(el.getAttribute("data-id"))));
+    }
+
+    let candId = null;
+    function openCandidate(id) { candId = id; showPanel("candidate"); renderCandidate(); }
+    function renderCandidate() {
+      const b = bookings.find((x) => x.id === candId);
+      const el = document.getElementById("vid-cand");
+      if (!b || !el) return;
+      const f = STAGE_FLOW[b.stage] || STAGE_FLOW.booked;
+      const amount = b.amount_pence != null ? gbpFromPence(b.amount_pence) : "—";
+      el.innerHTML = `
+        <div class="vid-cand-who">${escapeHtml(b.client_name)}</div>
+        ${b.client_company ? `<div class="vid-cand-co">${escapeHtml(b.client_company)}</div>` : ""}
+        <div class="vid-cand-sub">${escapeHtml(f.sub)}</div>
+        <div class="vid-cand-big">${escapeHtml(f.big(b))}</div>
+        <p class="vid-cand-next">${escapeHtml(f.next)}</p>
+        <div class="vid-cand-meta">
+          ${b.service ? `<span>Service&nbsp; <strong>${escapeHtml(b.service)}</strong></span>` : ""}
+          <span>Quote&nbsp; <strong>${amount}</strong></span>
+          ${b.location ? `<span>Location&nbsp; <strong>${escapeHtml(b.location)}</strong></span>` : ""}
+          <span data-distance>Distance&nbsp; <strong>…</strong></span>
+        </div>
+        ${f.advance ? `<div class="vid-cand-advance"><button type="button" class="admin-btn admin-btn-primary" data-advance>${escapeHtml(f.advance.label)} &rarr;</button></div>` : ""}
+        <div class="vid-cand-actions">
+          <button type="button" class="admin-btn admin-btn-ghost" data-act="reschedule">Reschedule</button>
+          <button type="button" class="admin-btn admin-btn-ghost" data-act="edit">Edit</button>
+          <button type="button" class="admin-btn admin-btn-ghost" data-act="add">Add</button>
+          ${b.stage !== "booked" ? `<button type="button" class="admin-btn admin-btn-ghost" data-act="back">Move back a step</button>` : ""}
+        </div>
+        <div class="vid-cand-drawer" id="vid-cand-drawer"></div>`;
+      if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => advanceStage(f.advance.to));
+      el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
+      showDistance(b);
+    }
+    function prevStageOf(k) { const i = STAGES.findIndex((s) => s.key === k); return i > 0 ? STAGES[i - 1].key : k; }
+    async function advanceStage(to) {
+      const b = bookings.find((x) => x.id === candId);
+      if (!b) return;
+      const prev = b.stage; b.stage = to; renderCandidate();
+      const { error } = await supabase.from("videography_bookings").update({ stage: to }).eq("id", b.id);
+      if (error) { b.stage = prev; renderCandidate(); alert("Couldn't update stage: " + error.message); return; }
+      renderClients(document.getElementById("vid-client-search")?.value || "");
+    }
+    function candAction(act) {
+      const b = bookings.find((x) => x.id === candId);
+      if (!b) return;
+      if (act === "edit") { openModal(b.id); return; }
+      if (act === "back") { advanceStage(prevStageOf(b.stage)); return; }
+      const drawer = document.getElementById("vid-cand-drawer");
+      if (!drawer) return;
+      drawer.classList.add("is-open");
+      if (act === "reschedule") {
+        drawer.innerHTML = `<h4>Reschedule shoot</h4>
+          <div class="vid-cand-form">
+            <div class="vid-field"><label>New date &amp; time</label><input type="datetime-local" id="vid-resch" value="${b.shoot_date ? new Date(b.shoot_date).toISOString().slice(0, 16) : ""}" /></div>
+            <button type="button" class="admin-btn admin-btn-primary" id="vid-resch-save">Save date</button>
+          </div>`;
+        document.getElementById("vid-resch-save").addEventListener("click", async () => {
+          const v = document.getElementById("vid-resch").value;
+          const iso = v ? new Date(v).toISOString() : null;
+          const { error } = await supabase.from("videography_bookings").update({ shoot_date: iso }).eq("id", b.id);
+          if (error) { alert("Couldn't save: " + error.message); return; }
+          b.shoot_date = iso; renderCandidate();
+          renderClients(document.getElementById("vid-client-search")?.value || "");
+        });
+        return;
+      }
+      if (act === "add") {
+        drawer.innerHTML = `<h4>Add to this job — one thing at a time</h4>
+          <div class="vid-add-opts">
+            <button type="button" class="vid-add-opt" data-add="service"><strong>Additional service</strong><span>Add another service to the shoot.</span></button>
+            <button type="button" class="vid-add-opt" data-add="cost"><strong>Extra cost</strong><span>Add a charge to the quote.</span></button>
+            <button type="button" class="vid-add-opt" data-add="file"><strong>Edit the file</strong><span>Open the full details to edit.</span></button>
+          </div>
+          <div id="vid-add-form"></div>`;
+        drawer.querySelectorAll("[data-add]").forEach((btn) => btn.addEventListener("click", () => addThing(btn.getAttribute("data-add"))));
+      }
+    }
+    function addThing(kind) {
+      const b = bookings.find((x) => x.id === candId);
+      if (!b) return;
+      if (kind === "file") { openModal(b.id); return; }
+      const form = document.getElementById("vid-add-form");
+      if (!form) return;
+      if (kind === "service") {
+        form.innerHTML = `<div class="vid-cand-form"><div class="vid-field"><label>Service to add</label><input type="text" id="vid-add-svc" placeholder="e.g. Drone footage" /></div><button type="button" class="admin-btn admin-btn-primary" id="vid-add-svc-save">Add service</button></div>`;
+        document.getElementById("vid-add-svc-save").addEventListener("click", async () => {
+          const v = document.getElementById("vid-add-svc").value.trim(); if (!v) return;
+          const svc = b.service ? b.service + ", " + v : v;
+          const { error } = await supabase.from("videography_bookings").update({ service: svc }).eq("id", b.id);
+          if (error) { alert(error.message); return; }
+          b.service = svc; renderCandidate(); renderClients(document.getElementById("vid-client-search")?.value || "");
+        });
+      }
+      if (kind === "cost") {
+        form.innerHTML = `<div class="vid-cand-form"><div class="vid-field"><label>What for</label><input type="text" id="vid-add-cl" placeholder="e.g. Travel" /></div><div class="vid-field"><label>Amount (£)</label><input type="number" id="vid-add-ca" min="0" step="0.01" /></div><button type="button" class="admin-btn admin-btn-primary" id="vid-add-c-save">Add cost</button></div>`;
+        document.getElementById("vid-add-c-save").addEventListener("click", async () => {
+          const label = document.getElementById("vid-add-cl").value.trim();
+          const amt = parseFloat(document.getElementById("vid-add-ca").value) || 0;
+          if (!amt) return;
+          const pence = (b.amount_pence || 0) + Math.round(amt * 100);
+          const note = (b.notes ? b.notes + "\n" : "") + ("+ £" + amt.toFixed(2) + (label ? " " + label : "")).trim();
+          const { error } = await supabase.from("videography_bookings").update({ amount_pence: pence, notes: note }).eq("id", b.id);
+          if (error) { alert(error.message); return; }
+          b.amount_pence = pence; b.notes = note; renderCandidate(); renderClients(document.getElementById("vid-client-search")?.value || "");
+        });
+      }
+    }
+
+    /* Distance from a central Kettering postcode (Jack's base) via postcodes.io. */
+    function haversineMiles(la1, lo1, la2, lo2) {
+      const R = 3958.8, t = (x) => (x * Math.PI) / 180;
+      const dLa = t(la2 - la1), dLo = t(lo2 - lo1);
+      const a = Math.sin(dLa / 2) ** 2 + Math.cos(t(la1)) * Math.cos(t(la2)) * Math.sin(dLo / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    }
+    async function showDistance(b) {
+      const span = document.querySelector("#vid-cand [data-distance] strong");
+      if (!span) return;
+      const m = (b.location || "").match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
+      if (!m) { span.textContent = "add a postcode"; return; }
+      try {
+        const r = await fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(m[0].replace(/\s+/g, "")));
+        const d = await r.json();
+        if (!d.result) { span.textContent = "postcode not found"; return; }
+        const miles = haversineMiles(52.3936, -0.7281, d.result.latitude, d.result.longitude);
+        span.textContent = Math.round(miles) + " mi from Kettering";
+      } catch (_) { span.textContent = "unknown"; }
+    }
+
+    /* Auto-advance: a booked job becomes "Shoot day" once its day arrives. */
+    function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); }
+    async function autoAdvance() {
+      const today = startOfDay(Date.now());
+      const due = bookings.filter((b) => b.stage === "booked" && b.shoot_date && startOfDay(b.shoot_date) <= today);
+      for (const b of due) {
+        b.stage = "shoot_day";
+        await supabase.from("videography_bookings").update({ stage: "shoot_day" }).eq("id", b.id);
+      }
     }
 
     /* ---------- Diary (per-day hour blocks) ---------- */
@@ -869,18 +1176,21 @@ const DELIVER_CATEGORIES = [
       }
       if (btn) btn.textContent = "Save booking";
       closeModal();
-      renderBoard(); renderBookings(document.getElementById("vid-booking-search")?.value || "");
+      renderClients(document.getElementById("vid-client-search")?.value || "");
+      if (candId) renderCandidate();
       populateDeliverBookings();
     }
 
     async function deleteBooking() {
       if (!editingId) return;
       if (!confirm("Delete this booking? This can't be undone.")) return;
-      const { error } = await supabase.from("videography_bookings").delete().eq("id", editingId);
+      const deletedId = editingId;
+      const { error } = await supabase.from("videography_bookings").delete().eq("id", deletedId);
       if (error) { alert("Delete failed: " + error.message); return; }
-      bookings = bookings.filter((x) => x.id !== editingId);
+      bookings = bookings.filter((x) => x.id !== deletedId);
       closeModal();
-      renderBoard(); renderBookings(document.getElementById("vid-booking-search")?.value || "");
+      if (candId === deletedId) { candId = null; showPanel("clients"); }
+      renderClients(document.getElementById("vid-client-search")?.value || "");
       populateDeliverBookings();
     }
 
@@ -1243,6 +1553,16 @@ const DELIVER_CATEGORIES = [
       if (error) { alert("Couldn't update: " + error.message); return; }
       currentDelivery = data;
       setDeliveryStatusUI(data.status, data.token);
+      // Paid → the job completes itself.
+      if (status === "paid") {
+        const b = bookings.find((x) => x.id === currentDelivery.booking_id);
+        if (b && b.stage !== "complete") {
+          b.stage = "complete";
+          await supabase.from("videography_bookings").update({ stage: "complete" }).eq("id", b.id);
+          renderClients(document.getElementById("vid-client-search")?.value || "");
+          if (candId === b.id) renderCandidate();
+        }
+      }
     }
     function copyDeliveryLink() {
       if (!currentDelivery || !navigator.clipboard) return;
@@ -1278,7 +1598,7 @@ const DELIVER_CATEGORIES = [
     (async () => {
       const session = await requireAdmin();
       if (!session) return;
-      initTabs();
+      initNav();
 
       const [bRes, aRes] = await Promise.all([
         supabase.from("videography_bookings").select("*").order("created_at", { ascending: false }),
@@ -1289,15 +1609,15 @@ const DELIVER_CATEGORIES = [
       availability = aRes.error ? [] : (aRes.data || []);
 
       if (bRes.error) {
-        const l = document.getElementById("vid-board-loading");
-        if (l) l.textContent = "Could not load pipeline: " + bRes.error.message + " — have you run supabase/videography.sql?";
+        const l = document.getElementById("vid-clients-loading");
+        if (l) l.textContent = "Could not load clients: " + bRes.error.message + " — have you run supabase/videography.sql?";
       } else {
-        renderBoard();
+        await autoAdvance();
+        renderClients();
       }
       const dl = document.getElementById("vid-diary-loading");
       if (dl) dl.remove();
       renderDiary();
-      renderBookings();
       initDeliver();
       init365Status();
 
