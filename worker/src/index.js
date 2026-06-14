@@ -405,6 +405,53 @@ export default {
         return json({ weekdays }, 200, request, env);
       }
 
+      // ---- Travel distance + surcharge (Property / Agent shoots) ----
+      // Geocodes Jack's base + the shoot postcode and returns the driving
+      // distance and travel surcharge. Settings (base postcode, free radius,
+      // per-mile rate) come from `videography_settings`; the Maps key is a
+      // secret (`wrangler secret put GOOGLE_MAPS_API_KEY`). Without the key we
+      // fall back to a straight-line estimate via postcodes.io (free, no key).
+      if (path.endsWith("/videography/distance") && request.method === "GET") {
+        const to = (url.searchParams.get("to") || "").trim();
+        if (!to) return json({ error: "Missing destination postcode" }, 400, request, env);
+        let base = "NN14 1AA", freeRadius = 40, perMile = 55;
+        try {
+          const s = await sbGet(env, "videography_settings", "id=eq.1&select=base_postcode,free_radius_miles,surcharge_pence_per_mile");
+          if (s && s[0]) {
+            base = s[0].base_postcode || base;
+            if (s[0].free_radius_miles != null) freeRadius = s[0].free_radius_miles;
+            if (s[0].surcharge_pence_per_mile != null) perMile = s[0].surcharge_pence_per_mile;
+          }
+        } catch (_) {}
+        let miles = null, source = null;
+        if (env.GOOGLE_MAPS_API_KEY) {
+          try {
+            const u = `https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&region=uk&origins=${encodeURIComponent(base)}&destinations=${encodeURIComponent(to)}&key=${env.GOOGLE_MAPS_API_KEY}`;
+            const d = await (await fetch(u)).json();
+            const el = d && d.rows && d.rows[0] && d.rows[0].elements && d.rows[0].elements[0];
+            if (el && el.status === "OK" && el.distance) { miles = el.distance.value / 1609.344; source = "drive"; }
+          } catch (_) {}
+        }
+        if (miles == null) {
+          try {
+            const clean = (p) => encodeURIComponent(p.replace(/\s+/g, ""));
+            const [b, t] = await Promise.all([
+              fetch("https://api.postcodes.io/postcodes/" + clean(base)).then((r) => r.json()),
+              fetch("https://api.postcodes.io/postcodes/" + clean(to)).then((r) => r.json()),
+            ]);
+            if (b.result && t.result) {
+              const R = 3958.8, rad = (x) => (x * Math.PI) / 180;
+              const dLa = rad(t.result.latitude - b.result.latitude), dLo = rad(t.result.longitude - b.result.longitude);
+              const a = Math.sin(dLa / 2) ** 2 + Math.cos(rad(b.result.latitude)) * Math.cos(rad(t.result.latitude)) * Math.sin(dLo / 2) ** 2;
+              miles = 2 * R * Math.asin(Math.sqrt(a)); source = "estimate";
+            }
+          } catch (_) {}
+        }
+        if (miles == null) return json({ error: "Couldn't resolve that postcode" }, 422, request, env);
+        const surcharge_pence = Math.max(0, Math.ceil(miles - freeRadius)) * perMile;
+        return json({ miles: Math.round(miles * 10) / 10, surcharge_pence, free_radius_miles: freeRadius, pence_per_mile: perMile, source }, 200, request, env);
+      }
+
       // ---- Live headshots: newest N images in the assets "Jack - headshots/"
       // folder. Public GET; powers the auto-updating Agent gallery. ----
       if (path.endsWith("/headshots") && request.method === "GET") {

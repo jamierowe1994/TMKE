@@ -64,8 +64,20 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       <section class="dc-step" id="vb-step-options" hidden>
         <h2 class="dc-step-title" id="vb-options-title">Choose your <em>session.</em></h2>
         <p class="dc-step-sub" id="vb-options-sub">All prices are plus VAT.</p>
-        <div class="dc-choices" id="vb-options"></div>
+        <div id="vb-options"></div>
         <div class="dc-step-actions" id="vb-options-actions" hidden><button type="button" class="dc-next" id="vb-options-next">Continue <em>&rarr;</em></button></div>
+      </section>
+
+      <!-- 3b. Postcode (Property / Agent — for the travel surcharge) -->
+      <section class="dc-step" id="vb-step-postcode" hidden>
+        <h2 class="dc-step-title">Where's the <em>shoot?</em></h2>
+        <p class="dc-step-sub">Pop in the shoot postcode so we can confirm any travel charge before you book.</p>
+        <form class="dc-panel-form" id="vb-postcode-form">
+          <label class="dc-field"><span>Shoot postcode *</span><input name="postcode" autocomplete="postal-code" required placeholder="e.g. NN1 1AA" /></label>
+          <p class="vb-surcharge-note" id="vb-surcharge-note" hidden></p>
+          <p class="dc-gate-error" id="vb-postcode-error" hidden></p>
+          <button type="submit" class="dc-form-cta" id="vb-postcode-cta">Continue <em>&rarr;</em></button>
+        </form>
       </section>
 
       <!-- 4. Day -->
@@ -181,12 +193,18 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .vb-optin { display: flex; align-items: flex-start; gap: 11px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.78); cursor: pointer; }
   .vb-optin input { margin-top: 2px; width: 18px; height: 18px; accent-color: var(--english-violet); }
   .dc-choice-output { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); margin-top: 2px; }
+  .dc-choice-incl { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.6); margin-top: 6px; }
+  .vb-running { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 0 0; padding: 14px 18px; background: rgba(55,30,40,0.05); border-radius: 10px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
+  .vb-running strong { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); }
+  .vb-surcharge-note { font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: rgba(28,29,34,0.78); background: rgba(55,30,40,0.06); border-radius: 8px; padding: 12px 14px; margin: 2px 0 0; }
+  .vb-surcharge-note[hidden] { display: none; }
+  .vb-surcharge-note strong { color: var(--english-violet); }
 </style>
 
 <script>
   import {
     SERVICES, audienceForEmail, propertyTierForBrand,
-    gbp, vatOf, withVat,
+    gbp, vatOf, withVat, surchargePence, SURCHARGE_DEFAULTS,
   } from "../lib/videography-config.js";
 
   (function () {
@@ -206,7 +224,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let svc = null;            // SERVICES entry
     let audience = null;       // { audience, brand, label, domain }
     let gateEmail = "";        // the validated work email from the gate
-    let chosen = null;         // selected session/package object (content studio: a session)
+    let chosen = null;         // single selection (content-studio session / property package)
+    let selectedAddOns = [];   // property add-ons
+    let selectedPackages = []; // agent multi-select packages
+    let postcode = "";         // shoot postcode (property/agent)
+    let distanceMiles = null;  // distance from base
+    let surchargeP = 0;        // travel surcharge in pence (ex-VAT)
     let duration = 90;         // minutes (for availability)
     let selectedDate = null, selectedSlot = null;
     let viewMonth = new Date(); viewMonth.setDate(1);
@@ -231,7 +254,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     }
     function back() { const prev = history.pop(); if (prev) showStepRaw(prev); }
     backBtn.addEventListener("click", back);
-    function hideAll() { ["email","register","options","day","time","summary","terms","details"].forEach((n) => { const e = stepEl(n); if (e) { e.hidden = true; e.classList.remove("dc-anim-in","dc-anim-out"); } }); const s = stepEl("success"); if (s) { s.hidden = true; s.classList.remove("dc-anim-in","dc-anim-out"); } }
+    function hideAll() { ["email","register","options","postcode","day","time","summary","terms","details"].forEach((n) => { const e = stepEl(n); if (e) { e.hidden = true; e.classList.remove("dc-anim-in","dc-anim-out"); } }); const s = stepEl("success"); if (s) { s.hidden = true; s.classList.remove("dc-anim-in","dc-anim-out"); } }
 
     async function fetchConfig() {
       if (configFetched) return; configFetched = true; if (!WORKER) return;
@@ -242,7 +265,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     function open(serviceKey) {
       svc = SERVICES[serviceKey];
       if (!svc) return;
-      audience = null; chosen = null; selectedDate = null; selectedSlot = null; history = []; activeStep = null;
+      audience = null; chosen = null; selectedAddOns = []; selectedPackages = [];
+      postcode = ""; distanceMiles = null; surchargeP = 0;
+      selectedDate = null; selectedSlot = null; history = []; activeStep = null;
       hideAll();
       eyebrow.textContent = `TMKE — ${svc.name}`;
       $("vb-email-form")?.reset(); $("vb-register-form")?.reset(); $("vb-details-form")?.reset();
@@ -304,25 +329,145 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       } catch (_) { resetCta(btn, "Register interest"); err.textContent = "Sorry, that didn't go through — please try again."; err.hidden = false; }
     });
 
-    // ---- 3. options (Content Studio sessions; Property/Agent layer on later) ----
+    // ---- 3. options (Content Studio sessions / Property package + add-ons / Agent multi) ----
     function renderOptions() {
-      const wrap = $("vb-options");
+      const wrap = $("vb-options"), actions = $("vb-options-actions");
+      selectedAddOns = []; selectedPackages = []; chosen = null;
+
       if (svc.key === "content-studio") {
         $("vb-options-title").innerHTML = "Choose your <em>session.</em>";
-        wrap.innerHTML = svc.sessions.map((s, i) => `
+        actions.hidden = true;
+        wrap.innerHTML = `<div class="dc-choices">` + svc.sessions.map((s, i) => `
           <button type="button" class="dc-choice" data-i="${i}">
             <span class="dc-choice-name">${s.name}</span>
             <span class="dc-choice-output">${s.output}</span>
             <span class="dc-choice-meta">${s.desc}</span>
             <span class="dc-choice-price">${gbp(s.price_pence)} + VAT</span>
-          </button>`).join("");
+          </button>`).join("") + `</div>`;
         wrap.querySelectorAll(".dc-choice").forEach((b) => b.addEventListener("click", () => {
           chosen = svc.sessions[+b.dataset.i];
           duration = SESSION_MINUTES[chosen.key] || 90;
           goTo("day");
         }));
+        return;
+      }
+
+      if (svc.key === "property") {
+        const tier = propertyTierForBrand(audience && audience.brand) || "gold";
+        chosen = svc.packagesByTier[tier];
+        duration = 240; // property shoot block (interim — refined in scheduling phase)
+        $("vb-options-title").innerHTML = "Your <em>package.</em>";
+        const incl = chosen.inclusions.map((x) => "· " + x).join("<br>");
+        const pkg = `<div class="dc-choice" style="cursor:default">
+          <span class="dc-choice-name">${chosen.name}</span>
+          <span class="dc-choice-price">from ${gbp(chosen.from_pence)} + VAT</span>
+          <span class="dc-choice-incl">${incl}</span></div>`;
+        const addons = `<p class="dc-step-sub" style="margin:22px 0 10px">Optional add-ons</p><div class="dc-choices dc-choices--multi">` +
+          svc.addOns.map((a, i) => `<button type="button" class="dc-choice" data-addon="${i}">
+            <span class="dc-choice-check">✓</span>
+            <span style="display:flex;flex-direction:column;gap:3px">
+              <span class="dc-choice-name" style="font-size:18px">${a.name}</span>
+              <span class="dc-choice-meta">${gbp(a.price_pence)}${a.perImage ? " / image" : ""} + VAT</span></span>
+          </button>`).join("") + `</div>`;
+        wrap.innerHTML = pkg + addons + `<div class="vb-running" id="vb-running"></div>`;
+        wrap.querySelectorAll("[data-addon]").forEach((b) => b.addEventListener("click", () => {
+          b.classList.toggle("is-active");
+          const a = svc.addOns[+b.dataset.addon];
+          if (b.classList.contains("is-active")) selectedAddOns.push(a);
+          else selectedAddOns = selectedAddOns.filter((x) => x.key !== a.key);
+          renderRunning();
+        }));
+        renderRunning(); actions.hidden = false;
+        return;
+      }
+
+      if (svc.key === "agent") {
+        $("vb-options-title").innerHTML = "Choose your <em>packages.</em>";
+        wrap.innerHTML = `<div class="dc-choices dc-choices--multi">` +
+          svc.packages.map((p, i) => `<button type="button" class="dc-choice" data-pkg="${i}">
+            <span class="dc-choice-check">✓</span>
+            <span style="display:flex;flex-direction:column;gap:3px">
+              <span class="dc-choice-name" style="font-size:18px">${p.name} — ${gbp(p.price_pence)} + VAT</span>
+              <span class="dc-choice-meta" style="text-transform:none;letter-spacing:0;font-size:12.5px">${p.desc}</span></span>
+          </button>`).join("") + `</div><div class="vb-running" id="vb-running"></div>`;
+        wrap.querySelectorAll("[data-pkg]").forEach((b) => b.addEventListener("click", () => {
+          b.classList.toggle("is-active");
+          const p = svc.packages[+b.dataset.pkg];
+          if (b.classList.contains("is-active")) selectedPackages.push(p);
+          else selectedPackages = selectedPackages.filter((x) => x.key !== p.key);
+          renderRunning();
+        }));
+        renderRunning(); actions.hidden = false;
+        return;
       }
     }
+
+    function optionsBasePence() {
+      if (svc && svc.key === "agent") return selectedPackages.reduce((s, p) => s + p.price_pence, 0);
+      if (svc && svc.key === "property") return chosen ? chosen.from_pence : 0;
+      return chosen ? chosen.price_pence : 0;
+    }
+    function addOnsPence() { return selectedAddOns.reduce((s, a) => s + a.price_pence, 0); }
+    function renderRunning() {
+      const el = $("vb-running"); if (!el) return;
+      el.innerHTML = `<span>Running total — ex VAT, before travel</span><strong>${gbp(optionsBasePence() + addOnsPence())}</strong>`;
+      const next = $("vb-options-next");
+      if (next && svc && svc.key === "agent") next.disabled = selectedPackages.length === 0;
+    }
+
+    // Property/Agent: Continue → postcode (surcharge) → day. (Content Studio jumps
+    // straight to day from its session card above.)
+    $("vb-options-next")?.addEventListener("click", () => {
+      if (svc.key === "agent" && !selectedPackages.length) return;
+      if (svc.key === "agent") duration = Math.max(120, selectedPackages.length * 60);
+      $("vb-surcharge-note").hidden = true;
+      if (svc.surcharge) goTo("postcode"); else goTo("day");
+    });
+
+    // ---- 3b. postcode + travel surcharge ----
+    function haversineMiles(la1, lo1, la2, lo2) {
+      const R = 3958.8, rad = (x) => (x * Math.PI) / 180;
+      const dLa = rad(la2 - la1), dLo = rad(lo2 - lo1);
+      const a = Math.sin(dLa / 2) ** 2 + Math.cos(rad(la1)) * Math.cos(rad(la2)) * Math.sin(dLo / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    }
+    async function lookupDistance(pc) {
+      // 1) Worker's Google Distance Matrix endpoint = accurate driving distance.
+      if (WORKER) {
+        try {
+          const res = await fetch(`${WORKER}/videography/distance?to=${encodeURIComponent(pc)}`);
+          if (res.ok) { const d = await res.json(); if (d && typeof d.miles === "number") return { ok: true, miles: d.miles, surcharge_pence: d.surcharge_pence, source: d.source || "drive" }; }
+        } catch (_) {}
+      }
+      // 2) Fallback — straight-line estimate via postcodes.io (free, no key).
+      try {
+        const base = SURCHARGE_DEFAULTS.base_postcode.replace(/\s+/g, "");
+        const [b, t] = await Promise.all([
+          fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(base)).then((r) => r.json()),
+          fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(pc.replace(/\s+/g, ""))).then((r) => r.json()),
+        ]);
+        if (!b.result || !t.result) return { ok: false, error: "We couldn't find that postcode — please check and try again." };
+        const miles = haversineMiles(b.result.latitude, b.result.longitude, t.result.latitude, t.result.longitude);
+        return { ok: true, miles, surcharge_pence: surchargePence(miles), source: "estimate" };
+      } catch (_) { return { ok: false, error: "We couldn't check the distance just now — please try again." }; }
+    }
+    $("vb-postcode-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      postcode = String(new FormData(e.target).get("postcode") || "").trim().toUpperCase();
+      const err = $("vb-postcode-error"), note = $("vb-surcharge-note"); err.hidden = true;
+      if (!postcode) { err.textContent = "Please enter the shoot postcode."; err.hidden = false; return; }
+      const btn = $("vb-postcode-cta"); loadingCta(btn, "Checking distance…");
+      const r = await lookupDistance(postcode);
+      resetCta(btn, "Continue");
+      if (!r.ok) { err.textContent = r.error; err.hidden = false; return; }
+      distanceMiles = r.miles; surchargeP = (r.surcharge_pence != null) ? r.surcharge_pence : surchargePence(r.miles);
+      const approx = r.source === "estimate" ? "approx " : "";
+      note.hidden = false;
+      note.innerHTML = surchargeP > 0
+        ? `${chosen ? "" : ""}This shoot is ${approx}<strong>${Math.round(r.miles)} miles</strong> from base — a travel surcharge of <strong>${gbp(surchargeP)} + VAT</strong> applies.`
+        : `This shoot is ${approx}<strong>${Math.round(r.miles)} miles</strong> from base — <strong>within the free radius</strong>, so there's no travel charge.`;
+      setTimeout(() => goTo("day"), 1100);
+    });
 
     // ---- 4. calendar ----
     const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -369,22 +514,31 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     });
 
     // ---- 6. summary ----
-    function basePence() { return chosen ? chosen.price_pence : 0; }
+    function bookingLabel() {
+      if (svc.key === "agent") return selectedPackages.map((p) => p.name).join(" + ") || "—";
+      return chosen ? chosen.name : "—";
+    }
+    function subtotalPence() { return optionsBasePence() + addOnsPence() + (surchargeP || 0); }
     function renderSummary() {
-      const base = basePence();
-      const vat = vatOf(base);
+      const baseLabel = svc.key === "content-studio" ? "Session" : svc.key === "agent" ? "Packages" : "Package";
+      const sub = subtotalPence();
+      const vat = vatOf(sub);
       const dt = selectedDate ? selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "—";
       const rows = [
         ["Service", svc.name],
-        ["Session", chosen ? chosen.name : "—"],
+        [baseLabel, bookingLabel()],
+        ...(svc.key === "property" && optionsBasePence() ? [["Package price", gbp(optionsBasePence()) + (svc.key === "property" ? " (from)" : "")]] : []),
+        ...selectedAddOns.map((a) => [`Add-on — ${a.name}`, gbp(a.price_pence)]),
+        ...(postcode ? [["Shoot postcode", postcode]] : []),
+        ...(svc.surcharge ? [["Travel" + (distanceMiles != null ? ` (${Math.round(distanceMiles)} mi)` : ""), surchargeP > 0 ? gbp(surchargeP) : "No charge"]] : []),
         ["Date", dt],
         ["Time", selectedSlot || "—"],
-        ["Price", gbp(base)],
+        ["Subtotal (ex VAT)", gbp(sub)],
         ["VAT (20%)", gbp(vat)],
       ];
       $("vb-summary").innerHTML = rows.map(([k, v]) => `<div class="vb-srow"><span>${k}</span><span>${v}</span></div>`).join("") +
-        `<div class="vb-srow vb-total"><span>Total</span><span>${gbp(base + vat)}</span></div>`;
-      $("vb-details-summary").textContent = `${svc.name} — ${chosen ? chosen.name : ""}, ${dt} at ${selectedSlot}. ${gbp(withVat(base))} inc. VAT.`;
+        `<div class="vb-srow vb-total"><span>Total</span><span>${gbp(sub + vat)}</span></div>`;
+      $("vb-details-summary").textContent = `${svc.name} — ${bookingLabel()}, ${dt} at ${selectedSlot}. ${gbp(withVat(sub))} inc. VAT.`;
     }
     $("vb-summary-next")?.addEventListener("click", () => {
       const sd = $("vb-sign-date"); if (sd && !sd.value) sd.value = localISO(new Date());
@@ -418,16 +572,19 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const btn = $("vb-details-cta");
       loadingCta(btn, "Confirming…");
       const t0 = Date.now();
-      const base = basePence();
-      const summaryLine = `${svc.name} — ${chosen ? chosen.name : ""}`;
+      const sub = subtotalPence();
+      const summaryLine = `${svc.name} — ${bookingLabel()}`;
       const notes = [
         summaryLine,
+        selectedAddOns.length ? `Add-ons: ${selectedAddOns.map((a) => a.name).join(", ")}` : "",
+        postcode ? `Shoot postcode: ${postcode}` : "",
+        svc.surcharge ? `Travel: ${distanceMiles != null ? Math.round(distanceMiles) + " mi, " : ""}${surchargeP > 0 ? gbp(surchargeP) + " + VAT" : "no charge"}` : "",
         fd.get("company") ? `Company: ${fd.get("company")}` : "",
         fd.get("phone") ? `Phone: ${fd.get("phone")}` : "",
         fd.get("notes") ? String(fd.get("notes")) : "",
         `Agreement: signed "${signName.value.trim()}" on ${signDate.value}.`,
         fd.get("optin") ? "Marketing opt-in: yes" : "Marketing opt-in: no",
-        `Total: ${gbp(withVat(base))} inc VAT.`,
+        `Total: ${gbp(withVat(sub))} inc VAT.`,
       ].filter(Boolean).join(" | ");
       try {
         if (!WORKER) throw new Error("Booking is being set up — please check back shortly.");
