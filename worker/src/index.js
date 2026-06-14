@@ -212,6 +212,81 @@ function waitlistHtml({ name, service, pkg, date, time }) {
     <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p>
   </div>`;
 }
+// ---- Videography booking confirmation (account + ICS + emails) -------------
+function gbpW(p) { const v = (p || 0) / 100; return "£" + v.toLocaleString("en-GB", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }); }
+function icsEsc(s) { return String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
+const dtLocalICS = (date, hm) => date.replace(/-/g, "") + "T" + hm.replace(":", "") + "00";
+const utcStampICS = () => new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+function buildICS({ uid, date, start, endHm, summary, description, location, organizer, attendeeEmail, attendeeName }) {
+  return [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TMKE//Booking//EN", "CALSCALE:GREGORIAN", "METHOD:REQUEST",
+    "BEGIN:VTIMEZONE", "TZID:Europe/London",
+    "BEGIN:DAYLIGHT", "TZOFFSETFROM:+0000", "TZOFFSETTO:+0100", "TZNAME:BST", "DTSTART:19700329T010000", "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU", "END:DAYLIGHT",
+    "BEGIN:STANDARD", "TZOFFSETFROM:+0100", "TZOFFSETTO:+0000", "TZNAME:GMT", "DTSTART:19701025T020000", "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU", "END:STANDARD",
+    "END:VTIMEZONE",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${utcStampICS()}`,
+    `DTSTART;TZID=Europe/London:${dtLocalICS(date, start)}`,
+    `DTEND;TZID=Europe/London:${dtLocalICS(date, endHm)}`,
+    `SUMMARY:${icsEsc(summary)}`,
+    `DESCRIPTION:${icsEsc(description)}`,
+    location ? `LOCATION:${icsEsc(location)}` : "",
+    organizer ? `ORGANIZER;CN=TMKE:mailto:${organizer}` : "",
+    attendeeEmail ? `ATTENDEE;CN=${icsEsc(attendeeName || attendeeEmail)};RSVP=TRUE:mailto:${attendeeEmail}` : "",
+    "STATUS:CONFIRMED", "END:VEVENT", "END:VCALENDAR",
+  ].filter(Boolean).join("\r\n");
+}
+function bookingConfirmHtml({ name, service, packageLabel, dateNice, time, addOns, postcode, surchargePence, totalPence, manageUrl }) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const rows = [
+    ["Service", esc(service)],
+    packageLabel ? [service && service.includes("Agent") ? "Packages" : "Package", esc(packageLabel)] : null,
+    addOns && addOns.length ? ["Add-ons", esc(addOns.map((a) => a.name).join(", "))] : null,
+    postcode ? ["Location", esc(postcode)] : null,
+    ["Date", esc(dateNice)],
+    ["Time", esc(time)],
+    surchargePence ? ["Travel", gbpW(surchargePence) + " + VAT"] : null,
+    totalPence != null ? ["Total", "<strong>" + gbpW(totalPence) + " inc. VAT</strong>"] : null,
+  ].filter(Boolean);
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+    <h1 style="font-size:22px;margin:0 0 6px">Your booking is confirmed</h1>
+    <p style="color:#555;font-size:14px;margin:0 0 20px">Hi ${esc(name)}, thanks for booking with TMKE. Here are the details &mdash; we've attached a calendar invite so you can add it to your diary.</p>
+    <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+      ${rows.map(([k, v]) => `<div><span style="color:#888">${k}:</span> ${v}</div>`).join("")}
+    </div>
+    <p style="font-size:13px;color:#555;margin:18px 0 0">We've set up your account so you can view, reschedule or cancel this booking any time${manageUrl ? ` at <a href="${manageUrl}" style="color:#371e28">your account</a>` : ""}. Please give at least 3 days' notice to cancel and 2 days to rearrange.</p>
+    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p>
+  </div>`;
+}
+function jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns, postcode, distanceMiles, surchargePence, dateNice, time, totalPence, signedName, marketingOptIn }) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const row = (k, v) => v ? `<div><span style="color:#888">${k}:</span> ${esc(v)}</div>` : "";
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+    <h1 style="font-size:20px;margin:0 0 6px">New booking — ${esc(service)}</h1>
+    <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+      ${row("Client", name)}${row("Company", company)}${row("Email", email)}${row("Phone", phone)}
+      ${row("Package", packageLabel)}${addOns && addOns.length ? row("Add-ons", addOns.map((a) => a.name).join(", ")) : ""}
+      ${row("Location", postcode)}${distanceMiles != null ? row("Distance", Math.round(distanceMiles) + " mi") : ""}
+      ${surchargePence ? row("Travel surcharge", gbpW(surchargePence) + " + VAT") : ""}
+      ${row("Date", dateNice)}${row("Time", time)}
+      ${totalPence != null ? row("Total", gbpW(totalPence) + " inc. VAT") : ""}
+      ${row("Signed", signedName)}${row("Marketing opt-in", marketingOptIn ? "Yes" : "No")}
+    </div>
+    <p style="font-size:12px;color:#999;margin:18px 0 0">It's in your calendar and the CRM pipeline (stage: booked).</p>
+  </div>`;
+}
+async function sendEmail(env, { to, subject, html, attachments }) {
+  if (!env.RESEND_API_KEY || !to) return;
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>", to, subject, html, ...(attachments ? { attachments } : {}) }),
+    });
+  } catch (_) { /* email is best-effort */ }
+}
+
 async function runReminders(env) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
@@ -530,6 +605,99 @@ export default {
           service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
         });
         return json({ ok: true, eventId: ev.id }, 200, request, env);
+      }
+
+      // ---- Full booking (account + record + confirmation emails + pipeline) --
+      // Public: the booking flow's final step. Creates/links a Supabase account
+      // (never overwrites an existing one), books Jack's 365 diary, writes the
+      // full pipeline row, and emails the client (with an .ics) + Jack.
+      if (path.endsWith("/videography/book") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const {
+          date, start, duration, service, service_type, audience, brand,
+          add_ons, postcode, distance_miles, surcharge_pence,
+          name, email, phone, company, notes, signed_name, signed_at,
+          marketing_opt_in, password, total_pence,
+        } = b || {};
+        const pkg = b && b.package;
+        if (!date || !start || !name || !email) return json({ error: "Missing booking details" }, 400, request, env);
+        if (!password || String(password).length < 8) return json({ error: "A password of at least 8 characters is required." }, 400, request, env);
+        const dur = parseInt(duration || "60", 10);
+        const endHm = minToHm(hmToMin(start) + dur);
+
+        // 1) Re-check the slot is still free (guards against double-booking).
+        const check = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
+          schedules: [env.JACK_UPN],
+          startTime: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+          endTime: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          availabilityViewInterval: Math.max(15, dur),
+        });
+        const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
+        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken — please choose another." }, 409, request, env);
+
+        // 2) Create or link the Supabase account (never overwrite an existing one).
+        let accountUserId = null, accountCreated = false;
+        try {
+          const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: name, company: company || null, phone: phone || null } }),
+          });
+          if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
+          else {
+            // Already registered — find their id so the booking still links (best-effort).
+            const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+            });
+            if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+          }
+        } catch (_) { /* account is best-effort; the booking still proceeds */ }
+
+        // 3) Book Jack's 365 calendar.
+        const ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
+          subject: `${service || "Shoot"} — ${name}`,
+          body: { contentType: "text", content: [notes && `Notes: ${notes}`, phone && `Phone: ${phone}`, email && `Email: ${email}`, postcode && `Postcode: ${postcode}`].filter(Boolean).join("\n") },
+          start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+          end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          location: postcode ? { displayName: postcode } : undefined,
+          attendees: [{ emailAddress: { address: email, name }, type: "required" }],
+        });
+
+        // 4) Write the full pipeline row.
+        const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${Math.abs(hmToMin(start))}-${ev.id || ""}`;
+        await sbPost(env, "videography_bookings", {
+          kind: "booking", service_type: service_type || null, audience: audience || null, brand: brand || null,
+          package: pkg || null, add_ons: Array.isArray(add_ons) ? add_ons : [], postcode: postcode || null,
+          distance_miles: distance_miles ?? null, surcharge_pence: surcharge_pence || 0,
+          client_name: name, client_email: email, client_phone: phone || null, company: company || null,
+          service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
+          signed_name: signed_name || null, signed_at: signed_at || null, marketing_opt_in: !!marketing_opt_in,
+          account_user_id: accountUserId, reschedule_token: rescheduleToken, total_pence: total_pence ?? null,
+          ms_event_id: ev.id || null,
+        });
+
+        // 5) Confirmation emails (best-effort, never block the booking).
+        const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
+        const packageLabel = service && service.toLowerCase().includes("content") ? (pkg || "") : (b.package_label || pkg || "");
+        const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        const ics = buildICS({
+          uid: `${ev.id || rescheduleToken}@tmke.co.uk`, date, start, endHm,
+          summary: `${service || "TMKE Shoot"}`,
+          description: [service, packageLabel, postcode && `Location: ${postcode}`, total_pence != null && `Total: ${gbpW(total_pence)} inc. VAT`].filter(Boolean).join("\n"),
+          location: postcode || "", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name,
+        });
+        const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
+        await sendEmail(env, {
+          to: email, subject: `Booking confirmed — ${service || "TMKE"}`,
+          html: bookingConfirmHtml({ name, service, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/account` }),
+          attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
+        });
+        await sendEmail(env, {
+          to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New booking — ${service || "Shoot"} — ${name}`,
+          html: jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns: add_ons, postcode, distanceMiles: distance_miles, surchargePence: surcharge_pence, dateNice, time: start, totalPence: total_pence, signedName: signed_name, marketingOptIn: marketing_opt_in }),
+        });
+
+        return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
       }
 
       // Cancellation waitlist (gated). The studio/section is "fully booked", so we

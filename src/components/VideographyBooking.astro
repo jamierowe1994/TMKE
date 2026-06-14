@@ -586,22 +586,33 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         fd.get("optin") ? "Marketing opt-in: yes" : "Marketing opt-in: no",
         `Total: ${gbp(withVat(sub))} inc VAT.`,
       ].filter(Boolean).join(" | ");
+      const bookEmail = gateEmail || String(fd.get("email") || "");
       try {
         if (!WORKER) throw new Error("Booking is being set up — please check back shortly.");
-        // Phase 1: book into Jack's 365 diary (account creation + Supabase record
-        // + confirmation emails are wired in Phase 3 via a dedicated endpoint).
-        const res = await fetch(`${WORKER}/ms/book`, {
+        // Books Jack's 365 diary, creates/links the account, writes the full
+        // pipeline row, and sends the confirmation (with .ics) + Jack's notice.
+        const res = await fetch(`${WORKER}/videography/book`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             date: localISO(selectedDate), start: selectedSlot, duration,
-            service: summaryLine, name: fd.get("name"), email: gateEmail || fd.get("email"), phone: fd.get("phone"), notes,
+            service: svc.name, service_type: svc.key,
+            audience: audience && audience.audience, brand: (audience && audience.brand) || null,
+            package: svc.key === "agent" ? selectedPackages.map((p) => p.key).join(",") : (chosen && chosen.key) || null,
+            package_label: bookingLabel(),
+            add_ons: selectedAddOns.map((a) => ({ key: a.key, name: a.name, price_pence: a.price_pence })),
+            postcode: postcode || null, distance_miles: distanceMiles, surcharge_pence: surchargeP || 0,
+            name: fd.get("name"), email: bookEmail, phone: fd.get("phone"), company: fd.get("company"), notes,
+            signed_name: signName.value.trim(), signed_at: signDate.value ? `${signDate.value}T12:00:00` : null,
+            marketing_opt_in: !!fd.get("optin"), password: pw, total_pence: withVat(sub),
           }),
         });
         const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || "Booking failed");
+        // Best-effort: sign the new account in so the portal works immediately.
+        try { const m = await import("../lib/supabase.js"); if (m && m.isConfigured && m.supabase) await m.supabase.auth.signInWithPassword({ email: bookEmail, password: pw }); } catch (_) {}
         const wait = 1100 - (Date.now() - t0); if (wait > 0) await sleep(wait);
         const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
         $("vb-success-title").textContent = "Booking confirmed";
-        $("vb-success-msg").textContent = `We've booked ${svc.name} for ${dt} at ${selectedSlot}. You'll shortly receive a confirmation email.`;
+        $("vb-success-msg").textContent = `We've booked ${svc.name} for ${dt} at ${selectedSlot}, and set up your account so you can manage it any time. A confirmation email with a calendar invite is on its way.`;
         history = []; goTo("success"); history = []; backBtn.hidden = true;
         resetCta(btn, "Confirm booking");
       } catch (e2) {

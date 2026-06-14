@@ -24,7 +24,10 @@ alter table videography_bookings
   add column if not exists account_user_id     uuid,                        -- linked Supabase auth user
   add column if not exists reschedule_token    text,                        -- tokenised cancel/reschedule link
   add column if not exists discovery_interests jsonb   default '[]'::jsonb, -- discovery-call service interests
-  add column if not exists enquiry_message     text;                        -- non-member free-text
+  add column if not exists enquiry_message     text,                        -- non-member free-text
+  add column if not exists company             text,                        -- client company / brand
+  add column if not exists total_pence         integer,                     -- booking total incl. VAT
+  add column if not exists ms_event_id         text;                        -- linked 365 calendar event (cancel/reschedule)
 
 -- `stage` is a free-text status column; the lead statuses below are just new
 -- values (no enum change needed):
