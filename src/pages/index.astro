@@ -43,7 +43,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       <div class="hero-zoom-skin" aria-hidden="true"></div>
       <!-- Layer A — the photo that unfolds to full screen -->
       <div class="hero-zoom-media">
-        <img class="hero-zoom-img" src="https://assets.tmke.co.uk/vibes.webp" alt="A TMKE interior" />
+        <img class="hero-zoom-img" src="https://assets.tmke.co.uk/poojan-thanekar-8uPc8gPtVbo-unsplash.jpg" alt="A TMKE interior" />
       </div>
       <!-- Layer B — TMKE wordmark (brand serif), dead centre -->
       <h1 class="hero-zoom-word" aria-label="TMKE">TMKE</h1>
@@ -545,32 +545,18 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       z-index: 1;
       opacity: 0;
       pointer-events: none;
-      /* CSS-generated warm leather surface — base tone, soft top light + edge
-         vignette, no background image. */
-      background:
-        radial-gradient(120% 120% at 50% 42%, transparent 50%, rgba(64, 46, 40, 0.22) 100%),
-        radial-gradient(135% 95% at 50% 16%, #efe7df 0%, #e3dacf 52%, #d1c6b8 100%);
+      /* Leather surface image (set by the controller once it loads); the warm
+         base shows through until then. */
+      background-color: #e3dacf;
+      background-size: cover;
+      background-position: center;
     }
-    /* Coarse leather mottle — large soft tonal variation so the surface isn't a
-       flat sheet. Overlay blend keeps the base tone but adds depth. */
+    /* Gentle vignette for depth toward the edges, over the leather. */
     .hero-zoom-skin::before {
       content: "";
       position: absolute;
       inset: 0;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='700' height='700'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.014' numOctaves='3' seed='7' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23m)'/></svg>");
-      background-size: 680px 680px;
-      mix-blend-mode: overlay;
-      opacity: 0.85;
-    }
-    /* Fine grain — the close-up pore/grain of leather. */
-    .hero-zoom-skin::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-      background-size: 200px 200px;
-      mix-blend-mode: overlay;
-      opacity: 0.9;
+      background: radial-gradient(120% 120% at 50% 42%, transparent 58%, rgba(48, 34, 30, 0.18) 100%);
     }
     /* TMKE debossed INTO the leather: fully transparent fill so the texture runs
        straight through the letters; the bevel shadows alone define the groove.
@@ -658,10 +644,27 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const fg = hero.querySelector(".hero-zoom-fg");
       const word = hero.querySelector(".hero-zoom-word");
       const skin = hero.querySelector(".hero-zoom-skin");
-      // The resting surface is now a CSS-generated leather texture (no image) —
-      // flag it on so the controller treats the skin as present (full at rest,
-      // fading as the fold-out photo irises in).
+      // Resting surface = the uploaded leather image. Flag the skin on (full at
+      // rest, fading as the fold-out photo irises in) and load the image with a
+      // few extension fallbacks so it works whatever it was saved as.
       hero.classList.add("has-snakeskin");
+      (function () {
+        const urls = [
+          "https://assets.tmke.co.uk/leather.png",
+          "https://assets.tmke.co.uk/leather.jpg",
+          "https://assets.tmke.co.uk/leather.jpeg",
+          "https://assets.tmke.co.uk/leather.webp",
+        ];
+        let i = 0;
+        (function next() {
+          if (i >= urls.length || !skin) return;
+          const url = urls[i++];
+          const im = new Image();
+          im.onload = () => { skin.style.backgroundImage = "url('" + url + "')"; };
+          im.onerror = next;
+          im.src = url;
+        })();
+      })();
       const foot = hero.querySelector(".hero-zoom-foot");
       const nav = document.getElementById("nav");
       const smooth = (t) => t * t * (3 - 2 * t);
