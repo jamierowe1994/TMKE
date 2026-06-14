@@ -43,7 +43,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       <div class="hero-zoom-skin" aria-hidden="true"></div>
       <!-- Layer A — the photo that unfolds to full screen -->
       <div class="hero-zoom-media">
-        <img class="hero-zoom-img" src="https://assets.tmke.co.uk/poojan-thanekar-8uPc8gPtVbo-unsplash.jpg" alt="A TMKE interior" />
+        <img class="hero-zoom-img" src="https://assets.tmke.co.uk/vibes.webp" alt="A TMKE interior" />
       </div>
       <!-- Layer B — TMKE wordmark (brand serif), dead centre -->
       <h1 class="hero-zoom-word" aria-label="TMKE">TMKE</h1>
@@ -494,9 +494,9 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       inset: 0 30px 30px 30px;
       z-index: 2;
       overflow: hidden;
-      opacity: 0;                         /* controller fades it in on scroll */
-      will-change: opacity;
-      transform: translateZ(0);
+      clip-path: circle(0px at 50% 50%);  /* JS grows the radius */
+      will-change: clip-path;
+      transform: translateZ(0);           /* isolate the clip-path repaint */
     }
     .hero-zoom-img {
       width: 100%;
@@ -504,18 +504,11 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       object-fit: cover;
       display: block;
     }
-    /* Dark overlay so the (light) photo reads richer and the TMKE cutout pops. */
-    .hero-zoom-media::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(16, 10, 16, 0.42) 0%, rgba(16, 10, 16, 0.30) 45%, rgba(16, 10, 16, 0.58) 100%);
-      pointer-events: none;
-    }
 
     /* Layer B — TMKE, solid dark purple, dead centre; recolours to white as the
        photo irises out behind it (colour set by the controller). */
     .hero-zoom-word {
+      display: none;
       position: absolute;
       left: 50%;
       top: 50%;
@@ -524,31 +517,26 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       transform: translate(-50%, calc(-50% + 5px));
       z-index: 3;
       margin: 0;
-      /* Wordmark in The Seasons (brand display serif), large. */
-      font-family: var(--subhead);
-      font-weight: 400;
-      font-size: clamp(120px, 21vw, 320px);
-      line-height: 0.86;
-      letter-spacing: 0.005em;
+      /* Brand wordmark font — matches the top-left logo (Cormorant) */
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: clamp(80px, 12vw, 190px);
+      line-height: 1;
+      letter-spacing: 0.04em;
       text-align: center;
-      white-space: nowrap;
-      /* Embossed (raised) off the dark plum at rest — light fill, with a light
-         top lip + heavy dark drop (set per-frame by the controller). */
-      color: #efe6ea;
-      -webkit-text-fill-color: #efe6ea;
-      will-change: transform, text-shadow;
-    }
-    /* Cutout state (on scroll): the photo shows straight through the letters, so
-       the dropped wordmark reads as cut out of the image. */
-    .hero-zoom-word.is-cutout {
-      color: transparent;
-      -webkit-text-fill-color: transparent;
-      background-image: url("https://assets.tmke.co.uk/poojan-thanekar-8uPc8gPtVbo-unsplash.jpg");
-      background-attachment: fixed;
-      background-size: cover;
-      background-position: center;
-      -webkit-background-clip: text;
-      background-clip: text;
+      /* Resting state = debossed wordmark in secondary #eae5e1 (a shade darker
+         than the paper) for carved depth; the controller lerps this to the
+         secondary taupe #7e6765 and swaps the carve shadows for a drop shadow
+         as the fold-out photo irises open. */
+      color: rgba(255, 252, 248, 0.18);
+      text-shadow:
+        -1px -1px 1px rgba(255, 252, 245, 0.70),
+        -2px -2px 5px rgba(255, 252, 245, 0.35),
+        1px 1px 1px rgba(18, 12, 8, 0.28),
+        2px 2px 6px rgba(18, 12, 8, 0.15);
+      /* Drop shadow is applied by the controller — only once the photo is behind
+         the letters (no shadow on the blank starter wall). */
+      will-change: color, text-shadow;
     }
     /* Snakeskin resting surface — fills the hero behind the photo. Opacity is
        driven by the controller (full at rest, fades as the photo irises in).
@@ -557,42 +545,24 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       position: absolute;
       inset: 0;
       z-index: 1;
+      background-position: center;
+      background-size: cover;
       opacity: 0;
       pointer-events: none;
-      /* Dark plum resting backdrop (brand wine, deepened). */
-      background: radial-gradient(135% 115% at 50% 32%, #3c2731 0%, #2a1a22 58%, #1d1017 100%);
     }
-    /* Dark grain over the plum — adds tooth so the hero isn't a flat wash. */
-    .hero-zoom-skin::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
-      background-size: 200px 200px;
-      opacity: 0.5;
-      mix-blend-mode: overlay;
-    }
-    /* Vignette to focus the centre. */
-    .hero-zoom-skin::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(120% 120% at 50% 40%, transparent 48%, rgba(8, 4, 8, 0.5) 100%);
-    }
-    /* TMKE debossed INTO the leather: fully transparent fill so the texture runs
-       straight through the letters; the bevel shadows alone define the groove.
-       Toggled on (.is-skin) only at rest; removed as the fold-out begins. */
+    .hero-zoom.has-snakeskin .hero-zoom-skin { background-image: var(--snakeskin); }
+    /* TMKE embossed OUT of the leather: the letters are raised, so the fill
+       is near-transparent warm so the texture shows through the faces.
+       Light on the TOP edge, shadow on the BOTTOM edge. Toggled on (.is-skin)
+       only at rest; removed as the fold-out begins. */
     .hero-zoom-word.is-skin {
-      /* A faint dark tint over the texture-through fill so the recess reads as
-         a debossed colour (still showing the surface texture). */
-      color: rgba(46, 30, 34, 0.20);
-      -webkit-text-fill-color: rgba(46, 30, 34, 0.20);
+      color: rgba(255, 252, 248, 0.06);
+      -webkit-text-fill-color: rgba(255, 252, 248, 0.06);
     }
 
-    /* Layer C — sofa-cushion cut-out removed: it sat in front of the new photo
-       and blocked the view. */
+    /* Layer C — sofa cushions over the word (same iris clip, set by the
+       controller). object-fit/position mirror the photo so they line up. */
     .hero-zoom-fg {
-      display: none;
       position: absolute;
       inset: 0 30px 30px 30px;
       z-index: 4;
@@ -668,9 +638,27 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const fg = hero.querySelector(".hero-zoom-fg");
       const word = hero.querySelector(".hero-zoom-word");
       const skin = hero.querySelector(".hero-zoom-skin");
-      // Resting backdrop is a CSS dark-plum + grain (no image). Flag it on so the
-      // controller treats the skin as present at rest.
-      hero.classList.add("has-snakeskin");
+      // Snakeskin texture — set on the hero (so the surface layer + the wordmark
+      // both inherit --snakeskin) only once the image actually loads, so nothing
+      // breaks if the asset is missing. Tries the known filename + fallbacks.
+      (function () {
+        const urls = [
+          "https://assets.tmke.co.uk/TMKE%20Home%20Page/TMKE%20Leather%20Background%20.png",
+          "https://assets.tmke.co.uk/snake%20skin.png",
+          "https://assets.tmke.co.uk/snakeskin.webp",
+          "https://assets.tmke.co.uk/snakeskin.jpg",
+          "https://assets.tmke.co.uk/snakeskin.png",
+        ];
+        let i = 0;
+        (function next() {
+          if (i >= urls.length) return;
+          const url = urls[i++];
+          const im = new Image();
+          im.onload = () => { hero.style.setProperty("--snakeskin", "url('" + url + "')"); hero.classList.add("has-snakeskin"); update(); };
+          im.onerror = next;
+          im.src = url;
+        })();
+      })();
       const foot = hero.querySelector(".hero-zoom-foot");
       const nav = document.getElementById("nav");
       const smooth = (t) => t * t * (3 - 2 * t);
@@ -684,33 +672,43 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         const total = hero.offsetHeight - window.innerHeight;
         const scrolled = Math.min(Math.max(-rect.top, 0), total);
         const p = total > 0 ? scrolled / total : 0;
-        const e = smooth(clamp01(p / 0.82));
-        const vh = window.innerHeight;
-        // The photo fades up behind everything over the first ~55% of scroll.
-        const photoIn = smooth(clamp01(e / 0.55));
-        if (media) media.style.opacity = photoIn.toFixed(3);
-        if (skin) skin.style.opacity = "1";    // plum backdrop holds behind the photo
-        // The wordmark slides from centre down to the foot of the box, where it
-        // sits large and turns into a cut-out of the image.
-        const drop = smooth(clamp01((e - 0.05) / 0.72));
-        const wh = word.getBoundingClientRect().height || vh * 0.3;
-        const targetDrop = (vh / 2) - (wh / 2) - 30;   // letters' base ~30px off the box edge
-        word.style.transform = "translate(-50%, calc(-50% + " + (drop * targetDrop).toFixed(1) + "px))";
-        word.classList.toggle("is-cutout", drop > 0.4);
-        // Embossed (raised) relief at rest — light top lip + heavy dark drop —
-        // fading as the word becomes a cut-out; the drop deepens as it lifts/falls.
-        const carve = clamp01(1 - drop / 0.5);
+        const e = smooth(clamp01(p / 0.82));             // iris out over first ~82%
+        const vw = window.innerWidth, vh = window.innerHeight;
+        // circle irises out from the viewport centre (where the word sits) until
+        // it covers the box (top:0, 30px on the other sides → top corners reach last)
+        const halfW = vw / 2 - 30, halfH = vh / 2;
+        const rMax = Math.sqrt(halfW * halfW + halfH * halfH);
+        const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
+        media.style.clipPath = clip;
+        if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
+        // Snakeskin resting surface: full at rest, fades out as the photo opens
+        // (snakeskin is only there BEFORE the animation). The wordmark is stamped
+        // into it only while resting (.is-skin); once the fold-out begins we drop
+        // the snakeskin so the word transitions to its normal state.
+        const hasSkin = hero.classList.contains("has-snakeskin");
+        if (skin) skin.style.opacity = hasSkin ? clamp01(1 - e / 0.18).toFixed(3) : "0";
+        if (word) { if (hasSkin && e < 0.06) word.classList.add("is-skin"); else word.classList.remove("is-skin"); }
+        // word: embossed #eae5e1 at rest -> secondary taupe #7e6765 as the photo irises past it
+        const wc = smooth(clamp01((e - 0.04) / 0.42));
+        word.style.color =
+          "rgb(" + Math.round(lerp(234, 126, wc)) + "," + Math.round(lerp(229, 103, wc)) + "," + Math.round(lerp(225, 101, wc)) + ")";
+        // Relief edges (the emboss) are full at rest and fade out over the first
+        // sliver of scroll; the drop shadow fades in once the photo is behind.
+        const carve = clamp01(1 - e / 0.1);
+        const sh = smooth(clamp01((e - 0.12) / 0.4));
+        // Raised-out-of-leather edges (light from above): warm highlight on
+        // the TOP edge, soft shadow on the BOTTOM edge.
         word.style.textShadow =
-          "0 -2px 1px rgba(255,250,252," + (0.55 * carve).toFixed(3) + ")," +
-          "0 -5px 10px rgba(255,250,252," + (0.22 * carve).toFixed(3) + ")," +
-          "0 2px 1px rgba(0,0,0," + (0.50 * carve).toFixed(3) + ")," +
-          "0 8px 18px rgba(0,0,0," + (0.45 * carve + 0.25 * drop).toFixed(3) + ")," +
-          "0 18px 44px rgba(0,0,0," + (0.40 * carve + 0.30 * drop).toFixed(3) + ")";
-        // Foot labels rise slightly and stay light over the dark hero.
-        if (foot) {
-          foot.style.transform = "translateY(" + (-drop * 20).toFixed(1) + "px)";
-          foot.style.color = "rgba(244,242,241,0.92)";
-        }
+          "-1px -1px 1px rgba(255,252,245," + (0.70 * carve).toFixed(3) + ")," +
+          "-2px -2px 5px rgba(255,252,245," + (0.35 * carve).toFixed(3) + ")," +
+          "1px 1px 1px rgba(18,12,8," + (0.28 * carve).toFixed(3) + ")," +
+          "2px 2px 6px rgba(18,12,8," + (0.15 * carve).toFixed(3) + ")," +
+          "0 3px 8px rgba(0,0,0," + (0.18 * sh).toFixed(3) + ")," +
+          "0 12px 34px rgba(0,0,0," + (0.12 * sh).toFixed(3) + ")";
+        // bottom labels: ink -> paper as the photo reaches them (late)
+        const t = smooth(clamp01((e - 0.55) / 0.4));
+        foot.style.color =
+          "rgb(" + Math.round(lerp(28, 242, t)) + "," + Math.round(lerp(29, 239, t)) + "," + Math.round(lerp(34, 233, t)) + ")";
         // Nav: stay fully transparent the ENTIRE time the hero image still
         // covers the top of the viewport — including the held-full state and the
         // scroll-away — so the cream bar never "drops in" over the finished
@@ -719,7 +717,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         if (nav) {
           const heroAtTop = rect.bottom > 80;
           nav.classList.toggle("nav--over-hero", heroAtTop);
-          nav.classList.toggle("nav--on-image", heroAtTop && photoIn > 0.5);
+          nav.classList.toggle("nav--on-image", heroAtTop && e > 0.5);
         }
       };
       update();
