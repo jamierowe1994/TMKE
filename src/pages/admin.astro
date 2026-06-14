@@ -95,8 +95,17 @@ import PageHero from "../components/PageHero.astro";
         <span class="admin-card-arrow">&rarr;</span>
       </div>
     </a>
-    <a href="/?edit=1" class="admin-card admin-card--editor">
+    <a href="/admin/email" class="admin-card">
       <div class="admin-card-num">09</div>
+      <h3 class="admin-card-title">Email studio</h3>
+      <p>Build branded email templates from blocks — the in-house mailer. Confirmation triggers and newsletters build on these.</p>
+      <div class="admin-card-meta">
+        <span><span data-stat="email-active">0</span> active &middot; <span data-stat="email-total">0</span> total</span>
+        <span class="admin-card-arrow">&rarr;</span>
+      </div>
+    </a>
+    <a href="/?edit=1" class="admin-card admin-card--editor">
+      <div class="admin-card-num">10</div>
       <h3 class="admin-card-title">Website Editor</h3>
       <p>Neaten the live website — wording, type, spacing, side margins, colours, backgrounds, images and section layout — then Preview &amp; Publish. Opens the editor on the home page.</p>
       <div class="admin-card-meta">
@@ -261,7 +270,7 @@ import PageHero from "../components/PageHero.astro";
 
       const SIXTY_DAYS_AGO = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [packs, templates, enquiriesNew, enquiriesTotal, paidOrders, subOrders, blogPublished, blogDrafts, vidTotal, vidActive] =
+      const [packs, templates, enquiriesNew, enquiriesTotal, paidOrders, subOrders, blogPublished, blogDrafts, vidTotal, vidActive, emailActive, emailTotal] =
         await Promise.all([
           supabase.from('packs').select('*', { count: 'exact', head: true }).eq('status', 'active'),
           supabase.from('templates').select('*', { count: 'exact', head: true }).eq('status', 'active'),
@@ -277,6 +286,8 @@ import PageHero from "../components/PageHero.astro";
           supabase.from('blog_posts').select('*', { count: 'exact', head: true }).eq('status', 'draft'),
           supabase.from('videography_bookings').select('*', { count: 'exact', head: true }),
           supabase.from('videography_bookings').select('*', { count: 'exact', head: true }).neq('stage', 'complete'),
+          supabase.from('email_templates').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+          supabase.from('email_templates').select('*', { count: 'exact', head: true }),
         ]);
 
       if (!packs.error && typeof packs.count === 'number') setStat('packs', String(packs.count));
@@ -310,6 +321,12 @@ import PageHero from "../components/PageHero.astro";
         setStat('vid-total', String(vidTotal.count));
       if (!vidActive.error && typeof vidActive.count === 'number')
         setStat('vid-active', String(vidActive.count));
+
+      // Email studio — fail quiet if email_templates.sql hasn't been run yet.
+      if (!emailActive.error && typeof emailActive.count === 'number')
+        setStat('email-active', String(emailActive.count));
+      if (!emailTotal.error && typeof emailTotal.count === 'number')
+        setStat('email-total', String(emailTotal.count));
     })();
   </script>
 </BaseLayout>

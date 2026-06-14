@@ -77,6 +77,17 @@ async function getUser(request, env) {
   }
 }
 
+// Admin gate for staff-only endpoints (e.g. sending email). Mirrors the client
+// allowlist in src/lib/admin-gate.js: a TMKE-domain email, or the named extra.
+const ADMIN_EMAIL_DOMAINS = ["tmke.co.uk"];
+const ADMIN_EMAILS = ["james@therecruitmentexperts.co.uk"];
+function isAdminEmail(user) {
+  const e = String((user && user.email) || "").toLowerCase().trim();
+  if (!e) return false;
+  if (ADMIN_EMAILS.includes(e)) return true;
+  return ADMIN_EMAIL_DOMAINS.includes(e.split("@")[1] || "");
+}
+
 // Read from Supabase with the service role (server-side only, never exposed).
 async function sbGet(env, table, qs) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE) return null;
@@ -536,6 +547,41 @@ export default {
     }
 
     try {
+      // ---- Send an email via Resend (admin only) ----
+      // Powers the admin email-template builder's "Send test", and is the relay
+      // for marketing/transactional sends generally. The caller is already a
+      // valid Supabase user (gated below); we additionally require a TMKE admin
+      // email so a signed-in customer can't drive the mailer. The verified
+      // sender domain comes from MAIL_FROM — callers may only set a display name.
+      if (path.endsWith("/email/send") && request.method === "POST") {
+        const sender = await getUser(request, env);
+        if (!isAdminEmail(sender)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.RESEND_API_KEY) return json({ error: "Email isn't configured — set the RESEND_API_KEY secret on the Worker (wrangler secret put RESEND_API_KEY)." }, 503, request, env);
+        let body;
+        try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        const toRaw = body && body.to;
+        const to = (Array.isArray(toRaw) ? toRaw : [toRaw])
+          .map((x) => String(x || "").trim()).filter(Boolean).slice(0, 50);
+        const subject = String((body && body.subject) || "").replace(/[\r\n]+/g, " ").slice(0, 300);
+        const html = String((body && body.html) || "");
+        if (!to.length) return json({ error: "No recipient address." }, 400, request, env);
+        if (!html) return json({ error: "Nothing to send." }, 400, request, env);
+        let from = env.MAIL_FROM || "TMKE <onboarding@resend.dev>";
+        const fromName = body && body.fromName ? String(body.fromName).replace(/[<>\r\n]/g, "").trim().slice(0, 80) : "";
+        if (fromName) {
+          const m = /<([^>]+)>/.exec(from);
+          from = `${fromName} <${m ? m[1] : from}>`;
+        }
+        const sent = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ from, to, subject, html }),
+        });
+        const data = await sent.json().catch(() => ({}));
+        if (!sent.ok) return json({ error: (data && (data.message || data.error)) || `Send failed (${sent.status}).` }, 502, request, env);
+        return json({ ok: true, id: data && data.id }, 200, request, env);
+      }
+
       // ---- Microsoft 365 connection health (admin) ----
       if (path.endsWith("/ms/status") && request.method === "GET") {
         try {

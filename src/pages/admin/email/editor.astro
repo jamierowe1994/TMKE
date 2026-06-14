@@ -1,0 +1,696 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import "../../../styles/admin.css";
+---
+
+<BaseLayout
+  title="Email template editor — Admin · TMKE"
+  description="Build a branded email template from blocks, preview it, and send a test."
+  hideNav
+  hideFooter
+>
+  <header class="em-top">
+    <div class="em-top-left">
+      <a href="/admin/email" class="em-top-back" aria-label="Back to email studio">&larr; Email studio</a>
+      <div>
+        <h1 class="em-top-title" id="em-title-display">New template</h1>
+        <p class="em-top-sub" id="em-top-sub">Draft · not yet saved</p>
+      </div>
+    </div>
+    <div class="em-top-right">
+      <button type="button" class="admin-btn admin-btn-ghost" id="em-sendtest">Send test</button>
+      <button type="button" class="admin-btn admin-btn-ghost" id="em-save">Save draft</button>
+      <button type="button" class="admin-btn admin-btn-primary" id="em-activate">Activate</button>
+    </div>
+  </header>
+
+  <div class="em-grid">
+    <!-- ───────────────── controls ───────────────── -->
+    <div class="em-col em-col-controls">
+      <fieldset class="be-card">
+        <legend class="be-card-legend">Template</legend>
+        <label class="be-field">
+          <span class="be-label">Name (internal)</span>
+          <input type="text" id="f-name" placeholder="e.g. Studio booking confirmation" />
+        </label>
+        <label class="be-field">
+          <span class="be-label">Subject line</span>
+          <input type="text" id="f-subject" placeholder="e.g. You're booked in, {{firstName}} 🎉" />
+        </label>
+        <label class="be-field">
+          <span class="be-label">Preheader (inbox preview text)</span>
+          <input type="text" id="f-preheader" placeholder="The short line shown after the subject in most inboxes" />
+        </label>
+        <div class="be-row">
+          <label class="be-field">
+            <span class="be-label">Trigger</span>
+            <select id="f-trigger">
+              <option value="">Manual / newsletter</option>
+              <option value="account_welcome">account_welcome</option>
+              <option value="order_confirmation">order_confirmation</option>
+              <option value="enquiry_received">enquiry_received</option>
+              <option value="waitlist_confirmation">waitlist_confirmation</option>
+            </select>
+          </label>
+          <label class="be-field">
+            <span class="be-label">Status</span>
+            <select id="f-status">
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+            </select>
+          </label>
+        </div>
+        <span class="be-hint" id="f-trigger-hint">Tagging a trigger reserves this template for that event (one active template per trigger). Automatic sending on these events is the next phase — for now templates are sent manually via “Send test”.</span>
+      </fieldset>
+
+      <fieldset class="be-card">
+        <legend class="be-card-legend">Content</legend>
+        <div class="em-mode-tabs">
+          <button type="button" class="em-mode-tab is-active" data-mode="blocks">Visual blocks</button>
+          <button type="button" class="em-mode-tab" data-mode="html">HTML</button>
+          <span class="em-merge-hint">
+            Merge fields:
+            <span id="em-merge-tags"></span>
+          </span>
+        </div>
+
+        <div class="em-mode-pane" data-pane="blocks">
+          <div class="em-palette" id="em-palette"></div>
+          <div class="em-blocks" id="em-blocks"></div>
+          <p class="em-blocks-empty" id="em-blocks-empty" hidden>No blocks yet — add one above to start building.</p>
+        </div>
+
+        <div class="em-mode-pane" data-pane="html" hidden>
+          <textarea id="f-html" class="em-html" rows="20" placeholder="<p>Write raw HTML here. Merge fields like {{firstName}} work too.</p>&#10;&#10;Tip: paste a full &lt;!doctype html&gt;… document to take total control, or just the inner body and we'll wrap it in the TMKE shell."></textarea>
+        </div>
+      </fieldset>
+
+      <fieldset class="be-card">
+        <legend class="be-card-legend">Branding</legend>
+        <div class="be-row">
+          <label class="be-field">
+            <span class="be-label">Company name</span>
+            <input type="text" data-brand="companyName" />
+          </label>
+          <label class="be-field">
+            <span class="be-label">Signature / sign-off</span>
+            <input type="text" data-brand="signatureName" placeholder="The TMKE Team" />
+          </label>
+        </div>
+        <label class="be-field">
+          <span class="be-label">Logo URL (shown in the header + Logo blocks)</span>
+          <input type="url" data-brand="logo" placeholder="https://…/logo.png" />
+        </label>
+        <div class="be-row">
+          <label class="be-field">
+            <span class="be-label">Accent colour</span>
+            <input type="color" data-brand="accentColor" />
+          </label>
+          <label class="be-field">
+            <span class="be-label">Page background</span>
+            <input type="color" data-brand="bgColor" />
+          </label>
+          <label class="be-field">
+            <span class="be-label">Card background</span>
+            <input type="color" data-brand="cardColor" />
+          </label>
+        </div>
+        <details class="em-socials">
+          <summary>Social links (used by Social + footer blocks)</summary>
+          <div class="be-row">
+            <label class="be-field"><span class="be-label">Website</span><input type="url" data-brand="website" placeholder="https://tmke.co.uk" /></label>
+            <label class="be-field"><span class="be-label">LinkedIn</span><input type="url" data-brand="linkedin" /></label>
+          </div>
+          <div class="be-row">
+            <label class="be-field"><span class="be-label">Instagram</span><input type="url" data-brand="instagram" /></label>
+            <label class="be-field"><span class="be-label">Facebook</span><input type="url" data-brand="facebook" /></label>
+          </div>
+          <div class="be-row">
+            <label class="be-field"><span class="be-label">X / Twitter</span><input type="url" data-brand="twitter" /></label>
+            <label class="be-field"><span class="be-label">YouTube</span><input type="url" data-brand="youtube" /></label>
+          </div>
+        </details>
+      </fieldset>
+    </div>
+
+    <!-- ───────────────── preview ───────────────── -->
+    <aside class="em-col em-col-preview">
+      <div class="em-preview-card">
+        <div class="em-preview-head">
+          <span class="em-preview-label">Live preview</span>
+          <div class="em-device-toggle">
+            <button type="button" class="em-device is-active" data-device="desktop">Desktop</button>
+            <button type="button" class="em-device" data-device="mobile">Mobile</button>
+          </div>
+        </div>
+        <div class="em-preview-subject"><span>Subject:</span> <strong id="em-preview-subject">—</strong></div>
+        <div class="em-preview-stage" id="em-preview-stage">
+          <iframe id="em-preview-frame" class="is-desktop" title="Email preview" sandbox=""></iframe>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <p class="be-toast" id="em-toast" hidden></p>
+
+  <style is:global>
+    :root { --be-line: rgba(28, 29, 34, 0.1); }
+
+    /* Buttons (shared idiom across backstage) */
+    .admin-btn {
+      padding: 9px 16px; font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; border: 1px solid transparent;
+      border-radius: 2px; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
+    .admin-btn-primary:hover { background: var(--ink); }
+    .admin-btn-ghost { background: transparent; color: var(--english-violet); border-color: rgba(55, 30, 40, 0.35); }
+    .admin-btn-ghost:hover { background: rgba(55, 30, 40, 0.08); }
+
+    /* Top bar */
+    .em-top {
+      position: sticky; top: 0; z-index: 30;
+      display: flex; justify-content: space-between; align-items: center; gap: 24px;
+      padding: 18px 32px; background: rgba(244, 242, 241, 0.92);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--be-line);
+    }
+    .em-top-left { display: flex; align-items: center; gap: 22px; min-width: 0; }
+    .em-top-right { display: flex; gap: 8px; flex-wrap: wrap; }
+    .em-top-back {
+      font-family: var(--sans); font-size: 12px; letter-spacing: 0.22em;
+      text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55); white-space: nowrap;
+    }
+    .em-top-back:hover { color: var(--english-violet); }
+    .em-top-title {
+      font-family: var(--serif); font-weight: 400; font-size: 25px; letter-spacing: -0.01em;
+      margin: 0; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48ch;
+    }
+    .em-top-sub {
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      font-weight: 600; color: rgba(28,29,34,0.5); margin: 4px 0 0;
+    }
+
+    /* Layout */
+    .em-grid {
+      display: grid; grid-template-columns: 1fr 460px; gap: 24px;
+      max-width: 1560px; margin: 0 auto; padding: 24px 32px 160px; align-items: start;
+    }
+    @media (max-width: 1180px) { .em-grid { grid-template-columns: 1fr; } }
+    .em-col { display: flex; flex-direction: column; gap: 18px; }
+    .em-col-preview { position: sticky; top: 92px; }
+    @media (max-width: 1180px) { .em-col-preview { position: static; } }
+
+    /* Cards / fields (matches the blog editor idiom) */
+    .be-card { background: #fff; border: 1px solid var(--be-line); border-radius: 6px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .be-card-legend {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--english-violet); padding: 0 8px;
+    }
+    .be-field { display: flex; flex-direction: column; gap: 6px; }
+    .be-label { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .be-field input, .be-field select, .be-field textarea, .em-html {
+      font-family: var(--sans); font-size: 14px; padding: 10px 12px;
+      border: 1px solid rgba(28,29,34,0.15); border-radius: 3px; background: var(--paper);
+      color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
+    }
+    .be-field input[type="color"] { padding: 4px; height: 40px; cursor: pointer; }
+    .be-field input:focus, .be-field select:focus, .be-field textarea:focus, .em-html:focus {
+      outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55, 30, 40, 0.1);
+    }
+    .be-hint { font-family: var(--sans); font-size: 11.5px; line-height: 1.5; color: rgba(28,29,34,0.5); }
+    .be-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .be-row:has(> :nth-child(3)) { grid-template-columns: 1fr 1fr 1fr; }
+    @media (max-width: 640px) { .be-row, .be-row:has(> :nth-child(3)) { grid-template-columns: 1fr; } }
+
+    /* Mode tabs + merge tags */
+    .em-mode-tabs { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--be-line); }
+    .em-mode-tab {
+      background: transparent; border: 0; padding: 4px 0; font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.45);
+      cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s;
+    }
+    .em-mode-tab.is-active { color: var(--english-violet); border-bottom-color: var(--english-violet); }
+    .em-merge-hint { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.5); margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .em-merge-tag {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; cursor: pointer;
+      background: rgba(55,30,40,0.07); color: var(--english-violet); padding: 2px 7px; border-radius: 4px; border: 0;
+    }
+    .em-merge-tag:hover { background: rgba(55,30,40,0.16); }
+
+    /* Block palette */
+    .em-palette { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+    .em-add {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; cursor: pointer;
+      background: var(--paper); border: 1px dashed rgba(55,30,40,0.35); border-radius: 999px;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet);
+      letter-spacing: 0.03em; transition: background 0.2s, border-color 0.2s;
+    }
+    .em-add:hover { background: rgba(55,30,40,0.07); border-color: var(--english-violet); }
+    .em-add .em-add-plus { font-size: 14px; line-height: 1; }
+
+    /* Block cards */
+    .em-blocks { display: flex; flex-direction: column; gap: 12px; }
+    .em-block {
+      border: 1px solid var(--be-line); border-radius: 6px; background: #fff; overflow: hidden;
+    }
+    .em-block-head {
+      display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+      background: rgba(55,30,40,0.04); border-bottom: 1px solid var(--be-line);
+    }
+    .em-block-type {
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--english-violet); flex: 1;
+    }
+    .em-block-ctrl {
+      width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(28,29,34,0.15); background: #fff; border-radius: 4px; cursor: pointer;
+      font-size: 13px; color: rgba(28,29,34,0.7);
+    }
+    .em-block-ctrl:hover { color: var(--ink); border-color: rgba(28,29,34,0.4); }
+    .em-block-ctrl:disabled { opacity: 0.3; cursor: default; }
+    .em-block-ctrl.danger:hover { color: #a05a3c; border-color: rgba(160,90,60,0.5); }
+    .em-block-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .em-block-body textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+    .em-checks { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+    .em-check { display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.75); }
+    .em-check input { accent-color: var(--english-violet); }
+    .em-block-note { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.5); line-height: 1.5; }
+    .em-blocks-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); padding: 18px 4px; }
+    .em-mode-pane[hidden] { display: none; }
+    .em-html { font-family: ui-monospace, "SF Mono", Menlo, monospace !important; font-size: 13px !important; line-height: 1.6 !important; min-height: 360px; margin-top: 14px; }
+
+    .em-socials summary {
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.2em;
+      text-transform: uppercase; color: rgba(28,29,34,0.55); cursor: pointer; padding: 4px 0;
+    }
+    .em-socials[open] { display: flex; flex-direction: column; gap: 12px; }
+
+    /* Preview */
+    .em-preview-card { background: #fff; border: 1px solid var(--be-line); border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .em-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .em-preview-label { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); }
+    .em-device-toggle { display: inline-flex; border: 1px solid rgba(28,29,34,0.15); border-radius: 999px; overflow: hidden; }
+    .em-device {
+      background: transparent; border: 0; padding: 6px 14px; cursor: pointer;
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(28,29,34,0.55);
+    }
+    .em-device.is-active { background: var(--ink); color: var(--paper); }
+    .em-preview-subject {
+      font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6);
+      border: 1px solid var(--be-line); border-radius: 4px; padding: 8px 12px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .em-preview-subject strong { color: var(--ink); }
+    .em-preview-stage { display: flex; justify-content: center; background: rgba(28,29,34,0.05); border-radius: 6px; padding: 14px; min-height: 420px; }
+    #em-preview-frame { width: 100%; border: 0; border-radius: 6px; background: #fff; height: 620px; box-shadow: 0 10px 30px -16px rgba(20,18,26,0.4); transition: max-width 0.25s; }
+    #em-preview-frame.is-desktop { max-width: 100%; }
+    #em-preview-frame.is-mobile { max-width: 390px; }
+
+    .be-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: var(--paper); padding: 10px 18px; border-radius: 4px;
+      font-family: var(--sans); font-size: 13px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+  </style>
+
+  <script>
+    import { supabase, isConfigured } from "../../../lib/supabase.js";
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import {
+      renderTemplate, mergeContextFor, defaultBrand,
+      BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT,
+    } from "../../../lib/email-render.js";
+
+    const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+
+    // ── State ──
+    const params = new URLSearchParams(location.search);
+    let id = params.get("id");
+    if (id === "new") id = null;
+    let session = null;
+    let loaded = null;
+
+    const state = {
+      name: "",
+      subject: "",
+      preheader: "",
+      trigger_key: "",
+      status: "draft",
+      mode: "blocks",
+      blocks: [],
+      custom_html: "",
+      branding: defaultBrand(),
+    };
+
+    // ── DOM refs ──
+    const $ = (sel) => document.querySelector(sel);
+    const titleDisplay = $("#em-title-display");
+    const topSub = $("#em-top-sub");
+    const frame = $("#em-preview-frame");
+    const previewSubject = $("#em-preview-subject");
+    const blocksWrap = $("#em-blocks");
+    const blocksEmpty = $("#em-blocks-empty");
+    const palette = $("#em-palette");
+    const toastEl = $("#em-toast");
+
+    function toast(msg) {
+      toastEl.textContent = msg;
+      toastEl.hidden = false;
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { toastEl.hidden = true; }, 2600);
+    }
+
+    // ── Preview ──
+    let _previewQueued = false;
+    function updatePreview() {
+      if (_previewQueued) return;
+      _previewQueued = true;
+      requestAnimationFrame(() => {
+        _previewQueued = false;
+        const brand = { ...defaultBrand(), ...state.branding };
+        const ctx = mergeContextFor(SAMPLE_RECIPIENT, brand);
+        const { subject, html } = renderTemplate(state, { brand, mergeCtx: ctx });
+        previewSubject.textContent = subject || "—";
+        frame.srcdoc = html;
+      });
+    }
+
+    // ── Block list rendering (rebuilt only on structural changes) ──
+    const ALIGN_OPTS = ["left", "center", "right"];
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const selOpts = (opts, cur) => opts.map((o) => `<option value="${o}"${o === cur ? " selected" : ""}>${o}</option>`).join("");
+
+    function fieldsHtml(b) {
+      const align = `
+        <label class="be-field"><span class="be-label">Align</span>
+          <select data-field="align">${selOpts(ALIGN_OPTS, b.align || "center")}</select></label>`;
+      switch (b.type) {
+        case "text":
+          return `
+            <label class="be-field"><span class="be-label">Text — blank line = new paragraph; merge fields like {{firstName}} work</span>
+              <textarea data-field="text">${esc(b.text || "")}</textarea></label>
+            <label class="be-field"><span class="be-label">Background tint (hex, or blank for none)</span>
+              <input type="text" data-field="bg" value="${esc(b.bg || "")}" placeholder="#f4f2f1 or blank" /></label>`;
+        case "image":
+          return `
+            <label class="be-field"><span class="be-label">Image URL</span>
+              <input type="url" data-field="url" value="${esc(b.url || "")}" placeholder="https://…/image.jpg" /></label>
+            <div class="be-row">
+              <label class="be-field"><span class="be-label">Alt text</span>
+                <input type="text" data-field="alt" value="${esc(b.alt || "")}" /></label>
+              <label class="be-field"><span class="be-label">Link URL (optional)</span>
+                <input type="url" data-field="linkUrl" value="${esc(b.linkUrl || "")}" /></label>
+            </div>${align}`;
+        case "button":
+          return `
+            <div class="be-row">
+              <label class="be-field"><span class="be-label">Button text</span>
+                <input type="text" data-field="text" value="${esc(b.text || "")}" /></label>
+              <label class="be-field"><span class="be-label">Link URL</span>
+                <input type="url" data-field="url" value="${esc(b.url || "")}" /></label>
+            </div>
+            <div class="be-row">
+              <label class="be-field"><span class="be-label">Colour (hex, blank = brand accent)</span>
+                <input type="text" data-field="color" value="${esc(b.color || "")}" placeholder="Brand accent" /></label>
+              ${align}
+            </div>`;
+        case "divider":
+          return `<label class="be-field"><span class="be-label">Colour</span>
+              <input type="color" data-field="color" value="${esc(b.color || "#E2E8F0")}" /></label>`;
+        case "spacer":
+          return `<label class="be-field"><span class="be-label">Height (px)</span>
+              <input type="number" data-field="height" min="4" max="160" value="${Number(b.height) || 24}" /></label>`;
+        case "logo":
+          return `
+            <div class="be-row">
+              <label class="be-field"><span class="be-label">Size</span>
+                <select data-field="size">${selOpts(["sm", "md", "lg"], b.size || "md")}</select></label>
+              ${align}
+            </div>
+            <label class="be-field"><span class="be-label">Link URL (optional)</span>
+              <input type="url" data-field="linkUrl" value="${esc(b.linkUrl || "")}" /></label>
+            <p class="em-block-note">Uses the <strong>Logo URL</strong> from the Branding card. Add one there if the logo doesn't show.</p>`;
+        case "social": {
+          const show = b.show || {};
+          const nets = ["website", "linkedin", "instagram", "facebook", "twitter", "youtube"];
+          const checks = nets.map((n) => `
+            <label class="em-check"><input type="checkbox" data-field="show.${n}"${show[n] !== false ? " checked" : ""} /> ${n}</label>`).join("");
+          return `
+            <div class="em-checks">${checks}</div>${align}
+            <p class="em-block-note">Only networks with a URL in the Branding card appear.</p>`;
+        }
+        case "video":
+          return `
+            <label class="be-field"><span class="be-label">Video link (YouTube/Vimeo/etc.)</span>
+              <input type="url" data-field="url" value="${esc(b.url || "")}" /></label>
+            <label class="be-field"><span class="be-label">Thumbnail image URL</span>
+              <input type="url" data-field="thumbnail" value="${esc(b.thumbnail || "")}" placeholder="https://…/thumb.jpg" /></label>${align}`;
+        default:
+          return "";
+      }
+    }
+
+    function setPath(obj, path, value) {
+      const parts = path.split(".");
+      let cur = obj;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (cur[parts[i]] == null || typeof cur[parts[i]] !== "object") cur[parts[i]] = {};
+        cur = cur[parts[i]];
+      }
+      cur[parts[parts.length - 1]] = value;
+    }
+
+    function renderBlocks() {
+      blocksEmpty.hidden = state.blocks.length > 0;
+      blocksWrap.innerHTML = state.blocks.map((b, i) => {
+        const def = BLOCK_TYPES.find((d) => d.type === b.type);
+        return `
+          <div class="em-block" data-id="${b.id}">
+            <div class="em-block-head">
+              <span class="em-block-type">${def ? def.label : b.type}</span>
+              <button type="button" class="em-block-ctrl" data-act="up" data-id="${b.id}" ${i === 0 ? "disabled" : ""} title="Move up">↑</button>
+              <button type="button" class="em-block-ctrl" data-act="down" data-id="${b.id}" ${i === state.blocks.length - 1 ? "disabled" : ""} title="Move down">↓</button>
+              <button type="button" class="em-block-ctrl" data-act="dupe" data-id="${b.id}" title="Duplicate">⧉</button>
+              <button type="button" class="em-block-ctrl danger" data-act="del" data-id="${b.id}" title="Delete">✕</button>
+            </div>
+            <div class="em-block-body">${fieldsHtml(b)}</div>
+          </div>`;
+      }).join("");
+
+      // Field bindings — mutate the matching block in place, refresh preview only
+      // (no list rebuild, so focus/caret are preserved while typing).
+      blocksWrap.querySelectorAll(".em-block").forEach((el) => {
+        const block = state.blocks.find((x) => x.id === el.dataset.id);
+        if (!block) return;
+        el.querySelectorAll("[data-field]").forEach((input) => {
+          const evt = input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input";
+          input.addEventListener(evt, () => {
+            let val;
+            if (input.type === "checkbox") val = input.checked;
+            else if (input.type === "number") val = Number(input.value);
+            else val = input.value;
+            setPath(block, input.dataset.field, val);
+            updatePreview();
+          });
+        });
+      });
+
+      // Structural controls
+      blocksWrap.querySelectorAll(".em-block-ctrl").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const bid = btn.dataset.id;
+          const idx = state.blocks.findIndex((x) => x.id === bid);
+          if (idx < 0) return;
+          const act = btn.dataset.act;
+          if (act === "up" && idx > 0) { [state.blocks[idx - 1], state.blocks[idx]] = [state.blocks[idx], state.blocks[idx - 1]]; }
+          else if (act === "down" && idx < state.blocks.length - 1) { [state.blocks[idx + 1], state.blocks[idx]] = [state.blocks[idx], state.blocks[idx + 1]]; }
+          else if (act === "dupe") { const copy = JSON.parse(JSON.stringify(state.blocks[idx])); copy.id = makeBlock(copy.type).id; state.blocks.splice(idx + 1, 0, copy); }
+          else if (act === "del") { state.blocks.splice(idx, 1); }
+          renderBlocks();
+          updatePreview();
+        });
+      });
+    }
+
+    // ── Palette ──
+    palette.innerHTML = BLOCK_TYPES.map((d) =>
+      `<button type="button" class="em-add" data-add="${d.type}" title="${d.hint}"><span class="em-add-plus">+</span> ${d.label}</button>`
+    ).join("");
+    palette.querySelectorAll("[data-add]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.blocks.push(makeBlock(btn.dataset.add));
+        renderBlocks();
+        updatePreview();
+      });
+    });
+
+    // ── Merge tag chips (click to copy) ──
+    $("#em-merge-tags").innerHTML = MERGE_FIELDS.map((f) =>
+      `<button type="button" class="em-merge-tag" data-tag="{{${f.token}}}" title="${f.label} — click to copy">{{${f.token}}}</button>`
+    ).join(" ");
+    document.querySelectorAll(".em-merge-tag").forEach((b) => b.addEventListener("click", () => {
+      const t = b.dataset.tag;
+      navigator.clipboard?.writeText(t).then(() => toast(`Copied ${t}`)).catch(() => {});
+    }));
+
+    // ── Simple field bindings (template + branding) ──
+    function bindInput(sel, key) {
+      const el = $(sel);
+      el.addEventListener("input", () => { state[key] = el.value; if (key === "subject") updatePreview(); });
+      return el;
+    }
+    const nameEl = bindInput("#f-name", "name");
+    nameEl.addEventListener("input", () => { titleDisplay.textContent = state.name || "New template"; });
+    bindInput("#f-subject", "subject");
+    bindInput("#f-preheader", "preheader");
+    $("#f-trigger").addEventListener("change", (e) => { state.trigger_key = e.target.value; });
+    $("#f-status").addEventListener("change", (e) => { state.status = e.target.value; });
+    $("#f-html").addEventListener("input", (e) => { state.custom_html = e.target.value; updatePreview(); });
+
+    document.querySelectorAll("[data-brand]").forEach((el) => {
+      const key = el.getAttribute("data-brand");
+      el.addEventListener("input", () => { state.branding[key] = el.value; updatePreview(); });
+    });
+
+    // ── Mode tabs ──
+    document.querySelectorAll(".em-mode-tab").forEach((tab) => tab.addEventListener("click", () => {
+      const mode = tab.dataset.mode;
+      state.mode = mode;
+      document.querySelectorAll(".em-mode-tab").forEach((t) => t.classList.toggle("is-active", t === tab));
+      document.querySelectorAll(".em-mode-pane").forEach((p) => { p.hidden = p.dataset.pane !== mode; });
+      updatePreview();
+    }));
+
+    // ── Device toggle ──
+    document.querySelectorAll(".em-device").forEach((btn) => btn.addEventListener("click", () => {
+      document.querySelectorAll(".em-device").forEach((b) => b.classList.toggle("is-active", b === btn));
+      frame.classList.toggle("is-mobile", btn.dataset.device === "mobile");
+      frame.classList.toggle("is-desktop", btn.dataset.device !== "mobile");
+    }));
+
+    // ── Populate every control from state (after load) ──
+    function fillForm() {
+      $("#f-name").value = state.name || "";
+      $("#f-subject").value = state.subject || "";
+      $("#f-preheader").value = state.preheader || "";
+      $("#f-trigger").value = state.trigger_key || "";
+      $("#f-status").value = state.status || "draft";
+      $("#f-html").value = state.custom_html || "";
+      titleDisplay.textContent = state.name || "New template";
+      const brand = { ...defaultBrand(), ...state.branding };
+      state.branding = brand;
+      document.querySelectorAll("[data-brand]").forEach((el) => {
+        const key = el.getAttribute("data-brand");
+        let v = brand[key] || "";
+        if (el.type === "color" && !/^#[0-9a-f]{6}$/i.test(v)) v = "#000000";
+        el.value = v;
+      });
+      // mode
+      document.querySelectorAll(".em-mode-tab").forEach((t) => t.classList.toggle("is-active", t.dataset.mode === state.mode));
+      document.querySelectorAll(".em-mode-pane").forEach((p) => { p.hidden = p.dataset.pane !== state.mode; });
+      renderBlocks();
+      updatePreview();
+    }
+
+    function updateSub() {
+      if (!loaded) { topSub.textContent = "Draft · not yet saved"; return; }
+      const bits = [loaded.status === "active" ? "Active" : loaded.status === "archived" ? "Archived" : "Draft"];
+      if (loaded.updated_at) bits.push("saved " + new Date(loaded.updated_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }));
+      topSub.textContent = bits.join(" · ");
+    }
+
+    // ── Save ──
+    function gather() {
+      return {
+        name: (state.name || "").trim() || "Untitled template",
+        subject: state.subject || "",
+        preheader: (state.preheader || "").trim() || null,
+        trigger_key: state.trigger_key || null,
+        mode: state.mode,
+        blocks: state.blocks,
+        custom_html: state.custom_html || null,
+        branding: state.branding,
+        status: state.status || "draft",
+      };
+    }
+
+    async function save(opts = {}) {
+      if (!isConfigured) { alert("Connect Supabase before saving. See AUTH_SETUP.md."); return; }
+      if (opts.activate) { state.status = "active"; $("#f-status").value = "active"; }
+      const payload = gather();
+      toast(opts.activate ? "Activating…" : "Saving…");
+      const q = id
+        ? supabase.from("email_templates").update(payload).eq("id", id).select().single()
+        : supabase.from("email_templates").insert(payload).select().single();
+      const { data, error } = await q;
+      if (error) { toast(`Save failed: ${error.message}`); return false; }
+      id = data.id;
+      loaded = data;
+      if (!params.get("id") || params.get("id") === "new") {
+        const u = new URL(location.href); u.searchParams.set("id", id); history.replaceState({}, "", u.toString());
+      }
+      updateSub();
+      toast(opts.activate ? "Activated ✓" : "Saved ✓");
+      return true;
+    }
+    $("#em-save").addEventListener("click", () => save());
+    $("#em-activate").addEventListener("click", () => save({ activate: true }));
+
+    // ── Send test ──
+    $("#em-sendtest").addEventListener("click", async () => {
+      if (!WORKER_URL) { alert("The mailer endpoint isn't configured — set PUBLIC_R2_WORKER_URL in the site env."); return; }
+      const to = prompt("Send a test email to:", (session && session.user && session.user.email) || "");
+      if (!to) return;
+      const brand = { ...defaultBrand(), ...state.branding };
+      const ctx = mergeContextFor({ name: to.split("@")[0], email: to, company: SAMPLE_RECIPIENT.company }, brand);
+      const { subject, html } = renderTemplate(state, { brand, mergeCtx: ctx });
+      toast("Sending test…");
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        const res = await fetch(`${WORKER_URL}/email/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${s.access_token}` },
+          body: JSON.stringify({ to, subject, html }),
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) { toast(`Send failed: ${j.error || res.status}`); return; }
+        toast(`Test sent to ${to} ✓`);
+      } catch (e) { toast(`Send failed: ${e.message || e}`); }
+    });
+
+    // Ctrl/Cmd+S to save
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); save(); }
+    });
+
+    // ── Boot ──
+    (async () => {
+      session = await requireAdmin("/admin/login");
+      if (!session) return;
+
+      if (id) {
+        const { data, error } = await supabase.from("email_templates").select("*").eq("id", id).maybeSingle();
+        if (error || !data) { alert("Couldn't load template. Returning to the list."); location.replace("/admin/email"); return; }
+        loaded = data;
+        state.name = data.name || "";
+        state.subject = data.subject || "";
+        state.preheader = data.preheader || "";
+        state.trigger_key = data.trigger_key || "";
+        state.status = data.status || "draft";
+        state.mode = data.mode || "blocks";
+        state.blocks = Array.isArray(data.blocks) ? data.blocks : [];
+        state.custom_html = data.custom_html || "";
+        state.branding = { ...defaultBrand(), ...(data.branding || {}) };
+      } else {
+        // A friendly starter so a fresh template isn't a blank page.
+        state.blocks = [makeBlock("logo"), makeBlock("text"), makeBlock("button")];
+      }
+      fillForm();
+      updateSub();
+    })();
+  </script>
+</BaseLayout>
