@@ -3194,17 +3194,21 @@ const googleFonts = [
           window.__TMKE_ADMIN_BOOTSTRAP_DONE__ = { requestedId: requestedId || null };
         }
 
-        // 2) Backfill the full template list for the switcher grid. This runs
-        //    after the initial load so it never blocks opening the design. Keep
-        //    the requested id pinned at index 0, then refresh editor.js's
-        //    in-memory list + grid (without disturbing the open design).
-        try {
-          const { data: rows, error } = await supabase
-            .from('templates')
-            .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
-            .order('status', { ascending: true })
-            .order('sort_order', { ascending: true });
-          if (!error && rows && rows.length && tag) {
+        // 2) Backfill the full template list for the switcher grid IN THE
+        //    BACKGROUND. This MUST NOT be awaited: the bootstrap runs in a module
+        //    with top-level await, which blocks editor.js — and so the canvas
+        //    render — until the whole script finishes (see the comment above the
+        //    import). Awaiting this heavy all-templates-with-elements fetch here
+        //    is exactly what made opening a template take 15-30s. Fire it and let
+        //    it refresh the switcher grid whenever it lands; the requested design
+        //    has already been pinned + booted above, so the editor paints now.
+        supabase
+          .from('templates')
+          .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
+          .order('status', { ascending: true })
+          .order('sort_order', { ascending: true })
+          .then(({ data: rows, error }) => {
+            if (error || !rows || !rows.length || !tag) return;
             const shaped = rows.map(shape);
             if (requestedId) {
               const idx = shaped.findIndex((t) => t.id === requestedId);
@@ -3214,8 +3218,8 @@ const googleFonts = [
             if (typeof window.__TMKE_REFRESH_TEMPLATES__ === 'function') {
               window.__TMKE_REFRESH_TEMPLATES__();
             }
-          }
-        } catch (_) {}
+          })
+          .catch(() => {});
       }
     }
 

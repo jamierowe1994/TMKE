@@ -13,6 +13,19 @@ import { templates as defaultLibrary } from "../../data/library.js";
       <button type="button" id="seed-btn" class="admin-btn admin-btn-ghost" hidden>Seed from default library</button>
       <button type="button" id="new-btn" class="admin-btn admin-btn-primary">+ New template</button>
     </div>
+    <div class="admin-bar-tools">
+      <label class="tpl-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" id="tpl-search" placeholder="Search templates…" aria-label="Search templates" />
+      </label>
+      <select class="tpl-filter" id="tpl-filter" aria-label="Filter templates">
+        <option value="recent">Most recent</option>
+        <option value="oldest">Last added</option>
+        <option value="draft">Drafts only</option>
+        <option value="active">Published only</option>
+        <option value="archived">Archived</option>
+      </select>
+    </div>
   </section>
 
   <section class="tpl-list wrap" id="tpl-list">
@@ -70,6 +83,31 @@ import { templates as defaultLibrary } from "../../data/library.js";
     }
     .admin-back:hover { color: var(--ink); }
     .admin-bar-actions { display: flex; align-items: center; gap: 12px; }
+    .admin-bar-tools { display: flex; align-items: center; gap: 10px; }
+    .tpl-search {
+      display: flex; align-items: center; gap: 8px;
+      background: #fff; border: 1px solid rgba(28, 29, 34, 0.14);
+      border-radius: 999px; padding: 8px 14px; min-width: 210px;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .tpl-search:focus-within { border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55, 30, 40, 0.08); }
+    .tpl-search svg { width: 15px; height: 15px; color: rgba(28, 29, 34, 0.42); flex: none; }
+    .tpl-search input { border: 0; outline: none; background: none; width: 100%; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .tpl-search input::placeholder { color: rgba(28, 29, 34, 0.4); }
+    .tpl-filter {
+      appearance: none; -webkit-appearance: none;
+      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center;
+      border: 1px solid rgba(28, 29, 34, 0.14); border-radius: 999px;
+      padding: 9px 32px 9px 14px; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+      color: var(--english-violet);
+    }
+    .tpl-filter:focus-visible { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55, 30, 40, 0.08); }
+    @media (max-width: 820px) {
+      .admin-bar { flex-direction: column; align-items: stretch; }
+      .admin-bar-tools { flex-wrap: wrap; }
+      .tpl-search { min-width: 0; flex: 1; }
+    }
     .admin-bar-count {
       font-family: var(--sans);
       font-size: 11px;
@@ -92,6 +130,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       cursor: pointer;
       border: 1px solid transparent;
       text-decoration: none;
+      white-space: nowrap;
       transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
     .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
@@ -105,7 +144,8 @@ import { templates as defaultLibrary } from "../../data/library.js";
     .tpl-list {
       max-width: 1360px;
       margin: 0 auto;
-      padding: 28px 36px 200px;
+      /* Generous top gap so the cards aren't jammed against the toolbar. */
+      padding: 56px 36px 200px;
     }
     .tpl-loading {
       font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5);
@@ -194,6 +234,13 @@ import { templates as defaultLibrary } from "../../data/library.js";
        even when no thumbnail image has been generated. */
     .tpl-canvas { position: absolute; inset: 0; }
     .tpl-canvas img { display: block; border: 0; }
+    .tpl-canvas-empty { display: flex; align-items: center; justify-content: center; }
+    .tpl-canvas-empty-mark {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 8px;
+      font-family: var(--sans); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.34);
+    }
+    .tpl-canvas-empty-mark svg { width: 28px; height: 28px; }
     .tpl-status {
       position: absolute;
       top: 10px;
@@ -295,7 +342,14 @@ import { templates as defaultLibrary } from "../../data/library.js";
       count: document.getElementById('tpl-count'),
       seedBtn: document.getElementById('seed-btn'),
       newBtn: document.getElementById('new-btn'),
+      search: document.getElementById('tpl-search'),
+      filter: document.getElementById('tpl-filter'),
     };
+
+    // All loaded templates (unfiltered). applyView() derives the visible grid
+    // from this + the current search text + filter, so searching/filtering never
+    // needs another round-trip to Supabase.
+    let ALL = [];
 
     const defaultLibrary = JSON.parse(
       document.getElementById('tpl-default-library')?.textContent || '[]'
@@ -344,6 +398,12 @@ import { templates as defaultLibrary } from "../../data/library.js";
       // No design yet but a thumbnail exists → show the thumbnail.
       if (!els.length && t.thumb_url) {
         return `<div class="tpl-canvas" style="background:#fff"><img src="${escapeHtml(t.thumb_url)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" /></div>`;
+      }
+      // Truly empty (no elements, no thumbnail) → show the canvas background plus
+      // a subtle placeholder so it reads as "blank, ready to design" rather than
+      // looking like a broken/missing preview.
+      if (!els.length) {
+        return `<div class="tpl-canvas tpl-canvas-empty" style="background:${escapeHtml(cv.background || '#f4f2f1')}"><span class="tpl-canvas-empty-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>Blank canvas</span></div>`;
       }
       return `<div class="tpl-canvas" style="background:${escapeHtml(cv.background || '#f4f2f1')}">${els.map((el) => renderEl(el, W, H)).join('')}</div>`;
     }
@@ -402,11 +462,36 @@ import { templates as defaultLibrary } from "../../data/library.js";
         return;
       }
 
+      ALL = tpls;
       const active = tpls.filter((t) => t.status === 'active').length;
       els.count.textContent = `${active} active · ${tpls.length} total`;
-      els.empty.hidden = tpls.length !== 0;
       els.seedBtn.hidden = tpls.length !== 0 || defaultLibrary.length === 0;
-      els.grid.innerHTML = tpls.map(renderCard).join('');
+      applyView();
+    }
+
+    // Render the grid from ALL, honouring the search box + filter dropdown.
+    function applyView() {
+      const q = (els.search?.value || '').toLowerCase().trim();
+      const f = els.filter?.value || 'recent';
+      let list = ALL.slice();
+
+      // Status filter (the sort-only options leave the status set untouched).
+      if (f === 'draft') list = list.filter((t) => t.status === 'draft');
+      else if (f === 'active') list = list.filter((t) => t.status === 'active');
+      else if (f === 'archived') list = list.filter((t) => t.status === 'archived');
+
+      // Free-text search over name + category.
+      if (q) list = list.filter((t) =>
+        (t.name || '').toLowerCase().includes(q) || (t.category || '').toLowerCase().includes(q));
+
+      // Sort: oldest = updated_at ascending; everything else = most recent first.
+      const ts = (t) => new Date(t.updated_at || 0).getTime();
+      list.sort((a, b) => (f === 'oldest' ? ts(a) - ts(b) : ts(b) - ts(a)));
+
+      els.empty.hidden = ALL.length !== 0;
+      els.grid.innerHTML = list.length
+        ? list.map(renderCard).join('')
+        : (ALL.length ? `<p class="tpl-loading">No templates match “${escapeHtml(q || els.filter.options[els.filter.selectedIndex].text)}”.</p>` : '');
     }
 
     async function seedFromLibrary() {
@@ -522,6 +607,8 @@ import { templates as defaultLibrary } from "../../data/library.js";
 
     els.seedBtn.addEventListener('click', seedFromLibrary);
     els.newBtn.addEventListener('click', newTemplate);
+    els.search?.addEventListener('input', applyView);
+    els.filter?.addEventListener('change', applyView);
 
     els.grid.addEventListener('click', (e) => {
       const t = e.target;
