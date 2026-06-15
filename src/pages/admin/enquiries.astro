@@ -14,6 +14,9 @@ import "../../styles/admin.css";
         <button type="button" class="enquiry-chip" data-filter="closed">Closed</button>
         <button type="button" class="enquiry-chip" data-filter="spam">Spam</button>
       </div>
+      <select class="enquiry-cat" id="enquiry-cat" aria-label="Filter by type">
+        <option value="all">All types</option>
+      </select>
       <span class="admin-bar-count" id="enquiry-count">…</span>
     </div>
   </section>
@@ -80,6 +83,20 @@ import "../../styles/admin.css";
     }
 
     .enquiry-filters { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .enquiry-cat {
+      appearance: none; -webkit-appearance: none;
+      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center;
+      border: 1px solid rgba(var(--violet-rgb), 0.3); border-radius: 999px;
+      padding: 8px 32px 8px 14px; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
+      color: var(--english-violet);
+    }
+    .enquiry-cat-pill {
+      display: inline-block; margin-right: 8px; vertical-align: middle;
+      font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--english-violet); background: rgba(var(--violet-rgb), 0.1);
+      padding: 2px 7px; border-radius: 999px;
+    }
     .enquiry-chip {
       display: inline-flex;
       align-items: center;
@@ -375,12 +392,29 @@ import "../../styles/admin.css";
 
     let all = [];
     let activeFilter = "all";
+    let activeCat = "all";
+
+    // Human label for an enquiry's source (the videography flow sends
+    // videography_property / videography_agent / videography_* ).
+    function categoryOf(source) {
+      const s = String(source || "");
+      if (s.startsWith("videography")) return "Videography";
+      if (s === "account_pack_support") return "Pack support";
+      if (s === "account_managed_socials") return "Managed socials";
+      if (s === "account_billing") return "Billing";
+      if (s === "account_feedback") return "Feedback";
+      if (s === "account_press") return "Press";
+      if (s === "account_general") return "General";
+      return "Contact";
+    }
 
     function applyFilter() {
       const grid = document.getElementById("enquiry-table");
       const emptyEl = document.getElementById("enquiry-empty");
       if (!grid) return;
-      const rows = activeFilter === "all" ? all : all.filter((r) => r.status === activeFilter);
+      const rows = all
+        .filter((r) => activeFilter === "all" || r.status === activeFilter)
+        .filter((r) => activeCat === "all" || categoryOf(r.source) === activeCat);
       const countEl = document.getElementById("enquiry-count");
       if (countEl) countEl.textContent = `${rows.length} ${rows.length === 1 ? "enquiry" : "enquiries"}`;
       if (rows.length === 0) {
@@ -402,7 +436,7 @@ import "../../styles/admin.css";
                 <div class="enquiry-who-name">${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}</div>
                 <div class="enquiry-who-meta">${escapeHtml(r.email)}</div>
               </div>
-              <div class="enquiry-snippet">${escapeHtml(r.message || "—")}</div>
+              <div class="enquiry-snippet"><span class="enquiry-cat-pill">${escapeHtml(categoryOf(r.source))}</span>${escapeHtml(r.message || "—")}</div>
               <div class="enquiry-who">
                 ${escapeHtml(r.business_name || "—")}
                 ${r.industry ? `<div class="enquiry-who-meta">${escapeHtml(r.industry)}</div>` : ""}
@@ -517,6 +551,16 @@ import "../../styles/admin.css";
       }
 
       all = data || [];
+
+      // Populate the type filter from the categories actually present.
+      const catSel = document.getElementById("enquiry-cat");
+      if (catSel) {
+        const cats = [...new Set(all.map((r) => categoryOf(r.source)))].sort();
+        catSel.innerHTML = '<option value="all">All types</option>' +
+          cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+        catSel.addEventListener("change", () => { activeCat = catSel.value; applyFilter(); });
+      }
+
       refreshCounts();
       applyFilter();
 

@@ -298,27 +298,6 @@ async function sendEmail(env, { to, subject, html, attachments }) {
   } catch (_) { /* email is best-effort */ }
 }
 
-// Upsert a contact into GoHighLevel with tags (marketing sync). Best-effort and
-// fully gated: does nothing unless GHL_API_KEY + GHL_LOCATION_ID are set.
-async function ghlUpsert(env, { email, name, phone, company, tags }) {
-  if (!env.GHL_API_KEY || !env.GHL_LOCATION_ID || !email) return;
-  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-  const firstName = parts.shift() || "";
-  const lastName = parts.join(" ");
-  try {
-    await fetch("https://services.leadconnectorhq.com/contacts/upsert", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${env.GHL_API_KEY}`, Version: "2021-07-28", "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        locationId: env.GHL_LOCATION_ID, email,
-        firstName, lastName: lastName || undefined, name: name || undefined,
-        phone: phone || undefined, companyName: company || undefined,
-        tags: (tags || []).filter(Boolean), source: "TMKE Videography",
-      }),
-    });
-  } catch (_) { /* marketing sync is best-effort, never blocks the booking */ }
-}
-
 async function runReminders(env) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
@@ -751,20 +730,31 @@ export default {
           html: jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns: add_ons, postcode, distanceMiles: distance_miles, surchargePence: surcharge_pence, dateNice, time: start, totalPence: total_pence, signedName: signed_name, marketingOptIn: marketing_opt_in }),
         });
 
-        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Booking", service, audience === "member" ? "Member" : "Non-member", marketing_opt_in ? "Marketing opt-in" : "No marketing"] });
         return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
       }
 
-      // ---- Non-member enquiry (Property / Agent) — a CRM lead, no calendar ---
+      // ---- Non-member enquiry (Property / Agent) — lands in the Enquiries inbox
+      // (/admin/enquiries), tagged with a videography source, plus an FYI email
+      // to Jack. It is NOT added to Jack's videography pipeline (that's bookings).
       if (path.endsWith("/videography/enquiry") && request.method === "POST") {
         const b = await request.json().catch(() => ({}));
         const { service, service_type, name, email, phone, company, postcode, message, marketing_opt_in } = b || {};
         if (!name || !email) return json({ error: "Please add your name and email." }, 400, request, env);
-        await sbPost(env, "videography_bookings", {
-          kind: "enquiry", service_type: service_type || null, audience: "non-member",
-          client_name: name, client_email: email, client_phone: phone || null, company: company || null,
-          postcode: postcode || null, service: service || null, stage: "enquiry_non_member",
-          enquiry_message: message || null, notes: message || null, marketing_opt_in: !!marketing_opt_in,
+        // Split the full name — the enquiries table needs a non-empty last name.
+        const nameParts = String(name).trim().split(/\s+/);
+        const firstName = nameParts.shift() || name;
+        const lastName = nameParts.join(" ") || "—";
+        // Fold the fields the enquiries table has no column for into the message.
+        const fullMessage = [
+          message || "",
+          postcode ? `Property / shoot postcode: ${postcode}` : "",
+          `Marketing opt-in: ${marketing_opt_in ? "yes" : "no"}`,
+        ].filter(Boolean).join("\n\n");
+        await sbPost(env, "enquiries", {
+          first_name: firstName, last_name: lastName, email,
+          phone: phone || null, business_name: company || null,
+          industry: service || null, message: fullMessage,
+          source: `videography_${service_type || "general"}`, status: "new",
         });
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
@@ -787,9 +777,8 @@ export default {
               ${postcode ? `<div><span style="color:#888">Location:</span> ${esc(postcode)}</div>` : ""}
               ${message ? `<div><span style="color:#888">Message:</span> ${esc(message)}</div>` : ""}
             </div>
-            <p style="font-size:12px;color:#999;margin:18px 0 0">In the CRM pipeline as a lead (enquiry_non_member).</p></div>`,
+            <p style="font-size:12px;color:#999;margin:18px 0 0">Saved to the Enquiries inbox (/admin/enquiries).</p></div>`,
         });
-        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Enquiry", service, marketing_opt_in ? "Marketing opt-in" : "No marketing"].filter(Boolean) });
         return json({ ok: true }, 200, request, env);
       }
 
@@ -805,7 +794,6 @@ export default {
           client_email: email, service: "Content Studio", stage: "enquiry_non_member",
           notes: "Register interest (members-only service)", marketing_opt_in: optin,
         });
-        await ghlUpsert(env, { email, tags: ["TMKE Videography", "Register Interest", optin ? "Marketing opt-in" : "No marketing"] });
         return json({ ok: true }, 200, request, env);
       }
 
@@ -895,7 +883,6 @@ export default {
               ${message ? `<div><span style="color:#888">Notes:</span> ${esc(message)}</div>` : ""}
             </div></div>`,
         });
-        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Discovery Call", ...interestList].filter(Boolean) });
         return json({ ok: true, eventId: ev.id }, 200, request, env);
       }
 
