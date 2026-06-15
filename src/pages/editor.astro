@@ -2,6 +2,8 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import AskExpert from "../components/AskExpert.astro";
 import ShopModal from "../components/ShopModal.astro";
+import DashSidebar from "../components/account/DashSidebar.astro";
+import "../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
 import { templates, packages } from "../data/library.js";
 
 const photoLibrary = templates.map((t) => {
@@ -110,7 +112,12 @@ const googleFonts = [
   hideFooter={true}
 >
   <!-- =================== ONBOARDING OVERLAY =================== -->
-  <div class="ed-onboard" id="ed-onboard">
+  <!-- Studio entry keeps the dashboard sidebar (left) so it reads as part of the
+       account; .dash-shell brings the grid + theme tokens + DashThemePicker. The
+       whole overlay is dismissed (.is-gone) once a design opens into the editor. -->
+  <div class="ed-onboard dash-shell" id="ed-onboard">
+    <DashSidebar active="studio" />
+    <div class="ed-onboard-col">
     <a href="/account" class="ed-onboard-back" id="ed-onboard-back" aria-label="Back to your workspace">
       <span aria-hidden="true">&larr;</span> Back
     </a>
@@ -143,6 +150,7 @@ const googleFonts = [
         <div class="ed-onboard-grid" id="ed-onboard-design-grid"></div>
         <div class="ed-onboard-error" id="ed-onboard-designs-empty" hidden></div>
       </div>
+    </div>
     </div>
   </div>
 
@@ -2721,6 +2729,30 @@ const googleFonts = [
       overflow-y: auto;
       opacity: 1;
       transition: opacity 0.45s ease-out, transform 0.55s cubic-bezier(.7,0,.3,1);
+    }
+    /* Studio entry keeps the dashboard sidebar on the left + dashboard theming,
+       so picking a pack reads as part of the account (not a full-screen takeover).
+       The whole overlay still slides away (.is-gone) once a design opens. */
+    .ed-onboard.dash-shell {
+      display: grid;
+      grid-template-columns: 264px minmax(0, 1fr);
+      align-items: stretch;
+      padding: 0;
+      background:
+        radial-gradient(80% 70% at 100% 0%, rgba(255, 255, 255, 0.5), transparent 58%),
+        var(--dash-bg, #f4f2f1);
+    }
+    .ed-onboard-col {
+      min-width: 0;
+      overflow-y: auto;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 60px clamp(28px, 5vw, 72px);
+    }
+    /* The sidebar's Workspace link replaces the standalone Back link. */
+    .ed-onboard.dash-shell .ed-onboard-back { display: none; }
+    @media (max-width: 760px) {
+      .ed-onboard.dash-shell { grid-template-columns: 1fr; }
+      .ed-onboard-col { padding: 40px 24px; }
     }
     .ed-onboard.is-leaving {
       opacity: 0;
