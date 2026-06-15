@@ -18,6 +18,7 @@
 // carries the captured account/opt-in fields forward.
 // ============================================================================
 import "../styles/booking-wizard.css";  // shared .dc-* wizard chrome (self-contained — no DiscoveryPanel needed)
+import { BOOKING_TERMS, TERMS_TITLE, TERMS_NOTE, BROCHURE_URL } from "../lib/videography-config.js";
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 ---
 
@@ -74,6 +75,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         <p class="dc-step-sub" id="vb-options-sub">All prices are plus VAT.</p>
         <div id="vb-options"></div>
         <div class="dc-step-actions" id="vb-options-actions" hidden><button type="button" class="dc-next" id="vb-options-next">Continue <em>&rarr;</em></button></div>
+        <p class="vb-brochure"><a href={BROCHURE_URL} target="_blank" rel="noopener">Prefer to browse first? Download our brochure (PDF) <em>&rarr;</em></a></p>
       </section>
 
       <!-- 2b. Enquiry (non-member, Property / Agent) -->
@@ -151,26 +153,14 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         <h2 class="dc-step-title">The <em>agreement.</em></h2>
         <p class="dc-step-sub">Please read the terms, then sign to confirm your booking.</p>
         <div class="dc-terms" id="vb-terms" tabindex="0">
-          <h4>TMKE — Shoot booking terms</h4>
-          <p class="dc-terms-note"><strong>Draft for review.</strong> A plain-English working agreement to confirm your booking and set expectations. The final wording will be confirmed by TMKE.</p>
-          <h5>1. Booking &amp; confirmation</h5>
-          <p>Your booking is confirmed once this agreement is signed and you receive our email confirmation. Your time is held in Jack's diary on a first-come basis.</p>
-          <h5>2. Cancellations</h5>
-          <p>We ask for a minimum of <strong>three (3) days' notice</strong> to cancel. Cancellations within <strong>48 hours</strong>, or a no-show, are chargeable in full. All changes must be made in writing to jack@tmke.co.uk.</p>
-          <h5>3. Rescheduling</h5>
-          <p>To rearrange, please give at least <strong>two (2) days' notice</strong>. We'll send a link to pick a new time that suits you.</p>
-          <h5>4. Use of content</h5>
-          <p>TMKE may use the content produced as showcase and marketing material across our website, social media and portfolio, crediting you where appropriate.</p>
-          <h5>5. Access to your content &amp; payment</h5>
-          <p>Final edited content remains the property of TMKE and is not released for your use until payment has been received in full.</p>
-          <h5>6. Delivery</h5>
-          <p>Edited content is typically delivered within a few working days of the shoot unless otherwise agreed.</p>
-          <h5>7. On the day</h5>
-          <p>Please ensure safe and timely access, and that you have the consent of any people or properties featured. Travel beyond the free radius is itemised separately.</p>
-          <h5>8. Liability &amp; circumstances beyond control</h5>
-          <p>TMKE is not liable for delays or cancellations caused by circumstances beyond our reasonable control (weather, illness, equipment failure); in such cases we'll reschedule at the earliest opportunity.</p>
-          <h5>9. Governing law</h5>
-          <p>This agreement is governed by the laws of England &amp; Wales.</p>
+          <h4>{TERMS_TITLE}</h4>
+          <p class="dc-terms-note">{TERMS_NOTE}</p>
+          {BOOKING_TERMS.map((t) => (
+            <>
+              <h5>{t.n}. {t.h}</h5>
+              <p set:html={t.p}></p>
+            </>
+          ))}
         </div>
         <label class="dc-agree-row">
           <input type="checkbox" id="vb-agree" disabled required />
@@ -252,6 +242,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .vb-surcharge-note { font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: rgba(28,29,34,0.78); background: rgba(55,30,40,0.06); border-radius: 8px; padding: 12px 14px; margin: 2px 0 0; }
   .vb-surcharge-note[hidden] { display: none; }
   .vb-surcharge-note strong { color: var(--english-violet); }
+  .vb-brochure { margin: 22px 0 0; font-family: var(--sans); font-size: 13.5px; }
+  .vb-brochure a { color: var(--english-violet); font-weight: 600; text-decoration: none; border-bottom: 1px solid rgba(55,30,40,0.3); padding-bottom: 1px; }
+  .vb-brochure a:hover { border-bottom-color: var(--english-violet); }
+  .vb-brochure em { font-style: normal; margin-left: 4px; }
 </style>
 
 <script>

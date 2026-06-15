@@ -298,6 +298,27 @@ async function sendEmail(env, { to, subject, html, attachments }) {
   } catch (_) { /* email is best-effort */ }
 }
 
+// Upsert a contact into GoHighLevel with tags (marketing sync). Best-effort and
+// fully gated: does nothing unless GHL_API_KEY + GHL_LOCATION_ID are set.
+async function ghlUpsert(env, { email, name, phone, company, tags }) {
+  if (!env.GHL_API_KEY || !env.GHL_LOCATION_ID || !email) return;
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  const firstName = parts.shift() || "";
+  const lastName = parts.join(" ");
+  try {
+    await fetch("https://services.leadconnectorhq.com/contacts/upsert", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.GHL_API_KEY}`, Version: "2021-07-28", "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        locationId: env.GHL_LOCATION_ID, email,
+        firstName, lastName: lastName || undefined, name: name || undefined,
+        phone: phone || undefined, companyName: company || undefined,
+        tags: (tags || []).filter(Boolean), source: "TMKE Videography",
+      }),
+    });
+  } catch (_) { /* marketing sync is best-effort, never blocks the booking */ }
+}
+
 async function runReminders(env) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
@@ -708,6 +729,7 @@ export default {
           html: jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns: add_ons, postcode, distanceMiles: distance_miles, surchargePence: surcharge_pence, dateNice, time: start, totalPence: total_pence, signedName: signed_name, marketingOptIn: marketing_opt_in }),
         });
 
+        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Booking", service, audience === "member" ? "Member" : "Non-member", marketing_opt_in ? "Marketing opt-in" : "No marketing"] });
         return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
       }
 
@@ -745,6 +767,7 @@ export default {
             </div>
             <p style="font-size:12px;color:#999;margin:18px 0 0">In the CRM pipeline as a lead (enquiry_non_member).</p></div>`,
         });
+        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Enquiry", service].filter(Boolean) });
         return json({ ok: true }, 200, request, env);
       }
 
@@ -806,6 +829,7 @@ export default {
               ${message ? `<div><span style="color:#888">Notes:</span> ${esc(message)}</div>` : ""}
             </div></div>`,
         });
+        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Discovery Call", ...interestList].filter(Boolean) });
         return json({ ok: true, eventId: ev.id }, 200, request, env);
       }
 
