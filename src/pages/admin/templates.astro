@@ -11,7 +11,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       <span class="admin-bar-count" id="tpl-count">…</span>
       <a href="/admin/fonts" class="admin-btn admin-btn-ghost">Brand fonts</a>
       <button type="button" id="seed-btn" class="admin-btn admin-btn-ghost" hidden>Seed from default library</button>
-      <button type="button" id="rebuild-thumbs-btn" class="admin-btn admin-btn-ghost">Rebuild thumbnails</button>
+      <button type="button" id="rebuild-thumbs-btn" class="admin-btn admin-btn-ghost">Sync local drafts</button>
       <button type="button" id="new-btn" class="admin-btn admin-btn-primary">+ New template</button>
     </div>
     <div class="admin-bar-tools">
@@ -619,55 +619,84 @@ import { templates as defaultLibrary } from "../../data/library.js";
     els.search?.addEventListener('input', applyView);
     els.filter?.addEventListener('change', applyView);
 
-    // ---- Bulk thumbnail rebuild ----------------------------------------------
-    // Open each design briefly in a hidden editor iframe; the editor renders it
-    // with the real renderer, persists a fresh thumbnail, and posts back when
-    // done. Reuses the exact studio renderer so thumbnails match the design.
-    function rebuildOne(id) {
-      return new Promise((resolve) => {
-        let settled = false;
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:768px;border:0;opacity:0;pointer-events:none;';
-        const finish = () => {
-          if (settled) return; settled = true;
-          window.removeEventListener('message', onMsg);
-          try { iframe.remove(); } catch (_) {}
-          resolve();
-        };
-        const onMsg = (e) => {
-          if (e.origin !== location.origin) return;
-          if (e.data && e.data.type === 'tmke-thumb-rebuilt' && e.data.id === id) finish();
-        };
-        window.addEventListener('message', onMsg);
-        iframe.src = `/editor?id=${encodeURIComponent(id)}&mode=admin&rebuildthumb=1`;
-        document.body.appendChild(iframe);
-        setTimeout(finish, 20000); // safety timeout per template
-      });
+    // ---- Sync local drafts to the database -----------------------------------
+    // Designs created before DB-autosave existed live only in THIS browser's
+    // localStorage; their DB row is empty so the list shows "Blank canvas". This
+    // reads each template's local autosave and writes it straight to the DB (no
+    // hidden editor — far fewer moving parts), so the preview renders. It reports
+    // exactly what it found per template so any gaps are visible.
+    async function externalizeDesign(canvas, elements) {
+      // Upload embedded data-URL images to storage and swap in their URLs, so the
+      // row stays small (matches the editor's save path).
+      let uid = null;
+      try { const { data } = await supabase.auth.getSession(); uid = data?.session?.user?.id || null; } catch (_) {}
+      const cache = new Map();
+      async function ext(v) {
+        if (typeof v !== 'string' || !v.startsWith('data:')) return v;
+        if (cache.has(v)) return cache.get(v);
+        const m = /^data:([^;]+);base64,(.+)$/.exec(v); if (!m) return v;
+        const mime = m[1], b64 = m[2];
+        let h = 5381; for (let i = 0; i < v.length; i++) h = ((h * 33) ^ v.charCodeAt(i)) >>> 0;
+        const extn = ((mime.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '')) || 'png';
+        const key = (uid ? uid + '/' : '') + 'templates/' + h.toString(36) + '.' + extn;
+        const bin = atob(b64), bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const { error } = await supabase.storage.from('calendar-assets').upload(key, new Blob([bytes], { type: mime }), { cacheControl: '31536000', upsert: true, contentType: mime });
+        if (error && !/exists|duplicate/i.test(error.message || '')) throw error;
+        const { data } = supabase.storage.from('calendar-assets').getPublicUrl(key);
+        const url = (data && data.publicUrl) || v; cache.set(v, url); return url;
+      }
+      if (canvas && typeof canvas.backgroundImage === 'string') canvas.backgroundImage = await ext(canvas.backgroundImage);
+      for (const el of (elements || [])) { if (el && typeof el.src === 'string') el.src = await ext(el.src); }
     }
+
+    function showSyncReport(lines, synced, total) {
+      const existing = document.getElementById('tpl-sync-report');
+      if (existing) existing.remove();
+      const box = document.createElement('div');
+      box.id = 'tpl-sync-report';
+      box.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:90;max-width:400px;max-height:64vh;overflow:auto;background:#fff;border:1px solid rgba(28,29,34,0.15);border-radius:12px;box-shadow:0 18px 50px -12px rgba(28,29,34,0.4);padding:14px 16px;font-family:var(--sans);font-size:12px;line-height:1.55;color:var(--ink);';
+      box.innerHTML =
+        '<div style="font-weight:700;margin-bottom:8px">Sync complete — ' + synced + ' of ' + total + ' updated from this browser</div>' +
+        lines.map((l) => '<div>' + escapeHtml(l) + '</div>').join('') +
+        '<button type="button" style="margin-top:12px;border:1px solid rgba(28,29,34,0.3);background:#fff;border-radius:6px;padding:6px 14px;cursor:pointer;font:inherit">Close</button>';
+      box.querySelector('button').addEventListener('click', () => box.remove());
+      document.body.appendChild(box);
+    }
+
     async function rebuildThumbnails() {
       const btn = els.rebuildBtn;
-      // Include drafts even when their DB row looks empty: their design may live
-      // only in this browser's localStorage (autosaved before DB-autosave existed),
-      // and opening them in the hidden editor heals that. Skip archived.
-      const targets = ALL.filter((t) =>
-        t.status !== 'archived' && (
-          (Array.isArray(t.elements) && t.elements.length) ||
-          (t.canvas && t.canvas.backgroundImage) ||
-          t.status === 'draft'
-        )
-      );
-      if (!targets.length) { alert('No designs to render yet — add some content first.'); return; }
-      if (!confirm(`Rebuild thumbnails for ${targets.length} template${targets.length === 1 ? '' : 's'}? Each opens briefly in the background; this can take a minute or two.`)) return;
+      const targets = ALL.filter((t) => t.status !== 'archived');
+      if (!targets.length) { alert('No templates to sync.'); return; }
       const orig = btn.textContent;
       btn.disabled = true;
-      let done = 0;
+      const report = [];
+      let done = 0, synced = 0;
       for (const t of targets) {
-        btn.textContent = `Rebuilding ${++done}/${targets.length}…`;
-        try { await rebuildOne(t.id); } catch (_) {}
+        btn.textContent = `Syncing ${++done}/${targets.length}…`;
+        const label = t.name || t.id;
+        let raw = null;
+        try { raw = localStorage.getItem('tmke.editor.' + t.id); } catch (_) {}
+        if (!raw) { report.push(`• ${label}: no local design on this browser`); continue; }
+        let saved; try { saved = JSON.parse(raw); } catch (_) { report.push(`• ${label}: local data unreadable`); continue; }
+        let canvas = saved && saved.canvas, elements = saved && saved.elements;
+        if (saved && saved.pages && saved.pages.length) { canvas = saved.pages[0].canvas; elements = saved.pages[0].elements; }
+        const hasContent = (Array.isArray(elements) && elements.length) || (canvas && canvas.backgroundImage);
+        if (!hasContent) { report.push(`• ${label}: local design is empty`); continue; }
+        try {
+          await externalizeDesign(canvas, elements);
+          const patch = { canvas, elements };
+          if (saved.filename) patch.name = saved.filename;
+          const { error } = await supabase.from('templates').update(patch).eq('id', t.id);
+          if (error) { report.push(`• ${label}: save failed — ${error.message}`); }
+          else { synced++; report.push(`• ${label}: synced ${Array.isArray(elements) ? elements.length : 0} element(s) ✓`); }
+        } catch (e) { report.push(`• ${label}: error — ${(e && e.message) || e}`); }
       }
-      btn.textContent = 'Done ✓';
+      console.log('[tmke sync]\n' + report.join('\n'));
+      btn.textContent = `Synced ${synced} ✓`;
       await loadTemplates();
-      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
+      showSyncReport(report, synced, targets.length);
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
     }
 
     els.grid.addEventListener('click', (e) => {
