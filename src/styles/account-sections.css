@@ -9,10 +9,35 @@
   display: grid;
   grid-template-columns: 264px minmax(0, 1fr);
   min-height: 100vh;
-  /* Soft off-white dashboard background. The white sidebar + cards lift off it
-     via their own borders and shadows. */
-  background: #f4f2f1;
+  /* Live-themeable surface. The admin theme picker (DashThemePicker) overrides
+     --dash-accent / --dash-bg on this element to trial colours with a client;
+     the defaults below match the house brand so nothing changes until a colour
+     is picked. Remapping --english-violet / --violet-deep means the nav,
+     buttons, links, eyebrows and accent fills all follow the accent in one move.
+     The *-ink vars are auto-set by the picker for readable text on any colour. */
+  --dash-accent: #371e28;
+  --dash-accent-ink: #ffffff;
+  --dash-accent-ink-soft: rgba(255, 255, 255, 0.72);
+  --dash-bg: #f4f2f1;
+  --dash-bg-ink: #1c1d22;
+  --dash-bg-ink-soft: rgba(28, 29, 34, 0.66);
+  --english-violet: var(--dash-accent);
+  --violet-deep: var(--dash-accent);
+  background: var(--dash-bg);
 }
+
+/* Wash-level headings + the back link adapt to the chosen background colour.
+   These generic .welcome-* / .section-h styles live in workspace.css as light
+   text (for the old dark hub); inside the themeable dash they follow the bg ink
+   so they stay legible on light OR dark backgrounds. Scoped to .dash-shell so
+   the public pages' dark hero headers are untouched. */
+.dash-shell .section-h,
+.dash-shell .welcome-h { color: var(--dash-bg-ink); }
+.dash-shell .welcome-h em { color: var(--english-violet); }
+.dash-shell .welcome-eyebrow,
+.dash-shell .welcome-sub,
+.dash-shell .back-link { color: var(--dash-bg-ink-soft); }
+.dash-shell .back-link:hover { color: var(--dash-bg-ink); }
 .dash-side {
   /* Floating white nav panel inset from the edges, so the beige shell
      shows around it as an enclosed nav space. 14px radius matches the
@@ -253,7 +278,7 @@
   font-size: clamp(28px, 3vw, 42px);
   line-height: 1.05;
   letter-spacing: -0.015em;
-  color: var(--ink);
+  color: var(--dash-bg-ink);
 }
 .acc-section-sub {
   margin: 0;
@@ -261,7 +286,7 @@
   font-family: var(--sans);
   font-size: 15px;
   line-height: 1.6;
-  color: rgba(28, 29, 34, 0.66);
+  color: var(--dash-bg-ink-soft);
 }
 
 .acc-section-foot {

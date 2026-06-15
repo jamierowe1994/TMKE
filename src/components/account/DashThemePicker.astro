@@ -1,0 +1,191 @@
+---
+// Floating dashboard theme picker (admin-only).
+//
+// Lets staff trial accent + background colours live across the whole signed-in
+// dashboard, to preview options with a client before committing to one. It sets
+// CSS variables on .dash-shell (see account-sections.css), which re-theme the
+// nav, buttons, eyebrows and the home stat tiles (accent) and the page
+// background. The choice is saved to localStorage so it persists as you click
+// between dashboard pages during a demo — it lives only in the admin's own
+// browser, so customers are never affected.
+//
+// Rendered once via DashSidebar, so it appears on every workspace page. Hidden
+// by default; revealed only after the signed-in user passes the admin check.
+---
+
+<div class="dtp" id="dtp" hidden>
+  <button type="button" class="dtp-toggle" id="dtp-toggle" aria-expanded="false" title="Trial dashboard colours">
+    <span class="dtp-dots"><span class="dtp-dot" data-dot="accent"></span><span class="dtp-dot" data-dot="bg"></span></span>
+    <span class="dtp-toggle-label">Theme</span>
+  </button>
+
+  <div class="dtp-panel" id="dtp-panel" hidden>
+    <div class="dtp-panel-head">
+      <strong>Trial colours</strong>
+      <span>Admin preview · not saved for customers</span>
+    </div>
+
+    <div class="dtp-group">
+      <div class="dtp-group-head"><span>Accent</span><code data-readout="accent">#371E28</code></div>
+      <div class="dtp-swatches" data-target="accent"></div>
+      <div class="dtp-custom">
+        <input type="color" data-color="accent" aria-label="Accent colour" />
+        <input type="text" data-hex="accent" maxlength="7" spellcheck="false" placeholder="#371e28" />
+      </div>
+    </div>
+
+    <div class="dtp-group">
+      <div class="dtp-group-head"><span>Background</span><code data-readout="bg">#F4F2F1</code></div>
+      <div class="dtp-swatches" data-target="bg"></div>
+      <div class="dtp-custom">
+        <input type="color" data-color="bg" aria-label="Background colour" />
+        <input type="text" data-hex="bg" maxlength="7" spellcheck="false" placeholder="#f4f2f1" />
+      </div>
+    </div>
+
+    <button type="button" class="dtp-reset" id="dtp-reset">Reset to brand default</button>
+  </div>
+</div>
+
+<style is:global>
+  .dtp { position: fixed; right: 18px; bottom: 18px; z-index: 130; font-family: var(--sans); }
+  .dtp[hidden] { display: none; }
+
+  .dtp-toggle {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 9px 15px 9px 11px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    border: 1px solid rgba(28, 29, 34, 0.16); cursor: pointer;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(28, 29, 34, 0.7);
+    box-shadow: 0 8px 24px -10px rgba(20, 18, 26, 0.3);
+  }
+  .dtp-toggle:hover { border-color: rgba(28, 29, 34, 0.32); }
+  .dtp-dots { display: inline-flex; }
+  .dtp-dot { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(28,29,34,0.18); }
+  .dtp-dot + .dtp-dot { margin-left: -6px; }
+
+  .dtp-panel {
+    position: absolute; right: 0; bottom: calc(100% + 10px); width: 268px;
+    background: #fff; border: 1px solid rgba(28, 29, 34, 0.12); border-radius: 14px;
+    padding: 16px; box-shadow: 0 24px 60px -24px rgba(20, 18, 26, 0.5);
+  }
+  .dtp-panel[hidden] { display: none; }
+  .dtp-panel-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 14px; }
+  .dtp-panel-head strong { font-family: var(--serif); font-weight: 500; font-size: 17px; color: var(--ink); letter-spacing: -0.01em; }
+  .dtp-panel-head span { font-size: 11px; color: rgba(28, 29, 34, 0.5); }
+
+  .dtp-group { margin-bottom: 16px; }
+  .dtp-group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+  .dtp-group-head span { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28, 29, 34, 0.55); }
+  .dtp-group-head code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: rgba(28, 29, 34, 0.5); }
+
+  .dtp-swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 9px; }
+  .dtp-sw { aspect-ratio: 1; border-radius: 7px; border: 1px solid rgba(28, 29, 34, 0.14); cursor: pointer; padding: 0; position: relative; }
+  .dtp-sw.is-active { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--english-violet, #371e28); }
+
+  .dtp-custom { display: grid; grid-template-columns: 38px 1fr; gap: 7px; }
+  .dtp-custom input[type="color"] { padding: 2px; height: 34px; width: 100%; border: 1px solid rgba(28, 29, 34, 0.14); border-radius: 7px; background: #fff; cursor: pointer; }
+  .dtp-custom input[type="text"] { font-family: ui-monospace, Menlo, monospace; font-size: 12px; text-transform: uppercase; padding: 8px 10px; border: 1px solid rgba(28, 29, 34, 0.14); border-radius: 7px; color: var(--ink); }
+  .dtp-custom input[type="text"]:focus { outline: none; border-color: rgba(28, 29, 34, 0.4); }
+
+  .dtp-reset { width: 100%; padding: 9px; background: transparent; border: 1px solid rgba(28, 29, 34, 0.14); border-radius: 8px; cursor: pointer; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28, 29, 34, 0.6); }
+  .dtp-reset:hover { background: rgba(28, 29, 34, 0.04); color: var(--ink); }
+
+  @media (max-width: 600px) {
+    .dtp { right: 12px; bottom: 12px; }
+    .dtp-panel { width: calc(100vw - 24px); right: -6px; }
+  }
+</style>
+
+<script>
+  import { supabase } from "../../lib/supabase.js";
+  import { isAdminUser } from "../../lib/admin-gate.js";
+
+  const KEY = "tmke-dash-theme";
+  const DEFAULT = { accent: "#371e28", bg: "#f4f2f1" };
+  const ACCENTS = ["#371e28", "#7e6765", "#1c1d22", "#2f5d50", "#34527a", "#8a3a2b"];
+  const BGS = ["#f4f2f1", "#ffffff", "#faf7f2", "#eef1f0", "#1c1d22", "#371e28"];
+
+  const root = document.getElementById("dtp");
+  if (root) {
+    const panel = document.getElementById("dtp-panel");
+    const toggle = document.getElementById("dtp-toggle");
+
+    let theme = { ...DEFAULT };
+    try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && /^#[0-9a-f]{6}$/i.test(s.accent || "") && /^#[0-9a-f]{6}$/i.test(s.bg || "")) theme = s; } catch (_) {}
+
+    // ── luminance-based contrast inks so any colour stays readable ──
+    function lum(hex) {
+      const c = String(hex || "").replace("#", "");
+      if (c.length !== 6) return 1;
+      const f = (i) => parseInt(c.slice(i, i + 2), 16) / 255;
+      return 0.2126 * f(0) + 0.7152 * f(2) + 0.0722 * f(4);
+    }
+    const inkFor = (hex) => (lum(hex) > 0.55 ? "#1c1d22" : "#ffffff");
+    const inkSoftFor = (hex) => (lum(hex) > 0.55 ? "rgba(28,29,34,0.66)" : "rgba(255,255,255,0.72)");
+
+    function applyTheme(t) {
+      const shell = document.querySelector(".dash-shell");
+      if (!shell) return;
+      shell.style.setProperty("--dash-accent", t.accent);
+      shell.style.setProperty("--dash-accent-ink", inkFor(t.accent));
+      shell.style.setProperty("--dash-accent-ink-soft", inkSoftFor(t.accent));
+      shell.style.setProperty("--dash-bg", t.bg);
+      shell.style.setProperty("--dash-bg-ink", inkFor(t.bg));
+      shell.style.setProperty("--dash-bg-ink-soft", inkSoftFor(t.bg));
+    }
+    function save() { try { localStorage.setItem(KEY, JSON.stringify(theme)); } catch (_) {} }
+
+    // Apply the saved theme immediately (admin's own browser only).
+    applyTheme(theme);
+
+    function renderControls() {
+      ["accent", "bg"].forEach((target) => {
+        const presets = target === "accent" ? ACCENTS : BGS;
+        const cur = (theme[target] || "").toLowerCase();
+        const row = root.querySelector(`.dtp-swatches[data-target="${target}"]`);
+        row.innerHTML = presets.map((c) =>
+          `<button type="button" class="dtp-sw${c.toLowerCase() === cur ? " is-active" : ""}" data-c="${c}" style="background:${c}" title="${c}"></button>`
+        ).join("");
+        row.querySelectorAll(".dtp-sw").forEach((sw) => sw.addEventListener("click", () => set(target, sw.dataset.c)));
+        const colorEl = root.querySelector(`[data-color="${target}"]`);
+        const hexEl = root.querySelector(`[data-hex="${target}"]`);
+        colorEl.value = theme[target];
+        hexEl.value = theme[target].toUpperCase();
+        colorEl.addEventListener("input", () => set(target, colorEl.value));
+        hexEl.addEventListener("input", () => { let v = hexEl.value.trim(); if (v && v[0] !== "#") v = "#" + v; if (/^#[0-9a-f]{6}$/i.test(v)) set(target, v); });
+      });
+      syncUI();
+    }
+    function set(target, value) { theme = { ...theme, [target]: value }; applyTheme(theme); save(); syncUI(); }
+    function syncUI() {
+      ["accent", "bg"].forEach((target) => {
+        root.querySelector(`[data-dot="${target}"]`).style.background = theme[target];
+        root.querySelector(`[data-readout="${target}"]`).textContent = theme[target].toUpperCase();
+        const colorEl = root.querySelector(`[data-color="${target}"]`); if (colorEl) colorEl.value = theme[target];
+        const hexEl = root.querySelector(`[data-hex="${target}"]`); if (hexEl && document.activeElement !== hexEl) hexEl.value = theme[target].toUpperCase();
+        root.querySelectorAll(`.dtp-swatches[data-target="${target}"] .dtp-sw`).forEach((sw) =>
+          sw.classList.toggle("is-active", sw.dataset.c.toLowerCase() === theme[target].toLowerCase()));
+      });
+    }
+
+    toggle.addEventListener("click", () => {
+      const open = panel.hidden;
+      panel.hidden = !open;
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+    document.getElementById("dtp-reset").addEventListener("click", () => { theme = { ...DEFAULT }; applyTheme(theme); save(); renderControls(); });
+
+    // Reveal the picker only for admins; customers never see it.
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data && data.session && (await isAdminUser(data.session.user))) {
+          root.hidden = false;
+          renderControls();
+        }
+      } catch (_) { /* not signed in / not configured — stay hidden */ }
+    })();
+  }
+</script>
