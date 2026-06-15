@@ -646,9 +646,15 @@ import { templates as defaultLibrary } from "../../data/library.js";
     }
     async function rebuildThumbnails() {
       const btn = els.rebuildBtn;
+      // Include drafts even when their DB row looks empty: their design may live
+      // only in this browser's localStorage (autosaved before DB-autosave existed),
+      // and opening them in the hidden editor heals that. Skip archived.
       const targets = ALL.filter((t) =>
-        (Array.isArray(t.elements) && t.elements.length) ||
-        (t.canvas && t.canvas.backgroundImage)
+        t.status !== 'archived' && (
+          (Array.isArray(t.elements) && t.elements.length) ||
+          (t.canvas && t.canvas.backgroundImage) ||
+          t.status === 'draft'
+        )
       );
       if (!targets.length) { alert('No designs to render yet — add some content first.'); return; }
       if (!confirm(`Rebuild thumbnails for ${targets.length} template${targets.length === 1 ? '' : 's'}? Each opens briefly in the background; this can take a minute or two.`)) return;

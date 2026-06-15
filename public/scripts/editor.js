@@ -5250,7 +5250,13 @@
       if (id && urlParams.get("rebuildthumb") === "1") {
         (async () => {
           try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (_) {}
-          try { await autosaveToDb(); } catch (_) {}
+          // Persist only when there's an actual design — loadTemplate restores any
+          // localStorage draft, so this heals drafts whose content never reached
+          // the DB. Truly-empty templates are left as the "Blank canvas" placeholder.
+          const hasContent = (state.elements && state.elements.length) ||
+            (state.canvas && state.canvas.backgroundImage) ||
+            (state.pages && state.pages.some((p) => (p.elements && p.elements.length) || (p.canvas && p.canvas.backgroundImage)));
+          if (hasContent) { try { await autosaveToDb(); } catch (_) {} }
           try { (window.parent || window).postMessage({ type: "tmke-thumb-rebuilt", id: id }, location.origin); } catch (_) {}
         })();
       }
