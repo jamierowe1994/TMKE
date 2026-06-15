@@ -116,6 +116,7 @@ export const BLOCK_TYPES = [
   { type: 'text', label: 'Text', hint: 'A paragraph of copy' },
   { type: 'image', label: 'Image', hint: 'A picture, optionally a link' },
   { type: 'button', label: 'Button', hint: 'A call-to-action' },
+  { type: 'columns', label: 'Columns', hint: 'A multi-column row layout' },
   { type: 'divider', label: 'Divider', hint: 'A horizontal line' },
   { type: 'spacer', label: 'Spacer', hint: 'Vertical whitespace' },
   { type: 'logo', label: 'Logo', hint: 'Your brand logo' },
@@ -126,6 +127,19 @@ export const BLOCK_TYPES = [
   { type: 'countdown', label: 'Countdown', hint: 'An offer / deadline date' },
   { type: 'reviewlink', label: 'Review link', hint: 'Ask for a review' },
   { type: 'code', label: 'Custom HTML', hint: 'Paste your own HTML' },
+];
+
+/** The column splits offered in the builder. `cols` = how many cells; `w` =
+ *  per-cell width %. Used by both the builder (cell count) and the renderer. */
+export const COLUMN_LAYOUTS = [
+  { key: 'full',     label: 'Full width',            cols: 1, w: [100] },
+  { key: '50-50',    label: 'Two columns (50 / 50)', cols: 2, w: [50, 50] },
+  { key: 'thirds',   label: 'Three columns (⅓ each)', cols: 3, w: [33.33, 33.33, 33.34] },
+  { key: '33-67',    label: '⅓ + ⅔',                 cols: 2, w: [33.33, 66.67] },
+  { key: '67-33',    label: '⅔ + ⅓',                 cols: 2, w: [66.67, 33.33] },
+  { key: '25-75',    label: '¼ + ¾',                 cols: 2, w: [25, 75] },
+  { key: '75-25',    label: '¾ + ¼',                 cols: 2, w: [75, 25] },
+  { key: 'quarters', label: 'Four columns',          cols: 4, w: [25, 25, 25, 25] },
 ];
 
 let _uidCounter = 0;
@@ -149,6 +163,11 @@ export function makeBlock(type) {
       return { type, id, url: '', alt: '', linkUrl: '', align: 'center' };
     case 'button':
       return { type, id, text: 'View more', url: 'https://tmke.co.uk', color: '', align: 'center' };
+    case 'columns':
+      return { type, id, layout: '50-50', cells: [
+        { title: 'Column one', text: 'Some copy here.' },
+        { title: 'Column two', text: 'Some copy here.' },
+      ] };
     case 'divider':
       return { type, id, color: '#E2E8F0' };
     case 'spacer':
@@ -366,6 +385,29 @@ function renderCode(block, ctx) {
   return renderTokens(String(block.html || ''), ctx);
 }
 
+// One column cell — a small stacked unit (image → title → text → button), which
+// covers feature grids, product/service rows, etc. without a nested editor.
+function renderCell(c, brand, ctx) {
+  if (!c) return '';
+  let h = '';
+  if (c.image) h += `<img src="${escapeHtml(c.image)}" alt="${escapeHtml(c.alt || '')}" style="max-width:100%;border-radius:8px;display:block;border:0;outline:none;margin:0 0 8px;" />`;
+  if (c.title) h += `<p style="margin:0 0 4px;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#1c1d22;">${renderTokens(escapeHtml(c.title), ctx)}</p>`;
+  if (c.text) h += `<p style="margin:0 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#475569;">${renderTokens(escapeHtml(c.text), ctx).replace(/\n/g, '<br />')}</p>`;
+  if (c.btnText) h += `<a href="${escapeHtml(renderTokens(c.btnUrl || '#', ctx))}" style="display:inline-block;padding:8px 16px;background:${escapeHtml(brand.accentColor || ACCENT_DEFAULT)};color:#fff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;font-family:Helvetica,Arial,sans-serif;">${escapeHtml(renderTokens(c.btnText, ctx))}</a>`;
+  return h || '<div style="min-height:36px;"></div>';
+}
+
+function renderColumns(block, brand, ctx) {
+  const layout = (COLUMN_LAYOUTS.find((l) => l.key === block.layout)) || COLUMN_LAYOUTS[1];
+  const widths = layout.w;
+  const cells = Array.isArray(block.cells) ? block.cells : [];
+  const tds = widths.map((w, i) => {
+    const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 8px';
+    return `<td valign="top" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:top;font-family:Helvetica,Arial,sans-serif;">${renderCell(cells[i], brand, ctx)}</td>`;
+  }).join('');
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
+}
+
 export function renderBlock(block, brand, ctx) {
   switch (block.type) {
     case 'heading': return renderHeading(block, ctx);
@@ -377,6 +419,7 @@ export function renderBlock(block, brand, ctx) {
     case 'logo': return renderLogo(block, brand);
     case 'social': return renderSocial(block, brand);
     case 'video': return renderVideo(block);
+    case 'columns': return renderColumns(block, brand, ctx);
     case 'footer': return renderFooter(block, brand);
     case 'faq': return renderFaq(block, ctx);
     case 'countdown': return renderCountdown(block);

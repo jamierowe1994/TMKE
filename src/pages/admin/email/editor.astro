@@ -306,7 +306,7 @@ import "../../../styles/admin.css";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import {
       renderTemplate, renderBlock, mergeContextFor, defaultBrand,
-      BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT,
+      BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT, COLUMN_LAYOUTS,
     } from "../../../lib/email-render.js";
 
     const DEV = import.meta.env.DEV;
@@ -324,6 +324,7 @@ import "../../../styles/admin.css";
       logo: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
       social: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>',
       video: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M3 7.5h4M17 3v18M3 16.5h4M21 7.5h-4M21 16.5h-4"/>',
+      columns: '<rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/>',
       footer: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/><path d="M7 18.5h4"/>',
       faq: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
       countdown: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/>',
@@ -526,6 +527,20 @@ import "../../../styles/admin.css";
           <p class="eb-note">No reviews link is live yet — set one here or in <strong>Brand</strong> once it's ready.</p>`;
         case "code": return `<label class="eb-f"><span>Custom HTML</span><textarea data-field="html" rows="8" style="font-family:monospace;font-size:12px;">${esc(b.html||"")}</textarea></label>
           <p class="eb-note">Email-safe HTML only (inline styles, tables). Merge tokens work here too.</p>`;
+        case "columns": {
+          const lay = b.layout || "50-50";
+          const cols = (COLUMN_LAYOUTS.find(l=>l.key===lay)||{cols:2}).cols;
+          if(!Array.isArray(b.cells)) b.cells=[];
+          while(b.cells.length<cols) b.cells.push({});
+          const sel = `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>`;
+          const cellForms = b.cells.slice(0,cols).map((c,i)=>`<div style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;"><strong style="font-size:12px;color:var(--english-violet);">Column ${i+1}</strong>
+            <label class="eb-f"><span>Image URL</span><input type="url" data-col="${i}.image" value="${esc(c.image||"")}" /></label>
+            <label class="eb-f"><span>Title</span><input type="text" data-col="${i}.title" value="${esc(c.title||"")}" /></label>
+            <label class="eb-f"><span>Text</span><textarea data-col="${i}.text" rows="2">${esc(c.text||"")}</textarea></label>
+            <label class="eb-f"><span>Button text</span><input type="text" data-col="${i}.btnText" value="${esc(c.btnText||"")}" /></label>
+            <label class="eb-f"><span>Button URL</span><input type="url" data-col="${i}.btnUrl" value="${esc(c.btnUrl||"")}" /></label></div>`).join("");
+          return sel + cellForms + `<p class="eb-note">Great for feature rows, product or service grids. Columns stack on very small screens.</p>`;
+        }
         default: return "";
       }
     }
@@ -553,6 +568,18 @@ import "../../../styles/admin.css";
         });
         wrap.querySelectorAll("[data-faq-del]").forEach((btn)=>btn.addEventListener("click", ()=>{ b.items.splice(Number(btn.dataset.faqDel),1); renderCanvas(); openInspector(bid); }));
         wrap.querySelector("#eb-faq-add")?.addEventListener("click", ()=>{ b.items.push({q:"",a:""}); renderCanvas(); openInspector(bid); });
+      }
+      // Columns block: per-cell content + layout switch (changing layout changes
+      // the column count, so re-open the inspector to show the right cells).
+      if (b.type === "columns") {
+        if (!Array.isArray(b.cells)) b.cells = [];
+        wrap.querySelector('[data-field="layout"]')?.addEventListener("change", ()=>{ renderCanvas(); openInspector(bid); });
+        wrap.querySelectorAll("[data-col]").forEach((inp)=>{
+          inp.addEventListener("input", ()=>{
+            const [i,k] = inp.dataset.col.split("."); const ix=Number(i);
+            b.cells[ix] = b.cells[ix] || {}; b.cells[ix][k] = inp.value; renderCanvas();
+          });
+        });
       }
       $("#eb-rail-blocks").hidden = true; $("#eb-rail-inspector").hidden = false;
     }
