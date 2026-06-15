@@ -11,6 +11,30 @@
 import { supabase, isConfigured } from './supabase.js';
 
 const SID_KEY = 'tmke-sid';
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+
+// Tell the marketing-automations engine that a KNOWN contact did something on
+// the site (a return visit, a trigger-link click). Anonymous visitors are only
+// logged to site_events — there's no contact to enrol. Fire-and-forget.
+async function fireAutomation(trigger, payload) {
+  if (!WORKER || !isConfigured) return;
+  try {
+    const { data } = await supabase.auth.getSession();
+    const session = data?.session;
+    if (!session?.user?.email) return;            // only enrol identified people
+    const meta = session.user.user_metadata || {};
+    const parts = String(meta.name || '').trim().split(/\s+/);
+    await fetch(`${WORKER}/automations/fire`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        trigger, email: session.user.email,
+        first_name: parts.shift() || null, last_name: parts.join(' ') || null,
+        company: meta.company || null, source: 'site', payload: payload || {},
+      }),
+    });
+  } catch (_) { /* best-effort */ }
+}
 
 // A stable per-browser-session id (persists across pages; survives reloads).
 function sessionId() {
@@ -57,5 +81,32 @@ export async function track(name, props = {}) {
 
 /** Convenience: record a page view for the current page. */
 export function trackPageview(extra = {}) {
-  return track('pageview', { title: typeof document !== 'undefined' ? document.title : '', ...extra });
+  track('pageview', { title: typeof document !== 'undefined' ? document.title : '', ...extra });
+
+  if (typeof location === 'undefined') return;
+  const path = location.pathname || '';
+  // Don't enrol staff from the backstage — re-engagement is for customer pages.
+  const isBackstage = /^\/(admin|editor|edit)(\/|$|\?)/.test(path);
+
+  // A trigger link (e.g. in an email) lands as ?tl=KEY — fire link_clicked.
+  try {
+    const tl = new URLSearchParams(location.search).get('tl');
+    if (tl) { track('link_clicked', { key: tl, path }); if (!isBackstage) fireAutomation('link_clicked', { key: tl, path }); }
+  } catch (_) {}
+
+  // page_visited fires once per browser session (a "return visit"), not on every
+  // page — so re-engage automations enrol on the visit, not each navigation.
+  if (isBackstage) return;
+  try {
+    if (!sessionStorage.getItem('tmke-pv-fired')) {
+      sessionStorage.setItem('tmke-pv-fired', '1');
+      fireAutomation('page_visited', { path });
+    }
+  } catch (_) {}
+}
+
+/** Record + fire a trigger-link click explicitly (e.g. from a button handler). */
+export function trackLinkClick(key, extra = {}) {
+  track('link_clicked', { key, ...extra });
+  fireAutomation('link_clicked', { key, ...extra });
 }
