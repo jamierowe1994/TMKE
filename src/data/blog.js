@@ -688,10 +688,27 @@ export async function getPublishedPosts() {
       .eq("status", "published")
       .order("publish_date", { ascending: false });
     if (!error && Array.isArray(data) && data.length) {
-      return data.map(rowToPost);
+      // Only front-end ('public') posts on the public site; 'members' posts are
+      // customer-exclusive. Treat a missing audience as public (pre-migration).
+      return data.filter((r) => (r.audience || "public") === "public").map(rowToPost);
     }
   }
   return STATIC_POSTS;
+}
+
+// Customer-exclusive ('members') posts for the /account "Inside The Edit" feed.
+export async function getMembersPosts() {
+  if (isConfigured) {
+    const { data, error } = await supabase
+      .from("blog_posts")
+      .select("*")
+      .eq("status", "published")
+      .order("publish_date", { ascending: false });
+    if (!error && Array.isArray(data)) {
+      return data.filter((r) => r.audience === "members").map(rowToPost);
+    }
+  }
+  return [];
 }
 
 export async function getPost(slug) {
@@ -703,7 +720,8 @@ export async function getPost(slug) {
       .eq("slug", slug)
       .eq("status", "published")
       .maybeSingle();
-    if (!error && data) return rowToPost(data);
+    // Don't expose members-only posts on the public site.
+    if (!error && data && (data.audience || "public") === "public") return rowToPost(data);
   }
   return STATIC_POSTS.find((p) => p.slug === slug) || null;
 }
