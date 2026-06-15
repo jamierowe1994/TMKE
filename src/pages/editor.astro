@@ -519,24 +519,44 @@ const googleFonts = [
 
       <!-- Background -->
       <section class="ed-panel-pane" data-pane="background">
-        <div class="ed-pane-header"><h3>Background</h3><p>A solid colour, a brand swatch or a gradient. Use right-click → <em>Set as background</em> on an image to drop a photo behind the design.</p></div>
-        <!-- Detach button: shown only when there's a background image
-             attached. Editor.js toggles its `hidden` on every render. -->
-        <button type="button" class="ed-bg-detach" id="ed-bg-detach" hidden>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          <span>Detach background image</span>
-        </button>
-        <!-- Background-image controls: shown only when a photo is set as the
-             background. Editor.js toggles `hidden` + syncs values on render. -->
-        <div class="ed-bg-imgctl" id="ed-bg-imgctl" hidden style="margin:6px 0 14px;">
-          <div class="ed-section-title">Background image transparency</div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <input type="range" min="0" max="100" step="1" value="100" id="ed-bg-opacity" style="flex:1;" />
-            <input type="number" min="0" max="100" step="1" value="100" id="ed-bg-opacity-num" style="width:54px; text-align:right; border:1px solid rgba(28,29,34,0.18); border-radius:6px; padding:4px 6px; font:inherit;" />
-            <span style="opacity:0.55; font-size:12px;">%</span>
+        <div class="ed-pane-header"><h3>Background</h3><p>Set a background image, colour or gradient for the whole design.</p></div>
+
+        <!-- Background image: live preview + change/upload menu. -->
+        <div class="ed-bg-img-block">
+          <div class="ed-bg-thumb" id="ed-bg-thumb"><span class="ed-bg-thumb-empty">No image</span></div>
+          <div class="ed-bg-img-actions">
+            <div class="ed-bg-change-wrap">
+              <button type="button" class="ed-bg-btn" id="ed-bg-change">Change image
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="ed-bg-imgmenu" id="ed-bg-imgmenu" hidden></div>
+            </div>
+            <button type="button" class="ed-bg-btn" id="ed-bg-reposition" hidden>Reposition</button>
+            <button type="button" class="ed-bg-btn ed-bg-btn-danger" id="ed-bg-detach" hidden>Remove</button>
           </div>
-          <p style="margin:8px 0 0; font-size:11.5px; line-height:1.5; color:rgba(28,29,34,0.5);">Add shapes or text on top as overlays — they sit above the background.</p>
+          <input type="file" id="ed-bg-upload" accept="image/*" hidden />
         </div>
+
+        <!-- Transparency — only when an image is set (toggled in editor.js). -->
+        <div class="ed-bg-imgctl" id="ed-bg-imgctl" hidden>
+          <div class="ed-section-title">Image transparency</div>
+          <div class="ed-bg-op-row">
+            <input type="range" min="0" max="100" step="1" value="100" id="ed-bg-opacity" />
+            <input type="number" min="0" max="100" step="1" value="100" id="ed-bg-opacity-num" />
+            <span class="ed-bg-op-pct">%</span>
+          </div>
+          <!-- Fade colour: only shown once the image is below 100% (the colour
+               that shows through the faded photo). -->
+          <div class="ed-bg-tint" id="ed-bg-tint" hidden>
+            <div class="ed-section-title" style="margin-top:12px;">Fade colour</div>
+            <div class="ed-bg-tint-row">
+              <button type="button" class="ed-sw" data-color="#000000" style="background:#000000" title="Black"></button>
+              <button type="button" class="ed-sw" data-color="#FFFFFF" style="background:#FFFFFF; border:1px solid rgba(0,0,0,0.12)" title="White"></button>
+              <label class="ed-circle-swatch ed-bg-tint-custom" title="Custom fade colour"><input type="color" id="ed-bg-tint-color" value="#000000" /></label>
+            </div>
+          </div>
+        </div>
+
         <div class="ed-section-title">Brand</div>
         <div class="ed-swatches" data-swatch-target="canvas">
           <button class="ed-sw" data-color="#1c1d22" style="background:#1c1d22"></button>
@@ -549,16 +569,25 @@ const googleFonts = [
           <button class="ed-sw" data-color="#f4f2f1" style="background:#f4f2f1"></button>
           <button class="ed-sw" data-color="#FFFFFF" style="background:#FFFFFF; border:1px solid rgba(0,0,0,0.1)"></button>
         </div>
-        <div class="ed-section-title">Custom</div>
-        <input type="color" id="ed-bg-color" value="#f4f2f1" class="ed-color-input" />
-        <div class="ed-section-title">Gradients</div>
-        <div class="ed-grad-grid">
-          <button class="ed-grad" data-grad="linear-gradient(135deg, var(--english-violet), #B9826A)" style="background:linear-gradient(135deg, var(--english-violet), #B9826A)"></button>
-          <button class="ed-grad" data-grad="linear-gradient(135deg, #1c1d22, var(--english-violet))" style="background:linear-gradient(135deg, #1c1d22, var(--english-violet))"></button>
-          <button class="ed-grad" data-grad="linear-gradient(180deg, #f4f2f1, #DFDCDE)" style="background:linear-gradient(180deg, #f4f2f1, #DFDCDE)"></button>
-          <button class="ed-grad" data-grad="linear-gradient(135deg, #B9826A, #f4f2f1)" style="background:linear-gradient(135deg, #B9826A, #f4f2f1)"></button>
-          <button class="ed-grad" data-grad="radial-gradient(circle at 30% 30%, #BCB3B9, var(--english-violet))" style="background:radial-gradient(circle at 30% 30%, #BCB3B9, var(--english-violet))"></button>
-          <button class="ed-grad" data-grad="linear-gradient(180deg, #333747, #BCB3B9)" style="background:linear-gradient(180deg, #333747, #BCB3B9)"></button>
+
+        <!-- Custom colour + Gradients as compact circle triggers (hex-first). -->
+        <div class="ed-bg-cg">
+          <div class="ed-bg-cg-item">
+            <span class="ed-bg-cg-label">Custom</span>
+            <label class="ed-circle-swatch" id="ed-bg-color-wrap" title="Custom colour"><input type="color" id="ed-bg-color" value="#f4f2f1" /></label>
+          </div>
+          <div class="ed-bg-cg-item ed-bg-grad-wrap">
+            <span class="ed-bg-cg-label">Gradients</span>
+            <button type="button" class="ed-circle-swatch ed-bg-grad-circle" id="ed-bg-grad" title="Pick a gradient" style="background:linear-gradient(135deg, var(--english-violet), #B9826A)"></button>
+            <div class="ed-bg-gradmenu" id="ed-bg-gradmenu" hidden>
+              <button class="ed-grad" data-grad="linear-gradient(135deg, var(--english-violet), #B9826A)" style="background:linear-gradient(135deg, var(--english-violet), #B9826A)"></button>
+              <button class="ed-grad" data-grad="linear-gradient(135deg, #1c1d22, var(--english-violet))" style="background:linear-gradient(135deg, #1c1d22, var(--english-violet))"></button>
+              <button class="ed-grad" data-grad="linear-gradient(180deg, #f4f2f1, #DFDCDE)" style="background:linear-gradient(180deg, #f4f2f1, #DFDCDE)"></button>
+              <button class="ed-grad" data-grad="linear-gradient(135deg, #B9826A, #f4f2f1)" style="background:linear-gradient(135deg, #B9826A, #f4f2f1)"></button>
+              <button class="ed-grad" data-grad="radial-gradient(circle at 30% 30%, #BCB3B9, var(--english-violet))" style="background:radial-gradient(circle at 30% 30%, #BCB3B9, var(--english-violet))"></button>
+              <button class="ed-grad" data-grad="linear-gradient(180deg, #333747, #BCB3B9)" style="background:linear-gradient(180deg, #333747, #BCB3B9)"></button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1832,6 +1861,65 @@ const googleFonts = [
       padding: 0;
       cursor: pointer;
     }
+
+    /* ---- Background pane redesign ---- */
+    .ed-bg-img-block { margin-bottom: 14px; }
+    .ed-bg-thumb {
+      position: relative; width: 100%; aspect-ratio: 16 / 10; border-radius: 10px;
+      background-color: rgba(28,29,34,0.05); background-size: cover; background-position: center; background-repeat: no-repeat;
+      border: 1px solid rgba(28,29,34,0.12);
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .ed-bg-thumb-empty { font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.35); }
+    .ed-bg-thumb.has-img .ed-bg-thumb-empty { display: none; }
+    .ed-bg-img-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .ed-bg-change-wrap { position: relative; }
+    .ed-bg-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+      padding: 8px 12px; border-radius: 8px; cursor: pointer;
+      background: #fff; border: 1px solid rgba(28,29,34,0.18); color: var(--ink);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .ed-bg-btn:hover { background: rgba(55,30,40,0.05); border-color: rgba(55,30,40,0.35); }
+    .ed-bg-btn[hidden] { display: none; }
+    .ed-bg-btn-danger { color: #a05a3c; border-color: rgba(160,90,60,0.4); }
+    .ed-bg-btn-danger:hover { background: rgba(160,90,60,0.08); }
+    .ed-bg-imgmenu {
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
+      width: 232px; max-height: 300px; overflow-y: auto;
+      background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px;
+      box-shadow: 0 18px 44px -16px rgba(28,29,34,0.4); padding: 10px;
+    }
+    .ed-bg-imgmenu[hidden] { display: none; }
+    .ed-bg-imgmenu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .ed-bg-imgmenu-grid button { aspect-ratio: 1; border-radius: 7px; border: 1px solid rgba(28,29,34,0.1); background-size: cover; background-position: center; cursor: pointer; }
+    .ed-bg-imgmenu-grid button:hover { border-color: var(--english-violet); }
+    .ed-bg-imgmenu-empty { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 0 0 8px; }
+    .ed-bg-imgmenu-upload {
+      display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+      margin-top: 8px; padding: 9px; border-radius: 8px; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      background: var(--english-violet); color: var(--paper); border: 0;
+    }
+    .ed-bg-op-row { display: flex; align-items: center; gap: 8px; }
+    .ed-bg-op-row input[type="range"] { flex: 1; accent-color: var(--english-violet); }
+    .ed-bg-op-row input[type="number"] { width: 54px; text-align: right; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; padding: 4px 6px; font: inherit; }
+    .ed-bg-op-pct { opacity: 0.55; font-size: 12px; }
+    .ed-bg-tint[hidden] { display: none; }
+    .ed-bg-tint-row { display: flex; align-items: center; gap: 8px; }
+    .ed-bg-tint-row .ed-sw { width: 26px; height: 26px; }
+    .ed-bg-cg { display: flex; gap: 28px; align-items: center; margin-top: 16px; }
+    .ed-bg-cg-item { display: flex; align-items: center; gap: 10px; position: relative; }
+    .ed-bg-cg-label { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .ed-bg-gradmenu {
+      position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
+      display: grid; grid-template-columns: repeat(3, 38px); gap: 6px;
+      background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px;
+      box-shadow: 0 18px 44px -16px rgba(28,29,34,0.4); padding: 10px;
+    }
+    .ed-bg-gradmenu[hidden] { display: none; }
+    .ed-bg-gradmenu .ed-grad { width: 38px; height: 38px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(28,29,34,0.1); }
 
     /* Popover triggered from a .ed-pop-trigger button. The trigger lives
        in the context bar; the popover itself is appended to <body> so

@@ -254,6 +254,10 @@
     return typeof window.__TMKE_ADMIN_SAVE__ === "function";
   }
 
+  // Tracks the single popover allowed open at any time. Opening one closes the
+  // previous one (and the colour panel), so Position/Effects/etc. never stack.
+  let _activePopoverClose = null;
+
   // Generic icon button that opens a popover when clicked. The `render`
   // callback gets a `close` function and should return a DOM element to
   // populate the popover. Closes on outside click, Escape, scroll.
@@ -279,12 +283,16 @@
       pop.style.left = Math.min(r.left, window.innerWidth - 280 - 12) + "px";
     }
     function open() {
+      // One popover at a time: close any other open popover + the colour panel.
+      if (_activePopoverClose && _activePopoverClose !== close) _activePopoverClose();
+      if (typeof closeColorPanel === "function") closeColorPanel();
+      _activePopoverClose = close;
       pop.innerHTML = "";
       pop.appendChild(opts.render(close));
       pop.hidden = false;
       position();
     }
-    function close() { pop.hidden = true; }
+    function close() { pop.hidden = true; if (_activePopoverClose === close) _activePopoverClose = null; }
 
     btn.addEventListener("click", function (e) {
       e.stopPropagation();
@@ -606,6 +614,8 @@
   function openColorPanel(opts) {
     const panel = document.getElementById("ed-colorpanel");
     if (!panel) return;
+    // Close any open icon-popover so only one control panel shows at a time.
+    if (_activePopoverClose) _activePopoverClose();
     panel._onSolid = opts.onSolid || null;
     panel._onGradient = opts.onGradient || null;
     panel._gradDraft = panel._onGradient ? cpInitGradDraft(opts.currentGradient, opts.current) : null;
@@ -1540,6 +1550,8 @@
       bg.style.left = "0"; bg.style.top = "0";
       bg.style.width = "100%"; bg.style.height = "100%";
       bg.style.objectFit = "cover";
+      // Reposition: which part of the (cover-cropped) photo is visible.
+      bg.style.objectPosition = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) + "% " + (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) + "%";
       bg.style.opacity = state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1;
       bg.style.pointerEvents = "none";
       bg.style.userSelect = "none";
@@ -1583,15 +1595,36 @@
     // Keep the Background-pane detach button in sync with state. Cheap
     // here (one DOM toggle per render) and means we never have to
     // remember to call it from anywhere else.
-    const detachBtn = document.getElementById("ed-bg-detach");
-    if (detachBtn) detachBtn.hidden = !state.canvas.backgroundImage;
-    const bgImgCtl = document.getElementById("ed-bg-imgctl");
-    if (bgImgCtl) {
-      bgImgCtl.hidden = !state.canvas.backgroundImage;
-      const op = Math.round((state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1) * 100);
-      const rEl = document.getElementById("ed-bg-opacity"), nEl = document.getElementById("ed-bg-opacity-num");
-      if (rEl && document.activeElement !== rEl) rEl.value = op;
-      if (nEl && document.activeElement !== nEl) nEl.value = op;
+    syncBgPane();
+  }
+
+  // Keep the Background pane in sync with state: image preview, which controls
+  // are visible, the opacity values, the fade-colour tint, and the custom swatch.
+  function syncBgPane() {
+    const hasImg = !!state.canvas.backgroundImage;
+    const thumb = document.getElementById("ed-bg-thumb");
+    if (thumb) {
+      thumb.classList.toggle("has-img", hasImg);
+      thumb.style.backgroundImage = hasImg ? ("url(" + JSON.stringify(state.canvas.backgroundImage) + ")") : "";
+    }
+    const repo = document.getElementById("ed-bg-reposition");
+    if (repo) repo.hidden = !hasImg;
+    const detach = document.getElementById("ed-bg-detach");
+    if (detach) detach.hidden = !hasImg;
+    const ctl = document.getElementById("ed-bg-imgctl");
+    if (ctl) ctl.hidden = !hasImg;
+    const op = Math.round((state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1) * 100);
+    const rEl = document.getElementById("ed-bg-opacity"), nEl = document.getElementById("ed-bg-opacity-num");
+    if (rEl && document.activeElement !== rEl) rEl.value = op;
+    if (nEl && document.activeElement !== nEl) nEl.value = op;
+    // Fade colour only matters once the photo is below 100%.
+    const tint = document.getElementById("ed-bg-tint");
+    if (tint) tint.hidden = !(hasImg && op < 100);
+    // Custom circle reflects the current solid background (skip gradients).
+    const cwrap = document.getElementById("ed-bg-color-wrap");
+    if (cwrap) {
+      const bg = state.canvas.background;
+      cwrap.style.background = (typeof bg === "string" && bg.indexOf("gradient") === -1) ? bg : "#f4f2f1";
     }
   }
 
@@ -3179,9 +3212,12 @@
         let dw, dh;
         if (ar > cr) { dh = ch; dw = ch * ar; }
         else         { dw = cw; dh = cw / ar; }
+        // Honour the reposition (object-position): offset = (box - image) * pct.
+        const px = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) / 100;
+        const py = (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) / 100;
         ctx.save();
         ctx.globalAlpha = state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1;
-        ctx.drawImage(bg, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+        ctx.drawImage(bg, (cw - dw) * px, (ch - dh) * py, dw, dh);
         ctx.restore();
       } catch (_) {}
     }
@@ -4938,6 +4974,113 @@
       fullRender();
     });
   });
+
+  // ---------- Background pane: change/upload image, fade tint, gradient menu, reposition ----------
+  (function () {
+    const changeBtn = $("ed-bg-change");
+    const menu = $("ed-bg-imgmenu");
+    const fileInput = $("ed-bg-upload");
+    const repoBtn = $("ed-bg-reposition");
+    const tintColor = $("ed-bg-tint-color");
+    const gradCircle = $("ed-bg-grad");
+    const gradMenu = $("ed-bg-gradmenu");
+
+    function buildImgMenu() {
+      if (!menu) return;
+      const recent = (state.uploads || []).slice(-9).reverse();
+      let html = recent.length
+        ? '<div class="ed-bg-imgmenu-grid">' + recent.map((src, i) => '<button type="button" data-idx="' + i + '" style="background-image:url(' + JSON.stringify(src) + ')"></button>').join("") + '</div>'
+        : '<p class="ed-bg-imgmenu-empty">No recent uploads yet.</p>';
+      html += '<button type="button" class="ed-bg-imgmenu-upload" data-upload>Upload a new image</button>';
+      menu.innerHTML = html;
+      menu.querySelectorAll("[data-idx]").forEach((b) => b.addEventListener("click", () => {
+        setCanvasBackgroundImage(recent[parseInt(b.dataset.idx, 10)]);
+        menu.hidden = true;
+      }));
+      const up = menu.querySelector("[data-upload]");
+      if (up) up.addEventListener("click", () => { menu.hidden = true; if (fileInput) fileInput.click(); });
+    }
+    if (changeBtn && menu) {
+      changeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (menu.hidden) { buildImgMenu(); menu.hidden = false; } else menu.hidden = true;
+      });
+      document.addEventListener("click", (e) => {
+        if (!menu.hidden && !menu.contains(e.target) && !changeBtn.contains(e.target)) menu.hidden = true;
+      });
+    }
+    if (fileInput) {
+      fileInput.addEventListener("change", () => {
+        const f = fileInput.files && fileInput.files[0];
+        fileInput.value = "";
+        if (!f) return;
+        fileToWebImage(f).then((src) => { if (!src) return; state.uploads.push(src); setCanvasBackgroundImage(src); });
+      });
+    }
+    if (tintColor) {
+      tintColor.addEventListener("input", () => { state.canvas.background = tintColor.value; fullRender(); });
+      tintColor.addEventListener("change", () => pushHistory());
+    }
+    if (gradCircle && gradMenu) {
+      gradCircle.addEventListener("click", (e) => { e.stopPropagation(); gradMenu.hidden = !gradMenu.hidden; });
+      document.addEventListener("click", (e) => { if (!gradMenu.hidden && !gradMenu.contains(e.target) && !gradCircle.contains(e.target)) gradMenu.hidden = true; });
+      gradMenu.querySelectorAll(".ed-grad").forEach((b) => b.addEventListener("click", () => { gradMenu.hidden = true; }));
+    }
+    if (repoBtn) repoBtn.addEventListener("click", () => { if (state.canvas.backgroundImage) enterBgReposition(); });
+  })();
+
+  // Background reposition: drag on the canvas to slide which part of the
+  // cover-cropped photo is visible (object-position). Exit on click / Escape.
+  let _bgRepoActive = false;
+  function enterBgReposition() {
+    if (_bgRepoActive || !state.canvas.backgroundImage) return;
+    _bgRepoActive = true;
+    state.selectedIds = [];
+    fullRender();
+    const bgImg = canvasEl.querySelector(".ed-canvas-bg");
+    if (bgImg) bgImg.style.outline = "2px dashed var(--english-violet, #371e28)";
+    canvasEl.style.cursor = "move";
+    toast("Drag to reposition the background — click away or press Esc when done", 3200);
+    let dragging = false, lastX = 0, lastY = 0;
+    function down(ev) {
+      if (ev.button !== 0) return;
+      dragging = true; lastX = ev.clientX; lastY = ev.clientY; ev.preventDefault();
+    }
+    function move(ev) {
+      if (!dragging) return;
+      const z = state.zoom || 1;
+      // Drag right → reveal more of the left → object-position X decreases.
+      const dx = (ev.clientX - lastX) / z / state.canvas.width * 100;
+      const dy = (ev.clientY - lastY) / z / state.canvas.height * 100;
+      lastX = ev.clientX; lastY = ev.clientY;
+      state.canvas.bgPosX = Math.max(0, Math.min(100, (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) - dx));
+      state.canvas.bgPosY = Math.max(0, Math.min(100, (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) - dy));
+      const img = canvasEl.querySelector(".ed-canvas-bg");
+      if (img) img.style.objectPosition = state.canvas.bgPosX + "% " + state.canvas.bgPosY + "%";
+    }
+    function up() { dragging = false; }
+    function exit(ev) {
+      if (ev && ev.type === "keydown" && ev.key !== "Escape") return;
+      _bgRepoActive = false;
+      canvasEl.removeEventListener("mousedown", down);
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      document.removeEventListener("keydown", exit, true);
+      document.removeEventListener("mousedown", outside, true);
+      canvasEl.style.cursor = "";
+      pushHistory();
+      fullRender();
+    }
+    function outside(ev) {
+      // A click that didn't start a drag on the canvas exits the mode.
+      if (!canvasEl.contains(ev.target)) exit();
+    }
+    canvasEl.addEventListener("mousedown", down);
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    document.addEventListener("keydown", exit, true);
+    document.addEventListener("mousedown", outside, true);
+  }
 
   // ---------- Resize ----------
   document.querySelectorAll(".ed-resize-card").forEach((btn) => {
