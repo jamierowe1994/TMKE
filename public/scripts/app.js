@@ -41,14 +41,22 @@
     });
   };
 
-  if (typeof Lenis !== 'undefined') {
-    initLenis();
-  } else {
-    let attempts = 0;
-    const wait = setInterval(() => {
-      if (typeof Lenis !== 'undefined') { clearInterval(wait); initLenis(); }
-      else if (++attempts > 50) { clearInterval(wait); } // ~5s ceiling
-    }, 100);
+  // The admin app shell (/admin) is a fixed, self-scrolling layout — `.ash` is
+  // position:fixed/overflow:hidden and `.ash-content` does its own overflow
+  // scrolling. Lenis would hijack the wheel and try to scroll the locked body
+  // instead, so trackpad/wheel scrolling looks dead (only dragging the scrollbar
+  // works). Skip Lenis entirely there; native scrolling of `.ash-content` is fine.
+  const isAdminShell = location.pathname.startsWith('/admin') || !!document.getElementById('ash');
+  if (!isAdminShell) {
+    if (typeof Lenis !== 'undefined') {
+      initLenis();
+    } else {
+      let attempts = 0;
+      const wait = setInterval(() => {
+        if (typeof Lenis !== 'undefined') { clearInterval(wait); initLenis(); }
+        else if (++attempts > 50) { clearInterval(wait); } // ~5s ceiling
+      }, 100);
+    }
   }
 
   // ---------- Nav scrolled state ----------
