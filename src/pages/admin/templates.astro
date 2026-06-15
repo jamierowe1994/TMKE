@@ -666,36 +666,44 @@ import { templates as defaultLibrary } from "../../data/library.js";
 
     async function rebuildThumbnails() {
       const btn = els.rebuildBtn;
-      const targets = ALL.filter((t) => t.status !== 'archived');
-      if (!targets.length) { alert('No templates to sync.'); return; }
+      // Scan every locally-saved design in THIS browser (not by template id —
+      // the original load bug autosaved some designs under the wrong id, e.g.
+      // "tmpl-01"). Match each to a template by its title, falling back to id.
+      const PREFIX = 'tmke.editor.';
+      const localKeys = [];
+      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(PREFIX) === 0) localKeys.push(k); } } catch (_) {}
+      if (!localKeys.length) { alert('No locally-saved designs found in this browser.'); return; }
       const orig = btn.textContent;
       btn.disabled = true;
       const report = [];
       let done = 0, synced = 0;
-      for (const t of targets) {
-        btn.textContent = `Syncing ${++done}/${targets.length}…`;
-        const label = t.name || t.id;
-        let raw = null;
-        try { raw = localStorage.getItem('tmke.editor.' + t.id); } catch (_) {}
-        if (!raw) { report.push(`• ${label}: no local design on this browser`); continue; }
-        let saved; try { saved = JSON.parse(raw); } catch (_) { report.push(`• ${label}: local data unreadable`); continue; }
-        let canvas = saved && saved.canvas, elements = saved && saved.elements;
-        if (saved && saved.pages && saved.pages.length) { canvas = saved.pages[0].canvas; elements = saved.pages[0].elements; }
+      const norm = (s) => (s || '').trim().toLowerCase();
+      for (const key of localKeys) {
+        btn.textContent = `Syncing ${++done}/${localKeys.length}…`;
+        let saved; try { saved = JSON.parse(localStorage.getItem(key)); } catch (_) {}
+        if (!saved) { report.push(`• ${key}: unreadable`); continue; }
+        const fname = (saved.filename || '').trim();
+        let canvas = saved.canvas, elements = saved.elements;
+        if (saved.pages && saved.pages.length) { canvas = saved.pages[0].canvas; elements = saved.pages[0].elements; }
         const hasContent = (Array.isArray(elements) && elements.length) || (canvas && canvas.backgroundImage);
-        if (!hasContent) { report.push(`• ${label}: local design is empty`); continue; }
+        if (!hasContent) { report.push(`• "${fname || key}": empty — skipped`); continue; }
+        // Match to a template by title (the design's name), else by the key's id.
+        const idFromKey = key.slice(PREFIX.length);
+        const target =
+          (fname && ALL.find((t) => norm(t.name) === norm(fname))) ||
+          ALL.find((t) => t.id === idFromKey);
+        if (!target) { report.push(`• "${fname || idFromKey}" (${(elements || []).length} els): no template named "${fname}" — skipped`); continue; }
         try {
           await externalizeDesign(canvas, elements);
-          const patch = { canvas, elements };
-          if (saved.filename) patch.name = saved.filename;
-          const { error } = await supabase.from('templates').update(patch).eq('id', t.id);
-          if (error) { report.push(`• ${label}: save failed — ${error.message}`); }
-          else { synced++; report.push(`• ${label}: synced ${Array.isArray(elements) ? elements.length : 0} element(s) ✓`); }
-        } catch (e) { report.push(`• ${label}: error — ${(e && e.message) || e}`); }
+          const { error } = await supabase.from('templates').update({ canvas, elements }).eq('id', target.id);
+          if (error) { report.push(`• "${fname}" → ${target.name}: save failed — ${error.message}`); }
+          else { synced++; report.push(`• "${fname}" → ${target.name}: synced ${(elements || []).length} element(s) ✓`); }
+        } catch (e) { report.push(`• "${fname}": error — ${(e && e.message) || e}`); }
       }
       console.log('[tmke sync]\n' + report.join('\n'));
       btn.textContent = `Synced ${synced} ✓`;
       await loadTemplates();
-      showSyncReport(report, synced, targets.length);
+      showSyncReport(report, synced, localKeys.length);
       setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
     }
 
