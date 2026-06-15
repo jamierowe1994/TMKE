@@ -3170,11 +3170,15 @@ const googleFonts = [
     as an admin, we:
       • fetch templates from Supabase (overriding the baked-in mock library)
       • install a save hook that writes back to the templates table
-    The top-level `await` here blocks the next module script (editor.js) until
-    bootstrap is done, so when the editor reads its templates JSON it sees the
-    Supabase data instead of the seed.
+    NOTE: this MUST be a bundled Astro script (bare `<script>`, NOT
+    `<script type="module">`). With an explicit type="module" Astro leaves it
+    inline and DOESN'T resolve the `../lib/*` imports — in the production build
+    those become `/lib/supabase.js` / `/lib/admin-gate.js` which 404, so the
+    save hook never installs and the editor falls back to the first template.
+    A bare `<script>` is bundled (imports resolved into /_astro/) and is the
+    `__TMKE_BOOT_ADMIN__` handshake makes ordering robust regardless.
   -->
-  <script type="module">
+  <script>
     import { supabase } from '../lib/supabase.js';
     import { isAdminUser } from '../lib/admin-gate.js';
 
