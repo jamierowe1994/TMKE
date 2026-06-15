@@ -101,14 +101,15 @@ export function defaultBrand() {
 
 /* ───────────────────────── block model ───────────────────────── */
 
-/** Block palette shown in the builder. Order = order in the "Add block" row. */
+/** Block palette shown in the builder. Order = order in the rail grid. */
 export const BLOCK_TYPES = [
+  { type: 'heading', label: 'Heading', hint: 'A big title' },
   { type: 'text', label: 'Text', hint: 'A paragraph of copy' },
   { type: 'image', label: 'Image', hint: 'A picture, optionally a link' },
   { type: 'button', label: 'Button', hint: 'A call-to-action' },
-  { type: 'logo', label: 'Logo', hint: 'Your brand logo' },
   { type: 'divider', label: 'Divider', hint: 'A horizontal line' },
   { type: 'spacer', label: 'Spacer', hint: 'Vertical whitespace' },
+  { type: 'logo', label: 'Logo', hint: 'Your brand logo' },
   { type: 'social', label: 'Social', hint: 'Social icon links' },
   { type: 'video', label: 'Video', hint: 'A clickable video thumbnail' },
 ];
@@ -126,6 +127,8 @@ function uid() {
 export function makeBlock(type) {
   const id = uid();
   switch (type) {
+    case 'heading':
+      return { type, id, text: 'A bold headline', align: 'left', color: '' };
     case 'text':
       return { type, id, text: 'Hi {{firstName}},\n\nWrite your message here.', bg: '' };
     case 'image':
@@ -168,6 +171,14 @@ function plainToHtml(text) {
 }
 
 /* ───────────────────────── per-block renderers ───────────────────────── */
+
+function renderHeading(block, ctx) {
+  const text = renderTokens(block.text || '', ctx);
+  if (!text) return '';
+  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'left';
+  const color = block.color || '#1c1d22';
+  return `<h1 style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:28px;line-height:1.15;font-weight:800;letter-spacing:-0.01em;color:${escapeHtml(color)};text-align:${align};">${escapeHtml(text)}</h1>`;
+}
 
 function renderText(block, ctx) {
   const src = block.html != null ? block.html : plainToHtml(block.text || '');
@@ -268,6 +279,7 @@ function renderVideo(block) {
 
 function renderBlock(block, brand, ctx) {
   switch (block.type) {
+    case 'heading': return renderHeading(block, ctx);
     case 'text': return renderText(block, ctx);
     case 'image': return renderImage(block);
     case 'button': return renderButton(block, brand, ctx);

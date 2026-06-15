@@ -9,312 +9,291 @@ import "../../../styles/admin.css";
   hideNav
   hideFooter
 >
-  <header class="em-top">
-    <div class="em-top-left">
-      <a href="/admin/email" class="em-top-back" aria-label="Back to email studio">&larr; Email studio</a>
-      <div>
-        <h1 class="em-top-title" id="em-title-display">New template</h1>
-        <p class="em-top-sub" id="em-top-sub">Draft · not yet saved</p>
-      </div>
+  <!-- ───────────────── top bar ───────────────── -->
+  <header class="eb-top">
+    <div class="eb-top-l">
+      <a href="/admin/email" class="eb-back" aria-label="Back to email studio">&larr;</a>
+      <input id="eb-name" class="eb-name" placeholder="Untitled template" />
+      <span class="eb-status-pill" id="eb-status-pill" data-status="draft">Draft</span>
     </div>
-    <div class="em-top-right">
-      <button type="button" class="admin-btn admin-btn-ghost" id="em-sendtest">Send test</button>
-      <button type="button" class="admin-btn admin-btn-ghost" id="em-save">Save draft</button>
-      <button type="button" class="admin-btn admin-btn-primary" id="em-activate">Activate</button>
+    <div class="eb-top-r">
+      <button type="button" class="eb-btn eb-btn-ghost" id="eb-settings">Settings</button>
+      <button type="button" class="eb-btn eb-btn-ghost" id="eb-brand">Brand</button>
+      <button type="button" class="eb-btn eb-btn-ghost" id="eb-preview">Preview</button>
+      <button type="button" class="eb-btn eb-btn-ghost" id="eb-sendtest">Send test</button>
+      <button type="button" class="eb-btn eb-btn-ghost" id="eb-save">Save</button>
+      <button type="button" class="eb-btn eb-btn-solid" id="eb-activate">Activate</button>
     </div>
   </header>
 
-  <div class="em-grid">
-    <!-- ───────────────── controls ───────────────── -->
-    <div class="em-col em-col-controls">
-      <fieldset class="be-card">
-        <legend class="be-card-legend">Template</legend>
-        <label class="be-field">
-          <span class="be-label">Name (internal)</span>
-          <input type="text" id="f-name" placeholder="e.g. Studio booking confirmation" />
-        </label>
-        <label class="be-field">
-          <span class="be-label">Subject line</span>
-          <input type="text" id="f-subject" placeholder="e.g. You're booked in, {{firstName}} 🎉" />
-        </label>
-        <label class="be-field">
-          <span class="be-label">Preheader (inbox preview text)</span>
-          <input type="text" id="f-preheader" placeholder="The short line shown after the subject in most inboxes" />
-        </label>
-        <div class="be-row">
-          <label class="be-field">
-            <span class="be-label">Trigger</span>
-            <select id="f-trigger">
-              <option value="">Manual / newsletter</option>
-              <option value="account_welcome">account_welcome</option>
-              <option value="order_confirmation">order_confirmation</option>
-              <option value="enquiry_received">enquiry_received</option>
-              <option value="waitlist_confirmation">waitlist_confirmation</option>
-            </select>
-          </label>
-          <label class="be-field">
-            <span class="be-label">Status</span>
-            <select id="f-status">
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="archived">Archived</option>
-            </select>
-          </label>
+  <div class="eb-shell">
+    <!-- ───────────────── left rail ───────────────── -->
+    <aside class="eb-rail">
+      <!-- default view: blocks + edit mode + background -->
+      <div id="eb-rail-blocks">
+        <div class="eb-rail-sec">
+          <h4 class="eb-rail-h">Blocks</h4>
+          <div class="eb-palette" id="eb-palette"></div>
         </div>
-        <span class="be-hint" id="f-trigger-hint">Tagging a trigger reserves this template for that event (one active template per trigger). Automatic sending on these events is the next phase — for now templates are sent manually via “Send test”.</span>
-      </fieldset>
-
-      <fieldset class="be-card">
-        <legend class="be-card-legend">Content</legend>
-        <div class="em-mode-tabs">
-          <button type="button" class="em-mode-tab is-active" data-mode="blocks">Visual blocks</button>
-          <button type="button" class="em-mode-tab" data-mode="html">HTML</button>
-          <span class="em-merge-hint">
-            Merge fields:
-            <span id="em-merge-tags"></span>
-          </span>
+        <div class="eb-rail-sec">
+          <h4 class="eb-rail-h">Edit mode</h4>
+          <button type="button" class="eb-mode is-active" data-mode="blocks">
+            <span class="eb-mode-ic">▦</span>
+            <span><strong>Visual blocks</strong><em>Click, edit, reorder</em></span>
+          </button>
+          <button type="button" class="eb-mode" data-mode="html">
+            <span class="eb-mode-ic">&lt;/&gt;</span>
+            <span><strong>HTML</strong><em>Write raw markup</em></span>
+          </button>
         </div>
-
-        <div class="em-mode-pane" data-pane="blocks">
-          <div class="em-palette" id="em-palette"></div>
-          <div class="em-blocks" id="em-blocks"></div>
-          <p class="em-blocks-empty" id="em-blocks-empty" hidden>No blocks yet — add one above to start building.</p>
-        </div>
-
-        <div class="em-mode-pane" data-pane="html" hidden>
-          <textarea id="f-html" class="em-html" rows="20" placeholder="<p>Write raw HTML here. Merge fields like {{firstName}} work too.</p>&#10;&#10;Tip: paste a full &lt;!doctype html&gt;… document to take total control, or just the inner body and we'll wrap it in the TMKE shell."></textarea>
-        </div>
-      </fieldset>
-
-      <fieldset class="be-card">
-        <legend class="be-card-legend">Branding</legend>
-        <div class="be-row">
-          <label class="be-field">
-            <span class="be-label">Company name</span>
-            <input type="text" data-brand="companyName" />
-          </label>
-          <label class="be-field">
-            <span class="be-label">Signature / sign-off</span>
-            <input type="text" data-brand="signatureName" placeholder="The TMKE Team" />
-          </label>
-        </div>
-        <label class="be-field">
-          <span class="be-label">Logo URL (shown in the header + Logo blocks)</span>
-          <input type="url" data-brand="logo" placeholder="https://…/logo.png" />
-        </label>
-        <div class="be-row">
-          <label class="be-field">
-            <span class="be-label">Accent colour</span>
-            <input type="color" data-brand="accentColor" />
-          </label>
-          <label class="be-field">
-            <span class="be-label">Page background</span>
-            <input type="color" data-brand="bgColor" />
-          </label>
-          <label class="be-field">
-            <span class="be-label">Card background</span>
-            <input type="color" data-brand="cardColor" />
-          </label>
-        </div>
-        <details class="em-socials">
-          <summary>Social links (used by Social + footer blocks)</summary>
-          <div class="be-row">
-            <label class="be-field"><span class="be-label">Website</span><input type="url" data-brand="website" placeholder="https://tmke.co.uk" /></label>
-            <label class="be-field"><span class="be-label">LinkedIn</span><input type="url" data-brand="linkedin" /></label>
-          </div>
-          <div class="be-row">
-            <label class="be-field"><span class="be-label">Instagram</span><input type="url" data-brand="instagram" /></label>
-            <label class="be-field"><span class="be-label">Facebook</span><input type="url" data-brand="facebook" /></label>
-          </div>
-          <div class="be-row">
-            <label class="be-field"><span class="be-label">X / Twitter</span><input type="url" data-brand="twitter" /></label>
-            <label class="be-field"><span class="be-label">YouTube</span><input type="url" data-brand="youtube" /></label>
-          </div>
-        </details>
-      </fieldset>
-    </div>
-
-    <!-- ───────────────── preview ───────────────── -->
-    <aside class="em-col em-col-preview">
-      <div class="em-preview-card">
-        <div class="em-preview-head">
-          <span class="em-preview-label">Live preview</span>
-          <div class="em-device-toggle">
-            <button type="button" class="em-device is-active" data-device="desktop">Desktop</button>
-            <button type="button" class="em-device" data-device="mobile">Mobile</button>
-          </div>
-        </div>
-        <div class="em-preview-subject"><span>Subject:</span> <strong id="em-preview-subject">—</strong></div>
-        <div class="em-preview-stage" id="em-preview-stage">
-          <iframe id="em-preview-frame" class="is-desktop" title="Email preview" sandbox=""></iframe>
+        <div class="eb-rail-sec">
+          <h4 class="eb-rail-h">Email background</h4>
+          <label class="eb-swatch-label">Page</label>
+          <div class="eb-swatches" data-target="bgColor"></div>
+          <input class="eb-hex" data-hex="bgColor" maxlength="7" />
+          <label class="eb-swatch-label" style="margin-top:12px;">Card</label>
+          <div class="eb-swatches" data-target="cardColor"></div>
+          <input class="eb-hex" data-hex="cardColor" maxlength="7" />
         </div>
       </div>
+
+      <!-- swapped-in view: inspector for the selected block -->
+      <div id="eb-rail-inspector" hidden>
+        <button type="button" class="eb-insp-back" id="eb-insp-back">&larr; Blocks</button>
+        <h4 class="eb-rail-h" id="eb-insp-title">Block</h4>
+        <div id="eb-insp-fields"></div>
+        <button type="button" class="eb-insp-del" id="eb-insp-del">Delete block</button>
+      </div>
     </aside>
+
+    <!-- ───────────────── stage ───────────────── -->
+    <main class="eb-stage">
+      <div class="eb-subjbar">
+        <div class="eb-subj-head">
+          <span class="eb-subj-label">Subject</span>
+          <div class="eb-var-wrap">
+            <button type="button" class="eb-var-btn" id="eb-var-btn">{ } Variable ▾</button>
+            <div class="eb-var-menu" id="eb-var-menu" hidden></div>
+          </div>
+        </div>
+        <input id="eb-subject" class="eb-subject" placeholder="Subject line — e.g. You're booked in, {{firstName}}" data-editable />
+      </div>
+
+      <!-- visual canvas -->
+      <div class="eb-canvas-pane" id="eb-canvas-pane">
+        <div class="eb-canvas" id="eb-canvas">
+          <div class="eb-email" id="eb-email">
+            <div class="eb-email-blocks" id="eb-blocks"></div>
+          </div>
+          <p class="eb-canvas-empty" id="eb-canvas-empty" hidden>Pick a block from the left to start building.</p>
+        </div>
+      </div>
+
+      <!-- html mode -->
+      <div class="eb-html-pane" id="eb-html-pane" hidden>
+        <textarea id="eb-html" class="eb-html" placeholder="<p>Write raw HTML. Merge fields like {{firstName}} work too.</p>&#10;&#10;Paste a full <!doctype html>… document for total control, or just the inner body and we'll wrap it in the TMKE shell." data-editable></textarea>
+      </div>
+    </main>
   </div>
 
-  <p class="be-toast" id="em-toast" hidden></p>
+  <!-- ───────────────── modals ───────────────── -->
+  <div class="eb-modal" id="eb-modal-settings" hidden>
+    <div class="eb-modal-card">
+      <div class="eb-modal-head"><h3>Settings</h3><button type="button" class="eb-modal-x" data-close>✕</button></div>
+      <label class="eb-f"><span>Template name (internal)</span><input id="s-name" /></label>
+      <label class="eb-f"><span>Preheader (inbox preview text)</span><input id="s-preheader" placeholder="Short line shown after the subject" /></label>
+      <div class="eb-f2">
+        <label class="eb-f"><span>Trigger</span>
+          <select id="s-trigger">
+            <option value="">Manual / newsletter</option>
+            <option value="account_welcome">account_welcome</option>
+            <option value="order_confirmation">order_confirmation</option>
+            <option value="enquiry_received">enquiry_received</option>
+            <option value="waitlist_confirmation">waitlist_confirmation</option>
+          </select>
+        </label>
+        <label class="eb-f"><span>Status</span>
+          <select id="s-status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select>
+        </label>
+      </div>
+      <p class="eb-note">Tagging a trigger reserves this template for that event (one active template per trigger). Automatic sending on these events is the next phase — for now templates are sent manually.</p>
+    </div>
+  </div>
+
+  <div class="eb-modal" id="eb-modal-brand" hidden>
+    <div class="eb-modal-card">
+      <div class="eb-modal-head"><h3>Branding</h3><button type="button" class="eb-modal-x" data-close>✕</button></div>
+      <div class="eb-f2">
+        <label class="eb-f"><span>Company name</span><input data-brand="companyName" /></label>
+        <label class="eb-f"><span>Sign-off</span><input data-brand="signatureName" placeholder="The TMKE Team" /></label>
+      </div>
+      <label class="eb-f"><span>Logo URL</span><input data-brand="logo" type="url" placeholder="https://…/logo.png" /></label>
+      <label class="eb-f"><span>Accent colour</span><input data-brand="accentColor" type="color" /></label>
+      <h4 class="eb-rail-h" style="margin-top:6px;">Social links</h4>
+      <div class="eb-f2">
+        <label class="eb-f"><span>Website</span><input data-brand="website" type="url" /></label>
+        <label class="eb-f"><span>LinkedIn</span><input data-brand="linkedin" type="url" /></label>
+      </div>
+      <div class="eb-f2">
+        <label class="eb-f"><span>Instagram</span><input data-brand="instagram" type="url" /></label>
+        <label class="eb-f"><span>Facebook</span><input data-brand="facebook" type="url" /></label>
+      </div>
+      <div class="eb-f2">
+        <label class="eb-f"><span>X / Twitter</span><input data-brand="twitter" type="url" /></label>
+        <label class="eb-f"><span>YouTube</span><input data-brand="youtube" type="url" /></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="eb-modal" id="eb-modal-preview" hidden>
+    <div class="eb-modal-card eb-modal-card--wide">
+      <div class="eb-modal-head"><h3>Preview — true email render</h3>
+        <div class="eb-dev-toggle"><button type="button" class="eb-dev is-active" data-dev="desktop">Desktop</button><button type="button" class="eb-dev" data-dev="mobile">Mobile</button></div>
+        <button type="button" class="eb-modal-x" data-close>✕</button>
+      </div>
+      <div class="eb-modal-subject">Subject: <strong id="eb-pv-subject">—</strong></div>
+      <div class="eb-pv-stage"><iframe id="eb-pv-frame" class="is-desktop" title="Email preview" sandbox=""></iframe></div>
+    </div>
+  </div>
+
+  <p class="eb-toast" id="eb-toast" hidden></p>
 
   <style is:global>
-    :root { --be-line: rgba(28, 29, 34, 0.1); }
+    :root { --eb-line: rgba(28,29,34,0.1); --eb-line2: rgba(28,29,34,0.06); }
+    body { overflow-x: hidden; }
 
-    /* Buttons (shared idiom across backstage) */
-    .admin-btn {
-      padding: 9px 16px; font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.18em; text-transform: uppercase; border: 1px solid transparent;
-      border-radius: 2px; cursor: pointer; text-decoration: none;
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
-    .admin-btn-primary:hover { background: var(--ink); }
-    .admin-btn-ghost { background: transparent; color: var(--english-violet); border-color: rgba(55, 30, 40, 0.35); }
-    .admin-btn-ghost:hover { background: rgba(55, 30, 40, 0.08); }
+    /* Buttons */
+    .eb-btn { padding:8px 14px; font-family:var(--sans); font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; border:1px solid transparent; border-radius:6px; cursor:pointer; background:transparent; }
+    .eb-btn-ghost { color:var(--english-violet); border-color:rgba(55,30,40,0.22); }
+    .eb-btn-ghost:hover { background:rgba(55,30,40,0.06); }
+    .eb-btn-solid { background:var(--english-violet); color:#fff; }
+    .eb-btn-solid:hover { background:var(--ink); }
 
     /* Top bar */
-    .em-top {
-      position: sticky; top: 0; z-index: 30;
-      display: flex; justify-content: space-between; align-items: center; gap: 24px;
-      padding: 18px 32px; background: rgba(244, 242, 241, 0.92);
-      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--be-line);
-    }
-    .em-top-left { display: flex; align-items: center; gap: 22px; min-width: 0; }
-    .em-top-right { display: flex; gap: 8px; flex-wrap: wrap; }
-    .em-top-back {
-      font-family: var(--sans); font-size: 12px; letter-spacing: 0.22em;
-      text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55); white-space: nowrap;
-    }
-    .em-top-back:hover { color: var(--english-violet); }
-    .em-top-title {
-      font-family: var(--serif); font-weight: 400; font-size: 25px; letter-spacing: -0.01em;
-      margin: 0; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48ch;
-    }
-    .em-top-sub {
-      font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
-      font-weight: 600; color: rgba(28,29,34,0.5); margin: 4px 0 0;
-    }
+    .eb-top { position:sticky; top:0; z-index:40; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 22px; background:rgba(255,255,255,0.94); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-bottom:1px solid var(--eb-line); }
+    .eb-top-l { display:flex; align-items:center; gap:12px; min-width:0; }
+    .eb-top-r { display:flex; gap:7px; flex-wrap:wrap; }
+    .eb-back { font-family:var(--serif); font-size:20px; color:rgba(28,29,34,0.6); text-decoration:none; padding:0 4px; }
+    .eb-back:hover { color:var(--english-violet); }
+    .eb-name { font-family:var(--serif); font-size:21px; color:var(--ink); border:1px solid transparent; background:transparent; padding:5px 8px; border-radius:6px; min-width:260px; }
+    .eb-name:hover { background:rgba(28,29,34,0.04); }
+    .eb-name:focus { outline:none; border-color:var(--english-violet); background:#fff; }
+    .eb-status-pill { font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; padding:4px 10px; border-radius:999px; }
+    .eb-status-pill[data-status="draft"] { background:rgba(55,30,40,0.1); color:var(--english-violet); }
+    .eb-status-pill[data-status="active"] { background:rgba(60,130,80,0.14); color:#2d6a44; }
+    .eb-status-pill[data-status="archived"] { background:rgba(28,29,34,0.08); color:rgba(28,29,34,0.55); }
 
-    /* Layout */
-    .em-grid {
-      display: grid; grid-template-columns: 1fr 460px; gap: 24px;
-      max-width: 1560px; margin: 0 auto; padding: 24px 32px 160px; align-items: start;
-    }
-    @media (max-width: 1180px) { .em-grid { grid-template-columns: 1fr; } }
-    .em-col { display: flex; flex-direction: column; gap: 18px; }
-    .em-col-preview { position: sticky; top: 92px; }
-    @media (max-width: 1180px) { .em-col-preview { position: static; } }
+    /* Shell */
+    .eb-shell { display:grid; grid-template-columns:288px 1fr; min-height:calc(100vh - 56px); align-items:stretch; }
+    @media (max-width:920px){ .eb-shell { grid-template-columns:1fr; } }
 
-    /* Cards / fields (matches the blog editor idiom) */
-    .be-card { background: #fff; border: 1px solid var(--be-line); border-radius: 6px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-    .be-card-legend {
-      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em;
-      text-transform: uppercase; color: var(--english-violet); padding: 0 8px;
-    }
-    .be-field { display: flex; flex-direction: column; gap: 6px; }
-    .be-label { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
-    .be-field input, .be-field select, .be-field textarea, .em-html {
-      font-family: var(--sans); font-size: 14px; padding: 10px 12px;
-      border: 1px solid rgba(28,29,34,0.15); border-radius: 3px; background: var(--paper);
-      color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
-    }
-    .be-field input[type="color"] { padding: 4px; height: 40px; cursor: pointer; }
-    .be-field input:focus, .be-field select:focus, .be-field textarea:focus, .em-html:focus {
-      outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55, 30, 40, 0.1);
-    }
-    .be-hint { font-family: var(--sans); font-size: 11.5px; line-height: 1.5; color: rgba(28,29,34,0.5); }
-    .be-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .be-row:has(> :nth-child(3)) { grid-template-columns: 1fr 1fr 1fr; }
-    @media (max-width: 640px) { .be-row, .be-row:has(> :nth-child(3)) { grid-template-columns: 1fr; } }
+    /* Rail */
+    .eb-rail { background:#fff; border-right:1px solid var(--eb-line); padding:22px 18px 80px; }
+    .eb-rail-sec { margin-bottom:26px; }
+    .eb-rail-h { font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:rgba(28,29,34,0.45); margin:0 0 12px; }
+    .eb-palette { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .eb-tile { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:16px 6px; border:1px solid var(--eb-line); border-radius:9px; background:#fff; cursor:pointer; color:rgba(28,29,34,0.78); transition:border-color 0.18s, background 0.18s, transform 0.12s; }
+    .eb-tile:hover { border-color:var(--english-violet); background:rgba(55,30,40,0.04); transform:translateY(-1px); }
+    .eb-tile svg { color:var(--english-violet); }
+    .eb-tile span { font-family:var(--sans); font-size:11.5px; font-weight:600; letter-spacing:0.02em; }
 
-    /* Mode tabs + merge tags */
-    .em-mode-tabs { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--be-line); }
-    .em-mode-tab {
-      background: transparent; border: 0; padding: 4px 0; font-family: var(--sans); font-size: 11px;
-      font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.45);
-      cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s;
-    }
-    .em-mode-tab.is-active { color: var(--english-violet); border-bottom-color: var(--english-violet); }
-    .em-merge-hint { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.5); margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .em-merge-tag {
-      font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; cursor: pointer;
-      background: rgba(55,30,40,0.07); color: var(--english-violet); padding: 2px 7px; border-radius: 4px; border: 0;
-    }
-    .em-merge-tag:hover { background: rgba(55,30,40,0.16); }
+    .eb-mode { display:flex; align-items:center; gap:11px; width:100%; text-align:left; padding:11px 12px; margin-bottom:8px; border:1px solid var(--eb-line); border-radius:9px; background:#fff; cursor:pointer; }
+    .eb-mode.is-active { border-color:var(--english-violet); background:rgba(55,30,40,0.05); }
+    .eb-mode-ic { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border-radius:6px; background:rgba(28,29,34,0.06); font-size:13px; color:var(--english-violet); font-family:ui-monospace,Menlo,monospace; }
+    .eb-mode strong { display:block; font-family:var(--sans); font-size:13px; color:var(--ink); }
+    .eb-mode em { display:block; font-family:var(--sans); font-size:11px; font-style:normal; color:rgba(28,29,34,0.5); }
 
-    /* Block palette */
-    .em-palette { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
-    .em-add {
-      display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; cursor: pointer;
-      background: var(--paper); border: 1px dashed rgba(55,30,40,0.35); border-radius: 999px;
-      font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet);
-      letter-spacing: 0.03em; transition: background 0.2s, border-color 0.2s;
-    }
-    .em-add:hover { background: rgba(55,30,40,0.07); border-color: var(--english-violet); }
-    .em-add .em-add-plus { font-size: 14px; line-height: 1; }
+    .eb-swatch-label { font-family:var(--sans); font-size:11px; font-weight:600; color:rgba(28,29,34,0.6); display:block; margin-bottom:7px; }
+    .eb-swatches { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+    .eb-sw { width:24px; height:24px; border-radius:6px; border:1px solid rgba(28,29,34,0.15); cursor:pointer; padding:0; position:relative; }
+    .eb-sw.is-active { box-shadow:0 0 0 2px var(--english-violet); }
+    .eb-sw[data-none="1"] { display:flex; align-items:center; justify-content:center; color:rgba(28,29,34,0.4); font-size:12px; background:#fff; }
+    .eb-hex { width:100%; font-family:ui-monospace,Menlo,monospace; font-size:12px; padding:7px 10px; border:1px solid var(--eb-line); border-radius:6px; text-transform:uppercase; }
+    .eb-hex:focus { outline:none; border-color:var(--english-violet); }
 
-    /* Block cards */
-    .em-blocks { display: flex; flex-direction: column; gap: 12px; }
-    .em-block {
-      border: 1px solid var(--be-line); border-radius: 6px; background: #fff; overflow: hidden;
-    }
-    .em-block-head {
-      display: flex; align-items: center; gap: 8px; padding: 9px 12px;
-      background: rgba(55,30,40,0.04); border-bottom: 1px solid var(--be-line);
-    }
-    .em-block-type {
-      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.2em;
-      text-transform: uppercase; color: var(--english-violet); flex: 1;
-    }
-    .em-block-ctrl {
-      width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
-      border: 1px solid rgba(28,29,34,0.15); background: #fff; border-radius: 4px; cursor: pointer;
-      font-size: 13px; color: rgba(28,29,34,0.7);
-    }
-    .em-block-ctrl:hover { color: var(--ink); border-color: rgba(28,29,34,0.4); }
-    .em-block-ctrl:disabled { opacity: 0.3; cursor: default; }
-    .em-block-ctrl.danger:hover { color: #a05a3c; border-color: rgba(160,90,60,0.5); }
-    .em-block-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-    .em-block-body textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
-    .em-checks { display: flex; flex-wrap: wrap; gap: 10px 16px; }
-    .em-check { display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.75); }
-    .em-check input { accent-color: var(--english-violet); }
-    .em-block-note { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.5); line-height: 1.5; }
-    .em-blocks-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); padding: 18px 4px; }
-    .em-mode-pane[hidden] { display: none; }
-    .em-html { font-family: ui-monospace, "SF Mono", Menlo, monospace !important; font-size: 13px !important; line-height: 1.6 !important; min-height: 360px; margin-top: 14px; }
+    /* Inspector */
+    .eb-insp-back { background:none; border:0; cursor:pointer; font-family:var(--sans); font-size:11px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--english-violet); padding:0 0 14px; }
+    .eb-insp-del { margin-top:18px; width:100%; padding:9px; border:1px solid rgba(160,90,60,0.4); background:transparent; color:#a05a3c; border-radius:7px; cursor:pointer; font-family:var(--sans); font-size:11px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; }
+    .eb-insp-del:hover { background:rgba(160,90,60,0.08); }
 
-    .em-socials summary {
-      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.2em;
-      text-transform: uppercase; color: rgba(28,29,34,0.55); cursor: pointer; padding: 4px 0;
-    }
-    .em-socials[open] { display: flex; flex-direction: column; gap: 12px; }
+    /* Fields (rail inspector + modals) */
+    .eb-f { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+    .eb-f > span { font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:rgba(28,29,34,0.55); }
+    .eb-f input, .eb-f select, .eb-f textarea { font-family:var(--sans); font-size:13.5px; padding:9px 11px; border:1px solid var(--eb-line); border-radius:7px; background:#fff; color:var(--ink); width:100%; }
+    .eb-f input[type="color"] { padding:3px; height:38px; cursor:pointer; }
+    .eb-f input:focus, .eb-f select:focus, .eb-f textarea:focus { outline:none; border-color:var(--english-violet); box-shadow:0 0 0 3px rgba(55,30,40,0.08); }
+    .eb-f2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .eb-checks { display:flex; flex-wrap:wrap; gap:8px 14px; margin-bottom:8px; }
+    .eb-check { display:inline-flex; align-items:center; gap:6px; font-family:var(--sans); font-size:12.5px; color:rgba(28,29,34,0.75); }
+    .eb-check input { accent-color:var(--english-violet); }
+    .eb-note { font-family:var(--sans); font-size:11.5px; line-height:1.5; color:rgba(28,29,34,0.5); }
 
-    /* Preview */
-    .em-preview-card { background: #fff; border: 1px solid var(--be-line); border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-    .em-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .em-preview-label { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); }
-    .em-device-toggle { display: inline-flex; border: 1px solid rgba(28,29,34,0.15); border-radius: 999px; overflow: hidden; }
-    .em-device {
-      background: transparent; border: 0; padding: 6px 14px; cursor: pointer;
-      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
-      text-transform: uppercase; color: rgba(28,29,34,0.55);
-    }
-    .em-device.is-active { background: var(--ink); color: var(--paper); }
-    .em-preview-subject {
-      font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6);
-      border: 1px solid var(--be-line); border-radius: 4px; padding: 8px 12px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .em-preview-subject strong { color: var(--ink); }
-    .em-preview-stage { display: flex; justify-content: center; background: rgba(28,29,34,0.05); border-radius: 6px; padding: 14px; min-height: 420px; }
-    #em-preview-frame { width: 100%; border: 0; border-radius: 6px; background: #fff; height: 620px; box-shadow: 0 10px 30px -16px rgba(20,18,26,0.4); transition: max-width 0.25s; }
-    #em-preview-frame.is-desktop { max-width: 100%; }
-    #em-preview-frame.is-mobile { max-width: 390px; }
+    /* Stage */
+    .eb-stage { display:flex; flex-direction:column; background:#f1f0ef; min-width:0; }
+    .eb-subjbar { background:#fff; border-bottom:1px solid var(--eb-line); padding:16px 32px; }
+    .eb-subj-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .eb-subj-label { font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:rgba(28,29,34,0.45); }
+    .eb-subject { width:100%; font-family:var(--sans); font-size:15px; padding:11px 14px; border:1px solid var(--eb-line); border-radius:8px; color:var(--ink); }
+    .eb-subject:focus { outline:none; border-color:var(--english-violet); box-shadow:0 0 0 3px rgba(55,30,40,0.08); }
+    .eb-var-wrap { position:relative; }
+    .eb-var-btn { font-family:var(--sans); font-size:11px; font-weight:700; color:var(--english-violet); background:#fff; border:1px solid var(--eb-line); border-radius:7px; padding:6px 11px; cursor:pointer; }
+    .eb-var-btn:hover { border-color:var(--english-violet); }
+    .eb-var-menu { position:absolute; right:0; top:calc(100% + 6px); z-index:20; background:#fff; border:1px solid var(--eb-line); border-radius:9px; box-shadow:0 16px 40px -16px rgba(20,18,26,0.4); padding:6px; min-width:200px; }
+    .eb-var-item { display:flex; justify-content:space-between; gap:14px; width:100%; padding:8px 10px; border:0; background:transparent; cursor:pointer; border-radius:6px; font-family:var(--sans); font-size:13px; color:var(--ink); }
+    .eb-var-item:hover { background:rgba(55,30,40,0.06); }
+    .eb-var-item code { font-family:ui-monospace,Menlo,monospace; font-size:11px; color:var(--english-violet); }
 
-    .be-toast {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-      background: var(--ink); color: var(--paper); padding: 10px 18px; border-radius: 4px;
-      font-family: var(--sans); font-size: 13px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    }
+    .eb-canvas-pane { flex:1; overflow:auto; padding:32px 20px 120px; }
+    .eb-canvas { max-width:680px; margin:0 auto; position:relative; }
+    .eb-email { background:#fff; border-radius:14px; padding:30px; box-shadow:0 18px 50px -28px rgba(20,18,26,0.45); }
+    .eb-email-blocks { display:flex; flex-direction:column; }
+    .eb-canvas-empty { text-align:center; font-family:var(--sans); font-size:14px; color:rgba(28,29,34,0.45); padding:48px 0; }
+
+    /* Canvas blocks */
+    .cv-block { position:relative; padding:8px; margin:1px 0; border:1.5px solid transparent; border-radius:8px; }
+    .cv-block:hover { border-color:rgba(55,30,40,0.25); }
+    .cv-block.is-selected { border-color:var(--english-violet); }
+    .cv-block.cv-drop-before { box-shadow:0 -2px 0 var(--english-violet); }
+    .cv-block.cv-drop-after { box-shadow:0 2px 0 var(--english-violet); }
+    .cv-toolbar { position:absolute; top:-15px; right:8px; display:none; gap:2px; background:#fff; border:1px solid var(--eb-line); border-radius:7px; padding:3px; box-shadow:0 6px 18px -8px rgba(20,18,26,0.35); z-index:5; }
+    .cv-block:hover .cv-toolbar, .cv-block.is-selected .cv-toolbar { display:flex; }
+    .cv-tb { width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:0; background:transparent; border-radius:5px; cursor:pointer; color:rgba(28,29,34,0.65); font-size:13px; }
+    .cv-tb:hover { background:rgba(28,29,34,0.08); color:var(--ink); }
+    .cv-tb.danger:hover { background:rgba(160,90,60,0.12); color:#a05a3c; }
+    .cv-grip { cursor:grab; }
+    .cv-edit { outline:none; }
+    .cv-edit:focus { background:rgba(55,30,40,0.03); border-radius:4px; }
+    .cv-btn { display:inline-block; padding:11px 24px; color:#fff; border-radius:8px; font-family:Helvetica,Arial,sans-serif; font-size:14px; font-weight:600; }
+    .cv-ph { display:flex; align-items:center; justify-content:center; min-height:120px; border:1.5px dashed rgba(28,29,34,0.2); border-radius:8px; color:rgba(28,29,34,0.45); font-family:var(--sans); font-size:13px; background:rgba(28,29,34,0.02); text-align:center; padding:12px; }
+    .cv-spacer { border:1px dashed rgba(28,29,34,0.18); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:var(--sans); font-size:11px; color:rgba(28,29,34,0.4); letter-spacing:0.1em; text-transform:uppercase; }
+    .cv-social { display:flex; gap:8px; }
+    .cv-social span { width:34px; height:34px; border-radius:17px; display:inline-flex; align-items:center; justify-content:center; color:#fff; }
+    .cv-social svg { width:15px; height:15px; }
+
+    /* HTML pane */
+    .eb-html-pane { flex:1; padding:24px 32px 80px; }
+    .eb-html { width:100%; min-height:60vh; font-family:ui-monospace,Menlo,monospace; font-size:13px; line-height:1.6; padding:16px; border:1px solid var(--eb-line); border-radius:10px; background:#fff; color:var(--ink); }
+    .eb-html:focus { outline:none; border-color:var(--english-violet); }
+
+    /* Modals */
+    .eb-modal { position:fixed; inset:0; z-index:60; background:rgba(20,18,26,0.45); display:flex; align-items:center; justify-content:center; padding:24px; }
+    .eb-modal[hidden] { display:none; }
+    .eb-modal-card { background:#fff; border-radius:14px; padding:24px; width:480px; max-width:100%; max-height:88vh; overflow:auto; box-shadow:0 30px 80px -30px rgba(0,0,0,0.5); }
+    .eb-modal-card--wide { width:760px; }
+    .eb-modal-head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+    .eb-modal-head h3 { font-family:var(--serif); font-weight:400; font-size:22px; color:var(--ink); margin:0; flex:1; }
+    .eb-modal-x { background:none; border:0; font-size:16px; cursor:pointer; color:rgba(28,29,34,0.5); }
+    .eb-modal-x:hover { color:var(--ink); }
+    .eb-modal-subject { font-family:var(--sans); font-size:12px; color:rgba(28,29,34,0.6); margin-bottom:12px; }
+    .eb-dev-toggle { display:inline-flex; border:1px solid var(--eb-line); border-radius:999px; overflow:hidden; }
+    .eb-dev { background:transparent; border:0; padding:6px 13px; cursor:pointer; font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:rgba(28,29,34,0.55); }
+    .eb-dev.is-active { background:var(--ink); color:#fff; }
+    .eb-pv-stage { display:flex; justify-content:center; background:#f1f0ef; border-radius:10px; padding:16px; }
+    #eb-pv-frame { width:100%; border:0; border-radius:8px; background:#fff; height:60vh; transition:max-width 0.2s; }
+    #eb-pv-frame.is-desktop { max-width:100%; }
+    #eb-pv-frame.is-mobile { max-width:380px; }
+
+    .eb-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 18px; border-radius:8px; font-family:var(--sans); font-size:13px; z-index:100; box-shadow:0 10px 30px rgba(0,0,0,0.3); }
   </style>
 
   <script>
@@ -325,372 +304,368 @@ import "../../../styles/admin.css";
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT,
     } from "../../../lib/email-render.js";
 
+    const DEV = import.meta.env.DEV;
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const $ = (s) => document.querySelector(s);
+
+    // Block icons (Lucide-style)
+    const ICONS = {
+      heading: '<path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="m17 12 3-1.5V18"/>',
+      text: '<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/>',
+      image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L11 18"/>',
+      button: '<rect x="3" y="8" width="18" height="8" rx="4"/>',
+      divider: '<line x1="3" x2="21" y1="12" y2="12"/>',
+      spacer: '<path d="M8 7l4-4 4 4"/><path d="M8 17l4 4 4-4"/><line x1="12" x2="12" y1="3" y2="21"/>',
+      logo: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
+      social: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>',
+      video: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M3 7.5h4M17 3v18M3 16.5h4M21 7.5h-4M21 16.5h-4"/>',
+    };
+    const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">${p}</svg>`;
+    const SOCIAL_SVG = {
+      website:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a14 14 0 0 0 0 20 14 14 0 0 0 0-20"/></svg>',
+      linkedin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>',
+      instagram:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="20" x="2" y="2" rx="5"/><circle cx="12" cy="12" r="4"/><line x1="17.5" x2="17.5" y1="6.5" y2="6.5"/></svg>',
+      facebook:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>',
+      twitter:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>',
+      youtube:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 17a24 24 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49 49 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24 24 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49 49 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg>',
+    };
+
+    const SWATCHES = ["", "#ffffff", "#f4f2f1", "#f8fafc", "#fef9ef", "#eef2ff", "#ecfdf5", "#fdf2f8", "#371e28", "#1c1d22"];
 
     // ── State ──
     const params = new URLSearchParams(location.search);
-    let id = params.get("id");
-    if (id === "new") id = null;
-    let session = null;
-    let loaded = null;
+    let id = params.get("id"); if (id === "new") id = null;
+    let session = null, loaded = null, selectedId = null, dragId = null;
 
     const state = {
-      name: "",
-      subject: "",
-      preheader: "",
-      trigger_key: "",
-      status: "draft",
-      mode: "blocks",
-      blocks: [],
-      custom_html: "",
-      branding: defaultBrand(),
+      name: "", subject: "", preheader: "", trigger_key: "", status: "draft",
+      mode: "blocks", blocks: [], custom_html: "", branding: defaultBrand(),
     };
 
-    // ── DOM refs ──
-    const $ = (sel) => document.querySelector(sel);
-    const titleDisplay = $("#em-title-display");
-    const topSub = $("#em-top-sub");
-    const frame = $("#em-preview-frame");
-    const previewSubject = $("#em-preview-subject");
-    const blocksWrap = $("#em-blocks");
-    const blocksEmpty = $("#em-blocks-empty");
-    const palette = $("#em-palette");
-    const toastEl = $("#em-toast");
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+    function toast(m){ const t=$("#eb-toast"); t.textContent=m; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2600); }
 
-    function toast(msg) {
-      toastEl.textContent = msg;
-      toastEl.hidden = false;
-      clearTimeout(toast._t);
-      toast._t = setTimeout(() => { toastEl.hidden = true; }, 2600);
-    }
+    /* ─────────── canvas ─────────── */
+    const blocksWrap = $("#eb-blocks");
+    const emailEl = $("#eb-email");
 
-    // ── Preview ──
-    let _previewQueued = false;
-    function updatePreview() {
-      if (_previewQueued) return;
-      _previewQueued = true;
-      requestAnimationFrame(() => {
-        _previewQueued = false;
-        const brand = { ...defaultBrand(), ...state.branding };
-        const ctx = mergeContextFor(SAMPLE_RECIPIENT, brand);
-        const { subject, html } = renderTemplate(state, { brand, mergeCtx: ctx });
-        previewSubject.textContent = subject || "—";
-        frame.srcdoc = html;
-      });
-    }
-
-    // ── Block list rendering (rebuilt only on structural changes) ──
-    const ALIGN_OPTS = ["left", "center", "right"];
-    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    const selOpts = (opts, cur) => opts.map((o) => `<option value="${o}"${o === cur ? " selected" : ""}>${o}</option>`).join("");
-
-    function fieldsHtml(b) {
-      const align = `
-        <label class="be-field"><span class="be-label">Align</span>
-          <select data-field="align">${selOpts(ALIGN_OPTS, b.align || "center")}</select></label>`;
+    function canvasInner(b, brand) {
+      const align = ["left","center","right"].includes(b.align) ? b.align : "center";
       switch (b.type) {
-        case "text":
-          return `
-            <label class="be-field"><span class="be-label">Text — blank line = new paragraph; merge fields like {{firstName}} work</span>
-              <textarea data-field="text">${esc(b.text || "")}</textarea></label>
-            <label class="be-field"><span class="be-label">Background tint (hex, or blank for none)</span>
-              <input type="text" data-field="bg" value="${esc(b.bg || "")}" placeholder="#f4f2f1 or blank" /></label>`;
+        case "heading": {
+          const a = ["left","center","right"].includes(b.align)?b.align:"left";
+          return `<h1 class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:28px;line-height:1.15;font-weight:800;letter-spacing:-0.01em;color:${esc(b.color||"#1c1d22")};text-align:${a};">${esc(b.text||"")}</h1>`;
+        }
+        case "text": {
+          const bg = b.bg ? `background:${esc(b.bg)};padding:14px 18px;border-radius:8px;` : "";
+          return `<div class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1f2937;white-space:pre-wrap;${bg}">${esc(b.text||"")}</div>`;
+        }
         case "image":
-          return `
-            <label class="be-field"><span class="be-label">Image URL</span>
-              <input type="url" data-field="url" value="${esc(b.url || "")}" placeholder="https://…/image.jpg" /></label>
-            <div class="be-row">
-              <label class="be-field"><span class="be-label">Alt text</span>
-                <input type="text" data-field="alt" value="${esc(b.alt || "")}" /></label>
-              <label class="be-field"><span class="be-label">Link URL (optional)</span>
-                <input type="url" data-field="linkUrl" value="${esc(b.linkUrl || "")}" /></label>
-            </div>${align}`;
+          return b.url
+            ? `<div style="text-align:${align};"><img src="${esc(b.url)}" alt="${esc(b.alt||"")}" style="max-width:100%;border-radius:8px;display:inline-block;" /></div>`
+            : `<div class="cv-ph">Click, then add an image URL in the panel →</div>`;
         case "button":
-          return `
-            <div class="be-row">
-              <label class="be-field"><span class="be-label">Button text</span>
-                <input type="text" data-field="text" value="${esc(b.text || "")}" /></label>
-              <label class="be-field"><span class="be-label">Link URL</span>
-                <input type="url" data-field="url" value="${esc(b.url || "")}" /></label>
-            </div>
-            <div class="be-row">
-              <label class="be-field"><span class="be-label">Colour (hex, blank = brand accent)</span>
-                <input type="text" data-field="color" value="${esc(b.color || "")}" placeholder="Brand accent" /></label>
-              ${align}
-            </div>`;
+          return `<div style="text-align:${align};margin:4px 0;"><span class="cv-btn" style="background:${esc(b.color||brand.accentColor)};">${esc(b.text||"Button")}</span></div>`;
         case "divider":
-          return `<label class="be-field"><span class="be-label">Colour</span>
-              <input type="color" data-field="color" value="${esc(b.color || "#E2E8F0")}" /></label>`;
+          return `<hr style="border:none;border-top:1px solid ${esc(b.color||"#E2E8F0")};margin:6px 0;" />`;
         case "spacer":
-          return `<label class="be-field"><span class="be-label">Height (px)</span>
-              <input type="number" data-field="height" min="4" max="160" value="${Number(b.height) || 24}" /></label>`;
+          return `<div class="cv-spacer" style="height:${Math.max(4,Math.min(160,Number(b.height)||24))}px;">Spacer · ${Math.max(4,Math.min(160,Number(b.height)||24))}px</div>`;
         case "logo":
-          return `
-            <div class="be-row">
-              <label class="be-field"><span class="be-label">Size</span>
-                <select data-field="size">${selOpts(["sm", "md", "lg"], b.size || "md")}</select></label>
-              ${align}
-            </div>
-            <label class="be-field"><span class="be-label">Link URL (optional)</span>
-              <input type="url" data-field="linkUrl" value="${esc(b.linkUrl || "")}" /></label>
-            <p class="em-block-note">Uses the <strong>Logo URL</strong> from the Branding card. Add one there if the logo doesn't show.</p>`;
+          return brand.logo
+            ? `<div style="text-align:${align};"><img src="${esc(brand.logo)}" alt="logo" style="height:42px;width:auto;display:inline-block;" /></div>`
+            : `<div class="cv-ph" style="min-height:60px;">Logo — set a logo URL in Brand</div>`;
         case "social": {
-          const show = b.show || {};
-          const nets = ["website", "linkedin", "instagram", "facebook", "twitter", "youtube"];
-          const checks = nets.map((n) => `
-            <label class="em-check"><input type="checkbox" data-field="show.${n}"${show[n] !== false ? " checked" : ""} /> ${n}</label>`).join("");
-          return `
-            <div class="em-checks">${checks}</div>${align}
-            <p class="em-block-note">Only networks with a URL in the Branding card appear.</p>`;
+          const show=b.show||{}; const nets=["website","linkedin","instagram","facebook","twitter","youtube"];
+          const items=nets.filter(n=>show[n]!==false).map(n=>`<span style="background:${esc(brand.accentColor)};">${SOCIAL_SVG[n]||""}</span>`).join("");
+          return `<div class="cv-social" style="justify-content:${align==="left"?"flex-start":align==="right"?"flex-end":"center"};">${items||'<span style="background:#ccc;"></span>'}</div>`;
         }
         case "video":
-          return `
-            <label class="be-field"><span class="be-label">Video link (YouTube/Vimeo/etc.)</span>
-              <input type="url" data-field="url" value="${esc(b.url || "")}" /></label>
-            <label class="be-field"><span class="be-label">Thumbnail image URL</span>
-              <input type="url" data-field="thumbnail" value="${esc(b.thumbnail || "")}" placeholder="https://…/thumb.jpg" /></label>${align}`;
-        default:
-          return "";
+          return b.thumbnail
+            ? `<div style="text-align:${align};"><div style="position:relative;display:inline-block;"><img src="${esc(b.thumbnail)}" style="max-width:100%;border-radius:10px;" /><span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:28px;background:rgba(220,38,38,0.95);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;">▶</span></div></div>`
+            : `<div class="cv-ph">Video — add a thumbnail URL in the panel →</div>`;
+        default: return "";
       }
     }
 
-    function setPath(obj, path, value) {
-      const parts = path.split(".");
-      let cur = obj;
-      for (let i = 0; i < parts.length - 1; i++) {
-        if (cur[parts[i]] == null || typeof cur[parts[i]] !== "object") cur[parts[i]] = {};
-        cur = cur[parts[i]];
-      }
-      cur[parts[parts.length - 1]] = value;
+    function renderCanvas() {
+      const brand = { ...defaultBrand(), ...state.branding };
+      emailEl.style.background = state.branding.cardColor || "#ffffff";
+      $("#eb-canvas-pane").style.background = state.branding.bgColor || "#f1f0ef";
+      $("#eb-canvas-empty").hidden = state.blocks.length > 0;
+      blocksWrap.innerHTML = state.blocks.map((b) => `
+        <div class="cv-block${b.id===selectedId?" is-selected":""}" data-id="${b.id}">
+          <div class="cv-toolbar">
+            <button type="button" class="cv-tb cv-grip" draggable="true" data-grip="${b.id}" title="Drag to reorder">⠿</button>
+            <button type="button" class="cv-tb" data-dupe="${b.id}" title="Duplicate">⧉</button>
+            <button type="button" class="cv-tb danger" data-del="${b.id}" title="Delete">✕</button>
+          </div>
+          <div class="cv-inner">${canvasInner(b, brand)}</div>
+        </div>`).join("");
+      wireCanvas();
     }
 
-    function renderBlocks() {
-      blocksEmpty.hidden = state.blocks.length > 0;
-      blocksWrap.innerHTML = state.blocks.map((b, i) => {
-        const def = BLOCK_TYPES.find((d) => d.type === b.type);
-        return `
-          <div class="em-block" data-id="${b.id}">
-            <div class="em-block-head">
-              <span class="em-block-type">${def ? def.label : b.type}</span>
-              <button type="button" class="em-block-ctrl" data-act="up" data-id="${b.id}" ${i === 0 ? "disabled" : ""} title="Move up">↑</button>
-              <button type="button" class="em-block-ctrl" data-act="down" data-id="${b.id}" ${i === state.blocks.length - 1 ? "disabled" : ""} title="Move down">↓</button>
-              <button type="button" class="em-block-ctrl" data-act="dupe" data-id="${b.id}" title="Duplicate">⧉</button>
-              <button type="button" class="em-block-ctrl danger" data-act="del" data-id="${b.id}" title="Delete">✕</button>
-            </div>
-            <div class="em-block-body">${fieldsHtml(b)}</div>
-          </div>`;
-      }).join("");
-
-      // Field bindings — mutate the matching block in place, refresh preview only
-      // (no list rebuild, so focus/caret are preserved while typing).
-      blocksWrap.querySelectorAll(".em-block").forEach((el) => {
-        const block = state.blocks.find((x) => x.id === el.dataset.id);
-        if (!block) return;
-        el.querySelectorAll("[data-field]").forEach((input) => {
-          const evt = input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input";
-          input.addEventListener(evt, () => {
-            let val;
-            if (input.type === "checkbox") val = input.checked;
-            else if (input.type === "number") val = Number(input.value);
-            else val = input.value;
-            setPath(block, input.dataset.field, val);
-            updatePreview();
+    function wireCanvas() {
+      blocksWrap.querySelectorAll(".cv-block").forEach((el) => {
+        const bid = el.dataset.id;
+        el.addEventListener("mousedown", (e) => { if (!e.target.closest(".cv-tb")) select(bid); });
+        // inline editing
+        el.querySelectorAll("[data-edit]").forEach((ed) => {
+          ed.addEventListener("focus", () => { lastEditable = ed; select(bid); });
+          ed.addEventListener("input", () => {
+            const blk = state.blocks.find((x) => x.id === bid);
+            if (blk) blk.text = ed.innerText;
           });
         });
-      });
-
-      // Structural controls
-      blocksWrap.querySelectorAll(".em-block-ctrl").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const bid = btn.dataset.id;
-          const idx = state.blocks.findIndex((x) => x.id === bid);
-          if (idx < 0) return;
-          const act = btn.dataset.act;
-          if (act === "up" && idx > 0) { [state.blocks[idx - 1], state.blocks[idx]] = [state.blocks[idx], state.blocks[idx - 1]]; }
-          else if (act === "down" && idx < state.blocks.length - 1) { [state.blocks[idx + 1], state.blocks[idx]] = [state.blocks[idx], state.blocks[idx + 1]]; }
-          else if (act === "dupe") { const copy = JSON.parse(JSON.stringify(state.blocks[idx])); copy.id = makeBlock(copy.type).id; state.blocks.splice(idx + 1, 0, copy); }
-          else if (act === "del") { state.blocks.splice(idx, 1); }
-          renderBlocks();
-          updatePreview();
+        // toolbar
+        el.querySelector("[data-dupe]")?.addEventListener("click", (e) => { e.stopPropagation(); dupe(bid); });
+        el.querySelector("[data-del]")?.addEventListener("click", (e) => { e.stopPropagation(); del(bid); });
+        // drag reorder
+        const grip = el.querySelector("[data-grip]");
+        grip?.addEventListener("dragstart", (e) => { dragId = bid; e.dataTransfer.effectAllowed = "move"; });
+        el.addEventListener("dragover", (e) => {
+          if (!dragId || dragId === bid) return; e.preventDefault();
+          const r = el.getBoundingClientRect(); const after = e.clientY > r.top + r.height/2;
+          el.classList.toggle("cv-drop-after", after); el.classList.toggle("cv-drop-before", !after);
+        });
+        el.addEventListener("dragleave", () => el.classList.remove("cv-drop-after","cv-drop-before"));
+        el.addEventListener("drop", (e) => {
+          e.preventDefault(); el.classList.remove("cv-drop-after","cv-drop-before");
+          if (!dragId || dragId === bid) return;
+          const r = el.getBoundingClientRect(); const after = e.clientY > r.top + r.height/2;
+          const from = state.blocks.findIndex((x)=>x.id===dragId);
+          const moved = state.blocks.splice(from,1)[0];
+          let to = state.blocks.findIndex((x)=>x.id===bid); if (after) to += 1;
+          state.blocks.splice(to,0,moved); dragId=null; renderCanvas();
         });
       });
     }
 
-    // ── Palette ──
-    palette.innerHTML = BLOCK_TYPES.map((d) =>
-      `<button type="button" class="em-add" data-add="${d.type}" title="${d.hint}"><span class="em-add-plus">+</span> ${d.label}</button>`
-    ).join("");
-    palette.querySelectorAll("[data-add]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        state.blocks.push(makeBlock(btn.dataset.add));
-        renderBlocks();
-        updatePreview();
-      });
-    });
-
-    // ── Merge tag chips (click to copy) ──
-    $("#em-merge-tags").innerHTML = MERGE_FIELDS.map((f) =>
-      `<button type="button" class="em-merge-tag" data-tag="{{${f.token}}}" title="${f.label} — click to copy">{{${f.token}}}</button>`
-    ).join(" ");
-    document.querySelectorAll(".em-merge-tag").forEach((b) => b.addEventListener("click", () => {
-      const t = b.dataset.tag;
-      navigator.clipboard?.writeText(t).then(() => toast(`Copied ${t}`)).catch(() => {});
-    }));
-
-    // ── Simple field bindings (template + branding) ──
-    function bindInput(sel, key) {
-      const el = $(sel);
-      el.addEventListener("input", () => { state[key] = el.value; if (key === "subject") updatePreview(); });
-      return el;
+    function select(bid) {
+      selectedId = bid;
+      blocksWrap.querySelectorAll(".cv-block").forEach((el)=>el.classList.toggle("is-selected", el.dataset.id===bid));
+      openInspector(bid);
     }
-    const nameEl = bindInput("#f-name", "name");
-    nameEl.addEventListener("input", () => { titleDisplay.textContent = state.name || "New template"; });
-    bindInput("#f-subject", "subject");
-    bindInput("#f-preheader", "preheader");
-    $("#f-trigger").addEventListener("change", (e) => { state.trigger_key = e.target.value; });
-    $("#f-status").addEventListener("change", (e) => { state.status = e.target.value; });
-    $("#f-html").addEventListener("input", (e) => { state.custom_html = e.target.value; updatePreview(); });
-
-    document.querySelectorAll("[data-brand]").forEach((el) => {
-      const key = el.getAttribute("data-brand");
-      el.addEventListener("input", () => { state.branding[key] = el.value; updatePreview(); });
-    });
-
-    // ── Mode tabs ──
-    document.querySelectorAll(".em-mode-tab").forEach((tab) => tab.addEventListener("click", () => {
-      const mode = tab.dataset.mode;
-      state.mode = mode;
-      document.querySelectorAll(".em-mode-tab").forEach((t) => t.classList.toggle("is-active", t === tab));
-      document.querySelectorAll(".em-mode-pane").forEach((p) => { p.hidden = p.dataset.pane !== mode; });
-      updatePreview();
-    }));
-
-    // ── Device toggle ──
-    document.querySelectorAll(".em-device").forEach((btn) => btn.addEventListener("click", () => {
-      document.querySelectorAll(".em-device").forEach((b) => b.classList.toggle("is-active", b === btn));
-      frame.classList.toggle("is-mobile", btn.dataset.device === "mobile");
-      frame.classList.toggle("is-desktop", btn.dataset.device !== "mobile");
-    }));
-
-    // ── Populate every control from state (after load) ──
-    function fillForm() {
-      $("#f-name").value = state.name || "";
-      $("#f-subject").value = state.subject || "";
-      $("#f-preheader").value = state.preheader || "";
-      $("#f-trigger").value = state.trigger_key || "";
-      $("#f-status").value = state.status || "draft";
-      $("#f-html").value = state.custom_html || "";
-      titleDisplay.textContent = state.name || "New template";
-      const brand = { ...defaultBrand(), ...state.branding };
-      state.branding = brand;
-      document.querySelectorAll("[data-brand]").forEach((el) => {
-        const key = el.getAttribute("data-brand");
-        let v = brand[key] || "";
-        if (el.type === "color" && !/^#[0-9a-f]{6}$/i.test(v)) v = "#000000";
-        el.value = v;
-      });
-      // mode
-      document.querySelectorAll(".em-mode-tab").forEach((t) => t.classList.toggle("is-active", t.dataset.mode === state.mode));
-      document.querySelectorAll(".em-mode-pane").forEach((p) => { p.hidden = p.dataset.pane !== state.mode; });
-      renderBlocks();
-      updatePreview();
+    function deselect() {
+      selectedId = null;
+      blocksWrap.querySelectorAll(".cv-block").forEach((el)=>el.classList.remove("is-selected"));
+      $("#eb-rail-inspector").hidden = true; $("#eb-rail-blocks").hidden = false;
     }
+    function dupe(bid){ const i=state.blocks.findIndex(x=>x.id===bid); if(i<0)return; const c=JSON.parse(JSON.stringify(state.blocks[i])); c.id=makeBlock(c.type).id; state.blocks.splice(i+1,0,c); renderCanvas(); }
+    function del(bid){ state.blocks=state.blocks.filter(x=>x.id!==bid); if(selectedId===bid) deselect(); renderCanvas(); }
+    function addBlock(type){ const b=makeBlock(type); const i=state.blocks.findIndex(x=>x.id===selectedId); if(i>=0) state.blocks.splice(i+1,0,b); else state.blocks.push(b); renderCanvas(); select(b.id); }
 
-    function updateSub() {
-      if (!loaded) { topSub.textContent = "Draft · not yet saved"; return; }
-      const bits = [loaded.status === "active" ? "Active" : loaded.status === "archived" ? "Archived" : "Draft"];
-      if (loaded.updated_at) bits.push("saved " + new Date(loaded.updated_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }));
-      topSub.textContent = bits.join(" · ");
-    }
-
-    // ── Save ──
-    function gather() {
-      return {
-        name: (state.name || "").trim() || "Untitled template",
-        subject: state.subject || "",
-        preheader: (state.preheader || "").trim() || null,
-        trigger_key: state.trigger_key || null,
-        mode: state.mode,
-        blocks: state.blocks,
-        custom_html: state.custom_html || null,
-        branding: state.branding,
-        status: state.status || "draft",
-      };
-    }
-
-    async function save(opts = {}) {
-      if (!isConfigured) { alert("Connect Supabase before saving. See AUTH_SETUP.md."); return; }
-      if (opts.activate) { state.status = "active"; $("#f-status").value = "active"; }
-      const payload = gather();
-      toast(opts.activate ? "Activating…" : "Saving…");
-      const q = id
-        ? supabase.from("email_templates").update(payload).eq("id", id).select().single()
-        : supabase.from("email_templates").insert(payload).select().single();
-      const { data, error } = await q;
-      if (error) { toast(`Save failed: ${error.message}`); return false; }
-      id = data.id;
-      loaded = data;
-      if (!params.get("id") || params.get("id") === "new") {
-        const u = new URL(location.href); u.searchParams.set("id", id); history.replaceState({}, "", u.toString());
+    /* ─────────── inspector ─────────── */
+    const ALIGN = ["left","center","right"];
+    const opts = (a,c)=>a.map(o=>`<option value="${o}"${o===c?" selected":""}>${o}</option>`).join("");
+    function inspectorFields(b) {
+      const align = `<label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"center")}</select></label>`;
+      switch (b.type) {
+        case "heading": return `<p class="eb-note" style="margin-bottom:12px;">Edit the text right on the canvas.</p>
+          <label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"left")}</select></label>
+          <label class="eb-f"><span>Colour (blank = ink)</span><input type="text" data-field="color" value="${esc(b.color||"")}" placeholder="#1c1d22" /></label>`;
+        case "text": return `<p class="eb-note" style="margin-bottom:12px;">Edit the text right on the canvas. Blank line = new paragraph.</p>
+          <label class="eb-f"><span>Background tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>`;
+        case "image": return `<label class="eb-f"><span>Image URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…/image.jpg" /></label>
+          <label class="eb-f"><span>Alt text</span><input type="text" data-field="alt" value="${esc(b.alt||"")}" /></label>
+          <label class="eb-f"><span>Link URL (optional)</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>${align}`;
+        case "button": return `<label class="eb-f"><span>Button text</span><input type="text" data-field="text" value="${esc(b.text||"")}" /></label>
+          <label class="eb-f"><span>Link URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
+          <label class="eb-f"><span>Colour (blank = accent)</span><input type="text" data-field="color" value="${esc(b.color||"")}" placeholder="Brand accent" /></label>${align}`;
+        case "divider": return `<label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${esc(b.color||"#E2E8F0")}" /></label>`;
+        case "spacer": return `<label class="eb-f"><span>Height (px)</span><input type="number" min="4" max="160" data-field="height" value="${Number(b.height)||24}" /></label>`;
+        case "logo": return `<label class="eb-f"><span>Size</span><select data-field="size">${opts(["sm","md","lg"],b.size||"md")}</select></label>${align}
+          <label class="eb-f"><span>Link URL</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>
+          <p class="eb-note">Uses the logo from <strong>Brand</strong>.</p>`;
+        case "social": {
+          const show=b.show||{}; const nets=["website","linkedin","instagram","facebook","twitter","youtube"];
+          return `<div class="eb-checks">${nets.map(n=>`<label class="eb-check"><input type="checkbox" data-field="show.${n}"${show[n]!==false?" checked":""}/> ${n}</label>`).join("")}</div>${align}
+          <p class="eb-note">Only networks with a URL in <strong>Brand</strong> show.</p>`;
+        }
+        case "video": return `<label class="eb-f"><span>Video link</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
+          <label class="eb-f"><span>Thumbnail URL</span><input type="url" data-field="thumbnail" value="${esc(b.thumbnail||"")}" /></label>${align}`;
+        default: return "";
       }
-      updateSub();
-      toast(opts.activate ? "Activated ✓" : "Saved ✓");
-      return true;
     }
-    $("#em-save").addEventListener("click", () => save());
-    $("#em-activate").addEventListener("click", () => save({ activate: true }));
+    function setPath(o,p,v){ const ks=p.split("."); let c=o; for(let i=0;i<ks.length-1;i++){ if(typeof c[ks[i]]!=="object"||c[ks[i]]==null) c[ks[i]]={}; c=c[ks[i]]; } c[ks[ks.length-1]]=v; }
+    function openInspector(bid) {
+      const b = state.blocks.find(x=>x.id===bid); if(!b) return;
+      const def = BLOCK_TYPES.find(d=>d.type===b.type);
+      $("#eb-insp-title").textContent = def ? def.label : b.type;
+      const wrap = $("#eb-insp-fields"); wrap.innerHTML = inspectorFields(b);
+      wrap.querySelectorAll("[data-field]").forEach((inp)=>{
+        const evt = inp.type==="checkbox"||inp.tagName==="SELECT" ? "change" : "input";
+        inp.addEventListener(evt, ()=>{
+          let v; if(inp.type==="checkbox") v=inp.checked; else if(inp.type==="number") v=Number(inp.value); else v=inp.value;
+          setPath(b, inp.dataset.field, v); renderCanvas();
+          blocksWrap.querySelectorAll(".cv-block").forEach((el)=>el.classList.toggle("is-selected", el.dataset.id===bid));
+        });
+      });
+      $("#eb-rail-blocks").hidden = true; $("#eb-rail-inspector").hidden = false;
+    }
+    $("#eb-insp-back").addEventListener("click", deselect);
+    $("#eb-insp-del").addEventListener("click", ()=>{ if(selectedId) del(selectedId); });
+    // click empty canvas to deselect
+    $("#eb-canvas-pane").addEventListener("mousedown", (e)=>{ if(!e.target.closest(".cv-block")) deselect(); });
 
-    // ── Send test ──
-    $("#em-sendtest").addEventListener("click", async () => {
-      if (!WORKER_URL) { alert("The mailer endpoint isn't configured — set PUBLIC_R2_WORKER_URL in the site env."); return; }
-      const to = prompt("Send a test email to:", (session && session.user && session.user.email) || "");
-      if (!to) return;
-      const brand = { ...defaultBrand(), ...state.branding };
-      const ctx = mergeContextFor({ name: to.split("@")[0], email: to, company: SAMPLE_RECIPIENT.company }, brand);
-      const { subject, html } = renderTemplate(state, { brand, mergeCtx: ctx });
+    /* ─────────── palette ─────────── */
+    $("#eb-palette").innerHTML = BLOCK_TYPES.map(d=>`<button type="button" class="eb-tile" data-add="${d.type}" title="${d.hint}">${svg(ICONS[d.type]||"")}<span>${d.label}</span></button>`).join("");
+    $("#eb-palette").querySelectorAll("[data-add]").forEach(btn=>btn.addEventListener("click", ()=>addBlock(btn.dataset.add)));
+
+    /* ─────────── swatches + bg hex ─────────── */
+    function renderSwatches() {
+      document.querySelectorAll(".eb-swatches").forEach((row)=>{
+        const target = row.dataset.target; const cur = (state.branding[target]||"").toLowerCase();
+        row.innerHTML = SWATCHES.map(c=>{
+          const none = c===""; const active = none ? !cur : cur===c.toLowerCase();
+          return `<button type="button" class="eb-sw${active?" is-active":""}" data-none="${none?1:0}" data-c="${c}" style="${none?"":`background:${c};`}" title="${none?"None":c}">${none?"✕":""}</button>`;
+        }).join("");
+        row.querySelectorAll(".eb-sw").forEach(sw=>sw.addEventListener("click", ()=>{
+          state.branding[target] = sw.dataset.c; syncHex(); renderSwatches(); renderCanvas();
+        }));
+      });
+    }
+    function syncHex(){ document.querySelectorAll(".eb-hex").forEach(h=>{ h.value = (state.branding[h.dataset.hex]||"").toUpperCase(); }); }
+    document.querySelectorAll(".eb-hex").forEach(h=>h.addEventListener("input", ()=>{
+      let v=h.value.trim(); if(v && !v.startsWith("#")) v="#"+v; state.branding[h.dataset.hex]=v; renderSwatches(); renderCanvas();
+    }));
+
+    /* ─────────── subject + variable menu ─────────── */
+    let lastEditable = null;
+    const subjectEl = $("#eb-subject");
+    subjectEl.addEventListener("focus", ()=>{ lastEditable = subjectEl; });
+    subjectEl.addEventListener("input", ()=>{ state.subject = subjectEl.value; });
+    $("#eb-var-menu").innerHTML = MERGE_FIELDS.map(f=>`<button type="button" class="eb-var-item" data-tok="{{${f.token}}}"><span>${f.label}</span><code>{{${f.token}}}</code></button>`).join("");
+    $("#eb-var-btn").addEventListener("click", (e)=>{ e.stopPropagation(); const m=$("#eb-var-menu"); m.hidden=!m.hidden; });
+    document.addEventListener("click", ()=>{ $("#eb-var-menu").hidden = true; });
+    $("#eb-var-menu").addEventListener("click", (e)=>e.stopPropagation());
+    $("#eb-var-menu").querySelectorAll("[data-tok]").forEach(it=>it.addEventListener("click", ()=>{
+      const tok = it.dataset.tok; insertToken(tok); $("#eb-var-menu").hidden = true;
+    }));
+    function insertToken(tok) {
+      const el = lastEditable || subjectEl;
+      if (el === subjectEl || el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+        const s=el.selectionStart??el.value.length, e=el.selectionEnd??el.value.length;
+        el.value = el.value.slice(0,s)+tok+el.value.slice(e); el.focus();
+        el.selectionStart=el.selectionEnd=s+tok.length;
+        el.dispatchEvent(new Event("input"));
+      } else if (el.hasAttribute && el.hasAttribute("contenteditable")) {
+        el.focus(); document.execCommand("insertText", false, tok);
+        const blk = state.blocks.find(x=>x.id===el.dataset.id); if(blk) blk.text = el.innerText;
+      }
+    }
+
+    /* ─────────── mode toggle ─────────── */
+    document.querySelectorAll(".eb-mode").forEach(m=>m.addEventListener("click", ()=>{
+      state.mode = m.dataset.mode;
+      document.querySelectorAll(".eb-mode").forEach(x=>x.classList.toggle("is-active", x===m));
+      $("#eb-canvas-pane").hidden = state.mode!=="blocks";
+      $("#eb-html-pane").hidden = state.mode!=="html";
+    }));
+    $("#eb-html").addEventListener("focus", ()=>{ lastEditable = $("#eb-html"); });
+    $("#eb-html").addEventListener("input", (e)=>{ state.custom_html = e.target.value; });
+
+    /* ─────────── meta + modals ─────────── */
+    function openModal(idSel){ $(idSel).hidden=false; } function closeModal(el){ el.hidden=true; }
+    document.querySelectorAll(".eb-modal").forEach(mo=>{
+      mo.addEventListener("mousedown",(e)=>{ if(e.target===mo) closeModal(mo); });
+      mo.querySelectorAll("[data-close]").forEach(x=>x.addEventListener("click", ()=>closeModal(mo)));
+    });
+    $("#eb-settings").addEventListener("click", ()=>openModal("#eb-modal-settings"));
+    $("#eb-brand").addEventListener("click", ()=>openModal("#eb-modal-brand"));
+
+    const nameEl=$("#eb-name");
+    nameEl.addEventListener("input", ()=>{ state.name=nameEl.value; $("#s-name").value=nameEl.value; });
+    $("#s-name").addEventListener("input", (e)=>{ state.name=e.target.value; nameEl.value=e.target.value; });
+    $("#s-preheader").addEventListener("input",(e)=>state.preheader=e.target.value);
+    $("#s-trigger").addEventListener("change",(e)=>state.trigger_key=e.target.value);
+    $("#s-status").addEventListener("change",(e)=>{ state.status=e.target.value; setStatusPill(); });
+    function setStatusPill(){ const p=$("#eb-status-pill"); p.dataset.status=state.status; p.textContent=state.status.charAt(0).toUpperCase()+state.status.slice(1); }
+
+    document.querySelectorAll("[data-brand]").forEach(el=>el.addEventListener("input", ()=>{ state.branding[el.getAttribute("data-brand")]=el.value; renderCanvas(); }));
+
+    /* ─────────── preview modal ─────────── */
+    $("#eb-preview").addEventListener("click", ()=>{
+      const brand={...defaultBrand(),...state.branding};
+      const {subject,html}=renderTemplate(state,{brand,mergeCtx:mergeContextFor(SAMPLE_RECIPIENT,brand)});
+      $("#eb-pv-subject").textContent=subject||"—"; $("#eb-pv-frame").srcdoc=html; openModal("#eb-modal-preview");
+    });
+    document.querySelectorAll(".eb-dev").forEach(b=>b.addEventListener("click", ()=>{
+      document.querySelectorAll(".eb-dev").forEach(x=>x.classList.toggle("is-active",x===b));
+      const f=$("#eb-pv-frame"); f.classList.toggle("is-mobile",b.dataset.dev==="mobile"); f.classList.toggle("is-desktop",b.dataset.dev!=="mobile");
+    }));
+
+    /* ─────────── save / send ─────────── */
+    function gather(){ return {
+      name:(state.name||"").trim()||"Untitled template", subject:state.subject||"",
+      preheader:(state.preheader||"").trim()||null, trigger_key:state.trigger_key||null,
+      mode:state.mode, blocks:state.blocks, custom_html:state.custom_html||null,
+      branding:state.branding, status:state.status||"draft",
+    }; }
+    async function save(opts={}){
+      if(!isConfigured){ toast("Connect Supabase to save (works on the live site)."); return false; }
+      if(opts.activate){ state.status="active"; $("#s-status").value="active"; setStatusPill(); }
+      const payload=gather(); toast(opts.activate?"Activating…":"Saving…");
+      const q=id ? supabase.from("email_templates").update(payload).eq("id",id).select().single()
+                 : supabase.from("email_templates").insert(payload).select().single();
+      const {data,error}=await q;
+      if(error){ toast(`Save failed: ${error.message}`); return false; }
+      id=data.id; loaded=data;
+      if(!params.get("id")||params.get("id")==="new"){ const u=new URL(location.href); u.searchParams.set("id",id); history.replaceState({},"",u.toString()); }
+      toast(opts.activate?"Activated ✓":"Saved ✓"); return true;
+    }
+    $("#eb-save").addEventListener("click", ()=>save());
+    $("#eb-activate").addEventListener("click", ()=>save({activate:true}));
+    document.addEventListener("keydown",(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){ e.preventDefault(); save(); } });
+
+    $("#eb-sendtest").addEventListener("click", async ()=>{
+      if(!WORKER_URL){ toast("Set PUBLIC_R2_WORKER_URL to send."); return; }
+      const to=prompt("Send a test email to:", (session&&session.user&&session.user.email)||"");
+      if(!to) return;
+      const brand={...defaultBrand(),...state.branding};
+      const ctx=mergeContextFor({name:to.split("@")[0],email:to,company:SAMPLE_RECIPIENT.company},brand);
+      const {subject,html}=renderTemplate(state,{brand,mergeCtx:ctx});
       toast("Sending test…");
-      try {
-        const { data: { session: s } } = await supabase.auth.getSession();
-        const res = await fetch(`${WORKER_URL}/email/send`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${s.access_token}` },
-          body: JSON.stringify({ to, subject, html }),
-        });
-        const j = await res.json().catch(() => ({}));
-        if (!res.ok) { toast(`Send failed: ${j.error || res.status}`); return; }
+      try{
+        const {data:{session:s}}=await supabase.auth.getSession();
+        const res=await fetch(`${WORKER_URL}/email/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${s&&s.access_token}`},body:JSON.stringify({to,subject,html})});
+        const j=await res.json().catch(()=>({}));
+        if(!res.ok){ toast(`Send failed: ${j.error||res.status}`); return; }
         toast(`Test sent to ${to} ✓`);
-      } catch (e) { toast(`Send failed: ${e.message || e}`); }
+      }catch(e){ toast(`Send failed: ${e.message||e}`); }
     });
 
-    // Ctrl/Cmd+S to save
-    document.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); save(); }
-    });
+    /* ─────────── fill + boot ─────────── */
+    function fillMeta(){
+      nameEl.value=state.name||""; $("#s-name").value=state.name||"";
+      subjectEl.value=state.subject||""; $("#s-preheader").value=state.preheader||"";
+      $("#s-trigger").value=state.trigger_key||""; $("#s-status").value=state.status||"draft"; setStatusPill();
+      $("#eb-html").value=state.custom_html||"";
+      const brand={...defaultBrand(),...state.branding}; state.branding=brand;
+      document.querySelectorAll("[data-brand]").forEach(el=>{ const k=el.getAttribute("data-brand"); let v=brand[k]||""; if(el.type==="color"&&!/^#[0-9a-f]{6}$/i.test(v)) v="#371e28"; el.value=v; });
+      document.querySelectorAll(".eb-mode").forEach(x=>x.classList.toggle("is-active",x.dataset.mode===state.mode));
+      $("#eb-canvas-pane").hidden=state.mode!=="blocks"; $("#eb-html-pane").hidden=state.mode!=="html";
+      renderSwatches(); syncHex(); renderCanvas();
+    }
+    function seedSample(){ state.blocks=[makeBlock("logo"),makeBlock("heading"),makeBlock("text"),makeBlock("button")]; }
 
-    // ── Boot ──
-    (async () => {
-      session = await requireAdmin("/admin/login");
-      if (!session) return;
+    (async ()=>{
+      if (DEV) { const {data}=await supabase.auth.getSession(); session=data.session||{user:{email:"dev-preview@tmke.co.uk"}}; }
+      else { session=await requireAdmin("/admin/login"); if(!session) return; }
 
-      if (id) {
-        const { data, error } = await supabase.from("email_templates").select("*").eq("id", id).maybeSingle();
-        if (error || !data) { alert("Couldn't load template. Returning to the list."); location.replace("/admin/email"); return; }
-        loaded = data;
-        state.name = data.name || "";
-        state.subject = data.subject || "";
-        state.preheader = data.preheader || "";
-        state.trigger_key = data.trigger_key || "";
-        state.status = data.status || "draft";
-        state.mode = data.mode || "blocks";
-        state.blocks = Array.isArray(data.blocks) ? data.blocks : [];
-        state.custom_html = data.custom_html || "";
-        state.branding = { ...defaultBrand(), ...(data.branding || {}) };
-      } else {
-        // A friendly starter so a fresh template isn't a blank page.
-        state.blocks = [makeBlock("logo"), makeBlock("text"), makeBlock("button")];
-      }
-      fillForm();
-      updateSub();
+      let realSession = true;
+      if (DEV) { const {data}=await supabase.auth.getSession(); realSession=!!data.session; }
+
+      if (id && (realSession || !DEV)) {
+        const {data,error}=await supabase.from("email_templates").select("*").eq("id",id).maybeSingle();
+        if (data) {
+          loaded=data; Object.assign(state,{ name:data.name||"", subject:data.subject||"", preheader:data.preheader||"",
+            trigger_key:data.trigger_key||"", status:data.status||"draft", mode:data.mode||"blocks",
+            blocks:Array.isArray(data.blocks)?data.blocks:[], custom_html:data.custom_html||"",
+            branding:{...defaultBrand(),...(data.branding||{})} });
+        } else if (!DEV) { alert("Couldn't load template. Returning to the list."); location.replace("/admin/email"); return; }
+        else { seedSample(); }
+      } else { seedSample(); }
+      fillMeta();
     })();
   </script>
 </BaseLayout>

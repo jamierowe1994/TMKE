@@ -257,13 +257,19 @@ import AdminBack from "../../components/AdminBack.astro";
     $search.addEventListener("input", () => { activeSearch = $search.value || ""; render(); });
 
     (async () => {
-      const session = await requireAdmin("/admin/login");
-      if (!session) return;
+      // In local dev the page renders without a login so the UI is previewable;
+      // production stays gated. (Supabase calls still need a real session/env.)
+      const DEV = import.meta.env.DEV;
+      if (!DEV) {
+        const session = await requireAdmin("/admin/login");
+        if (!session) return;
+      }
       const { data, error } = await supabase
         .from("email_templates")
         .select("id, name, subject, preheader, trigger_key, mode, blocks, custom_html, branding, status, updated_at")
         .order("updated_at", { ascending: false });
       if (error) {
+        if (DEV) { all = []; render(); return; } // dev preview without DB — show empty chrome
         $loading.hidden = true;
         $error.hidden = false;
         $error.innerHTML = `Couldn't load templates: ${escapeHtml(error.message)}.<br />If this is the first run, apply <code>supabase/email_templates.sql</code> in the Supabase SQL editor.`;
