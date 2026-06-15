@@ -1,8 +1,16 @@
 ---
 // Member-facing Blog section. Rendered both as a standalone page
 // (/account/blog) and inside the side-drawer on /account.
-// Member-exclusive — deeper dives on platform changes, sector
-// insight, and tactics, separate from the marketing /blog.
+// Member-exclusive — deeper dives on platform changes, sector insight, and
+// tactics, separate from the marketing /blog. Posts come from the database
+// (audience = 'members'); falls back to a built-in set until any are authored.
+import { getMembersPosts } from "../../data/blog.js";
+
+let posts = [];
+try { posts = await getMembersPosts(); } catch (_) {}
+const featured = posts[0] || null;
+const rest = posts.slice(1, 7);
+const meta = (p, lead) => [lead, p.category, p.readTime ? p.readTime + " min" : null].filter(Boolean).join(" · ");
 ---
 
 <div class="acc-section">
@@ -17,70 +25,29 @@
     </div>
   </header>
 
-  <a class="acc-blog-hero" href="/account/blog#instagram-algo-2026">
-    <div class="acc-blog-hero-art" style="background-image:url('/assets/social-media.png')"></div>
-    <div class="acc-blog-hero-body">
-      <span class="acc-blog-card-meta">Featured &middot; Platform update &middot; 6 min</span>
-      <h3 class="acc-blog-hero-title">What just changed in the Instagram ranking signal &mdash; and what to do this week</h3>
-      <p class="acc-blog-hero-desc">Instagram quietly bumped the weight of "shares to non-followers" in mid-May. For property accounts that's a bigger deal than it sounds. Here's what we're testing on managed accounts and the three caption changes you can make today.</p>
-      <span class="acc-blog-card-cta">Read the piece <em>&rarr;</em></span>
-    </div>
-  </a>
+  {featured && (
+    <a class="acc-blog-hero" href={`/account/blog#${featured.slug}`}>
+      <div class="acc-blog-hero-art" style={`background-image:url('${featured.hero}')`}></div>
+      <div class="acc-blog-hero-body">
+        <span class="acc-blog-card-meta">{meta(featured, "Featured")}</span>
+        <h3 class="acc-blog-hero-title">{featured.title}</h3>
+        <p class="acc-blog-hero-desc">{featured.standfirst}</p>
+        <span class="acc-blog-card-cta">Read the piece <em>&rarr;</em></span>
+      </div>
+    </a>
+  )}
 
   <div class="acc-blog-grid">
-    <a class="acc-blog-card" href="/account/blog#sunday-window">
-      <div class="acc-blog-card-art" style="background-image:url('/assets/cosy%20home.jpg')"></div>
-      <div class="acc-blog-card-body">
-        <span class="acc-blog-card-meta">Tactics &middot; 7 min</span>
-        <h4 class="acc-blog-card-title">The Sunday-evening window: why our highest-engagement slot moved</h4>
-        <p class="acc-blog-card-desc">Three months of data from 18 managed accounts on when property posts actually get seen now.</p>
-      </div>
-    </a>
-
-    <a class="acc-blog-card" href="/account/blog#reels-vs-stills">
-      <div class="acc-blog-card-art" style="background-image:url('/assets/home%20video.jpg')"></div>
-      <div class="acc-blog-card-body">
-        <span class="acc-blog-card-meta">Strategy &middot; 9 min</span>
-        <h4 class="acc-blog-card-title">Reels vs. stills for &pound;1m+ listings: which actually pulls enquiries</h4>
-        <p class="acc-blog-card-desc">We A/B'd 240 listings across price bands. The winner isn't the format you'd expect on prime stock.</p>
-      </div>
-    </a>
-
-    <a class="acc-blog-card" href="/account/blog#linkedin-property">
-      <div class="acc-blog-card-art" style="background-image:url('/assets/personal-brand.jpg')"></div>
-      <div class="acc-blog-card-body">
-        <span class="acc-blog-card-meta">Channel &middot; 5 min</span>
-        <h4 class="acc-blog-card-title">Why most agencies should care about LinkedIn (and how to start without sounding corporate)</h4>
-        <p class="acc-blog-card-desc">The audience that buys at the top of the market. Six post formats and three tone shifts that work.</p>
-      </div>
-    </a>
-
-    <a class="acc-blog-card" href="/account/blog#brand-without-rebrand">
-      <div class="acc-blog-card-art" style="background-image:url('/assets/home%20window.jpg')"></div>
-      <div class="acc-blog-card-body">
-        <span class="acc-blog-card-meta">Brand &middot; 8 min</span>
-        <h4 class="acc-blog-card-title">How to look bigger without rebranding</h4>
-        <p class="acc-blog-card-desc">Six small visual moves that make a one-office agency feel like a regional brand &mdash; without touching the logo.</p>
-      </div>
-    </a>
-
-    <a class="acc-blog-card" href="/account/blog#valuations-as-content">
-      <div class="acc-blog-card-art" style="background-image:url('/assets/home%20kitchen.jpg')"></div>
-      <div class="acc-blog-card-body">
-        <span class="acc-blog-card-meta">Content &middot; 6 min</span>
-        <h4 class="acc-blog-card-title">Turning valuations into content: the agreement template we use</h4>
-        <p class="acc-blog-card-desc">One-line addition to your valuation paperwork that unlocks an entire content pillar &mdash; legally, ethically, on-brand.</p>
-      </div>
-    </a>
-
-    <a class="acc-blog-card" href="/account/blog#captions-prompt">
-      <div class="acc-blog-card-art" style="background-image:url('/assets/social%20media.jpg')"></div>
-      <div class="acc-blog-card-body">
-        <span class="acc-blog-card-meta">AI &middot; 10 min</span>
-        <h4 class="acc-blog-card-title">The caption prompt we actually use (and the bits we never paste in)</h4>
-        <p class="acc-blog-card-desc">The four-part prompt running on every managed account, plus the three categories of detail we keep out of LLM context.</p>
-      </div>
-    </a>
+    {rest.map((p) => (
+      <a class="acc-blog-card" href={`/account/blog#${p.slug}`}>
+        <div class="acc-blog-card-art" style={`background-image:url('${p.hero}')`}></div>
+        <div class="acc-blog-card-body">
+          <span class="acc-blog-card-meta">{meta(p)}</span>
+          <h4 class="acc-blog-card-title">{p.title}</h4>
+          <p class="acc-blog-card-desc">{p.standfirst}</p>
+        </div>
+      </a>
+    ))}
   </div>
 
   <footer class="acc-section-foot">

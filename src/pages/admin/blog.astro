@@ -237,7 +237,7 @@ import "../../styles/admin.css";
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { requireAdmin } from "../../lib/admin-gate.js";
-    import { STATIC_POSTS } from "../../data/blog.js";
+    import { STATIC_POSTS, MEMBERS_STATIC_POSTS } from "../../data/blog.js";
 
     const $list = document.getElementById("blog-list");
     const $loading = document.getElementById("blog-loading");
@@ -367,18 +367,24 @@ import "../../styles/admin.css";
     const $import = document.getElementById("blog-import");
     if ($import) $import.addEventListener("click", async () => {
       const existing = new Set(all.map((p) => p.slug));
-      const rows = STATIC_POSTS.filter((p) => !existing.has(p.slug)).map((p) => ({
+      const toRow = (p, audience) => ({
         slug: p.slug, title: p.title, eyebrow: p.eyebrow || null, category: p.category || "Insights",
         standfirst: p.standfirst || null, body_html: p.body || "", body_markdown: p.body || "",
         hero_image_url: p.hero || null, hero_image_alt: p.heroAlt || p.title || null,
         read_time_minutes: p.readTime || null, author_name: p.author || "The TMKE Desk",
-        status: "published", audience: "public", publish_date: p.date || null,
+        status: "published", audience, publish_date: p.date || null,
         seo_keywords: Array.isArray(p.keywords) ? p.keywords : [],
         seo_title: (p.seo && p.seo.title) || null,
         seo_description: (p.seo && p.seo.description) || p.standfirst || null,
-      }));
+      });
+      const rows = [
+        ...STATIC_POSTS.filter((p) => !existing.has(p.slug)).map((p) => toRow(p, "public")),
+        ...MEMBERS_STATIC_POSTS.filter((p) => !existing.has(p.slug)).map((p) => toRow(p, "members")),
+      ];
       if (!rows.length) { alert("All built-in articles are already imported."); return; }
-      if (!confirm(`Import ${rows.length} front-end article(s) into the database so you can edit them?`)) return;
+      const nPub = rows.filter((r) => r.audience === "public").length;
+      const nMem = rows.length - nPub;
+      if (!confirm(`Import ${rows.length} article(s) — ${nPub} front-end + ${nMem} exclusive — into the database so you can edit them?`)) return;
       const orig = $import.textContent; $import.disabled = true;
       let done = 0;
       for (const r of rows) {

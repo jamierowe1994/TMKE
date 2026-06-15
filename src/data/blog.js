@@ -626,6 +626,19 @@ export const STATIC_POSTS = [
   },
 ];
 
+// Customer-exclusive ("Inside The Edit") starter posts — the set that used to be
+// hard-coded in BlogPanel.astro. Used as the fallback (and the importable seed)
+// for the members feed until the team authors their own in the editor.
+export const MEMBERS_STATIC_POSTS = [
+  { slug: "instagram-algo-2026", title: "What just changed in the Instagram ranking signal — and what to do this week", category: "Platform update", standfirst: "Instagram quietly bumped the weight of \"shares to non-followers\" in mid-May. For property accounts that's a bigger deal than it sounds. Here's what we're testing on managed accounts and the three caption changes you can make today.", hero: "/assets/social-media.png", readTime: 6, date: "2026-05-20", body: "" },
+  { slug: "sunday-window", title: "The Sunday-evening window: why our highest-engagement slot moved", category: "Tactics", standfirst: "Three months of data from 18 managed accounts on when property posts actually get seen now.", hero: "/assets/cosy home.jpg", readTime: 7, date: "2026-05-06", body: "" },
+  { slug: "reels-vs-stills", title: "Reels vs. stills for £1m+ listings: which actually pulls enquiries", category: "Strategy", standfirst: "We A/B'd 240 listings across price bands. The winner isn't the format you'd expect on prime stock.", hero: "/assets/home video.jpg", readTime: 9, date: "2026-04-22", body: "" },
+  { slug: "linkedin-property", title: "Why most agencies should care about LinkedIn (and how to start without sounding corporate)", category: "Channel", standfirst: "The audience that buys at the top of the market. Six post formats and three tone shifts that work.", hero: "/assets/personal-brand.jpg", readTime: 5, date: "2026-04-08", body: "" },
+  { slug: "brand-without-rebrand", title: "How to look bigger without rebranding", category: "Brand", standfirst: "Six small visual moves that make a one-office agency feel like a regional brand — without touching the logo.", hero: "/assets/home window.jpg", readTime: 8, date: "2026-03-25", body: "" },
+  { slug: "valuations-as-content", title: "Turning valuations into content: the agreement template we use", category: "Content", standfirst: "One-line addition to your valuation paperwork that unlocks an entire content pillar — legally, ethically, on-brand.", hero: "/assets/home kitchen.jpg", readTime: 6, date: "2026-03-11", body: "" },
+  { slug: "captions-prompt", title: "The caption prompt we actually use (and the bits we never paste in)", category: "AI", standfirst: "The four-part prompt running on every managed account, plus the three categories of detail we keep out of LLM context.", hero: "/assets/social media.jpg", readTime: 10, date: "2026-02-25", body: "" },
+];
+
 // Back-compat — pages that haven't been moved to the async helpers yet.
 // New code should use getPublishedPosts() instead.
 export const posts = STATIC_POSTS;
@@ -705,10 +718,11 @@ export async function getMembersPosts() {
       .eq("status", "published")
       .order("publish_date", { ascending: false });
     if (!error && Array.isArray(data)) {
-      return data.filter((r) => r.audience === "members").map(rowToPost);
+      const members = data.filter((r) => r.audience === "members").map(rowToPost);
+      if (members.length) return members;
     }
   }
-  return [];
+  return MEMBERS_STATIC_POSTS;
 }
 
 export async function getPost(slug) {
