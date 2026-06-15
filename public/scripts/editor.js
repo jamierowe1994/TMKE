@@ -160,6 +160,28 @@
   }
   let FONTS = buildFonts();
 
+  // Brand-kit favourite fonts — starred in the Text panel's font browser and
+  // persisted locally. When the user has favourited at least one font, the
+  // toolbar drops its inline weight <select> (weight is then chosen in the
+  // panel), keeping the bar compact.
+  function getFavFonts() {
+    try { return JSON.parse(localStorage.getItem("tmke.editor.favFonts") || "[]"); }
+    catch (_) { return []; }
+  }
+  function setFavFonts(arr) {
+    try { localStorage.setItem("tmke.editor.favFonts", JSON.stringify(arr || [])); } catch (_) {}
+  }
+  function isFavFont(name) { return getFavFonts().indexOf(name) >= 0; }
+  function toggleFavFont(name) {
+    const a = getFavFonts(); const i = a.indexOf(name);
+    if (i >= 0) a.splice(i, 1); else a.unshift(name);
+    setFavFonts(a);
+  }
+  // Which text element the Text-panel font browser is currently editing, and a
+  // cheap signature so fullRender doesn't rebuild the (long) list every frame.
+  let _fontTargetId = null;
+  let _fbSig = "";
+
   // ---------- DOM refs ----------
   const $ = (id) => document.getElementById(id);
   const stageEl = $("ed-stage");
@@ -1230,6 +1252,9 @@
     if (!inline) {
       trigger.addEventListener("click", function (e) {
         e.stopPropagation();
+        // When a host supplies onOpen (the toolbar does, to open the full Text
+        // side panel instead of this small popover), defer to it.
+        if (typeof opts.onOpen === "function") { opts.onOpen(); return; }
         pop.hidden ? open() : close();
       });
       // Close on outside click / page-level scroll / resize / Escape.
@@ -1689,6 +1714,9 @@
     // here (one DOM toggle per render) and means we never have to
     // remember to call it from anywhere else.
     syncBgPane();
+    // Keep the Text-panel font browser current (signature-guarded so this is a
+    // no-op during drags and only rebuilds when font/weight/favourites change).
+    if (typeof maybeRefreshFontBrowser === "function") maybeRefreshFontBrowser();
   }
 
   // Keep the Background pane in sync with state: image preview, which controls
@@ -4365,7 +4393,7 @@
       const g1 = group();
       g1.appendChild(createFontPicker(el.font, function (name) {
         el.font = name; fullRender(); pushHistory();
-      }));
+      }, { onOpen: function () { openFontPanel(el); } }));
       g1.appendChild(createSizeControl(el.size, function (v) { el.size = v; fullRender(); pushHistory(); }));
       // Colour — sits next to size now (opens the rich solid/gradient panel).
       g1.appendChild(colorSwatchButton(
@@ -4378,21 +4406,25 @@
         }
       ));
       // Font weight — quick-pick the named weights (Extra light → Extra bold).
-      const weightSel = document.createElement("select");
-      weightSel.title = "Font weight";
-      weightSel.style.cssText = "height:30px;border:1px solid rgba(28,29,34,0.18);border-radius:7px;background:#fff;color:var(--ink,#1c1d22);font-family:inherit;font-size:12px;padding:0 8px;cursor:pointer;";
-      [[200, "Extra light"], [300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semi-bold"], [700, "Bold"], [800, "Extra bold"]].forEach(function (wl) {
-        const o = document.createElement("option");
-        o.value = wl[0]; o.textContent = wl[1];
-        if ((el.weight || 400) == wl[0]) o.selected = true;
-        weightSel.appendChild(o);
-      });
-      weightSel.addEventListener("change", function () {
-        el.weight = parseInt(weightSel.value, 10);
-        loadGoogleFont(el.font);
-        fullRender(); pushHistory();
-      });
-      g1.appendChild(weightSel);
+      // Once the user has favourited a font (brand kit), weight moves into the
+      // Text panel and we drop this select to keep the toolbar compact.
+      if (!getFavFonts().length) {
+        const weightSel = document.createElement("select");
+        weightSel.title = "Font weight";
+        weightSel.style.cssText = "height:30px;border:1px solid rgba(28,29,34,0.18);border-radius:7px;background:#fff;color:var(--ink,#1c1d22);font-family:inherit;font-size:12px;padding:0 8px;cursor:pointer;";
+        [[200, "Extra light"], [300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semi-bold"], [700, "Bold"], [800, "Extra bold"]].forEach(function (wl) {
+          const o = document.createElement("option");
+          o.value = wl[0]; o.textContent = wl[1];
+          if ((el.weight || 400) == wl[0]) o.selected = true;
+          weightSel.appendChild(o);
+        });
+        weightSel.addEventListener("change", function () {
+          el.weight = parseInt(weightSel.value, 10);
+          loadGoogleFont(el.font);
+          fullRender(); pushHistory();
+        });
+        g1.appendChild(weightSel);
+      }
       ctxEl.appendChild(g1);
 
       // B I U — Bold toggles the weight (Ctrl+B does the same).
@@ -4977,6 +5009,7 @@
       const tool = btn.dataset.tool;
       activeToolPane = tool;
       showPane(tool);
+      if (tool === "text") renderFontBrowser();
     });
   });
 
@@ -4994,6 +5027,144 @@
     canvasEl.addEventListener("dblclick", function (ev) {
       if (ev.target === canvasEl) openTool("background");
     });
+  }
+
+  // ---------- Text-panel font browser ----------
+  // The toolbar's font name opens the Text side panel, which hosts a full
+  // browser: search, your starred "brand fonts", every font, and a weight
+  // picker for the selected text. Starring a font saves it to the brand kit.
+  const FB_WEIGHTS = [[300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semibold"], [700, "Bold"], [800, "Extra bold"]];
+  const FB_STAR_ON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="12,3 15,9.5 22,10.3 17,15 18.3,22 12,18.5 5.7,22 7,15 2,10.3 9,9.5"/></svg>';
+  const FB_STAR_OFF = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><polygon points="12,3 15,9.5 22,10.3 17,15 18.3,22 12,18.5 5.7,22 7,15 2,10.3 9,9.5"/></svg>';
+
+  // The text element the browser applies to: the selected text if any, else the
+  // element the panel was opened for.
+  function fontTextTarget() {
+    const sel = selectedElements().filter((e) => e.type === "text");
+    if (sel.length) return sel[0];
+    const t = _fontTargetId && getEl(_fontTargetId);
+    return (t && t.type === "text") ? t : null;
+  }
+  function fbSignature() {
+    const el = fontTextTarget();
+    return (el ? el.font + "|" + (el.weight || 400) : "none") + "|" + getFavFonts().join(",");
+  }
+
+  function renderFontBrowser() {
+    const mount = document.getElementById("ed-font-browser");
+    if (!mount || activeToolPane !== "text") return;
+    _fbSig = fbSignature();
+    const el = fontTextTarget();
+    mount.innerHTML = "";
+
+    const search = document.createElement("input");
+    search.type = "search"; search.className = "ed-fb-search"; search.placeholder = "Search fonts…";
+    mount.appendChild(search);
+
+    const hint = document.createElement("p");
+    hint.className = "ed-fb-hint";
+    hint.textContent = el ? "Applying to the selected text layer." : "Select a text layer to change its font.";
+    mount.appendChild(hint);
+
+    if (el) {
+      const wsec = document.createElement("div"); wsec.className = "ed-fb-weights";
+      const wt = document.createElement("div"); wt.className = "ed-fb-title"; wt.textContent = "Weight";
+      wsec.appendChild(wt);
+      const chips = document.createElement("div"); chips.className = "ed-fb-chips";
+      FB_WEIGHTS.forEach(function (w) {
+        const c = document.createElement("button");
+        c.type = "button";
+        c.className = "ed-fb-chip" + ((el.weight || 400) == w[0] ? " is-on" : "");
+        c.textContent = w[1]; c.style.fontWeight = w[0];
+        c.addEventListener("click", function () {
+          el.weight = w[0]; loadGoogleFont(el.font); fullRender(); pushHistory();
+        });
+        chips.appendChild(c);
+      });
+      wsec.appendChild(chips);
+      mount.appendChild(wsec);
+    }
+
+    const listWrap = document.createElement("div");
+    listWrap.className = "ed-fb-list";
+    mount.appendChild(listWrap);
+
+    function rowFor(f, preview) {
+      const row = document.createElement("div");
+      row.className = "ed-fb-row" + (el && f.name === el.font ? " is-current" : "");
+      const name = document.createElement("button");
+      name.type = "button"; name.className = "ed-fb-name"; name.textContent = f.name;
+      if (preview) { name.style.fontFamily = f.stack; loadGoogleFont(f.name); }
+      name.addEventListener("click", function () {
+        if (!el) { toast("Select a text layer first"); return; }
+        loadGoogleFont(f.name); el.font = f.name; fullRender(); pushHistory();
+      });
+      const star = document.createElement("button");
+      star.type = "button";
+      const on = isFavFont(f.name);
+      star.className = "ed-fb-star" + (on ? " is-on" : "");
+      star.innerHTML = on ? FB_STAR_ON : FB_STAR_OFF;
+      star.title = on ? "Remove from brand kit" : "Save to brand kit";
+      star.addEventListener("click", function (e) {
+        e.stopPropagation();
+        toggleFavFont(f.name);
+        renderFontBrowser();   // refresh stars + the favourites section
+        renderContextBar();    // toolbar weight <select> appears/disappears
+      });
+      row.appendChild(name); row.appendChild(star);
+      return row;
+    }
+
+    function build(query) {
+      listWrap.innerHTML = "";
+      const q = (query || "").trim().toLowerCase();
+      const favs = getFavFonts();
+      if (favs.length && !q) {
+        const t = document.createElement("div"); t.className = "ed-fb-title"; t.textContent = "Your brand fonts";
+        listWrap.appendChild(t);
+        favs.forEach(function (nm) {
+          const f = FONTS.find(function (x) { return x.name === nm; }) || { name: nm, stack: '"' + nm + '", sans-serif' };
+          listWrap.appendChild(rowFor(f, true)); // few favourites — safe to preview in-face
+        });
+        const t2 = document.createElement("div"); t2.className = "ed-fb-title"; t2.textContent = "All fonts";
+        listWrap.appendChild(t2);
+      }
+      let n = 0;
+      FONTS.forEach(function (f) {
+        if (q && f.name.toLowerCase().indexOf(q) === -1) return;
+        listWrap.appendChild(rowFor(f, false)); // names in UI font — avoids loading 100s of webfonts
+        n++;
+      });
+      if (!n) {
+        const e = document.createElement("div"); e.className = "ed-fb-empty";
+        e.textContent = 'No fonts matching "' + q + '".';
+        listWrap.appendChild(e);
+      }
+    }
+    build("");
+    search.addEventListener("input", function () { build(search.value); });
+  }
+
+  // Cheap refresh from fullRender: only rebuild when the target/font/weight/
+  // favourites actually changed, so dragging an element doesn't rebuild the list.
+  function maybeRefreshFontBrowser() {
+    if (activeToolPane !== "text") return;
+    const mount = document.getElementById("ed-font-browser");
+    if (!mount) return;
+    if (fbSignature() === _fbSig && mount.firstChild) return;
+    renderFontBrowser();
+  }
+
+  // Open the Text panel focused on a text element's font (from the toolbar).
+  // Keeps the element selected so the context bar + canvas highlight stay put.
+  function openFontPanel(el) {
+    _fontTargetId = el ? el.id : null;
+    activeToolPane = "text";
+    document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "text"));
+    showPane("text");
+    renderFontBrowser();
+    const m = document.getElementById("ed-font-browser");
+    if (m && m.scrollIntoView) m.scrollIntoView({ block: "nearest" });
   }
 
   // ---------- Shapes / text / bg / swatches bindings ----------
