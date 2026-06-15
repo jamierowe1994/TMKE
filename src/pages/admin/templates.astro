@@ -25,6 +25,14 @@ import { templates as defaultLibrary } from "../../data/library.js";
   </section>
   </div>
 
+  <!-- Bulk action bar — appears when one or more templates are ticked. -->
+  <div class="tpl-bulkbar" id="tpl-bulkbar" hidden>
+    <span class="tpl-bulk-count" id="tpl-bulk-count">0 selected</span>
+    <button type="button" class="admin-btn admin-btn-ghost" id="tpl-bulk-archive">Archive</button>
+    <button type="button" class="admin-btn admin-btn-danger" id="tpl-bulk-delete">Delete selected</button>
+    <button type="button" class="admin-btn admin-btn-ghost" id="tpl-bulk-cancel">Cancel</button>
+  </div>
+
   <!-- Hidden bootstrap blob — read by the JS below. Keeps the script tag tidy. -->
   <script id="tpl-default-library" type="application/json" set:html={JSON.stringify(defaultLibrary)}></script>
 
@@ -123,17 +131,49 @@ import { templates as defaultLibrary } from "../../data/library.js";
     @media (max-width: 560px)  { .tpl-grid { grid-template-columns: 1fr; } }
 
     .tpl-card {
+      position: relative;
       display: flex;
       flex-direction: column;
       border: 1px solid rgba(55, 30, 40, 0.3);
       border-radius: 2px;
       background: rgba(255, 255, 255, 0.5);
       overflow: hidden;
-      transition: border-color 0.2s, transform 0.3s;
+      transition: border-color 0.2s, transform 0.3s, box-shadow 0.2s;
     }
     .tpl-card:hover { border-color: rgba(55, 30, 40,0.6); transform: translateY(-2px); }
     .tpl-card.is-draft { border-style: dashed; opacity: 0.85; }
     .tpl-card.is-archived { opacity: 0.5; }
+    .tpl-card.is-selected { border-color: var(--english-violet); box-shadow: 0 0 0 2px var(--english-violet); }
+
+    /* Bulk-select checkbox — top-left of each card. */
+    .tpl-check { position: absolute; top: 8px; left: 8px; z-index: 4; cursor: pointer; }
+    .tpl-check input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .tpl-check-box {
+      position: relative; display: block; width: 22px; height: 22px; border-radius: 5px;
+      background: rgba(255,255,255,0.92); border: 1px solid rgba(28,29,34,0.3);
+      box-shadow: 0 1px 4px rgba(20,18,26,0.25); transition: background 0.15s, border-color 0.15s;
+    }
+    .tpl-check input:checked + .tpl-check-box { background: var(--english-violet); border-color: var(--english-violet); }
+    .tpl-check input:checked + .tpl-check-box::after {
+      content: ""; position: absolute; left: 7px; top: 3px; width: 5px; height: 10px;
+      border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+    }
+
+    /* Bulk action bar — floats at the bottom centre when items are selected. */
+    .tpl-bulkbar {
+      position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+      z-index: 60; display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 12px;
+      background: rgba(28,29,34,0.94); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      box-shadow: 0 16px 40px -16px rgba(0,0,0,0.5);
+    }
+    .tpl-bulkbar[hidden] { display: none; }
+    .tpl-bulk-count { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #fff; padding-right: 4px; }
+    .tpl-bulkbar .admin-btn { padding: 8px 12px; }
+    .tpl-bulkbar .admin-btn-ghost { color: #fff; border-color: rgba(255,255,255,0.35); background: transparent; }
+    .tpl-bulkbar .admin-btn-ghost:hover { background: rgba(255,255,255,0.12); }
+    .tpl-bulkbar .admin-btn-danger { background: #c0392b; color: #fff; border-color: #c0392b; }
+    .tpl-bulkbar .admin-btn-danger:hover { background: #8f2a1f; border-color: #8f2a1f; }
     .tpl-card-link {
       display: block;
       text-decoration: none;
@@ -154,7 +194,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
     .tpl-status {
       position: absolute;
       top: 10px;
-      left: 10px;
+      right: 10px;
       padding: 3px 9px;
       background: rgba(28,29,34,0.78);
       color: var(--paper);
@@ -313,6 +353,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
         : `<span class="tpl-status is-${t.status}">${t.status}</span>`;
       return `
         <article class="tpl-card is-${t.status}" data-id="${escapeHtml(t.id)}">
+          <label class="tpl-check" title="Select template"><input type="checkbox" data-select="${escapeHtml(t.id)}" /><span class="tpl-check-box"></span></label>
           <a class="tpl-card-link" href="/editor?id=${encodeURIComponent(t.id)}&mode=admin">
             <div class="tpl-thumb" style="aspect-ratio:${arW}/${arH}">${renderPreview(t)}${statusBadge}</div>
             <div class="tpl-body">
@@ -486,6 +527,61 @@ import { templates as defaultLibrary } from "../../data/library.js";
       const rest = t.getAttribute('data-restore');
       if (arch) { archiveTemplate(arch); return; }
       if (rest) { restoreTemplate(rest); return; }
+    });
+
+    // ---- Bulk select + actions ----
+    const selected = new Set();
+    const bulkBar = document.getElementById('tpl-bulkbar');
+    const bulkCount = document.getElementById('tpl-bulk-count');
+
+    function updateBulkBar() {
+      const n = selected.size;
+      if (bulkBar) bulkBar.hidden = n === 0;
+      if (bulkCount) bulkCount.textContent = n + (n === 1 ? ' selected' : ' selected');
+    }
+    function clearSelection() {
+      selected.clear();
+      els.grid.querySelectorAll('[data-select]').forEach((c) => { c.checked = false; });
+      els.grid.querySelectorAll('.tpl-card.is-selected').forEach((c) => c.classList.remove('is-selected'));
+      updateBulkBar();
+    }
+
+    // Ticking a card's checkbox selects it (the box sits outside the edit link).
+    els.grid.addEventListener('change', (e) => {
+      const cb = e.target;
+      if (!(cb instanceof HTMLInputElement) || !cb.hasAttribute('data-select')) return;
+      const id = cb.getAttribute('data-select');
+      const card = cb.closest('.tpl-card');
+      if (cb.checked) { selected.add(id); card && card.classList.add('is-selected'); }
+      else { selected.delete(id); card && card.classList.remove('is-selected'); }
+      updateBulkBar();
+    });
+
+    document.getElementById('tpl-bulk-cancel')?.addEventListener('click', clearSelection);
+
+    document.getElementById('tpl-bulk-delete')?.addEventListener('click', async () => {
+      const ids = [...selected];
+      if (!ids.length) return;
+      if (!confirm(`Delete ${ids.length} template${ids.length > 1 ? 's' : ''}? This can't be undone.`)) return;
+      const btn = document.getElementById('tpl-bulk-delete');
+      btn.setAttribute('disabled', 'true'); btn.textContent = 'Deleting…';
+      const { error } = await supabase.from('templates').delete().in('id', ids);
+      btn.removeAttribute('disabled'); btn.textContent = 'Delete selected';
+      if (error) { alert(`Bulk delete failed: ${error.message}`); return; }
+      clearSelection();
+      await loadTemplates();
+    });
+
+    document.getElementById('tpl-bulk-archive')?.addEventListener('click', async () => {
+      const ids = [...selected];
+      if (!ids.length) return;
+      const btn = document.getElementById('tpl-bulk-archive');
+      btn.setAttribute('disabled', 'true'); btn.textContent = 'Archiving…';
+      const { error } = await supabase.from('templates').update({ status: 'archived' }).in('id', ids);
+      btn.removeAttribute('disabled'); btn.textContent = 'Archive';
+      if (error) { alert(`Bulk archive failed: ${error.message}`); return; }
+      clearSelection();
+      await loadTemplates();
     });
   </script>
 </AdminShell>

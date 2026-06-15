@@ -426,6 +426,9 @@
     "#1c1d22", "#474254", "#B9826A", "#DFDCDE", "#F2EFE9", "#BCB3B9", "#333747",
   ];
   const CP_DEFAULT_GRADS = [
+    { from: "#1c1d22", to: "transparent", angle: 180 },
+    { from: "#371e28", to: "transparent", angle: 180 },
+    { from: "#B9826A", to: "transparent", angle: 180 },
     { from: "#1c1d22", to: "#474254", angle: 135 },
     { from: "#B9826A", to: "#F2EFE9", angle: 135 },
     { from: "#5B6BF0", to: "#16C0C8", angle: 135 },
@@ -1623,12 +1626,14 @@
     node.style.opacity = el.opacity != null ? el.opacity : 1;
 
     if (el.type === "rect" || el.type === "ellipse") {
-      node.style.background = el.fill || "transparent";
+      const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
+      node.style.background = grad || el.fill || "transparent";
       node.style.borderRadius = (el.type === "ellipse" ? "50%" : (el.radius || 0) + "px");
       node.style.border = (el.strokeWidth ? `${el.strokeWidth}px solid ${el.stroke || "transparent"}` : "none");
     }
     if (el.type === "line") {
-      node.style.background = el.fill || "#000";
+      const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
+      node.style.background = grad || el.fill || "#000";
     }
 
     // Shadow / glow — applied as a CSS filter so it follows alpha and clip-paths.
@@ -2884,7 +2889,7 @@
   }
 
   async function save() {
-    if (!state.templateId) return;
+    if (!state.templateId) { toast("Open a template to save into"); return false; }
     const thumb = await _renderThumbDataUrl();
     const payload = {
       templateId: state.templateId,
@@ -2901,18 +2906,18 @@
     if (typeof window.__TMKE_ADMIN_SAVE__ === "function") {
       try {
         const ok = await window.__TMKE_ADMIN_SAVE__(payload);
-        if (ok) { toast("Template saved"); return; }
-        toast("Save failed");
-        return;
+        toast(ok ? "Template saved" : "Save failed");
+        return !!ok;
       } catch (e) {
         toast("Save failed");
-        return;
+        return false;
       }
     }
     try {
       localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify(payload));
       toast("Design saved");
-    } catch (e) { toast("Save failed"); }
+      return true;
+    } catch (e) { toast("Save failed"); return false; }
   }
 
   // ---------- Export ----------
@@ -2987,7 +2992,7 @@
       } else if (el.type === "frame") {
         await drawFrameToCanvas(ctx, el);
       } else if (el.type === "rect") {
-        ctx.fillStyle = el.fill || "transparent";
+        ctx.fillStyle = shapeCanvasFill(ctx, el);
         if (el.radius) roundedRect(ctx, 0, 0, el.w, el.h, el.radius);
         else ctx.fillRect(0, 0, el.w, el.h);
         ctx.fill();
@@ -2997,12 +3002,12 @@
           ctx.stroke();
         }
       } else if (el.type === "ellipse") {
-        ctx.fillStyle = el.fill;
+        ctx.fillStyle = shapeCanvasFill(ctx, el);
         ctx.beginPath();
         ctx.ellipse(el.w / 2, el.h / 2, el.w / 2, el.h / 2, 0, 0, Math.PI * 2);
         ctx.fill();
       } else if (el.type === "triangle") {
-        ctx.fillStyle = el.fill;
+        ctx.fillStyle = shapeCanvasFill(ctx, el);
         ctx.beginPath();
         ctx.moveTo(el.w / 2, 0);
         ctx.lineTo(el.w, el.h);
@@ -3631,6 +3636,28 @@
     return "linear-gradient(" + angle + "deg, " + from + ", " + to + ")";
   }
 
+  // Canvas fill for a shape on export — a gradient (incl. fade-to-transparent)
+  // when el.fillGradient is enabled, else the solid el.fill. Mirrors the text
+  // gradient maths so the export matches the live canvas.
+  function shapeCanvasFill(ctx, el) {
+    const grad = el.fillGradient;
+    if (!grad || !grad.enabled) return el.fill || "transparent";
+    if (grad.type === "radial") {
+      const g = ctx.createRadialGradient(el.w / 2, el.h / 2, 0, el.w / 2, el.h / 2, Math.max(el.w, el.h) / 2);
+      g.addColorStop(0, grad.from || "#B9826A");
+      g.addColorStop(1, grad.to || "transparent");
+      return g;
+    }
+    const a = (grad.angle != null ? grad.angle : 90) * Math.PI / 180;
+    const g = ctx.createLinearGradient(
+      el.w / 2 - Math.cos(a) * el.w / 2, el.h / 2 - Math.sin(a) * el.h / 2,
+      el.w / 2 + Math.cos(a) * el.w / 2, el.h / 2 + Math.sin(a) * el.h / 2
+    );
+    g.addColorStop(0, grad.from || "#1c1d22");
+    g.addColorStop(1, grad.to || "transparent");
+    return g;
+  }
+
   // ---------- Merge tags ({brand name}, {company}, etc.) ----------
   // Tokens are matched case-insensitively in either {brace} or (paren) form.
   // We only substitute known keys, so legitimate parenthetical text in
@@ -3972,7 +3999,11 @@
       const g = group();
       g.appendChild(colorSwatchButton(
         function () { return el.fill; },
-        { title: "Fill", onSolid: function (hex) { el.fill = hex; } }
+        {
+          title: "Fill",
+          onSolid: function (hex) { el.fill = hex; el.fillGradient = null; },
+          onGradient: function (gr) { el.fillGradient = { enabled: true, type: gr.type || "linear", angle: gr.angle != null ? gr.angle : 135, from: gr.from, to: gr.to }; },
+        }
       ));
       ctxEl.appendChild(g);
 
@@ -4628,7 +4659,20 @@
   $("ed-zoom-out").addEventListener("click", () => setZoom(state.zoom - 0.1));
   $("ed-zoom-fit").addEventListener("click", fitZoom);
   zoomDisplayEl.addEventListener("click", () => setZoom(1));
-  $("ed-save").addEventListener("click", save);
+  $("ed-save").addEventListener("click", async function () {
+    const btn = $("ed-save");
+    const label = btn.innerHTML;
+    btn.disabled = true; btn.textContent = "Saving…";
+    let ok = false;
+    try { ok = await save(); } catch (_) { ok = false; }
+    btn.innerHTML = ok ? "✓ Saved" : "Save failed";
+    if (ok) { btn.style.background = "#2d6a44"; btn.style.color = "#fff"; btn.style.borderColor = "#2d6a44"; }
+    setTimeout(function () {
+      btn.innerHTML = label;
+      btn.style.background = ""; btn.style.color = ""; btn.style.borderColor = "";
+      btn.disabled = false;
+    }, 1600);
+  });
 
   // Crop — placeholder for the moment. The full drag-resize crop UI is
   // deferred; this just checks the user has an image selected so we can
