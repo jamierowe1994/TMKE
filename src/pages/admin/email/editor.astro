@@ -329,6 +329,10 @@ import "../../../styles/admin.css";
       faq: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
       countdown: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/>',
       reviewlink: '<path d="M11.5 3.5 14 8.5l5.5.8-4 3.9.9 5.5-4.9-2.6L6.6 18.7l.9-5.5-4-3.9 5.5-.8z"/>',
+      products: '<rect x="3" y="7" width="7" height="13" rx="1"/><rect x="14" y="7" width="7" height="13" rx="1"/><path d="M3 7l2-3h14l2 3"/>',
+      services: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+      slider: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 14l4-4 4 4 3-3 4 4"/><circle cx="8" cy="9" r="1"/>',
+      form: '<rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><rect x="8" y="16" width="6" height="2" rx="1"/>',
       code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
     };
     const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">${p}</svg>`;
@@ -541,6 +545,44 @@ import "../../../styles/admin.css";
             <label class="eb-f"><span>Button URL</span><input type="url" data-col="${i}.btnUrl" value="${esc(c.btnUrl||"")}" /></label></div>`).join("");
           return sel + cellForms + `<p class="eb-note">Great for feature rows, product or service grids. Columns stack on very small screens.</p>`;
         }
+        case "products": {
+          if(!Array.isArray(b.items)) b.items=[];
+          const colSel = `<label class="eb-f"><span>Columns</span><select data-field="columns">${opts(["1","2","3","4"],String(b.columns||2))}</select></label>`;
+          const rows = b.items.map((it,i)=>`<div style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;"><strong style="font-size:12px;color:var(--english-violet);">Item ${i+1}</strong>
+            <label class="eb-f"><span>Title</span><input type="text" data-item="${i}.title" value="${esc(it.title||"")}" /></label>
+            <label class="eb-f"><span>Price</span><input type="text" data-item="${i}.price" value="${esc(it.price||"")}" placeholder="£49" /></label>
+            <label class="eb-f"><span>Image URL</span><input type="url" data-item="${i}.image" value="${esc(it.image||"")}" /></label>
+            <label class="eb-f"><span>Link URL</span><input type="url" data-item="${i}.url" value="${esc(it.url||"")}" /></label>
+            <label class="eb-f"><span>Button text</span><input type="text" data-item="${i}.cta" value="${esc(it.cta||"")}" /></label>
+            <button type="button" class="eb-mini-btn" data-item-del="${i}">Remove</button></div>`).join("");
+          return colSel + rows + `<button type="button" class="eb-mini-btn" id="eb-pack-load">Add from packs</button> <button type="button" class="eb-mini-btn" data-item-add>+ Blank item</button>`;
+        }
+        case "services": {
+          if(!Array.isArray(b.items)) b.items=[];
+          const colSel = `<label class="eb-f"><span>Columns</span><select data-field="columns">${opts(["1","2","3","4"],String(b.columns||3))}</select></label>`;
+          const rows = b.items.map((it,i)=>`<div style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;"><strong style="font-size:12px;color:var(--english-violet);">Service ${i+1}</strong>
+            <label class="eb-f"><span>Title</span><input type="text" data-item="${i}.title" value="${esc(it.title||"")}" /></label>
+            <label class="eb-f"><span>Text</span><textarea data-item="${i}.text" rows="2">${esc(it.text||"")}</textarea></label>
+            <label class="eb-f"><span>Button text</span><input type="text" data-item="${i}.btnText" value="${esc(it.btnText||"")}" /></label>
+            <label class="eb-f"><span>Button URL</span><input type="url" data-item="${i}.btnUrl" value="${esc(it.btnUrl||"")}" /></label>
+            <button type="button" class="eb-mini-btn" data-item-del="${i}">Remove</button></div>`).join("");
+          return colSel + rows + `<button type="button" class="eb-mini-btn" data-item-add>+ Add service</button>`;
+        }
+        case "slider": {
+          if(!Array.isArray(b.images)) b.images=[];
+          const colSel = `<label class="eb-f"><span>Across</span><select data-field="columns">${opts(["2","3","4"],String(b.columns||3))}</select></label>`;
+          const rows = b.images.map((u,i)=>`<div class="eb-f" style="flex-direction:row;gap:6px;align-items:center;"><input type="url" data-img="${i}" value="${esc(u||"")}" placeholder="https://…/image.jpg" style="flex:1;" /><button type="button" class="eb-mini-btn" data-img-del="${i}">×</button></div>`).join("");
+          return colSel + rows + `<button type="button" class="eb-mini-btn" id="eb-img-add">+ Add image</button><p class="eb-note">A static gallery row — email can't auto-slide, so images sit side by side.</p>`;
+        }
+        case "form": {
+          const fields = Array.isArray(b.fields)?b.fields.join("\n"):"";
+          return `<label class="eb-f"><span>Heading</span><input type="text" data-field="heading" value="${esc(b.heading||"")}" /></label>
+            <label class="eb-f"><span>Intro</span><textarea data-field="intro" rows="2">${esc(b.intro||"")}</textarea></label>
+            <label class="eb-f"><span>Fields (one per line)</span><textarea data-formfields rows="4">${esc(fields)}</textarea></label>
+            <label class="eb-f"><span>Button text</span><input type="text" data-field="btnText" value="${esc(b.btnText||"")}" /></label>
+            <label class="eb-f"><span>Form URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
+            <p class="eb-note">Email can't host a live form, so this links to a hosted form page. The fields are a preview of what it asks.</p>`;
+        }
         default: return "";
       }
     }
@@ -580,6 +622,37 @@ import "../../../styles/admin.css";
             b.cells[ix] = b.cells[ix] || {}; b.cells[ix][k] = inp.value; renderCanvas();
           });
         });
+      }
+      // Products / Services — repeatable items.
+      if (b.type === "products" || b.type === "services") {
+        if (!Array.isArray(b.items)) b.items = [];
+        wrap.querySelectorAll("[data-item]").forEach((inp)=>{
+          inp.addEventListener("input", ()=>{ const [i,k]=inp.dataset.item.split("."); const ix=Number(i); b.items[ix]=b.items[ix]||{}; b.items[ix][k]=inp.value; renderCanvas(); });
+        });
+        wrap.querySelectorAll("[data-item-del]").forEach((btn)=>btn.addEventListener("click", ()=>{ b.items.splice(Number(btn.dataset.itemDel),1); renderCanvas(); openInspector(bid); }));
+        wrap.querySelector("[data-item-add]")?.addEventListener("click", ()=>{ b.items.push(b.type==="products"?{title:"",price:"",image:"",url:"",cta:"View"}:{title:"",text:"",btnText:"",btnUrl:""}); renderCanvas(); openInspector(bid); });
+        // Products: pull straight from the packs catalogue.
+        wrap.querySelector("#eb-pack-load")?.addEventListener("click", async ()=>{
+          try {
+            const { data } = await supabase.from("packs").select("*").limit(12);
+            (data||[]).forEach((p)=>{
+              const price = p.price_label || (p.price_pence!=null?("£"+(p.price_pence/100)):"") || (p.price!=null?("£"+p.price):"");
+              b.items.push({ title: p.title||p.name||"Pack", price, image: p.cover_url||p.image_url||p.thumb_url||p.cover||"", url: "https://tmke.co.uk/account", cta: "View pack" });
+            });
+            renderCanvas(); openInspector(bid);
+          } catch(_) { alert("Couldn't load packs."); }
+        });
+      }
+      // Image gallery — repeatable URLs.
+      if (b.type === "slider") {
+        if (!Array.isArray(b.images)) b.images = [];
+        wrap.querySelectorAll("[data-img]").forEach((inp)=>{ inp.addEventListener("input", ()=>{ b.images[Number(inp.dataset.img)]=inp.value; renderCanvas(); }); });
+        wrap.querySelectorAll("[data-img-del]").forEach((btn)=>btn.addEventListener("click", ()=>{ b.images.splice(Number(btn.dataset.imgDel),1); renderCanvas(); openInspector(bid); }));
+        wrap.querySelector("#eb-img-add")?.addEventListener("click", ()=>{ b.images.push(""); renderCanvas(); openInspector(bid); });
+      }
+      // Form — fields textarea (one per line) → array.
+      if (b.type === "form") {
+        wrap.querySelector("[data-formfields]")?.addEventListener("input", (e)=>{ b.fields = e.target.value.split("\n").map(s=>s.trim()).filter(Boolean); renderCanvas(); });
       }
       $("#eb-rail-blocks").hidden = true; $("#eb-rail-inspector").hidden = false;
     }

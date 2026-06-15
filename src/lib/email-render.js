@@ -126,6 +126,10 @@ export const BLOCK_TYPES = [
   { type: 'faq', label: 'FAQ', hint: 'Question & answer list' },
   { type: 'countdown', label: 'Countdown', hint: 'An offer / deadline date' },
   { type: 'reviewlink', label: 'Review link', hint: 'Ask for a review' },
+  { type: 'products', label: 'Products', hint: 'A grid of packs' },
+  { type: 'services', label: 'Services', hint: 'What you offer' },
+  { type: 'slider', label: 'Image gallery', hint: 'A row of images' },
+  { type: 'form', label: 'Form', hint: 'A prompt + button to a form' },
   { type: 'code', label: 'Custom HTML', hint: 'Paste your own HTML' },
 ];
 
@@ -186,6 +190,20 @@ export function makeBlock(type) {
       return { type, id, label: 'Offer ends', deadline: '', align: 'center' };
     case 'reviewlink':
       return { type, id, text: 'Leave us a review', url: '', align: 'center', prompt: 'Enjoyed working with us?' };
+    case 'products':
+      return { type, id, columns: 2, items: [
+        { title: 'A pack', price: '£49', image: '', url: 'https://tmke.co.uk/account', cta: 'View pack' },
+      ] };
+    case 'services':
+      return { type, id, columns: 3, items: [
+        { title: 'The Studio', text: 'On-brand templates, yours in minutes.', btnText: 'Explore', btnUrl: 'https://tmke.co.uk/editor' },
+        { title: 'Videography', text: 'Property & agent video, done for you.', btnText: 'See more', btnUrl: 'https://tmke.co.uk/videography' },
+        { title: 'Managed socials', text: 'We run the channel end to end.', btnText: 'Learn more', btnUrl: 'https://tmke.co.uk/account/services' },
+      ] };
+    case 'slider':
+      return { type, id, columns: 3, images: [] };
+    case 'form':
+      return { type, id, heading: 'Tell us what you need', intro: 'A couple of quick questions and we\'ll be in touch.', fields: ['Name', 'Email', 'What are you after?'], btnText: 'Open the form', url: 'https://tmke.co.uk/contact' };
     case 'code':
       return { type, id, html: '<!-- Paste your own email-safe HTML here -->' };
     default:
@@ -397,6 +415,65 @@ function renderCell(c, brand, ctx) {
   return h || '<div style="min-height:36px;"></div>';
 }
 
+// Email-safe responsive-ish grid: rows of `cols`, each cell rendered by cellFn.
+function cardGrid(items, cols, cellFn) {
+  const n = Math.min(Math.max(Number(cols) || 2, 1), 4);
+  const w = (100 / n).toFixed(3);
+  let rows = '';
+  for (let i = 0; i < items.length; i += n) {
+    const slice = items.slice(i, i + n);
+    const tds = slice.map((it, j) => {
+      const pad = n === 1 ? '0 0 16px' : `0 ${j < slice.length - 1 ? 8 : 0}px 16px ${j > 0 ? 8 : 0}px`;
+      return `<td valign="top" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:top;font-family:Helvetica,Arial,sans-serif;">${cellFn(it)}</td>`;
+    }).join('');
+    const padCells = Array.from({ length: n - slice.length }, () => `<td width="${w}%" style="width:${w}%;"></td>`).join('');
+    rows += `<tr>${tds}${padCells}</tr>`;
+  }
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">${rows}</table>`;
+}
+
+function renderProducts(block, brand, ctx) {
+  const items = (Array.isArray(block.items) ? block.items : []).filter((it) => it && (it.title || it.image));
+  if (!items.length) return '';
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  return cardGrid(items, block.columns || 2, (it) => {
+    let h = '';
+    if (it.image) h += `<img src="${escapeHtml(it.image)}" alt="${escapeHtml(it.title || '')}" style="max-width:100%;border-radius:8px;display:block;border:0;margin:0 0 8px;" />`;
+    if (it.title) h += `<p style="margin:0 0 2px;font-size:15px;font-weight:700;color:#1c1d22;">${renderTokens(escapeHtml(it.title), ctx)}</p>`;
+    if (it.price) h += `<p style="margin:0 0 8px;font-size:14px;color:${escapeHtml(accent)};font-weight:600;">${escapeHtml(it.price)}</p>`;
+    h += `<a href="${escapeHtml(it.url || '#')}" style="display:inline-block;padding:7px 14px;background:${escapeHtml(accent)};color:#fff;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">${escapeHtml(it.cta || 'View')}</a>`;
+    return h;
+  });
+}
+
+function renderServices(block, brand, ctx) {
+  const items = (Array.isArray(block.items) ? block.items : []).filter((it) => it && (it.title || it.text));
+  if (!items.length) return '';
+  return cardGrid(items, block.columns || 3, (it) => renderCell({ title: it.title, text: it.text, btnText: it.btnText, btnUrl: it.btnUrl }, brand, ctx));
+}
+
+function renderSlider(block) {
+  const images = (Array.isArray(block.images) ? block.images : []).filter(Boolean);
+  if (!images.length) return '';
+  return cardGrid(images.map((url) => ({ url })), block.columns || 3, (it) =>
+    `<img src="${escapeHtml(it.url)}" alt="" style="max-width:100%;border-radius:8px;display:block;border:0;" />`);
+}
+
+function renderForm(block, brand, ctx) {
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  const fields = (Array.isArray(block.fields) ? block.fields : []).filter(Boolean);
+  // Email clients strip real <form> posts, so this is a styled prompt that links
+  // out to a hosted form. The fields preview what the form will ask.
+  const fieldRows = fields.map((f) => `<div style="border:1px solid #E2E8F0;border-radius:6px;padding:9px 12px;margin:0 0 8px;color:#94a3b8;font-size:13px;">${escapeHtml(f)}</div>`).join('');
+  return `
+    <div style="border:1px solid #E2E8F0;border-radius:12px;padding:20px;font-family:Helvetica,Arial,sans-serif;">
+      ${block.heading ? `<p style="margin:0 0 4px;font-size:18px;font-weight:800;color:#1c1d22;">${renderTokens(escapeHtml(block.heading), ctx)}</p>` : ''}
+      ${block.intro ? `<p style="margin:0 0 14px;font-size:14px;line-height:1.55;color:#475569;">${renderTokens(escapeHtml(block.intro), ctx)}</p>` : ''}
+      ${fieldRows}
+      <a href="${escapeHtml(block.url || '#')}" style="display:inline-block;margin-top:6px;padding:11px 24px;background:${escapeHtml(accent)};color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">${escapeHtml(block.btnText || 'Open the form')}</a>
+    </div>`;
+}
+
 function renderColumns(block, brand, ctx) {
   const layout = (COLUMN_LAYOUTS.find((l) => l.key === block.layout)) || COLUMN_LAYOUTS[1];
   const widths = layout.w;
@@ -424,6 +501,10 @@ export function renderBlock(block, brand, ctx) {
     case 'faq': return renderFaq(block, ctx);
     case 'countdown': return renderCountdown(block);
     case 'reviewlink': return renderReviewLink(block, brand, ctx);
+    case 'products': return renderProducts(block, brand, ctx);
+    case 'services': return renderServices(block, brand, ctx);
+    case 'slider': return renderSlider(block);
+    case 'form': return renderForm(block, brand, ctx);
     case 'code': return renderCode(block, ctx);
     default: return '';
   }
