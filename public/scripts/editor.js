@@ -580,67 +580,100 @@
     { from: "#C98BD9", to: "#5B6BF0", angle: 135 },
   ];
 
-  // ---------- Custom gradient editor ----------
-  // A draft object the editor mutates as the user drags controls. Fields:
-  // { type:'linear'|'radial', angle, from, to, toTransparent, fromStop, toStop }.
+  // ---------- Custom gradient editor (Canva-style, multi-stop) ----------
+  // Draft: { type:'linear'|'radial', angle, stops:[{color,pos}], sel } where
+  // `sel` is the index of the stop currently being edited.
   function cpInitGradDraft(grad, currentSolid) {
     const g = grad || {};
-    const toVal = g.to || "transparent";
+    let stops;
+    if (Array.isArray(g.stops) && g.stops.length >= 2) {
+      stops = g.stops.map(function (s) {
+        const c = s.color === "transparent" ? "transparent" : (normHex(s.color) || "#371E28");
+        return { color: c, pos: s.pos != null ? s.pos : 0 };
+      });
+    } else {
+      const from = normHex(g.from) || normHex(currentSolid) || "#371E28";
+      const toVal = g.to || "transparent";
+      const to = toVal === "transparent" ? "transparent" : (normHex(toVal) || "#B9826A");
+      stops = [
+        { color: from, pos: g.fromStop != null ? g.fromStop : 0 },
+        { color: to, pos: g.toStop != null ? g.toStop : 100 },
+      ];
+    }
     return {
       type: g.type === "radial" ? "radial" : "linear",
       angle: g.angle != null ? g.angle : 135,
-      from: normHex(g.from) || normHex(currentSolid) || "#371E28",
-      to: normHex(toVal) || "#B9826A",
-      toTransparent: toVal === "transparent",
-      fromStop: g.fromStop != null ? g.fromStop : 0,
-      toStop: g.toStop != null ? g.toStop : 100,
+      stops: stops,
+      sel: 0,
     };
   }
-  // CSS string for the live preview swatch.
-  function cpGradCss(d) {
-    const from = d.from || "#371E28";
-    const to = d.toTransparent ? "transparent" : (d.to || "#B9826A");
-    const stops = from + " " + (d.fromStop || 0) + "%, " + to + " " + (d.toStop != null ? d.toStop : 100) + "%";
-    return d.type === "radial"
-      ? "radial-gradient(circle, " + stops + ")"
-      : "linear-gradient(" + (d.angle != null ? d.angle : 135) + "deg, " + stops + ")";
-  }
-  // Convert a draft into the gradient model the onGradient callback expects.
+  // CSS for the live preview swatch (shared builder).
+  function cpGradCss(d) { return gradCss(d); }
+  // Draft → gradient model the onGradient callback expects. We keep from/to in
+  // sync (first/last stop) so any 2-stop-only consumer still works.
   function cpDraftToGrad(d) {
+    const stops = (d.stops || []).slice().sort(function (a, b) { return a.pos - b.pos; })
+      .map(function (s) { return { color: s.color, pos: s.pos }; });
+    const first = stops[0] || { color: "#371E28", pos: 0 };
+    const last = stops[stops.length - 1] || { color: "#B9826A", pos: 100 };
     return {
       type: d.type || "linear",
       angle: d.angle != null ? d.angle : 135,
-      from: d.from,
-      to: d.toTransparent ? "transparent" : d.to,
-      fromStop: d.fromStop || 0,
-      toStop: d.toStop != null ? d.toStop : 100,
+      stops: stops,
+      from: first.color,
+      to: last.color,
+      fromStop: first.pos,
+      toStop: last.pos,
     };
   }
+  // Style presets (the "Style" thumbnails in the Canva reference).
+  const CPG_STYLES = [
+    { key: "h",   type: "linear", angle: 90,  label: "Horizontal" },
+    { key: "v",   type: "linear", angle: 180, label: "Vertical" },
+    { key: "d1",  type: "linear", angle: 135, label: "Diagonal" },
+    { key: "d2",  type: "linear", angle: 45,  label: "Diagonal (other way)" },
+    { key: "rad", type: "radial", angle: 135, label: "Radial" },
+  ];
+  const CPG_CHECKER = "repeating-conic-gradient(#cfcfcf 0% 25%, #fff 0% 50%) 50% / 9px 9px";
   // Markup for the editor block (rebuilt each open; bound via delegation).
   function cpGradEditorHtml(d) {
     const isLin = d.type !== "radial";
+    const sel = Math.max(0, Math.min(d.stops.length - 1, d.sel || 0));
+    const selStop = d.stops[sel] || d.stops[0];
+    const selFade = selStop.color === "transparent";
+    const swatches = d.stops.map(function (s, i) {
+      const bg = s.color === "transparent" ? CPG_CHECKER : s.color;
+      return '<button type="button" class="ed-cpg-stop' + (i === sel ? " is-sel" : "") +
+        '" data-stop="' + i + '" style="background:' + bg + '" title="' + s.color + '"></button>';
+    }).join("");
+    const styleBtns = CPG_STYLES.map(function (st) {
+      const on = st.type === d.type && (st.type === "radial" || st.angle === d.angle);
+      const prev = st.type === "radial"
+        ? "radial-gradient(circle, #8a8a8a, #e6e6e6)"
+        : "linear-gradient(" + st.angle + "deg, #8a8a8a, #e6e6e6)";
+      return '<button type="button" class="ed-cpg-style' + (on ? " is-on" : "") +
+        '" data-style="' + st.key + '" title="' + st.label + '" style="background:' + prev + '"></button>';
+    }).join("");
     return '<div class="ed-cpg">' +
-      '<div class="ed-cpg-preview" data-cpg="preview" style="background:' + cpGradCss(d) + '"></div>' +
-      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">From</span>' +
-        '<input type="color" class="ed-cpg-color" data-cpg="from" value="' + d.from + '">' +
-        '<input type="text" class="ed-cpg-hex" data-cpg="fromHex" value="' + d.from + '"></div>' +
-      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">To</span>' +
-        '<input type="color" class="ed-cpg-color" data-cpg="to" value="' + d.to + '"' + (d.toTransparent ? " disabled" : "") + '>' +
-        '<input type="text" class="ed-cpg-hex" data-cpg="toHex" value="' + (d.toTransparent ? "transparent" : d.to) + '"' + (d.toTransparent ? " disabled" : "") + '>' +
-        '<label class="ed-cpg-fade"><input type="checkbox" data-cpg="toTransparent"' + (d.toTransparent ? " checked" : "") + '>Fade</label></div>' +
-      '<div class="ed-cpg-seg" data-cpg="type">' +
-        '<button type="button" data-type="linear" class="' + (isLin ? "is-on" : "") + '">Linear</button>' +
-        '<button type="button" data-type="radial" class="' + (isLin ? "" : "is-on") + '">Radial</button></div>' +
+      '<div class="ed-cpg-preview" data-cpg="preview" style="background:' + gradCss(d) + '"></div>' +
+      '<div class="ed-cpg-sub">Gradient colours</div>' +
+      '<div class="ed-cpg-stops">' + swatches +
+        '<button type="button" class="ed-cpg-add" data-cpg="add" title="Add a colour">+</button>' +
+      '</div>' +
+      '<div class="ed-cpg-row">' +
+        '<input type="color" class="ed-cpg-color" data-cpg="selColor" value="' + (selFade ? "#cccccc" : selStop.color) + '"' + (selFade ? " disabled" : "") + '>' +
+        '<input type="text" class="ed-cpg-hex" data-cpg="selHex" value="' + (selFade ? "transparent" : selStop.color) + '">' +
+        '<label class="ed-cpg-fade"><input type="checkbox" data-cpg="selFade"' + (selFade ? " checked" : "") + '>Fade</label>' +
+        '<button type="button" class="ed-cpg-del" data-cpg="del"' + (d.stops.length <= 2 ? " disabled" : "") + ' title="Remove this colour">&times;</button>' +
+      '</div>' +
+      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">Position</span>' +
+        '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="selPos" value="' + (selStop.pos || 0) + '">' +
+        '<span class="ed-cpg-val" data-out="selPos">' + (selStop.pos || 0) + '%</span></div>' +
+      '<div class="ed-cpg-sub">Style</div>' +
+      '<div class="ed-cpg-styles">' + styleBtns + '</div>' +
       '<div class="ed-cpg-row' + (isLin ? "" : " is-hidden") + '" data-cpg="angleRow"><span class="ed-cpg-lbl">Angle</span>' +
         '<input type="range" min="0" max="360" class="ed-cpg-range" data-cpg="angle" value="' + (d.angle != null ? d.angle : 135) + '">' +
         '<span class="ed-cpg-val" data-out="angle">' + (d.angle != null ? d.angle : 135) + '°</span></div>' +
-      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">Start</span>' +
-        '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="fromStop" value="' + (d.fromStop || 0) + '">' +
-        '<span class="ed-cpg-val" data-out="fromStop">' + (d.fromStop || 0) + '%</span></div>' +
-      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">End</span>' +
-        '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="toStop" value="' + (d.toStop != null ? d.toStop : 100) + '">' +
-        '<span class="ed-cpg-val" data-out="toStop">' + (d.toStop != null ? d.toStop : 100) + '%</span></div>' +
-      '<p class="ed-cpg-hint">Start/End control how much of the shape stays solid before the blend.</p>' +
     '</div>';
   }
 
@@ -752,20 +785,24 @@
 
     // ---- Custom gradient editor helpers (panel._gradDraft is the live draft) ----
     function cpRoot() { return panel.querySelector(".ed-cpg"); }
+    function cpSelStop() {
+      const d = panel._gradDraft; if (!d) return null;
+      const i = Math.max(0, Math.min(d.stops.length - 1, d.sel || 0));
+      return d.stops[i];
+    }
+    // Pull the editable values (selected-stop colour + position, angle) off the
+    // DOM into the draft. Stop list / selection are managed by click handlers.
     function cpReadAll() {
       const root = cpRoot(); if (!root || !panel._gradDraft) return;
-      const d = panel._gradDraft;
       const get = (k) => root.querySelector('[data-cpg="' + k + '"]');
-      const fade = get("toTransparent"); if (fade) d.toTransparent = fade.checked;
-      const fromC = get("from"); if (fromC) d.from = (fromC.value || d.from).toUpperCase();
-      const fromH = get("fromHex"); if (fromH) { const h = normHex(fromH.value); if (h) d.from = h; }
-      if (!d.toTransparent) {
-        const toC = get("to"); if (toC) d.to = (toC.value || d.to).toUpperCase();
-        const toH = get("toHex"); if (toH) { const h = normHex(toH.value); if (h) d.to = h; }
+      const stop = cpSelStop(); if (!stop) return;
+      const fade = get("selFade"); if (fade) stop.color = fade.checked ? "transparent" : (stop.color === "transparent" ? "#CCCCCC" : stop.color);
+      if (stop.color !== "transparent") {
+        const c = get("selColor"); if (c && c.value) stop.color = c.value.toUpperCase();
+        const h = get("selHex"); if (h) { const nh = normHex(h.value); if (nh) stop.color = nh; }
       }
-      const ang = get("angle"); if (ang) d.angle = +ang.value;
-      const fs = get("fromStop"); if (fs) d.fromStop = +fs.value;
-      const ts = get("toStop"); if (ts) d.toStop = +ts.value;
+      const pos = get("selPos"); if (pos) stop.pos = +pos.value;
+      const ang = get("angle"); if (ang) panel._gradDraft.angle = +ang.value;
     }
     function cpRefresh() {
       const root = cpRoot(); if (!root || !panel._gradDraft) return;
@@ -773,8 +810,7 @@
       if (prev) prev.style.background = cpGradCss(panel._gradDraft);
       const setOut = (k, v) => { const s = root.querySelector('[data-out="' + k + '"]'); if (s) s.textContent = v; };
       setOut("angle", (panel._gradDraft.angle | 0) + "°");
-      setOut("fromStop", (panel._gradDraft.fromStop | 0) + "%");
-      setOut("toStop", (panel._gradDraft.toStop | 0) + "%");
+      const stop = cpSelStop(); if (stop) setOut("selPos", (stop.pos | 0) + "%");
     }
     function cpRerender() {
       const root = cpRoot(); if (!root || !panel._gradDraft) return;
@@ -784,11 +820,30 @@
 
     panel.addEventListener("click", (e) => {
       if (e.target.closest(".ed-cp-close")) { closeColorPanel(); return; }
-      // Linear / Radial segmented control.
-      const typeBtn = e.target.closest(".ed-cpg-seg button");
-      if (typeBtn && panel._gradDraft) {
-        panel._gradDraft.type = typeBtn.dataset.type === "radial" ? "radial" : "linear";
+      const d = panel._gradDraft;
+      // Style preset thumbnail → set type + angle.
+      const styleBtn = e.target.closest(".ed-cpg-style");
+      if (styleBtn && d) {
+        const st = CPG_STYLES.find(function (x) { return x.key === styleBtn.dataset.style; });
+        if (st) { d.type = st.type; d.angle = st.angle; cpRerender(); cpCommit(); }
+        return;
+      }
+      // Select a stop swatch to edit it.
+      const stopBtn = e.target.closest(".ed-cpg-stop");
+      if (stopBtn && d) { d.sel = +stopBtn.dataset.stop; cpRerender(); return; }
+      // Add a stop (midpoint, interpolated-ish colour) and select it.
+      if (e.target.closest('[data-cpg="add"]') && d) {
+        const sorted = d.stops.slice().sort(function (a, b) { return a.pos - b.pos; });
+        const last = sorted[sorted.length - 1], prev = sorted[sorted.length - 2];
+        const pos = Math.round(Math.max(0, Math.min(100, (last.pos + prev.pos) / 2)));
+        d.stops.push({ color: last.color === "transparent" ? "#FFFFFF" : last.color, pos: pos });
+        d.sel = d.stops.length - 1;
         cpRerender(); cpCommit(); return;
+      }
+      // Remove the selected stop (never below 2).
+      if (e.target.closest('[data-cpg="del"]') && d && d.stops.length > 2) {
+        d.stops.splice(Math.max(0, Math.min(d.stops.length - 1, d.sel || 0)), 1);
+        d.sel = 0; cpRerender(); cpCommit(); return;
       }
       const sw = e.target.closest(".ed-cp-sw");
       if (!sw) return;
@@ -808,22 +863,27 @@
     // Live preview while dragging (cheap, no canvas re-render / history churn).
     panel.addEventListener("input", (e) => {
       if (!e.target.closest(".ed-cpg")) return;
-      cpReadAll(); cpRefresh();
+      cpReadAll();
+      // Editing the selected stop's colour should recolour its swatch live.
+      const stop = cpSelStop();
+      const selSwatch = cpRoot() && cpRoot().querySelector(".ed-cpg-stop.is-sel");
+      if (stop && selSwatch && stop.color !== "transparent") selSwatch.style.background = stop.color;
+      cpRefresh();
     });
     // Commit to the element (+ one history entry) on release / blur.
     panel.addEventListener("change", (e) => {
       const t = e.target;
       if (!t.closest(".ed-cpg")) return;
       cpReadAll();
-      if (t.dataset.cpg === "toTransparent") cpRerender();
+      if (t.dataset.cpg === "selFade") cpRerender();
       cpRefresh(); cpCommit();
     });
 
     panel.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
-      // Gradient editor hex fields commit on Enter.
+      // Gradient editor hex field commits on Enter.
       const gh = e.target.closest(".ed-cpg-hex");
-      if (gh) { cpReadAll(); cpRefresh(); cpCommit(); return; }
+      if (gh) { cpReadAll(); cpRerender(); cpCommit(); return; }
       const inp = e.target.closest(".ed-cp-hex");
       if (!inp) return;
       const h = normHex(inp.value);
@@ -3651,29 +3711,11 @@
       ctx.restore();
     }
 
-    // Build the fill style — solid colour or a gradient. Canvas gradients are
-    // defined in absolute coords, so we work out endpoints from the angle.
+    // Build the fill style — solid colour or a (multi-stop) gradient.
     let fillStyle = el.color;
     const g = el.textGradient;
     if (g && g.enabled) {
-      if (g.type === "radial") {
-        const grad = ctx.createRadialGradient(el.w / 2, el.h / 2, 0, el.w / 2, el.h / 2, Math.max(el.w, el.h) / 2);
-        grad.addColorStop(0, g.from || "#B9826A");
-        grad.addColorStop(1, g.to   || "#474254");
-        fillStyle = grad;
-      } else {
-        const angle = (g.angle != null ? g.angle : 90) * Math.PI / 180;
-        // Map CSS gradient angle (0deg = bottom→top in CSS, but we'll use
-        // top→down convention to keep code simple — close enough visually).
-        const x0 = el.w / 2 - Math.cos(angle) * el.w / 2;
-        const y0 = el.h / 2 - Math.sin(angle) * el.h / 2;
-        const x1 = el.w / 2 + Math.cos(angle) * el.w / 2;
-        const y1 = el.h / 2 + Math.sin(angle) * el.h / 2;
-        const grad = ctx.createLinearGradient(x0, y0, x1, y1);
-        grad.addColorStop(0, g.from || "#B9826A");
-        grad.addColorStop(1, g.to   || "#474254");
-        fillStyle = grad;
-      }
+      fillStyle = canvasGrad(ctx, g, el.w, el.h);
     }
 
     // Text shadow — applied via the same canvas shadow API. Set before draws.
@@ -4325,49 +4367,60 @@
   // Build a CSS background for gradient-filled text. Returns null if disabled.
   // `fromStop`/`toStop` (0–100) control where the blend starts/ends — i.e. how
   // much of the shape is solid colour vs. transition ("how much gradient").
+  // ---------- Gradient model (multi-stop) ----------
+  // A gradient is { enabled, type:'linear'|'radial', angle, stops:[{color,pos}] }.
+  // For backward compatibility we still read the old from/to/fromStop/toStop pair
+  // when no `stops` array is present (and we keep writing from/to alongside stops).
+  // `gradStops` is the single source of truth used by every builder below.
+  function gradStops(g) {
+    if (g && Array.isArray(g.stops) && g.stops.length >= 2) {
+      return g.stops.map(function (s) {
+        return { color: s.color || "#000000", pos: s.pos != null ? s.pos : 0 };
+      }).sort(function (a, b) { return a.pos - b.pos; });
+    }
+    const from = (g && g.from) || "#1c1d22";
+    const to = (g && (g.toTransparent ? "transparent" : g.to)) || "#B9826A";
+    const fs = g && g.fromStop != null ? g.fromStop : 0;
+    const ts = g && g.toStop != null ? g.toStop : 100;
+    return [{ color: from, pos: fs }, { color: to, pos: ts }];
+  }
+  // CSS gradient string for any gradient object (or draft).
+  function gradCss(g) {
+    const stops = gradStops(g).map(function (s) { return s.color + " " + s.pos + "%"; }).join(", ");
+    if (g && g.type === "radial") return "radial-gradient(circle, " + stops + ")";
+    const angle = g && g.angle != null ? g.angle : 135;
+    return "linear-gradient(" + angle + "deg, " + stops + ")";
+  }
+  // Canvas gradient object for export, honouring every stop.
+  function canvasGrad(ctx, g, w, h) {
+    let grad;
+    if (g && g.type === "radial") {
+      grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 2);
+    } else {
+      const a = (g && g.angle != null ? g.angle : 90) * Math.PI / 180;
+      grad = ctx.createLinearGradient(
+        w / 2 - Math.cos(a) * w / 2, h / 2 - Math.sin(a) * h / 2,
+        w / 2 + Math.cos(a) * w / 2, h / 2 + Math.sin(a) * h / 2
+      );
+    }
+    gradStops(g).forEach(function (s) {
+      const p = Math.max(0, Math.min(1, (s.pos || 0) / 100));
+      try { grad.addColorStop(p, s.color); } catch (_) { /* invalid colour — skip */ }
+    });
+    return grad;
+  }
+
   function textGradientCss(grad) {
     if (!grad || !grad.enabled) return null;
-    const angle = grad.angle != null ? grad.angle : 90;
-    const from = grad.from || "#1c1d22";
-    const to   = grad.to   || "#B9826A";
-    const fs = grad.fromStop != null ? grad.fromStop : 0;
-    const ts = grad.toStop != null ? grad.toStop : 100;
-    const stops = from + " " + fs + "%, " + to + " " + ts + "%";
-    if (grad.type === "radial") {
-      return "radial-gradient(circle, " + stops + ")";
-    }
-    return "linear-gradient(" + angle + "deg, " + stops + ")";
+    return gradCss(grad);
   }
 
   // Canvas fill for a shape on export — a gradient (incl. fade-to-transparent)
-  // when el.fillGradient is enabled, else the solid el.fill. Mirrors the text
-  // gradient maths so the export matches the live canvas.
+  // when el.fillGradient is enabled, else the solid el.fill.
   function shapeCanvasFill(ctx, el) {
     const grad = el.fillGradient;
     if (!grad || !grad.enabled) return el.fill || "transparent";
-    // Clamp stop positions to [0,1] and keep them ascending (addColorStop is
-    // strict about both), mirroring the CSS maths in textGradientCss.
-    let fs = (grad.fromStop != null ? grad.fromStop : 0) / 100;
-    let ts = (grad.toStop != null ? grad.toStop : 100) / 100;
-    fs = Math.max(0, Math.min(1, fs));
-    ts = Math.max(0, Math.min(1, ts));
-    if (ts < fs) { const tmp = fs; fs = ts; ts = tmp; }
-    const from = grad.from || "#1c1d22";
-    const to   = grad.to   || "transparent";
-    if (grad.type === "radial") {
-      const g = ctx.createRadialGradient(el.w / 2, el.h / 2, 0, el.w / 2, el.h / 2, Math.max(el.w, el.h) / 2);
-      g.addColorStop(fs, from);
-      g.addColorStop(ts, to);
-      return g;
-    }
-    const a = (grad.angle != null ? grad.angle : 90) * Math.PI / 180;
-    const g = ctx.createLinearGradient(
-      el.w / 2 - Math.cos(a) * el.w / 2, el.h / 2 - Math.sin(a) * el.h / 2,
-      el.w / 2 + Math.cos(a) * el.w / 2, el.h / 2 + Math.sin(a) * el.h / 2
-    );
-    g.addColorStop(fs, from);
-    g.addColorStop(ts, to);
-    return g;
+    return canvasGrad(ctx, grad, el.w, el.h);
   }
 
   // ---------- Merge tags ({brand name}, {company}, etc.) ----------
@@ -4601,6 +4654,9 @@
         } else {
           group[fieldKey] = input.value;
         }
+        // This simple from/to editor is 2-stop; clear any multi-stop array set
+        // by the rich gradient builder so its edits actually take effect.
+        if (groupKey === "grad") group.stops = null;
         // Outline doesn't have an enabled flag — its presence is governed by
         // width > 0. Mirror the checkbox state if the user nudges width.
         if (groupKey === "outline" && fieldKey === "width") {
@@ -4658,7 +4714,7 @@
         {
           title: "Text colour",
           onSolid: function (hex) { el.color = hex; el.textGradient = null; },
-          onGradient: function (g) { el.textGradient = { enabled: true, type: g.type || "linear", angle: g.angle != null ? g.angle : 135, from: g.from, to: g.to, fromStop: g.fromStop, toStop: g.toStop }; },
+          onGradient: function (g) { el.textGradient = { enabled: true, type: g.type || "linear", angle: g.angle != null ? g.angle : 135, stops: g.stops, from: g.from, to: g.to, fromStop: g.fromStop, toStop: g.toStop }; },
           getGradient: function () { return el.textGradient; },
         }
       ));
@@ -4710,7 +4766,7 @@
         {
           title: "Fill",
           onSolid: function (hex) { el.fill = hex; el.fillGradient = null; },
-          onGradient: function (gr) { el.fillGradient = { enabled: true, type: gr.type || "linear", angle: gr.angle != null ? gr.angle : 135, from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop }; },
+          onGradient: function (gr) { el.fillGradient = { enabled: true, type: gr.type || "linear", angle: gr.angle != null ? gr.angle : 135, stops: gr.stops, from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop }; },
           getGradient: function () { return el.fillGradient; },
         }
       ));
@@ -5490,11 +5546,24 @@
       fullRender();
     });
   });
-  $("ed-bg-color").addEventListener("input", (e) => {
-    state.canvas.background = e.target.value;
-    fullRender();
-  });
-  $("ed-bg-color").addEventListener("change", () => pushHistory());
+  // Background "Custom" circle → the rich hex colour panel (which also hosts the
+  // gradient builder), instead of the native OS colour picker (which shows RGB).
+  (function () {
+    const wrap = $("ed-bg-color-wrap");
+    if (!wrap) return;
+    function isGradient(v) { return typeof v === "string" && v.indexOf("gradient") !== -1; }
+    wrap.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const bg = state.canvas.background;
+      openColorPanel({
+        title: "Background",
+        current: isGradient(bg) ? "#F4F2F1" : bg,
+        currentGradient: null,
+        onSolid: function (hex) { state.canvas.background = hex; wrap.style.background = hex; fullRender(); pushHistory(); },
+        onGradient: function (g) { state.canvas.background = gradCss(g); wrap.style.background = gradCss(g); fullRender(); pushHistory(); },
+      });
+    });
+  })();
   document.querySelectorAll(".ed-grad").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.canvas.background = btn.dataset.grad;
