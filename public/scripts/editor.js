@@ -1430,6 +1430,12 @@
     canvasEl.style.height = state.canvas.height + "px";
     canvasEl.style.background = state.canvas.background;
 
+    // Keep the top-bar size badge in lock-step with the actual canvas. This runs
+    // on every render — load, resize (preset or custom), page switch, undo/redo —
+    // so it always shows the format you're working in (e.g. 1080 × 1440).
+    var _szEl = document.getElementById("ed-canvas-size");
+    if (_szEl) _szEl.textContent = Math.round(state.canvas.width) + " × " + Math.round(state.canvas.height);
+
     canvasEl.innerHTML = "";
 
     // Background image layer — drawn first so all elements sit on top.
