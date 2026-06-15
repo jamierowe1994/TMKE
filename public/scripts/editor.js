@@ -5204,14 +5204,30 @@
       const id = requestedId || (TEMPLATES[0] && TEMPLATES[0].id);
       if (id) loadTemplate(id, false); else loadBlank();
     };
+    // The bootstrap loads the requested template first (fast, single row) then
+    // backfills the full list for the switcher grid. This re-reads the refreshed
+    // blob and rebuilds the grid *without* disturbing the open design.
+    window.__TMKE_REFRESH_TEMPLATES__ = function () {
+      refreshAdminTemplates();
+      PACK_TEMPLATES = TEMPLATES;
+      try { if (tplGridEl) { tplGridEl.innerHTML = ""; renderTemplateGrid(); } } catch (_) {}
+    };
     if (window.__TMKE_ADMIN_BOOTSTRAP_DONE__) {
       window.__TMKE_BOOT_ADMIN__(window.__TMKE_ADMIN_BOOTSTRAP_DONE__.requestedId);
     } else {
       // Fallback: if the bootstrap never resolves (network/auth error), don't
-      // leave a frozen empty canvas — fall back to a blank after a grace period.
+      // leave a frozen empty canvas. Honour the requested ?id= (refresh the blob
+      // first in case the bootstrap populated it) so we never silently open the
+      // bundled default ("Just Listed") in place of the template that was asked for.
       setTimeout(function () {
         if (!state.templateId && !(state.elements && state.elements.length)) {
-          if (TEMPLATES.length) loadTemplate(TEMPLATES[0].id, false);
+          refreshAdminTemplates();
+          var reqId = null;
+          try { reqId = new URLSearchParams(location.search).get("id"); } catch (_) {}
+          var pick = (reqId && TEMPLATES.some(function (t) { return t.id === reqId; }))
+            ? reqId
+            : (TEMPLATES[0] && TEMPLATES[0].id);
+          if (pick) loadTemplate(pick, false);
           else loadBlank();
         }
       }, 6000);
