@@ -44,6 +44,7 @@ const ICO = {
           <li><span>Active templates</span><b data-stat="templates">0</b></li>
           <li><span>Published articles</span><b data-stat="blog-pub">0</b></li>
           <li><span>Draft articles</span><b data-stat="blog-draft">0</b></li>
+          <li><span>Email templates</span><b data-stat="email">0</b></li>
           <li><span>Videography total</span><b data-stat="vid-total-2">0</b></li>
           <li><span>New enquiries</span><b data-stat="enq-new-2">0</b></li>
         </ul>
@@ -106,7 +107,7 @@ const ICO = {
       if (hello) { const n = (profile && profile.full_name) || (session?.user?.email || "").split("@")[0]; hello.textContent = `Welcome back${n ? ", " + n : ""}.`; }
 
       const SIXTY = new Date(Date.now() - 60 * 864e5).toISOString();
-      const [packs, templates, enqNew, enqTotal, paid, subs, blogPub, blogDraft, vidTotal, vidActive] = await Promise.all([
+      const [packs, templates, enqNew, enqTotal, paid, subs, blogPub, blogDraft, vidTotal, vidActive, emailActive] = await Promise.all([
         supabase.from("packs").select("*", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("templates").select("*", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("enquiries").select("*", { count: "exact", head: true }).eq("status", "new"),
@@ -117,6 +118,7 @@ const ICO = {
         supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("status", "draft"),
         supabase.from("videography_bookings").select("*", { count: "exact", head: true }),
         supabase.from("videography_bookings").select("*", { count: "exact", head: true }).neq("stage", "complete"),
+        supabase.from("email_templates").select("*", { count: "exact", head: true }).eq("status", "active"),
       ]);
 
       if (!packs.error) setStat("packs", String(packs.count ?? 0));
@@ -131,6 +133,7 @@ const ICO = {
       if (!subs.error && Array.isArray(subs.data)) setStat("subs", String(new Set(subs.data.map((r) => (r.buyer_email || "").toLowerCase()).filter(Boolean)).size));
       if (!blogPub.error) setStat("blog-pub", String(blogPub.count ?? 0));
       if (!blogDraft.error) setStat("blog-draft", String(blogDraft.count ?? 0));
+      if (!emailActive.error) setStat("email", String(emailActive.count ?? 0));
 
       const total = (!vidTotal.error && vidTotal.count) || 0;
       const active = (!vidActive.error && vidActive.count) || 0;
