@@ -10,7 +10,14 @@ const ICO = {
 ---
 
 <AdminShell active="dashboard" title="Dashboard">
-  <p class="dash-hello" id="dash-hello">Welcome back.</p>
+  <header class="adash-head">
+    <span class="adash-avatar" id="adash-avatar" aria-hidden="true"></span>
+    <div class="adash-head-text">
+      <p class="adash-eyebrow">Dashboard</p>
+      <h1 class="adash-greeting" id="adash-greeting">Welcome back.</h1>
+      <p class="adash-sub">Your studio at a glance.</p>
+    </div>
+  </header>
 
   <div class="ash-stats">
     <div class="ash-card ash-stat">
@@ -73,7 +80,21 @@ const ICO = {
   </div>
 
   <style>
-    .dash-hello { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.6); margin: 0 0 18px; }
+    .adash-head { display: flex; align-items: center; gap: 22px; margin: 0 0 26px; }
+    .adash-avatar {
+      width: 88px; height: 88px; flex: none; border-radius: 50%;
+      background: linear-gradient(140deg, color-mix(in srgb, var(--english-violet) 72%, #fff), var(--english-violet) 68%);
+      background-size: cover; background-position: center;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: var(--serif); font-size: 34px; font-weight: 600; color: #fff; text-transform: uppercase;
+      box-shadow: 0 12px 28px -12px rgba(55,30,40,0.5), inset 0 0 0 2px rgba(255,255,255,0.5);
+    }
+    .adash-head-text { min-width: 0; }
+    .adash-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 6px; }
+    .adash-greeting { font-family: var(--serif); font-weight: 500; font-size: clamp(34px, 4.2vw, 54px); line-height: 1.02; letter-spacing: -0.025em; color: var(--ink); margin: 0; }
+    .adash-greeting em { font-style: italic; color: var(--english-violet); }
+    .adash-sub { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.6); margin: 8px 0 0; }
+    @media (max-width: 560px) { .adash-avatar { width: 64px; height: 64px; font-size: 26px; } }
     .dash-glance { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 28px; }
     .dash-glance li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(28,29,34,0.08); font-family: var(--sans); }
     .dash-glance span { font-size: 14px; color: rgba(28,29,34,0.6); }
@@ -103,8 +124,17 @@ const ICO = {
     document.addEventListener("ash:ready", async (e) => {
       const session = e.detail && e.detail.session;
       const profile = e.detail && e.detail.profile;
-      const hello = document.getElementById("dash-hello");
-      if (hello) { const n = (profile && profile.full_name) || (session?.user?.email || "").split("@")[0]; hello.textContent = `Welcome back${n ? ", " + n : ""}.`; }
+      const fullName = (profile && profile.full_name) || (session?.user?.email || "").split("@")[0] || "";
+      const first = (fullName.split(" ")[0] || fullName).replace(/[<>&]/g, "");
+      const hr = new Date().getHours();
+      const tod = hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
+      const greet = document.getElementById("adash-greeting");
+      if (greet) greet.innerHTML = first ? `${tod}, <em>${first}.</em>` : `${tod}.`;
+      const av = document.getElementById("adash-avatar");
+      if (av) {
+        if (profile && profile.avatar_url) { av.style.backgroundImage = `url('${profile.avatar_url}')`; av.textContent = ""; }
+        else { av.textContent = (first[0] || "A").toUpperCase(); }
+      }
 
       const SIXTY = new Date(Date.now() - 60 * 864e5).toISOString();
       const [packs, templates, enqNew, enqTotal, paid, subs, blogPub, blogDraft, vidTotal, vidActive, emailActive] = await Promise.all([
