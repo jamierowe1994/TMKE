@@ -4264,6 +4264,37 @@
     backdrop:{ offsetX: 0,  offsetY: 0,  blur: 40, color: "#000000", opacity: 0.55 },
   };
 
+  // Does this element have any visible effect applied? Used to highlight the
+  // Effects toolbar button so you can tell at a glance (e.g. coming back to a
+  // design tomorrow) that a layer already carries a shadow / outline / etc.
+  function elementHasEffect(el) {
+    if (!el) return false;
+    const sh = el.type === "text" ? el.textShadow : el.shadow;
+    if (sh && sh.enabled) return true;
+    if (el.type === "text") {
+      if (el.textOutline && el.textOutline.width > 0) return true;
+      if (el.textBg && el.textBg.enabled) return true;
+      if (el.textGradient && el.textGradient.enabled) return true;
+    }
+    if (el.fillGradient && el.fillGradient.enabled) return true;
+    return false;
+  }
+  // Which shadow preset (if any) the element's current shadow matches exactly,
+  // so the effects panel can highlight the chosen one. "none" when off; null
+  // when enabled but tweaked away from any preset (custom).
+  function shadowPresetKeyFor(el) {
+    const sh = el.type === "text" ? el.textShadow : el.shadow;
+    if (!sh || !sh.enabled) return "none";
+    const keys = ["drop", "glow", "curved", "lift", "angled", "backdrop"];
+    for (let i = 0; i < keys.length; i++) {
+      const p = SHADOW_PRESETS[keys[i]];
+      if (p && p.offsetX === sh.offsetX && p.offsetY === sh.offsetY && p.blur === sh.blur &&
+          String(p.color || "").toLowerCase() === String(sh.color || "").toLowerCase() &&
+          p.opacity === sh.opacity) return keys[i];
+    }
+    return null;
+  }
+
   function hexToRgba(hex, alpha) {
     const h = rgbHex(hex || "#000000").replace("#", "");
     const r = parseInt(h.slice(0, 2), 16);
@@ -4414,8 +4445,9 @@
 
     const presetKeys = ["none","drop","glow","curved","lift","angled","backdrop"];
     const presetLabels = { none:"None", drop:"Drop", glow:"Glow", curved:"Curved", lift:"Page lift", angled:"Angled", backdrop:"Backdrop" };
+    const activeKey = shadowPresetKeyFor(el); // highlight the chosen preset
     const presetButtons = presetKeys.map(function (k) {
-      return '<button type="button" class="ed-fx-preset" data-shadow-preset="' + k + '" title="' + presetLabels[k] + '">' + presetLabels[k] + '</button>';
+      return '<button type="button" class="ed-fx-preset' + (k === activeKey ? " is-current" : "") + '" data-shadow-preset="' + k + '" title="' + presetLabels[k] + '">' + presetLabels[k] + '</button>';
     }).join("");
 
     let out =
@@ -4849,6 +4881,12 @@
           return panel;
         },
       });
+      // Highlight the trigger when this layer already carries an effect, so it's
+      // obvious at a glance which layers have shadows/outlines/etc.
+      if (elementHasEffect(el)) {
+        const trig = effectsWrap.querySelector(".ed-pop-trigger");
+        if (trig) trig.classList.add("ed-fx-active");
+      }
       ctxEl.appendChild(effectsWrap);
     }
 
