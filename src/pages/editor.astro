@@ -3155,13 +3155,22 @@ const googleFonts = [
           if (!payload?.templateId) return false;
           // Upload any embedded data-URL images to storage first (keeps the row small).
           try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (e) { console.error('[save: externalize]', e); }
+          // Upload the editor-generated thumbnail so the studio list can show one
+          // small image instead of rebuilding the whole design from full-res
+          // photos — the big lever on list load time.
+          let thumbUrl;
+          if (typeof payload.thumb === 'string' && payload.thumb.startsWith('data:')) {
+            try { thumbUrl = await externUploadDataUrl(payload.thumb); } catch (e) { console.error('[save: thumb]', e); }
+          }
+          const patch = {
+            name: payload.filename,
+            canvas: payload.canvas,
+            elements: payload.elements,
+          };
+          if (thumbUrl) patch.thumb_url = thumbUrl;
           const { error: saveErr } = await supabase
             .from('templates')
-            .update({
-              name: payload.filename,
-              canvas: payload.canvas,
-              elements: payload.elements,
-            })
+            .update(patch)
             .eq('id', payload.templateId);
           return !saveErr;
         };

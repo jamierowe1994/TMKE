@@ -1198,6 +1198,10 @@
     if (_dbSaving) { clearTimeout(_dbSaveTimer); _dbSaveTimer = setTimeout(autosaveToDb, 1500); return; }
     _dbSaving = true;
     try {
+      // Generate a thumbnail too, so the studio list shows a fast cached image
+      // for autosaved designs (not just ones saved with the Save button).
+      let thumb;
+      try { thumb = await _renderThumbDataUrl(); } catch (_) {}
       await window.__TMKE_ADMIN_SAVE__({
         templateId: state.templateId,
         filename: filenameEl ? filenameEl.value : "",
@@ -1205,6 +1209,7 @@
         elements: state.elements,
         pages: deep(state.pages),
         savedAt: Date.now(),
+        thumb,
       });
     } catch (_) {} finally { _dbSaving = false; }
   }

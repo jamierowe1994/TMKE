@@ -399,8 +399,10 @@ import { templates as defaultLibrary } from "../../data/library.js";
         ? `<img src="${escapeHtml(cv.backgroundImage)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:${cv.backgroundOpacity ?? 1};" />`
         : '';
       const hasContent = els.length || cv.backgroundImage;
-      // No design yet but a thumbnail exists → show the thumbnail.
-      if (!hasContent && t.thumb_url) {
+      // Prefer the saved thumbnail whenever we have one — a single small image is
+      // far cheaper than rebuilding the whole design from full-resolution photos,
+      // so the list loads fast. We only live-render below if no thumbnail exists.
+      if (t.thumb_url) {
         return `<div class="tpl-canvas" style="background:#fff"><img src="${escapeHtml(t.thumb_url)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" /></div>`;
       }
       // Truly empty (no elements, no background image, no thumbnail) → show the
