@@ -216,7 +216,30 @@ Another paragraph follows the quote naturally."></textarea>
       border-bottom: 1px solid var(--be-line);
     }
     .blog-editor-top-left { display: flex; align-items: center; gap: 24px; min-width: 0; }
-    .blog-editor-top-right { display: flex; gap: 8px; flex-wrap: wrap; }
+    .blog-editor-top-right { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    /* This page uses BaseLayout (not AdminShell), so admin.css's .admin-btn isn't
+       loaded — the buttons were rendering as bare browser defaults. Style them here. */
+    .blog-editor-top-right .admin-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 20px; border-radius: 10px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      cursor: pointer; border: 1px solid transparent; text-decoration: none;
+      transition: background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.12s;
+    }
+    .blog-editor-top-right .admin-btn:active { transform: translateY(1px); }
+    .blog-editor-top-right .admin-btn-ghost {
+      background: #fff; border-color: rgba(55,30,40,0.22); color: var(--english-violet);
+      box-shadow: 0 1px 2px rgba(28,29,34,0.04);
+    }
+    .blog-editor-top-right .admin-btn-ghost:hover { background: rgba(55,30,40,0.05); border-color: rgba(55,30,40,0.4); }
+    .blog-editor-top-right .admin-btn-primary {
+      background: var(--english-violet); color: var(--paper);
+      box-shadow: 0 8px 18px -8px rgba(55,30,40,0.55);
+    }
+    .blog-editor-top-right .admin-btn-primary:hover { background: var(--ink); box-shadow: 0 10px 22px -8px rgba(55,30,40,0.6); }
+    .blog-editor-top-right .admin-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
     .blog-editor-back {
       font-family: var(--sans); font-size: 12px;
       letter-spacing: 0.22em; text-transform: uppercase;
@@ -253,8 +276,8 @@ Another paragraph follows the quote naturally."></textarea>
       background: #fff;
       border: 1px solid var(--be-line);
       border-radius: 4px;
-      padding: 20px;
-      display: flex; flex-direction: column; gap: 14px;
+      padding: 24px 24px 26px;
+      display: flex; flex-direction: column; gap: 16px;
     }
     .be-card-legend {
       font-family: var(--sans); font-size: 11px;
@@ -281,7 +304,7 @@ Another paragraph follows the quote naturally."></textarea>
     .be-field {
       display: flex; flex-direction: column; gap: 6px;
     }
-    .be-field--lg input { font-size: 20px !important; padding: 14px 14px !important; }
+    .be-field--lg input { font-size: 20px !important; padding: 16px 16px !important; }
     .be-label {
       font-family: var(--sans); font-size: 10px;
       font-weight: 700; letter-spacing: 0.22em;
@@ -291,9 +314,9 @@ Another paragraph follows the quote naturally."></textarea>
     .be-field select,
     .be-field textarea {
       font-family: var(--sans); font-size: 14px;
-      padding: 10px 12px;
+      padding: 12px 14px;
       border: 1px solid rgba(28,29,34,0.15);
-      border-radius: 2px;
+      border-radius: 6px;
       background: var(--paper);
       color: var(--ink);
       transition: border-color 0.2s, box-shadow 0.2s;
@@ -762,8 +785,15 @@ Another paragraph follows the quote naturally."></textarea>
 
     // ─── Load ───
     (async () => {
-      const session = await requireAdmin("/admin/login");
-      if (!session) return;
+      // Dev-only bypass so the editor renders in the local preview without a
+      // Supabase session (matches the other admin pages).
+      let session;
+      if (import.meta.env.DEV) {
+        session = (await supabase.auth.getSession()).data.session || { user: { id: "dev", email: "dev@tmke.co.uk" } };
+      } else {
+        session = await requireAdmin("/admin/login");
+        if (!session) return;
+      }
 
       if (id) {
         const { data, error } = await supabase
