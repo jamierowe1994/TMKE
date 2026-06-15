@@ -55,11 +55,16 @@ export function mergeContextFor(recipient = {}, brand = {}) {
   const fullName = recipient.name || '';
   const [firstName, ...rest] = fullName.trim().split(/\s+/);
   return {
-    firstName: firstName || '',
-    lastName: rest.join(' ') || '',
+    firstName: recipient.firstName || firstName || '',
+    lastName: recipient.lastName || rest.join(' ') || '',
     fullName,
     email: recipient.email || '',
     company: recipient.company || '',
+    phone: recipient.phone || '',
+    // Purchase context — populated from the contact's last order at send time
+    // (the automations engine passes it in), so "Thank you for buying {{packName}}" works.
+    packName: recipient.packName || recipient.pack || '',
+    orderTotal: recipient.orderTotal || '',
     senderName: brand.signatureName || '',
     senderCompany: brand.companyName || '',
   };
@@ -71,13 +76,16 @@ export const MERGE_FIELDS = [
   { token: 'lastName', label: 'Last name' },
   { token: 'fullName', label: 'Full name' },
   { token: 'email', label: 'Email address' },
-  { token: 'company', label: 'Company' },
+  { token: 'company', label: 'Company name' },
+  { token: 'phone', label: 'Mobile / phone' },
+  { token: 'packName', label: 'Purchased pack' },
+  { token: 'orderTotal', label: 'Order total' },
   { token: 'senderName', label: 'Sender name' },
   { token: 'senderCompany', label: 'Sender company' },
 ];
 
 /** A dummy recipient so the live preview shows realistic merged values. */
-export const SAMPLE_RECIPIENT = { name: 'Alex Morgan', email: 'alex@example.com', company: 'Acme Estates' };
+export const SAMPLE_RECIPIENT = { name: 'Alex Morgan', email: 'alex@example.com', company: 'Acme Estates', phone: '07700 900123', packName: 'The Spring Collection', orderTotal: '£149' };
 
 /* ───────────────────────── branding ───────────────────────── */
 
@@ -91,6 +99,7 @@ export function defaultBrand() {
     bgColor: '#f4f2f1',
     cardColor: '#ffffff',
     website: 'https://tmke.co.uk',
+    reviewUrl: '',
     linkedin: '',
     instagram: '',
     facebook: '',
@@ -112,6 +121,11 @@ export const BLOCK_TYPES = [
   { type: 'logo', label: 'Logo', hint: 'Your brand logo' },
   { type: 'social', label: 'Social', hint: 'Social icon links' },
   { type: 'video', label: 'Video', hint: 'A clickable video thumbnail' },
+  { type: 'footer', label: 'Footer', hint: 'Sign-off, address & unsubscribe' },
+  { type: 'faq', label: 'FAQ', hint: 'Question & answer list' },
+  { type: 'countdown', label: 'Countdown', hint: 'An offer / deadline date' },
+  { type: 'reviewlink', label: 'Review link', hint: 'Ask for a review' },
+  { type: 'code', label: 'Custom HTML', hint: 'Paste your own HTML' },
 ];
 
 let _uidCounter = 0;
@@ -145,6 +159,16 @@ export function makeBlock(type) {
       return { type, id, align: 'center', show: { linkedin: true, instagram: true, facebook: true, website: true, twitter: true, youtube: true } };
     case 'video':
       return { type, id, url: '', thumbnail: '', align: 'center' };
+    case 'footer':
+      return { type, id, address: '', showSocial: true, unsubscribe: true, note: 'You\'re receiving this because you\'re part of the TMKE community.' };
+    case 'faq':
+      return { type, id, title: 'Frequently asked', items: [{ q: 'A question people often ask?', a: 'A clear, friendly answer.' }] };
+    case 'countdown':
+      return { type, id, label: 'Offer ends', deadline: '', align: 'center' };
+    case 'reviewlink':
+      return { type, id, text: 'Leave us a review', url: '', align: 'center', prompt: 'Enjoyed working with us?' };
+    case 'code':
+      return { type, id, html: '<!-- Paste your own email-safe HTML here -->' };
     default:
       return { type: 'text', id, text: '', bg: '' };
   }
@@ -277,7 +301,72 @@ function renderVideo(block) {
     </div>`;
 }
 
-function renderBlock(block, brand, ctx) {
+function renderFooter(block, brand) {
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  const year = new Date().getFullYear();
+  const social = block.showSocial !== false ? renderSocial({ show: {} }, brand) : '';
+  const note = block.note ? `<p style="margin:0 0 8px;">${escapeHtml(block.note)}</p>` : '';
+  const address = block.address ? `<p style="margin:0 0 8px;">${escapeHtml(block.address)}</p>` : '';
+  const web = brand.website ? `<a href="${escapeHtml(brand.website)}" style="color:${escapeHtml(accent)};text-decoration:none;">${escapeHtml(String(brand.website).replace(/^https?:\/\//, ''))}</a>` : '';
+  const unsub = block.unsubscribe !== false
+    ? `<p style="margin:8px 0 0;">{{unsubscribe}}<a href="{{unsubscribe_url}}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a></p>`
+    : '';
+  return `
+    <div style="border-top:1px solid #E2E8F0;margin-top:8px;padding-top:18px;text-align:center;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#94a3b8;">
+      ${social}
+      ${note}
+      ${address}
+      <p style="margin:0 0 4px;">&copy; ${year} ${escapeHtml(brand.companyName || 'TMKE')}${web ? ' · ' + web : ''}</p>
+      ${unsub}
+    </div>`;
+}
+
+function renderFaq(block, ctx) {
+  const items = Array.isArray(block.items) ? block.items : [];
+  const rows = items.filter((it) => it && (it.q || it.a)).map((it) => `
+    <div style="margin:0 0 14px;">
+      <p style="margin:0 0 4px;font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#1c1d22;">${renderTokens(escapeHtml(it.q || ''), ctx)}</p>
+      <p style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#475569;">${renderTokens(escapeHtml(it.a || ''), ctx)}</p>
+    </div>`).join('');
+  if (!rows) return '';
+  const title = block.title ? `<h2 style="margin:0 0 14px;font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:800;color:#1c1d22;">${escapeHtml(block.title)}</h2>` : '';
+  return `<div>${title}${rows}</div>`;
+}
+
+function renderCountdown(block) {
+  const dl = block.deadline ? new Date(block.deadline) : null;
+  if (!dl || isNaN(dl.getTime())) return '';
+  const days = Math.max(0, Math.ceil((dl.getTime() - Date.now()) / 86400000));
+  const dateStr = dl.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
+  return `
+    <div style="text-align:${align};margin:8px 0;">
+      <div style="display:inline-block;padding:14px 26px;border:1px solid #E2E8F0;border-radius:12px;background:#faf9f8;font-family:Helvetica,Arial,sans-serif;">
+        <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#94a3b8;">${escapeHtml(block.label || 'Offer ends')}</div>
+        <div style="font-size:28px;font-weight:800;color:#1c1d22;margin:4px 0 2px;">${days} day${days === 1 ? '' : 's'} left</div>
+        <div style="font-size:13px;color:#475569;">${escapeHtml(dateStr)}</div>
+      </div>
+    </div>`;
+}
+
+function renderReviewLink(block, brand, ctx) {
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  const url = renderTokens(block.url || brand.reviewUrl || (brand.website ? brand.website.replace(/\/+$/, '') + '/review' : '#'), ctx);
+  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
+  const stars = '<div style="font-size:22px;letter-spacing:2px;color:#f5b301;margin:0 0 6px;">&#9733;&#9733;&#9733;&#9733;&#9733;</div>';
+  const prompt = block.prompt ? `<p style="margin:0 0 10px;font-family:Helvetica,Arial,sans-serif;font-size:15px;color:#1c1d22;">${escapeHtml(block.prompt)}</p>` : '';
+  return `
+    <div style="text-align:${align};margin:8px 0;">
+      ${stars}${prompt}
+      <a href="${escapeHtml(url)}" style="display:inline-block;padding:11px 24px;background:${escapeHtml(accent)};color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;font-family:Helvetica,Arial,sans-serif;">${escapeHtml(renderTokens(block.text || 'Leave a review', ctx))}</a>
+    </div>`;
+}
+
+function renderCode(block, ctx) {
+  return renderTokens(String(block.html || ''), ctx);
+}
+
+export function renderBlock(block, brand, ctx) {
   switch (block.type) {
     case 'heading': return renderHeading(block, ctx);
     case 'text': return renderText(block, ctx);
@@ -288,6 +377,11 @@ function renderBlock(block, brand, ctx) {
     case 'logo': return renderLogo(block, brand);
     case 'social': return renderSocial(block, brand);
     case 'video': return renderVideo(block);
+    case 'footer': return renderFooter(block, brand);
+    case 'faq': return renderFaq(block, ctx);
+    case 'countdown': return renderCountdown(block);
+    case 'reviewlink': return renderReviewLink(block, brand, ctx);
+    case 'code': return renderCode(block, ctx);
     default: return '';
   }
 }

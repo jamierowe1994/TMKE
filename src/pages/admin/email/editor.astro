@@ -255,6 +255,11 @@ import "../../../styles/admin.css";
     .cv-block.is-selected { border-color:var(--english-violet); }
     .cv-block.cv-drop-before { box-shadow:0 -2px 0 var(--english-violet); }
     .cv-block.cv-drop-after { box-shadow:0 2px 0 var(--english-violet); }
+    .eb-drop-live { outline:2px dashed var(--english-violet); outline-offset:6px; border-radius:10px; }
+    .eb-tile[draggable="true"] { cursor:grab; }
+    .eb-tile[draggable="true"]:active { cursor:grabbing; }
+    .eb-mini-btn { font-family:var(--sans); font-size:12px; font-weight:600; color:var(--english-violet); background:transparent; border:1px solid var(--english-violet); border-radius:6px; padding:6px 10px; cursor:pointer; margin-top:4px; }
+    .eb-mini-btn:hover { background:rgba(55,30,40,0.06); }
     .cv-toolbar { position:absolute; top:-15px; right:8px; display:none; gap:2px; background:#fff; border:1px solid var(--eb-line); border-radius:7px; padding:3px; box-shadow:0 6px 18px -8px rgba(20,18,26,0.35); z-index:5; }
     .cv-block:hover .cv-toolbar, .cv-block.is-selected .cv-toolbar { display:flex; }
     .cv-tb { width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:0; background:transparent; border-radius:5px; cursor:pointer; color:rgba(28,29,34,0.65); font-size:13px; }
@@ -300,7 +305,7 @@ import "../../../styles/admin.css";
     import { supabase, isConfigured } from "../../../lib/supabase.js";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import {
-      renderTemplate, mergeContextFor, defaultBrand,
+      renderTemplate, renderBlock, mergeContextFor, defaultBrand,
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT,
     } from "../../../lib/email-render.js";
 
@@ -319,6 +324,11 @@ import "../../../styles/admin.css";
       logo: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
       social: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>',
       video: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M3 7.5h4M17 3v18M3 16.5h4M21 7.5h-4M21 16.5h-4"/>',
+      footer: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/><path d="M7 18.5h4"/>',
+      faq: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
+      countdown: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/>',
+      reviewlink: '<path d="M11.5 3.5 14 8.5l5.5.8-4 3.9.9 5.5-4.9-2.6L6.6 18.7l.9-5.5-4-3.9 5.5-.8z"/>',
+      code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
     };
     const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">${p}</svg>`;
     const SOCIAL_SVG = {
@@ -335,7 +345,7 @@ import "../../../styles/admin.css";
     // ── State ──
     const params = new URLSearchParams(location.search);
     let id = params.get("id"); if (id === "new") id = null;
-    let session = null, loaded = null, selectedId = null, dragId = null;
+    let session = null, loaded = null, selectedId = null, dragId = null, paletteDragType = null;
 
     const state = {
       name: "", subject: "", preheader: "", trigger_key: "", status: "draft",
@@ -383,7 +393,12 @@ import "../../../styles/admin.css";
           return b.thumbnail
             ? `<div style="text-align:${align};"><div style="position:relative;display:inline-block;"><img src="${esc(b.thumbnail)}" style="max-width:100%;border-radius:10px;" /><span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:28px;background:rgba(220,38,38,0.95);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;">▶</span></div></div>`
             : `<div class="cv-ph">Video — add a thumbnail URL in the panel →</div>`;
-        default: return "";
+        // footer / faq / countdown / reviewlink / code — not inline-editable, so
+        // render the real email HTML from the shared lib for an accurate preview.
+        default: {
+          const html = renderBlock(b, brand, mergeContextFor(SAMPLE_RECIPIENT, brand));
+          return html || `<div class="cv-ph">Set this block up in the panel →</div>`;
+        }
       }
     }
 
@@ -423,15 +438,21 @@ import "../../../styles/admin.css";
         const grip = el.querySelector("[data-grip]");
         grip?.addEventListener("dragstart", (e) => { dragId = bid; e.dataTransfer.effectAllowed = "move"; });
         el.addEventListener("dragover", (e) => {
-          if (!dragId || dragId === bid) return; e.preventDefault();
+          // Either reordering an existing block, or dropping a NEW block from the palette.
+          if ((!dragId && !paletteDragType) || dragId === bid) return; e.preventDefault();
           const r = el.getBoundingClientRect(); const after = e.clientY > r.top + r.height/2;
           el.classList.toggle("cv-drop-after", after); el.classList.toggle("cv-drop-before", !after);
         });
         el.addEventListener("dragleave", () => el.classList.remove("cv-drop-after","cv-drop-before"));
         el.addEventListener("drop", (e) => {
           e.preventDefault(); el.classList.remove("cv-drop-after","cv-drop-before");
-          if (!dragId || dragId === bid) return;
           const r = el.getBoundingClientRect(); const after = e.clientY > r.top + r.height/2;
+          if (paletteDragType) {
+            const nb = makeBlock(paletteDragType); paletteDragType = null;
+            let to = state.blocks.findIndex((x)=>x.id===bid); if (after) to += 1;
+            state.blocks.splice(to,0,nb); renderCanvas(); select(nb.id); return;
+          }
+          if (!dragId || dragId === bid) return;
           const from = state.blocks.findIndex((x)=>x.id===dragId);
           const moved = state.blocks.splice(from,1)[0];
           let to = state.blocks.findIndex((x)=>x.id===bid); if (after) to += 1;
@@ -483,6 +504,28 @@ import "../../../styles/admin.css";
         }
         case "video": return `<label class="eb-f"><span>Video link</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
           <label class="eb-f"><span>Thumbnail URL</span><input type="url" data-field="thumbnail" value="${esc(b.thumbnail||"")}" /></label>${align}`;
+        case "footer": return `<label class="eb-f"><span>Note</span><input type="text" data-field="note" value="${esc(b.note||"")}" /></label>
+          <label class="eb-f"><span>Address (optional)</span><input type="text" data-field="address" value="${esc(b.address||"")}" placeholder="Kettering, Northants" /></label>
+          <label class="eb-check"><input type="checkbox" data-field="showSocial"${b.showSocial!==false?" checked":""}/> Show social icons</label>
+          <label class="eb-check"><input type="checkbox" data-field="unsubscribe"${b.unsubscribe!==false?" checked":""}/> Show unsubscribe link</label>
+          <p class="eb-note">Uses company, website &amp; socials from <strong>Brand</strong>.</p>`;
+        case "faq": {
+          const items = Array.isArray(b.items)?b.items:[];
+          const rows = items.map((it,i)=>`<div class="eb-faq-row" style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;">
+            <label class="eb-f"><span>Q${i+1}</span><input type="text" data-faq="${i}.q" value="${esc(it.q||"")}" /></label>
+            <label class="eb-f"><span>A${i+1}</span><textarea data-faq="${i}.a" rows="2">${esc(it.a||"")}</textarea></label>
+            <button type="button" class="eb-mini-btn" data-faq-del="${i}">Remove</button></div>`).join("");
+          return `<label class="eb-f"><span>Section title</span><input type="text" data-field="title" value="${esc(b.title||"")}" /></label>
+            ${rows}<button type="button" class="eb-mini-btn" id="eb-faq-add">+ Add question</button>`;
+        }
+        case "countdown": return `<label class="eb-f"><span>Label</span><input type="text" data-field="label" value="${esc(b.label||"")}" placeholder="Offer ends" /></label>
+          <label class="eb-f"><span>Deadline date</span><input type="date" data-field="deadline" value="${esc(b.deadline||"")}" /></label>${align}`;
+        case "reviewlink": return `<label class="eb-f"><span>Prompt</span><input type="text" data-field="prompt" value="${esc(b.prompt||"")}" /></label>
+          <label class="eb-f"><span>Button text</span><input type="text" data-field="text" value="${esc(b.text||"")}" /></label>
+          <label class="eb-f"><span>Review URL (blank = brand default)</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://tmke.co.uk/review" /></label>${align}
+          <p class="eb-note">No reviews link is live yet — set one here or in <strong>Brand</strong> once it's ready.</p>`;
+        case "code": return `<label class="eb-f"><span>Custom HTML</span><textarea data-field="html" rows="8" style="font-family:monospace;font-size:12px;">${esc(b.html||"")}</textarea></label>
+          <p class="eb-note">Email-safe HTML only (inline styles, tables). Merge tokens work here too.</p>`;
         default: return "";
       }
     }
@@ -500,6 +543,17 @@ import "../../../styles/admin.css";
           blocksWrap.querySelectorAll(".cv-block").forEach((el)=>el.classList.toggle("is-selected", el.dataset.id===bid));
         });
       });
+      // FAQ block: repeatable Q/A items.
+      if (b.type === "faq") {
+        if (!Array.isArray(b.items)) b.items = [];
+        wrap.querySelectorAll("[data-faq]").forEach((inp)=>{
+          inp.addEventListener("input", ()=>{
+            const [i,k] = inp.dataset.faq.split("."); b.items[Number(i)] = b.items[Number(i)] || {q:"",a:""}; b.items[Number(i)][k] = inp.value; renderCanvas();
+          });
+        });
+        wrap.querySelectorAll("[data-faq-del]").forEach((btn)=>btn.addEventListener("click", ()=>{ b.items.splice(Number(btn.dataset.faqDel),1); renderCanvas(); openInspector(bid); }));
+        wrap.querySelector("#eb-faq-add")?.addEventListener("click", ()=>{ b.items.push({q:"",a:""}); renderCanvas(); openInspector(bid); });
+      }
       $("#eb-rail-blocks").hidden = true; $("#eb-rail-inspector").hidden = false;
     }
     $("#eb-insp-back").addEventListener("click", deselect);
@@ -508,8 +562,27 @@ import "../../../styles/admin.css";
     $("#eb-canvas-pane").addEventListener("mousedown", (e)=>{ if(!e.target.closest(".cv-block")) deselect(); });
 
     /* ─────────── palette ─────────── */
-    $("#eb-palette").innerHTML = BLOCK_TYPES.map(d=>`<button type="button" class="eb-tile" data-add="${d.type}" title="${d.hint}">${svg(ICONS[d.type]||"")}<span>${d.label}</span></button>`).join("");
-    $("#eb-palette").querySelectorAll("[data-add]").forEach(btn=>btn.addEventListener("click", ()=>addBlock(btn.dataset.add)));
+    $("#eb-palette").innerHTML = BLOCK_TYPES.map(d=>`<button type="button" class="eb-tile" draggable="true" data-add="${d.type}" title="${d.hint}">${svg(ICONS[d.type]||"")}<span>${d.label}</span></button>`).join("");
+    $("#eb-palette").querySelectorAll("[data-add]").forEach(btn=>{
+      // Click still works; drag-and-drop feels more natural (drop where you want it).
+      btn.addEventListener("click", ()=>addBlock(btn.dataset.add));
+      btn.addEventListener("dragstart", (e)=>{ paletteDragType = btn.dataset.add; e.dataTransfer.effectAllowed = "copy"; try { e.dataTransfer.setData("text/plain", btn.dataset.add); } catch(_){} });
+      btn.addEventListener("dragend", ()=>{ paletteDragType = null; });
+    });
+    // Dropping a palette block onto empty canvas space appends it.
+    const canvasDropZones = [$("#eb-blocks"), $("#eb-canvas")].filter(Boolean);
+    canvasDropZones.forEach((zone)=>{
+      zone.addEventListener("dragover", (e)=>{ if (paletteDragType) { e.preventDefault(); zone.classList.add("eb-drop-live"); } });
+      zone.addEventListener("dragleave", ()=>zone.classList.remove("eb-drop-live"));
+      zone.addEventListener("drop", (e)=>{
+        zone.classList.remove("eb-drop-live");
+        if (!paletteDragType) return;
+        if (e.target.closest(".cv-block")) return;   // a block-level handler already placed it
+        e.preventDefault();
+        const nb = makeBlock(paletteDragType); paletteDragType = null;
+        state.blocks.push(nb); renderCanvas(); select(nb.id);
+      });
+    });
 
     /* ─────────── swatches + bg hex ─────────── */
     function renderSwatches() {
