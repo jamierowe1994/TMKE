@@ -2014,6 +2014,32 @@ const googleFonts = [
     .ed-cp-grid--grad .ed-cp-sw { width: 40px; height: 28px; border-radius: 6px; }
     .ed-cp-empty { flex: 1 1 100%; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.45); white-space: nowrap; margin: 0; }
 
+    /* ---- Custom gradient editor ---- */
+    .ed-cpg { display: flex; flex-direction: column; gap: 9px; font-family: var(--sans); }
+    .ed-cpg-preview { height: 40px; border-radius: 8px; border: 1px solid rgba(28,29,34,0.14); }
+    .ed-cpg-row { display: flex; align-items: center; gap: 8px; }
+    .ed-cpg-row.is-hidden { display: none; }
+    .ed-cpg-lbl { flex: 0 0 42px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .ed-cpg-color { width: 30px; height: 26px; padding: 0; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: none; cursor: pointer; }
+    .ed-cpg-color:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ed-cpg-hex {
+      flex: 1; min-width: 0; font-family: var(--sans); font-size: 12px; padding: 6px 8px;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: #fff; color: var(--ink);
+    }
+    .ed-cpg-hex:disabled { opacity: 0.5; }
+    .ed-cpg-hex:focus { outline: none; border-color: var(--english-violet); }
+    .ed-cpg-fade { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: rgba(28,29,34,0.7); white-space: nowrap; cursor: pointer; }
+    .ed-cpg-seg { display: flex; gap: 4px; }
+    .ed-cpg-seg button {
+      flex: 1; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 7px 0; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: #fff;
+      color: rgba(28,29,34,0.7); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .ed-cpg-seg button.is-on { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .ed-cpg-range { flex: 1; min-width: 0; accent-color: var(--english-violet); }
+    .ed-cpg-val { flex: 0 0 40px; text-align: right; font-size: 11px; color: rgba(28,29,34,0.7); font-variant-numeric: tabular-nums; }
+    .ed-cpg-hint { margin: 2px 0 0; font-size: 11px; line-height: 1.4; color: rgba(28,29,34,0.45); }
+
     /* ---- Share dropdown ---- */
     .ed-share { position: relative; }
     .ed-share-caret { font-size: 9px; margin-left: 2px; color: rgba(28,29,34,0.5); }
@@ -3151,6 +3177,26 @@ const googleFonts = [
         // Turn on autosave-as-draft (admin only for now) — editor.js persists a
         // draft to localStorage shortly after each change and before unload.
         window.__TMKE_AUTOSAVE__ = true;
+
+        // Brand-kit links point at the customer profile (/profile). In admin we
+        // author shared templates, so redirect brand edits to the admin
+        // fonts/brand area instead — and open in a new tab so the in-progress
+        // editor session isn't thrown away mid-design.
+        document.querySelectorAll('#brand-edit-link, .ed-brand-empty a').forEach((a) => {
+          a.setAttribute('href', '/admin/fonts');
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener');
+        });
+
+        // Now that the live templates blob is populated and the save hook is
+        // installed (so isAdminMode() is true), tell editor.js to load the
+        // requested template. editor.js may not have defined the callback yet
+        // (script-load race) — leave a breadcrumb it picks up on boot if so.
+        if (typeof window.__TMKE_BOOT_ADMIN__ === 'function') {
+          window.__TMKE_BOOT_ADMIN__(requestedId || null);
+        } else {
+          window.__TMKE_ADMIN_BOOTSTRAP_DONE__ = { requestedId: requestedId || null };
+        }
       }
     }
 

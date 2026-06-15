@@ -339,6 +339,7 @@
       openColorPanel({
         title: opts.title || "Colour",
         current: getCurrent(),
+        currentGradient: opts.getGradient ? opts.getGradient() : null,
         onSolid: function (hex) { opts.onSolid(hex); paint(); fullRender(); pushHistory(); },
         onGradient: opts.onGradient ? function (g) { opts.onGradient(g); paint(); fullRender(); pushHistory(); } : null,
       });
@@ -443,6 +444,70 @@
     { from: "#C98BD9", to: "#5B6BF0", angle: 135 },
   ];
 
+  // ---------- Custom gradient editor ----------
+  // A draft object the editor mutates as the user drags controls. Fields:
+  // { type:'linear'|'radial', angle, from, to, toTransparent, fromStop, toStop }.
+  function cpInitGradDraft(grad, currentSolid) {
+    const g = grad || {};
+    const toVal = g.to || "transparent";
+    return {
+      type: g.type === "radial" ? "radial" : "linear",
+      angle: g.angle != null ? g.angle : 135,
+      from: normHex(g.from) || normHex(currentSolid) || "#371E28",
+      to: normHex(toVal) || "#B9826A",
+      toTransparent: toVal === "transparent",
+      fromStop: g.fromStop != null ? g.fromStop : 0,
+      toStop: g.toStop != null ? g.toStop : 100,
+    };
+  }
+  // CSS string for the live preview swatch.
+  function cpGradCss(d) {
+    const from = d.from || "#371E28";
+    const to = d.toTransparent ? "transparent" : (d.to || "#B9826A");
+    const stops = from + " " + (d.fromStop || 0) + "%, " + to + " " + (d.toStop != null ? d.toStop : 100) + "%";
+    return d.type === "radial"
+      ? "radial-gradient(circle, " + stops + ")"
+      : "linear-gradient(" + (d.angle != null ? d.angle : 135) + "deg, " + stops + ")";
+  }
+  // Convert a draft into the gradient model the onGradient callback expects.
+  function cpDraftToGrad(d) {
+    return {
+      type: d.type || "linear",
+      angle: d.angle != null ? d.angle : 135,
+      from: d.from,
+      to: d.toTransparent ? "transparent" : d.to,
+      fromStop: d.fromStop || 0,
+      toStop: d.toStop != null ? d.toStop : 100,
+    };
+  }
+  // Markup for the editor block (rebuilt each open; bound via delegation).
+  function cpGradEditorHtml(d) {
+    const isLin = d.type !== "radial";
+    return '<div class="ed-cpg">' +
+      '<div class="ed-cpg-preview" data-cpg="preview" style="background:' + cpGradCss(d) + '"></div>' +
+      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">From</span>' +
+        '<input type="color" class="ed-cpg-color" data-cpg="from" value="' + d.from + '">' +
+        '<input type="text" class="ed-cpg-hex" data-cpg="fromHex" value="' + d.from + '"></div>' +
+      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">To</span>' +
+        '<input type="color" class="ed-cpg-color" data-cpg="to" value="' + d.to + '"' + (d.toTransparent ? " disabled" : "") + '>' +
+        '<input type="text" class="ed-cpg-hex" data-cpg="toHex" value="' + (d.toTransparent ? "transparent" : d.to) + '"' + (d.toTransparent ? " disabled" : "") + '>' +
+        '<label class="ed-cpg-fade"><input type="checkbox" data-cpg="toTransparent"' + (d.toTransparent ? " checked" : "") + '>Fade</label></div>' +
+      '<div class="ed-cpg-seg" data-cpg="type">' +
+        '<button type="button" data-type="linear" class="' + (isLin ? "is-on" : "") + '">Linear</button>' +
+        '<button type="button" data-type="radial" class="' + (isLin ? "" : "is-on") + '">Radial</button></div>' +
+      '<div class="ed-cpg-row' + (isLin ? "" : " is-hidden") + '" data-cpg="angleRow"><span class="ed-cpg-lbl">Angle</span>' +
+        '<input type="range" min="0" max="360" class="ed-cpg-range" data-cpg="angle" value="' + (d.angle != null ? d.angle : 135) + '">' +
+        '<span class="ed-cpg-val" data-out="angle">' + (d.angle != null ? d.angle : 135) + '°</span></div>' +
+      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">Start</span>' +
+        '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="fromStop" value="' + (d.fromStop || 0) + '">' +
+        '<span class="ed-cpg-val" data-out="fromStop">' + (d.fromStop || 0) + '%</span></div>' +
+      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">End</span>' +
+        '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="toStop" value="' + (d.toStop != null ? d.toStop : 100) + '">' +
+        '<span class="ed-cpg-val" data-out="toStop">' + (d.toStop != null ? d.toStop : 100) + '%</span></div>' +
+      '<p class="ed-cpg-hint">Start/End control how much of the shape stays solid before the blend.</p>' +
+    '</div>';
+  }
+
   function normHex(v) {
     if (!v) return null;
     let s = String(v).trim();
@@ -506,6 +571,7 @@
     if (!panel) return;
     panel._onSolid = opts.onSolid || null;
     panel._onGradient = opts.onGradient || null;
+    panel._gradDraft = panel._onGradient ? cpInitGradDraft(opts.currentGradient, opts.current) : null;
     const current = normHex(opts.current);
 
     const swHtml = (c) => '<button class="ed-cp-sw' + (c === current ? " is-current" : "") + '" data-hex="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
@@ -527,6 +593,7 @@
         sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') +
         sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
         (panel._onGradient ? sec("Gradients", grid(CP_DEFAULT_GRADS.map(gradHtml), " ed-cp-grid--grad")) : "") +
+        (panel._onGradient ? sec("Custom gradient", cpGradEditorHtml(panel._gradDraft)) : "") +
       '</div>';
 
     panel.hidden = false;
@@ -544,18 +611,81 @@
   (function wireColorPanel() {
     const panel = document.getElementById("ed-colorpanel");
     if (!panel) return;
+
+    // ---- Custom gradient editor helpers (panel._gradDraft is the live draft) ----
+    function cpRoot() { return panel.querySelector(".ed-cpg"); }
+    function cpReadAll() {
+      const root = cpRoot(); if (!root || !panel._gradDraft) return;
+      const d = panel._gradDraft;
+      const get = (k) => root.querySelector('[data-cpg="' + k + '"]');
+      const fade = get("toTransparent"); if (fade) d.toTransparent = fade.checked;
+      const fromC = get("from"); if (fromC) d.from = (fromC.value || d.from).toUpperCase();
+      const fromH = get("fromHex"); if (fromH) { const h = normHex(fromH.value); if (h) d.from = h; }
+      if (!d.toTransparent) {
+        const toC = get("to"); if (toC) d.to = (toC.value || d.to).toUpperCase();
+        const toH = get("toHex"); if (toH) { const h = normHex(toH.value); if (h) d.to = h; }
+      }
+      const ang = get("angle"); if (ang) d.angle = +ang.value;
+      const fs = get("fromStop"); if (fs) d.fromStop = +fs.value;
+      const ts = get("toStop"); if (ts) d.toStop = +ts.value;
+    }
+    function cpRefresh() {
+      const root = cpRoot(); if (!root || !panel._gradDraft) return;
+      const prev = root.querySelector('[data-cpg="preview"]');
+      if (prev) prev.style.background = cpGradCss(panel._gradDraft);
+      const setOut = (k, v) => { const s = root.querySelector('[data-out="' + k + '"]'); if (s) s.textContent = v; };
+      setOut("angle", (panel._gradDraft.angle | 0) + "°");
+      setOut("fromStop", (panel._gradDraft.fromStop | 0) + "%");
+      setOut("toStop", (panel._gradDraft.toStop | 0) + "%");
+    }
+    function cpRerender() {
+      const root = cpRoot(); if (!root || !panel._gradDraft) return;
+      root.outerHTML = cpGradEditorHtml(panel._gradDraft);
+    }
+    function cpCommit() { if (panel._onGradient && panel._gradDraft) panel._onGradient(cpDraftToGrad(panel._gradDraft)); }
+
     panel.addEventListener("click", (e) => {
       if (e.target.closest(".ed-cp-close")) { closeColorPanel(); return; }
+      // Linear / Radial segmented control.
+      const typeBtn = e.target.closest(".ed-cpg-seg button");
+      if (typeBtn && panel._gradDraft) {
+        panel._gradDraft.type = typeBtn.dataset.type === "radial" ? "radial" : "linear";
+        cpRerender(); cpCommit(); return;
+      }
       const sw = e.target.closest(".ed-cp-sw");
       if (!sw) return;
       if (sw.dataset.grad && panel._onGradient) {
-        try { panel._onGradient(JSON.parse(sw.dataset.grad)); } catch (_) {}
+        try {
+          const g = JSON.parse(sw.dataset.grad);
+          panel._onGradient(g);
+          // Mirror the chosen preset into the custom editor so it's tweakable.
+          panel._gradDraft = cpInitGradDraft(Object.assign({ enabled: true }, g), null);
+          cpRerender();
+        } catch (_) {}
       } else if (sw.dataset.hex && panel._onSolid) {
         panel._onSolid(sw.dataset.hex);
       }
     });
+
+    // Live preview while dragging (cheap, no canvas re-render / history churn).
+    panel.addEventListener("input", (e) => {
+      if (!e.target.closest(".ed-cpg")) return;
+      cpReadAll(); cpRefresh();
+    });
+    // Commit to the element (+ one history entry) on release / blur.
+    panel.addEventListener("change", (e) => {
+      const t = e.target;
+      if (!t.closest(".ed-cpg")) return;
+      cpReadAll();
+      if (t.dataset.cpg === "toTransparent") cpRerender();
+      cpRefresh(); cpCommit();
+    });
+
     panel.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
+      // Gradient editor hex fields commit on Enter.
+      const gh = e.target.closest(".ed-cpg-hex");
+      if (gh) { cpReadAll(); cpRefresh(); cpCommit(); return; }
       const inp = e.target.closest(".ed-cp-hex");
       if (!inp) return;
       const h = normHex(inp.value);
@@ -3625,15 +3755,20 @@
   }
 
   // Build a CSS background for gradient-filled text. Returns null if disabled.
+  // `fromStop`/`toStop` (0–100) control where the blend starts/ends — i.e. how
+  // much of the shape is solid colour vs. transition ("how much gradient").
   function textGradientCss(grad) {
     if (!grad || !grad.enabled) return null;
     const angle = grad.angle != null ? grad.angle : 90;
     const from = grad.from || "#1c1d22";
     const to   = grad.to   || "#B9826A";
+    const fs = grad.fromStop != null ? grad.fromStop : 0;
+    const ts = grad.toStop != null ? grad.toStop : 100;
+    const stops = from + " " + fs + "%, " + to + " " + ts + "%";
     if (grad.type === "radial") {
-      return "radial-gradient(circle, " + from + ", " + to + ")";
+      return "radial-gradient(circle, " + stops + ")";
     }
-    return "linear-gradient(" + angle + "deg, " + from + ", " + to + ")";
+    return "linear-gradient(" + angle + "deg, " + stops + ")";
   }
 
   // Canvas fill for a shape on export — a gradient (incl. fade-to-transparent)
@@ -3642,10 +3777,19 @@
   function shapeCanvasFill(ctx, el) {
     const grad = el.fillGradient;
     if (!grad || !grad.enabled) return el.fill || "transparent";
+    // Clamp stop positions to [0,1] and keep them ascending (addColorStop is
+    // strict about both), mirroring the CSS maths in textGradientCss.
+    let fs = (grad.fromStop != null ? grad.fromStop : 0) / 100;
+    let ts = (grad.toStop != null ? grad.toStop : 100) / 100;
+    fs = Math.max(0, Math.min(1, fs));
+    ts = Math.max(0, Math.min(1, ts));
+    if (ts < fs) { const tmp = fs; fs = ts; ts = tmp; }
+    const from = grad.from || "#1c1d22";
+    const to   = grad.to   || "transparent";
     if (grad.type === "radial") {
       const g = ctx.createRadialGradient(el.w / 2, el.h / 2, 0, el.w / 2, el.h / 2, Math.max(el.w, el.h) / 2);
-      g.addColorStop(0, grad.from || "#B9826A");
-      g.addColorStop(1, grad.to || "transparent");
+      g.addColorStop(fs, from);
+      g.addColorStop(ts, to);
       return g;
     }
     const a = (grad.angle != null ? grad.angle : 90) * Math.PI / 180;
@@ -3653,8 +3797,8 @@
       el.w / 2 - Math.cos(a) * el.w / 2, el.h / 2 - Math.sin(a) * el.h / 2,
       el.w / 2 + Math.cos(a) * el.w / 2, el.h / 2 + Math.sin(a) * el.h / 2
     );
-    g.addColorStop(0, grad.from || "#1c1d22");
-    g.addColorStop(1, grad.to || "transparent");
+    g.addColorStop(fs, from);
+    g.addColorStop(ts, to);
     return g;
   }
 
@@ -3990,7 +4134,8 @@
         {
           title: "Text colour",
           onSolid: function (hex) { el.color = hex; el.textGradient = null; },
-          onGradient: function (g) { el.textGradient = { enabled: true, type: "linear", angle: g.angle || 135, from: g.from, to: g.to }; },
+          onGradient: function (g) { el.textGradient = { enabled: true, type: g.type || "linear", angle: g.angle != null ? g.angle : 135, from: g.from, to: g.to, fromStop: g.fromStop, toStop: g.toStop }; },
+          getGradient: function () { return el.textGradient; },
         }
       ));
       ctxEl.appendChild(g4);
@@ -4002,7 +4147,8 @@
         {
           title: "Fill",
           onSolid: function (hex) { el.fill = hex; el.fillGradient = null; },
-          onGradient: function (gr) { el.fillGradient = { enabled: true, type: gr.type || "linear", angle: gr.angle != null ? gr.angle : 135, from: gr.from, to: gr.to }; },
+          onGradient: function (gr) { el.fillGradient = { enabled: true, type: gr.type || "linear", angle: gr.angle != null ? gr.angle : 135, from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop }; },
+          getGradient: function () { return el.fillGradient; },
         }
       ));
       ctxEl.appendChild(g);
@@ -4444,7 +4590,9 @@
       swatchGrid.appendChild(b);
     });
     if (!BRAND.colors || !BRAND.colors.length) {
-      swatchGrid.innerHTML = '<p class="ed-brand-hint" style="grid-column:1/-1">No brand colours yet. <a href="/profile" style="color:var(--english-violet); border-bottom:1px solid currentColor">Add some</a>.</p>';
+      swatchGrid.innerHTML = isAdminMode()
+        ? '<p class="ed-brand-hint" style="grid-column:1/-1">No brand colours yet. <a href="/admin/fonts" target="_blank" rel="noopener" style="color:var(--english-violet); border-bottom:1px solid currentColor">Add some</a>.</p>'
+        : '<p class="ed-brand-hint" style="grid-column:1/-1">No brand colours yet. <a href="/profile" style="color:var(--english-violet); border-bottom:1px solid currentColor">Add some</a>.</p>';
     }
 
     // Fonts
@@ -4503,7 +4651,9 @@
       logoGrid.appendChild(b);
     });
     if (!BRAND.logos || !BRAND.logos.length) {
-      logoGrid.innerHTML = '<p class="ed-brand-hint" style="grid-column:1/-1">No logos yet. <a href="/profile" style="color:var(--english-violet); border-bottom:1px solid currentColor">Upload some</a>.</p>';
+      logoGrid.innerHTML = isAdminMode()
+        ? '<p class="ed-brand-hint" style="grid-column:1/-1">No logos yet. <a href="/admin/fonts" target="_blank" rel="noopener" style="color:var(--english-violet); border-bottom:1px solid currentColor">Upload some</a>.</p>'
+        : '<p class="ed-brand-hint" style="grid-column:1/-1">No logos yet. <a href="/profile" style="color:var(--english-violet); border-bottom:1px solid currentColor">Upload some</a>.</p>';
     }
   }
 
@@ -5029,11 +5179,43 @@
   // template behind the onboarding overlay.
   const urlParams = new URLSearchParams(window.location.search);
   const explicitTpl = urlParams.get("template");
-  if (isAdminMode() && TEMPLATES.length) {
-    // Admin: the bootstrap moved the requested template to index 0. Load it so
-    // editing an existing template shows its design, and a freshly-created one
-    // (empty elements) opens as a blank canvas to build from scratch.
-    loadTemplate(TEMPLATES[0].id, false);
+  const adminPending = urlParams.get("mode") === "admin";
+
+  // Re-read the templates blob from the DOM and mutate TEMPLATES *in place* so
+  // PACK_TEMPLATES and every closure keep their reference. The admin bootstrap
+  // in editor.astro fetches the live templates from Supabase asynchronously, so
+  // this blob is empty when the IIFE first runs — we refresh once it's ready.
+  function refreshAdminTemplates() {
+    try {
+      const tag = document.getElementById("ed-templates-data");
+      const arr = JSON.parse((tag && tag.textContent) || "[]");
+      if (Array.isArray(arr)) TEMPLATES.splice(0, TEMPLATES.length, ...arr);
+    } catch (_) {}
+  }
+
+  if (adminPending) {
+    // Admin studio. editor.js boots *before* the async Supabase bootstrap has
+    // installed the save hook (`__TMKE_ADMIN_SAVE__`, which is what
+    // `isAdminMode()` keys off) or filled the templates blob — so we cannot
+    // load the requested template here. Expose a callback the bootstrap fires
+    // once it's ready; if it already finished, run immediately.
+    window.__TMKE_BOOT_ADMIN__ = function (requestedId) {
+      refreshAdminTemplates();
+      const id = requestedId || (TEMPLATES[0] && TEMPLATES[0].id);
+      if (id) loadTemplate(id, false); else loadBlank();
+    };
+    if (window.__TMKE_ADMIN_BOOTSTRAP_DONE__) {
+      window.__TMKE_BOOT_ADMIN__(window.__TMKE_ADMIN_BOOTSTRAP_DONE__.requestedId);
+    } else {
+      // Fallback: if the bootstrap never resolves (network/auth error), don't
+      // leave a frozen empty canvas — fall back to a blank after a grace period.
+      setTimeout(function () {
+        if (!state.templateId && !(state.elements && state.elements.length)) {
+          if (TEMPLATES.length) loadTemplate(TEMPLATES[0].id, false);
+          else loadBlank();
+        }
+      }, 6000);
+    }
   } else if (explicitTpl) {
     loadTemplate(explicitTpl, false);
   } else {
