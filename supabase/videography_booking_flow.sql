@@ -54,6 +54,20 @@ create table if not exists videography_settings (
 );
 insert into videography_settings (id) values (1) on conflict (id) do nothing;
 
+-- RLS — admin-only. The Worker reads this with the service role (which bypasses
+-- RLS); the admin settings editor reads + upserts it with an authenticated
+-- session; the public booking flow never reads it directly (it calls the Worker
+-- /videography/distance endpoint). So there's no anonymous access — this closes
+-- the "RLS disabled in public" advisory. Tighten `authenticated` to
+-- public.is_admin() once the admins-table RLS rollout lands.
+alter table videography_settings enable row level security;
+drop policy if exists "videography_settings admin" on videography_settings;
+create policy "videography_settings admin"
+  on videography_settings for all
+  to authenticated
+  using (true)
+  with check (true);
+
 -- ---- Helpful indexes -------------------------------------------------------
 create index if not exists idx_vid_bookings_kind  on videography_bookings (kind);
 create index if not exists idx_vid_bookings_stage on videography_bookings (stage);
