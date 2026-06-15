@@ -301,6 +301,43 @@
     return wrap;
   }
 
+  // Icon button that opens a small popover with a labelled slider + number box.
+  // Used for text line-height / letter-spacing in the context bar.
+  function sliderPopover(opts) {
+    return popoverIconButton({
+      icon: opts.icon,
+      title: opts.title,
+      render: function () {
+        const box = document.createElement("div");
+        box.style.cssText = "padding:12px 14px;min-width:210px;font-family:var(--sans,inherit);";
+        const lab = document.createElement("div");
+        lab.style.cssText = "font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(28,29,34,0.55);margin-bottom:9px;";
+        lab.textContent = opts.label;
+        box.appendChild(lab);
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;align-items:center;gap:8px;";
+        const range = document.createElement("input");
+        range.type = "range"; range.min = opts.min; range.max = opts.max; range.step = opts.step; range.value = opts.get();
+        range.style.cssText = "flex:1;accent-color:var(--english-violet,#371e28);";
+        const num = document.createElement("input");
+        num.type = "number"; num.min = opts.min; num.max = opts.max; num.step = opts.step; num.value = opts.get();
+        num.style.cssText = "width:64px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font:inherit;";
+        const apply = function (v, fromNum) {
+          v = Math.max(opts.min, Math.min(opts.max, isNaN(v) ? opts.get() : v));
+          opts.set(v); range.value = v; if (!fromNum) num.value = v; fullRender();
+        };
+        range.addEventListener("input", function () { apply(parseFloat(range.value), false); });
+        range.addEventListener("change", function () { pushHistory(); });
+        num.addEventListener("input", function () { apply(parseFloat(num.value), true); });
+        num.addEventListener("change", function () { pushHistory(); });
+        row.appendChild(range); row.appendChild(num);
+        if (opts.unit) { const u = document.createElement("span"); u.textContent = opts.unit; u.style.cssText = "opacity:0.5;font-size:12px;"; row.appendChild(u); }
+        box.appendChild(row);
+        return box;
+      },
+    });
+  }
+
   // Circular colour swatch — clicking it triggers the native colour picker.
   // Used in place of square `<input type="color">` with a "Colour" label.
   // onChange is called on every input event with the new hex string.
@@ -4242,6 +4279,22 @@
         fullRender(); pushHistory();
       }, "Alignment: " + ALIGN_LABEL[curAlign] + " — click to cycle");
       g3.appendChild(alignBtn);
+
+      // Line height + letter spacing — popover sliders (these used to be missing).
+      const lineHeightIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11M10 12h11M10 18h11"/><path d="M4 4v16"/><path d="M2 6l2-2 2 2"/><path d="M2 18l2 2 2-2"/></svg>';
+      const letterSpaceIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l3.5-9 3.5 9"/><path d="M7 12.5h5"/><path d="M19 5v14"/><path d="M2 5v14"/></svg>';
+      g3.appendChild(sliderPopover({
+        icon: lineHeightIcon, title: "Line height", label: "Line height",
+        min: 0.8, max: 3, step: 0.05,
+        get: function () { return el.lineHeight != null ? el.lineHeight : 1.3; },
+        set: function (v) { el.lineHeight = v; },
+      }));
+      g3.appendChild(sliderPopover({
+        icon: letterSpaceIcon, title: "Letter spacing", label: "Letter spacing", unit: "px",
+        min: -5, max: 40, step: 0.5,
+        get: function () { return el.letterSpacing != null ? el.letterSpacing : 0; },
+        set: function (v) { el.letterSpacing = v; },
+      }));
       ctxEl.appendChild(g3);
 
       // Colour — opens the rich left-hand colour panel (solid or gradient).
@@ -4802,6 +4855,22 @@
       showPane(tool);
     });
   });
+
+  // Open a tool pane programmatically (clears any selection so the pane shows).
+  function openTool(name) {
+    state.selectedIds = [];
+    activeToolPane = name;
+    document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === name));
+    showPane(name);
+    fullRender();
+  }
+  // Double-click the empty canvas or the background photo → jump to Background.
+  // (Element double-clicks call stopPropagation, so this only fires on the bg.)
+  if (canvasEl) {
+    canvasEl.addEventListener("dblclick", function (ev) {
+      if (ev.target === canvasEl) openTool("background");
+    });
+  }
 
   // ---------- Shapes / text / bg / swatches bindings ----------
   // A single .ed-shape button can carry data-shape (legacy CSS shapes),
