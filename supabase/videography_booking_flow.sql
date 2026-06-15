@@ -27,7 +27,8 @@ alter table videography_bookings
   add column if not exists enquiry_message     text,                        -- non-member free-text
   add column if not exists company             text,                        -- client company / brand
   add column if not exists total_pence         integer,                     -- booking total incl. VAT
-  add column if not exists ms_event_id         text;                        -- linked 365 calendar event (cancel/reschedule)
+  add column if not exists ms_event_id         text,                        -- linked 365 calendar event (cancel/reschedule)
+  add column if not exists duration_min        integer;                     -- slot length (for reschedule availability)
 
 -- `stage` is a free-text status column; the lead statuses below are just new
 -- values (no enum change needed):

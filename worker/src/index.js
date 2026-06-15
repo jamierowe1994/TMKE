@@ -673,7 +673,7 @@ export default {
           service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
           signed_name: signed_name || null, signed_at: signed_at || null, marketing_opt_in: !!marketing_opt_in,
           account_user_id: accountUserId, reschedule_token: rescheduleToken, total_pence: total_pence ?? null,
-          ms_event_id: ev.id || null,
+          ms_event_id: ev.id || null, duration_min: dur,
         });
 
         // 5) Confirmation emails (best-effort, never block the booking).
@@ -689,7 +689,7 @@ export default {
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         await sendEmail(env, {
           to: email, subject: `Booking confirmed — ${service || "TMKE"}`,
-          html: bookingConfirmHtml({ name, service, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/account` }),
+          html: bookingConfirmHtml({ name, service, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}` }),
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, {
@@ -766,7 +766,7 @@ export default {
           kind: "discovery", service_type: "discovery", client_name: name, client_email: email,
           client_phone: phone || null, company: company || null, service: "Discovery Call",
           shoot_date: `${date}T${start}:00`, stage: "discovery_call_booked",
-          discovery_interests: interestList, notes: message || null, reschedule_token: token, ms_event_id: ev.id || null,
+          discovery_interests: interestList, notes: message || null, reschedule_token: token, ms_event_id: ev.id || null, duration_min: dur,
         });
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
         const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call — TMKE", description: ["A quick call with Jack to talk through your videography.", interestList.length && `Interested in: ${interestList.join(", ")}`].filter(Boolean).join("\n"), location: "Online / phone", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name });
@@ -777,6 +777,7 @@ export default {
           html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
             <h1 style="font-size:22px;margin:0 0 6px">Your call is booked</h1>
             <p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(name)}, your discovery call with Jack is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
+            <p style="font-size:13px;color:#555;margin:0 0 8px">Need to change it? <a href="${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(token)}" style="color:#371e28">Reschedule or cancel your call</a>.</p>
             <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p></div>`,
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
         });
@@ -795,6 +796,89 @@ export default {
             </div></div>`,
         });
         return json({ ok: true, eventId: ev.id }, 200, request, env);
+      }
+
+      // ---- Manage a booking by token (portal + tokenised email links) -------
+      // Authorised by the per-booking reschedule_token (a capability). Used by
+      // the account portal and the email "manage your booking" links.
+      if (path.endsWith("/videography/booking") && request.method === "GET") {
+        const token = (url.searchParams.get("token") || "").trim();
+        if (!token) return json({ error: "Missing token" }, 400, request, env);
+        const rows = await sbGet(env, "videography_bookings", `reschedule_token=eq.${encodeURIComponent(token)}&select=id,kind,service,service_type,client_name,client_email,shoot_date,stage,postcode,total_pence,discovery_interests,duration_min`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Booking not found" }, 404, request, env);
+        const days = bk.shoot_date ? (new Date(bk.shoot_date) - new Date()) / 86400000 : null;
+        return json({ booking: bk, can_cancel: days != null && days >= 3, can_reschedule: days != null && days >= 2 }, 200, request, env);
+      }
+
+      // ---- Cancel a booking (≥3 days' notice; enforced server-side) ----------
+      if (path.endsWith("/videography/cancel") && request.method === "POST") {
+        const { token } = await request.json().catch(() => ({}));
+        if (!token) return json({ error: "Missing token" }, 400, request, env);
+        const rows = await sbGet(env, "videography_bookings", `reschedule_token=eq.${encodeURIComponent(token)}&select=*`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Booking not found" }, 404, request, env);
+        if (bk.stage === "cancelled") return json({ ok: true, already: true }, 200, request, env);
+        const days = bk.shoot_date ? (new Date(bk.shoot_date) - new Date()) / 86400000 : 0;
+        if (days < 3) return json({ error: "Cancellations within 3 days can't be made online — please email jack@tmke.co.uk. Note: cancellations within 48 hours are chargeable in full." }, 422, request, env);
+        if (bk.ms_event_id) { try { await graph(env, "DELETE", `/users/${encodeURIComponent(env.JACK_UPN)}/events/${bk.ms_event_id}`); } catch (_) {} }
+        await sbPatch(env, "videography_bookings", `id=eq.${bk.id}`, { stage: "cancelled" });
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        await sendEmail(env, {
+          to: bk.client_email, subject: `Booking cancelled — ${bk.service || "TMKE"}`,
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><h1 style="font-size:22px;margin:0 0 6px">Your booking is cancelled</h1><p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(bk.client_name || "")}, we've cancelled your ${esc(bk.service || "booking")}. If this was a mistake or you'd like to rebook, just head back to <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk/videography</a>.</p></div>`,
+        });
+        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Cancelled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} cancelled their ${esc(bk.service || "booking")} (was ${esc(bk.shoot_date || "")}).</p></div>` });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Reschedule a booking (≥2 days' notice; moves the 365 event) -------
+      if (path.endsWith("/videography/reschedule") && request.method === "POST") {
+        const { token, date, start } = await request.json().catch(() => ({}));
+        if (!token || !date || !start) return json({ error: "Missing details" }, 400, request, env);
+        const rows = await sbGet(env, "videography_bookings", `reschedule_token=eq.${encodeURIComponent(token)}&select=*`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Booking not found" }, 404, request, env);
+        if (bk.stage === "cancelled") return json({ error: "This booking was cancelled." }, 422, request, env);
+        const days = bk.shoot_date ? (new Date(bk.shoot_date) - new Date()) / 86400000 : 0;
+        if (days < 2) return json({ error: "Rescheduling within 2 days can't be done online — please email jack@tmke.co.uk." }, 422, request, env);
+        // Slot length: the stored duration, else read the existing 365 event, else 60.
+        let dur = bk.duration_min || 0;
+        if (!dur && bk.ms_event_id) {
+          try {
+            const ev0 = await graph(env, "GET", `/users/${encodeURIComponent(env.JACK_UPN)}/events/${bk.ms_event_id}?$select=start,end`);
+            if (ev0 && ev0.start && ev0.end) { const d = Math.round((new Date(ev0.end.dateTime) - new Date(ev0.start.dateTime)) / 60000); if (d > 0) dur = d; }
+          } catch (_) {}
+        }
+        if (!(dur > 0)) dur = 60;
+        const endHm = minToHm(hmToMin(start) + dur);
+        // Re-check the new slot is free (the existing event sits at the old time).
+        const check = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
+          schedules: [env.JACK_UPN],
+          startTime: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+          endTime: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          availabilityViewInterval: Math.max(15, dur),
+        });
+        const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
+        if (view && /[^0]/.test(view)) return json({ error: "That time isn't free — please pick another." }, 409, request, env);
+        if (bk.ms_event_id) {
+          await graph(env, "PATCH", `/users/${encodeURIComponent(env.JACK_UPN)}/events/${bk.ms_event_id}`, {
+            start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+            end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          });
+        }
+        await sbPatch(env, "videography_bookings", `id=eq.${bk.id}`, { shoot_date: `${date}T${start}:00` });
+        const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
+        const ics = buildICS({ uid: `${bk.ms_event_id || bk.reschedule_token}@tmke.co.uk`, date, start, endHm, summary: bk.service || "TMKE Booking", description: ["Rescheduled booking.", bk.postcode && `Location: ${bk.postcode}`].filter(Boolean).join("\n"), location: bk.postcode || "", organizer: env.JACK_UPN, attendeeEmail: bk.client_email, attendeeName: bk.client_name });
+        const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        await sendEmail(env, {
+          to: bk.client_email, subject: `Booking rescheduled — ${dateNice}`,
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><h1 style="font-size:22px;margin:0 0 6px">Your booking has moved</h1><p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(bk.client_name || "")}, your ${esc(bk.service || "booking")} is now <strong>${esc(dateNice)} at ${esc(start)}</strong>. An updated calendar invite is attached.</p></div>`,
+          attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
+        });
+        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Rescheduled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} moved their ${esc(bk.service || "booking")} to ${esc(dateNice)} at ${esc(start)}.</p></div>` });
+        return json({ ok: true }, 200, request, env);
       }
 
       // Cancellation waitlist (gated). The studio/section is "fully booked", so we

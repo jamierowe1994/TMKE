@@ -1,0 +1,224 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import "../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the reschedule picker
+---
+
+<BaseLayout
+  title="Manage your booking — TMKE"
+  description="Reschedule or cancel your TMKE booking."
+  hideNav
+  hideFooter
+>
+  <main class="mng">
+    <div class="mng-card" id="mng-card">
+      <a href="/" class="mng-logo">TMKE</a>
+      <div id="mng-body">
+        <p class="mng-state">Loading your booking…</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Reschedule picker (reuses the wizard calendar/slot styles). -->
+  <div class="bk-resched-scrim" id="mng-resched" hidden>
+    <div class="bk-resched-card" role="dialog" aria-modal="true" aria-label="Reschedule booking">
+      <header class="bk-resched-head">
+        <h3>Reschedule</h3>
+        <button type="button" class="bk-resched-x" id="mng-resched-close" aria-label="Close">&times;</button>
+      </header>
+      <div id="mng-cal-wrap">
+        <p class="bk-resched-sub" id="mng-cal-sub">Pick a new day.</p>
+        <div class="dc-cal">
+          <header class="dc-cal-head">
+            <button type="button" class="dc-cal-nav" id="mng-prev" aria-label="Previous month">&larr;</button>
+            <div class="dc-cal-label" id="mng-cal-label">…</div>
+            <button type="button" class="dc-cal-nav" id="mng-next" aria-label="Next month">&rarr;</button>
+          </header>
+          <div class="dc-cal-weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+          <div class="dc-cal-grid" id="mng-cal-grid"></div>
+        </div>
+      </div>
+      <div id="mng-slots-wrap" hidden>
+        <p class="bk-resched-sub" id="mng-slots-sub">…</p>
+        <div class="dc-slots-grid" id="mng-slots-grid"></div>
+        <button type="button" class="bk-resched-back" id="mng-slots-back">&larr; Back to calendar</button>
+      </div>
+      <p class="dc-gate-error" id="mng-resched-error" hidden></p>
+    </div>
+  </div>
+
+  <style is:global>
+    .mng { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 32px 20px; background: var(--paper); }
+    .mng-card { width: min(560px, 96vw); background: #fff; border: 1px solid rgba(28,29,34,0.08); border-radius: 16px; padding: 36px 38px 40px; box-shadow: 0 24px 70px -30px rgba(55,30,40,0.3); }
+    .mng-logo { font-family: var(--serif); font-size: 24px; letter-spacing: 0.08em; color: var(--ink); display: inline-block; margin-bottom: 26px; }
+    .mng-state { font-family: var(--sans); font-size: 15px; color: rgba(28,29,34,0.66); }
+    .mng-h { font-family: var(--serif); font-weight: 400; font-size: clamp(28px,3.4vw,40px); letter-spacing: -0.02em; color: var(--ink); margin: 0 0 6px; }
+    .mng-h em { font-style: italic; color: var(--english-violet); }
+    .mng-sub { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.62); margin: 0 0 24px; }
+    .mng-detail { background: rgba(55,30,40,0.05); border-left: 3px solid var(--english-violet); border-radius: 0 8px 8px 0; padding: 16px 18px; margin: 0 0 24px; }
+    .mng-detail div { font-family: var(--sans); font-size: 14px; line-height: 1.9; color: var(--ink); }
+    .mng-detail span { color: rgba(28,29,34,0.55); }
+    .mng-pill { display: inline-block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; background: rgba(55,30,40,0.1); color: var(--english-violet); }
+    .mng-pill.is-cancelled { background: rgba(28,29,34,0.1); color: rgba(28,29,34,0.55); }
+    .mng-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .mng-btn { appearance: none; border: 0; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 14px 24px; border-radius: 6px; cursor: pointer; transition: background .2s, opacity .2s; }
+    .mng-btn--primary { background: var(--ink); color: var(--paper); }
+    .mng-btn--primary:hover { background: var(--english-violet); }
+    .mng-btn--ghost { background: #fff; color: var(--ink); border: 1px solid rgba(55,30,40,0.3); }
+    .mng-btn--ghost:hover { border-color: #8a3b2f; color: #8a3b2f; }
+    .mng-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .mng-note { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.55); margin: 16px 0 0; }
+
+    /* Reschedule modal (shared look with /account/bookings) */
+    .bk-resched-scrim { position: fixed; inset: 0; z-index: 500; background: rgba(28,29,34,0.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .bk-resched-scrim[hidden] { display: none; }
+    .bk-resched-card { width: min(440px, 96vw); max-height: 90vh; overflow-y: auto; background: var(--paper); border-radius: 14px; padding: 24px 26px 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.34); }
+    .bk-resched-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .bk-resched-head h3 { font-family: var(--serif); font-weight: 500; font-size: 26px; color: var(--ink); margin: 0; }
+    .bk-resched-x { appearance: none; background: none; border: 0; font-size: 26px; line-height: 1; color: rgba(28,29,34,0.5); cursor: pointer; }
+    .bk-resched-x:hover { color: var(--ink); }
+    .bk-resched-sub { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.6); margin: 0 0 16px; }
+    .bk-resched-back { appearance: none; background: none; border: 0; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; margin-top: 16px; padding: 0; }
+  </style>
+
+  <script>
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    const $ = (id) => document.getElementById(id);
+    const pad = (n) => String(n).padStart(2, '0');
+    const localISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token') || '';
+
+    const STAGE_LABEL = {
+      booked: 'Booked', shoot_day: 'Shoot day', editing: 'In edit', final_draft: 'Final draft',
+      invoice_out: 'Invoice sent', complete: 'Complete', cancelled: 'Cancelled',
+      discovery_call_booked: 'Call booked', enquiry_non_member: 'Enquiry sent',
+    };
+
+    let booking = null, canCancel = false, canReschedule = false;
+    let rsDur = 60, viewMonth = new Date(); viewMonth.setDate(1);
+    let availWeekdays = null, configFetched = false;
+    const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+    function fmtWhen(iso) { if (!iso) return null; try { return new Date(iso).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (_) { return iso; } }
+
+    async function load() {
+      const body = $('mng-body');
+      if (!token) { body.innerHTML = `<p class="mng-state">This link is missing its booking reference. Please use the link from your confirmation email, or sign in to <a href="/account/bookings">your account</a>.</p>`; return; }
+      if (!WORKER) { body.innerHTML = `<p class="mng-state">Booking management isn't available just now — please email <a href="mailto:jack@tmke.co.uk">jack@tmke.co.uk</a>.</p>`; return; }
+      try {
+        const res = await fetch(`${WORKER}/videography/booking?token=${encodeURIComponent(token)}`);
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || 'Booking not found');
+        booking = d.booking; canCancel = d.can_cancel; canReschedule = d.can_reschedule;
+        rsDur = booking.duration_min || 60;
+        renderBooking();
+      } catch (e) { body.innerHTML = `<p class="mng-state">We couldn't find that booking. It may have been cancelled, or the link has expired. Email <a href="mailto:jack@tmke.co.uk">jack@tmke.co.uk</a> and we'll help.</p>`; }
+    }
+
+    function renderBooking() {
+      const b = booking;
+      const cancelled = b.stage === 'cancelled';
+      const when = fmtWhen(b.shoot_date);
+      const label = STAGE_LABEL[b.stage] || b.stage || '—';
+      let actions = '';
+      if (cancelled) actions = `<p class="mng-note">This booking has been cancelled. To rebook, head to <a href="/videography">tmke.co.uk/videography</a>.</p>`;
+      else {
+        const parts = [];
+        if (canReschedule) parts.push(`<button type="button" class="mng-btn mng-btn--primary" id="mng-do-resched">Reschedule</button>`);
+        if (canCancel) parts.push(`<button type="button" class="mng-btn mng-btn--ghost" id="mng-do-cancel">Cancel booking</button>`);
+        actions = parts.length
+          ? `<div class="mng-actions">${parts.join('')}</div>`
+          : `<p class="mng-note">Changes within 48 hours can't be made online — please email <a href="mailto:jack@tmke.co.uk">jack@tmke.co.uk</a>. Cancellations within 48 hours are chargeable in full.</p>`;
+      }
+      $('mng-body').innerHTML = `
+        <h1 class="mng-h">Manage your <em>booking.</em></h1>
+        <p class="mng-sub">${escapeHtml(b.client_name || '')}, here's your booking with TMKE.</p>
+        <div class="mng-detail">
+          <div><span>Service:</span> ${escapeHtml(b.service || 'Booking')}</div>
+          ${when ? `<div><span>When:</span> ${escapeHtml(when)}</div>` : ''}
+          ${b.postcode ? `<div><span>Location:</span> ${escapeHtml(b.postcode)}</div>` : ''}
+          <div><span>Status:</span> <span class="mng-pill ${cancelled ? 'is-cancelled' : ''}">${escapeHtml(label)}</span></div>
+        </div>
+        ${actions}`;
+      $('mng-do-cancel')?.addEventListener('click', doCancel);
+      $('mng-do-resched')?.addEventListener('click', openResched);
+    }
+
+    async function doCancel() {
+      if (!confirm('Cancel this booking? This frees the slot and emails you a confirmation.')) return;
+      const btn = $('mng-do-cancel'); btn.disabled = true; btn.textContent = 'Cancelling…';
+      try {
+        const res = await fetch(`${WORKER}/videography/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+        const d = await res.json().catch(() => ({})); if (!res.ok) throw new Error(d.error || 'Could not cancel');
+        booking.stage = 'cancelled'; renderBooking();
+      } catch (e) { alert(e.message || 'Could not cancel — please try again.'); btn.disabled = false; btn.textContent = 'Cancel booking'; }
+    }
+
+    // ---- Reschedule ----
+    async function fetchConfig() { if (configFetched || !WORKER) return; configFetched = true; try { const r = await fetch(`${WORKER}/ms/config`); if (r.ok) { const d = await r.json(); if (d && d.weekdays) availWeekdays = new Set(Object.keys(d.weekdays).map(Number)); } } catch (_) {} }
+    function openResched() {
+      $('mng-resched-error').hidden = true;
+      $('mng-slots-wrap').hidden = true; $('mng-cal-wrap').hidden = false;
+      viewMonth = new Date(); viewMonth.setDate(1);
+      $('mng-resched').hidden = false;
+      fetchConfig().then(renderCal); renderCal();
+    }
+    $('mng-resched-close')?.addEventListener('click', () => { $('mng-resched').hidden = true; });
+    $('mng-resched')?.addEventListener('click', (e) => { if (e.target === $('mng-resched')) $('mng-resched').hidden = true; });
+    $('mng-slots-back')?.addEventListener('click', () => { $('mng-slots-wrap').hidden = true; $('mng-cal-wrap').hidden = false; });
+    $('mng-prev')?.addEventListener('click', () => { viewMonth.setMonth(viewMonth.getMonth() - 1); renderCal(); });
+    $('mng-next')?.addEventListener('click', () => { viewMonth.setMonth(viewMonth.getMonth() + 1); renderCal(); });
+
+    function renderCal() {
+      const label = $('mng-cal-label'), grid = $('mng-cal-grid'); if (!grid) return;
+      label.textContent = `${MONTHS[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`;
+      const first = new Date(viewMonth), off = (first.getDay() + 6) % 7;
+      const gs = new Date(first); gs.setDate(first.getDate() - off);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const minDate = new Date(today); minDate.setDate(today.getDate() + 2);
+      const cells = [];
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(gs); d.setDate(gs.getDate() + i);
+        const inM = d.getMonth() === viewMonth.getMonth();
+        const tooSoon = d < minDate;
+        const closed = availWeekdays ? !availWeekdays.has(d.getDay()) : (d.getDay() === 0 || d.getDay() === 6);
+        const cl = ['dc-cal-day']; if (!inM) cl.push('is-other-month'); if (sameDay(d, today)) cl.push('is-today');
+        cells.push(`<button type="button" class="${cl.join(' ')}" data-date="${localISO(d)}" ${tooSoon || closed ? 'disabled' : ''}>${d.getDate()}</button>`);
+      }
+      grid.innerHTML = cells.join('');
+    }
+
+    $('mng-cal-grid')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.dc-cal-day'); if (!btn || btn.hasAttribute('disabled')) return;
+      const date = btn.dataset.date;
+      $('mng-cal-wrap').hidden = true; $('mng-slots-wrap').hidden = false;
+      const sub = $('mng-slots-sub'), grid = $('mng-slots-grid');
+      const dt = new Date(date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+      sub.textContent = `${dt} — choose a time`;
+      grid.innerHTML = `<p class="dc-slots-empty">Finding times…</p>`;
+      try {
+        const res = await fetch(`${WORKER}/ms/availability?date=${date}&duration=${rsDur}`);
+        const d = await res.json(); if (!res.ok) throw new Error(d.error || 'error');
+        if (!d.slots || !d.slots.length) { grid.innerHTML = `<p class="dc-slots-empty">No times that day — try another.</p>`; return; }
+        grid.innerHTML = d.slots.map((s) => `<button type="button" class="dc-slot" data-slot="${s}" data-date="${date}">${s}</button>`).join('');
+      } catch (_) { grid.innerHTML = `<p class="dc-slots-empty">Couldn't load times. Try again.</p>`; }
+    });
+
+    $('mng-slots-grid')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.dc-slot'); if (!btn) return;
+      const date = btn.dataset.date, start = btn.dataset.slot;
+      const err = $('mng-resched-error'); err.hidden = true;
+      btn.disabled = true; btn.textContent = '…';
+      try {
+        const res = await fetch(`${WORKER}/videography/reschedule`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, date, start }) });
+        const d = await res.json().catch(() => ({})); if (!res.ok) throw new Error(d.error || 'Could not reschedule');
+        booking.shoot_date = `${date}T${start}:00`;
+        $('mng-resched').hidden = true; renderBooking();
+      } catch (e2) { err.textContent = e2.message || 'Could not reschedule — try another time.'; err.hidden = false; btn.disabled = false; btn.textContent = start; }
+    });
+
+    load();
+  </script>
+</BaseLayout>
