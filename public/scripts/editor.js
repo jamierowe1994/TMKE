@@ -1926,13 +1926,18 @@
         if (isBlock && runs.length && runs[runs.length - 1].text.slice(-1) !== "\n") push("\n", fmt);
         const st = child.style || {};
         const cw = parseInt(st.fontWeight, 10);
-        walk(child, {
-          bold: fmt.bold || tag === "B" || tag === "STRONG" || st.fontWeight === "bold" || (cw >= 600),
-          italic: fmt.italic || tag === "I" || tag === "EM" || st.fontStyle === "italic",
-          underline: fmt.underline || tag === "U" ||
-            (st.textDecoration || "").indexOf("underline") >= 0 ||
-            (st.textDecorationLine || "").indexOf("underline") >= 0,
-        });
+        // Start from the inherited format, then let this node's tag / inline
+        // styles set OR clear each flag — execCommand un-bolding writes an
+        // explicit `font-weight: normal`, which must override an inherited bold.
+        const next = { bold: fmt.bold, italic: fmt.italic, underline: fmt.underline };
+        if (tag === "B" || tag === "STRONG" || st.fontWeight === "bold" || cw >= 600) next.bold = true;
+        else if (st.fontWeight === "normal" || (!isNaN(cw) && cw < 600)) next.bold = false;
+        if (tag === "I" || tag === "EM" || st.fontStyle === "italic") next.italic = true;
+        else if (st.fontStyle === "normal") next.italic = false;
+        const deco = (st.textDecoration || "") + " " + (st.textDecorationLine || "");
+        if (tag === "U" || deco.indexOf("underline") >= 0) next.underline = true;
+        else if (deco.indexOf("none") >= 0) next.underline = false;
+        walk(child, next);
       }
     }
     walk(root, { bold: false, italic: false, underline: false });
@@ -1958,6 +1963,33 @@
       el.runs = uniform ? null : runs;
       pushHistory();
     }
+  }
+
+  // The .ed-text-inner currently being edited for `el` (or null).
+  function editingInnerFor(el) {
+    const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+    const inner = node && node.querySelector(".ed-text-inner");
+    return (inner && inner.getAttribute("contenteditable") === "true") ? inner : null;
+  }
+  // Is there a live text selection inside this editing box?
+  function hasInnerSelection(inner) {
+    const sel = window.getSelection && window.getSelection();
+    return !!(inner && sel && sel.rangeCount && !sel.isCollapsed && inner.contains(sel.anchorNode));
+  }
+  // Bold the current selection when editing (per-word → produces runs on commit),
+  // otherwise toggle the whole element's weight (legacy). The DOM updates live via
+  // execCommand; el.runs is parsed back on blur. Returns true if it bolded a range.
+  function applyBold(el, btn) {
+    const inner = editingInnerFor(el);
+    if (inner && hasInnerSelection(inner)) {
+      try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
+      document.execCommand("bold");
+      if (btn) { try { btn.classList.toggle("is-on", document.queryCommandState("bold")); } catch (_) {} }
+      return true;
+    }
+    el.weight = (el.weight || 400) >= 700 ? 400 : 700;
+    loadGoogleFont(el.font); fullRender(); pushHistory();
+    return false;
   }
 
   function renderElement(el) {
@@ -4606,12 +4638,19 @@
       }
       ctxEl.appendChild(g1);
 
-      // B I U — Bold toggles the weight (Ctrl+B does the same).
+      // B I U — Bold applies to the selected text while editing (per-word),
+      // else toggles the whole element's weight. Ctrl+B does the same.
       const g2 = group();
-      g2.appendChild(toggleBtn("B", (el.weight || 400) >= 700, () => {
-        el.weight = (el.weight || 400) >= 700 ? 400 : 700;
-        loadGoogleFont(el.font); fullRender(); pushHistory();
-      }, "Bold (Ctrl+B)"));
+      const boldBtn = document.createElement("button");
+      boldBtn.type = "button";
+      boldBtn.className = "ed-ctx-btn" + ((el.weight || 400) >= 700 ? " is-on" : "");
+      boldBtn.textContent = "B";
+      boldBtn.title = "Bold (Ctrl+B)";
+      // Don't steal focus from the editing box — keeps the text selection alive
+      // through the click so execCommand('bold') has something to act on.
+      boldBtn.addEventListener("mousedown", function (e) { if (editingInnerFor(el)) e.preventDefault(); });
+      boldBtn.addEventListener("click", function () { applyBold(el, boldBtn); });
+      g2.appendChild(boldBtn);
       g2.appendChild(toggleBtn("I", !!el.italic, () => {
         el.italic = !el.italic; fullRender(); pushHistory();
       }, "Italic"));
@@ -5701,6 +5740,18 @@
   }
 
   document.addEventListener("keydown", (e) => {
+    // Ctrl/Cmd+B WHILE editing a text box → bold the selection (per-word). We
+    // handle it explicitly (rather than relying on the browser default) so the
+    // behaviour is consistent everywhere; runs are parsed back on blur.
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      const editingInner = document.querySelector('.ed-text-inner[contenteditable="true"]');
+      if (editingInner) {
+        e.preventDefault();
+        try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
+        document.execCommand("bold");
+        return;
+      }
+    }
     if (isTyping(e.target)) return;
     const ctrl = e.ctrlKey || e.metaKey;
 
