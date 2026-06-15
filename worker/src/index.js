@@ -413,12 +413,24 @@ async function fireTrigger(env, triggerType, contactInput, payload) {
   return { ok: true, contact_id: contactId, enrolled };
 }
 
-function autoEvalCondition(cfg, contact) {
+async function autoEvalCondition(env, cfg, contact) {
+  const op = cfg.op || "is";
   const v = String(cfg.value ?? "").trim().toLowerCase();
-  if (cfg.field === "tag") return (contact.tags || []).map((t) => String(t).toLowerCase()).includes(v);
-  if (cfg.field === "marketing_opt_in") return String(!!contact.marketing_opt_in) === (v || "true");
-  if (cfg.field === "lifecycle") return String(contact.lifecycle || "").toLowerCase() === v;
-  return false;
+  const flip = (b) => (op === "is_not" ? !b : b);
+
+  // Boolean-ish fields ignore the value (the branch IS the yes/no).
+  if (cfg.field === "tag" || cfg.field === "has_tag") {
+    return flip((contact.tags || []).map((t) => String(t).toLowerCase()).includes(v));
+  }
+  if (cfg.field === "has_purchased") {
+    const rows = await sbGet(env, "orders", `buyer_email=eq.${encodeURIComponent(contact.email)}&status=eq.paid&select=id&limit=1`);
+    return flip(!!(rows && rows.length));
+  }
+  if (cfg.field === "marketing_opt_in") return flip(!!contact.marketing_opt_in === (v ? v === "true" : true));
+
+  const actual = String(contact[cfg.field] ?? "").toLowerCase(); // lifecycle, company, …
+  if (op === "contains") return actual.includes(v);
+  return op === "is_not" ? actual !== v : actual === v;
 }
 
 async function autoExecAction(env, node, contact) {
@@ -479,7 +491,7 @@ async function advanceEnrollment(env, enr) {
       });
     }
     let branch = "next";
-    if (node.type === "if_else") branch = autoEvalCondition(node.config || {}, contact) ? "yes" : "no";
+    if (node.type === "if_else") branch = (await autoEvalCondition(env, node.config || {}, contact)) ? "yes" : "no";
     else await autoExecAction(env, node, contact);
     await sbPost(env, "automation_runs", { enrollment_id: enr.id, automation_id: auto.id, contact_id: contact.id, node_id: cur, node_type: node.type, outcome: "ok" });
     const next = autoEdgeTo(graph, cur, branch);
@@ -1031,6 +1043,24 @@ export default {
         if (!user || !isAdminEmail(user)) return json({ error: "Unauthorised" }, 401, request, env);
         const n = await runAutomationsTick(env);
         return json({ ok: true, processed: n }, 200, request, env);
+      }
+
+      // ---- Automations: inbound email webhook -------------------------------
+      // Point an inbound email provider (Cloudflare Email Routing → Worker, or
+      // Resend/Mailgun inbound) at this URL. It fires the "inbound_email" trigger
+      // for the sender. If AUTOMATIONS_INBOUND_SECRET is set, the provider must
+      // pass ?secret=… (wrangler secret put AUTOMATIONS_INBOUND_SECRET).
+      if (path.endsWith("/automations/inbound") && request.method === "POST") {
+        if (env.AUTOMATIONS_INBOUND_SECRET && url.searchParams.get("secret") !== env.AUTOMATIONS_INBOUND_SECRET) {
+          return json({ error: "Unauthorised" }, 401, request, env);
+        }
+        const b = await request.json().catch(() => ({}));
+        const fromRaw = b.from || b.sender || (b.envelope && b.envelope.from) || "";
+        const m = /<([^>]+)>/.exec(String(fromRaw));     // strip "Name <email>"
+        const email = (m ? m[1] : String(fromRaw)).trim().toLowerCase();
+        if (!email) return json({ error: "No sender address" }, 400, request, env);
+        const r = await fireTrigger(env, "inbound_email", { email, source: "inbound_email" }, { subject: b.subject || null });
+        return json(r, 200, request, env);
       }
 
       // ---- Discovery call — books a short call + a CRM lead ------------------

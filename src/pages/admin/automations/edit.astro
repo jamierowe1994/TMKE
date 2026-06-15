@@ -291,9 +291,12 @@ import "../../../styles/admin.css";
         body = field("Field", `<select data-c="field"><option value="lifecycle" ${c.field === "lifecycle" ? "selected" : ""}>lifecycle</option><option value="company" ${c.field === "company" ? "selected" : ""}>company</option></select>`)
           + field("Value", `<input data-c="value" value="${esc(c.value || "")}" />`);
       } else if (n.type === "if_else") {
-        body = field("Field", `<select data-c="field"><option value="tag" ${c.field === "tag" ? "selected" : ""}>has tag</option><option value="marketing_opt_in" ${c.field === "marketing_opt_in" ? "selected" : ""}>marketing opt-in</option><option value="lifecycle" ${c.field === "lifecycle" ? "selected" : ""}>lifecycle</option></select>`)
-          + field("Equals", `<input data-c="value" value="${esc(c.value || "")}" placeholder="e.g. customer / true / a tag" />`)
-          + `<p class="af-hint">The <strong>Yes</strong> branch runs when it matches, <strong>No</strong> otherwise.</p>`;
+        const fields = [["has_tag", "has tag"], ["has_purchased", "has purchased"], ["lifecycle", "lifecycle"], ["marketing_opt_in", "marketing opt-in"]];
+        const ops = [["is", "is"], ["is_not", "is not"], ["contains", "contains"]];
+        body = field("Field", `<select data-c="field">${fields.map(([val, lab]) => `<option value="${val}" ${c.field === val ? "selected" : ""}>${lab}</option>`).join("")}</select>`)
+          + field("Condition", `<select data-c="op">${ops.map(([val, lab]) => `<option value="${val}" ${(c.op || "is") === val ? "selected" : ""}>${lab}</option>`).join("")}</select>`)
+          + field("Value", `<input data-c="value" value="${esc(c.value || "")}" placeholder="e.g. customer, or a tag" />`)
+          + `<p class="af-hint">The <strong>Yes</strong> branch runs when it matches, <strong>No</strong> otherwise. For <em>has purchased</em>, leave Value blank; for <em>has tag</em>, put the tag in Value.</p>`;
       } else if (n.type === "notify_team") {
         body = field("Notify (email)", `<input data-c="to" value="${esc(c.to || "")}" placeholder="jack@tmke.co.uk" />`)
           + field("Note", `<input data-c="note" value="${esc(c.note || "")}" placeholder="What happened" />`);
