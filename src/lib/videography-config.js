@@ -140,22 +140,79 @@ export const PIPELINE_STATUS = {
 export const BROCHURE_URL = "https://assets.tmke.co.uk/tmke-videography-brochure.pdf";
 
 // ---- Booking terms (Section 9) ----------------------------------------------
-// Single source for the booking agreement, rendered in the flow and reusable in
+// Per-service booking agreements, rendered in the flow and reusable in
 // emails/PDFs. Plain-English working draft for TMKE's solicitor to confirm —
-// NOT final legal advice. `p` may contain <strong>…</strong>.
-export const TERMS_TITLE = "TMKE — Shoot booking agreement";
+// NOT final legal advice. `p` is a string (or array of paragraphs) and may
+// contain <strong>…</strong>.
 export const TERMS_NOTE = "A plain-English summary of how we work together, written to set clear expectations. This is a working draft for review — the final wording will be confirmed by TMKE and takes precedence.";
-export const BOOKING_TERMS = [
-  { n: 1, h: "Booking & confirmation", p: "Your booking is confirmed once you have signed this agreement and received our email confirmation. Your slot is held in the diary on a first-come, first-served basis and is not reserved until confirmed." },
-  { n: 2, h: "Payment", p: "Unless agreed otherwise in writing, payment is due in full within 14 days of the invoice date. Final edited content remains the property of TMKE and is licensed to you for your use once payment has been received in full." },
-  { n: 3, h: "Cancellations", p: "Please give at least <strong>three (3) days'</strong> notice to cancel. Cancellations made within <strong>48 hours</strong> of the shoot, and no-shows, are <strong>chargeable in full</strong>. All cancellations must be made in writing to jack@tmke.co.uk or through your account." },
-  { n: 4, h: "Rescheduling", p: "You may rearrange your booking with at least <strong>two (2) days'</strong> notice, subject to availability, at no extra charge. Requests inside this window are treated as a cancellation and rebooking." },
-  { n: 5, h: "On the day", p: "Please ensure safe, timely access to the property or location, and that you have the consent of any people featured and permission to film the premises. Delays caused by access or readiness may shorten the time available. Travel beyond the included radius is itemised on your booking." },
-  { n: 6, h: "Delivery", p: "Edited content is typically delivered within a few working days of the shoot unless otherwise agreed. Reasonable revision requests are welcome; substantial re-edits or re-shoots may be quoted separately." },
-  { n: 7, h: "Use of content & licence", p: "On full payment you receive a licence to use the delivered content for your own marketing. TMKE retains the right to use the content as showcase and portfolio material across our website, social media and marketing, and retains ownership of all raw footage and project files." },
-  { n: 8, h: "Liability & circumstances beyond our control", p: "TMKE is not liable for delays, rescheduling or cancellation caused by circumstances beyond our reasonable control (including weather, illness, or equipment failure); in such cases we will reschedule at the earliest mutually convenient opportunity. Our total liability is limited to the fees paid for the affected booking." },
-  { n: 9, h: "Data & governing law", p: "We handle your details in line with our privacy policy and only to deliver and support your booking. This agreement is governed by the laws of <strong>England &amp; Wales</strong>." },
-];
+
+// Clauses shared verbatim across every agreement, so the wording never drifts.
+const CLAUSE_BOOKING = { h: "Booking & confirmation", p: "Your booking is confirmed once you have signed this agreement and received our email confirmation. Your slot is held in the diary on a first-come, first-served basis and is not reserved until confirmed." };
+const CLAUSE_PAYMENT = { h: "Payment", p: "Payment is due in full upon delivery of your edited content. You will receive a payment request alongside a preview of your shoot; full access to your files is released automatically once payment has cleared. Payment must be made within <strong>7 days</strong> of the payment request being issued. Content not paid for within this window may be subject to a late payment fee or further action to recover the outstanding amount." };
+const CLAUSE_CANCELLATIONS = { h: "Cancellations", p: "Please give at least <strong>three (3) days'</strong> notice to cancel. Cancellations made within <strong>72 hours</strong> of the shoot, and no-shows, are <strong>chargeable in full</strong>. All cancellations must be made in writing to jack@tmke.co.uk or through your account." };
+const CLAUSE_RESCHEDULING = { h: "Rescheduling", p: "You may rearrange your booking with at least <strong>two (2) days'</strong> notice, subject to availability, at no extra charge. Requests inside this window are treated as a cancellation and rebooking." };
+const CLAUSE_LICENCE = { h: "Use of content & licence", p: "On full payment you receive a licence to use the delivered content for your own marketing. TMKE retains the right to use the content as showcase and portfolio material across our website, social media and marketing, and retains ownership of all raw footage and project files." };
+const CLAUSE_LIABILITY = { h: "Liability & circumstances beyond our control", p: "TMKE is not liable for delays, rescheduling or cancellation caused by circumstances beyond our reasonable control (including weather, illness, or equipment failure); in such cases we will reschedule at the earliest mutually convenient opportunity. Our total liability is limited to the fees paid for the affected booking." };
+const CLAUSE_DATA = { h: "Data & governing law", p: "We handle your details in line with our privacy policy and only to deliver and support your booking. This agreement is governed by the laws of <strong>England &amp; Wales</strong>." };
+
+// Numbers (`n`) are assigned at render time from array order, so reordering a
+// clause never leaves a gap.
+export const TERMS_BY_SERVICE = {
+  "content-studio": {
+    title: "TMKE — Content Studio Booking Agreement",
+    clauses: [
+      CLAUSE_BOOKING,
+      CLAUSE_PAYMENT,
+      CLAUSE_CANCELLATIONS,
+      CLAUSE_RESCHEDULING,
+      { h: "Pre-shoot preparation", p: "At least <strong>three (3) days</strong> before your shoot, TMKE will send you a prompt pack containing conversational prompts and guidance tailored to your session, audience, and area. This is designed to help you make the most of your time in the studio. We ask that you review this before your shoot day so you arrive prepared and ready to film." },
+      { h: "On the day", p: "Please arrive on time and prepared for your session. This includes any outfits, props, scripts, or materials you plan to use on the day. Late arrivals may result in reduced filming time and your session will still end at the scheduled time. TMKE is not responsible for content that cannot be captured due to insufficient preparation or late arrival." },
+      { h: "Delivery", p: "Edited content is typically delivered within a few working days of the shoot unless otherwise agreed. Reasonable revision requests are welcome; substantial re-edits may be quoted separately." },
+      CLAUSE_LICENCE,
+      CLAUSE_LIABILITY,
+      CLAUSE_DATA,
+    ],
+  },
+  "property": {
+    title: "TMKE — Property Videography Booking Agreement",
+    clauses: [
+      CLAUSE_BOOKING,
+      CLAUSE_PAYMENT,
+      CLAUSE_CANCELLATIONS,
+      CLAUSE_RESCHEDULING,
+      { h: "Travel costs", p: "Any travel costs applicable to your booking have been calculated based on the property postcode provided at the time of booking and are included in your confirmed total. Travel is charged at <strong>55p per mile</strong> for any distance beyond <strong>40 miles</strong> from our base in Kettering. If the shoot location changes after your booking is confirmed, your travel cost may need to be re-calculated and an updated total will be provided before the shoot takes place." },
+      { h: "On the day", p: [
+        "Please ensure safe and timely access to the property at the agreed time, and that you have obtained the necessary permissions to film the premises and the consent of any people who may appear in the content. Delays caused by access or readiness issues may reduce the time available for the shoot.",
+        "Where drone footage is included in your package, Jack holds a valid CAA licence for commercial drone operations. The ability to capture drone footage on the day is subject to weather conditions and local airspace restrictions, which may be outside of our control. In the event that drone footage cannot be captured, TMKE will discuss the options available to you at the time.",
+      ] },
+      { h: "Post-shoot add-ons", p: "The faux twilight effect is available as a post-shoot add-on at <strong>£25 + VAT per image</strong>. As the number of images requiring this effect may not be known until after the shoot, this will not always form part of your initial booking total. Where faux twilight is requested, Jack will confirm the number of images and provide a revised quote for your approval before any additional charge is applied." },
+      { h: "Delivery", p: "Edited content is typically delivered within a few working days of the shoot unless otherwise agreed. Reasonable revision requests are welcome. Substantial re-edits or the need to return to a property for additional footage may be quoted separately." },
+      CLAUSE_LICENCE,
+      CLAUSE_LIABILITY,
+      CLAUSE_DATA,
+    ],
+  },
+  "agent": {
+    title: "TMKE — Agent Videography Booking Agreement",
+    clauses: [
+      CLAUSE_BOOKING,
+      CLAUSE_PAYMENT,
+      CLAUSE_CANCELLATIONS,
+      CLAUSE_RESCHEDULING,
+      { h: "Travel costs", p: "Any travel costs applicable to your booking have been calculated based on the shoot location postcode provided at the time of booking and are included in your confirmed total. Travel is charged at <strong>55p per mile</strong> for any distance beyond <strong>40 miles</strong> from our base in Kettering. If the shoot location changes after your booking is confirmed, your travel cost may need to be recalculated and an updated total will be provided before the shoot takes place." },
+      { h: "On the day", p: "Please ensure you are ready and available at the agreed location and time, and that you have permission to film at the chosen location and the consent of any other people who may appear in the content. Delays caused by access or readiness may shorten the time available for your shoot." },
+      { h: "Delivery", p: "Edited content is typically delivered within a few working days of the shoot unless otherwise agreed. Reasonable revision requests are welcome; substantial re-edits or re-shoots may be quoted separately." },
+      CLAUSE_LICENCE,
+      CLAUSE_LIABILITY,
+      CLAUSE_DATA,
+    ],
+  },
+};
+
+// Resolve the agreement for a service key (falls back to the property terms).
+export function termsForService(serviceKey) {
+  return TERMS_BY_SERVICE[serviceKey] || TERMS_BY_SERVICE.property;
+}
 
 // ---- Money helpers ----------------------------------------------------------
 export function vatOf(pence) { return Math.round(pence * VAT_RATE); }

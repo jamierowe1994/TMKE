@@ -18,7 +18,7 @@
 // carries the captured account/opt-in fields forward.
 // ============================================================================
 import "../styles/booking-wizard.css";  // shared .dc-* wizard chrome (self-contained — no DiscoveryPanel needed)
-import { BOOKING_TERMS, TERMS_TITLE, TERMS_NOTE, BROCHURE_URL } from "../lib/videography-config.js";
+import { BROCHURE_URL } from "../lib/videography-config.js";
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 ---
 
@@ -49,8 +49,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
       <!-- 1. Email gate -->
       <section class="dc-step" id="vb-step-email" hidden>
-        <h2 class="dc-step-title">Let's <em>get started.</em></h2>
-        <p class="dc-step-sub" id="vb-email-sub">Pop in your work email so we can show you the right options.</p>
+        <h2 class="dc-step-title">Let's get started</h2>
+        <p class="dc-step-sub" id="vb-email-sub">Enter your business email for availability, pricing, and package options tailored to your membership.</p>
         <form class="dc-panel-form" id="vb-email-form">
           <label class="dc-field"><span>Work email address *</span><input name="email" type="email" autocomplete="email" required placeholder="you@thepropertyexperts.co.uk" /></label>
           <p class="dc-gate-error" id="vb-email-error" hidden></p>
@@ -60,10 +60,11 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
       <!-- 2. Register interest (non-member, members-only service) -->
       <section class="dc-step" id="vb-step-register" hidden>
-        <h2 class="dc-step-title">Members <em>only — for now.</em></h2>
-        <p class="dc-step-sub" id="vb-register-sub">The Content Studio is currently available exclusively to members of The Experts Group. If you're interested in future access, leave your email and we'll keep you updated.</p>
+        <h2 class="dc-step-title">Member Only</h2>
+        <p class="dc-step-sub" id="vb-register-sub">The Content Studio is currently available exclusively to our affiliate members. If you're interested in future access, register your details below and we'll keep you updated.</p>
         <form class="dc-panel-form" id="vb-register-form">
           <label class="dc-field"><span>Email *</span><input name="email" type="email" required /></label>
+          <label class="vb-optin"><input type="checkbox" name="optin" /><span>I'd like to receive updates on TMKE services, news and promotions.</span></label>
           <p class="dc-gate-error" id="vb-register-error" hidden></p>
           <button type="submit" class="dc-form-cta" id="vb-register-cta">Register interest <em>&rarr;</em></button>
         </form>
@@ -93,6 +94,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
             <label class="dc-field"><span>Property / shoot postcode</span><input name="postcode" autocomplete="postal-code" /></label>
           </div>
           <label class="dc-field"><span>What do you need? *</span><textarea name="message" rows="3" required placeholder="Tell us about the property or shoot, timings, and anything specific you're after."></textarea></label>
+          <label class="vb-optin"><input type="checkbox" name="optin" /><span>Yes, I'd like to receive updates on TMKE services and news.</span></label>
           <p class="dc-gate-error" id="vb-enquiry-error" hidden></p>
           <button type="submit" class="dc-form-cta" id="vb-enquiry-cta">Send enquiry <em>&rarr;</em></button>
         </form>
@@ -108,20 +110,21 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
       <!-- 3b. Postcode (Property / Agent — for the travel surcharge) -->
       <section class="dc-step" id="vb-step-postcode" hidden>
-        <h2 class="dc-step-title">Where's the <em>shoot?</em></h2>
-        <p class="dc-step-sub">Pop in the shoot postcode so we can confirm any travel charge before you book.</p>
+        <h2 class="dc-step-title" id="vb-postcode-title">Property Location</h2>
+        <p class="dc-step-sub" id="vb-postcode-sub">Enter the property postcode so we can calculate any travel costs before you confirm your booking.</p>
         <form class="dc-panel-form" id="vb-postcode-form">
-          <label class="dc-field"><span>Shoot postcode *</span><input name="postcode" autocomplete="postal-code" required placeholder="e.g. NN1 1AA" /></label>
+          <label class="dc-field"><span>Postcode *</span><input name="postcode" autocomplete="postal-code" required placeholder="e.g. NN1 1AA" /></label>
           <p class="vb-surcharge-note" id="vb-surcharge-note" hidden></p>
+          <p class="vb-hmrc-note">Any distance over 40 miles is charged at 55p per mile in line with HMRC approved mileage rates.</p>
           <p class="dc-gate-error" id="vb-postcode-error" hidden></p>
-          <button type="submit" class="dc-form-cta" id="vb-postcode-cta">Continue <em>&rarr;</em></button>
+          <button type="submit" class="dc-form-cta" id="vb-postcode-cta">Check distance <em>&rarr;</em></button>
         </form>
       </section>
 
       <!-- 4. Day -->
       <section class="dc-step" id="vb-step-day" hidden>
-        <h2 class="dc-step-title">Pick a <em>day.</em></h2>
-        <p class="dc-step-sub" id="vb-day-sub">Choose a date that suits you.</p>
+        <h2 class="dc-step-title">Pick a Day</h2>
+        <p class="dc-step-sub" id="vb-day-sub">Select the date you'd like your shoot to take place. Available dates are based on Jack's current diary.</p>
         <div class="dc-cal">
           <header class="dc-cal-head">
             <button type="button" class="dc-cal-nav" id="vb-prev-month" aria-label="Previous month">&larr;</button>
@@ -135,33 +138,35 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
       <!-- 5. Time -->
       <section class="dc-step" id="vb-step-time" hidden>
-        <h2 class="dc-step-title">Pick a <em>time.</em></h2>
+        <h2 class="dc-step-title">Pick a Time</h2>
         <p class="dc-step-sub" id="vb-time-sub">…</p>
         <div class="dc-slots-grid" id="vb-slots-grid"></div>
       </section>
 
       <!-- 6. Summary -->
       <section class="dc-step" id="vb-step-summary" hidden>
-        <h2 class="dc-step-title">Your <em>booking.</em></h2>
-        <p class="dc-step-sub">Check everything's right before you sign.</p>
+        <h2 class="dc-step-title">Almost There</h2>
+        <p class="dc-step-sub" id="vb-summary-sub">Review your booking. If everything looks right, continue to confirm.</p>
         <div class="vb-summary" id="vb-summary"></div>
+        <div class="vb-promo" id="vb-promo" hidden>
+          <label class="dc-field"><span>Promo code</span>
+            <div class="vb-promo-row">
+              <input id="vb-promo-input" placeholder="Enter a code" autocomplete="off" />
+              <button type="button" class="vb-promo-apply" id="vb-promo-apply">Apply</button>
+            </div>
+          </label>
+          <p class="vb-promo-msg" id="vb-promo-msg" hidden></p>
+        </div>
         <div class="dc-step-actions"><button type="button" class="dc-next" id="vb-summary-next">Continue <em>&rarr;</em></button></div>
       </section>
 
       <!-- 7. Terms -->
       <section class="dc-step" id="vb-step-terms" hidden>
-        <h2 class="dc-step-title">The <em>agreement.</em></h2>
+        <h2 class="dc-step-title">The agreement</h2>
         <p class="dc-step-sub">Please read the terms, then sign to confirm your booking.</p>
-        <div class="dc-terms" id="vb-terms" tabindex="0">
-          <h4>{TERMS_TITLE}</h4>
-          <p class="dc-terms-note">{TERMS_NOTE}</p>
-          {BOOKING_TERMS.map((t) => (
-            <>
-              <h5>{t.n}. {t.h}</h5>
-              <p set:html={t.p}></p>
-            </>
-          ))}
-        </div>
+        <!-- Populated per service by the script (renderTerms) so each flow shows
+             its own agreement (Content Studio / Property / Agent). -->
+        <div class="dc-terms" id="vb-terms" tabindex="0"></div>
         <label class="dc-agree-row">
           <input type="checkbox" id="vb-agree" disabled required />
           <span>I have read and agree to the Terms &amp; Conditions above.</span>
@@ -202,10 +207,14 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
           </div>
           <label class="dc-field"><span>Company / Brand *</span><input name="company" required /></label>
           <label class="dc-field"><span>Anything we should know?</span><textarea name="notes" rows="2"></textarea></label>
-          <div class="dc-field-row">
-            <label class="dc-field"><span>Create a password *</span><input name="password" type="password" autocomplete="new-password" minlength="8" required /></label>
-            <label class="dc-field"><span>Confirm password *</span><input name="password2" type="password" autocomplete="new-password" minlength="8" required /></label>
+          <!-- New account: create a password. Existing account (detected at the
+               email gate): sign in instead — toggled by the script. -->
+          <p class="vb-signin-note" id="vb-signin-note" hidden>You already have a TMKE account — enter your password to sign in and we'll attach this booking to it. <a href="/forgot-password" target="_blank" rel="noopener">Forgotten it?</a></p>
+          <div class="dc-field-row" id="vb-pw-create">
+            <label class="dc-field"><span>Create a password *</span><input name="password" type="password" autocomplete="new-password" minlength="8" /></label>
+            <label class="dc-field"><span>Confirm password *</span><input name="password2" type="password" autocomplete="new-password" minlength="8" /></label>
           </div>
+          <label class="dc-field" id="vb-pw-signin" hidden><span>Your password *</span><input name="signin_password" type="password" autocomplete="current-password" /></label>
           <label class="vb-optin"><input type="checkbox" name="optin" /><span>I'd like to receive information about TMKE services, updates and promotions.</span></label>
           <p class="dc-gate-error" id="vb-details-error" hidden></p>
           <button type="submit" class="dc-form-cta" id="vb-details-cta">Confirm booking <em>&rarr;</em></button>
@@ -235,6 +244,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .vb-srow.vb-total span { font-family: var(--serif); font-size: 20px; font-weight: 500; color: var(--ink); }
   .vb-optin { display: flex; align-items: flex-start; gap: 11px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.78); cursor: pointer; }
   .vb-optin input { margin-top: 2px; width: 18px; height: 18px; accent-color: var(--english-violet); }
+  .vb-signin-note { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.7); background: rgba(var(--violet-rgb),0.06); border-radius: 8px; padding: 11px 13px; margin: 0; }
+  .vb-signin-note[hidden] { display: none; }
+  .vb-signin-note a { color: var(--english-violet); font-weight: 600; }
+  #vb-pw-signin[hidden], #vb-pw-create[hidden] { display: none; }
   .dc-choice-output { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); margin-top: 2px; }
   .dc-choice-incl { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.6); margin-top: 6px; }
   .vb-running { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 0 0; padding: 14px 18px; background: rgba(var(--violet-rgb),0.05); border-radius: 10px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
@@ -242,6 +255,19 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .vb-surcharge-note { font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: rgba(28,29,34,0.78); background: rgba(var(--violet-rgb),0.06); border-radius: 8px; padding: 12px 14px; margin: 2px 0 0; }
   .vb-surcharge-note[hidden] { display: none; }
   .vb-surcharge-note strong { color: var(--english-violet); }
+  .vb-hmrc-note { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: 10px 0 0; }
+  /* Promo code (members, Property / Agent summary) */
+  .vb-promo { margin: 16px 0 0; }
+  .vb-promo[hidden] { display: none; }
+  .vb-promo-row { display: flex; gap: 8px; }
+  .vb-promo-row input { flex: 1; text-transform: uppercase; }
+  .vb-promo-apply { flex: none; padding: 0 18px; border: 1px solid var(--english-violet); background: transparent; color: var(--english-violet); border-radius: 8px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s; }
+  .vb-promo-apply:hover { background: var(--english-violet); color: var(--paper); }
+  .vb-promo-apply[disabled] { opacity: 0.55; cursor: wait; }
+  .vb-promo-msg { font-family: var(--sans); font-size: 13px; line-height: 1.5; margin: 8px 0 0; }
+  .vb-promo-msg[hidden] { display: none; }
+  .vb-promo-msg.is-ok { color: #2c7a4b; }
+  .vb-promo-msg.is-err { color: #a23b3b; }
   .vb-brochure { margin: 22px 0 0; font-family: var(--sans); font-size: 13.5px; }
   .vb-brochure a { color: var(--english-violet); font-weight: 600; text-decoration: none; border-bottom: 1px solid rgba(var(--violet-rgb),0.3); padding-bottom: 1px; }
   .vb-brochure a:hover { border-bottom-color: var(--english-violet); }
@@ -252,6 +278,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   import {
     SERVICES, audienceForEmail, propertyTierForBrand,
     gbp, vatOf, withVat, surchargePence, SURCHARGE_DEFAULTS,
+    termsForService, TERMS_NOTE,
   } from "../lib/videography-config.js";
 
   (function () {
@@ -278,6 +305,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let distanceMiles = null;  // distance from base
     let surchargeP = 0;        // travel surcharge in pence (ex-VAT)
     let flow = "booking";      // "booking" | "discovery"
+    let promo = null;          // applied promo { code, discount_pence } | null
+    let existingAccount = false; // gate email already has a TMKE account → sign in, don't create
     let selectedInterests = []; // discovery-call interests
     let duration = 90;         // minutes (for availability)
     let selectedDate = null, selectedSlot = null;
@@ -297,6 +326,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         if (stage) stage.scrollTop = 0; activeStep = name;
         backBtn.hidden = history.length === 0;
         if (name === "time") renderSlots();
+        if (name === "day") setDaySub();
+        if (name === "terms") renderTerms();
       };
       if (cur && cur !== next) { cur.classList.remove("dc-anim-in"); cur.classList.add("dc-anim-out"); setTimeout(() => { cur.hidden = true; cur.classList.remove("dc-anim-out"); enter(); }, 230); }
       else enter();
@@ -314,6 +345,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     function open(serviceKey) {
       audience = null; chosen = null; selectedAddOns = []; selectedPackages = [];
       postcode = ""; distanceMiles = null; surchargeP = 0; selectedInterests = []; flow = "booking";
+      promo = null; existingAccount = false;
       duration = 90; selectedDate = null; selectedSlot = null; history = []; activeStep = null;
       hideAll();
       ["vb-email-form", "vb-register-form", "vb-details-form", "vb-enquiry-form", "vb-call-form"].forEach((id) => $(id)?.reset());
@@ -322,6 +354,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       $("vb-terms")?.classList.remove("is-read");
       $("vb-terms-cta").disabled = true;
       resetCta($("vb-details-cta"), "Confirm booking");
+      // Reset promo + the details password toggle for a fresh run.
+      const pin = $("vb-promo-input"); if (pin) pin.value = "";
+      const pmsg = $("vb-promo-msg"); if (pmsg) { pmsg.hidden = true; pmsg.className = "vb-promo-msg"; }
+      const pcreate = $("vb-pw-create"); if (pcreate) pcreate.hidden = false;
+      const psignin = $("vb-pw-signin"); if (psignin) psignin.hidden = true;
+      const snote = $("vb-signin-note"); if (snote) snote.hidden = true;
       panel.setAttribute("aria-hidden", "false"); panel.classList.add("is-open");
       document.documentElement.style.overflow = "hidden";
       if (stage) stage.scrollTop = 0;
@@ -366,8 +404,49 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     function resetCta(btn, label) { if (!btn) return; btn.disabled = false; btn.classList.remove("is-loading"); btn.innerHTML = label + ' <em>&rarr;</em>'; }
     function loadingCta(btn, label) { if (!btn) return; btn.disabled = true; btn.classList.add("is-loading"); btn.innerHTML = '<span class="dc-spinner"></span> ' + label; }
 
+    // Build the per-service agreement (Content Studio / Property / Agent). A
+    // clause's `p` may be a string or an array of paragraphs (e.g. Property's
+    // on-the-day clause carries a second drone paragraph).
+    function renderTerms() {
+      const box = $("vb-terms"); if (!box) return;
+      const t = termsForService(svc && svc.key);
+      const clauses = t.clauses.map((c, i) => {
+        const paras = Array.isArray(c.p) ? c.p : [c.p];
+        return `<h5>${i + 1}. ${c.h}</h5>` + paras.map((p) => `<p>${p}</p>`).join("");
+      }).join("");
+      box.innerHTML = `<h4>${t.title}</h4><p class="dc-terms-note">${TERMS_NOTE}</p>${clauses}`;
+      box.scrollTop = 0;
+      const agree = $("vb-agree");
+      if (agree) {
+        const short = box.scrollHeight <= box.clientHeight + 4;
+        agree.disabled = !short;
+        box.classList.toggle("is-read", short);
+      }
+      if (typeof refreshTerms === "function") refreshTerms();
+    }
+
+    // Day-step subheading, tailored to the service (or the discovery call).
+    function setDaySub() {
+      const sub = $("vb-day-sub"); if (!sub) return;
+      if (flow === "discovery") { sub.textContent = "Pick a date that suits you for your call. Available times are based on Jack's current diary."; return; }
+      const noun = svc && svc.key === "content-studio" ? "session" : svc && svc.key === "property" ? "property shoot" : "shoot";
+      sub.textContent = `Select the date you'd like your ${noun} to take place. Available dates are based on Jack's current diary.`;
+    }
+
+    // Ask the Worker whether this email already has a TMKE account. Best-effort:
+    // on any failure we assume "new" so the booking can still create an account.
+    async function checkAccountExists(email) {
+      if (!WORKER) return false;
+      try {
+        const res = await fetch(`${WORKER}/videography/account-exists?email=${encodeURIComponent(email)}`);
+        if (!res.ok) return false;
+        const d = await res.json();
+        return !!(d && d.exists);
+      } catch (_) { return false; }
+    }
+
     // ---- 1. email gate + routing ----
-    $("vb-email-form")?.addEventListener("submit", (e) => {
+    $("vb-email-form")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = String(new FormData(e.target).get("email") || "").trim();
       const err = $("vb-email-error"); err.hidden = true;
@@ -384,7 +463,11 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         $("vb-enquiry-form").querySelector('[name="email"]').value = email;
         goTo("enquiry"); return;
       }
-      // Member → show options.
+      // Member → check for an existing account (so the details step asks them to
+      // sign in rather than create a duplicate), then show options.
+      const cta = $("vb-email-cta"); loadingCta(cta, "Checking…");
+      existingAccount = await checkAccountExists(email);
+      resetCta(cta, "Continue");
       renderOptions();
       goTo("options");
     });
@@ -403,6 +486,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
           body: JSON.stringify({
             service: svc.name, service_type: svc.key, name: fd.get("name"), email,
             phone: fd.get("phone"), company: fd.get("company"), postcode: fd.get("postcode"), message: fd.get("message"),
+            marketing_opt_in: !!fd.get("optin"),
           }),
         });
         const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || "Couldn't send your enquiry");
@@ -419,7 +503,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     // ---- 2. register interest (members-only, non-member) ----
     $("vb-register-form")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const email = String(new FormData(e.target).get("email") || "").trim();
+      const fd = new FormData(e.target);
+      const email = String(fd.get("email") || "").trim();
       const err = $("vb-register-error"); err.hidden = true;
       const btn = $("vb-register-cta");
       loadingCta(btn, "Registering…");
@@ -427,7 +512,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         if (WORKER) {
           await fetch(`${WORKER}/videography/register-interest`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, service: svc.key }),
+            body: JSON.stringify({ email, service: svc.key, marketing_opt_in: !!fd.get("optin") }),
           }).catch(() => {});
         }
         await sleep(700);
@@ -438,13 +523,15 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       } catch (_) { resetCta(btn, "Register interest"); err.textContent = "Sorry, that didn't go through — please try again."; err.hidden = false; }
     });
 
-    // ---- 3. options (Content Studio sessions / Property package + add-ons / Agent multi) ----
+    // ---- 3. options (Content Studio sessions / Property + Agent: one included
+    // package + optional add-ons) ----
     function renderOptions() {
-      const wrap = $("vb-options"), actions = $("vb-options-actions");
+      const wrap = $("vb-options"), actions = $("vb-options-actions"), sub = $("vb-options-sub");
       selectedAddOns = []; selectedPackages = []; chosen = null;
 
       if (svc.key === "content-studio") {
-        $("vb-options-title").innerHTML = "Choose your <em>session.</em>";
+        $("vb-options-title").textContent = "Choose your session";
+        if (sub) sub.textContent = "All prices are plus VAT.";
         actions.hidden = true;
         wrap.innerHTML = `<div class="dc-choices">` + svc.sessions.map((s, i) => `
           <button type="button" class="dc-choice" data-i="${i}">
@@ -461,49 +548,46 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         return;
       }
 
-      if (svc.key === "property") {
-        const tier = propertyTierForBrand(audience && audience.brand) || "gold";
-        chosen = svc.packagesByTier[tier];
-        duration = 240; // property shoot block (interim — refined in scheduling phase)
-        $("vb-options-title").innerHTML = "Your <em>package.</em>";
-        const incl = chosen.inclusions.map((x) => "· " + x).join("<br>");
+      // Property and Agent share one layout: a single included package shown as a
+      // fixed card, then optional add-ons that update the running total. For
+      // Property the package is set by membership tier; for Agent it's the Launch
+      // Package (always included) with Lifestyle Portraits + B-Roll as add-ons.
+      if (svc.key === "property" || svc.key === "agent") {
+        $("vb-options-title").textContent = "Choose Your Package";
+        if (sub) sub.textContent = "Here's what's included in your package. Select any add-ons you'd like to include and your total will update automatically.";
+
+        let incl, addOnList, priceLabel;
+        if (svc.key === "property") {
+          const tier = propertyTierForBrand(audience && audience.brand) || "gold";
+          chosen = svc.packagesByTier[tier];
+          duration = 240; // property shoot block (interim — refined in scheduling phase)
+          incl = chosen.inclusions.map((x) => "· " + x).join("<br>");
+          addOnList = svc.addOns;
+          priceLabel = `from ${gbp(chosen.from_pence)} + VAT`;
+        } else {
+          chosen = svc.packages.find((p) => p.key === "launch") || svc.packages[0];
+          duration = 120;
+          incl = "· " + chosen.desc;
+          addOnList = svc.packages.filter((p) => p.key !== chosen.key);
+          priceLabel = `${gbp(chosen.price_pence)} + VAT`;
+        }
         const pkg = `<div class="dc-choice" style="cursor:default">
           <span class="dc-choice-name">${chosen.name}</span>
-          <span class="dc-choice-price">from ${gbp(chosen.from_pence)} + VAT</span>
+          <span class="dc-choice-price">${priceLabel}</span>
           <span class="dc-choice-incl">${incl}</span></div>`;
-        const addons = `<p class="dc-step-sub" style="margin:22px 0 10px">Optional add-ons</p><div class="dc-choices dc-choices--multi">` +
-          svc.addOns.map((a, i) => `<button type="button" class="dc-choice" data-addon="${i}">
+        const addons = addOnList.length ? `<p class="dc-step-sub" style="margin:22px 0 10px">Optional add-ons</p><div class="dc-choices dc-choices--multi">` +
+          addOnList.map((a, i) => `<button type="button" class="dc-choice" data-addon="${i}">
             <span class="dc-choice-check">✓</span>
             <span style="display:flex;flex-direction:column;gap:3px">
               <span class="dc-choice-name" style="font-size:18px">${a.name}</span>
               <span class="dc-choice-meta">${gbp(a.price_pence)}${a.perImage ? " / image" : ""} + VAT</span></span>
-          </button>`).join("") + `</div>`;
+          </button>`).join("") + `</div>` : "";
         wrap.innerHTML = pkg + addons + `<div class="vb-running" id="vb-running"></div>`;
         wrap.querySelectorAll("[data-addon]").forEach((b) => b.addEventListener("click", () => {
           b.classList.toggle("is-active");
-          const a = svc.addOns[+b.dataset.addon];
+          const a = addOnList[+b.dataset.addon];
           if (b.classList.contains("is-active")) selectedAddOns.push(a);
           else selectedAddOns = selectedAddOns.filter((x) => x.key !== a.key);
-          renderRunning();
-        }));
-        renderRunning(); actions.hidden = false;
-        return;
-      }
-
-      if (svc.key === "agent") {
-        $("vb-options-title").innerHTML = "Choose your <em>packages.</em>";
-        wrap.innerHTML = `<div class="dc-choices dc-choices--multi">` +
-          svc.packages.map((p, i) => `<button type="button" class="dc-choice" data-pkg="${i}">
-            <span class="dc-choice-check">✓</span>
-            <span style="display:flex;flex-direction:column;gap:3px">
-              <span class="dc-choice-name" style="font-size:18px">${p.name} — ${gbp(p.price_pence)} + VAT</span>
-              <span class="dc-choice-meta" style="text-transform:none;letter-spacing:0;font-size:12.5px">${p.desc}</span></span>
-          </button>`).join("") + `</div><div class="vb-running" id="vb-running"></div>`;
-        wrap.querySelectorAll("[data-pkg]").forEach((b) => b.addEventListener("click", () => {
-          b.classList.toggle("is-active");
-          const p = svc.packages[+b.dataset.pkg];
-          if (b.classList.contains("is-active")) selectedPackages.push(p);
-          else selectedPackages = selectedPackages.filter((x) => x.key !== p.key);
           renderRunning();
         }));
         renderRunning(); actions.hidden = false;
@@ -512,25 +596,31 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     }
 
     function optionsBasePence() {
-      if (svc && svc.key === "agent") return selectedPackages.reduce((s, p) => s + p.price_pence, 0);
       if (svc && svc.key === "property") return chosen ? chosen.from_pence : 0;
-      return chosen ? chosen.price_pence : 0;
+      return chosen ? chosen.price_pence : 0; // content-studio session + agent Launch
     }
     function addOnsPence() { return selectedAddOns.reduce((s, a) => s + a.price_pence, 0); }
     function renderRunning() {
       const el = $("vb-running"); if (!el) return;
       el.innerHTML = `<span>Running total — ex VAT, before travel</span><strong>${gbp(optionsBasePence() + addOnsPence())}</strong>`;
-      const next = $("vb-options-next");
-      if (next && svc && svc.key === "agent") next.disabled = selectedPackages.length === 0;
     }
 
     // Property/Agent: Continue → postcode (surcharge) → day. (Content Studio jumps
-    // straight to day from its session card above.)
+    // straight to day from its session card above.) The Launch Package is always
+    // included for Agent, so there's no minimum-selection gate any more.
     $("vb-options-next")?.addEventListener("click", () => {
-      if (svc.key === "agent" && !selectedPackages.length) return;
-      if (svc.key === "agent") duration = Math.max(120, selectedPackages.length * 60);
+      if (svc.key === "agent") duration = 120 + selectedAddOns.length * 30;
       $("vb-surcharge-note").hidden = true;
-      if (svc.surcharge) goTo("postcode"); else goTo("day");
+      // Per-service copy for the postcode step.
+      const pcTitle = $("vb-postcode-title"), pcSub = $("vb-postcode-sub");
+      if (svc.key === "agent") {
+        if (pcTitle) pcTitle.textContent = "Shoot location";
+        if (pcSub) pcSub.textContent = "Enter your postcode so we can calculate any travel costs before you confirm your booking.";
+      } else {
+        if (pcTitle) pcTitle.textContent = "Property Location";
+        if (pcSub) pcSub.textContent = "Enter the property postcode so we can calculate any travel costs before you confirm your booking.";
+      }
+      if (svc.surcharge) { resetPostcode(); goTo("postcode"); } else { setDaySub(); goTo("day"); }
     });
 
     // ---- 3b. postcode + travel surcharge ----
@@ -560,22 +650,40 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         return { ok: true, miles, surcharge_pence: surchargePence(miles), source: "estimate" };
       } catch (_) { return { ok: false, error: "We couldn't check the distance just now — please try again." }; }
     }
+    // Reset the postcode step so it asks to "Check distance" again. Called when
+    // entering the step (and when the postcode is edited) so the result is always
+    // recalculated for the address actually shown.
+    let pcResolvedFor = "";
+    function resetPostcode() {
+      pcResolvedFor = ""; distanceMiles = null; surchargeP = 0;
+      const note = $("vb-surcharge-note"); if (note) note.hidden = true;
+      resetCta($("vb-postcode-cta"), "Check distance");
+    }
+    // Editing the postcode invalidates a previous result.
+    $("vb-postcode-form")?.querySelector('[name="postcode"]')?.addEventListener("input", () => {
+      if (pcResolvedFor) resetPostcode();
+    });
+    // First submit = calculate + show the result. The user reviews the surcharge,
+    // THEN clicks Continue (now the same button) to proceed — we never auto-scroll
+    // or auto-advance, so they can read the cost before moving on.
     $("vb-postcode-form")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       postcode = String(new FormData(e.target).get("postcode") || "").trim().toUpperCase();
       const err = $("vb-postcode-error"), note = $("vb-surcharge-note"); err.hidden = true;
-      if (!postcode) { err.textContent = "Please enter the shoot postcode."; err.hidden = false; return; }
+      if (!postcode) { err.textContent = "Please enter the postcode."; err.hidden = false; return; }
+      // Already calculated for this exact postcode → this press means "Continue".
+      if (pcResolvedFor && pcResolvedFor === postcode) { setDaySub(); goTo("day"); return; }
       const btn = $("vb-postcode-cta"); loadingCta(btn, "Checking distance…");
       const r = await lookupDistance(postcode);
-      resetCta(btn, "Continue");
-      if (!r.ok) { err.textContent = r.error; err.hidden = false; return; }
+      if (!r.ok) { resetCta(btn, "Check distance"); err.textContent = r.error; err.hidden = false; return; }
       distanceMiles = r.miles; surchargeP = (r.surcharge_pence != null) ? r.surcharge_pence : surchargePence(r.miles);
       const approx = r.source === "estimate" ? "approx " : "";
       note.hidden = false;
       note.innerHTML = surchargeP > 0
-        ? `${chosen ? "" : ""}This shoot is ${approx}<strong>${Math.round(r.miles)} miles</strong> from base — a travel surcharge of <strong>${gbp(surchargeP)} + VAT</strong> applies.`
-        : `This shoot is ${approx}<strong>${Math.round(r.miles)} miles</strong> from base — <strong>within the free radius</strong>, so there's no travel charge.`;
-      setTimeout(() => goTo("day"), 1100);
+        ? `This property is ${approx}<strong>${Math.round(r.miles)} miles</strong> from TMKE's studio. A travel surcharge of <strong>${gbp(surchargeP)} + VAT</strong> applies.`
+        : `This property is ${approx}<strong>${Math.round(r.miles)} miles</strong> from TMKE's studio — <strong>within the free 40-mile radius</strong>, so there's no travel charge.`;
+      pcResolvedFor = postcode;
+      resetCta(btn, "Continue");   // a second press now proceeds (no auto-advance)
     });
 
     // ---- 4. calendar ----
@@ -658,22 +766,33 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     // ---- 6. summary ----
     function bookingLabel() {
-      if (svc.key === "agent") return selectedPackages.map((p) => p.name).join(" + ") || "—";
+      // Agent's Launch Package is the included base; add-ons are listed separately.
       return chosen ? chosen.name : "—";
     }
-    function subtotalPence() { return optionsBasePence() + addOnsPence() + (surchargeP || 0); }
+    function preDiscountPence() { return optionsBasePence() + addOnsPence() + (surchargeP || 0); }
+    function discountPence() { return promo ? Math.min(promo.discount_pence || 0, preDiscountPence()) : 0; }
+    function subtotalPence() { return Math.max(0, preDiscountPence() - discountPence()); }
     function renderSummary() {
-      const baseLabel = svc.key === "content-studio" ? "Session" : svc.key === "agent" ? "Packages" : "Package";
+      // Per-service summary subheading + show the promo box for Property/Agent.
+      const ssub = $("vb-summary-sub");
+      if (ssub) ssub.textContent = svc.key === "content-studio"
+        ? "Review your booking. If everything looks right, sign below to confirm."
+        : "Review your booking. If everything looks right, continue to confirm.";
+      const promoBox = $("vb-promo");
+      if (promoBox) promoBox.hidden = !(svc.key === "property" || svc.key === "agent");
+
+      const baseLabel = svc.key === "content-studio" ? "Session" : "Package";
       const sub = subtotalPence();
       const vat = vatOf(sub);
       const dt = selectedDate ? selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "—";
       const rows = [
         ["Service", svc.name],
         [baseLabel, bookingLabel()],
-        ...(svc.key === "property" && optionsBasePence() ? [["Package price", gbp(optionsBasePence()) + (svc.key === "property" ? " (from)" : "")]] : []),
+        ...(svc.key === "property" && optionsBasePence() ? [["Package price", gbp(optionsBasePence()) + " (from)"]] : []),
         ...selectedAddOns.map((a) => [`Add-on — ${a.name}`, gbp(a.price_pence)]),
         ...(postcode ? [["Shoot postcode", postcode]] : []),
         ...(svc.surcharge ? [["Travel" + (distanceMiles != null ? ` (${Math.round(distanceMiles)} mi)` : ""), surchargeP > 0 ? gbp(surchargeP) : "No charge"]] : []),
+        ...(promo && discountPence() ? [[`Promo (${promo.code})`, "− " + gbp(discountPence())]] : []),
         ["Date", dt],
         ["Time", selectedSlot || "—"],
         ["Subtotal (ex VAT)", gbp(sub)],
@@ -683,11 +802,37 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         `<div class="vb-srow vb-total"><span>Total</span><span>${gbp(sub + vat)}</span></div>`;
       $("vb-details-summary").textContent = `${svc.name} — ${bookingLabel()}, ${dt} at ${selectedSlot}. ${gbp(withVat(sub))} inc. VAT.`;
     }
+
+    // Promo code (Property / Agent): validate against the admin-managed table via
+    // the Worker, then apply the discount to the running quote.
+    async function validatePromo(code) {
+      if (!WORKER) return { ok: false, error: "Promo codes aren't available right now." };
+      try {
+        const res = await fetch(`${WORKER}/videography/promo?code=${encodeURIComponent(code)}&service=${encodeURIComponent(svc.key)}`);
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || !d.ok) return { ok: false, error: d.error || "That code isn't valid." };
+        return { ok: true, kind: d.kind, value: d.value, label: d.label, code: d.code || code };
+      } catch (_) { return { ok: false, error: "Couldn't check that code — please try again." }; }
+    }
+    $("vb-promo-apply")?.addEventListener("click", async () => {
+      const input = $("vb-promo-input"), msg = $("vb-promo-msg"), btn = $("vb-promo-apply");
+      const code = String(input.value || "").trim().toUpperCase();
+      msg.hidden = true; msg.className = "vb-promo-msg";
+      if (!code) { promo = null; renderSummary(); return; }
+      btn.disabled = true; btn.textContent = "…";
+      const r = await validatePromo(code);
+      btn.disabled = false; btn.textContent = "Apply";
+      if (!r.ok) { promo = null; msg.textContent = r.error; msg.className = "vb-promo-msg is-err"; msg.hidden = false; renderSummary(); return; }
+      const pre = preDiscountPence();
+      const disc = r.kind === "percent" ? Math.round(pre * (Number(r.value) / 100)) : Number(r.value) || 0;
+      promo = { code: r.code, discount_pence: Math.min(disc, pre), kind: r.kind, value: r.value };
+      msg.textContent = `Code applied — ${gbp(promo.discount_pence)} off.`; msg.className = "vb-promo-msg is-ok"; msg.hidden = false;
+      renderSummary();
+    });
+
     $("vb-summary-next")?.addEventListener("click", () => {
       const sd = $("vb-sign-date"); if (sd && !sd.value) sd.value = localISO(new Date());
-      const terms = $("vb-terms"), agree = $("vb-agree");
-      if (terms && terms.scrollHeight <= terms.clientHeight + 4) { agree.disabled = false; terms.classList.add("is-read"); }
-      goTo("terms");
+      goTo("terms");  // renderTerms() (in showStepRaw) populates + sets the agree state
     });
 
     // ---- 7. terms ----
@@ -701,6 +846,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (termsCta.disabled) return;
       const f = $("vb-details-form");
       if (f) f.querySelector('[name="email"]').value = gateEmail;   // pre-fill from the gate
+      // Existing account → ask them to sign in instead of creating a duplicate.
+      const create = $("vb-pw-create"), signin = $("vb-pw-signin"), note = $("vb-signin-note");
+      if (create) create.hidden = existingAccount;
+      if (signin) signin.hidden = !existingAccount;
+      if (note) note.hidden = !existingAccount;
+      const dcta = $("vb-details-cta"); if (dcta) resetCta(dcta, existingAccount ? "Sign in & confirm" : "Confirm booking");
       goTo("details");
     });
 
@@ -709,9 +860,24 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       e.preventDefault();
       const fd = new FormData(e.target);
       const err = $("vb-details-error"); err.hidden = true;
-      const pw = String(fd.get("password") || ""), pw2 = String(fd.get("password2") || "");
-      if (pw.length < 8) { err.textContent = "Password must be at least 8 characters."; err.hidden = false; return; }
-      if (pw !== pw2) { err.textContent = "Passwords don't match."; err.hidden = false; return; }
+      const bookEmail0 = gateEmail || String(fd.get("email") || "");
+      // Existing account → sign in with one password; new account → create + confirm.
+      let pw;
+      if (existingAccount) {
+        pw = String(fd.get("signin_password") || "");
+        if (!pw) { err.textContent = "Please enter your password to sign in."; err.hidden = false; return; }
+        try {
+          const m = await import("../lib/supabase.js");
+          if (m && m.isConfigured && m.supabase) {
+            const { error: signErr } = await m.supabase.auth.signInWithPassword({ email: bookEmail0, password: pw });
+            if (signErr) { err.textContent = "That password didn't match — please try again or reset it."; err.hidden = false; return; }
+          }
+        } catch (_) { err.textContent = "Couldn't sign you in just now — please try again."; err.hidden = false; return; }
+      } else {
+        pw = String(fd.get("password") || ""); const pw2 = String(fd.get("password2") || "");
+        if (pw.length < 8) { err.textContent = "Password must be at least 8 characters."; err.hidden = false; return; }
+        if (pw !== pw2) { err.textContent = "Passwords don't match."; err.hidden = false; return; }
+      }
       const btn = $("vb-details-cta");
       loadingCta(btn, "Confirming…");
       const t0 = Date.now();
@@ -726,10 +892,11 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         fd.get("phone") ? `Phone: ${fd.get("phone")}` : "",
         fd.get("notes") ? String(fd.get("notes")) : "",
         `Agreement: signed "${signName.value.trim()}" on ${signDate.value}.`,
+        promo ? `Promo: ${promo.code} (− ${gbp(discountPence())})` : "",
         fd.get("optin") ? "Marketing opt-in: yes" : "Marketing opt-in: no",
         `Total: ${gbp(withVat(sub))} inc VAT.`,
       ].filter(Boolean).join(" | ");
-      const bookEmail = gateEmail || String(fd.get("email") || "");
+      const bookEmail = bookEmail0;
       try {
         if (!WORKER) throw new Error("Booking is being set up — please check back shortly.");
         // Books Jack's 365 diary, creates/links the account, writes the full
@@ -740,18 +907,23 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
             date: localISO(selectedDate), start: selectedSlot, duration,
             service: svc.name, service_type: svc.key,
             audience: audience && audience.audience, brand: (audience && audience.brand) || null,
-            package: svc.key === "agent" ? selectedPackages.map((p) => p.key).join(",") : (chosen && chosen.key) || null,
+            package: (chosen && chosen.key) || null,
             package_label: bookingLabel(),
             add_ons: selectedAddOns.map((a) => ({ key: a.key, name: a.name, price_pence: a.price_pence })),
             postcode: postcode || null, distance_miles: distanceMiles, surcharge_pence: surchargeP || 0,
+            promo_code: promo ? promo.code : null, discount_pence: discountPence() || 0,
             name: fd.get("name"), email: bookEmail, phone: fd.get("phone"), company: fd.get("company"), notes,
             signed_name: signName.value.trim(), signed_at: signDate.value ? `${signDate.value}T12:00:00` : null,
-            marketing_opt_in: !!fd.get("optin"), password: pw, total_pence: withVat(sub),
+            marketing_opt_in: !!fd.get("optin"),
+            // Existing members sign in client-side above; only send a password to
+            // CREATE an account for brand-new customers.
+            account_exists: existingAccount, password: existingAccount ? null : pw,
+            total_pence: withVat(sub),
           }),
         });
         const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || "Booking failed");
-        // Best-effort: sign the new account in so the portal works immediately.
-        try { const m = await import("../lib/supabase.js"); if (m && m.isConfigured && m.supabase) await m.supabase.auth.signInWithPassword({ email: bookEmail, password: pw }); } catch (_) {}
+        // Best-effort: sign a brand-new account in so the portal works immediately.
+        if (!existingAccount) { try { const m = await import("../lib/supabase.js"); if (m && m.isConfigured && m.supabase) await m.supabase.auth.signInWithPassword({ email: bookEmail, password: pw }); } catch (_) {} }
         const wait = 1100 - (Date.now() - t0); if (wait > 0) await sleep(wait);
         const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
         $("vb-success-title").textContent = "Booking confirmed";

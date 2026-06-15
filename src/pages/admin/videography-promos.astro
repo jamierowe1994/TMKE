@@ -1,0 +1,183 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="videography" title="Promo codes">
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-top">
+        <span class="admin-bar-count" id="promo-count">…</span>
+        <a href="/admin/videography" class="admin-btn admin-btn-ghost">&larr; Videography</a>
+      </div>
+    </section>
+
+    <section class="promo-wrap">
+      <!-- Create -->
+      <form class="promo-new" id="promo-new">
+        <h3 class="promo-h">New code</h3>
+        <div class="promo-grid">
+          <label class="promo-field"><span>Code</span><input name="code" required placeholder="e.g. SUMMER10" /></label>
+          <label class="promo-field"><span>Label (internal)</span><input name="label" placeholder="Summer 2026 launch" /></label>
+          <label class="promo-field"><span>Type</span>
+            <select name="kind">
+              <option value="percent">Percentage off</option>
+              <option value="fixed">Fixed amount off (£)</option>
+            </select>
+          </label>
+          <label class="promo-field"><span id="promo-value-label">Value (%)</span><input name="value" type="number" min="0" step="1" required /></label>
+          <label class="promo-field"><span>Applies to</span>
+            <div class="promo-svcs">
+              <label><input type="checkbox" name="svc" value="property" checked /> Property</label>
+              <label><input type="checkbox" name="svc" value="agent" checked /> Agent</label>
+              <label><input type="checkbox" name="svc" value="content-studio" /> Content Studio</label>
+            </div>
+          </label>
+          <label class="promo-field"><span>Max redemptions (blank = unlimited)</span><input name="max" type="number" min="1" step="1" /></label>
+          <label class="promo-field"><span>Expires (blank = never)</span><input name="expires" type="date" /></label>
+        </div>
+        <p class="promo-err" id="promo-err" hidden></p>
+        <button type="submit" class="admin-btn admin-btn-primary" id="promo-add">Add code</button>
+      </form>
+
+      <!-- List -->
+      <div class="promo-list" id="promo-list">
+        <p class="promo-loading" id="promo-loading">Loading codes…</p>
+        <p class="promo-empty" id="promo-empty" hidden>No promo codes yet — add one above.</p>
+        <table class="promo-table" id="promo-table" hidden>
+          <thead><tr><th>Code</th><th>Discount</th><th>Applies to</th><th>Used</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+          <tbody id="promo-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <style is:global>
+    .promo-wrap { max-width: 1100px; padding: 28px 0 120px; display: flex; flex-direction: column; gap: 28px; }
+    .promo-h { font-family: var(--serif); font-size: 20px; font-weight: 500; margin: 0 0 16px; color: var(--ink); }
+    .promo-new { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 22px 24px; }
+    .promo-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px 18px; margin-bottom: 16px; }
+    @media (max-width: 720px) { .promo-grid { grid-template-columns: 1fr; } }
+    .promo-field { display: flex; flex-direction: column; gap: 6px; }
+    .promo-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .promo-field input, .promo-field select { font-family: var(--sans); font-size: 14px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); }
+    .promo-field input[name="code"] { text-transform: uppercase; }
+    .promo-svcs { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--sans); font-size: 13px; color: var(--ink); padding-top: 4px; }
+    .promo-svcs label { display: inline-flex; align-items: center; gap: 6px; }
+    .promo-err { font-family: var(--sans); font-size: 13px; color: #a23b3b; margin: 0 0 12px; }
+    .promo-err[hidden] { display: none; }
+    .promo-list { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 8px 4px; }
+    .promo-loading, .promo-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 22px; margin: 0; }
+    .promo-loading[hidden], .promo-empty[hidden], .promo-table[hidden] { display: none; }
+    .promo-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13.5px; }
+    .promo-table th { text-align: left; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 12px 14px; border-bottom: 1px solid rgba(28,29,34,0.1); }
+    .promo-table td { padding: 13px 14px; border-bottom: 1px solid rgba(28,29,34,0.06); color: var(--ink); vertical-align: middle; }
+    .promo-table tr:last-child td { border-bottom: 0; }
+    .promo-code { font-weight: 700; letter-spacing: 0.04em; }
+    .promo-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+    .promo-badge.on { color: #2c7a4b; background: rgba(44,122,75,0.12); }
+    .promo-badge.off { color: rgba(28,29,34,0.5); background: rgba(28,29,34,0.08); }
+    .promo-rowbtn { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid rgba(28,29,34,0.2); background: transparent; color: var(--english-violet); border-radius: 5px; padding: 6px 10px; cursor: pointer; margin-left: 6px; }
+    .promo-rowbtn.del { color: #a05a3c; border-color: #a05a3c; }
+    .promo-rowbtn:hover { background: rgba(28,29,34,0.05); }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase } from "../../lib/supabase.js";
+
+    const DEV = import.meta.env.DEV;
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const gbp = (p) => "£" + ((p || 0) / 100).toLocaleString("en-GB", { minimumFractionDigits: (p % 100 ? 2 : 0), maximumFractionDigits: 2 });
+
+    // Keep the value label in step with the discount type.
+    $("promo-new")?.addEventListener("change", (e) => {
+      if (e.target instanceof HTMLSelectElement && e.target.name === "kind") {
+        $("promo-value-label").textContent = e.target.value === "fixed" ? "Value (£)" : "Value (%)";
+      }
+    });
+
+    function fmtDiscount(p) { return p.kind === "fixed" ? gbp(p.value) + " off" : p.value + "% off"; }
+    function fmtServices(s) {
+      if (!s || !s.length) return "All services";
+      const m = { property: "Property", agent: "Agent", "content-studio": "Content Studio" };
+      return s.map((x) => m[x] || x).join(", ");
+    }
+    function fmtDate(d) { if (!d) return "—"; try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } }
+
+    async function load() {
+      const { data, error } = await supabase.from("videography_promo_codes").select("*").order("created_at", { ascending: false });
+      $("promo-loading").hidden = true;
+      if (error) { $("promo-loading").hidden = false; $("promo-loading").textContent = "Couldn't load codes: " + error.message; return; }
+      const rows = data || [];
+      $("promo-count").textContent = `${rows.filter((r) => r.active).length} active · ${rows.length} total`;
+      $("promo-empty").hidden = rows.length !== 0;
+      $("promo-table").hidden = rows.length === 0;
+      $("promo-rows").innerHTML = rows.map((p) => `
+        <tr data-id="${esc(p.id)}">
+          <td class="promo-code">${esc(p.code)}${p.label ? `<div style="font-weight:400;font-size:11px;color:rgba(28,29,34,0.5)">${esc(p.label)}</div>` : ""}</td>
+          <td>${fmtDiscount(p)}</td>
+          <td>${esc(fmtServices(p.services))}</td>
+          <td>${p.redemptions || 0}${p.max_redemptions != null ? " / " + p.max_redemptions : ""}</td>
+          <td>${fmtDate(p.expires_at)}</td>
+          <td><span class="promo-badge ${p.active ? "on" : "off"}">${p.active ? "Active" : "Off"}</span></td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="promo-rowbtn" data-toggle="${esc(p.id)}" data-active="${p.active}">${p.active ? "Disable" : "Enable"}</button>
+            <button class="promo-rowbtn del" data-del="${esc(p.id)}">Delete</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    $("promo-new")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const err = $("promo-err"); err.hidden = true;
+      const code = String(fd.get("code") || "").trim().toUpperCase();
+      const kind = String(fd.get("kind") || "percent");
+      const value = parseInt(String(fd.get("value") || ""), 10);
+      if (!code) { err.textContent = "Enter a code."; err.hidden = false; return; }
+      if (!Number.isFinite(value) || value <= 0) { err.textContent = "Enter a positive value."; err.hidden = false; return; }
+      if (kind === "percent" && value > 100) { err.textContent = "A percentage can't be over 100."; err.hidden = false; return; }
+      const services = [...e.target.querySelectorAll('input[name="svc"]:checked')].map((c) => c.value);
+      const maxRaw = String(fd.get("max") || "").trim();
+      const expires = String(fd.get("expires") || "").trim();
+      const row = {
+        code, label: String(fd.get("label") || "").trim() || null, kind,
+        // Fixed amount is entered in £ but stored in pence.
+        value: kind === "fixed" ? Math.round(value * 100) : value,
+        services, active: true,
+        max_redemptions: maxRaw ? parseInt(maxRaw, 10) : null,
+        expires_at: expires ? expires + "T23:59:59" : null,
+      };
+      const btn = $("promo-add"); btn.disabled = true; btn.textContent = "Adding…";
+      const { error } = await supabase.from("videography_promo_codes").insert(row);
+      btn.disabled = false; btn.textContent = "Add code";
+      if (error) { err.textContent = /duplicate|unique/i.test(error.message) ? "That code already exists." : error.message; err.hidden = false; return; }
+      e.target.reset();
+      $("promo-value-label").textContent = "Value (%)";
+      await load();
+    });
+
+    $("promo-rows")?.addEventListener("click", async (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const toggleId = t.getAttribute("data-toggle");
+      const delId = t.getAttribute("data-del");
+      if (toggleId) {
+        const next = t.getAttribute("data-active") !== "true";
+        await supabase.from("videography_promo_codes").update({ active: next }).eq("id", toggleId);
+        await load();
+      } else if (delId) {
+        if (!confirm("Delete this promo code? This can't be undone.")) return;
+        await supabase.from("videography_promo_codes").delete().eq("id", delId);
+        await load();
+      }
+    });
+
+    (async () => {
+      if (!DEV) { const s = await requireAdmin(); if (!s) return; }
+      await load();
+    })();
+  </script>
+</AdminShell>
