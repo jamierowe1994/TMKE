@@ -177,6 +177,19 @@
     if (i >= 0) a.splice(i, 1); else a.unshift(name);
     setFavFonts(a);
   }
+  // Recently picked fonts (most-recent first, capped) — shown as their own
+  // section in the font browser between brand fonts and the full list.
+  function getRecentFonts() {
+    try { return JSON.parse(localStorage.getItem("tmke.editor.recentFonts") || "[]"); }
+    catch (_) { return []; }
+  }
+  function pushRecentFont(name) {
+    if (!name) return;
+    let a = getRecentFonts().filter(function (n) { return n !== name; });
+    a.unshift(name);
+    a = a.slice(0, 8);
+    try { localStorage.setItem("tmke.editor.recentFonts", JSON.stringify(a)); } catch (_) {}
+  }
   // Which text element the Text-panel font browser is currently editing, and a
   // cheap signature so fullRender doesn't rebuild the (long) list every frame.
   let _fontTargetId = null;
@@ -462,17 +475,16 @@
     return btn;
   }
 
-  // Font-size control: a typeable number + a caret that drops a quick list of
-  // common sizes (Canva-style). onChange(size) is called with the new value.
+  // Font-size control: a typeable number that, when clicked, drops a quick list
+  // of common sizes (Canva-style — no separate caret button). onChange(size) is
+  // called with the new value.
   const SIZE_PRESETS = [6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 80, 88, 96, 104, 120, 144];
   function createSizeControl(initial, onChange) {
     const wrap = document.createElement("div");
     wrap.className = "ed-size-ctl";
     const input = document.createElement("input");
     input.type = "number"; input.className = "ed-ctx-num"; input.value = initial; input.min = 6; input.max = 600;
-    const caret = document.createElement("button");
-    caret.type = "button"; caret.className = "ed-size-caret"; caret.title = "Sizes";
-    caret.textContent = "▾";
+    input.title = "Font size — click for presets";
     const pop = document.createElement("div");
     pop.className = "ed-size-pop"; pop.hidden = true;
     pop.innerHTML = SIZE_PRESETS.map(function (s) {
@@ -493,50 +505,49 @@
       onChange(v);
     }
     input.addEventListener("change", function () { apply(input.value); });
-    caret.addEventListener("click", function (e) {
-      e.stopPropagation();
-      pop.hidden = !pop.hidden;
-      // Open scrolled to the current size, centred, so options appear either side.
-      if (!pop.hidden) {
-        // The pop is position:fixed (escapes the context bar's stacking + clipping)
-        // so it always floats over the top of the canvas. Anchor it under the caret.
-        const r = caret.getBoundingClientRect();
-        pop.style.visibility = "hidden";
-        pop.style.left = "0px"; pop.style.top = "0px";
-        requestAnimationFrame(function () {
-          const ph = pop.offsetHeight || 240, pw = pop.offsetWidth || 64;
-          let top = r.bottom + 6;
-          if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
-          let left = r.right - pw;
-          left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
-          pop.style.left = left + "px";
-          pop.style.top = top + "px";
-          pop.style.visibility = "";
-          const cur = pop.querySelector(".ed-size-opt.is-current");
-          if (cur) cur.scrollIntoView({ block: "center" });
-        });
-      }
-    });
+
+    // Clicking / focusing the number opens the preset list (position:fixed so it
+    // floats over the canvas, anchored under the input).
+    function openPop() {
+      if (!pop.hidden) return;
+      pop.hidden = false;
+      const r = input.getBoundingClientRect();
+      pop.style.visibility = "hidden";
+      pop.style.left = "0px"; pop.style.top = "0px";
+      requestAnimationFrame(function () {
+        const ph = pop.offsetHeight || 240, pw = pop.offsetWidth || 64;
+        let top = r.bottom + 6;
+        if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+        const left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
+        pop.style.left = left + "px";
+        pop.style.top = top + "px";
+        pop.style.visibility = "";
+        const cur = pop.querySelector(".ed-size-opt.is-current");
+        if (cur) cur.scrollIntoView({ block: "center" });
+      });
+    }
+    input.addEventListener("focus", openPop);
+    input.addEventListener("click", openPop);
     pop.addEventListener("click", function (e) {
       const b = e.target.closest("[data-size]");
       if (!b) return;
       pop.hidden = true;
       apply(b.getAttribute("data-size"));
     });
-    document.addEventListener("click", function (e) { if (!wrap.contains(e.target)) pop.hidden = true; });
+    document.addEventListener("click", function (e) { if (!wrap.contains(e.target) && !pop.contains(e.target)) pop.hidden = true; });
 
     // +/- steppers flanking the number (Canva-style). Step by 1, holding Shift by 10.
     const minus = document.createElement("button");
     minus.type = "button"; minus.className = "ed-size-step"; minus.title = "Smaller"; minus.textContent = "−";
     const plus = document.createElement("button");
     plus.type = "button"; plus.className = "ed-size-step"; plus.title = "Larger"; plus.textContent = "+";
+    plus.style.borderRadius = "0 4px 4px 0"; // round the right edge now the caret is gone
     minus.addEventListener("click", function (e) { e.stopPropagation(); apply((parseInt(input.value, 10) || initial) - (e.shiftKey ? 10 : 1)); });
     plus.addEventListener("click", function (e) { e.stopPropagation(); apply((parseInt(input.value, 10) || initial) + (e.shiftKey ? 10 : 1)); });
 
     wrap.appendChild(minus);
     wrap.appendChild(input);
     wrap.appendChild(plus);
-    wrap.appendChild(caret);
     wrap.appendChild(pop);
     return wrap;
   }
@@ -4600,8 +4611,11 @@
     ctxEl.innerHTML = "";
 
     if (el.type === "text") {
-      // Row order: font · size · colour · weight.
+      // Row order: font · size · colour. Weight now lives in the Text side panel
+      // (click the font name), so it's off the toolbar entirely. A roomier gap
+      // here gives these three controls space to breathe.
       const g1 = group();
+      g1.style.gap = "10px";
       g1.appendChild(createFontPicker(el.font, function (name) {
         el.font = name; fullRender(); pushHistory();
       }, { onOpen: function () { openFontPanel(el); } }));
@@ -4616,26 +4630,6 @@
           getGradient: function () { return el.textGradient; },
         }
       ));
-      // Font weight — quick-pick the named weights (Extra light → Extra bold).
-      // Once the user has favourited a font (brand kit), weight moves into the
-      // Text panel and we drop this select to keep the toolbar compact.
-      if (!getFavFonts().length) {
-        const weightSel = document.createElement("select");
-        weightSel.title = "Font weight";
-        weightSel.style.cssText = "height:30px;border:1px solid rgba(28,29,34,0.18);border-radius:7px;background:#fff;color:var(--ink,#1c1d22);font-family:inherit;font-size:12px;padding:0 8px;cursor:pointer;";
-        [[200, "Extra light"], [300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semi-bold"], [700, "Bold"], [800, "Extra bold"]].forEach(function (wl) {
-          const o = document.createElement("option");
-          o.value = wl[0]; o.textContent = wl[1];
-          if ((el.weight || 400) == wl[0]) o.selected = true;
-          weightSel.appendChild(o);
-        });
-        weightSel.addEventListener("change", function () {
-          el.weight = parseInt(weightSel.value, 10);
-          loadGoogleFont(el.font);
-          fullRender(); pushHistory();
-        });
-        g1.appendChild(weightSel);
-      }
       ctxEl.appendChild(g1);
 
       // B I U — Bold applies to the selected text while editing (per-word),
@@ -5303,10 +5297,15 @@
       mount.appendChild(wsec);
     }
 
+    // The list is its own scroll area (CSS max-height + overflow) so the panel
+    // stays compact instead of growing into a giant nav.
     const listWrap = document.createElement("div");
     listWrap.className = "ed-fb-list";
     mount.appendChild(listWrap);
 
+    function fontByName(nm) {
+      return FONTS.find(function (x) { return x.name === nm; }) || { name: nm, stack: '"' + nm + '", sans-serif' };
+    }
     function rowFor(f, preview) {
       const row = document.createElement("div");
       row.className = "ed-fb-row" + (el && f.name === el.font ? " is-current" : "");
@@ -5315,7 +5314,8 @@
       if (preview) { name.style.fontFamily = f.stack; loadGoogleFont(f.name); }
       name.addEventListener("click", function () {
         if (!el) { toast("Select a text layer first"); return; }
-        loadGoogleFont(f.name); el.font = f.name; fullRender(); pushHistory();
+        loadGoogleFont(f.name); el.font = f.name; pushRecentFont(f.name);
+        fullRender(); pushHistory();
       });
       const star = document.createElement("button");
       star.type = "button";
@@ -5326,38 +5326,48 @@
       star.addEventListener("click", function (e) {
         e.stopPropagation();
         toggleFavFont(f.name);
-        renderFontBrowser();   // refresh stars + the favourites section
-        renderContextBar();    // toolbar weight <select> appears/disappears
+        renderFontBrowser();   // refresh stars + the brand-fonts section
       });
       row.appendChild(name); row.appendChild(star);
       return row;
+    }
+    function sectionTitle(text) {
+      const t = document.createElement("div"); t.className = "ed-fb-title"; t.textContent = text;
+      listWrap.appendChild(t);
     }
 
     function build(query) {
       listWrap.innerHTML = "";
       const q = (query || "").trim().toLowerCase();
-      const favs = getFavFonts();
-      if (favs.length && !q) {
-        const t = document.createElement("div"); t.className = "ed-fb-title"; t.textContent = "Your brand fonts";
-        listWrap.appendChild(t);
-        favs.forEach(function (nm) {
-          const f = FONTS.find(function (x) { return x.name === nm; }) || { name: nm, stack: '"' + nm + '", sans-serif' };
-          listWrap.appendChild(rowFor(f, true)); // few favourites — safe to preview in-face
+      // While searching, show one flat filtered list — sections only add noise.
+      if (q) {
+        let n = 0;
+        FONTS.forEach(function (f) {
+          if (f.name.toLowerCase().indexOf(q) === -1) return;
+          listWrap.appendChild(rowFor(f, false)); n++;
         });
-        const t2 = document.createElement("div"); t2.className = "ed-fb-title"; t2.textContent = "All fonts";
-        listWrap.appendChild(t2);
+        if (!n) {
+          const e = document.createElement("div"); e.className = "ed-fb-empty";
+          e.textContent = 'No fonts matching "' + q + '".';
+          listWrap.appendChild(e);
+        }
+        return;
       }
-      let n = 0;
+      // Sectioned view: Brand fonts → Recently picked → All fonts.
+      const favs = getFavFonts();
+      if (favs.length) {
+        sectionTitle("Brand fonts");
+        favs.forEach(function (nm) { listWrap.appendChild(rowFor(fontByName(nm), true)); });
+      }
+      const recents = getRecentFonts().filter(function (nm) { return favs.indexOf(nm) === -1; });
+      if (recents.length) {
+        sectionTitle("Recently picked");
+        recents.forEach(function (nm) { listWrap.appendChild(rowFor(fontByName(nm), true)); });
+      }
+      sectionTitle("All fonts");
       FONTS.forEach(function (f) {
-        if (q && f.name.toLowerCase().indexOf(q) === -1) return;
         listWrap.appendChild(rowFor(f, false)); // names in UI font — avoids loading 100s of webfonts
-        n++;
       });
-      if (!n) {
-        const e = document.createElement("div"); e.className = "ed-fb-empty";
-        e.textContent = 'No fonts matching "' + q + '".';
-        listWrap.appendChild(e);
-      }
     }
     build("");
     search.addEventListener("input", function () { build(search.value); });
@@ -5381,8 +5391,11 @@
     document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "text"));
     showPane("text");
     renderFontBrowser();
+    // Bring the Fonts section to the top of the panel so it reads like a page
+    // that scrolls to fonts (not a dropdown buried below the add-text buttons).
     const m = document.getElementById("ed-font-browser");
-    if (m && m.scrollIntoView) m.scrollIntoView({ block: "nearest" });
+    const anchor = (m && m.previousElementSibling) || m;
+    if (anchor && anchor.scrollIntoView) anchor.scrollIntoView({ block: "start" });
   }
 
   // ---------- Shapes / text / bg / swatches bindings ----------
