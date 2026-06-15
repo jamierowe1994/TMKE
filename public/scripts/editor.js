@@ -1669,6 +1669,7 @@
       node.appendChild(inner);
     } else if (el.type === "image") {
       const img = document.createElement("img");
+      img.decoding = "async";
       img.src = el.src;
       img.draggable = false;
       img.alt = "";
@@ -1681,6 +1682,7 @@
       if (el.src) {
         node.classList.add("is-filled");
         const img = document.createElement("img");
+        img.decoding = "async";
         img.src = el.src;
         img.draggable = false;
         img.alt = "";
@@ -3359,6 +3361,42 @@
     });
   }
 
+  // Read an uploaded image File and downscale it to a sane max edge before use.
+  // Phone/camera photos are often 3000–6000px / 3–8MB; loading those full-size is
+  // the main reason a design's photos take several seconds to appear (and they
+  // bloat the saved row). 2000px is plenty for a 1080-wide canvas + crisp export.
+  // PNGs keep transparency; everything else becomes JPEG. Returns a data URL.
+  function fileToWebImage(file, maxEdge) {
+    maxEdge = maxEdge || 2000;
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const src = reader.result;
+        const img = new Image();
+        img.onload = () => {
+          const longest = Math.max(img.naturalWidth, img.naturalHeight);
+          const scale = longest > maxEdge ? maxEdge / longest : 1;
+          if (scale >= 1) { resolve(src); return; } // already web-sized
+          try {
+            const c = document.createElement("canvas");
+            c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+            c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+            const ctx = c.getContext("2d");
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, c.width, c.height);
+            const png = /image\/png/i.test(file.type || "");
+            resolve(png ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85));
+          } catch (_) { resolve(src); }
+        };
+        img.onerror = () => resolve(src);
+        img.src = src;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  }
+
   function wrapText(ctx, text, maxWidth) {
     const paragraphs = text.split("\n");
     const lines = [];
@@ -3686,12 +3724,11 @@
         input.onchange = () => {
           const file = input.files[0];
           if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
+          fileToWebImage(file).then((src) => {
+            if (!src) return;
             const tgt = getEl(state.selectedIds[0]);
-            if (tgt) { tgt.src = reader.result; pushHistory(); fullRender(); }
-          };
-          reader.readAsDataURL(file);
+            if (tgt) { tgt.src = src; pushHistory(); fullRender(); }
+          });
         };
         input.click();
       });
@@ -3716,12 +3753,11 @@
         input.onchange = () => {
           const file = input.files[0];
           if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
+          fileToWebImage(file).then((src) => {
+            if (!src) return;
             const tgt = getEl(state.selectedIds[0]);
-            if (tgt && tgt.type === "frame") fillFrame(tgt, reader.result);
-          };
-          reader.readAsDataURL(file);
+            if (tgt && tgt.type === "frame") fillFrame(tgt, src);
+          });
         };
         input.click();
       });
@@ -4285,9 +4321,7 @@
         input.type = "file"; input.accept = "image/*";
         input.onchange = () => {
           const file = input.files[0]; if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => { el.src = reader.result; pushHistory(); fullRender(); };
-          reader.readAsDataURL(file);
+          fileToWebImage(file).then((src) => { if (!src) return; el.src = src; pushHistory(); fullRender(); });
         };
         input.click();
       });
@@ -4830,25 +4864,24 @@
   function handleFiles(files) {
     Array.from(files || []).forEach((f) => {
       if (!f.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        state.uploads.push(reader.result);
+      fileToWebImage(f).then((src) => {
+        if (!src) return;
+        state.uploads.push(src);
         const b = document.createElement("button");
         const img = document.createElement("img");
-        img.src = reader.result;
+        img.src = src;
         b.appendChild(img);
-        b.addEventListener("click", () => addImage(reader.result));
+        b.addEventListener("click", () => addImage(src));
         // Make uploaded photos draggable too so they can be dropped on frames
         b.draggable = true;
         b.addEventListener("dragstart", (e) => {
           if (!e.dataTransfer) return;
-          e.dataTransfer.setData("text/uri-list", reader.result);
-          e.dataTransfer.setData("text/plain", reader.result);
+          e.dataTransfer.setData("text/uri-list", src);
+          e.dataTransfer.setData("text/plain", src);
           e.dataTransfer.effectAllowed = "copy";
         });
         uploadGridEl.appendChild(b);
-      };
-      reader.readAsDataURL(f);
+      });
     });
   }
 
