@@ -7,25 +7,27 @@ import { templates as defaultLibrary } from "../../data/library.js";
 <AdminShell active="studio" title="Design studio">
   <div class="ash-panel ash-page">
   <section class="admin-bar">
-    <div class="admin-bar-actions">
+    <div class="admin-bar-top">
       <span class="admin-bar-count" id="tpl-count">…</span>
+      <div class="admin-bar-tools">
+        <label class="tpl-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="search" id="tpl-search" placeholder="Search templates…" aria-label="Search templates" />
+        </label>
+        <select class="tpl-filter" id="tpl-filter" aria-label="Filter templates">
+          <option value="recent">Most recent</option>
+          <option value="oldest">Last added</option>
+          <option value="draft">Drafts only</option>
+          <option value="active">Published only</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+    </div>
+    <div class="admin-bar-actions">
       <a href="/admin/fonts" class="admin-btn admin-btn-ghost">Brand fonts</a>
       <button type="button" id="seed-btn" class="admin-btn admin-btn-ghost" hidden>Seed from default library</button>
       <button type="button" id="rebuild-thumbs-btn" class="admin-btn admin-btn-ghost">Sync local drafts</button>
       <button type="button" id="new-btn" class="admin-btn admin-btn-primary">+ New template</button>
-    </div>
-    <div class="admin-bar-tools">
-      <label class="tpl-search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="search" id="tpl-search" placeholder="Search templates…" aria-label="Search templates" />
-      </label>
-      <select class="tpl-filter" id="tpl-filter" aria-label="Filter templates">
-        <option value="recent">Most recent</option>
-        <option value="oldest">Last added</option>
-        <option value="draft">Drafts only</option>
-        <option value="active">Published only</option>
-        <option value="archived">Archived</option>
-      </select>
     </div>
   </section>
 
@@ -63,15 +65,24 @@ import { templates as defaultLibrary } from "../../data/library.js";
     @media (max-width: 720px) { .admin-hero-pad { padding-top: 56px; } }
     .admin-bar {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
+      align-items: stretch;
       gap: 16px;
       max-width: 1360px;
       margin: 0 auto;
-      /* Top offset pushes the toolbar (Brand fonts / Seed / + New template) down
-         off the panel edge; left/right are neutralised by .ash-page so the row
-         aligns with the cards below. */
-      padding: 40px 36px 0;
+      /* Top offset pushes the toolbar down off the panel edge; left/right are
+         neutralised by .ash-page so the rows align with the cards below. The
+         bottom border is the separator line between the toolbar and the designs. */
+      padding: 40px 36px 22px;
+      border-bottom: 1px solid rgba(55, 30, 40, 0.14);
+    }
+    /* Row 1: count on the left, search + filter on the right. */
+    .admin-bar-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
     }
     .admin-back {
       font-family: var(--sans);
@@ -117,6 +128,10 @@ import { templates as defaultLibrary } from "../../data/library.js";
       color: rgba(28, 29, 34, 0.6);
       font-weight: 600;
     }
+    /* `display: inline-flex` below overrides the `hidden` attribute's
+       `display: none`, so hidden buttons (e.g. Seed when templates exist) were
+       still showing. Restore hidden's effect. */
+    .admin-btn[hidden] { display: none; }
     .admin-btn {
       display: inline-flex;
       align-items: center;
@@ -145,15 +160,15 @@ import { templates as defaultLibrary } from "../../data/library.js";
     .tpl-list {
       max-width: 1360px;
       margin: 0 auto;
-      /* Generous top gap so the cards aren't jammed against the toolbar. */
-      padding: 88px 36px 200px;
+      /* Gap below the toolbar separator line before the cards. */
+      padding: 44px 36px 200px;
     }
     /* The section carries BOTH `tpl-list` and `wrap`. `.wrap { padding: 0 76px }`
        (BaseLayout) has the SAME specificity, so in the production bundle order it
        wins and zeroes the top/bottom padding — even though it works in dev. Pin
        the vertical padding with the element id (higher specificity) so it always
        wins; horizontal stays governed by `.ash-page .tpl-list` (full-width align). */
-    #tpl-list { padding-top: 88px; padding-bottom: 200px; }
+    #tpl-list { padding-top: 44px; padding-bottom: 200px; }
     .tpl-loading {
       font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5);
       padding: 24px 0;
