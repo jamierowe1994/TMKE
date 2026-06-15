@@ -1211,15 +1211,40 @@
   }
 
   // ---------- History ----------
-  // ---- Autosave drafts (admin only) ------------------------------------
-  // While editing in admin mode, persist a draft to localStorage shortly after
-  // each change, and once more right before the tab unloads — so work is never
-  // lost. Gated on window.__TMKE_AUTOSAVE__ (set by the admin bootstrap).
+  // ---- Autosave + save safety net (admin) — the "dead-man's-lock" ------
+  // localStorage autosave runs on EVERY change in admin mode, independent of
+  // Supabase or the admin bootstrap, so a design is NEVER lost even if the
+  // cloud save is completely down — it can always be recovered via "Sync local
+  // drafts". Admin mode is read from the URL so it does NOT depend on the
+  // bootstrap (which previously gated everything via __TMKE_AUTOSAVE__ — when
+  // the bootstrap 404'd, even the local net was off and work could be lost).
+  const ADMIN_MODE_URL = (function () {
+    try { return new URLSearchParams(window.location.search).get("mode") === "admin"; } catch (_) { return false; }
+  })();
   let _autosaveTimer = null;
   let _dbSaveTimer = null;
   let _dbSaving = false;
+  let _dbRetries = 0;
+
+  // Persistent save-status pill so a failed cloud save is never silent.
+  function setSaveStatus(kind) {
+    if (!ADMIN_MODE_URL) return;
+    let el = document.getElementById("ed-save-status");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "ed-save-status";
+      el.style.cssText = "position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:120;font-family:var(--sans,sans-serif);font-size:12px;font-weight:700;letter-spacing:0.03em;padding:6px 14px;border-radius:999px;pointer-events:none;transition:opacity 0.35s;box-shadow:0 6px 18px -8px rgba(28,29,34,0.4);";
+      document.body.appendChild(el);
+    }
+    clearTimeout(el._hideT);
+    el.style.opacity = "1";
+    if (kind === "saving") { el.textContent = "Saving…"; el.style.background = "#fff"; el.style.color = "rgba(28,29,34,0.7)"; }
+    else if (kind === "saved") { el.textContent = "All changes saved ✓"; el.style.background = "#e7f3ea"; el.style.color = "#2d6a44"; el._hideT = setTimeout(function () { el.style.opacity = "0"; }, 1800); }
+    else if (kind === "local") { el.textContent = "⚠ Saved on this device — reconnecting to cloud…"; el.style.background = "#fcefe6"; el.style.color = "#a05a3c"; }
+  }
+
   function autosaveDraft() {
-    if (!window.__TMKE_AUTOSAVE__) return;
+    if (!ADMIN_MODE_URL) return;
     if (!state.templateId) state.templateId = "draft-" + Date.now(); // new / imported designs get a stable key
     try {
       localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify({
@@ -1232,24 +1257,21 @@
       }));
     } catch (_) {}
   }
-  // Admin only: also persist to the Supabase `templates` row, debounced a little
-  // longer than the local draft. Without this the studio list preview (and any
-  // other device) only ever saw an empty row until the admin hit Save manually —
-  // so autosaved designs showed as "Blank canvas". Runs on load too (via
-  // pushHistory→scheduleAutosave), which heals existing localStorage-only drafts.
+  // Also persist to the Supabase `templates` row when the cloud hook is up. On
+  // failure the work is already safe locally — show it + retry with backoff so
+  // a transient blip self-heals without anyone losing work.
   async function autosaveToDb() {
-    if (!window.__TMKE_AUTOSAVE__) return;
-    if (typeof window.__TMKE_ADMIN_SAVE__ !== "function") return;
-    // Real DB rows only — blank/imported designs use a "draft-…" key with no row.
+    if (!ADMIN_MODE_URL) return;
     if (!state.templateId || String(state.templateId).indexOf("draft-") === 0) return;
+    if (typeof window.__TMKE_ADMIN_SAVE__ !== "function") { setSaveStatus("local"); return; }
     if (_dbSaving) { clearTimeout(_dbSaveTimer); _dbSaveTimer = setTimeout(autosaveToDb, 1500); return; }
     _dbSaving = true;
+    setSaveStatus("saving");
+    let ok = false;
     try {
-      // Generate a thumbnail too, so the studio list shows a fast cached image
-      // for autosaved designs (not just ones saved with the Save button).
       let thumb;
       try { thumb = await _renderThumbDataUrl(); } catch (_) {}
-      await window.__TMKE_ADMIN_SAVE__({
+      ok = await window.__TMKE_ADMIN_SAVE__({
         templateId: state.templateId,
         filename: filenameEl ? filenameEl.value : "",
         canvas: state.canvas,
@@ -1258,16 +1280,29 @@
         savedAt: Date.now(),
         thumb,
       });
-    } catch (_) {} finally { _dbSaving = false; }
+    } catch (_) { ok = false; }
+    _dbSaving = false;
+    if (ok) { _dbRetries = 0; setSaveStatus("saved"); }
+    else {
+      // Cloud save failed — work is safe locally. Retry a few times with backoff
+      // so a transient blip self-heals; then stop hammering (the next edit or a
+      // manual Save tries again). The localStorage copy never depends on this.
+      setSaveStatus("local");
+      _dbRetries++;
+      if (_dbRetries <= 5) {
+        clearTimeout(_dbSaveTimer);
+        _dbSaveTimer = setTimeout(autosaveToDb, Math.min(30000, 2000 * _dbRetries));
+      }
+    }
   }
   function scheduleAutosave() {
-    if (!window.__TMKE_AUTOSAVE__) return;
+    if (!ADMIN_MODE_URL) return;
     clearTimeout(_autosaveTimer);
-    _autosaveTimer = setTimeout(autosaveDraft, 1200);
+    _autosaveTimer = setTimeout(autosaveDraft, 1200);   // local copy — always
     clearTimeout(_dbSaveTimer);
-    _dbSaveTimer = setTimeout(autosaveToDb, 3500);
+    _dbSaveTimer = setTimeout(autosaveToDb, 3500);       // cloud copy — when up
   }
-  window.addEventListener("beforeunload", function () { try { if (window.__TMKE_AUTOSAVE__) autosaveDraft(); } catch (_) {} });
+  window.addEventListener("beforeunload", function () { try { if (ADMIN_MODE_URL) autosaveDraft(); } catch (_) {} });
 
   function pushHistory() {
     // Drop forward history
@@ -3161,24 +3196,28 @@
       savedAt: Date.now(),
       thumb,
     };
-    // Admin hook (set by editor.astro when ?mode=admin and signed in) — writes
-    // back to the Supabase `templates` table instead of localStorage. Falls
-    // through to the local save if the hook isn't installed or rejects.
+    // ALWAYS write the local copy first — the dead-man's-lock. Even if the cloud
+    // save fails, the design is recoverable from this browser via "Sync local
+    // drafts", so a failed Save never means lost work.
+    try { localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify(payload)); } catch (_) {}
+    // Cloud hook (set by editor.astro when ?mode=admin and signed in) — writes
+    // back to the Supabase `templates` table.
     if (typeof window.__TMKE_ADMIN_SAVE__ === "function") {
+      setSaveStatus("saving");
       try {
         const ok = await window.__TMKE_ADMIN_SAVE__(payload);
-        toast(ok ? "Template saved" : "Save failed");
+        if (ok) { _dbRetries = 0; setSaveStatus("saved"); toast("Template saved"); }
+        else { setSaveStatus("local"); toast("Saved on this device — cloud save failed, retrying"); scheduleAutosave(); }
         return !!ok;
       } catch (e) {
-        toast("Save failed");
+        setSaveStatus("local"); toast("Saved on this device — cloud save failed, retrying"); scheduleAutosave();
         return false;
       }
     }
-    try {
-      localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify(payload));
-      toast("Design saved");
-      return true;
-    } catch (e) { toast("Save failed"); return false; }
+    // No cloud hook (bootstrap not up) — the local copy above is the safety net.
+    setSaveStatus("local");
+    toast("Saved on this device");
+    return true;
   }
 
   // ---------- Export ----------
