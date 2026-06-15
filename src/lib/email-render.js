@@ -436,7 +436,10 @@ function brandHeader(brand) {
   const headerLogo = brand.logo
     ? `<img src="${escapeHtml(brand.logo)}" alt="${escapeHtml(brand.companyName || '')}" style="max-height:42px;width:auto;display:block;border:0;outline:none;" />`
     : brand.companyName
-      ? `<span style="font-family:Helvetica,Arial,sans-serif;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${escapeHtml(accent)};font-size:18px;">${escapeHtml(brand.companyName)}</span>`
+      // Editorial serif wordmark — the closest email-safe nod to The Seasons
+      // (custom webfonts get stripped by most email clients, so we use a Didone
+      // serif stack rather than ship a font that won't load).
+      ? `<span style="font-family:'Didot','Bodoni MT',Georgia,'Times New Roman',serif;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;color:${escapeHtml(accent)};font-size:22px;">${escapeHtml(brand.companyName)}</span>`
       : '';
   return headerLogo ? `<div style="padding:24px 24px 0;">${headerLogo}</div>` : '';
 }

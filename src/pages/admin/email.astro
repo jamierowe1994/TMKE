@@ -30,6 +30,7 @@ import AdminBack from "../../components/AdminBack.astro";
       </div>
       <input type="search" id="em-search" class="admin-search" placeholder="Search name, subject, trigger…" />
       <span class="admin-bar-count" id="em-count">…</span>
+      <button type="button" id="em-seed" class="admin-btn admin-btn-ghost">Load starter templates</button>
       <a href="/admin/email/editor?id=new" class="admin-btn admin-btn-primary">+ New template</a>
     </div>
   </section>
@@ -141,6 +142,7 @@ import AdminBack from "../../components/AdminBack.astro";
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { requireAdmin } from "../../lib/admin-gate.js";
+    import { STARTER_TEMPLATES } from "../../lib/email-starters.js";
 
     const $loading = document.getElementById("em-loading");
     const $empty = document.getElementById("em-empty");
@@ -278,5 +280,19 @@ import AdminBack from "../../components/AdminBack.astro";
       all = data || [];
       render();
     })();
+
+    // Load the branded starter templates (skips any already added by name).
+    document.getElementById("em-seed")?.addEventListener("click", async () => {
+      const btn = document.getElementById("em-seed");
+      const existing = new Set((all || []).map((t) => (t.name || "").toLowerCase()));
+      const toAdd = STARTER_TEMPLATES.filter((t) => !existing.has(t.name.toLowerCase()))
+        .map((t) => ({ name: t.name, subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, custom_html: "", branding: t.branding, trigger_key: t.trigger_key, status: t.status }));
+      if (!toAdd.length) { btn.textContent = "All loaded ✓"; setTimeout(() => (btn.textContent = "Load starter templates"), 1800); return; }
+      btn.disabled = true; btn.textContent = "Loading…";
+      const { error } = await supabase.from("email_templates").insert(toAdd);
+      btn.disabled = false; btn.textContent = "Load starter templates";
+      if (error) { alert("Couldn't load starters: " + error.message); return; }
+      location.reload();
+    });
   </script>
 </BaseLayout>
