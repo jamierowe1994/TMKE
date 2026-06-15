@@ -97,7 +97,7 @@
     link.rel = "stylesheet";
     link.href = "https://fonts.googleapis.com/css2?family=" +
       encodeURIComponent(name).replace(/%20/g, "+") +
-      ":ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap";
+      ":ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&display=swap";
     document.head.appendChild(link);
   }
 
@@ -187,7 +187,7 @@
   // ---------- State ----------
   const state = {
     templateId: null,
-    canvas: { width: 1080, height: 1350, background: "#F2EFE9" },
+    canvas: { width: 1080, height: 1440, background: "#F2EFE9" },
     elements: [],
     selectedIds: [],
     zoom: 1,
@@ -3901,13 +3901,27 @@
       g1.appendChild(picker);
 
       g1.appendChild(createSizeControl(el.size, function (v) { el.size = v; fullRender(); pushHistory(); }));
+
+      // Font weight — quick-pick the named weights (Extra light → Extra bold).
+      const weightSel = document.createElement("select");
+      weightSel.title = "Font weight";
+      weightSel.style.cssText = "height:32px;border:1px solid rgba(28,29,34,0.18);border-radius:7px;background:#fff;color:var(--ink,#1c1d22);font-family:inherit;font-size:12px;padding:0 8px;cursor:pointer;";
+      [[200, "Extra light"], [300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semi-bold"], [700, "Bold"], [800, "Extra bold"]].forEach(function (wl) {
+        const o = document.createElement("option");
+        o.value = wl[0]; o.textContent = wl[1];
+        if ((el.weight || 400) == wl[0]) o.selected = true;
+        weightSel.appendChild(o);
+      });
+      weightSel.addEventListener("change", function () {
+        el.weight = parseInt(weightSel.value, 10);
+        loadGoogleFont(el.font);   // make sure the chosen weight is available for Google fonts
+        fullRender(); pushHistory();
+      });
+      g1.appendChild(weightSel);
       ctxEl.appendChild(g1);
 
-      // B I U
+      // I U  (bold is covered by the weight picker above)
       const g2 = group();
-      g2.appendChild(toggleBtn("B", el.weight >= 600, () => {
-        el.weight = el.weight >= 600 ? 400 : 700; fullRender(); pushHistory();
-      }, "Bold"));
       g2.appendChild(toggleBtn("I", !!el.italic, () => {
         el.italic = !el.italic; fullRender(); pushHistory();
       }, "Italic"));
@@ -4132,16 +4146,24 @@
           '<div class="ed-pop-row"><span>Transparency</span></div>' +
           '<div class="ed-pop-row">' +
             '<input type="range" min="0" max="100" step="1" value="' + val + '" data-opacity />' +
-            '<output data-opacity-out>' + val + '</output>' +
+            '<input type="number" min="0" max="100" step="1" value="' + val + '" data-opacity-num ' +
+              'style="width:52px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:4px 6px;font:inherit;" />' +
+            '<span style="opacity:0.55;font-size:12px;">%</span>' +
           '</div>';
         const r = panel.querySelector("[data-opacity]");
-        const o = panel.querySelector("[data-opacity-out]");
-        r.addEventListener("input", function () {
-          el.opacity = parseInt(r.value, 10) / 100;
-          o.textContent = r.value;
+        const n = panel.querySelector("[data-opacity-num]");
+        // Slider and the typable % box stay in sync; either updates the element.
+        function applyOpacity(pct, fromNum) {
+          pct = Math.max(0, Math.min(100, Math.round(isNaN(pct) ? 100 : pct)));
+          el.opacity = pct / 100;
+          r.value = pct;
+          if (!fromNum) n.value = pct;
           partialRenderElement(el);
-        });
+        }
+        r.addEventListener("input", function () { applyOpacity(parseInt(r.value, 10), false); });
+        n.addEventListener("input", function () { applyOpacity(parseInt(n.value, 10), true); });
         r.addEventListener("change", function () { pushHistory(); });
+        n.addEventListener("change", function () { n.value = Math.round((el.opacity != null ? el.opacity : 1) * 100); pushHistory(); });
         return panel;
       },
     });
