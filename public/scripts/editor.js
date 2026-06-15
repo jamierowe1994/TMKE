@@ -346,6 +346,54 @@
     });
   }
 
+  // One labelled slider+number row (shared by the combined spacing popover).
+  function _spacingRow(labelText, unit, min, max, step, get, set) {
+    const wrap = document.createElement("div");
+    const lab = document.createElement("div");
+    lab.style.cssText = "font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(28,29,34,0.55);margin-bottom:7px;";
+    lab.textContent = labelText;
+    wrap.appendChild(lab);
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:8px;";
+    const range = document.createElement("input");
+    range.type = "range"; range.min = min; range.max = max; range.step = step; range.value = get();
+    range.style.cssText = "flex:1;accent-color:var(--english-violet,#371e28);";
+    const num = document.createElement("input");
+    num.type = "number"; num.min = min; num.max = max; num.step = step; num.value = get();
+    num.style.cssText = "width:60px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font:inherit;";
+    const apply = function (v, fromNum) {
+      v = Math.max(min, Math.min(max, isNaN(v) ? get() : v));
+      set(v); range.value = v; if (!fromNum) num.value = v; fullRender();
+    };
+    range.addEventListener("input", function () { apply(parseFloat(range.value), false); });
+    range.addEventListener("change", function () { pushHistory(); });
+    num.addEventListener("input", function () { apply(parseFloat(num.value), true); });
+    num.addEventListener("change", function () { pushHistory(); });
+    row.appendChild(range); row.appendChild(num);
+    if (unit) { const u = document.createElement("span"); u.textContent = unit; u.style.cssText = "opacity:0.5;font-size:12px;"; row.appendChild(u); }
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  // Combined Letter spacing + Line spacing popover (one tab, Canva-style).
+  function spacingPopover(el) {
+    const icon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 4v16"/><path d="M1 6l2-2 2 2"/><path d="M1 18l2 2 2-2"/></svg>';
+    return popoverIconButton({
+      icon: icon, title: "Spacing",
+      render: function () {
+        const box = document.createElement("div");
+        box.style.cssText = "padding:14px 16px;min-width:236px;font-family:var(--sans,inherit);display:flex;flex-direction:column;gap:16px;";
+        box.appendChild(_spacingRow("Letter spacing", "px", -5, 40, 0.5,
+          function () { return el.letterSpacing != null ? el.letterSpacing : 0; },
+          function (v) { el.letterSpacing = v; }));
+        box.appendChild(_spacingRow("Line spacing", "", 0.8, 3, 0.05,
+          function () { return el.lineHeight != null ? el.lineHeight : 1.3; },
+          function (v) { el.lineHeight = v; }));
+        return box;
+      },
+    });
+  }
+
   // Circular colour swatch — clicking it triggers the native colour picker.
   // Used in place of square `<input type="color">` with a "Colour" label.
   // onChange is called on every input event with the new hex string.
@@ -455,7 +503,17 @@
     });
     document.addEventListener("click", function (e) { if (!wrap.contains(e.target)) pop.hidden = true; });
 
+    // +/- steppers flanking the number (Canva-style). Step by 1, holding Shift by 10.
+    const minus = document.createElement("button");
+    minus.type = "button"; minus.className = "ed-size-step"; minus.title = "Smaller"; minus.textContent = "−";
+    const plus = document.createElement("button");
+    plus.type = "button"; plus.className = "ed-size-step"; plus.title = "Larger"; plus.textContent = "+";
+    minus.addEventListener("click", function (e) { e.stopPropagation(); apply((parseInt(input.value, 10) || initial) - (e.shiftKey ? 10 : 1)); });
+    plus.addEventListener("click", function (e) { e.stopPropagation(); apply((parseInt(input.value, 10) || initial) + (e.shiftKey ? 10 : 1)); });
+
+    wrap.appendChild(minus);
     wrap.appendChild(input);
+    wrap.appendChild(plus);
     wrap.appendChild(caret);
     wrap.appendChild(pop);
     return wrap;
@@ -4303,78 +4361,14 @@
     ctxEl.innerHTML = "";
 
     if (el.type === "text") {
-      // Font — custom searchable picker (replaces native <select>).
+      // Row order: font · size · colour · weight.
       const g1 = group();
-      const picker = createFontPicker(el.font, function (name) {
-        el.font = name;
-        fullRender();
-        pushHistory();
-      });
-      g1.appendChild(picker);
-
+      g1.appendChild(createFontPicker(el.font, function (name) {
+        el.font = name; fullRender(); pushHistory();
+      }));
       g1.appendChild(createSizeControl(el.size, function (v) { el.size = v; fullRender(); pushHistory(); }));
-
-      // Font weight — quick-pick the named weights (Extra light → Extra bold).
-      const weightSel = document.createElement("select");
-      weightSel.title = "Font weight";
-      weightSel.style.cssText = "height:32px;border:1px solid rgba(28,29,34,0.18);border-radius:7px;background:#fff;color:var(--ink,#1c1d22);font-family:inherit;font-size:12px;padding:0 8px;cursor:pointer;";
-      [[200, "Extra light"], [300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semi-bold"], [700, "Bold"], [800, "Extra bold"]].forEach(function (wl) {
-        const o = document.createElement("option");
-        o.value = wl[0]; o.textContent = wl[1];
-        if ((el.weight || 400) == wl[0]) o.selected = true;
-        weightSel.appendChild(o);
-      });
-      weightSel.addEventListener("change", function () {
-        el.weight = parseInt(weightSel.value, 10);
-        loadGoogleFont(el.font);   // make sure the chosen weight is available for Google fonts
-        fullRender(); pushHistory();
-      });
-      g1.appendChild(weightSel);
-      ctxEl.appendChild(g1);
-
-      // I U  (bold is covered by the weight picker above)
-      const g2 = group();
-      g2.appendChild(toggleBtn("I", !!el.italic, () => {
-        el.italic = !el.italic; fullRender(); pushHistory();
-      }, "Italic"));
-      g2.appendChild(toggleBtn("U", !!el.underline, () => {
-        el.underline = !el.underline; fullRender(); pushHistory();
-      }, "Underline"));
-      ctxEl.appendChild(g2);
-
-      // Align — one button that cycles through the four alignments on each click
-      // (left → centre → right → justified), so it stays compact.
-      const ALIGN_CYCLE = ["left", "center", "right", "justify"];
-      const ALIGN_LABEL = { left: "Left", center: "Centre", right: "Right", justify: "Justified" };
-      const g3 = group();
-      const curAlign = ALIGN_CYCLE.indexOf(el.align) >= 0 ? el.align : "left";
-      const alignBtn = toggleBtn(alignIcon(curAlign), false, () => {
-        const i = ALIGN_CYCLE.indexOf(el.align) >= 0 ? ALIGN_CYCLE.indexOf(el.align) : 0;
-        el.align = ALIGN_CYCLE[(i + 1) % ALIGN_CYCLE.length];
-        fullRender(); pushHistory();
-      }, "Alignment: " + ALIGN_LABEL[curAlign] + " — click to cycle");
-      g3.appendChild(alignBtn);
-
-      // Line height + letter spacing — popover sliders (these used to be missing).
-      const lineHeightIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11M10 12h11M10 18h11"/><path d="M4 4v16"/><path d="M2 6l2-2 2 2"/><path d="M2 18l2 2 2-2"/></svg>';
-      const letterSpaceIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l3.5-9 3.5 9"/><path d="M7 12.5h5"/><path d="M19 5v14"/><path d="M2 5v14"/></svg>';
-      g3.appendChild(sliderPopover({
-        icon: lineHeightIcon, title: "Line height", label: "Line height",
-        min: 0.8, max: 3, step: 0.05,
-        get: function () { return el.lineHeight != null ? el.lineHeight : 1.3; },
-        set: function (v) { el.lineHeight = v; },
-      }));
-      g3.appendChild(sliderPopover({
-        icon: letterSpaceIcon, title: "Letter spacing", label: "Letter spacing", unit: "px",
-        min: -5, max: 40, step: 0.5,
-        get: function () { return el.letterSpacing != null ? el.letterSpacing : 0; },
-        set: function (v) { el.letterSpacing = v; },
-      }));
-      ctxEl.appendChild(g3);
-
-      // Colour — opens the rich left-hand colour panel (solid or gradient).
-      const g4 = group();
-      g4.appendChild(colorSwatchButton(
+      // Colour — sits next to size now (opens the rich solid/gradient panel).
+      g1.appendChild(colorSwatchButton(
         function () { return el.color; },
         {
           title: "Text colour",
@@ -4383,7 +4377,55 @@
           getGradient: function () { return el.textGradient; },
         }
       ));
-      ctxEl.appendChild(g4);
+      // Font weight — quick-pick the named weights (Extra light → Extra bold).
+      const weightSel = document.createElement("select");
+      weightSel.title = "Font weight";
+      weightSel.style.cssText = "height:30px;border:1px solid rgba(28,29,34,0.18);border-radius:7px;background:#fff;color:var(--ink,#1c1d22);font-family:inherit;font-size:12px;padding:0 8px;cursor:pointer;";
+      [[200, "Extra light"], [300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semi-bold"], [700, "Bold"], [800, "Extra bold"]].forEach(function (wl) {
+        const o = document.createElement("option");
+        o.value = wl[0]; o.textContent = wl[1];
+        if ((el.weight || 400) == wl[0]) o.selected = true;
+        weightSel.appendChild(o);
+      });
+      weightSel.addEventListener("change", function () {
+        el.weight = parseInt(weightSel.value, 10);
+        loadGoogleFont(el.font);
+        fullRender(); pushHistory();
+      });
+      g1.appendChild(weightSel);
+      ctxEl.appendChild(g1);
+
+      // B I U — Bold toggles the weight (Ctrl+B does the same).
+      const g2 = group();
+      g2.appendChild(toggleBtn("B", (el.weight || 400) >= 700, () => {
+        el.weight = (el.weight || 400) >= 700 ? 400 : 700;
+        loadGoogleFont(el.font); fullRender(); pushHistory();
+      }, "Bold (Ctrl+B)"));
+      g2.appendChild(toggleBtn("I", !!el.italic, () => {
+        el.italic = !el.italic; fullRender(); pushHistory();
+      }, "Italic"));
+      g2.appendChild(toggleBtn("U", !!el.underline, () => {
+        el.underline = !el.underline; fullRender(); pushHistory();
+      }, "Underline"));
+      ctxEl.appendChild(g2);
+
+      // Align (bigger, no arrow — cycles) + Spacing (one popover: letter + line).
+      const ALIGN_CYCLE = ["left", "center", "right", "justify"];
+      const ALIGN_LABEL = { left: "Left", center: "Centre", right: "Right", justify: "Justified" };
+      const g3 = group();
+      const curAlign = ALIGN_CYCLE.indexOf(el.align) >= 0 ? el.align : "left";
+      const alignBtn = document.createElement("button");
+      alignBtn.className = "ed-ctx-btn ed-ctx-btn-align";
+      alignBtn.innerHTML = alignIconSvg(curAlign);
+      alignBtn.title = "Alignment: " + ALIGN_LABEL[curAlign] + " — click to cycle";
+      alignBtn.addEventListener("click", function () {
+        const i = ALIGN_CYCLE.indexOf(el.align) >= 0 ? ALIGN_CYCLE.indexOf(el.align) : 0;
+        el.align = ALIGN_CYCLE[(i + 1) % ALIGN_CYCLE.length];
+        fullRender(); pushHistory();
+      });
+      g3.appendChild(alignBtn);
+      g3.appendChild(spacingPopover(el));
+      ctxEl.appendChild(g3);
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
       // Fill — opens the rich colour panel.
       const g = group();
@@ -4618,14 +4660,7 @@
       }, "Lock"));
     }
 
-    // Delete — icon (universal trash-can affordance).
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.className = "ed-ctx-btn ed-ctx-btn-danger";
-    delBtn.innerHTML = ICONS.delete;
-    delBtn.title = "Delete (Del)";
-    delBtn.addEventListener("click", deleteSelected);
-    gA.appendChild(delBtn);
+    // (Delete removed from the toolbar — use Backspace/Del or right-click → Delete.)
 
     ctxEl.appendChild(gA);
 
@@ -4650,6 +4685,20 @@
     }
     function alignIcon(a) {
       return a === "left" ? "≡↤" : a === "center" ? "≡" : a === "right" ? "≡↦" : "≣";
+    }
+    // Crisp SVG alignment icons (no directional arrow — clearer than the glyphs).
+    function alignIconSvg(a) {
+      const lines = {
+        left:    [[3, 21], [3, 15], [3, 19], [3, 13]],
+        center:  [[4, 20], [7, 17], [5, 19], [8, 16]],
+        right:   [[3, 21], [9, 21], [5, 21], [11, 21]],
+        justify: [[3, 21], [3, 21], [3, 21], [3, 21]],
+      }[a] || [[3, 21], [3, 15], [3, 19], [3, 13]];
+      const ys = [6, 11, 16, 21];
+      const rows = lines.map(function (l, i) {
+        return '<line x1="' + l[0] + '" y1="' + ys[i] + '" x2="' + l[1] + '" y2="' + ys[i] + '"/>';
+      }).join("");
+      return '<svg viewBox="0 0 24 27" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">' + rows + "</svg>";
     }
   }
 
@@ -5319,6 +5368,17 @@
       e.preventDefault();
       state.selectedIds = state.elements.map((el) => el.id);
       fullRender(); return;
+    }
+    if (ctrl && e.key.toLowerCase() === "b") {
+      const texts = selectedElements().filter((el) => el.type === "text");
+      if (texts.length) {
+        e.preventDefault();
+        // Toggle off only if every selected text is already bold; otherwise bold all.
+        const allBold = texts.every((el) => (el.weight || 400) >= 700);
+        texts.forEach((el) => { el.weight = allBold ? 400 : 700; loadGoogleFont(el.font); });
+        fullRender(); pushHistory();
+      }
+      return;
     }
 
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSelected(); return; }
