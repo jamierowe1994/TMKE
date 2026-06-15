@@ -85,8 +85,8 @@ import { templates as defaultLibrary } from "../../data/library.js";
     }
     .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
     .admin-btn-primary:hover { background: var(--ink); }
-    .admin-btn-ghost { background: transparent; border-color: rgba(var(--violet-rgb), 0.4); color: var(--english-violet); }
-    .admin-btn-ghost:hover { background: rgba(var(--violet-rgb), 0.06); }
+    .admin-btn-ghost { background: transparent; border-color: rgba(55, 30, 40, 0.4); color: var(--english-violet); }
+    .admin-btn-ghost:hover { background: rgba(55, 30, 40, 0.06); }
     .admin-btn-danger { background: transparent; border-color: #a05a3c; color: #a05a3c; }
     .admin-btn-danger:hover { background: #a05a3c; color: var(--paper); }
     .admin-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
@@ -102,7 +102,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
     }
     .tpl-empty {
       padding: 32px;
-      border: 1px dashed rgba(var(--violet-rgb),0.4);
+      border: 1px dashed rgba(55, 30, 40,0.4);
       border-radius: 2px;
       font-family: var(--sans);
       color: rgba(28,29,34,0.7);
@@ -116,6 +116,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 18px;
+      align-items: start;
     }
     @media (max-width: 1180px) { .tpl-grid { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 880px)  { .tpl-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -124,13 +125,13 @@ import { templates as defaultLibrary } from "../../data/library.js";
     .tpl-card {
       display: flex;
       flex-direction: column;
-      border: 1px solid rgba(var(--violet-rgb), 0.3);
+      border: 1px solid rgba(55, 30, 40, 0.3);
       border-radius: 2px;
       background: rgba(255, 255, 255, 0.5);
       overflow: hidden;
       transition: border-color 0.2s, transform 0.3s;
     }
-    .tpl-card:hover { border-color: rgba(var(--violet-rgb),0.6); transform: translateY(-2px); }
+    .tpl-card:hover { border-color: rgba(55, 30, 40,0.6); transform: translateY(-2px); }
     .tpl-card.is-draft { border-style: dashed; opacity: 0.85; }
     .tpl-card.is-archived { opacity: 0.5; }
     .tpl-card-link {
@@ -139,12 +140,17 @@ import { templates as defaultLibrary } from "../../data/library.js";
       color: var(--ink);
     }
     .tpl-thumb {
-      aspect-ratio: 4 / 5;
+      aspect-ratio: 3 / 4;
       background: var(--platinum);
-      background-size: cover;
-      background-position: center;
       position: relative;
+      overflow: hidden;
+      container-type: size;
     }
+    /* Live mini-render of the template's own canvas + elements (scaled via
+       percentage positions + container-query font units), so previews show
+       even when no thumbnail image has been generated. */
+    .tpl-canvas { position: absolute; inset: 0; }
+    .tpl-canvas img { display: block; border: 0; }
     .tpl-status {
       position: absolute;
       top: 10px;
@@ -222,7 +228,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       font-family: var(--serif); font-size: 22px; color: var(--ink);
       background: #fff; border: 1px solid rgba(28,29,34,0.2); border-radius: 6px;
     }
-    .tpl-ask-input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.14); }
+    .tpl-ask-input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55, 30, 40,0.14); }
     .tpl-ask-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
     .tpl-ask-cancel, .tpl-ask-ok {
       font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
@@ -251,6 +257,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
     const defaultLibrary = JSON.parse(
       document.getElementById('tpl-default-library')?.textContent || '[]'
     );
+    const DEV = import.meta.env.DEV;
 
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -258,15 +265,56 @@ import { templates as defaultLibrary } from "../../data/library.js";
       }[c]));
     }
 
+    function fontStack(f) {
+      const s = String(f || '');
+      return /garamond|seasons|helios|times|serif/i.test(s)
+        ? `'${s}', Georgia, serif`
+        : `'${s}', 'Darker Grotesque', system-ui, sans-serif`;
+    }
+
+    // Render one element as a positioned div/img. Coordinates are a % of the
+    // canvas; font + letter-spacing use cqw (1% of the thumb's width) so text
+    // scales with the preview at any size.
+    function renderEl(el, W, H) {
+      if (!el || el.x == null) return '';
+      const pos = `position:absolute;left:${(el.x / W * 100).toFixed(3)}%;top:${(el.y / H * 100).toFixed(3)}%;width:${(el.w / W * 100).toFixed(3)}%;height:${(el.h / H * 100).toFixed(3)}%;`;
+      const rot = el.rotation ? `transform:rotate(${el.rotation}deg);` : '';
+      if (el.type === 'image' && el.src) {
+        return `<img src="${escapeHtml(el.src)}" alt="" loading="lazy" style="${pos}${rot}object-fit:cover;opacity:${el.opacity ?? 1};" />`;
+      }
+      if (el.type === 'rect') {
+        const rad = el.radius ? `border-radius:${(el.radius / W * 100).toFixed(2)}cqw;` : '';
+        return `<div style="${pos}${rot}background:${escapeHtml(el.fill || 'transparent')};opacity:${el.opacity ?? 1};${rad}"></div>`;
+      }
+      if (el.type === 'text') {
+        const fs = (Number(el.size) || 16) / W * 100;
+        const ls = (Number(el.letterSpacing) || 0) / W * 100;
+        return `<div style="${pos}${rot}color:${escapeHtml(el.color || '#1c1d22')};font-family:${fontStack(el.font)};font-size:${fs.toFixed(3)}cqw;font-weight:${el.weight || 400};font-style:${el.italic ? 'italic' : 'normal'};text-align:${el.align || 'left'};letter-spacing:${ls.toFixed(3)}cqw;line-height:${el.lineHeight || 1.2};overflow:hidden;">${escapeHtml(el.text || '')}</div>`;
+      }
+      return '';
+    }
+
+    function renderPreview(t) {
+      const cv = t.canvas || {};
+      const W = Number(cv.width) || 1080, H = Number(cv.height) || 1440;
+      const els = Array.isArray(t.elements) ? t.elements : [];
+      // No design yet but a thumbnail exists → show the thumbnail.
+      if (!els.length && t.thumb_url) {
+        return `<div class="tpl-canvas" style="background:#fff"><img src="${escapeHtml(t.thumb_url)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" /></div>`;
+      }
+      return `<div class="tpl-canvas" style="background:${escapeHtml(cv.background || '#f4f2f1')}">${els.map((el) => renderEl(el, W, H)).join('')}</div>`;
+    }
+
     function renderCard(t) {
-      const thumb = t.thumb_url ? `style="background-image:url('${escapeHtml(t.thumb_url)}')"` : '';
+      const cv = t.canvas || {};
+      const arW = Number(cv.width) || 1080, arH = Number(cv.height) || 1440;
       const statusBadge = t.status === 'active'
         ? ''
         : `<span class="tpl-status is-${t.status}">${t.status}</span>`;
       return `
         <article class="tpl-card is-${t.status}" data-id="${escapeHtml(t.id)}">
           <a class="tpl-card-link" href="/editor?id=${encodeURIComponent(t.id)}&mode=admin">
-            <div class="tpl-thumb" ${thumb}>${statusBadge}</div>
+            <div class="tpl-thumb" style="aspect-ratio:${arW}/${arH}">${renderPreview(t)}${statusBadge}</div>
             <div class="tpl-body">
               <div class="tpl-name">${escapeHtml(t.name)}</div>
               <div class="tpl-meta">${escapeHtml(t.category || '—')} · #${t.sort_order ?? 0}</div>
@@ -282,22 +330,34 @@ import { templates as defaultLibrary } from "../../data/library.js";
       `;
     }
 
+    function devSampleTemplates() {
+      return defaultLibrary.map((t, i) => ({
+        id: t.id, name: t.name, category: t.category || null,
+        thumb_url: t.thumb || null, canvas: t.canvas, elements: t.elements,
+        status: 'active', sort_order: (i + 1) * 10,
+      }));
+    }
+
     async function loadTemplates() {
       els.loading.hidden = false;
       const { data, error } = await supabase
         .from('templates')
-        .select('id, name, category, thumb_url, status, sort_order, updated_at')
+        .select('id, name, category, thumb_url, canvas, elements, status, sort_order, updated_at')
         .order('status', { ascending: true })
         .order('sort_order', { ascending: true });
 
       els.loading.hidden = true;
 
-      if (error) {
+      let tpls = data ?? [];
+      if ((error || !tpls.length) && DEV) {
+        // Local dev has no Supabase session — render the default library so the
+        // page and the live thumbnails are viewable without a login.
+        tpls = devSampleTemplates();
+      } else if (error) {
         els.grid.innerHTML = `<p>Could not load templates: ${escapeHtml(error.message)}</p>`;
         return;
       }
 
-      const tpls = data ?? [];
       const active = tpls.filter((t) => t.status === 'active').length;
       els.count.textContent = `${active} active · ${tpls.length} total`;
       els.empty.hidden = tpls.length !== 0;
@@ -394,7 +454,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
         name: name.trim(),
         category: null,
         thumb_url: null,
-        canvas: { width: 1080, height: 1350, background: '#f4f2f1' },
+        canvas: { width: 1080, height: 1440, background: '#f4f2f1' },
         elements: [],
         status: 'draft',
         sort_order: 9000,
@@ -409,8 +469,10 @@ import { templates as defaultLibrary } from "../../data/library.js";
     }
 
     (async () => {
-      const session = await requireAdmin();
-      if (!session) return;
+      if (!DEV) {
+        const session = await requireAdmin();
+        if (!session) return;
+      }
       await loadTemplates();
     })();
 

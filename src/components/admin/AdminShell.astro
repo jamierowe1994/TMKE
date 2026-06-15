@@ -116,8 +116,15 @@ const NAV = [
     document.getElementById("ash-signout")?.addEventListener("click", () => signOut());
 
     (async () => {
-      const session = await requireAdmin();
-      if (!session) return;
+      // In local dev the admin area renders without a login so it's previewable;
+      // production stays gated by requireAdmin (which redirects when signed out).
+      let session;
+      if (import.meta.env.DEV) {
+        session = (await supabase.auth.getSession()).data.session || { user: { email: "dev-preview@tmke.co.uk", id: "dev" } };
+      } else {
+        session = await requireAdmin();
+        if (!session) return;
+      }
       const email = session.user.email || "admin";
 
       // Load this admin's profile (name + headshot). Falls back to email/initials.
