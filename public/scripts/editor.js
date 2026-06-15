@@ -4545,11 +4545,21 @@
       img.loading = "lazy";
       img.alt = t.name;
       b.appendChild(img);
-      b.addEventListener("click", () => {
-        if (state.templateId !== t.id) {
-          if (!confirm("Switch to '" + t.name + "'? Unsaved edits to the current design will be discarded.")) return;
-          loadTemplate(t.id, true);
+      b.addEventListener("click", async () => {
+        if (state.templateId === t.id) return;
+        if (!confirm("Switch to '" + t.name + "'? Unsaved edits to the current design will be discarded.")) return;
+        // The switcher list is lightweight (no elements) so it scales to hundreds
+        // of templates — pull this design's full data on demand before loading it.
+        if ((!Array.isArray(t.elements) || !t.elements.length) && typeof window.__TMKE_FETCH_TEMPLATE__ === "function") {
+          const prevOpacity = b.style.opacity;
+          b.style.opacity = "0.5";
+          try {
+            const full = await window.__TMKE_FETCH_TEMPLATE__(t.id);
+            if (full) { t.canvas = full.canvas; t.elements = full.elements; }
+          } catch (_) {}
+          b.style.opacity = prevOpacity || "";
         }
+        loadTemplate(t.id, true);
       });
       tplGridEl.appendChild(b);
     });

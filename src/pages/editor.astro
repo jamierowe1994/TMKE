@@ -3178,6 +3178,22 @@ const googleFonts = [
         // draft to localStorage shortly after each change and before unload.
         window.__TMKE_AUTOSAVE__ = true;
 
+        // On-demand single-row fetch. The switcher list ships WITHOUT each
+        // template's heavy `elements`/`canvas` (so it stays tiny no matter how
+        // many templates exist); editor.js calls this to pull the full design
+        // only when the user actually switches to that template.
+        window.__TMKE_FETCH_TEMPLATE__ = async (id) => {
+          if (!id) return null;
+          try {
+            const { data } = await supabase
+              .from('templates')
+              .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
+              .eq('id', id)
+              .maybeSingle();
+            return data ? shape(data) : null;
+          } catch (_) { return null; }
+        };
+
         // Brand-kit links point at the customer profile (/profile). In admin we
         // author shared templates, so redirect brand edits to the admin
         // fonts/brand area instead — and open in a new tab so the in-progress
@@ -3230,7 +3246,7 @@ const googleFonts = [
         //    has already been pinned + booted above, so the editor paints now.
         supabase
           .from('templates')
-          .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
+          .select('id, name, category, thumb_url, status, sort_order')
           .order('status', { ascending: true })
           .order('sort_order', { ascending: true })
           .then(({ data: rows, error }) => {
