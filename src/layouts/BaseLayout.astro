@@ -120,6 +120,25 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
         </>
       )
     }
+
+    {/* Accent theming (owner exploration): re-point the brand purple tokens from
+        a saved accent BEFORE paint, so every page is themed with no flash. The
+        floating picker (accent-tool.js) writes localStorage['tmke-accent']. */}
+    <script is:inline>
+      (function () {
+        function hx(h){ h=(h||'').replace('#',''); if(h.length===3) h=h.split('').map(function(c){return c+c;}).join(''); if(h.length!==6||/[^0-9a-f]/i.test(h)) return null; return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+        function mix(a,b,t){ return 'rgb('+[0,1,2].map(function(i){return Math.round(a[i]+(b[i]-a[i])*t);}).join(',')+')'; }
+        window.__tmkeApplyAccent = function (hex) {
+          var rs = document.documentElement.style, rgb = hx(hex);
+          if (!rgb) return;
+          [['--english-violet',hex],['--violet',hex],['--violet-deep',hex],['--accent',hex],['--violet-bright',mix(rgb,[255,255,255],0.14)],['--violet-soft',mix(rgb,[244,242,241],0.62)]].forEach(function(p){ rs.setProperty(p[0], p[1]); });
+        };
+        window.__tmkeClearAccent = function () {
+          ['--english-violet','--violet','--violet-deep','--accent','--violet-bright','--violet-soft'].forEach(function(v){ document.documentElement.style.removeProperty(v); });
+        };
+        try { var saved = localStorage.getItem('tmke-accent'); if (saved) window.__tmkeApplyAccent(saved); } catch (e) {}
+      })();
+    </script>
   </head>
   <body data-dashboard={dashboard ? "" : undefined}>
     {!hideNav && <Nav />}
@@ -291,5 +310,6 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
          - This loader re-applies any rows already PUBLISHED in `site_overrides`.
            Confirm that table is empty before deploying so we start clean. -->
     <script src="/scripts/visual-editor.js" is:inline></script>
+    <script src="/scripts/accent-tool.js" is:inline></script>
   </body>
 </html>
