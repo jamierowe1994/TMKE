@@ -1862,6 +1862,104 @@
     }
   }
 
+  // ---------- Rich text (runs) ----------
+  // A text element is "plain" when it has no `el.runs` — it renders straight
+  // from `el.text` with element-level weight/italic/underline (the legacy path,
+  // untouched). When the user formats PART of the text, we store `el.runs`: an
+  // ordered list of { text, bold, italic, underline } segments whose joined text
+  // (newlines included) equals el.text. Element-level weight stays the base for
+  // non-bold runs; a run's `bold` bumps it to 700. Plain `el.text` is always kept
+  // alongside for measurement, export fallback, and backward compatibility, and
+  // the whole object round-trips through JSON automatically (no field whitelist).
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function runsToText(runs) {
+    return runs.map(function (r) { return r.text; }).join("");
+  }
+  // True when no run carries any per-run formatting → we can stay "plain".
+  function runsAreUniform(runs) {
+    return runs.every(function (r) { return !r.bold && !r.italic && !r.underline; });
+  }
+  // Element has live rich formatting worth rendering as spans.
+  function hasRuns(el) {
+    return Array.isArray(el.runs) && el.runs.length && !runsAreUniform(el.runs);
+  }
+  // Model → inner HTML. Each run is a <span> carrying only its overrides; base
+  // font/size/colour/align live on the container. Newlines become <br>.
+  function runsToHtml(runs) {
+    return runs.map(function (r) {
+      const css = [];
+      if (r.bold) css.push("font-weight:700");
+      if (r.italic) css.push("font-style:italic");
+      if (r.underline) css.push("text-decoration:underline");
+      const html = escapeHtml(r.text).replace(/\n/g, "<br>") || "";
+      return css.length ? '<span style="' + css.join(";") + '">' + html + "</span>" : "<span>" + html + "</span>";
+    }).join("");
+  }
+  // Put text into a .ed-text-inner: rich → innerHTML spans, else plain textContent.
+  function setTextInnerContent(inner, el) {
+    if (hasRuns(el)) inner.innerHTML = runsToHtml(el.runs);
+    else inner.textContent = el.text || "";
+  }
+  // Parse a contentEditable subtree back into runs. Tracks bold/italic/underline
+  // from ancestor tags + inline styles; block elements and <br> become newlines.
+  function domToRuns(root) {
+    const runs = [];
+    function push(text, fmt) {
+      if (!text) return;
+      const last = runs[runs.length - 1];
+      if (last && last.bold === fmt.bold && last.italic === fmt.italic && last.underline === fmt.underline) {
+        last.text += text;
+      } else {
+        runs.push({ text: text, bold: fmt.bold, italic: fmt.italic, underline: fmt.underline });
+      }
+    }
+    function walk(node, fmt) {
+      for (let i = 0; i < node.childNodes.length; i++) {
+        const child = node.childNodes[i];
+        if (child.nodeType === 3) { push(child.nodeValue, fmt); continue; }
+        if (child.nodeType !== 1) continue;
+        const tag = child.tagName;
+        if (tag === "BR") { push("\n", fmt); continue; }
+        const isBlock = (tag === "DIV" || tag === "P");
+        if (isBlock && runs.length && runs[runs.length - 1].text.slice(-1) !== "\n") push("\n", fmt);
+        const st = child.style || {};
+        const cw = parseInt(st.fontWeight, 10);
+        walk(child, {
+          bold: fmt.bold || tag === "B" || tag === "STRONG" || st.fontWeight === "bold" || (cw >= 600),
+          italic: fmt.italic || tag === "I" || tag === "EM" || st.fontStyle === "italic",
+          underline: fmt.underline || tag === "U" ||
+            (st.textDecoration || "").indexOf("underline") >= 0 ||
+            (st.textDecorationLine || "").indexOf("underline") >= 0,
+        });
+      }
+    }
+    walk(root, { bold: false, italic: false, underline: false });
+    // Drop one trailing newline (browsers leave a trailing <br>/empty block),
+    // mirroring the legacy `.innerText.replace(/\n$/, "")`.
+    for (let i = runs.length - 1; i >= 0; i--) {
+      if (runs[i].text === "") { runs.splice(i, 1); continue; }
+      if (runs[i].text.slice(-1) === "\n") runs[i].text = runs[i].text.slice(0, -1);
+      break;
+    }
+    while (runs.length && runs[runs.length - 1].text === "") runs.pop();
+    return runs;
+  }
+  // Read the edited DOM back onto the element, collapsing to plain when uniform.
+  function commitTextFromDom(inner, el) {
+    const runs = domToRuns(inner);
+    const newText = runsToText(runs).replace(/\n$/, "");
+    const uniform = runsAreUniform(runs);
+    const prev = el.runs ? JSON.stringify(el.runs) : null;
+    const next = uniform ? null : JSON.stringify(runs);
+    if (newText !== el.text || prev !== next) {
+      el.text = newText;
+      el.runs = uniform ? null : runs;
+      pushHistory();
+    }
+  }
+
   function renderElement(el) {
     const node = document.createElement("div");
     node.className = "ed-element";
@@ -1874,7 +1972,7 @@
       inner.className = "ed-text-inner";
       inner.contentEditable = "false";
       inner.spellcheck = false;
-      inner.textContent = el.text || "";
+      setTextInnerContent(inner, el);
       applyTextStyles(inner, el);
       node.appendChild(inner);
     } else if (el.type === "image") {
@@ -2861,12 +2959,10 @@
     function commit() {
       inner.contentEditable = "false";
       node.classList.remove("is-editing");
-      // innerText preserves the line breaks from Enter (textContent drops them).
-      const newText = inner.innerText.replace(/\n$/, "");
-      if (newText !== el.text) {
-        el.text = newText;
-        pushHistory();
-      }
+      // Read the edited DOM back into el.text (+ el.runs when the user has
+      // formatted part of it). Collapses to plain text when nothing is styled,
+      // so plain editing behaves exactly as before.
+      commitTextFromDom(inner, el);
       inner.removeEventListener("input", grow);
       inner.removeEventListener("blur", commit);
       renderHandles(); // bring the floating toolbar back now editing is done
@@ -3422,6 +3518,65 @@
   // Helper: paint a text element to the canvas, honouring gradient fill,
   // text shadow, outline and the simple block background. Used by the export
   // pipeline so PNG/JPG output matches what the editor renders on screen.
+  // Canvas font string for a run, honouring the element base + the run override.
+  function runFont(el, fmt) {
+    const stack = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+    const weight = fmt.bold ? 700 : (el.weight || 400);
+    const italic = (fmt.italic || el.italic) ? "italic " : "";
+    return italic + weight + " " + el.size + "px " + stack;
+  }
+  // Word-wrap runs into lines, each line an array of {text, fmt, w} tokens
+  // (spaces kept as their own tokens). Newlines inside runs force a break.
+  function richWrapLines(ctx, el, runs, maxWidth) {
+    const lines = [];
+    let line = [], lineW = 0;
+    function flush() { lines.push(line); line = []; lineW = 0; }
+    runs.forEach(function (r) {
+      const parts = r.text.split(/(\n| )/); // keep delimiters as tokens
+      parts.forEach(function (p) {
+        if (p === "") return;
+        if (p === "\n") { flush(); return; }
+        ctx.font = runFont(el, r);
+        const w = ctx.measureText(p).width;
+        if (p === " ") { if (line.length) { line.push({ text: " ", fmt: r, w: w }); lineW += w; } return; }
+        if (lineW + w > maxWidth && line.length) {
+          while (line.length && line[line.length - 1].text === " ") { lineW -= line[line.length - 1].w; line.pop(); }
+          flush();
+        }
+        line.push({ text: p, fmt: r, w: w }); lineW += w;
+      });
+    });
+    flush();
+    return lines;
+  }
+  // Draw wrapped rich lines: per-token font, plus a manual underline stroke
+  // (canvas fonts can't express underline). `paint` is solid colour or gradient.
+  function drawRichLines(ctx, el, lines, lh, paint) {
+    let yy = 0;
+    lines.forEach(function (toks) {
+      let tw = 0; for (const t of toks) tw += t.w;
+      let x = 0;
+      if (el.align === "center") x = (el.w - tw) / 2;
+      else if (el.align === "right") x = el.w - tw;
+      ctx.textAlign = "left";
+      for (const t of toks) {
+        ctx.font = runFont(el, t.fmt);
+        ctx.fillStyle = paint;
+        ctx.fillText(t.text, x, yy);
+        if (t.fmt.underline || el.underline) {
+          const uy = yy + el.size * 1.02;
+          ctx.save();
+          ctx.strokeStyle = paint;
+          ctx.lineWidth = Math.max(1, el.size / 16);
+          ctx.beginPath(); ctx.moveTo(x, uy); ctx.lineTo(x + t.w, uy); ctx.stroke();
+          ctx.restore();
+        }
+        x += t.w;
+      }
+      yy += lh;
+    });
+  }
+
   function drawTextElementToCanvas(ctx, el) {
     const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
     ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
@@ -3485,6 +3640,30 @@
       ctx.shadowBlur = el.textShadow.blur || 0;
       ctx.shadowOffsetX = el.textShadow.offsetX || 0;
       ctx.shadowOffsetY = el.textShadow.offsetY || 0;
+    }
+
+    // Rich (mixed-format) text: wrap + draw token-by-token, then we're done.
+    // Outline is stroked per token under the fill; shadow (set above) carries.
+    if (hasRuns(el)) {
+      const rlines = richWrapLines(ctx, el, el.runs, el.w);
+      if (el.textOutline && el.textOutline.width > 0) {
+        ctx.save();
+        ctx.shadowColor = "transparent"; ctx.shadowBlur = 0;
+        ctx.lineWidth = el.textOutline.width * 2;
+        ctx.strokeStyle = el.textOutline.color || "#1c1d22";
+        ctx.lineJoin = "round";
+        let oy = 0;
+        rlines.forEach(function (toks) {
+          let tw = 0; for (const t of toks) tw += t.w;
+          let x = 0;
+          if (el.align === "center") x = (el.w - tw) / 2; else if (el.align === "right") x = el.w - tw;
+          for (const t of toks) { ctx.font = runFont(el, t.fmt); ctx.strokeText(t.text, x, oy); x += t.w; }
+          oy += lh;
+        });
+        ctx.restore();
+      }
+      drawRichLines(ctx, el, rlines, lh, fillStyle);
+      return;
     }
 
     let yy = 0;
