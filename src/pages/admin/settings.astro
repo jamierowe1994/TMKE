@@ -1,0 +1,148 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+---
+
+<AdminShell active="settings" title="Settings">
+  <div class="set-wrap">
+    <div class="ash-card set-card">
+      <div class="ash-card-head"><div class="ash-card-title">Your profile</div></div>
+      <div class="ash-card-body">
+        <div class="set-avatar-row">
+          <span class="set-avatar" id="set-avatar">·</span>
+          <div class="set-avatar-actions">
+            <label class="set-upload">
+              <input type="file" id="set-avatar-input" accept="image/png,image/jpeg,image/webp" hidden />
+              <span id="set-upload-label">Change headshot</span>
+            </label>
+            <p class="set-hint">JPG, PNG or WebP, up to ~3 MB.</p>
+          </div>
+        </div>
+
+        <form id="set-form" class="set-form">
+          <label class="set-field"><span>Full name</span><input name="full_name" autocomplete="name" placeholder="e.g. Mark Johnson" /></label>
+          <div class="set-row">
+            <label class="set-field"><span>Role / title</span><input name="role" placeholder="e.g. Marketing Manager" /></label>
+            <label class="set-field"><span>Phone</span><input name="phone" type="tel" autocomplete="tel" placeholder="Optional" /></label>
+          </div>
+          <label class="set-field"><span>Email</span><input name="email" type="email" readonly /></label>
+          <p class="set-msg" id="set-msg" hidden></p>
+          <button type="submit" class="set-save" id="set-save">Save changes</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="ash-card set-card">
+      <div class="ash-card-head"><div class="ash-card-title">Preferences</div></div>
+      <div class="ash-card-body">
+        <label class="set-toggle"><input type="checkbox" id="pref-collapsed" /><span>Start with the sidebar collapsed</span></label>
+        <p class="set-hint" style="margin-top:14px">More workspace preferences will live here as we flesh out the CRM.</p>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .set-wrap { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: start; max-width: 1000px; }
+    @media (max-width: 900px) { .set-wrap { grid-template-columns: 1fr; } }
+
+    .set-avatar-row { display: flex; align-items: center; gap: 18px; margin-bottom: 24px; }
+    .set-avatar { width: 84px; height: 84px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--violet-soft), #8c607a); display: inline-flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #2a1822; text-transform: uppercase; background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.2); }
+    .set-upload { display: inline-block; cursor: pointer; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 9px; padding: 10px 16px; font-family: var(--sans); font-size: 13px; font-weight: 700; color: #fff; transition: background 0.2s; }
+    .set-upload:hover { background: rgba(255,255,255,0.2); }
+    .set-hint { font-family: var(--sans); font-size: 12.5px; color: rgba(244,242,241,0.5); margin: 8px 0 0; }
+
+    .set-form { display: flex; flex-direction: column; gap: 16px; }
+    .set-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 560px) { .set-row { grid-template-columns: 1fr; } }
+    .set-field { display: flex; flex-direction: column; gap: 7px; }
+    .set-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(244,242,241,0.6); }
+    .set-field input { font-family: var(--sans); font-size: 15px; padding: 12px 14px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.07); color: #fff; transition: border-color 0.2s, background 0.2s; }
+    .set-field input::placeholder { color: rgba(244,242,241,0.4); }
+    .set-field input:focus { outline: none; border-color: var(--violet-soft); background: rgba(255,255,255,0.12); }
+    .set-field input[readonly] { opacity: 0.6; cursor: not-allowed; }
+    .set-save { align-self: flex-start; margin-top: 6px; appearance: none; cursor: pointer; background: var(--paper); color: var(--ink); border: 0; border-radius: 9px; padding: 13px 26px; font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; transition: opacity 0.2s, transform 0.2s; }
+    .set-save:hover { opacity: 0.9; }
+    .set-save:disabled { opacity: 0.5; cursor: not-allowed; }
+    .set-msg { font-family: var(--sans); font-size: 13.5px; border-radius: 9px; padding: 11px 14px; margin: 0; }
+    .set-msg.is-ok { background: rgba(120,200,140,0.18); color: #cdebcf; border: 1px solid rgba(120,200,140,0.4); }
+    .set-msg.is-err { background: rgba(220,120,100,0.18); color: #f3ccc4; border: 1px solid rgba(220,120,100,0.4); }
+    .set-toggle { display: flex; align-items: center; gap: 11px; font-family: var(--sans); font-size: 14px; color: rgba(244,242,241,0.82); cursor: pointer; }
+    .set-toggle input { width: 18px; height: 18px; accent-color: var(--violet-soft); }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+
+    let uid = null, currentAvatar = null;
+    const $ = (id) => document.getElementById(id);
+    function initials(s) { return (String(s || "A").trim()[0] || "A").toUpperCase(); }
+    function showMsg(text, ok) { const m = $("set-msg"); m.textContent = text; m.className = "set-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
+    function paintAvatar(url, name) {
+      const el = $("set-avatar");
+      if (url) { el.textContent = ""; el.style.backgroundImage = `url('${url}')`; }
+      else { el.style.backgroundImage = ""; el.textContent = initials(name); }
+    }
+
+    document.addEventListener("ash:ready", (e) => {
+      const session = e.detail && e.detail.session;
+      const profile = e.detail && e.detail.profile;
+      if (!session) return;
+      uid = session.user.id;
+      const f = $("set-form");
+      f.email.value = session.user.email || "";
+      if (profile) {
+        f.full_name.value = profile.full_name || "";
+        f.role.value = profile.role || "";
+        f.phone.value = profile.phone || "";
+        currentAvatar = profile.avatar_url || null;
+      }
+      paintAvatar(currentAvatar, (profile && profile.full_name) || (session.user.email || ""));
+      $("pref-collapsed").checked = localStorage.getItem("tmke-admin-collapsed") === "1";
+    });
+
+    // Sidebar-collapsed preference (stored locally — the shell reads this key).
+    $("pref-collapsed")?.addEventListener("change", (ev) => {
+      localStorage.setItem("tmke-admin-collapsed", ev.target.checked ? "1" : "0");
+    });
+
+    // Headshot upload → Supabase storage (avatars/<uid>/headshot.<ext>).
+    $("set-avatar-input")?.addEventListener("change", async (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file || !uid) return;
+      if (file.size > 4 * 1024 * 1024) { showMsg("That image is a bit large — please keep it under ~3 MB.", false); return; }
+      const label = $("set-upload-label"); const prev = label.textContent; label.textContent = "Uploading…";
+      try {
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `${uid}/headshot.${ext}`;
+        const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true, cacheControl: "3600", contentType: file.type });
+        if (error) throw error;
+        const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+        currentAvatar = `${data.publicUrl}?v=${Date.now()}`;
+        paintAvatar(currentAvatar, $("set-form").full_name.value);
+        showMsg("Headshot updated — don't forget to Save changes.", true);
+      } catch (err) { showMsg(err.message || "Couldn't upload that image.", false); }
+      finally { label.textContent = prev; }
+    });
+
+    // Save profile.
+    $("set-form")?.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      if (!uid) return;
+      const f = ev.target; const btn = $("set-save");
+      btn.disabled = true; btn.textContent = "Saving…";
+      try {
+        const row = {
+          user_id: uid,
+          full_name: f.full_name.value.trim() || null,
+          role: f.role.value.trim() || "Admin",
+          phone: f.phone.value.trim() || null,
+          avatar_url: currentAvatar,
+          updated_at: new Date().toISOString(),
+        };
+        const { error } = await supabase.from("admin_profiles").upsert(row, { onConflict: "user_id" });
+        if (error) throw error;
+        showMsg("Saved. Your profile updates across the admin.", true);
+      } catch (err) { showMsg(err.message || "Couldn't save — please try again.", false); }
+      finally { btn.disabled = false; btn.textContent = "Save changes"; }
+    });
+  </script>
+</AdminShell>

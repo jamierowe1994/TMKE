@@ -1,315 +1,145 @@
 ---
-import BaseLayout from "../layouts/BaseLayout.astro";
-import "../styles/admin.css";
-import PageHero from "../components/PageHero.astro";
+import AdminShell from "../components/admin/AdminShell.astro";
+
+const ICO = {
+  revenue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+  orders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>',
+  subs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>',
+  enquiries: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+};
 ---
 
-<BaseLayout
-  title="Admin — TMKE"
-  description="Internal admin dashboard for managing The Edit catalogue, orders, subscribers, and blog content."
-  hideNav
-  hideFooter
->
-  <div class="admin-hero-pad">
-    <PageHero
-      chapter="Backstage — Admin"
-      title="Admin <em>dashboard.</em>"
-      sub="Behind-the-scenes controls for the catalogue, orders, members, and content."
-    />
+<AdminShell active="dashboard" title="Dashboard">
+  <p class="dash-hello" id="dash-hello">Welcome back.</p>
+
+  <div class="ash-stats">
+    <div class="ash-card ash-stat">
+      <div class="ash-stat-top"><div class="ash-stat-label">Revenue</div><span class="ash-stat-ico"><Fragment set:html={ICO.revenue} /></span></div>
+      <div class="ash-stat-value" data-stat="rev">£0</div>
+      <div class="ash-stat-sub"><strong data-stat="orders-count">0</strong> paid orders</div>
+    </div>
+    <div class="ash-card ash-stat">
+      <div class="ash-stat-top"><div class="ash-stat-label">Bookings</div><span class="ash-stat-ico"><Fragment set:html={ICO.orders} /></span></div>
+      <div class="ash-stat-value" data-stat="vid-active">0</div>
+      <div class="ash-stat-sub"><strong data-stat="vid-total">0</strong> total in the pipeline</div>
+    </div>
+    <div class="ash-card ash-stat">
+      <div class="ash-stat-top"><div class="ash-stat-label">Subscribers</div><span class="ash-stat-ico"><Fragment set:html={ICO.subs} /></span></div>
+      <div class="ash-stat-value" data-stat="subs">0</div>
+      <div class="ash-stat-sub">active in the last 60 days</div>
+    </div>
+    <div class="ash-card ash-stat">
+      <div class="ash-stat-top"><div class="ash-stat-label">Enquiries</div><span class="ash-stat-ico"><Fragment set:html={ICO.enquiries} /></span></div>
+      <div class="ash-stat-value" data-stat="enq-new">0</div>
+      <div class="ash-stat-sub"><strong data-stat="enq-total">0</strong> total received</div>
+    </div>
   </div>
 
-  <section class="admin-bar wrap">
-    <div class="admin-bar-user">
-      Signed in as <strong id="admin-email">…</strong>
+  <div class="ash-row">
+    <div class="ash-card">
+      <div class="ash-card-head"><div class="ash-card-title">At a glance</div></div>
+      <div class="ash-card-body">
+        <ul class="dash-glance">
+          <li><span>Active packs</span><b data-stat="packs">0</b></li>
+          <li><span>Active templates</span><b data-stat="templates">0</b></li>
+          <li><span>Published articles</span><b data-stat="blog-pub">0</b></li>
+          <li><span>Draft articles</span><b data-stat="blog-draft">0</b></li>
+          <li><span>Videography total</span><b data-stat="vid-total-2">0</b></li>
+          <li><span>New enquiries</span><b data-stat="enq-new-2">0</b></li>
+        </ul>
+        <div class="dash-links">
+          <a href="/admin/orders">Orders &rarr;</a>
+          <a href="/admin/videography">Videography &rarr;</a>
+          <a href="/admin/subscribers">Subscribers &rarr;</a>
+          <a href="/admin/settings">Your settings &rarr;</a>
+        </div>
+      </div>
     </div>
-    <button type="button" id="admin-signout" class="admin-signout">Sign out</button>
-  </section>
 
-  <section class="admin-grid wrap">
-    <a href="/admin/packs" class="admin-card">
-      <div class="admin-card-num">01</div>
-      <h3 class="admin-card-title">Catalogue</h3>
-      <p>Manage Edit packs — add, edit, archive. Set pricing, preview images, pack contents.</p>
-      <div class="admin-card-meta">
-        <span><span data-stat="packs">0</span> active packs</span>
-        <span class="admin-card-arrow">&rarr;</span>
+    <div class="ash-card">
+      <div class="ash-card-head"><div class="ash-card-title">Videography pipeline</div></div>
+      <div class="ash-card-body dash-donut-wrap">
+        <svg class="dash-donut" viewBox="0 0 42 42" aria-hidden="true">
+          <circle class="dash-donut-track" cx="21" cy="21" r="15.915" fill="none" stroke-width="5"></circle>
+          <circle class="dash-donut-seg" id="dash-donut-seg" cx="21" cy="21" r="15.915" fill="none" stroke-width="5" stroke-dasharray="0 100" stroke-dashoffset="25" stroke-linecap="round"></circle>
+        </svg>
+        <div class="dash-donut-legend">
+          <div><span class="dot dot--active"></span> In progress <b data-stat="vid-active-3">0</b></div>
+          <div><span class="dot dot--done"></span> Complete <b data-stat="vid-done">0</b></div>
+        </div>
       </div>
-    </a>
-    <a href="/admin/orders" class="admin-card">
-      <div class="admin-card-num">02</div>
-      <h3 class="admin-card-title">Orders</h3>
-      <p>Every Edit pack purchase, payment status, and invoice. Mark refunded, search by buyer or pack.</p>
-      <div class="admin-card-meta">
-        <span><span data-stat="orders">0</span> orders &middot; <span data-stat="orders-rev">£0</span></span>
-        <span class="admin-card-arrow">&rarr;</span>
-      </div>
-    </a>
-    <a href="#" class="admin-card is-disabled" aria-disabled="true">
-      <div class="admin-card-num">03</div>
-      <h3 class="admin-card-title">Members</h3>
-      <p>Account list, library access, manual entitlement grants.</p>
-      <div class="admin-card-meta"><span>Coming soon</span><span class="admin-card-arrow">&rarr;</span></div>
-    </a>
-    <a href="/admin/subscribers" class="admin-card">
-      <div class="admin-card-num">04</div>
-      <h3 class="admin-card-title">Subscribers</h3>
-      <p>Active Edit customers — anyone with a paid order in the last 60 days. Total spend and recency.</p>
-      <div class="admin-card-meta">
-        <span><span data-stat="subs">0</span> active</span>
-        <span class="admin-card-arrow">&rarr;</span>
-      </div>
-    </a>
-    <a href="/admin/templates" class="admin-card">
-      <div class="admin-card-num">05</div>
-      <h3 class="admin-card-title">Design studio</h3>
-      <p>Edit the template library that powers the customer-facing studio. Built in-house, fully ours.</p>
-      <div class="admin-card-meta">
-        <span><span data-stat="templates">0</span> active templates</span>
-        <span class="admin-card-arrow">&rarr;</span>
-      </div>
-    </a>
-    <a href="/admin/enquiries" class="admin-card">
-      <div class="admin-card-num">06</div>
-      <h3 class="admin-card-title">Enquiries</h3>
-      <p>Contact form submissions. Reply via email, mark replied or closed, take internal notes.</p>
-      <div class="admin-card-meta">
-        <span><span data-stat="enquiries-new">0</span> new &middot; <span data-stat="enquiries-total">0</span> total</span>
-        <span class="admin-card-arrow">&rarr;</span>
-      </div>
-    </a>
-    <a href="/admin/blog" class="admin-card">
-      <div class="admin-card-num">07</div>
-      <h3 class="admin-card-title">Insights (Blog)</h3>
-      <p>Write, edit, and publish articles. SEO fields, hero images, and live Google preview built in.</p>
-      <div class="admin-card-meta">
-        <span><span data-stat="blog-published">0</span> published &middot; <span data-stat="blog-drafts">0</span> drafts</span>
-        <span class="admin-card-arrow">&rarr;</span>
-      </div>
-    </a>
-    <a href="/admin/videography" class="admin-card">
-      <div class="admin-card-num">08</div>
-      <h3 class="admin-card-title">Videography</h3>
-      <p>Jack's studio — shoot pipeline, client bookings, diary, delivery, and integrations.</p>
-      <div class="admin-card-meta">
-        <span><span data-stat="vid-active">0</span> in progress &middot; <span data-stat="vid-total">0</span> total</span>
-        <span class="admin-card-arrow">&rarr;</span>
-      </div>
-    </a>
-    <a href="/?edit=1" class="admin-card admin-card--editor">
-      <div class="admin-card-num">09</div>
-      <h3 class="admin-card-title">Website Editor</h3>
-      <p>Neaten the live website — wording, type, spacing, side margins, colours, backgrounds, images and section layout — then Preview &amp; Publish. Opens the editor on the home page.</p>
-      <div class="admin-card-meta">
-        <span>Launch editor</span>
-        <span class="admin-card-arrow">&rarr;</span>
-      </div>
-    </a>
-  </section>
+    </div>
+  </div>
 
   <style>
-    .admin-hero-pad { padding-top: 100px; }
-    @media (max-width: 720px) { .admin-hero-pad { padding-top: 56px; } }
+    .dash-hello { font-family: var(--sans); font-size: 14px; color: rgba(244,242,241,0.7); margin: 0 0 18px; }
+    .dash-glance { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 28px; }
+    .dash-glance li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-family: var(--sans); }
+    .dash-glance span { font-size: 14px; color: rgba(244,242,241,0.68); }
+    .dash-glance b { font-family: var(--serif); font-size: 22px; color: #fff; font-weight: 500; }
+    @media (max-width: 560px) { .dash-glance { grid-template-columns: 1fr; } }
+    .dash-links { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; }
+    .dash-links a { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--violet-soft); text-decoration: none; }
+    .dash-links a:hover { color: #fff; }
 
-    .admin-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 12px 36px 0;
-      font-family: var(--sans);
-      font-size: 12px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: rgba(28, 29, 34, 0.65);
-    }
-    .admin-bar-user strong { color: var(--ink); font-weight: 700; }
-    .admin-signout {
-      position: fixed;
-      top: 18px;
-      left: 20px;
-      z-index: 120;
-      background: rgba(255, 255, 255, 0.9);
-      -webkit-backdrop-filter: blur(8px);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(55, 30, 40, 0.28);
-      border-radius: 999px;
-      padding: 9px 18px;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-      cursor: pointer;
-      box-shadow: 0 6px 20px rgba(20, 18, 26, 0.08);
-      transition: background 0.25s, color 0.25s, border-color 0.25s;
-    }
-    .admin-signout:hover { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
-    @media (max-width: 720px) { .admin-signout { top: 12px; left: 12px; padding: 8px 14px; } }
-
-    .admin-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 24px 36px 200px;
-    }
-    .admin-card {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 30px 28px 24px;
-      /* Frosted-glass card — same recipe as the customer dashboard. */
-      background: rgba(255, 255, 255, 0.62);
-      -webkit-backdrop-filter: blur(20px) saturate(1.2);
-      backdrop-filter: blur(20px) saturate(1.2);
-      border: 1px solid rgba(255, 255, 255, 0.7);
-      border-radius: 18px;
-      box-shadow: 0 22px 48px -28px rgba(55, 30, 40, 0.4), 0 5px 14px -8px rgba(55, 30, 40, 0.2);
-      color: var(--ink);
-      transition: box-shadow 0.4s, transform 0.4s cubic-bezier(.2,.7,.2,1);
-      min-height: 220px;
-      text-decoration: none;
-    }
-    .admin-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 30px 60px -28px rgba(55, 30, 40, 0.5), 0 8px 18px -8px rgba(55, 30, 40, 0.28);
-    }
-    .admin-card.is-disabled { opacity: 0.45; pointer-events: none; }
-    .admin-card-num {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.32em;
-      font-weight: 700;
-      color: var(--english-violet);
-    }
-    .admin-card-title {
-      font-family: var(--serif);
-      font-size: 28px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      margin: 6px 0 8px;
-      color: var(--ink);
-    }
-    .admin-card p {
-      font-size: 14px;
-      line-height: 1.55;
-      color: rgba(28, 29, 34, 0.65);
-      margin: 0;
-      flex: 1;
-    }
-    .admin-card-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 18px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(55, 30, 40, 0.12);
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      font-weight: 600;
-      color: rgba(28, 29, 34, 0.6);
-    }
-    .admin-card-arrow {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 18px;
-      color: var(--english-violet);
-      letter-spacing: 0;
-      text-transform: none;
-      transition: transform 0.5s cubic-bezier(.2,.7,.2,1);
-    }
-    .admin-card:hover .admin-card-arrow { transform: translateX(6px); }
-
-    /* Website Editor — filled so it reads as the headline tool. */
-    .admin-card--editor { background: var(--english-violet); border-color: var(--english-violet); }
-    .admin-card--editor:hover { background: #5b4b7a; }
-    .admin-card--editor .admin-card-title { color: var(--paper); }
-    .admin-card--editor .admin-card-num,
-    .admin-card--editor .admin-card-arrow { color: var(--paper); }
-    .admin-card--editor p { color: rgba(244, 242, 241, 0.82); }
-    .admin-card--editor .admin-card-meta { color: rgba(244, 242, 241, 0.82); border-color: rgba(244, 242, 241, 0.25); }
-
-    @media (max-width: 980px) {
-      .admin-grid { grid-template-columns: 1fr; }
-    }
+    .dash-donut-wrap { display: flex; align-items: center; gap: 22px; }
+    .dash-donut { width: 140px; height: 140px; flex: none; transform: rotate(-90deg); }
+    .dash-donut-track { stroke: rgba(255,255,255,0.12); }
+    .dash-donut-seg { stroke: var(--violet-soft); transition: stroke-dasharray 0.8s cubic-bezier(.2,.7,.2,1); }
+    .dash-donut-legend { font-family: var(--sans); display: flex; flex-direction: column; gap: 14px; }
+    .dash-donut-legend div { display: flex; align-items: center; gap: 10px; font-size: 14px; color: rgba(244,242,241,0.78); }
+    .dash-donut-legend b { font-family: var(--serif); font-size: 20px; color: #fff; margin-left: 4px; }
+    .dash-donut-legend .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+    .dot--active { background: var(--violet-soft); }
+    .dot--done { background: rgba(255,255,255,0.25); }
   </style>
 
   <script>
-    import { requireAdmin, signOut } from '../lib/admin-gate.js';
-    import { supabase, gbpFromPence } from '../lib/supabase.js';
+    import { supabase, gbpFromPence } from "../lib/supabase.js";
 
-    function setStat(key, value) {
-      const el = document.querySelector(`[data-stat="${key}"]`);
-      if (el) el.textContent = value;
-    }
+    function setStat(key, value) { document.querySelectorAll(`[data-stat="${key}"]`).forEach((el) => { el.textContent = value; }); }
 
-    (async () => {
-      const session = await requireAdmin();
-      if (!session) return;
+    document.addEventListener("ash:ready", async (e) => {
+      const session = e.detail && e.detail.session;
+      const profile = e.detail && e.detail.profile;
+      const hello = document.getElementById("dash-hello");
+      if (hello) { const n = (profile && profile.full_name) || (session?.user?.email || "").split("@")[0]; hello.textContent = `Welcome back${n ? ", " + n : ""}.`; }
 
-      const emailEl = document.getElementById('admin-email');
-      if (emailEl) emailEl.textContent = session.user.email ?? 'admin';
+      const SIXTY = new Date(Date.now() - 60 * 864e5).toISOString();
+      const [packs, templates, enqNew, enqTotal, paid, subs, blogPub, blogDraft, vidTotal, vidActive] = await Promise.all([
+        supabase.from("packs").select("*", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("templates").select("*", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("enquiries").select("*", { count: "exact", head: true }).eq("status", "new"),
+        supabase.from("enquiries").select("*", { count: "exact", head: true }),
+        supabase.from("orders").select("amount_pence", { count: "exact" }).eq("status", "paid"),
+        supabase.from("orders").select("buyer_email").eq("status", "paid").gte("created_at", SIXTY),
+        supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("status", "published"),
+        supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("status", "draft"),
+        supabase.from("videography_bookings").select("*", { count: "exact", head: true }),
+        supabase.from("videography_bookings").select("*", { count: "exact", head: true }).neq("stage", "complete"),
+      ]);
 
-      document.getElementById('admin-signout')?.addEventListener('click', () => signOut());
-
-      const SIXTY_DAYS_AGO = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
-
-      const [packs, templates, enquiriesNew, enquiriesTotal, paidOrders, subOrders, blogPublished, blogDrafts, vidTotal, vidActive] =
-        await Promise.all([
-          supabase.from('packs').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-          supabase.from('templates').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-          supabase.from('enquiries').select('*', { count: 'exact', head: true }).eq('status', 'new'),
-          supabase.from('enquiries').select('*', { count: 'exact', head: true }),
-          supabase.from('orders').select('amount_pence', { count: 'exact' }).eq('status', 'paid'),
-          supabase
-            .from('orders')
-            .select('buyer_email')
-            .eq('status', 'paid')
-            .gte('created_at', SIXTY_DAYS_AGO),
-          supabase.from('blog_posts').select('*', { count: 'exact', head: true }).eq('status', 'published'),
-          supabase.from('blog_posts').select('*', { count: 'exact', head: true }).eq('status', 'draft'),
-          supabase.from('videography_bookings').select('*', { count: 'exact', head: true }),
-          supabase.from('videography_bookings').select('*', { count: 'exact', head: true }).neq('stage', 'complete'),
-        ]);
-
-      if (!packs.error && typeof packs.count === 'number') setStat('packs', String(packs.count));
-      if (!templates.error && typeof templates.count === 'number') setStat('templates', String(templates.count));
-
-      if (!enquiriesNew.error && typeof enquiriesNew.count === 'number')
-        setStat('enquiries-new', String(enquiriesNew.count));
-      if (!enquiriesTotal.error && typeof enquiriesTotal.count === 'number')
-        setStat('enquiries-total', String(enquiriesTotal.count));
-
-      if (!paidOrders.error && Array.isArray(paidOrders.data)) {
-        const rev = paidOrders.data.reduce((s, r) => s + (r.amount_pence || 0), 0);
-        setStat('orders', String(paidOrders.count ?? paidOrders.data.length));
-        setStat('orders-rev', gbpFromPence(rev));
+      if (!packs.error) setStat("packs", String(packs.count ?? 0));
+      if (!templates.error) setStat("templates", String(templates.count ?? 0));
+      if (!enqNew.error) { setStat("enq-new", String(enqNew.count ?? 0)); setStat("enq-new-2", String(enqNew.count ?? 0)); }
+      if (!enqTotal.error) setStat("enq-total", String(enqTotal.count ?? 0));
+      if (!paid.error && Array.isArray(paid.data)) {
+        const rev = paid.data.reduce((s, r) => s + (r.amount_pence || 0), 0);
+        setStat("rev", gbpFromPence(rev) || "£0");
+        setStat("orders-count", String(paid.count ?? paid.data.length));
       }
+      if (!subs.error && Array.isArray(subs.data)) setStat("subs", String(new Set(subs.data.map((r) => (r.buyer_email || "").toLowerCase()).filter(Boolean)).size));
+      if (!blogPub.error) setStat("blog-pub", String(blogPub.count ?? 0));
+      if (!blogDraft.error) setStat("blog-draft", String(blogDraft.count ?? 0));
 
-      if (!subOrders.error && Array.isArray(subOrders.data)) {
-        const unique = new Set(
-          subOrders.data.map((r) => (r.buyer_email || '').toLowerCase()).filter(Boolean),
-        );
-        setStat('subs', String(unique.size));
-      }
-
-      if (!blogPublished.error && typeof blogPublished.count === 'number')
-        setStat('blog-published', String(blogPublished.count));
-      if (!blogDrafts.error && typeof blogDrafts.count === 'number')
-        setStat('blog-drafts', String(blogDrafts.count));
-
-      // Videography — fail quiet if the table doesn't exist yet (SQL not run).
-      if (!vidTotal.error && typeof vidTotal.count === 'number')
-        setStat('vid-total', String(vidTotal.count));
-      if (!vidActive.error && typeof vidActive.count === 'number')
-        setStat('vid-active', String(vidActive.count));
-    })();
+      const total = (!vidTotal.error && vidTotal.count) || 0;
+      const active = (!vidActive.error && vidActive.count) || 0;
+      const done = Math.max(0, total - active);
+      setStat("vid-active", String(active)); setStat("vid-active-3", String(active));
+      setStat("vid-total", String(total)); setStat("vid-total-2", String(total));
+      setStat("vid-done", String(done));
+      const seg = document.getElementById("dash-donut-seg");
+      if (seg) { const pct = total ? Math.round((active / total) * 100) : 0; seg.setAttribute("stroke-dasharray", `${pct} ${100 - pct}`); }
+    });
   </script>
-</BaseLayout>
+</AdminShell>
