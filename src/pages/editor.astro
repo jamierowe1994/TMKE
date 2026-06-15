@@ -3119,47 +3119,21 @@ const googleFonts = [
         // never load the admin studio chrome or templates for them.
         location.replace('/admin/login?denied=1');
       } else {
-        // Pull all admin-visible templates and replace the static JSON blob.
-        const { data: rows, error } = await supabase
-          .from('templates')
-          .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
-          .order('status', { ascending: true })
-          .order('sort_order', { ascending: true });
-
-        if (!error && rows) {
-          const shaped = rows.map((r) => ({
-            id: r.id,
-            name: r.name,
-            category: r.category,
-            thumb: r.thumb_url,
-            canvas: r.canvas || { width: 1080, height: 1350, background: '#f4f2f1' },
-            elements: r.elements || [],
-          }));
-          const tag = document.getElementById('ed-templates-data');
-          if (tag) tag.textContent = JSON.stringify(shaped);
-        }
-
-        // If a specific template id is requested, make sure it loads first by
-        // ensuring it's at index 0 (the editor falls back to TEMPLATES[0]).
         const requestedId = params.get('id');
-        if (requestedId) {
-          const tag = document.getElementById('ed-templates-data');
-          if (tag) {
-            try {
-              const arr = JSON.parse(tag.textContent || '[]');
-              const idx = arr.findIndex((t) => t.id === requestedId);
-              if (idx > 0) {
-                const [hit] = arr.splice(idx, 1);
-                arr.unshift(hit);
-                tag.textContent = JSON.stringify(arr);
-              }
-            } catch (_) {}
-          }
-        }
+        const tag = document.getElementById('ed-templates-data');
+        const shape = (r) => ({
+          id: r.id,
+          name: r.name,
+          category: r.category,
+          thumb: r.thumb_url,
+          canvas: r.canvas || { width: 1080, height: 1350, background: '#f4f2f1' },
+          elements: r.elements || [],
+        });
 
         // Install the save hook the editor will pick up. Editor.js passes
         // its current `state.templateId` in `payload.templateId`, which is
-        // also the Supabase row id (we keep ids stable end-to-end).
+        // also the Supabase row id (we keep ids stable end-to-end). This must
+        // be in place before we boot so editor.js's isAdminMode() is true.
         window.__TMKE_ADMIN_SAVE__ = async (payload) => {
           if (!payload?.templateId) return false;
           // Upload any embedded data-URL images to storage first (keeps the row small).
@@ -3188,15 +3162,60 @@ const googleFonts = [
           a.setAttribute('rel', 'noopener');
         });
 
-        // Now that the live templates blob is populated and the save hook is
-        // installed (so isAdminMode() is true), tell editor.js to load the
-        // requested template. editor.js may not have defined the callback yet
+        // 1) Open the RIGHT template, fast. The blob ships with the bundled seed
+        //    library (whose [0] is "Just Listed"), and the editor falls back to
+        //    TEMPLATES[0] whenever the requested id isn't found — so a slow,
+        //    empty or failed full-list fetch made every Edit click open
+        //    "Just Listed". Fetch just the requested row (one row = fast) and pin
+        //    it to index 0 so the boot below loads exactly what was clicked.
+        if (requestedId && tag) {
+          try {
+            const { data: one } = await supabase
+              .from('templates')
+              .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
+              .eq('id', requestedId)
+              .maybeSingle();
+            if (one) {
+              let arr = [];
+              try { arr = JSON.parse(tag.textContent || '[]'); } catch (_) {}
+              arr = arr.filter((t) => t.id !== one.id);
+              arr.unshift(shape(one));
+              tag.textContent = JSON.stringify(arr);
+            }
+          } catch (_) {}
+        }
+
+        // Boot now — the requested design is in the blob, so it loads instantly
+        // and correctly. editor.js may not have defined the callback yet
         // (script-load race) — leave a breadcrumb it picks up on boot if so.
         if (typeof window.__TMKE_BOOT_ADMIN__ === 'function') {
           window.__TMKE_BOOT_ADMIN__(requestedId || null);
         } else {
           window.__TMKE_ADMIN_BOOTSTRAP_DONE__ = { requestedId: requestedId || null };
         }
+
+        // 2) Backfill the full template list for the switcher grid. This runs
+        //    after the initial load so it never blocks opening the design. Keep
+        //    the requested id pinned at index 0, then refresh editor.js's
+        //    in-memory list + grid (without disturbing the open design).
+        try {
+          const { data: rows, error } = await supabase
+            .from('templates')
+            .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
+            .order('status', { ascending: true })
+            .order('sort_order', { ascending: true });
+          if (!error && rows && rows.length && tag) {
+            const shaped = rows.map(shape);
+            if (requestedId) {
+              const idx = shaped.findIndex((t) => t.id === requestedId);
+              if (idx > 0) { const [hit] = shaped.splice(idx, 1); shaped.unshift(hit); }
+            }
+            tag.textContent = JSON.stringify(shaped);
+            if (typeof window.__TMKE_REFRESH_TEMPLATES__ === 'function') {
+              window.__TMKE_REFRESH_TEMPLATES__();
+            }
+          }
+        } catch (_) {}
       }
     }
 
