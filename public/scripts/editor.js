@@ -1169,6 +1169,8 @@
   // each change, and once more right before the tab unloads — so work is never
   // lost. Gated on window.__TMKE_AUTOSAVE__ (set by the admin bootstrap).
   let _autosaveTimer = null;
+  let _dbSaveTimer = null;
+  let _dbSaving = false;
   function autosaveDraft() {
     if (!window.__TMKE_AUTOSAVE__) return;
     if (!state.templateId) state.templateId = "draft-" + Date.now(); // new / imported designs get a stable key
@@ -1183,10 +1185,35 @@
       }));
     } catch (_) {}
   }
+  // Admin only: also persist to the Supabase `templates` row, debounced a little
+  // longer than the local draft. Without this the studio list preview (and any
+  // other device) only ever saw an empty row until the admin hit Save manually —
+  // so autosaved designs showed as "Blank canvas". Runs on load too (via
+  // pushHistory→scheduleAutosave), which heals existing localStorage-only drafts.
+  async function autosaveToDb() {
+    if (!window.__TMKE_AUTOSAVE__) return;
+    if (typeof window.__TMKE_ADMIN_SAVE__ !== "function") return;
+    // Real DB rows only — blank/imported designs use a "draft-…" key with no row.
+    if (!state.templateId || String(state.templateId).indexOf("draft-") === 0) return;
+    if (_dbSaving) { clearTimeout(_dbSaveTimer); _dbSaveTimer = setTimeout(autosaveToDb, 1500); return; }
+    _dbSaving = true;
+    try {
+      await window.__TMKE_ADMIN_SAVE__({
+        templateId: state.templateId,
+        filename: filenameEl ? filenameEl.value : "",
+        canvas: state.canvas,
+        elements: state.elements,
+        pages: deep(state.pages),
+        savedAt: Date.now(),
+      });
+    } catch (_) {} finally { _dbSaving = false; }
+  }
   function scheduleAutosave() {
     if (!window.__TMKE_AUTOSAVE__) return;
     clearTimeout(_autosaveTimer);
     _autosaveTimer = setTimeout(autosaveDraft, 1200);
+    clearTimeout(_dbSaveTimer);
+    _dbSaveTimer = setTimeout(autosaveToDb, 3500);
   }
   window.addEventListener("beforeunload", function () { try { if (window.__TMKE_AUTOSAVE__) autosaveDraft(); } catch (_) {} });
 
@@ -1308,7 +1335,9 @@
   function resetToSinglePage(bg) {
     state.pages = [{
       id: uid("page"), name: "Page 1",
-      canvas: { width: 1080, height: 1350, background: bg || "#F2EFE9" },
+      // 1080×1440 is the house standard (Instagram portrait). Anyone can resize
+      // a specific design from the Resize panel; this is just where blanks start.
+      canvas: { width: 1080, height: 1440, background: bg || "#F2EFE9" },
       elements: [],
     }];
     state.currentPage = 0;
@@ -5100,7 +5129,7 @@
         pageImages.push(c.toDataURL("image/jpeg", 0.82));
       } catch (_) { pageImages.push(null); }
       const W = (state.pages[i].canvas && state.pages[i].canvas.width) || 1080;
-      const H = (state.pages[i].canvas && state.pages[i].canvas.height) || 1350;
+      const H = (state.pages[i].canvas && state.pages[i].canvas.height) || 1440;
       const boxes = [];
       (state.pages[i].elements || []).forEach(function (el) {
         (el.comments || []).forEach(function (cm) {
@@ -5154,7 +5183,7 @@
       name: r.name,
       category: r.category || null,
       thumb: r.thumb_url || null,
-      canvas: r.canvas || { width: 1080, height: 1350, background: "#F2EFE9" },
+      canvas: r.canvas || { width: 1080, height: 1440, background: "#F2EFE9" },
       elements: r.elements || [],
     })).filter((t) => t.id);
     if (!shaped.length) return window.__TMKE_OPEN_PACK__([], opts); // fallback to library

@@ -395,17 +395,21 @@ import { templates as defaultLibrary } from "../../data/library.js";
       const cv = t.canvas || {};
       const W = Number(cv.width) || 1080, H = Number(cv.height) || 1440;
       const els = Array.isArray(t.elements) ? t.elements : [];
+      const bgImg = cv.backgroundImage
+        ? `<img src="${escapeHtml(cv.backgroundImage)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:${cv.backgroundOpacity ?? 1};" />`
+        : '';
+      const hasContent = els.length || cv.backgroundImage;
       // No design yet but a thumbnail exists → show the thumbnail.
-      if (!els.length && t.thumb_url) {
+      if (!hasContent && t.thumb_url) {
         return `<div class="tpl-canvas" style="background:#fff"><img src="${escapeHtml(t.thumb_url)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" /></div>`;
       }
-      // Truly empty (no elements, no thumbnail) → show the canvas background plus
-      // a subtle placeholder so it reads as "blank, ready to design" rather than
-      // looking like a broken/missing preview.
-      if (!els.length) {
+      // Truly empty (no elements, no background image, no thumbnail) → show the
+      // canvas background plus a subtle placeholder so it reads as "blank, ready
+      // to design" rather than looking like a broken/missing preview.
+      if (!hasContent) {
         return `<div class="tpl-canvas tpl-canvas-empty" style="background:${escapeHtml(cv.background || '#f4f2f1')}"><span class="tpl-canvas-empty-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>Blank canvas</span></div>`;
       }
-      return `<div class="tpl-canvas" style="background:${escapeHtml(cv.background || '#f4f2f1')}">${els.map((el) => renderEl(el, W, H)).join('')}</div>`;
+      return `<div class="tpl-canvas" style="background:${escapeHtml(cv.background || '#f4f2f1')}">${bgImg}${els.map((el) => renderEl(el, W, H)).join('')}</div>`;
     }
 
     function renderCard(t) {

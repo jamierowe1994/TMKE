@@ -1,7 +1,7 @@
 // Mock purchased library — would come from a database in production.
 // Single fake package containing 30 templates, each backed by an Unsplash photo.
 
-const UNSPLASH = (id, w = 1080, h = 1350) =>
+const UNSPLASH = (id, w = 1080, h = 1440) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
 
 // Curated set of stable Unsplash photo IDs (interiors, exteriors, lifestyle).
@@ -137,21 +137,21 @@ export const templates = PHOTOS.map((photoId, i) => {
     id,
     name: `${headline} — 0${i + 1}`,
     category,
-    thumb: UNSPLASH(photoId, 600, 750),
-    canvas: { width: 1080, height: 1350, background: palette.bg },
+    thumb: UNSPLASH(photoId, 600, 800),
+    canvas: { width: 1080, height: 1440, background: palette.bg },
     elements: [
       {
         id: "bg-photo",
         type: "image",
-        x: 0, y: 0, w: 1080, h: 1350, rotation: 0,
-        src: UNSPLASH(photoId, 1080, 1350),
+        x: 0, y: 0, w: 1080, h: 1440, rotation: 0,
+        src: UNSPLASH(photoId, 1080, 1440),
         opacity: i % 3 === 0 ? 1 : 0.85,
         locked: false,
       },
       {
         id: "tint",
         type: "rect",
-        x: 0, y: 0, w: 1080, h: 1350, rotation: 0,
+        x: 0, y: 0, w: 1080, h: 1440, rotation: 0,
         fill: palette.bg, opacity: 0.18, stroke: "transparent", strokeWidth: 0, radius: 0,
       },
       {
@@ -167,7 +167,7 @@ export const templates = PHOTOS.map((photoId, i) => {
       {
         id: "headline",
         type: "text",
-        x: 80, y: 980, w: 920, h: 220, rotation: 0,
+        x: 80, y: 1070, w: 920, h: 220, rotation: 0,
         text: headline,
         font: "Cormorant Garamond",
         size: 96, weight: 500, italic: false,
@@ -177,7 +177,7 @@ export const templates = PHOTOS.map((photoId, i) => {
       {
         id: "sub",
         type: "text",
-        x: 80, y: 1210, w: 800, h: 80, rotation: 0,
+        x: 80, y: 1300, w: 800, h: 80, rotation: 0,
         text: sub,
         font: "Cormorant Garamond",
         size: 26, weight: 400, italic: true,
@@ -187,7 +187,7 @@ export const templates = PHOTOS.map((photoId, i) => {
       {
         id: "rule",
         type: "rect",
-        x: 80, y: 950, w: 80, h: 2, rotation: 0,
+        x: 80, y: 1040, w: 80, h: 2, rotation: 0,
         fill: palette.accent, opacity: 1, stroke: "transparent", strokeWidth: 0, radius: 0,
       },
     ],
