@@ -5243,6 +5243,17 @@
       refreshAdminTemplates();
       const id = requestedId || (TEMPLATES[0] && TEMPLATES[0].id);
       if (id) loadTemplate(id, false); else loadBlank();
+      // Headless thumbnail rebuild (opened in a hidden iframe by the studio
+      // list's "Rebuild thumbnails" action). Render the design with the real
+      // editor renderer, persist a fresh thumbnail, then tell the opener so it
+      // can move on to the next template.
+      if (id && urlParams.get("rebuildthumb") === "1") {
+        (async () => {
+          try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (_) {}
+          try { await autosaveToDb(); } catch (_) {}
+          try { (window.parent || window).postMessage({ type: "tmke-thumb-rebuilt", id: id }, location.origin); } catch (_) {}
+        })();
+      }
     };
     // The bootstrap loads the requested template first (fast, single row) then
     // backfills the full list for the switcher grid. This re-reads the refreshed

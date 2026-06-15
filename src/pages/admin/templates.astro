@@ -11,6 +11,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       <span class="admin-bar-count" id="tpl-count">…</span>
       <a href="/admin/fonts" class="admin-btn admin-btn-ghost">Brand fonts</a>
       <button type="button" id="seed-btn" class="admin-btn admin-btn-ghost" hidden>Seed from default library</button>
+      <button type="button" id="rebuild-thumbs-btn" class="admin-btn admin-btn-ghost">Rebuild thumbnails</button>
       <button type="button" id="new-btn" class="admin-btn admin-btn-primary">+ New template</button>
     </div>
     <div class="admin-bar-tools">
@@ -341,6 +342,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       loading: document.getElementById('tpl-loading'),
       count: document.getElementById('tpl-count'),
       seedBtn: document.getElementById('seed-btn'),
+      rebuildBtn: document.getElementById('rebuild-thumbs-btn'),
       newBtn: document.getElementById('new-btn'),
       search: document.getElementById('tpl-search'),
       filter: document.getElementById('tpl-filter'),
@@ -613,8 +615,54 @@ import { templates as defaultLibrary } from "../../data/library.js";
 
     els.seedBtn.addEventListener('click', seedFromLibrary);
     els.newBtn.addEventListener('click', newTemplate);
+    els.rebuildBtn?.addEventListener('click', rebuildThumbnails);
     els.search?.addEventListener('input', applyView);
     els.filter?.addEventListener('change', applyView);
+
+    // ---- Bulk thumbnail rebuild ----------------------------------------------
+    // Open each design briefly in a hidden editor iframe; the editor renders it
+    // with the real renderer, persists a fresh thumbnail, and posts back when
+    // done. Reuses the exact studio renderer so thumbnails match the design.
+    function rebuildOne(id) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:768px;border:0;opacity:0;pointer-events:none;';
+        const finish = () => {
+          if (settled) return; settled = true;
+          window.removeEventListener('message', onMsg);
+          try { iframe.remove(); } catch (_) {}
+          resolve();
+        };
+        const onMsg = (e) => {
+          if (e.origin !== location.origin) return;
+          if (e.data && e.data.type === 'tmke-thumb-rebuilt' && e.data.id === id) finish();
+        };
+        window.addEventListener('message', onMsg);
+        iframe.src = `/editor?id=${encodeURIComponent(id)}&mode=admin&rebuildthumb=1`;
+        document.body.appendChild(iframe);
+        setTimeout(finish, 20000); // safety timeout per template
+      });
+    }
+    async function rebuildThumbnails() {
+      const btn = els.rebuildBtn;
+      const targets = ALL.filter((t) =>
+        (Array.isArray(t.elements) && t.elements.length) ||
+        (t.canvas && t.canvas.backgroundImage)
+      );
+      if (!targets.length) { alert('No designs to render yet — add some content first.'); return; }
+      if (!confirm(`Rebuild thumbnails for ${targets.length} template${targets.length === 1 ? '' : 's'}? Each opens briefly in the background; this can take a minute or two.`)) return;
+      const orig = btn.textContent;
+      btn.disabled = true;
+      let done = 0;
+      for (const t of targets) {
+        btn.textContent = `Rebuilding ${++done}/${targets.length}…`;
+        try { await rebuildOne(t.id); } catch (_) {}
+      }
+      btn.textContent = 'Done ✓';
+      await loadTemplates();
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
+    }
 
     els.grid.addEventListener('click', (e) => {
       const t = e.target;
