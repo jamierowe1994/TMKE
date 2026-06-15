@@ -1,0 +1,312 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DashSidebar from "../../components/account/DashSidebar.astro";
+import "../../styles/workspace.css";
+import "../../styles/account-sections.css";
+import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the reschedule picker
+---
+
+<BaseLayout
+  dashboard
+  title="Bookings — TMKE workspace"
+  description="Your videography bookings and discovery calls — reschedule or cancel."
+  hideNav
+  hideFooter
+>
+  <div class="dash-shell">
+    <DashSidebar active="bookings" />
+
+    <main class="app-main dash-main">
+    <section class="welcome">
+      <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
+      <h1 class="welcome-h">Your <em>bookings.</em></h1>
+      <p class="welcome-sub">Shoots, sessions and calls — reschedule or cancel below. Please give 3 days' notice to cancel, or 2 days to rearrange (changes inside 48 hours are chargeable — email <a href="mailto:jack@tmke.co.uk">jack@tmke.co.uk</a>).</p>
+    </section>
+
+    <section class="orders-section">
+      <header class="section-head">
+        <h2 class="section-h">All bookings</h2>
+        <p class="section-sub">Your upcoming and past videography bookings.</p>
+      </header>
+      <div id="bk-list" class="bk-list">
+        <div class="lib-state" style="padding:18px 22px;">Loading bookings…</div>
+      </div>
+    </section>
+
+    <footer class="app-foot dash-foot">
+      <div class="app-foot-block">
+        <div class="app-foot-tag">Help</div>
+        <a href="/contact">hello@tmke.co.uk</a>
+      </div>
+      <div class="app-foot-block app-foot-block--right">
+        <strong id="footer-email" class="dash-foot-email">&hellip;</strong>
+      </div>
+    </footer>
+    </main>
+  </div>
+
+  <!-- Reschedule modal — a compact calendar + slots, reusing the wizard styles. -->
+  <div class="bk-resched-scrim" id="bk-resched" hidden>
+    <div class="bk-resched-card" role="dialog" aria-modal="true" aria-label="Reschedule booking">
+      <header class="bk-resched-head">
+        <h3 id="bk-resched-title">Reschedule</h3>
+        <button type="button" class="bk-resched-x" id="bk-resched-close" aria-label="Close">&times;</button>
+      </header>
+      <p class="bk-resched-sub" id="bk-resched-sub">Pick a new day and time.</p>
+      <div id="bk-resched-cal-wrap">
+        <div class="dc-cal">
+          <header class="dc-cal-head">
+            <button type="button" class="dc-cal-nav" id="bk-prev-month" aria-label="Previous month">&larr;</button>
+            <div class="dc-cal-label" id="bk-cal-label">…</div>
+            <button type="button" class="dc-cal-nav" id="bk-next-month" aria-label="Next month">&rarr;</button>
+          </header>
+          <div class="dc-cal-weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+          <div class="dc-cal-grid" id="bk-cal-grid"></div>
+        </div>
+      </div>
+      <div id="bk-resched-slots-wrap" hidden>
+        <p class="bk-resched-sub" id="bk-slots-sub">…</p>
+        <div class="dc-slots-grid" id="bk-slots-grid"></div>
+        <button type="button" class="bk-resched-back" id="bk-slots-back">&larr; Back to calendar</button>
+      </div>
+      <p class="dc-gate-error" id="bk-resched-error" hidden></p>
+    </div>
+  </div>
+
+  <style is:global>
+    .bk-list { display: flex; flex-direction: column; gap: 14px; }
+    .bk-card {
+      display: grid; grid-template-columns: 1fr auto; gap: 16px 24px; align-items: center;
+      padding: 20px 24px; background: var(--card-glass);
+      -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+      border: 1px solid rgba(28,29,34,0.07); border-left: 3px solid var(--violet-deep); border-radius: 10px;
+      box-shadow: 0 10px 24px -16px rgba(55,30,40,0.22);
+    }
+    .bk-card.is-cancelled { border-left-color: rgba(28,29,34,0.2); opacity: 0.72; }
+    .bk-card-main { min-width: 0; }
+    .bk-card-title { font-family: var(--serif); font-size: 22px; color: var(--ink); margin: 0 0 4px; }
+    .bk-card-when { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.7); }
+    .bk-card-meta { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 4px; }
+    .bk-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+    .bk-pill { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; background: rgba(55,30,40,0.1); color: var(--english-violet); white-space: nowrap; }
+    .bk-pill.is-cancelled { background: rgba(28,29,34,0.1); color: rgba(28,29,34,0.55); }
+    .bk-pill.is-complete { background: rgba(46,106,74,0.14); color: #2e6a4a; }
+    .bk-actions { display: flex; gap: 8px; }
+    .bk-btn { appearance: none; border: 1px solid rgba(55,30,40,0.3); background: #fff; color: var(--ink); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; padding: 9px 14px; border-radius: 7px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+    .bk-btn:hover { border-color: var(--english-violet); color: var(--english-violet); }
+    .bk-btn--danger:hover { border-color: #8a3b2f; color: #8a3b2f; }
+    .bk-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .bk-note { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); }
+    @media (max-width: 680px) {
+      .bk-card { grid-template-columns: 1fr; }
+      .bk-card-side { align-items: flex-start; }
+    }
+
+    /* Reschedule modal */
+    .bk-resched-scrim { position: fixed; inset: 0; z-index: 500; background: rgba(28,29,34,0.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .bk-resched-scrim[hidden] { display: none; }
+    .bk-resched-card { width: min(440px, 96vw); max-height: 90vh; overflow-y: auto; background: var(--paper); border-radius: 14px; padding: 24px 26px 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.34); }
+    .bk-resched-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .bk-resched-head h3 { font-family: var(--serif); font-weight: 500; font-size: 26px; color: var(--ink); margin: 0; }
+    .bk-resched-x { appearance: none; background: none; border: 0; font-size: 26px; line-height: 1; color: rgba(28,29,34,0.5); cursor: pointer; }
+    .bk-resched-x:hover { color: var(--ink); }
+    .bk-resched-sub { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.6); margin: 0 0 16px; }
+    .bk-resched-back { appearance: none; background: none; border: 0; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; margin-top: 16px; padding: 0; }
+  </style>
+
+  <script>
+    import { supabase, gbpFromPence } from '../../lib/supabase.js';
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+
+    const $ = (id) => document.getElementById(id);
+    const pad = (n) => String(n).padStart(2, '0');
+    const localISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    function fmtWhen(iso) {
+      if (!iso) return null;
+      try { return new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+      catch (_) { return iso; }
+    }
+    const STAGE_LABEL = {
+      booked: 'Booked', shoot_day: 'Shoot day', editing: 'In edit', final_draft: 'Final draft',
+      invoice_out: 'Invoice sent', complete: 'Complete', cancelled: 'Cancelled',
+      discovery_call_booked: 'Call booked', enquiry_non_member: 'Enquiry sent',
+    };
+
+    async function signOut() { await supabase.auth.signOut(); location.replace('/login'); }
+    $('app-signout')?.addEventListener('click', signOut);
+    $('cal-side-trigger')?.addEventListener('click', () => { location.href = '/account/schedule'; });
+
+    let rows = [];
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { location.replace('/login?next=' + encodeURIComponent('/account/bookings')); return; }
+      const email = session.user.email ?? '';
+      $('footer-email').textContent = email;
+      const sidebarEmail = $('sidebar-email'); if (sidebarEmail) sidebarEmail.textContent = email;
+
+      const { data, error } = await supabase
+        .from('videography_bookings')
+        .select('id, kind, service, service_type, shoot_date, stage, total_pence, postcode, reschedule_token, duration_min, created_at')
+        .or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`)
+        .order('shoot_date', { ascending: false, nullsFirst: false });
+
+      const $list = $('bk-list');
+      if (error) { $list.innerHTML = `<div class="lib-state" style="padding:18px 22px;">Couldn't load bookings: ${escapeHtml(error.message)}</div>`; return; }
+      rows = data || [];
+      render();
+    })();
+
+    function render() {
+      const $list = $('bk-list');
+      if (!rows.length) {
+        $list.innerHTML = `<div class="lib-state" style="padding:32px;"><strong style="display:block;font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:6px;">No bookings yet.</strong><p style="margin:0;line-height:1.6;">When you book a shoot or a call, it'll appear here. <a href="/videography">Browse videography &rarr;</a></p></div>`;
+        return;
+      }
+      const now = Date.now();
+      $list.innerHTML = rows.map((b) => {
+        const cancelled = b.stage === 'cancelled';
+        const complete = b.stage === 'complete';
+        const isEnquiry = b.kind === 'enquiry' || !b.shoot_date;
+        const when = fmtWhen(b.shoot_date);
+        const ts = b.shoot_date ? new Date(b.shoot_date).getTime() : null;
+        const days = ts != null ? (ts - now) / 86400000 : null;
+        const future = ts != null && ts > now;
+        const canResched = future && !cancelled && days >= 2 && b.reschedule_token;
+        const canCancel = future && !cancelled && days >= 3 && b.reschedule_token;
+        const pillCls = cancelled ? 'is-cancelled' : complete ? 'is-complete' : '';
+        const label = STAGE_LABEL[b.stage] || b.stage || '—';
+
+        let actions = '';
+        if (isEnquiry) actions = `<span class="bk-note">Awaiting quote</span>`;
+        else if (cancelled) actions = '';
+        else if (!future) actions = `<span class="bk-note">${complete ? '' : 'Past booking'}</span>`;
+        else {
+          const parts = [];
+          if (canResched) parts.push(`<button type="button" class="bk-btn" data-resched="${escapeHtml(b.reschedule_token)}" data-dur="${b.duration_min || 60}" data-service="${escapeHtml(b.service || 'Booking')}">Reschedule</button>`);
+          if (canCancel) parts.push(`<button type="button" class="bk-btn bk-btn--danger" data-cancel="${escapeHtml(b.reschedule_token)}">Cancel</button>`);
+          actions = parts.length ? `<div class="bk-actions">${parts.join('')}</div>` : `<span class="bk-note">Within 48 hrs — email Jack to change</span>`;
+        }
+
+        const metaBits = [];
+        if (b.postcode) metaBits.push(escapeHtml(b.postcode));
+        if (b.total_pence != null) metaBits.push(gbpFromPence(b.total_pence) + ' inc. VAT');
+
+        return `<div class="bk-card ${cancelled ? 'is-cancelled' : ''}" data-row="${b.id}">
+          <div class="bk-card-main">
+            <h3 class="bk-card-title">${escapeHtml(b.service || 'Booking')}</h3>
+            <div class="bk-card-when">${when ? escapeHtml(when) : 'No date — enquiry'}</div>
+            ${metaBits.length ? `<div class="bk-card-meta">${metaBits.join(' · ')}</div>` : ''}
+          </div>
+          <div class="bk-card-side">
+            <span class="bk-pill ${pillCls}">${escapeHtml(label)}</span>
+            ${actions}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // ---- Cancel ----
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-cancel]');
+      if (!btn) return;
+      const token = btn.getAttribute('data-cancel');
+      if (!confirm('Cancel this booking? This frees the slot and emails you a confirmation.')) return;
+      if (!WORKER) { alert('Booking management is being set up — please email jack@tmke.co.uk.'); return; }
+      btn.disabled = true; btn.textContent = 'Cancelling…';
+      try {
+        const res = await fetch(`${WORKER}/videography/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || 'Could not cancel');
+        const row = rows.find((r) => r.reschedule_token === token); if (row) row.stage = 'cancelled';
+        render();
+      } catch (err) { alert(err.message || 'Could not cancel — please try again.'); btn.disabled = false; btn.textContent = 'Cancel'; }
+    });
+
+    // ---- Reschedule modal ----
+    let rsToken = null, rsDur = 60, rsService = '', viewMonth = new Date(); viewMonth.setDate(1);
+    let availWeekdays = null, configFetched = false;
+    const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+    async function fetchConfig() {
+      if (configFetched || !WORKER) return; configFetched = true;
+      try { const r = await fetch(`${WORKER}/ms/config`); if (r.ok) { const d = await r.json(); if (d && d.weekdays) availWeekdays = new Set(Object.keys(d.weekdays).map(Number)); } } catch (_) {}
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-resched]');
+      if (!btn) return;
+      rsToken = btn.getAttribute('data-resched');
+      rsDur = parseInt(btn.getAttribute('data-dur') || '60', 10);
+      rsService = btn.getAttribute('data-service') || 'Booking';
+      $('bk-resched-title').textContent = 'Reschedule';
+      $('bk-resched-sub').textContent = `${rsService} — pick a new day.`;
+      $('bk-resched-error').hidden = true;
+      $('bk-resched-slots-wrap').hidden = true;
+      $('bk-resched-cal-wrap').hidden = false;
+      viewMonth = new Date(); viewMonth.setDate(1);
+      $('bk-resched').hidden = false;
+      fetchConfig().then(renderCal); renderCal();
+    });
+    $('bk-resched-close')?.addEventListener('click', () => { $('bk-resched').hidden = true; });
+    $('bk-resched')?.addEventListener('click', (e) => { if (e.target === $('bk-resched')) $('bk-resched').hidden = true; });
+    $('bk-slots-back')?.addEventListener('click', () => { $('bk-resched-slots-wrap').hidden = true; $('bk-resched-cal-wrap').hidden = false; });
+    $('bk-prev-month')?.addEventListener('click', () => { viewMonth.setMonth(viewMonth.getMonth() - 1); renderCal(); });
+    $('bk-next-month')?.addEventListener('click', () => { viewMonth.setMonth(viewMonth.getMonth() + 1); renderCal(); });
+
+    function renderCal() {
+      const label = $('bk-cal-label'), grid = $('bk-cal-grid'); if (!grid) return;
+      label.textContent = `${MONTHS[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`;
+      const first = new Date(viewMonth), off = (first.getDay() + 6) % 7;
+      const gs = new Date(first); gs.setDate(first.getDate() - off);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      // Reschedule needs ≥2 days notice — disable anything sooner.
+      const minDate = new Date(today); minDate.setDate(today.getDate() + 2);
+      const cells = [];
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(gs); d.setDate(gs.getDate() + i);
+        const inM = d.getMonth() === viewMonth.getMonth();
+        const tooSoon = d < minDate;
+        const closed = availWeekdays ? !availWeekdays.has(d.getDay()) : (d.getDay() === 0 || d.getDay() === 6);
+        const cl = ['dc-cal-day']; if (!inM) cl.push('is-other-month'); if (sameDay(d, today)) cl.push('is-today');
+        cells.push(`<button type="button" class="${cl.join(' ')}" data-date="${localISO(d)}" ${tooSoon || closed ? 'disabled' : ''}>${d.getDate()}</button>`);
+      }
+      grid.innerHTML = cells.join('');
+    }
+
+    $('bk-cal-grid')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.dc-cal-day'); if (!btn || btn.hasAttribute('disabled')) return;
+      const date = btn.dataset.date;
+      $('bk-resched-cal-wrap').hidden = true;
+      $('bk-resched-slots-wrap').hidden = false;
+      const sub = $('bk-slots-sub'), grid = $('bk-slots-grid');
+      const dt = new Date(date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+      sub.textContent = `${dt} — choose a time`;
+      grid.innerHTML = `<p class="dc-slots-empty">Finding times…</p>`;
+      if (!WORKER) { grid.innerHTML = `<p class="dc-slots-empty">Booking management isn't live yet.</p>`; return; }
+      try {
+        const res = await fetch(`${WORKER}/ms/availability?date=${date}&duration=${rsDur}`);
+        const d = await res.json(); if (!res.ok) throw new Error(d.error || 'error');
+        if (!d.slots || !d.slots.length) { grid.innerHTML = `<p class="dc-slots-empty">No times that day — try another.</p>`; return; }
+        grid.innerHTML = d.slots.map((s) => `<button type="button" class="dc-slot" data-slot="${s}" data-date="${date}">${s}</button>`).join('');
+      } catch (_) { grid.innerHTML = `<p class="dc-slots-empty">Couldn't load times. Try again.</p>`; }
+    });
+
+    $('bk-slots-grid')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.dc-slot'); if (!btn) return;
+      const date = btn.dataset.date, start = btn.dataset.slot;
+      const err = $('bk-resched-error'); err.hidden = true;
+      btn.disabled = true; btn.textContent = '…';
+      try {
+        const res = await fetch(`${WORKER}/videography/reschedule`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: rsToken, date, start }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || 'Could not reschedule');
+        const row = rows.find((r) => r.reschedule_token === rsToken); if (row) row.shoot_date = `${date}T${start}:00`;
+        $('bk-resched').hidden = true;
+        render();
+      } catch (e2) { err.textContent = e2.message || 'Could not reschedule — try another time.'; err.hidden = false; btn.disabled = false; btn.textContent = start; }
+    });
+  </script>
+</BaseLayout>
