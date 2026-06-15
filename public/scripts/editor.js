@@ -1311,6 +1311,7 @@
       bg.style.left = "0"; bg.style.top = "0";
       bg.style.width = "100%"; bg.style.height = "100%";
       bg.style.objectFit = "cover";
+      bg.style.opacity = state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1;
       bg.style.pointerEvents = "none";
       bg.style.userSelect = "none";
       canvasEl.appendChild(bg);
@@ -1355,6 +1356,14 @@
     // remember to call it from anywhere else.
     const detachBtn = document.getElementById("ed-bg-detach");
     if (detachBtn) detachBtn.hidden = !state.canvas.backgroundImage;
+    const bgImgCtl = document.getElementById("ed-bg-imgctl");
+    if (bgImgCtl) {
+      bgImgCtl.hidden = !state.canvas.backgroundImage;
+      const op = Math.round((state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1) * 100);
+      const rEl = document.getElementById("ed-bg-opacity"), nEl = document.getElementById("ed-bg-opacity-num");
+      if (rEl && document.activeElement !== rEl) rEl.value = op;
+      if (nEl && document.activeElement !== nEl) nEl.value = op;
+    }
   }
 
   // ---- Page-strip live previews + busy lock -----------------------------
@@ -2937,7 +2946,10 @@
         let dw, dh;
         if (ar > cr) { dh = ch; dw = ch * ar; }
         else         { dw = cw; dh = cw / ar; }
+        ctx.save();
+        ctx.globalAlpha = state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1;
         ctx.drawImage(bg, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+        ctx.restore();
       } catch (_) {}
     }
 
@@ -4509,6 +4521,26 @@
     setCanvasBackgroundImage(null);
     syncDetachBgBtn();
   });
+  // Background-image transparency — slider + typable %, kept in sync. Lets you
+  // dim a photo set as the background (then stack overlays/text on top).
+  (function () {
+    const rEl = $("ed-bg-opacity"), nEl = $("ed-bg-opacity-num");
+    function setBgOpacity(pct, fromNum) {
+      pct = Math.max(0, Math.min(100, Math.round(isNaN(pct) ? 100 : pct)));
+      state.canvas.backgroundOpacity = pct / 100;
+      if (rEl) rEl.value = pct;
+      if (nEl && !fromNum) nEl.value = pct;
+      fullRender();
+    }
+    if (rEl) {
+      rEl.addEventListener("input", () => setBgOpacity(parseInt(rEl.value, 10), false));
+      rEl.addEventListener("change", () => pushHistory());
+    }
+    if (nEl) {
+      nEl.addEventListener("input", () => setBgOpacity(parseInt(nEl.value, 10), true));
+      nEl.addEventListener("change", () => pushHistory());
+    }
+  })();
   document.querySelectorAll(".ed-text-add").forEach((btn) => {
     btn.addEventListener("click", () => addText(btn.dataset.text));
   });
