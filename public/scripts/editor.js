@@ -1262,6 +1262,23 @@
     $("ed-redo").disabled = state.historyIndex >= state.history.length - 1;
   }
 
+  // House standard is 1080×1440 (Instagram portrait). Upgrade the legacy
+  // 1080×1350 default the moment a design loads so nothing is ever launched or
+  // saved at the old size — full-bleed top-anchored layers stretch to fill the
+  // taller canvas. Deliberately custom sizes (anything other than exactly
+  // 1080×1350) are left untouched.
+  function normalizeLegacySize() {
+    const fix = (cv, els) => {
+      if (!cv || cv.width !== 1080 || cv.height !== 1350) return;
+      cv.height = 1440;
+      (els || []).forEach((el) => {
+        if (el && el.y === 0 && el.h === 1350 && (el.type === "image" || el.type === "rect" || el.type === "frame")) el.h = 1440;
+      });
+    };
+    fix(state.canvas, state.elements);
+    (state.pages || []).forEach((p) => fix(p.canvas, p.elements));
+  }
+
   // ---------- Load template ----------
   function loadTemplate(tplId, fresh) {
     let tpl = TEMPLATES.find((t) => t.id === tplId);
@@ -1292,6 +1309,7 @@
           state.history = [];
           state.historyIndex = -1;
           state.pages.forEach((pg) => preloadFontsForElements(pg.elements));
+          normalizeLegacySize();
           pushHistory();
           fullRender();
           fitZoom();
@@ -1310,6 +1328,7 @@
     // with the tokens visible and intact. Customers can still hand-edit any
     // text afterwards — this just gives them a personalised starting point.
     if (!isAdminMode()) fillTemplateMergeTags();
+    normalizeLegacySize();
     state.history = [];
     state.historyIndex = -1;
     pushHistory();
@@ -3361,6 +3380,26 @@
     });
   }
 
+  // Full-screen "processing image…" overlay shown while an upload is read +
+  // downscaled, so a big photo doesn't feel like a frozen click.
+  let _spinCount = 0;
+  function uploadSpinner(show) {
+    let el = document.getElementById("ed-upload-spinner");
+    if (show) {
+      _spinCount++;
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "ed-upload-spinner";
+        el.innerHTML = '<div class="ed-spin-box"><div class="ed-spin"></div><div class="ed-spin-label">Processing image…</div></div>';
+        document.body.appendChild(el);
+      }
+      el.style.display = "flex";
+    } else {
+      _spinCount = Math.max(0, _spinCount - 1);
+      if (el && _spinCount === 0) el.style.display = "none";
+    }
+  }
+
   // Read an uploaded image File and downscale it to a sane max edge before use.
   // Phone/camera photos are often 3000–6000px / 3–8MB; loading those full-size is
   // the main reason a design's photos take several seconds to appear (and they
@@ -3368,7 +3407,9 @@
   // PNGs keep transparency; everything else becomes JPEG. Returns a data URL.
   function fileToWebImage(file, maxEdge) {
     maxEdge = maxEdge || 2000;
+    uploadSpinner(true);
     return new Promise((resolve) => {
+      const done = (v) => { uploadSpinner(false); resolve(v); };
       const reader = new FileReader();
       reader.onload = () => {
         const src = reader.result;
@@ -3376,7 +3417,7 @@
         img.onload = () => {
           const longest = Math.max(img.naturalWidth, img.naturalHeight);
           const scale = longest > maxEdge ? maxEdge / longest : 1;
-          if (scale >= 1) { resolve(src); return; } // already web-sized
+          if (scale >= 1) { done(src); return; } // already web-sized
           try {
             const c = document.createElement("canvas");
             c.width = Math.max(1, Math.round(img.naturalWidth * scale));
@@ -3386,13 +3427,13 @@
             ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, c.width, c.height);
             const png = /image\/png/i.test(file.type || "");
-            resolve(png ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85));
-          } catch (_) { resolve(src); }
+            done(png ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85));
+          } catch (_) { done(src); }
         };
-        img.onerror = () => resolve(src);
+        img.onerror = () => done(src);
         img.src = src;
       };
-      reader.onerror = () => resolve(null);
+      reader.onerror = () => done(null);
       reader.readAsDataURL(file);
     });
   }

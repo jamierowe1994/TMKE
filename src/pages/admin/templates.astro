@@ -146,7 +146,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       max-width: 1360px;
       margin: 0 auto;
       /* Generous top gap so the cards aren't jammed against the toolbar. */
-      padding: 56px 36px 200px;
+      padding: 88px 36px 200px;
     }
     .tpl-loading {
       font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5);
@@ -611,6 +611,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
         if (!session) return;
       }
       await loadTemplates();
+      autoSyncNewDrafts();   // heal new/orphaned local drafts so previews show automatically
     })();
 
     els.seedBtn.addEventListener('click', seedFromLibrary);
@@ -705,6 +706,41 @@ import { templates as defaultLibrary } from "../../data/library.js";
       await loadTemplates();
       showSyncReport(report, synced, localKeys.length);
       setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
+    }
+
+    // Silently push any locally-saved design whose matched template is still
+    // EMPTY in the DB (a brand-new draft, or one orphaned under a mismatched id)
+    // — so its preview appears without anyone clicking "Sync local drafts".
+    // Idempotent: once a template has content it's skipped, so this is cheap to
+    // run on every list load.
+    async function autoSyncNewDrafts() {
+      const PREFIX = 'tmke.editor.';
+      const keys = [];
+      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(PREFIX) === 0) keys.push(k); } } catch (_) { return; }
+      if (!keys.length) return;
+      const norm = (s) => (s || '').trim().toLowerCase();
+      let changed = 0;
+      for (const key of keys) {
+        let saved; try { saved = JSON.parse(localStorage.getItem(key)); } catch (_) { continue; }
+        if (!saved) continue;
+        const fname = (saved.filename || '').trim();
+        let canvas = saved.canvas, elements = saved.elements;
+        if (saved.pages && saved.pages.length) { canvas = saved.pages[0].canvas; elements = saved.pages[0].elements; }
+        const hasContent = (Array.isArray(elements) && elements.length) || (canvas && canvas.backgroundImage);
+        if (!hasContent) continue;
+        const idFromKey = key.slice(PREFIX.length);
+        const target = (fname && ALL.find((t) => norm(t.name) === norm(fname))) || ALL.find((t) => t.id === idFromKey);
+        if (!target) continue;
+        // Only heal templates that are still empty — never clobber saved work.
+        const targetEmpty = !(Array.isArray(target.elements) && target.elements.length) && !(target.canvas && target.canvas.backgroundImage) && !target.thumb_url;
+        if (!targetEmpty) continue;
+        try {
+          await externalizeDesign(canvas, elements);
+          const { error } = await supabase.from('templates').update({ canvas, elements }).eq('id', target.id);
+          if (!error) changed++;
+        } catch (_) {}
+      }
+      if (changed) await loadTemplates();
     }
 
     els.grid.addEventListener('click', (e) => {
