@@ -649,11 +649,13 @@ export default {
           date, start, duration, service, service_type, audience, brand,
           add_ons, postcode, distance_miles, surcharge_pence,
           name, email, phone, company, notes, signed_name, signed_at,
-          marketing_opt_in, password, total_pence,
+          marketing_opt_in, password, total_pence, account_exists, promo_code, discount_pence,
         } = b || {};
         const pkg = b && b.package;
         if (!date || !start || !name || !email) return json({ error: "Missing booking details" }, 400, request, env);
-        if (!password || String(password).length < 8) return json({ error: "A password of at least 8 characters is required." }, 400, request, env);
+        // New customers create an account (password required). Existing members
+        // sign in client-side first and send account_exists, so no password here.
+        if (!account_exists && (!password || String(password).length < 8)) return json({ error: "A password of at least 8 characters is required." }, 400, request, env);
         const dur = parseInt(duration || "60", 10);
         const endHm = minToHm(hmToMin(start) + dur);
 
@@ -670,20 +672,39 @@ export default {
         // 2) Create or link the Supabase account (never overwrite an existing one).
         let accountUserId = null, accountCreated = false;
         try {
-          const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
-            method: "POST",
-            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: name, company: company || null, phone: phone || null } }),
-          });
-          if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
-          else {
-            // Already registered — find their id so the booking still links (best-effort).
+          if (account_exists) {
+            // Existing member (already signed in client-side) — just link the id.
             const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
               headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
             });
             if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+          } else {
+            const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+              method: "POST",
+              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: name, company: company || null, phone: phone || null } }),
+            });
+            if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
+            else {
+              // Already registered — find their id so the booking still links (best-effort).
+              const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+                headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+              });
+              if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+            }
           }
         } catch (_) { /* account is best-effort; the booking still proceeds */ }
+
+        // If a promo code was applied, redeem it (increments redemptions; best-effort).
+        if (promo_code) {
+          try {
+            await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/redeem_promo_code`, {
+              method: "POST",
+              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ p_code: String(promo_code).toUpperCase() }),
+            });
+          } catch (_) {}
+        }
 
         // 3) Book Jack's 365 calendar.
         const ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
@@ -704,6 +725,7 @@ export default {
           client_name: name, client_email: email, client_phone: phone || null, company: company || null,
           service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
           signed_name: signed_name || null, signed_at: signed_at || null, marketing_opt_in: !!marketing_opt_in,
+          promo_code: promo_code || null, discount_pence: discount_pence || 0,
           account_user_id: accountUserId, reschedule_token: rescheduleToken, total_pence: total_pence ?? null,
           ms_event_id: ev.id || null, duration_min: dur,
         });
@@ -736,13 +758,13 @@ export default {
       // ---- Non-member enquiry (Property / Agent) — a CRM lead, no calendar ---
       if (path.endsWith("/videography/enquiry") && request.method === "POST") {
         const b = await request.json().catch(() => ({}));
-        const { service, service_type, name, email, phone, company, postcode, message } = b || {};
+        const { service, service_type, name, email, phone, company, postcode, message, marketing_opt_in } = b || {};
         if (!name || !email) return json({ error: "Please add your name and email." }, 400, request, env);
         await sbPost(env, "videography_bookings", {
           kind: "enquiry", service_type: service_type || null, audience: "non-member",
           client_name: name, client_email: email, client_phone: phone || null, company: company || null,
           postcode: postcode || null, service: service || null, stage: "enquiry_non_member",
-          enquiry_message: message || null, notes: message || null,
+          enquiry_message: message || null, notes: message || null, marketing_opt_in: !!marketing_opt_in,
         });
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
@@ -767,8 +789,52 @@ export default {
             </div>
             <p style="font-size:12px;color:#999;margin:18px 0 0">In the CRM pipeline as a lead (enquiry_non_member).</p></div>`,
         });
-        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Enquiry", service].filter(Boolean) });
+        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Enquiry", service, marketing_opt_in ? "Marketing opt-in" : "No marketing"].filter(Boolean) });
         return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Register interest (Content Studio non-members) --------------------
+      if (path.endsWith("/videography/register-interest") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const email = String((b && b.email) || "").trim();
+        const service = (b && b.service) || "content-studio";
+        const optin = !!(b && b.marketing_opt_in);
+        if (!email) return json({ error: "Please add your email." }, 400, request, env);
+        await sbPost(env, "videography_bookings", {
+          kind: "register_interest", service_type: service, audience: "non-member",
+          client_email: email, service: "Content Studio", stage: "enquiry_non_member",
+          notes: "Register interest (members-only service)", marketing_opt_in: optin,
+        });
+        await ghlUpsert(env, { email, tags: ["TMKE Videography", "Register Interest", optin ? "Marketing opt-in" : "No marketing"] });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Does this email already have a TMKE account? (booking gate) -------
+      if (path.endsWith("/videography/account-exists") && request.method === "GET") {
+        const email = (url.searchParams.get("email") || "").trim().toLowerCase();
+        if (!email) return json({ exists: false }, 200, request, env);
+        try {
+          const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+          });
+          if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; return json({ exists: Array.isArray(list) && list.length > 0 }, 200, request, env); }
+        } catch (_) {}
+        return json({ exists: false }, 200, request, env);
+      }
+
+      // ---- Validate a promo code (admin-managed table) -----------------------
+      if (path.endsWith("/videography/promo") && request.method === "GET") {
+        const code = (url.searchParams.get("code") || "").trim().toUpperCase();
+        const service = (url.searchParams.get("service") || "").trim();
+        if (!code) return json({ ok: false, error: "Enter a code." }, 200, request, env);
+        const rows = await sbGet(env, "videography_promo_codes", `code=eq.${encodeURIComponent(code)}&select=*`);
+        const p = rows && rows[0];
+        if (!p) return json({ ok: false, error: "That code isn't recognised." }, 200, request, env);
+        if (p.active === false) return json({ ok: false, error: "That code is no longer active." }, 200, request, env);
+        if (p.expires_at && new Date(p.expires_at) < new Date()) return json({ ok: false, error: "That code has expired." }, 200, request, env);
+        if (p.max_redemptions != null && p.redemptions != null && p.redemptions >= p.max_redemptions) return json({ ok: false, error: "That code has been fully redeemed." }, 200, request, env);
+        if (Array.isArray(p.services) && p.services.length && service && !p.services.includes(service)) return json({ ok: false, error: "That code doesn't apply to this service." }, 200, request, env);
+        return json({ ok: true, code: p.code, kind: p.kind, value: p.value, label: p.label || p.code }, 200, request, env);
       }
 
       // ---- Discovery call — books a short call + a CRM lead ------------------

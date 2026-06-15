@@ -124,7 +124,7 @@ export const PRODUCTS = [
     priceTiers: [
       { label: "Property package", sub: "Full media package", minutes: 240, prices: { direct: 39500 } },
     ],
-    bookCtaLabel: "Enquire About Availability",
+    bookCtaLabel: "Check Availability",
     aboutHeading: "About",
     about: [
       "Jack specialises in property and lifestyle content, bringing a calm, considered approach and a consistent focus on quality to every shoot. He understands what makes a property perform on the portals — not just how to make it look good, but how to make it work hard across every channel it appears on.",
@@ -176,7 +176,7 @@ export const PRODUCTS = [
     priceTiers: [
       { label: "Agent Edit", sub: "Video & photography", minutes: 120, prices: { direct: 25000 } },
     ],
-    bookCtaLabel: "Get Your Quote",
+    bookCtaLabel: "Check Availability",
     aboutHeading: "About",
     about: [
       "Jack specialises in property and lifestyle content, bringing a calm, considered approach and a consistent focus on quality to every shoot. He understands what agents need to communicate online — not just how to look good on camera, but how to come across as credible, approachable, and worth calling.",
