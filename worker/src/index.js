@@ -14,6 +14,11 @@
 // and it works regardless of the project's signing scheme.
 // ---------------------------------------------------------------------------
 
+// Marketing-automation email rendering reuses the site's pure render lib so
+// automation emails look identical to Email Studio previews. (No deps — safe to
+// bundle into the Worker.)
+import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
+
 const PART_PREFIX = "deliverables";
 
 function corsHeaders(request, env) {
@@ -141,17 +146,32 @@ async function graph(env, method, path, body) {
   return data;
 }
 // Insert a row into Supabase with the service role.
-async function sbPost(env, table, row) {
+async function sbPost(env, table, row, prefer) {
   return fetch(`${env.SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
     headers: {
       apikey: env.SUPABASE_SERVICE_ROLE,
       Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`,
       "Content-Type": "application/json",
-      Prefer: "return=minimal",
+      Prefer: prefer || "return=minimal",
     },
     body: JSON.stringify(row),
   });
+}
+
+// Call a Postgres function (RPC) with the service role; returns the JSON result.
+async function sbRpc(env, fn, args) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args || {}),
+  });
+  if (!res.ok) return null;
+  try { return await res.json(); } catch (_) { return null; }
 }
 const hmToMin = (hm) => { const [h, m] = String(hm).split(":").map(Number); return h * 60 + m; };
 const minToHm = (min) => String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0");
@@ -298,27 +318,6 @@ async function sendEmail(env, { to, subject, html, attachments }) {
   } catch (_) { /* email is best-effort */ }
 }
 
-// Upsert a contact into GoHighLevel with tags (marketing sync). Best-effort and
-// fully gated: does nothing unless GHL_API_KEY + GHL_LOCATION_ID are set.
-async function ghlUpsert(env, { email, name, phone, company, tags }) {
-  if (!env.GHL_API_KEY || !env.GHL_LOCATION_ID || !email) return;
-  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-  const firstName = parts.shift() || "";
-  const lastName = parts.join(" ");
-  try {
-    await fetch("https://services.leadconnectorhq.com/contacts/upsert", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${env.GHL_API_KEY}`, Version: "2021-07-28", "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        locationId: env.GHL_LOCATION_ID, email,
-        firstName, lastName: lastName || undefined, name: name || undefined,
-        phone: phone || undefined, companyName: company || undefined,
-        tags: (tags || []).filter(Boolean), source: "TMKE Videography",
-      }),
-    });
-  } catch (_) { /* marketing sync is best-effort, never blocks the booking */ }
-}
-
 async function runReminders(env) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
@@ -359,10 +358,154 @@ async function runReminders(env) {
   }
 }
 
+// ============================================================================
+// Marketing-automations engine (Phase 1)
+//   fireTrigger()        — upsert the contact + enrol it into matching active
+//                          automations when an event happens.
+//   runAutomationsTick() — advance every enrolment whose next step is due
+//                          (runs on the frequent cron).
+// ============================================================================
+const AUTO_NODE_CAP = 40; // max steps advanced per enrolment per tick (loop guard)
+const nowISO = () => new Date().toISOString();
+function autoEdgeTo(graph, from, branch) {
+  const e = ((graph && graph.edges) || []).find((x) => x.from === from && (x.branch || "next") === (branch || "next"));
+  return e ? e.to : null;
+}
+function autoWaitMs(cfg) {
+  const amt = Math.max(0, Number(cfg.amount) || 0);
+  const unit = cfg.unit || "days";
+  const mult = unit === "minutes" ? 60e3 : unit === "hours" ? 3600e3 : unit === "weeks" ? 7 * 864e5 : 864e5;
+  return amt * mult;
+}
+
+async function fireTrigger(env, triggerType, contactInput, payload) {
+  if (!triggerType || !contactInput || !contactInput.email || !env.SUPABASE_SERVICE_ROLE) return { ok: false };
+  const cid = await sbRpc(env, "upsert_contact", {
+    p_email: contactInput.email,
+    p_first_name: contactInput.first_name || null,
+    p_last_name: contactInput.last_name || null,
+    p_phone: contactInput.phone || null,
+    p_company: contactInput.company || null,
+    p_source: contactInput.source || triggerType,
+    p_lifecycle: contactInput.lifecycle || null,
+    p_marketing_opt_in: typeof contactInput.marketing_opt_in === "boolean" ? contactInput.marketing_opt_in : null,
+    p_tags: contactInput.tags || null,
+    p_user_id: contactInput.user_id || null,
+  });
+  const contactId = Array.isArray(cid) ? cid[0] : cid;   // scalar uuid from the RPC
+  if (!contactId) return { ok: false };
+
+  const autos = (await sbGet(env, "automations", `status=eq.active&trigger_type=eq.${encodeURIComponent(triggerType)}&select=id,graph,trigger_config`)) || [];
+  let enrolled = 0;
+  for (const a of autos) {
+    const tc = a.trigger_config || {};
+    if (tc.tag && payload && payload.tag && tc.tag !== payload.tag) continue; // simple filter
+    const firstId = autoEdgeTo(a.graph, "trigger", "next");
+    if (!firstId) continue;
+    // The partial unique index blocks a second live enrolment; a 409 here just
+    // means "already enrolled" — we ignore it.
+    const res = await sbPost(env, "automation_enrollments", {
+      automation_id: a.id, contact_id: contactId, status: "active",
+      current_node_id: firstId, next_run_at: nowISO(), context: payload || {},
+    });
+    if (res && res.ok) enrolled++;
+  }
+  return { ok: true, contact_id: contactId, enrolled };
+}
+
+function autoEvalCondition(cfg, contact) {
+  const v = String(cfg.value ?? "").trim().toLowerCase();
+  if (cfg.field === "tag") return (contact.tags || []).map((t) => String(t).toLowerCase()).includes(v);
+  if (cfg.field === "marketing_opt_in") return String(!!contact.marketing_opt_in) === (v || "true");
+  if (cfg.field === "lifecycle") return String(contact.lifecycle || "").toLowerCase() === v;
+  return false;
+}
+
+async function autoExecAction(env, node, contact) {
+  const c = node.config || {};
+  try {
+    if (node.type === "send_email") {
+      if (contact.dnd || contact.dnd_email || !c.template_id) return;
+      const tRows = await sbGet(env, "email_templates", `id=eq.${c.template_id}&select=*`);
+      const t = tRows && tRows[0]; if (!t) return;
+      const brand = { ...defaultBrand(), ...(t.branding || {}) };
+      const recipient = { name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email, first_name: contact.first_name || "", email: contact.email, company: contact.company || "" };
+      const { subject, html } = renderTemplate(
+        { subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
+        { brand, mergeCtx: mergeContextFor(recipient, brand) }
+      );
+      await sendEmail(env, { to: contact.email, subject, html });
+    } else if (node.type === "add_tag" && c.tag) {
+      const tags = Array.from(new Set([...(contact.tags || []), c.tag])); contact.tags = tags;
+      await sbPatch(env, "contacts", `id=eq.${contact.id}`, { tags });
+    } else if (node.type === "remove_tag" && c.tag) {
+      const tags = (contact.tags || []).filter((t) => t !== c.tag); contact.tags = tags;
+      await sbPatch(env, "contacts", `id=eq.${contact.id}`, { tags });
+    } else if (node.type === "add_note" && c.body) {
+      await sbPost(env, "contact_notes", { contact_id: contact.id, body: c.body, author: "Automation" });
+    } else if (node.type === "create_task" && c.title) {
+      const due = c.due_days != null ? new Date(Date.now() + Number(c.due_days) * 864e5).toISOString() : null;
+      await sbPost(env, "contact_tasks", { contact_id: contact.id, title: c.title, due_at: due });
+    } else if (node.type === "set_dnd") {
+      contact.dnd = true; await sbPatch(env, "contacts", `id=eq.${contact.id}`, { dnd: true });
+    } else if (node.type === "set_field" && c.field) {
+      const patch = {}; patch[c.field] = c.value; contact[c.field] = c.value;
+      await sbPatch(env, "contacts", `id=eq.${contact.id}`, patch);
+    } else if (node.type === "notify_team" && c.to) {
+      await sendEmail(env, { to: c.to, subject: `Automation — ${c.note || "update"}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="color:#888;font-size:12px">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
+    }
+  } catch (_) { /* one failed action shouldn't wedge the tick */ }
+}
+
+async function advanceEnrollment(env, enr) {
+  const stop = (status, extra) => sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, { status, ...(extra || {}) });
+  const aRows = await sbGet(env, "automations", `id=eq.${enr.automation_id}&select=id,status,graph`);
+  const auto = aRows && aRows[0];
+  if (!auto || auto.status !== "active") return stop("stopped");
+  const cRows = await sbGet(env, "contacts", `id=eq.${enr.contact_id}&select=*`);
+  const contact = cRows && cRows[0];
+  if (!contact) return stop("stopped");
+  const graph = auto.graph || { nodes: [], edges: [] };
+  const nodes = graph.nodes || [];
+  let cur = enr.current_node_id;
+  for (let steps = 0; steps < AUTO_NODE_CAP; steps++) {
+    const node = nodes.find((n) => n.id === cur);
+    if (!node) return stop("completed");
+    if (node.type === "wait") {
+      const next = autoEdgeTo(graph, cur, "next");
+      return sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, {
+        current_node_id: next, next_run_at: new Date(Date.now() + autoWaitMs(node.config || {})).toISOString(),
+        status: next ? "active" : "completed",
+      });
+    }
+    let branch = "next";
+    if (node.type === "if_else") branch = autoEvalCondition(node.config || {}, contact) ? "yes" : "no";
+    else await autoExecAction(env, node, contact);
+    await sbPost(env, "automation_runs", { enrollment_id: enr.id, automation_id: auto.id, contact_id: contact.id, node_id: cur, node_type: node.type, outcome: "ok" });
+    const next = autoEdgeTo(graph, cur, branch);
+    if (!next) return stop("completed", { current_node_id: cur });
+    cur = next;
+  }
+  // Step cap reached — resume shortly (guards against graph loops).
+  return sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, { current_node_id: cur, next_run_at: new Date(Date.now() + 60e3).toISOString() });
+}
+
+async function runAutomationsTick(env) {
+  if (!env.SUPABASE_SERVICE_ROLE) return 0;
+  const due = (await sbGet(env, "automation_enrollments", `status=eq.active&next_run_at=lte.${encodeURIComponent(nowISO())}&select=*&order=next_run_at.asc&limit=50`)) || [];
+  for (const enr of due) {
+    try { await advanceEnrollment(env, enr); }
+    catch (_) { await sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, { status: "error" }); }
+  }
+  return due.length;
+}
+
 export default {
-  // Daily cron (see wrangler.toml [triggers]) — emails posts due today.
+  // Cron (see wrangler.toml [triggers]). The daily 07:00 run sends post
+  // reminders; every other (frequent) run advances due automation enrolments.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runReminders(env));
+    if (event && event.cron === "0 7 * * *") ctx.waitUntil(runReminders(env));
+    else ctx.waitUntil(runAutomationsTick(env));
   },
 
   async fetch(request, env) {
@@ -751,20 +894,42 @@ export default {
           html: jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns: add_ons, postcode, distanceMiles: distance_miles, surchargePence: surcharge_pence, dateNice, time: start, totalPence: total_pence, signedName: signed_name, marketingOptIn: marketing_opt_in }),
         });
 
-        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Booking", service, audience === "member" ? "Member" : "Non-member", marketing_opt_in ? "Marketing opt-in" : "No marketing"] });
+        // CRM + automations: upsert the contact; a brand-new account kicks off
+        // any "account created" automation (e.g. the welcome series).
+        try {
+          const fn = String(name || "").trim().split(/\s+/);
+          const ci = { email, first_name: fn.shift() || name, last_name: fn.join(" ") || null, phone, company,
+            source: "videography_" + (service_type || "booking"), lifecycle: "customer",
+            marketing_opt_in: !!marketing_opt_in, user_id: accountUserId };
+          if (accountCreated) await fireTrigger(env, "account_created", ci, { service, package: pkg });
+          else await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: ci.first_name, p_last_name: ci.last_name, p_phone: phone || null, p_company: company || null, p_source: ci.source, p_lifecycle: "customer", p_marketing_opt_in: !!marketing_opt_in, p_user_id: accountUserId });
+        } catch (_) {}
+
         return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
       }
 
-      // ---- Non-member enquiry (Property / Agent) — a CRM lead, no calendar ---
+      // ---- Non-member enquiry (Property / Agent) — lands in the Enquiries inbox
+      // (/admin/enquiries), tagged with a videography source, plus an FYI email
+      // to Jack. It is NOT added to Jack's videography pipeline (that's bookings).
       if (path.endsWith("/videography/enquiry") && request.method === "POST") {
         const b = await request.json().catch(() => ({}));
         const { service, service_type, name, email, phone, company, postcode, message, marketing_opt_in } = b || {};
         if (!name || !email) return json({ error: "Please add your name and email." }, 400, request, env);
-        await sbPost(env, "videography_bookings", {
-          kind: "enquiry", service_type: service_type || null, audience: "non-member",
-          client_name: name, client_email: email, client_phone: phone || null, company: company || null,
-          postcode: postcode || null, service: service || null, stage: "enquiry_non_member",
-          enquiry_message: message || null, notes: message || null, marketing_opt_in: !!marketing_opt_in,
+        // Split the full name — the enquiries table needs a non-empty last name.
+        const nameParts = String(name).trim().split(/\s+/);
+        const firstName = nameParts.shift() || name;
+        const lastName = nameParts.join(" ") || "—";
+        // Fold the fields the enquiries table has no column for into the message.
+        const fullMessage = [
+          message || "",
+          postcode ? `Property / shoot postcode: ${postcode}` : "",
+          `Marketing opt-in: ${marketing_opt_in ? "yes" : "no"}`,
+        ].filter(Boolean).join("\n\n");
+        await sbPost(env, "enquiries", {
+          first_name: firstName, last_name: lastName, email,
+          phone: phone || null, business_name: company || null,
+          industry: service || null, message: fullMessage,
+          source: `videography_${service_type || "general"}`, status: "new",
         });
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
@@ -787,9 +952,17 @@ export default {
               ${postcode ? `<div><span style="color:#888">Location:</span> ${esc(postcode)}</div>` : ""}
               ${message ? `<div><span style="color:#888">Message:</span> ${esc(message)}</div>` : ""}
             </div>
-            <p style="font-size:12px;color:#999;margin:18px 0 0">In the CRM pipeline as a lead (enquiry_non_member).</p></div>`,
+            <p style="font-size:12px;color:#999;margin:18px 0 0">Saved to the Enquiries inbox (/admin/enquiries).</p></div>`,
         });
-        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Enquiry", service, marketing_opt_in ? "Marketing opt-in" : "No marketing"].filter(Boolean) });
+        // CRM + automations: this is a form submission — upsert the lead and fire
+        // any "form submitted" automation.
+        try {
+          await fireTrigger(env, "form_submitted", {
+            email, first_name: firstName, last_name: lastName === "—" ? null : lastName,
+            phone: phone || null, company: company || null, source: "videography_enquiry",
+            lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
+          }, { form: service_type || "videography" });
+        } catch (_) {}
         return json({ ok: true }, 200, request, env);
       }
 
@@ -805,7 +978,6 @@ export default {
           client_email: email, service: "Content Studio", stage: "enquiry_non_member",
           notes: "Register interest (members-only service)", marketing_opt_in: optin,
         });
-        await ghlUpsert(env, { email, tags: ["TMKE Videography", "Register Interest", optin ? "Marketing opt-in" : "No marketing"] });
         return json({ ok: true }, 200, request, env);
       }
 
@@ -835,6 +1007,30 @@ export default {
         if (p.max_redemptions != null && p.redemptions != null && p.redemptions >= p.max_redemptions) return json({ ok: false, error: "That code has been fully redeemed." }, 200, request, env);
         if (Array.isArray(p.services) && p.services.length && service && !p.services.includes(service)) return json({ ok: false, error: "That code doesn't apply to this service." }, 200, request, env);
         return json({ ok: true, code: p.code, kind: p.kind, value: p.value, label: p.label || p.code }, 200, request, env);
+      }
+
+      // ---- Automations: fire a trigger (enrol a contact) --------------------
+      // Called by trusted, signed-in surfaces (e.g. admin records an order, a new
+      // customer signs up). Requires a valid session so it can't be spammed.
+      if (path.endsWith("/automations/fire") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Unauthorised" }, 401, request, env);
+        const b = await request.json().catch(() => ({}));
+        if (!b || !b.trigger || !b.email) return json({ error: "Need a trigger and email." }, 400, request, env);
+        const r = await fireTrigger(env, b.trigger, {
+          email: b.email, first_name: b.first_name, last_name: b.last_name,
+          phone: b.phone, company: b.company, source: b.source,
+          lifecycle: b.lifecycle, marketing_opt_in: b.marketing_opt_in, tags: b.tags, user_id: b.user_id,
+        }, b.payload || {});
+        return json(r, 200, request, env);
+      }
+
+      // ---- Automations: manual tick (admin testing; cron runs it normally) ---
+      if (path.endsWith("/automations/tick") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Unauthorised" }, 401, request, env);
+        const n = await runAutomationsTick(env);
+        return json({ ok: true, processed: n }, 200, request, env);
       }
 
       // ---- Discovery call — books a short call + a CRM lead ------------------
@@ -895,7 +1091,6 @@ export default {
               ${message ? `<div><span style="color:#888">Notes:</span> ${esc(message)}</div>` : ""}
             </div></div>`,
         });
-        await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Discovery Call", ...interestList].filter(Boolean) });
         return json({ ok: true, eventId: ev.id }, 200, request, env);
       }
 
