@@ -1777,6 +1777,7 @@
     renderProps();
     renderTemplateGrid();
     renderPageStrip();
+    renderMargins();
     // Keep the page-strip preview of the page being edited live (only while the
     // strip is visible, debounced, so editing stays snappy).
     scheduleCurrentThumb();
@@ -2217,6 +2218,12 @@
     if (el.type === "line") {
       const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
       node.style.background = grad || el.fill || "#000";
+    }
+    if (el.type === "frame") {
+      // Corner rounding + outline. Rounding/border read best on rectangular
+      // frame shapes; shaped frames (circle/arch/diamond) clip the border away.
+      node.style.borderRadius = el.radius ? el.radius + "px" : "";
+      node.style.border = el.frameBorderWidth ? (el.frameBorderWidth + "px solid " + (el.frameBorder || "#1c1d22")) : "";
     }
 
     // Shadow / glow — applied as a CSS filter so it follows alpha and clip-paths.
@@ -2765,10 +2772,11 @@
         partialRenderElement(el);
       });
 
-      // Snap guides for single selection
+      // Snap + smart distance guides for single selection
       if (initial.length === 1) {
         const el = getEl(initial[0].id);
-        applySnap(el);
+        applySnap(el);        // clears guides, draws alignment lines, edge-snaps
+        drawDistances(el);    // adds pixel-distance badges + equal-spacing snap
         partialRenderElement(el);
       }
       renderHandles();
@@ -2986,6 +2994,91 @@
         else if (Math.abs(el.y + el.h - ty) < threshold) { el.y = ty - el.h; drawGuide("h", ty); }
       });
     });
+  }
+
+  // ---------- Smart distance guides (Canva-style) ----------
+  // While dragging one element, measure the gap to the nearest element on each
+  // side (that overlaps on the perpendicular axis) and show a labelled pixel
+  // distance. When the gaps on opposite sides are nearly equal, snap the element
+  // so it's evenly spaced between its two neighbours.
+  function _rangesOverlap(a0, a1, b0, b1) { return Math.min(a1, b1) - Math.max(a0, b0) > 0; }
+  function drawDistance(orientation, a, b, perp) {
+    const px = Math.round(Math.abs(b - a));
+    if (px < 1) return;
+    const lo = Math.min(a, b);
+    const line = document.createElement("div");
+    line.className = "ed-dist-line " + (orientation === "h" ? "ed-dist-line-h" : "ed-dist-line-v");
+    const badge = document.createElement("div");
+    badge.className = "ed-dist";
+    badge.textContent = px;
+    if (orientation === "h") {
+      line.style.left = lo + "px"; line.style.top = perp + "px"; line.style.width = px + "px";
+      badge.style.left = (lo + px / 2) + "px"; badge.style.top = perp + "px";
+    } else {
+      line.style.top = lo + "px"; line.style.left = perp + "px"; line.style.height = px + "px";
+      badge.style.top = (lo + px / 2) + "px"; badge.style.left = perp + "px";
+    }
+    guidesEl.appendChild(line);
+    guidesEl.appendChild(badge);
+  }
+  function drawDistances(el) {
+    const others = state.elements.filter((o) => o.id !== el.id && !o.hidden);
+    const ex0 = el.x, ex1 = el.x + el.w, ey0 = el.y, ey1 = el.y + el.h;
+    // Horizontal neighbours (their vertical span overlaps this element's)
+    let leftN = null, rightN = null;
+    others.forEach((o) => {
+      if (!_rangesOverlap(ey0, ey1, o.y, o.y + o.h)) return;
+      if (o.x + o.w <= ex0) { if (!leftN || (o.x + o.w) > (leftN.x + leftN.w)) leftN = o; }
+      else if (o.x >= ex1) { if (!rightN || o.x < rightN.x) rightN = o; }
+    });
+    const perpY = el.y + el.h / 2;
+    if (leftN) drawDistance("h", leftN.x + leftN.w, ex0, perpY);
+    if (rightN) drawDistance("h", ex1, rightN.x, perpY);
+    // Vertical neighbours (their horizontal span overlaps this element's)
+    let topN = null, botN = null;
+    others.forEach((o) => {
+      if (!_rangesOverlap(ex0, ex1, o.x, o.x + o.w)) return;
+      if (o.y + o.h <= ey0) { if (!topN || (o.y + o.h) > (topN.y + topN.h)) topN = o; }
+      else if (o.y >= ey1) { if (!botN || o.y < botN.y) botN = o; }
+    });
+    const perpX = el.x + el.w / 2;
+    if (topN) drawDistance("v", topN.y + topN.h, ey0, perpX);
+    if (botN) drawDistance("v", ey1, botN.y, perpX);
+    // Equal-spacing snap — centre between two flanking neighbours when close.
+    const eqTol = 4;
+    if (leftN && rightN && Math.abs((ex0 - (leftN.x + leftN.w)) - (rightN.x - ex1)) < eqTol) {
+      el.x = Math.round(((leftN.x + leftN.w) + rightN.x) / 2 - el.w / 2);
+    }
+    if (topN && botN && Math.abs((ey0 - (topN.y + topN.h)) - (botN.y - ey1)) < eqTol) {
+      el.y = Math.round(((topN.y + topN.h) + botN.y) / 2 - el.h / 2);
+    }
+  }
+
+  // ---------- Safe-area / margin guides ----------
+  // A toggleable dashed rectangle inset from the canvas edges, so designers keep
+  // content within a safe margin. Lives in its own persistent overlay (NOT the
+  // transient snap-guides layer) and scales with the canvas via the shadow.
+  function renderMargins() {
+    const shadow = canvasEl && canvasEl.parentNode;
+    if (!shadow) return;
+    let ov = document.getElementById("ed-margins");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "ed-margins";
+      ov.className = "ed-margins";
+      shadow.insertBefore(ov, guidesEl || null);
+    }
+    const m = state.margins || (state.margins = { on: false, size: 60 });
+    if (!m.on) { ov.hidden = true; ov.innerHTML = ""; return; }
+    const W = state.canvas.width, H = state.canvas.height, s = Math.max(0, m.size || 0);
+    ov.hidden = false;
+    ov.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "ed-margin-box";
+    box.style.left = s + "px"; box.style.top = s + "px";
+    box.style.width = Math.max(0, W - 2 * s) + "px";
+    box.style.height = Math.max(0, H - 2 * s) + "px";
+    ov.appendChild(box);
   }
 
   // A large, centred, editable "Start building here" text box — what the blank
@@ -4053,10 +4146,41 @@
 
     if (state.selectedIds.length !== 1) {
       closeColorPanel();
-      body.innerHTML = state.selectedIds.length > 1
-        ? '<p class="ed-selection-empty">' + state.selectedIds.length + ' elements selected.</p>'
-        : '';
-      if (state.selectedIds.length === 0) {
+      if (state.selectedIds.length > 1) {
+        // Multi-select: show the group's bounding-box X/Y (editable — moves the
+        // whole group) and its overall W/H (read-only). Previously the inspector
+        // showed nothing but the count, so you lost the position readout.
+        const gels = selectedElements();
+        const minX = Math.min.apply(null, gels.map(function (e) { return e.x; }));
+        const minY = Math.min.apply(null, gels.map(function (e) { return e.y; }));
+        const maxX = Math.max.apply(null, gels.map(function (e) { return e.x + e.w; }));
+        const maxY = Math.max.apply(null, gels.map(function (e) { return e.y + e.h; }));
+        body.innerHTML =
+          '<p class="ed-selection-empty">' + gels.length + ' elements selected.</p>' +
+          '<div class="ed-props-section"><h4>Position &amp; size</h4>' +
+            '<div class="ed-props-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+              '<div class="ed-props-field"><label>X</label><input type="number" id="ed-grp-x" value="' + Math.round(minX) + '"></div>' +
+              '<div class="ed-props-field"><label>Y</label><input type="number" id="ed-grp-y" value="' + Math.round(minY) + '"></div>' +
+            '</div>' +
+            '<div class="ed-props-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+              '<div class="ed-props-field"><label>Width</label><input type="number" value="' + Math.round(maxX - minX) + '" disabled></div>' +
+              '<div class="ed-props-field"><label>Height</label><input type="number" value="' + Math.round(maxY - minY) + '" disabled></div>' +
+            '</div>' +
+          '</div>';
+        if (typeof showPane === "function") showPane("selection");
+        const gx = body.querySelector("#ed-grp-x"), gy = body.querySelector("#ed-grp-y");
+        const moveGroup = function () {
+          const nx = parseFloat(gx.value), ny = parseFloat(gy.value);
+          const ddx = isFinite(nx) ? Math.round(nx) - Math.round(minX) : 0;
+          const ddy = isFinite(ny) ? Math.round(ny) - Math.round(minY) : 0;
+          if (!ddx && !ddy) return;
+          gels.forEach(function (e) { e.x = Math.round(e.x + ddx); e.y = Math.round(e.y + ddy); });
+          fullRender(); pushHistory();
+        };
+        if (gx) gx.addEventListener("change", moveGroup);
+        if (gy) gy.addEventListener("change", moveGroup);
+      } else {
+        body.innerHTML = '';
         // Nothing selected — go back to whatever tool tab the rail is on.
         if (typeof showPane === "function" && typeof activeToolPane === "string") {
           showPane(activeToolPane);
@@ -4123,6 +4247,13 @@
         '<div class="ed-props-section"><h4>Frame</h4>' +
           '<div class="ed-props-field"><label>Shape</label>' +
             '<select data-prop="frameShape">' + shapeHtml + '</select>' +
+          '</div>' +
+          // Corner rounding (rectangular frames) + an outline/border on the frame.
+          '<div class="ed-props-field"><label>Corner radius</label>' +
+            '<input type="range" min="0" max="200" data-prop="radius" value="' + (el.radius || 0) + '"></div>' +
+          '<div class="ed-props-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+            '<div class="ed-props-field"><label>Border</label><input type="color" data-prop="frameBorder" value="' + rgbHex(el.frameBorder || '#1c1d22') + '"></div>' +
+            '<div class="ed-props-field"><label>Border width</label><input type="number" min="0" max="40" data-prop="frameBorderWidth" value="' + (el.frameBorderWidth || 0) + '"></div>' +
           '</div>' +
           (el.src
             ? ('<div class="ed-props-field"><label>Zoom</label>' +
@@ -5735,6 +5866,34 @@
     });
   }
 
+  // ---------- Drop a photo/upload anywhere on the canvas ----------
+  // Frames have their own drop handlers (they stopPropagation), so a drop that
+  // reaches the canvas is on empty space → drop a floating image where released.
+  // Works for both Pexels photos and uploaded images (same drag data).
+  function addImageAt(src, cx, cy) {
+    const w = 500, h = 500;
+    addElement({ type: "image", x: Math.round(cx - w / 2), y: Math.round(cy - h / 2), w, h, src, opacity: 1, rotation: 0 });
+  }
+  function _dtHasUri(dt) {
+    const t = (dt && dt.types) || [];
+    return (t.indexOf ? t.indexOf("text/uri-list") !== -1 || t.indexOf("text/plain") !== -1 : false);
+  }
+  canvasEl.addEventListener("dragover", function (e) {
+    if (!_dtHasUri(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+  canvasEl.addEventListener("drop", function (e) {
+    if (!e.dataTransfer) return;
+    const src = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+    if (!src) return;
+    e.preventDefault();
+    const rect = canvasEl.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / state.zoom;
+    const y = (e.clientY - rect.top) / state.zoom;
+    addImageAt(src, x, y);
+  });
+
   // ---------- Toolbar buttons ----------
   $("ed-undo").addEventListener("click", undo);
   $("ed-redo").addEventListener("click", redo);
@@ -5742,6 +5901,24 @@
   $("ed-zoom-out").addEventListener("click", () => setZoom(state.zoom - 0.1));
   $("ed-zoom-fit").addEventListener("click", fitZoom);
   zoomDisplayEl.addEventListener("click", () => setZoom(1));
+
+  // Safe-area / margin guides toggle + size.
+  (function () {
+    const mt = $("ed-margins-toggle");
+    const ms = $("ed-margins-size");
+    if (!mt) return;
+    state.margins = state.margins || { on: false, size: (ms && parseFloat(ms.value)) || 60 };
+    mt.addEventListener("click", function () {
+      state.margins.on = !state.margins.on;
+      mt.setAttribute("aria-pressed", state.margins.on ? "true" : "false");
+      renderMargins();
+    });
+    if (ms) ms.addEventListener("change", function () {
+      const v = parseFloat(ms.value);
+      state.margins.size = isFinite(v) ? Math.max(0, v) : 60;
+      renderMargins();
+    });
+  })();
   $("ed-save").addEventListener("click", async function () {
     const btn = $("ed-save");
     const label = btn.innerHTML;
