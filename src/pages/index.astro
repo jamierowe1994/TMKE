@@ -29,31 +29,16 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
   title="TMKE — The Marketing Experts"
   description="A specialist social media and marketing agency for the UK property sector. Premium templates, fully managed channels, structured content."
 >
-  <!-- ============================== HERO (TMKE fold-out)
-       Centre: "TMKE" with the image showing through the letterforms + a dark
-       outline. As you scroll the full image unfolds from the centre of the word
-       to fill the screen (30px cream frame). Three bottom labels sit on top and
-       shift dark->light as the photo passes under them. -->
-  <section id="top" class="hero-zoom" data-reveal-root>
-    <div class="hero-zoom-pin">
-      <!-- Snakeskin resting surface — the texture the home page opens on, behind
-           the photo. The controller fades it out as the photo irises in, so the
-           snakeskin is only there BEFORE the animation. Only shown once the image
-           loads (.has-snakeskin), so nothing breaks if the asset is missing. -->
-      <div class="hero-zoom-skin" aria-hidden="true"></div>
-      <!-- Layer A — the photo that unfolds to full screen -->
-      <div class="hero-zoom-media">
-        <img class="hero-zoom-img" src="https://assets.tmke.co.uk/TMKE%20Home%20Page/TMKE%20Emboss%20Dark.png" alt="A TMKE interior" />
-      </div>
-      <!-- Layer B — TMKE wordmark (brand serif), dead centre -->
-      <h1 class="hero-zoom-word" aria-label="TMKE">TMKE</h1>
-      <!-- (Sofa-cushion foreground overlay removed per design.) -->
-      <!-- Bottom labels: left / centre / right -->
-      <div class="hero-zoom-foot">
-        <span class="hz-foot hz-foot--l">Established in 2025</span>
-        <span class="hz-foot hz-foot--m">Marketing that actually works</span>
-        <span class="hz-foot hz-foot--r">Chapter One</span>
-      </div>
+  <!-- ============================== HERO (cinematic background swap)
+       The statues stay fixed in the foreground; the background pushes left from
+       the clouds scene into the modern office as you scroll, blurring through the
+       middle. Pinned: the swap plays out over the scroll length, then releases to
+       normal page scroll. -->
+  <section id="top" class="hero-cine" data-reveal-root>
+    <div class="hero-cine-pin">
+      <div class="hc-bg hc-bg--clouds"></div>
+      <div class="hc-bg hc-bg--office"></div>
+      <img class="hc-statues" src="https://assets.tmke.co.uk/TMKE%20Home%20Page/Hero%20No%20Background.png" alt="" />
     </div>
   </section>
 
@@ -439,7 +424,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
          in line with the Social Media Management piece. Static (no parallax). -->
     <figure class="quote-photo quote-photo--table">
       <div class="quote-photo-frame">
-        <img src="https://assets.tmke.co.uk/table.webp" alt="" loading="lazy" />
+        <img src="https://assets.tmke.co.uk/TMKE%20Home%20Page/Home%20page%20section%206.jpg" alt="" loading="lazy" />
       </div>
     </figure>
   </section>
@@ -467,8 +452,27 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 
   <!-- Five & Live floating tab removed for now (per design review). -->
 
-  <!-- ===================== TMKE fold-out hero styles ===================== -->
+  <!-- ===================== TMKE hero styles ===================== -->
   <style>
+    /* Cinematic hero — statues fixed in front; the background pushes from the
+       clouds scene to the office as you scroll, blurring through the middle.
+       Transforms + blur are driven by the controller below. */
+    .hero-cine { position: relative; height: 250vh; background: var(--paper); }
+    .hero-cine-pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+    .hc-bg {
+      position: absolute; inset: 0;
+      background-size: cover; background-position: center;
+      will-change: transform, filter; backface-visibility: hidden;
+    }
+    .hc-bg--clouds { background-image: url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Hero%20Clouds.png'); z-index: 1; }
+    .hc-bg--office { background-image: url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Hero%20Office.png'); z-index: 2; transform: translateX(100vw); }
+    .hc-statues {
+      position: absolute; inset: 0; z-index: 3;
+      width: 100%; height: 100%;
+      object-fit: cover; object-position: center;
+      will-change: transform; pointer-events: none;
+    }
+
     .hero-zoom {
       position: relative;
       height: 260vh;            /* scroll length of the unfold */
@@ -623,107 +627,38 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     /* Reduced motion: present the full framed photo + labels, no scrub. */
   </style>
 
-  <!-- Fold-out controller: the photo unfolds from the centre of the TMKE
-       lettering to a 30px-framed full screen; the word fades as it goes, and
-       the bottom labels shift dark->light as the photo arrives under them. -->
+  <!-- Cinematic hero controller: as the pinned section scrolls, the background
+       pushes left (clouds out, office in) and blurs through the middle; the
+       statues stay fixed in front. Nav stays transparent over the hero. -->
   <script>
     (function () {
-      const hero = document.querySelector(".hero-zoom");
-      if (!hero) return;
-      const media = hero.querySelector(".hero-zoom-media");
-      const fg = hero.querySelector(".hero-zoom-fg");
-      const word = hero.querySelector(".hero-zoom-word");
-      const skin = hero.querySelector(".hero-zoom-skin");
-      // Snakeskin texture — set on the hero (so the surface layer + the wordmark
-      // both inherit --snakeskin) only once the image actually loads, so nothing
-      // breaks if the asset is missing. Tries the known filename + fallbacks.
-      (function () {
-        const urls = [
-          "https://assets.tmke.co.uk/TMKE%20Home%20Page/TMKE%20Header2.png",
-          "https://assets.tmke.co.uk/snake%20skin.png",
-          "https://assets.tmke.co.uk/snakeskin.webp",
-          "https://assets.tmke.co.uk/snakeskin.jpg",
-          "https://assets.tmke.co.uk/snakeskin.png",
-        ];
-        let i = 0;
-        (function next() {
-          if (i >= urls.length) return;
-          const url = urls[i++];
-          const im = new Image();
-          im.onload = () => { hero.style.setProperty("--snakeskin", "url('" + url + "')"); hero.classList.add("has-snakeskin"); update(); };
-          im.onerror = next;
-          im.src = url;
-        })();
-      })();
-      const foot = hero.querySelector(".hero-zoom-foot");
+      const sec = document.querySelector(".hero-cine");
+      if (!sec) return;
+      const clouds = sec.querySelector(".hc-bg--clouds");
+      const office = sec.querySelector(".hc-bg--office");
       const nav = document.getElementById("nav");
-      const smooth = (t) => t * t * (3 - 2 * t);
       const clamp01 = (t) => Math.max(0, Math.min(1, t));
-      const lerp = (a, b, t) => a + (b - a) * t;
+      const smooth = (t) => t * t * (3 - 2 * t);
       const update = () => {
-        const rect = hero.getBoundingClientRect();
-        // Once the hero has fully scrolled past, stop touching it (the nav was
-        // already cleared on the way out) — no per-frame clip-path work.
-        if (rect.bottom < -10) return;
-        const total = hero.offsetHeight - window.innerHeight;
-        const scrolled = Math.min(Math.max(-rect.top, 0), total);
-        const p = total > 0 ? scrolled / total : 0;
-        const e = smooth(clamp01(p / 0.82));             // iris out over first ~82%
-        const vw = window.innerWidth, vh = window.innerHeight;
-        // circle irises out from the viewport centre (where the word sits) until
-        // it covers the box (top:0, 30px on the other sides → top corners reach last)
-        const halfW = vw / 2 - 30, halfH = vh / 2;
-        const rMax = Math.sqrt(halfW * halfW + halfH * halfH);
-        const clip = "circle(" + (e * rMax).toFixed(1) + "px at 50% " + (vh / 2).toFixed(0) + "px)";
-        media.style.clipPath = clip;
-        if (fg) fg.style.clipPath = clip;     // cushions reveal in lockstep
-        // Snakeskin resting surface: full at rest, fades out as the photo opens
-        // (snakeskin is only there BEFORE the animation). The wordmark is stamped
-        // into it only while resting (.is-skin); once the fold-out begins we drop
-        // the snakeskin so the word transitions to its normal state.
-        const hasSkin = hero.classList.contains("has-snakeskin");
-        // Keep the resting background fully visible the whole time — the photo
-        // simply irises in OVER it, instead of the background fading to white.
-        // BUT crop it inward to match the photo's 30px frame as it opens, so the
-        // leftover edges become the paper border by the time the photo fills the
-        // frame. Eased + back-loaded (starts ~30% in, done by ~90%) so the edges
-        // recede imperceptibly rather than snapping to white.
-        if (skin) {
-          skin.style.opacity = hasSkin ? "1" : "0";
-          const crop = (smooth(clamp01((e - 0.3) / 0.6)) * 30).toFixed(1);
-          skin.style.clipPath = "inset(0px " + crop + "px " + crop + "px " + crop + "px)";
-        }
-        if (word) { if (hasSkin && e < 0.06) word.classList.add("is-skin"); else word.classList.remove("is-skin"); }
-        // word: embossed #eae5e1 at rest -> secondary taupe #7e6765 as the photo irises past it
-        const wc = smooth(clamp01((e - 0.04) / 0.42));
-        word.style.color =
-          "rgb(" + Math.round(lerp(234, 126, wc)) + "," + Math.round(lerp(229, 103, wc)) + "," + Math.round(lerp(225, 101, wc)) + ")";
-        // Relief edges (the emboss) are full at rest and fade out over the first
-        // sliver of scroll; the drop shadow fades in once the photo is behind.
-        const carve = clamp01(1 - e / 0.1);
-        const sh = smooth(clamp01((e - 0.12) / 0.4));
-        // Raised-out-of-leather edges (light from above): warm highlight on
-        // the TOP edge, soft shadow on the BOTTOM edge.
-        word.style.textShadow =
-          "-1px -1px 1px rgba(255,252,245," + (0.70 * carve).toFixed(3) + ")," +
-          "-2px -2px 5px rgba(255,252,245," + (0.35 * carve).toFixed(3) + ")," +
-          "1px 1px 1px rgba(18,12,8," + (0.28 * carve).toFixed(3) + ")," +
-          "2px 2px 6px rgba(18,12,8," + (0.15 * carve).toFixed(3) + ")," +
-          "0 3px 8px rgba(0,0,0," + (0.18 * sh).toFixed(3) + ")," +
-          "0 12px 34px rgba(0,0,0," + (0.12 * sh).toFixed(3) + ")";
-        // bottom labels: ink -> paper as the photo reaches them (late)
-        const t = smooth(clamp01((e - 0.55) / 0.4));
-        foot.style.color =
-          "rgb(" + Math.round(lerp(28, 242, t)) + "," + Math.round(lerp(29, 239, t)) + "," + Math.round(lerp(34, 233, t)) + ")";
-        // Nav: stay fully transparent the ENTIRE time the hero image still
-        // covers the top of the viewport — including the held-full state and the
-        // scroll-away — so the cream bar never "drops in" over the finished
-        // image. It only gains its background once the hero has scrolled past
-        // the top and the next section reaches it (rect.bottom near 0).
+        const rect = sec.getBoundingClientRect();
+        const total = sec.offsetHeight - window.innerHeight;
+        const p = total > 0 ? clamp01(-rect.top / total) : 0;
+        const e = smooth(p);
+        const vw = window.innerWidth;
+        // Background pushes left: clouds exit, office slides in from the right.
+        // Clouds moves a touch slower (0.7) so it always overlaps BEHIND the
+        // incoming office — the office (on top) covers the join, so the blurred
+        // edges never reveal the page behind (no white seam). Also adds parallax.
+        if (clouds) clouds.style.transform = "translateX(" + (-e * vw * 0.7).toFixed(1) + "px)";
+        if (office) office.style.transform = "translateX(" + ((1 - e) * vw).toFixed(1) + "px)";
+        // Blur peaks through the middle of the swap, sharp at both ends.
+        const blur = (Math.sin(e * Math.PI) * 14).toFixed(1);
+        if (clouds) clouds.style.filter = "blur(" + blur + "px)";
+        if (office) office.style.filter = "blur(" + blur + "px)";
         if (nav) {
-          const heroAtTop = rect.bottom > 80;
-          nav.classList.toggle("nav--over-hero", heroAtTop);
-          nav.classList.toggle("nav--on-image", heroAtTop && e > 0.5);
+          const atTop = rect.bottom > 80;
+          nav.classList.toggle("nav--over-hero", atTop);
+          nav.classList.toggle("nav--on-image", atTop);
         }
       };
       update();
