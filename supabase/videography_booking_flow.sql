@@ -30,10 +30,15 @@ alter table videography_bookings
   add column if not exists ms_event_id         text,                        -- linked 365 calendar event (cancel/reschedule)
   add column if not exists duration_min        integer;                     -- slot length (for reschedule availability)
 
--- `stage` is a free-text status column; the lead statuses below are just new
--- values (no enum change needed):
+-- `stage` must be free-text so lead statuses can live alongside the pipeline
+-- stages. The base table (supabase/videography.sql) created `stage` with a
+-- CHECK constraint limiting it to the six kanban stages — that blocks the lead
+-- statuses below (the INSERT is rejected and, because the Worker write is
+-- best-effort, the failure is silent). Drop it so all statuses are allowed:
 --   booked | shoot_day | editing | final_draft | invoice_out | complete
 --   discovery_call_booked | enquiry_non_member
+alter table public.videography_bookings
+  drop constraint if exists videography_bookings_stage_check;
 
 -- ---- Per-service availability ----------------------------------------------
 -- One calendar (Jack's) for now; service_type lets the public calendar show the

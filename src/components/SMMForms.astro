@@ -1,0 +1,401 @@
+---
+// TMKE Social Media — lead-capture forms (one modal, multiple panes).
+//   Phase 2: "Get in Touch" (general enquiry)
+//   Phase 3: "Download a Brochure"
+//   Phase 4 will add the Discovery Call pane.
+// Spam protection: a hidden honeypot (always) + Cloudflare Turnstile (rendered
+// per form only when PUBLIC_TURNSTILE_SITE_KEY is set; the Worker verifies it).
+import { ACCOUNT_HELP, COPY, PRIVACY_URL, BROCHURE_URL } from "../lib/smm-config.js";
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
+---
+
+<div class="smf-scrim" id="smf-scrim" hidden></div>
+<aside
+  class="smf-modal"
+  id="smf-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-label="TMKE Social Media"
+  hidden
+  data-worker={WORKER}
+  data-turnstile={TURNSTILE_SITE}
+  data-brochure={BROCHURE_URL}
+>
+  <button type="button" class="smf-x" data-smf-close aria-label="Close">&times;</button>
+  <div class="smf-scroll">
+    <!-- ===== Get in Touch (enquiry) ===== -->
+    <form class="smf-form" data-smf-pane="contact" data-kind="contact" data-endpoint="/smm/enquiry" novalidate hidden>
+      <p class="smf-eyebrow">TMKE — Social Media</p>
+      <h2 class="smf-title">Get in touch.</h2>
+      <p class="smf-lead">{COPY.ctas.contact.body}</p>
+
+      <div class="smf-row2">
+        <label class="smf-field">First name <span>*</span><input name="first_name" required autocomplete="given-name" /></label>
+        <label class="smf-field">Last name <span>*</span><input name="last_name" required autocomplete="family-name" /></label>
+      </div>
+      <label class="smf-field">Business name <span>*</span><input name="business" required autocomplete="organization" /></label>
+      <div class="smf-row2">
+        <label class="smf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
+        <label class="smf-field">Phone<input type="tel" name="phone" autocomplete="tel" /></label>
+      </div>
+      <label class="smf-field">What can we help with? <span>*</span><textarea name="message" rows="4" required></textarea></label>
+
+      <label class="smf-field smf-pw">Create a password<input type="password" name="password" autocomplete="new-password" /></label>
+      <label class="smf-field smf-confirm" hidden>Confirm password<input type="password" name="confirm" autocomplete="new-password" /></label>
+      <p class="smf-help">{ACCOUNT_HELP.enquiry}</p>
+
+      <div class="smf-hp" aria-hidden="true"><label>Leave this field blank<input type="text" name="hp" tabindex="-1" autocomplete="off" /></label></div>
+      <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
+
+      <div class="smf-turnstile"></div>
+      <p class="smf-error" hidden></p>
+      <button type="submit" class="smf-submit">Send enquiry <span aria-hidden="true">&rarr;</span></button>
+      <p class="smf-privacy">By submitting this form you agree to our <a href={PRIVACY_URL}>Privacy Policy</a>.</p>
+    </form>
+
+    <!-- ===== Download a Brochure ===== -->
+    <form class="smf-form" data-smf-pane="brochure" data-kind="brochure" data-endpoint="/smm/brochure" novalidate hidden>
+      <p class="smf-eyebrow">TMKE — Social Media</p>
+      <h2 class="smf-title">Download a brochure.</h2>
+      <p class="smf-lead">{COPY.ctas.brochure.body}</p>
+
+      <label class="smf-field">Full name <span>*</span><input name="full_name" required autocomplete="name" /></label>
+      <label class="smf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
+
+      <label class="smf-field smf-pw">Create a password<input type="password" name="password" autocomplete="new-password" /></label>
+      <label class="smf-field smf-confirm" hidden>Confirm password<input type="password" name="confirm" autocomplete="new-password" /></label>
+      <p class="smf-help">{ACCOUNT_HELP.brochure}</p>
+
+      <div class="smf-hp" aria-hidden="true"><label>Leave this field blank<input type="text" name="hp" tabindex="-1" autocomplete="off" /></label></div>
+      <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
+
+      <div class="smf-turnstile"></div>
+      <p class="smf-error" hidden></p>
+      <button type="submit" class="smf-submit">Email me the brochure <span aria-hidden="true">&rarr;</span></button>
+      <p class="smf-privacy">By submitting this form you agree to our <a href={PRIVACY_URL}>Privacy Policy</a>.</p>
+    </form>
+
+    <!-- ===== Book a Discovery Call ===== -->
+    <form class="smf-form" data-smf-pane="discovery" data-kind="discovery" data-endpoint="/smm/discovery" novalidate hidden>
+      <p class="smf-eyebrow">TMKE — Social Media</p>
+      <h2 class="smf-title">Book a call.</h2>
+      <p class="smf-lead">{COPY.ctas.call.body}</p>
+
+      <div class="smf-row2">
+        <label class="smf-field">First name <span>*</span><input name="first_name" required autocomplete="given-name" /></label>
+        <label class="smf-field">Last name <span>*</span><input name="last_name" required autocomplete="family-name" /></label>
+      </div>
+      <label class="smf-field">Business name <span>*</span><input name="business" required autocomplete="organization" /></label>
+      <div class="smf-row2">
+        <label class="smf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
+        <label class="smf-field">Phone<input type="tel" name="phone" autocomplete="tel" /></label>
+      </div>
+
+      <!-- Calendar — revealed once name, business and email are filled. -->
+      <div class="smf-booking" hidden>
+        <p class="smf-booking-h">Pick a time <span>*</span></p>
+        <label class="smf-field">Date<input type="date" class="smf-date" /></label>
+        <div class="smf-slots"><p class="smf-slots-msg">Choose a date to see available times.</p></div>
+        <input type="hidden" name="date" /><input type="hidden" name="start" /><input type="hidden" name="duration" value="30" />
+      </div>
+
+      <p class="smf-help">{ACCOUNT_HELP.discovery}</p>
+      <div class="smf-row2">
+        <label class="smf-field">Create a password <span>*</span><input type="password" name="password" required autocomplete="new-password" /></label>
+        <label class="smf-field smf-confirm" hidden>Confirm password <span>*</span><input type="password" name="confirm" autocomplete="new-password" /></label>
+      </div>
+
+      <div class="smf-hp" aria-hidden="true"><label>Leave this field blank<input type="text" name="hp" tabindex="-1" autocomplete="off" /></label></div>
+      <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
+
+      <div class="smf-turnstile"></div>
+      <p class="smf-error" hidden></p>
+      <button type="submit" class="smf-submit">Confirm booking <span aria-hidden="true">&rarr;</span></button>
+      <p class="smf-privacy">By submitting this form you agree to our <a href={PRIVACY_URL}>Privacy Policy</a>.</p>
+    </form>
+
+    <!-- ===== Shared success ===== -->
+    <div class="smf-done" data-smf-pane="done" hidden>
+      <div class="smf-done-tick" aria-hidden="true">&check;</div>
+      <h2 class="smf-title" id="smf-done-title">Thanks — message received</h2>
+      <p class="smf-lead" id="smf-done-msg">A member of the TMKE team will be in touch within one working day.</p>
+      <a class="smf-submit smf-done-action" id="smf-done-action" hidden target="_blank" rel="noopener">Download the brochure <span aria-hidden="true">&rarr;</span></a>
+      <button type="button" class="smf-submit smf-done-close" data-smf-close>Done</button>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .smf-scrim { position: fixed; inset: 0; z-index: 400; background: rgba(16,14,22,0.6); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); opacity: 0; transition: opacity 0.4s ease; }
+  .smf-scrim[hidden] { display: none; }
+  .smf-scrim.is-open { opacity: 1; }
+
+  .smf-modal {
+    position: fixed; z-index: 410; top: 50%; left: 50%;
+    width: min(640px, calc(100vw - 32px)); max-height: min(92vh, 880px);
+    transform: translate(-50%, -46%); opacity: 0;
+    background: var(--paper, #f4f2f1); color: var(--ink, #1c1d22);
+    border-radius: 14px; box-shadow: 0 30px 90px rgba(16,14,22,0.45);
+    transition: opacity 0.45s cubic-bezier(.16,1,.3,1), transform 0.45s cubic-bezier(.16,1,.3,1);
+    overflow: hidden;
+  }
+  .smf-modal[hidden] { display: none; }
+  .smf-modal.is-open { opacity: 1; transform: translate(-50%, -50%); }
+  .smf-scroll { max-height: min(92vh, 880px); overflow-y: auto; padding: clamp(28px, 4vw, 48px); }
+  .smf-x { position: absolute; top: 16px; right: 18px; z-index: 2; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(28,29,34,0.06); color: var(--ink); font-size: 26px; line-height: 1; cursor: pointer; transition: background .25s, transform .4s; }
+  .smf-x:hover { background: rgba(28,29,34,0.12); transform: rotate(90deg); }
+
+  .smf-form[hidden], .smf-done[hidden] { display: none; }
+
+  .smf-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 12px; }
+  .smf-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.02; letter-spacing: -0.02em; margin: 0 0 10px; }
+  .smf-lead { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.7); margin: 0 0 24px; }
+
+  .smf-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 520px) { .smf-row2 { grid-template-columns: 1fr; } }
+  .smf-field { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.6); margin-bottom: 16px; }
+  .smf-field span { color: var(--english-violet); }
+  .smf-field input, .smf-field textarea {
+    display: block; width: 100%; margin-top: 8px; box-sizing: border-box;
+    font-family: var(--sans); font-size: 15px; letter-spacing: normal; text-transform: none; color: var(--ink);
+    background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; padding: 12px 14px;
+    transition: border-color .2s;
+  }
+  .smf-field textarea { resize: vertical; min-height: 96px; }
+  .smf-field input:focus, .smf-field textarea:focus { outline: none; border-color: var(--english-violet); }
+  .smf-help { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: -6px 0 20px; }
+
+  .smf-booking { border: 1px solid rgba(28,29,34,0.16); border-radius: 10px; padding: 18px 18px 6px; margin: 0 0 20px; }
+  .smf-booking[hidden] { display: none; }
+  .smf-booking-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 14px; }
+  .smf-booking-h span { color: var(--english-violet); }
+  .smf-date { max-width: 220px; }
+  .smf-slots { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+  .smf-slots-msg { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0; }
+  .smf-slot { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.2); border-radius: 999px; padding: 8px 16px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+  .smf-slot:hover { border-color: var(--english-violet); }
+  .smf-slot.is-selected { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+
+  .smf-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+  .smf-check { display: flex; align-items: flex-start; gap: 10px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.75); margin: 0 0 20px; cursor: pointer; }
+  .smf-check input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--english-violet); flex-shrink: 0; }
+
+  .smf-turnstile { margin: 0 0 16px; }
+  .smf-turnstile:empty { margin: 0; }
+  .smf-error { font-family: var(--sans); font-size: 13px; color: #b3261e; background: rgba(179,38,30,0.08); border: 1px solid rgba(179,38,30,0.25); border-radius: 8px; padding: 10px 12px; margin: 0 0 16px; }
+  .smf-error[hidden] { display: none; }
+
+  .smf-submit {
+    display: block; width: 100%; box-sizing: border-box; text-align: center; text-decoration: none;
+    background: var(--ink, #1c1d22); color: var(--paper, #f4f2f1); border: none; cursor: pointer;
+    font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 16px 24px; border-radius: 8px; transition: opacity .25s;
+  }
+  .smf-submit:hover { opacity: 0.9; }
+  .smf-submit:disabled { opacity: 0.6; cursor: default; }
+  .smf-submit span { margin-left: 8px; }
+  .smf-privacy { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); text-align: center; margin: 16px 0 0; }
+  .smf-privacy a { color: var(--english-violet); }
+
+  .smf-done { text-align: center; padding: clamp(20px, 4vw, 48px) 0; }
+  .smf-done-tick { width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 50%; background: rgba(44,122,75,0.12); color: #2c7a4b; font-size: 30px; display: flex; align-items: center; justify-content: center; }
+  .smf-done .smf-submit { width: auto; min-width: 200px; margin: 24px auto 0; padding: 14px 36px; }
+  .smf-done-action[hidden] { display: none; }
+  .smf-done-action + .smf-done-close { background: none; color: var(--english-violet); margin-top: 10px; }
+</style>
+
+<script>
+  import { supabase } from "../lib/supabase.js";
+
+  (function () {
+    const modal = document.getElementById("smf-modal");
+    const scrim = document.getElementById("smf-scrim");
+    if (!modal || !scrim) return;
+    const WORKER = (modal.dataset.worker || "").replace(/\/+$/, "");
+    const SITE = modal.dataset.turnstile || "";
+    const BROCHURE = modal.dataset.brochure || "";
+    const PW_RE = /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    const forms = Array.from(modal.querySelectorAll(".smf-form"));
+    const donePane = modal.querySelector('[data-smf-pane="done"]');
+    const tsWidgets = new WeakMap();
+
+    // ---- Turnstile (per form, lazy) ----
+    let tsScriptLoading = false;
+    function ensureTurnstileScript(cb) {
+      if (!SITE) return;
+      if (window.turnstile) return cb();
+      if (tsScriptLoading) { const t = setInterval(() => { if (window.turnstile) { clearInterval(t); cb(); } }, 80); return; }
+      tsScriptLoading = true;
+      const s = document.createElement("script");
+      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      s.async = true; s.defer = true; s.onload = cb;
+      document.head.appendChild(s);
+    }
+    function renderTurnstile(form) {
+      if (!SITE || tsWidgets.has(form)) return;
+      ensureTurnstileScript(() => {
+        const el = form.querySelector(".smf-turnstile");
+        if (!el || tsWidgets.has(form)) return;
+        try { tsWidgets.set(form, window.turnstile.render(el, { sitekey: SITE })); } catch (_) {}
+      });
+    }
+    const tokenFor = (form) => { const id = tsWidgets.get(form); return (SITE && window.turnstile && id !== undefined) ? (window.turnstile.getResponse(id) || "") : ""; };
+    const resetToken = (form) => { const id = tsWidgets.get(form); if (SITE && window.turnstile && id !== undefined) { try { window.turnstile.reset(id); } catch (_) {} } };
+
+    // ---- Open / close ----
+    function showPane(kind) {
+      forms.forEach((f) => { f.hidden = f.dataset.kind !== kind; });
+      if (donePane) donePane.hidden = true;
+    }
+    function open(kind) {
+      const form = forms.find((f) => f.dataset.kind === kind);
+      if (!form) return;
+      showPane(kind);
+      modal.hidden = false; scrim.hidden = false;
+      document.documentElement.style.overflow = "hidden";
+      requestAnimationFrame(() => requestAnimationFrame(() => { scrim.classList.add("is-open"); modal.classList.add("is-open"); }));
+      renderTurnstile(form);
+      if (typeof form.__checkReveal === "function") form.__checkReveal();
+      modal.querySelector(".smf-scroll").scrollTop = 0;
+    }
+    function close() {
+      scrim.classList.remove("is-open"); modal.classList.remove("is-open");
+      document.documentElement.style.overflow = "";
+      setTimeout(() => { modal.hidden = true; scrim.hidden = true; }, 480);
+    }
+
+    document.querySelectorAll("[data-smm-form]").forEach((b) =>
+      b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); open(b.getAttribute("data-smm-form")); })
+    );
+    modal.querySelectorAll("[data-smf-close]").forEach((b) => b.addEventListener("click", close));
+    scrim.addEventListener("click", close);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) close(); });
+
+    function showErr(form, m) { const el = form.querySelector(".smf-error"); el.textContent = m; el.hidden = false; el.scrollIntoView({ block: "nearest" }); }
+
+    function showDone(kind, data) {
+      forms.forEach((f) => { f.hidden = true; });
+      const title = document.getElementById("smf-done-title");
+      const msg = document.getElementById("smf-done-msg");
+      const action = document.getElementById("smf-done-action");
+      if (kind === "brochure") {
+        title.textContent = "Your brochure is on its way";
+        msg.textContent = data && data.account_created
+          ? "We've emailed it over — and created your TMKE account so your downloads and bookings live in one place."
+          : "We've emailed it over — check your inbox in a moment. You can also open it right here.";
+        action.href = (data && data.brochure_url) || BROCHURE || "#";
+        action.hidden = false;
+      } else if (kind === "discovery") {
+        title.textContent = "Your call is booked";
+        msg.textContent = data && data.account_created
+          ? "We've emailed your confirmation with a calendar invite, and created your TMKE account — sign in any time at tmke.co.uk/login."
+          : "We've emailed your confirmation with a calendar invite. See you then.";
+        action.hidden = true;
+      } else {
+        title.textContent = "Thanks — message received";
+        msg.textContent = data && data.account_created
+          ? "A member of the TMKE team will be in touch within one working day. We've also created your TMKE account — sign in any time at tmke.co.uk/login."
+          : "A member of the TMKE team will be in touch within one working day.";
+        action.hidden = true;
+      }
+      donePane.hidden = false;
+      donePane.scrollIntoView({ block: "nearest" });
+    }
+
+    // ---- Discovery-call calendar (Form 2) ----
+    function setupDiscovery(form) {
+      const booking = form.querySelector(".smf-booking");
+      const dateInput = form.querySelector(".smf-date");
+      const slotsEl = form.querySelector(".smf-slots");
+      const hDate = form.querySelector('input[name="date"]');
+      const hStart = form.querySelector('input[name="start"]');
+      if (!booking || !dateInput || !slotsEl) return;
+      const reqNames = ["first_name", "last_name", "business", "email"];
+      try { dateInput.min = new Date().toISOString().slice(0, 10); } catch (_) {}
+
+      const detailsComplete = () =>
+        reqNames.every((n) => { const v = form.querySelector(`[name="${n}"]`); return v && v.value.trim(); }) &&
+        /.+@.+\..+/.test(form.querySelector('[name="email"]').value || "");
+      const checkReveal = () => { booking.hidden = !detailsComplete(); };
+      form.__checkReveal = checkReveal;
+      reqNames.forEach((n) => { const el = form.querySelector(`[name="${n}"]`); if (el) el.addEventListener("input", checkReveal); });
+
+      const clearSlots = (msg) => { slotsEl.innerHTML = `<p class="smf-slots-msg">${msg}</p>`; hDate.value = ""; hStart.value = ""; };
+      async function loadSlots(date) {
+        if (!date) return clearSlots("Choose a date to see available times.");
+        if (!WORKER) return clearSlots("Booking is being set up — please check back shortly.");
+        slotsEl.innerHTML = `<p class="smf-slots-msg">Loading times…</p>`;
+        try {
+          const res = await fetch(`${WORKER}/smm/availability?date=${encodeURIComponent(date)}&duration=30`);
+          const d = await res.json().catch(() => ({}));
+          if ((d && d.not_configured) || !res.ok) return clearSlots("Call booking is being set up — please check back shortly.");
+          const slots = (d && d.slots) || [];
+          if (!slots.length) return clearSlots("No times available that day — try another date.");
+          slotsEl.innerHTML = "";
+          slots.forEach((s) => {
+            const btn = document.createElement("button");
+            btn.type = "button"; btn.className = "smf-slot"; btn.textContent = s;
+            btn.addEventListener("click", () => {
+              slotsEl.querySelectorAll(".smf-slot").forEach((x) => x.classList.remove("is-selected"));
+              btn.classList.add("is-selected");
+              hDate.value = date; hStart.value = s;
+            });
+            slotsEl.appendChild(btn);
+          });
+        } catch (_) { clearSlots("Couldn't load times — please try again."); }
+      }
+      dateInput.addEventListener("change", () => loadSlots(dateInput.value));
+    }
+
+    // ---- Per-form wiring ----
+    forms.forEach((form) => {
+      const pw = form.querySelector('input[name="password"]');
+      const confirmWrap = form.querySelector(".smf-confirm");
+      if (pw && confirmWrap) pw.addEventListener("input", () => { confirmWrap.hidden = pw.value.length === 0; });
+      if (form.dataset.kind === "discovery") setupDiscovery(form);
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errEl = form.querySelector(".smf-error"); errEl.hidden = true;
+        const fd = new FormData(form);
+        const kind = form.dataset.kind;
+        const pwv = String(fd.get("password") || "");
+        const cf = String(fd.get("confirm") || "");
+        if (kind === "discovery" && (!fd.get("date") || !fd.get("start"))) return showErr(form, "Please pick a time for your call.");
+        if (kind === "discovery" && !pwv) return showErr(form, "Please create a password to confirm your booking.");
+        if (pwv) {
+          if (!PW_RE.test(pwv)) return showErr(form, "Password must be at least 8 characters and include a number and a special character.");
+          if (pwv !== cf) return showErr(form, "Those passwords don't match.");
+        }
+        const btn = form.querySelector(".smf-submit"); const orig = btn.innerHTML; btn.disabled = true; btn.textContent = "Sending…";
+        try {
+          if (!WORKER) throw new Error("This isn't quite live yet — please email hello@tmke.co.uk and we'll sort it.");
+          const token = tokenFor(form);
+          if (SITE && !token) throw new Error("Please complete the spam check above.");
+          const payload = kind === "contact"
+            ? { first_name: fd.get("first_name"), last_name: fd.get("last_name"), business: fd.get("business"), email: fd.get("email"), phone: fd.get("phone"), message: fd.get("message") }
+            : kind === "discovery"
+            ? { first_name: fd.get("first_name"), last_name: fd.get("last_name"), business: fd.get("business"), email: fd.get("email"), phone: fd.get("phone"), date: fd.get("date"), start: fd.get("start"), duration: fd.get("duration") || "30" }
+            : { full_name: fd.get("full_name"), email: fd.get("email") };
+          payload.password = pwv || undefined;
+          payload.marketing_opt_in = !!fd.get("optin");
+          payload.turnstile_token = token;
+          payload.hp = fd.get("hp") || "";
+          const res = await fetch(`${WORKER}${form.dataset.endpoint}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || "Something went wrong — please try again.");
+          // Auto sign-in when an account was just created.
+          if (d.account_created && pwv) { try { await supabase.signInWithPassword({ email: fd.get("email"), password: pwv }); } catch (_) {} }
+          showDone(kind, d);
+        } catch (err) {
+          showErr(form, err && err.message ? err.message : "Something went wrong — please try again.");
+          resetToken(form);
+        } finally {
+          btn.disabled = false; btn.innerHTML = orig;
+        }
+      });
+    });
+  })();
+</script>

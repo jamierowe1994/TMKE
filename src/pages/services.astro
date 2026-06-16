@@ -1,6 +1,9 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import DiscoveryPanel from "../components/DiscoveryPanel.astro";
+import SMMForms from "../components/SMMForms.astro";
+import { COPY, SERVICE_TIERS, SHOW_TIER_PRICES } from "../lib/smm-config.js";
+import { gbpFromPence } from "../lib/supabase.js";
 
 // Horizontal slide deck (videography-style). Placeholder portfolio imagery on R2.
 const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
@@ -54,64 +57,88 @@ const total = 4;
         </div>
       </section>
 
-      <!-- Slide 2 — Intro & Why (text left, image right; slides in like /videography) -->
+      <!-- Slide 2 — Positioning + two pillars (text left, image right; slides in) -->
       <section class="pf-panel pf-panel--slide sm-why">
         <div class="sm-why-text">
           <div class="sm-stack">
-            <div class="sm-col">
-              <h3 class="sm-col-h">For property professionals who want it done properly</h3>
-              <p>Social media management is for those who know their online presence matters, but don't have the time or headspace to manage it properly themselves.</p>
-              <p>It suits busy independents, growing businesses, and premium agents who want their brand to look consistent, credible, and aligned &mdash; without creating content day-to-day.</p>
-              <p>If how your business shows up matters to you, and you want it handled properly, this is where it fits.</p>
-            </div>
-            <div class="sm-col">
-              <span class="sm-kicker">Managed for Estate Agents</span>
-              <p>We plan, create, and manage your social media so it's consistent, considered, and aligned with your business.</p>
-              <p>Everything is built around your brand, your audience, and your local market &mdash; so you stay visible, relevant, and recognisable, without having to think about what to post or how it should look.</p>
+            <h2 class="sm-why-head">{COPY.positioning.headline}</h2>
+            {COPY.positioning.body.split("\n\n").map((para) => (
+              <p class={para === "That's what we build." ? "sm-why-build" : "sm-why-lead"}>{para}</p>
+            ))}
+            <div class="sm-pillars">
+              {COPY.positioning.pillars.map((pillar) => (
+                <div class="sm-col">
+                  <h3 class="sm-col-h">{pillar.title}</h3>
+                  <p>{pillar.body}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
         <div class="sm-why-img" style={`background-image:url('${LIVING_TEXTURE}')`}></div>
       </section>
 
-      <!-- Slide 3 — How It Works -->
-      <section class="pf-panel sm-how">
-        <div class="sm-how-inner">
-          <span class="sm-kicker">How It Works</span>
-          <p class="sm-how-lead">We don't rely on automation to run your social media.</p>
-          <p>Every account we manage is handled by a person &mdash; from strategy and planning through to content creation and day-to-day management. Because understanding people &mdash; your audience, your market, your business &mdash; is what actually makes marketing work.</p>
-          <p>Everything we create is tailored to your brand and your customers, not pulled from generic ideas or recycled content. And where needed, we support it with in-house videography, so your content feels complete, consistent, and fully taken care of.</p>
-          <button type="button" class="pf-cta" data-portfolio>See portfolio <em>&rarr;</em></button>
+      <!-- Slide 3 — What we do + service-tier scroll box + What Good Looks Like -->
+      <section class="pf-panel sm-services">
+        <div class="sm-services-inner">
+          <div class="sm-services-head">
+            <h2 class="sm-services-h">{COPY.whatWeDo.headline}</h2>
+            <p class="sm-services-lead">{COPY.whatWeDo.body}</p>
+            <p class="sm-services-choose">{COPY.whatWeDo.chooseLine}</p>
+          </div>
+
+          <div class="sm-tiers" role="list">
+            {SERVICE_TIERS.map((t) => (
+              <article class="sm-tier" role="listitem">
+                <div class="sm-tier-head">
+                  <h3 class="sm-tier-name">{t.name}</h3>
+                  <span class="sm-tier-sub">{t.subtitle}</span>
+                  {SHOW_TIER_PRICES && t.price_pence != null && (
+                    <span class="sm-tier-price">from {gbpFromPence(t.price_pence)} +VAT</span>
+                  )}
+                </div>
+                <p class="sm-tier-blurb">{t.blurb}</p>
+              </article>
+            ))}
+          </div>
+
+          <div class="sm-good">
+            <div class="sm-good-text">
+              <span class="sm-kicker">{COPY.whatGoodLooksLike.headline}</span>
+              <p>{COPY.whatGoodLooksLike.body}</p>
+            </div>
+            <button type="button" class="pf-cta" data-portfolio>{COPY.whatGoodLooksLike.cta} <em>&rarr;</em></button>
+          </div>
         </div>
       </section>
 
-      <!-- Slide 4 — Let's talk (centred) + slide-in "Book a call" reveal.
-           At the last slide, scrolling a touch more (or clicking the tab) slides
-           "Book a call" in from the right while "Let's talk" eases left and stays
-           on screen (never leaves the page). -->
-      <section class="pf-panel sm-contact sm-final" id="sm-final">
-        <div class="sm-contact-inner">
-          <div class="sm-contact-content">
-            <p class="sm-eyebrow"><span>&mdash;</span> Let's talk</p>
-            <h2 class="sm-contact-h">Let's make it <em>consistent.</em></h2>
-            <p class="sm-lead">Tell us about your brand and where you want it to go &mdash; we'll put a plan together.</p>
-            <div class="sm-actions">
-              <a href="/assets/tmke-services.pdf" class="sm-brochure" download>Download services brochure <span aria-hidden="true">&darr;</span></a>
-            </div>
-          </div>
+      <!-- Slide 4 — three CTA cards (mirrors the videography final panel). The
+           buttons get their proper forms in later phases (Phase 2 Get in Touch,
+           Phase 3 Brochure, Phase 4 Discovery Call). For now each points at a
+           sensible interim destination so none is a dead control. -->
+      <section class="pf-panel sm-ctas">
+        <div class="sm-cta-row">
+          <article class="sm-cta-card">
+            <div class="sm-cta-img" style={`background-image:url('${R2("living-1")}')`}></div>
+            <h2 class="sm-cta-title">{COPY.ctas.brochure.title}</h2>
+            <p class="sm-cta-desc">{COPY.ctas.brochure.body}</p>
+            <button type="button" class="sm-cta-btn" data-smm-form="brochure">Download a brochure <span class="btn-arrow">&rarr;</span></button>
+          </article>
+
+          <article class="sm-cta-card">
+            <div class="sm-cta-img" style={`background-image:url('${R2("table")}')`}></div>
+            <h2 class="sm-cta-title">{COPY.ctas.call.title}</h2>
+            <p class="sm-cta-desc">{COPY.ctas.call.body}</p>
+            <button type="button" class="sm-cta-btn" data-smm-form="discovery">Book a call <span class="btn-arrow">&rarr;</span></button>
+          </article>
+
+          <article class="sm-cta-card">
+            <div class="sm-cta-img" style={`background-image:url('${R2("white-1")}')`}></div>
+            <h2 class="sm-cta-title">{COPY.ctas.contact.title}</h2>
+            <p class="sm-cta-desc">{COPY.ctas.contact.body}</p>
+            <button type="button" class="sm-cta-btn" data-smm-form="contact">Get in touch <span class="btn-arrow">&rarr;</span></button>
+          </article>
         </div>
-        <aside class="sm-book-panel" id="sm-book-panel" aria-label="Book a call">
-          <div class="sm-book-intro">
-            <h2 class="sm-book-title">Book a<br />call</h2>
-            <p class="sm-book-desc">Prefer to talk it through? Grab a time that suits you and we'll get to know your brand and where you want it to go.</p>
-            <button type="button" data-discovery-call data-dc-inline="#sm-book-mount" data-dc-service="A call with TMKE" class="sm-book-cta">Pick a time <span class="btn-arrow">&rarr;</span></button>
-          </div>
-          <!-- The booking wizard mounts in here (in-place), instead of popping out. -->
-          <div class="sm-book-mount" id="sm-book-mount"></div>
-        </aside>
-        <button type="button" class="sm-reveal-tab" id="sm-reveal-tab" aria-label="Reveal book a call">
-          <span class="sm-reveal-arrow" aria-hidden="true">&rarr;</span>
-        </button>
       </section>
     </div>
 
@@ -145,6 +172,7 @@ const total = 4;
   </section>
 
   <DiscoveryPanel />
+  <SMMForms />
 
   <style>
     .pf { position: fixed; inset: 0; background: var(--paper); color: var(--ink); overflow: hidden; }
@@ -218,6 +246,73 @@ const total = 4;
     .pf-cta em { font-style: normal; margin-left: 10px; display: inline-block; transition: margin 0.25s; }
     .pf-cta:hover { color: var(--english-violet); border-color: var(--english-violet); }
     .pf-cta:hover em { margin-left: 16px; }
+
+    /* ---- Slide 2: positioning headline + two pillars ---- */
+    .sm-why-head { font-family: var(--serif); font-weight: 400; font-size: clamp(25px, 2.8vw, 42px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ink); margin: 0; max-width: 20ch; }
+    .sm-why-lead { font-family: var(--sans); font-size: clamp(14px, 1.05vw, 16px); line-height: 1.65; color: rgba(28,29,34,0.72); margin: 0; }
+    .sm-why-build { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 1.6vw, 23px); color: var(--english-violet); margin: 0; }
+    .sm-pillars { display: flex; flex-direction: column; gap: clamp(16px, 2vw, 24px); }
+    .sm-pillars .sm-col-h { font-size: clamp(18px, 1.5vw, 22px); margin: 0 0 8px; }
+    .sm-pillars .sm-col p { font-size: clamp(14px, 1.05vw, 15px); line-height: 1.6; margin: 0; }
+
+    /* ---- Slide 3: what we do + service-tier scroll box + what good looks like ---- */
+    .sm-services { align-items: center; }
+    .sm-services-inner {
+      width: 100%; max-width: 1040px; margin: 0 auto;
+      max-height: calc(100vh - 184px);
+      display: flex; flex-direction: column; gap: clamp(18px, 2.2vw, 30px);
+    }
+    .sm-services-head { flex: 0 0 auto; }
+    .sm-services-h { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.2vw, 48px); line-height: 1.04; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 14px; }
+    .sm-services-lead { font-family: var(--sans); font-size: clamp(14px, 1.05vw, 16px); line-height: 1.6; color: rgba(28,29,34,0.72); max-width: 76ch; margin: 0 0 12px; }
+    .sm-services-choose { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--english-violet); margin: 0; }
+    .sm-tiers {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      display: flex; flex-direction: column;
+      border: 1px solid rgba(28,29,34,0.16); border-radius: 12px;
+      scrollbar-width: thin;
+    }
+    .sm-tier { padding: clamp(14px, 1.6vw, 20px) clamp(16px, 1.8vw, 24px); border-bottom: 1px solid rgba(28,29,34,0.1); }
+    .sm-tier:last-child { border-bottom: none; }
+    .sm-tier-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+    .sm-tier-name { font-family: var(--serif); font-weight: 500; font-size: clamp(18px, 1.6vw, 22px); color: var(--ink); margin: 0; }
+    .sm-tier-sub { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+    .sm-tier-price { margin-left: auto; font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+    .sm-tier-blurb { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); line-height: 1.6; color: rgba(28,29,34,0.72); margin: 0; }
+    .sm-good { flex: 0 0 auto; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+    .sm-good-text { max-width: 64ch; }
+    .sm-good-text .sm-kicker { margin-bottom: 8px; }
+    .sm-good-text p { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); line-height: 1.6; color: rgba(28,29,34,0.72); margin: 0; }
+    .sm-good .pf-cta { margin-top: 0; }
+
+    /* ---- Slide 4: three CTA cards (mirrors the videography final panel) ---- */
+    .sm-ctas { padding: 0; align-items: stretch; }
+    .sm-cta-row { width: 100%; height: 100%; display: flex; }
+    .sm-cta-card {
+      flex: 1 1 0; min-width: 0;
+      display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start;
+      gap: 18px; padding: clamp(96px, 12vh, 150px) clamp(28px, 3vw, 48px) 80px;
+      border-right: 1px solid rgba(28,29,34,0.08);
+    }
+    .sm-cta-card:last-child { border-right: none; }
+    .sm-cta-img { flex: 0 0 auto; width: 100%; max-width: 360px; height: clamp(150px, 24vh, 280px); background-size: cover; background-position: center; background-color: #e9e4da; }
+    .sm-cta-title { font-family: var(--serif); font-weight: 400; font-size: clamp(24px, 2.1vw, 36px); letter-spacing: -0.02em; margin: 0; }
+    .sm-cta-desc { font-family: var(--sans); font-size: clamp(14px, 1vw, 15px); line-height: 1.6; color: rgba(28,29,34,0.7); max-width: 42ch; margin: 0; }
+    .sm-cta-btn {
+      align-self: flex-start; background: none; border: none; cursor: pointer; text-decoration: none;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--ink); padding: 12px 0; border-bottom: 1px solid rgba(28,29,34,0.25);
+      transition: color .25s, border-color .25s;
+    }
+    .sm-cta-btn:hover { color: var(--english-violet); border-color: var(--english-violet); }
+    .sm-cta-btn .btn-arrow { margin-left: 10px; display: inline-block; transition: margin .25s; }
+    .sm-cta-btn:hover .btn-arrow { margin-left: 16px; }
+    @media (max-width: 860px) {
+      .sm-ctas { overflow-y: auto; }
+      .sm-cta-row { flex-direction: column; height: auto; }
+      .sm-cta-card { border-right: none; border-bottom: 1px solid rgba(28,29,34,0.08); padding: 48px 28px; }
+      .sm-cta-img { max-width: none; height: 30vh; }
+    }
 
     /* Slide 4 — Let's talk + slide-in "Book a call" reveal. The book panel slides
        in from the right; "Let's talk" eases left (transform) and never leaves the

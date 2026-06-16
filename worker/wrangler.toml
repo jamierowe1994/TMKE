@@ -39,8 +39,28 @@ MS_CLIENT_ID = "543c20ac-6cf8-4191-96ca-3d83d775d3fb"
 MS_TENANT_ID = "bd9416b6-3621-41ee-bc8f-6ad7988c0618"
 JACK_UPN = "jack@tmke.co.uk"
 
-# Scheduled-post reminder emails (Resend). The verified sender address.
+# Transactional email (enquiry/booking/discovery confirmations + Jack alerts) is
+# sent via Microsoft 365 Graph `sendMail` from this mailbox — so it comes from
+# our own address, replies land in the inbox, and a copy sits in Sent Items.
+# Requires the `Mail.Send` application permission on the Entra app (admin-consented).
+MAIL_SENDER = "hello@tmke.co.uk"
+MAIL_FROM_NAME = "TMKE"
+
+# SMM brochure (Form 1) — the link emailed on every brochure request. Upload the
+# PDF to the assets bucket, then point this at it. Until then the link 404s but
+# the form, lead capture, and email still work.
+SMM_BROCHURE_URL = "https://assets.tmke.co.uk/tmke-smm-brochure.pdf"
+
+# Scheduled-post reminder emails (cron) still use Resend. The verified sender address.
 MAIL_FROM = "TMKE <posts@tmke.co.uk>"
+
+# Social Media (SMM) discovery-call calendar. Abigail's mailbox is on a separate
+# M365 tenant (themarketingexperts.co.uk) so the app can't book it directly —
+# INTERIM: book into hello@ (in-tenant, already calendar-accessible) and notify
+# Abigail + add her as an event attendee so the invite lands in her diary.
+# Repoint to a tmke.co.uk mailbox for her when she's on the scheme.
+SMM_MANAGER_UPN = "hello@tmke.co.uk"
+SMM_NOTIFY = "Abigail.Saunders@themarketingexperts.co.uk"
 
 # Booking confirmations: public site (for "manage your booking" links) and the
 # internal address that gets the new-booking notification (defaults to JACK_UPN).
@@ -68,3 +88,5 @@ crons = ["0 7 * * *"]
 #   wrangler secret put SUPABASE_SERVICE_ROLE  # Supabase service_role key
 #   wrangler secret put RESEND_API_KEY         # Resend API key (reminder emails)
 #   wrangler secret put ANTHROPIC_API_KEY      # Claude API key (sk-ant-…) for the AI text parser
+#   wrangler secret put TURNSTILE_SECRET_KEY   # Cloudflare Turnstile secret (SMM form spam protection)
+# Site env also needs PUBLIC_TURNSTILE_SITE_KEY (public, in .env / Railway) for the widget.

@@ -287,15 +287,39 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
     <p style="font-size:12px;color:#999;margin:18px 0 0">It's in your calendar and the CRM pipeline (stage: booked).</p>
   </div>`;
 }
+// Transactional email via Microsoft 365 (Graph `sendMail`), sent from the TMKE
+// mailbox — so it genuinely comes from info@tmke.co.uk, replies land in the
+// real inbox, and a copy sits in Sent Items. Reuses the same app-only token as
+// the calendar integration (needs the `Mail.Send` application permission).
+// Best-effort: never throws — the caller's record is already saved.
 async function sendEmail(env, { to, subject, html, attachments }) {
-  if (!env.RESEND_API_KEY || !to) return;
+  if (!to) return;
+  const sender = env.MAIL_SENDER || env.JACK_UPN;
+  if (!sender) return;
+  const recipients = (Array.isArray(to) ? to : [to])
+    .map((a) => String(a || "").trim())
+    .filter(Boolean)
+    .map((address) => ({ emailAddress: { address } }));
+  if (!recipients.length) return;
+  const message = {
+    subject,
+    body: { contentType: "HTML", content: html },
+    toRecipients: recipients,
+  };
+  if (env.MAIL_FROM_NAME) message.from = { emailAddress: { address: sender, name: env.MAIL_FROM_NAME } };
+  if (attachments && attachments.length) {
+    message.attachments = attachments.map((a) => ({
+      "@odata.type": "#microsoft.graph.fileAttachment",
+      name: a.filename || a.name || "attachment",
+      contentType: a.contentType || "application/octet-stream",
+      contentBytes: a.content || a.contentBytes,
+    }));
+  }
   try {
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>", to, subject, html, ...(attachments ? { attachments } : {}) }),
-    });
-  } catch (_) { /* email is best-effort */ }
+    await graph(env, "POST", `/users/${encodeURIComponent(sender)}/sendMail`, { message, saveToSentItems: true });
+  } catch (err) {
+    console.error("sendEmail (Graph) failed:", err && err.message ? err.message : err);
+  }
 }
 
 // Upsert a contact into GoHighLevel with tags (marketing sync). Best-effort and
@@ -318,6 +342,27 @@ async function ghlUpsert(env, { email, name, phone, company, tags }) {
     });
   } catch (_) { /* marketing sync is best-effort, never blocks the booking */ }
 }
+
+// Cloudflare Turnstile verification (SMM form spam protection). Returns true when
+// no secret is configured, so forms keep working before keys are set — the
+// honeypot still guards. With a secret set, a missing/invalid token fails.
+async function verifyTurnstile(env, token, ip) {
+  if (!env.TURNSTILE_SECRET_KEY) return true;
+  if (!token) return false;
+  try {
+    const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: String(token) });
+    if (ip) body.set("remoteip", ip);
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body,
+    });
+    const d = await res.json().catch(() => ({}));
+    return !!(d && d.success);
+  } catch (_) { return false; }
+}
+
+// SMM password policy — min 8 incl. a number and a special character. Mirrors
+// PASSWORD_RULE in src/lib/smm-config.js (keep the two in sync).
+const smmPasswordOk = (pw) => /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(String(pw || ""));
 
 async function runReminders(env) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
@@ -760,12 +805,19 @@ export default {
         const b = await request.json().catch(() => ({}));
         const { service, service_type, name, email, phone, company, postcode, message, marketing_opt_in } = b || {};
         if (!name || !email) return json({ error: "Please add your name and email." }, 400, request, env);
-        await sbPost(env, "videography_bookings", {
+        // The lead MUST persist — this is the record Jack works from. Don't fake
+        // success if the DB rejects the row (e.g. a stale stage CHECK constraint).
+        const saved = await sbPost(env, "videography_bookings", {
           kind: "enquiry", service_type: service_type || null, audience: "non-member",
           client_name: name, client_email: email, client_phone: phone || null, company: company || null,
           postcode: postcode || null, service: service || null, stage: "enquiry_non_member",
           enquiry_message: message || null, notes: message || null, marketing_opt_in: !!marketing_opt_in,
         });
+        if (!saved.ok) {
+          const detail = await saved.text().catch(() => "");
+          console.error("enquiry insert failed", saved.status, detail);
+          return json({ error: "We couldn't save your enquiry just then — please try again, or email jack@tmke.co.uk." }, 502, request, env);
+        }
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
           to: email, subject: `Thanks for your enquiry — ${service || "TMKE"}`,
@@ -791,6 +843,294 @@ export default {
         });
         await ghlUpsert(env, { email, name, phone, company, tags: ["TMKE Videography", "Enquiry", service, marketing_opt_in ? "Marketing opt-in" : "No marketing"].filter(Boolean) });
         return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Social Media — Get in Touch (Form 3): a general enquiry, optional
+      //      account. Tag "General Enquiry". Auto-ack on every submit. ----------
+      if (path.endsWith("/smm/enquiry") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const { first_name, last_name, business, email, phone, message, password, marketing_opt_in, turnstile_token, hp } = b || {};
+        // Honeypot — a bot filled the hidden field. Pretend success, drop silently.
+        if (hp) return json({ ok: true }, 200, request, env);
+        // Spam protection (no-ops until TURNSTILE_SECRET_KEY is set).
+        const ip = request.headers.get("CF-Connecting-IP") || "";
+        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed — please try again." }, 400, request, env);
+        if (!first_name || !last_name || !business || !email || !message)
+          return json({ error: "Please complete all required fields." }, 400, request, env);
+        const fullName = `${first_name} ${last_name}`.trim();
+
+        // Optional account creation (password is optional on this form).
+        let accountUserId = null, accountCreated = false;
+        if (password) {
+          if (!smmPasswordOk(password)) return json({ error: "Password must be at least 8 characters and include a number and a special character." }, 400, request, env);
+          try {
+            const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+              method: "POST",
+              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: fullName, company: business || null, phone: phone || null } }),
+            });
+            if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
+            else {
+              const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+                headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+              });
+              if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+            }
+          } catch (_) { /* account is best-effort; the enquiry still saves */ }
+        }
+
+        // Persist the lead — must save (don't fake success).
+        const saved = await sbPost(env, "smm_leads", {
+          kind: "enquiry", tag: "General Enquiry", stage: "general_enquiry",
+          first_name, last_name, full_name: fullName, email, phone: phone || null,
+          business: business || null, message: message || null,
+          marketing_opt_in: !!marketing_opt_in,
+          account_user_id: accountUserId, account_created: accountCreated,
+        });
+        if (!saved.ok) {
+          const detail = await saved.text().catch(() => "");
+          console.error("smm enquiry insert failed", saved.status, detail);
+          return json({ error: "We couldn't save your message just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
+        }
+
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+        // Auto-acknowledgement to the sender — ALWAYS (per brief).
+        await sendEmail(env, {
+          to: email, subject: "Thanks — we've got your message",
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:22px;margin:0 0 6px">Thanks, ${esc(first_name)} — message received</h1>
+            <p style="color:#555;font-size:14px;margin:0 0 18px">We've received your enquiry and a member of the TMKE team will be in touch within one working day.</p>
+            ${message ? `<div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(message)}</div>` : ""}
+            ${accountCreated ? `<p style="color:#555;font-size:14px;margin:18px 0 0">We've also created your TMKE account — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
+            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
+        });
+
+        // Notify the SMM team.
+        await sendEmail(env, {
+          to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New enquiry — Social Media — ${fullName}`,
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:20px;margin:0 0 6px">New Social Media enquiry</h1>
+            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+              <div><span style="color:#888">Name:</span> ${esc(fullName)}</div>
+              <div><span style="color:#888">Business:</span> ${esc(business)}</div>
+              <div><span style="color:#888">Email:</span> ${esc(email)}</div>
+              ${phone ? `<div><span style="color:#888">Phone:</span> ${esc(phone)}</div>` : ""}
+              <div><span style="color:#888">Message:</span> ${esc(message)}</div>
+              <div><span style="color:#888">Marketing:</span> ${marketing_opt_in ? "Opted in" : "No"}</div>
+              <div><span style="color:#888">Account:</span> ${accountCreated ? "Created" : (accountUserId ? "Existing" : "None")}</div>
+            </div>
+            <p style="font-size:12px;color:#999;margin:18px 0 0">In the SMM pipeline as a lead (general_enquiry).</p></div>`,
+        });
+
+        await ghlUpsert(env, { email, name: fullName, phone, company: business, tags: ["TMKE Social Media", "General Enquiry", marketing_opt_in ? "Marketing opt-in" : "No marketing"].filter(Boolean) });
+
+        return json({ ok: true, account_created: accountCreated }, 200, request, env);
+      }
+
+      // ---- Social Media — Download a Brochure (Form 1): emails the brochure,
+      //      stores the email as a lead, optional account. Brochure goes out on
+      //      EVERY submit regardless of account creation. ---------------------
+      if (path.endsWith("/smm/brochure") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const { full_name, email, password, marketing_opt_in, turnstile_token, hp } = b || {};
+        if (hp) return json({ ok: true }, 200, request, env);
+        const ip = request.headers.get("CF-Connecting-IP") || "";
+        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed — please try again." }, 400, request, env);
+        if (!full_name || !email) return json({ error: "Please add your name and email." }, 400, request, env);
+
+        // Optional account creation (password is optional on this form).
+        let accountUserId = null, accountCreated = false;
+        if (password) {
+          if (!smmPasswordOk(password)) return json({ error: "Password must be at least 8 characters and include a number and a special character." }, 400, request, env);
+          try {
+            const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+              method: "POST",
+              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name } }),
+            });
+            if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
+            else {
+              const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+                headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+              });
+              if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+            }
+          } catch (_) { /* account is best-effort; the brochure still sends */ }
+        }
+
+        const saved = await sbPost(env, "smm_leads", {
+          kind: "brochure", tag: "Brochure Download", stage: "brochure_downloaded", brochure_sent: true,
+          full_name, email, marketing_opt_in: !!marketing_opt_in,
+          account_user_id: accountUserId, account_created: accountCreated,
+        });
+        if (!saved.ok) {
+          const detail = await saved.text().catch(() => "");
+          console.error("smm brochure insert failed", saved.status, detail);
+          return json({ error: "We couldn't process that just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
+        }
+
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const brochureUrl = env.SMM_BROCHURE_URL || "https://assets.tmke.co.uk/tmke-smm-brochure.pdf";
+        const firstName = String(full_name).trim().split(/\s+/)[0] || "there";
+
+        // Email the brochure (a link — works the moment the PDF is uploaded).
+        await sendEmail(env, {
+          to: email, subject: "Your TMKE social media brochure",
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:22px;margin:0 0 6px">Here's your brochure, ${esc(firstName)}</h1>
+            <p style="color:#555;font-size:14px;margin:0 0 22px">Thanks for your interest in TMKE social media management. Everything's in the brochure below — what's included, how it works, and what it costs.</p>
+            <p style="margin:0 0 22px"><a href="${esc(brochureUrl)}" style="display:inline-block;background:#1c1d22;color:#fff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:14px 26px;border-radius:6px">Download the brochure &rarr;</a></p>
+            ${accountCreated ? `<p style="color:#555;font-size:14px;margin:0 0 6px">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
+            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
+        });
+
+        await ghlUpsert(env, { email, name: full_name, tags: ["TMKE Social Media", "Brochure Download", marketing_opt_in ? "Marketing opt-in" : "No marketing"].filter(Boolean) });
+
+        return json({ ok: true, account_created: accountCreated, brochure_url: brochureUrl }, 200, request, env);
+      }
+
+      // ---- Social Media — Discovery-call availability (Form 2). Slots for the
+      //      SMM account manager's diary (SMM_MANAGER_UPN). Reuses the shared
+      //      working-hours in videography_availability. Gated until the manager
+      //      mailbox is set. -----------------------------------------------------
+      if (path.endsWith("/smm/availability") && request.method === "GET") {
+        const cal = env.SMM_MANAGER_UPN;
+        if (!cal) return json({ slots: [], not_configured: true }, 200, request, env);
+        const date = url.searchParams.get("date");
+        const duration = parseInt(url.searchParams.get("duration") || "30", 10);
+        if (!date) return json({ error: "Missing date" }, 400, request, env);
+        const wd = new Date(date + "T12:00:00Z").getUTCDay();
+        const rows = (await sbGet(env, "videography_availability", `weekday=eq.${wd}&select=*`)) || [];
+        const hours = rowHours(rows[0]);
+        if (!hours.length) return json({ slots: [], duration }, 200, request, env);
+        const STEP = 30;
+        const openHours = new Set(hours);
+        const dayStartMin = Math.min(...hours) * 60;
+        const dayEndMin = (Math.max(...hours) + 1) * 60;
+        const need = Math.max(1, Math.ceil(duration / STEP));
+        const sched = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/calendar/getSchedule`, {
+          schedules: [cal],
+          startTime: { dateTime: `${date}T${minToHm(dayStartMin)}:00`, timeZone: "Europe/London" },
+          endTime: { dateTime: `${date}T${minToHm(dayEndMin)}:00`, timeZone: "Europe/London" },
+          availabilityViewInterval: STEP,
+        });
+        const view = (sched.value && sched.value[0] && sched.value[0].availabilityView) || "";
+        const totalSlots = Math.floor((dayEndMin - dayStartMin) / STEP);
+        const slots = [];
+        for (let i = 0; i + need <= totalSlots; i++) {
+          let ok = true;
+          for (let k = 0; k < need; k++) {
+            const slotMin = dayStartMin + (i + k) * STEP;
+            const busy = view[i + k];
+            if (!openHours.has(Math.floor(slotMin / 60)) || (busy && busy !== "0")) { ok = false; break; }
+          }
+          if (ok) slots.push(minToHm(dayStartMin + i * STEP));
+        }
+        return json({ slots, duration }, 200, request, env);
+      }
+
+      // ---- Social Media — Book a Discovery Call (Form 2). Mandatory account.
+      //      Books the SMM manager's calendar, stores the lead, confirms by
+      //      email with an ICS. ------------------------------------------------
+      if (path.endsWith("/smm/discovery") && request.method === "POST") {
+        const cal = env.SMM_MANAGER_UPN;
+        if (!cal) return json({ error: "Discovery call booking is being set up — please check back shortly." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const { first_name, last_name, business, email, phone, password, marketing_opt_in, date, start, duration, turnstile_token, hp } = b || {};
+        if (hp) return json({ ok: true }, 200, request, env);
+        const ip = request.headers.get("CF-Connecting-IP") || "";
+        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed — please try again." }, 400, request, env);
+        if (!first_name || !last_name || !business || !email || !date || !start) return json({ error: "Please complete all required fields and pick a time." }, 400, request, env);
+        if (!password || !smmPasswordOk(password)) return json({ error: "A password of at least 8 characters including a number and a special character is required." }, 400, request, env);
+        const fullName = `${first_name} ${last_name}`.trim();
+        const dur = parseInt(duration || "30", 10);
+        const endHm = minToHm(hmToMin(start) + dur);
+
+        // Slot still free?
+        const check = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/calendar/getSchedule`, {
+          schedules: [cal],
+          startTime: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+          endTime: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          availabilityViewInterval: Math.max(15, dur),
+        });
+        const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
+        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken — please choose another." }, 409, request, env);
+
+        // Account creation is mandatory at this step.
+        let accountUserId = null, accountCreated = false;
+        try {
+          const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: fullName, company: business || null, phone: phone || null } }),
+          });
+          if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
+          else {
+            const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+            });
+            if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+          }
+        } catch (_) { /* account is best-effort; the booking still proceeds */ }
+
+        const ev = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, {
+          subject: `Discovery Call — ${fullName}`,
+          body: { contentType: "text", content: [business && `Business: ${business}`, phone && `Phone: ${phone}`].filter(Boolean).join("\n") },
+          start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+          end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+          attendees: [
+            { emailAddress: { address: email, name: fullName }, type: "required" },
+            // The SMM manager (Abigail) — gets the invite in her own calendar even
+            // though her mailbox is on a different tenant. Skipped if it equals the
+            // host mailbox (avoids inviting hello@ to its own event).
+            ...(env.SMM_NOTIFY && env.SMM_NOTIFY.toLowerCase() !== cal.toLowerCase()
+              ? [{ emailAddress: { address: env.SMM_NOTIFY, name: "TMKE Social Media" }, type: "required" }] : []),
+          ],
+          isOnlineMeeting: true,
+        });
+        const token = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}`;
+
+        const saved = await sbPost(env, "smm_leads", {
+          kind: "discovery", tag: "Discovery Call", stage: "discovery_call_booked",
+          first_name, last_name, full_name: fullName, email, phone: phone || null, business: business || null,
+          call_at: `${date}T${start}:00`, duration_min: dur, reschedule_token: token, ms_event_id: ev.id || null,
+          marketing_opt_in: !!marketing_opt_in, account_user_id: accountUserId, account_created: accountCreated,
+        });
+        if (!saved.ok) {
+          const detail = await saved.text().catch(() => "");
+          console.error("smm discovery insert failed", saved.status, detail);
+          // The calendar event was created — don't fake failure to the user, but log it.
+        }
+
+        const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
+        const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call — TMKE Social Media", description: "A call with TMKE to talk through your social media.", location: "Online / phone", organizer: cal, attendeeEmail: email, attendeeName: fullName });
+        const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        await sendEmail(env, {
+          to: email, subject: `Your call is booked — ${dateNice}`,
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:22px;margin:0 0 6px">Your call is booked</h1>
+            <p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(first_name)}, your call with the TMKE team is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
+            ${accountCreated ? `<p style="color:#555;font-size:14px;margin:0 0 8px">We've created your TMKE account so your call details, documents, and future bookings live in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
+            <p style="font-size:13px;color:#555;margin:0 0 8px">Need to change it? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28">hello@tmke.co.uk</a>.</p>
+            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
+          attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
+        });
+        await sendEmail(env, {
+          to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New discovery call — Social Media — ${fullName} — ${dateNice} ${start}`,
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:20px;margin:0 0 6px">Discovery call booked (Social Media)</h1>
+            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+              <div><span style="color:#888">Client:</span> ${esc(fullName)}</div>
+              <div><span style="color:#888">Business:</span> ${esc(business)}</div>
+              <div><span style="color:#888">Email:</span> ${esc(email)}</div>
+              ${phone ? `<div><span style="color:#888">Phone:</span> ${esc(phone)}</div>` : ""}
+              <div><span style="color:#888">When:</span> ${esc(dateNice)} at ${esc(start)}</div>
+            </div></div>`,
+        });
+        await ghlUpsert(env, { email, name: fullName, phone, company: business, tags: ["TMKE Social Media", "Discovery Call", marketing_opt_in ? "Marketing opt-in" : "No marketing"].filter(Boolean) });
+        return json({ ok: true, account_created: accountCreated, eventId: ev.id }, 200, request, env);
       }
 
       // ---- Register interest (Content Studio non-members) --------------------
