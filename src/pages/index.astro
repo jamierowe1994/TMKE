@@ -43,15 +43,11 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       <div class="hero-zoom-skin" aria-hidden="true"></div>
       <!-- Layer A — the photo that unfolds to full screen -->
       <div class="hero-zoom-media">
-        <img class="hero-zoom-img" src="https://assets.tmke.co.uk/vibes.webp" alt="A TMKE interior" />
+        <img class="hero-zoom-img" src="https://assets.tmke.co.uk/TMKE%20Home%20Page/TMKE%20Emboss%20Dark.png" alt="A TMKE interior" />
       </div>
       <!-- Layer B — TMKE wordmark (brand serif), dead centre -->
       <h1 class="hero-zoom-word" aria-label="TMKE">TMKE</h1>
-      <!-- Layer C — sofa-cushion cut-out, ABOVE the word so the E tucks behind
-           it; revealed by the same iris clip as the photo. -->
-      <div class="hero-zoom-fg">
-        <img class="hero-zoom-fg-img" src="https://assets.tmke.co.uk/sofa-invis.webp" alt="" />
-      </div>
+      <!-- (Sofa-cushion foreground overlay removed per design.) -->
       <!-- Bottom labels: left / centre / right -->
       <div class="hero-zoom-foot">
         <span class="hz-foot hz-foot--l">Established in 2025</span>
@@ -452,7 +448,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 
   <!-- ============================== NEWS / SUBSCRIBE -->
   <section id="news" class="news" data-reveal-root>
-    <div class="news-bg" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Add%20a%20heading%20(1).png')"></div>
+    <div class="news-bg" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Homepage%20footer.png')"></div>
     <!-- Top-left: chapter line -->
     <div class="news-tl">
       <div class="chapter chapter--light news-chapter">Chapter 07 &mdash; News</div>
@@ -643,7 +639,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       // breaks if the asset is missing. Tries the known filename + fallbacks.
       (function () {
         const urls = [
-          "https://assets.tmke.co.uk/TMKE%20Home%20Page/TMKE%20Leather%20Background%20.png",
+          "https://assets.tmke.co.uk/TMKE%20Home%20Page/TMKE%20Header2.png",
           "https://assets.tmke.co.uk/snake%20skin.png",
           "https://assets.tmke.co.uk/snakeskin.webp",
           "https://assets.tmke.co.uk/snakeskin.jpg",
@@ -686,7 +682,17 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         // into it only while resting (.is-skin); once the fold-out begins we drop
         // the snakeskin so the word transitions to its normal state.
         const hasSkin = hero.classList.contains("has-snakeskin");
-        if (skin) skin.style.opacity = hasSkin ? clamp01(1 - e / 0.18).toFixed(3) : "0";
+        // Keep the resting background fully visible the whole time — the photo
+        // simply irises in OVER it, instead of the background fading to white.
+        // BUT crop it inward to match the photo's 30px frame as it opens, so the
+        // leftover edges become the paper border by the time the photo fills the
+        // frame. Eased + back-loaded (starts ~30% in, done by ~90%) so the edges
+        // recede imperceptibly rather than snapping to white.
+        if (skin) {
+          skin.style.opacity = hasSkin ? "1" : "0";
+          const crop = (smooth(clamp01((e - 0.3) / 0.6)) * 30).toFixed(1);
+          skin.style.clipPath = "inset(0px " + crop + "px " + crop + "px " + crop + "px)";
+        }
         if (word) { if (hasSkin && e < 0.06) word.classList.add("is-skin"); else word.classList.remove("is-skin"); }
         // word: embossed #eae5e1 at rest -> secondary taupe #7e6765 as the photo irises past it
         const wc = smooth(clamp01((e - 0.04) / 0.42));
