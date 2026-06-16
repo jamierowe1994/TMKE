@@ -9,6 +9,7 @@
 // client-generated session id so we can measure visits + funnels.
 
 import { supabase, isConfigured } from './supabase.js';
+import { analyticsAllowed } from './consent.js';
 
 const SID_KEY = 'tmke-sid';
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
@@ -58,7 +59,8 @@ function sessionId() {
  * @param {object} [props] event-specific payload (pack_id, amount_pence, template_id, …)
  */
 export async function track(name, props = {}) {
-  if (!name || !isConfigured) return;
+  // No non-essential storage / behavioural logging without consent (PECR).
+  if (!name || !isConfigured || !analyticsAllowed()) return;
   try {
     let userId = null;
     try {
@@ -81,6 +83,8 @@ export async function track(name, props = {}) {
 
 /** Convenience: record a page view for the current page. */
 export function trackPageview(extra = {}) {
+  // Gated on consent — the banner re-calls this after the visitor accepts.
+  if (!analyticsAllowed()) return;
   track('pageview', { title: typeof document !== 'undefined' ? document.title : '', ...extra });
 
   if (typeof location === 'undefined') return;
@@ -107,6 +111,7 @@ export function trackPageview(extra = {}) {
 
 /** Record + fire a trigger-link click explicitly (e.g. from a button handler). */
 export function trackLinkClick(key, extra = {}) {
+  if (!analyticsAllowed()) return;
   track('link_clicked', { key, ...extra });
   fireAutomation('link_clicked', { key, ...extra });
 }

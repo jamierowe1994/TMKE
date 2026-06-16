@@ -292,12 +292,86 @@ const enableTransition = !isBackend && !hideNav && !isEditing;
            Confirm that table is empty before deploying so we start clean. -->
     <script src="/scripts/visual-editor.js" is:inline></script>
 
-    <!-- First-party analytics + marketing-automation activity signals. Logs a
-         pageview to site_events on every page, and (for signed-in contacts, off
-         the backstage) fires page_visited / trigger-link automations. -->
+    <!-- Cookie / analytics consent banner (PECR). Shown on every front-end page
+         until the visitor chooses (incl. chrome-less landing pages, so a direct
+         arrival can still consent). Essential cookies (auth, security) are
+         exempt; analytics in track.js stays off until "Accept all". -->
+    <div class="cc-banner" id="cc-banner" hidden role="dialog" aria-label="Cookie consent" aria-live="polite">
+      <div class="cc-inner">
+        <p class="cc-text">
+          We use essential cookies to make this site work and, with your consent, analytics to
+          understand how it's used. See our <a href="/cookies">Cookie Policy</a> and
+          <a href="/privacy">Privacy Policy</a>.
+        </p>
+        <div class="cc-actions">
+          <button type="button" class="cc-btn cc-btn-ghost" id="cc-reject">Reject non-essential</button>
+          <button type="button" class="cc-btn cc-btn-solid" id="cc-accept">Accept all</button>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .cc-banner {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 9600;
+        display: flex; justify-content: center; padding: 16px; pointer-events: none;
+      }
+      .cc-banner[hidden] { display: none; }
+      .cc-inner {
+        pointer-events: auto; width: 100%; max-width: 880px;
+        display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+        background: var(--ink, #1c1d22); color: #fff;
+        border-radius: 14px; padding: 16px 20px;
+        box-shadow: 0 18px 50px -12px rgba(0,0,0,0.5);
+      }
+      .cc-text {
+        flex: 1 1 320px; margin: 0;
+        font-family: var(--sans); font-size: 15px; line-height: 1.5; color: rgba(255,255,255,0.85);
+      }
+      .cc-text a { color: #fff; text-decoration: underline; }
+      .cc-actions { display: flex; gap: 10px; flex: 0 0 auto; }
+      .cc-btn {
+        font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+        padding: 11px 18px; border-radius: 999px; cursor: pointer; border: 1px solid transparent;
+        white-space: nowrap; transition: background 0.18s, color 0.18s, border-color 0.18s;
+      }
+      .cc-btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.4); }
+      .cc-btn-ghost:hover { background: rgba(255,255,255,0.12); }
+      .cc-btn-solid { background: #fff; color: var(--ink, #1c1d22); }
+      .cc-btn-solid:hover { background: rgba(255,255,255,0.85); }
+      @media (max-width: 560px) {
+        .cc-inner { flex-direction: column; align-items: stretch; }
+        .cc-actions { justify-content: stretch; }
+        .cc-btn { flex: 1; }
+      }
+    </style>
+
+    <!-- First-party analytics, gated behind consent. The banner re-fires the
+         pageview after the visitor accepts. -->
     <script>
       import { trackPageview } from "../lib/track.js";
-      trackPageview();
+      import { getConsent, setConsent } from "../lib/consent.js";
+
+      const banner = document.getElementById("cc-banner");
+      const show = () => { if (banner) banner.hidden = false; };
+      const hide = () => { if (banner) banner.hidden = true; };
+
+      const choice = getConsent();
+      if (choice === "granted") trackPageview();
+      else if (choice === null) show(); // undecided → ask (denied → stay quiet)
+
+      document.getElementById("cc-accept")?.addEventListener("click", () => {
+        setConsent("granted"); hide(); trackPageview();
+      });
+      document.getElementById("cc-reject")?.addEventListener("click", () => {
+        setConsent("denied"); hide();
+      });
+
+      // Let a "Cookie settings" link anywhere on the page reopen the banner so a
+      // choice can be changed as easily as it was given.
+      window.tmkeCookieSettings = show;
+      document.querySelectorAll("[data-cookie-settings]").forEach((el) => {
+        el.addEventListener("click", (e) => { e.preventDefault(); show(); });
+      });
     </script>
   </body>
 </html>
