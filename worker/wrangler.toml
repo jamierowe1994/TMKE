@@ -70,18 +70,15 @@ JACK_NOTIFY = "jack@tmke.co.uk"
 # Google Distance Matrix (travel surcharge) — key is a secret:
 #   wrangler secret put GOOGLE_MAPS_API_KEY
 
-# GoHighLevel marketing sync (contact upsert + tags). Location ID is not secret;
-# the API token is. Both must be set for the sync to fire (otherwise it no-ops).
-#   wrangler secret put GHL_API_KEY        # Private Integration token (Bearer)
-#   wrangler secret put GHL_LOCATION_ID    # or set as a [vars] value below
-
 # AI text parser (studio "Read text with AI"). Model is public; the key is a secret.
 AI_MODEL = "claude-sonnet-4-6"
 
-# Daily reminder cron — 07:00 UTC. Fires the scheduled() handler which emails
-# customers any posts due that day with the asset attached.
+# Cron triggers (scheduled() branches on event.cron):
+#   "0 7 * * *"   — 07:00 UTC daily: post reminders (asset emails due that day).
+#   "*/5 * * * *" — every 5 min: advance due marketing-automation enrolments
+#                   (waits/drips, sends). Keeps automations responsive.
 [triggers]
-crons = ["0 7 * * *"]
+crons = ["0 7 * * *", "*/5 * * * *"]
 
 # Secrets to set (not stored here):
 #   wrangler secret put MS_CLIENT_SECRET       # Entra app client secret

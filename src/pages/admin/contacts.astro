@@ -1,0 +1,257 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="contacts" title="Contacts">
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-top">
+        <span class="admin-bar-count" id="ct-count">…</span>
+        <div class="admin-bar-tools">
+          <label class="ct-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" id="ct-search" placeholder="Search name, email, company…" aria-label="Search contacts" />
+          </label>
+          <select class="ct-filter" id="ct-filter" aria-label="Filter by lifecycle">
+            <option value="all">All</option>
+            <option value="lead">Leads</option>
+            <option value="customer">Customers</option>
+            <option value="member">Members</option>
+            <option value="dnd">Do-not-contact</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="ct-list" id="ct-list">
+      <p class="ct-loading" id="ct-loading">Loading contacts…</p>
+      <p class="ct-empty" id="ct-empty" hidden>No contacts yet — they appear here as people enquire, book, sign up or buy.</p>
+      <table class="ct-table" id="ct-table" hidden>
+        <thead><tr><th>Name</th><th>Email</th><th>Lifecycle</th><th>Tags</th><th>Last seen</th></tr></thead>
+        <tbody id="ct-rows"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- Detail drawer -->
+  <div class="ct-drawer-scrim" id="ct-scrim" hidden></div>
+  <aside class="ct-drawer" id="ct-drawer" hidden aria-label="Contact detail">
+    <header class="ct-drawer-head">
+      <div>
+        <h2 id="ct-d-name">—</h2>
+        <p id="ct-d-email" class="ct-d-sub">—</p>
+      </div>
+      <button type="button" class="ct-drawer-x" id="ct-close" aria-label="Close">&times;</button>
+    </header>
+    <div class="ct-drawer-body" id="ct-drawer-body"><!-- filled by JS --></div>
+  </aside>
+
+  <style is:global>
+    .admin-bar { display: flex; flex-direction: column; align-items: stretch; gap: 16px; max-width: 1360px; margin: 0 auto; padding: 40px 0 22px; border-bottom: 1px solid rgba(55,30,40,0.14); }
+    .admin-bar-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .admin-bar-tools { display: flex; align-items: center; gap: 10px; }
+    .admin-bar-count { font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.6); font-weight: 600; }
+    .ct-search { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 8px 14px; min-width: 240px; }
+    .ct-search svg { width: 15px; height: 15px; color: rgba(28,29,34,0.42); flex: none; }
+    .ct-search input { border: 0; outline: none; background: none; width: 100%; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .ct-filter { appearance: none; -webkit-appearance: none; background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 9px 32px 9px 14px; cursor: pointer; font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--english-violet); }
+    .ct-list { max-width: 1360px; margin: 0 auto; padding: 24px 0 140px; }
+    .ct-loading, .ct-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 22px 0; }
+    .ct-loading[hidden], .ct-empty[hidden], .ct-table[hidden] { display: none; }
+    .ct-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13.5px; }
+    .ct-table th { text-align: left; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 12px 14px; border-bottom: 1px solid rgba(28,29,34,0.1); }
+    .ct-table td { padding: 13px 14px; border-bottom: 1px solid rgba(28,29,34,0.06); color: var(--ink); cursor: pointer; }
+    .ct-table tr:hover td { background: rgba(55,30,40,0.03); }
+    .ct-life { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+    .ct-life.customer, .ct-life.member { color: #2c7a4b; background: rgba(44,122,75,0.12); }
+    .ct-life.lead { color: var(--english-violet); background: rgba(var(--violet-rgb),0.1); }
+    .ct-life.dnd { color: #a05a3c; background: rgba(160,90,60,0.12); }
+    .ct-tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.7); margin: 0 4px 2px 0; }
+
+    .ct-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,26,0.35); z-index: 60; }
+    .ct-drawer-scrim[hidden] { display: none; }
+    .ct-drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 440px; max-width: 94vw; background: #fff; z-index: 61; box-shadow: -20px 0 60px -30px rgba(20,18,26,0.5); display: flex; flex-direction: column; overflow-y: auto; }
+    .ct-drawer[hidden] { display: none; }
+    .ct-drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 22px 24px 16px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ct-drawer-head h2 { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); margin: 0; }
+    .ct-d-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 4px 0 0; }
+    .ct-drawer-x { border: 0; background: none; font-size: 24px; color: rgba(28,29,34,0.4); cursor: pointer; line-height: 1; }
+    .ct-drawer-body { padding: 18px 24px 60px; display: flex; flex-direction: column; gap: 20px; }
+    .ct-sec h3 { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 10px; }
+    .ct-meta { font-family: var(--sans); font-size: 13.5px; color: var(--ink); line-height: 1.7; }
+    .ct-meta span { color: rgba(28,29,34,0.5); }
+    .ct-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .ct-chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--sans); font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
+    .ct-chip button { border: 0; background: none; cursor: pointer; color: inherit; font-size: 13px; line-height: 1; }
+    .ct-row { display: flex; gap: 8px; }
+    .ct-row input, .ct-row select, .ct-drawer textarea { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); flex: 1; }
+    .ct-mini { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--english-violet); background: transparent; color: var(--english-violet); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+    .ct-mini:hover { background: var(--english-violet); color: #fff; }
+    .ct-item { padding: 10px 0; border-bottom: 1px solid rgba(28,29,34,0.06); font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .ct-item-meta { font-size: 11px; color: rgba(28,29,34,0.45); margin-top: 2px; }
+    .ct-task { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .ct-task.done { opacity: 0.5; text-decoration: line-through; }
+    .ct-toggle { font-family: var(--sans); font-size: 12px; color: var(--english-violet); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase } from "../../lib/supabase.js";
+
+    const DEV = import.meta.env.DEV;
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
+    const fullName = (c) => [c.first_name, c.last_name].filter(Boolean).join(" ") || "(no name)";
+
+    let ALL = [], q = "", filter = "all", current = null;
+
+    // Fire a contact-action trigger into the automations engine (admin authed).
+    async function fire(trigger, contact, payload) {
+      if (!WORKER) return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data?.session) return;
+        await fetch(`${WORKER}/automations/fire`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+          body: JSON.stringify({ trigger, email: contact.email, first_name: contact.first_name, last_name: contact.last_name, company: contact.company, payload: payload || {} }),
+        });
+      } catch (_) {}
+    }
+
+    function render() {
+      const list = ALL
+        .filter((c) => filter === "all" || (filter === "dnd" ? c.dnd : c.lifecycle === filter))
+        .filter((c) => !q || (fullName(c) + " " + c.email + " " + (c.company || "")).toLowerCase().includes(q));
+      $("ct-count").textContent = `${ALL.length} contact${ALL.length === 1 ? "" : "s"}`;
+      $("ct-empty").hidden = ALL.length !== 0;
+      $("ct-table").hidden = list.length === 0;
+      $("ct-rows").innerHTML = list.map((c) => `
+        <tr data-id="${esc(c.id)}">
+          <td>${esc(fullName(c))}</td>
+          <td>${esc(c.email)}</td>
+          <td><span class="ct-life ${c.dnd ? "dnd" : esc(c.lifecycle)}">${c.dnd ? "DND" : esc(c.lifecycle)}</span></td>
+          <td>${(c.tags || []).slice(0, 4).map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") || "—"}</td>
+          <td>${esc(fmtDate(c.last_seen_at))}</td>
+        </tr>`).join("");
+      $("ct-rows").querySelectorAll("[data-id]").forEach((tr) => tr.addEventListener("click", () => openDrawer(tr.getAttribute("data-id"))));
+    }
+
+    async function openDrawer(id) {
+      current = ALL.find((c) => c.id === id);
+      if (!current) return;
+      $("ct-d-name").textContent = fullName(current);
+      $("ct-d-email").textContent = current.email;
+      $("ct-scrim").hidden = false; $("ct-drawer").hidden = false;
+      $("ct-drawer-body").innerHTML = `<p class="ct-meta">Loading…</p>`;
+      const [{ data: notes }, { data: tasks }] = await Promise.all([
+        supabase.from("contact_notes").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
+        supabase.from("contact_tasks").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
+      ]);
+      drawNote(notes || [], tasks || []);
+    }
+    function closeDrawer() { $("ct-scrim").hidden = true; $("ct-drawer").hidden = true; current = null; }
+    $("ct-close").addEventListener("click", closeDrawer);
+    $("ct-scrim").addEventListener("click", closeDrawer);
+
+    function drawNote(notes, tasks) {
+      const c = current;
+      $("ct-drawer-body").innerHTML = `
+        <div class="ct-sec">
+          <h3>Details</h3>
+          <p class="ct-meta">
+            <span>Company:</span> ${esc(c.company || "—")}<br>
+            <span>Phone:</span> ${esc(c.phone || "—")}<br>
+            <span>Source:</span> ${esc(c.source || "—")}<br>
+            <span>Marketing opt-in:</span> ${c.marketing_opt_in ? "Yes" : "No"}
+          </p>
+          <div class="ct-row" style="margin-top:10px">
+            <select id="ct-life-sel">${["lead","customer","member","past"].map((l) => `<option value="${l}" ${c.lifecycle === l ? "selected" : ""}>${l}</option>`).join("")}</select>
+            <label class="ct-toggle"><input type="checkbox" id="ct-dnd" ${c.dnd ? "checked" : ""}/> Do-not-contact</label>
+          </div>
+        </div>
+        <div class="ct-sec">
+          <h3>Tags</h3>
+          <div class="ct-chips" id="ct-tags">${(c.tags || []).map((t) => `<span class="ct-chip">${esc(t)}<button data-untag="${esc(t)}" title="Remove">&times;</button></span>`).join("") || '<span class="ct-meta">No tags</span>'}</div>
+          <div class="ct-row" style="margin-top:10px"><input id="ct-tag-input" placeholder="Add a tag" /><button class="ct-mini" id="ct-tag-add">Add</button></div>
+        </div>
+        <div class="ct-sec">
+          <h3>Tasks</h3>
+          <div id="ct-tasks">${tasks.length ? tasks.map((t) => `
+            <div class="ct-item ct-task ${t.status === "done" ? "done" : ""}">
+              <div>${esc(t.title)}<div class="ct-item-meta">${t.due_at ? "Due " + fmtDate(t.due_at) : ""}</div></div>
+              ${t.status === "done" ? "✓" : `<button class="ct-mini" data-done="${esc(t.id)}">Complete</button>`}
+            </div>`).join("") : '<p class="ct-meta">No tasks</p>'}</div>
+          <div class="ct-row" style="margin-top:10px"><input id="ct-task-input" placeholder="New task (e.g. Send LinkedIn message)" /><button class="ct-mini" id="ct-task-add">Add</button></div>
+        </div>
+        <div class="ct-sec">
+          <h3>Notes</h3>
+          <div id="ct-notes">${notes.length ? notes.map((n) => `<div class="ct-item">${esc(n.body)}<div class="ct-item-meta">${esc(n.author || "")} · ${fmtDate(n.created_at)}</div></div>`).join("") : '<p class="ct-meta">No notes</p>'}</div>
+          <div class="ct-row" style="margin-top:10px"><textarea id="ct-note-input" rows="2" placeholder="Add a note"></textarea></div>
+          <button class="ct-mini" id="ct-note-add" style="margin-top:8px">Add note</button>
+        </div>`;
+      wireDrawer(notes, tasks);
+    }
+
+    function wireDrawer(notes, tasks) {
+      const c = current;
+      $("ct-life-sel").addEventListener("change", async (e) => {
+        c.lifecycle = e.target.value;
+        await supabase.from("contacts").update({ lifecycle: c.lifecycle }).eq("id", c.id);
+        fire("contact_changed", c, { field: "lifecycle", value: c.lifecycle }); render();
+      });
+      $("ct-dnd").addEventListener("change", async (e) => {
+        c.dnd = e.target.checked;
+        await supabase.from("contacts").update({ dnd: c.dnd }).eq("id", c.id);
+        if (c.dnd) fire("dnd_set", c, {}); render();
+      });
+      $("ct-tag-add").addEventListener("click", async () => {
+        const v = ($("ct-tag-input").value || "").trim(); if (!v) return;
+        c.tags = Array.from(new Set([...(c.tags || []), v]));
+        await supabase.from("contacts").update({ tags: c.tags }).eq("id", c.id);
+        fire("tag_added", c, { tag: v }); openDrawer(c.id);
+      });
+      $("ct-tags").querySelectorAll("[data-untag]").forEach((b) => b.addEventListener("click", async () => {
+        const v = b.getAttribute("data-untag");
+        c.tags = (c.tags || []).filter((t) => t !== v);
+        await supabase.from("contacts").update({ tags: c.tags }).eq("id", c.id);
+        fire("tag_removed", c, { tag: v }); openDrawer(c.id);
+      }));
+      $("ct-task-add").addEventListener("click", async () => {
+        const v = ($("ct-task-input").value || "").trim(); if (!v) return;
+        await supabase.from("contact_tasks").insert({ contact_id: c.id, title: v });
+        openDrawer(c.id);
+      });
+      $("ct-tasks").querySelectorAll("[data-done]").forEach((b) => b.addEventListener("click", async () => {
+        const id = b.getAttribute("data-done");
+        await supabase.from("contact_tasks").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", id);
+        const t = tasks.find((x) => x.id === id);
+        fire("task_completed", c, { task: t ? t.title : "" }); openDrawer(c.id);
+      }));
+      $("ct-note-add").addEventListener("click", async () => {
+        const v = ($("ct-note-input").value || "").trim(); if (!v) return;
+        await supabase.from("contact_notes").insert({ contact_id: c.id, body: v, author: "Admin" });
+        fire("note_added", c, {}); openDrawer(c.id);
+      });
+    }
+
+    $("ct-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); render(); });
+    $("ct-filter").addEventListener("change", (e) => { filter = e.target.value; render(); });
+
+    async function load() {
+      const { data, error } = await supabase.from("contacts").select("*").order("updated_at", { ascending: false }).limit(1000);
+      $("ct-loading").hidden = true;
+      if (error) { $("ct-loading").hidden = false; $("ct-loading").textContent = "Couldn't load contacts: " + error.message; return; }
+      ALL = data || [];
+      render();
+    }
+
+    (async () => {
+      if (!DEV) { const s = await requireAdmin(); if (!s) return; }
+      await load();
+    })();
+  </script>
+</AdminShell>

@@ -55,11 +55,16 @@ export function mergeContextFor(recipient = {}, brand = {}) {
   const fullName = recipient.name || '';
   const [firstName, ...rest] = fullName.trim().split(/\s+/);
   return {
-    firstName: firstName || '',
-    lastName: rest.join(' ') || '',
+    firstName: recipient.firstName || firstName || '',
+    lastName: recipient.lastName || rest.join(' ') || '',
     fullName,
     email: recipient.email || '',
     company: recipient.company || '',
+    phone: recipient.phone || '',
+    // Purchase context — populated from the contact's last order at send time
+    // (the automations engine passes it in), so "Thank you for buying {{packName}}" works.
+    packName: recipient.packName || recipient.pack || '',
+    orderTotal: recipient.orderTotal || '',
     senderName: brand.signatureName || '',
     senderCompany: brand.companyName || '',
   };
@@ -71,13 +76,16 @@ export const MERGE_FIELDS = [
   { token: 'lastName', label: 'Last name' },
   { token: 'fullName', label: 'Full name' },
   { token: 'email', label: 'Email address' },
-  { token: 'company', label: 'Company' },
+  { token: 'company', label: 'Company name' },
+  { token: 'phone', label: 'Mobile / phone' },
+  { token: 'packName', label: 'Purchased pack' },
+  { token: 'orderTotal', label: 'Order total' },
   { token: 'senderName', label: 'Sender name' },
   { token: 'senderCompany', label: 'Sender company' },
 ];
 
 /** A dummy recipient so the live preview shows realistic merged values. */
-export const SAMPLE_RECIPIENT = { name: 'Alex Morgan', email: 'alex@example.com', company: 'Acme Estates' };
+export const SAMPLE_RECIPIENT = { name: 'Alex Morgan', email: 'alex@example.com', company: 'Acme Estates', phone: '07700 900123', packName: 'The Spring Collection', orderTotal: '£149' };
 
 /* ───────────────────────── branding ───────────────────────── */
 
@@ -91,6 +99,7 @@ export function defaultBrand() {
     bgColor: '#f4f2f1',
     cardColor: '#ffffff',
     website: 'https://tmke.co.uk',
+    reviewUrl: '',
     linkedin: '',
     instagram: '',
     facebook: '',
@@ -107,11 +116,34 @@ export const BLOCK_TYPES = [
   { type: 'text', label: 'Text', hint: 'A paragraph of copy' },
   { type: 'image', label: 'Image', hint: 'A picture, optionally a link' },
   { type: 'button', label: 'Button', hint: 'A call-to-action' },
+  { type: 'columns', label: 'Columns', hint: 'A multi-column row layout' },
   { type: 'divider', label: 'Divider', hint: 'A horizontal line' },
   { type: 'spacer', label: 'Spacer', hint: 'Vertical whitespace' },
   { type: 'logo', label: 'Logo', hint: 'Your brand logo' },
   { type: 'social', label: 'Social', hint: 'Social icon links' },
   { type: 'video', label: 'Video', hint: 'A clickable video thumbnail' },
+  { type: 'footer', label: 'Footer', hint: 'Sign-off, address & unsubscribe' },
+  { type: 'faq', label: 'FAQ', hint: 'Question & answer list' },
+  { type: 'countdown', label: 'Countdown', hint: 'An offer / deadline date' },
+  { type: 'reviewlink', label: 'Review link', hint: 'Ask for a review' },
+  { type: 'products', label: 'Products', hint: 'A grid of packs' },
+  { type: 'services', label: 'Services', hint: 'What you offer' },
+  { type: 'slider', label: 'Image gallery', hint: 'A row of images' },
+  { type: 'form', label: 'Form', hint: 'A prompt + button to a form' },
+  { type: 'code', label: 'Custom HTML', hint: 'Paste your own HTML' },
+];
+
+/** The column splits offered in the builder. `cols` = how many cells; `w` =
+ *  per-cell width %. Used by both the builder (cell count) and the renderer. */
+export const COLUMN_LAYOUTS = [
+  { key: 'full',     label: 'Full width',            cols: 1, w: [100] },
+  { key: '50-50',    label: 'Two columns (50 / 50)', cols: 2, w: [50, 50] },
+  { key: 'thirds',   label: 'Three columns (⅓ each)', cols: 3, w: [33.33, 33.33, 33.34] },
+  { key: '33-67',    label: '⅓ + ⅔',                 cols: 2, w: [33.33, 66.67] },
+  { key: '67-33',    label: '⅔ + ⅓',                 cols: 2, w: [66.67, 33.33] },
+  { key: '25-75',    label: '¼ + ¾',                 cols: 2, w: [25, 75] },
+  { key: '75-25',    label: '¾ + ¼',                 cols: 2, w: [75, 25] },
+  { key: 'quarters', label: 'Four columns',          cols: 4, w: [25, 25, 25, 25] },
 ];
 
 let _uidCounter = 0;
@@ -135,6 +167,11 @@ export function makeBlock(type) {
       return { type, id, url: '', alt: '', linkUrl: '', align: 'center' };
     case 'button':
       return { type, id, text: 'View more', url: 'https://tmke.co.uk', color: '', align: 'center' };
+    case 'columns':
+      return { type, id, layout: '50-50', cells: [
+        { title: 'Column one', text: 'Some copy here.' },
+        { title: 'Column two', text: 'Some copy here.' },
+      ] };
     case 'divider':
       return { type, id, color: '#E2E8F0' };
     case 'spacer':
@@ -145,6 +182,30 @@ export function makeBlock(type) {
       return { type, id, align: 'center', show: { linkedin: true, instagram: true, facebook: true, website: true, twitter: true, youtube: true } };
     case 'video':
       return { type, id, url: '', thumbnail: '', align: 'center' };
+    case 'footer':
+      return { type, id, address: '', showSocial: true, unsubscribe: true, note: 'You\'re receiving this because you\'re part of the TMKE community.' };
+    case 'faq':
+      return { type, id, title: 'Frequently asked', items: [{ q: 'A question people often ask?', a: 'A clear, friendly answer.' }] };
+    case 'countdown':
+      return { type, id, label: 'Offer ends', deadline: '', align: 'center' };
+    case 'reviewlink':
+      return { type, id, text: 'Leave us a review', url: '', align: 'center', prompt: 'Enjoyed working with us?' };
+    case 'products':
+      return { type, id, columns: 2, items: [
+        { title: 'A pack', price: '£49', image: '', url: 'https://tmke.co.uk/account', cta: 'View pack' },
+      ] };
+    case 'services':
+      return { type, id, columns: 3, items: [
+        { title: 'The Studio', text: 'On-brand templates, yours in minutes.', btnText: 'Explore', btnUrl: 'https://tmke.co.uk/editor' },
+        { title: 'Videography', text: 'Property & agent video, done for you.', btnText: 'See more', btnUrl: 'https://tmke.co.uk/videography' },
+        { title: 'Managed socials', text: 'We run the channel end to end.', btnText: 'Learn more', btnUrl: 'https://tmke.co.uk/account/services' },
+      ] };
+    case 'slider':
+      return { type, id, columns: 3, images: [] };
+    case 'form':
+      return { type, id, heading: 'Tell us what you need', intro: 'A couple of quick questions and we\'ll be in touch.', fields: ['Name', 'Email', 'What are you after?'], btnText: 'Open the form', url: 'https://tmke.co.uk/contact' };
+    case 'code':
+      return { type, id, html: '<!-- Paste your own email-safe HTML here -->' };
     default:
       return { type: 'text', id, text: '', bg: '' };
   }
@@ -277,7 +338,154 @@ function renderVideo(block) {
     </div>`;
 }
 
-function renderBlock(block, brand, ctx) {
+function renderFooter(block, brand) {
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  const year = new Date().getFullYear();
+  const social = block.showSocial !== false ? renderSocial({ show: {} }, brand) : '';
+  const note = block.note ? `<p style="margin:0 0 8px;">${escapeHtml(block.note)}</p>` : '';
+  const address = block.address ? `<p style="margin:0 0 8px;">${escapeHtml(block.address)}</p>` : '';
+  const web = brand.website ? `<a href="${escapeHtml(brand.website)}" style="color:${escapeHtml(accent)};text-decoration:none;">${escapeHtml(String(brand.website).replace(/^https?:\/\//, ''))}</a>` : '';
+  const unsub = block.unsubscribe !== false
+    ? `<p style="margin:8px 0 0;">{{unsubscribe}}<a href="{{unsubscribe_url}}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a></p>`
+    : '';
+  return `
+    <div style="border-top:1px solid #E2E8F0;margin-top:8px;padding-top:18px;text-align:center;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#94a3b8;">
+      ${social}
+      ${note}
+      ${address}
+      <p style="margin:0 0 4px;">&copy; ${year} ${escapeHtml(brand.companyName || 'TMKE')}${web ? ' · ' + web : ''}</p>
+      ${unsub}
+    </div>`;
+}
+
+function renderFaq(block, ctx) {
+  const items = Array.isArray(block.items) ? block.items : [];
+  const rows = items.filter((it) => it && (it.q || it.a)).map((it) => `
+    <div style="margin:0 0 14px;">
+      <p style="margin:0 0 4px;font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#1c1d22;">${renderTokens(escapeHtml(it.q || ''), ctx)}</p>
+      <p style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#475569;">${renderTokens(escapeHtml(it.a || ''), ctx)}</p>
+    </div>`).join('');
+  if (!rows) return '';
+  const title = block.title ? `<h2 style="margin:0 0 14px;font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:800;color:#1c1d22;">${escapeHtml(block.title)}</h2>` : '';
+  return `<div>${title}${rows}</div>`;
+}
+
+function renderCountdown(block) {
+  const dl = block.deadline ? new Date(block.deadline) : null;
+  if (!dl || isNaN(dl.getTime())) return '';
+  const days = Math.max(0, Math.ceil((dl.getTime() - Date.now()) / 86400000));
+  const dateStr = dl.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
+  return `
+    <div style="text-align:${align};margin:8px 0;">
+      <div style="display:inline-block;padding:14px 26px;border:1px solid #E2E8F0;border-radius:12px;background:#faf9f8;font-family:Helvetica,Arial,sans-serif;">
+        <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#94a3b8;">${escapeHtml(block.label || 'Offer ends')}</div>
+        <div style="font-size:28px;font-weight:800;color:#1c1d22;margin:4px 0 2px;">${days} day${days === 1 ? '' : 's'} left</div>
+        <div style="font-size:13px;color:#475569;">${escapeHtml(dateStr)}</div>
+      </div>
+    </div>`;
+}
+
+function renderReviewLink(block, brand, ctx) {
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  const url = renderTokens(block.url || brand.reviewUrl || (brand.website ? brand.website.replace(/\/+$/, '') + '/review' : '#'), ctx);
+  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
+  const stars = '<div style="font-size:22px;letter-spacing:2px;color:#f5b301;margin:0 0 6px;">&#9733;&#9733;&#9733;&#9733;&#9733;</div>';
+  const prompt = block.prompt ? `<p style="margin:0 0 10px;font-family:Helvetica,Arial,sans-serif;font-size:15px;color:#1c1d22;">${escapeHtml(block.prompt)}</p>` : '';
+  return `
+    <div style="text-align:${align};margin:8px 0;">
+      ${stars}${prompt}
+      <a href="${escapeHtml(url)}" style="display:inline-block;padding:11px 24px;background:${escapeHtml(accent)};color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;font-family:Helvetica,Arial,sans-serif;">${escapeHtml(renderTokens(block.text || 'Leave a review', ctx))}</a>
+    </div>`;
+}
+
+function renderCode(block, ctx) {
+  return renderTokens(String(block.html || ''), ctx);
+}
+
+// One column cell — a small stacked unit (image → title → text → button), which
+// covers feature grids, product/service rows, etc. without a nested editor.
+function renderCell(c, brand, ctx) {
+  if (!c) return '';
+  let h = '';
+  if (c.image) h += `<img src="${escapeHtml(c.image)}" alt="${escapeHtml(c.alt || '')}" style="max-width:100%;border-radius:8px;display:block;border:0;outline:none;margin:0 0 8px;" />`;
+  if (c.title) h += `<p style="margin:0 0 4px;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#1c1d22;">${renderTokens(escapeHtml(c.title), ctx)}</p>`;
+  if (c.text) h += `<p style="margin:0 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#475569;">${renderTokens(escapeHtml(c.text), ctx).replace(/\n/g, '<br />')}</p>`;
+  if (c.btnText) h += `<a href="${escapeHtml(renderTokens(c.btnUrl || '#', ctx))}" style="display:inline-block;padding:8px 16px;background:${escapeHtml(brand.accentColor || ACCENT_DEFAULT)};color:#fff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;font-family:Helvetica,Arial,sans-serif;">${escapeHtml(renderTokens(c.btnText, ctx))}</a>`;
+  return h || '<div style="min-height:36px;"></div>';
+}
+
+// Email-safe responsive-ish grid: rows of `cols`, each cell rendered by cellFn.
+function cardGrid(items, cols, cellFn) {
+  const n = Math.min(Math.max(Number(cols) || 2, 1), 4);
+  const w = (100 / n).toFixed(3);
+  let rows = '';
+  for (let i = 0; i < items.length; i += n) {
+    const slice = items.slice(i, i + n);
+    const tds = slice.map((it, j) => {
+      const pad = n === 1 ? '0 0 16px' : `0 ${j < slice.length - 1 ? 8 : 0}px 16px ${j > 0 ? 8 : 0}px`;
+      return `<td valign="top" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:top;font-family:Helvetica,Arial,sans-serif;">${cellFn(it)}</td>`;
+    }).join('');
+    const padCells = Array.from({ length: n - slice.length }, () => `<td width="${w}%" style="width:${w}%;"></td>`).join('');
+    rows += `<tr>${tds}${padCells}</tr>`;
+  }
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">${rows}</table>`;
+}
+
+function renderProducts(block, brand, ctx) {
+  const items = (Array.isArray(block.items) ? block.items : []).filter((it) => it && (it.title || it.image));
+  if (!items.length) return '';
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  return cardGrid(items, block.columns || 2, (it) => {
+    let h = '';
+    if (it.image) h += `<img src="${escapeHtml(it.image)}" alt="${escapeHtml(it.title || '')}" style="max-width:100%;border-radius:8px;display:block;border:0;margin:0 0 8px;" />`;
+    if (it.title) h += `<p style="margin:0 0 2px;font-size:15px;font-weight:700;color:#1c1d22;">${renderTokens(escapeHtml(it.title), ctx)}</p>`;
+    if (it.price) h += `<p style="margin:0 0 8px;font-size:14px;color:${escapeHtml(accent)};font-weight:600;">${escapeHtml(it.price)}</p>`;
+    h += `<a href="${escapeHtml(it.url || '#')}" style="display:inline-block;padding:7px 14px;background:${escapeHtml(accent)};color:#fff;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">${escapeHtml(it.cta || 'View')}</a>`;
+    return h;
+  });
+}
+
+function renderServices(block, brand, ctx) {
+  const items = (Array.isArray(block.items) ? block.items : []).filter((it) => it && (it.title || it.text));
+  if (!items.length) return '';
+  return cardGrid(items, block.columns || 3, (it) => renderCell({ title: it.title, text: it.text, btnText: it.btnText, btnUrl: it.btnUrl }, brand, ctx));
+}
+
+function renderSlider(block) {
+  const images = (Array.isArray(block.images) ? block.images : []).filter(Boolean);
+  if (!images.length) return '';
+  return cardGrid(images.map((url) => ({ url })), block.columns || 3, (it) =>
+    `<img src="${escapeHtml(it.url)}" alt="" style="max-width:100%;border-radius:8px;display:block;border:0;" />`);
+}
+
+function renderForm(block, brand, ctx) {
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  const fields = (Array.isArray(block.fields) ? block.fields : []).filter(Boolean);
+  // Email clients strip real <form> posts, so this is a styled prompt that links
+  // out to a hosted form. The fields preview what the form will ask.
+  const fieldRows = fields.map((f) => `<div style="border:1px solid #E2E8F0;border-radius:6px;padding:9px 12px;margin:0 0 8px;color:#94a3b8;font-size:13px;">${escapeHtml(f)}</div>`).join('');
+  return `
+    <div style="border:1px solid #E2E8F0;border-radius:12px;padding:20px;font-family:Helvetica,Arial,sans-serif;">
+      ${block.heading ? `<p style="margin:0 0 4px;font-size:18px;font-weight:800;color:#1c1d22;">${renderTokens(escapeHtml(block.heading), ctx)}</p>` : ''}
+      ${block.intro ? `<p style="margin:0 0 14px;font-size:14px;line-height:1.55;color:#475569;">${renderTokens(escapeHtml(block.intro), ctx)}</p>` : ''}
+      ${fieldRows}
+      <a href="${escapeHtml(block.url || '#')}" style="display:inline-block;margin-top:6px;padding:11px 24px;background:${escapeHtml(accent)};color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">${escapeHtml(block.btnText || 'Open the form')}</a>
+    </div>`;
+}
+
+function renderColumns(block, brand, ctx) {
+  const layout = (COLUMN_LAYOUTS.find((l) => l.key === block.layout)) || COLUMN_LAYOUTS[1];
+  const widths = layout.w;
+  const cells = Array.isArray(block.cells) ? block.cells : [];
+  const tds = widths.map((w, i) => {
+    const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 8px';
+    return `<td valign="top" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:top;font-family:Helvetica,Arial,sans-serif;">${renderCell(cells[i], brand, ctx)}</td>`;
+  }).join('');
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
+}
+
+export function renderBlock(block, brand, ctx) {
   switch (block.type) {
     case 'heading': return renderHeading(block, ctx);
     case 'text': return renderText(block, ctx);
@@ -288,6 +496,16 @@ function renderBlock(block, brand, ctx) {
     case 'logo': return renderLogo(block, brand);
     case 'social': return renderSocial(block, brand);
     case 'video': return renderVideo(block);
+    case 'columns': return renderColumns(block, brand, ctx);
+    case 'footer': return renderFooter(block, brand);
+    case 'faq': return renderFaq(block, ctx);
+    case 'countdown': return renderCountdown(block);
+    case 'reviewlink': return renderReviewLink(block, brand, ctx);
+    case 'products': return renderProducts(block, brand, ctx);
+    case 'services': return renderServices(block, brand, ctx);
+    case 'slider': return renderSlider(block);
+    case 'form': return renderForm(block, brand, ctx);
+    case 'code': return renderCode(block, ctx);
     default: return '';
   }
 }
@@ -299,7 +517,10 @@ function brandHeader(brand) {
   const headerLogo = brand.logo
     ? `<img src="${escapeHtml(brand.logo)}" alt="${escapeHtml(brand.companyName || '')}" style="max-height:42px;width:auto;display:block;border:0;outline:none;" />`
     : brand.companyName
-      ? `<span style="font-family:Helvetica,Arial,sans-serif;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${escapeHtml(accent)};font-size:18px;">${escapeHtml(brand.companyName)}</span>`
+      // Editorial serif wordmark — the closest email-safe nod to The Seasons
+      // (custom webfonts get stripped by most email clients, so we use a Didone
+      // serif stack rather than ship a font that won't load).
+      ? `<span style="font-family:'Didot','Bodoni MT',Georgia,'Times New Roman',serif;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;color:${escapeHtml(accent)};font-size:22px;">${escapeHtml(brand.companyName)}</span>`
       : '';
   return headerLogo ? `<div style="padding:24px 24px 0;">${headerLogo}</div>` : '';
 }

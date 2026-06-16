@@ -1,0 +1,354 @@
+---
+import AdminShell from "../../../components/admin/AdminShell.astro";
+import "../../../styles/admin.css";
+---
+
+<AdminShell active="automations" title="Automation builder">
+  <div class="ash-panel ash-page af-page">
+    <section class="af-bar">
+      <a href="/admin/automations" class="admin-btn admin-btn-ghost">&larr; Automations</a>
+      <input id="af-name" class="af-name" placeholder="Automation name" />
+      <div class="af-bar-right">
+        <label class="af-trigger-wrap">
+          <span>Trigger</span>
+          <select id="af-trigger" class="af-select"></select>
+        </label>
+        <select id="af-status" class="af-select af-status">
+          <option value="draft">Draft</option>
+          <option value="active">Active</option>
+          <option value="paused">Paused</option>
+          <option value="archived">Archived</option>
+        </select>
+        <button type="button" class="admin-btn admin-btn-primary" id="af-save">Save</button>
+      </div>
+    </section>
+
+    <div class="af-stage">
+      <div class="af-canvas" id="af-canvas">
+        <svg class="af-edges" id="af-edges"></svg>
+        <div class="af-nodes" id="af-nodes"></div>
+      </div>
+
+      <!-- Right config / add panel -->
+      <aside class="af-panel" id="af-panel" hidden>
+        <div class="af-panel-head">
+          <span id="af-panel-title">Step</span>
+          <button type="button" class="af-panel-x" id="af-panel-x" aria-label="Close">&times;</button>
+        </div>
+        <div class="af-panel-body" id="af-panel-body"></div>
+      </aside>
+    </div>
+  </div>
+
+  <style is:global>
+    .af-page { padding: 0 !important; display: flex; flex-direction: column; height: calc(100vh - 64px); }
+    .af-bar { display: flex; align-items: center; gap: 12px; padding: 16px 22px; border-bottom: 1px solid rgba(28,29,34,0.1); flex-wrap: wrap; }
+    .af-name { flex: 1; min-width: 180px; font-family: var(--serif); font-size: 20px; font-weight: 500; color: var(--ink); border: 1px solid transparent; border-radius: 6px; padding: 6px 10px; background: transparent; }
+    .af-name:hover { background: rgba(28,29,34,0.04); }
+    .af-name:focus { outline: none; background: #fff; border-color: var(--english-violet); }
+    .af-bar-right { display: flex; align-items: center; gap: 10px; }
+    .af-trigger-wrap { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); font-weight: 700; }
+    .af-select { appearance: none; -webkit-appearance: none; background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 10px center; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; padding: 9px 30px 9px 12px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
+    .af-stage { flex: 1; display: flex; min-height: 0; position: relative; }
+    .af-canvas { flex: 1; position: relative; overflow: auto; background:
+      radial-gradient(circle, rgba(28,29,34,0.06) 1px, transparent 1px) 0 0 / 22px 22px,
+      var(--platinum, #f4f2f1); }
+    .af-canvas-inner, .af-nodes, .af-edges { position: absolute; top: 0; left: 0; width: 1400px; height: 1600px; }
+    .af-edges { pointer-events: none; z-index: 1; }
+    .af-edges path { stroke: rgba(55,30,40,0.4); stroke-width: 2; fill: none; }
+    .af-nodes { z-index: 2; }
+    .af-node { position: absolute; width: 230px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px; box-shadow: 0 8px 22px -14px rgba(55,30,40,0.4); padding: 14px 16px; cursor: grab; user-select: none; }
+    .af-node.is-selected { border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.12), 0 8px 22px -14px rgba(55,30,40,0.4); }
+    .af-node.dragging { cursor: grabbing; }
+    .af-node-kind { font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 4px; }
+    .af-node-title { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+    .af-node-sub { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin-top: 4px; line-height: 1.4; }
+    .af-node.is-trigger { border-color: var(--english-violet); background: linear-gradient(180deg,#fff,rgba(55,30,40,0.04)); }
+    .af-node-del { position: absolute; top: 8px; right: 10px; border: 0; background: none; color: rgba(28,29,34,0.35); font-size: 16px; cursor: pointer; line-height: 1; }
+    .af-node-del:hover { color: #a05a3c; }
+    .af-add { position: absolute; z-index: 3; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--english-violet); background: #fff; color: var(--english-violet); font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transform: translate(-50%, -50%); }
+    .af-add:hover { background: var(--english-violet); color: #fff; }
+    .af-add-label { position: absolute; z-index: 3; font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); transform: translate(-50%, -50%); pointer-events: none; }
+
+    .af-panel { width: 340px; flex: none; border-left: 1px solid rgba(28,29,34,0.1); background: #fff; display: flex; flex-direction: column; overflow-y: auto; }
+    .af-panel[hidden] { display: none; }
+    .af-panel-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .af-panel-head span { font-family: var(--serif); font-size: 17px; font-weight: 500; color: var(--ink); }
+    .af-panel-x { border: 0; background: none; font-size: 22px; color: rgba(28,29,34,0.4); cursor: pointer; line-height: 1; }
+    .af-panel-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+    .af-field { display: flex; flex-direction: column; gap: 6px; }
+    .af-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .af-field input, .af-field select, .af-field textarea { font-family: var(--sans); font-size: 14px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); }
+    .af-pick { display: flex; flex-direction: column; gap: 6px; }
+    .af-pick-btn { text-align: left; border: 1px solid rgba(28,29,34,0.12); background: #fff; border-radius: 8px; padding: 11px 13px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .af-pick-btn:hover { border-color: var(--english-violet); background: rgba(55,30,40,0.04); }
+    .af-pick-btn strong { display: block; font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
+    .af-pick-btn small { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
+    .af-pick-group { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.4); margin: 8px 0 2px; }
+    .af-hint { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { supabase } from "../../../lib/supabase.js";
+    import { TRIGGERS, NODE_TYPES, NODE_LABELS, emptyGraph } from "../../../lib/automations.js";
+
+    const DEV = import.meta.env.DEV;
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const uid = () => "n" + Math.abs(Math.floor((performance.now() % 1) * 1e9)).toString(36) + (graph.nodes.length);
+
+    const params = new URLSearchParams(location.search);
+    const automationId = params.get("id");
+
+    let graph = emptyGraph();
+    let templates = [];      // active Email Studio templates
+    let selectedId = null;
+    let pendingAdd = null;    // { parentId, branch } when adding a node
+
+    // ---- trigger dropdown ----
+    $("af-trigger").innerHTML = '<option value="">Choose a trigger…</option>' +
+      TRIGGERS.map((t) => `<option value="${t.key}">${esc(t.label)}</option>`).join("");
+
+    // ---------- Canvas render ----------
+    const canvas = $("af-canvas"), nodesEl = $("af-nodes"), edgesEl = $("af-edges");
+
+    function nodeTitle(n) {
+      if (n.type === "trigger") return "When this happens";
+      return NODE_LABELS[n.type] || n.type;
+    }
+    function nodeSub(n) {
+      const c = n.config || {};
+      if (n.type === "trigger") { const t = TRIGGERS.find((x) => x.key === $("af-trigger").value); return t ? t.label : "Set the trigger above"; }
+      if (n.type === "send_email") { const tpl = templates.find((t) => t.id === c.template_id); return tpl ? tpl.name : "Pick an email"; }
+      if (n.type === "wait") return c.amount ? `${c.amount} ${c.unit || "days"}` : "Set a delay";
+      if (n.type === "add_tag" || n.type === "remove_tag") return c.tag || "Set a tag";
+      if (n.type === "add_note") return c.body ? String(c.body).slice(0, 40) : "Write a note";
+      if (n.type === "create_task") return c.title || "Task for the team";
+      if (n.type === "if_else") return c.field ? `${c.field} ${c.op || "is"} ${c.value || ""}` : "Set a condition";
+      if (n.type === "set_field") return c.field ? `${c.field} → ${c.value || ""}` : "Set a field";
+      if (n.type === "notify_team") return c.to || "Notify the team";
+      return "";
+    }
+
+    function render() {
+      // nodes
+      nodesEl.innerHTML = graph.nodes.map((n) => `
+        <div class="af-node ${n.type === "trigger" ? "is-trigger" : ""} ${n.id === selectedId ? "is-selected" : ""}"
+             data-node="${n.id}" style="left:${n.x}px;top:${n.y}px">
+          ${n.type !== "trigger" ? `<button class="af-node-del" data-del="${n.id}" title="Delete step">&times;</button>` : ""}
+          <div class="af-node-kind">${n.type === "trigger" ? "Trigger" : (NODE_TYPES.find((t) => t.type === n.type)?.group || "Step")}</div>
+          <div class="af-node-title">${esc(nodeTitle(n))}</div>
+          <div class="af-node-sub">${esc(nodeSub(n))}</div>
+        </div>`).join("");
+      // Bind node interactions, then draw edges + add-buttons. offsetLeft/Top
+      // force a synchronous reflow, so positions are ready immediately — no need
+      // for requestAnimationFrame (which is paused in background tabs).
+      bindNodeEvents();
+      drawEdgesAndAdds();
+    }
+
+    function nodeRect(id) {
+      const el = nodesEl.querySelector(`[data-node="${id}"]`);
+      if (!el) return null;
+      return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+    }
+
+    function drawEdgesAndAdds() {
+      let paths = "";
+      graph.edges.forEach((e) => {
+        const a = nodeRect(e.from), b = nodeRect(e.to);
+        if (!a || !b) return;
+        const x1 = a.x + a.w / 2, y1 = a.y + a.h, x2 = b.x + b.w / 2, y2 = b.y;
+        const my = (y1 + y2) / 2;
+        paths += `<path d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}"></path>`;
+      });
+      edgesEl.innerHTML = paths;
+      // "+" add buttons: one per open output of each node.
+      nodesEl.querySelectorAll(".af-add, .af-add-label").forEach((b) => b.remove());
+      graph.nodes.forEach((n) => {
+        const def = n.type === "trigger" ? { out: "next" } : NODE_TYPES.find((t) => t.type === n.type);
+        if (!def || n.type === "goal") return;
+        const r = nodeRect(n.id); if (!r) return;
+        const outs = def.out === "yesno" ? ["yes", "no"] : ["next"];
+        outs.forEach((branch, i) => {
+          const taken = graph.edges.some((e) => e.from === n.id && (e.branch || "next") === branch);
+          if (taken) return;
+          const bx = def.out === "yesno" ? r.x + (i === 0 ? r.w * 0.3 : r.w * 0.7) : r.x + r.w / 2;
+          const by = r.y + r.h + 22;
+          const btn = document.createElement("button");
+          btn.className = "af-add"; btn.textContent = "+";
+          btn.style.left = bx + "px"; btn.style.top = by + "px";
+          btn.dataset.add = n.id; btn.dataset.branch = branch;
+          btn.addEventListener("click", () => openAdd(n.id, branch));
+          nodesEl.appendChild(btn);
+          if (def.out === "yesno") {
+            const lab = document.createElement("span");
+            lab.className = "af-add-label"; lab.textContent = branch === "yes" ? "Yes" : "No";
+            lab.style.left = bx + "px"; lab.style.top = (by - 20) + "px";
+            nodesEl.appendChild(lab);
+          }
+        });
+      });
+    }
+
+    // ---------- interactions ----------
+    let drag = null;
+    function bindNodeEvents() {
+      nodesEl.querySelectorAll(".af-node").forEach((el) => {
+        const id = el.getAttribute("data-node");
+        el.addEventListener("pointerdown", (e) => {
+          if (e.target.closest(".af-node-del")) return;
+          const n = graph.nodes.find((x) => x.id === id);
+          drag = { id, ox: e.clientX, oy: e.clientY, sx: n.x, sy: n.y, moved: false };
+          el.setPointerCapture(e.pointerId); el.classList.add("dragging");
+        });
+        el.addEventListener("pointermove", (e) => {
+          if (!drag || drag.id !== id) return;
+          const dx = e.clientX - drag.ox, dy = e.clientY - drag.oy;
+          if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+          const n = graph.nodes.find((x) => x.id === id);
+          n.x = Math.max(0, drag.sx + dx); n.y = Math.max(0, drag.sy + dy);
+          el.style.left = n.x + "px"; el.style.top = n.y + "px";
+          drawEdgesAndAdds();
+        });
+        el.addEventListener("pointerup", (e) => {
+          el.classList.remove("dragging");
+          if (drag && !drag.moved) selectNode(id);
+          drag = null;
+        });
+      });
+      nodesEl.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); deleteNode(b.getAttribute("data-del")); }));
+    }
+
+    function deleteNode(id) {
+      // Re-link: the deleted node's single child reconnects to its parent.
+      const parentEdge = graph.edges.find((e) => e.to === id);
+      const childEdge = graph.edges.find((e) => e.from === id && (e.branch || "next") === "next");
+      graph.edges = graph.edges.filter((e) => e.from !== id && e.to !== id);
+      if (parentEdge && childEdge) graph.edges.push({ from: parentEdge.from, to: childEdge.to, branch: parentEdge.branch || "next" });
+      graph.nodes = graph.nodes.filter((n) => n.id !== id);
+      if (selectedId === id) closePanel();
+      render();
+    }
+
+    // ---------- right panel ----------
+    function closePanel() { selectedId = null; pendingAdd = null; $("af-panel").hidden = true; render(); }
+    $("af-panel-x").addEventListener("click", closePanel);
+
+    function openAdd(parentId, branch) {
+      pendingAdd = { parentId, branch };
+      selectedId = null;
+      $("af-panel-title").textContent = "Add a step";
+      const groups = [...new Set(NODE_TYPES.map((n) => n.group))];
+      $("af-panel-body").innerHTML = `<div class="af-pick">` + groups.map((g) =>
+        `<div class="af-pick-group">${esc(g)}</div>` + NODE_TYPES.filter((n) => n.group === g).map((n) =>
+          `<button class="af-pick-btn" data-type="${n.type}"><strong>${esc(n.label)}</strong><small>${esc(n.desc)}</small></button>`).join("")
+      ).join("") + `</div>`;
+      $("af-panel-body").querySelectorAll("[data-type]").forEach((b) => b.addEventListener("click", () => addNode(b.dataset.type)));
+      $("af-panel").hidden = false;
+    }
+
+    function addNode(type) {
+      const parent = graph.nodes.find((n) => n.id === pendingAdd.parentId);
+      const id = uid();
+      const node = { id, type, x: parent ? parent.x + (pendingAdd.branch === "no" ? 260 : pendingAdd.branch === "yes" ? -260 : 0) : 360, y: parent ? parent.y + 150 : 200, config: {} };
+      graph.nodes.push(node);
+      graph.edges.push({ from: pendingAdd.parentId, to: id, branch: pendingAdd.branch || "next" });
+      pendingAdd = null;
+      render();
+      selectNode(id);
+    }
+
+    function field(label, inner) { return `<label class="af-field"><span>${esc(label)}</span>${inner}</label>`; }
+
+    function selectNode(id) {
+      selectedId = id; pendingAdd = null;
+      const n = graph.nodes.find((x) => x.id === id);
+      if (!n) return;
+      $("af-panel-title").textContent = n.type === "trigger" ? "Trigger" : (NODE_LABELS[n.type] || "Step");
+      const c = n.config || {};
+      let body = "";
+      if (n.type === "trigger") {
+        body = `<p class="af-hint">Set what enrols a contact using the <strong>Trigger</strong> dropdown at the top. Then build the journey below it.</p>`;
+      } else if (n.type === "send_email") {
+        body = field("Email (from Email Studio)",
+          `<select data-c="template_id">${templates.length ? "" : '<option value="">No active templates — create one in Email Studio</option>'}<option value="">Choose a template…</option>${templates.map((t) => `<option value="${t.id}" ${c.template_id === t.id ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select>`)
+          + `<p class="af-hint">Saved templates from <a href="/admin/email" target="_blank">Email Studio</a> (active ones). Merge fields like the recipient's name fill in automatically.</p>`;
+      } else if (n.type === "wait") {
+        body = field("Wait", `<input type="number" min="1" data-c="amount" value="${esc(c.amount || 1)}" />`)
+          + field("Unit", `<select data-c="unit">${["minutes","hours","days","weeks"].map((u) => `<option value="${u}" ${c.unit === u ? "selected" : ""}>${u}</option>`).join("")}</select>`);
+      } else if (n.type === "add_tag" || n.type === "remove_tag") {
+        body = field("Tag", `<input data-c="tag" value="${esc(c.tag || "")}" placeholder="e.g. welcomed" />`);
+      } else if (n.type === "add_note") {
+        body = field("Note", `<textarea data-c="body" rows="3" placeholder="What to log on the contact">${esc(c.body || "")}</textarea>`);
+      } else if (n.type === "create_task") {
+        body = field("Task title", `<input data-c="title" value="${esc(c.title || "")}" placeholder="e.g. Send LinkedIn message" />`)
+          + field("Due in (days)", `<input type="number" min="0" data-c="due_days" value="${esc(c.due_days ?? 1)}" />`);
+      } else if (n.type === "set_dnd") {
+        body = `<p class="af-hint">Marks the contact do-not-contact, so no further marketing is sent.</p>`;
+      } else if (n.type === "set_field") {
+        body = field("Field", `<select data-c="field"><option value="lifecycle" ${c.field === "lifecycle" ? "selected" : ""}>lifecycle</option><option value="company" ${c.field === "company" ? "selected" : ""}>company</option></select>`)
+          + field("Value", `<input data-c="value" value="${esc(c.value || "")}" />`);
+      } else if (n.type === "if_else") {
+        const fields = [["has_tag", "has tag"], ["has_purchased", "has purchased"], ["lifecycle", "lifecycle"], ["marketing_opt_in", "marketing opt-in"]];
+        const ops = [["is", "is"], ["is_not", "is not"], ["contains", "contains"]];
+        body = field("Field", `<select data-c="field">${fields.map(([val, lab]) => `<option value="${val}" ${c.field === val ? "selected" : ""}>${lab}</option>`).join("")}</select>`)
+          + field("Condition", `<select data-c="op">${ops.map(([val, lab]) => `<option value="${val}" ${(c.op || "is") === val ? "selected" : ""}>${lab}</option>`).join("")}</select>`)
+          + field("Value", `<input data-c="value" value="${esc(c.value || "")}" placeholder="e.g. customer, or a tag" />`)
+          + `<p class="af-hint">The <strong>Yes</strong> branch runs when it matches, <strong>No</strong> otherwise. For <em>has purchased</em>, leave Value blank; for <em>has tag</em>, put the tag in Value.</p>`;
+      } else if (n.type === "notify_team") {
+        body = field("Notify (email)", `<input data-c="to" value="${esc(c.to || "")}" placeholder="jack@tmke.co.uk" />`)
+          + field("Note", `<input data-c="note" value="${esc(c.note || "")}" placeholder="What happened" />`);
+      } else if (n.type === "goal") {
+        body = `<p class="af-hint">Ends the contact's journey here.</p>`;
+      }
+      $("af-panel-body").innerHTML = body;
+      $("af-panel-body").querySelectorAll("[data-c]").forEach((inp) => {
+        inp.addEventListener("input", () => { n.config[inp.getAttribute("data-c")] = inp.type === "number" ? Number(inp.value) : inp.value; render(); });
+        inp.addEventListener("change", () => { n.config[inp.getAttribute("data-c")] = inp.type === "number" ? Number(inp.value) : inp.value; render(); });
+      });
+      $("af-panel").hidden = false;
+      render();
+    }
+
+    // trigger dropdown drives the trigger node subtitle
+    $("af-trigger").addEventListener("change", render);
+
+    // ---------- load + save ----------
+    async function load() {
+      // active email templates for the send-email picker
+      const { data: tpls } = await supabase.from("email_templates").select("id, name").eq("status", "active").order("name");
+      templates = tpls || [];
+      if (!automationId) { render(); return; }
+      const { data, error } = await supabase.from("automations").select("*").eq("id", automationId).single();
+      if (error || !data) { alert("Couldn't load this automation."); location.href = "/admin/automations"; return; }
+      $("af-name").value = data.name || "";
+      $("af-trigger").value = data.trigger_type || "";
+      $("af-status").value = data.status || "draft";
+      graph = (data.graph && data.graph.nodes && data.graph.nodes.length) ? data.graph : emptyGraph();
+      render();
+    }
+
+    $("af-save").addEventListener("click", async () => {
+      const btn = $("af-save"); btn.disabled = true; btn.textContent = "Saving…";
+      const patch = {
+        name: $("af-name").value.trim() || "Untitled automation",
+        trigger_type: $("af-trigger").value || null,
+        status: $("af-status").value,
+        graph,
+      };
+      const { error } = automationId
+        ? await supabase.from("automations").update(patch).eq("id", automationId)
+        : await supabase.from("automations").insert(patch);
+      btn.disabled = false; btn.textContent = "Save";
+      if (error) { alert("Couldn't save: " + error.message); return; }
+      btn.textContent = "Saved ✓"; setTimeout(() => (btn.textContent = "Save"), 1500);
+    });
+
+    (async () => {
+      if (!DEV) { const s = await requireAdmin(); if (!s) return; }
+      await load();
+    })();
+  </script>
+</AdminShell>

@@ -562,6 +562,26 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
           .eq('id', orderRow.id);
       }
 
+      // Fire the "account created" marketing automation (welcome series).
+      // Best-effort + fire-and-forget; needs a session to authorise the call.
+      try {
+        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+        const token = data?.session?.access_token;
+        if (WORKER && token) {
+          const parts = String(orderRow.buyer_name || '').trim().split(/\s+/);
+          fetch(`${WORKER}/automations/fire`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              trigger: 'account_created', email: orderRow.buyer_email,
+              first_name: parts.shift() || null, last_name: parts.join(' ') || null,
+              company: orderRow.buyer_company || null, phone: orderRow.buyer_phone || null,
+              source: 'pack_signup', lifecycle: 'customer', user_id: data.user.id,
+            }),
+          }).catch(() => {});
+        }
+      } catch (_) {}
+
       // Show the success card. If we have a session, send them to /account.
       form.hidden = true;
       successEl.hidden = false;

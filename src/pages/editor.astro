@@ -436,6 +436,10 @@ const googleFonts = [
         <button class="ed-text-add" data-text="brand-quote">
           <div class="ed-text-preview ed-text-quote">"A pulled quote — italic Cormorant."</div>
         </button>
+        <div class="ed-section-title">Fonts</div>
+        <!-- Full font browser (search · brand fonts · all fonts · weight),
+             populated by editor.js. Opened from the toolbar's font name. -->
+        <div class="ed-font-browser" id="ed-font-browser"></div>
       </section>
 
       <!-- Photos — Pexels + Unsplash search -->
@@ -574,7 +578,7 @@ const googleFonts = [
         <div class="ed-bg-cg">
           <div class="ed-bg-cg-item">
             <span class="ed-bg-cg-label">Custom</span>
-            <label class="ed-circle-swatch" id="ed-bg-color-wrap" title="Custom colour"><input type="color" id="ed-bg-color" value="#f4f2f1" /></label>
+            <button type="button" class="ed-circle-swatch" id="ed-bg-color-wrap" title="Custom colour — pick a hex colour or build a gradient" style="background:#f4f2f1"></button>
           </div>
           <div class="ed-bg-cg-item ed-bg-grad-wrap">
             <span class="ed-bg-cg-label">Gradients</span>
@@ -1546,6 +1550,61 @@ const googleFonts = [
     .ed-text-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; color: var(--english-violet); }
     .ed-text-quote { font-family: var(--serif); font-style: italic; font-size: 16px; }
 
+    /* Font browser (Text panel) — search · brand fonts · all fonts · weight */
+    .ed-font-browser { margin-top: 4px; }
+    .ed-fb-search {
+      width: 100%; box-sizing: border-box; padding: 9px 12px; margin-bottom: 8px;
+      font-family: var(--sans); font-size: 13px;
+      border: 1px solid rgba(28,29,34,0.16); border-radius: 7px; background: #fff;
+    }
+    .ed-fb-search:focus { outline: none; border-color: rgba(var(--violet-rgb),0.5); }
+    .ed-fb-hint { margin: 0 0 12px; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
+    .ed-fb-title {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5);
+      margin: 14px 0 8px;
+    }
+    .ed-fb-weights { margin-bottom: 4px; }
+    .ed-fb-weights .ed-fb-title { margin-top: 0; }
+    .ed-fb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    .ed-fb-chip {
+      padding: 6px 11px; font-family: var(--sans); font-size: 12px; color: var(--ink);
+      background: rgba(28,29,34,0.04); border: 1px solid transparent; border-radius: 999px; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .ed-fb-chip:hover { background: rgba(var(--violet-rgb),0.1); }
+    .ed-fb-chip.is-on { background: rgba(var(--violet-rgb),0.14); border-color: rgba(var(--violet-rgb),0.4); color: var(--english-violet); }
+    /* The font list scrolls within itself so the panel stays compact. */
+    .ed-fb-list {
+      display: flex; flex-direction: column;
+      max-height: 360px; overflow-y: auto; overscroll-behavior: contain;
+      padding-right: 4px; margin-top: 2px;
+    }
+    .ed-fb-list::-webkit-scrollbar { width: 8px; }
+    .ed-fb-list::-webkit-scrollbar-thumb { background: rgba(28,29,34,0.18); border-radius: 8px; }
+    .ed-fb-list .ed-fb-title:first-child { margin-top: 2px; }
+    .ed-fb-row {
+      display: flex; align-items: center; gap: 6px;
+      border-radius: 7px; padding-right: 4px;
+    }
+    .ed-fb-row:hover { background: rgba(28,29,34,0.04); }
+    .ed-fb-row.is-current { background: rgba(var(--violet-rgb),0.1); }
+    .ed-fb-name {
+      flex: 1; min-width: 0; text-align: left;
+      padding: 9px 10px; font-size: 15px; color: var(--ink);
+      background: none; border: none; border-radius: 7px; cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ed-fb-row.is-current .ed-fb-name { color: var(--english-violet); font-weight: 600; }
+    .ed-fb-star {
+      flex: none; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+      background: none; border: none; border-radius: 6px; cursor: pointer;
+      color: rgba(28,29,34,0.3); transition: color 0.15s, background 0.15s;
+    }
+    .ed-fb-star:hover { background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.55); }
+    .ed-fb-star.is-on { color: #e0a823; }
+    .ed-fb-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); padding: 10px 2px; }
+
     /* Uploads */
     .ed-upload-drop {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1751,8 +1810,8 @@ const googleFonts = [
       grid-area: ctx;
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 0 14px;
+      gap: 4px;
+      padding: 0 10px;
       background: #fff;
       border-bottom: 1px solid rgba(28,29,34,0.08);
       overflow-x: auto;
@@ -1760,25 +1819,29 @@ const googleFonts = [
     }
     .ed-context[hidden] { display: none; }
     .ed-ctx-group {
-      display: flex; align-items: center; gap: 4px;
-      padding: 0 8px;
+      display: flex; align-items: center; gap: 3px;
+      padding: 0 6px;
       border-right: 1px solid rgba(28,29,34,0.08);
-      height: 28px;
+      height: 26px;
     }
     .ed-ctx-group:last-child { border-right: none; }
     .ed-ctx-btn {
-      height: 32px; min-width: 32px; padding: 0 10px;
+      height: 28px; min-width: 28px; padding: 0 7px;
       display: inline-flex; align-items: center; justify-content: center;
       background: transparent; border: 1px solid transparent;
       border-radius: 4px; cursor: pointer;
-      font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink);
+      font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink);
       transition: background 0.15s, color 0.15s;
     }
     .ed-ctx-btn:hover { background: rgba(28,29,34,0.07); }
     .ed-ctx-btn.is-on { background: rgba(var(--violet-rgb),0.15); color: var(--english-violet); }
-    .ed-ctx-btn svg { width: 16px; height: 16px; }
+    .ed-ctx-btn svg { width: 15px; height: 15px; }
+    /* Alignment toggle — deliberately larger + clearer than its neighbours, and
+       it has no dropdown caret (it cycles on click). */
+    .ed-ctx-btn-align { min-width: 34px; padding: 0 8px; }
+    .ed-ctx-btn-align svg { width: 20px; height: 20px; }
     .ed-ctx-btn-text {
-      padding: 0 14px;
+      padding: 0 12px;
       font-size: 12px; font-weight: 700;
       letter-spacing: 0.06em;
     }
@@ -1793,18 +1856,25 @@ const googleFonts = [
       min-width: 140px;
     }
     .ed-ctx-num {
-      width: 64px; padding: 6px 10px;
-      font-family: var(--sans); font-size: 14px; font-weight: 600;
+      width: 60px; padding: 5px 8px;
+      font-family: var(--sans); font-size: 13px; font-weight: 600;
       border: 1px solid rgba(28,29,34,0.18);
       border-radius: 4px; background: #fff;
       text-align: center;
     }
-    /* Font-size control: number input + caret with a quick-pick dropdown */
+    /* Font-size control: −  number  +  caret with a quick-pick dropdown */
     .ed-size-ctl { position: relative; display: inline-flex; align-items: center; }
-    .ed-size-ctl .ed-ctx-num { width: 56px; border-radius: 4px 0 0 4px; border-right: none; }
+    .ed-size-ctl .ed-ctx-num { width: 38px; border-radius: 0; border-left: none; border-right: none; padding: 5px 4px; }
+    .ed-size-step {
+      height: 28px; width: 24px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(28,29,34,0.18); background: #fff; cursor: pointer;
+      font-size: 16px; line-height: 1; color: rgba(28,29,34,0.7); font-family: var(--sans);
+    }
+    .ed-size-step:first-child { border-radius: 4px 0 0 4px; }
+    .ed-size-step:hover { background: var(--paper); color: var(--ink); }
     .ed-size-caret {
-      height: 30px; width: 22px; display: inline-flex; align-items: center; justify-content: center;
-      border: 1px solid rgba(28,29,34,0.18); border-radius: 0 4px 4px 0;
+      height: 28px; width: 20px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(28,29,34,0.18); border-left: none; border-radius: 0 4px 4px 0;
       background: #fff; cursor: pointer; font-size: 10px; color: rgba(28,29,34,0.6);
     }
     .ed-size-caret:hover { background: var(--paper); color: var(--ink); }
@@ -2140,6 +2210,34 @@ const googleFonts = [
     .ed-cpg-range { flex: 1; min-width: 0; accent-color: var(--english-violet); }
     .ed-cpg-val { flex: 0 0 40px; text-align: right; font-size: 11px; color: rgba(28,29,34,0.7); font-variant-numeric: tabular-nums; }
     .ed-cpg-hint { margin: 2px 0 0; font-size: 11px; line-height: 1.4; color: rgba(28,29,34,0.45); }
+    /* Canva-style multi-stop bits */
+    .ed-cpg-sub { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin-top: 2px; }
+    .ed-cpg-stops { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ed-cpg-stop {
+      width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+      border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(28,29,34,0.2);
+      padding: 0; transition: box-shadow 0.12s, transform 0.12s;
+    }
+    .ed-cpg-stop.is-sel { box-shadow: 0 0 0 2px var(--english-violet); transform: scale(1.06); }
+    .ed-cpg-add {
+      width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+      border: 1.5px dashed rgba(28,29,34,0.35); background: #fff;
+      font-size: 17px; line-height: 1; color: rgba(28,29,34,0.6);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .ed-cpg-add:hover { border-color: var(--english-violet); color: var(--english-violet); }
+    .ed-cpg-del {
+      flex: 0 0 auto; width: 26px; height: 26px; border-radius: 6px; cursor: pointer;
+      border: 1px solid rgba(28,29,34,0.18); background: #fff; color: rgba(28,29,34,0.6); font-size: 13px;
+    }
+    .ed-cpg-del:hover:not(:disabled) { background: rgba(200,60,60,0.1); border-color: rgba(200,60,60,0.4); color: #b03b3b; }
+    .ed-cpg-del:disabled { opacity: 0.35; cursor: not-allowed; }
+    .ed-cpg-styles { display: flex; gap: 8px; }
+    .ed-cpg-style {
+      width: 44px; height: 36px; border-radius: 7px; cursor: pointer;
+      border: 2px solid transparent; box-shadow: 0 0 0 1px rgba(28,29,34,0.15); padding: 0;
+    }
+    .ed-cpg-style.is-on { border-color: var(--english-violet); box-shadow: 0 0 0 1px var(--english-violet); }
 
     /* ---- Upload processing spinner ---- */
     #ed-upload-spinner {
@@ -2604,8 +2702,30 @@ const googleFonts = [
       text-align: center;
     }
     .ed-fx-preset:hover {
-      background: rgba(28,29,34,0.1);
-      border-color: rgba(28,29,34,0.15);
+      background: rgba(47,107,240,0.12);
+      border-color: rgba(47,107,240,0.45);
+      color: #2455c4;
+    }
+    /* The currently-applied shadow preset, highlighted in blue so you can see
+       which one is on at a glance. */
+    .ed-fx-preset.is-current {
+      background: rgba(47,107,240,0.16);
+      border-color: #2f6bf0;
+      color: #2455c4;
+    }
+    /* Effects toolbar trigger when the layer already carries any effect. */
+    .ed-pop-trigger.ed-fx-active {
+      color: #2455c4;
+      background: rgba(47,107,240,0.12);
+    }
+    .ed-pop-trigger.ed-fx-active .ed-ctx-poplabel::after {
+      content: "";
+      display: inline-block;
+      width: 6px; height: 6px;
+      margin-left: 6px;
+      border-radius: 50%;
+      background: #2f6bf0;
+      vertical-align: middle;
     }
     .ed-fx-toggle {
       display: flex;

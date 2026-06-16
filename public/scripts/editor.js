@@ -160,6 +160,41 @@
   }
   let FONTS = buildFonts();
 
+  // Brand-kit favourite fonts — starred in the Text panel's font browser and
+  // persisted locally. When the user has favourited at least one font, the
+  // toolbar drops its inline weight <select> (weight is then chosen in the
+  // panel), keeping the bar compact.
+  function getFavFonts() {
+    try { return JSON.parse(localStorage.getItem("tmke.editor.favFonts") || "[]"); }
+    catch (_) { return []; }
+  }
+  function setFavFonts(arr) {
+    try { localStorage.setItem("tmke.editor.favFonts", JSON.stringify(arr || [])); } catch (_) {}
+  }
+  function isFavFont(name) { return getFavFonts().indexOf(name) >= 0; }
+  function toggleFavFont(name) {
+    const a = getFavFonts(); const i = a.indexOf(name);
+    if (i >= 0) a.splice(i, 1); else a.unshift(name);
+    setFavFonts(a);
+  }
+  // Recently picked fonts (most-recent first, capped) — shown as their own
+  // section in the font browser between brand fonts and the full list.
+  function getRecentFonts() {
+    try { return JSON.parse(localStorage.getItem("tmke.editor.recentFonts") || "[]"); }
+    catch (_) { return []; }
+  }
+  function pushRecentFont(name) {
+    if (!name) return;
+    let a = getRecentFonts().filter(function (n) { return n !== name; });
+    a.unshift(name);
+    a = a.slice(0, 8);
+    try { localStorage.setItem("tmke.editor.recentFonts", JSON.stringify(a)); } catch (_) {}
+  }
+  // Which text element the Text-panel font browser is currently editing, and a
+  // cheap signature so fullRender doesn't rebuild the (long) list every frame.
+  let _fontTargetId = null;
+  let _fbSig = "";
+
   // ---------- DOM refs ----------
   const $ = (id) => document.getElementById(id);
   const stageEl = $("ed-stage");
@@ -346,6 +381,54 @@
     });
   }
 
+  // One labelled slider+number row (shared by the combined spacing popover).
+  function _spacingRow(labelText, unit, min, max, step, get, set) {
+    const wrap = document.createElement("div");
+    const lab = document.createElement("div");
+    lab.style.cssText = "font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(28,29,34,0.55);margin-bottom:7px;";
+    lab.textContent = labelText;
+    wrap.appendChild(lab);
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:8px;";
+    const range = document.createElement("input");
+    range.type = "range"; range.min = min; range.max = max; range.step = step; range.value = get();
+    range.style.cssText = "flex:1;accent-color:var(--english-violet,#371e28);";
+    const num = document.createElement("input");
+    num.type = "number"; num.min = min; num.max = max; num.step = step; num.value = get();
+    num.style.cssText = "width:60px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font:inherit;";
+    const apply = function (v, fromNum) {
+      v = Math.max(min, Math.min(max, isNaN(v) ? get() : v));
+      set(v); range.value = v; if (!fromNum) num.value = v; fullRender();
+    };
+    range.addEventListener("input", function () { apply(parseFloat(range.value), false); });
+    range.addEventListener("change", function () { pushHistory(); });
+    num.addEventListener("input", function () { apply(parseFloat(num.value), true); });
+    num.addEventListener("change", function () { pushHistory(); });
+    row.appendChild(range); row.appendChild(num);
+    if (unit) { const u = document.createElement("span"); u.textContent = unit; u.style.cssText = "opacity:0.5;font-size:12px;"; row.appendChild(u); }
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  // Combined Letter spacing + Line spacing popover (one tab, Canva-style).
+  function spacingPopover(el) {
+    const icon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 4v16"/><path d="M1 6l2-2 2 2"/><path d="M1 18l2 2 2-2"/></svg>';
+    return popoverIconButton({
+      icon: icon, title: "Spacing",
+      render: function () {
+        const box = document.createElement("div");
+        box.style.cssText = "padding:14px 16px;min-width:236px;font-family:var(--sans,inherit);display:flex;flex-direction:column;gap:16px;";
+        box.appendChild(_spacingRow("Letter spacing", "px", -5, 40, 0.5,
+          function () { return el.letterSpacing != null ? el.letterSpacing : 0; },
+          function (v) { el.letterSpacing = v; }));
+        box.appendChild(_spacingRow("Line spacing", "", 0.8, 3, 0.05,
+          function () { return el.lineHeight != null ? el.lineHeight : 1.3; },
+          function (v) { el.lineHeight = v; }));
+        return box;
+      },
+    });
+  }
+
   // Circular colour swatch — clicking it triggers the native colour picker.
   // Used in place of square `<input type="color">` with a "Colour" label.
   // onChange is called on every input event with the new hex string.
@@ -392,17 +475,16 @@
     return btn;
   }
 
-  // Font-size control: a typeable number + a caret that drops a quick list of
-  // common sizes (Canva-style). onChange(size) is called with the new value.
+  // Font-size control: a typeable number that, when clicked, drops a quick list
+  // of common sizes (Canva-style — no separate caret button). onChange(size) is
+  // called with the new value.
   const SIZE_PRESETS = [6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 80, 88, 96, 104, 120, 144];
   function createSizeControl(initial, onChange) {
     const wrap = document.createElement("div");
     wrap.className = "ed-size-ctl";
     const input = document.createElement("input");
     input.type = "number"; input.className = "ed-ctx-num"; input.value = initial; input.min = 6; input.max = 600;
-    const caret = document.createElement("button");
-    caret.type = "button"; caret.className = "ed-size-caret"; caret.title = "Sizes";
-    caret.textContent = "▾";
+    input.title = "Font size — click for presets";
     const pop = document.createElement("div");
     pop.className = "ed-size-pop"; pop.hidden = true;
     pop.innerHTML = SIZE_PRESETS.map(function (s) {
@@ -423,40 +505,49 @@
       onChange(v);
     }
     input.addEventListener("change", function () { apply(input.value); });
-    caret.addEventListener("click", function (e) {
-      e.stopPropagation();
-      pop.hidden = !pop.hidden;
-      // Open scrolled to the current size, centred, so options appear either side.
-      if (!pop.hidden) {
-        // The pop is position:fixed (escapes the context bar's stacking + clipping)
-        // so it always floats over the top of the canvas. Anchor it under the caret.
-        const r = caret.getBoundingClientRect();
-        pop.style.visibility = "hidden";
-        pop.style.left = "0px"; pop.style.top = "0px";
-        requestAnimationFrame(function () {
-          const ph = pop.offsetHeight || 240, pw = pop.offsetWidth || 64;
-          let top = r.bottom + 6;
-          if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
-          let left = r.right - pw;
-          left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
-          pop.style.left = left + "px";
-          pop.style.top = top + "px";
-          pop.style.visibility = "";
-          const cur = pop.querySelector(".ed-size-opt.is-current");
-          if (cur) cur.scrollIntoView({ block: "center" });
-        });
-      }
-    });
+
+    // Clicking / focusing the number opens the preset list (position:fixed so it
+    // floats over the canvas, anchored under the input).
+    function openPop() {
+      if (!pop.hidden) return;
+      pop.hidden = false;
+      const r = input.getBoundingClientRect();
+      pop.style.visibility = "hidden";
+      pop.style.left = "0px"; pop.style.top = "0px";
+      requestAnimationFrame(function () {
+        const ph = pop.offsetHeight || 240, pw = pop.offsetWidth || 64;
+        let top = r.bottom + 6;
+        if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+        const left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
+        pop.style.left = left + "px";
+        pop.style.top = top + "px";
+        pop.style.visibility = "";
+        const cur = pop.querySelector(".ed-size-opt.is-current");
+        if (cur) cur.scrollIntoView({ block: "center" });
+      });
+    }
+    input.addEventListener("focus", openPop);
+    input.addEventListener("click", openPop);
     pop.addEventListener("click", function (e) {
       const b = e.target.closest("[data-size]");
       if (!b) return;
       pop.hidden = true;
       apply(b.getAttribute("data-size"));
     });
-    document.addEventListener("click", function (e) { if (!wrap.contains(e.target)) pop.hidden = true; });
+    document.addEventListener("click", function (e) { if (!wrap.contains(e.target) && !pop.contains(e.target)) pop.hidden = true; });
 
+    // +/- steppers flanking the number (Canva-style). Step by 1, holding Shift by 10.
+    const minus = document.createElement("button");
+    minus.type = "button"; minus.className = "ed-size-step"; minus.title = "Smaller"; minus.textContent = "−";
+    const plus = document.createElement("button");
+    plus.type = "button"; plus.className = "ed-size-step"; plus.title = "Larger"; plus.textContent = "+";
+    plus.style.borderRadius = "0 4px 4px 0"; // round the right edge now the caret is gone
+    minus.addEventListener("click", function (e) { e.stopPropagation(); apply((parseInt(input.value, 10) || initial) - (e.shiftKey ? 10 : 1)); });
+    plus.addEventListener("click", function (e) { e.stopPropagation(); apply((parseInt(input.value, 10) || initial) + (e.shiftKey ? 10 : 1)); });
+
+    wrap.appendChild(minus);
     wrap.appendChild(input);
-    wrap.appendChild(caret);
+    wrap.appendChild(plus);
     wrap.appendChild(pop);
     return wrap;
   }
@@ -489,67 +580,100 @@
     { from: "#C98BD9", to: "#5B6BF0", angle: 135 },
   ];
 
-  // ---------- Custom gradient editor ----------
-  // A draft object the editor mutates as the user drags controls. Fields:
-  // { type:'linear'|'radial', angle, from, to, toTransparent, fromStop, toStop }.
+  // ---------- Custom gradient editor (Canva-style, multi-stop) ----------
+  // Draft: { type:'linear'|'radial', angle, stops:[{color,pos}], sel } where
+  // `sel` is the index of the stop currently being edited.
   function cpInitGradDraft(grad, currentSolid) {
     const g = grad || {};
-    const toVal = g.to || "transparent";
+    let stops;
+    if (Array.isArray(g.stops) && g.stops.length >= 2) {
+      stops = g.stops.map(function (s) {
+        const c = s.color === "transparent" ? "transparent" : (normHex(s.color) || "#371E28");
+        return { color: c, pos: s.pos != null ? s.pos : 0 };
+      });
+    } else {
+      const from = normHex(g.from) || normHex(currentSolid) || "#371E28";
+      const toVal = g.to || "transparent";
+      const to = toVal === "transparent" ? "transparent" : (normHex(toVal) || "#B9826A");
+      stops = [
+        { color: from, pos: g.fromStop != null ? g.fromStop : 0 },
+        { color: to, pos: g.toStop != null ? g.toStop : 100 },
+      ];
+    }
     return {
       type: g.type === "radial" ? "radial" : "linear",
       angle: g.angle != null ? g.angle : 135,
-      from: normHex(g.from) || normHex(currentSolid) || "#371E28",
-      to: normHex(toVal) || "#B9826A",
-      toTransparent: toVal === "transparent",
-      fromStop: g.fromStop != null ? g.fromStop : 0,
-      toStop: g.toStop != null ? g.toStop : 100,
+      stops: stops,
+      sel: 0,
     };
   }
-  // CSS string for the live preview swatch.
-  function cpGradCss(d) {
-    const from = d.from || "#371E28";
-    const to = d.toTransparent ? "transparent" : (d.to || "#B9826A");
-    const stops = from + " " + (d.fromStop || 0) + "%, " + to + " " + (d.toStop != null ? d.toStop : 100) + "%";
-    return d.type === "radial"
-      ? "radial-gradient(circle, " + stops + ")"
-      : "linear-gradient(" + (d.angle != null ? d.angle : 135) + "deg, " + stops + ")";
-  }
-  // Convert a draft into the gradient model the onGradient callback expects.
+  // CSS for the live preview swatch (shared builder).
+  function cpGradCss(d) { return gradCss(d); }
+  // Draft → gradient model the onGradient callback expects. We keep from/to in
+  // sync (first/last stop) so any 2-stop-only consumer still works.
   function cpDraftToGrad(d) {
+    const stops = (d.stops || []).slice().sort(function (a, b) { return a.pos - b.pos; })
+      .map(function (s) { return { color: s.color, pos: s.pos }; });
+    const first = stops[0] || { color: "#371E28", pos: 0 };
+    const last = stops[stops.length - 1] || { color: "#B9826A", pos: 100 };
     return {
       type: d.type || "linear",
       angle: d.angle != null ? d.angle : 135,
-      from: d.from,
-      to: d.toTransparent ? "transparent" : d.to,
-      fromStop: d.fromStop || 0,
-      toStop: d.toStop != null ? d.toStop : 100,
+      stops: stops,
+      from: first.color,
+      to: last.color,
+      fromStop: first.pos,
+      toStop: last.pos,
     };
   }
+  // Style presets (the "Style" thumbnails in the Canva reference).
+  const CPG_STYLES = [
+    { key: "h",   type: "linear", angle: 90,  label: "Horizontal" },
+    { key: "v",   type: "linear", angle: 180, label: "Vertical" },
+    { key: "d1",  type: "linear", angle: 135, label: "Diagonal" },
+    { key: "d2",  type: "linear", angle: 45,  label: "Diagonal (other way)" },
+    { key: "rad", type: "radial", angle: 135, label: "Radial" },
+  ];
+  const CPG_CHECKER = "repeating-conic-gradient(#cfcfcf 0% 25%, #fff 0% 50%) 50% / 9px 9px";
   // Markup for the editor block (rebuilt each open; bound via delegation).
   function cpGradEditorHtml(d) {
     const isLin = d.type !== "radial";
+    const sel = Math.max(0, Math.min(d.stops.length - 1, d.sel || 0));
+    const selStop = d.stops[sel] || d.stops[0];
+    const selFade = selStop.color === "transparent";
+    const swatches = d.stops.map(function (s, i) {
+      const bg = s.color === "transparent" ? CPG_CHECKER : s.color;
+      return '<button type="button" class="ed-cpg-stop' + (i === sel ? " is-sel" : "") +
+        '" data-stop="' + i + '" style="background:' + bg + '" title="' + s.color + '"></button>';
+    }).join("");
+    const styleBtns = CPG_STYLES.map(function (st) {
+      const on = st.type === d.type && (st.type === "radial" || st.angle === d.angle);
+      const prev = st.type === "radial"
+        ? "radial-gradient(circle, #8a8a8a, #e6e6e6)"
+        : "linear-gradient(" + st.angle + "deg, #8a8a8a, #e6e6e6)";
+      return '<button type="button" class="ed-cpg-style' + (on ? " is-on" : "") +
+        '" data-style="' + st.key + '" title="' + st.label + '" style="background:' + prev + '"></button>';
+    }).join("");
     return '<div class="ed-cpg">' +
-      '<div class="ed-cpg-preview" data-cpg="preview" style="background:' + cpGradCss(d) + '"></div>' +
-      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">From</span>' +
-        '<input type="color" class="ed-cpg-color" data-cpg="from" value="' + d.from + '">' +
-        '<input type="text" class="ed-cpg-hex" data-cpg="fromHex" value="' + d.from + '"></div>' +
-      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">To</span>' +
-        '<input type="color" class="ed-cpg-color" data-cpg="to" value="' + d.to + '"' + (d.toTransparent ? " disabled" : "") + '>' +
-        '<input type="text" class="ed-cpg-hex" data-cpg="toHex" value="' + (d.toTransparent ? "transparent" : d.to) + '"' + (d.toTransparent ? " disabled" : "") + '>' +
-        '<label class="ed-cpg-fade"><input type="checkbox" data-cpg="toTransparent"' + (d.toTransparent ? " checked" : "") + '>Fade</label></div>' +
-      '<div class="ed-cpg-seg" data-cpg="type">' +
-        '<button type="button" data-type="linear" class="' + (isLin ? "is-on" : "") + '">Linear</button>' +
-        '<button type="button" data-type="radial" class="' + (isLin ? "" : "is-on") + '">Radial</button></div>' +
+      '<div class="ed-cpg-preview" data-cpg="preview" style="background:' + gradCss(d) + '"></div>' +
+      '<div class="ed-cpg-sub">Gradient colours</div>' +
+      '<div class="ed-cpg-stops">' + swatches +
+        '<button type="button" class="ed-cpg-add" data-cpg="add" title="Add a colour">+</button>' +
+      '</div>' +
+      '<div class="ed-cpg-row">' +
+        '<input type="color" class="ed-cpg-color" data-cpg="selColor" value="' + (selFade ? "#cccccc" : selStop.color) + '"' + (selFade ? " disabled" : "") + '>' +
+        '<input type="text" class="ed-cpg-hex" data-cpg="selHex" value="' + (selFade ? "transparent" : selStop.color) + '">' +
+        '<label class="ed-cpg-fade"><input type="checkbox" data-cpg="selFade"' + (selFade ? " checked" : "") + '>Fade</label>' +
+        '<button type="button" class="ed-cpg-del" data-cpg="del"' + (d.stops.length <= 2 ? " disabled" : "") + ' title="Remove this colour">&times;</button>' +
+      '</div>' +
+      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">Position</span>' +
+        '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="selPos" value="' + (selStop.pos || 0) + '">' +
+        '<span class="ed-cpg-val" data-out="selPos">' + (selStop.pos || 0) + '%</span></div>' +
+      '<div class="ed-cpg-sub">Style</div>' +
+      '<div class="ed-cpg-styles">' + styleBtns + '</div>' +
       '<div class="ed-cpg-row' + (isLin ? "" : " is-hidden") + '" data-cpg="angleRow"><span class="ed-cpg-lbl">Angle</span>' +
         '<input type="range" min="0" max="360" class="ed-cpg-range" data-cpg="angle" value="' + (d.angle != null ? d.angle : 135) + '">' +
         '<span class="ed-cpg-val" data-out="angle">' + (d.angle != null ? d.angle : 135) + '°</span></div>' +
-      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">Start</span>' +
-        '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="fromStop" value="' + (d.fromStop || 0) + '">' +
-        '<span class="ed-cpg-val" data-out="fromStop">' + (d.fromStop || 0) + '%</span></div>' +
-      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">End</span>' +
-        '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="toStop" value="' + (d.toStop != null ? d.toStop : 100) + '">' +
-        '<span class="ed-cpg-val" data-out="toStop">' + (d.toStop != null ? d.toStop : 100) + '%</span></div>' +
-      '<p class="ed-cpg-hint">Start/End control how much of the shape stays solid before the blend.</p>' +
     '</div>';
   }
 
@@ -661,20 +785,24 @@
 
     // ---- Custom gradient editor helpers (panel._gradDraft is the live draft) ----
     function cpRoot() { return panel.querySelector(".ed-cpg"); }
+    function cpSelStop() {
+      const d = panel._gradDraft; if (!d) return null;
+      const i = Math.max(0, Math.min(d.stops.length - 1, d.sel || 0));
+      return d.stops[i];
+    }
+    // Pull the editable values (selected-stop colour + position, angle) off the
+    // DOM into the draft. Stop list / selection are managed by click handlers.
     function cpReadAll() {
       const root = cpRoot(); if (!root || !panel._gradDraft) return;
-      const d = panel._gradDraft;
       const get = (k) => root.querySelector('[data-cpg="' + k + '"]');
-      const fade = get("toTransparent"); if (fade) d.toTransparent = fade.checked;
-      const fromC = get("from"); if (fromC) d.from = (fromC.value || d.from).toUpperCase();
-      const fromH = get("fromHex"); if (fromH) { const h = normHex(fromH.value); if (h) d.from = h; }
-      if (!d.toTransparent) {
-        const toC = get("to"); if (toC) d.to = (toC.value || d.to).toUpperCase();
-        const toH = get("toHex"); if (toH) { const h = normHex(toH.value); if (h) d.to = h; }
+      const stop = cpSelStop(); if (!stop) return;
+      const fade = get("selFade"); if (fade) stop.color = fade.checked ? "transparent" : (stop.color === "transparent" ? "#CCCCCC" : stop.color);
+      if (stop.color !== "transparent") {
+        const c = get("selColor"); if (c && c.value) stop.color = c.value.toUpperCase();
+        const h = get("selHex"); if (h) { const nh = normHex(h.value); if (nh) stop.color = nh; }
       }
-      const ang = get("angle"); if (ang) d.angle = +ang.value;
-      const fs = get("fromStop"); if (fs) d.fromStop = +fs.value;
-      const ts = get("toStop"); if (ts) d.toStop = +ts.value;
+      const pos = get("selPos"); if (pos) stop.pos = +pos.value;
+      const ang = get("angle"); if (ang) panel._gradDraft.angle = +ang.value;
     }
     function cpRefresh() {
       const root = cpRoot(); if (!root || !panel._gradDraft) return;
@@ -682,8 +810,7 @@
       if (prev) prev.style.background = cpGradCss(panel._gradDraft);
       const setOut = (k, v) => { const s = root.querySelector('[data-out="' + k + '"]'); if (s) s.textContent = v; };
       setOut("angle", (panel._gradDraft.angle | 0) + "°");
-      setOut("fromStop", (panel._gradDraft.fromStop | 0) + "%");
-      setOut("toStop", (panel._gradDraft.toStop | 0) + "%");
+      const stop = cpSelStop(); if (stop) setOut("selPos", (stop.pos | 0) + "%");
     }
     function cpRerender() {
       const root = cpRoot(); if (!root || !panel._gradDraft) return;
@@ -693,11 +820,30 @@
 
     panel.addEventListener("click", (e) => {
       if (e.target.closest(".ed-cp-close")) { closeColorPanel(); return; }
-      // Linear / Radial segmented control.
-      const typeBtn = e.target.closest(".ed-cpg-seg button");
-      if (typeBtn && panel._gradDraft) {
-        panel._gradDraft.type = typeBtn.dataset.type === "radial" ? "radial" : "linear";
+      const d = panel._gradDraft;
+      // Style preset thumbnail → set type + angle.
+      const styleBtn = e.target.closest(".ed-cpg-style");
+      if (styleBtn && d) {
+        const st = CPG_STYLES.find(function (x) { return x.key === styleBtn.dataset.style; });
+        if (st) { d.type = st.type; d.angle = st.angle; cpRerender(); cpCommit(); }
+        return;
+      }
+      // Select a stop swatch to edit it.
+      const stopBtn = e.target.closest(".ed-cpg-stop");
+      if (stopBtn && d) { d.sel = +stopBtn.dataset.stop; cpRerender(); return; }
+      // Add a stop (midpoint, interpolated-ish colour) and select it.
+      if (e.target.closest('[data-cpg="add"]') && d) {
+        const sorted = d.stops.slice().sort(function (a, b) { return a.pos - b.pos; });
+        const last = sorted[sorted.length - 1], prev = sorted[sorted.length - 2];
+        const pos = Math.round(Math.max(0, Math.min(100, (last.pos + prev.pos) / 2)));
+        d.stops.push({ color: last.color === "transparent" ? "#FFFFFF" : last.color, pos: pos });
+        d.sel = d.stops.length - 1;
         cpRerender(); cpCommit(); return;
+      }
+      // Remove the selected stop (never below 2).
+      if (e.target.closest('[data-cpg="del"]') && d && d.stops.length > 2) {
+        d.stops.splice(Math.max(0, Math.min(d.stops.length - 1, d.sel || 0)), 1);
+        d.sel = 0; cpRerender(); cpCommit(); return;
       }
       const sw = e.target.closest(".ed-cp-sw");
       if (!sw) return;
@@ -717,22 +863,27 @@
     // Live preview while dragging (cheap, no canvas re-render / history churn).
     panel.addEventListener("input", (e) => {
       if (!e.target.closest(".ed-cpg")) return;
-      cpReadAll(); cpRefresh();
+      cpReadAll();
+      // Editing the selected stop's colour should recolour its swatch live.
+      const stop = cpSelStop();
+      const selSwatch = cpRoot() && cpRoot().querySelector(".ed-cpg-stop.is-sel");
+      if (stop && selSwatch && stop.color !== "transparent") selSwatch.style.background = stop.color;
+      cpRefresh();
     });
     // Commit to the element (+ one history entry) on release / blur.
     panel.addEventListener("change", (e) => {
       const t = e.target;
       if (!t.closest(".ed-cpg")) return;
       cpReadAll();
-      if (t.dataset.cpg === "toTransparent") cpRerender();
+      if (t.dataset.cpg === "selFade") cpRerender();
       cpRefresh(); cpCommit();
     });
 
     panel.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
-      // Gradient editor hex fields commit on Enter.
+      // Gradient editor hex field commits on Enter.
       const gh = e.target.closest(".ed-cpg-hex");
-      if (gh) { cpReadAll(); cpRefresh(); cpCommit(); return; }
+      if (gh) { cpReadAll(); cpRerender(); cpCommit(); return; }
       const inp = e.target.closest(".ed-cp-hex");
       if (!inp) return;
       const h = normHex(inp.value);
@@ -1172,6 +1323,9 @@
     if (!inline) {
       trigger.addEventListener("click", function (e) {
         e.stopPropagation();
+        // When a host supplies onOpen (the toolbar does, to open the full Text
+        // side panel instead of this small popover), defer to it.
+        if (typeof opts.onOpen === "function") { opts.onOpen(); return; }
         pop.hidden ? open() : close();
       });
       // Close on outside click / page-level scroll / resize / Escape.
@@ -1631,6 +1785,9 @@
     // here (one DOM toggle per render) and means we never have to
     // remember to call it from anywhere else.
     syncBgPane();
+    // Keep the Text-panel font browser current (signature-guarded so this is a
+    // no-op during drags and only rebuilds when font/weight/favourites change).
+    if (typeof maybeRefreshFontBrowser === "function") maybeRefreshFontBrowser();
   }
 
   // Keep the Background pane in sync with state: image preview, which controls
@@ -1776,6 +1933,136 @@
     }
   }
 
+  // ---------- Rich text (runs) ----------
+  // A text element is "plain" when it has no `el.runs` — it renders straight
+  // from `el.text` with element-level weight/italic/underline (the legacy path,
+  // untouched). When the user formats PART of the text, we store `el.runs`: an
+  // ordered list of { text, bold, italic, underline } segments whose joined text
+  // (newlines included) equals el.text. Element-level weight stays the base for
+  // non-bold runs; a run's `bold` bumps it to 700. Plain `el.text` is always kept
+  // alongside for measurement, export fallback, and backward compatibility, and
+  // the whole object round-trips through JSON automatically (no field whitelist).
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function runsToText(runs) {
+    return runs.map(function (r) { return r.text; }).join("");
+  }
+  // True when no run carries any per-run formatting → we can stay "plain".
+  function runsAreUniform(runs) {
+    return runs.every(function (r) { return !r.bold && !r.italic && !r.underline; });
+  }
+  // Element has live rich formatting worth rendering as spans.
+  function hasRuns(el) {
+    return Array.isArray(el.runs) && el.runs.length && !runsAreUniform(el.runs);
+  }
+  // Model → inner HTML. Each run is a <span> carrying only its overrides; base
+  // font/size/colour/align live on the container. Newlines become <br>.
+  function runsToHtml(runs) {
+    return runs.map(function (r) {
+      const css = [];
+      if (r.bold) css.push("font-weight:700");
+      if (r.italic) css.push("font-style:italic");
+      if (r.underline) css.push("text-decoration:underline");
+      const html = escapeHtml(r.text).replace(/\n/g, "<br>") || "";
+      return css.length ? '<span style="' + css.join(";") + '">' + html + "</span>" : "<span>" + html + "</span>";
+    }).join("");
+  }
+  // Put text into a .ed-text-inner: rich → innerHTML spans, else plain textContent.
+  function setTextInnerContent(inner, el) {
+    if (hasRuns(el)) inner.innerHTML = runsToHtml(el.runs);
+    else inner.textContent = el.text || "";
+  }
+  // Parse a contentEditable subtree back into runs. Tracks bold/italic/underline
+  // from ancestor tags + inline styles; block elements and <br> become newlines.
+  function domToRuns(root) {
+    const runs = [];
+    function push(text, fmt) {
+      if (!text) return;
+      const last = runs[runs.length - 1];
+      if (last && last.bold === fmt.bold && last.italic === fmt.italic && last.underline === fmt.underline) {
+        last.text += text;
+      } else {
+        runs.push({ text: text, bold: fmt.bold, italic: fmt.italic, underline: fmt.underline });
+      }
+    }
+    function walk(node, fmt) {
+      for (let i = 0; i < node.childNodes.length; i++) {
+        const child = node.childNodes[i];
+        if (child.nodeType === 3) { push(child.nodeValue, fmt); continue; }
+        if (child.nodeType !== 1) continue;
+        const tag = child.tagName;
+        if (tag === "BR") { push("\n", fmt); continue; }
+        const isBlock = (tag === "DIV" || tag === "P");
+        if (isBlock && runs.length && runs[runs.length - 1].text.slice(-1) !== "\n") push("\n", fmt);
+        const st = child.style || {};
+        const cw = parseInt(st.fontWeight, 10);
+        // Start from the inherited format, then let this node's tag / inline
+        // styles set OR clear each flag — execCommand un-bolding writes an
+        // explicit `font-weight: normal`, which must override an inherited bold.
+        const next = { bold: fmt.bold, italic: fmt.italic, underline: fmt.underline };
+        if (tag === "B" || tag === "STRONG" || st.fontWeight === "bold" || cw >= 600) next.bold = true;
+        else if (st.fontWeight === "normal" || (!isNaN(cw) && cw < 600)) next.bold = false;
+        if (tag === "I" || tag === "EM" || st.fontStyle === "italic") next.italic = true;
+        else if (st.fontStyle === "normal") next.italic = false;
+        const deco = (st.textDecoration || "") + " " + (st.textDecorationLine || "");
+        if (tag === "U" || deco.indexOf("underline") >= 0) next.underline = true;
+        else if (deco.indexOf("none") >= 0) next.underline = false;
+        walk(child, next);
+      }
+    }
+    walk(root, { bold: false, italic: false, underline: false });
+    // Drop one trailing newline (browsers leave a trailing <br>/empty block),
+    // mirroring the legacy `.innerText.replace(/\n$/, "")`.
+    for (let i = runs.length - 1; i >= 0; i--) {
+      if (runs[i].text === "") { runs.splice(i, 1); continue; }
+      if (runs[i].text.slice(-1) === "\n") runs[i].text = runs[i].text.slice(0, -1);
+      break;
+    }
+    while (runs.length && runs[runs.length - 1].text === "") runs.pop();
+    return runs;
+  }
+  // Read the edited DOM back onto the element, collapsing to plain when uniform.
+  function commitTextFromDom(inner, el) {
+    const runs = domToRuns(inner);
+    const newText = runsToText(runs).replace(/\n$/, "");
+    const uniform = runsAreUniform(runs);
+    const prev = el.runs ? JSON.stringify(el.runs) : null;
+    const next = uniform ? null : JSON.stringify(runs);
+    if (newText !== el.text || prev !== next) {
+      el.text = newText;
+      el.runs = uniform ? null : runs;
+      pushHistory();
+    }
+  }
+
+  // The .ed-text-inner currently being edited for `el` (or null).
+  function editingInnerFor(el) {
+    const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+    const inner = node && node.querySelector(".ed-text-inner");
+    return (inner && inner.getAttribute("contenteditable") === "true") ? inner : null;
+  }
+  // Is there a live text selection inside this editing box?
+  function hasInnerSelection(inner) {
+    const sel = window.getSelection && window.getSelection();
+    return !!(inner && sel && sel.rangeCount && !sel.isCollapsed && inner.contains(sel.anchorNode));
+  }
+  // Bold the current selection when editing (per-word → produces runs on commit),
+  // otherwise toggle the whole element's weight (legacy). The DOM updates live via
+  // execCommand; el.runs is parsed back on blur. Returns true if it bolded a range.
+  function applyBold(el, btn) {
+    const inner = editingInnerFor(el);
+    if (inner && hasInnerSelection(inner)) {
+      try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
+      document.execCommand("bold");
+      if (btn) { try { btn.classList.toggle("is-on", document.queryCommandState("bold")); } catch (_) {} }
+      return true;
+    }
+    el.weight = (el.weight || 400) >= 700 ? 400 : 700;
+    loadGoogleFont(el.font); fullRender(); pushHistory();
+    return false;
+  }
+
   function renderElement(el) {
     const node = document.createElement("div");
     node.className = "ed-element";
@@ -1788,7 +2075,7 @@
       inner.className = "ed-text-inner";
       inner.contentEditable = "false";
       inner.spellcheck = false;
-      inner.textContent = el.text || "";
+      setTextInnerContent(inner, el);
       applyTextStyles(inner, el);
       node.appendChild(inner);
     } else if (el.type === "image") {
@@ -2775,12 +3062,10 @@
     function commit() {
       inner.contentEditable = "false";
       node.classList.remove("is-editing");
-      // innerText preserves the line breaks from Enter (textContent drops them).
-      const newText = inner.innerText.replace(/\n$/, "");
-      if (newText !== el.text) {
-        el.text = newText;
-        pushHistory();
-      }
+      // Read the edited DOM back into el.text (+ el.runs when the user has
+      // formatted part of it). Collapses to plain text when nothing is styled,
+      // so plain editing behaves exactly as before.
+      commitTextFromDom(inner, el);
       inner.removeEventListener("input", grow);
       inner.removeEventListener("blur", commit);
       renderHandles(); // bring the floating toolbar back now editing is done
@@ -3336,6 +3621,65 @@
   // Helper: paint a text element to the canvas, honouring gradient fill,
   // text shadow, outline and the simple block background. Used by the export
   // pipeline so PNG/JPG output matches what the editor renders on screen.
+  // Canvas font string for a run, honouring the element base + the run override.
+  function runFont(el, fmt) {
+    const stack = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+    const weight = fmt.bold ? 700 : (el.weight || 400);
+    const italic = (fmt.italic || el.italic) ? "italic " : "";
+    return italic + weight + " " + el.size + "px " + stack;
+  }
+  // Word-wrap runs into lines, each line an array of {text, fmt, w} tokens
+  // (spaces kept as their own tokens). Newlines inside runs force a break.
+  function richWrapLines(ctx, el, runs, maxWidth) {
+    const lines = [];
+    let line = [], lineW = 0;
+    function flush() { lines.push(line); line = []; lineW = 0; }
+    runs.forEach(function (r) {
+      const parts = r.text.split(/(\n| )/); // keep delimiters as tokens
+      parts.forEach(function (p) {
+        if (p === "") return;
+        if (p === "\n") { flush(); return; }
+        ctx.font = runFont(el, r);
+        const w = ctx.measureText(p).width;
+        if (p === " ") { if (line.length) { line.push({ text: " ", fmt: r, w: w }); lineW += w; } return; }
+        if (lineW + w > maxWidth && line.length) {
+          while (line.length && line[line.length - 1].text === " ") { lineW -= line[line.length - 1].w; line.pop(); }
+          flush();
+        }
+        line.push({ text: p, fmt: r, w: w }); lineW += w;
+      });
+    });
+    flush();
+    return lines;
+  }
+  // Draw wrapped rich lines: per-token font, plus a manual underline stroke
+  // (canvas fonts can't express underline). `paint` is solid colour or gradient.
+  function drawRichLines(ctx, el, lines, lh, paint) {
+    let yy = 0;
+    lines.forEach(function (toks) {
+      let tw = 0; for (const t of toks) tw += t.w;
+      let x = 0;
+      if (el.align === "center") x = (el.w - tw) / 2;
+      else if (el.align === "right") x = el.w - tw;
+      ctx.textAlign = "left";
+      for (const t of toks) {
+        ctx.font = runFont(el, t.fmt);
+        ctx.fillStyle = paint;
+        ctx.fillText(t.text, x, yy);
+        if (t.fmt.underline || el.underline) {
+          const uy = yy + el.size * 1.02;
+          ctx.save();
+          ctx.strokeStyle = paint;
+          ctx.lineWidth = Math.max(1, el.size / 16);
+          ctx.beginPath(); ctx.moveTo(x, uy); ctx.lineTo(x + t.w, uy); ctx.stroke();
+          ctx.restore();
+        }
+        x += t.w;
+      }
+      yy += lh;
+    });
+  }
+
   function drawTextElementToCanvas(ctx, el) {
     const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
     ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
@@ -3367,29 +3711,11 @@
       ctx.restore();
     }
 
-    // Build the fill style — solid colour or a gradient. Canvas gradients are
-    // defined in absolute coords, so we work out endpoints from the angle.
+    // Build the fill style — solid colour or a (multi-stop) gradient.
     let fillStyle = el.color;
     const g = el.textGradient;
     if (g && g.enabled) {
-      if (g.type === "radial") {
-        const grad = ctx.createRadialGradient(el.w / 2, el.h / 2, 0, el.w / 2, el.h / 2, Math.max(el.w, el.h) / 2);
-        grad.addColorStop(0, g.from || "#B9826A");
-        grad.addColorStop(1, g.to   || "#474254");
-        fillStyle = grad;
-      } else {
-        const angle = (g.angle != null ? g.angle : 90) * Math.PI / 180;
-        // Map CSS gradient angle (0deg = bottom→top in CSS, but we'll use
-        // top→down convention to keep code simple — close enough visually).
-        const x0 = el.w / 2 - Math.cos(angle) * el.w / 2;
-        const y0 = el.h / 2 - Math.sin(angle) * el.h / 2;
-        const x1 = el.w / 2 + Math.cos(angle) * el.w / 2;
-        const y1 = el.h / 2 + Math.sin(angle) * el.h / 2;
-        const grad = ctx.createLinearGradient(x0, y0, x1, y1);
-        grad.addColorStop(0, g.from || "#B9826A");
-        grad.addColorStop(1, g.to   || "#474254");
-        fillStyle = grad;
-      }
+      fillStyle = canvasGrad(ctx, g, el.w, el.h);
     }
 
     // Text shadow — applied via the same canvas shadow API. Set before draws.
@@ -3399,6 +3725,30 @@
       ctx.shadowBlur = el.textShadow.blur || 0;
       ctx.shadowOffsetX = el.textShadow.offsetX || 0;
       ctx.shadowOffsetY = el.textShadow.offsetY || 0;
+    }
+
+    // Rich (mixed-format) text: wrap + draw token-by-token, then we're done.
+    // Outline is stroked per token under the fill; shadow (set above) carries.
+    if (hasRuns(el)) {
+      const rlines = richWrapLines(ctx, el, el.runs, el.w);
+      if (el.textOutline && el.textOutline.width > 0) {
+        ctx.save();
+        ctx.shadowColor = "transparent"; ctx.shadowBlur = 0;
+        ctx.lineWidth = el.textOutline.width * 2;
+        ctx.strokeStyle = el.textOutline.color || "#1c1d22";
+        ctx.lineJoin = "round";
+        let oy = 0;
+        rlines.forEach(function (toks) {
+          let tw = 0; for (const t of toks) tw += t.w;
+          let x = 0;
+          if (el.align === "center") x = (el.w - tw) / 2; else if (el.align === "right") x = el.w - tw;
+          for (const t of toks) { ctx.font = runFont(el, t.fmt); ctx.strokeText(t.text, x, oy); x += t.w; }
+          oy += lh;
+        });
+        ctx.restore();
+      }
+      drawRichLines(ctx, el, rlines, lh, fillStyle);
+      return;
     }
 
     let yy = 0;
@@ -3956,6 +4306,37 @@
     backdrop:{ offsetX: 0,  offsetY: 0,  blur: 40, color: "#000000", opacity: 0.55 },
   };
 
+  // Does this element have any visible effect applied? Used to highlight the
+  // Effects toolbar button so you can tell at a glance (e.g. coming back to a
+  // design tomorrow) that a layer already carries a shadow / outline / etc.
+  function elementHasEffect(el) {
+    if (!el) return false;
+    const sh = el.type === "text" ? el.textShadow : el.shadow;
+    if (sh && sh.enabled) return true;
+    if (el.type === "text") {
+      if (el.textOutline && el.textOutline.width > 0) return true;
+      if (el.textBg && el.textBg.enabled) return true;
+      if (el.textGradient && el.textGradient.enabled) return true;
+    }
+    if (el.fillGradient && el.fillGradient.enabled) return true;
+    return false;
+  }
+  // Which shadow preset (if any) the element's current shadow matches exactly,
+  // so the effects panel can highlight the chosen one. "none" when off; null
+  // when enabled but tweaked away from any preset (custom).
+  function shadowPresetKeyFor(el) {
+    const sh = el.type === "text" ? el.textShadow : el.shadow;
+    if (!sh || !sh.enabled) return "none";
+    const keys = ["drop", "glow", "curved", "lift", "angled", "backdrop"];
+    for (let i = 0; i < keys.length; i++) {
+      const p = SHADOW_PRESETS[keys[i]];
+      if (p && p.offsetX === sh.offsetX && p.offsetY === sh.offsetY && p.blur === sh.blur &&
+          String(p.color || "").toLowerCase() === String(sh.color || "").toLowerCase() &&
+          p.opacity === sh.opacity) return keys[i];
+    }
+    return null;
+  }
+
   function hexToRgba(hex, alpha) {
     const h = rgbHex(hex || "#000000").replace("#", "");
     const r = parseInt(h.slice(0, 2), 16);
@@ -3986,49 +4367,60 @@
   // Build a CSS background for gradient-filled text. Returns null if disabled.
   // `fromStop`/`toStop` (0–100) control where the blend starts/ends — i.e. how
   // much of the shape is solid colour vs. transition ("how much gradient").
+  // ---------- Gradient model (multi-stop) ----------
+  // A gradient is { enabled, type:'linear'|'radial', angle, stops:[{color,pos}] }.
+  // For backward compatibility we still read the old from/to/fromStop/toStop pair
+  // when no `stops` array is present (and we keep writing from/to alongside stops).
+  // `gradStops` is the single source of truth used by every builder below.
+  function gradStops(g) {
+    if (g && Array.isArray(g.stops) && g.stops.length >= 2) {
+      return g.stops.map(function (s) {
+        return { color: s.color || "#000000", pos: s.pos != null ? s.pos : 0 };
+      }).sort(function (a, b) { return a.pos - b.pos; });
+    }
+    const from = (g && g.from) || "#1c1d22";
+    const to = (g && (g.toTransparent ? "transparent" : g.to)) || "#B9826A";
+    const fs = g && g.fromStop != null ? g.fromStop : 0;
+    const ts = g && g.toStop != null ? g.toStop : 100;
+    return [{ color: from, pos: fs }, { color: to, pos: ts }];
+  }
+  // CSS gradient string for any gradient object (or draft).
+  function gradCss(g) {
+    const stops = gradStops(g).map(function (s) { return s.color + " " + s.pos + "%"; }).join(", ");
+    if (g && g.type === "radial") return "radial-gradient(circle, " + stops + ")";
+    const angle = g && g.angle != null ? g.angle : 135;
+    return "linear-gradient(" + angle + "deg, " + stops + ")";
+  }
+  // Canvas gradient object for export, honouring every stop.
+  function canvasGrad(ctx, g, w, h) {
+    let grad;
+    if (g && g.type === "radial") {
+      grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 2);
+    } else {
+      const a = (g && g.angle != null ? g.angle : 90) * Math.PI / 180;
+      grad = ctx.createLinearGradient(
+        w / 2 - Math.cos(a) * w / 2, h / 2 - Math.sin(a) * h / 2,
+        w / 2 + Math.cos(a) * w / 2, h / 2 + Math.sin(a) * h / 2
+      );
+    }
+    gradStops(g).forEach(function (s) {
+      const p = Math.max(0, Math.min(1, (s.pos || 0) / 100));
+      try { grad.addColorStop(p, s.color); } catch (_) { /* invalid colour — skip */ }
+    });
+    return grad;
+  }
+
   function textGradientCss(grad) {
     if (!grad || !grad.enabled) return null;
-    const angle = grad.angle != null ? grad.angle : 90;
-    const from = grad.from || "#1c1d22";
-    const to   = grad.to   || "#B9826A";
-    const fs = grad.fromStop != null ? grad.fromStop : 0;
-    const ts = grad.toStop != null ? grad.toStop : 100;
-    const stops = from + " " + fs + "%, " + to + " " + ts + "%";
-    if (grad.type === "radial") {
-      return "radial-gradient(circle, " + stops + ")";
-    }
-    return "linear-gradient(" + angle + "deg, " + stops + ")";
+    return gradCss(grad);
   }
 
   // Canvas fill for a shape on export — a gradient (incl. fade-to-transparent)
-  // when el.fillGradient is enabled, else the solid el.fill. Mirrors the text
-  // gradient maths so the export matches the live canvas.
+  // when el.fillGradient is enabled, else the solid el.fill.
   function shapeCanvasFill(ctx, el) {
     const grad = el.fillGradient;
     if (!grad || !grad.enabled) return el.fill || "transparent";
-    // Clamp stop positions to [0,1] and keep them ascending (addColorStop is
-    // strict about both), mirroring the CSS maths in textGradientCss.
-    let fs = (grad.fromStop != null ? grad.fromStop : 0) / 100;
-    let ts = (grad.toStop != null ? grad.toStop : 100) / 100;
-    fs = Math.max(0, Math.min(1, fs));
-    ts = Math.max(0, Math.min(1, ts));
-    if (ts < fs) { const tmp = fs; fs = ts; ts = tmp; }
-    const from = grad.from || "#1c1d22";
-    const to   = grad.to   || "transparent";
-    if (grad.type === "radial") {
-      const g = ctx.createRadialGradient(el.w / 2, el.h / 2, 0, el.w / 2, el.h / 2, Math.max(el.w, el.h) / 2);
-      g.addColorStop(fs, from);
-      g.addColorStop(ts, to);
-      return g;
-    }
-    const a = (grad.angle != null ? grad.angle : 90) * Math.PI / 180;
-    const g = ctx.createLinearGradient(
-      el.w / 2 - Math.cos(a) * el.w / 2, el.h / 2 - Math.sin(a) * el.h / 2,
-      el.w / 2 + Math.cos(a) * el.w / 2, el.h / 2 + Math.sin(a) * el.h / 2
-    );
-    g.addColorStop(fs, from);
-    g.addColorStop(ts, to);
-    return g;
+    return canvasGrad(ctx, grad, el.w, el.h);
   }
 
   // ---------- Merge tags ({brand name}, {company}, etc.) ----------
@@ -4106,8 +4498,9 @@
 
     const presetKeys = ["none","drop","glow","curved","lift","angled","backdrop"];
     const presetLabels = { none:"None", drop:"Drop", glow:"Glow", curved:"Curved", lift:"Page lift", angled:"Angled", backdrop:"Backdrop" };
+    const activeKey = shadowPresetKeyFor(el); // highlight the chosen preset
     const presetButtons = presetKeys.map(function (k) {
-      return '<button type="button" class="ed-fx-preset" data-shadow-preset="' + k + '" title="' + presetLabels[k] + '">' + presetLabels[k] + '</button>';
+      return '<button type="button" class="ed-fx-preset' + (k === activeKey ? " is-current" : "") + '" data-shadow-preset="' + k + '" title="' + presetLabels[k] + '">' + presetLabels[k] + '</button>';
     }).join("");
 
     let out =
@@ -4261,6 +4654,9 @@
         } else {
           group[fieldKey] = input.value;
         }
+        // This simple from/to editor is 2-stop; clear any multi-stop array set
+        // by the rich gradient builder so its edits actually take effect.
+        if (groupKey === "grad") group.stops = null;
         // Outline doesn't have an enabled flag — its presence is governed by
         // width > 0. Mirror the checkbox state if the user nudges width.
         if (groupKey === "outline" && fieldKey === "width") {
@@ -4303,37 +4699,40 @@
     ctxEl.innerHTML = "";
 
     if (el.type === "text") {
-      // Font — custom searchable picker (replaces native <select>).
+      // Row order: font · size · colour. Weight now lives in the Text side panel
+      // (click the font name), so it's off the toolbar entirely. A roomier gap
+      // here gives these three controls space to breathe.
       const g1 = group();
-      const picker = createFontPicker(el.font, function (name) {
-        el.font = name;
-        fullRender();
-        pushHistory();
-      });
-      g1.appendChild(picker);
-
+      g1.style.gap = "10px";
+      g1.appendChild(createFontPicker(el.font, function (name) {
+        el.font = name; fullRender(); pushHistory();
+      }, { onOpen: function () { openFontPanel(el); } }));
       g1.appendChild(createSizeControl(el.size, function (v) { el.size = v; fullRender(); pushHistory(); }));
-
-      // Font weight — quick-pick the named weights (Extra light → Extra bold).
-      const weightSel = document.createElement("select");
-      weightSel.title = "Font weight";
-      weightSel.style.cssText = "height:32px;border:1px solid rgba(28,29,34,0.18);border-radius:7px;background:#fff;color:var(--ink,#1c1d22);font-family:inherit;font-size:12px;padding:0 8px;cursor:pointer;";
-      [[200, "Extra light"], [300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semi-bold"], [700, "Bold"], [800, "Extra bold"]].forEach(function (wl) {
-        const o = document.createElement("option");
-        o.value = wl[0]; o.textContent = wl[1];
-        if ((el.weight || 400) == wl[0]) o.selected = true;
-        weightSel.appendChild(o);
-      });
-      weightSel.addEventListener("change", function () {
-        el.weight = parseInt(weightSel.value, 10);
-        loadGoogleFont(el.font);   // make sure the chosen weight is available for Google fonts
-        fullRender(); pushHistory();
-      });
-      g1.appendChild(weightSel);
+      // Colour — sits next to size now (opens the rich solid/gradient panel).
+      g1.appendChild(colorSwatchButton(
+        function () { return el.color; },
+        {
+          title: "Text colour",
+          onSolid: function (hex) { el.color = hex; el.textGradient = null; },
+          onGradient: function (g) { el.textGradient = { enabled: true, type: g.type || "linear", angle: g.angle != null ? g.angle : 135, stops: g.stops, from: g.from, to: g.to, fromStop: g.fromStop, toStop: g.toStop }; },
+          getGradient: function () { return el.textGradient; },
+        }
+      ));
       ctxEl.appendChild(g1);
 
-      // I U  (bold is covered by the weight picker above)
+      // B I U — Bold applies to the selected text while editing (per-word),
+      // else toggles the whole element's weight. Ctrl+B does the same.
       const g2 = group();
+      const boldBtn = document.createElement("button");
+      boldBtn.type = "button";
+      boldBtn.className = "ed-ctx-btn" + ((el.weight || 400) >= 700 ? " is-on" : "");
+      boldBtn.textContent = "B";
+      boldBtn.title = "Bold (Ctrl+B)";
+      // Don't steal focus from the editing box — keeps the text selection alive
+      // through the click so execCommand('bold') has something to act on.
+      boldBtn.addEventListener("mousedown", function (e) { if (editingInnerFor(el)) e.preventDefault(); });
+      boldBtn.addEventListener("click", function () { applyBold(el, boldBtn); });
+      g2.appendChild(boldBtn);
       g2.appendChild(toggleBtn("I", !!el.italic, () => {
         el.italic = !el.italic; fullRender(); pushHistory();
       }, "Italic"));
@@ -4342,48 +4741,23 @@
       }, "Underline"));
       ctxEl.appendChild(g2);
 
-      // Align — one button that cycles through the four alignments on each click
-      // (left → centre → right → justified), so it stays compact.
+      // Align (bigger, no arrow — cycles) + Spacing (one popover: letter + line).
       const ALIGN_CYCLE = ["left", "center", "right", "justify"];
       const ALIGN_LABEL = { left: "Left", center: "Centre", right: "Right", justify: "Justified" };
       const g3 = group();
       const curAlign = ALIGN_CYCLE.indexOf(el.align) >= 0 ? el.align : "left";
-      const alignBtn = toggleBtn(alignIcon(curAlign), false, () => {
+      const alignBtn = document.createElement("button");
+      alignBtn.className = "ed-ctx-btn ed-ctx-btn-align";
+      alignBtn.innerHTML = alignIconSvg(curAlign);
+      alignBtn.title = "Alignment: " + ALIGN_LABEL[curAlign] + " — click to cycle";
+      alignBtn.addEventListener("click", function () {
         const i = ALIGN_CYCLE.indexOf(el.align) >= 0 ? ALIGN_CYCLE.indexOf(el.align) : 0;
         el.align = ALIGN_CYCLE[(i + 1) % ALIGN_CYCLE.length];
         fullRender(); pushHistory();
-      }, "Alignment: " + ALIGN_LABEL[curAlign] + " — click to cycle");
+      });
       g3.appendChild(alignBtn);
-
-      // Line height + letter spacing — popover sliders (these used to be missing).
-      const lineHeightIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11M10 12h11M10 18h11"/><path d="M4 4v16"/><path d="M2 6l2-2 2 2"/><path d="M2 18l2 2 2-2"/></svg>';
-      const letterSpaceIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l3.5-9 3.5 9"/><path d="M7 12.5h5"/><path d="M19 5v14"/><path d="M2 5v14"/></svg>';
-      g3.appendChild(sliderPopover({
-        icon: lineHeightIcon, title: "Line height", label: "Line height",
-        min: 0.8, max: 3, step: 0.05,
-        get: function () { return el.lineHeight != null ? el.lineHeight : 1.3; },
-        set: function (v) { el.lineHeight = v; },
-      }));
-      g3.appendChild(sliderPopover({
-        icon: letterSpaceIcon, title: "Letter spacing", label: "Letter spacing", unit: "px",
-        min: -5, max: 40, step: 0.5,
-        get: function () { return el.letterSpacing != null ? el.letterSpacing : 0; },
-        set: function (v) { el.letterSpacing = v; },
-      }));
+      g3.appendChild(spacingPopover(el));
       ctxEl.appendChild(g3);
-
-      // Colour — opens the rich left-hand colour panel (solid or gradient).
-      const g4 = group();
-      g4.appendChild(colorSwatchButton(
-        function () { return el.color; },
-        {
-          title: "Text colour",
-          onSolid: function (hex) { el.color = hex; el.textGradient = null; },
-          onGradient: function (g) { el.textGradient = { enabled: true, type: g.type || "linear", angle: g.angle != null ? g.angle : 135, from: g.from, to: g.to, fromStop: g.fromStop, toStop: g.toStop }; },
-          getGradient: function () { return el.textGradient; },
-        }
-      ));
-      ctxEl.appendChild(g4);
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
       // Fill — opens the rich colour panel.
       const g = group();
@@ -4392,7 +4766,7 @@
         {
           title: "Fill",
           onSolid: function (hex) { el.fill = hex; el.fillGradient = null; },
-          onGradient: function (gr) { el.fillGradient = { enabled: true, type: gr.type || "linear", angle: gr.angle != null ? gr.angle : 135, from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop }; },
+          onGradient: function (gr) { el.fillGradient = { enabled: true, type: gr.type || "linear", angle: gr.angle != null ? gr.angle : 135, stops: gr.stops, from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop }; },
           getGradient: function () { return el.fillGradient; },
         }
       ));
@@ -4563,6 +4937,12 @@
           return panel;
         },
       });
+      // Highlight the trigger when this layer already carries an effect, so it's
+      // obvious at a glance which layers have shadows/outlines/etc.
+      if (elementHasEffect(el)) {
+        const trig = effectsWrap.querySelector(".ed-pop-trigger");
+        if (trig) trig.classList.add("ed-fx-active");
+      }
       ctxEl.appendChild(effectsWrap);
     }
 
@@ -4618,14 +4998,7 @@
       }, "Lock"));
     }
 
-    // Delete — icon (universal trash-can affordance).
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.className = "ed-ctx-btn ed-ctx-btn-danger";
-    delBtn.innerHTML = ICONS.delete;
-    delBtn.title = "Delete (Del)";
-    delBtn.addEventListener("click", deleteSelected);
-    gA.appendChild(delBtn);
+    // (Delete removed from the toolbar — use Backspace/Del or right-click → Delete.)
 
     ctxEl.appendChild(gA);
 
@@ -4650,6 +5023,20 @@
     }
     function alignIcon(a) {
       return a === "left" ? "≡↤" : a === "center" ? "≡" : a === "right" ? "≡↦" : "≣";
+    }
+    // Crisp SVG alignment icons (no directional arrow — clearer than the glyphs).
+    function alignIconSvg(a) {
+      const lines = {
+        left:    [[3, 21], [3, 15], [3, 19], [3, 13]],
+        center:  [[4, 20], [7, 17], [5, 19], [8, 16]],
+        right:   [[3, 21], [9, 21], [5, 21], [11, 21]],
+        justify: [[3, 21], [3, 21], [3, 21], [3, 21]],
+      }[a] || [[3, 21], [3, 15], [3, 19], [3, 13]];
+      const ys = [6, 11, 16, 21];
+      const rows = lines.map(function (l, i) {
+        return '<line x1="' + l[0] + '" y1="' + ys[i] + '" x2="' + l[1] + '" y2="' + ys[i] + '"/>';
+      }).join("");
+      return '<svg viewBox="0 0 24 27" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">' + rows + "</svg>";
     }
   }
 
@@ -4928,6 +5315,7 @@
       const tool = btn.dataset.tool;
       activeToolPane = tool;
       showPane(tool);
+      if (tool === "text") renderFontBrowser();
     });
   });
 
@@ -4945,6 +5333,163 @@
     canvasEl.addEventListener("dblclick", function (ev) {
       if (ev.target === canvasEl) openTool("background");
     });
+  }
+
+  // ---------- Text-panel font browser ----------
+  // The toolbar's font name opens the Text side panel, which hosts a full
+  // browser: search, your starred "brand fonts", every font, and a weight
+  // picker for the selected text. Starring a font saves it to the brand kit.
+  const FB_WEIGHTS = [[300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semibold"], [700, "Bold"], [800, "Extra bold"]];
+  const FB_STAR_ON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="12,3 15,9.5 22,10.3 17,15 18.3,22 12,18.5 5.7,22 7,15 2,10.3 9,9.5"/></svg>';
+  const FB_STAR_OFF = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><polygon points="12,3 15,9.5 22,10.3 17,15 18.3,22 12,18.5 5.7,22 7,15 2,10.3 9,9.5"/></svg>';
+
+  // The text element the browser applies to: the selected text if any, else the
+  // element the panel was opened for.
+  function fontTextTarget() {
+    const sel = selectedElements().filter((e) => e.type === "text");
+    if (sel.length) return sel[0];
+    const t = _fontTargetId && getEl(_fontTargetId);
+    return (t && t.type === "text") ? t : null;
+  }
+  function fbSignature() {
+    const el = fontTextTarget();
+    return (el ? el.font + "|" + (el.weight || 400) : "none") + "|" + getFavFonts().join(",");
+  }
+
+  function renderFontBrowser() {
+    const mount = document.getElementById("ed-font-browser");
+    if (!mount || activeToolPane !== "text") return;
+    _fbSig = fbSignature();
+    const el = fontTextTarget();
+    mount.innerHTML = "";
+
+    const search = document.createElement("input");
+    search.type = "search"; search.className = "ed-fb-search"; search.placeholder = "Search fonts…";
+    mount.appendChild(search);
+
+    const hint = document.createElement("p");
+    hint.className = "ed-fb-hint";
+    hint.textContent = el ? "Applying to the selected text layer." : "Select a text layer to change its font.";
+    mount.appendChild(hint);
+
+    if (el) {
+      const wsec = document.createElement("div"); wsec.className = "ed-fb-weights";
+      const wt = document.createElement("div"); wt.className = "ed-fb-title"; wt.textContent = "Weight";
+      wsec.appendChild(wt);
+      const chips = document.createElement("div"); chips.className = "ed-fb-chips";
+      FB_WEIGHTS.forEach(function (w) {
+        const c = document.createElement("button");
+        c.type = "button";
+        c.className = "ed-fb-chip" + ((el.weight || 400) == w[0] ? " is-on" : "");
+        c.textContent = w[1]; c.style.fontWeight = w[0];
+        c.addEventListener("click", function () {
+          el.weight = w[0]; loadGoogleFont(el.font); fullRender(); pushHistory();
+        });
+        chips.appendChild(c);
+      });
+      wsec.appendChild(chips);
+      mount.appendChild(wsec);
+    }
+
+    // The list is its own scroll area (CSS max-height + overflow) so the panel
+    // stays compact instead of growing into a giant nav.
+    const listWrap = document.createElement("div");
+    listWrap.className = "ed-fb-list";
+    mount.appendChild(listWrap);
+
+    function fontByName(nm) {
+      return FONTS.find(function (x) { return x.name === nm; }) || { name: nm, stack: '"' + nm + '", sans-serif' };
+    }
+    function rowFor(f, preview) {
+      const row = document.createElement("div");
+      row.className = "ed-fb-row" + (el && f.name === el.font ? " is-current" : "");
+      const name = document.createElement("button");
+      name.type = "button"; name.className = "ed-fb-name"; name.textContent = f.name;
+      if (preview) { name.style.fontFamily = f.stack; loadGoogleFont(f.name); }
+      name.addEventListener("click", function () {
+        if (!el) { toast("Select a text layer first"); return; }
+        loadGoogleFont(f.name); el.font = f.name; pushRecentFont(f.name);
+        fullRender(); pushHistory();
+      });
+      const star = document.createElement("button");
+      star.type = "button";
+      const on = isFavFont(f.name);
+      star.className = "ed-fb-star" + (on ? " is-on" : "");
+      star.innerHTML = on ? FB_STAR_ON : FB_STAR_OFF;
+      star.title = on ? "Remove from brand kit" : "Save to brand kit";
+      star.addEventListener("click", function (e) {
+        e.stopPropagation();
+        toggleFavFont(f.name);
+        renderFontBrowser();   // refresh stars + the brand-fonts section
+      });
+      row.appendChild(name); row.appendChild(star);
+      return row;
+    }
+    function sectionTitle(text) {
+      const t = document.createElement("div"); t.className = "ed-fb-title"; t.textContent = text;
+      listWrap.appendChild(t);
+    }
+
+    function build(query) {
+      listWrap.innerHTML = "";
+      const q = (query || "").trim().toLowerCase();
+      // While searching, show one flat filtered list — sections only add noise.
+      if (q) {
+        let n = 0;
+        FONTS.forEach(function (f) {
+          if (f.name.toLowerCase().indexOf(q) === -1) return;
+          listWrap.appendChild(rowFor(f, false)); n++;
+        });
+        if (!n) {
+          const e = document.createElement("div"); e.className = "ed-fb-empty";
+          e.textContent = 'No fonts matching "' + q + '".';
+          listWrap.appendChild(e);
+        }
+        return;
+      }
+      // Sectioned view: Brand fonts → Recently picked → All fonts.
+      const favs = getFavFonts();
+      if (favs.length) {
+        sectionTitle("Brand fonts");
+        favs.forEach(function (nm) { listWrap.appendChild(rowFor(fontByName(nm), true)); });
+      }
+      const recents = getRecentFonts().filter(function (nm) { return favs.indexOf(nm) === -1; });
+      if (recents.length) {
+        sectionTitle("Recently picked");
+        recents.forEach(function (nm) { listWrap.appendChild(rowFor(fontByName(nm), true)); });
+      }
+      sectionTitle("All fonts");
+      FONTS.forEach(function (f) {
+        listWrap.appendChild(rowFor(f, false)); // names in UI font — avoids loading 100s of webfonts
+      });
+    }
+    build("");
+    search.addEventListener("input", function () { build(search.value); });
+  }
+
+  // Cheap refresh from fullRender: only rebuild when the target/font/weight/
+  // favourites actually changed, so dragging an element doesn't rebuild the list.
+  function maybeRefreshFontBrowser() {
+    if (activeToolPane !== "text") return;
+    const mount = document.getElementById("ed-font-browser");
+    if (!mount) return;
+    if (fbSignature() === _fbSig && mount.firstChild) return;
+    renderFontBrowser();
+  }
+
+  // Open the Text panel focused on a text element's font (from the toolbar).
+  // Keeps the element selected so the context bar + canvas highlight stay put.
+  function openFontPanel(el) {
+    _fontTargetId = el ? el.id : null;
+    activeToolPane = "text";
+    document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "text"));
+    showPane("text");
+    renderFontBrowser();
+    // Bring the Fonts section to the top of the panel so it reads like a page
+    // that scrolls to fonts (not a dropdown buried below the add-text buttons).
+    const m = document.getElementById("ed-font-browser");
+    const anchor = (m && m.previousElementSibling) || m;
+    if (anchor && anchor.scrollIntoView) anchor.scrollIntoView({ block: "start" });
   }
 
   // ---------- Shapes / text / bg / swatches bindings ----------
@@ -5001,11 +5546,24 @@
       fullRender();
     });
   });
-  $("ed-bg-color").addEventListener("input", (e) => {
-    state.canvas.background = e.target.value;
-    fullRender();
-  });
-  $("ed-bg-color").addEventListener("change", () => pushHistory());
+  // Background "Custom" circle → the rich hex colour panel (which also hosts the
+  // gradient builder), instead of the native OS colour picker (which shows RGB).
+  (function () {
+    const wrap = $("ed-bg-color-wrap");
+    if (!wrap) return;
+    function isGradient(v) { return typeof v === "string" && v.indexOf("gradient") !== -1; }
+    wrap.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const bg = state.canvas.background;
+      openColorPanel({
+        title: "Background",
+        current: isGradient(bg) ? "#F4F2F1" : bg,
+        currentGradient: null,
+        onSolid: function (hex) { state.canvas.background = hex; wrap.style.background = hex; fullRender(); pushHistory(); },
+        onGradient: function (g) { state.canvas.background = gradCss(g); wrap.style.background = gradCss(g); fullRender(); pushHistory(); },
+      });
+    });
+  })();
   document.querySelectorAll(".ed-grad").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.canvas.background = btn.dataset.grad;
@@ -5302,6 +5860,18 @@
   }
 
   document.addEventListener("keydown", (e) => {
+    // Ctrl/Cmd+B WHILE editing a text box → bold the selection (per-word). We
+    // handle it explicitly (rather than relying on the browser default) so the
+    // behaviour is consistent everywhere; runs are parsed back on blur.
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      const editingInner = document.querySelector('.ed-text-inner[contenteditable="true"]');
+      if (editingInner) {
+        e.preventDefault();
+        try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
+        document.execCommand("bold");
+        return;
+      }
+    }
     if (isTyping(e.target)) return;
     const ctrl = e.ctrlKey || e.metaKey;
 
@@ -5319,6 +5889,17 @@
       e.preventDefault();
       state.selectedIds = state.elements.map((el) => el.id);
       fullRender(); return;
+    }
+    if (ctrl && e.key.toLowerCase() === "b") {
+      const texts = selectedElements().filter((el) => el.type === "text");
+      if (texts.length) {
+        e.preventDefault();
+        // Toggle off only if every selected text is already bold; otherwise bold all.
+        const allBold = texts.every((el) => (el.weight || 400) >= 700);
+        texts.forEach((el) => { el.weight = allBold ? 400 : 700; loadGoogleFont(el.font); });
+        fullRender(); pushHistory();
+      }
+      return;
     }
 
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSelected(); return; }

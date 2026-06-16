@@ -959,6 +959,26 @@ import "../../styles/admin.css";
         showGiftError(error.message || "Couldn't gift the pack. Please try again.");
         return;
       }
+      // Fire the "order placed" marketing automation (e.g. purchase
+      // confirmation). Fire-and-forget so the UI never waits on it.
+      try {
+        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+        const { data: { session } } = await supabase.auth.getSession();
+        if (WORKER && session) {
+          const parts = (name || "").trim().split(/\s+/);
+          fetch(`${WORKER}/automations/fire`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({
+              trigger: "order_placed", email,
+              first_name: parts.shift() || (name || email.split("@")[0]), last_name: parts.join(" ") || null,
+              source: "pack_order", lifecycle: "customer",
+              payload: { pack: pack.title, pack_slug: pack.slug, amount_pence: 0 },
+            }),
+          }).catch(() => {});
+        }
+      } catch (_) {}
+
       if (!customerEmails.includes(email)) {
         customerEmails.push(email);
         customerEmails.sort();

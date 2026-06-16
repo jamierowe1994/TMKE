@@ -44,6 +44,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
   <!-- Bulk action bar — appears when one or more templates are ticked. -->
   <div class="tpl-bulkbar" id="tpl-bulkbar" hidden>
     <span class="tpl-bulk-count" id="tpl-bulk-count">0 selected</span>
+    <button type="button" class="admin-btn admin-btn-ghost" id="tpl-bulk-duplicate">Duplicate</button>
     <button type="button" class="admin-btn admin-btn-ghost" id="tpl-bulk-archive">Archive</button>
     <button type="button" class="admin-btn admin-btn-danger" id="tpl-bulk-delete">Delete selected</button>
     <button type="button" class="admin-btn admin-btn-ghost" id="tpl-bulk-cancel">Cancel</button>
@@ -802,6 +803,37 @@ import { templates as defaultLibrary } from "../../data/library.js";
     });
 
     document.getElementById('tpl-bulk-cancel')?.addEventListener('click', clearSelection);
+
+    // Duplicate — make a straight copy of each selected template (same canvas,
+    // elements and thumbnail) under a new id, named "Copy <original name>", so
+    // they can open it and edit from there without rebuilding from scratch.
+    document.getElementById('tpl-bulk-duplicate')?.addEventListener('click', async () => {
+      const ids = [...selected];
+      if (!ids.length) return;
+      const btn = document.getElementById('tpl-bulk-duplicate');
+      btn.setAttribute('disabled', 'true'); btn.textContent = 'Duplicating…';
+      const rows = ids.map((id) => {
+        const t = ALL.find((x) => x.id === id);
+        if (!t) return null;
+        return {
+          id: 'tmpl-' + Math.random().toString(36).slice(2, 8),
+          name: 'Copy ' + (t.name || 'Untitled'),
+          category: t.category ?? null,
+          thumb_url: t.thumb_url ?? null,
+          canvas: t.canvas ?? { width: 1080, height: 1440, background: '#f4f2f1' },
+          elements: Array.isArray(t.elements) ? t.elements : [],
+          // A straight copy keeps the original's status, except an archived one
+          // is brought back as a draft so the copy is visible and editable.
+          status: t.status === 'archived' ? 'draft' : (t.status || 'draft'),
+          sort_order: (t.sort_order ?? 0) + 1,
+        };
+      }).filter(Boolean);
+      const { error } = await supabase.from('templates').insert(rows);
+      btn.removeAttribute('disabled'); btn.textContent = 'Duplicate';
+      if (error) { alert(`Duplicate failed: ${error.message}`); return; }
+      clearSelection();
+      await loadTemplates();
+    });
 
     document.getElementById('tpl-bulk-delete')?.addEventListener('click', async () => {
       const ids = [...selected];

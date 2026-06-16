@@ -1,0 +1,147 @@
+---
+import AdminShell from "../../../components/admin/AdminShell.astro";
+import "../../../styles/admin.css";
+---
+
+<AdminShell active="automations" title="Automations">
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-top">
+        <span class="admin-bar-count" id="auto-count">…</span>
+        <div class="admin-bar-tools">
+          <select class="auto-filter" id="auto-filter" aria-label="Filter automations">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="draft">Draft</option>
+            <option value="paused">Paused</option>
+            <option value="archived">Archived</option>
+          </select>
+          <button type="button" class="admin-btn admin-btn-primary" id="auto-new">+ New automation</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="auto-list" id="auto-list">
+      <p class="auto-loading" id="auto-loading">Loading automations…</p>
+      <div class="auto-empty" id="auto-empty" hidden>
+        <p><strong>No automations yet.</strong></p>
+        <p>Build your first customer journey — e.g. a welcome series when someone signs up, or a purchase confirmation when they buy a pack.</p>
+      </div>
+      <div class="auto-grid" id="auto-grid"></div>
+    </section>
+  </div>
+
+  <style is:global>
+    .admin-bar { display: flex; flex-direction: column; align-items: stretch; gap: 16px; max-width: 1360px; margin: 0 auto; padding: 40px 0 22px; border-bottom: 1px solid rgba(55,30,40,0.14); }
+    .admin-bar-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .admin-bar-tools { display: flex; align-items: center; gap: 10px; }
+    .admin-bar-count { font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.6); font-weight: 600; }
+    .auto-filter {
+      appearance: none; -webkit-appearance: none;
+      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center;
+      border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 9px 32px 9px 14px; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--english-violet);
+    }
+    .auto-list { max-width: 1360px; margin: 0 auto; padding: 28px 0 160px; }
+    .auto-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 24px 0; }
+    .auto-empty { font-family: var(--sans); color: rgba(28,29,34,0.7); padding: 24px 0; line-height: 1.6; }
+    .auto-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .auto-card { display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; text-decoration: none; color: var(--ink); transition: transform 0.2s, box-shadow 0.2s; }
+    .auto-card:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -18px rgba(55,30,40,0.4); }
+    .auto-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .auto-card-name { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--ink); }
+    .auto-badge { flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+    .auto-badge.active { color: #2c7a4b; background: rgba(44,122,75,0.12); }
+    .auto-badge.draft { color: rgba(28,29,34,0.55); background: rgba(28,29,34,0.08); }
+    .auto-badge.paused { color: #b78a2e; background: rgba(183,138,46,0.14); }
+    .auto-badge.archived { color: rgba(28,29,34,0.4); background: rgba(28,29,34,0.06); }
+    .auto-card-meta { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); line-height: 1.5; }
+    .auto-card-meta strong { color: var(--english-violet); font-weight: 700; }
+    .auto-card-foot { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+    .auto-rowbtn { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid rgba(28,29,34,0.2); background: transparent; color: var(--english-violet); border-radius: 5px; padding: 6px 10px; cursor: pointer; }
+    .auto-rowbtn.del { color: #a05a3c; border-color: #a05a3c; }
+    .auto-rowbtn:hover { background: rgba(28,29,34,0.05); }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { supabase } from "../../../lib/supabase.js";
+    import { TRIGGER_LABELS } from "../../../lib/automations.js";
+
+    const DEV = import.meta.env.DEV;
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
+
+    let ALL = [];
+    let filter = "all";
+
+    function render() {
+      const rows = filter === "all" ? ALL : ALL.filter((a) => a.status === filter);
+      $("auto-count").textContent = `${ALL.filter((a) => a.status === "active").length} active · ${ALL.length} total`;
+      $("auto-empty").hidden = ALL.length !== 0;
+      $("auto-grid").innerHTML = rows.map((a) => `
+        <a class="auto-card" href="/admin/automations/edit?id=${esc(a.id)}">
+          <div class="auto-card-top">
+            <span class="auto-card-name">${esc(a.name)}</span>
+            <span class="auto-badge ${esc(a.status)}">${esc(a.status)}</span>
+          </div>
+          <div class="auto-card-meta">
+            Trigger: <strong>${esc(TRIGGER_LABELS[a.trigger_type] || "Not set")}</strong><br>
+            ${a.enrolled_count || 0} enrolled · updated ${esc(fmtDate(a.updated_at))}
+          </div>
+          <div class="auto-card-foot">
+            <button type="button" class="auto-rowbtn" data-dup="${esc(a.id)}">Duplicate</button>
+            <button type="button" class="auto-rowbtn del" data-del="${esc(a.id)}">Delete</button>
+          </div>
+        </a>`).join("");
+    }
+
+    async function load() {
+      const { data, error } = await supabase.from("automations").select("*").order("updated_at", { ascending: false });
+      $("auto-loading").hidden = true;
+      if (error) { $("auto-loading").hidden = false; $("auto-loading").textContent = "Couldn't load automations: " + error.message; return; }
+      ALL = data || [];
+      render();
+    }
+
+    $("auto-filter")?.addEventListener("change", (e) => { filter = e.target.value; render(); });
+
+    $("auto-new")?.addEventListener("click", async () => {
+      const name = (prompt("Name your automation:", "Untitled automation") || "").trim();
+      if (!name) return;
+      const { data, error } = await supabase.from("automations").insert({ name }).select("id").single();
+      if (error) { alert("Couldn't create: " + error.message); return; }
+      location.href = `/admin/automations/edit?id=${data.id}`;
+    });
+
+    // Duplicate / delete live inside the card link, so stop the navigation.
+    $("auto-grid")?.addEventListener("click", async (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const dup = t.getAttribute("data-dup");
+      const del = t.getAttribute("data-del");
+      if (!dup && !del) return;
+      e.preventDefault();
+      if (dup) {
+        const src = ALL.find((a) => a.id === dup);
+        if (!src) return;
+        const { error } = await supabase.from("automations").insert({
+          name: src.name + " (copy)", trigger_type: src.trigger_type, trigger_config: src.trigger_config, graph: src.graph, status: "draft",
+        });
+        if (error) { alert("Couldn't duplicate: " + error.message); return; }
+        await load();
+      } else if (del) {
+        if (!confirm("Delete this automation? Active enrolments will stop. This can't be undone.")) return;
+        const { error } = await supabase.from("automations").delete().eq("id", del);
+        if (error) { alert("Couldn't delete: " + error.message); return; }
+        await load();
+      }
+    });
+
+    (async () => {
+      if (!DEV) { const s = await requireAdmin(); if (!s) return; }
+      await load();
+    })();
+  </script>
+</AdminShell>
