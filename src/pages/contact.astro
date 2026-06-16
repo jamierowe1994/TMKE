@@ -73,6 +73,12 @@ const industries = [
             </div>
           </div>
 
+          <label class="gt-consent">
+            <input type="checkbox" name="marketing_consent" />
+            <span>I'd like to receive occasional updates about TMKE services, news and offers. You can unsubscribe at any time.</span>
+          </label>
+          <p class="gt-privacy">We'll use the details you provide to respond to your enquiry. See our <a href="/privacy">Privacy Policy</a> for how we handle your data.</p>
+
           <div class="gt-submit-row">
             <button type="submit" class="gt-submit" id="gt-submit">
               <span class="gt-submit-label">Send Message</span>
@@ -129,15 +135,23 @@ const industries = [
         business_name: String(fd.get("business_name") || "").trim() || null,
         industry: String(fd.get("industry") || "").trim() || null,
         message: String(fd.get("message") || "").trim() || null,
+        marketing_consent: !!fd.get("marketing_consent"),
         source: "contact_form",
       };
 
       // 2. Run the insert, but hold the loading state for a beat regardless so
       //    the moment feels deliberate and cohesive (min ~2s of spinner).
-      const [result] = await Promise.all([
-        supabase.from("enquiries").insert(payload),
-        delay(2000),
-      ]);
+      async function insertEnquiry() {
+        let res = await supabase.from("enquiries").insert(payload);
+        // Deploy-safe: if the marketing_consent column hasn't been migrated yet,
+        // retry without it rather than failing the whole submission.
+        if (res && res.error && /marketing_consent/i.test(res.error.message || "")) {
+          const { marketing_consent, ...rest } = payload;
+          res = await supabase.from("enquiries").insert(rest);
+        }
+        return res;
+      }
+      const [result] = await Promise.all([insertEnquiry(), delay(2000)]);
 
       if (result && result.error) {
         console.error("[TMKE] enquiry insert failed", result.error);
@@ -296,10 +310,27 @@ const industries = [
   .gt-field select:invalid { color: rgba(51, 55, 71, 0.4); }
   .gt-field textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
 
+  /* Marketing-consent checkbox + privacy notice. */
+  .gt-consent {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin-top: 22px; cursor: pointer;
+    font-family: var(--sans); font-size: 14px; line-height: 1.5; color: rgba(28,29,34,0.8);
+  }
+  .gt-consent input {
+    margin-top: 2px; width: 18px; height: 18px; flex: none;
+    accent-color: var(--english-violet); cursor: pointer;
+  }
+  .gt-privacy {
+    margin: 10px 0 0;
+    font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.55);
+  }
+  .gt-privacy a { color: var(--english-violet); text-decoration: underline; text-underline-offset: 2px; }
+  .gt-privacy a:hover { color: var(--ink); }
+
   .gt-submit-row {
     display: flex;
     justify-content: center;
-    margin-top: 30px;
+    margin-top: 24px;
     transition: opacity 0.4s ease;
   }
   /* Pill that collapses into a loading circle (from both sides → middle). */
