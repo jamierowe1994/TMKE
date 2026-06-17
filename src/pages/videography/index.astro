@@ -57,7 +57,7 @@ const navLinks = [
         <div class="vh-inner">
           <h1 class="vh-word">Videography</h1>
           <div class="vh-pron"><span class="vh-phon">/&thinsp;vid.i&#712;&#594;g.r&#601;.fi&thinsp;/</span> <em>noun</em></div>
-          <p class="vh-lead">Professional property video and photography for agents who understand that first impressions are made online.</p>
+          <p class="vh-lead">Professional property video and photography for agents who understand that first impressions are made online. From tours to short-form content, delivered to a standard that wins instructions.</p>
           <div class="pf-partner" id="vid-partner-banner" hidden><span id="vid-partner-text"></span></div>
           <button type="button" class="pf-advance pf-advance--hero" data-deck-next aria-label="Scroll to the next slide">Scroll <em aria-hidden="true">&rarr;</em></button>
         </div>
@@ -87,8 +87,8 @@ const navLinks = [
               <span class="pf-panel-price">from <strong data-price-svc={p.slug} data-tier="0">{gbpFromPence(tierPrice(p.priceTiers[0], "direct"))}</strong> <em>+VAT</em></span>
             </div>
             <div class="pf-panel-actions">
-              <button type="button" class="pf-book-now" data-vbook={serviceKey(p)}>Book Now <span class="btn-arrow">&rarr;</span></button>
-              <button type="button" class="pf-cta" data-open={p.slug}>{p.ctaLabel} <em>&rarr;</em></button>
+              <button type="button" class="pf-act-btn pf-act-btn--solid" data-vbook={serviceKey(p)}>Book Now <span class="btn-arrow">&rarr;</span></button>
+              <button type="button" class="pf-act-btn pf-act-btn--ghost" data-open={p.slug}>{p.ctaLabel} <span class="btn-arrow">&rarr;</span></button>
             </div>
           </div>
           <button
@@ -441,20 +441,24 @@ const navLinks = [
     .pf-cta:hover { color: var(--english-violet); border-color: var(--english-violet); }
     .pf-cta:hover em { margin-left: 16px; }
 
-    /* Product-slide actions: a solid quick "Book Now" beside the "Discover" link. */
-    .pf-panel-actions { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-    .pf-panel-actions .pf-cta { align-self: center; }
-    .pf-book-now {
-      align-self: center; cursor: pointer; border: none;
-      background: var(--english-violet); color: var(--paper);
+    /* Product-slide actions: a solid "Book Now" + a matching ghost "Discover".
+       Both are real buttons so the pair looks balanced; vertical padding is kept
+       tight so they're not too tall. */
+    .pf-panel-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .pf-act-btn {
+      align-self: center; cursor: pointer;
       font-family: var(--sans); font-size: 12px; font-weight: 700;
       letter-spacing: 0.18em; text-transform: uppercase;
-      padding: 14px 22px; border-radius: 2px;
-      transition: background .25s;
+      padding: 10px 22px; border-radius: 2px; border: 1px solid var(--english-violet);
+      display: inline-flex; align-items: center;
+      transition: background .25s, color .25s, border-color .25s;
     }
-    .pf-book-now:hover { background: var(--ink); }
-    .pf-book-now .btn-arrow { margin-left: 10px; display: inline-block; transition: margin .25s; }
-    .pf-book-now:hover .btn-arrow { margin-left: 16px; }
+    .pf-act-btn--solid { background: var(--english-violet); color: var(--paper); }
+    .pf-act-btn--solid:hover { background: var(--ink); border-color: var(--ink); }
+    .pf-act-btn--ghost { background: none; color: var(--english-violet); }
+    .pf-act-btn--ghost:hover { background: var(--english-violet); color: var(--paper); }
+    .pf-act-btn .btn-arrow { margin-left: 10px; display: inline-block; transition: margin .25s; }
+    .pf-act-btn:hover .btn-arrow { margin-left: 16px; }
 
     /* Pull-up handle at the bottom edge of each product slide — opens its pop-out
        (which slides up from the bottom). Mirrors the newsletter reveal tab. */
@@ -504,7 +508,7 @@ const navLinks = [
       /* Bottom-aligned with the SAME paddings as the /services social-media cards
          so they sit at the same height (and stay level — matching content). */
       display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start;
-      gap: 22px; padding: clamp(96px, 12vh, 150px) clamp(28px, 3vw, 56px) 80px;
+      gap: 22px; padding: clamp(96px, 12vh, 150px) clamp(28px, 3vw, 56px) 72px;
     }
     /* Divider line between the two cards (matches the /services layout). */
     .pf-cta-card:first-child { border-right: 1px solid rgba(28, 29, 34, 0.10); }
@@ -589,13 +593,15 @@ const navLinks = [
       border-bottom-color: rgba(28,29,34,0.08);
     }
     body.pf-modal-open .pf-top { pointer-events: none; }
-    /* Logo + burger auto-adapt to whatever's behind them (light on dark, dark on
-       light) via difference blending — this also handles the per-side cases
-       (e.g. a slide that's dark on the right only) automatically. */
+    /* Logo + burger are the brand burgundy so they read on the light slides;
+       on the dark dictionary hero (slide 1) the deck adds .on-dark and they go
+       white. The current slide is tracked by the deck controller. */
     .pf-top-logo {
       font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em;
-      color: #fff; mix-blend-mode: difference; line-height: 1; position: relative; z-index: 2;
+      color: var(--english-violet); line-height: 1; position: relative; z-index: 2;
+      transition: color 0.35s ease;
     }
+    .pf-top.on-dark .pf-top-logo { color: var(--paper); }
     /* Burger button (top-right) — replaces the old hover-reveal + "Menu" text. */
     .pf-top-menu {
       display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
@@ -604,9 +610,10 @@ const navLinks = [
     }
     .pf-top-menu span {
       display: block; width: 100%; height: 2px; border-radius: 2px;
-      background: #fff; mix-blend-mode: difference;
-      transition: transform 0.3s ease, opacity 0.25s ease;
+      background: var(--english-violet);
+      transition: transform 0.3s ease, opacity 0.25s ease, background 0.35s ease;
     }
+    .pf-top.on-dark .pf-top-menu span { background: var(--paper); }
     .pf-top.is-open .pf-top-menu span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
     .pf-top.is-open .pf-top-menu span:nth-child(2) { opacity: 0; }
     .pf-top.is-open .pf-top-menu span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
@@ -979,6 +986,7 @@ const navLinks = [
       if (!stage) return;
       const panels = [...stage.querySelectorAll(".pf-panel")];
       const curEl = document.getElementById("pf-cur");
+      const topBar = document.querySelector(".pf-top");   // nav: white on the dark hero, burgundy elsewhere
       const pad = (n) => String(n + 1).padStart(2, "0");
       const last = panels.length - 1;
       // Every slide enters from the right and covers the previous one (the deck
@@ -1030,6 +1038,7 @@ const navLinks = [
           lastCur = cur;
           panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
           if (curEl) curEl.textContent = pad(cur);
+          if (topBar) topBar.classList.toggle("on-dark", cur === 0);   // only slide 1 (hero) is dark
           if (cur !== last && revealed) setReveal(false);
         }
       };
