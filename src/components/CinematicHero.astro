@@ -77,23 +77,30 @@ const pad2 = (n) => String(n).padStart(2, "0");
 
   <!-- ============ RESTING: rotating 3D card ring ============ -->
   <div class="cr" id="cr">
-    <h2 class="cr-title" id="cr-title">
-      <span style="--l:0">Selected and</span>
-      <span style="--l:1">popular posts</span>
-      <span style="--l:2">on social media</span>
-    </h2>
-
     <div class="cr-viewport" id="cr-viewport">
-      <div class="cr-ring" id="cr-ring">
-        {CARDS.map((c, i) => (
-          <a class="cr-card" href="/edit" draggable={false} aria-label={c.name} style={`--i:${i};background-image:url('${c.src}')`}></a>
-        ))}
+      <div class="cr-world" id="cr-world">
+        <div class="cr-ring" id="cr-ring">
+          {CARDS.map((c, i) => (
+            <a class="cr-card" href="/edit" draggable={false} aria-label={c.name} style={`--i:${i};background-image:url('${c.src}')`}>
+              <span class="cr-name">{c.name}</span>
+            </a>
+          ))}
+        </div>
+        <!-- title lives INSIDE the 3D scene at the ring's centre so the front
+             cards occlude it and it shows through the gaps; pops out at the end -->
+        <h2 class="cr-mid" id="cr-mid" aria-hidden="true">
+          <span>Selected and</span><span>popular posts</span><span>on social media</span>
+        </h2>
       </div>
     </div>
 
+    <!-- the readable corner label it settles into -->
+    <h2 class="cr-title" id="cr-title">
+      <span>Selected and</span><span>popular posts</span><span>on social media</span>
+    </h2>
+
     <div class="cr-controls" id="cr-controls">
       <button type="button" class="cr-arrow" id="cr-prev" aria-label="Previous">&#9664;</button>
-      <span class="cr-hint">Drag to explore</span>
       <button type="button" class="cr-arrow" id="cr-next" aria-label="Next">&#9654;</button>
     </div>
   </div>
@@ -115,7 +122,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
     let introSeen = false;
     try { introSeen = sessionStorage.getItem(SEEN_KEY) === "1"; } catch (_) {}
 
-    const restEls = [".cr-title", ".cr-ring", ".cr-controls"];
+    const restEls = [".cr-mid", ".cr-ring", ".cr-controls"];
 
     if (introSeen) {
       // Land directly on the resting state — fast, no intro, nav not locked.
@@ -131,7 +138,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
       setTimeout(() => { sh.classList.add("s-brand"); document.body.classList.remove("sh-lock"); }, 6100); // nav drops in
       // gradual build of the resting state: centre → sides → copy → scroller
       const reveal = (sel, t) => setTimeout(() => { const el = sh.querySelector(sel); if (el) el.classList.add("is-in"); }, t);
-      reveal(".cr-title", 6500);
+      reveal(".cr-mid", 6500);
       reveal(".cr-ring", 6950);
       reveal(".cr-controls", 7800);
       setTimeout(() => { sh.classList.add("s-done"); unlock(); }, 8500);
@@ -140,6 +147,9 @@ const pad2 = (n) => String(n).padStart(2, "0");
 
     // ---- 3D rotating card ring ----
     const ring = document.getElementById("cr-ring");
+    const world = document.getElementById("cr-world");
+    const mid = document.getElementById("cr-mid");
+    const crEl = document.getElementById("cr");
     const vp = document.getElementById("cr-viewport");
     const cards = ring ? Array.from(ring.children) : [];
     const N = cards.length || 1;
@@ -152,6 +162,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
       // radius of a regular N-gon whose facets are `w` wide, padded for air
       radius = Math.round((w / 2) / Math.tan(Math.PI / N) * 1.18);
       ring.style.setProperty("--radius", radius + "px");
+      if (mid) mid.style.setProperty("--mid-z", -radius + "px"); // sit at ring centre
     }
 
     let rot = 0;            // live rotation (deg) — front card sits at angle 0
@@ -170,45 +181,42 @@ const pad2 = (n) => String(n).padStart(2, "0");
       for (let i = 0; i < cards.length; i++) {
         let a = ((i * STEP + r) % 360 + 360) % 360;
         if (a > 180) a -= 360;            // -180..180, 0 = facing viewer
-        // front HEMISPHERE stays bright; only the back arc fades out
-        const t = (Math.cos(a * Math.PI / 180) + 1) / 2;   // 1 front → 0 back
-        const c = cards[i];
-        c.style.opacity = (0.14 + 0.86 * Math.pow(t, 0.5)).toFixed(3);
-        c.style.zIndex = String(Math.round(t * 100));
-        c.classList.toggle("is-front", Math.abs(a) < STEP * 0.6);
+        const ad = Math.abs(a);
+        // centre ~3 cards crisp (no fade), falling off smoothly toward the sides
+        const op = Math.min(1, Math.max(0.08, 1.12 - Math.pow(ad / 90, 1.7)));
+        cards[i].style.opacity = op.toFixed(3);
+        cards[i].classList.toggle("is-front", ad < STEP * 0.6);
       }
     }
-    function transformStr(effRot, tilt, scale) {
-      return `translateZ(${-radius}px) rotateX(${tilt}deg) rotateY(${-effRot}deg) scale(${scale})`;
+    function setRing(animate, effRot) {
+      ring.style.transition = animate ? "transform .7s cubic-bezier(.4,0,.15,1)" : "none";
+      ring.style.transform = `translateZ(${-radius}px) rotateY(${-(effRot == null ? rot : effRot)}deg)`;
     }
-    function paint(animate) {
-      ring.style.transition = animate ? "transform .75s cubic-bezier(.4,0,.15,1)" : "none";
-      ring.style.transform = transformStr(rot, 0, 1);
-      emphasise(rot);
-    }
-    function step(delta) { spinPaused = true; target += delta * STEP; rot = target; paint(true); idleResume(); }
+    function setWorld(tilt, scale) { world.style.transform = `rotateX(${tilt}deg) scale(${scale})`; }
+    function step(delta) { spinPaused = true; target += delta * STEP; rot = target; setRing(true); emphasise(rot); idleResume(); }
     document.getElementById("cr-next").addEventListener("click", () => step(1));
     document.getElementById("cr-prev").addEventListener("click", () => step(-1));
 
-    // ---- drag to spin (without the browser grabbing the card/link) ----
+    // ---- drag to spin (no native image/link grab; pull-left → ring goes left) ----
     let moved = false, suppressClick = false;
     vp.addEventListener("dragstart", (e) => e.preventDefault());
     vp.addEventListener("pointerdown", (e) => {
       dragging = { x: e.clientX, rot }; moved = false; spinPaused = true;
+      ring.classList.add("is-dragging");
       try { vp.setPointerCapture(e.pointerId); } catch (_) {}
     });
     vp.addEventListener("pointermove", (e) => {
       if (!dragging) return;
       const dx = e.clientX - dragging.x;
       if (Math.abs(dx) > 4) moved = true;
-      rot = dragging.rot + dx * 0.32;
-      paint(false);
+      rot = dragging.rot - dx * 0.32;    // follow the finger
+      setRing(false); emphasise(rot);
     });
     function endDrag() {
       if (!dragging) return;
-      dragging = null;
+      dragging = null; ring.classList.remove("is-dragging");
       if (moved) suppressClick = true;   // a drag shouldn't open the card
-      target = Math.round(rot / STEP) * STEP; rot = target; paint(true);
+      target = Math.round(rot / STEP) * STEP; rot = target; setRing(true); emphasise(rot);
       idleResume();
     }
     vp.addEventListener("pointerup", endDrag);
@@ -233,23 +241,24 @@ const pad2 = (n) => String(n).padStart(2, "0");
         const e = easeOut(p);
         rot += dt * 0.0045;                       // base drift keeps accumulating
         const drawRot = rot + (1 - e) * 300;      // unwind ~300° into place
-        const tilt = (1 - e) * 72;                // swing down from above
-        const scale = 0.6 + 0.4 * e;              // grow into frame
-        ring.style.transition = "none";
-        ring.style.transform = transformStr(drawRot, tilt, scale);
+        setWorld((1 - e) * 72, 0.62 + 0.38 * e);  // swing down from above + grow
+        setRing(false, drawRot);
         emphasise(drawRot);
-        if (p >= 1) { formed = true; ring.classList.add("is-formed"); }
+        if (p >= 1) {
+          formed = true; setWorld(0, 1); ring.classList.add("is-formed");
+          // let the embedded title sit in the ring (seen through the gaps) for a
+          // beat, then pop it out of the bottom into the corner label
+          setTimeout(() => crEl.classList.add("cr-popped"), 950);
+        }
       } else if (formed && !spinPaused && !dragging) {
         rot += dt * 0.0045; target = rot;
-        ring.style.transition = "none";
-        ring.style.transform = transformStr(rot, 0, 1);
-        emphasise(rot);
+        setRing(false); emphasise(rot);
       }
       requestAnimationFrame(frame);
     }
 
-    function init() { calcRadius(); ring.style.transform = transformStr(rot, 72, 0.6); emphasise(rot); requestAnimationFrame(frame); }
-    window.addEventListener("resize", () => { calcRadius(); if (formed) paint(false); });
+    function init() { calcRadius(); setWorld(72, 0.62); setRing(false, 0); emphasise(0); requestAnimationFrame(frame); }
+    window.addEventListener("resize", () => { calcRadius(); if (formed) setRing(false); });
     init();
   })();
 </script>
@@ -262,7 +271,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
      "Strategic thinkers / Smart strategy" state: hide the intro instantly and
      bring the resting photos/copy/scroller in with a quick fade, no stagger. */
   .sh.sh-instant .sh-intro { transition: none !important; opacity: 0 !important; pointer-events: none; }
-  .sh.sh-instant .cr-title span,
+  .sh.sh-instant .cr-mid,
   .sh.sh-instant .cr-ring,
   .sh.sh-instant .cr-controls { transition-duration: 0.35s !important; transition-delay: 0s !important; }
 
@@ -399,24 +408,6 @@ const pad2 = (n) => String(n).padStart(2, "0");
   /* ---------- RESTING: rotating 3D card ring ---------- */
   .cr { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; }
 
-  /* three-line serif title — pops up over the cards, then flies to the corner */
-  .cr-title {
-    position: absolute; left: clamp(24px, 5vw, 80px); bottom: clamp(30px, 8vh, 84px); z-index: 3;
-    margin: 0; text-align: left; pointer-events: none; transform-origin: left bottom;
-    font-family: var(--serif); font-weight: 500; color: var(--ink);
-    font-size: clamp(30px, 4.6vw, 70px); line-height: 1.02; letter-spacing: -0.02em;
-    opacity: 0;
-  }
-  .cr-title span { display: block; }
-  .cr-title.is-in { animation: crTitleIn 1.95s cubic-bezier(.2,.72,.18,1) both; }
-  @keyframes crTitleIn {
-    0%   { opacity: 0; transform: translate(28vw, -36vh) scale(1.6); }
-    14%  { opacity: 1; }
-    44%  { opacity: 1; transform: translate(28vw, -36vh) scale(1.6); }  /* hold, centred + large */
-    100% { opacity: 1; transform: translate(0, 0) scale(1); }            /* settle bottom-left */
-  }
-  .sh.sh-instant .cr-title.is-in { animation-duration: 1.15s; }
-
   /* perspective stage */
   .cr-viewport {
     position: relative; width: 100%; height: 100%; z-index: 1;
@@ -427,10 +418,13 @@ const pad2 = (n) => String(n).padStart(2, "0");
   }
   .cr-viewport:active { cursor: grabbing; }
 
+  /* shared 3D space — ring + the embedded title depth-sort together */
+  .cr-world { position: relative; transform-style: preserve-3d; will-change: transform; }
+
   .cr-ring {
     position: relative; transform-style: preserve-3d; will-change: transform;
     width: clamp(150px, 16vw, 230px); height: clamp(200px, 22vw, 300px);
-    opacity: 0; transform: translateZ(-600px);
+    opacity: 0;
   }
   .cr-ring.is-in { opacity: 1; transition: opacity 1s ease; }
 
@@ -447,9 +441,61 @@ const pad2 = (n) => String(n).padStart(2, "0");
   .cr-ring.is-formed .cr-card { backface-visibility: hidden; }
   .cr-card.is-front { box-shadow: 0 34px 80px rgba(28,29,34,0.32); }
 
+  /* per-card pack name: pushed out at rest, pressed in while dragging */
+  .cr-name {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 32px 10px 13px;
+    text-align: center; color: #fff; pointer-events: none;
+    font-family: var(--sans); font-weight: 600; font-size: clamp(11px, 0.95vw, 14px);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.45);
+    background: linear-gradient(to top, rgba(18,16,14,0.55), rgba(18,16,14,0));
+    border-radius: 0 0 16px 16px;
+    opacity: 0; transform: translateY(10px) scale(0.84);
+  }
+  .cr-ring.is-formed .cr-name {
+    opacity: 1; transform: translateY(0) scale(1);
+    transition: opacity 0.5s ease, transform 0.6s cubic-bezier(.2,.9,.2,1.25);
+  }
+  .cr-ring.is-dragging .cr-name {
+    opacity: 0.45; transform: translateY(6px) scale(0.84);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
+
+  /* title embedded at the ring centre — front cards occlude it (true perspective) */
+  .cr-mid {
+    position: absolute; left: 50%; top: 50%; margin: 0;
+    transform: translate(-50%, -50%) translateZ(var(--mid-z, -600px));
+    backface-visibility: hidden; pointer-events: none; opacity: 0;
+    font-family: var(--serif); font-weight: 500; color: var(--ink);
+    font-size: clamp(48px, 8vw, 122px); line-height: 1.0; letter-spacing: -0.02em;
+    text-align: center; white-space: nowrap;
+  }
+  .cr-mid span { display: block; }
+  .cr-mid.is-in { opacity: 1; transition: opacity 0.9s ease; }
+  /* …then it pops out of the bottom and fades as the corner label rises in */
+  .cr.cr-popped .cr-mid { animation: crMidOut 0.75s cubic-bezier(.5,0,.55,1) forwards; }
+  @keyframes crMidOut {
+    to { opacity: 0; transform: translate(-50%, -50%) translateZ(140px) translateY(46%); }
+  }
+
+  /* the readable corner label it settles into */
+  .cr-title {
+    position: absolute; left: clamp(24px, 5vw, 80px); bottom: clamp(30px, 8vh, 84px); z-index: 5;
+    margin: 0; text-align: left; pointer-events: none;
+    font-family: var(--serif); font-weight: 500; color: var(--ink);
+    font-size: clamp(30px, 4.6vw, 70px); line-height: 1.02; letter-spacing: -0.02em;
+    opacity: 0; transform: translateY(48px);
+  }
+  .cr-title span { display: block; }
+  .cr.cr-popped .cr-title { animation: crRise 0.85s 0.18s cubic-bezier(.2,.72,.18,1) both; }
+  @keyframes crRise {
+    0%   { opacity: 0; transform: translateY(48px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
   .cr-controls {
-    position: absolute; left: 50%; bottom: clamp(22px, 5vh, 60px); transform: translateX(-50%); z-index: 4;
-    display: flex; align-items: center; gap: 18px; opacity: 0;
+    position: absolute; left: 50%; bottom: clamp(22px, 5vh, 60px); transform: translateX(-50%); z-index: 6;
+    display: flex; align-items: center; gap: 24px; opacity: 0;
   }
   .cr-controls.is-in { opacity: 1; transition: opacity 0.8s ease; }
   .cr-arrow {
@@ -460,13 +506,10 @@ const pad2 = (n) => String(n).padStart(2, "0");
     transition: background 0.2s ease, transform 0.2s ease;
   }
   .cr-arrow:hover { background: #fff; transform: scale(1.06); }
-  .cr-hint {
-    font-family: var(--sans); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-    color: rgba(28,29,34,0.42);
-  }
 
   @media (max-width: 760px) {
-    .cr-title { font-size: clamp(28px, 8vw, 46px); top: 47%; }
+    .cr-title { font-size: clamp(28px, 8vw, 46px); }
+    .cr-mid { font-size: clamp(34px, 11vw, 60px); }
     .cr-ring { width: 46vw; height: 60vw; }
   }
 </style>
