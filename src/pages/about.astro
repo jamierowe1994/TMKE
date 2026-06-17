@@ -207,18 +207,18 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
     document.querySelectorAll(".about-team-card.has-video").forEach((card) => {
       const v = card.querySelector(".about-team-video");
       const real = card.querySelector(".about-team-real");
-      const overlay = card.querySelector(".about-team-overlay");
       if (!v) return;
       // preload the real photo so the swap can't flicker
       if (real) { const im = new Image(); im.src = real.currentSrc || real.src; }
 
-      let started = false, alive = false, risen = false;
-      // lift the name block up to the top (revealing the bio beneath it)
-      const rise = () => {
-        if (!overlay) return;
-        const off = Math.max(0, overlay.offsetTop - 28);
-        overlay.style.transform = "translateY(-" + off + "px)";
-      };
+      let started = false, alive = false, bioOpen = false;
+      // halfway through the morph (as she turns to colour) the name nudges up and
+      // the bio opens beneath it, staying in the bottom of the photo
+      v.addEventListener("timeupdate", () => {
+        if (!bioOpen && v.duration && v.currentTime >= v.duration * 0.5) {
+          bioOpen = true; card.classList.add("is-bio");
+        }
+      });
       v.addEventListener("ended", () => {
         // hold the last frame; reveal the matching photo over it
         card.classList.add("is-alive");
@@ -228,14 +228,12 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
         if (started || alive) return;   // one-way — the first hover commits
         started = true;
         card.classList.add("is-playing");
-        risen = true; rise();           // name rises as the video plays
         v.playbackRate = RATE;
         try { v.currentTime = 0; } catch (_) {}
         const p = v.play();
         if (p && p.catch) p.catch(() => {});
         v.addEventListener("loadedmetadata", () => { v.playbackRate = RATE; }, { once: true });
       });
-      window.addEventListener("resize", () => { if (risen) rise(); });
     });
   </script>
 </BaseLayout>
@@ -506,7 +504,6 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
     z-index: 1;
     padding: 32px 28px 36px;
     text-shadow: 0 1px 14px rgba(0, 0, 0, 0.45);
-    transition: transform 0.9s cubic-bezier(.2, .8, .2, 1);
   }
   .about-team-name {
     font-family: var(--serif);
@@ -525,21 +522,22 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
   }
   /* bio sits just BELOW the name block (out of flow, so the name stays bottom-
      aligned with the other cards); it travels up with the name and is revealed */
+  /* bio stays in flow but collapsed at rest (so name/role bottom-align with the
+     other cards); opening it grows the bottom-anchored overlay UPWARD, nudging
+     the name up just enough to make room — all kept in the bottom of the photo */
   .about-team-bio {
-    position: absolute;
-    top: 100%;
-    left: 28px;
-    right: 28px;
-    margin: 14px 0 0;
+    overflow: hidden;
+    max-height: 0;
+    margin-top: 0;
+    max-width: 40ch;
     font-family: var(--sans);
     font-size: 15.5px;
-    line-height: 1.55;
+    line-height: 1.5;
     color: rgba(244, 242, 241, 0.92);
     opacity: 0;
-    transition: opacity 0.6s ease 0.45s;   /* reveals once the name has risen */
+    transition: max-height 0.55s ease, margin-top 0.55s ease, opacity 0.45s ease 0.15s;
   }
-  .about-team-card.is-playing .about-team-bio,
-  .about-team-card.is-alive .about-team-bio { opacity: 1; }
+  .about-team-card.is-bio .about-team-bio { max-height: 8em; margin-top: 14px; opacity: 1; }
 
   /* ============ About — method split ============ */
   .about-method {

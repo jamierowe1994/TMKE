@@ -1,13 +1,19 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import CinematicHero from "../components/CinematicHero.astro";
 ---
 
 <BaseLayout
   title="The Edit — Template Shop · TMKE"
   description="A curated shop of social media templates designed specifically for the UK property sector. On-brand, easy to customise, ready to post."
 >
-  <CinematicHero />
+  <!-- translucent statue backdrop — fixed behind the whole page -->
+  <div class="edit-bg" aria-hidden="true"></div>
+
+  <!-- simple hero — the editor is the star, so the page just says "The Edit" -->
+  <header class="edit-hero">
+    <h1 class="edit-hero-title">The Edit</h1>
+    <p class="edit-hero-sub">Ready-to-post template packs, built for property — on-brand and yours to customise.</p>
+  </header>
 
   <section class="edit-wrap wrap" id="edit-catalogue" aria-busy="true">
     <div class="edit-loading" id="edit-loading">Loading the catalogue…</div>
@@ -168,14 +174,58 @@ import CinematicHero from "../components/CinematicHero.astro";
        the global .wrap rule, which uses the shorthand `padding: 0 36px`
        and would otherwise reset padding-top to 0. */
     .page-hero.wrap { padding-top: 200px; }
+
+    /* ===== Simplified hero — just "The Edit", roughly half-screen ===== */
+    .edit-hero {
+      position: relative;
+      z-index: 1;
+      min-height: 58vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: clamp(150px, 20vh, 230px) clamp(24px, 8vw, 150px) clamp(50px, 7vh, 90px);
+    }
+    .edit-hero-title {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: clamp(64px, 12vw, 200px);
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .edit-hero-sub {
+      margin: 22px 0 0;
+      max-width: 560px;
+      font-family: var(--sans);
+      font-size: clamp(14px, 1.25vw, 18px);
+      line-height: 1.55;
+      letter-spacing: 0.01em;
+      color: rgba(28, 29, 34, 0.6);
+    }
+
+    /* Translucent statue backdrop — fixed behind the page, very subtle, follows
+       the page as you scroll (sits under the content layer). */
+    .edit-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: url('https://assets.tmke.co.uk/the%20edit%20background.png') center / cover no-repeat;
+      opacity: 0.14;
+      pointer-events: none;
+    }
     /* ====== STRIPPED — studio demo moved to the homepage Chapter 5 ====== */
 
     /* Global so the JS-injected catalogue cards inherit the styles —
        Astro scopes by data-attribute which dynamic innerHTML never gets. */
     .edit-wrap {
-      max-width: 1480px;
+      position: relative;
+      z-index: 1;
+      max-width: 1840px;
       margin: 0 auto;
-      padding: 0 36px 180px;
+      padding: 0 clamp(24px, 4vw, 64px) 180px;
     }
     @media (max-width: 720px) {
       .edit-wrap { padding: 0 24px 120px; }
