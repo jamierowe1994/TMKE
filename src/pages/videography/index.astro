@@ -345,24 +345,17 @@ const navLinks = [
     .pf-panel-sub { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 17px); line-height: 1.5; color: var(--ink); max-width: 50ch; margin: 0 0 24px; }
     .pf-panel-price em { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-left: 2px; }
 
-    /* ---- Horizontal deck ---- */
-    .pf-deck {
-      display: flex;
-      height: 100vh;
-      width: 100%;
-      overflow-x: auto;
-      overflow-y: hidden;
-      scroll-snap-type: x mandatory;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    .pf-deck::-webkit-scrollbar { display: none; }
+    /* ---- Cover/stack deck (mirrors the Social Media page) ----
+       Panels are stacked and absolutely positioned; the controller slides each
+       one OVER the previous from the right (floaty, free-scroll, stop-anywhere)
+       rather than using a native horizontal scroll-snap. Every panel is opaque
+       so it cleanly covers the one beneath. */
+    .pf-deck { position: absolute; inset: 0; overflow: hidden; }
     .pf-panel {
-      flex: 0 0 100vw;
-      width: 100vw;
-      height: 100vh;
-      scroll-snap-align: start;
-      scroll-snap-stop: always;
+      position: absolute; inset: 0;
+      background: var(--paper);
+      will-change: transform;
+      backface-visibility: hidden;
     }
 
     /* ---- Shared slide layout: wording (left) + image (right) ---- */
@@ -462,7 +455,9 @@ const navLinks = [
     .vh .pf-advance--hero:hover { color: var(--paper); border-bottom-color: var(--paper); }
 
     /* ---- Final panel: two booking cards + slide-in newsletter ---- */
-    .pf-final { position: relative; overflow: hidden; }
+    /* position/inset come from .pf-panel (absolute, stacked); keep overflow so
+       the slide-in newsletter track stays clipped. */
+    .pf-final { overflow: hidden; }
     .pf-final-track {
       display: flex; height: 100%; width: max-content;
       transition: transform 0.75s cubic-bezier(.16,1,.3,1);
@@ -944,13 +939,16 @@ const navLinks = [
       try { window.__lenis.destroy(); } catch (e) {}
     }
     (function deck() {
-      const deck = document.getElementById("pf-deck");
-      if (!deck) return;
-      const panels = deck.querySelectorAll(".pf-panel");
+      const stage = document.getElementById("pf-deck");
+      if (!stage) return;
+      const panels = [...stage.querySelectorAll(".pf-panel")];
       const curEl = document.getElementById("pf-cur");
       const pad = (n) => String(n + 1).padStart(2, "0");
       const last = panels.length - 1;
-      let idx = 0, cooling = false, settle;
+      // Every slide enters from the right and covers the previous one (the deck
+      // "slides across"), mirroring the Social Media cover engine.
+      const ENTRY = panels.map((_, i) => (i === 0 ? [0, 0] : [1, 0]));
+      panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
       // Final-panel newsletter reveal (slides the track to push a card off-screen).
       const finalPanel = document.getElementById("pf-final");
@@ -967,63 +965,98 @@ const navLinks = [
         finalPanel.classList.toggle("is-revealed", on);
       }
 
-      const go = (i) => {
-        idx = Math.max(0, Math.min(last, i));
-        if (idx !== last && revealed) setReveal(false);
-        deck.scrollTo({ left: idx * deck.clientWidth, behavior: "smooth" });
-        if (curEl) curEl.textContent = pad(idx);
+      // ---- Floaty cover engine (ported from the Social Media deck) ----
+      const SENS = 0.001;     // wheel → progress (slow, ~one slide per scroll)
+      const EASE = 0.055;     // lerp toward target (lower = floatier)
+      const SLOW_EASE = 0.03; // slower glide for the final couple of slides
+      const THRESH = 3;       // slides 1–4 float freely; the last two snap + settle
+      const PAUSE = 800;      // ms hold after a snap so it settles before the next
+      let acc = 0, display = 0, lastCur = -1, anchor = THRESH, lockUntil = 0;
+      const clamp = (v) => Math.max(0, Math.min(last, v));
+      const targetOf = (now) => {
+        if (acc < THRESH + 0.5) { anchor = THRESH; return Math.min(acc, THRESH); }
+        if (anchor < THRESH + 1) { anchor = THRESH + 1; lockUntil = now + PAUSE; return anchor; }
+        if (now >= lockUntil) {
+          if (acc > anchor + 0.5 && anchor < last) { anchor += 1; lockUntil = now + PAUSE; }
+          else if (acc < anchor - 0.5 && anchor > THRESH + 1) { anchor -= 1; lockUntil = now + PAUSE; }
+        }
+        return anchor;
       };
 
+      const render = () => {
+        for (let i = 0; i < panels.length; i++) {
+          const f = Math.max(0, Math.min(1, i - display));   // 1 = off (entry edge) · 0 = covering
+          const e = ENTRY[i] || [0, 0];
+          panels[i].style.transform = `translate(${(e[0] * f * 100).toFixed(3)}%, ${(e[1] * f * 100).toFixed(3)}%)`;
+        }
+        const cur = clamp(Math.round(display));
+        if (cur !== lastCur) {
+          lastCur = cur;
+          panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
+          if (curEl) curEl.textContent = pad(cur);
+          if (cur !== last && revealed) setReveal(false);
+        }
+      };
+      const tick = () => {
+        acc = Math.max(display - 1, Math.min(display + 1, acc));   // never flick PAST a slide
+        const t = targetOf(performance.now());
+        const ease = t >= last - 1 ? SLOW_EASE : EASE;            // last two glide slower
+        display += (t - display) * ease;
+        if (Math.abs(t - display) < 0.0004) display = t;
+        render();
+        requestAnimationFrame(tick);
+      };
+      render(); requestAnimationFrame(tick);
+
+      // On the final slide, scrolling forward reveals the newsletter (back hides it).
+      const atLast = () => display > last - 0.05;
+
+      stage.addEventListener("wheel", (ev) => {
+        if (openSlug) return;                       // a showcase pop-up is open
+        ev.preventDefault();
+        const d = Math.abs(ev.deltaY) >= Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
+        if (atLast() && d > 0) { if (!revealed) setReveal(true); return; }
+        if (atLast() && revealed && d < 0) { setReveal(false); return; }
+        acc = clamp(acc + d * SENS);
+      }, { passive: false });
+
+      window.addEventListener("keydown", (ev) => {
+        if (openSlug) return;
+        if (["ArrowRight", "ArrowDown", "PageDown"].includes(ev.key)) {
+          ev.preventDefault();
+          if (atLast()) { if (!revealed) setReveal(true); return; }
+          acc = clamp(Math.round(acc) + 1);
+        } else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(ev.key)) {
+          ev.preventDefault();
+          if (atLast() && revealed) { setReveal(false); return; }
+          acc = clamp(Math.round(acc) - 1);
+        }
+      });
+
+      // touch — drag continuously (swipe left/up advances)
+      let tx = 0, ty = 0, tp = 0;
+      stage.addEventListener("touchstart", (ev) => {
+        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc;
+      }, { passive: true });
+      stage.addEventListener("touchmove", (ev) => {
+        if (openSlug) return;
+        const t = ev.touches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
+        const dom = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        if (atLast() && dom < -24) { if (!revealed) setReveal(true); return; }
+        if (atLast() && revealed && dom > 24) { setReveal(false); return; }
+        acc = clamp(tp - dom * 0.004);
+      }, { passive: true });
+
       // Clickable "Scroll" / "Our services" hints → advance one panel.
-      deck.querySelectorAll("[data-deck-next]").forEach((el) => {
+      stage.querySelectorAll("[data-deck-next]").forEach((el) => {
         el.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (idx < last) go(idx + 1);
+          e.preventDefault(); e.stopPropagation();
+          acc = clamp(Math.round(acc) + 1);
         });
       });
 
-      // Mouse wheel → advance exactly one panel per gesture (sharp).
-      deck.addEventListener("wheel", (e) => {
-        if (openSlug) return; // a showcase pop-up is open — leave the deck alone
-        e.preventDefault();
-        if (cooling) return;
-        const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-        if (Math.abs(d) < 6) return;
-        cooling = true;
-        setTimeout(() => { cooling = false; }, 620);
-        if (d > 0) {
-          if (idx === last) { if (!revealed) setReveal(true); } else go(idx + 1);
-        } else {
-          if (idx === last && revealed) setReveal(false); else go(idx - 1);
-        }
-      }, { passive: false });
-
-      window.addEventListener("keydown", (e) => {
-        if (openSlug) return;
-        if (e.key === "ArrowRight" || e.key === "PageDown") {
-          e.preventDefault();
-          if (idx === last) { if (!revealed) setReveal(true); } else go(idx + 1);
-        } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
-          e.preventDefault();
-          if (idx === last && revealed) setReveal(false); else go(idx - 1);
-        }
-      });
-
       if (revealTab) revealTab.addEventListener("click", (e) => { e.stopPropagation(); setReveal(!revealed); });
-
-      window.addEventListener("resize", () => {
-        deck.scrollTo({ left: idx * deck.clientWidth });
-        if (revealed) setReveal(true);
-      });
-
-      deck.addEventListener("scroll", () => {
-        clearTimeout(settle);
-        settle = setTimeout(() => {
-          const i = Math.round(deck.scrollLeft / deck.clientWidth);
-          if (i !== idx) { idx = i; if (curEl) curEl.textContent = pad(idx); if (idx !== last && revealed) setReveal(false); }
-        }, 120);
-      }, { passive: true });
+      window.addEventListener("resize", () => { if (revealed) setReveal(true); });
     })();
 
     // Newsletter footer form (UI only, matches the site's other sign-up forms).
