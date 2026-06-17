@@ -117,8 +117,14 @@ const enableTransition = !isBackend && !isEditing && (pageTransition ?? !hideNav
           {/* Critical rules only — must apply before paint. The rest of the
               transition styling lives in global.css. */}
           <style is:inline>
+            /* Burgundy is hard-coded here (NOT var(--english-violet)) because this
+               inline block paints BEFORE global.css loads — with the variable the
+               panels paint transparent for a frame and the page flashes white
+               through them. The covering <html> also goes burgundy so there's no
+               white in the gap before the .pt element parses. #371e28 = --english-violet. */
+            html.pt-revealing { background: #371e28; }
             .pt { position: fixed; inset: 0; z-index: 9500; pointer-events: none; visibility: hidden; }
-            .pt__panel { position: absolute; top: 0; height: 100%; width: 50%; background: var(--english-violet); will-change: transform; }
+            .pt__panel { position: absolute; top: 0; height: 100%; width: 50%; background: #371e28; will-change: transform; }
             .pt__panel--left { left: 0; width: calc(50% + 1px); transform: translateY(100%); }
             .pt__panel--right { left: 50%; transform: translateY(-100%); }
             html.pt-revealing .pt { visibility: visible; }
