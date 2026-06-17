@@ -94,11 +94,6 @@ const pad2 = (n) => String(n).padStart(2, "0");
       </div>
     </div>
 
-    <!-- the readable corner label it settles into -->
-    <h2 class="cr-title" id="cr-title">
-      <span>Selected and</span><span>popular posts</span><span>on social media</span>
-    </h2>
-
     <div class="cr-controls" id="cr-controls">
       <button type="button" class="cr-arrow" id="cr-prev" aria-label="Previous">&#9664;</button>
       <button type="button" class="cr-arrow" id="cr-next" aria-label="Next">&#9654;</button>
@@ -172,21 +167,42 @@ const pad2 = (n) => String(n).padStart(2, "0");
 
     // entrance: cards swing up into formation + ring spins to a stop.
     const ENTER_MS = 1650;
+    const TITLE_MS = 1300;
     let enterT0 = null;     // set the first frame the ring is revealed
-    let formed = false;
+    let formed = false, titleT0 = null, titleDone = false;
+    let xEnd = -380, yEnd = 220; // corner offset from ring centre (computed on form)
     const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+    const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
+    const lerp = (a, b, t) => a + (b - a) * t;
 
     function emphasise(effRot) {
       const r = effRot == null ? rot : effRot;
       for (let i = 0; i < cards.length; i++) {
         let a = ((i * STEP + r) % 360 + 360) % 360;
         if (a > 180) a -= 360;            // -180..180, 0 = facing viewer
-        const ad = Math.abs(a);
-        // centre ~3 cards crisp (no fade), falling off smoothly toward the sides
-        const op = Math.min(1, Math.max(0.08, 1.12 - Math.pow(ad / 90, 1.7)));
-        cards[i].style.opacity = op.toFixed(3);
-        cards[i].classList.toggle("is-front", ad < STEP * 0.6);
+        cards[i].style.opacity = "1";     // all images full strength (no fade)
+        cards[i].classList.toggle("is-front", Math.abs(a) < STEP * 0.6);
       }
+    }
+
+    // where the title should land — bottom-left, readable, in front of the cards
+    function computeCorner() {
+      const vr = vp.getBoundingClientRect();
+      const sEnd = 0.56;
+      const w = mid.offsetWidth, h = mid.offsetHeight;
+      const leftM = Math.max(24, Math.min(80, window.innerWidth * 0.05));
+      const bottomM = Math.max(30, Math.min(84, window.innerHeight * 0.08));
+      xEnd = (leftM + (w * sEnd) / 2) - vr.width / 2;   // centre title sits at vp centre → corner
+      yEnd = (vr.height - bottomM - (h * sEnd) / 2) - vr.height / 2;
+    }
+    function placeTitle(tp) {
+      const a = easeOut(Math.min(1, tp / 0.5));            // phase A: forward + down
+      const b = easeInOut(Math.max(0, (tp - 0.45) / 0.55)); // phase B: across to the left
+      const z = lerp(-radius, 90, a);
+      const oy = lerp(0, yEnd, a);
+      const ox = lerp(0, xEnd, b);
+      const s = lerp(1, 0.56, b);
+      mid.style.transform = `translate(-50%, -50%) translate(${ox.toFixed(1)}px, ${oy.toFixed(1)}px) translateZ(${z.toFixed(1)}px) scale(${s.toFixed(3)})`;
     }
     function setRing(animate, effRot) {
       ring.style.transition = animate ? "transform .7s cubic-bezier(.4,0,.15,1)" : "none";
@@ -245,20 +261,25 @@ const pad2 = (n) => String(n).padStart(2, "0");
         setRing(false, drawRot);
         emphasise(drawRot);
         if (p >= 1) {
+          // flip done → start the title move IMMEDIATELY (no hover/hold)
           formed = true; setWorld(0, 1); ring.classList.add("is-formed");
-          // let the embedded title sit in the ring (seen through the gaps) for a
-          // beat, then pop it out of the bottom into the corner label
-          setTimeout(() => crEl.classList.add("cr-popped"), 950);
+          computeCorner(); titleT0 = ts;
         }
-      } else if (formed && !spinPaused && !dragging) {
-        rot += dt * 0.0045; target = rot;
-        setRing(false); emphasise(rot);
+      } else if (formed) {
+        // title physically travels out of the ring: down, then across to the left
+        if (!titleDone) {
+          const tp = Math.min(1, (ts - titleT0) / TITLE_MS);
+          placeTitle(tp);
+          if (tp >= 1) titleDone = true;
+        }
+        // gentle idle spin continues underneath
+        if (!spinPaused && !dragging) { rot += dt * 0.0045; target = rot; setRing(false); emphasise(rot); }
       }
       requestAnimationFrame(frame);
     }
 
     function init() { calcRadius(); setWorld(72, 0.62); setRing(false, 0); emphasise(0); requestAnimationFrame(frame); }
-    window.addEventListener("resize", () => { calcRadius(); if (formed) setRing(false); });
+    window.addEventListener("resize", () => { calcRadius(); if (formed) setRing(false); if (titleDone) { computeCorner(); placeTitle(1); } });
     init();
   })();
 </script>
@@ -431,7 +452,9 @@ const pad2 = (n) => String(n).padStart(2, "0");
   .cr-card {
     position: absolute; inset: 0; display: block; border-radius: 16px; overflow: hidden;
     background-size: cover; background-position: center; background-color: #e9e6e1;
-    box-shadow: 0 16px 38px rgba(28,29,34,0.18);
+    /* attached shadow + a deeper DETACHED one offset ~20px below — the card
+       reads as floating, casting onto the ground */
+    box-shadow: 0 12px 26px rgba(20,18,16,0.16), 0 32px 36px -14px rgba(20,18,16,0.32);
     transform: rotateY(calc(var(--i) * var(--step))) translateZ(var(--radius));
     transition: box-shadow 0.4s ease;
     user-select: none; -webkit-user-select: none; -webkit-user-drag: none;
@@ -439,7 +462,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
   /* keep every card visible while the ring swings into formation, then hide
      the back-facing half for a clean resting ring */
   .cr-ring.is-formed .cr-card { backface-visibility: hidden; }
-  .cr-card.is-front { box-shadow: 0 34px 80px rgba(28,29,34,0.32); }
+  .cr-card.is-front { box-shadow: 0 16px 32px rgba(20,18,16,0.18), 0 44px 48px -16px rgba(20,18,16,0.38); }
 
   /* per-card pack name: pushed out at rest, pressed in while dragging */
   .cr-name {
@@ -461,9 +484,10 @@ const pad2 = (n) => String(n).padStart(2, "0");
     transition: opacity 0.22s ease, transform 0.22s ease;
   }
 
-  /* title embedded at the ring centre — front cards occlude it (true perspective) */
+  /* title embedded at the ring centre — front cards occlude it (true perspective);
+     once the ring forms it physically travels down then left to the corner (JS) */
   .cr-mid {
-    position: absolute; left: 50%; top: 50%; margin: 0;
+    position: absolute; left: 50%; top: 50%; margin: 0; will-change: transform;
     transform: translate(-50%, -50%) translateZ(var(--mid-z, -600px));
     backface-visibility: hidden; pointer-events: none; opacity: 0;
     font-family: var(--serif); font-weight: 500; color: var(--ink);
@@ -472,26 +496,6 @@ const pad2 = (n) => String(n).padStart(2, "0");
   }
   .cr-mid span { display: block; }
   .cr-mid.is-in { opacity: 1; transition: opacity 0.9s ease; }
-  /* …then it pops out of the bottom and fades as the corner label rises in */
-  .cr.cr-popped .cr-mid { animation: crMidOut 0.75s cubic-bezier(.5,0,.55,1) forwards; }
-  @keyframes crMidOut {
-    to { opacity: 0; transform: translate(-50%, -50%) translateZ(140px) translateY(46%); }
-  }
-
-  /* the readable corner label it settles into */
-  .cr-title {
-    position: absolute; left: clamp(24px, 5vw, 80px); bottom: clamp(30px, 8vh, 84px); z-index: 5;
-    margin: 0; text-align: left; pointer-events: none;
-    font-family: var(--serif); font-weight: 500; color: var(--ink);
-    font-size: clamp(30px, 4.6vw, 70px); line-height: 1.02; letter-spacing: -0.02em;
-    opacity: 0; transform: translateY(48px);
-  }
-  .cr-title span { display: block; }
-  .cr.cr-popped .cr-title { animation: crRise 0.85s 0.18s cubic-bezier(.2,.72,.18,1) both; }
-  @keyframes crRise {
-    0%   { opacity: 0; transform: translateY(48px); }
-    100% { opacity: 1; transform: translateY(0); }
-  }
 
   .cr-controls {
     position: absolute; left: 50%; bottom: clamp(22px, 5vh, 60px); transform: translateX(-50%); z-index: 6;
@@ -508,7 +512,6 @@ const pad2 = (n) => String(n).padStart(2, "0");
   .cr-arrow:hover { background: #fff; transform: scale(1.06); }
 
   @media (max-width: 760px) {
-    .cr-title { font-size: clamp(28px, 8vw, 46px); }
     .cr-mid { font-size: clamp(34px, 11vw, 60px); }
     .cr-ring { width: 46vw; height: 60vw; }
   }
