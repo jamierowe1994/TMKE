@@ -122,7 +122,10 @@ const enableTransition = !isBackend && !isEditing && (pageTransition ?? !hideNav
                panels paint transparent for a frame and the page flashes white
                through them. The covering <html> also goes burgundy so there's no
                white in the gap before the .pt element parses. #371e28 = --english-violet. */
-            html.pt-revealing { background: #371e28; }
+            /* overflow:hidden here (pre-paint, not waiting on the JS scroll-lock)
+               removes the native scrollbar for the covered phase, so its gutter
+               can't flash white beside the burgundy cover. */
+            html.pt-revealing { background: #371e28; overflow: hidden; }
             .pt { position: fixed; inset: 0; z-index: 9500; pointer-events: none; visibility: hidden; }
             .pt__panel { position: absolute; top: 0; height: 100%; width: 50%; background: #371e28; will-change: transform; }
             .pt__panel--left { left: 0; width: calc(50% + 1px); transform: translateY(100%); }
