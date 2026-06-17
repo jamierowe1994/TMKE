@@ -5,8 +5,11 @@ const team = [
   {
     name: "Danni Law",
     role: "Operations Manager",
-    image: "https://assets.tmke.co.uk/TMKE%20About%20Us/Danni%20-%20About%20Us.png",
+    // rests as stone; the video brings her to life, then settles on the real photo
+    image: "https://assets.tmke.co.uk/ChatGPT%20Image%20Jun%2017%2C%202026%2C%2007_00_42%20AM.png",
+    realImage: "https://assets.tmke.co.uk/TMKE%20About%20Us/Danni%20-%20About%20Us.png",
     video: "https://assets.tmke.co.uk/stone%20danielle.mp4",
+    bio: "Danni keeps TMKE running like clockwork — part planner, part problem-solver, she turns ambitious ideas into work that actually ships, on time and on brand. Whatever you need, she's already three steps ahead.",
   },
   {
     name: "Samantha Thornicroft",
@@ -106,16 +109,20 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
             <video
               class="about-team-video"
               src={member.video}
+              poster={member.image}
               muted
-              loop
               playsinline
               preload="none"
               aria-hidden="true"
             ></video>
           )}
+          {member.realImage && (
+            <img class="about-team-real" src={member.realImage} alt={member.name} />
+          )}
           <div class="about-team-overlay">
             <div class="about-team-name">{member.name}</div>
             <div class="about-team-role">{member.role}</div>
+            {member.bio && <p class="about-team-bio">{member.bio}</p>}
           </div>
         </article>
       ))}
@@ -194,19 +201,31 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
   </section>
 
   <script>
-    // Team cards with a video: play (a touch faster) on hover, reset on leave.
+    // "Bring her to life": stone at rest → hover plays the morph (fast, pauses at
+    // the end) → seamlessly settles on the real photo + bio, and STAYS alive.
+    const RATE = 2.2;
     document.querySelectorAll(".about-team-card.has-video").forEach((card) => {
       const v = card.querySelector(".about-team-video");
+      const real = card.querySelector(".about-team-real");
       if (!v) return;
-      v.playbackRate = 1.5;
+      // preload the real photo so the swap can't flicker
+      if (real) { const im = new Image(); im.src = real.currentSrc || real.src; }
+
+      let started = false, alive = false;
+      v.addEventListener("ended", () => {
+        // hold the last frame; reveal the matching photo over it, pop the bio
+        card.classList.add("is-alive");
+        alive = true;
+      });
       card.addEventListener("mouseenter", () => {
-        v.playbackRate = 1.5;
+        if (started || alive) return;   // one-way — the first hover commits
+        started = true;
+        card.classList.add("is-playing");
+        v.playbackRate = RATE;
+        try { v.currentTime = 0; } catch (_) {}
         const p = v.play();
         if (p && p.catch) p.catch(() => {});
-      });
-      card.addEventListener("mouseleave", () => {
-        v.pause();
-        v.currentTime = 0;
+        v.addEventListener("loadedmetadata", () => { v.playbackRate = RATE; }, { once: true });
       });
     });
   </script>
@@ -441,17 +460,24 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
     color: var(--paper);
     isolation: isolate;
   }
-  /* Danni's card: the video sits over the photo and fades in on hover */
-  .about-team-video {
+  /* Danni's card: stone (card bg) → video morph → settles on the real photo.
+     Layers stack: video over the stone bg, real photo over the video. */
+  .about-team-video,
+  .about-team-real {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     opacity: 0;
-    transition: opacity 0.35s ease;
   }
-  .about-team-card.has-video:hover .about-team-video { opacity: 1; }
+  .about-team-video { transition: opacity 0.3s ease; }
+  .about-team-real { transition: opacity 0.45s ease; }
+  /* video shows once it's playing and stays underneath after; the real photo
+     fades in over the held last frame (they match → no flicker) and persists */
+  .about-team-card.is-playing .about-team-video,
+  .about-team-card.is-alive .about-team-video { opacity: 1; }
+  .about-team-card.is-alive .about-team-real { opacity: 1; }
   .about-team-card::after {
     content: "";
     position: absolute;
@@ -486,6 +512,19 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
     letter-spacing: 0.02em;
     color: rgba(244, 242, 241, 0.82);
   }
+  /* bio pops up once she's "alive" */
+  .about-team-bio {
+    margin: 12px 0 0;
+    max-width: 34ch;
+    font-family: var(--sans);
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: rgba(244, 242, 241, 0.88);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.5s ease 0.1s, transform 0.5s cubic-bezier(.2,.8,.2,1) 0.1s;
+  }
+  .about-team-card.is-alive .about-team-bio { opacity: 1; transform: none; }
 
   /* ============ About — method split ============ */
   .about-method {
