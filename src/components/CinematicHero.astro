@@ -86,13 +86,17 @@ const pad2 = (n) => String(n).padStart(2, "0");
             </a>
           ))}
         </div>
-        <!-- title lives INSIDE the 3D scene at the ring's centre so the front
-             cards occlude it and it shows through the gaps; pops out at the end -->
-        <h2 class="cr-mid" id="cr-mid" aria-hidden="true">
-          <span>Selected and</span><span>popular posts</span><span>on social media</span>
-        </h2>
       </div>
     </div>
+
+    <!-- single detached ground shadow — the ring floats above it -->
+    <div class="cr-floor" id="cr-floor" aria-hidden="true"></div>
+
+    <!-- title: hidden during the spin, then plops out of the ring at a constant
+         size and slides to the left (driven entirely in JS) -->
+    <h2 class="cr-mid" id="cr-mid">
+      <span>Selected and</span><span>popular posts</span><span>on social media</span>
+    </h2>
 
     <div class="cr-controls" id="cr-controls">
       <button type="button" class="cr-arrow" id="cr-prev" aria-label="Previous">&#9664;</button>
@@ -117,7 +121,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
     let introSeen = false;
     try { introSeen = sessionStorage.getItem(SEEN_KEY) === "1"; } catch (_) {}
 
-    const restEls = [".cr-mid", ".cr-ring", ".cr-controls"];
+    const restEls = [".cr-ring", ".cr-controls"];
 
     if (introSeen) {
       // Land directly on the resting state — fast, no intro, nav not locked.
@@ -133,9 +137,8 @@ const pad2 = (n) => String(n).padStart(2, "0");
       setTimeout(() => { sh.classList.add("s-brand"); document.body.classList.remove("sh-lock"); }, 6100); // nav drops in
       // gradual build of the resting state: centre → sides → copy → scroller
       const reveal = (sel, t) => setTimeout(() => { const el = sh.querySelector(sel); if (el) el.classList.add("is-in"); }, t);
-      reveal(".cr-mid", 6500);
-      reveal(".cr-ring", 6950);
-      reveal(".cr-controls", 7800);
+      reveal(".cr-ring", 6700);
+      reveal(".cr-controls", 8600);
       setTimeout(() => { sh.classList.add("s-done"); unlock(); }, 8500);
       setTimeout(unlock, 10500); // safety
     }
@@ -157,7 +160,6 @@ const pad2 = (n) => String(n).padStart(2, "0");
       // radius of a regular N-gon whose facets are `w` wide, padded for air
       radius = Math.round((w / 2) / Math.tan(Math.PI / N) * 1.18);
       ring.style.setProperty("--radius", radius + "px");
-      if (mid) mid.style.setProperty("--mid-z", -radius + "px"); // sit at ring centre
     }
 
     let rot = 0;            // live rotation (deg) — front card sits at angle 0
@@ -165,15 +167,17 @@ const pad2 = (n) => String(n).padStart(2, "0");
     let spinPaused = false;
     let dragging = null;
 
-    // entrance: cards swing up into formation + ring spins to a stop.
-    const ENTER_MS = 1650;
-    const TITLE_MS = 1300;
+    // entrance: the circle rises off the page + spins to a stop (slower, smaller,
+    // NO text — so it reads as a circle). Then the title plops out and slides left.
+    const ENTER_MS = 2300;
+    const JOLT_MS = 300, DROP_MS = 560, SLIDE_MS = 760;
     let enterT0 = null;     // set the first frame the ring is revealed
-    let formed = false, titleT0 = null, titleDone = false;
-    let xEnd = -380, yEnd = 220; // corner offset from ring centre (computed on form)
+    let formed = false, landT0 = null, landDone = false;
+    let dx = 380, dy = 220; // ring-centre offset from the title's resting corner
     const easeOut = (x) => 1 - Math.pow(1 - x, 3);
     const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
     const lerp = (a, b, t) => a + (b - a) * t;
+    const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
     function emphasise(effRot) {
       const r = effRot == null ? rot : effRot;
@@ -185,30 +189,28 @@ const pad2 = (n) => String(n).padStart(2, "0");
       }
     }
 
-    // where the title should land — bottom-left, readable, in front of the cards
+    // distance from the title's resting corner (bottom-left, CSS) up to the ring
+    // centre — the title appears there, drops down, then slides left to (0,0)
     function computeCorner() {
       const vr = vp.getBoundingClientRect();
-      const sEnd = 0.56;
       const w = mid.offsetWidth, h = mid.offsetHeight;
-      const leftM = Math.max(24, Math.min(80, window.innerWidth * 0.05));
-      const bottomM = Math.max(30, Math.min(84, window.innerHeight * 0.08));
-      xEnd = (leftM + (w * sEnd) / 2) - vr.width / 2;   // centre title sits at vp centre → corner
-      yEnd = (vr.height - bottomM - (h * sEnd) / 2) - vr.height / 2;
+      const leftM = Math.max(24, Math.min(64, window.innerWidth * 0.05));
+      const bottomM = Math.max(28, Math.min(72, window.innerHeight * 0.07));
+      const cornerCX = leftM + w / 2, cornerCY = vr.height - bottomM - h / 2;
+      const ringCX = vr.width / 2, ringCY = vr.height * 0.47;
+      dx = ringCX - cornerCX;           // +right
+      dy = cornerCY - ringCY;           // +down (corner sits below ring centre)
     }
-    function placeTitle(tp) {
-      const a = easeOut(Math.min(1, tp / 0.5));            // phase A: forward + down
-      const b = easeInOut(Math.max(0, (tp - 0.45) / 0.55)); // phase B: across to the left
-      const z = lerp(-radius, 90, a);
-      const oy = lerp(0, yEnd, a);
-      const ox = lerp(0, xEnd, b);
-      const s = lerp(1, 0.56, b);
-      mid.style.transform = `translate(-50%, -50%) translate(${ox.toFixed(1)}px, ${oy.toFixed(1)}px) translateZ(${z.toFixed(1)}px) scale(${s.toFixed(3)})`;
+    // ox,oy = transform offset added to the resting corner position
+    function placeTitle(ox, oy, opacity) {
+      mid.style.opacity = opacity.toFixed(3);
+      mid.style.transform = `translate(${ox.toFixed(1)}px, ${oy.toFixed(1)}px)`;
     }
     function setRing(animate, effRot) {
       ring.style.transition = animate ? "transform .7s cubic-bezier(.4,0,.15,1)" : "none";
       ring.style.transform = `translateZ(${-radius}px) rotateY(${-(effRot == null ? rot : effRot)}deg)`;
     }
-    function setWorld(tilt, scale) { world.style.transform = `rotateX(${tilt}deg) scale(${scale})`; }
+    function setWorld(tilt, scale, wy) { world.style.transform = `translateY(${(wy || 0).toFixed(1)}px) rotateX(${tilt}deg) scale(${scale})`; }
     function step(delta) { spinPaused = true; target += delta * STEP; rot = target; setRing(true); emphasise(rot); idleResume(); }
     document.getElementById("cr-next").addEventListener("click", () => step(1));
     document.getElementById("cr-prev").addEventListener("click", () => step(-1));
@@ -255,31 +257,46 @@ const pad2 = (n) => String(n).padStart(2, "0");
       if (enterT0 != null && !formed) {
         const p = Math.min(1, (ts - enterT0) / ENTER_MS);
         const e = easeOut(p);
-        rot += dt * 0.0045;                       // base drift keeps accumulating
+        rot += dt * 0.0035;                       // base drift keeps accumulating
         const drawRot = rot + (1 - e) * 300;      // unwind ~300° into place
-        setWorld((1 - e) * 72, 0.62 + 0.38 * e);  // swing down from above + grow
+        setWorld((1 - e) * 80, 0.46 + 0.54 * e);  // rise off the page from above + smaller
         setRing(false, drawRot);
         emphasise(drawRot);
         if (p >= 1) {
-          // flip done → start the title move IMMEDIATELY (no hover/hold)
           formed = true; setWorld(0, 1); ring.classList.add("is-formed");
-          computeCorner(); titleT0 = ts;
+          computeCorner(); landT0 = ts;
         }
       } else if (formed) {
-        // title physically travels out of the ring: down, then across to the left
-        if (!titleDone) {
-          const tp = Math.min(1, (ts - titleT0) / TITLE_MS);
-          placeTitle(tp);
-          if (tp >= 1) titleDone = true;
+        // post-landing choreography: jolt up → title plops out + ring lifts → title
+        // slides left while the ring settles back to centre
+        if (!landDone) {
+          const le = ts - landT0;
+          let wy = 0, ox = dx, oy = -dy, op = 0;
+          if (le < JOLT_MS) {
+            wy = -22 * Math.sin(Math.PI * (le / JOLT_MS));   // quick recoil up + back
+          } else if (le < JOLT_MS + DROP_MS) {
+            const dp = (le - JOLT_MS) / DROP_MS;
+            wy = lerp(0, -42, easeOut(dp));                  // images lift as text drops out
+            oy = lerp(-dy, 0, easeOut(dp));                  // title drops down out of the ring
+            op = clamp01(dp * 4);                            // plops into view
+          } else {
+            const sp = clamp01((le - JOLT_MS - DROP_MS) / SLIDE_MS);
+            wy = lerp(-42, 0, easeInOut(sp));                // ring returns to centre
+            oy = 0; ox = lerp(dx, 0, easeInOut(sp));         // title slides to the left
+            op = 1;
+            if (sp >= 1) landDone = true;
+          }
+          setWorld(0, 1, wy);
+          placeTitle(ox, oy, op);
         }
         // gentle idle spin continues underneath
-        if (!spinPaused && !dragging) { rot += dt * 0.0045; target = rot; setRing(false); emphasise(rot); }
+        if (!spinPaused && !dragging) { rot += dt * 0.0035; target = rot; setRing(false); emphasise(rot); }
       }
       requestAnimationFrame(frame);
     }
 
-    function init() { calcRadius(); setWorld(72, 0.62); setRing(false, 0); emphasise(0); requestAnimationFrame(frame); }
-    window.addEventListener("resize", () => { calcRadius(); if (formed) setRing(false); if (titleDone) { computeCorner(); placeTitle(1); } });
+    function init() { calcRadius(); setWorld(80, 0.46, 0); setRing(false, 0); emphasise(0); placeTitle(dx, -dy, 0); requestAnimationFrame(frame); }
+    window.addEventListener("resize", () => { calcRadius(); if (formed) setRing(false); if (landDone) placeTitle(0, 0, 1); });
     init();
   })();
 </script>
@@ -452,9 +469,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
   .cr-card {
     position: absolute; inset: 0; display: block; border-radius: 16px; overflow: hidden;
     background-size: cover; background-position: center; background-color: #e9e6e1;
-    /* attached shadow + a deeper DETACHED one offset ~20px below — the card
-       reads as floating, casting onto the ground */
-    box-shadow: 0 12px 26px rgba(20,18,16,0.16), 0 32px 36px -14px rgba(20,18,16,0.32);
+    box-shadow: 0 18px 38px rgba(20,18,16,0.22);
     transform: rotateY(calc(var(--i) * var(--step))) translateZ(var(--radius));
     transition: box-shadow 0.4s ease;
     user-select: none; -webkit-user-select: none; -webkit-user-drag: none;
@@ -462,7 +477,15 @@ const pad2 = (n) => String(n).padStart(2, "0");
   /* keep every card visible while the ring swings into formation, then hide
      the back-facing half for a clean resting ring */
   .cr-ring.is-formed .cr-card { backface-visibility: hidden; }
-  .cr-card.is-front { box-shadow: 0 16px 32px rgba(20,18,16,0.18), 0 44px 48px -16px rgba(20,18,16,0.38); }
+  .cr-card.is-front { box-shadow: 0 26px 58px rgba(20,18,16,0.30); }
+
+  /* single DETACHED ground shadow — sits below the ring; the ring floats above it */
+  .cr-floor {
+    position: absolute; left: 50%; top: 66%; transform: translate(-50%, -50%);
+    width: min(58vw, 860px); height: 44px; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(20,18,16,0.28), rgba(20,18,16,0.12) 46%, transparent 72%);
+    filter: blur(10px);
+  }
 
   /* per-card pack name: pushed out at rest, pressed in while dragging */
   .cr-name {
@@ -484,18 +507,16 @@ const pad2 = (n) => String(n).padStart(2, "0");
     transition: opacity 0.22s ease, transform 0.22s ease;
   }
 
-  /* title embedded at the ring centre — front cards occlude it (true perspective);
-     once the ring forms it physically travels down then left to the corner (JS) */
+  /* title — constant size; hidden during the spin, then JS plops it out of the
+     ring (down) and slides it left to this resting corner */
   .cr-mid {
-    position: absolute; left: 50%; top: 50%; margin: 0; will-change: transform;
-    transform: translate(-50%, -50%) translateZ(var(--mid-z, -600px));
-    backface-visibility: hidden; pointer-events: none; opacity: 0;
+    position: absolute; left: clamp(24px, 5vw, 64px); bottom: clamp(28px, 7vh, 72px);
+    margin: 0; z-index: 5; opacity: 0; pointer-events: none; will-change: transform, opacity;
     font-family: var(--serif); font-weight: 500; color: var(--ink);
-    font-size: clamp(48px, 8vw, 122px); line-height: 1.0; letter-spacing: -0.02em;
-    text-align: center; white-space: nowrap;
+    font-size: clamp(32px, 4.8vw, 64px); line-height: 1.04; letter-spacing: -0.02em;
+    text-align: left; white-space: nowrap;
   }
   .cr-mid span { display: block; }
-  .cr-mid.is-in { opacity: 1; transition: opacity 0.9s ease; }
 
   .cr-controls {
     position: absolute; left: 50%; bottom: clamp(22px, 5vh, 60px); transform: translateX(-50%); z-index: 6;
