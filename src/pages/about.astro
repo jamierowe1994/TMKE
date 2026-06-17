@@ -207,13 +207,20 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
     document.querySelectorAll(".about-team-card.has-video").forEach((card) => {
       const v = card.querySelector(".about-team-video");
       const real = card.querySelector(".about-team-real");
+      const overlay = card.querySelector(".about-team-overlay");
       if (!v) return;
       // preload the real photo so the swap can't flicker
       if (real) { const im = new Image(); im.src = real.currentSrc || real.src; }
 
-      let started = false, alive = false;
+      let started = false, alive = false, risen = false;
+      // lift the name block up to the top (revealing the bio beneath it)
+      const rise = () => {
+        if (!overlay) return;
+        const off = Math.max(0, overlay.offsetTop - 28);
+        overlay.style.transform = "translateY(-" + off + "px)";
+      };
       v.addEventListener("ended", () => {
-        // hold the last frame; reveal the matching photo over it, pop the bio
+        // hold the last frame; reveal the matching photo over it
         card.classList.add("is-alive");
         alive = true;
       });
@@ -221,12 +228,14 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
         if (started || alive) return;   // one-way — the first hover commits
         started = true;
         card.classList.add("is-playing");
+        risen = true; rise();           // name rises as the video plays
         v.playbackRate = RATE;
         try { v.currentTime = 0; } catch (_) {}
         const p = v.play();
         if (p && p.catch) p.catch(() => {});
         v.addEventListener("loadedmetadata", () => { v.playbackRate = RATE; }, { once: true });
       });
+      window.addEventListener("resize", () => { if (risen) rise(); });
     });
   </script>
 </BaseLayout>
@@ -496,6 +505,8 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
     bottom: 0;
     z-index: 1;
     padding: 32px 28px 36px;
+    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.45);
+    transition: transform 0.9s cubic-bezier(.2, .8, .2, 1);
   }
   .about-team-name {
     font-family: var(--serif);
@@ -512,19 +523,23 @@ const togetherImage = "https://assets.tmke.co.uk/stone%20hand.png";
     letter-spacing: 0.02em;
     color: rgba(244, 242, 241, 0.82);
   }
-  /* bio pops up once she's "alive" */
+  /* bio sits just BELOW the name block (out of flow, so the name stays bottom-
+     aligned with the other cards); it travels up with the name and is revealed */
   .about-team-bio {
-    margin: 12px 0 0;
-    max-width: 34ch;
+    position: absolute;
+    top: 100%;
+    left: 28px;
+    right: 28px;
+    margin: 14px 0 0;
     font-family: var(--sans);
-    font-size: 13.5px;
-    line-height: 1.5;
-    color: rgba(244, 242, 241, 0.88);
+    font-size: 15.5px;
+    line-height: 1.55;
+    color: rgba(244, 242, 241, 0.92);
     opacity: 0;
-    transform: translateY(10px);
-    transition: opacity 0.5s ease 0.1s, transform 0.5s cubic-bezier(.2,.8,.2,1) 0.1s;
+    transition: opacity 0.6s ease 0.45s;   /* reveals once the name has risen */
   }
-  .about-team-card.is-alive .about-team-bio { opacity: 1; transform: none; }
+  .about-team-card.is-playing .about-team-bio,
+  .about-team-card.is-alive .about-team-bio { opacity: 1; }
 
   /* ============ About — method split ============ */
   .about-method {
