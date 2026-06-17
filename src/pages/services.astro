@@ -19,23 +19,22 @@ const TIER_IMAGES = [R2("kitchen-1"), R2("white-2"), R2("table"), R2("living-2")
 
 // Slide 6 — floating "work samples" field. Mix of images, brand swatches and
 // logo tiles; all render as consistent 3:4 boxes. Placeholders — swap freely.
-// x/y = scatter position, d = drift duration (s), l = negative start offset (s).
-const GOOD_TILES = [
-  { x: "12%", y: "17%", d: 20, l: -3,  img: R2("white-1") },
-  { x: "28%", y: "11%", d: 24, l: -11, sw: "var(--english-violet)" },
-  { x: "45%", y: "14%", d: 18, l: -6,  img: R2("living-1") },
-  { x: "63%", y: "10%", d: 23, l: -14, img: R2("kitchen-1") },
-  { x: "79%", y: "16%", d: 19, l: -2,  sw: "var(--ink)" },
-  { x: "89%", y: "32%", d: 22, l: -8,  img: R2("orange-1") },
-  { x: "15%", y: "40%", d: 21, l: -15, img: R2("table") },
-  { x: "85%", y: "53%", d: 20, l: -5,  logo: true },
-  { x: "9%",  y: "63%", d: 24, l: -10, img: R2("white-2") },
-  { x: "27%", y: "74%", d: 18, l: -13, sw: "#c9a88e" },
-  { x: "45%", y: "84%", d: 22, l: -4,  img: R2("living-2") },
-  { x: "62%", y: "78%", d: 20, l: -9,  img: R2("kitchen-2") },
-  { x: "75%", y: "68%", d: 23, l: -16, logo: true },
-  { x: "91%", y: "82%", d: 19, l: -7,  sw: "var(--english-violet)" },
+// 24 tiles scattered to fill the screen, drifting fast toward the viewer.
+const GIMG = [
+  R2("white-1"), R2("living-1"), R2("kitchen-1"), R2("orange-1"), R2("table"), R2("white-2"),
+  R2("kitchen-2"), R2("living-2"), R2("orange-2"), R2("vibes"), FEATURE2_IMG, SMM_HERO_IMG,
 ];
+const GSW = ["var(--english-violet)", "var(--ink)", "#c9a88e", "#8a9a8e", "#d8c4b0"];
+const GPOS = [
+  [8,14],[24,9],[40,15],[57,8],[72,13],[89,17],[14,34],[32,41],[50,31],[68,38],[87,33],[6,53],
+  [22,60],[80,49],[94,56],[12,70],[30,73],[48,67],[66,71],[85,64],[20,85],[40,87],[59,82],[77,86],
+];
+const GOOD_TILES = GPOS.map(([x, y], i) => {
+  const base = { x: x + "%", y: y + "%", d: 9 + (i % 6), l: -(((i * 3) % 14) + 1) };
+  if (i % 9 === 4) return { ...base, logo: true };
+  if (i % 4 === 2) return { ...base, sw: GSW[i % GSW.length] };
+  return { ...base, img: GIMG[i % GIMG.length] };
+});
 const BRANDS = [
   { name: "Crescent Lettings", meta: "Lettings · Manchester", blurb: "Always-on content and monthly reels for a fast-growing lettings brand.", images: [R2("white-1"), R2("living-1"), R2("kitchen-1")] },
   { name: "Harbour & Co", meta: "Premium sales · Poole", blurb: "Full management for a premium coastal agency — strategy through to delivery.", images: [R2("orange-1"), R2("table"), R2("white-2")] },
@@ -285,17 +284,20 @@ const total = 7;
     .sm-good-tile--logo { display: flex; align-items: center; justify-content: center; background: var(--paper); border: 1px solid rgba(28,29,34,0.12); }
     .sm-good-tile--logo span { font-family: var(--serif); font-size: clamp(16px, 1.6vw, 24px); letter-spacing: 0.08em; color: var(--english-violet); }
     @keyframes goodFloat {
-      0%   { opacity: 0; transform: translate(-50%, -50%) translateZ(-1700px); }
-      9%   { opacity: 1; }
-      78%  { opacity: 1; }
-      100% { opacity: 0; transform: translate(-50%, -50%) translateZ(300px); }
+      0%   { opacity: 0; transform: translate(-50%, -50%) translateZ(-1800px); }
+      10%  { opacity: 1; }
+      80%  { opacity: 1; }
+      100% { opacity: 0; transform: translate(-50%, -50%) translateZ(480px); }
     }
     @media (prefers-reduced-motion: reduce) {
       .sm-good-tile { animation: none; opacity: 0.4; transform: translate(-50%, -50%); }
     }
-    .sm-good-inner {
-      position: relative; z-index: 2; max-width: 760px; margin: 0 auto; padding: 36px 44px;
-      background: radial-gradient(ellipse 100% 116% at 50% 50%, rgba(244,242,241,0.94) 42%, rgba(244,242,241,0) 78%);
+    .sm-good-inner { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; padding: 36px 44px; }
+    .sm-good-inner::before {
+      content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 150%; height: 215%; z-index: -1; pointer-events: none;
+      background: radial-gradient(ellipse at center, rgba(244,242,241,0.96) 28%, rgba(244,242,241,0.55) 52%, rgba(244,242,241,0) 74%);
+      filter: blur(28px);
     }
     .sm-good-h { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 4.6vw, 68px); line-height: 1.02; letter-spacing: -0.025em; color: var(--ink); margin: 10px 0 18px; }
     .sm-good-p { font-family: var(--sans); font-size: clamp(16px, 1.4vw, 19px); line-height: 1.65; color: rgba(28,29,34,0.72); max-width: 52ch; margin: 0 0 26px; }
