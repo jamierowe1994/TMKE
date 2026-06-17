@@ -25,21 +25,24 @@ const GIMG = [
   R2("kitchen-2"), R2("living-2"), R2("orange-2"), R2("vibes"), FEATURE2_IMG, SMM_HERO_IMG,
 ];
 const GSW = ["var(--english-violet)", "var(--ink)", "#c9a88e", "#8a9a8e", "#d8c4b0"];
-// Radial burst field: tiles fade in on a ring near the centre and spiral straight
-// outward, flying off the screen (~4.5s of visible travel each). 16 tiles split
-// into two rings (even/odd angles); the odd ring starts half-way through the 9s
-// loop, so the two bursts run one-at-a-time (no overlapping layers).
-const GN = 16;
+// Concentric-ring depth field: tiles emerge from the BACK (far, faint, small),
+// fly toward the viewer growing via 3D perspective, and spiral gently as they
+// come (circular flow), then pass off the screen. 3 rings × 7 tiles; each ring
+// sits at a staggered depth so several concentric rings are always in flight.
+const GRINGS = 3, GPER = 7;
 const GOOD_TILES = [];
-for (let i = 0; i < GN; i++) {
-  const ang = +(i * (360 / GN)).toFixed(1);            // 22.5° steps → two 45° rings
-  const d = 9;                                          // full loop = two sequential bursts
-  const jit = (((i * 13) % 7) - 3) * 0.04;             // tiny intra-ring scatter
-  const l = +(-(i % 2) * (d / 2) + jit).toFixed(2);    // odd ring offset half the loop
-  const base = { ang, d, l };
-  if (i % 7 === 3) GOOD_TILES.push({ ...base, logo: true });
-  else if (i % 3 === 1) GOOD_TILES.push({ ...base, sw: GSW[i % GSW.length] });
-  else GOOD_TILES.push({ ...base, img: GIMG[i % GIMG.length] });
+for (let ring = 0; ring < GRINGS; ring++) {
+  for (let k = 0; k < GPER; k++) {
+    const i = ring * GPER + k;
+    const ang = +((k * (360 / GPER)) + ring * 17).toFixed(1);  // even per ring + per-ring offset
+    const r = 22 + ring * 4;                                    // base ring radius (vmin)
+    const d = 6;
+    const l = +(-(ring / GRINGS) * d).toFixed(2);              // rings staggered in depth
+    const base = { ang, r, d, l };
+    if (i % 7 === 3) GOOD_TILES.push({ ...base, logo: true });
+    else if (i % 3 === 1) GOOD_TILES.push({ ...base, sw: GSW[i % GSW.length] });
+    else GOOD_TILES.push({ ...base, img: GIMG[i % GIMG.length] });
+  }
 }
 const BRANDS = [
   { name: "Crescent Lettings", meta: "Lettings · Manchester", blurb: "Always-on content and monthly reels for a fast-growing lettings brand.", images: [R2("white-1"), R2("living-1"), R2("kitchen-1")] },
@@ -164,7 +167,7 @@ const total = 7;
             {GOOD_TILES.map((t) => (
               <div
                 class:list={["sm-good-tile", t.logo && "sm-good-tile--logo", t.sw && "sm-good-tile--sw"]}
-                style={`--ang:${t.ang}deg;--dur:${t.d}s;--delay:${t.l}s;${t.img ? `background-image:url('${t.img}')` : t.sw ? `background:${t.sw}` : ""}`}
+                style={`--ang:${t.ang}deg;--r:${t.r}vmin;--dur:${t.d}s;--delay:${t.l}s;${t.img ? `background-image:url('${t.img}')` : t.sw ? `background:${t.sw}` : ""}`}
               >{t.logo ? <span>TMKE</span> : null}</div>
             ))}
           </div>
@@ -277,30 +280,29 @@ const total = 7;
     /* slide 6 — what good looks like (centred) */
     .sm-goodslide { align-items: center; overflow: hidden; }
     /* floating depth-field of work samples drifting toward the screen */
-    .sm-good-field { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+    .sm-good-field { position: absolute; inset: 0; z-index: 0; perspective: 1100px; perspective-origin: 50% 50%; transform-style: preserve-3d; pointer-events: none; }
     .sm-good-tile {
       position: absolute; left: 50%; top: 50%;
-      width: clamp(70px, 7vw, 104px); aspect-ratio: 3 / 4;
+      width: clamp(64px, 6.6vw, 98px); aspect-ratio: 3 / 4;
       background-size: cover; background-position: center; background-color: #e9e4da;
       border-radius: 6px; box-shadow: 0 16px 36px rgba(20,18,26,0.16);
       opacity: 0;
-      transform: translate(-50%, -50%) rotate(var(--ang)) translateX(18vmin) rotate(calc(-1 * var(--ang))) scale(0.4);
-      animation: goodBurst var(--dur, 9s) linear var(--delay, 0s) infinite;
+      transform: translate(-50%, -50%) rotate(var(--ang)) translateX(var(--r)) translateZ(-1500px) rotate(calc(-1 * var(--ang)));
+      animation: goodRise var(--dur, 6s) linear var(--delay, 0s) infinite;
       will-change: transform, opacity;
     }
     .sm-good-tile--logo { display: flex; align-items: center; justify-content: center; background: var(--paper); border: 1px solid rgba(28,29,34,0.12); }
     .sm-good-tile--logo span { font-family: var(--serif); font-size: clamp(16px, 1.6vw, 24px); letter-spacing: 0.08em; color: var(--english-violet); }
-    /* fade in on the ring, spiral outward (+20°) and fly off the edge by 50% of
-       the loop, then idle invisibly while the other ring takes its turn */
-    @keyframes goodBurst {
-      0%   { opacity: 0; transform: translate(-50%, -50%) rotate(var(--ang)) translateX(18vmin) rotate(calc(-1 * var(--ang))) scale(0.4); }
-      7%   { opacity: 1; }
-      46%  { opacity: 1; }
-      50%  { opacity: 0; transform: translate(-50%, -50%) rotate(calc(var(--ang) + 20deg)) translateX(94vmin) rotate(calc(-1 * (var(--ang) + 20deg))) scale(1.45); }
-      100% { opacity: 0; transform: translate(-50%, -50%) rotate(calc(var(--ang) + 20deg)) translateX(94vmin) rotate(calc(-1 * (var(--ang) + 20deg))) scale(1.45); }
+    /* emerge from the back (far, faint), grow toward the viewer via perspective
+       while spiralling +26°, then pass off the front and fade */
+    @keyframes goodRise {
+      0%   { opacity: 0; transform: translate(-50%, -50%) rotate(var(--ang)) translateX(var(--r)) translateZ(-1500px) rotate(calc(-1 * var(--ang))); }
+      16%  { opacity: 1; }
+      74%  { opacity: 1; }
+      100% { opacity: 0; transform: translate(-50%, -50%) rotate(calc(var(--ang) + 26deg)) translateX(var(--r)) translateZ(540px) rotate(calc(-1 * (var(--ang) + 26deg))); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .sm-good-tile { animation: none; opacity: 0.5; transform: translate(-50%, -50%) rotate(var(--ang)) translateX(44vmin) rotate(calc(-1 * var(--ang))); }
+      .sm-good-tile { animation: none; opacity: 0.5; transform: translate(-50%, -50%) rotate(var(--ang)) translateX(var(--r)) rotate(calc(-1 * var(--ang))); }
     }
     .sm-good-inner { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; padding: 36px 44px; }
     .sm-good-inner::before {
