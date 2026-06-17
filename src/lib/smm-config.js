@@ -15,7 +15,7 @@ export const SERVICE_TIERS = [
     name: "Shot and Scheduled",
     subtitle: "Video Content Management",
     blurb:
-      "For agencies that want their video content handled from filming to posting. We offer regular sessions with our in-house videographer, edited and packaged by our team, and scheduled to your platforms with captions and strategy taken care of. You show up, we handle everything after that.",
+      "For agencies that want video handled end to end — regular shoots with our in-house videographer, edited, captioned and scheduled to your platforms. You show up, we handle the rest.",
     price_pence: null,
   },
   {
