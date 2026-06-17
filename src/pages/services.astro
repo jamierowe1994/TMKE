@@ -247,7 +247,7 @@ const total = 7;
     /* panels are stacked; the deck script drives each one's transform so the next
        slides OVER the previous (sticky cover), free-scroll and floaty. */
     .pf-plane { position: absolute; inset: 0; }
-    .pf-panel { position: absolute; inset: 0; display: flex; align-items: center; padding: 96px clamp(28px, 8vw, 140px) 80px; will-change: transform; backface-visibility: hidden; }
+    .pf-panel { position: absolute; inset: 0; background: var(--paper); display: flex; align-items: center; padding: 96px clamp(28px, 8vw, 140px) 80px; will-change: transform; backface-visibility: hidden; }
     /* words settle in with a short fade + small bounce when a panel arrives */
     @keyframes wordIn { 0% { opacity: 0; transform: translateY(16px); } 55% { opacity: 1; transform: translateY(-5px); } 100% { opacity: 1; transform: translateY(0); } }
     .pf-panel.is-in .sm-feature-h, .pf-panel.is-in .sm-feature-body,
@@ -331,7 +331,7 @@ const total = 7;
     .pf-scroll-hint em { font-style: normal; margin-left: 8px; }
 
     /* Slide 1 — full-screen dictionary hero (matches /videography .vh) */
-    .sm-hero { position: relative; overflow: hidden; padding: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; }
+    .sm-hero { overflow: hidden; padding: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; }
     .sm-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #2a2733; }
     .sm-hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.55) 0%, rgba(20,18,26,0.4) 45%, rgba(20,18,26,0.68) 100%); }
     .sm-hero-inner { position: relative; z-index: 2; max-width: 860px; margin: 0; padding: 0 clamp(28px, 6vw, 120px) 120px; color: var(--paper); }
@@ -646,10 +646,12 @@ const total = 7;
       const ENTRY = [[0, 0], [1, 0], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
-      const SENS = 0.0042;   // wheel → progress
-      const EASE = 0.06;     // lerp toward target (lower = floatier)
-      let target = 0, display = 0, lastCur = -1;
+      const SENS = 0.0016;   // wheel → progress (slow + deliberate)
+      const EASE = 0.055;    // lerp toward target (lower = floatier/smoother)
+      const THRESH = 3;      // slides 1–4 (idx 0–3) float freely; 5–7 snap into place
+      let acc = 0, display = 0, lastCur = -1;
       const clamp = (v) => Math.max(0, Math.min(last, v));
+      const targetOf = () => (acc <= THRESH ? acc : Math.round(acc));  // snap the later slides
 
       const render = () => {
         for (let i = 0; i < panels.length; i++) {
@@ -665,8 +667,9 @@ const total = 7;
         }
       };
       const tick = () => {
-        display += (target - display) * EASE;
-        if (Math.abs(target - display) < 0.0004) display = target;
+        const t = targetOf();
+        display += (t - display) * EASE;
+        if (Math.abs(t - display) < 0.0004) display = t;
         render();
         requestAnimationFrame(tick);
       };
@@ -685,26 +688,26 @@ const total = 7;
         const d = Math.abs(ev.deltaY) >= Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
         if (edgeBlocked(ev, d)) return;
         ev.preventDefault();
-        target = clamp(target + d * SENS);
+        acc = clamp(acc + d * SENS);
       }, { passive: false });
 
       window.addEventListener("keydown", (ev) => {
         if (portfolioOpen) return;
-        if (["ArrowRight", "ArrowDown", "PageDown"].includes(ev.key)) { ev.preventDefault(); target = clamp(Math.round(target) + 1); }
-        else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(ev.key)) { ev.preventDefault(); target = clamp(Math.round(target) - 1); }
+        if (["ArrowRight", "ArrowDown", "PageDown"].includes(ev.key)) { ev.preventDefault(); acc = clamp(Math.round(acc) + 1); }
+        else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(ev.key)) { ev.preventDefault(); acc = clamp(Math.round(acc) - 1); }
       });
 
       // touch — drag continuously (up/left advances); ignored inside the tiers box
       let tx = 0, ty = 0, tp = 0, tScroll = false;
       stage.addEventListener("touchstart", (ev) => {
-        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = target;
+        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc;
         tScroll = !!(ev.target.closest && ev.target.closest(".sm-tiers"));
       }, { passive: true });
       stage.addEventListener("touchmove", (ev) => {
         if (portfolioOpen || tScroll) return;
         const t = ev.touches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
         const dom = Math.abs(dx) > Math.abs(dy) ? dx : dy;
-        target = clamp(tp - dom * 0.004);
+        acc = clamp(tp - dom * 0.004);
       }, { passive: true });
     })();
 
