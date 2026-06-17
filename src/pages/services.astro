@@ -646,7 +646,7 @@ const total = 7;
       const ENTRY = [[0, 0], [1, 0], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
-      const SENS = 0.0016;   // wheel → progress (slow + deliberate)
+      const SENS = 0.001;    // wheel → progress (slow + gradual: ~one slide per scroll)
       const EASE = 0.055;    // lerp toward target (lower = floatier/smoother)
       const THRESH = 3;      // slides 1–4 (idx 0–3) float freely; 5–7 snap into place
       let acc = 0, display = 0, lastCur = -1;
@@ -667,6 +667,10 @@ const total = 7;
         }
       };
       const tick = () => {
+        // never let scroll run more than one slide ahead of where we are — so you
+        // can't flick PAST a slide (you always land on each, incl. 5 & 7) and the
+        // advance stays gradual, ~one slide per scroll.
+        acc = Math.max(display - 1, Math.min(display + 1, acc));
         const t = targetOf();
         display += (t - display) * EASE;
         if (Math.abs(t - display) < 0.0004) display = t;
