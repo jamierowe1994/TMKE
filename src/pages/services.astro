@@ -9,8 +9,11 @@ import { gbpFromPence } from "../lib/supabase.js";
 const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
 // SMM dictionary-hero backdrop — the client's "Smm hero" still on R2.
 const SMM_HERO_IMG = "https://assets.tmke.co.uk/Smm%20hero.jpg";
-// Slide 2 (Intro & Why) side image — the client's "Social Media Marketing" still.
-const LIVING_TEXTURE = "https://assets.tmke.co.uk/TMKE%20SMM/Slide%202%20-%20Social%20Media%20Marketing.png";
+// Full-bleed feature-slide images (slides 2–4, floema-style). Placeholders —
+// swap freely; the layout is image-agnostic.
+const FEATURE2_IMG = "https://assets.tmke.co.uk/TMKE%20SMM/Slide%202%20-%20Social%20Media%20Marketing.png";
+const FEATURE3_IMG = R2("living-1");
+const FEATURE4_IMG = R2("orange-1");
 const BRANDS = [
   { name: "Crescent Lettings", meta: "Lettings · Manchester", blurb: "Always-on content and monthly reels for a fast-growing lettings brand.", images: [R2("white-1"), R2("living-1"), R2("kitchen-1")] },
   { name: "Harbour & Co", meta: "Premium sales · Poole", blurb: "Full management for a premium coastal agency — strategy through to delivery.", images: [R2("orange-1"), R2("table"), R2("white-2")] },
@@ -24,7 +27,7 @@ const navLinks = [
   { label: "Insights", href: "/blog" },
   { label: "Contact", href: "/contact" },
 ];
-const total = 4;
+const total = 7;
 ---
 
 <BaseLayout
@@ -44,102 +47,117 @@ const total = 4;
       <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </header>
 
-    <div class="pf-deck" id="pf-deck">
-      <!-- Slide 1 — full-screen dictionary hero (matches /videography) -->
-      <section class="pf-panel sm-hero">
-        <div class="sm-hero-bg" style={`background-image:url('${SMM_HERO_IMG}')`}></div>
-        <div class="sm-hero-overlay"></div>
-        <div class="sm-hero-inner">
-          <h1 class="sm-word">Social Media Management</h1>
-          <div class="sm-pron"><span class="sm-abbr">SMM</span> <span class="sm-phon">/&thinsp;es em &#712;em&thinsp;/</span> <em>noun</em></div>
-          <p class="sm-lead">Full-service social media management for agents who want a consistent, professional presence. Everything from strategy to execution, delivered to a standard that reflects your business.</p>
-          <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
-        </div>
-      </section>
+    <div class="pf-stage" id="pf-deck">
+      <div class="pf-plane" id="pf-plane">
+        <!-- Slide 1 (col 0,row 0) — full-screen dictionary hero -->
+        <section class="pf-panel sm-hero" style="--col:0;--row:0">
+          <div class="sm-hero-bg" style={`background-image:url('${SMM_HERO_IMG}')`}></div>
+          <div class="sm-hero-overlay"></div>
+          <div class="sm-hero-inner">
+            <h1 class="sm-word">Social Media Management</h1>
+            <div class="sm-pron"><span class="sm-abbr">SMM</span> <span class="sm-phon">/&thinsp;es em &#712;em&thinsp;/</span> <em>noun</em></div>
+            <p class="sm-lead">Full-service social media management for agents who want a consistent, professional presence. Everything from strategy to execution, delivered to a standard that reflects your business.</p>
+            <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
+          </div>
+        </section>
 
-      <!-- Slide 2 — Positioning + two pillars (text left, image right; slides in) -->
-      <section class="pf-panel pf-panel--slide sm-why">
-        <div class="sm-why-text">
-          <div class="sm-stack">
-            <h2 class="sm-why-head">{COPY.positioning.headline}</h2>
+        <!-- Slide 2 (col 1,row 0) — full-image: don't go viral. Scroll DOWN. -->
+        <section class="pf-panel sm-feature" style="--col:1;--row:0">
+          <div class="sm-feature-bg" style={`background-image:url('${FEATURE2_IMG}')`}></div>
+          <div class="sm-feature-overlay"></div>
+          <div class="sm-feature-inner">
+            <h2 class="sm-feature-h">{COPY.positioning.headline}</h2>
             {COPY.positioning.body.split("\n\n").map((para) => (
-              <p class={para === "That's what we build." ? "sm-why-build" : "sm-why-lead"}>{para}</p>
+              <p class={para === "That's what we build." ? "sm-feature-build" : "sm-feature-body"}>{para}</p>
             ))}
-            <div class="sm-pillars">
-              {COPY.positioning.pillars.map((pillar) => (
-                <div class="sm-col">
-                  <h3 class="sm-col-h">{pillar.title}</h3>
-                  <p>{pillar.body}</p>
-                </div>
+            <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&darr;</em></span>
+          </div>
+        </section>
+
+        <!-- Slide 3 (col 1,row 1) — full-image: property first. Scroll DOWN. -->
+        <section class="pf-panel sm-feature" style="--col:1;--row:1">
+          <div class="sm-feature-bg" style={`background-image:url('${FEATURE3_IMG}')`}></div>
+          <div class="sm-feature-overlay"></div>
+          <div class="sm-feature-inner">
+            <h2 class="sm-feature-h">{COPY.positioning.pillars[0].title}</h2>
+            <p class="sm-feature-body">{COPY.positioning.pillars[0].body}</p>
+            <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&darr;</em></span>
+          </div>
+        </section>
+
+        <!-- Slide 4 (col 1,row 2) — full-image: one account manager. Scroll ACROSS. -->
+        <section class="pf-panel sm-feature" style="--col:1;--row:2">
+          <div class="sm-feature-bg" style={`background-image:url('${FEATURE4_IMG}')`}></div>
+          <div class="sm-feature-overlay"></div>
+          <div class="sm-feature-inner">
+            <h2 class="sm-feature-h">{COPY.positioning.pillars[1].title}</h2>
+            <p class="sm-feature-body">{COPY.positioning.pillars[1].body}</p>
+            <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
+          </div>
+        </section>
+
+        <!-- Slide 5 (col 2,row 2) — what we do + service-tier scroll box -->
+        <section class="pf-panel sm-services" style="--col:2;--row:2">
+          <div class="sm-services-inner">
+            <div class="sm-services-head">
+              <h2 class="sm-services-h">{COPY.whatWeDo.headline}</h2>
+              <p class="sm-services-lead">{COPY.whatWeDo.body}</p>
+              <p class="sm-services-choose">{COPY.whatWeDo.chooseLine}</p>
+            </div>
+
+            <div class="sm-tiers" role="list">
+              {SERVICE_TIERS.map((t) => (
+                <article class="sm-tier" role="listitem">
+                  <div class="sm-tier-head">
+                    <h3 class="sm-tier-name">{t.name}</h3>
+                    <span class="sm-tier-sub">{t.subtitle}</span>
+                    {SHOW_TIER_PRICES && t.price_pence != null && (
+                      <span class="sm-tier-price">from {gbpFromPence(t.price_pence)} +VAT</span>
+                    )}
+                  </div>
+                  <p class="sm-tier-blurb">{t.blurb}</p>
+                </article>
               ))}
             </div>
           </div>
-        </div>
-        <div class="sm-why-img" style={`background-image:url('${LIVING_TEXTURE}')`}></div>
-      </section>
+        </section>
 
-      <!-- Slide 3 — What we do + service-tier scroll box + What Good Looks Like -->
-      <section class="pf-panel sm-services">
-        <div class="sm-services-inner">
-          <div class="sm-services-head">
-            <h2 class="sm-services-h">{COPY.whatWeDo.headline}</h2>
-            <p class="sm-services-lead">{COPY.whatWeDo.body}</p>
-            <p class="sm-services-choose">{COPY.whatWeDo.chooseLine}</p>
-          </div>
-
-          <div class="sm-tiers" role="list">
-            {SERVICE_TIERS.map((t) => (
-              <article class="sm-tier" role="listitem">
-                <div class="sm-tier-head">
-                  <h3 class="sm-tier-name">{t.name}</h3>
-                  <span class="sm-tier-sub">{t.subtitle}</span>
-                  {SHOW_TIER_PRICES && t.price_pence != null && (
-                    <span class="sm-tier-price">from {gbpFromPence(t.price_pence)} +VAT</span>
-                  )}
-                </div>
-                <p class="sm-tier-blurb">{t.blurb}</p>
-              </article>
-            ))}
-          </div>
-
-          <div class="sm-good">
-            <div class="sm-good-text">
-              <span class="sm-kicker">{COPY.whatGoodLooksLike.headline}</span>
-              <p>{COPY.whatGoodLooksLike.body}</p>
-            </div>
+        <!-- Slide 6 (col 3,row 2) — what good looks like -->
+        <section class="pf-panel sm-goodslide" style="--col:3;--row:2">
+          <div class="sm-good-inner">
+            <span class="sm-kicker">Portfolio</span>
+            <h2 class="sm-good-h">{COPY.whatGoodLooksLike.headline}</h2>
+            <p class="sm-good-p">{COPY.whatGoodLooksLike.body}</p>
             <button type="button" class="pf-cta" data-portfolio>{COPY.whatGoodLooksLike.cta} <em>&rarr;</em></button>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Slide 4 — three CTA cards (mirrors the videography final panel). The
-           buttons get their proper forms in later phases (Phase 2 Get in Touch,
-           Phase 3 Brochure, Phase 4 Discovery Call). For now each points at a
-           sensible interim destination so none is a dead control. -->
-      <section class="pf-panel sm-ctas">
-        <div class="sm-cta-row">
-          <article class="sm-cta-card">
-            <div class="sm-cta-img" style={`background-image:url('${R2("living-1")}')`}></div>
-            <h2 class="sm-cta-title">{COPY.ctas.brochure.title}</h2>
-            <p class="sm-cta-desc">{COPY.ctas.brochure.body}</p>
-            <button type="button" class="sm-cta-btn" data-smm-form="brochure">Download a brochure <span class="btn-arrow">&rarr;</span></button>
-          </article>
+        <!-- Slide 7 (col 4,row 2) — three CTA cards (unchanged) -->
+        <section class="pf-panel sm-ctas" style="--col:4;--row:2">
+          <div class="sm-cta-row">
+            <article class="sm-cta-card">
+              <div class="sm-cta-img" style={`background-image:url('${R2("living-1")}')`}></div>
+              <h2 class="sm-cta-title">{COPY.ctas.brochure.title}</h2>
+              <p class="sm-cta-desc">{COPY.ctas.brochure.body}</p>
+              <button type="button" class="sm-cta-btn" data-smm-form="brochure">Download a brochure <span class="btn-arrow">&rarr;</span></button>
+            </article>
 
-          <article class="sm-cta-card">
-            <div class="sm-cta-img" style={`background-image:url('${R2("table")}')`}></div>
-            <h2 class="sm-cta-title">{COPY.ctas.call.title}</h2>
-            <p class="sm-cta-desc">{COPY.ctas.call.body}</p>
-            <button type="button" class="sm-cta-btn" data-smm-form="discovery">Book a call <span class="btn-arrow">&rarr;</span></button>
-          </article>
+            <article class="sm-cta-card">
+              <div class="sm-cta-img" style={`background-image:url('${R2("table")}')`}></div>
+              <h2 class="sm-cta-title">{COPY.ctas.call.title}</h2>
+              <p class="sm-cta-desc">{COPY.ctas.call.body}</p>
+              <button type="button" class="sm-cta-btn" data-smm-form="discovery">Book a call <span class="btn-arrow">&rarr;</span></button>
+            </article>
 
-          <article class="sm-cta-card">
-            <div class="sm-cta-img" style={`background-image:url('${R2("white-1")}')`}></div>
-            <h2 class="sm-cta-title">{COPY.ctas.contact.title}</h2>
-            <p class="sm-cta-desc">{COPY.ctas.contact.body}</p>
-            <button type="button" class="sm-cta-btn" data-smm-form="contact">Get in touch <span class="btn-arrow">&rarr;</span></button>
-          </article>
-        </div>
-      </section>
+            <article class="sm-cta-card">
+              <div class="sm-cta-img" style={`background-image:url('${R2("white-1")}')`}></div>
+              <h2 class="sm-cta-title">{COPY.ctas.contact.title}</h2>
+              <p class="sm-cta-desc">{COPY.ctas.contact.body}</p>
+              <button type="button" class="sm-cta-btn" data-smm-form="contact">Get in touch <span class="btn-arrow">&rarr;</span></button>
+            </article>
+          </div>
+        </section>
+      </div>
     </div>
 
     <div class="pf-counter"><span id="pf-cur">01</span> <span class="pf-counter-sep">/</span> {String(total).padStart(2, "0")}</div>
@@ -176,9 +194,33 @@ const total = 4;
 
   <style>
     .pf { position: fixed; inset: 0; background: var(--paper); color: var(--ink); overflow: hidden; }
-    .pf-deck { display: flex; height: 100vh; width: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; }
-    .pf-deck::-webkit-scrollbar { display: none; }
-    .pf-panel { flex: 0 0 100vw; width: 100vw; height: 100vh; scroll-snap-align: start; scroll-snap-stop: always; display: flex; align-items: center; padding: 96px clamp(28px, 8vw, 140px) 80px; }
+    /* 2D deck — panels sit on a plane that translates in X *and* Y, so the path
+       mixes sliding across with sliding down. */
+    .pf-stage { position: absolute; inset: 0; overflow: hidden; }
+    .pf-plane { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; transition: transform 0.85s cubic-bezier(.16,1,.3,1); will-change: transform; }
+    .pf-panel { position: absolute; width: 100vw; height: 100vh; left: calc(var(--col, 0) * 100vw); top: calc(var(--row, 0) * 100vh); display: flex; align-items: center; padding: 96px clamp(28px, 8vw, 140px) 80px; }
+
+    /* full-bleed feature slides (2–4) — image with light text overlaid at the
+       bottom (floema-style); replays its entrance whenever it becomes active. */
+    .sm-feature { padding: 0; align-items: flex-end; overflow: hidden; }
+    .sm-feature-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #2a2733; transform: scale(1.06); transition: transform 1.6s cubic-bezier(.16,1,.3,1); }
+    .sm-feature.is-in .sm-feature-bg { transform: none; }
+    .sm-feature-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.12) 0%, rgba(20,18,26,0.32) 48%, rgba(20,18,26,0.86) 100%); }
+    .sm-feature-inner { position: relative; z-index: 2; max-width: 960px; padding: 0 clamp(28px, 8vw, 140px) clamp(60px, 11vh, 120px); color: var(--paper); opacity: 0; transform: translateY(30px); transition: opacity 0.9s cubic-bezier(.16,1,.3,1) 0.12s, transform 0.9s cubic-bezier(.16,1,.3,1) 0.12s; }
+    .sm-feature.is-in .sm-feature-inner { opacity: 1; transform: none; }
+    .sm-feature-h { font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 4.4vw, 66px); line-height: 1.02; letter-spacing: -0.025em; color: var(--paper); margin: 0 0 22px; max-width: 20ch; }
+    .sm-feature-body { font-family: var(--sans); font-size: clamp(15px, 1.25vw, 18px); line-height: 1.7; color: rgba(240,238,235,0.9); max-width: 64ch; margin: 0 0 14px; }
+    .sm-feature-build { font-family: var(--serif); font-style: italic; font-size: clamp(19px, 1.9vw, 28px); color: var(--paper); margin: 8px 0 14px; }
+    .sm-feature .pf-scroll-hint { color: rgba(240,238,235,0.72); margin-top: 10px; display: inline-block; }
+    @media (prefers-reduced-motion: reduce) {
+      .sm-feature-bg, .sm-feature-inner { transition: none; opacity: 1; transform: none; }
+    }
+
+    /* slide 6 — what good looks like (centred) */
+    .sm-goodslide { align-items: center; }
+    .sm-good-inner { max-width: 760px; margin: 0 auto; }
+    .sm-good-h { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 4.6vw, 68px); line-height: 1.02; letter-spacing: -0.025em; color: var(--ink); margin: 10px 0 18px; }
+    .sm-good-p { font-family: var(--sans); font-size: clamp(15px, 1.3vw, 19px); line-height: 1.65; color: rgba(28,29,34,0.72); max-width: 52ch; margin: 0 0 26px; }
 
     .sm-eyebrow { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 22px; }
     .sm-eyebrow span { opacity: 0.6; }
@@ -462,52 +504,70 @@ const total = 4;
     closeBtn.addEventListener("click", closePortfolio);
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && portfolioOpen) closePortfolio(); });
 
-    // Horizontal deck — one panel per wheel gesture
+    // 2D deck — a guided path of stops that mixes sliding across with sliding
+    // down. One step per gesture; the plane translates in X and Y.
     (function deck() {
-      const deck = document.getElementById("pf-deck");
-      if (!deck) return;
-      const panels = deck.querySelectorAll(".pf-panel");
+      const stage = document.getElementById("pf-deck");
+      const plane = document.getElementById("pf-plane");
+      if (!stage || !plane) return;
+      const panels = [...plane.querySelectorAll(".pf-panel")];
       const curEl = document.getElementById("pf-cur");
       const pad = (n) => String(n + 1).padStart(2, "0");
-      let idx = 0, cooling = false, settle;
-      const topBarEl = document.getElementById("pf-top");
-      // Replay each slide's entrance whenever it becomes the active panel, and
-      // flip the nav to white while the dark first slide is showing.
-      const reveal = () => {
-        panels.forEach((p, i) => p.classList.toggle("is-in", i === idx));
-        if (topBarEl) topBarEl.classList.toggle("nav-on-dark", idx === 0);
-      };
+      const cell = (p) => ({
+        col: parseFloat(p.style.getPropertyValue("--col")) || 0,
+        row: parseFloat(p.style.getPropertyValue("--row")) || 0,
+      });
       const last = panels.length - 1;
-      // "Book a call" reveal on the final slide — slides the track to bring the
-      // book panel in from the right (mirrors the videography newsletter reveal).
-      const finalPanel = document.getElementById("sm-final");
-      const revealTab = document.getElementById("sm-reveal-tab");
-      let bookRevealed = false;
-      const setBookReveal = (on) => {
-        if (!finalPanel) return;
-        bookRevealed = on;
-        finalPanel.classList.toggle("is-revealed", on);   // CSS slides the panel + shifts "Let's talk"
+      let idx = 0, cooling = false;
+      const apply = () => {
+        const { col, row } = cell(panels[idx]);
+        plane.style.transform = `translate(${-col * 100}vw, ${-row * 100}vh)`;
+        panels.forEach((p, i) => p.classList.toggle("is-in", i === idx));
+        if (curEl) curEl.textContent = pad(idx);
       };
-      const go = (i) => { idx = Math.max(0, Math.min(last, i)); if (idx !== last && bookRevealed) setBookReveal(false); deck.scrollTo({ left: idx * deck.clientWidth, behavior: "smooth" }); if (curEl) curEl.textContent = pad(idx); reveal(); };
-      reveal();
-      if (revealTab) revealTab.addEventListener("click", (ev) => { ev.stopPropagation(); setBookReveal(!bookRevealed); });
-      deck.addEventListener("wheel", (e) => {
+      const go = (i) => { const n = Math.max(0, Math.min(last, i)); if (n === idx) return; idx = n; apply(); };
+      apply();
+
+      // keep the wheel inside the tiers scroll box until it reaches an edge
+      const edgeBlocked = (e, dir) => {
+        const box = e.target.closest && e.target.closest(".sm-tiers");
+        if (!box) return false;
+        const atTop = box.scrollTop <= 0;
+        const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
+        return !((dir > 0 && atBottom) || (dir < 0 && atTop));
+      };
+
+      stage.addEventListener("wheel", (e) => {
         if (portfolioOpen) return;
-        e.preventDefault();
-        if (cooling) return;
         const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-        if (Math.abs(d) < 6) return;
-        cooling = true; setTimeout(() => { cooling = false; }, 620);
-        if (d > 0) { if (idx === last) { if (!bookRevealed) setBookReveal(true); } else go(idx + 1); }
-        else { if (idx === last && bookRevealed) setBookReveal(false); else go(idx - 1); }
+        if (edgeBlocked(e, d)) return;                 // let the inner box scroll
+        e.preventDefault();
+        if (cooling || Math.abs(d) < 6) return;
+        cooling = true; setTimeout(() => { cooling = false; }, 800);
+        go(idx + (d > 0 ? 1 : -1));
       }, { passive: false });
+
       window.addEventListener("keydown", (e) => {
         if (portfolioOpen) return;
-        if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); if (idx === last) { if (!bookRevealed) setBookReveal(true); } else go(idx + 1); }
-        else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); if (idx === last && bookRevealed) setBookReveal(false); else go(idx - 1); }
+        if (["ArrowRight", "ArrowDown", "PageDown"].includes(e.key)) { e.preventDefault(); go(idx + 1); }
+        else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); go(idx - 1); }
       });
-      window.addEventListener("resize", () => { deck.scrollTo({ left: idx * deck.clientWidth }); if (bookRevealed) setBookReveal(true); });
-      deck.addEventListener("scroll", () => { clearTimeout(settle); settle = setTimeout(() => { const i = Math.round(deck.scrollLeft / deck.clientWidth); if (i !== idx) { idx = i; if (curEl) curEl.textContent = pad(idx); reveal(); } }, 120); }, { passive: true });
+
+      // touch swipe — up/left = next, down/right = prev (ignored inside the tiers box)
+      let tx = 0, ty = 0, tScroll = false;
+      stage.addEventListener("touchstart", (e) => {
+        const t = e.touches[0]; tx = t.clientX; ty = t.clientY;
+        tScroll = !!(e.target.closest && e.target.closest(".sm-tiers"));
+      }, { passive: true });
+      stage.addEventListener("touchend", (e) => {
+        if (portfolioOpen || tScroll) return;
+        const t = e.changedTouches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
+        if (Math.abs(dx) < 44 && Math.abs(dy) < 44) return;
+        const horiz = Math.abs(dx) > Math.abs(dy);
+        go(idx + ((horiz ? dx < 0 : dy < 0) ? 1 : -1));
+      }, { passive: true });
+
+      window.addEventListener("resize", apply);
     })();
 
     // "Book a call" -> the booking wizard mounts inside the panel (in-place),
