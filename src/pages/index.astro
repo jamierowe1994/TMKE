@@ -29,16 +29,19 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
   title="TMKE — The Marketing Experts"
   description="A specialist social media and marketing agency for the UK property sector. Premium templates, fully managed channels, structured content."
 >
-  <!-- ============================== HERO (cinematic background swap)
-       The statues stay fixed in the foreground; the background pushes left from
-       the clouds scene into the modern office as you scroll, blurring through the
-       middle. Pinned: the swap plays out over the scroll length, then releases to
-       normal page scroll. -->
-  <section id="top" class="hero-cine" data-reveal-root>
-    <div class="hero-cine-pin">
-      <div class="hc-bg hc-bg--clouds"></div>
-      <div class="hc-bg hc-bg--office"></div>
-      <img class="hc-statues" src="https://assets.tmke.co.uk/TMKE%20Home%20Page/Hero%20No%20Background.png" alt="" />
+  <!-- ============================== HERO (video)
+       Full-width hero video at its natural aspect ratio (not zoomed/cropped);
+       autoplays muted + loops. Clouds still shows as the poster while it loads. -->
+  <section id="top" class="hero-static" data-reveal-root>
+    <video class="hero-static-img" autoplay muted loop playsinline preload="auto"
+           poster="https://assets.tmke.co.uk/TMKE%20Home%20Page/Hero%20Clouds.png">
+      <source src="https://assets.tmke.co.uk/video%20hero.mp4" type="video/mp4" />
+    </video>
+    <!-- Bottom labels (restored) — left / centre / right, overlaid on the video. -->
+    <div class="hs-foot">
+      <span class="hs-foot-l">Established in 2025</span>
+      <span class="hs-foot-m">Marketing that actually works</span>
+      <span class="hs-foot-r">Chapter One</span>
     </div>
   </section>
 
@@ -454,24 +457,17 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 
   <!-- ===================== TMKE hero styles ===================== -->
   <style>
-    /* Cinematic hero — statues fixed in front; the background pushes from the
-       clouds scene to the office as you scroll, blurring through the middle.
-       Transforms + blur are driven by the controller below. */
-    .hero-cine { position: relative; height: 250vh; background: var(--paper); }
-    .hero-cine-pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
-    .hc-bg {
-      position: absolute; inset: 0;
-      background-size: cover; background-position: center;
-      will-change: transform, filter; backface-visibility: hidden;
-    }
-    .hc-bg--clouds { background-image: url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Hero%20Clouds.png'); z-index: 1; }
-    .hc-bg--office { background-image: url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Hero%20Office.png'); z-index: 2; transform: translateX(100vw); }
-    .hc-statues {
-      position: absolute; inset: 0; z-index: 3;
-      width: 100%; height: 100%;
-      object-fit: cover; object-position: center;
-      will-change: transform; pointer-events: none;
-    }
+    /* Static hero — one fixed image at full width and its natural aspect ratio
+       (not zoomed or cropped); the section is as tall as the image. */
+    /* Full-screen hero — the video fills the whole section (cover). */
+    .hero-static { position: relative; height: 100vh; overflow: hidden; background: var(--paper); }
+    .hero-static-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* Bottom labels overlaid on the video — light + shadowed so they stand out. */
+    .hs-foot { position: absolute; left: 0; right: 0; bottom: 40px; z-index: 4; display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 24px; padding: 0 48px; color: var(--paper); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; text-shadow: 0 1px 14px rgba(0,0,0,0.5); pointer-events: none; }
+    .hs-foot-l { justify-self: start; }
+    .hs-foot-m { justify-self: center; letter-spacing: 0.14em; text-align: center; }
+    .hs-foot-r { justify-self: end; text-align: right; }
+    @media (max-width: 860px) { .hs-foot { font-size: 10px; padding: 0 22px; gap: 12px; bottom: 28px; } }
 
     .hero-zoom {
       position: relative;
@@ -627,39 +623,17 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     /* Reduced motion: present the full framed photo + labels, no scrub. */
   </style>
 
-  <!-- Cinematic hero controller: as the pinned section scrolls, the background
-       pushes left (clouds out, office in) and blurs through the middle; the
-       statues stay fixed in front. Nav stays transparent over the hero. -->
+  <!-- Static hero — keep only the nav treatment: the bar stays transparent +
+       light-on-image while the hero image covers the top of the viewport. -->
   <script>
     (function () {
-      const sec = document.querySelector(".hero-cine");
-      if (!sec) return;
-      const clouds = sec.querySelector(".hc-bg--clouds");
-      const office = sec.querySelector(".hc-bg--office");
+      const hero = document.querySelector(".hero-static");
       const nav = document.getElementById("nav");
-      const clamp01 = (t) => Math.max(0, Math.min(1, t));
-      const smooth = (t) => t * t * (3 - 2 * t);
+      if (!hero || !nav) return;
       const update = () => {
-        const rect = sec.getBoundingClientRect();
-        const total = sec.offsetHeight - window.innerHeight;
-        const p = total > 0 ? clamp01(-rect.top / total) : 0;
-        const e = smooth(p);
-        const vw = window.innerWidth;
-        // Background pushes left: clouds exit, office slides in from the right.
-        // Clouds moves a touch slower (0.7) so it always overlaps BEHIND the
-        // incoming office — the office (on top) covers the join, so the blurred
-        // edges never reveal the page behind (no white seam). Also adds parallax.
-        if (clouds) clouds.style.transform = "translateX(" + (-e * vw * 0.7).toFixed(1) + "px)";
-        if (office) office.style.transform = "translateX(" + ((1 - e) * vw).toFixed(1) + "px)";
-        // Blur peaks through the middle of the swap, sharp at both ends.
-        const blur = (Math.sin(e * Math.PI) * 14).toFixed(1);
-        if (clouds) clouds.style.filter = "blur(" + blur + "px)";
-        if (office) office.style.filter = "blur(" + blur + "px)";
-        if (nav) {
-          const atTop = rect.bottom > 80;
-          nav.classList.toggle("nav--over-hero", atTop);
-          nav.classList.toggle("nav--on-image", atTop);
-        }
+        const atTop = hero.getBoundingClientRect().bottom > 80;
+        nav.classList.toggle("nav--over-hero", atTop);
+        nav.classList.toggle("nav--on-image", atTop);
       };
       update();
       if (window.__lenis && typeof window.__lenis.on === "function") {

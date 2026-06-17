@@ -16,11 +16,11 @@ const PROJECTS = ["Belgrave Launch","Riverside Reveal","The Parade","Wold House"
 const DIRECTORS = ["Jack Ellis","Zoe Donahue","Sean Thomas","Bergh // Moder","Jason Bergh","Marlow // Bergh","Joe Bressler","Harper // Dealy","Pol Kurucz","Nabil","Daniella Midenge","Clennon // Lamar","Bergh // Porat","Marlow // Bergh"];
 const LOCATIONS = ["London, UK","Prime Central London","Manchester, UK","Cotswolds Estate","Notting Hill, London","Riverside, Henley","Knightsbridge, London","Cheshire, UK","Mayfair, London","Surrey Hills","On location — Bath","Edinburgh, UK","Sandbanks, Poole","Belgravia, London"];
 
-// Three portrait team photos shown during the intro (swap for real shots).
+// Three portrait team photos shown during the intro — the real About Us shots.
 const TEAM = [
-  { name: "Samantha", src: UP("1494790108377-be9c29b29330") }, // placeholder — awaiting Sam's photo
-  { name: "Danielle", src: "/assets/Danni.png" },
-  { name: "Abby",     src: "/assets/Abbie.png" },
+  { name: "Samantha", src: "https://assets.tmke.co.uk/TMKE%20About%20Us/Samantha%20-%20About%20Us.png" },
+  { name: "Danielle", src: "https://assets.tmke.co.uk/TMKE%20About%20Us/Danni%20-%20About%20Us.png" },
+  { name: "Abbie",    src: "https://assets.tmke.co.uk/TMKE%20About%20Us/Abbie%20-%20About%20Us.png" },
 ];
 
 // Each template: 3 photos. First centre is a video.
@@ -250,7 +250,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
     appearance: none; -webkit-appearance: none;
     background: transparent; border: 0; outline: 0; box-shadow: none;
     cursor: pointer; padding: 0; margin: 0; -webkit-tap-highlight-color: transparent;
-    font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.4vw, 58px);
+    font-family: var(--serif); font-weight: 500; font-size: clamp(15px, 2vw, 30px);
     letter-spacing: -0.01em; color: rgba(28,29,34,0.24); white-space: nowrap;
     transition: color 0.35s;
   }
@@ -295,7 +295,9 @@ const pad2 = (n) => String(n).padStart(2, "0");
   .sh.s-brand .sh-rest { pointer-events: auto; }
 
   /* copy aligned to the top of the fanned side photos; pops in from each side */
-  .sh-text { position: absolute; top: 24%; max-width: 26vw; color: var(--ink); opacity: 0; transition: opacity 0.7s ease, transform 0.7s cubic-bezier(.16,1,.3,1); }
+  /* Side wording removed per design — kept in the DOM (controller references it)
+     but hidden so nothing breaks. */
+  .sh-text { display: none; position: absolute; top: 24%; max-width: 26vw; color: var(--ink); opacity: 0; transition: opacity 0.7s ease, transform 0.7s cubic-bezier(.16,1,.3,1); }
   .sh-text.is-in { opacity: 1; transform: none; }
   .sh-text h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 2.2vw, 38px); line-height: 1.1; letter-spacing: -0.01em; margin: 0; }
   .sh-text h2 em { font-style: italic; color: var(--english-violet); }
@@ -311,15 +313,18 @@ const pad2 = (n) => String(n).padStart(2, "0");
   /* Straight cards that cascade out sideways; a slight inward depth tilt
      (rotateY) pushes the outer edge back to reveal the card and add depth. */
   .sh-photo--left { width: min(24vw, 34vh, 300px); aspect-ratio: 4 / 5; z-index: 2; opacity: 0; transform: translate(-58%, -50%) rotateY(18deg); }
-  .sh-photo--left.is-in { opacity: 1; transform: translate(-116%, -50%) rotateY(18deg); filter: brightness(0.97); }
+  .sh-photo--left.is-in { opacity: 0; transform: translate(-50%, -50%) rotateY(18deg) scale(0.82); }
   .sh-photo--right { width: min(24vw, 34vh, 300px); aspect-ratio: 4 / 5; z-index: 1; opacity: 0; transform: translate(-42%, -50%) rotateY(-18deg); }
-  .sh-photo--right.is-in { opacity: 1; transform: translate(16%, -50%) rotateY(-18deg); filter: brightness(0.97); }
+  .sh-photo--right.is-in { opacity: 0; transform: translate(-50%, -50%) rotateY(-18deg) scale(0.82); }
   /* template change: dive back behind the centre, then cascade out with the new image */
   .sh-photo--left.is-emerging { transform: translate(-58%, -50%) rotateY(18deg); opacity: 0.3; transition: none; }
   .sh-photo--right.is-emerging { transform: translate(-42%, -50%) rotateY(-18deg); opacity: 0.3; transition: none; }
 
-  /* hover: light blur + a "View …" button */
-  .sh-stage:hover .sh-photo { filter: blur(3px) brightness(0.9); }
+  /* hover: the pack BURSTS open — its photos fan out, small + sharp — and a
+     "View …" button appears. (At rest only the centre image shows.) */
+  .sh-stage:hover .sh-photo--centre.is-in { transform: translate(-50%, -50%) scale(0.78); }
+  .sh-stage:hover .sh-photo--left.is-in  { opacity: 1; transform: translate(-120%, -50%) rotateY(18deg) scale(0.74); filter: brightness(0.97); }
+  .sh-stage:hover .sh-photo--right.is-in { opacity: 1; transform: translate(20%, -50%) rotateY(-18deg) scale(0.74); filter: brightness(0.97); }
   .sh-view { position: absolute; left: 50%; top: 50%; z-index: 6; transform: translate(-50%, -42%); opacity: 0; pointer-events: none;
     background: var(--ink); color: var(--paper); text-decoration: none; padding: 15px 28px; border-radius: 3px;
     font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; white-space: nowrap;
@@ -336,16 +341,16 @@ const pad2 = (n) => String(n).padStart(2, "0");
   .sh-scroller { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; padding-bottom: 22px; opacity: 0; transform: translateY(26px); pointer-events: none; transition: opacity 0.8s ease, transform 0.8s cubic-bezier(.16,1,.3,1); }
   .sh-scroller.is-in { opacity: 1; transform: none; pointer-events: auto; }
 
-  .sh-track { position: relative; height: clamp(54px, 6.5vw, 88px); margin: 6px 0; }
+  .sh-track { position: relative; height: clamp(28px, 3.4vw, 46px); margin: 4px 0; }
   /* .sh-name styles are global (the names are created in JS, so they don't carry
      the scoped attribute) — see the is:global block below. */
 
   /* ruler ticks above + below; longer centre tick on each, aligned to the active name */
-  .sh-ruler { position: relative; height: 16px; }
-  .sh-ruler::before { content: ""; position: absolute; left: 0; right: 0; height: 7px; background-image: repeating-linear-gradient(90deg, rgba(28,29,34,0.26) 0 1px, transparent 1px 13px); }
+  .sh-ruler { position: relative; height: 9px; }
+  .sh-ruler::before { content: ""; position: absolute; left: 0; right: 0; height: 4px; background-image: repeating-linear-gradient(90deg, rgba(28,29,34,0.26) 0 1px, transparent 1px 13px); }
   .sh-ruler--top::before { bottom: 0; }
   .sh-ruler--bottom::before { top: 0; }
-  .sh-ruler::after { content: ""; position: absolute; left: 50%; width: 2px; height: 30px; background: var(--ink); transform: translateX(-50%); }
+  .sh-ruler::after { content: ""; position: absolute; left: 50%; width: 2px; height: 16px; background: var(--ink); transform: translateX(-50%); }
   .sh-ruler--top::after { top: 0; }          /* extends down toward the name */
   .sh-ruler--bottom::after { bottom: 0; }    /* extends up toward the name */
 
