@@ -680,7 +680,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 
   <!-- ===================== Chapter 04 paired-scroller styles ===================== -->
   <style>
-    .ch4 { position: relative; height: 760vh; background: var(--paper); }
+    .ch4 { position: relative; height: 580vh; background: var(--paper); }
     .ch4-pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
     .ch4-panels {
       position: absolute;
@@ -757,7 +757,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     }
 
     @media (max-width: 860px) {
-      .ch4 { height: 560vh; }
+      .ch4 { height: 460vh; }
       .ch4-label {
         left: 22px; bottom: 22px; padding: 16px 18px;
         width: min(78vw, 360px); min-height: 0;
@@ -777,9 +777,10 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const left = ch4.querySelector('[data-ch4="left"]');
       const right = ch4.querySelector('[data-ch4="right"]');
       const N = 4;
-      // Stepped scroll: each stage gets a flat HOLD band (image sits still) then
-      // a TRANS band (panels move to the next). Long holds = a "viewport break".
-      const HOLD = 1.5, TRANS = 1.0;
+      // Stepped scroll: each stage gets a SHORT flat HOLD band (the image rests
+      // briefly so it still "clicks" into place) then a LONGER TRANS band, so the
+      // panels glide slowly and seamlessly between stages instead of stop-start.
+      const HOLD = 0.7, TRANS = 1.25;
       const UNITS = N * HOLD + (N - 1) * TRANS;
       const clamp01 = (t) => Math.max(0, Math.min(1, t));
       const smooth = (t) => t * t * (3 - 2 * t);
@@ -834,7 +835,9 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
           const y = stageY(Math.round(posFromP(p)));
           snapping = true;
           const done = () => { snapping = false; };
-          if (lenis && typeof lenis.scrollTo === "function") lenis.scrollTo(y, { duration: 0.5, onComplete: done });
+          // easeOutCubic — travels decisively then settles, so the two panels
+          // can be felt clicking into place together.
+          if (lenis && typeof lenis.scrollTo === "function") lenis.scrollTo(y, { duration: 0.62, easing: (t) => 1 - Math.pow(1 - t, 3), onComplete: done });
           else { window.scrollTo({ top: y, behavior: "smooth" }); setTimeout(done, 500); }
           setTimeout(done, 1000);   // safety release
         }, 90);
