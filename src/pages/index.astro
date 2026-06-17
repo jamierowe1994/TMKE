@@ -655,6 +655,26 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         window.addEventListener("scroll", update, { passive: true });
       }
       window.addEventListener("resize", update, { passive: true });
+
+      // When the hero video finishes, nudge the next section so it peeks up into
+      // the bottom of the viewport (mild rounded top edge) — a quiet hint to move
+      // on. They can then scroll/pull it up and it snaps into place as normal.
+      const heroVid = hero.querySelector(".hero-static-img");
+      if (heroVid) {
+        let peeked = false;
+        const peek = () => {
+          if (peeked) return;
+          peeked = true;
+          if (window.scrollY > 80) return;            // already scrolled away
+          const y = 52;
+          if (window.__lenis && typeof window.__lenis.scrollTo === "function") {
+            window.__lenis.scrollTo(y, { duration: 1.1 });
+          } else {
+            window.scrollTo({ top: y, behavior: "smooth" });
+          }
+        };
+        heroVid.addEventListener("ended", peek);
+      }
     })();
   </script>
 
