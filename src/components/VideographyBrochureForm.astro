@@ -1,0 +1,210 @@
+---
+// Videography "Download a Brochure" form — mirrors the Social Media brochure
+// flow (SMMForms) but for videography: a name + email (+ optional password)
+// lead-capture modal that emails over the brochure. Triggered by any element
+// with [data-vid-brochure]. Best-effort posts to the Worker; the brochure
+// download always works from the placeholder URL so it's usable before the
+// backend endpoint is wired.
+import { PRIVACY_URL } from "../lib/smm-config.js";
+import { VIDEOGRAPHY_BROCHURE } from "../data/videography.js";
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+---
+
+<div class="vbf-scrim" id="vbf-scrim" hidden></div>
+<aside
+  class="vbf-modal"
+  id="vbf-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Download a videography brochure"
+  hidden
+  data-worker={WORKER}
+  data-brochure={VIDEOGRAPHY_BROCHURE.url}
+>
+  <button type="button" class="vbf-x" data-vbf-close aria-label="Close">&times;</button>
+  <div class="vbf-scroll">
+    <form class="vbf-form" data-endpoint="/videography/brochure" novalidate>
+      <p class="vbf-eyebrow">TMKE — Videography</p>
+      <h2 class="vbf-title">Download a brochure.</h2>
+      <p class="vbf-lead">{VIDEOGRAPHY_BROCHURE.formBody}</p>
+
+      <label class="vbf-field">Full name <span>*</span><input name="full_name" required autocomplete="name" /></label>
+      <label class="vbf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
+
+      <p class="vbf-help vbf-help--lead">{VIDEOGRAPHY_BROCHURE.accountHelp}</p>
+      <label class="vbf-field vbf-pw">Create a password <span class="vbf-opt">— optional</span><input type="password" name="password" autocomplete="new-password" /></label>
+      <label class="vbf-field vbf-confirm" hidden>Confirm password<input type="password" name="confirm" autocomplete="new-password" /></label>
+
+      <div class="vbf-hp" aria-hidden="true"><label>Leave this field blank<input type="text" name="hp" tabindex="-1" autocomplete="off" /></label></div>
+      <label class="vbf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
+
+      <p class="vbf-error" hidden></p>
+      <button type="submit" class="vbf-submit">Email me the brochure <span aria-hidden="true">&rarr;</span></button>
+      <p class="vbf-privacy">By submitting this form you agree to our <a href={PRIVACY_URL}>Privacy Policy</a>.</p>
+    </form>
+
+    <div class="vbf-done" hidden>
+      <div class="vbf-done-tick" aria-hidden="true">&check;</div>
+      <h2 class="vbf-title">Your brochure is on its way</h2>
+      <p class="vbf-lead" id="vbf-done-msg">We've emailed it over — check your inbox in a moment. You can also open it right here.</p>
+      <a class="vbf-submit vbf-done-action" id="vbf-done-action" target="_blank" rel="noopener">Download the brochure <span aria-hidden="true">&rarr;</span></a>
+      <button type="button" class="vbf-submit vbf-done-close" data-vbf-close>Done</button>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .vbf-scrim { position: fixed; inset: 0; z-index: 400; background: rgba(16,14,22,0.6); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); opacity: 0; transition: opacity 0.4s ease; }
+  .vbf-scrim[hidden] { display: none; }
+  .vbf-scrim.is-open { opacity: 1; }
+
+  .vbf-modal {
+    position: fixed; z-index: 410; top: 50%; left: 50%;
+    width: min(560px, calc(100vw - 32px)); max-height: min(92vh, 820px);
+    transform: translate(-50%, -46%); opacity: 0;
+    background: var(--paper, #f4f2f1); color: var(--ink, #1c1d22);
+    border-radius: 14px; box-shadow: 0 30px 90px rgba(16,14,22,0.45);
+    transition: opacity 0.45s cubic-bezier(.16,1,.3,1), transform 0.45s cubic-bezier(.16,1,.3,1);
+    overflow: hidden;
+  }
+  .vbf-modal[hidden] { display: none; }
+  .vbf-modal.is-open { opacity: 1; transform: translate(-50%, -50%); }
+  .vbf-scroll { max-height: min(92vh, 820px); overflow-y: auto; padding: clamp(28px, 4vw, 48px); }
+  .vbf-x { position: absolute; top: 16px; right: 18px; z-index: 2; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(28,29,34,0.06); color: var(--ink); font-size: 26px; line-height: 1; cursor: pointer; transition: background .25s, transform .4s; }
+  .vbf-x:hover { background: rgba(28,29,34,0.12); transform: rotate(90deg); }
+
+  .vbf-form[hidden], .vbf-done[hidden] { display: none; }
+
+  .vbf-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 12px; }
+  .vbf-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.02; letter-spacing: -0.02em; margin: 0 0 10px; }
+  .vbf-lead { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.7); margin: 0 0 24px; }
+
+  .vbf-field { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.6); margin-bottom: 16px; }
+  .vbf-field span { color: var(--english-violet); }
+  .vbf-field input {
+    display: block; width: 100%; margin-top: 8px; box-sizing: border-box;
+    font-family: var(--sans); font-size: 15px; letter-spacing: normal; text-transform: none; color: var(--ink);
+    background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; padding: 12px 14px;
+    transition: border-color .2s;
+  }
+  .vbf-field input:focus { outline: none; border-color: var(--english-violet); }
+  .vbf-help { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: -6px 0 20px; }
+  .vbf-help--lead { font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.7); margin: -2px 0 16px; }
+  .vbf-field .vbf-opt { color: rgba(28,29,34,0.42); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+  .vbf-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+  .vbf-check { display: flex; align-items: flex-start; gap: 10px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.75); margin: 0 0 20px; cursor: pointer; }
+  .vbf-check input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--english-violet); flex-shrink: 0; }
+
+  .vbf-error { font-family: var(--sans); font-size: 13px; color: #b3261e; background: rgba(179,38,30,0.08); border: 1px solid rgba(179,38,30,0.25); border-radius: 8px; padding: 10px 12px; margin: 0 0 16px; }
+  .vbf-error[hidden] { display: none; }
+
+  .vbf-submit {
+    display: block; width: 100%; box-sizing: border-box; text-align: center; text-decoration: none;
+    background: var(--ink, #1c1d22); color: var(--paper, #f4f2f1); border: none; cursor: pointer;
+    font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 16px 24px; border-radius: 8px; transition: opacity .25s;
+  }
+  .vbf-submit:hover { opacity: 0.9; }
+  .vbf-submit:disabled { opacity: 0.6; cursor: default; }
+  .vbf-submit span { margin-left: 8px; }
+  .vbf-privacy { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); text-align: center; margin: 16px 0 0; }
+  .vbf-privacy a { color: var(--english-violet); }
+
+  .vbf-done { text-align: center; padding: clamp(20px, 4vw, 48px) 0; }
+  .vbf-done-tick { width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 50%; background: rgba(44,122,75,0.12); color: #2c7a4b; font-size: 30px; display: flex; align-items: center; justify-content: center; }
+  .vbf-done .vbf-submit { width: auto; min-width: 200px; margin: 24px auto 0; padding: 14px 36px; }
+  .vbf-done-close { background: none; color: var(--english-violet); margin-top: 10px; }
+</style>
+
+<script>
+  import { supabase } from "../lib/supabase.js";
+
+  (function () {
+    const modal = document.getElementById("vbf-modal");
+    const scrim = document.getElementById("vbf-scrim");
+    if (!modal || !scrim) return;
+    const WORKER = (modal.dataset.worker || "").replace(/\/+$/, "");
+    const BROCHURE = modal.dataset.brochure || "#";
+    const PW_RE = /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    const form = modal.querySelector(".vbf-form");
+    const donePane = modal.querySelector(".vbf-done");
+
+    function open() {
+      form.hidden = false; donePane.hidden = true;
+      modal.hidden = false; scrim.hidden = false;
+      document.documentElement.style.overflow = "hidden";
+      requestAnimationFrame(() => requestAnimationFrame(() => { scrim.classList.add("is-open"); modal.classList.add("is-open"); }));
+      modal.querySelector(".vbf-scroll").scrollTop = 0;
+    }
+    function close() {
+      scrim.classList.remove("is-open"); modal.classList.remove("is-open");
+      document.documentElement.style.overflow = "";
+      setTimeout(() => { modal.hidden = true; scrim.hidden = true; }, 480);
+    }
+
+    document.querySelectorAll("[data-vid-brochure]").forEach((b) =>
+      b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); open(); })
+    );
+    modal.querySelectorAll("[data-vbf-close]").forEach((b) => b.addEventListener("click", close));
+    scrim.addEventListener("click", close);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) close(); });
+
+    function showErr(m) { const el = form.querySelector(".vbf-error"); el.textContent = m; el.hidden = false; el.scrollIntoView({ block: "nearest" }); }
+
+    // Reveal "confirm password" once a password is being typed.
+    const pw = form.querySelector('input[name="password"]');
+    const confirmWrap = form.querySelector(".vbf-confirm");
+    if (pw && confirmWrap) pw.addEventListener("input", () => { confirmWrap.hidden = pw.value.length === 0; });
+
+    function showDone(data) {
+      form.hidden = true;
+      const msg = document.getElementById("vbf-done-msg");
+      const action = document.getElementById("vbf-done-action");
+      msg.textContent = data && data.account_created
+        ? "We've emailed it over — and created your TMKE account so your downloads and bookings live in one place."
+        : "We've emailed it over — check your inbox in a moment. You can also open it right here.";
+      action.href = (data && data.brochure_url) || BROCHURE;
+      donePane.hidden = false;
+      donePane.scrollIntoView({ block: "nearest" });
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      form.querySelector(".vbf-error").hidden = true;
+      const fd = new FormData(form);
+      const pwv = String(fd.get("password") || "");
+      const cf = String(fd.get("confirm") || "");
+      if (!String(fd.get("full_name") || "").trim() || !/.+@.+\..+/.test(String(fd.get("email") || ""))) {
+        return showErr("Please add your name and a valid email.");
+      }
+      if (pwv) {
+        if (!PW_RE.test(pwv)) return showErr("Password must be at least 8 characters and include a number and a special character.");
+        if (pwv !== cf) return showErr("Those passwords don't match.");
+      }
+      const btn = form.querySelector(".vbf-submit"); const orig = btn.innerHTML;
+      btn.disabled = true; btn.textContent = "Sending…";
+      let data = {};
+      // Best-effort lead capture — the brochure download still works without it,
+      // so the placeholder is usable before the Worker endpoint is wired.
+      if (WORKER) {
+        try {
+          const payload = {
+            full_name: fd.get("full_name"), email: fd.get("email"),
+            password: pwv || undefined, marketing_opt_in: !!fd.get("optin"), hp: fd.get("hp") || "",
+          };
+          const res = await fetch(`${WORKER}${form.dataset.endpoint}`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+          });
+          data = await res.json().catch(() => ({}));
+          if (res.ok && data.account_created && pwv) {
+            try { await supabase.signInWithPassword({ email: fd.get("email"), password: pwv }); } catch (_) {}
+          }
+        } catch (_) { /* network/endpoint not ready — still let them download */ }
+      }
+      btn.disabled = false; btn.innerHTML = orig;
+      showDone(data);
+    });
+  })();
+</script>

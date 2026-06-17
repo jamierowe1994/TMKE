@@ -3,7 +3,8 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import VideographyBooking from "../../components/VideographyBooking.astro";
 import VideoShowcase from "../../components/VideoShowcase.astro";
 import NavDrawer from "../../components/NavDrawer.astro";
-import { PRODUCTS, tierPrice } from "../../data/videography.js";
+import VideographyBrochureForm from "../../components/VideographyBrochureForm.astro";
+import { PRODUCTS, tierPrice, VIDEOGRAPHY_BROCHURE } from "../../data/videography.js";
 import { gbpFromPence } from "../../lib/supabase.js";
 
 // Deck panels: dictionary hero + intro/why + one per product + closing booking.
@@ -105,9 +106,18 @@ const navLinks = [
         </section>
       ))}
 
-      <!-- Closing panel — two booking cards + a slide-in newsletter reveal -->
+      <!-- Closing panel — brochure + two booking cards + a slide-in newsletter reveal -->
       <section class="pf-panel pf-final" id="pf-final">
         <div class="pf-final-track" id="pf-final-track">
+          <article class="pf-cta-card">
+            <div class="pf-cta-img" style={`background-image:url('${R2("white-1")}')`}></div>
+            <div class="pf-cta-head">
+              <h2 class="pf-cta-title">Download a Brochure</h2>
+            </div>
+            <p class="pf-cta-desc">{VIDEOGRAPHY_BROCHURE.cardBody}</p>
+            <button type="button" data-vid-brochure class="pf-cta-btn">Download a brochure <span class="btn-arrow">&rarr;</span></button>
+          </article>
+
           <article class="pf-cta-card">
             <div class="pf-cta-img" style={`background-image:url('${R2("living-1")}')`}></div>
             <div class="pf-cta-head">
@@ -273,6 +283,7 @@ const navLinks = [
   ))}
 
   <VideographyBooking />
+  <VideographyBrochureForm />
   <NavDrawer />
 
   <style>
@@ -504,14 +515,14 @@ const navLinks = [
       will-change: transform;
     }
     .pf-cta-card {
-      flex: 0 0 50vw; height: 100%; box-sizing: border-box;
+      flex: 0 0 33.3333vw; height: 100%; box-sizing: border-box;
       /* Bottom-aligned with the SAME paddings as the /services social-media cards
          so they sit at the same height (and stay level — matching content). */
       display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start;
       gap: 22px; padding: clamp(96px, 12vh, 150px) clamp(28px, 3vw, 56px) 72px;
     }
     /* Divider line between the two cards (matches the /services layout). */
-    .pf-cta-card:first-child { border-right: 1px solid rgba(28, 29, 34, 0.10); }
+    .pf-cta-card:not(:last-of-type) { border-right: 1px solid rgba(28, 29, 34, 0.10); }
     .pf-cta-img {
       /* Fixed (no flex-shrink) + capped height so both cards' images match —
          a longer description no longer shrinks one image and drops its title. */

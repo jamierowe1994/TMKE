@@ -23,6 +23,24 @@ export const PARTNERS = {
 };
 export const DIRECT = { slug: "direct", name: "Direct", note: "Standard rates" };
 
+// ---- Brochure ("Download a Brochure" card + form) --------------------------
+// Mirrors the Social Media brochure flow. `url` is a PLACEHOLDER — drop the
+// finished videography brochure PDF at this path on the assets CDN (or swap the
+// URL) and it's live; nothing else needs to change.
+export const VIDEOGRAPHY_BROCHURE = {
+  // Short copy for the final-slide card.
+  cardBody:
+    "Everything you need to know about our property videography and photography services, in one place. A full breakdown of what's included, how it works, and what it costs.",
+  // Lead shown inside the form modal.
+  formBody:
+    "Pop your details in and we'll email the brochure straight over — a full breakdown of our videography and photography services, what's included, and what it costs.",
+  // Help under the optional password field.
+  accountHelp:
+    "Create a TMKE account to manage your brochures, downloads, and bookings in one place.",
+  // PLACEHOLDER brochure PDF — replace with the finished file when ready.
+  url: "https://assets.tmke.co.uk/tmke-videography-brochure.pdf",
+};
+
 // Gated-access work-email domains. The Studio (and other gated sections) only
 // accept a work email on one of these domains. Subdomains are allowed too
 // (e.g. rugby.fineandcountry.com) — see emailDomainAllowed() in DiscoveryPanel.
