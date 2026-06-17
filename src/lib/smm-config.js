@@ -92,7 +92,7 @@ export const COPY = {
           "TMKE works exclusively in the property sector. We understand the market, the audience, and what resonates, so there's no learning curve, no trial and error, and no applying tactics from other industries that simply won't work in estate agency.",
       },
       {
-        title: "One account manager. Fully invested.",
+        title: "One account manager.",
         body:
           "Every client works with a single dedicated account manager who owns your strategy, your content, and your account growth from day one. They get to know your brand, your tone, and your market the way an in-house team member would, because that's exactly what they become.",
       },
