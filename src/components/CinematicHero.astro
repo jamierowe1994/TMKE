@@ -86,7 +86,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
     <div class="cr-viewport" id="cr-viewport">
       <div class="cr-ring" id="cr-ring">
         {CARDS.map((c, i) => (
-          <a class="cr-card" href="/edit" aria-label={c.name} style={`--i:${i};background-image:url('${c.src}')`}></a>
+          <a class="cr-card" href="/edit" draggable={false} aria-label={c.name} style={`--i:${i};background-image:url('${c.src}')`}></a>
         ))}
       </div>
     </div>
@@ -159,44 +159,63 @@ const pad2 = (n) => String(n).padStart(2, "0");
     let spinPaused = false;
     let dragging = null;
 
-    function emphasise() {
+    // entrance: cards swing up into formation + ring spins to a stop.
+    const ENTER_MS = 1650;
+    let enterT0 = null;     // set the first frame the ring is revealed
+    let formed = false;
+    const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+
+    function emphasise(effRot) {
+      const r = effRot == null ? rot : effRot;
       for (let i = 0; i < cards.length; i++) {
-        let a = ((i * STEP + rot) % 360 + 360) % 360;
+        let a = ((i * STEP + r) % 360 + 360) % 360;
         if (a > 180) a -= 360;            // -180..180, 0 = facing viewer
-        const k = Math.max(0, Math.cos(a * Math.PI / 180)); // 1 at front → 0 at sides
+        // front HEMISPHERE stays bright; only the back arc fades out
+        const t = (Math.cos(a * Math.PI / 180) + 1) / 2;   // 1 front → 0 back
         const c = cards[i];
-        c.style.opacity = (0.18 + 0.82 * k).toFixed(3);
-        c.style.zIndex = String(Math.round(k * 100));
-        c.classList.toggle("is-front", Math.abs(a) < STEP / 2);
+        c.style.opacity = (0.14 + 0.86 * Math.pow(t, 0.5)).toFixed(3);
+        c.style.zIndex = String(Math.round(t * 100));
+        c.classList.toggle("is-front", Math.abs(a) < STEP * 0.6);
       }
+    }
+    function transformStr(effRot, tilt, scale) {
+      return `translateZ(${-radius}px) rotateX(${tilt}deg) rotateY(${-effRot}deg) scale(${scale})`;
     }
     function paint(animate) {
       ring.style.transition = animate ? "transform .75s cubic-bezier(.4,0,.15,1)" : "none";
-      ring.style.transform = `translateZ(${-radius}px) rotateY(${-rot}deg)`;
-      emphasise();
+      ring.style.transform = transformStr(rot, 0, 1);
+      emphasise(rot);
     }
     function step(delta) { spinPaused = true; target += delta * STEP; rot = target; paint(true); idleResume(); }
     document.getElementById("cr-next").addEventListener("click", () => step(1));
     document.getElementById("cr-prev").addEventListener("click", () => step(-1));
 
-    // drag to spin the ring like a selector
+    // ---- drag to spin (without the browser grabbing the card/link) ----
+    let moved = false, suppressClick = false;
+    vp.addEventListener("dragstart", (e) => e.preventDefault());
     vp.addEventListener("pointerdown", (e) => {
-      dragging = { x: e.clientX, rot }; spinPaused = true;
+      dragging = { x: e.clientX, rot }; moved = false; spinPaused = true;
       try { vp.setPointerCapture(e.pointerId); } catch (_) {}
     });
     vp.addEventListener("pointermove", (e) => {
       if (!dragging) return;
-      rot = dragging.rot + (e.clientX - dragging.x) * 0.32;
+      const dx = e.clientX - dragging.x;
+      if (Math.abs(dx) > 4) moved = true;
+      rot = dragging.rot + dx * 0.32;
       paint(false);
     });
     function endDrag() {
       if (!dragging) return;
       dragging = null;
+      if (moved) suppressClick = true;   // a drag shouldn't open the card
       target = Math.round(rot / STEP) * STEP; rot = target; paint(true);
       idleResume();
     }
     vp.addEventListener("pointerup", endDrag);
     vp.addEventListener("pointercancel", endDrag);
+    ring.addEventListener("click", (e) => {
+      if (suppressClick) { e.preventDefault(); e.stopPropagation(); suppressClick = false; }
+    }, true);
 
     // gentle idle auto-spin (the "circle that's spinning") until you touch it
     let idleTimer = null;
@@ -205,17 +224,32 @@ const pad2 = (n) => String(n).padStart(2, "0");
     function frame(ts) {
       if (!last) last = ts;
       const dt = Math.min(48, ts - last); last = ts;
-      if (!spinPaused && !dragging) {
+
+      // hold for the reveal, then run the entrance once
+      if (enterT0 == null && ring.classList.contains("is-in")) enterT0 = ts;
+
+      if (enterT0 != null && !formed) {
+        const p = Math.min(1, (ts - enterT0) / ENTER_MS);
+        const e = easeOut(p);
+        rot += dt * 0.0045;                       // base drift keeps accumulating
+        const drawRot = rot + (1 - e) * 300;      // unwind ~300° into place
+        const tilt = (1 - e) * 72;                // swing down from above
+        const scale = 0.6 + 0.4 * e;              // grow into frame
+        ring.style.transition = "none";
+        ring.style.transform = transformStr(drawRot, tilt, scale);
+        emphasise(drawRot);
+        if (p >= 1) { formed = true; ring.classList.add("is-formed"); }
+      } else if (formed && !spinPaused && !dragging) {
         rot += dt * 0.0045; target = rot;
         ring.style.transition = "none";
-        ring.style.transform = `translateZ(${-radius}px) rotateY(${-rot}deg)`;
-        emphasise();
+        ring.style.transform = transformStr(rot, 0, 1);
+        emphasise(rot);
       }
       requestAnimationFrame(frame);
     }
 
-    function init() { calcRadius(); paint(false); requestAnimationFrame(frame); }
-    window.addEventListener("resize", () => { calcRadius(); paint(false); });
+    function init() { calcRadius(); ring.style.transform = transformStr(rot, 72, 0.6); emphasise(rot); requestAnimationFrame(frame); }
+    window.addEventListener("resize", () => { calcRadius(); if (formed) paint(false); });
     init();
   })();
 </script>
@@ -365,26 +399,31 @@ const pad2 = (n) => String(n).padStart(2, "0");
   /* ---------- RESTING: rotating 3D card ring ---------- */
   .cr { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; }
 
-  /* three-line serif title, rising out from behind the cards */
+  /* three-line serif title — pops up over the cards, then flies to the corner */
   .cr-title {
-    position: absolute; left: 50%; top: 49%; transform: translate(-50%, -50%); z-index: 0;
-    margin: 0; text-align: center; pointer-events: none;
+    position: absolute; left: clamp(24px, 5vw, 80px); bottom: clamp(30px, 8vh, 84px); z-index: 3;
+    margin: 0; text-align: left; pointer-events: none; transform-origin: left bottom;
     font-family: var(--serif); font-weight: 500; color: var(--ink);
-    font-size: clamp(34px, 5.6vw, 90px); line-height: 1.0; letter-spacing: -0.02em;
+    font-size: clamp(30px, 4.6vw, 70px); line-height: 1.02; letter-spacing: -0.02em;
+    opacity: 0;
   }
-  .cr-title span { display: block; opacity: 0; transform: translateY(28px); }
-  .cr-title.is-in span {
-    opacity: 1; transform: none;
-    transition: opacity 0.9s ease, transform 0.9s cubic-bezier(.2,.75,.2,1);
-    transition-delay: calc(var(--l) * 140ms);
+  .cr-title span { display: block; }
+  .cr-title.is-in { animation: crTitleIn 1.95s cubic-bezier(.2,.72,.18,1) both; }
+  @keyframes crTitleIn {
+    0%   { opacity: 0; transform: translate(28vw, -36vh) scale(1.6); }
+    14%  { opacity: 1; }
+    44%  { opacity: 1; transform: translate(28vw, -36vh) scale(1.6); }  /* hold, centred + large */
+    100% { opacity: 1; transform: translate(0, 0) scale(1); }            /* settle bottom-left */
   }
+  .sh.sh-instant .cr-title.is-in { animation-duration: 1.15s; }
 
   /* perspective stage */
   .cr-viewport {
     position: relative; width: 100%; height: 100%; z-index: 1;
     display: flex; align-items: center; justify-content: center;
     perspective: 1500px; perspective-origin: 50% 47%;
-    cursor: grab; touch-action: pan-y; -webkit-tap-highlight-color: transparent;
+    cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
   .cr-viewport:active { cursor: grabbing; }
 
@@ -400,9 +439,12 @@ const pad2 = (n) => String(n).padStart(2, "0");
     background-size: cover; background-position: center; background-color: #e9e6e1;
     box-shadow: 0 16px 38px rgba(28,29,34,0.18);
     transform: rotateY(calc(var(--i) * var(--step))) translateZ(var(--radius));
-    backface-visibility: hidden;
     transition: box-shadow 0.4s ease;
+    user-select: none; -webkit-user-select: none; -webkit-user-drag: none;
   }
+  /* keep every card visible while the ring swings into formation, then hide
+     the back-facing half for a clean resting ring */
+  .cr-ring.is-formed .cr-card { backface-visibility: hidden; }
   .cr-card.is-front { box-shadow: 0 34px 80px rgba(28,29,34,0.32); }
 
   .cr-controls {
