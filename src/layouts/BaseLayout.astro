@@ -18,6 +18,9 @@ interface Props {
   noindex?: boolean;
   /** Apply the customer-dashboard typography: The Seasons headers + Montserrat body. */
   dashboard?: boolean;
+  /** Force the page-transition on/off, overriding the hideNav default. The deck
+      pages (chrome-less but public) opt in so navigation stays consistent. */
+  pageTransition?: boolean;
 }
 
 const {
@@ -29,6 +32,7 @@ const {
   hideFooter = false,
   noindex = false,
   dashboard = false,
+  pageTransition = undefined,
 } = Astro.props;
 
 // Front-end-only page transition. Back-end tools — /admin/* and /editor (the
@@ -39,7 +43,10 @@ const {
 const path = Astro.url.pathname;
 const isBackend = path.startsWith("/admin") || path === "/editor" || path === "/editor/";
 const isEditing = Astro.url.searchParams.has("edit");
-const enableTransition = !isBackend && !hideNav && !isEditing;
+// Public chrome-less pages (the /services + /videography decks) opt in via
+// pageTransition so the cover↔reveal handshake stays symmetric site-wide;
+// otherwise default to "on unless hideNav". Backend/editing always off.
+const enableTransition = !isBackend && !isEditing && (pageTransition ?? !hideNav);
 ---
 
 <!DOCTYPE html>

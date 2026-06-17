@@ -66,6 +66,7 @@ const total = 7;
   description="Full-service social media management for property agents — strategy to execution, delivered to a standard that reflects your business."
   hideNav
   hideFooter
+  pageTransition
 >
   <div class="pf">
     <!-- Top nav -->
@@ -249,7 +250,11 @@ const total = 7;
     /* panels are stacked; the deck script drives each one's transform so the next
        slides OVER the previous (sticky cover), free-scroll and floaty. */
     .pf-plane { position: absolute; inset: 0; }
-    .pf-panel { position: absolute; inset: 0; background: var(--paper); display: flex; align-items: center; padding: 96px clamp(28px, 8vw, 140px) 80px; will-change: transform; backface-visibility: hidden; }
+    .pf-panel { position: absolute; inset: 0; background: var(--paper); display: flex; align-items: center; padding: 96px clamp(28px, 8vw, 140px) 80px; will-change: transform; backface-visibility: hidden; transform: translateX(100%); }
+    /* Pre-park before the deck JS runs (and behind the transition cover): slide 1
+       shows, the rest sit off-screen, so a direct load/refresh never flashes the
+       top (last) panel. The controller overrides these inline on the first frame. */
+    .pf-panel:first-child { transform: translateX(0); }
     /* words settle in with a short fade + small bounce when a panel arrives */
     @keyframes wordIn { 0% { opacity: 0; transform: translateY(16px); } 55% { opacity: 1; transform: translateY(-5px); } 100% { opacity: 1; transform: translateY(0); } }
     .pf-panel.is-in .sm-feature-h, .pf-panel.is-in .sm-feature-body,

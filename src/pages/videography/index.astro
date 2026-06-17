@@ -33,6 +33,7 @@ const navLinks = [
   description="Professional property video and photography — The Studio, The Property and The Agent. Presenter-led tours, drone, 360, short-form content and headshots, produced and delivered by TMKE."
   hideNav
   hideFooter
+  pageTransition
 >
   <div class="pf">
     <!-- Top nav — TMKE (left) + Menu (right); hover the top strip to reveal links. -->
@@ -374,7 +375,11 @@ const navLinks = [
       background: var(--paper);
       will-change: transform;
       backface-visibility: hidden;
+      transform: translateX(100%);   /* pre-parked off-screen until the deck JS runs */
     }
+    /* Slide 1 shows first; the rest stay off-screen, so a direct load/refresh
+       never flashes the top (last) panel. The controller overrides on frame 1. */
+    .pf-panel:first-child { transform: translateX(0); }
 
     /* ---- Shared slide layout: wording (left) + image (right) ---- */
     .pf-panel--slide { display: flex; }
