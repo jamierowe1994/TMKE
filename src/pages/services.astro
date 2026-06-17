@@ -25,16 +25,24 @@ const GIMG = [
   R2("kitchen-2"), R2("living-2"), R2("orange-2"), R2("vibes"), FEATURE2_IMG, SMM_HERO_IMG,
 ];
 const GSW = ["var(--english-violet)", "var(--ink)", "#c9a88e", "#8a9a8e", "#d8c4b0"];
-const GPOS = [
-  [8,14],[24,9],[40,15],[57,8],[72,13],[89,17],[14,34],[32,41],[50,31],[68,38],[87,33],[6,53],
-  [22,60],[80,49],[94,56],[12,70],[30,73],[48,67],[66,71],[85,64],[20,85],[40,87],[59,82],[77,86],
-];
-const GOOD_TILES = GPOS.map(([x, y], i) => {
-  const base = { x: x + "%", y: y + "%", d: 9 + (i % 6), l: -(((i * 3) % 14) + 1) };
-  if (i % 9 === 4) return { ...base, logo: true };
-  if (i % 4 === 2) return { ...base, sw: GSW[i % GSW.length] };
-  return { ...base, img: GIMG[i % GIMG.length] };
-});
+// Even 6×4 grid (no clustering) with light jitter; each tile owns a cell and the
+// drift depths are staggered by position so neighbours are never at the same
+// distance at once — keeps them from overlapping.
+const GCOLS = 6, GROWS = 4;
+const GOOD_TILES = [];
+for (let r = 0; r < GROWS; r++) {
+  for (let c = 0; c < GCOLS; c++) {
+    const i = r * GCOLS + c;
+    const x = (((c + 0.5) / GCOLS) * 100 + ((i * 37) % 5) - 2).toFixed(1) + "%";
+    const y = (((r + 0.5) / GROWS) * 100 + ((i * 53) % 5) - 2).toFixed(1) + "%";
+    const d = 6.5;                                                  // uniform speed
+    const l = -Math.round((i / (GCOLS * GROWS)) * d * 100) / 100;   // depths evenly spread
+    const base = { x, y, d, l };
+    if (i % 8 === 3) GOOD_TILES.push({ ...base, logo: true });
+    else if (i % 4 === 1) GOOD_TILES.push({ ...base, sw: GSW[i % GSW.length] });
+    else GOOD_TILES.push({ ...base, img: GIMG[i % GIMG.length] });
+  }
+}
 const BRANDS = [
   { name: "Crescent Lettings", meta: "Lettings · Manchester", blurb: "Always-on content and monthly reels for a fast-growing lettings brand.", images: [R2("white-1"), R2("living-1"), R2("kitchen-1")] },
   { name: "Harbour & Co", meta: "Premium sales · Poole", blurb: "Full management for a premium coastal agency — strategy through to delivery.", images: [R2("orange-1"), R2("table"), R2("white-2")] },
@@ -271,10 +279,10 @@ const total = 7;
     /* slide 6 — what good looks like (centred) */
     .sm-goodslide { align-items: center; overflow: hidden; }
     /* floating depth-field of work samples drifting toward the screen */
-    .sm-good-field { position: absolute; inset: 0; z-index: 0; perspective: 1000px; perspective-origin: 50% 48%; pointer-events: none; }
+    .sm-good-field { position: absolute; inset: 0; z-index: 0; perspective: 1400px; perspective-origin: 50% 48%; pointer-events: none; }
     .sm-good-tile {
       position: absolute; left: var(--x); top: var(--y);
-      width: clamp(84px, 9vw, 128px); aspect-ratio: 3 / 4;
+      width: clamp(74px, 7.6vw, 112px); aspect-ratio: 3 / 4;
       background-size: cover; background-position: center; background-color: #e9e4da;
       border-radius: 6px; box-shadow: 0 16px 36px rgba(20,18,26,0.16);
       opacity: 0; transform: translate(-50%, -50%) translateZ(-1700px);
@@ -285,9 +293,9 @@ const total = 7;
     .sm-good-tile--logo span { font-family: var(--serif); font-size: clamp(16px, 1.6vw, 24px); letter-spacing: 0.08em; color: var(--english-violet); }
     @keyframes goodFloat {
       0%   { opacity: 0; transform: translate(-50%, -50%) translateZ(-1800px); }
-      10%  { opacity: 1; }
-      80%  { opacity: 1; }
-      100% { opacity: 0; transform: translate(-50%, -50%) translateZ(480px); }
+      11%  { opacity: 1; }
+      84%  { opacity: 1; }
+      100% { opacity: 0; transform: translate(-50%, -50%) translateZ(180px); }
     }
     @media (prefers-reduced-motion: reduce) {
       .sm-good-tile { animation: none; opacity: 0.4; transform: translate(-50%, -50%); }
