@@ -1,0 +1,87 @@
+---
+// Shared off-canvas side menu (the same drawer the global <Nav> uses on the
+// homepage). Pages with their own nav bar (e.g. the .pf pages — /services,
+// /videography) render this drawer and point a burger at it via the
+// `data-nav-drawer-open` attribute, so the menu is identical site-wide.
+// Styling lives in global.css (.nav-drawer*).
+const pathname = Astro.url.pathname;
+const isActive = (href: string) => {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
+};
+
+const links: { label: string; href: string }[] = [
+  { label: "About", href: "/about" },
+  { label: "Social Media", href: "/services" },
+  { label: "Videography", href: "/videography" },
+  { label: "The Edit", href: "/edit" },
+  { label: "Insights", href: "/blog" },
+  { label: "Contact", href: "/contact" },
+];
+---
+
+<div class="nav-drawer" id="nav-drawer" aria-hidden="true">
+  <div class="nav-drawer-scrim" data-nav-close></div>
+  <aside class="nav-drawer-panel" role="dialog" aria-modal="true" aria-label="Site menu">
+    <div class="nav-drawer-head">
+      <span class="nav-drawer-mark">TMKE</span>
+      <button type="button" class="nav-drawer-close" data-nav-close aria-label="Close menu">&times;</button>
+    </div>
+    <a href="/login" class="nav-drawer-login js-nav-login" aria-label="Login to your TMKE account">
+      <span class="nav-drawer-login-label">Login</span>
+      <span class="nav-drawer-login-arrow" aria-hidden="true">&rarr;</span>
+    </a>
+    <nav class="nav-drawer-links">
+      {
+        links.map((l, i) => (
+          <a href={l.href} class:list={["nav-drawer-link", isActive(l.href) && "is-active"]}>
+            <span class="nav-drawer-link-num">0{i + 1}</span>
+            <span class="nav-drawer-link-label">{l.label}</span>
+            <span class="nav-drawer-link-arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        ))
+      }
+    </nav>
+    <div class="nav-drawer-foot">
+      <a href="mailto:hello@tmke.co.uk" class="nav-drawer-mail">hello@tmke.co.uk</a>
+      <div class="nav-drawer-meta">London &middot; Est. MMXXIV</div>
+    </div>
+  </aside>
+</div>
+
+<script is:inline>
+  // Open from any [data-nav-drawer-open] burger; close via scrim, ×, a link, or Esc.
+  (function () {
+    const drawer = document.getElementById("nav-drawer");
+    if (!drawer) return;
+    const triggers = Array.prototype.slice.call(
+      document.querySelectorAll("[data-nav-drawer-open]")
+    );
+
+    function setOpen(open) {
+      drawer.classList.toggle("is-open", open);
+      drawer.setAttribute("aria-hidden", open ? "false" : "true");
+      document.body.classList.toggle("nav-drawer-open", open);
+      triggers.forEach(function (b) {
+        b.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
+
+    triggers.forEach(function (b) {
+      b.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(!drawer.classList.contains("is-open"));
+      });
+    });
+    drawer.querySelectorAll("[data-nav-close]").forEach(function (el) {
+      el.addEventListener("click", function () { setOpen(false); });
+    });
+    drawer.querySelectorAll(".nav-drawer-link, .nav-drawer-login").forEach(function (el) {
+      el.addEventListener("click", function () { setOpen(false); });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && drawer.classList.contains("is-open")) setOpen(false);
+    });
+  })();
+</script>

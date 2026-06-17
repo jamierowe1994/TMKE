@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import DiscoveryPanel from "../components/DiscoveryPanel.astro";
 import SMMForms from "../components/SMMForms.astro";
+import NavDrawer from "../components/NavDrawer.astro";
 import { COPY, SERVICE_TIERS, SHOW_TIER_PRICES } from "../lib/smm-config.js";
 import { gbpFromPence } from "../lib/supabase.js";
 
@@ -74,7 +75,7 @@ const total = 7;
         {navLinks.map((l) => (<a href={l.href} class:list={[l.current && "is-current"]}>{l.label}</a>))}
         <a href="/login" class="pf-top-login">Login</a>
       </nav>
-      <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Menu" aria-expanded="false" data-nav-drawer-open><span></span><span></span><span></span></button>
     </header>
 
     <div class="pf-stage" id="pf-deck">
@@ -238,6 +239,7 @@ const total = 7;
 
   <DiscoveryPanel />
   <SMMForms />
+  <NavDrawer />
 
   <style>
     .pf { position: fixed; inset: 0; background: var(--paper); color: var(--ink); overflow: hidden; }
@@ -758,12 +760,7 @@ const total = 7;
       window.addEventListener("dc:close", () => panel.classList.remove("is-booking"));
     })();
 
-    // Top nav menu toggle (touch)
-    const topBar = document.getElementById("pf-top");
-    const topMenu = document.getElementById("pf-top-menu");
-    if (topBar && topMenu) {
-      topMenu.addEventListener("click", (e) => { e.stopPropagation(); if (portfolioOpen) return; topBar.classList.toggle("is-open"); });
-      document.addEventListener("click", (e) => { if (!topBar.contains(e.target)) topBar.classList.remove("is-open"); });
-    }
+    // Burger opens the shared off-canvas side menu (NavDrawer) — wiring lives
+    // in that component, keyed off [data-nav-drawer-open]. No top-menu toggle.
   </script>
 </BaseLayout>

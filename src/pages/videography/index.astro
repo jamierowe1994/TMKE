@@ -2,6 +2,7 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import VideographyBooking from "../../components/VideographyBooking.astro";
 import VideoShowcase from "../../components/VideoShowcase.astro";
+import NavDrawer from "../../components/NavDrawer.astro";
 import { PRODUCTS, tierPrice } from "../../data/videography.js";
 import { gbpFromPence } from "../../lib/supabase.js";
 
@@ -42,7 +43,7 @@ const navLinks = [
         ))}
         <a href="/login" class="pf-top-login">Login</a>
       </nav>
-      <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Menu" aria-expanded="false" data-nav-drawer-open><span></span><span></span><span></span></button>
     </header>
 
     <!-- Horizontal deck — each panel is one "page"; scroll right to advance. -->
@@ -265,6 +266,7 @@ const navLinks = [
   ))}
 
   <VideographyBooking />
+  <NavDrawer />
 
   <style>
     .pf {
@@ -811,19 +813,8 @@ const navLinks = [
       }, 720);
     }, true);
 
-    // --- Top nav: click "Menu" toggles links (touch); hover handles desktop ---
-    const topBar = document.getElementById("pf-top");
-    const topMenu = document.getElementById("pf-top-menu");
-    if (topBar && topMenu) {
-      topMenu.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (openSlug) return; // no menu while a showcase is open
-        topBar.classList.toggle("is-open");
-      });
-      document.addEventListener("click", (e) => {
-        if (!topBar.contains(e.target)) topBar.classList.remove("is-open");
-      });
-    }
+    // --- Top nav: burger opens the shared off-canvas side menu (NavDrawer) ---
+    // Wiring lives in that component, keyed off [data-nav-drawer-open].
 
     // --- Showcase gallery: crossfade hero, auto-rotate, arrows + thumbs ---
     const ROTATE_MS = 5000;
