@@ -42,7 +42,7 @@ const navLinks = [
         ))}
         <a href="/login" class="pf-top-login">Login</a>
       </nav>
-      <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Show menu">Menu</button>
+      <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </header>
 
     <!-- Horizontal deck — each panel is one "page"; scroll right to advance. -->
@@ -549,29 +549,39 @@ const navLinks = [
       transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease;
       border-bottom: 1px solid transparent;
     }
-    .pf-top:hover, .pf-top.is-open {
+    .pf-top.is-open {
       background: rgba(244, 242, 241, 0.92);
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       border-bottom-color: rgba(28,29,34,0.08);
     }
     body.pf-modal-open .pf-top { pointer-events: none; }
+    /* Logo + burger auto-adapt to whatever's behind them (light on dark, dark on
+       light) via difference blending — this also handles the per-side cases
+       (e.g. a slide that's dark on the right only) automatically. */
     .pf-top-logo {
       font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em;
-      color: var(--ink); line-height: 1; position: relative; z-index: 2;
+      color: #fff; mix-blend-mode: difference; line-height: 1; position: relative; z-index: 2;
     }
+    /* Burger button (top-right) — replaces the old hover-reveal + "Menu" text. */
     .pf-top-menu {
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink);
-      background: none; border: none; cursor: pointer; padding: 4px 0; line-height: 1;
-      position: relative; z-index: 2; transition: opacity 0.25s;
+      display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
+      width: 30px; height: 22px; padding: 0; background: none; border: none; cursor: pointer;
+      position: relative; z-index: 2;
     }
-    .pf-top:hover .pf-top-menu, .pf-top.is-open .pf-top-menu { opacity: 0; }
+    .pf-top-menu span {
+      display: block; width: 100%; height: 2px; border-radius: 2px;
+      background: #fff; mix-blend-mode: difference;
+      transition: transform 0.3s ease, opacity 0.25s ease;
+    }
+    .pf-top.is-open .pf-top-menu span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .pf-top.is-open .pf-top-menu span:nth-child(2) { opacity: 0; }
+    .pf-top.is-open .pf-top-menu span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
     .pf-top-links {
       position: absolute; left: 50%; top: 0; transform: translateX(-50%);
       min-height: 78px; display: flex; align-items: center; gap: 30px;
       opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
     }
-    .pf-top:hover .pf-top-links, .pf-top.is-open .pf-top-links { opacity: 1; pointer-events: auto; }
+    .pf-top.is-open .pf-top-links { opacity: 1; pointer-events: auto; }
     body.pf-modal-open .pf-top-links { opacity: 0 !important; pointer-events: none !important; }
     .pf-top-links a {
       font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap;

@@ -41,7 +41,7 @@ const total = 4;
         {navLinks.map((l) => (<a href={l.href} class:list={[l.current && "is-current"]}>{l.label}</a>))}
         <a href="/login" class="pf-top-login">Login</a>
       </nav>
-      <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Show menu">Menu</button>
+      <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </header>
 
     <div class="pf-deck" id="pf-deck">
@@ -380,19 +380,18 @@ const total = 4;
 
     /* Top nav (logo left, Menu right; hover the strip to reveal links) */
     .pf-top { position: fixed; top: 0; left: 0; right: 0; z-index: 60; display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 40px; min-height: 78px; transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease; border-bottom: 1px solid transparent; }
-    .pf-top:hover, .pf-top.is-open { background: rgba(244, 242, 241,0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom-color: rgba(28,29,34,0.08); }
-    /* Slide 1 is a dark full-screen image — flip the logo + Menu to white so
-       they're legible. Reverts to dark when the nav strip is opened (it gets a
-       light backdrop) and on every later, light slide. */
-    .pf-top.nav-on-dark .pf-top-logo, .pf-top.nav-on-dark .pf-top-menu { color: var(--paper); }
-    .pf-top.nav-on-dark:hover .pf-top-logo, .pf-top.nav-on-dark.is-open .pf-top-logo,
-    .pf-top.nav-on-dark:hover .pf-top-menu, .pf-top.nav-on-dark.is-open .pf-top-menu { color: var(--ink); }
+    .pf-top.is-open { background: rgba(244, 242, 241,0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom-color: rgba(28,29,34,0.08); }
     body.pf-modal-open .pf-top { pointer-events: none; }
-    .pf-top-logo { font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em; color: var(--ink); line-height: 1; position: relative; z-index: 2; }
-    .pf-top-menu { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); background: none; border: none; cursor: pointer; padding: 4px 0; line-height: 1; position: relative; z-index: 2; transition: opacity 0.25s; }
-    .pf-top:hover .pf-top-menu, .pf-top.is-open .pf-top-menu { opacity: 0; }
+    /* Logo + burger auto-adapt to whatever's behind them (light on dark, dark on
+       light) via difference blending — handles per-side cases automatically. */
+    .pf-top-logo { font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em; color: #fff; mix-blend-mode: difference; line-height: 1; position: relative; z-index: 2; }
+    .pf-top-menu { display: inline-flex; flex-direction: column; justify-content: center; gap: 5px; width: 30px; height: 22px; padding: 0; background: none; border: none; cursor: pointer; position: relative; z-index: 2; }
+    .pf-top-menu span { display: block; width: 100%; height: 2px; border-radius: 2px; background: #fff; mix-blend-mode: difference; transition: transform 0.3s ease, opacity 0.25s ease; }
+    .pf-top.is-open .pf-top-menu span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .pf-top.is-open .pf-top-menu span:nth-child(2) { opacity: 0; }
+    .pf-top.is-open .pf-top-menu span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
     .pf-top-links { position: absolute; left: 50%; top: 0; transform: translateX(-50%); min-height: 78px; display: flex; align-items: center; gap: 30px; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-    .pf-top:hover .pf-top-links, .pf-top.is-open .pf-top-links { opacity: 1; pointer-events: auto; }
+    .pf-top.is-open .pf-top-links { opacity: 1; pointer-events: auto; }
     body.pf-modal-open .pf-top-links { opacity: 0 !important; pointer-events: none !important; }
     .pf-top-links a { font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; }
     .pf-top-links a:hover { color: var(--english-violet); }
