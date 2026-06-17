@@ -33,6 +33,14 @@ const TEMPLATES = [
   { name: "Crescent",     left: U("1505693416388-ac5ce068fe85",1000,1200), centre: R2("vibes"), right: U("1586023492125-27b2c045efd7",1000,1200) },
 ];
 const t0 = TEMPLATES[0];
+
+// Cards for the rotating 3D ring — every template image becomes a card so the
+// ring reads dense (like the reference). Each links back into /edit.
+const CARDS = TEMPLATES.flatMap((t) => [
+  { src: t.left, name: t.name },
+  { src: t.centre, name: t.name },
+  { src: t.right, name: t.name },
+]);
 const pad2 = (n) => String(n).padStart(2, "0");
 ---
 
@@ -67,36 +75,26 @@ const pad2 = (n) => String(n).padStart(2, "0");
     </div>
   </div>
 
-  <!-- ============ RESTING ============ -->
-  <div class="sh-rest" id="sh-rest">
-    <div class="sh-text sh-text--left"><h2>Strategic&nbsp;thinkers.<br /><em>Smart strategy.</em></h2></div>
+  <!-- ============ RESTING: rotating 3D card ring ============ -->
+  <div class="cr" id="cr">
+    <h2 class="cr-title" id="cr-title">
+      <span style="--l:0">Selected and</span>
+      <span style="--l:1">popular posts</span>
+      <span style="--l:2">on social media</span>
+    </h2>
 
-    <div class="sh-stage" id="sh-stage">
-      <div class="sh-photo sh-photo--left" id="sh-pl" style={`background-image:url('${t0.left}')`}></div>
-      <div class="sh-photo sh-photo--right" id="sh-pr" style={`background-image:url('${t0.right}')`}></div>
-      <div class="sh-photo sh-photo--centre" id="sh-pc">
-        <div class="sh-cl sh-cl--a" id="sh-ca" style={`background-image:url('${t0.centre}')`}></div>
-        <div class="sh-cl sh-cl--b" id="sh-cb"></div>
-        <video class="sh-video" id="sh-video" autoplay muted loop playsinline poster={t0.centre}>
-          <source src={t0.video} type="video/mp4" />
-        </video>
+    <div class="cr-viewport" id="cr-viewport">
+      <div class="cr-ring" id="cr-ring">
+        {CARDS.map((c, i) => (
+          <a class="cr-card" href="/edit" aria-label={c.name} style={`--i:${i};background-image:url('${c.src}')`}></a>
+        ))}
       </div>
-
-      <a class="sh-view" id="sh-view" href="/edit">View <span id="sh-view-name">{t0.name}</span> <em>&rarr;</em></a>
     </div>
 
-    <div class="sh-text sh-text--right"><h2>Thoughtful&nbsp;execution.<br /><em>Bold brands.</em></h2></div>
-  </div>
-
-  <!-- ============ INFINITE TEMPLATE SCROLLER ============ -->
-  <div class="sh-scroller" id="sh-scroller">
-    <div class="sh-ruler sh-ruler--top" aria-hidden="true"></div>
-    <div class="sh-track" id="sh-track"></div>
-    <div class="sh-ruler sh-ruler--bottom" aria-hidden="true"></div>
-    <div class="sh-controls">
-      <button type="button" class="sh-arrow" id="sh-prev" aria-label="Previous template">&#9664;&#9664;</button>
-      <span class="sh-counter"><b id="sh-cur">01</b> <span>/</span> {pad2(TEMPLATES.length)}</span>
-      <button type="button" class="sh-arrow" id="sh-next" aria-label="Next template">&#9654;&#9654;</button>
+    <div class="cr-controls" id="cr-controls">
+      <button type="button" class="cr-arrow" id="cr-prev" aria-label="Previous">&#9664;</button>
+      <span class="cr-hint">Drag to explore</span>
+      <button type="button" class="cr-arrow" id="cr-next" aria-label="Next">&#9654;</button>
     </div>
   </div>
 </section>
@@ -117,7 +115,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
     let introSeen = false;
     try { introSeen = sessionStorage.getItem(SEEN_KEY) === "1"; } catch (_) {}
 
-    const restEls = [".sh-photo--centre", ".sh-photo--left", ".sh-photo--right", ".sh-text--left", ".sh-text--right", ".sh-scroller"];
+    const restEls = [".cr-title", ".cr-ring", ".cr-controls"];
 
     if (introSeen) {
       // Land directly on the resting state — fast, no intro, nav not locked.
@@ -133,100 +131,92 @@ const pad2 = (n) => String(n).padStart(2, "0");
       setTimeout(() => { sh.classList.add("s-brand"); document.body.classList.remove("sh-lock"); }, 6100); // nav drops in
       // gradual build of the resting state: centre → sides → copy → scroller
       const reveal = (sel, t) => setTimeout(() => { const el = sh.querySelector(sel); if (el) el.classList.add("is-in"); }, t);
-      reveal(".sh-photo--centre", 6550);
-      reveal(".sh-photo--left", 7100);
-      reveal(".sh-photo--right", 7350);
-      reveal(".sh-text--left", 7750);
-      reveal(".sh-text--right", 8000);
-      reveal(".sh-scroller", 8400);
-      setTimeout(() => { sh.classList.add("s-done"); unlock(); }, 8900);
+      reveal(".cr-title", 6500);
+      reveal(".cr-ring", 6950);
+      reveal(".cr-controls", 7800);
+      setTimeout(() => { sh.classList.add("s-done"); unlock(); }, 8500);
       setTimeout(unlock, 10500); // safety
     }
 
-    // ---- photos ----
-    const pl = document.getElementById("sh-pl"), pr = document.getElementById("sh-pr");
-    const ca = document.getElementById("sh-ca"), cb = document.getElementById("sh-cb");
-    const video = document.getElementById("sh-video");
-    if (!TEMPLATES[0].video) video.style.display = "none";
+    // ---- 3D rotating card ring ----
+    const ring = document.getElementById("cr-ring");
+    const vp = document.getElementById("cr-viewport");
+    const cards = ring ? Array.from(ring.children) : [];
+    const N = cards.length || 1;
+    const STEP = 360 / N;                 // degrees between cards
+    ring.style.setProperty("--step", STEP + "deg");
 
-    function setSide(el, src) {
-      el.style.backgroundImage = `url('${src}')`;
-      el.classList.add("is-emerging");
-      void el.offsetWidth;
-      el.classList.remove("is-emerging"); // animates out from behind centre
+    let radius = 600;
+    function calcRadius() {
+      const w = cards[0] ? cards[0].offsetWidth : 220;
+      // radius of a regular N-gon whose facets are `w` wide, padded for air
+      radius = Math.round((w / 2) / Math.tan(Math.PI / N) * 1.18);
+      ring.style.setProperty("--radius", radius + "px");
     }
-    function setCentre(src, isVideo) {
-      // incoming scrolls down over the current image
-      cb.style.backgroundImage = `url('${src}')`;
-      cb.style.transition = "none"; cb.style.transform = "translateY(-101%)"; cb.style.opacity = "1";
-      void cb.offsetWidth;
-      cb.style.transition = "transform 0.7s cubic-bezier(.7,0,.2,1)";
-      cb.style.transform = "translateY(0)";
-      video.style.opacity = "0";
-      setTimeout(() => {
-        ca.style.backgroundImage = `url('${src}')`;
-        cb.style.transition = "none"; cb.style.transform = "translateY(-101%)";
-        if (isVideo) {
-          video.style.display = ""; video.poster = src;
-          const s = video.querySelector("source");
-          if (s && s.getAttribute("src") !== TEMPLATES[0].video) { s.setAttribute("src", TEMPLATES[0].video); video.load(); }
-          try { video.play(); } catch (_) {}
-          video.style.opacity = "1";
-        } else { video.style.display = "none"; }
-      }, 700);
-    }
-    let current = -1;
-    function applyTemplate(i) {
-      if (i === current) return;
-      const t = TEMPLATES[i]; if (!t) return;
-      current = i;
-      setSide(pl, t.left); setSide(pr, t.right);
-      setCentre(t.centre, !!t.video);
-      document.getElementById("sh-cur").textContent = String(i + 1).padStart(2, "0");
-      const vn = document.getElementById("sh-view-name"); if (vn) vn.textContent = t.name;
-    }
-    // init centre video for template 0
-    if (TEMPLATES[0].video) { video.style.opacity = "1"; }
 
-    // ---- infinite scroller (fixed slots, 3 copies, wrap) ----
-    const track = document.getElementById("sh-track");
-    const n = TEMPLATES.length;
-    const items = [];
-    for (let c = 0; c < 3; c++) for (let i = 0; i < n; i++) {
-      const b = document.createElement("button");
-      b.type = "button"; b.className = "sh-name"; b.textContent = TEMPLATES[i].name;
-      b.dataset.i = i; b.dataset.abs = String(c * n + i);
-      track.appendChild(b); items.push(b);
+    let rot = 0;            // live rotation (deg) — front card sits at angle 0
+    let target = 0;         // snap target after a gesture
+    let spinPaused = false;
+    let dragging = null;
+
+    function emphasise() {
+      for (let i = 0; i < cards.length; i++) {
+        let a = ((i * STEP + rot) % 360 + 360) % 360;
+        if (a > 180) a -= 360;            // -180..180, 0 = facing viewer
+        const k = Math.max(0, Math.cos(a * Math.PI / 180)); // 1 at front → 0 at sides
+        const c = cards[i];
+        c.style.opacity = (0.18 + 0.82 * k).toFixed(3);
+        c.style.zIndex = String(Math.round(k * 100));
+        c.classList.toggle("is-front", Math.abs(a) < STEP / 2);
+      }
     }
-    let slot = 0, pos = n; // start at first item of middle copy
-    function layout() {
-      slot = Math.min(540, Math.max(280, window.innerWidth * 0.42));
-      items.forEach((b, idx) => { b.style.width = slot + "px"; b.style.left = idx * slot + "px"; });
-      track.style.width = items.length * slot + "px";
-      place(false);
+    function paint(animate) {
+      ring.style.transition = animate ? "transform .75s cubic-bezier(.4,0,.15,1)" : "none";
+      ring.style.transform = `translateZ(${-radius}px) rotateY(${-rot}deg)`;
+      emphasise();
     }
-    function place(animate) {
-      const x = window.innerWidth / 2 - (pos * slot + slot / 2);
-      track.style.transition = animate ? "transform 0.6s cubic-bezier(.5,0,.15,1)" : "none";
-      track.style.transform = `translateX(${x}px)`;
-      const logical = ((pos % n) + n) % n;
-      items.forEach((b) => b.classList.toggle("is-active", +b.dataset.abs === pos));
-      applyTemplate(logical);
-    }
-    function normalize() { // keep pos inside the middle copy for seamless looping
-      if (pos >= 2 * n) pos -= n; else if (pos < n) pos += n; else return;
-      place(false);
-    }
-    function go(delta) { pos += delta; place(true); setTimeout(normalize, 640); }
-    document.getElementById("sh-next").addEventListener("click", () => go(1));
-    document.getElementById("sh-prev").addEventListener("click", () => go(-1));
-    track.addEventListener("click", (e) => {
-      const b = e.target.closest(".sh-name"); if (!b) return;
-      const abs = +b.dataset.abs; if (abs === pos) return;
-      pos = abs; place(true); setTimeout(normalize, 640);
+    function step(delta) { spinPaused = true; target += delta * STEP; rot = target; paint(true); idleResume(); }
+    document.getElementById("cr-next").addEventListener("click", () => step(1));
+    document.getElementById("cr-prev").addEventListener("click", () => step(-1));
+
+    // drag to spin the ring like a selector
+    vp.addEventListener("pointerdown", (e) => {
+      dragging = { x: e.clientX, rot }; spinPaused = true;
+      try { vp.setPointerCapture(e.pointerId); } catch (_) {}
     });
-    window.addEventListener("resize", layout);
-    layout();
+    vp.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      rot = dragging.rot + (e.clientX - dragging.x) * 0.32;
+      paint(false);
+    });
+    function endDrag() {
+      if (!dragging) return;
+      dragging = null;
+      target = Math.round(rot / STEP) * STEP; rot = target; paint(true);
+      idleResume();
+    }
+    vp.addEventListener("pointerup", endDrag);
+    vp.addEventListener("pointercancel", endDrag);
+
+    // gentle idle auto-spin (the "circle that's spinning") until you touch it
+    let idleTimer = null;
+    function idleResume() { clearTimeout(idleTimer); idleTimer = setTimeout(() => { spinPaused = false; }, 3200); }
+    let last = 0;
+    function frame(ts) {
+      if (!last) last = ts;
+      const dt = Math.min(48, ts - last); last = ts;
+      if (!spinPaused && !dragging) {
+        rot += dt * 0.0045; target = rot;
+        ring.style.transition = "none";
+        ring.style.transform = `translateZ(${-radius}px) rotateY(${-rot}deg)`;
+        emphasise();
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function init() { calcRadius(); paint(false); requestAnimationFrame(frame); }
+    window.addEventListener("resize", () => { calcRadius(); paint(false); });
+    init();
   })();
 </script>
 
@@ -238,9 +228,9 @@ const pad2 = (n) => String(n).padStart(2, "0");
      "Strategic thinkers / Smart strategy" state: hide the intro instantly and
      bring the resting photos/copy/scroller in with a quick fade, no stagger. */
   .sh.sh-instant .sh-intro { transition: none !important; opacity: 0 !important; pointer-events: none; }
-  .sh.sh-instant .sh-photo,
-  .sh.sh-instant .sh-text,
-  .sh.sh-instant .sh-scroller { transition-duration: 0.35s !important; transition-delay: 0s !important; }
+  .sh.sh-instant .cr-title span,
+  .sh.sh-instant .cr-ring,
+  .sh.sh-instant .cr-controls { transition-duration: 0.35s !important; transition-delay: 0s !important; }
 
   /* Template names — global because they're created in JS (no scoped attribute).
      Pure text, no button chrome. */
@@ -368,5 +358,73 @@ const pad2 = (n) => String(n).padStart(2, "0");
   }
   @media (prefers-reduced-motion: reduce) {
     .sh-row, .sh-portrait, .sh-load { transition-duration: 0.01ms !important; }
+  }
+</style>
+
+<style>
+  /* ---------- RESTING: rotating 3D card ring ---------- */
+  .cr { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; }
+
+  /* three-line serif title, rising out from behind the cards */
+  .cr-title {
+    position: absolute; left: 50%; top: 49%; transform: translate(-50%, -50%); z-index: 0;
+    margin: 0; text-align: center; pointer-events: none;
+    font-family: var(--serif); font-weight: 500; color: var(--ink);
+    font-size: clamp(34px, 5.6vw, 90px); line-height: 1.0; letter-spacing: -0.02em;
+  }
+  .cr-title span { display: block; opacity: 0; transform: translateY(28px); }
+  .cr-title.is-in span {
+    opacity: 1; transform: none;
+    transition: opacity 0.9s ease, transform 0.9s cubic-bezier(.2,.75,.2,1);
+    transition-delay: calc(var(--l) * 140ms);
+  }
+
+  /* perspective stage */
+  .cr-viewport {
+    position: relative; width: 100%; height: 100%; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    perspective: 1500px; perspective-origin: 50% 47%;
+    cursor: grab; touch-action: pan-y; -webkit-tap-highlight-color: transparent;
+  }
+  .cr-viewport:active { cursor: grabbing; }
+
+  .cr-ring {
+    position: relative; transform-style: preserve-3d; will-change: transform;
+    width: clamp(150px, 16vw, 230px); height: clamp(200px, 22vw, 300px);
+    opacity: 0; transform: translateZ(-600px);
+  }
+  .cr-ring.is-in { opacity: 1; transition: opacity 1s ease; }
+
+  .cr-card {
+    position: absolute; inset: 0; display: block; border-radius: 16px; overflow: hidden;
+    background-size: cover; background-position: center; background-color: #e9e6e1;
+    box-shadow: 0 16px 38px rgba(28,29,34,0.18);
+    transform: rotateY(calc(var(--i) * var(--step))) translateZ(var(--radius));
+    backface-visibility: hidden;
+    transition: box-shadow 0.4s ease;
+  }
+  .cr-card.is-front { box-shadow: 0 34px 80px rgba(28,29,34,0.32); }
+
+  .cr-controls {
+    position: absolute; left: 50%; bottom: clamp(22px, 5vh, 60px); transform: translateX(-50%); z-index: 4;
+    display: flex; align-items: center; gap: 18px; opacity: 0;
+  }
+  .cr-controls.is-in { opacity: 1; transition: opacity 0.8s ease; }
+  .cr-arrow {
+    appearance: none; -webkit-appearance: none; width: 46px; height: 46px; border-radius: 50%;
+    border: 1px solid rgba(28,29,34,0.16); background: rgba(255,255,255,0.72); backdrop-filter: blur(8px);
+    color: var(--ink); font-size: 13px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+  .cr-arrow:hover { background: #fff; transform: scale(1.06); }
+  .cr-hint {
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: rgba(28,29,34,0.42);
+  }
+
+  @media (max-width: 760px) {
+    .cr-title { font-size: clamp(28px, 8vw, 46px); top: 47%; }
+    .cr-ring { width: 46vw; height: 60vw; }
   }
 </style>
