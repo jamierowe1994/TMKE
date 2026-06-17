@@ -72,41 +72,8 @@ const links: { label: string; href: string }[] = [
   </aside>
 </div>
 
-<script>
-  // Splash is now a pure-CSS animation — no media to prefetch.
-
-  // If the user already has a Supabase session, swap the Login button to take
-  // them to their library. First-time logins (no brand kit yet) get routed via
-  // the brand-kit profile, fronted by the brand splash overlay.
-  import { supabase } from "../lib/supabase.js";
-  (async () => {
-    const btns = Array.from(document.querySelectorAll(".js-nav-login"));
-    if (!btns.length) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    btns.forEach((btn) => {
-      // Desktop CTA wraps its label in <span>; drawer link uses
-      // .nav-drawer-login-label. Both swap to "Library" when signed in.
-      const label = btn.querySelector(".nav-drawer-login-label") || btn.querySelector("span");
-      if (label) label.textContent = "Library";
-      btn.setAttribute("href", "/account");
-      btn.setAttribute("aria-label", "Open your TMKE library");
-
-      btn.addEventListener("click", function (e) {
-        let firstTime = false;
-        try {
-          firstTime = !localStorage.getItem("tmke.brand") && !localStorage.getItem("tmke.brand.skipped");
-        } catch (_) { /* ignore */ }
-        const dest = firstTime ? "/profile?next=/account" : "/account";
-        if (typeof window.tmkeSplash === "function") {
-          e.preventDefault();
-          window.tmkeSplash(dest);
-        }
-      });
-    });
-  })();
-</script>
+<!-- Signed-in swap (Login → Library) is handled site-wide by LoginState, which
+     BaseLayout renders on every page so the chrome-less deck pages get it too. -->
 
 <script is:inline>
   // Mobile drawer — opens off-canvas from the right. Desktop hides the

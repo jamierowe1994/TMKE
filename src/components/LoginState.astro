@@ -1,0 +1,38 @@
+---
+// Reflects the signed-in state on every login control, site-wide. Any element
+// with the `js-nav-login` class swaps "Login" → "Library" (→ /account, via the
+// members splash) when a Supabase session exists. Rendered by BaseLayout so it
+// runs on the chrome-less deck pages (/services, /videography) too — not just
+// where the global <Nav> is present.
+---
+<script>
+  import { supabase } from "../lib/supabase.js";
+  (async () => {
+    const btns = Array.from(document.querySelectorAll(".js-nav-login"));
+    if (!btns.length) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    btns.forEach((btn) => {
+      // Desktop CTA / deck link wrap the label in a <span>; the drawer link uses
+      // .nav-drawer-login-label; a bare link (no child) falls back to textContent.
+      const label = btn.querySelector(".nav-drawer-login-label") || btn.querySelector("span");
+      if (label) label.textContent = "Library";
+      else btn.textContent = "Library";
+      btn.setAttribute("href", "/account");
+      btn.setAttribute("aria-label", "Open your TMKE library");
+
+      btn.addEventListener("click", function (e) {
+        let firstTime = false;
+        try {
+          firstTime = !localStorage.getItem("tmke.brand") && !localStorage.getItem("tmke.brand.skipped");
+        } catch (_) { /* ignore */ }
+        const dest = firstTime ? "/profile?next=/account" : "/account";
+        if (typeof window.tmkeSplash === "function") {
+          e.preventDefault();
+          window.tmkeSplash(dest);
+        }
+      });
+    });
+  })();
+</script>
