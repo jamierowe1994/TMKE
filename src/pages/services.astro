@@ -648,8 +648,9 @@ const total = 7;
 
       const SENS = 0.001;    // wheel → progress (slow + gradual: ~one slide per scroll)
       const EASE = 0.055;    // lerp toward target (lower = floatier/smoother)
+      const SLOW_EASE = 0.03; // slower glide for slides 6 & 7 coming in
       const THRESH = 3;      // slides 1–4 (idx 0–3) float freely; 5–7 snap into place
-      const PAUSE = 600;     // ms hold after each snap (5→6, 6→7) so it settles before the next
+      const PAUSE = 800;     // ms hold after each snap (5→6, 6→7) so it settles before the next
       let acc = 0, display = 0, lastCur = -1, anchor = THRESH, lockUntil = 0;
       const clamp = (v) => Math.max(0, Math.min(last, v));
       // free region = continuous (slides 1–4); snap region = stepped with a settle
@@ -683,7 +684,8 @@ const total = 7;
         // advance stays gradual, ~one slide per scroll.
         acc = Math.max(display - 1, Math.min(display + 1, acc));
         const t = targetOf(performance.now());
-        display += (t - display) * EASE;
+        const ease = t >= 5 ? SLOW_EASE : EASE;   // slides 6 & 7 glide in slower
+        display += (t - display) * ease;
         if (Math.abs(t - display) < 0.0004) display = t;
         render();
         requestAnimationFrame(tick);
