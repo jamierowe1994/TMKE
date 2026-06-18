@@ -297,25 +297,21 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   <section class="tle-section" id="team">
     <header class="tle-head tle-reveal">
       <div>
-        <div class="tle-label">( The team )</div>
         <h2 class="tle-h">Letting Experts you can trust.</h2>
       </div>
       <a href="#" class="tle-link">View all Agents &rarr;</a>
     </header>
-    <div class="tle-team-scroller" id="tle-team-scroller">
-      <div class="tle-team-track">
-        {TEAM.map((m) => (
-          <article class="tle-member">
-            <div class="tle-member-photo"><img src={m.photo} alt={m.name} loading="lazy" /></div>
-            <div class="tle-member-info">
-              <h3 class="tle-member-name">{m.name}</h3>
-              <div class="tle-member-role">{m.role} Letting Expert</div>
-            </div>
-          </article>
-        ))}
-      </div>
+    <div class="tle-team-arc" id="tle-team-arc">
+      {TEAM.map((m, i) => (
+        <div class="tle-arc-member" data-i={i} data-name={m.name} data-role={`${m.role} Letting Expert`}>
+          <div class="tle-arc-photo"><img src={m.photo} alt={m.name} loading="lazy" /></div>
+        </div>
+      ))}
     </div>
-    <p class="tle-team-hint">Drag to meet the team &middot; hover a face for details</p>
+    <div class="tle-team-caption" id="tle-team-caption">
+      <h3 class="tle-team-caption-name"></h3>
+      <div class="tle-team-caption-role"></div>
+    </div>
   </section>
 
   <!-- ============ Latest Articles — edge-to-edge video rotator ============ -->
@@ -547,8 +543,8 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .cb-fill { inset: 0; overflow: hidden; z-index: 1; }
   .cb-fill::before {
     content: ""; position: absolute; inset: -110%;
-    background: conic-gradient(from 0deg, #ff3b5c, #b3122f, #e31f36, #ff6b81, #8e0f25, #ff2e54, #c0142f, #e31f36);
-    filter: blur(7px); opacity: 0.06; animation: cbSwirl 10s linear infinite;
+    background: conic-gradient(from 0deg, #e31f36, #b3122f, #e31f36, #8e0f25, #d11a3a, #ff3b5c, #c0142f, #e31f36);
+    filter: blur(7px) saturate(0.85); opacity: 0.32; animation: cbSwirl 9s linear infinite;
   }
   .cb-gloss { z-index: 3; top: 2px; left: 12%; right: 12%; height: 46%; background: linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(255,255,255,0.03)); }
   /* Subtle glass edge, only when the pill is shown. */
@@ -562,8 +558,9 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
 
   .tle-nav.is-stuck .tle-nav-contact {
     color: #fff; padding: 12px 26px; font-weight: 700;
-    background: var(--ink);
-    /* Small drop shadow at the foot — stays within the nav. */
+    /* Glassy translucent base so the faint red swirl reads through it. */
+    background: rgba(22, 23, 26, 0.78);
+    backdrop-filter: blur(10px) saturate(1.1); -webkit-backdrop-filter: blur(10px) saturate(1.1);
     box-shadow: 0 5px 12px -6px rgba(0,0,0,0.5);
   }
   .tle-nav.is-stuck .tle-nav-contact .cb-fill,
@@ -722,37 +719,47 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   /* Wide but brought in a touch; square corners; the header matches the width. */
   #properties { padding-left: clamp(26px, 2.8vw, 48px); padding-right: clamp(26px, 2.8vw, 48px); }
 
-  /* ---- Entrance: cards build in (Garland + the two small ones rise, Chapter
-     slides from the left), then the heading slides in and the red dot springs
-     out and snaps back. Plays once on scroll-in. ---- */
-  #properties .tle-prop { opacity: 0; transition: opacity .7s ease, transform .85s cubic-bezier(.16, 1, .3, 1); }
-  #properties .tle-props > :nth-child(1),
-  #properties .tle-props > :nth-child(2),
-  #properties .tle-props > :nth-child(3) { transform: translateY(54px); }
-  #properties .tle-prop--wide { transform: translateX(-72px); }
-  #properties.props-in .tle-prop { opacity: 1; transform: none; }
-  #properties.props-in .tle-props > :nth-child(1) { transition-delay: .05s; }
-  #properties.props-in .tle-props > :nth-child(2) { transition-delay: .16s; }
-  #properties.props-in .tle-props > :nth-child(3) { transition-delay: .26s; }
-  #properties.props-in .tle-props > :nth-child(4) { transition-delay: .40s; }
+  /* ---- Entrance: holds until you're ~3/4 into the section, then the cards
+     slide into place (Garland + the two small ones rise, Chapter slides from
+     the left), the heading slides in from the left and knocks the red dot,
+     which pops off the line, falls, bounces and rolls back. The hold lives on
+     :not(.props-in) so the settled state is the plain default (no stuck
+     transforms — which keeps Chapter aligned with Garland). ---- */
+  #properties .tle-prop { transition: opacity .45s ease, transform .8s cubic-bezier(.16, 1, .3, 1); }
+  #properties:not(.props-in) .tle-prop { opacity: 0; }
+  #properties:not(.props-in) .tle-props > :nth-child(1),
+  #properties:not(.props-in) .tle-props > :nth-child(2),
+  #properties:not(.props-in) .tle-props > :nth-child(3) { transform: translateY(60px); }
+  #properties:not(.props-in) .tle-prop--wide { transform: translateX(-90px); }
+  #properties.props-in .tle-props > :nth-child(1) { transition-delay: .04s; }
+  #properties.props-in .tle-props > :nth-child(2) { transition-delay: .14s; }
+  #properties.props-in .tle-props > :nth-child(3) { transition-delay: .24s; }
+  #properties.props-in .tle-props > :nth-child(4) { transition-delay: .38s; }
 
-  #properties .tle-head--props .tle-h { opacity: 0; transform: translateX(-48px); transition: opacity .55s ease, transform .7s cubic-bezier(.16, 1, .3, 1); transition-delay: .58s; }
-  #properties.props-in .tle-head--props .tle-h { opacity: 1; transform: none; }
-  #properties .tle-head--props .tle-link { opacity: 0; transition: opacity .5s ease; transition-delay: .82s; }
-  #properties.props-in .tle-head--props .tle-link { opacity: 1; }
+  /* Heading slides in from the left, clipped (a slide, not a fade). */
+  #properties .tle-head--props > div { overflow: hidden; }
+  #properties .tle-head--props .tle-h { transition: transform .7s cubic-bezier(.16, 1, .3, 1); transition-delay: .56s; }
+  #properties:not(.props-in) .tle-head--props .tle-h { transform: translateX(-115%); }
+  #properties .tle-head--props .tle-link { transition: opacity .5s ease; transition-delay: .9s; }
+  #properties:not(.props-in) .tle-head--props .tle-link { opacity: 0; }
 
-  .tle-dot { display: inline-block; }
-  #properties.props-in .tle-dot { animation: tleDotElastic 1s cubic-bezier(.3, 1.2, .4, 1) 1.05s both; }
-  @keyframes tleDotElastic {
-    0%   { transform: translateX(-9px); }
-    35%  { transform: translateX(0); }
-    56%  { transform: translateX(15px); }
-    74%  { transform: translateX(-5px); }
-    88%  { transform: translateX(2px); }
-    100% { transform: translateX(0); }
+  .tle-dot { display: inline-block; transform-origin: center; }
+  #properties.props-in .tle-dot { animation: tleDotBounce 1.15s cubic-bezier(.5, 1.3, .5, 1) 1.0s both; }
+  @keyframes tleDotBounce {
+    0%   { transform: translate(-12px, 0) scale(1); }
+    22%  { transform: translate(0, 0) scale(1); }            /* caught up to the line */
+    34%  { transform: translate(16px, -12px) scale(1.3); }   /* knocked: pops up & right */
+    48%  { transform: translate(11px, 7px) scale(1.05); }    /* falls down */
+    60%  { transform: translate(5px, -7px) scale(1.14); }    /* bounces up */
+    72%  { transform: translate(2px, 4px) scale(0.98); }     /* settles */
+    84%  { transform: translate(-1px, -3px) scale(1.05); }   /* small bubble */
+    93%  { transform: translate(0, 1px) scale(1); }
+    100% { transform: translate(0, 0) scale(1); }            /* rolls back into place */
   }
   @media (prefers-reduced-motion: reduce) {
-    #properties .tle-prop, #properties .tle-head--props .tle-h, #properties .tle-head--props .tle-link { opacity: 1; transform: none; transition: none; }
+    #properties:not(.props-in) .tle-prop,
+    #properties:not(.props-in) .tle-head--props .tle-h,
+    #properties:not(.props-in) .tle-head--props .tle-link { opacity: 1; transform: none; }
     #properties.props-in .tle-dot { animation: none; }
   }
   .tle-props {
@@ -907,35 +914,27 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-quote figcaption strong { font-weight: 700; font-size: 14px; }
   .tle-quote figcaption span { font-size: 12px; color: var(--grey); }
 
-  /* ---- Team — coverflow scroller: centre face biggest, details on hover ---- */
-  .tle-team-scroller {
-    overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
-    scrollbar-width: none; -ms-overflow-style: none; cursor: grab;
+  /* ---- Team — auto-rotating arc: centre face biggest, the rest trend down and
+     shrink into a semi-circle, edges fade out. JS positions each member. ---- */
+  .tle-team-arc {
+    position: relative; height: clamp(360px, 44vh, 500px); margin-top: clamp(10px, 2vw, 26px);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%);
   }
-  .tle-team-scroller::-webkit-scrollbar { display: none; }
-  .tle-team-scroller.is-dragging { cursor: grabbing; }
-  .tle-team-track {
-    display: flex; align-items: flex-start; gap: clamp(14px, 1.6vw, 30px);
-    width: max-content; padding: 34px max(24px, calc(50% - 100px)) 8px;
+  .tle-arc-member {
+    position: absolute; left: 50%; top: 34%; width: clamp(110px, 12vw, 158px); margin-left: 0;
+    will-change: transform, opacity;
   }
-  .tle-member { flex: 0 0 auto; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; }
-  .tle-member-photo {
-    width: clamp(130px, 15vw, 190px); aspect-ratio: 1; border-radius: 18px; overflow: hidden;
+  .tle-arc-photo {
+    width: 100%; aspect-ratio: 1; border-radius: 20px; overflow: hidden;
     background: var(--surface); border: 1px solid var(--line);
-    transform: scale(var(--s, 0.78)); transform-origin: center bottom;
-    opacity: var(--o, 0.82);
-    transition: transform .28s cubic-bezier(.16,1,.3,1), opacity .28s, box-shadow .28s;
+    box-shadow: 0 26px 50px -28px rgba(0,0,0,0.35);
   }
-  .tle-member-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
-  .tle-member.is-focus .tle-member-photo { box-shadow: 0 36px 70px -34px rgba(0,0,0,0.4); }
-  .tle-member-info {
-    margin-top: 20px; text-align: center; opacity: 0; transform: translateY(8px);
-    transition: opacity .3s ease, transform .3s ease; pointer-events: none;
-  }
-  .tle-member:hover .tle-member-info, .tle-member.is-focus .tle-member-info { opacity: 1; transform: none; }
-  .tle-member-name { font-size: 15px; font-weight: 700; margin: 0 0 3px; }
-  .tle-member-role { font-size: 12px; color: var(--red); font-weight: 600; }
-  .tle-team-hint { text-align: center; font-size: 12px; color: var(--grey); letter-spacing: 0.04em; margin: 16px 0 0; }
+  .tle-arc-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+
+  .tle-team-caption { text-align: center; margin-top: clamp(6px, 1vw, 16px); min-height: 44px; }
+  .tle-team-caption-name { font-size: 16px; font-weight: 700; margin: 0 0 3px; transition: opacity .3s ease; }
+  .tle-team-caption-role { font-size: 13px; color: var(--red); font-weight: 600; transition: opacity .3s ease; }
 
   /* ---- Blog ---- */
   /* ---- Latest Articles — near edge-to-edge video with a rotating overlay ---- */
@@ -1049,7 +1048,7 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       entries.forEach((e) => {
         if (e.isIntersecting) { sec.classList.add("props-in"); io.unobserve(e.target); }
       });
-    }, { threshold: 0.15, rootMargin: "0px 0px -18% 0px" });
+    }, { threshold: 0, rootMargin: "0px 0px -48% 0px" });
     io.observe(sec);
   })();
 
@@ -1097,53 +1096,72 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     onScroll();
   })();
 
-  /* Team coverflow — the card nearest the centre is biggest; the rest shrink and
-     fade with distance. Drag (or trackpad/touch) to move through them. */
+  /* Team — auto-rotating arc. Each member sits on a semi-circle: the centre is
+     biggest and highest, the rest trend down and shrink, the edges fade. A
+     floating "pos" advances over time so the whole arc rotates. */
   (function () {
-    const scroller = document.getElementById("tle-team-scroller");
-    if (!scroller) return;
-    const cards = Array.prototype.slice.call(scroller.querySelectorAll(".tle-member"));
-    if (!cards.length) return;
+    const arc = document.getElementById("tle-team-arc");
+    if (!arc) return;
+    const members = Array.prototype.slice.call(arc.querySelectorAll(".tle-arc-member"));
+    const N = members.length;
+    if (!N) return;
+    const capName = document.querySelector(".tle-team-caption-name");
+    const capRole = document.querySelector(".tle-team-caption-role");
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    function update() {
-      const sc = scroller.getBoundingClientRect();
-      const mid = sc.left + sc.width / 2;
-      let best = null, bestD = Infinity;
-      cards.forEach((c) => {
-        const photo = c.querySelector(".tle-member-photo");
-        const r = photo.getBoundingClientRect();
-        const cc = r.left + r.width / 2;
-        const d = Math.abs(cc - mid);
-        const n = Math.min(d / (sc.width / 2), 1);
-        photo.style.setProperty("--s", (1 - n * 0.30).toFixed(3));
-        photo.style.setProperty("--o", (1 - n * 0.45).toFixed(3));
-        if (d < bestD) { bestD = d; best = c; }
-      });
-      cards.forEach((c) => c.classList.toggle("is-focus", c === best));
+    let pos = 0, target = 0, last = 0, lastStep = 0, lastCenter = -1, visible = true;
+
+    function wrapD(i) {
+      let d = (i - pos) % N;
+      if (d > N / 2) d -= N;
+      if (d < -N / 2) d += N;
+      return d;
     }
 
-    let raf = 0;
-    scroller.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }, { passive: true });
-    window.addEventListener("resize", update);
+    function layout() {
+      const w = arc.clientWidth || 900;
+      const R = Math.min(560, w * 0.46);   // horizontal amplitude
+      const Y = R * 0.42;                   // vertical drop amplitude
+      const step = 0.4;                     // radians between neighbours
+      let centerEl = null, centerAbs = Infinity;
+      members.forEach((el, i) => {
+        const d = wrapD(i);
+        const a = d * step;
+        const x = Math.sin(a) * R;
+        const y = (1 - Math.cos(a)) * Y;
+        const scale = Math.max(0.34, 1 - Math.abs(d) * 0.24);
+        const op = Math.max(0, Math.min(1, 1.18 - Math.abs(d) * 0.34));
+        el.style.transform = "translate(-50%, 0) translate(" + x.toFixed(1) + "px, " + y.toFixed(1) + "px) scale(" + scale.toFixed(3) + ")";
+        el.style.opacity = op.toFixed(2);
+        el.style.zIndex = String(Math.round(100 - Math.abs(d) * 12));
+        if (Math.abs(d) < centerAbs) { centerAbs = Math.abs(d); centerEl = el; }
+      });
+      const idx = centerEl ? +centerEl.dataset.i : 0;
+      if (idx !== lastCenter && capName) {
+        lastCenter = idx;
+        capName.textContent = centerEl.dataset.name;
+        capRole.textContent = centerEl.dataset.role;
+      }
+    }
 
-    // Drag-to-scroll (mouse / pen).
-    let down = false, startX = 0, startScroll = 0;
-    scroller.addEventListener("pointerdown", (e) => {
-      down = true; startX = e.clientX; startScroll = scroller.scrollLeft;
-      scroller.classList.add("is-dragging");
-    });
-    window.addEventListener("pointermove", (e) => {
-      if (!down) return;
-      scroller.scrollLeft = startScroll - (e.clientX - startX);
-    });
-    window.addEventListener("pointerup", () => { down = false; scroller.classList.remove("is-dragging"); });
-
-    // Centre the middle card on load.
-    requestAnimationFrame(() => {
-      const m = cards[Math.floor(cards.length / 2)];
-      if (m) scroller.scrollLeft = m.offsetLeft + m.offsetWidth / 2 - scroller.clientWidth / 2;
-      update();
-    });
+    function frame(t) {
+      if (!last) { last = t; lastStep = t; }
+      last = t;
+      if (visible && !reduce) {
+        // Dwell on each agent for a beat, then ease across to the next.
+        if (t - lastStep > 2600) { target += 1; lastStep = t; }
+        pos += (target - pos) * 0.07;
+      }
+      layout();
+      requestAnimationFrame(frame);
+    }
+    layout();
+    requestAnimationFrame(frame);
+    window.addEventListener("resize", layout);
+    // Pause the rotation while the arc is off screen.
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver((es) => { es.forEach((e) => { visible = e.isIntersecting; }); }, { threshold: 0 }).observe(arc);
+    }
   })();
 
   /* Property preview modal — homepage cards open a highlights pop-out instead
