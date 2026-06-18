@@ -226,65 +226,56 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
     .edit-empty p { max-width: 520px; line-height: 1.6; }
 
-    /* ============ Editorial mosaic ============
-       Every cover is the source 3:4 (Instagram 1080×1440), so images are never
-       cropped or blown up — the scatter comes from COLUMN WIDTH and PLACEMENT,
-       not from varying the aspect ratio. Widths step down across the layout and
-       the narrower card in each row drops to the baseline (align-self:end) for
-       a deliberate, offset feel rather than a tidy row.
-
-         Row 1:  [#1  span 6]      ·gap·   [#2  span 5, dropped]
-         Row 2:  [#3  span 5]  [#4  span 4, dropped]  [#5  span 3]            */
+    /* ============ Catalogue — horizontal cards ============
+       Each card is a row: the 3:4 cover on the LEFT (scaled down) with the
+       title / price / description / Buy stacked on the RIGHT beside it. A fluid
+       auto-fill grid keeps the catalogue full-width and adds columns as the
+       screen grows. */
     .edit-mosaic {
       display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      grid-auto-rows: min-content;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr));
+      gap: clamp(40px, 4vw, 64px) clamp(28px, 2.5vw, 48px);
       align-items: start;
-      gap: clamp(40px, 4vw, 64px) 28px;
     }
 
     .edit-card {
       position: relative;
-      grid-column: span 6;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      align-items: stretch;
+      gap: clamp(20px, 1.8vw, 36px);
       background: transparent;
       color: var(--ink);
       isolation: isolate;
     }
-    /* Wrap the cover + body in a real <a> so the whole top of the card
-       routes to the detail page. The Buy button below sits outside it
-       and is the only click that opens checkout. */
+    /* Cover (image) on the left — a slice of the card width so the details sit
+       beside it rather than below. */
     .edit-card-link {
+      flex: 0 0 58%;
+      min-width: 0;
+      display: block;
+      color: inherit;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    /* Details column on the right: title/price/desc up top, Buy pinned bottom. */
+    .edit-card-aside {
+      flex: 1 1 0;
+      min-width: 0;
       display: flex;
       flex-direction: column;
+    }
+    .edit-card-bodylink {
+      display: block;
       color: inherit;
       text-decoration: none;
       cursor: pointer;
     }
 
-    /* Widths vary (6/5, then 5/4/3) for size variety; the narrower card in
-       each row gets align-self:end so its top sits lower — the scatter. The
-       single empty column in row 1 (col 7) is intentional breathing room. */
-    .edit-card:nth-child(1) { grid-column: 1 / span 6; }
-    .edit-card:nth-child(2) { grid-column: 8 / span 5; align-self: end; }
-    .edit-card:nth-child(3) { grid-column: span 5; }
-    .edit-card:nth-child(4) { grid-column: span 4; align-self: end; }
-    .edit-card:nth-child(5) { grid-column: span 3; }
-
-    @media (max-width: 1080px) {
-      .edit-mosaic { grid-template-columns: repeat(6, 1fr); gap: 36px 22px; }
-      .edit-card,
-      .edit-card:nth-child(n) { grid-column: span 3; align-self: start; }
-      /* lone 5th card sits centred under the two pairs */
-      .edit-card:nth-child(5) { grid-column: 2 / span 4; }
-      .edit-card:nth-child(2),
-      .edit-card:nth-child(4) { align-self: end; }
-    }
-    @media (max-width: 720px) {
-      .edit-mosaic { grid-template-columns: 1fr; gap: 28px 0; }
-      .edit-card,
-      .edit-card:nth-child(n) { grid-column: span 1; }
+    /* Stack image-over-details on narrow screens — a row is too cramped. */
+    @media (max-width: 640px) {
+      .edit-card { flex-direction: column; gap: 18px; }
+      .edit-card-link { flex: none; }
     }
 
     /* Every cover matches the source 3:4 (1080×1440) — no crop, no blow-up,
@@ -373,10 +364,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     .edit-card-body {
-      padding: 22px 4px 0;
+      padding: 0;
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 8px 24px;
+      gap: 8px 20px;
       align-items: end;
     }
     .edit-card-title {
@@ -412,8 +403,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      margin-top: 18px;
-      padding-top: 14px;
+      margin-top: auto;            /* pin Buy to the bottom of the details column */
+      padding-top: 18px;
       border-top: 1px solid rgba(28, 29, 34, 0.18);
     }
     .edit-card-meta {
@@ -448,9 +439,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       text-transform: none;
       margin-left: 8px;
     }
-
-    /* The hero (first) card gets a touch more title presence. */
-    .edit-card:nth-child(1) .edit-card-title { font-size: clamp(30px, 2.6vw, 40px); }
 
     /* ============ Checkout modal ============ */
     .checkout-backdrop[hidden] { display: none !important; }
@@ -919,17 +907,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <span class="edit-card-num">№ ${num}</span>
               ${p.category ? `<span class="edit-card-cat">${escapeHtml(p.category)}</span>` : ''}
             </div>
-            <div class="edit-card-body">
-              <h3 class="edit-card-title">${escapeHtml(p.title)}</h3>
-              <span class="edit-card-price">${priceLabel}</span>
-              ${p.description ? `<p class="edit-card-desc">${escapeHtml(p.description)}</p>` : '<p class="edit-card-desc"></p>'}
-            </div>
           </a>
-          <div class="edit-card-foot">
-            <span class="edit-card-meta">${escapeHtml(tag)}</span>
-            <button type="button" class="edit-card-buy" data-buy="${p.id}">
-              Buy pack <em>&rarr;</em>
-            </button>
+          <div class="edit-card-aside">
+            <a class="edit-card-bodylink" href="/edit/${encodeURIComponent(p.slug)}" aria-label="See inside ${escapeHtml(p.title)}">
+              <div class="edit-card-body">
+                <h3 class="edit-card-title">${escapeHtml(p.title)}</h3>
+                <span class="edit-card-price">${priceLabel}</span>
+                ${p.description ? `<p class="edit-card-desc">${escapeHtml(p.description)}</p>` : '<p class="edit-card-desc"></p>'}
+              </div>
+            </a>
+            <div class="edit-card-foot">
+              <span class="edit-card-meta">${escapeHtml(tag)}</span>
+              <button type="button" class="edit-card-buy" data-buy="${p.id}">
+                Buy pack <em>&rarr;</em>
+              </button>
+            </div>
           </div>
         </article>
       `;
