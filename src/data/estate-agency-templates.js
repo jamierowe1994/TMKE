@@ -63,7 +63,7 @@ export const templates = [
   },
   {
     slug: "tle",
-    name: "The Lettings Expert",
+    name: "The Letting Experts",
     category: "Lettings",
     tagline: "Airy editorial white-and-red, lettings-led",
     summary:
