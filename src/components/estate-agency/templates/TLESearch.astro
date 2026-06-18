@@ -1,0 +1,197 @@
+---
+// THE LETTING EXPERTS — property-search page. Layout mirrors a modern portal:
+// a solid nav, a sticky filter toolbar, a map pinned on the left and a
+// scrolling grid of results on the right. Map is a free OpenStreetMap embed;
+// listings + filters are placeholders for the concept.
+
+const HOME = "/estate-agency/preview/tle";
+
+// London-ish view for the demo map.
+const MAP_SRC =
+  "https://www.openstreetmap.org/export/embed.html?bbox=-0.34%2C51.39%2C0.12%2C51.61&layer=mapnik&marker=51.5074%2C-0.1278";
+
+const FILTERS = ["Neighbourhoods", "To Let", "Price", "Property type", "Beds & Baths"];
+
+const RESULTS = [
+  { area: "Garland Road, Poole, BH15",            type: "Flat",      beds: 1, baths: 1, pcm: "£725 pcm",   tag: "Let agreed" },
+  { area: "Glenfield Road, Leicester, LE3",       type: "Flat",      beds: 1, baths: 1, pcm: "£715 pcm",   tag: "To let" },
+  { area: "Douglas Gardens Mews, Edinburgh, EH4", type: "House",     beds: 3, baths: 2, pcm: "£2,600 pcm", tag: "To let" },
+  { area: "Chapter Road, London, NW2",            type: "Flat",      beds: 3, baths: 1, pcm: "£2,400 pcm", tag: "To let" },
+  { area: "Mill Lane, Bristol, BS3",              type: "House",     beds: 2, baths: 1, pcm: "£1,350 pcm", tag: "To let" },
+  { area: "Queens Road, Birmingham, B16",         type: "Apartment", beds: 2, baths: 2, pcm: "£1,150 pcm", tag: "To let" },
+  { area: "Park View, Milton Keynes, MK9",        type: "Flat",      beds: 1, baths: 1, pcm: "£950 pcm",   tag: "To let" },
+  { area: "High Street, Oxford, OX1",             type: "House",     beds: 4, baths: 2, pcm: "£2,950 pcm", tag: "To let" },
+];
+---
+
+<div class="tls-root">
+  <!-- Nav (solid) -->
+  <header class="tls-nav">
+    <a class="tls-logo" href={HOME}>The&nbsp;Letting&nbsp;<span>Experts</span></a>
+    <nav class="tls-nav-links">
+      <a class="is-active" href="#">Search</a>
+      <a href={`${HOME}#team`}>Agents</a>
+      <a href={`${HOME}#services`}>Landlords</a>
+      <a href={`${HOME}#reviews`}>About</a>
+    </nav>
+    <a class="tls-signin" href="#">Sign In</a>
+  </header>
+
+  <!-- Filter toolbar -->
+  <div class="tls-toolbar">
+    <label class="tls-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>
+      <input type="text" placeholder="Enter property address" />
+    </label>
+    <div class="tls-filters">
+      {FILTERS.map((f) => (
+        <button type="button" class="tls-filter">
+          {f}
+          <svg class="tls-fchev" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 1.5 6 6.5l5-5" /></svg>
+        </button>
+      ))}
+    </div>
+    <div class="tls-toggle">
+      <button type="button" class="is-active">Map</button>
+      <button type="button">List</button>
+    </div>
+  </div>
+
+  <!-- Map + results -->
+  <div class="tls-body">
+    <div class="tls-map">
+      <iframe src={MAP_SRC} loading="lazy" title="Map of available properties"></iframe>
+    </div>
+
+    <div class="tls-results">
+      <div class="tls-results-head">
+        <strong>1,248 results</strong>
+        <span class="tls-sort">Sort: <b>Newest</b>
+          <svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 1.5 6 6.5l5-5" /></svg>
+        </span>
+      </div>
+
+      <div class="tls-grid">
+        {RESULTS.map((p) => (
+          <article class="tls-card">
+            <div class="tls-card-img tls-ph">
+              <span>Property image</span>
+              <em class="tls-card-tag">{p.tag}</em>
+            </div>
+            <div class="tls-card-body">
+              <div class="tls-card-price">{p.pcm}</div>
+              <div class="tls-card-meta">{p.type} · To Let · {p.beds} bed · {p.baths} bath</div>
+              <div class="tls-card-addr">{p.area}</div>
+              <div class="tls-card-actions">
+                <button type="button" aria-label="Book a viewing">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 9h18M8 3v4M16 3v4" /></svg>
+                </button>
+                <button type="button" aria-label="Enquire">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+                </button>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+  .tls-root {
+    --red: #e31f36; --ink: #16171a; --grey: #6e6e76; --line: #e7e7ea; --surface: #f4f4f5;
+    --nav-h: 64px; --tb-h: 62px;
+    font-family: "Montserrat", system-ui, sans-serif; color: var(--ink); background: #fff;
+    -webkit-font-smoothing: antialiased; line-height: 1.5;
+  }
+  .tls-root *, .tls-root *::before, .tls-root *::after { box-sizing: border-box; }
+  .tls-root a { color: inherit; text-decoration: none; }
+  .tls-root button { font-family: inherit; cursor: pointer; }
+
+  /* Nav */
+  .tls-nav {
+    position: sticky; top: 0; z-index: 30; height: var(--nav-h);
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    padding: 0 clamp(18px, 4vw, 44px);
+    background: #fff; border-bottom: 1px solid var(--line);
+  }
+  .tls-logo { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+  .tls-logo span { color: var(--red); }
+  .tls-nav-links { display: flex; gap: 26px; }
+  .tls-nav-links a { font-size: 14px; font-weight: 500; color: var(--grey); transition: color .2s; }
+  .tls-nav-links a:hover, .tls-nav-links a.is-active { color: var(--ink); }
+  .tls-signin { font-size: 13px; font-weight: 700; color: #fff; background: var(--ink); padding: 10px 20px; border-radius: 11px; transition: background .2s; }
+  .tls-signin:hover { background: var(--red); }
+  @media (max-width: 760px) { .tls-nav-links { display: none; } }
+
+  /* Toolbar */
+  .tls-toolbar {
+    position: sticky; top: var(--nav-h); z-index: 25; min-height: var(--tb-h);
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 11px clamp(18px, 4vw, 44px);
+    background: #fff; border-bottom: 1px solid var(--line);
+  }
+  .tls-search {
+    display: inline-flex; align-items: center; gap: 9px; flex: 1 1 240px; min-width: 200px; max-width: 340px;
+    border-bottom: 1.5px solid var(--ink); padding: 6px 2px; color: var(--grey);
+  }
+  .tls-search svg { width: 17px; height: 17px; flex: none; }
+  .tls-search input { border: 0; outline: 0; background: none; font: inherit; font-size: 14px; color: var(--ink); width: 100%; }
+  .tls-filters { display: flex; gap: 9px; flex-wrap: wrap; flex: 1 1 auto; }
+  .tls-filter {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; color: var(--ink);
+    background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 9px 13px;
+    transition: border-color .2s, background .2s;
+  }
+  .tls-filter:hover { border-color: var(--ink); background: var(--surface); }
+  .tls-fchev { width: 10px; height: 7px; color: var(--grey); }
+  .tls-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .tls-toggle button { font-size: 13px; font-weight: 700; color: var(--grey); background: #fff; border: 0; padding: 9px 20px; }
+  .tls-toggle button.is-active { background: var(--ink); color: #fff; }
+
+  /* Body — map pinned left, results scroll right */
+  .tls-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.06fr); }
+  .tls-map { position: sticky; top: calc(var(--nav-h) + var(--tb-h)); height: calc(100vh - var(--nav-h) - var(--tb-h)); border-right: 1px solid var(--line); }
+  .tls-map iframe { width: 100%; height: 100%; border: 0; display: block; filter: saturate(0.92); }
+
+  .tls-results { padding: 18px clamp(16px, 2vw, 28px) 48px; }
+  .tls-results-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .tls-results-head strong { font-size: 15px; font-weight: 800; }
+  .tls-sort { font-size: 13px; color: var(--grey); display: inline-flex; align-items: center; gap: 6px; }
+  .tls-sort b { color: var(--red); font-weight: 700; }
+  .tls-sort svg { width: 10px; height: 7px; color: var(--red); }
+
+  .tls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(14px, 1.4vw, 22px); }
+  @media (max-width: 1180px) { .tls-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 980px) {
+    .tls-body { grid-template-columns: 1fr; }
+    .tls-map { position: relative; top: 0; height: 320px; }
+    .tls-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) { .tls-grid { grid-template-columns: 1fr; } }
+
+  .tls-card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; transition: transform .25s, box-shadow .25s; }
+  .tls-card:hover { transform: translateY(-4px); box-shadow: 0 26px 50px -34px rgba(0,0,0,0.35); }
+  .tls-card-img { position: relative; aspect-ratio: 16 / 11; }
+  .tls-card-tag { position: absolute; top: 11px; left: 11px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(255,255,255,0.94); color: var(--red); padding: 4px 10px; border-radius: 999px; font-style: normal; }
+  .tls-card-body { padding: 14px 15px 15px; }
+  .tls-card-price { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+  .tls-card-meta { font-size: 12.5px; color: var(--grey); margin: 5px 0 4px; }
+  .tls-card-addr { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .tls-card-actions { display: flex; gap: 8px; margin-top: 13px; }
+  .tls-card-actions button { width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); display: grid; place-items: center; transition: background .2s, color .2s, border-color .2s; }
+  .tls-card-actions button:hover { background: var(--red); color: #fff; border-color: var(--red); }
+  .tls-card-actions svg { width: 16px; height: 16px; }
+
+  /* Image placeholders */
+  .tls-ph {
+    background: var(--surface);
+    background-image: repeating-linear-gradient(135deg, transparent 0 18px, rgba(0,0,0,0.012) 18px 19px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tls-ph > span { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #b6b6bd; font-weight: 600; }
+</style>
