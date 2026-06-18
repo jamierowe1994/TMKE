@@ -230,6 +230,9 @@
     historyIndex: -1,
     clipboard: null,
     uploads: [],
+    // User-placed guide lines: { id, axis:"h"|"v", pos, weight, color }.
+    guides: [],
+    selectedGuideId: null,
   };
 
   // ---------- Multi-page model ----------
@@ -407,6 +410,65 @@
     row.appendChild(range); row.appendChild(num);
     if (unit) { const u = document.createElement("span"); u.textContent = unit; u.style.cssText = "opacity:0.5;font-size:12px;"; row.appendChild(u); }
     wrap.appendChild(row);
+    return wrap;
+  }
+
+  // Like _spacingRow but the caller supplies the live-update callback (onLive)
+  // — used inside the properties panel so we can repaint just the element
+  // (partialRenderElement) instead of fullRender(), which would rebuild the
+  // panel mid-drag and drop the control.
+  function sliderNumberRow(labelText, unit, min, max, step, get, set, onLive) {
+    const wrap = document.createElement("div");
+    const lab = document.createElement("div");
+    lab.style.cssText = "font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(28,29,34,0.55);margin:6px 0 7px;";
+    lab.textContent = labelText;
+    wrap.appendChild(lab);
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:8px;";
+    const range = document.createElement("input");
+    range.type = "range"; range.min = min; range.max = max; range.step = step; range.value = get();
+    range.style.cssText = "flex:1;accent-color:var(--english-violet,#371e28);";
+    const num = document.createElement("input");
+    num.type = "number"; num.min = min; num.max = max; num.step = step; num.value = get();
+    num.style.cssText = "width:64px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font:inherit;";
+    const apply = function (v, fromNum) {
+      v = Math.max(min, Math.min(max, isNaN(v) ? get() : v));
+      set(v); range.value = v; if (!fromNum) num.value = v; if (onLive) onLive();
+    };
+    range.addEventListener("input", function () { apply(parseFloat(range.value), false); });
+    range.addEventListener("change", function () { pushHistory(); });
+    num.addEventListener("input", function () { apply(parseFloat(num.value), true); });
+    num.addEventListener("change", function () { pushHistory(); });
+    row.appendChild(range); row.appendChild(num);
+    if (unit) { const u = document.createElement("span"); u.textContent = unit; u.style.cssText = "opacity:0.5;font-size:12px;"; row.appendChild(u); }
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  // Four typed per-corner radius inputs (TL/TR/BL/BR) for a frame. Editing any
+  // one promotes the frame to per-corner mode (el.radii), seeded from the
+  // current effective values so the other corners don't jump.
+  function buildCornerInputs(el) {
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;";
+    [["tl", "Top-left"], ["tr", "Top-right"], ["bl", "Bottom-left"], ["br", "Bottom-right"]].forEach(function (c) {
+      const k = c[0];
+      const field = document.createElement("div");
+      field.className = "ed-props-field";
+      const lab = document.createElement("label");
+      lab.textContent = c[1];
+      const num = document.createElement("input");
+      num.type = "number"; num.min = 0; num.max = 500; num.step = 1;
+      num.value = cornerRadius(el, k);
+      num.addEventListener("input", function () {
+        if (!el.radii) el.radii = { tl: cornerRadius(el, "tl"), tr: cornerRadius(el, "tr"), br: cornerRadius(el, "br"), bl: cornerRadius(el, "bl") };
+        el.radii[k] = Math.max(0, parseFloat(num.value) || 0);
+        partialRenderElement(el);
+      });
+      num.addEventListener("change", function () { pushHistory(); });
+      field.appendChild(lab); field.appendChild(num);
+      wrap.appendChild(field);
+    });
     return wrap;
   }
 
@@ -698,6 +760,21 @@
     return out.slice(0, 14);
   }
 
+  // Persistent "recently used" solid colours — shared by every colour picker
+  // (text, fill, stroke, frame border) so the user isn't re-typing hex codes.
+  function loadRecentColors() {
+    try { const a = JSON.parse(localStorage.getItem("tmke.recentColors") || "[]"); return Array.isArray(a) ? a : []; }
+    catch (_) { return []; }
+  }
+  function pushRecentColor(hex) {
+    const h = normHex(hex);
+    if (!h) return;
+    let list = loadRecentColors().filter((c) => c !== h);
+    list.unshift(h);
+    list = list.slice(0, 12);
+    try { localStorage.setItem("tmke.recentColors", JSON.stringify(list)); } catch (_) {}
+  }
+
   // Sample dominant colours from the design's imagery (background image + image /
   // frame elements). Cross-origin images are loaded anonymously; a tainted draw
   // just yields no colours for that source.
@@ -751,6 +828,7 @@
     const brand = (BRAND && Array.isArray(BRAND.colors)) ? BRAND.colors.map((c) => normHex(c.hex)).filter(Boolean) : [];
     const brandName = (BRAND && BRAND.company) ? (BRAND.company + "’s kit") : "Brand colours";
     const design = collectDesignColors();
+    const recent = loadRecentColors();
 
     const sec = (title, inner) => '<div class="ed-cp-sec"><h5>' + title + '</h5>' + inner + '</div>';
     const grid = (cells, mod) => '<div class="ed-cp-grid' + (mod || "") + '">' + (Array.isArray(cells) ? cells.join("") : cells) + '</div>';
@@ -759,6 +837,7 @@
       '<div class="ed-cp-head"><span class="ed-cp-title">' + (opts.title || "Colour") + '</span><button class="ed-cp-close" title="Close">&times;</button></div>' +
       '<div class="ed-cp-scroll">' +
         '<input class="ed-cp-hex" placeholder="Type a colour or #hex" value="' + (current || "") + '">' +
+        (recent.length ? sec("Recently used", grid(recent.map(swHtml))) : "") +
         sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
         sec(brandName, brand.length ? grid(brand.map(swHtml)) : '<p class="ed-cp-empty">No brand colours saved.</p>') +
         sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') +
@@ -856,6 +935,7 @@
           cpRerender();
         } catch (_) {}
       } else if (sw.dataset.hex && panel._onSolid) {
+        pushRecentColor(sw.dataset.hex);
         panel._onSolid(sw.dataset.hex);
       }
     });
@@ -887,7 +967,7 @@
       const inp = e.target.closest(".ed-cp-hex");
       if (!inp) return;
       const h = normHex(inp.value);
-      if (h && panel._onSolid) panel._onSolid(h);
+      if (h && panel._onSolid) { pushRecentColor(h); panel._onSolid(h); }
     });
   })();
 
@@ -948,6 +1028,13 @@
       } else {
         items.push({ label: "Add link…", action: function () { promptLink(el); } });
       }
+    }
+
+    // "Detach from frame" — pull the photo out of a filled frame as a free
+    // image, leaving the empty frame behind.
+    if (el.type === "frame" && el.src) {
+      items.push({ divider: true });
+      items.push({ label: "Detach from frame", action: function () { detachFrameImage(el); } });
     }
 
     // "Set as background" — available for any element with an image source.
@@ -1407,6 +1494,7 @@
         canvas: state.canvas,
         elements: state.elements,
         pages: deep(state.pages),
+        guides: deep(state.guides || []),
         savedAt: Date.now(),
       }));
     } catch (_) {}
@@ -1431,6 +1519,7 @@
         canvas: state.canvas,
         elements: state.elements,
         pages: deep(state.pages),
+        guides: deep(state.guides || []),
         savedAt: Date.now(),
         thumb,
       });
@@ -1464,6 +1553,7 @@
     state.history.push({
       canvas: deep(state.canvas),
       elements: deep(state.elements),
+      guides: deep(state.guides || []),
     });
     if (state.history.length > 80) state.history.shift();
     state.historyIndex = state.history.length - 1;
@@ -1477,6 +1567,7 @@
     const snap = state.history[state.historyIndex];
     state.canvas = deep(snap.canvas);
     state.elements = deep(snap.elements);
+    if (snap.guides) state.guides = deep(snap.guides);
     state.selectedIds = state.selectedIds.filter((id) => getEl(id));
     fullRender();
     updateUndoRedoButtons();
@@ -1488,6 +1579,7 @@
     const snap = state.history[state.historyIndex];
     state.canvas = deep(snap.canvas);
     state.elements = deep(snap.elements);
+    if (snap.guides) state.guides = deep(snap.guides);
     state.selectedIds = state.selectedIds.filter((id) => getEl(id));
     fullRender();
     updateUndoRedoButtons();
@@ -1541,6 +1633,8 @@
             state.elements = saved.elements;
           }
           state.selectedIds = [];
+          state.selectedGuideId = null;
+          state.guides = Array.isArray(saved.guides) ? saved.guides : [];
           filenameEl.value = takeInitialTitle() || saved.filename || tpl.name;
           state.history = [];
           state.historyIndex = -1;
@@ -1778,6 +1872,7 @@
     renderTemplateGrid();
     renderPageStrip();
     renderMargins();
+    renderGuides();
     // Keep the page-strip preview of the page being edited live (only while the
     // strip is visible, debounced, so editing stays snappy).
     scheduleCurrentThumb();
@@ -2222,7 +2317,7 @@
     if (el.type === "frame") {
       // Corner rounding + outline. Rounding/border read best on rectangular
       // frame shapes; shaped frames (circle/arch/diamond) clip the border away.
-      node.style.borderRadius = el.radius ? el.radius + "px" : "";
+      node.style.borderRadius = frameRadiusCss(el);
       node.style.border = el.frameBorderWidth ? (el.frameBorderWidth + "px solid " + (el.frameBorder || "#1c1d22")) : "";
     }
 
@@ -2305,6 +2400,24 @@
   }
 
   // ---------- Frame helpers ----------
+  // Per-corner radius. el.radii ({tl,tr,br,bl}) overrides the uniform el.radius
+  // when present; any unset corner falls back to the uniform value.
+  function cornerRadius(el, k) {
+    const base = el.radius || 0;
+    return (el.radii && el.radii[k] != null) ? el.radii[k] : base;
+  }
+  function hasPerCorner(el) {
+    const r = el.radii;
+    return !!(r && (r.tl != null || r.tr != null || r.br != null || r.bl != null));
+  }
+  function frameRadiusCss(el) {
+    if (hasPerCorner(el)) {
+      return cornerRadius(el, "tl") + "px " + cornerRadius(el, "tr") + "px " +
+             cornerRadius(el, "br") + "px " + cornerRadius(el, "bl") + "px";
+    }
+    return el.radius ? el.radius + "px" : "";
+  }
+
   // Compute the "cover" base scale — the smallest scale that lets the
   // photo fully cover the frame in both axes (mirrors CSS object-fit:cover).
   function frameCoverFit(el) {
@@ -2349,6 +2462,25 @@
     const img = node.querySelector(".fr-img");
     if (!img) return;
 
+    // Dimmed, un-clipped "ghost" of the full photo, placed directly under the
+    // frame so the in-frame region reads bright (the real clipped image on top)
+    // while the cropped-away parts show faintly around it. This is the area the
+    // user is reframing into — nothing else on the canvas moves.
+    const ghost = document.createElement("div");
+    ghost.className = "ed-frame-ghost";
+    const gsx = el.flipX ? -1 : 1, gsy = el.flipY ? -1 : 1;
+    ghost.style.cssText =
+      "position:absolute;left:" + el.x + "px;top:" + el.y + "px;width:" + el.w + "px;height:" + el.h +
+      "px;overflow:visible;pointer-events:none;z-index:49;transform:rotate(" + (el.rotation || 0) + "deg) scale(" + gsx + "," + gsy + ");";
+    const gimg = document.createElement("img");
+    gimg.className = "fr-img";
+    gimg.crossOrigin = "anonymous";
+    gimg.src = el.src;
+    applyFrameImageTransform(gimg, el);
+    ghost.appendChild(gimg);
+    canvasEl.insertBefore(ghost, node);
+    const syncGhost = function () { applyFrameImageTransform(gimg, el); };
+
     let dragging = false;
     let lastX = 0, lastY = 0;
     function onDown(ev) {
@@ -2368,6 +2500,7 @@
       el.imgOffsetX = (el.imgOffsetX || 0) + dx;
       el.imgOffsetY = (el.imgOffsetY || 0) + dy;
       applyFrameImageTransform(img, el);
+      syncGhost();
     }
     function onUp(ev) {
       if (!dragging) return;
@@ -2380,6 +2513,7 @@
       const step = ev.deltaY < 0 ? 1.06 : 1 / 1.06;
       el.imgScale = Math.max(0.3, Math.min(6, (el.imgScale || 1) * step));
       applyFrameImageTransform(img, el);
+      syncGhost();
       // Debounce history pushes — store on wheel-end via a small timer.
       clearTimeout(viewpointSession && viewpointSession.wheelTimer);
       if (viewpointSession) {
@@ -2409,6 +2543,7 @@
       el, node, img, wheelTimer: null,
       teardown: function () {
         node.classList.remove("is-editing-viewpoint");
+        if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
         node.removeEventListener("pointerdown", onDown);
         node.removeEventListener("pointermove", onMove);
         node.removeEventListener("pointerup", onUp);
@@ -2715,10 +2850,14 @@
     node.addEventListener("pointerdown", (ev) => {
       if (ev.button !== 0) return;
       if (node.classList.contains("is-editing")) return;
+      // While reframing a photo, the drag pans the image (handled by the
+      // viewpoint session) — the frame itself must not move/select.
+      if (node.classList.contains("is-editing-viewpoint")) return;
       ev.stopPropagation();
 
       const multi = ev.shiftKey;
       const ids = groupIdsFor(el); // the whole group if el is grouped
+      state.selectedGuideId = null; // selecting an element drops any guide selection
       if (!state.selectedIds.includes(el.id)) {
         if (multi) ids.forEach((id) => { if (!state.selectedIds.includes(id)) state.selectedIds.push(id); });
         else state.selectedIds = ids;
@@ -3081,6 +3220,163 @@
     ov.appendChild(box);
   }
 
+  // ---------- User guide lines ----------
+  // Individual horizontal / vertical guides the user places, drags and styles
+  // (weight + colour). Independent of the safe-area margin box above. They live
+  // in their own overlay inside the canvas shadow so they scale with zoom, and
+  // persist with the design.
+  function renderGuides() {
+    const shadow = canvasEl && canvasEl.parentNode;
+    if (!shadow) return;
+    let ov = document.getElementById("ed-userguides");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "ed-userguides";
+      ov.className = "ed-userguides";
+      shadow.insertBefore(ov, guidesEl || null);
+    }
+    ov.innerHTML = "";
+    const guides = state.guides || (state.guides = []);
+    const W = state.canvas.width, H = state.canvas.height;
+    guides.forEach(function (g) {
+      const line = document.createElement("div");
+      line.className = "ed-userguide ed-userguide--" + g.axis + (g.id === state.selectedGuideId ? " is-selected" : "");
+      line.dataset.guideId = g.id;
+      const w = Math.max(0.5, g.weight || 1);
+      if (g.axis === "v") {
+        line.style.left = (g.pos - w / 2) + "px"; line.style.top = "0px";
+        line.style.width = w + "px"; line.style.height = H + "px";
+      } else {
+        line.style.top = (g.pos - w / 2) + "px"; line.style.left = "0px";
+        line.style.height = w + "px"; line.style.width = W + "px";
+      }
+      line.style.background = g.color || "#5B466E";
+      bindGuideInteraction(line, g);
+      ov.appendChild(line);
+    });
+  }
+
+  function bindGuideInteraction(line, g) {
+    line.addEventListener("pointerdown", function (ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      selectGuide(g.id);
+      let dragging = true;
+      function move(e) {
+        if (!dragging) return;
+        const rect = canvasEl.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / state.zoom;
+        const y = (e.clientY - rect.top) / state.zoom;
+        const lim = g.axis === "v" ? state.canvas.width : state.canvas.height;
+        g.pos = Math.round(Math.max(0, Math.min(lim, g.axis === "v" ? x : y)));
+        renderGuides();
+      }
+      function up() {
+        dragging = false;
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        pushHistory();
+        renderProps(); // refresh the position readout in the panel
+      }
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+  }
+
+  function selectGuide(id) {
+    state.selectedGuideId = id;
+    state.selectedIds = [];
+    renderGuides();
+    renderHandles();
+    renderProps();
+  }
+
+  function deleteGuide(id) {
+    state.guides = (state.guides || []).filter(function (g) { return g.id !== id; });
+    if (state.selectedGuideId === id) state.selectedGuideId = null;
+    pushHistory();
+    fullRender();
+  }
+
+  function addGuide(axis) {
+    const g = {
+      id: uid("guide"),
+      axis: axis,
+      pos: Math.round((axis === "v" ? state.canvas.width : state.canvas.height) / 2),
+      weight: 1,
+      color: "#5B466E",
+    };
+    state.guides = state.guides || [];
+    state.guides.push(g);
+    pushHistory();
+    fullRender();
+    selectGuide(g.id);
+  }
+
+  // Selection-pane controls for the active guide (position, weight, colour,
+  // delete). Rendered by renderProps when a guide is selected.
+  function renderGuideProps(body) {
+    const g = (state.guides || []).find(function (x) { return x.id === state.selectedGuideId; });
+    if (!g) { body.innerHTML = ""; return; }
+    body.innerHTML = '<div class="ed-pane-header"><h3 class="ed-pane-title">Guide</h3>' +
+      '<p class="ed-pane-sub">' + (g.axis === "v" ? "Vertical" : "Horizontal") + ' guide — drag on the canvas or set values here.</p></div>';
+    const maxPos = g.axis === "v" ? state.canvas.width : state.canvas.height;
+    const sec = document.createElement("div");
+    sec.className = "ed-props-section";
+    sec.appendChild(sliderNumberRow(g.axis === "v" ? "Position (X)" : "Position (Y)", "px", 0, maxPos, 1,
+      function () { return g.pos; },
+      function (v) { g.pos = v; },
+      renderGuides));
+    sec.appendChild(sliderNumberRow("Line weight", "px", 0.5, 12, 0.5,
+      function () { return g.weight || 1; },
+      function (v) { g.weight = v; },
+      renderGuides));
+    body.appendChild(sec);
+
+    const colorSec = document.createElement("div");
+    colorSec.className = "ed-props-section";
+    colorSec.innerHTML = '<h4>Colour</h4>';
+    const cwrap = document.createElement("div");
+    cwrap.style.cssText = "display:flex;align-items:center;gap:8px;";
+    cwrap.appendChild(colorSwatchButton(
+      function () { return g.color || "#5B466E"; },
+      { title: "Guide colour", onSolid: function (hex) { g.color = hex; renderGuides(); } }
+    ));
+    colorSec.appendChild(cwrap);
+    body.appendChild(colorSec);
+
+    const delSec = document.createElement("div");
+    delSec.className = "ed-props-section";
+    delSec.innerHTML = '<div class="ed-props-actions"><button class="danger" data-guide-del>Delete guide</button></div>';
+    delSec.querySelector("[data-guide-del]").addEventListener("click", function () { deleteGuide(g.id); });
+    body.appendChild(delSec);
+  }
+
+  // Small dropdown off the "+ Guide" button to pick the new guide's axis.
+  let guideMenuEl = null;
+  function closeGuideMenu() {
+    if (guideMenuEl) { guideMenuEl.remove(); guideMenuEl = null; document.removeEventListener("pointerdown", onGuideMenuOutside, true); }
+  }
+  function onGuideMenuOutside(e) { if (guideMenuEl && !guideMenuEl.contains(e.target)) closeGuideMenu(); }
+  function showGuideMenu(btn) {
+    closeGuideMenu();
+    const menu = document.createElement("div");
+    menu.className = "ed-rclick";
+    menu.style.position = "fixed";
+    const r = btn.getBoundingClientRect();
+    menu.style.left = r.left + "px";
+    menu.style.top = (r.bottom + 6) + "px";
+    menu.innerHTML =
+      '<button type="button" class="ed-rclick-item" data-axis="v"><span>Vertical guide</span></button>' +
+      '<button type="button" class="ed-rclick-item" data-axis="h"><span>Horizontal guide</span></button>';
+    menu.querySelectorAll("[data-axis]").forEach(function (b) {
+      b.addEventListener("click", function () { addGuide(b.dataset.axis); closeGuideMenu(); });
+    });
+    document.body.appendChild(menu);
+    guideMenuEl = menu;
+    setTimeout(function () { document.addEventListener("pointerdown", onGuideMenuOutside, true); }, 0);
+  }
+
   // A large, centred, editable "Start building here" text box — what the blank
   // hint becomes on click (text pre-selected so typing replaces it).
   function addPlaceholderText() {
@@ -3188,7 +3484,7 @@
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
       box.remove();
-      if (!moved) { state.selectedIds = []; fullRender(); return; }
+      if (!moved) { state.selectedIds = []; state.selectedGuideId = null; fullRender(); return; }
       const cx = (e.clientX - rect.left) / z, cy = (e.clientY - rect.top) / z;
       const rx = Math.min(sx, cx), ry = Math.min(sy, cy), rw = Math.abs(cx - sx), rh = Math.abs(cy - sy);
       const ids = new Set();
@@ -3207,6 +3503,7 @@
   stageEl.addEventListener("pointerdown", (ev) => {
     if (ev.target === stageEl || ev.target === shadowEl) {
       state.selectedIds = [];
+      state.selectedGuideId = null;
       closeColorPanel();
       fullRender();
     }
@@ -3410,9 +3707,61 @@
     fullRender();
   }
 
+  // Pull a frame's photo out as a free-standing image element, leaving the
+  // frame empty (Canva-style "Detach image"). The image is placed so the
+  // currently-visible region stays anchored and the rest of the photo is
+  // revealed around it (a plain image element has no crop).
+  function detachFrameImage(frameEl) {
+    if (!frameEl || frameEl.type !== "frame" || !frameEl.src) return;
+    const fit = frameCoverFit(frameEl);
+    const s = frameEl.imgScale || 1;
+    const imgW = Math.round(fit.baseW * s);
+    const imgH = Math.round(fit.baseH * s);
+    const cx = frameEl.x + frameEl.w / 2 + (frameEl.imgOffsetX || 0);
+    const cy = frameEl.y + frameEl.h / 2 + (frameEl.imgOffsetY || 0);
+    const id = uid("image");
+    const imgEl = {
+      id,
+      type: "image",
+      x: Math.round(cx - imgW / 2),
+      y: Math.round(cy - imgH / 2),
+      w: imgW,
+      h: imgH,
+      src: frameEl.src,
+      opacity: frameEl.opacity != null ? frameEl.opacity : 1,
+      rotation: frameEl.rotation || 0,
+    };
+    // Sit the detached image directly above the (now empty) frame.
+    const idx = state.elements.indexOf(frameEl);
+    state.elements.splice(idx + 1, 0, imgEl);
+    frameEl.src = null;
+    frameEl.imgScale = 1; frameEl.imgOffsetX = 0; frameEl.imgOffsetY = 0;
+    frameEl.imgNaturalW = 0; frameEl.imgNaturalH = 0;
+    state.selectedIds = [id];
+    pushHistory();
+    fullRender();
+  }
+
   // ---------- Delete / duplicate / clipboard ----------
   function deleteSelected() {
     if (!state.selectedIds.length) return;
+    // Two-stage delete for frames: a filled frame's first Delete empties just
+    // the photo (the frame stays, still selected); a second Delete on the now
+    // empty frame removes the frame itself. Only applies to a single frame.
+    if (state.selectedIds.length === 1) {
+      const only = getEl(state.selectedIds[0]);
+      if (only && only.type === "frame" && only.src) {
+        only.src = null;
+        only.imgScale = 1;
+        only.imgOffsetX = 0;
+        only.imgOffsetY = 0;
+        only.imgNaturalW = 0;
+        only.imgNaturalH = 0;
+        pushHistory();
+        fullRender();
+        return;
+      }
+    }
     state.elements = state.elements.filter((e) => !state.selectedIds.includes(e.id));
     state.selectedIds = [];
     pushHistory();
@@ -3571,6 +3920,7 @@
       canvas: state.canvas,
       elements: state.elements,
       pages: deep(state.pages),
+      guides: deep(state.guides || []),
       savedAt: Date.now(),
       thumb,
     };
@@ -4022,6 +4372,24 @@
     ctx.closePath();
   }
 
+  // Rounded rect with independent corner radii (tl, tr, br, bl). Each is
+  // clamped to half the shorter side so corners never overlap.
+  function roundedRectPerCorner(ctx, x, y, w, h, tl, tr, br, bl) {
+    const m = Math.min(w, h) / 2;
+    tl = Math.min(tl, m); tr = Math.min(tr, m); br = Math.min(br, m); bl = Math.min(bl, m);
+    ctx.beginPath();
+    ctx.moveTo(x + tl, y);
+    ctx.lineTo(x + w - tr, y);
+    ctx.arcTo(x + w, y, x + w, y + tr, tr);
+    ctx.lineTo(x + w, y + h - br);
+    ctx.arcTo(x + w, y + h, x + w - br, y + h, br);
+    ctx.lineTo(x + bl, y + h);
+    ctx.arcTo(x, y + h, x, y + h - bl, bl);
+    ctx.lineTo(x, y + tl);
+    ctx.arcTo(x, y, x + tl, y, tl);
+    ctx.closePath();
+  }
+
   function drawStar(ctx, w, h) {
     const pts = [[50,0],[61,35],[98,35],[68,57],[79,91],[50,70],[21,91],[32,57],[2,35],[39,35]];
     ctx.beginPath();
@@ -4068,8 +4436,14 @@
       ctx.lineTo(0, h / 2);
       ctx.closePath();
     } else {
-      // square / portrait / landscape / wide — plain rect
-      ctx.rect(0, 0, w, h);
+      // square / portrait / landscape / wide — rect, honouring corner radius
+      // (uniform el.radius or per-corner el.radii) so exports match the canvas.
+      if (hasPerCorner(el) || el.radius) {
+        roundedRectPerCorner(ctx, 0, 0, w, h,
+          cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+      } else {
+        ctx.rect(0, 0, w, h);
+      }
     }
   }
 
@@ -4105,6 +4479,17 @@
       ctx.fillRect(0, 0, el.w, el.h);
     }
     ctx.restore();
+    // Border (drawn after the clip is released so the stroke isn't clipped to
+    // half-width). The path is centred on the silhouette edge, matching the DOM.
+    if (el.frameBorderWidth) {
+      ctx.save();
+      pathForFrame(ctx, el);
+      ctx.lineWidth = el.frameBorderWidth * 2; // half is clipped away by the path
+      ctx.strokeStyle = el.frameBorder || "#1c1d22";
+      ctx.clip();
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   // Shared binder for any DOM subtree that contains [data-prop] inputs.
@@ -4143,6 +4528,14 @@
   function renderProps() {
     const body = document.getElementById("ed-selection-body");
     if (!body) return;
+
+    // A selected guide takes over the Selection pane (no element is selected
+    // at the same time).
+    if (state.selectedGuideId && state.selectedIds.length === 0) {
+      if (typeof showPane === "function") showPane("selection");
+      renderGuideProps(body);
+      return;
+    }
 
     if (state.selectedIds.length !== 1) {
       closeColorPanel();
@@ -4213,12 +4606,20 @@
           <div class="ed-props-field"><input type="range" min="0" max="500" data-prop="radius" value="${el.radius||0}"></div>
         </div>`);
       }
-      html.push(`<div class="ed-props-section"><h4>Stroke</h4>
-        <div class="ed-props-row">
-          <div class="ed-props-field"><label>Colour</label><input type="color" data-prop="stroke" value="${rgbHex(el.stroke && el.stroke!=='transparent'?el.stroke:'#000000')}"></div>
-          <div class="ed-props-field"><label>Width</label><input type="number" min="0" max="40" data-prop="strokeWidth" value="${el.strokeWidth||0}"></div>
-        </div>
-      </div>`);
+      if (el.type === "line") {
+        // A line's thickness IS its element height; the old "Stroke width"
+        // never rendered. Give it a real Weight control instead (1 = thinnest).
+        html.push(`<div class="ed-props-section"><h4>Weight</h4>
+          <div data-mount="line-weight"></div>
+        </div>`);
+      } else {
+        html.push(`<div class="ed-props-section"><h4>Stroke</h4>
+          <div class="ed-props-row">
+            <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="stroke-color"></span><label style="margin:0">Colour</label></div>
+            <div class="ed-props-field"><label>Width</label><input type="number" min="0" max="40" data-prop="strokeWidth" value="${el.strokeWidth||0}"></div>
+          </div>
+        </div>`);
+      }
     }
 
     if (el.type === "image") {
@@ -4248,17 +4649,19 @@
           '<div class="ed-props-field"><label>Shape</label>' +
             '<select data-prop="frameShape">' + shapeHtml + '</select>' +
           '</div>' +
-          // Corner rounding (rectangular frames) + an outline/border on the frame.
-          '<div class="ed-props-field"><label>Corner radius</label>' +
-            '<input type="range" min="0" max="200" data-prop="radius" value="' + (el.radius || 0) + '"></div>' +
-          '<div class="ed-props-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-            '<div class="ed-props-field"><label>Border</label><input type="color" data-prop="frameBorder" value="' + rgbHex(el.frameBorder || '#1c1d22') + '"></div>' +
+          // Corner radius — uniform slider+number, plus a collapsible set of
+          // four typed per-corner inputs. Mounted from JS below.
+          '<div data-mount="frame-radius"></div>' +
+          '<details class="ed-corner-details"><summary>Individual corners</summary>' +
+            '<div data-mount="frame-corners"></div>' +
+          '</details>' +
+          // Border — circular swatch (opens the rich colour panel) + width.
+          '<div class="ed-props-field-row" style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-top:10px">' +
+            '<div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="frame-border"></span><label style="margin:0">Border</label></div>' +
             '<div class="ed-props-field"><label>Border width</label><input type="number" min="0" max="40" data-prop="frameBorderWidth" value="' + (el.frameBorderWidth || 0) + '"></div>' +
           '</div>' +
           (el.src
-            ? ('<div class="ed-props-field"><label>Zoom</label>' +
-                '<input type="range" min="0.3" max="6" step="0.01" data-prop="imgScale" value="' + (el.imgScale || 1) + '">' +
-              '</div>' +
+            ? ('<div data-mount="frame-zoom"></div>' +
               '<div class="ed-props-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
                 '<div class="ed-props-field"><label>X offset</label><input type="number" data-prop="imgOffsetX" value="' + Math.round(el.imgOffsetX || 0) + '"></div>' +
                 '<div class="ed-props-field"><label>Y offset</label><input type="number" data-prop="imgOffsetY" value="' + Math.round(el.imgOffsetY || 0) + '"></div>' +
@@ -4325,6 +4728,56 @@
     // Position popover via bindGenericPropInputs so both surfaces stay
     // in lockstep.
     bindGenericPropInputs(body);
+
+    // Circular colour swatches (open the rich colour panel — brand + recent +
+    // design colours) in place of the native "long square" colour inputs.
+    // Line weight — slider + typed number bound to the element height (its
+    // visible thickness). 1px = thinnest.
+    const lineWeightMount = body.querySelector('[data-mount="line-weight"]');
+    if (lineWeightMount && el.type === "line") {
+      lineWeightMount.appendChild(sliderNumberRow("Thickness", "px", 1, 80, 1,
+        function () { return Math.max(1, Math.round(el.h || 1)); },
+        function (v) { el.h = Math.max(1, v); },
+        function () { partialRenderElement(el); renderHandles(); }));
+    }
+
+    const strokeMount = body.querySelector('[data-mount="stroke-color"]');
+    if (strokeMount) {
+      strokeMount.appendChild(colorSwatchButton(
+        function () { return (el.stroke && el.stroke !== "transparent") ? el.stroke : "#000000"; },
+        { title: "Stroke colour", onSolid: function (hex) { el.stroke = hex; if (!el.strokeWidth) el.strokeWidth = 2; } }
+      ));
+    }
+    const borderMount = body.querySelector('[data-mount="frame-border"]');
+    if (borderMount) {
+      borderMount.appendChild(colorSwatchButton(
+        function () { return el.frameBorder || "#1c1d22"; },
+        { title: "Border colour", onSolid: function (hex) { el.frameBorder = hex; if (!el.frameBorderWidth) el.frameBorderWidth = 2; } }
+      ));
+    }
+
+    // Frame corner radius — uniform slider+number that drives all four corners
+    // (and clears any per-corner overrides), plus four typed per-corner inputs.
+    const radiusMount = body.querySelector('[data-mount="frame-radius"]');
+    if (radiusMount && el.type === "frame") {
+      radiusMount.appendChild(sliderNumberRow("Corner radius", "px", 0, 500, 1,
+        function () { return el.radius || 0; },
+        function (v) { el.radius = v; el.radii = null; },
+        function () { partialRenderElement(el); }));
+    }
+    const cornersMount = body.querySelector('[data-mount="frame-corners"]');
+    if (cornersMount && el.type === "frame") {
+      cornersMount.appendChild(buildCornerInputs(el));
+    }
+
+    // Frame image zoom — typed slider+number (replaces the lone range).
+    const zoomMount = body.querySelector('[data-mount="frame-zoom"]');
+    if (zoomMount && el.type === "frame" && el.src) {
+      zoomMount.appendChild(sliderNumberRow("Zoom", "×", 0.3, 6, 0.01,
+        function () { return el.imgScale || 1; },
+        function (v) { el.imgScale = v; },
+        function () { partialRenderElement(el); }));
+    }
 
     body.querySelectorAll("[data-arrange]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -5919,6 +6372,11 @@
       renderMargins();
     });
   })();
+  // "+ Guide" — drop a new horizontal or vertical guide line.
+  (function () {
+    const gb = $("ed-add-guide");
+    if (gb) gb.addEventListener("click", function (e) { e.stopPropagation(); showGuideMenu(gb); });
+  })();
   $("ed-save").addEventListener("click", async function () {
     const btn = $("ed-save");
     const label = btn.innerHTML;
@@ -6079,8 +6537,13 @@
       return;
     }
 
-    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSelected(); return; }
-    if (e.key === "Escape") { state.selectedIds = []; fullRender(); return; }
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      if (state.selectedGuideId && !state.selectedIds.length) { deleteGuide(state.selectedGuideId); return; }
+      deleteSelected();
+      return;
+    }
+    if (e.key === "Escape") { state.selectedIds = []; state.selectedGuideId = null; fullRender(); return; }
     if (e.key === "?") { $("ed-shortcuts").hidden = false; return; }
 
     if (e.key === "+" || (e.key === "=" && !e.shiftKey)) { setZoom(state.zoom + 0.1); return; }
