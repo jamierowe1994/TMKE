@@ -63,16 +63,13 @@ const fmt = (n) => n.toLocaleString("en-GB");
         <button type="button" class="tls-filter">Price<svg class="tls-fchev" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1.5 6 6.5l5-5" /></svg></button>
         <div class="tls-panel tls-panel--price">
           <div class="tls-price-head">Monthly rent (pcm)</div>
-          <div class="tls-range">
-            <div class="tls-range-track"></div>
-            <div class="tls-range-fill" id="tls-fill"></div>
-            <input type="range" id="tls-pmin" min="0" max="5000" step="50" value="0" />
-            <input type="range" id="tls-pmax" min="0" max="5000" step="50" value="5000" />
+          <div class="tls-srow">
+            <div class="tls-srow-top"><span class="tls-srow-label">Minimum</span><span class="tls-srow-val" id="tls-pmin-v">£0</span></div>
+            <input type="range" class="tls-srange" id="tls-pmin" min="0" max="5000" step="50" value="0" />
           </div>
-          <div class="tls-price-inputs">
-            <div class="tls-pin"><span>£</span><input type="number" id="tls-pmin-i" min="0" max="5000" value="0" /></div>
-            <span class="tls-dash">–</span>
-            <div class="tls-pin"><span>£</span><input type="number" id="tls-pmax-i" min="0" max="5000" value="5000" /></div>
+          <div class="tls-srow">
+            <div class="tls-srow-top"><span class="tls-srow-label">Maximum</span><span class="tls-srow-val" id="tls-pmax-v">£5,000</span></div>
+            <input type="range" class="tls-srange" id="tls-pmax" min="0" max="5000" step="50" value="5000" />
           </div>
           <div class="tls-panel-foot"><button type="button" class="tls-reset">Reset</button><button type="button" class="tls-done">Done</button></div>
         </div>
@@ -199,27 +196,20 @@ const fmt = (n) => n.toLocaleString("en-GB");
       r.addEventListener("change", function () { state.status = r.value; apply(); });
     });
 
-    /* ---- Price dual range + inputs ---- */
+    /* ---- Price: two straight stacked sliders (min + max) ---- */
     var pmin = document.getElementById("tls-pmin"), pmax = document.getElementById("tls-pmax");
-    var pminI = document.getElementById("tls-pmin-i"), pmaxI = document.getElementById("tls-pmax-i");
-    var fill = document.getElementById("tls-fill");
+    var pminV = document.getElementById("tls-pmin-v"), pmaxV = document.getElementById("tls-pmax-v");
+    function fmtP(v) { return "£" + (+v).toLocaleString("en-GB"); }
     function clampPrices() {
       var lo = +pmin.value, hi = +pmax.value;
       if (lo > hi - 50) { if (document.activeElement === pmin) lo = hi - 50; else hi = lo + 50; pmin.value = lo; pmax.value = hi; }
       state.pmin = lo; state.pmax = hi;
-      pminI.value = lo; pmaxI.value = hi;
-      fill.style.left = (lo / 5000 * 100) + "%";
-      fill.style.right = (100 - hi / 5000 * 100) + "%";
+      pminV.textContent = fmtP(lo); pmaxV.textContent = fmtP(hi);
+      // Fill each track from the left up to its handle.
+      pmin.style.setProperty("--p", (lo / 5000 * 100) + "%");
+      pmax.style.setProperty("--p", (hi / 5000 * 100) + "%");
     }
     [pmin, pmax].forEach(function (s) { s.addEventListener("input", function () { clampPrices(); apply(); }); });
-    function syncFromInput() {
-      var lo = Math.max(0, Math.min(5000, +pminI.value || 0));
-      var hi = Math.max(0, Math.min(5000, +pmaxI.value || 5000));
-      if (lo > hi) { var t = lo; lo = hi; hi = t; }
-      pmin.value = lo; pmax.value = hi; clampPrices(); apply();
-    }
-    pminI.addEventListener("change", syncFromInput);
-    pmaxI.addEventListener("change", syncFromInput);
     clampPrices();
 
     /* ---- Beds & baths pills ---- */
@@ -409,26 +399,26 @@ const fmt = (n) => n.toLocaleString("en-GB");
 
   /* Price slider */
   .tls-price-head { font-size: 12px; font-weight: 700; color: var(--grey); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 18px; }
-  .tls-range { position: relative; height: 22px; margin: 0 4px 14px; }
-  .tls-range-track { position: absolute; top: 9px; left: 0; right: 0; height: 4px; border-radius: 999px; background: var(--line); }
-  .tls-range-fill { position: absolute; top: 9px; height: 4px; border-radius: 999px; background: var(--ink); }
-  .tls-range input[type="range"] {
-    position: absolute; top: 0; left: 0; width: 100%; height: 22px; margin: 0;
-    -webkit-appearance: none; appearance: none; background: none; pointer-events: none;
+  /* Two straight, stacked sliders (minimum then maximum). */
+  .tls-srow { margin-bottom: 20px; }
+  .tls-srow:last-of-type { margin-bottom: 6px; }
+  .tls-srow-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 11px; }
+  .tls-srow-label { font-size: 13px; font-weight: 600; color: var(--grey); }
+  .tls-srow-val { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+  .tls-srange {
+    -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 6px; margin: 0;
+    border-radius: 999px; outline: none; cursor: pointer;
+    background: linear-gradient(to right, var(--ink) 0%, var(--ink) var(--p, 0%), var(--line) var(--p, 0%), var(--line) 100%);
   }
-  .tls-range input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; pointer-events: auto; width: 18px; height: 18px; border-radius: 50%;
-    background: #fff; border: 2px solid var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.25); cursor: pointer;
+  .tls-srange::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--ink); box-shadow: 0 2px 8px rgba(0,0,0,.28); cursor: pointer;
   }
-  .tls-range input[type="range"]::-moz-range-thumb {
-    pointer-events: auto; width: 18px; height: 18px; border-radius: 50%;
-    background: #fff; border: 2px solid var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.25); cursor: pointer;
+  .tls-srange::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--ink); box-shadow: 0 2px 8px rgba(0,0,0,.28); cursor: pointer;
   }
-  .tls-price-inputs { display: flex; align-items: center; gap: 10px; }
-  .tls-pin { display: inline-flex; align-items: center; gap: 4px; flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 14px; font-weight: 600; }
-  .tls-pin input { width: 100%; border: 0; outline: 0; font: inherit; font-weight: 600; }
-  .tls-pin input::-webkit-outer-spin-button, .tls-pin input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .tls-dash { color: var(--grey); }
+  .tls-srange::-moz-range-track { height: 6px; border-radius: 999px; background: transparent; }
 
   /* Beds & baths pills */
   .tls-bb-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
