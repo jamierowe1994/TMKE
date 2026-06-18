@@ -45,7 +45,7 @@ export const PROPERTIES = [
     area: "Glenfield Road, Leicester, LE3",
     type: "Flat", beds: 1, baths: 1, size: "500 sq ft",
     pcm: "£715 pcm", status: "To let", available: true,
-    images: [U("1568605114967-8130f3a36994"), U("1570129477492-45c003edd2be")],
+    images: [U("1568293207619-df44ae062a9c"), U("1512359953714-f0c9a632ab85")],
   },
   {
     slug: "douglas",
@@ -54,7 +54,7 @@ export const PROPERTIES = [
     area: "Douglas Gardens Mews, Edinburgh, EH4",
     type: "House", beds: 3, baths: 2, size: "1,250 sq ft",
     pcm: "£2,600 pcm", status: "To let", available: true,
-    images: [U("1580587771525-78b9dba3b914"), U("1576941089067-2de3c901e126")],
+    images: [U("1618660920685-4505debb785a"), U("1695551366547-922d3a62f977")],
   },
   {
     slug: "chapter",
