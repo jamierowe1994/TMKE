@@ -483,4 +483,54 @@ const related = posts
       });
     })();
   </script>
+
+  <!-- Live revalidation: the site is statically built, so an edit/publish in the
+       admin won't change this page until a rebuild. On load we re-fetch the
+       latest PUBLISHED version of this post straight from Supabase (same anon
+       read the build uses) and patch the DOM, so saved edits show on refresh. -->
+  <script
+    is:inline
+    define:vars={{
+      revalSlug: post.slug,
+      SB_URL: import.meta.env.PUBLIC_SUPABASE_URL,
+      SB_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+    }}
+  >
+    (function () {
+      if (!SB_URL || !SB_KEY) return; // dev / no Supabase — keep the static content
+      var url = SB_URL.replace(/\/$/, "") +
+        "/rest/v1/blog_posts?slug=eq." + encodeURIComponent(revalSlug) +
+        "&status=eq.published&limit=1&select=" +
+        "title,standfirst,hero_image_url,hero_image_alt,body_html,publish_date,published_at,created_at,read_time_minutes,audience";
+      fetch(url, { headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (rows) {
+          var row = rows && rows[0];
+          if (!row) return;
+          if (row.audience && row.audience !== "public") return; // members-only: don't surface here
+          function setText(sel, val) {
+            var el = document.querySelector(sel);
+            if (el && val != null && el.textContent !== val) el.textContent = val;
+          }
+          setText(".post-title", row.title);
+          setText(".post-stand", row.standfirst);
+          var hero = document.querySelector(".post-cover img");
+          if (hero && row.hero_image_url && hero.getAttribute("src") !== row.hero_image_url) {
+            hero.src = row.hero_image_url;
+            if (row.hero_image_alt) hero.alt = row.hero_image_alt;
+          }
+          var body = document.querySelector(".post-body");
+          var html = row.body_html && row.body_html.trim() ? row.body_html : null;
+          if (body && html && body.innerHTML.trim() !== html.trim()) body.innerHTML = html;
+          var role = document.querySelector(".post-author-role");
+          var iso = row.publish_date || row.published_at || row.created_at;
+          if (role && iso) {
+            var d = new Date(iso);
+            var dateStr = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+            role.textContent = dateStr + (row.read_time_minutes ? " · " + row.read_time_minutes + " min read" : "");
+          }
+        })
+        .catch(function () { /* any failure: keep the static content */ });
+    })();
+  </script>
 </BaseLayout>

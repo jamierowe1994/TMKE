@@ -63,18 +63,59 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         <div class="be-body-tabs">
           <button type="button" class="be-body-tab is-active" data-bodytab="write">Write</button>
           <button type="button" class="be-body-tab" data-bodytab="preview">Preview</button>
-          <span class="be-body-hint">Markdown — use <code>##</code> for subheadings, <code>**bold**</code>, <code>*italic*</code>, lists with <code>-</code>, and <code>&gt;</code> for blockquotes.</span>
+          <span class="be-body-hint">Select text, then use the toolbar — font, size, line height, alignment, bold/italic and more.</span>
         </div>
         <div class="be-body-pane is-active" data-bodypane="write">
-          <textarea name="body_markdown" id="be-body" rows="22" placeholder="## A subheading
-A short paragraph. Use **bold** to lean on a phrase, *italic* for emphasis.
-
-- A bulleted point
-- Another bulleted point
-
-&gt; A pull quote that sits between two paragraphs.
-
-Another paragraph follows the quote naturally."></textarea>
+          <div class="be-rich-tb" id="be-rich-tb">
+            <select class="be-rt-sel" data-rt="block" title="Text style" aria-label="Text style">
+              <option value="p">Paragraph</option>
+              <option value="h2">Heading</option>
+              <option value="h3">Sub-heading</option>
+              <option value="blockquote">Quote</option>
+            </select>
+            <select class="be-rt-sel" data-rt="font" title="Font" aria-label="Font">
+              <option value="">Font</option>
+              <option value="Helios, 'Helvetica Neue', Helvetica, Arial, sans-serif">Helios</option>
+              <option value="'Darker Grotesque', Inter, system-ui, sans-serif">Darker Grotesque</option>
+              <option value="Georgia, 'Times New Roman', serif">Georgia</option>
+              <option value="Arial, Helvetica, sans-serif">Arial</option>
+              <option value="'Courier New', monospace">Mono</option>
+            </select>
+            <select class="be-rt-sel" data-rt="size" title="Font size" aria-label="Font size">
+              <option value="">Size</option>
+              <option value="14px">14</option>
+              <option value="16px">16</option>
+              <option value="18px">18</option>
+              <option value="20px">20</option>
+              <option value="24px">24</option>
+              <option value="28px">28</option>
+              <option value="34px">34</option>
+              <option value="42px">42</option>
+            </select>
+            <select class="be-rt-sel" data-rt="lh" title="Line height" aria-label="Line height">
+              <option value="">Line height</option>
+              <option value="1">1.0</option>
+              <option value="1.2">1.2</option>
+              <option value="1.4">1.4</option>
+              <option value="1.6">1.6</option>
+              <option value="1.8">1.8</option>
+              <option value="2">2.0</option>
+            </select>
+            <span class="be-rt-div"></span>
+            <button type="button" class="be-rt-btn" data-rt="bold" title="Bold"><b>B</b></button>
+            <button type="button" class="be-rt-btn" data-rt="italic" title="Italic"><i>I</i></button>
+            <button type="button" class="be-rt-btn" data-rt="ul" title="Bulleted list">&bull; List</button>
+            <span class="be-rt-div"></span>
+            <button type="button" class="be-rt-btn" data-rt="left" title="Align left">Left</button>
+            <button type="button" class="be-rt-btn" data-rt="center" title="Centre">Centre</button>
+            <button type="button" class="be-rt-btn" data-rt="right" title="Align right">Right</button>
+            <button type="button" class="be-rt-btn" data-rt="justify" title="Justify">Justify</button>
+            <span class="be-rt-div"></span>
+            <button type="button" class="be-rt-btn" data-rt="link" title="Add link">Link</button>
+            <button type="button" class="be-rt-btn" data-rt="clear" title="Clear formatting">Clear</button>
+          </div>
+          <div class="be-rich" id="be-rich" contenteditable="true" spellcheck="true" data-placeholder="Write the article…"></div>
+          <textarea name="body_markdown" id="be-body" hidden></textarea>
         </div>
         <div class="be-body-pane" data-bodypane="preview" hidden>
           <div class="be-preview" id="be-preview-out"></div>
@@ -402,6 +443,43 @@ Another paragraph follows the quote naturally."></textarea>
       min-height: 480px;
       width: 100%;
     }
+
+    /* Rich-text toolbar + editing surface */
+    .be-rich-tb {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+      padding: 8px; margin-bottom: 10px;
+      border: 1px solid rgba(28,29,34,0.12); border-radius: 6px;
+      background: rgba(28,29,34,0.02); position: sticky; top: 8px; z-index: 2;
+    }
+    .be-rt-sel {
+      font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+      padding: 6px 8px; border: 1px solid rgba(28,29,34,0.16); border-radius: 5px;
+      background: #fff; color: var(--ink); cursor: pointer;
+    }
+    .be-rt-btn {
+      font-family: var(--sans); font-size: 12.5px; font-weight: 700; line-height: 1;
+      min-width: 30px; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.16);
+      border-radius: 5px; background: #fff; color: var(--ink); cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .be-rt-btn:hover { background: rgba(28,29,34,0.06); border-color: rgba(28,29,34,0.32); }
+    .be-rt-btn b, .be-rt-btn i { font-size: 13px; }
+    .be-rt-div { width: 1px; align-self: stretch; background: rgba(28,29,34,0.14); margin: 2px 3px; }
+    .be-rich {
+      min-height: 480px; width: 100%;
+      padding: 18px 20px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px;
+      background: #fff; color: var(--ink);
+      font-family: var(--sans); font-size: 16px; line-height: 1.6;
+      outline: none; overflow-wrap: anywhere;
+    }
+    .be-rich:focus { border-color: var(--english-violet); }
+    .be-rich:empty::before { content: attr(data-placeholder); color: rgba(28,29,34,0.4); }
+    .be-rich h2 { font-size: 1.6em; font-weight: 600; margin: 0.6em 0 0.3em; }
+    .be-rich h3 { font-size: 1.3em; font-weight: 600; margin: 0.6em 0 0.3em; }
+    .be-rich blockquote { border-left: 3px solid var(--english-violet); margin: 0.6em 0; padding-left: 14px; font-style: italic; }
+    .be-rich p { margin: 0 0 0.7em; }
+    .be-rich ul { margin: 0 0 0.7em; padding-left: 22px; }
+    .be-rich a { color: var(--english-violet); text-decoration: underline; }
     .be-preview {
       min-height: 480px;
       padding: 8px 0;
@@ -575,6 +653,8 @@ Another paragraph follows the quote naturally."></textarea>
     const $slug = document.getElementById("be-slug");
     const $slugRegen = document.getElementById("be-slug-regen");
     const $body = document.getElementById("be-body");
+    const $rich = document.getElementById("be-rich");
+    const $richTb = document.getElementById("be-rich-tb");
     const $preview = document.getElementById("be-preview-out");
     const $bodyTabs = document.querySelectorAll(".be-body-tab");
     const $bodyPanes = document.querySelectorAll(".be-body-pane");
@@ -626,9 +706,98 @@ Another paragraph follows the quote naturally."></textarea>
       if (name === "preview") renderPreview();
     }));
 
+    // ─── Rich-text editor (contenteditable + toolbar) ───
+    try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
+
+    function syncRich() {
+      // Keep the hidden field roughly in sync (used only as a text fallback).
+      $body.value = $rich.innerText || "";
+    }
+
+    // Preserve the editor selection while interacting with toolbar selects
+    // (opening a <select> blurs the editor and would collapse the range).
+    let savedRange = null;
+    document.addEventListener("selectionchange", () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount && $rich.contains(sel.anchorNode)) {
+        savedRange = sel.getRangeAt(0).cloneRange();
+      }
+    });
+    function restoreRange() {
+      if (!savedRange) { $rich.focus(); return; }
+      $rich.focus();
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+    function eachSelectedBlock(fn) {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      const blocks = $rich.querySelectorAll("p,h1,h2,h3,h4,li,blockquote,div");
+      let any = false;
+      blocks.forEach((b) => { if (range.intersectsNode(b)) { fn(b); any = true; } });
+      if (!any) {
+        let n = sel.anchorNode;
+        while (n && n !== $rich && !(n.nodeType === 1 && /^(P|H1|H2|H3|H4|LI|BLOCKQUOTE|DIV)$/.test(n.tagName))) n = n.parentNode;
+        if (n && n !== $rich) fn(n);
+      }
+    }
+    function setFontSize(px) {
+      // execCommand fontSize only takes 1–7. Turn styleWithCSS off so it emits a
+      // <font size="7"> wrapper we can reliably swap for a span with the exact px.
+      try { document.execCommand("styleWithCSS", false, false); } catch (_) {}
+      document.execCommand("fontSize", false, "7");
+      try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
+      $rich.querySelectorAll('font[size="7"]').forEach((f) => {
+        const span = document.createElement("span");
+        span.style.fontSize = px;
+        while (f.firstChild) span.appendChild(f.firstChild);
+        f.replaceWith(span);
+      });
+    }
+    function doCmd(rt) {
+      restoreRange();
+      switch (rt) {
+        case "bold": document.execCommand("bold"); break;
+        case "italic": document.execCommand("italic"); break;
+        case "ul": document.execCommand("insertUnorderedList"); break;
+        case "left": document.execCommand("justifyLeft"); break;
+        case "center": document.execCommand("justifyCenter"); break;
+        case "right": document.execCommand("justifyRight"); break;
+        case "justify": document.execCommand("justifyFull"); break;
+        case "link": {
+          const url = prompt("Link URL");
+          if (url) document.execCommand("createLink", false, url);
+          break;
+        }
+        case "clear": document.execCommand("removeFormat"); break;
+      }
+      syncRich();
+    }
+    // Buttons: prevent focus theft so the selection survives.
+    $richTb.querySelectorAll(".be-rt-btn").forEach((btn) => {
+      btn.addEventListener("mousedown", (e) => e.preventDefault());
+      btn.addEventListener("click", () => doCmd(btn.getAttribute("data-rt")));
+    });
+    $richTb.querySelectorAll(".be-rt-sel").forEach((sel) => {
+      sel.addEventListener("change", () => {
+        const kind = sel.getAttribute("data-rt");
+        const val = sel.value;
+        restoreRange();
+        if (kind === "block" && val) document.execCommand("formatBlock", false, "<" + val + ">");
+        else if (kind === "font" && val) document.execCommand("fontName", false, val);
+        else if (kind === "size" && val) setFontSize(val);
+        else if (kind === "lh" && val) eachSelectedBlock((b) => { b.style.lineHeight = val; });
+        syncRich();
+        sel.selectedIndex = 0; // reset the dropdown label
+      });
+    });
+    $rich.addEventListener("input", () => { syncRich(); });
+
     // ─── Live updates ───
     function renderPreview() {
-      try { $preview.innerHTML = marked.parse($body.value || ""); }
+      try { $preview.innerHTML = $rich.innerHTML || ""; }
       catch (_) { $preview.innerHTML = ""; }
     }
     function syncTitle() {
@@ -663,7 +832,7 @@ Another paragraph follows the quote naturally."></textarea>
     }
 
     $title.addEventListener("input", syncTitle);
-    $body.addEventListener("input", renderPreview);
+    $rich.addEventListener("input", renderPreview);
     $slug.addEventListener("input", () => { slugTouched = true; updateGooglePreview(); updateSeoScore(); });
     $slugRegen.addEventListener("click", () => { $slug.value = slugify($title.value); updateGooglePreview(); updateSeoScore(); });
     $heroUrl.addEventListener("input", () => {
@@ -706,8 +875,10 @@ Another paragraph follows the quote naturally."></textarea>
       const fd = new FormData($form);
       const kws = String(fd.get("seo_keywords") || "")
         .split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
-      const body_markdown = String(fd.get("body_markdown") || "");
-      const body_html = marked.parse(body_markdown);
+      // The body now comes from the rich editor as HTML; keep a plain-text copy
+      // in body_markdown only as a fallback (the public site renders body_html).
+      const body_html = $rich.innerHTML.trim();
+      const body_markdown = ($rich.innerText || "").trim();
       return {
         slug: ($slug.value || slugify($title.value)).trim(),
         title: ($title.value || "").trim(),
@@ -814,7 +985,10 @@ Another paragraph follows the quote naturally."></textarea>
         $form.querySelector('[name="eyebrow"]').value = data.eyebrow || "";
         $form.querySelector('[name="category"]').value = data.category || "Insights";
         $form.querySelector('[name="standfirst"]').value = data.standfirst || "";
-        $body.value = data.body_markdown || "";
+        $rich.innerHTML = (data.body_html && data.body_html.trim())
+          ? data.body_html
+          : (data.body_markdown ? marked.parse(data.body_markdown) : "");
+        $body.value = $rich.innerText || "";
         $slug.value = data.slug || "";
         $heroUrl.value = data.hero_image_url || "";
         $heroAlt.value = data.hero_image_alt || "";
