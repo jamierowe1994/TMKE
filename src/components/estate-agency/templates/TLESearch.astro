@@ -1,22 +1,22 @@
 ---
-// THE LETTING EXPERTS — property-search page. Layout mirrors a modern portal:
-// a solid nav, a sticky filter toolbar, a map pinned on the left and a
-// scrolling grid of results on the right. Map is a free OpenStreetMap embed;
-// filters are placeholders for the concept. Result cards link to detail pages.
+// THE LETTING EXPERTS — property-search page. Solid nav, a sticky filter
+// toolbar with working dropdowns, a Leaflet map with red pins on the left and a
+// live-filtered grid of results on the right. Map/List views toggle. Filters
+// (town, status, price £, type, beds & baths) filter both cards and pins.
 import { PROPERTIES } from "../../../data/tle-properties.js";
 
 const HOME = "/estate-agency/preview/tle";
 
-// London-ish view for the demo map.
-const MAP_SRC =
-  "https://www.openstreetmap.org/export/embed.html?bbox=-0.34%2C51.39%2C0.12%2C51.61&layer=mapnik&marker=51.5074%2C-0.1278";
+const towns = [...new Set(PROPERTIES.map((p) => p.locality.split(",")[0].trim()))];
+const TYPES = ["Flat", "Terraced", "Semi-detached", "Detached", "Apartment", "Bungalow"];
+const BB = ["Any", "1+", "2+", "3+", "4+", "5+"];
 
-const FILTERS = ["Neighbourhoods", "To Let", "Price", "Property type", "Beds & Baths"];
-const RESULTS = PROPERTIES;
+const town = (p) => p.locality.split(",")[0].trim();
+const fmt = (n) => n.toLocaleString("en-GB");
 ---
 
 <div class="tls-root">
-  <!-- Nav (solid) -->
+  <!-- Nav -->
   <header class="tls-nav">
     <a class="tls-logo" href={HOME}>The&nbsp;Letting&nbsp;<span>Experts</span></a>
     <nav class="tls-nav-links">
@@ -25,46 +25,122 @@ const RESULTS = PROPERTIES;
       <a href={`${HOME}#services`}>Landlords</a>
       <a href={`${HOME}#reviews`}>About</a>
     </nav>
-    <a class="tls-signin" href="#">Sign In</a>
+    <a class="tls-contact" href={`${HOME}#book`}>Contact Us</a>
   </header>
 
   <!-- Filter toolbar -->
   <div class="tls-toolbar">
     <label class="tls-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>
-      <input type="text" placeholder="Enter property address" />
+      <input type="text" id="tls-addr" placeholder="Enter property address or town" autocomplete="off" />
     </label>
+
     <div class="tls-filters">
-      {FILTERS.map((f) => (
-        <button type="button" class="tls-filter">
-          {f}
-          <svg class="tls-fchev" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 1.5 6 6.5l5-5" /></svg>
-        </button>
-      ))}
+      <!-- Town -->
+      <div class="tls-fd" data-filter="town">
+        <button type="button" class="tls-filter">Town<svg class="tls-fchev" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1.5 6 6.5l5-5" /></svg></button>
+        <div class="tls-panel">
+          {towns.map((t) => (
+            <label class="tls-opt"><input type="checkbox" data-town value={t} /><span>{t}</span></label>
+          ))}
+          <div class="tls-panel-foot"><button type="button" class="tls-reset">Reset</button><button type="button" class="tls-done">Done</button></div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="tls-fd" data-filter="status">
+        <button type="button" class="tls-filter">Availability<svg class="tls-fchev" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1.5 6 6.5l5-5" /></svg></button>
+        <div class="tls-panel">
+          <label class="tls-opt"><input type="radio" name="tls-status" value="" checked /><span>Any</span></label>
+          <label class="tls-opt"><input type="radio" name="tls-status" value="To let" /><span>To Let</span></label>
+          <label class="tls-opt"><input type="radio" name="tls-status" value="Let agreed" /><span>Let agreed</span></label>
+          <div class="tls-panel-foot"><button type="button" class="tls-reset">Reset</button><button type="button" class="tls-done">Done</button></div>
+        </div>
+      </div>
+
+      <!-- Price -->
+      <div class="tls-fd" data-filter="price">
+        <button type="button" class="tls-filter">Price<svg class="tls-fchev" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1.5 6 6.5l5-5" /></svg></button>
+        <div class="tls-panel tls-panel--price">
+          <div class="tls-price-head">Monthly rent (pcm)</div>
+          <div class="tls-range">
+            <div class="tls-range-track"></div>
+            <div class="tls-range-fill" id="tls-fill"></div>
+            <input type="range" id="tls-pmin" min="0" max="5000" step="50" value="0" />
+            <input type="range" id="tls-pmax" min="0" max="5000" step="50" value="5000" />
+          </div>
+          <div class="tls-price-inputs">
+            <div class="tls-pin"><span>£</span><input type="number" id="tls-pmin-i" min="0" max="5000" value="0" /></div>
+            <span class="tls-dash">–</span>
+            <div class="tls-pin"><span>£</span><input type="number" id="tls-pmax-i" min="0" max="5000" value="5000" /></div>
+          </div>
+          <div class="tls-panel-foot"><button type="button" class="tls-reset">Reset</button><button type="button" class="tls-done">Done</button></div>
+        </div>
+      </div>
+
+      <!-- Property type -->
+      <div class="tls-fd" data-filter="type">
+        <button type="button" class="tls-filter">Property type<svg class="tls-fchev" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1.5 6 6.5l5-5" /></svg></button>
+        <div class="tls-panel">
+          {TYPES.map((t) => (
+            <label class="tls-opt"><input type="checkbox" data-type value={t} /><span>{t}</span></label>
+          ))}
+          <div class="tls-panel-foot"><button type="button" class="tls-reset">Reset</button><button type="button" class="tls-done">Done</button></div>
+        </div>
+      </div>
+
+      <!-- Beds & Baths -->
+      <div class="tls-fd" data-filter="bb">
+        <button type="button" class="tls-filter">Beds &amp; Baths<svg class="tls-fchev" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1.5 6 6.5l5-5" /></svg></button>
+        <div class="tls-panel tls-panel--bb">
+          <div class="tls-bb-row">
+            <div class="tls-bb-label">Beds</div>
+            <div class="tls-pills" data-bb="beds">
+              {BB.map((b, i) => <button type="button" class={i === 0 ? "is-active" : ""} data-v={i}>{b}</button>)}
+            </div>
+          </div>
+          <div class="tls-bb-row">
+            <div class="tls-bb-label">Baths</div>
+            <div class="tls-pills" data-bb="baths">
+              {BB.map((b, i) => <button type="button" class={i === 0 ? "is-active" : ""} data-v={i}>{b}</button>)}
+            </div>
+          </div>
+          <div class="tls-panel-foot"><button type="button" class="tls-reset">Reset</button><button type="button" class="tls-done">Done</button></div>
+        </div>
+      </div>
     </div>
+
     <div class="tls-toggle">
-      <button type="button" class="is-active">Map</button>
-      <button type="button">List</button>
+      <button type="button" class="is-active" data-view="map">Map</button>
+      <button type="button" data-view="list">List</button>
     </div>
   </div>
 
   <!-- Map + results -->
   <div class="tls-body">
-    <div class="tls-map">
-      <iframe src={MAP_SRC} loading="lazy" title="Map of available properties"></iframe>
-    </div>
+    <div class="tls-map" id="tls-map"></div>
 
     <div class="tls-results">
       <div class="tls-results-head">
-        <strong>1,248 results</strong>
+        <strong><span id="tls-count">{PROPERTIES.length}</span> results</strong>
         <span class="tls-sort">Sort: <b>Newest</b>
-          <svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 1.5 6 6.5l5-5" /></svg>
+          <svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1.5 6 6.5l5-5" /></svg>
         </span>
       </div>
 
-      <div class="tls-grid">
-        {RESULTS.map((p) => (
-          <a class="tls-card" href={`/estate-agency/preview/tle-property/${p.slug}`}>
+      <div class="tls-grid" id="tls-grid">
+        {PROPERTIES.map((p) => (
+          <a
+            class="tls-card"
+            href={`/estate-agency/preview/tle-property/${p.slug}`}
+            data-slug={p.slug}
+            data-beds={p.beds}
+            data-baths={p.baths}
+            data-price={p.price}
+            data-type={p.type}
+            data-status={p.status}
+            data-town={town(p)}
+          >
             <div class="tls-card-img">
               <img src={p.images[0]} alt={p.area} loading="lazy" />
               <em class="tls-card-tag">{p.status}</em>
@@ -73,28 +149,195 @@ const RESULTS = PROPERTIES;
               <div class="tls-card-price">{p.pcm}</div>
               <div class="tls-card-meta">{p.type} · To Let · {p.beds} bed · {p.baths} bath</div>
               <div class="tls-card-addr">{p.area}</div>
-              <div class="tls-card-actions">
-                <span class="tls-cardbtn" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 9h18M8 3v4M16 3v4" /></svg>
-                </span>
-                <span class="tls-cardbtn" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
-                </span>
-              </div>
             </div>
           </a>
         ))}
       </div>
+      <p class="tls-empty" id="tls-empty" hidden>No properties match your filters. Try widening them.</p>
     </div>
   </div>
 </div>
+
+<script
+  is:inline
+  define:vars={{ PROPS: PROPERTIES.map((p) => ({ slug: p.slug, lat: p.lat, lng: p.lng, pcm: p.pcm, area: p.area, img: p.images[0], beds: p.beds, baths: p.baths })) }}
+>
+  (function () {
+    var root = document.querySelector(".tls-root");
+    if (!root) return;
+    var cards = Array.prototype.slice.call(document.querySelectorAll(".tls-card"));
+    var countEl = document.getElementById("tls-count");
+    var emptyEl = document.getElementById("tls-empty");
+
+    var state = { towns: new Set(), status: "", pmin: 0, pmax: 5000, types: new Set(), beds: 0, baths: 0, q: "" };
+
+    /* ---- Dropdowns ---- */
+    var fds = Array.prototype.slice.call(document.querySelectorAll(".tls-fd"));
+    fds.forEach(function (fd) {
+      var btn = fd.querySelector(".tls-filter");
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = fd.classList.contains("is-open");
+        fds.forEach(function (o) { o.classList.remove("is-open"); });
+        if (!open) fd.classList.add("is-open");
+      });
+      fd.querySelector(".tls-panel").addEventListener("click", function (e) { e.stopPropagation(); });
+      var done = fd.querySelector(".tls-done");
+      if (done) done.addEventListener("click", function () { fd.classList.remove("is-open"); });
+    });
+    document.addEventListener("click", function () { fds.forEach(function (o) { o.classList.remove("is-open"); }); });
+
+    /* ---- Town + type checkboxes ---- */
+    document.querySelectorAll("input[data-town]").forEach(function (cb) {
+      cb.addEventListener("change", function () { cb.checked ? state.towns.add(cb.value) : state.towns.delete(cb.value); apply(); });
+    });
+    document.querySelectorAll("input[data-type]").forEach(function (cb) {
+      cb.addEventListener("change", function () { cb.checked ? state.types.add(cb.value) : state.types.delete(cb.value); apply(); });
+    });
+    /* ---- Status radios ---- */
+    document.querySelectorAll('input[name="tls-status"]').forEach(function (r) {
+      r.addEventListener("change", function () { state.status = r.value; apply(); });
+    });
+
+    /* ---- Price dual range + inputs ---- */
+    var pmin = document.getElementById("tls-pmin"), pmax = document.getElementById("tls-pmax");
+    var pminI = document.getElementById("tls-pmin-i"), pmaxI = document.getElementById("tls-pmax-i");
+    var fill = document.getElementById("tls-fill");
+    function clampPrices() {
+      var lo = +pmin.value, hi = +pmax.value;
+      if (lo > hi - 50) { if (document.activeElement === pmin) lo = hi - 50; else hi = lo + 50; pmin.value = lo; pmax.value = hi; }
+      state.pmin = lo; state.pmax = hi;
+      pminI.value = lo; pmaxI.value = hi;
+      fill.style.left = (lo / 5000 * 100) + "%";
+      fill.style.right = (100 - hi / 5000 * 100) + "%";
+    }
+    [pmin, pmax].forEach(function (s) { s.addEventListener("input", function () { clampPrices(); apply(); }); });
+    function syncFromInput() {
+      var lo = Math.max(0, Math.min(5000, +pminI.value || 0));
+      var hi = Math.max(0, Math.min(5000, +pmaxI.value || 5000));
+      if (lo > hi) { var t = lo; lo = hi; hi = t; }
+      pmin.value = lo; pmax.value = hi; clampPrices(); apply();
+    }
+    pminI.addEventListener("change", syncFromInput);
+    pmaxI.addEventListener("change", syncFromInput);
+    clampPrices();
+
+    /* ---- Beds & baths pills ---- */
+    document.querySelectorAll(".tls-pills").forEach(function (grp) {
+      var key = grp.getAttribute("data-bb");
+      grp.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          grp.querySelectorAll("button").forEach(function (x) { x.classList.remove("is-active"); });
+          b.classList.add("is-active");
+          state[key] = +b.getAttribute("data-v");
+          apply();
+        });
+      });
+    });
+
+    /* ---- Address search ---- */
+    var addr = document.getElementById("tls-addr");
+    addr.addEventListener("input", function () { state.q = addr.value.trim().toLowerCase(); apply(); });
+
+    /* ---- Reset (per panel) ---- */
+    document.querySelectorAll(".tls-reset").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var fd = btn.closest(".tls-fd"), f = fd.getAttribute("data-filter");
+        if (f === "town") { fd.querySelectorAll("input[data-town]").forEach(function (c) { c.checked = false; }); state.towns.clear(); }
+        if (f === "type") { fd.querySelectorAll("input[data-type]").forEach(function (c) { c.checked = false; }); state.types.clear(); }
+        if (f === "status") { fd.querySelector('input[value=""]').checked = true; state.status = ""; }
+        if (f === "price") { pmin.value = 0; pmax.value = 5000; clampPrices(); }
+        if (f === "bb") { fd.querySelectorAll(".tls-pills").forEach(function (g) { g.querySelectorAll("button").forEach(function (x, i) { x.classList.toggle("is-active", i === 0); }); }); state.beds = 0; state.baths = 0; }
+        apply();
+      });
+    });
+
+    /* ---- Apply filters ---- */
+    var markers = {};
+    function visible(d) {
+      if (state.towns.size && !state.towns.has(d.town)) return false;
+      if (state.status && d.status.toLowerCase() !== state.status.toLowerCase()) return false;
+      var pr = +d.price; if (pr < state.pmin || pr > state.pmax) return false;
+      if (state.types.size && !state.types.has(d.type)) return false;
+      if (+d.beds < state.beds) return false;
+      if (+d.baths < state.baths) return false;
+      if (state.q) {
+        var hay = (d.town + " " + (d.area || "")).toLowerCase();
+        if (hay.indexOf(state.q) === -1) return false;
+      }
+      return true;
+    }
+    function apply() {
+      var n = 0;
+      cards.forEach(function (card) {
+        var d = card.dataset; d.area = card.querySelector(".tls-card-addr").textContent;
+        var ok = visible(d);
+        card.style.display = ok ? "" : "none";
+        if (markers[d.slug]) { ok ? markers[d.slug].addTo(window._tlsMap) : markers[d.slug].remove(); }
+        if (ok) n++;
+      });
+      countEl.textContent = n;
+      emptyEl.hidden = n > 0;
+    }
+
+    /* ---- Map / List toggle ---- */
+    var toggleBtns = document.querySelectorAll(".tls-toggle button");
+    toggleBtns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        toggleBtns.forEach(function (x) { x.classList.remove("is-active"); });
+        b.classList.add("is-active");
+        var list = b.getAttribute("data-view") === "list";
+        root.classList.toggle("is-list", list);
+        if (!list && window._tlsMap) setTimeout(function () { window._tlsMap.invalidateSize(); }, 60);
+      });
+    });
+
+    /* ---- Leaflet map with red pins ---- */
+    function initMap() {
+      var L = window.L;
+      var map = L.map("tls-map", { scrollWheelZoom: false }).setView([54.0, -2.4], 5);
+      window._tlsMap = map;
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap", maxZoom: 18,
+      }).addTo(map);
+      var icon = L.divIcon({ className: "tls-pinwrap", html: '<span class="tls-pin"></span>', iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -28] });
+      var bounds = [];
+      PROPS.forEach(function (p) {
+        if (typeof p.lat !== "number") return;
+        var m = L.marker([p.lat, p.lng], { icon: icon });
+        m.bindPopup(
+          '<a class="tls-pop" href="/estate-agency/preview/tle-property/' + p.slug + '">' +
+          '<img src="' + p.img + '" alt=""/>' +
+          '<span class="tls-pop-tx"><b>' + p.pcm + '</b><i>' + p.area + '</i>' +
+          '<i>' + p.beds + " bed · " + p.baths + " bath</i></span></a>",
+          { closeButton: false }
+        );
+        m.addTo(map);
+        markers[p.slug] = m;
+        bounds.push([p.lat, p.lng]);
+      });
+      if (bounds.length) map.fitBounds(bounds, { padding: [50, 50] });
+    }
+    function loadLeaflet() {
+      if (window.L) return initMap();
+      var css = document.createElement("link");
+      css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(css);
+      var s = document.createElement("script");
+      s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      s.onload = initMap;
+      document.head.appendChild(s);
+    }
+    loadLeaflet();
+  })();
+</script>
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 
   .tls-root {
     --red: #e31f36; --ink: #16171a; --grey: #6e6e76; --line: #e7e7ea; --surface: #f4f4f5;
-    --nav-h: 64px; --tb-h: 62px;
+    --nav-h: 64px; --tb-h: 78px;
     font-family: "Montserrat", system-ui, sans-serif; color: var(--ink); background: #fff;
     -webkit-font-smoothing: antialiased; line-height: 1.5;
   }
@@ -102,52 +345,106 @@ const RESULTS = PROPERTIES;
   .tls-root a { color: inherit; text-decoration: none; }
   .tls-root button { font-family: inherit; cursor: pointer; }
 
-  /* Nav */
+  /* Nav — no dividing line under it; flows into the toolbar. */
   .tls-nav {
-    position: sticky; top: 0; z-index: 30; height: var(--nav-h);
+    position: sticky; top: 0; z-index: 40; height: var(--nav-h);
     display: flex; align-items: center; justify-content: space-between; gap: 24px;
-    padding: 0 clamp(18px, 4vw, 44px);
-    background: #fff; border-bottom: 1px solid var(--line);
+    padding: 0 clamp(18px, 4vw, 44px); background: #fff;
   }
   .tls-logo { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
   .tls-logo span { color: var(--red); }
   .tls-nav-links { display: flex; gap: 26px; }
   .tls-nav-links a { font-size: 14px; font-weight: 500; color: var(--grey); transition: color .2s; }
   .tls-nav-links a:hover, .tls-nav-links a.is-active { color: var(--ink); }
-  .tls-nav .tls-signin { font-size: 13px; font-weight: 700; color: #fff; background: var(--ink); padding: 10px 20px; border-radius: 11px; transition: background .2s; }
-  .tls-nav .tls-signin:hover { background: var(--red); }
+  .tls-nav .tls-contact { font-size: 13px; font-weight: 700; color: #fff; background: var(--red); padding: 11px 24px; border-radius: 999px; transition: background .2s, transform .2s; }
+  .tls-nav .tls-contact:hover { background: var(--ink); transform: translateY(-1px); }
   @media (max-width: 760px) { .tls-nav-links { display: none; } }
 
-  /* Toolbar */
+  /* Toolbar — extra breathing room above + below. */
   .tls-toolbar {
-    position: sticky; top: var(--nav-h); z-index: 25; min-height: var(--tb-h);
+    position: sticky; top: var(--nav-h); z-index: 30; min-height: var(--tb-h);
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    padding: 11px clamp(18px, 4vw, 44px);
-    background: #fff; border-bottom: 1px solid var(--line);
+    padding: 18px clamp(18px, 4vw, 44px); background: #fff; border-bottom: 1px solid var(--line);
   }
   .tls-search {
-    display: inline-flex; align-items: center; gap: 9px; flex: 1 1 240px; min-width: 200px; max-width: 340px;
-    border-bottom: 1.5px solid var(--ink); padding: 6px 2px; color: var(--grey);
+    display: inline-flex; align-items: center; gap: 9px; flex: 1 1 230px; min-width: 190px; max-width: 320px;
+    border-bottom: 1.5px solid var(--ink); padding: 7px 2px; color: var(--grey);
   }
   .tls-search svg { width: 17px; height: 17px; flex: none; }
   .tls-search input { border: 0; outline: 0; background: none; font: inherit; font-size: 14px; color: var(--ink); width: 100%; }
   .tls-filters { display: flex; gap: 9px; flex-wrap: wrap; flex: 1 1 auto; }
+
+  /* Filter dropdowns */
+  .tls-fd { position: relative; }
   .tls-filter {
-    display: inline-flex; align-items: center; gap: 8px;
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
     font-size: 13px; font-weight: 600; color: var(--ink);
-    background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 9px 13px;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px;
     transition: border-color .2s, background .2s;
   }
-  .tls-filter:hover { border-color: var(--ink); background: var(--surface); }
-  .tls-fchev { width: 10px; height: 7px; color: var(--grey); }
+  .tls-filter:hover { border-color: var(--ink); }
+  .tls-fd.is-open .tls-filter { border-color: var(--ink); background: var(--surface); }
+  .tls-fchev { width: 10px; height: 7px; color: var(--grey); transition: transform .2s; }
+  .tls-fd.is-open .tls-fchev { transform: rotate(180deg); }
+
+  .tls-panel {
+    position: absolute; top: calc(100% + 8px); left: 0; z-index: 50;
+    min-width: 220px; background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 26px 60px -28px rgba(0,0,0,0.45); padding: 14px;
+    opacity: 0; visibility: hidden; transform: translateY(6px);
+    transition: opacity .2s ease, transform .2s ease, visibility .2s;
+  }
+  .tls-fd.is-open .tls-panel { opacity: 1; visibility: visible; transform: none; }
+  .tls-panel--price { width: 300px; }
+  .tls-panel--bb { width: 320px; }
+
+  .tls-opt { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 7px 4px; cursor: pointer; }
+  .tls-opt input { width: 16px; height: 16px; accent-color: var(--red); cursor: pointer; }
+
+  .tls-panel-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .tls-reset { font-size: 13px; font-weight: 700; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 8px 18px; }
+  .tls-reset:hover { border-color: var(--ink); }
+  .tls-done { font-size: 13px; font-weight: 700; color: #fff; background: var(--ink); border: 0; border-radius: 999px; padding: 8px 20px; }
+  .tls-done:hover { background: var(--red); }
+
+  /* Price slider */
+  .tls-price-head { font-size: 12px; font-weight: 700; color: var(--grey); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 18px; }
+  .tls-range { position: relative; height: 22px; margin: 0 4px 14px; }
+  .tls-range-track { position: absolute; top: 9px; left: 0; right: 0; height: 4px; border-radius: 999px; background: var(--line); }
+  .tls-range-fill { position: absolute; top: 9px; height: 4px; border-radius: 999px; background: var(--ink); }
+  .tls-range input[type="range"] {
+    position: absolute; top: 0; left: 0; width: 100%; height: 22px; margin: 0;
+    -webkit-appearance: none; appearance: none; background: none; pointer-events: none;
+  }
+  .tls-range input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; pointer-events: auto; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.25); cursor: pointer;
+  }
+  .tls-range input[type="range"]::-moz-range-thumb {
+    pointer-events: auto; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.25); cursor: pointer;
+  }
+  .tls-price-inputs { display: flex; align-items: center; gap: 10px; }
+  .tls-pin { display: inline-flex; align-items: center; gap: 4px; flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 14px; font-weight: 600; }
+  .tls-pin input { width: 100%; border: 0; outline: 0; font: inherit; font-weight: 600; }
+  .tls-pin input::-webkit-outer-spin-button, .tls-pin input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .tls-dash { color: var(--grey); }
+
+  /* Beds & baths pills */
+  .tls-bb-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .tls-bb-label { font-size: 14px; font-weight: 700; }
+  .tls-pills { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .tls-pills button { flex: 1; font-size: 13px; font-weight: 600; color: var(--ink); background: #fff; border: 0; border-left: 1px solid var(--line); padding: 9px 0; }
+  .tls-pills button:first-child { border-left: 0; }
+  .tls-pills button.is-active { background: var(--ink); color: #fff; }
+
   .tls-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   .tls-toggle button { font-size: 13px; font-weight: 700; color: var(--grey); background: #fff; border: 0; padding: 9px 20px; }
   .tls-toggle button.is-active { background: var(--ink); color: #fff; }
 
-  /* Body — map pinned left, results scroll right */
+  /* Body — map left, results right */
   .tls-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.06fr); }
-  .tls-map { position: sticky; top: calc(var(--nav-h) + var(--tb-h)); height: calc(100vh - var(--nav-h) - var(--tb-h)); border-right: 1px solid var(--line); }
-  .tls-map iframe { width: 100%; height: 100%; border: 0; display: block; filter: saturate(0.92); }
+  .tls-map { position: sticky; top: calc(var(--nav-h) + var(--tb-h)); height: calc(100vh - var(--nav-h) - var(--tb-h)); border-right: 1px solid var(--line); background: var(--surface); }
 
   .tls-results { padding: 18px clamp(16px, 2vw, 28px) 48px; }
   .tls-results-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
@@ -165,6 +462,13 @@ const RESULTS = PROPERTIES;
   }
   @media (max-width: 560px) { .tls-grid { grid-template-columns: 1fr; } }
 
+  /* List view — hide the map, full-width 3-up grid */
+  .tls-root.is-list .tls-map { display: none; }
+  .tls-root.is-list .tls-body { grid-template-columns: 1fr; }
+  .tls-root.is-list .tls-grid { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 1100px) { .tls-root.is-list .tls-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 680px) { .tls-root.is-list .tls-grid { grid-template-columns: 1fr; } }
+
   .tls-card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; transition: transform .25s, box-shadow .25s; }
   .tls-card:hover { transform: translateY(-4px); box-shadow: 0 26px 50px -34px rgba(0,0,0,0.35); }
   .tls-card-img { position: relative; aspect-ratio: 16 / 11; background: var(--surface); overflow: hidden; }
@@ -175,16 +479,23 @@ const RESULTS = PROPERTIES;
   .tls-card-price { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
   .tls-card-meta { font-size: 12.5px; color: var(--grey); margin: 5px 0 4px; }
   .tls-card-addr { font-size: 13px; color: var(--ink); font-weight: 500; }
-  .tls-card-actions { display: flex; gap: 8px; margin-top: 13px; }
-  .tls-cardbtn { width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); display: grid; place-items: center; transition: background .2s, color .2s, border-color .2s; }
-  .tls-cardbtn:hover { background: var(--red); color: #fff; border-color: var(--red); }
-  .tls-cardbtn svg { width: 16px; height: 16px; }
 
-  /* Image placeholders */
-  .tls-ph {
-    background: var(--surface);
-    background-image: repeating-linear-gradient(135deg, transparent 0 18px, rgba(0,0,0,0.012) 18px 19px);
-    display: flex; align-items: center; justify-content: center;
+  .tls-empty { padding: 40px 4px; color: var(--grey); font-size: 15px; }
+</style>
+
+<!-- Global styles for the Leaflet-injected pins + popups (built outside the scoped tree). -->
+<style is:global>
+  .tls-pinwrap { background: none; border: 0; }
+  .tls-pin {
+    display: block; width: 20px; height: 20px; background: #e31f36;
+    border: 2px solid #fff; border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg); box-shadow: 0 3px 9px rgba(0,0,0,0.4);
   }
-  .tls-ph > span { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #b6b6bd; font-weight: 600; }
+  .leaflet-popup-content { margin: 0; }
+  .leaflet-popup-content-wrapper { border-radius: 12px; overflow: hidden; padding: 0; }
+  .leaflet-popup-content a.tls-pop { display: flex; gap: 10px; width: 220px; text-decoration: none; color: #16171a; font-family: "Montserrat", system-ui, sans-serif; }
+  .tls-pop img { width: 84px; height: 84px; object-fit: cover; flex: none; }
+  .tls-pop-tx { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 10px 0; }
+  .tls-pop-tx b { font-size: 16px; font-weight: 800; }
+  .tls-pop-tx i { font-size: 11.5px; font-style: normal; color: #6e6e76; line-height: 1.3; }
 </style>
