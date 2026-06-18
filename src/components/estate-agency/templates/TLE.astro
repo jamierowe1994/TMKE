@@ -19,8 +19,8 @@ const CLOUD1 = "https://assets.tmke.co.uk/TLE/cloud.png";
 const CLOUD2 = "https://assets.tmke.co.uk/TLE/cloud%202.png";
 const CLOUD3 = "https://assets.tmke.co.uk/TLE/full%20image.png";
 
-// Near-full-screen editorial image for the "Changing the future" section.
-const FUTURE_IMG = "https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=2200&q=80";
+// Wide editorial image for the "Changing the future" section.
+const FUTURE_IMG = "https://images.unsplash.com/photo-1512359953714-f0c9a632ab85?auto=format&fit=crop&w=2400&q=80";
 
 // "Properties We Think You'll Love" — the first four from the shared dataset.
 const PROPERTIES = ALL_PROPERTIES.slice(0, 4);
@@ -167,13 +167,25 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   <section class="tle-section" id="properties">
     <header class="tle-head tle-reveal">
       <div>
-        <h2 class="tle-h">Properties we think you'll love.</h2>
+        <h2 class="tle-h">Properties we think you'll love<span class="tle-dot">.</span></h2>
       </div>
       <a href="#" class="tle-link">View all properties &rarr;</a>
     </header>
     <div class="tle-props">
       {PROPERTIES.map((p, i) => (
-        <a class={`tle-prop tle-reveal${i === 0 ? " tle-prop--feature" : ""}${i === 3 ? " tle-prop--wide" : ""}`} href={`/estate-agency/preview/tle-property/${p.slug}`}>
+        <a
+          class={`tle-prop tle-reveal${i === 0 ? " tle-prop--feature" : ""}${i === 3 ? " tle-prop--wide" : ""}`}
+          href={`/estate-agency/preview/tle-property/${p.slug}`}
+          data-prop
+          data-img={p.images[0]}
+          data-status={p.status}
+          data-area={p.area}
+          data-pcm={p.pcm}
+          data-beds={p.beds}
+          data-baths={p.baths}
+          data-size={p.size}
+          data-type={p.type}
+        >
           <img class="tle-prop-media" src={p.images[0]} alt={p.area} loading="lazy" />
           <em class="tle-prop-tag">{p.status}</em>
           <div class="tle-prop-overlay">
@@ -181,13 +193,30 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
             <div class="tle-prop-meta">{p.beds} bed · {p.baths} bath</div>
             <div class="tle-prop-foot">
               <span class="tle-prop-price">{p.pcm}</span>
-              <span class="tle-btn tle-btn--white tle-btn--sm">View &rarr;</span>
             </div>
           </div>
         </a>
       ))}
     </div>
   </section>
+
+  <!-- Property preview modal (opened when a card on the homepage is clicked) -->
+  <div class="tle-modal" id="tle-modal" hidden>
+    <div class="tle-modal-backdrop" data-close></div>
+    <div class="tle-modal-card" role="dialog" aria-modal="true" aria-label="Property preview">
+      <button type="button" class="tle-modal-x" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18" /></svg>
+      </button>
+      <div class="tle-modal-media"><img id="tlem-img" src="" alt="" /><em class="tle-prop-tag" id="tlem-tag"></em></div>
+      <div class="tle-modal-body">
+        <div class="tle-modal-price" id="tlem-price"></div>
+        <h3 class="tle-modal-area" id="tlem-area"></h3>
+        <div class="tle-modal-stats" id="tlem-stats"></div>
+        <p class="tle-modal-note">Offered to let on a fully-managed basis — rent guarantee and legal protection built in, with a named Letting Expert by your side throughout.</p>
+        <a class="tle-btn tle-btn--red tle-btn--box" id="tlem-full" href="#">View full page &rarr;</a>
+      </div>
+    </div>
+  </div>
 
   <!-- ============ Changing the future of lettings ============ -->
   <section class="tle-future" id="book">
@@ -287,7 +316,7 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
         <h2 class="tle-h">Latest articles.</h2>
         <p class="tle-head-note" style="margin-top:14px">Stay up to date with our latest news, tips and tricks.</p>
       </div>
-      <a href="#" class="tle-link">View all posts &rarr;</a>
+      <a href="/estate-agency/preview/tle-blog" class="tle-link">View all posts &rarr;</a>
     </header>
     <div class="tle-blog">
       {BLOG.map((b) => (
@@ -658,6 +687,32 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-prop--feature .tle-prop-meta { font-size: 14px; margin-bottom: 18px; }
   .tle-prop--feature .tle-prop-price { font-size: clamp(18px, 1.6vw, 23px); }
 
+  /* Red full stop on section headings. */
+  .tle-dot { color: var(--red); }
+
+  /* ---- Property preview modal (homepage cards) ---- */
+  .tle-modal { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 20px; }
+  .tle-modal[hidden] { display: none; }
+  .tle-modal-backdrop { position: absolute; inset: 0; background: rgba(12,12,16,0.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); opacity: 0; transition: opacity .3s ease; }
+  .tle-modal.is-open .tle-modal-backdrop { opacity: 1; }
+  .tle-modal-card {
+    position: relative; z-index: 1; width: min(560px, 100%); max-height: 90vh; overflow: auto;
+    background: #fff; border-radius: 22px; box-shadow: 0 50px 100px -40px rgba(0,0,0,0.6);
+    transform: translateY(18px) scale(.95); opacity: 0;
+    transition: transform .44s cubic-bezier(.34,1.56,.5,1), opacity .3s ease;
+  }
+  .tle-modal.is-open .tle-modal-card { transform: none; opacity: 1; }
+  .tle-modal-x { position: absolute; z-index: 2; top: 14px; right: 14px; width: 38px; height: 38px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.92); color: var(--ink); display: grid; place-items: center; cursor: pointer; box-shadow: 0 4px 14px -4px rgba(0,0,0,0.3); }
+  .tle-modal-x svg { width: 18px; height: 18px; }
+  .tle-modal-media { position: relative; aspect-ratio: 16 / 10; background: var(--surface); }
+  .tle-modal-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tle-modal-body { padding: clamp(22px, 3vw, 34px); }
+  .tle-modal-price { font-size: clamp(26px, 3vw, 38px); font-weight: 800; letter-spacing: -0.02em; }
+  .tle-modal-area { font-size: 16px; font-weight: 600; color: var(--grey); margin: 4px 0 18px; }
+  .tle-modal-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+  .tle-modal-stats span { font-size: 13px; font-weight: 600; border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; }
+  .tle-modal-note { font-size: 14px; color: var(--grey); line-height: 1.55; margin: 0 0 24px; max-width: 46ch; }
+
   /* ---- Future / book — editorial: a left label, a two-tone heading (black lead
      sentence, grey continuation), then a near-full-screen image that drifts on
      scroll for a gentle parallax. ---- */
@@ -673,7 +728,7 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   @media (max-width: 820px) { .tle-future-head { grid-template-columns: 1fr; } }
 
   .tle-future-frame {
-    position: relative; border-radius: 22px; overflow: hidden;
+    position: relative; border-radius: 0; overflow: hidden;
     height: clamp(230px, 48vh, 470px); background: var(--surface);
   }
   .tle-future-pimg {
@@ -876,5 +931,36 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       if (m) scroller.scrollLeft = m.offsetLeft + m.offsetWidth / 2 - scroller.clientWidth / 2;
       update();
     });
+  })();
+
+  /* Property preview modal — homepage cards open a highlights pop-out instead
+     of navigating; "View full page" follows the card's link. */
+  (function () {
+    const modal = document.getElementById("tle-modal");
+    if (!modal) return;
+    const $ = (id) => document.getElementById(id);
+    function open(card) {
+      const d = card.dataset;
+      $("tlem-img").src = d.img; $("tlem-img").alt = d.area;
+      $("tlem-tag").textContent = d.status;
+      $("tlem-price").textContent = d.pcm;
+      $("tlem-area").textContent = d.area;
+      $("tlem-stats").innerHTML =
+        "<span>" + d.beds + " bed</span><span>" + d.baths + " bath</span><span>" + d.size + "</span><span>" + d.type + "</span>";
+      $("tlem-full").href = card.getAttribute("href");
+      modal.hidden = false;
+      requestAnimationFrame(() => modal.classList.add("is-open"));
+      document.body.style.overflow = "hidden";
+    }
+    function close() {
+      modal.classList.remove("is-open");
+      document.body.style.overflow = "";
+      setTimeout(() => { modal.hidden = true; }, 340);
+    }
+    document.querySelectorAll("[data-prop]").forEach((card) => {
+      card.addEventListener("click", (e) => { e.preventDefault(); open(card); });
+    });
+    modal.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", close));
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) close(); });
   })();
 </script>

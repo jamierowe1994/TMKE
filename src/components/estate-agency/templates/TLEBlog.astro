@@ -1,0 +1,201 @@
+---
+// THE LETTING EXPERTS — blog page. A full-bleed video hero that scrolls up
+// under a transparent nav (which focuses to solid), with a slider of featured
+// articles (pill + title + subtitle on the left, date + read time on the
+// right), then a grid of all posts.
+const HOME = "/estate-agency/preview/tle";
+const HERO_VIDEO = "https://assets.tmke.co.uk/TLE/7646533-uhd_3840_2160_25fps.mp4";
+
+const U = (id, w = 1200, h = 800) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
+
+const BLOGS = [
+  { cat: "Landlords",  title: "How to Make Your Rental Property Easier to Manage", sub: "Small changes that cut voids, protect your yield and keep great tenants for longer.", date: "4 Jun 2026",  read: "6 min read", img: U("1560448204-e02f11c3d0e2") },
+  { cat: "Tenants",    title: "Why Good Tenants Miss Out on Rental Homes & How to Avoid It", sub: "What letting agents really look for — and how to make your application stand out.", date: "21 May 2026", read: "5 min read", img: U("1522708323590-d24dbb6b0267") },
+  { cat: "Landlords",  title: "How to Handle the End of a Tenancy Smoothly and Professionally", sub: "From notice to check-out and deposit return, the right way to wrap up a tenancy.", date: "7 May 2026",  read: "7 min read", img: U("1493809842364-78817add7ffb") },
+  { cat: "Compliance", title: "The Renters' Rights Act: What Landlords Need to Know", sub: "The reforms reshaping the private rented sector — and how to stay ahead of them.", date: "22 Apr 2026", read: "8 min read", img: U("1554224155-6726b3ff858f") },
+  { cat: "Tenants",    title: "A Renter's Guide to a Stress-Free Moving Day", sub: "A simple checklist to make moving into your new home effortless.", date: "9 Apr 2026",  read: "4 min read", img: U("1484154218962-a197022b5858") },
+  { cat: "Landlords",  title: "Maximising Your Rental Yield in 2026", sub: "Where the smart money is going and how to get the most from your investment.", date: "28 Mar 2026", read: "6 min read", img: U("1486406146926-c627a92ad1ab") },
+];
+const featured = BLOGS.slice(0, 3);
+---
+
+<div class="tlb-root">
+  <!-- Nav (transparent over the hero, focuses on scroll) -->
+  <header class="tlb-nav" id="tlb-nav">
+    <a class="tlb-logo" href={HOME}>The&nbsp;Letting&nbsp;<span>Experts</span></a>
+    <nav class="tlb-nav-links">
+      <a href="/estate-agency/preview/tle-search">Search</a>
+      <a href={`${HOME}#team`}>Agents</a>
+      <a href={`${HOME}#services`}>Landlords</a>
+      <a class="is-active" href="#">Blog</a>
+    </nav>
+    <a class="tlb-contact" href={`${HOME}#book`}>Contact Us</a>
+  </header>
+
+  <!-- Video hero -->
+  <section class="tlb-hero">
+    <video class="tlb-hero-video" autoplay muted loop playsinline preload="auto">
+      <source src={HERO_VIDEO} type="video/mp4" />
+    </video>
+    <div class="tlb-hero-scrim" aria-hidden="true"></div>
+
+    <div class="tlb-hero-content">
+      <div class="tlb-hero-main">
+        {featured.map((b, i) => (
+          <a class={`tlb-slide${i === 0 ? " is-active" : ""}`} data-slide={i} href="#blog">
+            <span class="tlb-pill">{b.cat}</span>
+            <h1 class="tlb-hero-title">{b.title}</h1>
+            <p class="tlb-hero-sub">{b.sub}</p>
+          </a>
+        ))}
+        <div class="tlb-dots">
+          {featured.map((b, i) => (
+            <button type="button" class={`tlb-dot${i === 0 ? " is-active" : ""}`} data-dot={i} aria-label={`Featured article ${i + 1}`}></button>
+          ))}
+        </div>
+      </div>
+
+      <div class="tlb-hero-meta">
+        {featured.map((b, i) => (
+          <div class={`tlb-meta-slide${i === 0 ? " is-active" : ""}`} data-slide={i}>
+            <div class="tlb-meta-date">{b.date}</div>
+            <div class="tlb-meta-read">{b.read}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- All posts -->
+  <section class="tlb-list" id="blog">
+    <header class="tlb-list-head">
+      <h2>The blog<span class="tlb-reddot">.</span></h2>
+      <p>Guidance, market insight and practical tips for landlords and tenants.</p>
+    </header>
+    <div class="tlb-grid">
+      {BLOGS.map((b) => (
+        <a class="tlb-card" href="#">
+          <div class="tlb-card-img"><img src={b.img} alt={b.title} loading="lazy" /><span class="tlb-card-pill">{b.cat}</span></div>
+          <div class="tlb-card-body">
+            <h3 class="tlb-card-title">{b.title}</h3>
+            <p class="tlb-card-sub">{b.sub}</p>
+            <div class="tlb-card-meta"><span>{b.date}</span><span>{b.read}</span></div>
+          </div>
+        </a>
+      ))}
+    </div>
+  </section>
+</div>
+
+<script is:inline>
+  (function () {
+    /* Nav focus on scroll. */
+    var nav = document.getElementById("tlb-nav");
+    function onScroll() { nav.classList.toggle("is-stuck", window.scrollY > 60); }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+
+    /* Hero slider — cycle the featured article. */
+    var slides = document.querySelectorAll(".tlb-slide");
+    var metas = document.querySelectorAll(".tlb-meta-slide");
+    var dots = document.querySelectorAll(".tlb-dot");
+    if (!slides.length) return;
+    var cur = 0, timer;
+    function go(n) {
+      cur = (n + slides.length) % slides.length;
+      slides.forEach(function (s, i) { s.classList.toggle("is-active", i === cur); });
+      metas.forEach(function (s, i) { s.classList.toggle("is-active", i === cur); });
+      dots.forEach(function (d, i) { d.classList.toggle("is-active", i === cur); });
+    }
+    function auto() { timer = setInterval(function () { go(cur + 1); }, 5500); }
+    function reset() { clearInterval(timer); auto(); }
+    dots.forEach(function (d, i) { d.addEventListener("click", function () { go(i); reset(); }); });
+    auto();
+  })();
+</script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+  .tlb-root {
+    --red: #e31f36; --ink: #16171a; --grey: #6e6e76; --line: #e7e7ea; --surface: #f4f4f5;
+    font-family: "Montserrat", system-ui, sans-serif; color: var(--ink); background: #fff;
+    -webkit-font-smoothing: antialiased; line-height: 1.5;
+  }
+  .tlb-root *, .tlb-root *::before, .tlb-root *::after { box-sizing: border-box; }
+  .tlb-root a { color: inherit; text-decoration: none; }
+  .tlb-root button { font-family: inherit; cursor: pointer; }
+
+  /* Nav — fixed & transparent so the video scrolls under it; focuses on scroll. */
+  .tlb-nav {
+    --fg: #fff;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 40; height: 66px;
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    padding: 0 clamp(18px, 4vw, 48px); background: transparent;
+    transition: background .3s ease, box-shadow .3s ease;
+  }
+  .tlb-nav::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,0.34), transparent); opacity: 1; transition: opacity .3s ease; }
+  .tlb-nav.is-stuck { background: rgba(255,255,255,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 10px 30px -22px rgba(0,0,0,0.4); }
+  .tlb-nav.is-stuck { --fg: var(--ink); }
+  .tlb-nav.is-stuck::before { opacity: 0; }
+  .tlb-nav .tlb-logo { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; color: var(--fg); transition: color .3s; }
+  .tlb-nav .tlb-logo span { color: var(--red); }
+  .tlb-nav-links { display: flex; gap: 26px; }
+  .tlb-nav .tlb-nav-links a { font-size: 14px; font-weight: 500; color: var(--fg); opacity: .85; transition: opacity .2s, color .3s; }
+  .tlb-nav .tlb-nav-links a:hover, .tlb-nav .tlb-nav-links a.is-active { opacity: 1; }
+  .tlb-nav .tlb-contact { font-size: 13px; font-weight: 700; color: #fff; background: var(--red); padding: 11px 24px; border-radius: 999px; transition: background .2s, transform .2s; }
+  .tlb-nav .tlb-contact:hover { background: var(--ink); transform: translateY(-1px); }
+  @media (max-width: 760px) { .tlb-nav-links { display: none; } }
+
+  /* Hero — full-bleed video; content overlaid at the bottom. */
+  .tlb-hero { position: relative; min-height: 92vh; overflow: hidden; background: #1a1c22; }
+  .tlb-hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .tlb-hero-scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.15) 42%, rgba(0,0,0,0.05) 100%); }
+  .tlb-hero-content {
+    position: absolute; inset: auto 0 0 0; z-index: 2; color: #fff;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; flex-wrap: wrap;
+    padding: clamp(28px, 5vw, 64px) clamp(20px, 5vw, 64px);
+  }
+  .tlb-hero-main { position: relative; flex: 1 1 540px; min-height: 220px; }
+  .tlb-slide {
+    position: absolute; inset: 0 0 auto 0; display: block; color: #fff; max-width: 660px;
+    opacity: 0; transform: translateY(14px); pointer-events: none;
+    transition: opacity .6s ease, transform .6s cubic-bezier(.16,1,.3,1);
+  }
+  .tlb-slide.is-active { opacity: 1; transform: none; pointer-events: auto; position: relative; }
+  .tlb-pill { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); padding: 7px 16px; border-radius: 999px; margin-bottom: 18px; }
+  .tlb-hero-title { font-size: clamp(28px, 4vw, 52px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; margin: 0 0 14px; text-shadow: 0 2px 30px rgba(0,0,0,0.4); }
+  .tlb-hero-sub { font-size: clamp(15px, 1.3vw, 18px); color: rgba(255,255,255,0.86); margin: 0; max-width: 56ch; }
+  .tlb-dots { display: flex; gap: 9px; margin-top: 26px; }
+  .tlb-dot { width: 9px; height: 9px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.4); transition: background .3s, width .3s; }
+  .tlb-dot.is-active { background: #fff; width: 26px; }
+
+  .tlb-hero-meta { position: relative; flex: 0 0 auto; text-align: right; align-self: flex-end; min-width: 140px; min-height: 44px; }
+  .tlb-meta-slide { position: absolute; inset: auto 0 0 0; opacity: 0; transition: opacity .5s ease; }
+  .tlb-meta-slide.is-active { opacity: 1; position: relative; }
+  .tlb-meta-date { font-size: 14px; font-weight: 700; }
+  .tlb-meta-read { font-size: 13px; color: rgba(255,255,255,0.78); margin-top: 4px; }
+
+  /* All posts */
+  .tlb-list { padding: clamp(56px, 7vw, 110px) clamp(20px, 5vw, 64px); }
+  .tlb-list-head { margin-bottom: clamp(32px, 4vw, 56px); }
+  .tlb-list-head h2 { font-size: clamp(32px, 4.4vw, 60px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 10px; }
+  .tlb-reddot { color: var(--red); }
+  .tlb-list-head p { font-size: 16px; color: var(--grey); margin: 0; }
+
+  .tlb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(18px, 2vw, 30px); }
+  @media (max-width: 1000px) { .tlb-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 620px) { .tlb-grid { grid-template-columns: 1fr; } }
+  .tlb-card { display: flex; flex-direction: column; transition: transform .25s; }
+  .tlb-card:hover { transform: translateY(-5px); }
+  .tlb-card-img { position: relative; aspect-ratio: 3 / 2; border-radius: 16px; overflow: hidden; background: var(--surface); }
+  .tlb-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s cubic-bezier(.16,1,.3,1); }
+  .tlb-card:hover .tlb-card-img img { transform: scale(1.05); }
+  .tlb-card-pill { position: absolute; top: 12px; left: 12px; font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.92); color: var(--ink); padding: 6px 13px; border-radius: 999px; }
+  .tlb-card-body { padding: 16px 2px 0; }
+  .tlb-card-title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; margin: 0 0 8px; }
+  .tlb-card-sub { font-size: 14px; color: var(--grey); line-height: 1.5; margin: 0 0 14px; }
+  .tlb-card-meta { display: flex; gap: 16px; font-size: 12.5px; color: var(--grey); }
+  .tlb-card-meta span:first-child { font-weight: 600; color: var(--ink); }
+</style>
