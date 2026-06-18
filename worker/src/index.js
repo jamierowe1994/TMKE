@@ -112,6 +112,9 @@ function teaserKeys(deliverables, teaserCount) {
   return new Set(imgs.slice(0, Math.max(0, teaserCount || 0)).map((d) => d.r2_key));
 }
 
+// Debounce site rebuilds so rapid publishes/saves don't queue many deploys.
+let _lastDeployAt = 0;
+
 // ---- Microsoft Graph (app-only / client credentials) --------------------
 let _msToken = null; // { token, exp } cached per Worker isolate
 async function msToken(env) {
@@ -573,6 +576,39 @@ export default {
     }
 
     try {
+      // ---- Trigger a site rebuild (publish/edit a blog -> push live) ----------
+      // The public site is a static Astro build, so DB writes don't change the
+      // live pages until a redeploy. The admin editor calls this after a
+      // publish/save so Railway rebuilds and the new/edited post goes live —
+      // no manual deploy. The Railway deploy-hook URL is a Worker secret, so it
+      // is never exposed to the browser:  wrangler secret put RAILWAY_DEPLOY_HOOK
+      if (path.endsWith("/deploy") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ ok: false, error: "Sign in to publish." }, 401, request, env);
+        if (!isAdminEmail(user)) return json({ ok: false, error: "Not authorised." }, 403, request, env);
+        if (!env.RAILWAY_DEPLOY_HOOK) {
+          return json({ ok: false, error: "Deploy hook not configured — set the RAILWAY_DEPLOY_HOOK secret on the Worker (wrangler secret put RAILWAY_DEPLOY_HOOK)." }, 503, request, env);
+        }
+        const now = Date.now();
+        // A rebuild already in flight picks up the latest content, so coalesce
+        // bursts (e.g. publish then a quick edit) into one deploy.
+        if (now - _lastDeployAt < 45000) {
+          return json({ ok: true, queued: false, message: "A site update is already in progress — your changes will be included." }, 200, request, env);
+        }
+        _lastDeployAt = now;
+        try {
+          const hook = await fetch(env.RAILWAY_DEPLOY_HOOK, { method: "POST" });
+          if (!hook.ok) {
+            _lastDeployAt = 0; // allow a retry
+            return json({ ok: false, error: "Deploy hook returned " + hook.status }, 502, request, env);
+          }
+        } catch (e) {
+          _lastDeployAt = 0;
+          return json({ ok: false, error: "Couldn't reach the deploy hook." }, 502, request, env);
+        }
+        return json({ ok: true, queued: true, message: "Site is updating — your post will be live in a minute or two." }, 200, request, env);
+      }
+
       // ---- AI: read text + positions from a finished design image ----
       // Powers the studio's "Read text with AI" (Canva import). Holds the
       // Anthropic key as a Worker secret so it never reaches the browser.

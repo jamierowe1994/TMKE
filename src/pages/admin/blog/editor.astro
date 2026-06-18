@@ -903,6 +903,25 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       };
     }
 
+    // Ask the Worker to rebuild the static site so a published/edited post goes
+    // live without a manual deploy. Best-effort: the save already succeeded.
+    const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    async function triggerDeploy() {
+      if (!WORKER_URL) return; // Worker not configured (e.g. local dev)
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data && data.session && data.session.access_token;
+        if (!token) return;
+        const res = await fetch(`${WORKER_URL}/deploy`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const out = await res.json().catch(() => ({}));
+        if (out && out.message) toast(out.message);
+        else if (out && out.error) toast("Saved — but the site update didn't trigger: " + out.error);
+      } catch (_) { /* save already persisted; the deploy is best-effort */ }
+    }
+
     async function save(opts = {}) {
       if (!isConfigured) { alert("Connect Supabase before saving. See AUTH_SETUP.md."); return; }
       const payload = gather();
@@ -935,6 +954,8 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         }
         updateSub();
         toast(opts.publish ? "Published ✓" : "Saved ✓");
+        // If the post is live, rebuild the public site so the change goes out.
+        if (payload.status === "published") triggerDeploy();
       }
     }
     $save.addEventListener("click", () => save());
