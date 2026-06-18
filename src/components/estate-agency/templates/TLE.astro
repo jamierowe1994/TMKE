@@ -59,10 +59,11 @@ const TEAM = [
 ];
 
 // "Latest Articles" — real blog posts.
+const ARTVIDEO = "https://assets.tmke.co.uk/TLE/7646533-uhd_3840_2160_25fps.mp4";
 const BLOG = [
-  { cat: "Landlords", title: "How to Make Your Rental Property Easier to Manage", date: "4 Jun 2026" },
-  { cat: "Tenants",   title: "Why Good Tenants Miss Out on Rental Homes & How to Avoid It", date: "21 May 2026" },
-  { cat: "Landlords", title: "How to Handle the End of a Tenancy Smoothly and Professionally", date: "7 May 2026" },
+  { cat: "Landlords", title: "How to Make Your Rental Property Easier to Manage", sub: "Small changes that cut voids, protect your yield and keep great tenants for longer.", date: "4 Jun 2026", read: "6 min read" },
+  { cat: "Tenants",   title: "Why Good Tenants Miss Out on Rental Homes & How to Avoid It", sub: "What letting agents really look for — and how to make your application stand out.", date: "21 May 2026", read: "5 min read" },
+  { cat: "Landlords", title: "How to Handle the End of a Tenancy Smoothly and Professionally", sub: "From notice to check-out and deposit return, the right way to wrap up a tenancy.", date: "7 May 2026", read: "7 min read" },
 ];
 
 // Accreditations.
@@ -137,7 +138,6 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
 
     </nav>
     <a href="#book" class="tle-nav-contact">
-      <span class="cb-glow" aria-hidden="true"></span>
       <span class="cb-fill" aria-hidden="true"></span>
       <span class="cb-gloss" aria-hidden="true"></span>
       <span class="nc-short">Contact</span>
@@ -318,25 +318,41 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     <p class="tle-team-hint">Drag to meet the team &middot; hover a face for details</p>
   </section>
 
-  <!-- ============ Blog ============ -->
-  <section class="tle-section" id="blog">
+  <!-- ============ Latest Articles — edge-to-edge video rotator ============ -->
+  <section class="tle-section tle-insights" id="blog">
     <header class="tle-head tle-reveal">
       <div>
-        <div class="tle-label">( Insights )</div>
-        <h2 class="tle-h">Latest articles.</h2>
-        <p class="tle-head-note" style="margin-top:14px">Stay up to date with our latest news, tips and tricks.</p>
+        <h2 class="tle-h">Latest Articles<span class="tle-dot">.</span></h2>
       </div>
       <a href="/estate-agency/preview/tle-blog" class="tle-link">View all posts &rarr;</a>
     </header>
-    <div class="tle-blog">
-      {BLOG.map((b) => (
-        <article class="tle-post tle-reveal">
-          <div class="tle-ph tle-ph--wide"><span>Article image</span></div>
-          <div class="tle-post-cat">{b.cat}</div>
-          <h3 class="tle-post-h">{b.title}</h3>
-          <div class="tle-post-date">{b.date}</div>
-        </article>
-      ))}
+    <div class="tle-artfeature tle-reveal">
+      <video class="tle-artfeature-video" autoplay muted loop playsinline preload="auto"><source src={ARTVIDEO} type="video/mp4" /></video>
+      <div class="tle-artfeature-scrim" aria-hidden="true"></div>
+      <div class="tle-artfeature-content">
+        <div class="tle-artfeature-main">
+          {BLOG.map((b, i) => (
+            <a class={`tle-artslide${i === 0 ? " is-active" : ""}`} data-aslide={i} href="/estate-agency/preview/tle-blog">
+              <span class="tle-artpill">{b.cat}</span>
+              <h3 class="tle-arttitle">{b.title}</h3>
+              <p class="tle-artsub">{b.sub}</p>
+            </a>
+          ))}
+          <div class="tle-artdots">
+            {BLOG.map((b, i) => (
+              <button type="button" class={`tle-artdot${i === 0 ? " is-active" : ""}`} data-adot={i} aria-label={`Article ${i + 1}`}></button>
+            ))}
+          </div>
+        </div>
+        <div class="tle-artfeature-meta">
+          {BLOG.map((b, i) => (
+            <div class={`tle-artmeta${i === 0 ? " is-active" : ""}`} data-aslide={i}>
+              <div class="tle-artmeta-date">{b.date}</div>
+              <div class="tle-artmeta-read">{b.read}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   </section>
 
@@ -352,21 +368,33 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
 
   <!-- ============ Footer ============ -->
   <footer class="tle-footer">
-    <div class="tle-footer-top">
-      <div class="tle-footer-brand">
-        <div class="tle-logo tle-logo--light">The&nbsp;Letting&nbsp;<span>Experts</span></div>
-        <p>The future of lettings — giving landlords peace of mind, nationwide.</p>
-        <a href="#book" class="tle-btn tle-btn--red">Book an appointment</a>
+    <div class="tle-footer-card">
+      <div class="tle-footer-grid">
+        <div class="tle-footer-brand">
+          <a class="tle-footer-logo" href="#">
+            <span class="tle-footer-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 19 19 5M9 19l10-10" /></svg></span>
+            The Letting Experts
+          </a>
+          <p>Giving landlords peace of mind — clear, compliant, fully-managed lettings, nationwide.</p>
+          <div class="tle-footer-socials">
+            <a href="#" aria-label="X"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-7.3 8.3L23 22h-6.8l-5.3-6.9L4.8 22H1.7l7.8-8.9L1 2h6.9l4.8 6.4L18.9 2Zm-2.4 18h1.9L7.6 3.9H5.6L16.5 20Z" /></svg></a>
+            <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" /></svg></a>
+            <a href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9h4v12H3V9Zm6 0h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05C20.5 8.65 22 10.6 22 14v7h-4v-6.2c0-1.48-.03-3.38-2.06-3.38-2.06 0-2.38 1.6-2.38 3.27V21H9V9Z" /></svg></a>
+            <a href="#" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12Z" /></svg></a>
+          </div>
+        </div>
+        <div class="tle-footer-cols">
+          <div><h4>Lettings</h4><a href="#">Our Services</a><a href="#">Advice &amp; Support</a><a href="#">Our Expertise</a><a href="#">Renters' Rights Act</a></div>
+          <div><h4>Resources</h4><a href="/estate-agency/preview/tle-blog">Latest Articles</a><a href="#">Find an Expert</a><a href="#">Become an Expert</a><a href="#">Client Money Protection</a></div>
+          <div><h4>Company</h4><a href="#">About Us</a><a href="#">Contact</a><a href="#">Careers</a><a href="#">Partners</a></div>
+        </div>
       </div>
-      <div class="tle-footer-cols">
-        <div><h4>Landlords</h4><a href="#">Our Services</a><a href="#">Advice &amp; Support</a><a href="#">Our Expertise</a><a href="#">Book an appointment</a></div>
-        <div><h4>Company</h4><a href="#">About Us</a><a href="#">Letting Experts</a><a href="#">Latest Articles</a><a href="#">Client Money Protection</a></div>
-        <div><h4>Contact</h4><a href="#">0333 344 9915</a><a href="#">hello@thelettingexperts.co.uk</a><a href="#">5 Regent Street, Rugby, CV21 2PE</a></div>
+      <div class="tle-footer-rule"></div>
+      <div class="tle-footer-legal">
+        <span>© 2026 The Letting Experts. The Letting Experts (Nationwide) Ltd · Company No. 14702207.</span>
+        <div class="tle-footer-legal-links"><a href="/privacy">Privacy Policy</a><a href="#">Terms of Service</a><a href="#">Cookies Settings</a></div>
       </div>
-    </div>
-    <div class="tle-footer-bottom">
-      <span>© 2026 The Letting Experts. The Letting Experts (Nationwide) Ltd · Company No. 14702207.</span>
-      <span class="tle-footer-tmke">Concept redesign by TMKE</span>
+      <div class="tle-footer-watermark" aria-hidden="true">experts</div>
     </div>
   </footer>
 </div>
@@ -514,41 +542,33 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-nav-contact .nc-full { display: none; }
   .tle-nav .tle-nav-contact:hover { color: var(--red); }
 
-  .cb-glow, .cb-fill, .cb-gloss { position: absolute; border-radius: 999px; pointer-events: none; opacity: 0; transition: opacity .45s ease; }
+  .cb-fill, .cb-gloss { position: absolute; border-radius: 999px; pointer-events: none; opacity: 0; transition: opacity .45s ease; }
+  /* A whisper of swirling brand-red over the dark pill — kept very faint. */
   .cb-fill { inset: 0; overflow: hidden; z-index: 1; }
   .cb-fill::before {
     content: ""; position: absolute; inset: -110%;
-    background: conic-gradient(from 0deg, #e31f36 0%, #ff6a4d 16%, #b3122f 32%, #ff2e74 50%, #e31f36 66%, #ff8a3d 80%, #8e0f25 90%, #e31f36 100%);
-    filter: blur(7px); animation: cbSwirl 8s linear infinite;
+    background: conic-gradient(from 0deg, #e31f36, #b3122f, #e31f36, #8e0f25, #d11a3a, #e31f36);
+    filter: blur(8px); opacity: 0.16; animation: cbSwirl 11s linear infinite;
   }
-  .cb-fill::after {
-    content: ""; position: absolute; inset: -110%;
-    background: radial-gradient(closest-side at 32% 34%, rgba(255,180,110,0.75), transparent 60%),
-                radial-gradient(closest-side at 70% 66%, rgba(255,40,120,0.7), transparent 60%);
-    filter: blur(9px); mix-blend-mode: screen; animation: cbSwirl2 12s linear infinite;
-  }
-  .cb-gloss { z-index: 3; top: 2px; left: 12%; right: 12%; height: 46%; background: linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,255,255,0.04)); }
-  .cb-glow { inset: -65% -32%; z-index: 0; overflow: hidden; filter: blur(24px); }
-  .cb-glow::before { content: ""; position: absolute; inset: -50%; background: conic-gradient(from 0deg, #e31f36, #ff6a4d, #b3122f, #ff2e74, #e31f36); animation: cbSwirl 8s linear infinite; }
-  /* Glass edge + tint, only when the pill is shown. */
+  .cb-gloss { z-index: 3; top: 2px; left: 12%; right: 12%; height: 46%; background: linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(255,255,255,0.03)); }
+  /* Subtle glass edge, only when the pill is shown. */
   .tle-nav-contact::after {
     content: ""; position: absolute; inset: 0; border-radius: 999px; z-index: 2; pointer-events: none; opacity: 0;
-    background: linear-gradient(to bottom, rgba(255,255,255,0.08), rgba(0,0,0,0.06));
-    box-shadow: inset 0 1.5px 1px rgba(255,255,255,0.55), inset 0 -3px 8px rgba(90,0,15,0.45), inset 0 0 0 1px rgba(255,255,255,0.16);
+    box-shadow: inset 0 1.5px 1px rgba(255,255,255,0.4), inset 0 -2px 6px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.12);
     transition: opacity .45s ease;
   }
   @keyframes cbSwirl { to { transform: rotate(360deg); } }
-  @keyframes cbSwirl2 { to { transform: rotate(-360deg); } }
-  @media (prefers-reduced-motion: reduce) { .cb-fill::before, .cb-fill::after, .cb-glow::before { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .cb-fill::before { animation: none; } }
 
   .tle-nav.is-stuck .tle-nav-contact {
     color: #fff; padding: 12px 26px; font-weight: 700;
-    text-shadow: 0 1px 2px rgba(80,0,12,0.4);
+    background: var(--ink);
+    /* Small drop shadow at the foot — stays within the nav. */
+    box-shadow: 0 5px 12px -6px rgba(0,0,0,0.5);
   }
   .tle-nav.is-stuck .tle-nav-contact .cb-fill,
   .tle-nav.is-stuck .tle-nav-contact .cb-gloss,
   .tle-nav.is-stuck .tle-nav-contact::after { opacity: 1; }
-  .tle-nav.is-stuck .tle-nav-contact .cb-glow { opacity: 0.7; }
   .tle-nav.is-stuck .tle-nav-contact .nc-short { display: none; }
   .tle-nav.is-stuck .tle-nav-contact .nc-full { display: inline; }
 
@@ -878,12 +898,28 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-team-hint { text-align: center; font-size: 12px; color: var(--grey); letter-spacing: 0.04em; margin: 16px 0 0; }
 
   /* ---- Blog ---- */
-  .tle-blog { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(22px, 2vw, 40px); }
-  @media (max-width: 900px) { .tle-blog { grid-template-columns: 1fr; } }
-  .tle-post .tle-ph { border-radius: 6px; margin-bottom: 18px; }
-  .tle-post-cat { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--red); margin-bottom: 10px; }
-  .tle-post-h { font-size: clamp(18px, 1.5vw, 23px); font-weight: 700; line-height: 1.25; margin: 0 0 12px; }
-  .tle-post-date { font-size: 12px; color: var(--grey); }
+  /* ---- Latest Articles — near edge-to-edge video with a rotating overlay ---- */
+  #blog { padding-left: clamp(16px, 2vw, 30px); padding-right: clamp(16px, 2vw, 30px); }
+  .tle-insights .tle-head { padding: 0 clamp(8px, 1vw, 16px); }
+  .tle-artfeature { position: relative; border-radius: 22px; overflow: hidden; min-height: clamp(420px, 62vh, 680px); background: #1a1c22; }
+  .tle-artfeature-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .tle-artfeature-scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.74) 0%, rgba(0,0,0,0.14) 46%, transparent 100%); }
+  .tle-artfeature-content { position: absolute; inset: auto 0 0 0; z-index: 2; color: #fff; display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; flex-wrap: wrap; padding: clamp(26px, 4vw, 56px); }
+  .tle-artfeature-main { position: relative; flex: 1 1 540px; min-height: 200px; }
+  .tle-artslide { position: absolute; inset: 0 0 auto 0; display: block; max-width: 640px; color: #fff; opacity: 0; transform: translateY(14px); pointer-events: none; transition: opacity .6s ease, transform .6s cubic-bezier(.16,1,.3,1); }
+  .tle-artslide.is-active { opacity: 1; transform: none; pointer-events: auto; position: relative; }
+  .tle-artpill { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); padding: 7px 16px; border-radius: 999px; margin-bottom: 18px; }
+  .tle-arttitle { font-size: clamp(26px, 3.4vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; margin: 0 0 14px; text-shadow: 0 2px 30px rgba(0,0,0,0.4); }
+  .tle-artsub { font-size: clamp(15px, 1.3vw, 18px); color: rgba(255,255,255,0.86); margin: 0; max-width: 54ch; }
+  .tle-artdots { display: flex; gap: 9px; margin-top: 26px; }
+  .tle-artdot { width: 9px; height: 9px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.4); cursor: pointer; transition: background .3s, width .3s; }
+  .tle-artdot.is-active { background: #fff; width: 26px; }
+  .tle-artfeature-meta { position: relative; text-align: right; align-self: flex-end; min-width: 130px; min-height: 44px; }
+  .tle-artmeta { position: absolute; inset: auto 0 0 0; opacity: 0; transition: opacity .5s ease; }
+  .tle-artmeta.is-active { opacity: 1; position: relative; }
+  .tle-artmeta-date { font-size: 14px; font-weight: 700; }
+  .tle-artmeta-read { font-size: 13px; color: rgba(255,255,255,0.78); margin-top: 4px; }
+  @media (max-width: 760px) { .tle-artfeature-meta { display: none; } }
 
   /* ---- Accreditations ---- */
   .tle-accred { padding: clamp(40px, 4vw, 64px) clamp(20px, 6vw, 110px); border-top: 1px solid var(--line); text-align: center; }
@@ -893,17 +929,42 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-accred-item span { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #9a9aa2; text-align: center; }
 
   /* ---- Footer ---- */
-  .tle-footer { background: var(--ink); color: rgba(255,255,255,0.7); padding: clamp(56px, 6vw, 90px) clamp(20px, 6vw, 110px) 36px; }
-  .tle-footer-top { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: clamp(36px, 5vw, 80px); padding-bottom: 44px; border-bottom: 1px solid rgba(255,255,255,0.12); }
-  @media (max-width: 820px) { .tle-footer-top { grid-template-columns: 1fr; } }
-  .tle-logo--light { color: #fff; font-size: 22px; margin-bottom: 16px; }
-  .tle-footer-brand p { font-size: 14px; max-width: 38ch; margin: 0 0 22px; }
-  .tle-footer-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
-  .tle-footer-cols h4 { color: #fff; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; margin: 0 0 16px; }
-  .tle-footer-cols a { display: block; font-size: 14px; color: rgba(255,255,255,0.66); margin-bottom: 11px; transition: color .2s; }
-  .tle-footer-cols a:hover { color: #fff; }
-  .tle-footer-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 24px; font-size: 12px; color: rgba(255,255,255,0.5); }
-  .tle-footer-tmke { color: var(--red); font-weight: 600; }
+  /* ---- Footer — a white card on a soft-grey field, with a giant half-cut-off
+     "experts" watermark across the bottom. ---- */
+  .tle-footer { background: var(--surface); padding: clamp(20px, 3vw, 44px) clamp(14px, 3vw, 40px); }
+  .tle-footer-card {
+    position: relative; overflow: hidden; max-width: 1320px; margin: 0 auto;
+    background: #fff; border: 1px solid var(--line); border-radius: 28px;
+    box-shadow: 0 36px 90px -56px rgba(0,0,0,0.3);
+    padding: clamp(32px, 4vw, 60px) clamp(28px, 4vw, 60px) clamp(96px, 13vw, 200px);
+  }
+  .tle-footer-grid { position: relative; z-index: 2; display: grid; grid-template-columns: 1.25fr 2fr; gap: clamp(30px, 5vw, 80px); }
+  @media (max-width: 820px) { .tle-footer-grid { grid-template-columns: 1fr; } }
+  .tle-footer-logo { display: inline-flex; align-items: center; gap: 11px; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+  .tle-footer-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--ink); color: #fff; display: grid; place-items: center; }
+  .tle-footer-mark svg { width: 17px; height: 17px; }
+  .tle-footer-brand p { font-size: 14px; color: var(--grey); margin: 18px 0 22px; max-width: 36ch; line-height: 1.6; }
+  .tle-footer-socials { display: flex; gap: 16px; }
+  .tle-footer-socials a { color: var(--ink); opacity: 0.85; transition: opacity .2s; }
+  .tle-footer-socials a:hover { opacity: 1; color: var(--red); }
+  .tle-footer-socials svg { width: 18px; height: 18px; display: block; }
+  .tle-footer-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  @media (max-width: 560px) { .tle-footer-cols { grid-template-columns: repeat(2, 1fr); } }
+  .tle-footer-cols h4 { font-size: 14px; font-weight: 700; margin: 0 0 16px; color: var(--ink); }
+  .tle-footer-cols a { display: block; font-size: 13.5px; color: var(--grey); margin-bottom: 11px; transition: color .2s; }
+  .tle-footer-cols a:hover { color: var(--ink); }
+  .tle-footer-rule { position: relative; z-index: 2; height: 1px; background: var(--line); margin: clamp(30px, 3.4vw, 48px) 0 22px; }
+  .tle-footer-legal { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--grey); }
+  .tle-footer-legal-links { display: flex; gap: 22px; flex-wrap: wrap; }
+  .tle-footer-legal-links a { text-decoration: underline; transition: color .2s; }
+  .tle-footer-legal-links a:hover { color: var(--ink); }
+  .tle-footer-watermark {
+    position: absolute; left: 0; right: 0; bottom: -0.34em; z-index: 1; text-align: center;
+    font-size: clamp(120px, 25vw, 400px); font-weight: 800; letter-spacing: -0.03em; line-height: 0.8;
+    color: rgba(20, 21, 26, 0.05); pointer-events: none; user-select: none; white-space: nowrap;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 52%, transparent 76%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 52%, transparent 76%);
+  }
 </style>
 
 <script is:inline>
@@ -1047,5 +1108,23 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     });
     modal.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", close));
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) close(); });
+  })();
+
+  /* Latest Articles — rotate the featured article over the video. */
+  (function () {
+    var slides = document.querySelectorAll(".tle-artslide");
+    if (!slides.length) return;
+    var metas = document.querySelectorAll(".tle-artmeta");
+    var dots = document.querySelectorAll(".tle-artdot");
+    var cur = 0, timer;
+    function go(n) {
+      cur = (n + slides.length) % slides.length;
+      slides.forEach(function (s, i) { s.classList.toggle("is-active", i === cur); });
+      metas.forEach(function (s, i) { s.classList.toggle("is-active", i === cur); });
+      dots.forEach(function (d, i) { d.classList.toggle("is-active", i === cur); });
+    }
+    function auto() { timer = setInterval(function () { go(cur + 1); }, 5500); }
+    dots.forEach(function (d, i) { d.addEventListener("click", function () { go(i); clearInterval(timer); auto(); }); });
+    auto();
   })();
 </script>
