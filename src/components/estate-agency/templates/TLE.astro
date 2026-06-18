@@ -185,6 +185,7 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
           href={`/estate-agency/preview/tle-property/${p.slug}`}
           data-prop
           data-img={p.images[0]}
+          data-images={JSON.stringify(p.images)}
           data-status={p.status}
           data-area={p.area}
           data-pcm={p.pcm}
@@ -192,6 +193,7 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
           data-baths={p.baths}
           data-size={p.size}
           data-type={p.type}
+          data-blurb={`A ${p.beds}-bedroom ${p.type.toLowerCase()} in ${p.locality}, presented to a high standard and available ${p.status === "Let agreed" ? "soon" : "now"}. Approximately ${p.size}, with ${p.baths} bathroom${p.baths > 1 ? "s" : ""} and bright, well-proportioned rooms throughout — a great example of the homes we let for our landlords.`}
         >
           <div class="tle-prop-imgwrap">
             <img class="tle-prop-media" src={p.images[0]} alt={p.area} loading="lazy" />
@@ -208,31 +210,32 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
         </a>
       ))}
     </div>
-  </section>
 
-  <!-- Property preview modal (opened when a card on the homepage is clicked) -->
-  <div class="tle-modal" id="tle-modal" hidden>
-    <div class="tle-modal-backdrop" data-close></div>
-    <div class="tle-modal-card" role="dialog" aria-modal="true" aria-label="Property preview">
-      <button type="button" class="tle-modal-x" data-close aria-label="Close">
+    <!-- In-place expand: a clicked card opens into a full-width detail panel
+         (others push off), with the image, a thumbnail strip, then the price +
+         description flowing in one after another. -->
+    <div class="tle-pexp" id="tle-pexp" hidden>
+      <button type="button" class="tle-pexp-x" id="tle-pexp-x" aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18" /></svg>
       </button>
-      <div class="tle-modal-frame">
-        <div class="tle-modal-hero">
-          <img id="tlem-img" src="" alt="" />
-          <em class="tle-prop-tag" id="tlem-tag"></em>
-          <div class="tle-modal-glass">
-            <div class="tle-modal-glass-main">
-              <div class="tle-modal-price" id="tlem-price"></div>
-              <div class="tle-modal-area" id="tlem-area"></div>
-              <div class="tle-modal-stats" id="tlem-stats"></div>
-            </div>
-            <a class="tle-btn tle-btn--red tle-btn--box" id="tlem-full" href="#">View full page &rarr;</a>
-          </div>
+      <div class="tle-pexp-hero">
+        <img id="tle-pexp-img" src="" alt="" />
+        <em class="tle-prop-tag" id="tle-pexp-tag"></em>
+      </div>
+      <div class="tle-pexp-thumbs" id="tle-pexp-thumbs"></div>
+      <div class="tle-pexp-info">
+        <div class="tle-pexp-info-l">
+          <h3 class="tle-pexp-area" id="tle-pexp-area"></h3>
+          <div class="tle-pexp-stats" id="tle-pexp-stats"></div>
+        </div>
+        <div class="tle-pexp-info-r">
+          <div class="tle-pexp-price" id="tle-pexp-price"></div>
+          <p class="tle-pexp-desc" id="tle-pexp-desc"></p>
+          <a class="tle-btn tle-btn--red tle-btn--box" id="tle-pexp-full" href="#">View full page &rarr;</a>
         </div>
       </div>
     </div>
-  </div>
+  </section>
 
   <!-- ============ Changing the future + 'A different approach' scrolls over it ====== -->
   <div class="tle-overlap">
@@ -793,6 +796,64 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-prop-meta { font-size: 12.5px; color: var(--grey); }
   .tle-prop-price { font-size: 16px; font-weight: 800; color: var(--red); }
 
+  /* ---- In-place expand: clicked card opens into a full-width detail panel ---- */
+  /* Cards push off to their side as the panel opens. */
+  .tle-prop { transition: opacity .4s ease, transform .55s cubic-bezier(.5, 0, .15, 1), box-shadow .35s ease; }
+  .tle-prop.push-l { transform: translateX(-130%); opacity: 0; pointer-events: none; }
+  .tle-prop.push-r { transform: translateX(130%); opacity: 0; pointer-events: none; }
+  .tle-prop.is-picked { opacity: 0; transition: opacity .35s ease .1s; pointer-events: none; }
+  #properties.is-exp .tle-props { display: none; }
+
+  .tle-pexp { position: relative; margin-top: 4px; }
+  .tle-pexp[hidden] { display: none; }
+  .tle-pexp-x {
+    position: absolute; z-index: 5; top: 14px; right: 14px; width: 46px; height: 46px;
+    border-radius: 999px; border: 0; background: rgba(255,255,255,0.94); color: var(--ink);
+    display: grid; place-items: center; cursor: pointer; box-shadow: 0 6px 18px -4px rgba(0,0,0,0.35);
+    opacity: 0; transform: scale(0.8); transition: opacity .3s ease .45s, transform .3s ease .45s;
+  }
+  .tle-pexp-x svg { width: 19px; height: 19px; }
+  .tle-pexp.is-open .tle-pexp-x { opacity: 1; transform: none; }
+
+  /* Hero wipes open left-to-right. */
+  .tle-pexp-hero {
+    position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: var(--surface);
+    clip-path: inset(0 100% 0 0); transition: clip-path .65s cubic-bezier(.16, 1, .3, 1);
+  }
+  .tle-pexp.is-open .tle-pexp-hero { clip-path: inset(0 0 0 0); }
+  .tle-pexp-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tle-pexp-hero .tle-prop-tag { top: 16px; left: 16px; }
+
+  /* Thumbnail strip drops in next. */
+  .tle-pexp-thumbs {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px;
+    opacity: 0; transform: translateY(24px);
+    transition: opacity .5s ease .45s, transform .6s cubic-bezier(.16, 1, .3, 1) .45s;
+  }
+  .tle-pexp.is-open .tle-pexp-thumbs { opacity: 1; transform: none; }
+  /* Thumbnails are injected via JS (no Astro scope attr) — reach them with :global. */
+  .tle-pexp-thumbs :global(.tle-pexp-thumb) {
+    width: clamp(74px, 9vw, 124px); aspect-ratio: 4 / 3; overflow: hidden; padding: 0; cursor: pointer;
+    border: 2px solid transparent; background: var(--surface); transition: border-color .25s ease; flex: 0 0 auto;
+  }
+  .tle-pexp-thumbs :global(.tle-pexp-thumb img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tle-pexp-thumbs :global(.tle-pexp-thumb.is-active) { border-color: var(--red); }
+
+  /* Price + description flow in last. */
+  .tle-pexp-info {
+    display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 4vw, 64px);
+    margin-top: clamp(22px, 2.6vw, 36px); align-items: start;
+    opacity: 0; transform: translateY(28px);
+    transition: opacity .5s ease .65s, transform .6s cubic-bezier(.16, 1, .3, 1) .65s;
+  }
+  .tle-pexp.is-open .tle-pexp-info { opacity: 1; transform: none; }
+  @media (max-width: 760px) { .tle-pexp-info { grid-template-columns: 1fr; gap: 18px; } }
+  .tle-pexp-area { font-size: clamp(22px, 2.4vw, 34px); font-weight: 700; letter-spacing: -0.01em; margin: 0 0 14px; }
+  .tle-pexp-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tle-pexp-stats span { font-size: 13px; font-weight: 600; border: 1px solid var(--line); border-radius: 999px; padding: 7px 15px; }
+  .tle-pexp-price { font-size: clamp(26px, 3vw, 40px); font-weight: 800; letter-spacing: -0.02em; color: var(--red); margin-bottom: 14px; }
+  .tle-pexp-desc { font-size: 15px; line-height: 1.65; color: var(--grey); margin: 0 0 22px; }
+
   /* Red full stop on section headings. */
   .tle-dot { color: var(--red); }
 
@@ -1206,35 +1267,86 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     }
   })();
 
-  /* Property preview modal — homepage cards open a highlights pop-out instead
-     of navigating; "View full page" follows the card's link. */
+  /* Property cards — click to expand in place: the others push off, then the
+     clicked card opens into a full-width detail panel (image → thumbnails →
+     price/description, each flowing in after the last). X reverses it. */
   (function () {
-    const modal = document.getElementById("tle-modal");
-    if (!modal) return;
+    const sec = document.getElementById("properties");
+    const panel = document.getElementById("tle-pexp");
+    if (!sec || !panel) return;
+    const cards = Array.prototype.slice.call(sec.querySelectorAll(".tle-prop"));
     const $ = (id) => document.getElementById(id);
-    function open(card) {
+    let openIdx = -1, busy = false;
+
+    function buildThumbs(images) {
+      const wrap = $("tle-pexp-thumbs");
+      wrap.innerHTML = "";
+      if (images.length < 2) return;     // no strip for a single image
+      images.forEach((src, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "tle-pexp-thumb" + (i === 0 ? " is-active" : "");
+        b.innerHTML = '<img src="' + src + '" alt="" loading="lazy" />';
+        b.addEventListener("click", () => {
+          $("tle-pexp-img").src = src;
+          wrap.querySelectorAll(".tle-pexp-thumb").forEach((t) => t.classList.remove("is-active"));
+          b.classList.add("is-active");
+        });
+        wrap.appendChild(b);
+      });
+    }
+
+    function openCard(card, idx) {
+      if (busy || openIdx >= 0) return;
+      busy = true; openIdx = idx;
       const d = card.dataset;
-      $("tlem-img").src = d.img; $("tlem-img").alt = d.area;
-      $("tlem-tag").textContent = d.status;
-      $("tlem-price").textContent = d.pcm;
-      $("tlem-area").textContent = d.area;
-      $("tlem-stats").innerHTML =
+      let images = [];
+      try { images = JSON.parse(d.images || "[]"); } catch (e) { images = [d.img]; }
+      $("tle-pexp-img").src = images[0] || d.img;
+      $("tle-pexp-img").alt = d.area;
+      $("tle-pexp-tag").textContent = d.status;
+      $("tle-pexp-area").textContent = d.area;
+      $("tle-pexp-stats").innerHTML =
         "<span>" + d.beds + " bed</span><span>" + d.baths + " bath</span><span>" + d.size + "</span><span>" + d.type + "</span>";
-      $("tlem-full").href = card.getAttribute("href");
-      modal.hidden = false;
-      requestAnimationFrame(() => modal.classList.add("is-open"));
-      document.body.style.overflow = "hidden";
+      $("tle-pexp-price").textContent = d.pcm;
+      $("tle-pexp-desc").textContent = d.blurb || "";
+      $("tle-pexp-full").href = card.getAttribute("href");
+      buildThumbs(images);
+      // Push the others off to their side; fade the clicked one out.
+      cards.forEach((c, i) => {
+        c.classList.remove("push-l", "push-r", "is-picked");
+        if (i < idx) c.classList.add("push-l");
+        else if (i > idx) c.classList.add("push-r");
+        else c.classList.add("is-picked");
+      });
+      // Once they've cleared, collapse the grid and wipe the panel open.
+      setTimeout(() => {
+        sec.classList.add("is-exp");
+        panel.hidden = false;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          panel.classList.add("is-open");
+          busy = false;
+        }));
+      }, 430);
     }
+
     function close() {
-      modal.classList.remove("is-open");
-      document.body.style.overflow = "";
-      setTimeout(() => { modal.hidden = true; }, 340);
+      if (busy || openIdx < 0) return;
+      busy = true;
+      panel.classList.remove("is-open");
+      setTimeout(() => {
+        panel.hidden = true;
+        sec.classList.remove("is-exp");
+        cards.forEach((c) => c.classList.remove("push-l", "push-r", "is-picked"));
+        openIdx = -1; busy = false;
+      }, 540);
     }
-    document.querySelectorAll("[data-prop]").forEach((card) => {
-      card.addEventListener("click", (e) => { e.preventDefault(); open(card); });
+
+    cards.forEach((card, idx) => {
+      card.addEventListener("click", (e) => { e.preventDefault(); openCard(card, idx); });
     });
-    modal.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", close));
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) close(); });
+    $("tle-pexp-x").addEventListener("click", close);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openIdx >= 0) close(); });
   })();
 
   /* Latest Articles — rotate the featured article; each has its own background,
