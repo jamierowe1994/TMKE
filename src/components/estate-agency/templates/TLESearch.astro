@@ -297,8 +297,8 @@ const fmt = (n) => n.toLocaleString("en-GB");
       var L = window.L;
       var map = L.map("tls-map", { scrollWheelZoom: false }).setView([54.0, -2.4], 5);
       window._tlsMap = map;
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap", maxZoom: 18,
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        attribution: "&copy; OpenStreetMap &copy; CARTO", subdomains: "abcd", maxZoom: 19,
       }).addTo(map);
       var icon = L.divIcon({ className: "tls-pinwrap", html: '<span class="tls-pin"></span>', iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -28] });
       var bounds = [];
@@ -444,7 +444,7 @@ const fmt = (n) => n.toLocaleString("en-GB");
 
   /* Body — map left, results right */
   .tls-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.06fr); }
-  .tls-map { position: sticky; top: calc(var(--nav-h) + var(--tb-h)); height: calc(100vh - var(--nav-h) - var(--tb-h)); border-right: 1px solid var(--line); background: var(--surface); }
+  .tls-map { position: sticky; top: calc(var(--nav-h) + var(--tb-h)); height: calc(100vh - var(--nav-h) - var(--tb-h)); border-right: 1px solid var(--line); background: #fff; }
 
   .tls-results { padding: 18px clamp(16px, 2vw, 28px) 48px; }
   .tls-results-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
@@ -485,6 +485,9 @@ const fmt = (n) => n.toLocaleString("en-GB");
 
 <!-- Global styles for the Leaflet-injected pins + popups (built outside the scoped tree). -->
 <style is:global>
+  /* Nudge the light tiles so the sea reads close to the white page background
+     (Leaflet panes are created dynamically, so this lives in the global block). */
+  .tls-map .leaflet-tile-pane { filter: brightness(1.05) saturate(0.7); }
   .tls-pinwrap { background: none; border: 0; }
   .tls-pin {
     display: block; width: 20px; height: 20px; background: #e31f36;
