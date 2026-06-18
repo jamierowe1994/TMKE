@@ -22,6 +22,9 @@ const CLOUD3 = "https://assets.tmke.co.uk/TLE/full%20image.png";
 // Wide editorial image for the "Changing the future" section.
 const FUTURE_IMG = "https://images.unsplash.com/photo-1512359953714-f0c9a632ab85?auto=format&fit=crop&w=2400&q=80";
 
+// The grey body copy that fills in to black, word by word, as you scroll.
+const FUTURE_MUTED = "Your trusted partner throughout the journey of letting your property — we prioritise compliance, safety and legislation to safeguard you, and keep you informed every step of the way for real peace of mind.";
+
 // "Properties We Think You'll Love" — the first four from the shared dataset.
 const PROPERTIES = ALL_PROPERTIES.slice(0, 4);
 
@@ -231,9 +234,9 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     <div class="tle-future-head tle-reveal">
       <div class="tle-future-label">Why The Letting Experts</div>
       <div class="tle-future-headtx">
-        <h2 class="tle-future-h">
+        <h2 class="tle-future-h" id="tle-future-h">
           <span class="lead">Changing the future of lettings.</span>{" "}
-          <span class="muted">Your trusted partner throughout the journey of letting your property — we prioritise compliance, safety and legislation to safeguard you, and keep you informed every step of the way for real peace of mind.</span>
+          <span class="muted">{FUTURE_MUTED.split(" ").map((w) => (<span class="fw">{w} </span>))}</span>
         </h2>
         <a href="#" class="tle-btn tle-btn--red tle-btn--box">Book an appointment</a>
       </div>
@@ -846,7 +849,13 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-future-label { font-size: 13px; font-weight: 700; color: var(--ink); padding-top: 8px; }
   .tle-future-h { font-size: clamp(25px, 3.3vw, 46px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.14; margin: 0 0 30px; }
   .tle-future-h .lead { color: var(--ink); }
-  .tle-future-h .muted { color: #bcbcc3; display: block; margin-top: 6px; }
+  /* Grey body copy that fills to ink word-by-word as you scroll. */
+  .tle-future-h .muted { display: block; margin-top: 6px; color: #cfcfd4; }
+  .tle-future-h .muted .fw {
+    color: transparent;
+    background-image: linear-gradient(to right, var(--ink) 0%, var(--ink) var(--wf, 0%), #cfcfd4 var(--wf, 0%), #cfcfd4 100%);
+    -webkit-background-clip: text; background-clip: text; background-clip: text;
+  }
   @media (max-width: 820px) { .tle-future-head { grid-template-columns: 1fr; } }
 
   .tle-future-frame {
@@ -1029,6 +1038,8 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     const nav = document.querySelector(".tle-nav");
     const pimg = document.querySelector(".tle-future-pimg");
     if (!hero) return;
+    const overlap = document.querySelector(".tle-overlap");
+    const words = Array.prototype.slice.call(document.querySelectorAll(".tle-future-h .muted .fw"));
     let ticking = false, lastY = window.scrollY;
     function onScroll() {
       const y = window.scrollY;
@@ -1045,6 +1056,20 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
         // Auto-hide: hide while scrolling down (past the fold), show on scroll up.
         if (y > lastY + 4 && y > 140) nav.classList.add("is-hidden");
         else if (y < lastY - 4) nav.classList.remove("is-hidden");
+      }
+      // Scroll-fill the "Changing the future" body copy word by word while the
+      // section is pinned (holds central; the words ink in as you scroll).
+      if (overlap && words.length) {
+        const futureEl = overlap.querySelector(".tle-future--pin");
+        const ot = overlap.getBoundingClientRect().top;
+        // Spread the fill across most of the pinned duration so it tracks the scroll.
+        const range = Math.max(window.innerHeight * 0.6, (overlap.offsetHeight - (futureEl ? futureEl.offsetHeight : 0)) * 0.82);
+        const prog = Math.min(Math.max((-ot - 40) / range, 0), 1);
+        const reach = prog * (words.length + 2);
+        for (let i = 0; i < words.length; i++) {
+          const wf = Math.min(Math.max((reach - i) * 100, 0), 100);
+          words[i].style.setProperty("--wf", wf.toFixed(0) + "%");
+        }
       }
       // Gentle parallax on the near-full-screen "future" image.
       if (pimg) {
