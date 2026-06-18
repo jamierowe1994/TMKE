@@ -12,6 +12,13 @@ const BRAND = "The Letting Experts";
 const SKY = "https://assets.tmke.co.uk/TLE/sky.png";
 const BUILDING = "https://assets.tmke.co.uk/TLE/sky%20(2).png";
 
+// Building fly-through clip — used as an ambient muted loop behind the big
+// feature property card (the "bento accent loop").
+const PROPVIDEO = "https://assets.tmke.co.uk/TLE/hf_20260618_050421_7d4ac756-c52a-4588-a96a-69655bccb784.mp4";
+
+// Near-full-screen editorial image for the "Changing the future" section.
+const FUTURE_IMG = "https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=2200&q=80";
+
 // "Properties We Think You'll Love" — real listings from the homepage.
 const PROPERTIES = [
   { area: "Garland Road, Poole, BH15",            beds: 1, baths: 1, pcm: "£725 pcm",   tag: "Let agreed" },
@@ -138,9 +145,8 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
         </div>
       </div>
 
-      <a href="#book">Contact</a>
     </nav>
-    <a href="#book" class="tle-btn tle-btn--red">Book an appointment</a>
+    <a href="#book" class="tle-btn tle-btn--red tle-btn--box">Contact us</a>
   </header>
 
   <!-- ============ Hero — wordmark sandwiched between sky + building ============ -->
@@ -157,24 +163,27 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   <section class="tle-section" id="properties">
     <header class="tle-head tle-reveal">
       <div>
-        <div class="tle-label">( Properties )</div>
         <h2 class="tle-h">Properties we think you'll love.</h2>
       </div>
       <a href="#" class="tle-link">View all properties &rarr;</a>
     </header>
     <div class="tle-props">
-      {PROPERTIES.map((p) => (
-        <article class="tle-prop tle-reveal">
-          <div class="tle-ph tle-ph--prop">
-            <span>Property image</span>
-            <em class="tle-prop-tag">{p.tag}</em>
-          </div>
-          <div class="tle-prop-body">
+      {PROPERTIES.map((p, i) => (
+        <article class={`tle-prop tle-reveal${i === 0 ? " tle-prop--feature" : ""}${i === 3 ? " tle-prop--wide" : ""}`}>
+          {i === 0 ? (
+            <video class="tle-prop-media" autoplay muted loop playsinline preload="auto">
+              <source src={PROPVIDEO} type="video/mp4" />
+            </video>
+          ) : (
+            <div class="tle-prop-media tle-ph"><span>Property image</span></div>
+          )}
+          <em class="tle-prop-tag">{p.tag}</em>
+          <div class="tle-prop-overlay">
             <h3 class="tle-prop-area">{p.area}</h3>
             <div class="tle-prop-meta">{p.beds} bed · {p.baths} bath</div>
             <div class="tle-prop-foot">
               <span class="tle-prop-price">{p.pcm}</span>
-              <a href="#" class="tle-btn tle-btn--red tle-btn--sm">Rent</a>
+              <a href="#" class="tle-btn tle-btn--white tle-btn--sm">Rent</a>
             </div>
           </div>
         </article>
@@ -184,24 +193,18 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
 
   <!-- ============ Changing the future of lettings ============ -->
   <section class="tle-future" id="book">
-    <div class="tle-future-media tle-reveal">
-      <div class="tle-ph tle-ph--tall"><span>Lifestyle photography</span></div>
+    <div class="tle-future-head tle-reveal">
+      <div class="tle-future-label">Why The Letting Experts</div>
+      <div class="tle-future-headtx">
+        <h2 class="tle-future-h">
+          <span class="lead">Changing the future of lettings.</span>{" "}
+          <span class="muted">Your trusted partner throughout the journey of letting your property — we prioritise compliance, safety and legislation to safeguard you, and keep you informed every step of the way for real peace of mind.</span>
+        </h2>
+        <a href="#" class="tle-btn tle-btn--red tle-btn--box">Book an appointment</a>
+      </div>
     </div>
-    <div class="tle-future-text tle-reveal">
-      <div class="tle-label">( Welcome )</div>
-      <h2 class="tle-h tle-h--xl">Changing the future of lettings in the UK.</h2>
-      <p class="tle-lead">
-        Your trusted partner throughout the journey of letting your property. We
-        prioritise compliance, safety and legislation to safeguard you and your
-        property — and keep you informed every step of the way, for real peace of
-        mind throughout the tenancy.
-      </p>
-      <ul class="tle-ticks">
-        <li>Flagship Experts Management Service</li>
-        <li>Rent guarantee &amp; legal protection</li>
-        <li>Three levels of landlord service</li>
-      </ul>
-      <a href="#" class="tle-btn tle-btn--red">Book an appointment</a>
+    <div class="tle-future-frame tle-reveal">
+      <img class="tle-future-pimg" src={FUTURE_IMG} alt="City living with The Letting Experts" loading="lazy" />
     </div>
   </section>
 
@@ -391,6 +394,8 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-btn--ghost:hover { border-color: var(--ink); }
   .tle-btn--white { background: #fff; color: var(--red); }
   .tle-btn--white:hover { transform: translateY(-2px); }
+  /* Rounded-square (not a pill) — softens the edge without a hard corner. */
+  .tle-btn--box { border-radius: 11px; }
 
   /* ---- Image placeholders (swap for real photography) ---- */
   .tle-ph {
@@ -414,8 +419,10 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     display: flex; align-items: center; justify-content: space-between; gap: 24px;
     padding: 18px clamp(20px, 6vw, 110px);
     background: transparent; border-bottom: 1px solid transparent;
-    transition: background .3s ease, border-color .3s ease, box-shadow .3s ease;
+    transition: background .3s ease, border-color .3s ease, box-shadow .3s ease, transform .38s cubic-bezier(.16,1,.3,1);
   }
+  /* Auto-hide: slides up out of view on scroll down, slides back on scroll up. */
+  .tle-nav.is-hidden { transform: translateY(-105%); }
   /* Soft top scrim so white nav text reads over both the light sky and the
      dark building as the hero scrolls past. */
   .tle-nav::before {
@@ -542,26 +549,69 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-hero-cta .tle-btn--ghost { color: #fff; border-color: rgba(255,255,255,0.6); }
   .tle-hero-cta .tle-btn--ghost:hover { background: #fff; color: var(--ink); border-color: #fff; }
 
-  /* ---- Properties ---- */
-  .tle-props { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(18px, 1.6vw, 28px); }
-  @media (max-width: 1100px) { .tle-props { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 560px) { .tle-props { grid-template-columns: 1fr; } }
-  .tle-prop { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; transition: transform .3s, box-shadow .3s; }
-  .tle-prop:hover { transform: translateY(-6px); box-shadow: 0 30px 60px -34px rgba(0,0,0,0.3); }
-  .tle-prop-tag { position: absolute; top: 12px; left: 12px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(255,255,255,0.92); color: var(--red); padding: 5px 11px; border-radius: 999px; font-style: normal; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-  .tle-prop-body { padding: 18px 18px 20px; }
-  .tle-prop-area { font-size: 15px; font-weight: 700; margin: 0 0 4px; line-height: 1.25; }
-  .tle-prop-meta { font-size: 13px; color: var(--grey); margin-bottom: 16px; }
-  .tle-prop-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .tle-prop-price { font-size: 16px; font-weight: 800; }
+  /* ---- Properties — bento: one big feature (with an ambient video) + smaller
+     cards dotted around it. All cards are full-bleed media with the detail
+     overlaid at the bottom. ---- */
+  .tle-props {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: clamp(166px, 14.5vw, 208px);
+    gap: clamp(12px, 1.1vw, 18px);
+  }
+  .tle-prop {
+    position: relative; border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--line); background: var(--surface);
+    transition: box-shadow .3s, transform .3s;
+  }
+  .tle-prop:hover { box-shadow: 0 34px 64px -38px rgba(0,0,0,0.4); }
+  .tle-prop--feature { grid-column: span 2; grid-row: span 2; }
+  .tle-prop--wide { grid-column: span 2; }
+  @media (max-width: 1100px) {
+    .tle-props { grid-template-columns: repeat(2, 1fr); }
+    .tle-prop--feature { grid-column: span 2; grid-row: span 2; }
+    .tle-prop--wide { grid-column: span 2; }
+  }
+  @media (max-width: 560px) {
+    .tle-props { grid-template-columns: 1fr; grid-auto-rows: 210px; }
+    .tle-prop--feature, .tle-prop--wide { grid-column: span 1; grid-row: span 1; }
+    .tle-prop--feature { grid-row: span 2; }
+  }
 
-  /* ---- Future / book — flows on white; the framed image is the contrast ---- */
-  .tle-future { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: clamp(32px, 5vw, 80px); align-items: center; padding: clamp(64px, 8vw, 130px) clamp(20px, 6vw, 110px); }
-  .tle-future-media .tle-ph { border-radius: 14px; box-shadow: 0 40px 90px -50px rgba(0,0,0,0.4); }
-  .tle-ticks { list-style: none; padding: 0; margin: 0 0 30px; display: flex; flex-direction: column; gap: 12px; }
-  .tle-ticks li { position: relative; padding-left: 28px; font-size: 15px; color: var(--ink); }
-  .tle-ticks li::before { content: "✓"; position: absolute; left: 0; top: -1px; color: var(--red); font-weight: 800; }
-  @media (max-width: 820px) { .tle-future { grid-template-columns: 1fr; } .tle-future-media { order: 2; } }
+  .tle-prop-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.16,1,.3,1); }
+  .tle-prop:hover .tle-prop-media { transform: scale(1.05); }
+  .tle-prop-media.tle-ph { border: 0; border-radius: 0; }
+
+  .tle-prop-tag { position: absolute; z-index: 3; top: 14px; left: 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(255,255,255,0.92); color: var(--red); padding: 5px 11px; border-radius: 999px; font-style: normal; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  .tle-prop-overlay { position: absolute; z-index: 2; inset: auto 0 0 0; padding: clamp(14px, 1.2vw, 22px); color: #fff; background: linear-gradient(to top, rgba(0,0,0,0.74), rgba(0,0,0,0.12) 64%, transparent); }
+  .tle-prop-area { font-size: 15px; font-weight: 700; margin: 0 0 3px; line-height: 1.25; color: #fff; }
+  .tle-prop-meta { font-size: 12.5px; color: rgba(255,255,255,0.82); margin-bottom: 13px; }
+  .tle-prop-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .tle-prop-price { font-size: 16px; font-weight: 800; color: #fff; }
+  .tle-prop--feature .tle-prop-area { font-size: clamp(20px, 2vw, 30px); margin-bottom: 5px; }
+  .tle-prop--feature .tle-prop-meta { font-size: 14px; margin-bottom: 18px; }
+  .tle-prop--feature .tle-prop-price { font-size: clamp(18px, 1.6vw, 23px); }
+
+  /* ---- Future / book — editorial: a left label, a two-tone heading (black lead
+     sentence, grey continuation), then a near-full-screen image that drifts on
+     scroll for a gentle parallax. ---- */
+  .tle-future { padding: clamp(64px, 8vw, 130px) clamp(20px, 6vw, 110px) clamp(36px, 5vw, 70px); }
+  .tle-future-head {
+    display: grid; grid-template-columns: 0.3fr 0.7fr; gap: clamp(24px, 4vw, 60px);
+    align-items: start; margin-bottom: clamp(34px, 5vw, 70px);
+  }
+  .tle-future-label { font-size: 13px; font-weight: 700; color: var(--ink); padding-top: 8px; }
+  .tle-future-h { font-size: clamp(25px, 3.3vw, 46px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.14; margin: 0 0 30px; }
+  .tle-future-h .lead { color: var(--ink); }
+  .tle-future-h .muted { color: #bcbcc3; }
+  @media (max-width: 820px) { .tle-future-head { grid-template-columns: 1fr; } }
+
+  .tle-future-frame {
+    position: relative; border-radius: 22px; overflow: hidden;
+    height: clamp(360px, 80vh, 780px); background: var(--surface);
+  }
+  .tle-future-pimg {
+    position: absolute; left: 0; top: -14%; width: 100%; height: 128%;
+    object-fit: cover; will-change: transform;
+  }
 
   /* ---- Services ---- */
   .tle-services { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
@@ -672,16 +722,33 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   (function () {
     const hero = document.querySelector(".tle-hero");
     const nav = document.querySelector(".tle-nav");
+    const pimg = document.querySelector(".tle-future-pimg");
     if (!hero) return;
-    let ticking = false;
+    let ticking = false, lastY = window.scrollY;
     function onScroll() {
+      const y = window.scrollY;
       const h = hero.offsetHeight || window.innerHeight;
-      const p = Math.min(Math.max(window.scrollY / (h * 0.85), 0), 1);
+      const p = Math.min(Math.max(y / (h * 0.85), 0), 1);
       hero.style.setProperty("--p", p.toFixed(4));
-      // Stay see-through over the hero; focus to solid only once the next
-      // section reaches the nav.
-      const navH = nav ? nav.offsetHeight : 64;
-      if (nav) nav.classList.toggle("is-stuck", window.scrollY > h - navH - 4);
+      if (nav) {
+        const navH = nav.offsetHeight || 64;
+        // Stay see-through over the hero; focus to solid only once the next
+        // section reaches the nav.
+        nav.classList.toggle("is-stuck", y > h - navH - 4);
+        // Auto-hide: hide while scrolling down (past the fold), show on scroll up.
+        if (y > lastY + 4 && y > 140) nav.classList.add("is-hidden");
+        else if (y < lastY - 4) nav.classList.remove("is-hidden");
+      }
+      // Gentle parallax on the near-full-screen "future" image.
+      if (pimg) {
+        const r = pimg.parentElement.getBoundingClientRect();
+        const vh = window.innerHeight;
+        if (r.bottom > 0 && r.top < vh) {
+          const prog = (vh - r.top) / (vh + r.height); // 0 entering → 1 leaving
+          pimg.style.transform = "translateY(" + ((prog - 0.5) * 70).toFixed(1) + "px)";
+        }
+      }
+      lastY = y;
       ticking = false;
     }
     window.addEventListener("scroll", () => {
