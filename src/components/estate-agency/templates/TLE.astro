@@ -137,6 +137,9 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
 
     </nav>
     <a href="#book" class="tle-nav-contact">
+      <span class="cb-glow" aria-hidden="true"></span>
+      <span class="cb-fill" aria-hidden="true"></span>
+      <span class="cb-gloss" aria-hidden="true"></span>
       <span class="nc-short">Contact</span>
       <span class="nc-full">Contact&nbsp;us</span>
     </a>
@@ -483,19 +486,56 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-chev { width: 11px; height: 8px; transition: transform .28s ease; }
   @media (max-width: 860px) { .tle-nav-links { display: none; } }
 
-  /* Contact — plain text over the hero, becomes a pill button once the nav
-     focuses at the second section. */
+  /* Contact — plain text over the hero; once the nav focuses it becomes a
+     "liquid glass" pill: brand-red colours swirl inside the glass, a top gloss
+     gives the shine, and a blurred copy projects the colour onto the page. */
   .tle-nav .tle-nav-contact {
+    position: relative; isolation: isolate;
+    display: inline-flex; align-items: center; justify-content: center;
     font-family: inherit; font-size: 14px; font-weight: 600; color: var(--nav-fg);
     padding: 0; border-radius: 999px;
-    transition: color .25s ease, background .25s ease, padding .25s ease;
+    transition: color .3s ease, padding .35s ease;
   }
-  .tle-nav .tle-nav-contact:hover { color: var(--red); }
+  .tle-nav .tle-nav-contact .nc-short,
+  .tle-nav .tle-nav-contact .nc-full { position: relative; z-index: 4; white-space: nowrap; }
   .tle-nav-contact .nc-full { display: none; }
-  .tle-nav.is-stuck .tle-nav-contact {
-    color: #fff; background: var(--ink); padding: 11px 22px; font-weight: 700;
+  .tle-nav .tle-nav-contact:hover { color: var(--red); }
+
+  .cb-glow, .cb-fill, .cb-gloss { position: absolute; border-radius: 999px; pointer-events: none; opacity: 0; transition: opacity .45s ease; }
+  .cb-fill { inset: 0; overflow: hidden; z-index: 1; }
+  .cb-fill::before {
+    content: ""; position: absolute; inset: -110%;
+    background: conic-gradient(from 0deg, #e31f36 0%, #ff6a4d 16%, #b3122f 32%, #ff2e74 50%, #e31f36 66%, #ff8a3d 80%, #8e0f25 90%, #e31f36 100%);
+    filter: blur(7px); animation: cbSwirl 8s linear infinite;
   }
-  .tle-nav.is-stuck .tle-nav-contact:hover { background: var(--red); color: #fff; }
+  .cb-fill::after {
+    content: ""; position: absolute; inset: -110%;
+    background: radial-gradient(closest-side at 32% 34%, rgba(255,180,110,0.75), transparent 60%),
+                radial-gradient(closest-side at 70% 66%, rgba(255,40,120,0.7), transparent 60%);
+    filter: blur(9px); mix-blend-mode: screen; animation: cbSwirl2 12s linear infinite;
+  }
+  .cb-gloss { z-index: 3; top: 2px; left: 12%; right: 12%; height: 46%; background: linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,255,255,0.04)); }
+  .cb-glow { inset: -65% -32%; z-index: 0; overflow: hidden; filter: blur(24px); }
+  .cb-glow::before { content: ""; position: absolute; inset: -50%; background: conic-gradient(from 0deg, #e31f36, #ff6a4d, #b3122f, #ff2e74, #e31f36); animation: cbSwirl 8s linear infinite; }
+  /* Glass edge + tint, only when the pill is shown. */
+  .tle-nav-contact::after {
+    content: ""; position: absolute; inset: 0; border-radius: 999px; z-index: 2; pointer-events: none; opacity: 0;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.08), rgba(0,0,0,0.06));
+    box-shadow: inset 0 1.5px 1px rgba(255,255,255,0.55), inset 0 -3px 8px rgba(90,0,15,0.45), inset 0 0 0 1px rgba(255,255,255,0.16);
+    transition: opacity .45s ease;
+  }
+  @keyframes cbSwirl { to { transform: rotate(360deg); } }
+  @keyframes cbSwirl2 { to { transform: rotate(-360deg); } }
+  @media (prefers-reduced-motion: reduce) { .cb-fill::before, .cb-fill::after, .cb-glow::before { animation: none; } }
+
+  .tle-nav.is-stuck .tle-nav-contact {
+    color: #fff; padding: 12px 26px; font-weight: 700;
+    text-shadow: 0 1px 2px rgba(80,0,12,0.4);
+  }
+  .tle-nav.is-stuck .tle-nav-contact .cb-fill,
+  .tle-nav.is-stuck .tle-nav-contact .cb-gloss,
+  .tle-nav.is-stuck .tle-nav-contact::after { opacity: 1; }
+  .tle-nav.is-stuck .tle-nav-contact .cb-glow { opacity: 0.7; }
   .tle-nav.is-stuck .tle-nav-contact .nc-short { display: none; }
   .tle-nav.is-stuck .tle-nav-contact .nc-full { display: inline; }
 
