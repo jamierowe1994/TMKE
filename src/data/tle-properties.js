@@ -67,7 +67,7 @@ export const PROPERTIES = [
     type: "Flat", beds: 3, baths: 1, size: "1,050 sq ft",
     price: 2400, lat: 51.5560, lng: -0.2180,
     pcm: "£2,400 pcm", status: "To let", available: true,
-    images: [U("1502672260266-1c1ef2d93688"), U("1493809842364-78817add7ffb")],
+    images: [U("1486406146926-c627a92ad1ab"), U("1502672260266-1c1ef2d93688")],
   },
   {
     slug: "mill-lane",
