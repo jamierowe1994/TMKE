@@ -63,6 +63,12 @@ const TEAM = [
 
 // "Latest Articles" — real blog posts.
 const ARTVIDEO = "https://assets.tmke.co.uk/TLE/7646533-uhd_3840_2160_25fps.mp4";
+// Per-article backgrounds: first is the video, the rest are images.
+const ARTBG = [
+  null,
+  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=2200&q=80",
+  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2200&q=80",
+];
 const BLOG = [
   { cat: "Landlords", title: "How to Make Your Rental Property Easier to Manage", sub: "Small changes that cut voids, protect your yield and keep great tenants for longer.", date: "4 Jun 2026", read: "6 min read" },
   { cat: "Tenants",   title: "Why Good Tenants Miss Out on Rental Homes & How to Avoid It", sub: "What letting agents really look for — and how to make your application stand out.", date: "21 May 2026", read: "5 min read" },
@@ -324,7 +330,12 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       <a href="/estate-agency/preview/tle-blog" class="tle-link">View all posts &rarr;</a>
     </header>
     <div class="tle-artfeature tle-reveal">
-      <video class="tle-artfeature-video" autoplay muted loop playsinline preload="auto"><source src={ARTVIDEO} type="video/mp4" /></video>
+      <div class="tle-artbg is-active" data-bg="0">
+        <video class="tle-artfeature-video" autoplay muted loop playsinline preload="auto"><source src={ARTVIDEO} type="video/mp4" /></video>
+      </div>
+      {BLOG.slice(1).map((b, i) => (
+        <div class="tle-artbg" data-bg={i + 1}><img src={ARTBG[i + 1]} alt="" loading="lazy" /></div>
+      ))}
       <div class="tle-artfeature-scrim" aria-hidden="true"></div>
       <div class="tle-artfeature-content">
         <div class="tle-artfeature-main">
@@ -335,10 +346,14 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
               <p class="tle-artsub">{b.sub}</p>
             </a>
           ))}
-          <div class="tle-artdots">
-            {BLOG.map((b, i) => (
-              <button type="button" class={`tle-artdot${i === 0 ? " is-active" : ""}`} data-adot={i} aria-label={`Article ${i + 1}`}></button>
-            ))}
+          <div class="tle-artpag" id="tle-artpag">
+            <svg width="0" height="0" aria-hidden="true"><defs><filter id="tleArtGoo"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b" /><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8" /></filter></defs></svg>
+            <div class="tle-artpag-track" id="tle-artpag-track">
+              {BLOG.map((b, i) => (
+                <button type="button" class={`tle-artpag-dot${i === 0 ? " is-active" : ""}`} data-adot={i} aria-label={`Article ${i + 1}`}></button>
+              ))}
+              <span class="tle-artpag-fill" id="tle-artpag-fill"></span>
+            </div>
           </div>
         </div>
         <div class="tle-artfeature-meta">
@@ -920,7 +935,9 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   #blog { padding-left: clamp(16px, 2vw, 30px); padding-right: clamp(16px, 2vw, 30px); }
   .tle-insights .tle-head { padding: 0 clamp(8px, 1vw, 16px); }
   .tle-artfeature { position: relative; border-radius: 22px; overflow: hidden; min-height: clamp(420px, 62vh, 680px); background: #1a1c22; }
-  .tle-artfeature-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .tle-artbg { position: absolute; inset: 0; opacity: 0; transition: opacity .7s ease; }
+  .tle-artbg.is-active { opacity: 1; }
+  .tle-artbg video, .tle-artbg img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .tle-artfeature-scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.74) 0%, rgba(0,0,0,0.14) 46%, transparent 100%); }
   .tle-artfeature-content { position: absolute; inset: auto 0 0 0; z-index: 2; color: #fff; display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; flex-wrap: wrap; padding: clamp(26px, 4vw, 56px); }
   .tle-artfeature-main { position: relative; flex: 1 1 540px; min-height: 200px; }
@@ -929,9 +946,12 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-artpill { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); padding: 7px 16px; border-radius: 999px; margin-bottom: 18px; }
   .tle-arttitle { font-size: clamp(26px, 3.4vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; margin: 0 0 14px; text-shadow: 0 2px 30px rgba(0,0,0,0.4); }
   .tle-artsub { font-size: clamp(15px, 1.3vw, 18px); color: rgba(255,255,255,0.86); margin: 0; max-width: 54ch; }
-  .tle-artdots { display: flex; gap: 9px; margin-top: 26px; }
-  .tle-artdot { width: 9px; height: 9px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.4); cursor: pointer; transition: background .3s, width .3s; }
-  .tle-artdot.is-active { background: #fff; width: 26px; }
+  /* Filling pagination — a white pill stretches from the active dot toward the
+     next as the timer runs, then bubbles over and collapses onto it. */
+  .tle-artpag { position: relative; margin-top: 28px; height: 12px; }
+  .tle-artpag-track { position: relative; display: flex; gap: 16px; width: max-content; height: 12px; }
+  .tle-artpag-dot { width: 12px; height: 12px; padding: 0; border: 0; border-radius: 999px; background: rgba(255,255,255,0.42); cursor: pointer; position: relative; z-index: 1; }
+  .tle-artpag-fill { position: absolute; left: 0; top: 0; height: 12px; width: 12px; border-radius: 999px; background: #fff; pointer-events: none; z-index: 2; box-shadow: 0 0 14px -2px rgba(255,255,255,0.5); }
   .tle-artfeature-meta { position: relative; text-align: right; align-self: flex-end; min-width: 130px; min-height: 44px; }
   .tle-artmeta { position: absolute; inset: auto 0 0 0; opacity: 0; transition: opacity .5s ease; }
   .tle-artmeta.is-active { opacity: 1; position: relative; }
@@ -1190,21 +1210,51 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) close(); });
   })();
 
-  /* Latest Articles — rotate the featured article over the video. */
+  /* Latest Articles — rotate the featured article; each has its own background,
+     and the pagination pill fills toward the next dot then bubbles over to it. */
   (function () {
     var slides = document.querySelectorAll(".tle-artslide");
     if (!slides.length) return;
     var metas = document.querySelectorAll(".tle-artmeta");
-    var dots = document.querySelectorAll(".tle-artdot");
-    var cur = 0, timer;
-    function go(n) {
-      cur = (n + slides.length) % slides.length;
+    var bgs = document.querySelectorAll(".tle-artbg");
+    var dots = Array.prototype.slice.call(document.querySelectorAll(".tle-artpag-dot"));
+    var fill = document.getElementById("tle-artpag-fill");
+    var N = slides.length;
+    var DWELL = 4600, R = 6;
+    var cur = 0, elapsed = 0, lastT = 0, a = null, visible = true;
+
+    function show(n) {
+      cur = (n + N) % N;
       slides.forEach(function (s, i) { s.classList.toggle("is-active", i === cur); });
       metas.forEach(function (s, i) { s.classList.toggle("is-active", i === cur); });
+      bgs.forEach(function (s, i) { s.classList.toggle("is-active", i === cur); });
       dots.forEach(function (d, i) { d.classList.toggle("is-active", i === cur); });
     }
-    function auto() { timer = setInterval(function () { go(cur + 1); }, 5500); }
-    dots.forEach(function (d, i) { d.addEventListener("click", function () { go(i); clearInterval(timer); auto(); }); });
-    auto();
+    function centerOf(i) { return dots[i].offsetLeft + dots[i].offsetWidth / 2; }
+    function ease(p) { return 1 - Math.pow(1 - p, 3); }
+
+    function frame(t) {
+      if (!lastT) lastT = t;
+      var dt = t - lastT; lastT = t;
+      if (visible) elapsed += dt;
+      var p = Math.min(elapsed / DWELL, 1);
+      var ac = centerOf(cur), nc = centerOf((cur + 1) % N);
+      var b = ac + (nc - ac) * ease(Math.min(p / 0.9, 1));   // right edge stretches to next
+      if (a === null) a = ac;
+      a += (ac - a) * 0.16;                                   // left edge eases (lag → catch up)
+      var lo = Math.min(a, b) - R, hi = Math.max(a, b) + R;
+      fill.style.transform = "translateX(" + lo.toFixed(1) + "px)";
+      fill.style.width = (hi - lo).toFixed(1) + "px";
+      if (p >= 1) { show((cur + 1) % N); elapsed = 0; }
+      requestAnimationFrame(frame);
+    }
+
+    dots.forEach(function (d, i) { d.addEventListener("click", function () { show(i); elapsed = 0; }); });
+    show(0);
+    requestAnimationFrame(frame);
+    if ("IntersectionObserver" in window) {
+      var feat = document.querySelector(".tle-artfeature");
+      if (feat) new IntersectionObserver(function (es) { es.forEach(function (e) { visible = e.isIntersecting; }); }, { threshold: 0 }).observe(feat);
+    }
   })();
 </script>
