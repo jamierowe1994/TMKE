@@ -5,6 +5,8 @@
 // airy, editorial, framed photography, big display type, pill buttons.
 // The .tle-ph blocks stay as image placeholders to swap for TLE's photography.
 
+import { PROPERTIES as ALL_PROPERTIES } from "../../../data/tle-properties.js";
+
 const BRAND = "The Letting Experts";
 
 // Hero assets — plain sky background + the building as a transparent cut-out,
@@ -19,13 +21,8 @@ const PROPVIDEO = "https://assets.tmke.co.uk/TLE/hf_20260618_050421_7d4ac756-c52
 // Near-full-screen editorial image for the "Changing the future" section.
 const FUTURE_IMG = "https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=2200&q=80";
 
-// "Properties We Think You'll Love" — real listings from the homepage.
-const PROPERTIES = [
-  { area: "Garland Road, Poole, BH15",            beds: 1, baths: 1, pcm: "£725 pcm",   tag: "Let agreed" },
-  { area: "Glenfield Road, Leicester, LE3",       beds: 1, baths: 1, pcm: "£715 pcm",   tag: "To let" },
-  { area: "Douglas Gardens Mews, Edinburgh, EH4", beds: 3, baths: 2, pcm: "£2,600 pcm", tag: "To let" },
-  { area: "Chapter Road, London, NW2",            beds: 3, baths: 1, pcm: "£2,400 pcm", tag: "To let" },
-];
+// "Properties We Think You'll Love" — the first four from the shared dataset.
+const PROPERTIES = ALL_PROPERTIES.slice(0, 4);
 
 // "A Different Approach to Lettings" — TLE's stated offering (three levels of
 // landlord service; flagship Experts Management Service w/ rent guarantee +
@@ -151,7 +148,7 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
 
   <!-- ============ Hero — wordmark sandwiched between sky + building ============ -->
   <section class="tle-hero" style={`background-image:url('${SKY}')`}>
-    <h1 class="tle-hero-word">The Letting<br />Experts</h1>
+    <h1 class="tle-hero-word">Giving Landlords Peace of Mind</h1>
     <img class="tle-hero-building" src={BUILDING} alt="A property managed by The Letting Experts" />
     <div class="tle-hero-cta">
       <a href="#book" class="tle-btn tle-btn--red">Contact us Today</a>
@@ -169,24 +166,24 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     </header>
     <div class="tle-props">
       {PROPERTIES.map((p, i) => (
-        <article class={`tle-prop tle-reveal${i === 0 ? " tle-prop--feature" : ""}${i === 3 ? " tle-prop--wide" : ""}`}>
+        <a class={`tle-prop tle-reveal${i === 0 ? " tle-prop--feature" : ""}${i === 3 ? " tle-prop--wide" : ""}`} href={`/estate-agency/preview/tle-property/${p.slug}`}>
           {i === 0 ? (
-            <video class="tle-prop-media" autoplay muted loop playsinline preload="auto">
+            <video class="tle-prop-media" autoplay muted loop playsinline preload="auto" poster={p.images[0]}>
               <source src={PROPVIDEO} type="video/mp4" />
             </video>
           ) : (
-            <div class="tle-prop-media tle-ph"><span>Property image</span></div>
+            <img class="tle-prop-media" src={p.images[0]} alt={p.area} loading="lazy" />
           )}
-          <em class="tle-prop-tag">{p.tag}</em>
+          <em class="tle-prop-tag">{p.status}</em>
           <div class="tle-prop-overlay">
             <h3 class="tle-prop-area">{p.area}</h3>
             <div class="tle-prop-meta">{p.beds} bed · {p.baths} bath</div>
             <div class="tle-prop-foot">
               <span class="tle-prop-price">{p.pcm}</span>
-              <a href="#" class="tle-btn tle-btn--white tle-btn--sm">Rent</a>
+              <span class="tle-btn tle-btn--white tle-btn--sm">View &rarr;</span>
             </div>
           </div>
-        </article>
+        </a>
       ))}
     </div>
   </section>
@@ -513,10 +510,10 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   }
   .tle-hero-word {
     position: absolute; z-index: 1;
-    top: clamp(56px, 12vh, 150px); left: 0; right: 0;
-    margin: 0; text-align: center;
-    font-weight: 800; font-size: clamp(44px, 11vw, 178px);
-    line-height: 0.86; letter-spacing: -0.04em; color: var(--ink);
+    top: clamp(64px, 13vh, 158px); left: 0; right: 0;
+    margin: 0; text-align: center; white-space: nowrap;
+    font-weight: 800; font-size: clamp(17px, 4.9vw, 94px);
+    line-height: 0.95; letter-spacing: -0.035em; color: var(--ink);
     /* A gentle 3D tilt away from the viewer, echoing the building's perspective;
        on scroll it shrinks and sinks down behind the building (z-index 1 < 2),
        drifting slower than the page so it lingers in view. */

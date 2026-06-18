@@ -1,0 +1,177 @@
+---
+// THE LETTING EXPERTS — single-property detail page. Mirrors a modern portal:
+// big address heading above a rule, status pills + actions, a large landscape
+// image, then the headline figures (rent / beds / baths / size).
+import { PROPERTIES } from "../../../data/tle-properties.js";
+
+interface Props {
+  property: (typeof PROPERTIES)[number];
+}
+const { property } = Astro.props;
+const HOME = "/estate-agency/preview/tle";
+const { address, locality, type, beds, baths, size, pcm, status, available, images } = property;
+const gallery = images.slice(1);
+---
+
+<div class="tlp-root">
+  <!-- Nav (solid) -->
+  <header class="tlp-nav">
+    <a class="tlp-logo" href={HOME}>The&nbsp;Letting&nbsp;<span>Experts</span></a>
+    <nav class="tlp-nav-links">
+      <a href="/estate-agency/preview/tle-search">Search</a>
+      <a href={`${HOME}#team`}>Agents</a>
+      <a href={`${HOME}#services`}>Landlords</a>
+      <a href={`${HOME}#reviews`}>About</a>
+    </nav>
+    <a class="tlp-signin" href="#">Sign In</a>
+  </header>
+
+  <div class="tlp-wrap">
+    <!-- Title -->
+    <div class="tlp-titlerow">
+      <h1 class="tlp-title">{address}, <span class="muted">{locality}</span></h1>
+      <button type="button" class="tlp-compare" aria-label="Compare">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h6M7 4v6M14 8h6M4 17h6M14 14h6M17 11v6" /></svg>
+      </button>
+    </div>
+    <hr class="tlp-divider" />
+
+    <!-- Pills + actions -->
+    <div class="tlp-actionsrow">
+      <div class="tlp-pills">
+        <span class={`tlp-pill tlp-pill--status${available ? " is-available" : ""}`}>
+          <i class="tlp-dot"></i>{available ? "Available" : "Let agreed"}
+        </span>
+        <span class="tlp-pill">To Let</span>
+      </div>
+      <div class="tlp-actions">
+        <a href={`${HOME}#book`} class="tlp-schedule">
+          Schedule Viewing
+          <svg viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 7h17M12 1l6 6-6 6" /></svg>
+        </a>
+        <button type="button" class="tlp-circle" aria-label="Send email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+        </button>
+        <a href="#" class="tlp-circle" aria-label="WhatsApp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 11.5a8.5 8.5 0 0 1-12.2 7.6L3 21l1.9-5.8A8.5 8.5 0 1 1 21 11.5Z" /><path d="M8.5 9.2c0 3 2.3 5.3 5.3 5.3.6 0 1-.5 1-1l-1.4-.9-1 .7c-.9-.5-1.6-1.2-2-2l.7-1-.9-1.4c-.5 0-1 .4-1 1Z" fill="currentColor" stroke="none" /></svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- Hero image -->
+    <div class="tlp-hero">
+      <img src={images[0]} alt={`${address}, ${locality}`} />
+    </div>
+
+    <!-- Figures -->
+    <div class="tlp-figures">
+      <div class="tlp-price">{pcm}</div>
+      <div class="tlp-stats">
+        <div class="tlp-stat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 18v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5M3 18h18M3 18v2M21 18v2M6 11V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3" /></svg>
+          <b>{beds} {beds === 1 ? "Bed" : "Beds"}</b>
+        </div>
+        <div class="tlp-stat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3ZM6 12V6a2 2 0 0 1 2-2 2 2 0 0 1 2 2M7 19l-1 2M18 19l1 2" /></svg>
+          <b>{baths} {baths === 1 ? "Bath" : "Baths"}</b>
+        </div>
+        <div class="tlp-stat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6" /></svg>
+          <b>{size}</b>
+        </div>
+        <div class="tlp-stat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-6h6v6" /></svg>
+          <b>{type}</b>
+        </div>
+      </div>
+    </div>
+
+    {gallery.length > 0 && (
+      <div class="tlp-gallery">
+        {gallery.map((g) => (
+          <div class="tlp-gphoto"><img src={g} alt={`${address} — gallery`} loading="lazy" /></div>
+        ))}
+      </div>
+    )}
+
+    <a href="/estate-agency/preview/tle-search" class="tlp-back">&larr; Back to search</a>
+  </div>
+</div>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+  .tlp-root {
+    --red: #e31f36; --ink: #16171a; --grey: #6e6e76; --line: #e7e7ea; --surface: #f4f4f5; --green: #18a558;
+    font-family: "Montserrat", system-ui, sans-serif; color: var(--ink); background: #fff;
+    -webkit-font-smoothing: antialiased; line-height: 1.5;
+  }
+  .tlp-root *, .tlp-root *::before, .tlp-root *::after { box-sizing: border-box; }
+  .tlp-root a { color: inherit; text-decoration: none; }
+
+  /* Nav */
+  .tlp-nav {
+    position: sticky; top: 0; z-index: 30; height: 64px;
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    padding: 0 clamp(18px, 4vw, 44px);
+    background: #fff; border-bottom: 1px solid var(--line);
+  }
+  .tlp-logo { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+  .tlp-logo span { color: var(--red); }
+  .tlp-nav-links { display: flex; gap: 26px; }
+  .tlp-nav-links a { font-size: 14px; font-weight: 500; color: var(--grey); transition: color .2s; }
+  .tlp-nav-links a:hover { color: var(--ink); }
+  .tlp-nav .tlp-signin { font-size: 13px; font-weight: 700; color: #fff; background: var(--ink); padding: 10px 20px; border-radius: 11px; transition: background .2s; }
+  .tlp-nav .tlp-signin:hover { background: var(--red); }
+  @media (max-width: 760px) { .tlp-nav-links { display: none; } }
+
+  .tlp-wrap { max-width: 1320px; margin: 0 auto; padding: clamp(24px, 4vw, 44px) clamp(18px, 4vw, 44px) 64px; }
+
+  /* Title */
+  .tlp-titlerow { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .tlp-title { font-size: clamp(26px, 4vw, 52px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; margin: 0; }
+  .tlp-title .muted { color: var(--grey); font-weight: 700; }
+  .tlp-compare { flex: none; width: 46px; height: 46px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); display: grid; place-items: center; cursor: pointer; transition: border-color .2s, background .2s; }
+  .tlp-compare:hover { border-color: var(--ink); background: var(--surface); }
+  .tlp-compare svg { width: 20px; height: 20px; }
+  .tlp-divider { border: 0; border-top: 1px solid var(--line); margin: clamp(20px, 2.4vw, 30px) 0 clamp(22px, 2.6vw, 32px); }
+
+  /* Pills + actions */
+  .tlp-actionsrow { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: clamp(22px, 2.8vw, 34px); }
+  .tlp-pills { display: flex; gap: 10px; flex-wrap: wrap; }
+  .tlp-pill { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; }
+  .tlp-pill--status { color: var(--grey); }
+  .tlp-pill--status.is-available { color: var(--green); border-color: rgba(24,165,88,0.4); }
+  .tlp-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--grey); }
+  .tlp-pill--status.is-available .tlp-dot { background: var(--green); }
+
+  .tlp-actions { display: flex; align-items: center; gap: 12px; }
+  .tlp-actions .tlp-schedule { display: inline-flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 700; color: #fff; background: var(--ink); border-radius: 999px; padding: 15px 26px; transition: background .2s, transform .2s; }
+  .tlp-actions .tlp-schedule:hover { background: var(--red); transform: translateY(-1px); }
+  .tlp-schedule svg { width: 19px; height: 13px; }
+  .tlp-circle { width: 48px; height: 48px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); display: grid; place-items: center; cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
+  .tlp-circle:hover { background: var(--red); color: #fff; border-color: var(--red); }
+  .tlp-circle svg { width: 19px; height: 19px; }
+
+  /* Hero image */
+  .tlp-hero { border-radius: 20px; overflow: hidden; background: var(--surface); aspect-ratio: 16 / 9; }
+  .tlp-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* Figures */
+  .tlp-figures { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding: clamp(26px, 3vw, 40px) 4px clamp(8px, 1vw, 14px); }
+  .tlp-price { font-size: clamp(34px, 5vw, 64px); font-weight: 800; letter-spacing: -0.02em; }
+  .tlp-stats { display: flex; gap: clamp(28px, 4vw, 64px); flex-wrap: wrap; }
+  .tlp-stat { display: flex; flex-direction: column; gap: 10px; color: var(--grey); }
+  .tlp-stat svg { width: 26px; height: 26px; }
+  .tlp-stat b { font-size: clamp(15px, 1.4vw, 18px); font-weight: 600; color: var(--ink); }
+
+  /* Gallery */
+  .tlp-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: clamp(12px, 1.4vw, 20px); margin-top: clamp(20px, 2.6vw, 34px); }
+  @media (max-width: 640px) { .tlp-gallery { grid-template-columns: 1fr; } }
+  .tlp-gphoto { border-radius: 16px; overflow: hidden; background: var(--surface); aspect-ratio: 4 / 3; }
+  .tlp-gphoto img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s cubic-bezier(.16,1,.3,1); }
+  .tlp-gphoto:hover img { transform: scale(1.04); }
+
+  .tlp-back { display: inline-block; margin-top: clamp(28px, 3vw, 44px); font-size: 13px; font-weight: 700; color: var(--ink); border-bottom: 2px solid var(--red); padding-bottom: 3px; }
+  .tlp-back:hover { color: var(--red); }
+</style>

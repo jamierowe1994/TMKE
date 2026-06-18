@@ -2,7 +2,8 @@
 // THE LETTING EXPERTS — property-search page. Layout mirrors a modern portal:
 // a solid nav, a sticky filter toolbar, a map pinned on the left and a
 // scrolling grid of results on the right. Map is a free OpenStreetMap embed;
-// listings + filters are placeholders for the concept.
+// filters are placeholders for the concept. Result cards link to detail pages.
+import { PROPERTIES } from "../../../data/tle-properties.js";
 
 const HOME = "/estate-agency/preview/tle";
 
@@ -11,17 +12,7 @@ const MAP_SRC =
   "https://www.openstreetmap.org/export/embed.html?bbox=-0.34%2C51.39%2C0.12%2C51.61&layer=mapnik&marker=51.5074%2C-0.1278";
 
 const FILTERS = ["Neighbourhoods", "To Let", "Price", "Property type", "Beds & Baths"];
-
-const RESULTS = [
-  { area: "Garland Road, Poole, BH15",            type: "Flat",      beds: 1, baths: 1, pcm: "£725 pcm",   tag: "Let agreed" },
-  { area: "Glenfield Road, Leicester, LE3",       type: "Flat",      beds: 1, baths: 1, pcm: "£715 pcm",   tag: "To let" },
-  { area: "Douglas Gardens Mews, Edinburgh, EH4", type: "House",     beds: 3, baths: 2, pcm: "£2,600 pcm", tag: "To let" },
-  { area: "Chapter Road, London, NW2",            type: "Flat",      beds: 3, baths: 1, pcm: "£2,400 pcm", tag: "To let" },
-  { area: "Mill Lane, Bristol, BS3",              type: "House",     beds: 2, baths: 1, pcm: "£1,350 pcm", tag: "To let" },
-  { area: "Queens Road, Birmingham, B16",         type: "Apartment", beds: 2, baths: 2, pcm: "£1,150 pcm", tag: "To let" },
-  { area: "Park View, Milton Keynes, MK9",        type: "Flat",      beds: 1, baths: 1, pcm: "£950 pcm",   tag: "To let" },
-  { area: "High Street, Oxford, OX1",             type: "House",     beds: 4, baths: 2, pcm: "£2,950 pcm", tag: "To let" },
-];
+const RESULTS = PROPERTIES;
 ---
 
 <div class="tls-root">
@@ -73,25 +64,25 @@ const RESULTS = [
 
       <div class="tls-grid">
         {RESULTS.map((p) => (
-          <article class="tls-card">
-            <div class="tls-card-img tls-ph">
-              <span>Property image</span>
-              <em class="tls-card-tag">{p.tag}</em>
+          <a class="tls-card" href={`/estate-agency/preview/tle-property/${p.slug}`}>
+            <div class="tls-card-img">
+              <img src={p.images[0]} alt={p.area} loading="lazy" />
+              <em class="tls-card-tag">{p.status}</em>
             </div>
             <div class="tls-card-body">
               <div class="tls-card-price">{p.pcm}</div>
               <div class="tls-card-meta">{p.type} · To Let · {p.beds} bed · {p.baths} bath</div>
               <div class="tls-card-addr">{p.area}</div>
               <div class="tls-card-actions">
-                <button type="button" aria-label="Book a viewing">
+                <span class="tls-cardbtn" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 9h18M8 3v4M16 3v4" /></svg>
-                </button>
-                <button type="button" aria-label="Enquire">
+                </span>
+                <span class="tls-cardbtn" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
-                </button>
+                </span>
               </div>
             </div>
-          </article>
+          </a>
         ))}
       </div>
     </div>
@@ -123,8 +114,8 @@ const RESULTS = [
   .tls-nav-links { display: flex; gap: 26px; }
   .tls-nav-links a { font-size: 14px; font-weight: 500; color: var(--grey); transition: color .2s; }
   .tls-nav-links a:hover, .tls-nav-links a.is-active { color: var(--ink); }
-  .tls-signin { font-size: 13px; font-weight: 700; color: #fff; background: var(--ink); padding: 10px 20px; border-radius: 11px; transition: background .2s; }
-  .tls-signin:hover { background: var(--red); }
+  .tls-nav .tls-signin { font-size: 13px; font-weight: 700; color: #fff; background: var(--ink); padding: 10px 20px; border-radius: 11px; transition: background .2s; }
+  .tls-nav .tls-signin:hover { background: var(--red); }
   @media (max-width: 760px) { .tls-nav-links { display: none; } }
 
   /* Toolbar */
@@ -176,16 +167,18 @@ const RESULTS = [
 
   .tls-card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; transition: transform .25s, box-shadow .25s; }
   .tls-card:hover { transform: translateY(-4px); box-shadow: 0 26px 50px -34px rgba(0,0,0,0.35); }
-  .tls-card-img { position: relative; aspect-ratio: 16 / 11; }
+  .tls-card-img { position: relative; aspect-ratio: 16 / 11; background: var(--surface); overflow: hidden; }
+  .tls-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s cubic-bezier(.16,1,.3,1); }
+  .tls-card:hover .tls-card-img img { transform: scale(1.05); }
   .tls-card-tag { position: absolute; top: 11px; left: 11px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(255,255,255,0.94); color: var(--red); padding: 4px 10px; border-radius: 999px; font-style: normal; }
   .tls-card-body { padding: 14px 15px 15px; }
   .tls-card-price { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
   .tls-card-meta { font-size: 12.5px; color: var(--grey); margin: 5px 0 4px; }
   .tls-card-addr { font-size: 13px; color: var(--ink); font-weight: 500; }
   .tls-card-actions { display: flex; gap: 8px; margin-top: 13px; }
-  .tls-card-actions button { width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); display: grid; place-items: center; transition: background .2s, color .2s, border-color .2s; }
-  .tls-card-actions button:hover { background: var(--red); color: #fff; border-color: var(--red); }
-  .tls-card-actions svg { width: 16px; height: 16px; }
+  .tls-cardbtn { width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); display: grid; place-items: center; transition: background .2s, color .2s, border-color .2s; }
+  .tls-cardbtn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+  .tls-cardbtn svg { width: 16px; height: 16px; }
 
   /* Image placeholders */
   .tls-ph {

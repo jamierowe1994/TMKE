@@ -1,0 +1,31 @@
+---
+// The Letting Experts — per-property detail pages (concept).
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import PreviewFrame from "../../../../components/estate-agency/PreviewFrame.astro";
+import TLEProperty from "../../../../components/estate-agency/templates/TLEProperty.astro";
+import { PROPERTIES } from "../../../../data/tle-properties.js";
+import { getTemplate } from "../../../../data/estate-agency-templates.js";
+
+export function getStaticPaths() {
+  return PROPERTIES.map((p) => ({ params: { slug: p.slug }, props: { property: p } }));
+}
+
+const { property } = Astro.props;
+const template = getTemplate("tle");
+---
+
+<BaseLayout
+  title={`${property.area} — The Letting Experts — TMKE`}
+  description={`${property.type} to let — ${property.area}.`}
+  noindex
+  hideNav
+  hideFooter
+>
+  <PreviewFrame
+    templateName="The Letting Experts — Property"
+    tagline={template.tagline}
+    accent={template.accent}
+  >
+    <TLEProperty property={property} />
+  </PreviewFrame>
+</BaseLayout>
