@@ -19,9 +19,6 @@ const CLOUD1 = "https://assets.tmke.co.uk/TLE/cloud.png";
 const CLOUD2 = "https://assets.tmke.co.uk/TLE/cloud%202.png";
 const CLOUD3 = "https://assets.tmke.co.uk/TLE/full%20image.png";
 
-// Wide editorial image for the "Changing the future" section.
-const FUTURE_IMG = "https://images.unsplash.com/photo-1512359953714-f0c9a632ab85?auto=format&fit=crop&w=2400&q=80";
-
 // The grey body copy that fills in to black, word by word, as you scroll.
 const FUTURE_MUTED = "Your trusted partner throughout the journey of letting your property — we prioritise compliance, safety and legislation to safeguard you, and keep you informed every step of the way for real peace of mind.";
 
@@ -239,16 +236,11 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   <section class="tle-future tle-future--pin" id="book">
     <div class="tle-future-head tle-reveal">
       <div class="tle-future-label">Why The Letting Experts</div>
-      <div class="tle-future-headtx">
-        <h2 class="tle-future-h" id="tle-future-h">
-          <span class="lead">Changing the future of lettings.</span>{" "}
-          <span class="muted">{FUTURE_MUTED.split(" ").map((w) => (<span class="fw">{w} </span>))}</span>
-        </h2>
-        <a href="#" class="tle-btn tle-btn--red tle-btn--box">Book an appointment</a>
-      </div>
-    </div>
-    <div class="tle-future-frame tle-reveal tle-reveal--expand">
-      <img class="tle-future-pimg" src={FUTURE_IMG} alt="City living with The Letting Experts" loading="lazy" />
+      <h2 class="tle-future-h" id="tle-future-h">
+        <span class="lead">Changing the future of lettings.</span>{" "}
+        <span class="muted">{FUTURE_MUTED.split(" ").map((w) => (<span class="fw">{w} </span>))}</span>
+      </h2>
+      <a href="#" class="tle-btn tle-btn--red tle-btn--box">Book an appointment</a>
     </div>
   </section>
 
@@ -261,14 +253,30 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       <p class="tle-head-note">Three levels of landlord service and a comprehensive range of tailored lettings and property-management expertise.</p>
     </header>
     <div class="tle-services">
-      {SERVICES.map((s) => (
-        <article class="tle-service tle-reveal">
-          <span class="tle-service-n">{s.n}</span>
-          <h3 class="tle-service-h">{s.h}</h3>
-          <p class="tle-service-p">{s.p}</p>
-          <a href="#" class="tle-link tle-link--sm">Learn more &rarr;</a>
-        </article>
-      ))}
+      <div class="tle-services-col">
+        {SERVICES.slice(0, 3).map((s) => (
+          <article class="tle-service tle-reveal">
+            <span class="tle-service-n">{s.n}</span>
+            <div class="tle-service-tx">
+              <h3 class="tle-service-h">{s.h}</h3>
+              <p class="tle-service-p">{s.p}</p>
+              <a href="#" class="tle-link tle-link--sm">Learn more &rarr;</a>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div class="tle-services-col">
+        {SERVICES.slice(3, 6).map((s) => (
+          <article class="tle-service tle-reveal">
+            <span class="tle-service-n">{s.n}</span>
+            <div class="tle-service-tx">
+              <h3 class="tle-service-h">{s.h}</h3>
+              <p class="tle-service-p">{s.p}</p>
+              <a href="#" class="tle-link tle-link--sm">Learn more &rarr;</a>
+            </div>
+          </article>
+        ))}
+      </div>
     </div>
   </section>
   </div>
@@ -856,41 +864,44 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   }
   @media (max-width: 820px) { .tle-future--pin { position: relative; } .tle-over { border-radius: 26px 26px 0 0; } }
 
-  .tle-future { padding: clamp(64px, 8vw, 130px) clamp(20px, 6vw, 110px) clamp(36px, 5vw, 70px); }
-  .tle-future-head {
-    display: grid; grid-template-columns: 0.3fr 0.7fr; gap: clamp(24px, 4vw, 60px);
-    align-items: start; margin-bottom: clamp(34px, 5vw, 70px);
+  /* Full-height panel so the copy sits dead-centre when the section pins. */
+  .tle-future {
+    min-height: 100vh; box-sizing: border-box;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: clamp(64px, 9vh, 130px) clamp(20px, 6vw, 110px);
   }
-  .tle-future-label { font-size: 13px; font-weight: 700; color: var(--ink); padding-top: 8px; }
-  .tle-future-h { font-size: clamp(25px, 3.3vw, 46px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.14; margin: 0 0 30px; }
+  .tle-future-head {
+    max-width: 980px; margin: 0 auto; text-align: center;
+  }
+  .tle-future-label { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--red); margin-bottom: clamp(18px, 2.4vw, 30px); }
+  .tle-future-h { font-size: clamp(27px, 4vw, 56px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.12; margin: 0 0 clamp(28px, 3.4vw, 44px); }
   .tle-future-h .lead { color: var(--ink); }
   /* Grey body copy that fills to ink word-by-word as you scroll. */
-  .tle-future-h .muted { display: block; margin-top: 6px; color: #cfcfd4; }
+  .tle-future-h .muted { display: block; margin-top: 10px; color: #cfcfd4; }
   .tle-future-h .muted .fw {
     color: transparent;
     background-image: linear-gradient(to right, var(--ink) 0%, var(--ink) var(--wf, 0%), #cfcfd4 var(--wf, 0%), #cfcfd4 100%);
     -webkit-background-clip: text; background-clip: text; background-clip: text;
   }
-  @media (max-width: 820px) { .tle-future-head { grid-template-columns: 1fr; } }
+  .tle-future-head .tle-btn { margin: 0 auto; }
 
-  .tle-future-frame {
-    position: relative; border-radius: 0; overflow: hidden;
-    height: clamp(230px, 48vh, 470px); background: var(--surface);
+  /* ---- Services — two columns of three, revealed one-by-one on scroll ---- */
+  .tle-services { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 6vw, 120px); align-items: start; }
+  @media (max-width: 820px) { .tle-services { grid-template-columns: 1fr; gap: 0; } }
+  .tle-services-col { display: flex; flex-direction: column; }
+  /* Each service is a list row: big faded number, then the copy. */
+  .tle-service {
+    display: grid; grid-template-columns: auto 1fr; gap: clamp(18px, 1.8vw, 30px);
+    align-items: start; padding: clamp(24px, 2.6vw, 36px) 0;
+    border-top: 1px solid var(--line);
   }
-  .tle-future-pimg {
-    position: absolute; left: 0; top: -14%; width: 100%; height: 128%;
-    object-fit: cover; will-change: transform;
-  }
-
-  /* ---- Services ---- */
-  .tle-services { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
-  @media (max-width: 900px) { .tle-services { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 560px) { .tle-services { grid-template-columns: 1fr; } }
-  .tle-service { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: clamp(28px, 2.4vw, 40px); transition: background .3s; }
-  .tle-service:hover { background: var(--surface); }
-  .tle-service-n { font-size: 13px; font-weight: 800; color: var(--red); letter-spacing: 0.1em; }
-  .tle-service-h { font-size: clamp(19px, 1.7vw, 24px); font-weight: 700; margin: 14px 0 10px; }
-  .tle-service-p { font-size: 14.5px; color: var(--grey); margin: 0 0 18px; }
+  .tle-services-col:first-child .tle-service:first-child,
+  .tle-services-col:last-child .tle-service:first-child { border-top: none; }
+  @media (max-width: 820px) { .tle-services-col:last-child .tle-service:first-child { border-top: 1px solid var(--line); } }
+  .tle-service-n { font-size: clamp(26px, 2.4vw, 34px); font-weight: 800; line-height: 1; color: var(--red); opacity: 0.92; letter-spacing: -0.01em; }
+  .tle-service-tx { min-width: 0; }
+  .tle-service-h { font-size: clamp(19px, 1.7vw, 24px); font-weight: 700; margin: 2px 0 8px; }
+  .tle-service-p { font-size: 14.5px; line-height: 1.55; color: var(--grey); margin: 0 0 16px; }
 
   /* ---- Banner — a contained dark box (not a full-bleed red band); red is
      reserved for the CTA button inside it. ---- */
@@ -911,12 +922,13 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   /* ---- Team — auto-rotating arc: centre face biggest, the rest trend down and
      shrink into a semi-circle, edges fade out. JS positions each member. ---- */
   .tle-team-arc {
-    position: relative; height: clamp(360px, 44vh, 500px); margin-top: clamp(10px, 2vw, 26px);
+    position: relative; height: clamp(400px, 48vh, 560px); margin-top: clamp(10px, 2vw, 26px);
     -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%);
     mask-image: linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%);
   }
   .tle-arc-member {
-    position: absolute; left: 50%; top: 34%; width: clamp(110px, 12vw, 158px); margin-left: 0;
+    position: absolute; left: 50%; top: 30%; width: clamp(124px, 13vw, 178px); margin-left: 0;
+    transform-origin: 50% 50%;
     will-change: transform, opacity;
   }
   .tle-arc-photo {
@@ -1056,7 +1068,6 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   (function () {
     const hero = document.querySelector(".tle-hero");
     const nav = document.querySelector(".tle-nav");
-    const pimg = document.querySelector(".tle-future-pimg");
     if (!hero) return;
     const overlap = document.querySelector(".tle-overlap");
     const words = Array.prototype.slice.call(document.querySelectorAll(".tle-future-h .muted .fw"));
@@ -1091,15 +1102,6 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
           words[i].style.setProperty("--wf", wf.toFixed(0) + "%");
         }
       }
-      // Gentle parallax on the near-full-screen "future" image.
-      if (pimg) {
-        const r = pimg.parentElement.getBoundingClientRect();
-        const vh = window.innerHeight;
-        if (r.bottom > 0 && r.top < vh) {
-          const prog = (vh - r.top) / (vh + r.height); // 0 entering → 1 leaving
-          pimg.style.transform = "translateY(" + ((prog - 0.5) * 70).toFixed(1) + "px)";
-        }
-      }
       lastY = y;
       ticking = false;
     }
@@ -1120,6 +1122,7 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     const members = Array.prototype.slice.call(arc.querySelectorAll(".tle-arc-member"));
     const N = members.length;
     if (!N) return;
+    const photos = members.map((el) => el.querySelector(".tle-arc-photo"));
     const capName = document.querySelector(".tle-team-caption-name");
     const capRole = document.querySelector(".tle-team-caption-role");
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1141,15 +1144,26 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       let centerEl = null, centerAbs = Infinity;
       members.forEach((el, i) => {
         const d = wrapD(i);
+        const ad = Math.abs(d);
         const a = d * step;
         const x = Math.sin(a) * R;
         const y = (1 - Math.cos(a)) * Y;
-        const scale = Math.max(0.34, 1 - Math.abs(d) * 0.24);
-        const op = Math.max(0, Math.min(1, 1.18 - Math.abs(d) * 0.34));
+        // Centre is much bigger and sits on top; neighbours shrink off faster.
+        const scale = Math.max(0.32, 1.24 - ad * 0.34);
+        const op = Math.max(0, Math.min(1, 1.2 - ad * 0.34));
         el.style.transform = "translate(-50%, 0) translate(" + x.toFixed(1) + "px, " + y.toFixed(1) + "px) scale(" + scale.toFixed(3) + ")";
         el.style.opacity = op.toFixed(2);
-        el.style.zIndex = String(Math.round(100 - Math.abs(d) * 12));
-        if (Math.abs(d) < centerAbs) { centerAbs = Math.abs(d); centerEl = el; }
+        el.style.zIndex = String(Math.round(100 - ad * 12));
+        // Drop shadow: really heavy under the centre, lighter on each step out.
+        const sh = Math.max(0, 1 - ad * 0.46);
+        const ph = photos[i];
+        if (ph) {
+          const yo = (16 + sh * 40).toFixed(0);
+          const bl = (28 + sh * 56).toFixed(0);
+          const al = (0.08 + sh * 0.46).toFixed(2);
+          ph.style.boxShadow = "0 " + yo + "px " + bl + "px -22px rgba(0,0,0," + al + ")";
+        }
+        if (ad < centerAbs) { centerAbs = ad; centerEl = el; }
       });
       const idx = centerEl ? +centerEl.dataset.i : 0;
       if (idx !== lastCenter && capName) {
