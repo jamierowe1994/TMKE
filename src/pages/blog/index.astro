@@ -133,10 +133,45 @@ function fmtDate(iso) {
       align-items: stretch;
       max-width: 1640px;
       margin: 0 auto;
+      position: relative;
+      /* Shared metrics so the divider lines land exactly between the header
+         band and the content below it. */
+      --ins-pad-top: clamp(92px, 10vh, 116px);
+      --ins-pad-x: clamp(22px, 4vw, 64px);
+      --ins-pad-bot: clamp(28px, 4vh, 56px);
+      --ins-head-h: clamp(40px, 3.8vw, 56px);
+      --ins-head-gap: clamp(16px, 2vw, 26px);
+      --ins-line: rgba(28, 29, 34, 0.14);
       /* Fixed one-pager — fills the viewport, never scrolls. */
       height: 100vh;
       overflow: hidden;
-      padding: clamp(92px, 10vh, 116px) clamp(22px, 4vw, 64px) clamp(28px, 4vh, 56px);
+      padding: var(--ins-pad-top) var(--ins-pad-x) var(--ins-pad-bot);
+    }
+
+    /* Thin, faint divider lines forming a "T": a full-width rule under the
+       header band, plus a vertical rule down the centre gap separating the
+       left article columns from the right feature. */
+    .insights2::before,
+    .insights2::after {
+      content: "";
+      position: absolute;
+      background: var(--ins-line);
+      pointer-events: none;
+    }
+    .insights2::before {
+      /* horizontal — under both headers, edge to edge */
+      left: 0;
+      right: 0;
+      top: calc(var(--ins-pad-top) + var(--ins-head-h) + var(--ins-head-gap) / 2);
+      height: 1px;
+    }
+    .insights2::after {
+      /* vertical — down the centre, from the horizontal line to the content base */
+      left: 50%;
+      transform: translateX(-0.5px);
+      top: calc(var(--ins-pad-top) + var(--ins-head-h) + var(--ins-head-gap) / 2);
+      bottom: var(--ins-pad-bot);
+      width: 1px;
     }
 
     /* ---- LEFT: double column (the two halves counter-scroll) ---- */
@@ -147,7 +182,12 @@ function fmtDate(iso) {
       /* Pull the blogs in from the centre so the video has breathing room. */
       padding-right: clamp(10px, 1.8vw, 36px);
     }
-    .ins-list-head { margin-bottom: clamp(14px, 2vw, 26px); }
+    .ins-list-head {
+      height: var(--ins-head-h);
+      margin-bottom: var(--ins-head-gap);
+      display: flex;
+      align-items: center;
+    }
     .ins-list-head .eyebrow {
       margin-bottom: 16px;
       display: flex;
@@ -263,9 +303,15 @@ function fmtDate(iso) {
       text-decoration: none;
       will-change: transform;
     }
-    /* Small nudge keeps the feature image top aligned with the left-column
-       image tops now that the title sits below the image instead of above it. */
-    .ins-feature-head { flex: 0 0 auto; margin-bottom: calc(clamp(14px, 1.8vw, 22px) + 18px); }
+    /* Same height + gap as the left header so both columns' content starts on
+       the same line and "Latest news" centres on the title. */
+    .ins-feature-head {
+      flex: 0 0 auto;
+      height: var(--ins-head-h);
+      margin-bottom: var(--ins-head-gap);
+      display: flex;
+      align-items: center;
+    }
     .ins-feature-eyebrow {
       font-family: var(--sans);
       font-size: 11px;
@@ -273,7 +319,7 @@ function fmtDate(iso) {
       letter-spacing: 0.22em;
       text-transform: uppercase;
       color: var(--english-violet);
-      margin-bottom: 18px;
+      margin-bottom: 0;
       display: flex;
       align-items: center;
       gap: 16px;
@@ -355,6 +401,8 @@ function fmtDate(iso) {
         height: auto;
         overflow: visible;
       }
+      /* The T-divider only makes sense in the two-column desktop layout. */
+      .insights2::before, .insights2::after { display: none; }
       .ins-cols { overflow: visible; }
       .ins-list { padding-right: 0; }
       .ins-feature {
