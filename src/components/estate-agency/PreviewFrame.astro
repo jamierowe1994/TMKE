@@ -1,7 +1,9 @@
 ---
-// Chrome that wraps a template preview. Floating top bar tells the visitor
-// they're looking at a TMKE example, with a back-to-showcase link and an
-// inline "Register interest" CTA that scrolls to the form embedded below.
+// Chrome that wraps a template preview. Instead of a full bar across the top
+// (which sat on top of the template's own hero), the preview controls are a
+// discreet floating tab in the bottom-left corner. It tucks away while you
+// scroll down and slides back in when you scroll up, so it never interrupts
+// the template's hero.
 interface Props {
   templateName: string;
   tagline?: string;
@@ -12,26 +14,39 @@ const { templateName, tagline = "", accent = "var(--english-violet)" } = Astro.p
 ---
 
 <div class="ea-preview-frame" style={`--ea-accent: ${accent};`}>
-  <header class="ea-preview-bar">
-    <a href="/estate-agency" class="ea-preview-back" aria-label="Back to showcase">
+  <div class="ea-preview-chrome" id="ea-preview-chrome" aria-label="TMKE preview controls">
+    <a href="/estate-agency" class="ea-preview-pill ea-preview-back">
       <span aria-hidden="true">&larr;</span>
-      <span>All templates</span>
+      <span class="ea-preview-pill-text">All templates</span>
     </a>
-    <div class="ea-preview-meta">
-      <span class="ea-preview-eyebrow">TMKE Preview</span>
-      <span class="ea-preview-name">{templateName}</span>
-      {tagline && <span class="ea-preview-tagline">{tagline}</span>}
-    </div>
-    <a href="#register-interest" class="ea-preview-cta">
-      Register interest
+    <a href="#register-interest" class="ea-preview-pill ea-preview-cta">
+      <span class="ea-preview-pill-text">Register interest</span>
       <span aria-hidden="true">&rarr;</span>
     </a>
-  </header>
+  </div>
 
   <div class="ea-preview-stage">
     <slot />
   </div>
 </div>
+
+<script is:inline>
+  (function () {
+    const chrome = document.getElementById("ea-preview-chrome");
+    if (!chrome) return;
+    let last = window.scrollY, ticking = false;
+    function onScroll() {
+      const y = window.scrollY;
+      // Tuck away while scrolling down past the fold; reveal on the way back up.
+      if (y > 140 && y > last + 4) chrome.classList.add("is-tucked");
+      else if (y < last - 4) chrome.classList.remove("is-tucked");
+      last = y; ticking = false;
+    }
+    window.addEventListener("scroll", () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+    }, { passive: true });
+  })();
+</script>
 
 <style>
   .ea-preview-frame {
@@ -39,80 +54,60 @@ const { templateName, tagline = "", accent = "var(--english-violet)" } = Astro.p
     background: var(--paper);
     color: var(--ink);
   }
-  .ea-preview-bar {
-    position: sticky;
-    top: 0;
-    z-index: 50;
+
+  /* Floating control cluster, bottom-left, well clear of the template hero. */
+  .ea-preview-chrome {
+    position: fixed;
+    left: clamp(12px, 3vw, 24px);
+    bottom: clamp(12px, 3vw, 22px);
+    z-index: 60;
     display: flex;
+    gap: 8px;
     align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 14px 28px;
-    background: rgba(12,11,10,0.92);
-    color: var(--paper);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-bottom: 1px solid rgba(240,238,235,0.08);
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
   }
-  .ea-preview-back,
-  .ea-preview-cta {
+  .ea-preview-chrome.is-tucked {
+    transform: translateY(170%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .ea-preview-pill {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     font-family: var(--sans);
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--paper);
-    padding: 8px 14px;
-    border: 1px solid rgba(240,238,235,0.2);
-    border-radius: 2px;
-    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    color: #fff;
+    padding: 9px 15px;
+    border-radius: 999px;
+    background: rgba(12, 11, 10, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 12px 34px -18px rgba(0, 0, 0, 0.7);
+    transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
   }
-  .ea-preview-back:hover { border-color: rgba(240,238,235,0.5); }
+  .ea-preview-pill:hover {
+    transform: translateY(-1px);
+    background: rgba(12, 11, 10, 0.72);
+  }
   .ea-preview-cta {
     background: var(--ea-accent);
     border-color: var(--ea-accent);
   }
-  .ea-preview-cta:hover { background: var(--paper); color: var(--ink); }
-
-  .ea-preview-meta {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    text-align: center;
-  }
-  .ea-preview-eyebrow {
-    font-family: var(--sans);
-    font-size: 10px;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    color: rgba(240,238,235,0.55);
-  }
-  .ea-preview-name {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 18px;
-    color: var(--paper);
-  }
-  .ea-preview-tagline {
-    font-family: var(--sans);
-    font-size: 11px;
-    color: rgba(240,238,235,0.55);
+  .ea-preview-cta:hover {
+    background: #fff;
+    color: var(--ink);
+    border-color: #fff;
   }
 
-  @media (max-width: 720px) {
-    .ea-preview-bar { padding: 10px 16px; gap: 12px; }
-    .ea-preview-tagline { display: none; }
-    .ea-preview-back span:not([aria-hidden]),
-    .ea-preview-cta span:not([aria-hidden]) {
-      display: none;
-    }
+  @media (max-width: 560px) {
+    .ea-preview-pill-text { display: none; }
   }
 
-  .ea-preview-stage {
-    min-height: 70vh;
-  }
+  .ea-preview-stage { min-height: 70vh; }
 </style>

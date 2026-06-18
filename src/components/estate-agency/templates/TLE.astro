@@ -342,16 +342,20 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-ph--portrait { aspect-ratio: 3 / 4; }
   .tle-ph--wide { aspect-ratio: 3 / 2; }
 
-  /* ---- Nav ---- */
+  /* ---- Nav — transparent over the hero, fades into focus on scroll ---- */
   .tle-nav {
     position: sticky; top: 0; z-index: 30;
     display: flex; align-items: center; justify-content: space-between; gap: 24px;
     padding: 18px clamp(20px, 6vw, 110px);
-    background: rgba(255,255,255,0.86); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--line);
+    background: transparent; border-bottom: 1px solid transparent;
+    transition: background .3s ease, border-color .3s ease, box-shadow .3s ease;
   }
-  .tle-logo { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
-  .tle-logo span { color: var(--red); }
+  .tle-nav.is-stuck {
+    background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border-bottom-color: var(--line); box-shadow: 0 12px 30px -24px rgba(0,0,0,0.45);
+  }
+  .tle-logo { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; color: var(--ink); }
+  .tle-logo span { color: inherit; }
   .tle-nav-links { display: flex; gap: 28px; }
   .tle-nav-links a { font-size: 14px; font-weight: 500; color: var(--ink); transition: color .2s; }
   .tle-nav-links a:hover { color: var(--red); }
@@ -365,6 +369,10 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     min-height: calc(100vh - 62px);
     overflow: hidden;
     background-size: cover; background-position: center bottom; background-repeat: no-repeat;
+    /* --p (0..1) is the hero scroll progress, set on scroll. As you scroll the
+       bottom corners curve away to soften the hard edge into the page. */
+    border-bottom-left-radius: calc(var(--p, 0) * 40px);
+    border-bottom-right-radius: calc(var(--p, 0) * 40px);
   }
   .tle-hero-word {
     position: absolute; z-index: 1;
@@ -372,6 +380,17 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     margin: 0; text-align: center;
     font-weight: 800; font-size: clamp(44px, 11vw, 178px);
     line-height: 0.86; letter-spacing: -0.04em; color: var(--ink);
+    /* A gentle 3D tilt away from the viewer, echoing the building's perspective;
+       on scroll it shrinks and sinks down behind the building (z-index 1 < 2),
+       drifting slower than the page so it lingers in view. */
+    transform-origin: center top;
+    transform:
+      perspective(1300px)
+      rotateX(calc(8deg + var(--p, 0) * 6deg))
+      rotateZ(-1.4deg)
+      translateY(calc(var(--p, 0) * 30vh))
+      scale(calc(1 - var(--p, 0) * 0.42));
+    will-change: transform;
   }
   /* Building cut-out — same crop as the sky bg, so it lands over its own sky and
      in front of the wordmark. */
@@ -384,6 +403,10 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-hero-cta {
     position: absolute; z-index: 3; left: 0; right: 0; bottom: clamp(30px, 5vh, 56px);
     display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;
+    /* Grow a touch as you scroll, so the CTAs become the clear focal point. */
+    transform-origin: center bottom;
+    transform: scale(calc(1 + var(--p, 0) * 0.16));
+    will-change: transform;
   }
   /* Ghost button sits over the dark building — make it light. */
   .tle-hero-cta .tle-btn--ghost { color: #fff; border-color: rgba(255,255,255,0.6); }
@@ -512,6 +535,26 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       });
     }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
     els.forEach((el) => io.observe(el));
+  })();
+
+  /* Hero parallax — drive the wordmark shrink/sink, the button growth and the
+     corner curve from a single scroll-progress var; fade the nav into focus. */
+  (function () {
+    const hero = document.querySelector(".tle-hero");
+    const nav = document.querySelector(".tle-nav");
+    if (!hero) return;
+    let ticking = false;
+    function onScroll() {
+      const h = hero.offsetHeight || window.innerHeight;
+      const p = Math.min(Math.max(window.scrollY / (h * 0.85), 0), 1);
+      hero.style.setProperty("--p", p.toFixed(4));
+      if (nav) nav.classList.toggle("is-stuck", window.scrollY > 24);
+      ticking = false;
+    }
+    window.addEventListener("scroll", () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+    }, { passive: true });
+    onScroll();
   })();
 
   /* Team coverflow — the card nearest the centre is biggest; the rest shrink and
