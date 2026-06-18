@@ -39,16 +39,18 @@ const TESTIMONIALS = [
   { quote: "I had an excellent experience with Lou throughout the entire rental process. From start to finish, she was superb.", name: "Verified client", role: "Google review" },
 ];
 
-// "Letting Experts You Can Trust" — real team (selection of the nationwide roster).
+// "Letting Experts You Can Trust" — real team, with their real headshots
+// (only the agents whose cut-out headshot exists in the TLE folder).
+const HEADSHOTS = "https://assets.tmke.co.uk/TLE/TLE%20headshots";
 const TEAM = [
-  { name: "Geraldine Mulhern", role: "East Surrey & West Sussex" },
-  { name: "Graham Cross",      role: "Leicestershire & Warwickshire" },
-  { name: "Angela Davey",      role: "Birmingham" },
-  { name: "Lauren Engley",     role: "Bristol" },
-  { name: "Tony Poon",         role: "Milton Keynes" },
-  { name: "Sean McMahon",      role: "Edinburgh" },
-  { name: "Claire Riley",      role: "Coventry" },
-  { name: "Richard Callow",    role: "Oxfordshire" },
+  { name: "Lauren Engley",         role: "Bristol",                        photo: `${HEADSHOTS}/Lauren%20Engley.png` },
+  { name: "Dan Richards",          role: "Wolverhampton",                  photo: `${HEADSHOTS}/Dan%20Richards.png` },
+  { name: "Angela Davey",          role: "Birmingham",                     photo: `${HEADSHOTS}/Angela%20Davey.png` },
+  { name: "Graham Cross",          role: "Leicestershire & Warwickshire",  photo: `${HEADSHOTS}/Graham%20Cross.png` },
+  { name: "Tony Poon",             role: "Milton Keynes",                  photo: `${HEADSHOTS}/Tony%20Poon%20.png` },
+  { name: "Richard Callow",        role: "Oxfordshire",                    photo: `${HEADSHOTS}/Richard%20Callow.png` },
+  { name: "Elizabeth Ogunfowokan", role: "Chelmsford & Colchester",        photo: `${HEADSHOTS}/Elizabeth%20Ogunfowokan.png` },
+  { name: "James Crumpton",        role: "Bristol",                        photo: `${HEADSHOTS}/James%20Crumpton.png` },
 ];
 
 // "Latest Articles" — real blog posts.
@@ -197,15 +199,20 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       </div>
       <a href="#" class="tle-link">View all Agents &rarr;</a>
     </header>
-    <div class="tle-team">
-      {TEAM.map((m) => (
-        <article class="tle-member tle-reveal">
-          <div class="tle-ph tle-ph--portrait"><span>Team photo</span></div>
-          <h3 class="tle-member-name">{m.name}</h3>
-          <div class="tle-member-role">{m.role} Letting Expert</div>
-        </article>
-      ))}
+    <div class="tle-team-scroller" id="tle-team-scroller">
+      <div class="tle-team-track">
+        {TEAM.map((m) => (
+          <article class="tle-member">
+            <div class="tle-member-photo"><img src={m.photo} alt={m.name} loading="lazy" /></div>
+            <div class="tle-member-info">
+              <h3 class="tle-member-name">{m.name}</h3>
+              <div class="tle-member-role">{m.role} Letting Expert</div>
+            </div>
+          </article>
+        ))}
+      </div>
     </div>
+    <p class="tle-team-hint">Drag to meet the team &middot; hover a face for details</p>
   </section>
 
   <!-- ============ Blog ============ -->
@@ -429,11 +436,35 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-quote figcaption strong { font-weight: 700; font-size: 14px; }
   .tle-quote figcaption span { font-size: 12px; color: var(--grey); }
 
-  /* ---- Team ---- */
-  .tle-team { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(18px, 1.8vw, 30px); }
-  @media (max-width: 900px) { .tle-team { grid-template-columns: repeat(2, 1fr); } }
-  .tle-member-name { font-size: 16px; font-weight: 700; margin: 16px 0 2px; }
-  .tle-member-role { font-size: 13px; color: var(--red); font-weight: 600; }
+  /* ---- Team — coverflow scroller: centre face biggest, details on hover ---- */
+  .tle-team-scroller {
+    overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
+    scrollbar-width: none; -ms-overflow-style: none; cursor: grab;
+  }
+  .tle-team-scroller::-webkit-scrollbar { display: none; }
+  .tle-team-scroller.is-dragging { cursor: grabbing; }
+  .tle-team-track {
+    display: flex; align-items: flex-start; gap: clamp(14px, 1.6vw, 30px);
+    width: max-content; padding: 34px max(24px, calc(50% - 100px)) 8px;
+  }
+  .tle-member { flex: 0 0 auto; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; }
+  .tle-member-photo {
+    width: clamp(130px, 15vw, 190px); aspect-ratio: 1; border-radius: 18px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--line);
+    transform: scale(var(--s, 0.78)); transform-origin: center bottom;
+    opacity: var(--o, 0.82);
+    transition: transform .28s cubic-bezier(.16,1,.3,1), opacity .28s, box-shadow .28s;
+  }
+  .tle-member-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+  .tle-member.is-focus .tle-member-photo { box-shadow: 0 36px 70px -34px rgba(0,0,0,0.4); }
+  .tle-member-info {
+    margin-top: 20px; text-align: center; opacity: 0; transform: translateY(8px);
+    transition: opacity .3s ease, transform .3s ease; pointer-events: none;
+  }
+  .tle-member:hover .tle-member-info, .tle-member.is-focus .tle-member-info { opacity: 1; transform: none; }
+  .tle-member-name { font-size: 15px; font-weight: 700; margin: 0 0 3px; }
+  .tle-member-role { font-size: 12px; color: var(--red); font-weight: 600; }
+  .tle-team-hint { text-align: center; font-size: 12px; color: var(--grey); letter-spacing: 0.04em; margin: 16px 0 0; }
 
   /* ---- Blog ---- */
   .tle-blog { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(22px, 2vw, 40px); }
@@ -481,5 +512,54 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       });
     }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
     els.forEach((el) => io.observe(el));
+  })();
+
+  /* Team coverflow — the card nearest the centre is biggest; the rest shrink and
+     fade with distance. Drag (or trackpad/touch) to move through them. */
+  (function () {
+    const scroller = document.getElementById("tle-team-scroller");
+    if (!scroller) return;
+    const cards = Array.prototype.slice.call(scroller.querySelectorAll(".tle-member"));
+    if (!cards.length) return;
+
+    function update() {
+      const sc = scroller.getBoundingClientRect();
+      const mid = sc.left + sc.width / 2;
+      let best = null, bestD = Infinity;
+      cards.forEach((c) => {
+        const photo = c.querySelector(".tle-member-photo");
+        const r = photo.getBoundingClientRect();
+        const cc = r.left + r.width / 2;
+        const d = Math.abs(cc - mid);
+        const n = Math.min(d / (sc.width / 2), 1);
+        photo.style.setProperty("--s", (1 - n * 0.30).toFixed(3));
+        photo.style.setProperty("--o", (1 - n * 0.45).toFixed(3));
+        if (d < bestD) { bestD = d; best = c; }
+      });
+      cards.forEach((c) => c.classList.toggle("is-focus", c === best));
+    }
+
+    let raf = 0;
+    scroller.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }, { passive: true });
+    window.addEventListener("resize", update);
+
+    // Drag-to-scroll (mouse / pen).
+    let down = false, startX = 0, startScroll = 0;
+    scroller.addEventListener("pointerdown", (e) => {
+      down = true; startX = e.clientX; startScroll = scroller.scrollLeft;
+      scroller.classList.add("is-dragging");
+    });
+    window.addEventListener("pointermove", (e) => {
+      if (!down) return;
+      scroller.scrollLeft = startScroll - (e.clientX - startX);
+    });
+    window.addEventListener("pointerup", () => { down = false; scroller.classList.remove("is-dragging"); });
+
+    // Centre the middle card on load.
+    requestAnimationFrame(() => {
+      const m = cards[Math.floor(cards.length / 2)];
+      if (m) scroller.scrollLeft = m.offsetLeft + m.offsetWidth / 2 - scroller.clientWidth / 2;
+      update();
+    });
   })();
 </script>
