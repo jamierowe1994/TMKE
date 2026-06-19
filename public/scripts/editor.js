@@ -445,6 +445,18 @@
     return wrap;
   }
 
+  // Markup for a corner-radius section (uniform slider+number, plus an
+  // "Advanced" disclosure with the four individual corners). Shared by
+  // rectangles and images; mounts are filled in by renderProps.
+  function cornerRadiusSectionHtml() {
+    return '<div class="ed-props-section"><h4>Corner radius</h4>' +
+        '<div data-mount="el-radius"></div>' +
+        '<details class="ed-corner-details"><summary>Advanced · individual corners</summary>' +
+          '<div data-mount="el-corners"></div>' +
+        '</details>' +
+      '</div>';
+  }
+
   // Four typed per-corner radius inputs (TL/TR/BL/BR) for a frame. Editing any
   // one promotes the frame to per-corner mode (el.radii), seeded from the
   // current effective values so the other corners don't jump.
@@ -2307,8 +2319,14 @@
     if (el.type === "rect" || el.type === "ellipse") {
       const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
       node.style.background = grad || el.fill || "transparent";
-      node.style.borderRadius = (el.type === "ellipse" ? "50%" : (el.radius || 0) + "px");
+      node.style.borderRadius = (el.type === "ellipse" ? "50%" : frameRadiusCss(el));
       node.style.border = (el.strokeWidth ? `${el.strokeWidth}px solid ${el.stroke || "transparent"}` : "none");
+    }
+    if (el.type === "image") {
+      // Optional rounded corners — clip the photo to the (per-corner) radius.
+      const r = frameRadiusCss(el);
+      node.style.borderRadius = r;
+      node.style.overflow = r ? "hidden" : "";
     }
     if (el.type === "line") {
       const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
@@ -4018,13 +4036,24 @@
       if (el.type === "image") {
         try {
           const img = await loadImage(el.src);
-          ctx.drawImage(img, 0, 0, el.w, el.h);
+          if (hasPerCorner(el) || el.radius) {
+            ctx.save();
+            roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+              cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+            ctx.clip();
+            ctx.drawImage(img, 0, 0, el.w, el.h);
+            ctx.restore();
+          } else {
+            ctx.drawImage(img, 0, 0, el.w, el.h);
+          }
         } catch (e) {}
       } else if (el.type === "frame") {
         await drawFrameToCanvas(ctx, el);
       } else if (el.type === "rect") {
         ctx.fillStyle = shapeCanvasFill(ctx, el);
-        if (el.radius) roundedRect(ctx, 0, 0, el.w, el.h, el.radius);
+        if (hasPerCorner(el)) roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+          cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+        else if (el.radius) roundedRect(ctx, 0, 0, el.w, el.h, el.radius);
         else ctx.fillRect(0, 0, el.w, el.h);
         ctx.fill();
         if (el.strokeWidth && el.stroke !== "transparent") {
@@ -4602,9 +4631,7 @@
         <div class="ed-props-field"><label>Colour</label><input type="color" data-prop="fill" value="${rgbHex(el.fill)}"></div>
       </div>`);
       if (el.type === "rect") {
-        html.push(`<div class="ed-props-section"><h4>Corner radius</h4>
-          <div class="ed-props-field"><input type="range" min="0" max="500" data-prop="radius" value="${el.radius||0}"></div>
-        </div>`);
+        html.push(cornerRadiusSectionHtml());
       }
       if (el.type === "line") {
         // A line's thickness IS its element height; the old "Stroke width"
@@ -4635,6 +4662,7 @@
       html.push(`<div class="ed-props-section"><h4>Image</h4>
         <button class="ed-btn-ghost" id="ed-replace-img" style="background:rgba(28,29,34,0.06); width:100%">Replace image</button>
       </div>`);
+      html.push(cornerRadiusSectionHtml());
     }
 
     if (el.type === "frame") {
@@ -4731,6 +4759,20 @@
 
     // Circular colour swatches (open the rich colour panel — brand + recent +
     // design colours) in place of the native "long square" colour inputs.
+    // Corner radius for rectangles + images — uniform slider+number (sets all
+    // corners, clears per-corner overrides) plus the four individual corners.
+    const elRadiusMount = body.querySelector('[data-mount="el-radius"]');
+    if (elRadiusMount && el) {
+      elRadiusMount.appendChild(sliderNumberRow("Corner radius", "px", 0, 500, 1,
+        function () { return el.radius || 0; },
+        function (v) { el.radius = v; el.radii = null; },
+        function () { partialRenderElement(el); }));
+    }
+    const elCornersMount = body.querySelector('[data-mount="el-corners"]');
+    if (elCornersMount && el) {
+      elCornersMount.appendChild(buildCornerInputs(el));
+    }
+
     // Line weight — slider + typed number bound to the element height (its
     // visible thickness). 1px = thinnest.
     const lineWeightMount = body.querySelector('[data-mount="line-weight"]');
