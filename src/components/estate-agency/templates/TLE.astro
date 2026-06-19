@@ -218,11 +218,16 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       <button type="button" class="tle-pexp-x" id="tle-pexp-x" aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18" /></svg>
       </button>
-      <div class="tle-pexp-hero">
-        <img id="tle-pexp-img" src="" alt="" />
-        <em class="tle-prop-tag" id="tle-pexp-tag"></em>
+      <!-- Left column: the half-width hero (grows from the clicked card), with
+           the thumbnail gallery beneath it at the same width. -->
+      <div class="tle-pexp-main">
+        <div class="tle-pexp-hero">
+          <img id="tle-pexp-img" src="" alt="" />
+          <em class="tle-prop-tag" id="tle-pexp-tag"></em>
+        </div>
+        <div class="tle-pexp-thumbs" id="tle-pexp-thumbs"></div>
       </div>
-      <div class="tle-pexp-thumbs" id="tle-pexp-thumbs"></div>
+      <!-- Right column: the property detail, flowing in beside the hero. -->
       <div class="tle-pexp-info">
         <h3 class="tle-pexp-area" id="tle-pexp-area"></h3>
         <div class="tle-pexp-stats" id="tle-pexp-stats"></div>
@@ -248,46 +253,52 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     </div>
   </section>
 
-  <!-- Hold: extra scroll behind the pinned future so it lingers (and the words
-       finish inking in) before the services card slides over the top. -->
+  <!-- Hold: future lingers (the words finish inking in) before it releases. -->
   <div class="tle-future-hold" aria-hidden="true"></div>
+  </div>
+  <!-- /tle-overlap -->
 
-  <!-- ============ Services — a different approach (scrolls over the future) ====== -->
-  <section class="tle-section tle-over" id="services">
-    <header class="tle-head tle-reveal">
-      <div>
-        <h2 class="tle-h">A different approach to lettings.</h2>
-      </div>
-      <p class="tle-head-note">Three levels of landlord service and a comprehensive range of tailored lettings and property-management expertise.</p>
-    </header>
-    <div class="tle-services">
-      <div class="tle-services-col">
-        {SERVICES.slice(0, 3).map((s) => (
-          <article class="tle-service tle-reveal">
-            <span class="tle-service-n">{s.n}</span>
-            <div class="tle-service-tx">
-              <h3 class="tle-service-h">{s.h}</h3>
-              <p class="tle-service-p">{s.p}</p>
-              <a href="#" class="tle-link tle-link--sm">Learn more &rarr;</a>
+  <!-- ============ A different approach — scroll-driven letter-shatter morph ====
+       The title shatters into red shards that re-form into an icon for each of
+       the six services as you scroll, with the copy fading in beside it. Falls
+       back to a plain list when JS / animation is unavailable. ============ -->
+  <section class="tle-morph-section" id="services">
+    <div class="tle-morph">
+      <div class="tle-morph-stage" id="tle-morph-stage">
+        <canvas class="tle-morph-canvas" id="tle-morph-canvas"></canvas>
+        <!-- State 0 is the title (formed by the shards themselves); states 1–6
+             are the six services, their copy fading in beside the icon. -->
+        <div class="tle-morph-copies" id="tle-morph-copies">
+          {SERVICES.map((s, i) => (
+            <div class="tle-morph-copy" data-state={i + 1}>
+              <div class="tle-morph-eyebrow">{s.n} — A different approach</div>
+              <h3 class="tle-morph-h">{s.h}</h3>
+              <p class="tle-morph-p">{s.p}</p>
             </div>
-          </article>
-        ))}
+          ))}
+        </div>
       </div>
-      <div class="tle-services-col">
-        {SERVICES.slice(3, 6).map((s) => (
-          <article class="tle-service tle-reveal">
+    </div>
+
+    <!-- Fallback (no-JS / reduced-motion): the plain services list. -->
+    <div class="tle-morph-fallback">
+      <header class="tle-head">
+        <div><h2 class="tle-h">A different approach to lettings.</h2></div>
+        <p class="tle-head-note">Three levels of landlord service and a comprehensive range of tailored lettings and property-management expertise.</p>
+      </header>
+      <div class="tle-services">
+        {SERVICES.map((s) => (
+          <article class="tle-service">
             <span class="tle-service-n">{s.n}</span>
             <div class="tle-service-tx">
               <h3 class="tle-service-h">{s.h}</h3>
               <p class="tle-service-p">{s.p}</p>
-              <a href="#" class="tle-link tle-link--sm">Learn more &rarr;</a>
             </div>
           </article>
         ))}
       </div>
     </div>
   </section>
-  </div>
 
   <!-- ============ Testimonials ============ -->
   <section class="tle-section" id="reviews">
@@ -701,7 +712,27 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     .tle-cloud, .tle-cloud img, .tle-hero-building-wrap, .tle-hero-cinner, .tle-nav { animation: none !important; }
   }
   .tle-hero-cta { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
-  .tle-hero-cta .tle-btn { min-width: 216px; justify-content: center; }
+  /* Hero CTAs get a tactile "pop + press" feel: they lift/enlarge on hover and
+     push back in on click. Transform/shadow use a snappy spring; colour fades
+     stay smooth. */
+  .tle-hero-cta .tle-btn {
+    min-width: 216px; justify-content: center;
+    transition: background .25s, color .25s, border-color .25s,
+                transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease;
+  }
+  .tle-hero-cta .tle-btn:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 12px 26px -10px rgba(0, 0, 0, 0.4);
+  }
+  /* Press in — snap down quickly so the click reads as a physical button. */
+  .tle-hero-cta .tle-btn:active {
+    transform: translateY(0) scale(0.95);
+    box-shadow: 0 3px 8px -5px rgba(0, 0, 0, 0.45);
+    transition: transform .07s ease, box-shadow .07s ease;
+  }
+  /* Contact (red): keep it red on hover — just pop, no colour flip to black. */
+  .tle-hero-cta .tle-btn--red:hover { background: var(--red); color: #fff; }
+  /* View Properties (ghost): keep the outline → white colour change. */
   .tle-hero-cta .tle-btn--ghost { color: #fff; border-color: rgba(255, 255, 255, 0.65); }
   .tle-hero-cta .tle-btn--ghost:hover { background: #fff; color: var(--ink); border-color: #fff; }
 
@@ -717,6 +748,10 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
      overlaid at the bottom. ---- */
   /* Wide but brought in a touch; square corners; the header matches the width. */
   #properties { padding-left: clamp(26px, 2.8vw, 48px); padding-right: clamp(26px, 2.8vw, 48px); }
+  /* Tighten the gap between the properties grid and the "Why The Letting
+     Experts" section that follows it (~110px closer). */
+  #properties { padding-bottom: clamp(24px, 3vw, 48px); }
+  #book.tle-future { padding-top: clamp(20px, 3vw, 52px); }
 
   /* ---- Entrance: holds until you're ~3/4 into the section, then the cards
      slide into place (Garland + the two small ones rise, Chapter slides from
@@ -800,49 +835,57 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   .tle-prop.is-picked { opacity: 0; transition: opacity .35s ease .1s; pointer-events: none; }
   #properties.is-exp .tle-props { display: none; }
 
-  .tle-pexp { position: relative; margin-top: 4px; }
+  /* Two columns: a half-width hero (left, grows from the clicked card) with the
+     gallery beneath it; the property detail flows in on the right. */
+  .tle-pexp {
+    position: relative; margin-top: 8px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: clamp(22px, 3vw, 52px);
+    align-items: start;
+  }
   .tle-pexp[hidden] { display: none; }
+  @media (max-width: 820px) { .tle-pexp { grid-template-columns: 1fr; gap: 18px; } }
   .tle-pexp-x {
-    position: absolute; z-index: 5; top: 14px; right: 14px; width: 46px; height: 46px;
+    position: absolute; z-index: 5; top: 14px; left: 14px; width: 46px; height: 46px;
     border-radius: 999px; border: 0; background: rgba(255,255,255,0.94); color: var(--ink);
     display: grid; place-items: center; cursor: pointer; box-shadow: 0 6px 18px -4px rgba(0,0,0,0.35);
-    opacity: 0; transform: scale(0.8); transition: opacity .3s ease .45s, transform .3s ease .45s;
+    opacity: 0; transform: scale(0.8); transition: opacity .3s ease .5s, transform .3s ease .5s;
   }
   .tle-pexp-x svg { width: 19px; height: 19px; }
   .tle-pexp.is-open .tle-pexp-x { opacity: 1; transform: none; }
 
-  /* Hero wipes open left-to-right. */
+  .tle-pexp-main { min-width: 0; }
+  /* Hero grows (FLIP) from the clicked card — JS sets the starting transform
+     and plays it to identity; here we only define framing + the settle. */
   .tle-pexp-hero {
-    position: relative; width: 100%; aspect-ratio: 16 / 5; max-height: 52vh; overflow: hidden; background: var(--surface);
-    clip-path: inset(0 100% 0 0); transition: clip-path .65s cubic-bezier(.16, 1, .3, 1);
+    position: relative; width: 100%; aspect-ratio: 3 / 2; overflow: hidden;
+    background: var(--surface); border-radius: 14px; will-change: transform;
   }
-  .tle-pexp.is-open .tle-pexp-hero { clip-path: inset(0 0 0 0); }
   .tle-pexp-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .tle-pexp-hero .tle-prop-tag { top: 16px; left: 16px; }
 
-  /* Thumbnail strip drops in next. */
+  /* Gallery sits beneath the hero, spanning the same (half) width. */
   .tle-pexp-thumbs {
     display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px;
-    opacity: 0; transform: translateY(24px);
-    transition: opacity .5s ease .45s, transform .6s cubic-bezier(.16, 1, .3, 1) .45s;
+    opacity: 0; transform: translateY(20px);
+    transition: opacity .5s ease .4s, transform .6s cubic-bezier(.16, 1, .3, 1) .4s;
   }
   .tle-pexp.is-open .tle-pexp-thumbs { opacity: 1; transform: none; }
   /* Thumbnails are injected via JS (no Astro scope attr) — reach them with :global. */
   .tle-pexp-thumbs :global(.tle-pexp-thumb) {
-    width: clamp(74px, 9vw, 124px); aspect-ratio: 4 / 3; overflow: hidden; padding: 0; cursor: pointer;
-    border: 2px solid transparent; background: var(--surface); transition: border-color .25s ease; flex: 0 0 auto;
+    width: clamp(64px, 7vw, 104px); aspect-ratio: 4 / 3; overflow: hidden; padding: 0; cursor: pointer;
+    border: 2px solid transparent; background: var(--surface); border-radius: 8px; transition: border-color .25s ease; flex: 0 0 auto;
   }
   .tle-pexp-thumbs :global(.tle-pexp-thumb img) { width: 100%; height: 100%; object-fit: cover; display: block; }
   .tle-pexp-thumbs :global(.tle-pexp-thumb.is-active) { border-color: var(--red); }
 
-  /* Address + stats, then price, description and the button stacked beneath. */
+  /* Detail column — vertically centred beside the hero, flows in just after. */
   .tle-pexp-info {
-    margin-top: clamp(20px, 2.4vw, 32px); max-width: 760px;
-    opacity: 0; transform: translateY(28px);
-    transition: opacity .5s ease .65s, transform .6s cubic-bezier(.16, 1, .3, 1) .65s;
+    align-self: center;
+    opacity: 0; transform: translateY(24px);
+    transition: opacity .5s ease .3s, transform .6s cubic-bezier(.16, 1, .3, 1) .3s;
   }
   .tle-pexp.is-open .tle-pexp-info { opacity: 1; transform: none; }
-  .tle-pexp-area { font-size: clamp(22px, 2.4vw, 34px); font-weight: 700; letter-spacing: -0.01em; margin: 0 0 12px; }
+  .tle-pexp-area { font-size: clamp(22px, 2.2vw, 34px); font-weight: 700; letter-spacing: -0.01em; margin: 0 0 12px; }
   .tle-pexp-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: clamp(16px, 1.8vw, 22px); }
   /* Stat pills are injected via JS — reach them with :global. */
   .tle-pexp-stats :global(span) { font-size: 13px; font-weight: 600; border: 1px solid var(--line); border-radius: 999px; padding: 7px 15px; }
@@ -899,7 +942,15 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     border-radius: 36px 36px 0 0;
     box-shadow: 0 -34px 70px -26px rgba(0,0,0,0.22);
   }
-  @media (max-width: 820px) { .tle-future--pin { position: relative; } .tle-over { border-radius: 26px 26px 0 0; } }
+  /* Services pins (its 'viewpoint' hold) once it has slid over the future. */
+  .tle-over--pin { position: sticky; top: 0; }
+  /* Testimonials sits above services so it slides over the pinned card. */
+  .tle-over--2 { z-index: 3; }
+  @media (max-width: 820px) {
+    .tle-future--pin { position: relative; }
+    .tle-over--pin { position: relative; }
+    .tle-over { border-radius: 26px 26px 0 0; }
+  }
 
   /* Full-height panel so the copy sits dead-centre when the section pins. */
   .tle-future {
@@ -927,7 +978,44 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
   @media (max-width: 820px) { .tle-future-head { grid-template-columns: 1fr; } }
   /* Transparent scroll-room behind the pinned future (sits under it, static, so
      the pinned section holds in view a beat before the services card overlaps). */
-  .tle-future-hold { height: clamp(560px, 100vh, 1050px); pointer-events: none; }
+  /* Roughly doubled so the words ink in over ~2–2.5 scrolls (slower read) and
+     the section stays pinned a beat at the end with the copy fully filled. */
+  .tle-future-hold { height: clamp(1000px, 185vh, 2000px); pointer-events: none; }
+  /* Scroll-room behind the pinned services card so it holds in view a beat
+     before testimonials overlaps (covered by the pinned card, so no empty gap). */
+  .tle-services-hold { height: clamp(380px, 62vh, 760px); pointer-events: none; }
+  @media (max-width: 820px) { .tle-services-hold { display: none; } }
+
+  /* ---- "A different approach" — scroll-driven letter-shatter morph ---- */
+  /* The plain fallback list shows until JS marks the section live. */
+  .tle-morph-section { position: relative; }
+  .tle-morph { display: none; height: clamp(6400px, 1120vh, 12400px); }
+  .tle-morph-section.is-live .tle-morph { display: block; }
+  .tle-morph-section.is-live .tle-morph-fallback { display: none; }
+  .tle-morph-stage {
+    position: sticky; top: 0; height: 100vh; overflow: hidden; background: #fff;
+  }
+  .tle-morph-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .tle-morph-copies { position: absolute; inset: 0; pointer-events: none; }
+  .tle-morph-copy {
+    position: absolute; top: 50%; right: clamp(24px, 8vw, 150px);
+    transform: translateY(-46%); width: min(40%, 460px);
+    opacity: 0; transition: opacity .45s ease, transform .55s cubic-bezier(.16, 1, .3, 1);
+  }
+  .tle-morph-copy.is-active { opacity: 1; transform: translateY(-50%); }
+  .tle-morph-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--red); margin-bottom: 12px; }
+  .tle-morph-h { font-size: clamp(26px, 3vw, 44px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.08; margin: 0 0 14px; color: var(--ink); }
+  .tle-morph-p { font-size: clamp(15px, 1.1vw, 17px); line-height: 1.6; color: var(--grey); margin: 0; }
+  .tle-morph-fallback { padding-top: 8px; }
+  /* The long pin is desktop-only — on small screens show the plain list. */
+  @media (max-width: 820px) {
+    .tle-morph-section.is-live .tle-morph { display: none; }
+    .tle-morph-section.is-live .tle-morph-fallback { display: block; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tle-morph-section.is-live .tle-morph { display: none; }
+    .tle-morph-section.is-live .tle-morph-fallback { display: block; }
+  }
 
   /* ---- Services — two columns of three, revealed one-by-one on scroll ---- */
   .tle-services { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 6vw, 120px); align-items: start; }
@@ -1307,34 +1395,63 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       $("tle-pexp-desc").textContent = d.blurb || "";
       $("tle-pexp-full").href = card.getAttribute("href");
       buildThumbs(images);
-      // Push the others off to their side; fade the clicked one out.
+
+      const hero = panel.querySelector(".tle-pexp-hero");
+      const media = card.querySelector(".tle-prop-media");
+      // FLIP "First": where the clicked image sits right now.
+      const r0 = media.getBoundingClientRect();
+
+      // Push the neighbours aside (the focal card stays put as the anchor).
       cards.forEach((c, i) => {
         c.classList.remove("push-l", "push-r", "is-picked");
         if (i < idx) c.classList.add("push-l");
         else if (i > idx) c.classList.add("push-r");
-        else c.classList.add("is-picked");
       });
-      // Once they've cleared, collapse the grid and wipe the panel open.
+
+      // Let the neighbours clear, then collapse the grid and grow the hero out
+      // of the clicked card's position (so it reads as the image expanding,
+      // not a page swap).
       setTimeout(() => {
         sec.classList.add("is-exp");
         panel.hidden = false;
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          panel.classList.add("is-open");
-          busy = false;
-        }));
-      }, 430);
+        // FLIP "Last": the hero's resting rect.
+        const r1 = hero.getBoundingClientRect();
+        const dx = r0.left - r1.left, dy = r0.top - r1.top;
+        const sx = r1.width ? r0.width / r1.width : 1;
+        const sy = r1.height ? r0.height / r1.height : 1;
+        hero.style.transformOrigin = "top left";
+        hero.style.transition = "none";
+        hero.style.transform = "translate(" + dx + "px," + dy + "px) scale(" + sx + "," + sy + ")";
+        // Commit the start frame (forced reflow), then play to identity — more
+        // reliable than rAF, which can be throttled when the tab isn't painting.
+        void hero.offsetWidth;
+        hero.style.transition = "transform .62s cubic-bezier(.16, 1, .3, 1)";
+        hero.style.transform = "none";
+        panel.classList.add("is-open");
+        setTimeout(() => { busy = false; }, 640);
+      }, 340);
     }
 
     function close() {
       if (busy || openIdx < 0) return;
       busy = true;
+      const hero = panel.querySelector(".tle-pexp-hero");
       panel.classList.remove("is-open");
+      // Shrink the hero back toward its corner as the detail fades, then restore
+      // the grid (the pushed cards slide back in).
+      hero.style.transition = "transform .42s ease, opacity .42s ease";
+      hero.style.transformOrigin = "top left";
+      hero.style.transform = "scale(0.55)";
+      hero.style.opacity = "0";
       setTimeout(() => {
         panel.hidden = true;
+        hero.style.transition = "none";
+        hero.style.transform = "none";
+        hero.style.opacity = "";
         sec.classList.remove("is-exp");
         cards.forEach((c) => c.classList.remove("push-l", "push-r", "is-picked"));
         openIdx = -1; busy = false;
-      }, 540);
+      }, 440);
     }
 
     cards.forEach((card, idx) => {
@@ -1416,5 +1533,212 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
       var feat = document.querySelector(".tle-artfeature");
       if (feat) new IntersectionObserver(function (es) { es.forEach(function (e) { visible = e.isIntersecting; }); }, { threshold: 0 }).observe(feat);
     }
+  })();
+
+  /* "A different approach" — scroll-driven letter-shatter morph. The title is
+     sampled into a cloud of red shards which scatter and re-gather into an icon
+     for each of the six services as you scroll. Pure canvas; desktop only;
+     reduced-motion + mobile fall back to the plain list (handled in CSS). */
+  (function () {
+    var sec = document.getElementById("services");
+    if (!sec || !sec.classList.contains("tle-morph-section")) return;
+    var stage = document.getElementById("tle-morph-stage");
+    var canvas = document.getElementById("tle-morph-canvas");
+    if (!stage || !canvas) return;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || (window.matchMedia && window.matchMedia("(max-width: 820px)").matches)) return;
+
+    var ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    sec.classList.add("is-live");
+
+    var RED = (getComputedStyle(document.documentElement).getPropertyValue("--red") || "#e8442f").trim() || "#e8442f";
+    var N = 3000;                      // burst shards (rest states draw SOLID, so N only feeds the explosion)
+    var STATES = 7;                    // title + 6 icons
+    var HOLD = 0.42;                   // fraction of each step the shape holds solid
+    var W = 0, H = 0, DPR = 1;
+    var icx = 0, icy = 0, isz = 0;     // icon box centre + size (sits left of the copy)
+    var bmps = [];                     // [state] -> offscreen SOLID red render (gapless)
+    var pts = [];                      // [state] -> Float32Array(2N) burst sample points (css px)
+    var scatter = new Float32Array(2 * N);
+    var baseRot = new Float32Array(N), spin = new Float32Array(N), size = new Float32Array(N);
+    var copies = Array.prototype.slice.call(stage.querySelectorAll(".tle-morph-copy"));
+    var seeded = false, lastState = -2, ticking = false;
+
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+    function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+    // ---- Icon silhouettes (filled), drawn into an offscreen ctx at (cx,cy,s) ----
+    function house(c, cx, cy, s) {
+      c.beginPath();
+      c.moveTo(cx - 0.46 * s, cy - 0.04 * s); c.lineTo(cx, cy - 0.46 * s); c.lineTo(cx + 0.46 * s, cy - 0.04 * s); c.closePath(); c.fill();
+      c.fillRect(cx - 0.32 * s, cy - 0.06 * s, 0.64 * s, 0.46 * s);
+    }
+    function coin(c, cx, cy, s) {
+      c.beginPath(); c.arc(cx, cy, 0.42 * s, 0, Math.PI * 2); c.fill();
+      c.save(); c.globalCompositeOperation = "destination-out";
+      c.fillStyle = "#000"; c.textAlign = "center"; c.textBaseline = "middle";
+      c.font = "700 " + (0.6 * s) + "px Georgia, serif"; c.fillText("£", cx, cy + 0.02 * s);
+      c.restore();
+    }
+    function magnifier(c, cx, cy, s) {
+      // A clear ring (annulus) with a straight handle coming out of the bottom
+      // right — a recognisable magnifying glass.
+      var gx = cx - 0.07 * s, gy = cy - 0.16 * s, ro = 0.27 * s;
+      c.beginPath(); c.arc(gx, gy, ro, 0, Math.PI * 2); c.fill();
+      c.save(); c.globalCompositeOperation = "destination-out";
+      c.beginPath(); c.arc(gx, gy, 0.175 * s, 0, Math.PI * 2); c.fill();
+      c.restore();
+      c.save(); c.translate(gx, gy); c.rotate(Math.PI / 4);
+      c.fillRect(-0.058 * s, ro - 0.03 * s, 0.116 * s, 0.46 * s);
+      c.restore();
+    }
+    function shield(c, cx, cy, s) {
+      c.beginPath();
+      c.moveTo(cx - 0.34 * s, cy - 0.36 * s); c.lineTo(cx + 0.34 * s, cy - 0.36 * s);
+      c.lineTo(cx + 0.34 * s, cy + 0.04 * s);
+      c.quadraticCurveTo(cx + 0.30 * s, cy + 0.34 * s, cx, cy + 0.46 * s);
+      c.quadraticCurveTo(cx - 0.30 * s, cy + 0.34 * s, cx - 0.34 * s, cy + 0.04 * s);
+      c.closePath(); c.fill();
+    }
+    function gear(c, cx, cy, s) {
+      var teeth = 9, ro = 0.46 * s, ri = 0.33 * s;
+      for (var i = 0; i < teeth; i++) {
+        var a = (i / teeth) * Math.PI * 2;
+        c.save(); c.translate(cx, cy); c.rotate(a);
+        c.fillRect(-0.09 * s, ri - 0.02 * s, 0.18 * s, (ro - ri) + 0.06 * s);
+        c.restore();
+      }
+      c.beginPath(); c.arc(cx, cy, ri, 0, Math.PI * 2); c.fill();
+      c.save(); c.globalCompositeOperation = "destination-out";
+      c.beginPath(); c.arc(cx, cy, 0.15 * s, 0, Math.PI * 2); c.fillStyle = "#000"; c.fill(); c.restore();
+    }
+    function chat(c, cx, cy, s) {
+      var x = cx - 0.42 * s, y = cy - 0.36 * s, w = 0.84 * s, h = 0.56 * s, r = 0.14 * s;
+      c.beginPath();
+      c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+      c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(cx - 0.28 * s, cy + 0.20 * s); c.lineTo(cx - 0.10 * s, cy + 0.20 * s); c.lineTo(cx - 0.30 * s, cy + 0.44 * s); c.closePath(); c.fill();
+    }
+    var ICONS = [house, coin, magnifier, shield, gear, chat];
+
+    // Draw state `idx` with the current fillStyle: 0 = the title words, 1–6 = icons.
+    function drawShape(c, idx) {
+      if (idx === 0) {
+        c.textAlign = "center"; c.textBaseline = "middle";
+        var fs = Math.min(W / 8.5, H / 4.4);
+        c.font = "700 " + fs + "px Georgia, 'Times New Roman', serif";
+        var lines = ["A different", "approach", "to lettings"], lh = fs * 1.02, y0 = H / 2 - lh;
+        for (var i = 0; i < lines.length; i++) c.fillText(lines[i], W / 2, y0 + i * lh);
+      } else {
+        ICONS[idx - 1](c, icx, icy, isz);
+      }
+    }
+
+    // Build the SOLID red bitmap (gapless) + a set of burst sample points for one
+    // state. The bitmap is what shows at rest; the points feed the explosion.
+    function buildState(idx) {
+      var sw = Math.max(2, Math.floor(W)), sh = Math.max(2, Math.floor(H));
+      var oc = document.createElement("canvas"); oc.width = sw; oc.height = sh;
+      var o = oc.getContext("2d"); o.clearRect(0, 0, sw, sh); o.fillStyle = RED;
+      drawShape(o, idx);
+      bmps[idx] = oc;
+      var data = o.getImageData(0, 0, sw, sh).data, p = [];
+      for (var y = 0; y < sh; y += 2) for (var x = 0; x < sw; x += 2) if (data[(y * sw + x) * 4 + 3] > 100) p.push(x, y);
+      var count = p.length / 2, out = new Float32Array(2 * N);
+      if (!count) { for (var k = 0; k < N; k++) { out[2 * k] = W / 2; out[2 * k + 1] = H / 2; } pts[idx] = out; return; }
+      var ix = []; for (var j = 0; j < count; j++) ix.push(j);
+      for (var m = count - 1; m > 0; m--) { var q = (Math.random() * (m + 1)) | 0, tm = ix[m]; ix[m] = ix[q]; ix[q] = tm; }
+      for (var i2 = 0; i2 < N; i2++) { var pj = ix[i2 % count]; out[2 * i2] = p[2 * pj]; out[2 * i2 + 1] = p[2 * pj + 1]; }
+      pts[idx] = out;
+    }
+
+    function buildFormations() {
+      icx = W * 0.36; icy = H * 0.5; isz = Math.min(W * 0.5, H) * 0.74;
+      bmps = []; pts = [];
+      for (var i = 0; i < STATES; i++) buildState(i);
+    }
+
+    function seedShards() {
+      var maxD = Math.min(W, H) * 0.62;
+      for (var i = 0; i < N; i++) {
+        var a = rnd(0, Math.PI * 2), d = rnd(0.12, 1) * maxD;
+        scatter[2 * i] = Math.cos(a) * d; scatter[2 * i + 1] = Math.sin(a) * d;
+        baseRot[i] = rnd(0, Math.PI * 2); spin[i] = rnd(-3.2, 3.2); size[i] = rnd(3.2, 6.4);
+      }
+      seeded = true;
+    }
+
+    function resize() {
+      var r = stage.getBoundingClientRect();
+      W = r.width || stage.clientWidth; H = r.height || stage.clientHeight;
+      if (!W || !H) return;
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(W * DPR); canvas.height = Math.floor(H * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      if (!seeded) seedShards();
+      buildFormations();
+      render();
+    }
+
+    function setCopy(state) {
+      if (state === lastState) return;
+      lastState = state;
+      for (var i = 0; i < copies.length; i++) copies[i].classList.toggle("is-active", +copies[i].dataset.state === state);
+    }
+
+    function render() {
+      if (!W || !H || !bmps.length) return;
+      var rect = sec.getBoundingClientRect();
+      var total = sec.offsetHeight - stage.offsetHeight;
+      var p = total > 0 ? Math.min(Math.max(-rect.top / total, 0), 1) : 0;
+      ctx.clearRect(0, 0, W, H);
+
+      var sp = p * (STATES - 1);
+      var u = Math.min(STATES - 2, Math.floor(sp));
+      var frac = sp - u;
+
+      if (frac < HOLD) {
+        // At rest: draw the SOLID shape/word — a complete, gapless image.
+        ctx.globalAlpha = 1; ctx.drawImage(bmps[u], 0, 0, W, H);
+        setCopy(u);
+        return;
+      }
+
+      // Transition u → u+1: solid A dissolves into shards (same coords, so no
+      // jump), the shards burst out and re-gather, then resolve into solid B.
+      var lp = (frac - HOLD) / (1 - HOLD);
+      var kIn = Math.min(lp / 0.16, 1);             // shards take over from solid A
+      var kOut = Math.max(0, (lp - 0.84) / 0.16);   // solid B takes over from shards
+      var pAlpha = Math.min(kIn, 1 - kOut);
+      var solidA = 1 - kIn, solidB = kOut;
+      var ep = Math.min(Math.max((lp - 0.16) / 0.68, 0), 1);
+      var t = ease(ep), scat = Math.sin(ep * Math.PI);
+
+      if (solidA > 0.001) { ctx.globalAlpha = solidA; ctx.drawImage(bmps[u], 0, 0, W, H); }
+      if (solidB > 0.001) { ctx.globalAlpha = solidB; ctx.drawImage(bmps[u + 1], 0, 0, W, H); }
+      if (pAlpha > 0.001) {
+        var A = pts[u], B = pts[u + 1];
+        ctx.globalAlpha = pAlpha; ctx.fillStyle = RED;
+        for (var i = 0; i < N; i++) {
+          var x = A[2 * i] + (B[2 * i] - A[2 * i]) * t + scatter[2 * i] * scat;
+          var y = A[2 * i + 1] + (B[2 * i + 1] - A[2 * i + 1]) * t + scatter[2 * i + 1] * scat;
+          var s = size[i], rot = baseRot[i] + scat * spin[i];
+          ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+          ctx.fillRect(-s / 2, -s / 2, s, s * 0.66);
+          ctx.restore();
+        }
+      }
+      ctx.globalAlpha = 1;
+      setCopy(lp < 0.5 ? u : u + 1);
+    }
+
+    function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(function () { render(); ticking = false; }); } }
+
+    resize();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", resize);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize);
+    window.addEventListener("load", resize);
   })();
 </script>
