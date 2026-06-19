@@ -33,6 +33,14 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 # Comma-separated list of allowed site origins (CORS). Use * only for local dev.
 ALLOWED_ORIGINS = "http://localhost:4321,http://localhost:4322,https://tmke.co.uk,https://www.tmke.co.uk,https://tmke-production.up.railway.app"
 
+# Auto-rebuild target for the /deploy route (publish a blog -> redeploy the static
+# site). These are IDs, not secrets — fill them in from Railway (the project URL
+# contains both: /project/<…>/service/<RAILWAY_SERVICE_ID>?environmentId=<RAILWAY_ENVIRONMENT_ID>).
+# The API token itself is a secret: `wrangler secret put RAILWAY_API_TOKEN`.
+# Leave these blank to disable auto-deploy (the route returns 503).
+RAILWAY_SERVICE_ID = ""
+RAILWAY_ENVIRONMENT_ID = ""
+
 # Microsoft 365 booking (app-only). Client ID + tenant + Jack's mailbox are NOT
 # secret. The client secret is set separately: `wrangler secret put MS_CLIENT_SECRET`.
 MS_CLIENT_ID = "543c20ac-6cf8-4191-96ca-3d83d775d3fb"
@@ -86,6 +94,6 @@ crons = ["0 7 * * *", "*/5 * * * *"]
 #   wrangler secret put RESEND_API_KEY         # Resend API key (reminder emails)
 #   wrangler secret put ANTHROPIC_API_KEY      # Claude API key (sk-ant-…) for the AI text parser
 #   wrangler secret put TURNSTILE_SECRET_KEY   # Cloudflare Turnstile secret (SMM form spam protection)
-#   wrangler secret put RAILWAY_DEPLOY_HOOK     # Railway Deploy Hook URL — POSTing to it rebuilds the static
-#                                               # site so published/edited blogs go live (powers the /deploy route)
+#   wrangler secret put RAILWAY_API_TOKEN       # Railway API token — lets /deploy redeploy the site so
+#                                               # published/edited blogs go live (Railway has no incoming hook URL)
 # Site env also needs PUBLIC_TURNSTILE_SITE_KEY (public, in .env / Railway) for the widget.

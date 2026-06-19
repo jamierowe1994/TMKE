@@ -579,15 +579,18 @@ export default {
       // ---- Trigger a site rebuild (publish/edit a blog -> push live) ----------
       // The public site is a static Astro build, so DB writes don't change the
       // live pages until a redeploy. The admin editor calls this after a
-      // publish/save so Railway rebuilds and the new/edited post goes live —
-      // no manual deploy. The Railway deploy-hook URL is a Worker secret, so it
-      // is never exposed to the browser:  wrangler secret put RAILWAY_DEPLOY_HOOK
+      // publish/save so Railway rebuilds (re-runs `astro build`, which re-queries
+      // Supabase) and the new/edited post goes live — no manual deploy.
+      // Railway has no incoming deploy-hook URL, so we call its GraphQL API.
+      // Set on the Worker:
+      //   wrangler secret put RAILWAY_API_TOKEN     (Account/Project API token)
+      //   [vars] RAILWAY_SERVICE_ID, RAILWAY_ENVIRONMENT_ID  (ids of the prod service)
       if (path.endsWith("/deploy") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user) return json({ ok: false, error: "Sign in to publish." }, 401, request, env);
         if (!isAdminEmail(user)) return json({ ok: false, error: "Not authorised." }, 403, request, env);
-        if (!env.RAILWAY_DEPLOY_HOOK) {
-          return json({ ok: false, error: "Deploy hook not configured — set the RAILWAY_DEPLOY_HOOK secret on the Worker (wrangler secret put RAILWAY_DEPLOY_HOOK)." }, 503, request, env);
+        if (!env.RAILWAY_API_TOKEN || !env.RAILWAY_SERVICE_ID || !env.RAILWAY_ENVIRONMENT_ID) {
+          return json({ ok: false, error: "Auto-deploy isn't configured — set RAILWAY_API_TOKEN (secret), plus RAILWAY_SERVICE_ID and RAILWAY_ENVIRONMENT_ID, on the Worker." }, 503, request, env);
         }
         const now = Date.now();
         // A rebuild already in flight picks up the latest content, so coalesce
@@ -597,14 +600,23 @@ export default {
         }
         _lastDeployAt = now;
         try {
-          const hook = await fetch(env.RAILWAY_DEPLOY_HOOK, { method: "POST" });
-          if (!hook.ok) {
+          const r = await fetch("https://backboard.railway.com/graphql/v2", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.RAILWAY_API_TOKEN}` },
+            body: JSON.stringify({
+              query: "mutation Redeploy($e: String!, $s: String!) { serviceInstanceRedeploy(environmentId: $e, serviceId: $s) }",
+              variables: { e: env.RAILWAY_ENVIRONMENT_ID, s: env.RAILWAY_SERVICE_ID },
+            }),
+          });
+          const out = await r.json().catch(() => ({}));
+          if (!r.ok || (out && out.errors && out.errors.length)) {
             _lastDeployAt = 0; // allow a retry
-            return json({ ok: false, error: "Deploy hook returned " + hook.status }, 502, request, env);
+            const msg = (out && out.errors && out.errors[0] && out.errors[0].message) || ("Railway API returned " + r.status);
+            return json({ ok: false, error: msg }, 502, request, env);
           }
         } catch (e) {
           _lastDeployAt = 0;
-          return json({ ok: false, error: "Couldn't reach the deploy hook." }, 502, request, env);
+          return json({ ok: false, error: "Couldn't reach the Railway API." }, 502, request, env);
         }
         return json({ ok: true, queued: true, message: "Site is updating — your post will be live in a minute or two." }, 200, request, env);
       }
