@@ -115,7 +115,15 @@ function gbp(pence) {
 
       <div class="pack-tpl-grid">
         {previewTpls.map((t, i) => (
-          <figure class="pack-tpl pack-tpl--open">
+          <figure
+            class="pack-tpl pack-tpl--open"
+            data-zoom={t.thumb_url ? "" : undefined}
+            data-full={t.thumb_url || undefined}
+            data-name={t.name}
+            tabindex={t.thumb_url ? "0" : undefined}
+            role={t.thumb_url ? "button" : undefined}
+            aria-label={t.thumb_url ? `Enlarge ${t.name}` : undefined}
+          >
             {t.thumb_url
               ? <img src={t.thumb_url} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
               : <div class="pack-tpl-empty"></div>}
@@ -158,6 +166,15 @@ function gbp(pence) {
       )}
     </section>
   </article>
+
+  <!-- Lightbox — click any preview to bring it up large and readable. -->
+  <div class="pack-lightbox" id="pack-lightbox" hidden>
+    <button type="button" class="pack-lightbox-close" aria-label="Close">&times;</button>
+    <figure class="pack-lightbox-fig">
+      <img id="pack-lightbox-img" src="" alt="" />
+      <figcaption id="pack-lightbox-cap"></figcaption>
+    </figure>
+  </div>
 
   <style>
     .pack-detail { color: var(--ink); }
@@ -307,7 +324,44 @@ function gbp(pence) {
       overflow: hidden;
       transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
     }
-    .pack-tpl--open:hover { transform: translateY(-3px); }
+    .pack-tpl--open { cursor: zoom-in; }
+    .pack-tpl--open:hover { transform: translateY(-3px); box-shadow: 0 26px 50px -28px rgba(28,29,34,0.5); }
+    /* Hover hint — a small "enlarge" glyph appears top-left on the previews. */
+    .pack-tpl--open::after {
+      content: "⤢";
+      position: absolute; top: 12px; left: 12px; z-index: 2;
+      width: 30px; height: 30px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: rgba(28,29,34,0.62); color: var(--paper); font-size: 14px;
+      opacity: 0; transform: scale(0.8); transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+    }
+    .pack-tpl--open:hover::after, .pack-tpl--open:focus-visible::after { opacity: 1; transform: scale(1); }
+
+    /* Lightbox */
+    .pack-lightbox {
+      position: fixed; inset: 0; z-index: 300;
+      display: flex; align-items: center; justify-content: center;
+      padding: clamp(20px, 5vh, 60px);
+      background: rgba(16,15,13,0.92); backdrop-filter: blur(6px);
+    }
+    .pack-lightbox[hidden] { display: none; }
+    .pack-lightbox-fig { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 16px; max-height: 100%; }
+    .pack-lightbox-fig img {
+      max-width: min(92vw, 760px); max-height: 82vh; width: auto; height: auto;
+      object-fit: contain; border-radius: 3px; box-shadow: 0 40px 90px -30px rgba(0,0,0,0.7);
+    }
+    .pack-lightbox-fig figcaption {
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase; color: rgba(240,238,235,0.8);
+    }
+    .pack-lightbox-close {
+      position: absolute; top: 22px; right: 26px;
+      width: 46px; height: 46px; border-radius: 50%; border: 0; cursor: pointer;
+      background: rgba(240,238,235,0.12); color: var(--paper); font-size: 26px; line-height: 1;
+      display: grid; place-items: center; transition: background 0.2s;
+    }
+    .pack-lightbox-close:hover { background: rgba(240,238,235,0.24); }
     .pack-tpl img {
       width: 100%; aspect-ratio: 4/5;
       object-fit: cover; display: block;
@@ -398,5 +452,26 @@ function gbp(pence) {
         if (id) window.location.href = '/edit?buy=' + encodeURIComponent(id);
       });
     });
+
+    // Click a preview to open it large + readable in the lightbox.
+    (function () {
+      var lb = document.getElementById('pack-lightbox');
+      var img = document.getElementById('pack-lightbox-img');
+      var cap = document.getElementById('pack-lightbox-cap');
+      if (!lb || !img) return;
+      function open(src, name) {
+        img.src = src; img.alt = name || ''; cap.textContent = name || '';
+        lb.hidden = false; document.documentElement.style.overflow = 'hidden';
+      }
+      function close() { lb.hidden = true; img.removeAttribute('src'); document.documentElement.style.overflow = ''; }
+      document.querySelectorAll('[data-zoom]').forEach(function (el) {
+        el.addEventListener('click', function () { open(el.getAttribute('data-full'), el.getAttribute('data-name')); });
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(el.getAttribute('data-full'), el.getAttribute('data-name')); }
+        });
+      });
+      lb.addEventListener('click', function (e) { if (e.target === lb || e.target.closest('.pack-lightbox-close')) close(); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !lb.hidden) close(); });
+    })();
   </script>
 </BaseLayout>

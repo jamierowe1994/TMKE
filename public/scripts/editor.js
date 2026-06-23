@@ -3914,7 +3914,9 @@
   async function _renderThumbDataUrl() {
     try {
       const full = await _renderDesignToCanvas({ transparent: false });
-      const targetW = 300;
+      // Render the preview/cover near full design width (was 300px, which looked
+      // very low-res blown up on the pack detail page) at high JPEG quality.
+      const targetW = 1080;
       const scale = Math.min(1, targetW / full.width);
       const c = document.createElement("canvas");
       c.width = Math.max(1, Math.round(full.width * scale));
@@ -3923,7 +3925,7 @@
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(full, 0, 0, c.width, c.height);
-      return c.toDataURL("image/jpeg", 0.72);
+      return c.toDataURL("image/jpeg", 0.9);
     } catch (_) {
       return null;
     }
