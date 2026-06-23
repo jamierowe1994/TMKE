@@ -8,6 +8,12 @@ const posts = [...allPosts]
   .sort((a, b) => (a.date < b.date ? 1 : -1))
   .slice(0, 16);
 
+// A deliberately jumbled size/position sequence so the grid reads scattered, not
+// choreographed — no obvious repeating rhythm across the posts, and big/small
+// tiles interleaved rather than sorted top-to-bottom. Length is coprime-ish to
+// the post count so it doesn't visibly loop.
+const SCATTER = [3, 7, 0, 9, 4, 1, 10, 6, 2, 8, 5, 0, 7, 9, 1, 4, 6, 2];
+
 function fmtDate(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -44,7 +50,7 @@ const lite = posts.map((p) => ({
          clicking flies the image to the centre and opens the reader. -->
     <div class="flow" id="flow">
       {posts.map((p, i) => (
-        <button class="flow-item" type="button" data-slug={p.slug} data-variant={i % 8}>
+        <button class="flow-item" type="button" data-slug={p.slug} data-variant={SCATTER[i % SCATTER.length]}>
           <span class="flow-media">
             <img src={p.hero} alt={p.title} loading={i < 6 ? "eager" : "lazy"} />
           </span>
@@ -137,23 +143,43 @@ const lite = posts.map((p) => ({
     .flow:hover .flow-item:hover { opacity: 1; }
 
     /* Size + position variety → the semi-random scatter. Horizontal padding
-       shrinks the tile within its column (smaller images) and offsets it left
-       or right; aspect-ratio varies the height. */
+       shrinks the tile within its column (smaller images, big range) and offsets
+       it left/right; aspect-ratio varies the height; and the top/bottom margins
+       vary independently so tiles sit closer or further apart unevenly — not on
+       a tidy rhythm. */
     .flow-item[data-variant="0"] .flow-media { aspect-ratio: 3 / 4; }
-    .flow-item[data-variant="1"] { padding-right: 32%; margin-top: clamp(36px, 4.5vw, 86px); }
+    .flow-item[data-variant="0"] { margin-bottom: clamp(70px, 8vw, 150px); }
+
+    .flow-item[data-variant="1"] { padding-right: 38%; margin-top: clamp(54px, 6.5vw, 118px); margin-bottom: clamp(34px, 3.8vw, 70px); }
     .flow-item[data-variant="1"] .flow-media { aspect-ratio: 1 / 1; }
-    .flow-item[data-variant="2"] { padding-left: 24%; margin-top: clamp(10px, 1.4vw, 26px); }
+
+    .flow-item[data-variant="2"] { padding-left: 20%; margin-top: clamp(10px, 1.4vw, 26px); margin-bottom: clamp(56px, 6vw, 120px); }
     .flow-item[data-variant="2"] .flow-media { aspect-ratio: 4 / 5; }
-    .flow-item[data-variant="3"] { margin-top: clamp(62px, 8vw, 138px); }
+
+    .flow-item[data-variant="3"] { margin-top: clamp(84px, 10vw, 172px); margin-bottom: clamp(44px, 5vw, 90px); }
     .flow-item[data-variant="3"] .flow-media { aspect-ratio: 2 / 3; }
-    .flow-item[data-variant="4"] { padding-right: 16%; }
+
+    .flow-item[data-variant="4"] { padding-right: 13%; margin-top: clamp(22px, 2.8vw, 52px); margin-bottom: clamp(76px, 8.6vw, 158px); }
     .flow-item[data-variant="4"] .flow-media { aspect-ratio: 4 / 3; }
-    .flow-item[data-variant="5"] { padding-left: 36%; margin-top: clamp(26px, 3.4vw, 60px); }
+
+    .flow-item[data-variant="5"] { padding-left: 42%; margin-top: clamp(18px, 2.4vw, 46px); margin-bottom: clamp(28px, 3.2vw, 58px); }
     .flow-item[data-variant="5"] .flow-media { aspect-ratio: 1 / 1; }
-    .flow-item[data-variant="6"] { margin-top: clamp(18px, 2.2vw, 40px); }
+
+    .flow-item[data-variant="6"] { margin-top: clamp(4px, 0.8vw, 16px); margin-bottom: clamp(92px, 10.5vw, 184px); }
     .flow-item[data-variant="6"] .flow-media { aspect-ratio: 3 / 4; }
-    .flow-item[data-variant="7"] { padding-right: 28%; margin-top: clamp(46px, 5.6vw, 104px); }
+
+    .flow-item[data-variant="7"] { padding-right: 30%; margin-top: clamp(64px, 7.6vw, 142px); margin-bottom: clamp(48px, 5.4vw, 102px); }
     .flow-item[data-variant="7"] .flow-media { aspect-ratio: 3 / 2; }
+
+    .flow-item[data-variant="8"] { padding-left: 12%; margin-top: clamp(40px, 4.6vw, 92px); margin-bottom: clamp(66px, 7.2vw, 138px); }
+    .flow-item[data-variant="8"] .flow-media { aspect-ratio: 5 / 6; }
+
+    .flow-item[data-variant="9"] { padding-right: 26%; margin-top: clamp(8px, 1.2vw, 22px); margin-bottom: clamp(34px, 3.8vw, 68px); }
+    .flow-item[data-variant="9"] .flow-media { aspect-ratio: 1 / 1; }
+
+    .flow-item[data-variant="10"] { margin-top: clamp(50px, 5.8vw, 110px); margin-bottom: clamp(58px, 6.4vw, 124px); }
+    .flow-item[data-variant="10"] .flow-media { aspect-ratio: 5 / 7; }
+
     /* On narrow screens drop the horizontal offset so tiles stay legible. */
     @media (max-width: 1000px) { .flow-item { padding-left: 0 !important; padding-right: 0 !important; } }
 
