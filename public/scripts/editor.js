@@ -6672,18 +6672,43 @@
     fitZoom();
   };
 
-  // Publish hook — admin Publish flow reads every page + a cover thumb so it
-  // can write each page as a template (optionally linked to a pack).
+  // Publish hook — admin Publish flow reads every page (with a properly RENDERED
+  // thumbnail per page, text and all, at full resolution) plus the loaded
+  // template id so a re-publish can UPDATE that row instead of duplicating it.
   window.__TMKE_PUBLISH_DATA__ = async function () {
-    let cover = "";
-    try { cover = await _renderThumbDataUrl(); } catch (_) {}
+    const orig = state.currentPage;
+    const pages = [];
+    for (let i = 0; i < state.pages.length; i++) {
+      state.currentPage = i;             // _renderThumbDataUrl renders the active page
+      let thumb = "";
+      try { thumb = await _renderThumbDataUrl(); } catch (_) {}
+      const p = state.pages[i];
+      pages.push({ canvas: deep(p.canvas), elements: deep(p.elements), thumb: thumb });
+    }
+    state.currentPage = orig;
     return {
       filename: (filenameEl && filenameEl.value) || "Design",
-      pages: state.pages.map(function (p) {
-        return { canvas: deep(p.canvas), elements: deep(p.elements) };
-      }),
-      cover: cover,
+      templateId: state.templateId || null,
+      pages: pages,
+      cover: (pages[orig] && pages[orig].thumb) || (pages[0] && pages[0].thumb) || "",
     };
+  };
+
+  // Render an arbitrary stored design ({canvas, elements}) to a high-res JPEG
+  // data URL — used by the admin "Regenerate previews" tool to refresh every
+  // template's thumbnail without anyone re-opening each design by hand.
+  window.__TMKE_RENDER_THUMB_FROM__ = async function (canvasObj, elementsArr) {
+    const savePages = state.pages, saveCur = state.currentPage;
+    try {
+      state.pages = [{ canvas: deep(canvasObj || {}), elements: deep(elementsArr || []) }];
+      state.currentPage = 0;
+      return await _renderThumbDataUrl();
+    } catch (_) {
+      return null;
+    } finally {
+      state.pages = savePages; state.currentPage = saveCur;
+      fullRender();
+    }
   };
 
   // AI text parser — snapshot the active page (the imported design) so it can be
