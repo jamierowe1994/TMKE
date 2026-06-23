@@ -4244,20 +4244,23 @@ const googleFonts = [
     }
 
     // Styled, centred publish modal. Resolves to a choice object or null.
-    function openPublishModal(packs) {
+    function openPublishModal(packs, currentPackId) {
       return new Promise((resolve) => {
         const scrim = document.createElement("div");
         scrim.className = "ed-pub-scrim";
-        const opts = packs.map((p) => `<option value="${p.id}">${(p.title || p.slug).replace(/</g, "&lt;")}</option>`).join("");
+        // If this design is already in a pack, pre-select that pack so re-
+        // publishing keeps it where it is (unless the admin changes it).
+        const inPack = !!currentPackId && packs.some((p) => p.id === currentPackId);
+        const opts = packs.map((p) => `<option value="${p.id}" ${p.id === currentPackId ? "selected" : ""}>${(p.title || p.slug).replace(/</g, "&lt;")}</option>`).join("");
         scrim.innerHTML = `
           <div class="ed-pub" role="dialog" aria-modal="true">
             <div class="ed-pub-eyebrow">Publish</div>
             <h2 class="ed-pub-title">Save this design <em>to a pack?</em></h2>
-            <p class="ed-pub-sub">These pages become editable templates. Add them to a pack now, or publish without one.</p>
+            <p class="ed-pub-sub">${inPack ? "This design is already in a pack — that pack is pre-selected below. Re-publishing keeps it there unless you change it." : "These pages become editable templates. Add them to a pack now, or publish without one."}</p>
             <div class="ed-pub-choices">
-              <label class="ed-pub-choice"><input type="radio" name="ed-pub" value="new" checked> <span>Create a new pack</span></label>
+              <label class="ed-pub-choice"><input type="radio" name="ed-pub" value="new" ${inPack ? "" : "checked"}> <span>Create a new pack</span></label>
               <input type="text" class="ed-pub-newname" placeholder="Pack name — e.g. Community Spotlight" />
-              <label class="ed-pub-choice ${packs.length ? "" : "is-disabled"}"><input type="radio" name="ed-pub" value="existing" ${packs.length ? "" : "disabled"}> <span>Add to an existing pack</span></label>
+              <label class="ed-pub-choice ${packs.length ? "" : "is-disabled"}"><input type="radio" name="ed-pub" value="existing" ${packs.length ? "" : "disabled"} ${inPack ? "checked" : ""}> <span>Add to an existing pack</span></label>
               <select class="ed-pub-existing" ${packs.length ? "" : "disabled"}>${opts || '<option>No packs yet</option>'}</select>
               <label class="ed-pub-choice"><input type="radio" name="ed-pub" value="none"> <span>Not yet — just publish the templates</span></label>
             </div>
@@ -4296,7 +4299,19 @@ const googleFonts = [
         packs = data || [];
       } catch (_) {}
 
-      const choice = await openPublishModal(packs);
+      // If this design is already a published template, find which pack it's in
+      // so the modal can pre-select it (no guessing on re-publish).
+      let currentPackId = null;
+      try {
+        const sum = typeof window.__TMKE_EDITOR_SUMMARY__ === "function" ? window.__TMKE_EDITOR_SUMMARY__() : null;
+        const tid = sum && sum.templateId;
+        if (tid && !String(tid).startsWith("draft-")) {
+          const { data: row } = await supabase.from("templates").select("pack_id").eq("id", tid).single();
+          currentPackId = (row && row.pack_id) || null;
+        }
+      } catch (_) {}
+
+      const choice = await openPublishModal(packs, currentPackId);
       if (!choice) return;
 
       publishBtn.disabled = true;
