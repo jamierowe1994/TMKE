@@ -132,7 +132,7 @@ export const STATIC_POSTS = [
     category: "Content",
     standfirst:
       "Reach isn't luck. It's a stack of small, deliberate choices about how you write, where you tag, and what you post. Here's the visibility playbook for property professionals who want to be found before they reach out.",
-    hero: "/assets/coming-soon.png",
+    hero: UNSPLASH("1490481651871-ab68de25d43d", 1400, 1750),
     date: "2026-05-05",
     readTime: 6,
     keywords: [
@@ -351,7 +351,7 @@ export const STATIC_POSTS = [
     category: "Strategy",
     standfirst:
       "Almost every village and neighbourhood in the UK has its own Facebook group — and most agents ignore them. Done right, they're the warmest, most trusted route to local instructions there is.",
-    hero: "https://assets.tmke.co.uk/white-1.webp",
+    hero: UNSPLASH("1492707892479-7bc8d5a4ee93", 1400, 1750),
     date: "2026-04-12",
     readTime: 6,
     keywords: [
@@ -391,7 +391,7 @@ export const STATIC_POSTS = [
     category: "Content",
     standfirst:
       "Following local accounts to grow your own is one of the oldest tactics in the book — and one of the most abused. Here's how to use it deliberately to build a genuinely local audience, not a vanity number.",
-    hero: "https://assets.tmke.co.uk/orange-1.webp",
+    hero: UNSPLASH("1496747611176-843222e1e57c", 1400, 1750),
     date: "2026-04-08",
     readTime: 5,
     keywords: [
@@ -428,7 +428,7 @@ export const STATIC_POSTS = [
     category: "Strategy",
     standfirst:
       "Everyone wants the audience; almost no one is told the honest timeline. Here's what actually happens, month by month, when an estate agent commits to building a social presence properly.",
-    hero: "https://assets.tmke.co.uk/living-2.webp",
+    hero: UNSPLASH("1539109136881-3be0616acf4b", 1400, 1750),
     date: "2026-04-03",
     readTime: 6,
     keywords: [
@@ -473,7 +473,7 @@ export const STATIC_POSTS = [
     category: "Content",
     standfirst:
       "Video earns the reach, but the editing is where most agents get stuck. These five tools cover everything from a thirty-second phone reel to a polished property film — most of them free to start.",
-    hero: "https://assets.tmke.co.uk/kitchen-2.webp",
+    hero: UNSPLASH("1524504388940-b1c1722653e1", 1400, 1750),
     date: "2026-03-28",
     readTime: 5,
     keywords: [
@@ -514,7 +514,9 @@ export const STATIC_POSTS = [
     category: "Content",
     standfirst:
       "You don't need a gimbal, a drone, or a videographer to make a walkthrough that sells. You need a phone, a bit of technique, and a repeatable routine. Here's the whole thing.",
-    hero: "https://assets.tmke.co.uk/white-2.webp",
+    // Neutral, fashion-editorial placeholder (model / high-end look) — swap for
+    // the client's own once shot.
+    hero: UNSPLASH("1507003211169-0a1dd7228f2d", 1400, 1750),
     date: "2026-03-22",
     readTime: 6,
     keywords: [
@@ -554,7 +556,7 @@ export const STATIC_POSTS = [
     category: "Strategy",
     standfirst:
       "Before a vendor calls, they Google you — and what they find is your star rating. A steady stream of recent, genuine reviews is the cheapest, highest-trust marketing an agency can build. Most agents barely touch it.",
-    hero: "https://assets.tmke.co.uk/orange-2.webp",
+    hero: UNSPLASH("1488161628813-04466f872be2", 1400, 1750),
     date: "2026-03-16",
     readTime: 5,
     keywords: [
@@ -595,7 +597,7 @@ export const STATIC_POSTS = [
     category: "Branding",
     standfirst:
       "The most effective property marketing isn't always on a screen. The summer fête, the quiz night, the school fair — being a real, recognisable local face is what makes all your online content land.",
-    hero: "https://assets.tmke.co.uk/table.webp",
+    hero: UNSPLASH("1469334031218-e382a71b716b", 1400, 1750),
     date: "2026-03-10",
     readTime: 5,
     keywords: [
