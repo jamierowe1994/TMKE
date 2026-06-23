@@ -44,6 +44,10 @@ const reveal = Math.max(0, Math.min(24, pack.preview_reveal_count ?? 3));
 const previewTpls = templates.slice(0, reveal);
 const lockedTpls = templates.slice(reveal);
 const contents = Array.isArray(pack.contents) ? pack.contents : [];
+// The big cover: an explicit cover image if set, otherwise fall back to the
+// first template's (high-res) thumbnail so the hero is never a stale low-res
+// pick. Clearing a pack's cover therefore shows the crisp first preview.
+const coverSrc = pack.cover_image_url || (templates[0] && templates[0].thumb_url) || null;
 
 function gbp(pence) {
   if (pence == null) return "";
@@ -66,8 +70,8 @@ function gbp(pence) {
 
       <div class="pack-hero-grid">
         <div class="pack-cover-frame">
-          {pack.cover_image_url ? (
-            <img class="pack-cover-img" src={pack.cover_image_url} alt={pack.title} />
+          {coverSrc ? (
+            <img class="pack-cover-img" src={coverSrc} alt={pack.title} />
           ) : (
             <div class="pack-cover-empty">No cover image yet.</div>
           )}
