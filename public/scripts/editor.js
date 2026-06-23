@@ -5032,9 +5032,17 @@
       // showed — leaving a hard edge and the wrong areas shaded in exports/thumbs.
       const a = (g && g.angle != null ? g.angle : 135) * Math.PI / 180;
       const dx = Math.sin(a), dy = -Math.cos(a);
+      // CSS gradient-line LENGTH: the line through the centre, extended so the
+      // box corners project exactly onto its 0%/100% ends — len = |w·sin a| +
+      // |h·cos a|. Scaling by half-width/half-height instead (the old approach)
+      // makes the line too short for angled gradients, so the fade reaches its
+      // end colour before the shape edge and the remainder fills flat → a hard
+      // line. This makes the fade span the whole shape, matching CSS exactly.
+      const len = Math.abs(w * Math.sin(a)) + Math.abs(h * Math.cos(a));
+      const cx = w / 2, cy = h / 2;
       grad = ctx.createLinearGradient(
-        w / 2 - dx * w / 2, h / 2 - dy * h / 2,
-        w / 2 + dx * w / 2, h / 2 + dy * h / 2
+        cx - dx * len / 2, cy - dy * len / 2,
+        cx + dx * len / 2, cy + dy * len / 2
       );
     }
     gradStops(g).forEach(function (s) {
