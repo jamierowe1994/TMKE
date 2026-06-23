@@ -76,7 +76,7 @@ const BLOG = [
 const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money Protection", "Tenancy Deposit Scheme", "ICO Registered"];
 ---
 
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" />
 
 <div class="tle-root">
 
@@ -436,7 +436,7 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
 </div>
 
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
 
   .tle-root {
     --red: #e31f36;
@@ -1626,9 +1626,10 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     function drawShape(c, idx) {
       if (idx === 0) {
         c.textAlign = "center"; c.textBaseline = "middle";
-        var fs = Math.min(W / 8.5, H / 4.4);
-        c.font = "700 " + fs + "px Georgia, 'Times New Roman', serif";
-        var lines = ["A different", "approach", "to lettings"], lh = fs * 1.02, y0 = H / 2 - lh;
+        // Inter, regular weight, ~65% of the old size — calmer, less in-your-face.
+        var fs = Math.min(W / 8.5, H / 4.4) * 0.65;
+        c.font = "400 " + fs + "px Inter, system-ui, sans-serif";
+        var lines = ["A different", "approach", "to lettings"], lh = fs * 1.16, y0 = H / 2 - lh;
         for (var i = 0; i < lines.length; i++) c.fillText(lines[i], W / 2, y0 + i * lh);
       } else {
         ICONS[idx - 1](c, icx, icy, isz);
@@ -1739,6 +1740,11 @@ const ACCREDS = ["ARLA Propertymark", "Property Redress Scheme", "Client Money P
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize);
+    // The title is drawn to canvas, which won't trigger the webfont download —
+    // request Inter explicitly, then re-render so it samples the real glyphs.
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load("400 80px Inter").then(resize).catch(function () {});
+    }
     window.addEventListener("load", resize);
   })();
 </script>
