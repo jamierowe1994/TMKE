@@ -5025,10 +5025,16 @@
     if (g && g.type === "radial") {
       grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 2);
     } else {
-      const a = (g && g.angle != null ? g.angle : 90) * Math.PI / 180;
+      // Match the CSS linear-gradient angle convention used on screen (gradCss):
+      // 0deg points UP, increasing clockwise, default 135deg. Direction vector in
+      // canvas coords (x right, y down) is (sin a, -cos a). Using the math
+      // convention here (cos/sin) rotated gradients ~90deg vs what the editor
+      // showed — leaving a hard edge and the wrong areas shaded in exports/thumbs.
+      const a = (g && g.angle != null ? g.angle : 135) * Math.PI / 180;
+      const dx = Math.sin(a), dy = -Math.cos(a);
       grad = ctx.createLinearGradient(
-        w / 2 - Math.cos(a) * w / 2, h / 2 - Math.sin(a) * h / 2,
-        w / 2 + Math.cos(a) * w / 2, h / 2 + Math.sin(a) * h / 2
+        w / 2 - dx * w / 2, h / 2 - dy * h / 2,
+        w / 2 + dx * w / 2, h / 2 + dy * h / 2
       );
     }
     gradStops(g).forEach(function (s) {
