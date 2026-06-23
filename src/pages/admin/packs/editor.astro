@@ -222,6 +222,13 @@ import "../../../styles/admin.css";
       <p class="tpl-pick-state" id="tpl-picker-empty" hidden>
         No templates match that search.
       </p>
+      <div class="tpl-picker-foot" id="tpl-picker-foot" hidden>
+        <span class="tpl-picker-selcount" id="tpl-picker-selcount">0 selected</span>
+        <div class="tpl-picker-foot-actions">
+          <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="tpl-picker-cancel">Cancel</button>
+          <button type="button" class="admin-btn admin-btn-sm" id="tpl-picker-add" disabled>Add selected</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -596,15 +603,29 @@ import "../../../styles/admin.css";
     .tpl-picker-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 14px;
+      column-gap: 14px;
+      row-gap: 18px;              /* clear top/bottom breathing room between rows */
       align-content: start;       /* rows pack from the top — never stretch/overlap */
       overflow-y: auto;
       flex: 1;
-      padding-right: 4px;
+      padding: 4px 4px 4px 0;     /* a little top space so the first row isn't flush */
     }
     /* Belt-and-braces: each tile is a fixed 4/5 block so cards can never collapse
        to zero height (and stack on top of each other) if aspect-ratio is ignored. */
     .tpl-picker-grid .tpl-pick-card { aspect-ratio: 4 / 5; min-height: 180px; }
+
+    /* Multi-select footer (gallery mode) */
+    .tpl-picker-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    .tpl-picker-foot[hidden] { display: none; }
+    .tpl-picker-selcount {
+      font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink);
+    }
+    .tpl-picker-foot-actions { display: flex; gap: 8px; }
+    #tpl-picker-add:not([disabled]) { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+    #tpl-picker-add[disabled] { opacity: 0.5; cursor: not-allowed; }
 
     .editor-card-tip { background: rgba(var(--violet-rgb), 0.04); }
     .editor-card-tip p {
@@ -749,6 +770,12 @@ import "../../../styles/admin.css";
     const pickerSearch = document.getElementById("tpl-picker-search");
     const pickerEmpty = document.getElementById("tpl-picker-empty");
     const pickerClose = document.getElementById("tpl-picker-close");
+    const pickerFoot = document.getElementById("tpl-picker-foot");
+    const pickerSelCount = document.getElementById("tpl-picker-selcount");
+    const pickerAdd = document.getElementById("tpl-picker-add");
+    const pickerCancel = document.getElementById("tpl-picker-cancel");
+    /** @type {Set<string>} — templates ticked in the picker (gallery mode). */
+    const pickerSelected = new Set();
 
     let editingId = null;
     let slugTouched = false;
@@ -993,8 +1020,22 @@ import "../../../styles/admin.css";
       pickerBackdrop.hidden = false;
       document.body.style.overflow = "hidden";
       pickerSearch.value = "";
+      pickerSelected.clear();
+      // Multi-select (with footer) only makes sense for the gallery — a cover is
+      // a single image, so cover mode stays one-click-and-done.
+      if (pickerFoot) pickerFoot.hidden = pickerMode !== "gallery";
+      updatePickerFoot();
       renderTemplatePicker();
       setTimeout(() => pickerSearch.focus(), 60);
+    }
+    function updatePickerFoot() {
+      if (!pickerFoot || pickerMode !== "gallery") return;
+      const n = pickerSelected.size;
+      if (pickerSelCount) pickerSelCount.textContent = n === 1 ? "1 selected" : `${n} selected`;
+      if (pickerAdd) {
+        pickerAdd.disabled = n === 0;
+        pickerAdd.textContent = n > 0 ? `Add ${n} to gallery` : "Add selected";
+      }
     }
     function closePicker() {
       pickerBackdrop.hidden = true;
@@ -1008,10 +1049,12 @@ import "../../../styles/admin.css";
           || (t.name || "").toLowerCase().includes(q)
           || (t.category || "").toLowerCase().includes(q));
       pickerEmpty.hidden = visible.length > 0;
+      const multi = pickerMode === "gallery";
       pickerGrid.innerHTML = visible.map((t) => `
-        <div class="tpl-pick-card" data-pull="${escapeHtml(t.id)}"
+        <div class="tpl-pick-card ${multi && pickerSelected.has(t.id) ? "is-selected" : ""}" data-pull="${escapeHtml(t.id)}"
              style="background-image:url('${escapeHtml(tplPreview(t))}')"
-             role="button" tabindex="0">
+             role="button" tabindex="0" aria-pressed="${multi && pickerSelected.has(t.id) ? "true" : "false"}">
+          ${multi ? '<span class="tpl-pick-tick" aria-hidden="true"></span>' : ""}
           <span class="tpl-pick-name">${escapeHtml(t.name || "(untitled)")}</span>
         </div>
       `).join("");
@@ -1296,15 +1339,35 @@ import "../../../styles/admin.css";
       const img = t ? tplPreview(t) : "";
       if (!img) return;
       if (pickerMode === "cover") {
+        // A cover is a single image — pick and close.
         setCover(img);
         if (coverStatus) coverStatus.textContent = `Cover set from "${t.name}".`;
-      } else if (galleryUrls.includes(img)) {
-        galleryStatus.textContent = "Already in the gallery.";
-      } else {
-        galleryUrls = [...galleryUrls, img];
-        renderGallery();
-        galleryStatus.textContent = `Added "${t.name}".`;
+        closePicker();
+        return;
       }
+      // Gallery mode — tick/untick; collect several, then "Add" them together.
+      if (pickerSelected.has(id)) pickerSelected.delete(id);
+      else pickerSelected.add(id);
+      card.classList.toggle("is-selected", pickerSelected.has(id));
+      card.setAttribute("aria-pressed", pickerSelected.has(id) ? "true" : "false");
+      updatePickerFoot();
+    });
+
+    pickerCancel?.addEventListener("click", closePicker);
+    pickerAdd?.addEventListener("click", () => {
+      let added = 0, skipped = 0;
+      pickerSelected.forEach((id) => {
+        const t = allTemplates.find((x) => x.id === id);
+        const img = t ? tplPreview(t) : "";
+        if (!img) return;
+        if (galleryUrls.includes(img)) { skipped++; return; }
+        galleryUrls = [...galleryUrls, img];
+        added++;
+      });
+      renderGallery();
+      galleryStatus.textContent = added
+        ? `Added ${added} image${added > 1 ? "s" : ""}${skipped ? ` (${skipped} already in the gallery)` : ""}.`
+        : "Those are already in the gallery.";
       closePicker();
     });
 
