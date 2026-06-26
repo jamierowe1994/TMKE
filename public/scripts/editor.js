@@ -4177,6 +4177,11 @@
   function drawTextElementToCanvas(ctx, el) {
     const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
     ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
+    // Match the editor's letter-spacing in BOTH the wrap measurement and the
+    // draw. Without this the canvas packs text tighter than the live design
+    // ("forced inwards"), and the narrower measure also changes where lines
+    // wrap — so titles render cramped or on the wrong number of lines.
+    try { ctx.letterSpacing = ((Number(el.letterSpacing) || 0)) + "px"; } catch (_) {}
     ctx.textBaseline = "top";
     // Canvas has no "justify" — fall back to left for the static snapshot.
     ctx.textAlign = el.align === "justify" ? "left" : el.align;
