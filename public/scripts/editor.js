@@ -1830,8 +1830,13 @@
     const fw = state.canvas.width, fh = state.canvas.height;
     const nw = natW || state.canvas.bgNatW, nh = natH || state.canvas.bgNatH;
     if (!nw || !nh || !fw || !fh) return null;
-    const cover = Math.max(fw / nw, fh / nh);
-    const scale = cover * (state.canvas.bgScale ? Math.max(1, state.canvas.bgScale) : 1);
+    // Fit mode: "contain" shows the WHOLE photo inside the frame (letterboxed,
+    // nothing cropped); "cover" (default) fills the frame and crops. Either way
+    // the optional zoom (bgScale >= 1) and bgPosX/bgPosY pan/position it.
+    const base = state.canvas.bgFit === "contain"
+      ? Math.min(fw / nw, fh / nh)
+      : Math.max(fw / nw, fh / nh);
+    const scale = base * (state.canvas.bgScale ? Math.max(1, state.canvas.bgScale) : 1);
     const sw = nw * scale, sh = nh * scale;
     const px = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) / 100;
     const py = (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) / 100;
@@ -1946,6 +1951,12 @@
     if (repo) repo.hidden = !hasImg;
     const detach = document.getElementById("ed-bg-detach");
     if (detach) detach.hidden = !hasImg;
+    const fit = document.getElementById("ed-bg-fit");
+    if (fit) {
+      fit.hidden = !hasImg;
+      const cur = state.canvas.bgFit === "contain" ? "contain" : "cover";
+      fit.querySelectorAll(".ed-bg-fit-btn").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-bgfit") === cur));
+    }
     const ctl = document.getElementById("ed-bg-imgctl");
     if (ctl) ctl.hidden = !hasImg;
     const op = Math.round((state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1) * 100);
@@ -6357,6 +6368,17 @@
       gradMenu.querySelectorAll(".ed-grad").forEach((b) => b.addEventListener("click", () => { gradMenu.hidden = true; }));
     }
     if (repoBtn) repoBtn.addEventListener("click", () => { if (state.canvas.backgroundImage) enterBgReposition(); });
+
+    // Fill / Fit toggle — "cover" crops to fill, "contain" shows the whole photo.
+    const fitGroup = $("ed-bg-fit");
+    if (fitGroup) fitGroup.querySelectorAll(".ed-bg-fit-btn").forEach((b) => b.addEventListener("click", () => {
+      state.canvas.bgFit = b.getAttribute("data-bgfit");
+      // Centre when switching so the result is predictable.
+      state.canvas.bgPosX = 50; state.canvas.bgPosY = 50; state.canvas.bgScale = 1;
+      fitGroup.querySelectorAll(".ed-bg-fit-btn").forEach((x) => x.classList.toggle("is-active", x === b));
+      pushHistory();
+      fullRender();
+    }));
   })();
 
   // Background reposition (Canva-style): the whole photo is shown, dimmed
