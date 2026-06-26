@@ -3975,7 +3975,27 @@
   // button (further down) still inlines the same loop and will need
   // updating too. TODO(refactor): collapse the Share button onto this
   // helper as well once we're confident in the shape.
+  // Force every font used by a text element to finish loading before we draw to
+  // a canvas. Canvas measureText/fillText silently fall back to a wider system
+  // font if the real font isn't loaded yet, which makes a one-line title wrap
+  // onto two lines in the snapshot (but not in the live DOM editor) — pushing
+  // the layout down and ruining the preview/thumbnail.
+  async function ensureTextFontsLoaded() {
+    if (!document.fonts || !document.fonts.load) return;
+    const specs = new Set();
+    for (const el of state.elements) {
+      if (el.hidden || el.type !== "text") continue;
+      const fam = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack.split(",")[0].trim();
+      specs.add((el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + fam);
+    }
+    try {
+      await Promise.all([...specs].map((s) => document.fonts.load(s).catch(function () {})));
+      await document.fonts.ready;
+    } catch (_) {}
+  }
+
   async function _renderDesignToCanvas({ transparent = false } = {}) {
+    await ensureTextFontsLoaded();
     const c = document.createElement("canvas");
     c.width = state.canvas.width;
     c.height = state.canvas.height;
