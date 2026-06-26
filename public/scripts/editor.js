@@ -1819,6 +1819,25 @@
     strip.appendChild(add);
   }
 
+  // Background image layout: the photo is scaled to at least cover the frame,
+  // times an optional zoom (bgScale >= 1), then panned by bgPosX/bgPosY (0-100,
+  // where the visible frame sits over the scaled image). At bgScale 1 this is
+  // exactly object-fit:cover + object-position, so existing designs are
+  // unchanged — but with zoom there's room to pan LEFT/RIGHT as well as up/down.
+  // Returns pixel size + offset in design coordinates, or null until we know the
+  // image's natural dimensions.
+  function bgLayout(natW, natH) {
+    const fw = state.canvas.width, fh = state.canvas.height;
+    const nw = natW || state.canvas.bgNatW, nh = natH || state.canvas.bgNatH;
+    if (!nw || !nh || !fw || !fh) return null;
+    const cover = Math.max(fw / nw, fh / nh);
+    const scale = cover * (state.canvas.bgScale ? Math.max(1, state.canvas.bgScale) : 1);
+    const sw = nw * scale, sh = nh * scale;
+    const px = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) / 100;
+    const py = (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) / 100;
+    return { sw, sh, ox: (fw - sw) * px, oy: (fh - sh) * py };
+  }
+
   // ---------- Rendering ----------
   function fullRender() {
     canvasEl.style.width = state.canvas.width + "px";
@@ -1842,14 +1861,30 @@
       bg.draggable = false;
       bg.crossOrigin = "anonymous";
       bg.style.position = "absolute";
-      bg.style.left = "0"; bg.style.top = "0";
-      bg.style.width = "100%"; bg.style.height = "100%";
-      bg.style.objectFit = "cover";
-      // Reposition: which part of the (cover-cropped) photo is visible.
-      bg.style.objectPosition = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) + "% " + (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) + "%";
       bg.style.opacity = state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1;
       bg.style.pointerEvents = "none";
       bg.style.userSelect = "none";
+      const lay = bgLayout();
+      if (lay) {
+        // Explicit size + offset (supports zoom + 2-axis pan; matches the export).
+        bg.style.left = lay.ox + "px"; bg.style.top = lay.oy + "px";
+        bg.style.width = lay.sw + "px"; bg.style.height = lay.sh + "px";
+        bg.style.objectFit = "fill";
+      } else {
+        // Until we know the photo's natural size, fall back to cover + position
+        // (identical to the old behaviour), and cache the dims on load.
+        bg.style.left = "0"; bg.style.top = "0";
+        bg.style.width = "100%"; bg.style.height = "100%";
+        bg.style.objectFit = "cover";
+        bg.style.objectPosition = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) + "% " + (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) + "%";
+        bg.addEventListener("load", function () {
+          if (bg.naturalWidth && !state.canvas.bgNatW) {
+            state.canvas.bgNatW = bg.naturalWidth;
+            state.canvas.bgNatH = bg.naturalHeight;
+            fullRender();
+          }
+        }, { once: true });
+      }
       canvasEl.appendChild(bg);
     }
 
@@ -4012,19 +4047,18 @@
     if (state.canvas.backgroundImage) {
       try {
         const bg = await loadImage(state.canvas.backgroundImage);
-        // Cover the canvas, matching CSS object-fit: cover
-        const cw = state.canvas.width, ch = state.canvas.height;
-        const ar = bg.naturalWidth / bg.naturalHeight;
-        const cr = cw / ch;
-        let dw, dh;
-        if (ar > cr) { dh = ch; dw = ch * ar; }
-        else         { dw = cw; dh = cw / ar; }
-        // Honour the reposition (object-position): offset = (box - image) * pct.
-        const px = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) / 100;
-        const py = (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) / 100;
+        // Same cover-scale + zoom + pan layout as the live editor (bgLayout).
+        const lay = bgLayout(bg.naturalWidth, bg.naturalHeight) || (function () {
+          const cw = state.canvas.width, ch = state.canvas.height;
+          const ar = bg.naturalWidth / bg.naturalHeight, cr = cw / ch;
+          let dw, dh; if (ar > cr) { dh = ch; dw = ch * ar; } else { dw = cw; dh = cw / ar; }
+          const px = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) / 100;
+          const py = (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) / 100;
+          return { sw: dw, sh: dh, ox: (cw - dw) * px, oy: (ch - dh) * py };
+        })();
         ctx.save();
         ctx.globalAlpha = state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1;
-        ctx.drawImage(bg, (cw - dw) * px, (ch - dh) * py, dw, dh);
+        ctx.drawImage(bg, lay.ox, lay.oy, lay.sw, lay.sh);
         ctx.restore();
       } catch (_) {}
     }
@@ -6293,57 +6327,99 @@
     if (repoBtn) repoBtn.addEventListener("click", () => { if (state.canvas.backgroundImage) enterBgReposition(); });
   })();
 
-  // Background reposition: drag on the canvas to slide which part of the
-  // cover-cropped photo is visible (object-position). Exit on click / Escape.
+  // Background reposition (Canva-style): the whole photo is shown, dimmed
+  // outside the frame, so you can drag it anywhere — left/right AND up/down —
+  // and scroll to zoom. Exit on click-away / Escape.
   let _bgRepoActive = false;
   function enterBgReposition() {
     if (_bgRepoActive || !state.canvas.backgroundImage) return;
-    _bgRepoActive = true;
-    state.selectedIds = [];
-    fullRender();
-    const bgImg = canvasEl.querySelector(".ed-canvas-bg");
-    if (bgImg) bgImg.style.outline = "2px dashed var(--english-violet, #371e28)";
-    canvasEl.style.cursor = "move";
-    toast("Drag to reposition the background — click away or press Esc when done", 3200);
-    let dragging = false, lastX = 0, lastY = 0;
-    function down(ev) {
-      if (ev.button !== 0) return;
-      dragging = true; lastX = ev.clientX; lastY = ev.clientY; ev.preventDefault();
-    }
-    function move(ev) {
-      if (!dragging) return;
-      const z = state.zoom || 1;
-      // Drag right → reveal more of the left → object-position X decreases.
-      const dx = (ev.clientX - lastX) / z / state.canvas.width * 100;
-      const dy = (ev.clientY - lastY) / z / state.canvas.height * 100;
-      lastX = ev.clientX; lastY = ev.clientY;
-      state.canvas.bgPosX = Math.max(0, Math.min(100, (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) - dx));
-      state.canvas.bgPosY = Math.max(0, Math.min(100, (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) - dy));
-      const img = canvasEl.querySelector(".ed-canvas-bg");
-      if (img) img.style.objectPosition = state.canvas.bgPosX + "% " + state.canvas.bgPosY + "%";
-    }
-    function up() { dragging = false; }
-    function exit(ev) {
-      if (ev && ev.type === "keydown" && ev.key !== "Escape") return;
-      _bgRepoActive = false;
-      canvasEl.removeEventListener("mousedown", down);
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-      document.removeEventListener("keydown", exit, true);
-      document.removeEventListener("mousedown", outside, true);
-      canvasEl.style.cursor = "";
-      pushHistory();
+    const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+    const start = () => {
+      _bgRepoActive = true;
+      state.selectedIds = [];
+      state.selectedGuideId = null;
       fullRender();
+      // Let the photo spill past the frame, and dim everything outside it.
+      canvasEl.style.overflow = "visible";
+      canvasEl.style.cursor = "move";
+      const mask = document.createElement("div");
+      mask.id = "ed-bg-repo-mask";
+      mask.style.cssText =
+        "position:absolute;inset:0;z-index:50;pointer-events:none;" +
+        "box-shadow:0 0 0 9999px rgba(244,242,240,0.55);outline:2px solid var(--english-violet,#371e28);";
+      mask.innerHTML =
+        '<span style="position:absolute;left:33.333%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,0.5)"></span>' +
+        '<span style="position:absolute;left:66.666%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,0.5)"></span>' +
+        '<span style="position:absolute;top:33.333%;left:0;right:0;border-top:1px solid rgba(255,255,255,0.5)"></span>' +
+        '<span style="position:absolute;top:66.666%;left:0;right:0;border-top:1px solid rgba(255,255,255,0.5)"></span>';
+      canvasEl.appendChild(mask);
+      toast("Drag to move the photo, scroll to zoom — click away or Esc when done", 3600);
+
+      function applyBg() {
+        const img = canvasEl.querySelector(".ed-canvas-bg");
+        const lay = bgLayout();
+        if (img && lay) {
+          img.style.left = lay.ox + "px"; img.style.top = lay.oy + "px";
+          img.style.width = lay.sw + "px"; img.style.height = lay.sh + "px";
+          img.style.objectFit = "fill";
+        }
+      }
+      let dragging = false, lastX = 0, lastY = 0;
+      function down(ev) { if (ev.button !== 0) return; dragging = true; lastX = ev.clientX; lastY = ev.clientY; ev.preventDefault(); }
+      function move(ev) {
+        if (!dragging) return;
+        const z = state.zoom || 1;
+        const lay = bgLayout(); if (!lay) return;
+        const overX = lay.sw - state.canvas.width, overY = lay.sh - state.canvas.height;
+        const dX = (ev.clientX - lastX) / z, dY = (ev.clientY - lastY) / z;
+        lastX = ev.clientX; lastY = ev.clientY;
+        const bx = state.canvas.bgPosX != null ? state.canvas.bgPosX : 50;
+        const by = state.canvas.bgPosY != null ? state.canvas.bgPosY : 50;
+        if (overX > 1) state.canvas.bgPosX = cl(bx - dX / overX * 100, 0, 100);
+        if (overY > 1) state.canvas.bgPosY = cl(by - dY / overY * 100, 0, 100);
+        applyBg();
+      }
+      function up() { dragging = false; }
+      function wheel(ev) {
+        if (!canvasEl.contains(ev.target)) return;
+        ev.preventDefault();
+        const cur = state.canvas.bgScale ? Math.max(1, state.canvas.bgScale) : 1;
+        state.canvas.bgScale = cl(cur * (ev.deltaY < 0 ? 1.08 : 1 / 1.08), 1, 5);
+        applyBg();
+      }
+      function exit(ev) {
+        if (ev && ev.type === "keydown" && ev.key !== "Escape") return;
+        _bgRepoActive = false;
+        canvasEl.removeEventListener("mousedown", down);
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        window.removeEventListener("wheel", wheel, { passive: false });
+        document.removeEventListener("keydown", exit, true);
+        document.removeEventListener("mousedown", outside, true);
+        canvasEl.style.overflow = "";
+        canvasEl.style.cursor = "";
+        const m = document.getElementById("ed-bg-repo-mask"); if (m) m.remove();
+        pushHistory();
+        fullRender();
+      }
+      function outside(ev) { if (!canvasEl.contains(ev.target)) exit(); }
+      canvasEl.addEventListener("mousedown", down);
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+      window.addEventListener("wheel", wheel, { passive: false });
+      document.addEventListener("keydown", exit, true);
+      // Defer the click-away listener so the click that opened this doesn't exit it.
+      setTimeout(() => document.addEventListener("mousedown", outside, true), 0);
+    };
+    // Need the photo's natural size for the layout maths — cache it first.
+    if (state.canvas.bgNatW) { start(); }
+    else {
+      const probe = new Image();
+      probe.crossOrigin = "anonymous";
+      probe.onload = () => { state.canvas.bgNatW = probe.naturalWidth; state.canvas.bgNatH = probe.naturalHeight; start(); };
+      probe.onerror = () => start();
+      probe.src = state.canvas.backgroundImage;
     }
-    function outside(ev) {
-      // A click that didn't start a drag on the canvas exits the mode.
-      if (!canvasEl.contains(ev.target)) exit();
-    }
-    canvasEl.addEventListener("mousedown", down);
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-    document.addEventListener("keydown", exit, true);
-    document.addEventListener("mousedown", outside, true);
   }
 
   // ---------- Resize ----------
