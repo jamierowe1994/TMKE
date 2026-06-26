@@ -123,6 +123,17 @@ import "../../../styles/admin.css";
             </div>
           </div>
 
+          <!-- Preview order — the selected designs, in the order they appear on
+               the storefront. Drag to reorder; the first N show as previews. -->
+          <div class="tpl-order-head">
+            <h3 class="tpl-order-title">Preview order</h3>
+            <p class="editor-help" style="margin:0">
+              Drag to reorder. The first <strong id="tpl-order-reveal">3</strong> show as previews on the
+              storefront; the rest stay locked. The first design is used as the cover when no cover image is set.
+            </p>
+          </div>
+          <div class="tpl-order" id="tpl-order"></div>
+
           <p class="tpl-pick-state" id="tpl-pick-loading">Loading templates from the studio…</p>
           <p class="tpl-pick-state" id="tpl-pick-empty" hidden>
             No templates yet. <a href="/admin/templates">Build some in the studio</a>, then come back.
@@ -211,6 +222,13 @@ import "../../../styles/admin.css";
       <p class="tpl-pick-state" id="tpl-picker-empty" hidden>
         No templates match that search.
       </p>
+      <div class="tpl-picker-foot" id="tpl-picker-foot" hidden>
+        <span class="tpl-picker-selcount" id="tpl-picker-selcount">0 selected</span>
+        <div class="tpl-picker-foot-actions">
+          <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="tpl-picker-cancel">Cancel</button>
+          <button type="button" class="admin-btn admin-btn-sm" id="tpl-picker-add" disabled>Add selected</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -431,6 +449,42 @@ import "../../../styles/admin.css";
       padding: 14px 0;
     }
     .tpl-pick-state a { color: var(--english-violet); text-decoration: underline; }
+
+    /* Preview-order strip — drag to reorder the selected designs. */
+    .tpl-order-head { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 10px; }
+    .tpl-order-title { font-family: var(--serif); font-weight: 400; font-size: 17px; margin: 0; color: var(--ink); }
+    .tpl-order {
+      display: flex; gap: 14px; flex-wrap: wrap; padding: 14px;
+      border: 1px dashed rgba(var(--violet-rgb),0.22); border-radius: 8px;
+      background: rgba(var(--violet-rgb),0.03); margin-bottom: 22px; min-height: 64px;
+    }
+    .tpl-order-item { position: relative; width: 98px; cursor: grab; user-select: none; }
+    .tpl-order-item:active { cursor: grabbing; }
+    .tpl-order-thumb {
+      display: block; width: 100%; aspect-ratio: 4 / 5; border-radius: 6px;
+      background: #e9e7e4 center / cover no-repeat; border: 2px solid transparent;
+    }
+    .tpl-order-item.is-shown .tpl-order-thumb { border-color: var(--english-violet); }
+    .tpl-order-item.is-locked .tpl-order-thumb { filter: grayscale(0.3) brightness(0.94); opacity: 0.7; }
+    .tpl-order-pos {
+      position: absolute; top: -7px; left: -7px; z-index: 2;
+      width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; display: grid; place-items: center;
+    }
+    .tpl-order-badge {
+      display: block; text-align: center; margin-top: 5px;
+      font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    }
+    .tpl-order-item.is-shown .tpl-order-badge { color: var(--english-violet); }
+    .tpl-order-item.is-locked .tpl-order-badge { color: rgba(28,29,34,0.4); }
+    .tpl-order-remove {
+      position: absolute; top: -7px; right: -7px; z-index: 2;
+      width: 20px; height: 20px; border-radius: 50%; border: 0; cursor: pointer;
+      background: rgba(28,29,34,0.7); color: #fff; font-size: 14px; line-height: 1; display: grid; place-items: center;
+    }
+    .tpl-order-remove:hover { background: var(--english-violet); }
+    .sortable-ghost { opacity: 0.4; }
+
     .tpl-pick-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -523,8 +577,8 @@ import "../../../styles/admin.css";
     .tpl-picker {
       background: var(--paper);
       border-radius: 4px;
-      max-width: 880px; width: 100%;
-      max-height: 80vh;
+      max-width: 1040px; width: 100%;
+      max-height: 84vh;
       display: flex; flex-direction: column;
       padding: 24px;
       box-shadow: 0 40px 80px -20px rgba(0,0,0,0.5);
@@ -548,12 +602,30 @@ import "../../../styles/admin.css";
     .tpl-picker .tpl-pick-search { margin-bottom: 16px; }
     .tpl-picker-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      column-gap: 14px;
+      row-gap: 18px;              /* clear top/bottom breathing room between rows */
+      align-content: start;       /* rows pack from the top — never stretch/overlap */
       overflow-y: auto;
       flex: 1;
-      padding-right: 4px;
+      padding: 4px 4px 4px 0;     /* a little top space so the first row isn't flush */
     }
+    /* Belt-and-braces: each tile is a fixed 4/5 block so cards can never collapse
+       to zero height (and stack on top of each other) if aspect-ratio is ignored. */
+    .tpl-picker-grid .tpl-pick-card { aspect-ratio: 4 / 5; min-height: 180px; }
+
+    /* Multi-select footer (gallery mode) */
+    .tpl-picker-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    .tpl-picker-foot[hidden] { display: none; }
+    .tpl-picker-selcount {
+      font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink);
+    }
+    .tpl-picker-foot-actions { display: flex; gap: 8px; }
+    #tpl-picker-add:not([disabled]) { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+    #tpl-picker-add[disabled] { opacity: 0.5; cursor: not-allowed; }
 
     .editor-card-tip { background: rgba(var(--violet-rgb), 0.04); }
     .editor-card-tip p {
@@ -698,6 +770,12 @@ import "../../../styles/admin.css";
     const pickerSearch = document.getElementById("tpl-picker-search");
     const pickerEmpty = document.getElementById("tpl-picker-empty");
     const pickerClose = document.getElementById("tpl-picker-close");
+    const pickerFoot = document.getElementById("tpl-picker-foot");
+    const pickerSelCount = document.getElementById("tpl-picker-selcount");
+    const pickerAdd = document.getElementById("tpl-picker-add");
+    const pickerCancel = document.getElementById("tpl-picker-cancel");
+    /** @type {Set<string>} — templates ticked in the picker (gallery mode). */
+    const pickerSelected = new Set();
 
     let editingId = null;
     let slugTouched = false;
@@ -711,6 +789,9 @@ import "../../../styles/admin.css";
     let allTemplates = [];
     /** @type {Set<string>} */
     const selectedTplIds = new Set();
+    /** @type {string[]} — selected ids in PREVIEW ORDER (drives sort_order). */
+    let selectedOrder = [];
+    let orderSortable = null;
     /** @type {Set<string>} */
     let originallyInThisPack = new Set();
     let tplSearchTerm = "";
@@ -796,7 +877,7 @@ import "../../../styles/admin.css";
     async function loadTemplates() {
       const { data, error } = await supabase
         .from("templates")
-        .select("id, name, category, thumb_url, canvas, pack_id, status")
+        .select("id, name, category, thumb_url, canvas, pack_id, status, sort_order")
         .neq("status", "archived")
         .order("created_at", { ascending: false });   // newest first so just-made templates show up top
       if (error) {
@@ -805,12 +886,15 @@ import "../../../styles/admin.css";
       }
       allTemplates = data || [];
 
-      // If editing, seed selection from any templates already linked to this pack
+      // If editing, seed selection from any templates already linked to this pack,
+      // in their saved preview order (sort_order).
       if (editingId) {
-        originallyInThisPack = new Set(
-          allTemplates.filter((t) => t.pack_id === editingId).map((t) => t.id),
-        );
-        originallyInThisPack.forEach((id) => selectedTplIds.add(id));
+        const inPack = allTemplates
+          .filter((t) => t.pack_id === editingId)
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        originallyInThisPack = new Set(inPack.map((t) => t.id));
+        inPack.forEach((t) => { selectedTplIds.add(t.id); });
+        selectedOrder = inPack.map((t) => t.id);
       }
 
       tplLoading.hidden = true;
@@ -838,6 +922,9 @@ import "../../../styles/admin.css";
     function renderTemplatePool() {
       const q = tplSearchTerm.toLowerCase();
       const visible = allTemplates.filter((t) => {
+        // Hide anything locked to ANOTHER pack — only show designs free to add
+        // (or already in this pack).
+        if (t.pack_id && t.pack_id !== editingId && !selectedTplIds.has(t.id)) return false;
         if (tplShowSelectedOnly && !selectedTplIds.has(t.id)) return false;
         if (!q) return true;
         return (
@@ -848,11 +935,10 @@ import "../../../styles/admin.css";
 
       tplGrid.innerHTML = visible.map((t) => {
         const isSel = selectedTplIds.has(t.id);
-        const lockedElsewhere = t.pack_id && t.pack_id !== editingId && !isSel;
         const prev = tplPreview(t);
         const bg = prev ? `style="background-image:url('${escapeHtml(prev)}')"` : "";
         return `
-          <div class="tpl-pick-card ${isSel ? "is-selected" : ""} ${lockedElsewhere ? "is-locked-elsewhere" : ""}"
+          <div class="tpl-pick-card ${isSel ? "is-selected" : ""}"
                data-id="${escapeHtml(t.id)}" ${bg} role="button" tabindex="0"
                aria-pressed="${isSel ? "true" : "false"}">
             <span class="tpl-pick-tick" aria-hidden="true"></span>
@@ -865,6 +951,7 @@ import "../../../styles/admin.css";
 
       tplCount.textContent = `${selectedTplIds.size} selected`;
       form.elements.selected_template_ids.value = JSON.stringify(Array.from(selectedTplIds));
+      renderSelectedOrder();
     }
 
     function toggleTpl(id) {
@@ -872,12 +959,58 @@ import "../../../styles/admin.css";
       if (!t) return;
       // Can't grab a template that's already in another pack
       if (t.pack_id && t.pack_id !== editingId && !selectedTplIds.has(id)) {
-        alert("This template is already locked to another pack. Open that pack and deselect it first.");
+        alert("This template is already in another pack. Open that pack and remove it first.");
         return;
       }
-      if (selectedTplIds.has(id)) selectedTplIds.delete(id);
-      else selectedTplIds.add(id);
+      if (selectedTplIds.has(id)) {
+        selectedTplIds.delete(id);
+        selectedOrder = selectedOrder.filter((x) => x !== id);
+      } else {
+        selectedTplIds.add(id);
+        if (!selectedOrder.includes(id)) selectedOrder.push(id);
+      }
       renderTemplatePool();
+    }
+
+    // The "Preview order" strip — selected templates in order. Drag to reorder
+    // (sets sort_order on save); the first <preview count> show as previews on
+    // the storefront, the rest are locked. Remove with the ×.
+    function renderSelectedOrder() {
+      const wrap = document.getElementById("tpl-order");
+      if (!wrap) return;
+      const reveal = Math.max(0, Math.min(24, Number((previewInput && previewInput.value) || 3)));
+      if (!selectedOrder.length) {
+        wrap.innerHTML = `<p class="editor-help" style="margin:0">No templates selected yet — tick designs below to add them, then drag to set the order.</p>`;
+        if (orderSortable && orderSortable.destroy) { orderSortable.destroy(); orderSortable = null; }
+        return;
+      }
+      wrap.innerHTML = selectedOrder.map((id, i) => {
+        const t = allTemplates.find((x) => x.id === id);
+        if (!t) return "";
+        const prev = tplPreview(t);
+        const shown = i < reveal;
+        return `
+          <div class="tpl-order-item ${shown ? "is-shown" : "is-locked"}" data-id="${escapeHtml(id)}" title="${escapeHtml(t.name || "")}">
+            <span class="tpl-order-pos">${i + 1}</span>
+            <span class="tpl-order-thumb" ${prev ? `style="background-image:url('${escapeHtml(prev)}')"` : ""}></span>
+            <span class="tpl-order-badge">${shown ? "Preview" : "Locked"}</span>
+            <button type="button" class="tpl-order-remove" data-remove="${escapeHtml(id)}" aria-label="Remove from pack">&times;</button>
+          </div>`;
+      }).join("");
+      wrap.querySelectorAll("[data-remove]").forEach((b) => {
+        b.addEventListener("click", (e) => { e.stopPropagation(); toggleTpl(b.getAttribute("data-remove")); });
+      });
+      const Sortable = /** @type {any} */ (window).Sortable;
+      if (orderSortable && orderSortable.destroy) { orderSortable.destroy(); orderSortable = null; }
+      if (Sortable && selectedOrder.length > 1) {
+        orderSortable = Sortable.create(wrap, {
+          animation: 160, ghostClass: "sortable-ghost", draggable: ".tpl-order-item",
+          onEnd: () => {
+            selectedOrder = Array.from(wrap.querySelectorAll(".tpl-order-item")).map((el) => el.getAttribute("data-id")).filter(Boolean);
+            renderSelectedOrder();
+          },
+        });
+      }
     }
 
     // ============ Picker modal — pick a template image for the gallery OR cover ============
@@ -887,8 +1020,22 @@ import "../../../styles/admin.css";
       pickerBackdrop.hidden = false;
       document.body.style.overflow = "hidden";
       pickerSearch.value = "";
+      pickerSelected.clear();
+      // Multi-select (with footer) only makes sense for the gallery — a cover is
+      // a single image, so cover mode stays one-click-and-done.
+      if (pickerFoot) pickerFoot.hidden = pickerMode !== "gallery";
+      updatePickerFoot();
       renderTemplatePicker();
       setTimeout(() => pickerSearch.focus(), 60);
+    }
+    function updatePickerFoot() {
+      if (!pickerFoot || pickerMode !== "gallery") return;
+      const n = pickerSelected.size;
+      if (pickerSelCount) pickerSelCount.textContent = n === 1 ? "1 selected" : `${n} selected`;
+      if (pickerAdd) {
+        pickerAdd.disabled = n === 0;
+        pickerAdd.textContent = n > 0 ? `Add ${n} to gallery` : "Add selected";
+      }
     }
     function closePicker() {
       pickerBackdrop.hidden = true;
@@ -902,10 +1049,12 @@ import "../../../styles/admin.css";
           || (t.name || "").toLowerCase().includes(q)
           || (t.category || "").toLowerCase().includes(q));
       pickerEmpty.hidden = visible.length > 0;
+      const multi = pickerMode === "gallery";
       pickerGrid.innerHTML = visible.map((t) => `
-        <div class="tpl-pick-card" data-pull="${escapeHtml(t.id)}"
+        <div class="tpl-pick-card ${multi && pickerSelected.has(t.id) ? "is-selected" : ""}" data-pull="${escapeHtml(t.id)}"
              style="background-image:url('${escapeHtml(tplPreview(t))}')"
-             role="button" tabindex="0">
+             role="button" tabindex="0" aria-pressed="${multi && pickerSelected.has(t.id) ? "true" : "false"}">
+          ${multi ? '<span class="tpl-pick-tick" aria-hidden="true"></span>' : ""}
           <span class="tpl-pick-name">${escapeHtml(t.name || "(untitled)")}</span>
         </div>
       `).join("");
@@ -949,6 +1098,8 @@ import "../../../styles/admin.css";
       form.elements.contents.value = (data.contents || []).join("\n");
       previewInput.value = data.preview_reveal_count ?? 3;
       previewMirror.textContent = String(previewInput.value);
+      const orderMirror = document.getElementById("tpl-order-reveal");
+      if (orderMirror) orderMirror.textContent = String(previewInput.value);
       setCover(data.cover_image_url || "");
       galleryUrls = Array.isArray(data.preview_images)
         ? data.preview_images.filter((u) => typeof u === "string" && u.length > 0)
@@ -1051,6 +1202,16 @@ import "../../../styles/admin.css";
           if (detachErr) throw new Error(`Pack saved but couldn't unlink some templates: ${detachErr.message}`);
         }
 
+        // Persist the preview order — sort_order = position in the strip. This is
+        // what drives the order (and which are previews) on the storefront.
+        for (let i = 0; i < selectedOrder.length; i++) {
+          const { error: oErr } = await supabase
+            .from("templates")
+            .update({ sort_order: i })
+            .eq("id", selectedOrder[i]);
+          if (oErr) console.error("[order]", selectedOrder[i], oErr);
+        }
+
         location.href = "/admin/packs";
       } catch (err) {
         showError(err.message || "Could not save pack.");
@@ -1138,11 +1299,12 @@ import "../../../styles/admin.css";
         if (q && !(t.name || "").toLowerCase().includes(q) && !(t.category || "").toLowerCase().includes(q)) return false;
         return !t.pack_id || t.pack_id === editingId || selectedTplIds.has(t.id);
       });
-      visible.forEach((t) => selectedTplIds.add(t.id));
+      visible.forEach((t) => { selectedTplIds.add(t.id); if (!selectedOrder.includes(t.id)) selectedOrder.push(t.id); });
       renderTemplatePool();
     });
     tplDeselectAll?.addEventListener("click", () => {
       selectedTplIds.clear();
+      selectedOrder = [];
       renderTemplatePool();
     });
     tplShowSelected?.addEventListener("click", () => {
@@ -1153,6 +1315,9 @@ import "../../../styles/admin.css";
 
     previewInput?.addEventListener("input", () => {
       previewMirror.textContent = String(previewInput.value || 0);
+      const m = document.getElementById("tpl-order-reveal");
+      if (m) m.textContent = String(previewInput.value || 0);
+      renderSelectedOrder();   // refresh which items read as "Preview" vs "Locked"
     });
 
     // ============ "Pull from a template" picker (gallery thumbnails + cover) ============
@@ -1174,15 +1339,35 @@ import "../../../styles/admin.css";
       const img = t ? tplPreview(t) : "";
       if (!img) return;
       if (pickerMode === "cover") {
+        // A cover is a single image — pick and close.
         setCover(img);
         if (coverStatus) coverStatus.textContent = `Cover set from "${t.name}".`;
-      } else if (galleryUrls.includes(img)) {
-        galleryStatus.textContent = "Already in the gallery.";
-      } else {
-        galleryUrls = [...galleryUrls, img];
-        renderGallery();
-        galleryStatus.textContent = `Added "${t.name}".`;
+        closePicker();
+        return;
       }
+      // Gallery mode — tick/untick; collect several, then "Add" them together.
+      if (pickerSelected.has(id)) pickerSelected.delete(id);
+      else pickerSelected.add(id);
+      card.classList.toggle("is-selected", pickerSelected.has(id));
+      card.setAttribute("aria-pressed", pickerSelected.has(id) ? "true" : "false");
+      updatePickerFoot();
+    });
+
+    pickerCancel?.addEventListener("click", closePicker);
+    pickerAdd?.addEventListener("click", () => {
+      let added = 0, skipped = 0;
+      pickerSelected.forEach((id) => {
+        const t = allTemplates.find((x) => x.id === id);
+        const img = t ? tplPreview(t) : "";
+        if (!img) return;
+        if (galleryUrls.includes(img)) { skipped++; return; }
+        galleryUrls = [...galleryUrls, img];
+        added++;
+      });
+      renderGallery();
+      galleryStatus.textContent = added
+        ? `Added ${added} image${added > 1 ? "s" : ""}${skipped ? ` (${skipped} already in the gallery)` : ""}.`
+        : "Those are already in the gallery.";
       closePicker();
     });
 

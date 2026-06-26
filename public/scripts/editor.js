@@ -445,6 +445,18 @@
     return wrap;
   }
 
+  // Markup for a corner-radius section (uniform slider+number, plus an
+  // "Advanced" disclosure with the four individual corners). Shared by
+  // rectangles and images; mounts are filled in by renderProps.
+  function cornerRadiusSectionHtml() {
+    return '<div class="ed-props-section"><h4>Corner radius</h4>' +
+        '<div data-mount="el-radius"></div>' +
+        '<details class="ed-corner-details"><summary>Advanced · individual corners</summary>' +
+          '<div data-mount="el-corners"></div>' +
+        '</details>' +
+      '</div>';
+  }
+
   // Four typed per-corner radius inputs (TL/TR/BL/BR) for a frame. Editing any
   // one promotes the frame to per-corner mode (el.radii), seeded from the
   // current effective values so the other corners don't jump.
@@ -2307,8 +2319,14 @@
     if (el.type === "rect" || el.type === "ellipse") {
       const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
       node.style.background = grad || el.fill || "transparent";
-      node.style.borderRadius = (el.type === "ellipse" ? "50%" : (el.radius || 0) + "px");
+      node.style.borderRadius = (el.type === "ellipse" ? "50%" : frameRadiusCss(el));
       node.style.border = (el.strokeWidth ? `${el.strokeWidth}px solid ${el.stroke || "transparent"}` : "none");
+    }
+    if (el.type === "image") {
+      // Optional rounded corners — clip the photo to the (per-corner) radius.
+      const r = frameRadiusCss(el);
+      node.style.borderRadius = r;
+      node.style.overflow = r ? "hidden" : "";
     }
     if (el.type === "line") {
       const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
@@ -3896,7 +3914,9 @@
   async function _renderThumbDataUrl() {
     try {
       const full = await _renderDesignToCanvas({ transparent: false });
-      const targetW = 300;
+      // Render the preview/cover near full design width (was 300px, which looked
+      // very low-res blown up on the pack detail page) at high JPEG quality.
+      const targetW = 1080;
       const scale = Math.min(1, targetW / full.width);
       const c = document.createElement("canvas");
       c.width = Math.max(1, Math.round(full.width * scale));
@@ -3905,7 +3925,7 @@
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(full, 0, 0, c.width, c.height);
-      return c.toDataURL("image/jpeg", 0.72);
+      return c.toDataURL("image/jpeg", 0.9);
     } catch (_) {
       return null;
     }
@@ -4018,13 +4038,24 @@
       if (el.type === "image") {
         try {
           const img = await loadImage(el.src);
-          ctx.drawImage(img, 0, 0, el.w, el.h);
+          if (hasPerCorner(el) || el.radius) {
+            ctx.save();
+            roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+              cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+            ctx.clip();
+            ctx.drawImage(img, 0, 0, el.w, el.h);
+            ctx.restore();
+          } else {
+            ctx.drawImage(img, 0, 0, el.w, el.h);
+          }
         } catch (e) {}
       } else if (el.type === "frame") {
         await drawFrameToCanvas(ctx, el);
       } else if (el.type === "rect") {
         ctx.fillStyle = shapeCanvasFill(ctx, el);
-        if (el.radius) roundedRect(ctx, 0, 0, el.w, el.h, el.radius);
+        if (hasPerCorner(el)) roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+          cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+        else if (el.radius) roundedRect(ctx, 0, 0, el.w, el.h, el.radius);
         else ctx.fillRect(0, 0, el.w, el.h);
         ctx.fill();
         if (el.strokeWidth && el.stroke !== "transparent") {
@@ -4602,9 +4633,7 @@
         <div class="ed-props-field"><label>Colour</label><input type="color" data-prop="fill" value="${rgbHex(el.fill)}"></div>
       </div>`);
       if (el.type === "rect") {
-        html.push(`<div class="ed-props-section"><h4>Corner radius</h4>
-          <div class="ed-props-field"><input type="range" min="0" max="500" data-prop="radius" value="${el.radius||0}"></div>
-        </div>`);
+        html.push(cornerRadiusSectionHtml());
       }
       if (el.type === "line") {
         // A line's thickness IS its element height; the old "Stroke width"
@@ -4635,6 +4664,7 @@
       html.push(`<div class="ed-props-section"><h4>Image</h4>
         <button class="ed-btn-ghost" id="ed-replace-img" style="background:rgba(28,29,34,0.06); width:100%">Replace image</button>
       </div>`);
+      html.push(cornerRadiusSectionHtml());
     }
 
     if (el.type === "frame") {
@@ -4731,6 +4761,20 @@
 
     // Circular colour swatches (open the rich colour panel — brand + recent +
     // design colours) in place of the native "long square" colour inputs.
+    // Corner radius for rectangles + images — uniform slider+number (sets all
+    // corners, clears per-corner overrides) plus the four individual corners.
+    const elRadiusMount = body.querySelector('[data-mount="el-radius"]');
+    if (elRadiusMount && el) {
+      elRadiusMount.appendChild(sliderNumberRow("Corner radius", "px", 0, 500, 1,
+        function () { return el.radius || 0; },
+        function (v) { el.radius = v; el.radii = null; },
+        function () { partialRenderElement(el); }));
+    }
+    const elCornersMount = body.querySelector('[data-mount="el-corners"]');
+    if (elCornersMount && el) {
+      elCornersMount.appendChild(buildCornerInputs(el));
+    }
+
     // Line weight — slider + typed number bound to the element height (its
     // visible thickness). 1px = thinnest.
     const lineWeightMount = body.querySelector('[data-mount="line-weight"]');
@@ -4981,10 +5025,24 @@
     if (g && g.type === "radial") {
       grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 2);
     } else {
-      const a = (g && g.angle != null ? g.angle : 90) * Math.PI / 180;
+      // Match the CSS linear-gradient angle convention used on screen (gradCss):
+      // 0deg points UP, increasing clockwise, default 135deg. Direction vector in
+      // canvas coords (x right, y down) is (sin a, -cos a). Using the math
+      // convention here (cos/sin) rotated gradients ~90deg vs what the editor
+      // showed — leaving a hard edge and the wrong areas shaded in exports/thumbs.
+      const a = (g && g.angle != null ? g.angle : 135) * Math.PI / 180;
+      const dx = Math.sin(a), dy = -Math.cos(a);
+      // CSS gradient-line LENGTH: the line through the centre, extended so the
+      // box corners project exactly onto its 0%/100% ends — len = |w·sin a| +
+      // |h·cos a|. Scaling by half-width/half-height instead (the old approach)
+      // makes the line too short for angled gradients, so the fade reaches its
+      // end colour before the shape edge and the remainder fills flat → a hard
+      // line. This makes the fade span the whole shape, matching CSS exactly.
+      const len = Math.abs(w * Math.sin(a)) + Math.abs(h * Math.cos(a));
+      const cx = w / 2, cy = h / 2;
       grad = ctx.createLinearGradient(
-        w / 2 - Math.cos(a) * w / 2, h / 2 - Math.sin(a) * h / 2,
-        w / 2 + Math.cos(a) * w / 2, h / 2 + Math.sin(a) * h / 2
+        cx - dx * len / 2, cy - dy * len / 2,
+        cx + dx * len / 2, cy + dy * len / 2
       );
     }
     gradStops(g).forEach(function (s) {
@@ -6628,18 +6686,43 @@
     fitZoom();
   };
 
-  // Publish hook — admin Publish flow reads every page + a cover thumb so it
-  // can write each page as a template (optionally linked to a pack).
+  // Publish hook — admin Publish flow reads every page (with a properly RENDERED
+  // thumbnail per page, text and all, at full resolution) plus the loaded
+  // template id so a re-publish can UPDATE that row instead of duplicating it.
   window.__TMKE_PUBLISH_DATA__ = async function () {
-    let cover = "";
-    try { cover = await _renderThumbDataUrl(); } catch (_) {}
+    const orig = state.currentPage;
+    const pages = [];
+    for (let i = 0; i < state.pages.length; i++) {
+      state.currentPage = i;             // _renderThumbDataUrl renders the active page
+      let thumb = "";
+      try { thumb = await _renderThumbDataUrl(); } catch (_) {}
+      const p = state.pages[i];
+      pages.push({ canvas: deep(p.canvas), elements: deep(p.elements), thumb: thumb });
+    }
+    state.currentPage = orig;
     return {
       filename: (filenameEl && filenameEl.value) || "Design",
-      pages: state.pages.map(function (p) {
-        return { canvas: deep(p.canvas), elements: deep(p.elements) };
-      }),
-      cover: cover,
+      templateId: state.templateId || null,
+      pages: pages,
+      cover: (pages[orig] && pages[orig].thumb) || (pages[0] && pages[0].thumb) || "",
     };
+  };
+
+  // Render an arbitrary stored design ({canvas, elements}) to a high-res JPEG
+  // data URL — used by the admin "Regenerate previews" tool to refresh every
+  // template's thumbnail without anyone re-opening each design by hand.
+  window.__TMKE_RENDER_THUMB_FROM__ = async function (canvasObj, elementsArr) {
+    const savePages = state.pages, saveCur = state.currentPage;
+    try {
+      state.pages = [{ canvas: deep(canvasObj || {}), elements: deep(elementsArr || []) }];
+      state.currentPage = 0;
+      return await _renderThumbDataUrl();
+    } catch (_) {
+      return null;
+    } finally {
+      state.pages = savePages; state.currentPage = saveCur;
+      fullRender();
+    }
   };
 
   // AI text parser — snapshot the active page (the imported design) so it can be

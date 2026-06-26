@@ -44,6 +44,10 @@ const reveal = Math.max(0, Math.min(24, pack.preview_reveal_count ?? 3));
 const previewTpls = templates.slice(0, reveal);
 const lockedTpls = templates.slice(reveal);
 const contents = Array.isArray(pack.contents) ? pack.contents : [];
+// The big cover: an explicit cover image if set, otherwise fall back to the
+// first template's (high-res) thumbnail so the hero is never a stale low-res
+// pick. Clearing a pack's cover therefore shows the crisp first preview.
+const coverSrc = pack.cover_image_url || (templates[0] && templates[0].thumb_url) || null;
 
 function gbp(pence) {
   if (pence == null) return "";
@@ -66,8 +70,8 @@ function gbp(pence) {
 
       <div class="pack-hero-grid">
         <div class="pack-cover-frame">
-          {pack.cover_image_url ? (
-            <img class="pack-cover-img" src={pack.cover_image_url} alt={pack.title} />
+          {coverSrc ? (
+            <img class="pack-cover-img" src={coverSrc} alt={pack.title} />
           ) : (
             <div class="pack-cover-empty">No cover image yet.</div>
           )}
@@ -115,7 +119,15 @@ function gbp(pence) {
 
       <div class="pack-tpl-grid">
         {previewTpls.map((t, i) => (
-          <figure class="pack-tpl pack-tpl--open">
+          <figure
+            class="pack-tpl pack-tpl--open"
+            data-zoom={t.thumb_url ? "" : undefined}
+            data-full={t.thumb_url || undefined}
+            data-name={t.name}
+            tabindex={t.thumb_url ? "0" : undefined}
+            role={t.thumb_url ? "button" : undefined}
+            aria-label={t.thumb_url ? `Enlarge ${t.name}` : undefined}
+          >
             {t.thumb_url
               ? <img src={t.thumb_url} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
               : <div class="pack-tpl-empty"></div>}
@@ -158,6 +170,23 @@ function gbp(pence) {
       )}
     </section>
   </article>
+
+  <!-- Lightbox — click any preview to bring it up large, then flip through the
+       rest with the arrows (or ← →). -->
+  <div class="pack-lightbox" id="pack-lightbox" hidden>
+    <button type="button" class="pack-lightbox-close" aria-label="Close">&times;</button>
+    <button type="button" class="pack-lightbox-nav pack-lightbox-prev" id="pack-lightbox-prev" aria-label="Previous">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <figure class="pack-lightbox-fig">
+      <img id="pack-lightbox-img" src="" alt="" />
+      <figcaption id="pack-lightbox-cap"></figcaption>
+      <span class="pack-lightbox-count" id="pack-lightbox-count"></span>
+    </figure>
+    <button type="button" class="pack-lightbox-nav pack-lightbox-next" id="pack-lightbox-next" aria-label="Next">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
 
   <style>
     .pack-detail { color: var(--ink); }
@@ -307,7 +336,63 @@ function gbp(pence) {
       overflow: hidden;
       transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
     }
-    .pack-tpl--open:hover { transform: translateY(-3px); }
+    .pack-tpl--open { cursor: zoom-in; }
+    .pack-tpl--open:hover { transform: translateY(-3px); box-shadow: 0 26px 50px -28px rgba(28,29,34,0.5); }
+    /* Hover hint — a small "enlarge" glyph appears top-left on the previews. */
+    .pack-tpl--open::after {
+      content: "⤢";
+      position: absolute; top: 12px; left: 12px; z-index: 2;
+      width: 30px; height: 30px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: rgba(28,29,34,0.62); color: var(--paper); font-size: 14px;
+      opacity: 0; transform: scale(0.8); transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+    }
+    .pack-tpl--open:hover::after, .pack-tpl--open:focus-visible::after { opacity: 1; transform: scale(1); }
+
+    /* Lightbox */
+    .pack-lightbox {
+      position: fixed; inset: 0; z-index: 300;
+      display: flex; align-items: center; justify-content: center;
+      padding: clamp(20px, 5vh, 60px);
+      background: rgba(16,15,13,0.92); backdrop-filter: blur(6px);
+    }
+    .pack-lightbox[hidden] { display: none; }
+    .pack-lightbox-fig { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 16px; max-height: 100%; }
+    .pack-lightbox-fig img {
+      max-width: min(92vw, 760px); max-height: 82vh; width: auto; height: auto;
+      object-fit: contain; border-radius: 3px; box-shadow: 0 40px 90px -30px rgba(0,0,0,0.7);
+    }
+    .pack-lightbox-fig figcaption {
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase; color: rgba(240,238,235,0.8);
+    }
+    .pack-lightbox-close {
+      position: absolute; top: 22px; right: 26px;
+      width: 46px; height: 46px; border-radius: 50%; border: 0; cursor: pointer;
+      background: rgba(240,238,235,0.12); color: var(--paper); font-size: 26px; line-height: 1;
+      display: grid; place-items: center; transition: background 0.2s;
+    }
+    .pack-lightbox-close:hover { background: rgba(240,238,235,0.24); }
+    .pack-lightbox-count {
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.18em; color: rgba(240,238,235,0.55);
+    }
+    .pack-lightbox-nav {
+      position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+      width: 52px; height: 52px; border-radius: 50%; border: 0; cursor: pointer;
+      background: rgba(240,238,235,0.12); color: var(--paper);
+      display: grid; place-items: center; transition: background 0.2s;
+    }
+    .pack-lightbox-nav:hover { background: rgba(240,238,235,0.26); }
+    .pack-lightbox-nav[hidden] { display: none; }
+    .pack-lightbox-prev { left: clamp(12px, 3vw, 40px); }
+    .pack-lightbox-next { right: clamp(12px, 3vw, 40px); }
+    @media (max-width: 640px) {
+      .pack-lightbox-nav { width: 44px; height: 44px; }
+      .pack-lightbox-prev { left: 8px; }
+      .pack-lightbox-next { right: 8px; }
+    }
     .pack-tpl img {
       width: 100%; aspect-ratio: 4/5;
       object-fit: cover; display: block;
@@ -398,5 +483,57 @@ function gbp(pence) {
         if (id) window.location.href = '/edit?buy=' + encodeURIComponent(id);
       });
     });
+
+    // Click a preview to open it large, then flip through the rest with the
+    // arrows (or ← →) — no need to close and re-open each one.
+    (function () {
+      var lb = document.getElementById('pack-lightbox');
+      var img = document.getElementById('pack-lightbox-img');
+      var cap = document.getElementById('pack-lightbox-cap');
+      var count = document.getElementById('pack-lightbox-count');
+      var prevBtn = document.getElementById('pack-lightbox-prev');
+      var nextBtn = document.getElementById('pack-lightbox-next');
+      if (!lb || !img) return;
+
+      // The ordered set of previews you can flip between.
+      var items = Array.prototype.slice.call(document.querySelectorAll('[data-zoom]')).map(function (el) {
+        return { full: el.getAttribute('data-full'), name: el.getAttribute('data-name') || '' };
+      });
+      var idx = 0;
+      var multiple = items.length > 1;
+
+      function render() {
+        var it = items[idx];
+        if (!it) return;
+        img.src = it.full; img.alt = it.name; cap.textContent = it.name;
+        if (count) count.textContent = multiple ? (idx + 1) + ' / ' + items.length : '';
+      }
+      function open(i) {
+        idx = (i + items.length) % items.length;
+        render();
+        lb.hidden = false; document.documentElement.style.overflow = 'hidden';
+      }
+      function close() { lb.hidden = true; img.removeAttribute('src'); document.documentElement.style.overflow = ''; }
+      function go(d) { idx = (idx + d + items.length) % items.length; render(); }
+
+      if (prevBtn) prevBtn.hidden = !multiple;
+      if (nextBtn) nextBtn.hidden = !multiple;
+
+      document.querySelectorAll('[data-zoom]').forEach(function (el, i) {
+        el.addEventListener('click', function () { open(i); });
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(i); }
+        });
+      });
+      if (prevBtn) prevBtn.addEventListener('click', function (e) { e.stopPropagation(); go(-1); });
+      if (nextBtn) nextBtn.addEventListener('click', function (e) { e.stopPropagation(); go(1); });
+      lb.addEventListener('click', function (e) { if (e.target === lb || e.target.closest('.pack-lightbox-close')) close(); });
+      document.addEventListener('keydown', function (e) {
+        if (lb.hidden) return;
+        if (e.key === 'Escape') close();
+        else if (e.key === 'ArrowLeft' && multiple) go(-1);
+        else if (e.key === 'ArrowRight' && multiple) go(1);
+      });
+    })();
   </script>
 </BaseLayout>

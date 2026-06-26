@@ -4,32 +4,33 @@ import { getPublishedPosts } from "../../data/blog.js";
 
 // Pulled from Supabase if configured, otherwise from the static fallback.
 const allPosts = await getPublishedPosts();
-const sorted = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
-const featured = sorted[0]; // → right column (newest / feature post)
-const rest = sorted.slice(1); // → left list
+const posts = [...allPosts]
+  .sort((a, b) => (a.date < b.date ? 1 : -1))
+  .slice(0, 16);
 
-// Pad the feed with duplicates so the columns are tall enough to actually show
-// the counter-scroll while there are only a handful of real posts. Remove the
-// padding (use `rest` directly) once there are ~9+ published posts.
-const feed = rest.length >= 9 ? rest : [...rest, ...rest, ...rest].slice(0, 9);
-
-// The left side is a double column whose two halves counter-scroll. Alternate
-// posts between them so both stay populated and balanced.
-const colUp = feed.filter((_, i) => i % 2 === 0);   // left-left column → drifts UP
-const colDown = feed.filter((_, i) => i % 2 === 1); // left-right column → drifts DOWN
-
-// The feature card shows a slightly shorter display title (≈2 lines)
-// without changing the article's canonical title. Keyed by slug so it only
-// applies to the intended post; falls back to the real title otherwise.
-const FEATURE_TITLE = {
-  "why-personal-branding-works-in-estate-agency": "Why personal branding works in estate agency",
-};
-const featTitle = FEATURE_TITLE[featured.slug] || featured.title;
+// A deliberately jumbled size/position sequence so the grid reads scattered, not
+// choreographed — no obvious repeating rhythm across the posts, and big/small
+// tiles interleaved rather than sorted top-to-bottom. Length is coprime-ish to
+// the post count so it doesn't visibly loop.
+const SCATTER = [3, 7, 0, 9, 4, 1, 10, 6, 2, 8, 5, 0, 7, 9, 1, 4, 6, 2];
 
 function fmtDate(iso) {
+  if (!iso) return "";
   const d = new Date(iso);
+  if (isNaN(d)) return "";
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
+
+// Lightweight data for the reader (bodies are embedded as <template>s below so
+// the post opens IN A FRAME — no navigation away from the grid).
+const lite = posts.map((p) => ({
+  slug: p.slug,
+  title: p.title,
+  eyebrow: p.eyebrow || p.category || "",
+  date: fmtDate(p.date),
+  readTime: p.readTime || null,
+  hero: p.hero,
+}));
 ---
 
 <BaseLayout
@@ -37,512 +38,384 @@ function fmtDate(iso) {
   description="Structured insights on social media, brand positioning, content systems, and the future of estate agency marketing — written for UK property professionals."
   hideFooter
 >
-  <!-- Page-wide film grain — fixed, sits above the content but below the nav,
-       blended so it adds texture without tinting. Purely decorative. -->
-  <div class="insights-grain" aria-hidden="true"></div>
+  <div class="flow-grain" aria-hidden="true"></div>
 
-  <!-- ============================== TWO-COLUMN SPLIT -->
-  <section class="insights2" id="insights2">
-    <!-- LEFT: double column — the two halves counter-scroll (left up, right down) -->
-    <div class="ins-list" id="ins-list">
-      <div class="ins-list-head">
-        <h1 class="ins-list-title">Notes from <em>the desk.</em></h1>
-      </div>
+  <section class="flow-page">
+    <header class="flow-head">
+      <span class="flow-eyebrow">Insights</span>
+      <span class="flow-eyebrow flow-eyebrow--muted">Notes from the desk</span>
+    </header>
 
-      <div class="ins-cols">
-        <div class="ins-col ins-col--up" id="ins-col-up">
-          {colUp.map((p) => (
-            <a class="ins-item" href={`/blog/${p.slug}`}>
-              <div class="ins-item-media">
-                {p.video
-                  ? <video autoplay muted loop playsinline preload="metadata" poster={p.hero}><source src={p.video} type="video/mp4" /></video>
-                  : <img src={p.hero} alt={p.title} loading="lazy" />}
-              </div>
-              <h3 class="ins-item-title">{p.title}</h3>
-              <p class="ins-item-brief">{p.standfirst}</p>
-            </a>
-          ))}
-        </div>
-        <div class="ins-col ins-col--down" id="ins-col-down">
-          {colDown.map((p) => (
-            <a class="ins-item" href={`/blog/${p.slug}`}>
-              <div class="ins-item-media">
-                {p.video
-                  ? <video autoplay muted loop playsinline preload="metadata" poster={p.hero}><source src={p.video} type="video/mp4" /></video>
-                  : <img src={p.hero} alt={p.title} loading="lazy" />}
-              </div>
-              <h3 class="ins-item-title">{p.title}</h3>
-              <p class="ins-item-brief">{p.standfirst}</p>
-            </a>
-          ))}
-        </div>
-      </div>
+    <!-- Scattered FLOW grid — image + title only. Hover fades the rest;
+         clicking flies the image to the centre and opens the reader. -->
+    <div class="flow" id="flow">
+      {posts.map((p, i) => (
+        <button class="flow-item" type="button" data-slug={p.slug} data-variant={SCATTER[i % SCATTER.length]}>
+          <span class="flow-media">
+            <img src={p.hero} alt={p.title} loading={i < 6 ? "eager" : "lazy"} />
+          </span>
+          <span class="flow-cap">
+            <span class="flow-title">{p.title}</span>
+            {p.readTime ? <span class="flow-count">[ {p.readTime} ]</span> : null}
+          </span>
+        </button>
+      ))}
     </div>
-
-    <!-- RIGHT: pinned feature (newest post) -->
-    <aside class="ins-feature" id="ins-feature">
-      <a class="ins-feature-inner" href={`/blog/${featured.slug}`}>
-        <div class="ins-feature-head">
-          <div class="ins-feature-eyebrow">Latest news</div>
-        </div>
-        <div class="ins-feature-media">
-          <!-- Feature video (hosted on assets.tmke.co.uk). The poster
-               (the post's hero image) shows until the clip loads. -->
-          <video
-            class="ins-feature-video"
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="metadata"
-            poster={featured.hero}
-          >
-            <source src="https://assets.tmke.co.uk/TLE/hf_20260618_092952_0d92918a-d366-402e-881c-d3f694f1a6be.mp4" type="video/mp4" />
-          </video>
-          <span class="ins-feature-tag">Read the feature <em>&rarr;</em></span>
-        </div>
-        <h2 class="ins-feature-title">{featTitle}</h2>
-        <p class="ins-feature-sub">{featured.standfirst}</p>
-      </a>
-    </aside>
   </section>
 
-  <!-- Newsletter + footer removed — Insights is a fixed one-pager. -->
+  <!-- Reader — opens in-frame over the grid. -->
+  <div class="reader" id="reader" hidden>
+    <button class="reader-x" id="reader-x" type="button" aria-label="Close">&times;</button>
+    <div class="reader-frame" role="dialog" aria-modal="true" aria-labelledby="reader-title">
+      <div class="reader-hero" id="reader-hero">
+        <img id="reader-hero-img" src="" alt="" />
+      </div>
+      <div class="reader-col">
+        <div class="reader-meta" id="reader-meta"></div>
+        <h2 class="reader-title" id="reader-title"></h2>
+        <div class="reader-content" id="reader-content"></div>
+      </div>
+    </div>
+  </div>
 
+  <!-- Flying clone used for the grid → centre transition. -->
+  <img class="flow-fly" id="flow-fly" alt="" aria-hidden="true" />
+
+  <!-- Embedded post bodies (cloned into the reader on open). -->
+  {posts.map((p) => (
+    <template data-post={p.slug} set:html={p.body}></template>
+  ))}
+
+  <script type="application/json" id="flow-data" set:html={JSON.stringify(lite)}></script>
 
   <style>
-    /* ============== PAGE GRAIN ============== */
-    .insights-grain {
-      position: fixed;
-      inset: 0;
-      z-index: 60; /* above content (z-index:2), below nav (100) */
-      pointer-events: none;
+    /* Insights — FLOW scattered grid + in-frame reader. */
+    /* ============== PAGE ============== */
+    .flow-grain {
+      position: fixed; inset: 0; z-index: 60; pointer-events: none;
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
-      background-size: 240px 240px;
-      opacity: 0.15;
-      mix-blend-mode: overlay;
+      background-size: 240px 240px; opacity: 0.1; mix-blend-mode: overlay;
     }
-
-    /* ============== TWO-COLUMN SPLIT ============== */
-    .insights2 {
-      display: grid;
-      /* minmax(0,1fr) keeps both halves a true 50/50 — without the `0` floor
-         the nowrap card titles inflate the left track past half. */
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: clamp(28px, 3.2vw, 60px);
-      align-items: stretch;
-      max-width: 1640px;
-      margin: 0 auto;
-      position: relative;
-      /* Shared metrics so the divider lines land exactly between the header
-         band and the content below it. */
-      --ins-pad-top: clamp(92px, 10vh, 116px);
-      --ins-pad-x: clamp(22px, 4vw, 64px);
-      --ins-pad-bot: clamp(28px, 4vh, 56px);
-      --ins-head-h: clamp(18px, 1.6vw, 22px);
-      --ins-head-gap: clamp(24px, 2.4vw, 34px);
-      /* Distance from the header band down to the divider line — kept small so
-         the line sits just under the labels, leaving more clearance below it
-         before the images/video begin. */
-      --ins-line-gap: clamp(8px, 0.8vw, 11px);
-      --ins-line: rgba(28, 29, 34, 0.14);
-      /* Fixed one-pager — fills the viewport, never scrolls. */
-      height: 100vh;
-      overflow: hidden;
-      padding: var(--ins-pad-top) var(--ins-pad-x) var(--ins-pad-bot);
+    .flow-page {
+      max-width: 1680px; margin: 0 auto;
+      padding: clamp(96px, 11vh, 132px) clamp(20px, 4vw, 72px) clamp(80px, 10vh, 140px);
     }
+    .flow-head {
+      display: flex; align-items: center; gap: 18px;
+      margin-bottom: clamp(34px, 5vh, 64px);
+    }
+    .flow-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet);
+      display: inline-flex; align-items: center; gap: 14px;
+    }
+    .flow-eyebrow::before {
+      content: ""; width: 42px; height: 1px; background: currentColor; opacity: 0.4;
+    }
+    .flow-eyebrow--muted { color: rgba(28, 29, 34, 0.4); }
 
-    /* Thin, faint divider lines forming a "T": a full-width rule under the
-       header band, plus a vertical rule down the centre gap separating the
-       left article columns from the right feature. */
-    .insights2::before,
-    .insights2::after {
-      content: "";
-      position: absolute;
-      background: var(--ins-line);
+    /* ============== FLOW GRID (column masonry → scattered) ============== */
+    .flow {
+      column-count: 5;
+      column-gap: clamp(34px, 3.6vw, 78px);
+      transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.2,.7,.2,1), filter 0.6s ease;
+    }
+    @media (max-width: 1320px) { .flow { column-count: 4; } }
+    @media (max-width: 1000px) { .flow { column-count: 3; } }
+    @media (max-width: 680px)  { .flow { column-count: 2; } }
+    @media (max-width: 440px)  { .flow { column-count: 1; } }
+
+    /* Reader open → grid stays lightly visible behind (single-page feel). */
+    .flow.is-away {
+      opacity: 0.4; transform: scale(0.99); filter: blur(2.5px);
       pointer-events: none;
     }
-    .insights2::before {
-      /* horizontal — under both headers, edge to edge */
-      left: 0;
-      right: 0;
-      top: calc(var(--ins-pad-top) + var(--ins-head-h) + var(--ins-line-gap));
-      height: 1px;
-    }
-    .insights2::after {
-      /* vertical — down the centre, from the horizontal line to the content base */
-      left: 50%;
-      transform: translateX(-0.5px);
-      top: calc(var(--ins-pad-top) + var(--ins-head-h) + var(--ins-line-gap));
-      bottom: var(--ins-pad-bot);
-      width: 1px;
-    }
 
-    /* ---- LEFT: double column (the two halves counter-scroll) ---- */
-    .ins-list {
-      display: flex;
-      flex-direction: column;
-      min-height: 0; /* allow the marquee area to clip inside the fixed page */
-      /* Pull the blogs in from the centre so the video has breathing room. */
-      padding-right: clamp(10px, 1.8vw, 36px);
+    .flow-item {
+      -webkit-appearance: none; appearance: none; border: 0; background: none;
+      padding: 0; margin: 0 0 clamp(56px, 6vw, 124px); width: 100%;
+      display: block; text-align: left; cursor: pointer;
+      break-inside: avoid; color: var(--ink);
+      transition: opacity 0.4s ease;
     }
-    .ins-list-head {
-      height: var(--ins-head-h);
-      margin-bottom: var(--ins-head-gap);
-      display: flex;
-      align-items: center;
-    }
-    .ins-list-head .eyebrow {
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      color: var(--english-violet);
-    }
-    .ins-list-head .eyebrow::before {
-      content: "";
-      display: block;
-      width: 48px;
-      height: 1px;
-      background: currentColor;
-      opacity: 0.45;
-      flex-shrink: 0;
-    }
-    .ins-list-title {
-      /* Matched to the "Latest news" label on the right — same small uppercase
-         treatment so the two header labels read at the same size. */
-      font-family: var(--sans);
-      font-weight: 700;
-      font-size: 11px;
-      line-height: 1.2;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-      margin: 0;
-    }
-    .ins-list-title em { font-style: normal; color: inherit; }
+    /* Hover any tile → fade the others out. */
+    .flow:hover .flow-item { opacity: 0.28; }
+    .flow:hover .flow-item:hover { opacity: 1; }
 
-    .ins-cols {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: clamp(14px, 1.6vw, 24px);
-      align-items: start;
-      /* Clipped marquee viewport — fills the remaining height, no page scroll. */
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-      position: relative;
-    }
-    .ins-col {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      will-change: transform;
-    }
-    /* The two columns counter-scroll on wheel (driven by JS) — left drifts up,
-       right drifts down — instead of auto-scrolling. */
+    /* Size + position variety → the semi-random scatter. Horizontal padding
+       shrinks the tile within its column (smaller images, big range) and offsets
+       it left/right; aspect-ratio varies the height; and the top/bottom margins
+       vary independently so tiles sit closer or further apart unevenly — not on
+       a tidy rhythm. */
+    .flow-item[data-variant="0"] .flow-media { aspect-ratio: 3 / 4; }
+    .flow-item[data-variant="0"] { margin-bottom: clamp(70px, 8vw, 150px); }
 
-    .ins-item {
-      display: block;
-      color: var(--ink);
-      text-decoration: none;
-      margin-bottom: 30px; /* gap below the block before the next image */
-    }
-    .ins-item-title {
-      /* Helios heading stack — set explicitly because the global h3 rule
-         re-points --serif to The Seasons. */
-      font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif;
-      font-weight: 400;
-      font-size: clamp(16px, 1.25vw, 20px);
-      line-height: 1.15;
-      letter-spacing: -0.01em;
-      color: var(--ink);
-      margin: 0 0 6px;
-      /* One line maximum. */
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      transition: color 0.3s ease;
-    }
-    .ins-item:hover .ins-item-title { color: var(--english-violet); }
+    .flow-item[data-variant="1"] { padding-right: 38%; margin-top: clamp(54px, 6.5vw, 118px); margin-bottom: clamp(34px, 3.8vw, 70px); }
+    .flow-item[data-variant="1"] .flow-media { aspect-ratio: 1 / 1; }
 
-    .ins-item-media {
-      aspect-ratio: 4 / 3;
-      overflow: hidden;
-      border-radius: 6px;
-      background: rgba(28, 29, 34, 0.06);
-      margin-bottom: 20px;
+    .flow-item[data-variant="2"] { padding-left: 20%; margin-top: clamp(10px, 1.4vw, 26px); margin-bottom: clamp(56px, 6vw, 120px); }
+    .flow-item[data-variant="2"] .flow-media { aspect-ratio: 4 / 5; }
+
+    .flow-item[data-variant="3"] { margin-top: clamp(84px, 10vw, 172px); margin-bottom: clamp(44px, 5vw, 90px); }
+    .flow-item[data-variant="3"] .flow-media { aspect-ratio: 2 / 3; }
+
+    .flow-item[data-variant="4"] { padding-right: 13%; margin-top: clamp(22px, 2.8vw, 52px); margin-bottom: clamp(76px, 8.6vw, 158px); }
+    .flow-item[data-variant="4"] .flow-media { aspect-ratio: 4 / 3; }
+
+    .flow-item[data-variant="5"] { padding-left: 42%; margin-top: clamp(18px, 2.4vw, 46px); margin-bottom: clamp(28px, 3.2vw, 58px); }
+    .flow-item[data-variant="5"] .flow-media { aspect-ratio: 1 / 1; }
+
+    .flow-item[data-variant="6"] { margin-top: clamp(4px, 0.8vw, 16px); margin-bottom: clamp(92px, 10.5vw, 184px); }
+    .flow-item[data-variant="6"] .flow-media { aspect-ratio: 3 / 4; }
+
+    .flow-item[data-variant="7"] { padding-right: 30%; margin-top: clamp(64px, 7.6vw, 142px); margin-bottom: clamp(48px, 5.4vw, 102px); }
+    .flow-item[data-variant="7"] .flow-media { aspect-ratio: 3 / 2; }
+
+    .flow-item[data-variant="8"] { padding-left: 12%; margin-top: clamp(40px, 4.6vw, 92px); margin-bottom: clamp(66px, 7.2vw, 138px); }
+    .flow-item[data-variant="8"] .flow-media { aspect-ratio: 5 / 6; }
+
+    .flow-item[data-variant="9"] { padding-right: 26%; margin-top: clamp(8px, 1.2vw, 22px); margin-bottom: clamp(34px, 3.8vw, 68px); }
+    .flow-item[data-variant="9"] .flow-media { aspect-ratio: 1 / 1; }
+
+    .flow-item[data-variant="10"] { margin-top: clamp(50px, 5.8vw, 110px); margin-bottom: clamp(58px, 6.4vw, 124px); }
+    .flow-item[data-variant="10"] .flow-media { aspect-ratio: 5 / 7; }
+
+    /* On narrow screens drop the horizontal offset so tiles stay legible. */
+    @media (max-width: 1000px) { .flow-item { padding-left: 0 !important; padding-right: 0 !important; } }
+
+    .flow-media {
+      display: block; overflow: hidden; background: rgba(28, 29, 34, 0.05);
+      border-radius: 4px;
     }
-    .ins-item-media img,
-    .ins-item-media video {
+    .flow-media img {
       width: 100%; height: 100%; object-fit: cover; display: block;
-      transition: transform 1.4s cubic-bezier(.2, .7, .2, 1);
+      transition: transform 1.3s cubic-bezier(.2,.7,.2,1);
     }
-    .ins-item:hover .ins-item-media img,
-    .ins-item:hover .ins-item-media video { transform: scale(1.05); }
+    .flow-item:hover .flow-media img { transform: scale(1.045); }
 
-    .ins-item-brief {
-      font-family: var(--sans);
-      font-size: clamp(12.5px, 0.95vw, 14px);
-      line-height: 1.35;
-      color: rgba(28, 29, 34, 0.6);
-      margin: 0;
-      /* Two lines, tight. */
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+    .flow-cap {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+      margin-top: 14px;
+    }
+    .flow-title {
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.35;
+      color: var(--ink); transition: color 0.3s ease;
+    }
+    .flow-item:hover .flow-title { color: var(--english-violet); }
+    .flow-count {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; color: rgba(28, 29, 34, 0.4); flex-shrink: 0;
+    }
+
+    /* ============== FLYING CLONE ============== */
+    .flow-fly {
+      position: fixed; z-index: 210; object-fit: cover; border-radius: 4px;
+      opacity: 0; pointer-events: none; will-change: left, top, width, height;
+      box-shadow: 0 40px 110px -30px rgba(0,0,0,0.45);
+    }
+
+    /* ============== READER (in-frame) ============== */
+    .reader {
+      position: fixed; inset: 0; z-index: 200;
+      display: grid; place-items: center; padding: clamp(20px, 4vh, 56px);
+      background: rgba(244, 242, 240, 0); backdrop-filter: blur(0px);
+      transition: background 0.45s ease, backdrop-filter 0.45s ease;
+    }
+    .reader[hidden] { display: none; }
+    .reader.is-open { background: rgba(244, 242, 240, 0.42); backdrop-filter: blur(5px); }
+
+    .reader-frame {
+      width: min(1060px, 94vw); max-height: 88vh;
+      display: grid; grid-template-columns: minmax(0, 0.74fr) minmax(0, 1fr);
+      gap: clamp(26px, 3vw, 56px);
+      background: var(--paper, #fff); border-radius: 6px;
+      padding: clamp(22px, 2.6vw, 44px);
+      box-shadow: 0 50px 130px -36px rgba(0,0,0,0.5);
       overflow: hidden;
+      /* The box expands outward from behind the hero image (origin sits over the
+         left-hand hero), so it grows to "fit" around the picture as it lands. */
+      opacity: 0; transform: scale(0.58);
+      transform-origin: 26% 46%;
+      transition: opacity 0.46s ease, transform 0.74s cubic-bezier(.16,.84,.3,1);
     }
-    .ins-dot { opacity: 0.5; }
+    .reader.is-open .reader-frame { opacity: 1; transform: scale(1); }
 
-    /* ---- RIGHT: pinned feature ---- */
-    .ins-feature {
-      position: sticky;
-      top: clamp(80px, 9vh, 104px);
-      height: calc(100vh - clamp(80px, 9vh, 104px) - clamp(32px, 4vh, 56px));
-      min-height: 540px;
+    .reader-hero {
+      aspect-ratio: 3 / 4; overflow: hidden; border-radius: 4px;
+      background: rgba(28, 29, 34, 0.06); align-self: start;
     }
-    .ins-feature-inner {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      color: var(--ink);
-      text-decoration: none;
-      will-change: transform;
-    }
-    /* Same height + gap as the left header so both columns' content starts on
-       the same line and "Latest news" centres on the title. */
-    .ins-feature-head {
-      flex: 0 0 auto;
-      height: var(--ins-head-h);
-      margin-bottom: var(--ins-head-gap);
-      display: flex;
-      align-items: center;
-    }
-    .ins-feature-eyebrow {
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-      margin-bottom: 0;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .ins-feature-eyebrow::before {
-      content: "";
-      display: block;
-      width: 48px;
-      height: 1px;
-      background: currentColor;
-      opacity: 0.45;
-      flex-shrink: 0;
-    }
-    .ins-feature-title {
-      flex: 0 0 auto;
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: 32px;
-      line-height: 1.04;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-      margin: clamp(16px, 1.6vw, 24px) 0 0;
-      white-space: nowrap;
-    }
-    .ins-feature-sub {
-      flex: 0 0 auto;
-      font-family: var(--sans);
-      font-style: normal;
-      font-size: 18px;
-      line-height: 1.5;
-      color: rgba(28, 29, 34, 0.7);
-      margin: 10px 0 0;
-      max-width: 60ch;
-      text-align: justify;
-    }
-    .ins-feature-media {
-      position: relative;
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow: hidden;
-      border-radius: 6px;
-      background: rgba(28, 29, 34, 0.06);
-    }
-    .ins-feature-media img,
-    .ins-feature-media video {
-      width: 100%; height: 100%; object-fit: cover; display: block;
-      transition: transform 1.6s cubic-bezier(.2, .7, .2, 1);
-    }
-    .ins-feature-inner:hover .ins-feature-media img,
-    .ins-feature-inner:hover .ins-feature-media video { transform: scale(1.04); }
-    .ins-feature-tag {
-      position: absolute;
-      left: 18px; bottom: 18px;
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 9px 16px;
-      background: rgba(28, 29, 34, 0.85);
-      color: var(--paper);
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      border-radius: 999px;
-      backdrop-filter: blur(4px);
-    }
-    .ins-feature-tag em {
-      font-style: normal;
-      transition: transform 0.3s ease;
-    }
-    .ins-feature-inner:hover .ins-feature-tag em { transform: translateX(4px); }
+    .reader-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    /* ---- Responsive: stack, un-pin, no parallax ---- */
-    @media (max-width: 900px) {
-      .insights2 {
-        grid-template-columns: minmax(0, 1fr);
-        gap: clamp(56px, 10vw, 88px);
-        padding-top: clamp(120px, 22vw, 160px);
-        /* Mobile scrolls normally — drop the fixed one-pager. */
-        height: auto;
-        overflow: visible;
+    .reader-col {
+      min-width: 0; overflow-y: auto; padding-right: 6px;
+      /* Copy fades in just after the box has opened. */
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 0.5s ease 0.2s, transform 0.6s cubic-bezier(.2,.7,.2,1) 0.2s;
+    }
+    .reader.is-open .reader-col { opacity: 1; transform: none; }
+    .reader-meta {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet);
+      margin-bottom: 14px;
+    }
+    .reader-title {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(26px, 2.6vw, 40px); line-height: 1.06; letter-spacing: -0.02em;
+      color: var(--ink); margin: 0 0 18px;
+    }
+    .reader-content {
+      font-family: var(--sans); font-size: 15.5px; line-height: 1.66;
+      color: rgba(28, 29, 34, 0.82);
+    }
+    .reader-content :global(h2) {
+      font-family: var(--serif); font-weight: 400; font-size: 21px; line-height: 1.2;
+      color: var(--ink); margin: 26px 0 10px; letter-spacing: -0.01em;
+    }
+    .reader-content :global(p) { margin: 0 0 14px; }
+    .reader-content :global(p.lede) { font-size: 17px; color: var(--ink); }
+    .reader-content :global(ul) { margin: 0 0 16px; padding-left: 20px; }
+    .reader-content :global(li) { margin: 0 0 7px; }
+    .reader-content :global(blockquote) {
+      margin: 22px 0; padding: 4px 0 4px 20px; border-left: 2px solid var(--english-violet);
+      font-family: var(--serif); font-style: italic; font-size: 18px; color: var(--ink);
+    }
+    .reader-content :global(strong) { color: var(--ink); }
+
+    .reader-x {
+      position: fixed; top: clamp(16px, 3vh, 30px); right: clamp(16px, 3vw, 34px);
+      z-index: 220; width: 48px; height: 48px; border-radius: 50%; border: 0;
+      background: var(--ink); color: var(--paper); font-size: 24px; line-height: 1;
+      display: grid; place-items: center; cursor: pointer;
+      opacity: 0; transform: scale(0.8); transition: opacity 0.4s ease 0.15s, transform 0.4s ease 0.15s, background 0.2s;
+    }
+    .reader.is-open .reader-x { opacity: 1; transform: none; }
+    .reader-x:hover { background: var(--english-violet); }
+
+    @media (max-width: 760px) {
+      .reader-frame {
+        grid-template-columns: minmax(0, 1fr); max-height: 90vh;
+        gap: 20px;
       }
-      /* The T-divider only makes sense in the two-column desktop layout. */
-      .insights2::before, .insights2::after { display: none; }
-      .ins-cols { overflow: visible; }
-      .ins-list { padding-right: 0; }
-      .ins-feature {
-        position: static;
-        height: auto;
-        min-height: 0;
-        order: -1; /* feature first on mobile */
-      }
-      .ins-feature-media { aspect-ratio: 4 / 3; flex: 0 0 auto; height: auto; }
-      /* Collapse the double column to one; no counter-scroll on small screens. */
-      .ins-cols { grid-template-columns: minmax(0, 1fr); gap: clamp(26px, 6vw, 44px); }
-      .ins-col--down { margin-top: clamp(26px, 6vw, 44px); }
-      /* Parallax transforms are skipped in JS below this width. */
-      .ins-col, .ins-feature-inner { transform: none !important; }
+      .reader-hero { aspect-ratio: 16 / 10; }
     }
 
-    /* ============== NEWSLETTER ============== */
-    .insights-news {
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 40px 36px 160px;
-    }
-    .news-box {
-      background: var(--ink);
-      color: var(--paper);
-      padding: 80px 64px;
-      text-align: center;
-      border-radius: 2px;
-      position: relative;
-      overflow: hidden;
-    }
-    @media (max-width: 720px) { .news-box { padding: 56px 28px; } }
-    .news-eyebrow {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 16px;
-      color: rgba(240, 238, 235, 0.6);
-      margin-bottom: 18px;
-    }
-    .news-title {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(32px, 3.4vw, 48px);
-      letter-spacing: -0.015em;
-      color: var(--paper);
-      margin: 0 0 14px;
-    }
-    .news-title em { font-style: italic; color: var(--french-grey); }
-    .news-sub {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(16px, 1.4vw, 19px);
-      line-height: 1.5;
-      color: rgba(240, 238, 235, 0.7);
-      max-width: 52ch;
-      margin: 0 auto 28px;
-    }
-    .news-form {
-      display: flex;
-      gap: 8px;
-      max-width: 480px;
-      margin: 0 auto;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .news-form input {
-      flex: 1;
-      min-width: 220px;
-      padding: 14px 18px;
-      font-family: var(--sans);
-      font-size: 15px;
-      background: transparent;
-      border: 1px solid rgba(240, 238, 235, 0.3);
-      color: var(--paper);
-      border-radius: 1px;
-    }
-    .news-form input::placeholder { color: rgba(240, 238, 235, 0.4); }
-    .news-form input:focus { outline: none; border-color: var(--paper); }
-    .news-form .btn--solid {
-      background: var(--paper);
-      color: var(--ink);
-      border-color: var(--paper);
-    }
-    .news-form .btn--solid:hover {
-      background: var(--accent);
-      color: var(--paper);
-      border-color: var(--accent);
-    }
-    .news-fine {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: rgba(240, 238, 235, 0.4);
-      margin-top: 18px;
+    @media (prefers-reduced-motion: reduce) {
+      .flow, .flow.is-away, .reader-frame, .reader, .flow-fly, .reader-x { transition: none !important; }
     }
   </style>
 
-  <!-- Insights is a fixed one-pager. The page doesn't scroll; the wheel drives
-       the two left columns in OPPOSITE directions (left up, right down) with a
-       little smoothing. Desktop only — mobile scrolls normally. -->
   <script is:inline>
     (function () {
-      const colUp = document.getElementById("ins-col-up");
-      const colDown = document.getElementById("ins-col-down");
-      const cols = document.querySelector(".ins-cols");
-      if (!colUp || !colDown || !cols) return;
-      const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
+      const flow = document.getElementById("flow");
+      const reader = document.getElementById("reader");
+      const frameHero = document.getElementById("reader-hero");
+      const heroImg = document.getElementById("reader-hero-img");
+      const metaEl = document.getElementById("reader-meta");
+      const titleEl = document.getElementById("reader-title");
+      const contentEl = document.getElementById("reader-content");
+      const closeBtn = document.getElementById("reader-x");
+      const fly = document.getElementById("flow-fly");
+      if (!flow || !reader || !heroImg) return;
+
+      let data = {};
+      try { data = (JSON.parse(document.getElementById("flow-data").textContent || "[]") || []).reduce((m, p) => (m[p.slug] = p, m), {}); } catch (_) {}
       const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      let target = 0, current = 0, raf = null;
-      const rng = (c) => Math.max(0, c.scrollHeight - cols.clientHeight);
-      function render() {
-        colUp.style.transform = "translate3d(0," + (-current * rng(colUp)).toFixed(1) + "px,0)";
-        colDown.style.transform = "translate3d(0," + (-(1 - current) * rng(colDown)).toFixed(1) + "px,0)";
+      let isOpen = false;
+      let flyTimer = null;
+
+      function populate(slug) {
+        const p = data[slug]; if (!p) return false;
+        metaEl.textContent = [p.eyebrow, p.date, p.readTime ? p.readTime + " min read" : ""].filter(Boolean).join("  ·  ");
+        titleEl.textContent = p.title;
+        heroImg.src = p.hero; heroImg.alt = p.title;
+        contentEl.innerHTML = "";
+        const tpl = document.querySelector('template[data-post="' + (window.CSS && CSS.escape ? CSS.escape(slug) : slug) + '"]');
+        if (tpl && tpl.content) contentEl.appendChild(tpl.content.cloneNode(true));
+        return true;
       }
-      function tick() {
-        current += (target - current) * 0.12;
-        if (Math.abs(target - current) < 0.0008) current = target;
-        render();
-        raf = current !== target ? requestAnimationFrame(tick) : null;
+
+      function open(slug, imgEl) {
+        if (isOpen || !populate(slug)) return;
+        isOpen = true;
+        document.documentElement.style.overflow = "hidden";
+        reader.hidden = false;
+        reader.scrollTop = 0; contentEl.scrollTop = 0;
+
+        if (reduce || !imgEl) {
+          flow.classList.add("is-away");
+          requestAnimationFrame(() => reader.classList.add("is-open"));
+          return;
+        }
+
+        // FLIP: fly the clicked image from its grid slot to the hero target.
+        const s = imgEl.getBoundingClientRect();
+        const p = data[slug];
+        const frame = reader.querySelector(".reader-frame");
+
+        // Measure the hero's FINAL rect (box at full size) before it animates,
+        // so the flying image lands exactly where the hero settles.
+        frame.style.transition = "none";
+        frame.style.transform = "none";
+        const t = frameHero.getBoundingClientRect();
+        frame.style.transform = "";       // back to the CSS start scale
+        frame.getBoundingClientRect();    // reflow
+        frame.style.transition = "";
+
+        // Place the flying clone over the clicked image, tilted slightly.
+        fly.src = p.hero;
+        fly.style.transition = "none";
+        fly.style.transformOrigin = "50% 50%";
+        fly.style.transform = "rotate(-5deg)";
+        fly.style.opacity = "1";
+        fly.style.left = s.left + "px"; fly.style.top = s.top + "px";
+        fly.style.width = s.width + "px"; fly.style.height = s.height + "px";
+        frameHero.style.opacity = "0";
+        fly.getBoundingClientRect();      // reflow
+
+        // Open the box (expands outward from behind the image) while the image
+        // glides + rotates to the hero spot.
+        flow.classList.add("is-away");
+        requestAnimationFrame(() => {
+          reader.classList.add("is-open");
+          fly.style.transition =
+            "left .74s cubic-bezier(.16,.84,.3,1), top .74s cubic-bezier(.16,.84,.3,1), " +
+            "width .74s cubic-bezier(.16,.84,.3,1), height .74s cubic-bezier(.16,.84,.3,1), " +
+            "transform .74s cubic-bezier(.16,.84,.3,1), opacity .3s ease";
+          fly.style.left = t.left + "px"; fly.style.top = t.top + "px";
+          fly.style.width = t.width + "px"; fly.style.height = t.height + "px";
+          fly.style.transform = "rotate(0deg)";
+        });
+
+        // Hand off to the real hero once the box has finished expanding.
+        clearTimeout(flyTimer);
+        flyTimer = setTimeout(function () {
+          if (!isOpen) return;
+          frameHero.style.opacity = "1";
+          fly.style.opacity = "0";
+        }, 760);
       }
-      render();
-      window.addEventListener("wheel", function (e) {
-        if (isMobile()) return;
-        const span = Math.max(rng(colUp), rng(colDown)) || 1;
-        target = Math.min(1, Math.max(0, target + e.deltaY / span));
-        if (reduce) { current = target; render(); }
-        else if (!raf) raf = requestAnimationFrame(tick);
-      }, { passive: true });
-      window.addEventListener("resize", function () {
-        if (isMobile()) { colUp.style.transform = ""; colDown.style.transform = ""; }
-        else render();
+
+      function close() {
+        if (!isOpen) return;
+        isOpen = false;
+        clearTimeout(flyTimer);
+        reader.classList.remove("is-open");
+        flow.classList.remove("is-away");
+        fly.style.opacity = "0";
+        document.documentElement.style.overflow = "";
+        setTimeout(() => { if (!isOpen) { reader.hidden = true; contentEl.innerHTML = ""; } }, 540);
+      }
+
+      flow.addEventListener("click", function (e) {
+        const item = e.target.closest(".flow-item");
+        if (!item) return;
+        const img = item.querySelector(".flow-media img");
+        open(item.getAttribute("data-slug"), img);
       });
+      closeBtn.addEventListener("click", close);
+      reader.addEventListener("click", function (e) { if (e.target === reader) close(); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isOpen) close(); });
     })();
   </script>
 </BaseLayout>

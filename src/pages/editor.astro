@@ -230,6 +230,7 @@ const googleFonts = [
           </div>
         </div>
         <!-- Publish — admin only; shown via JS when ?mode=admin. -->
+        <button class="ed-btn-ghost" id="ed-regen" hidden title="Re-render every template's preview at full resolution (updates all packs)">Regenerate previews</button>
         <button class="ed-btn-solid" id="ed-publish" hidden>Send to catalogue</button>
         <div class="ed-download" id="ed-download">
           <button class="ed-btn-solid" id="ed-download-trigger" aria-haspopup="menu" aria-expanded="false">
@@ -3474,6 +3475,34 @@ const googleFonts = [
           } catch (_) { return null; }
         };
 
+        // Bulk "Regenerate previews" — re-render every template's thumbnail from
+        // its stored design (text and all) at full resolution and update its
+        // thumb_url. Lets an admin refresh all packs in one click instead of
+        // re-opening each design by hand. Only touches thumb_url — never the
+        // design data or pack links.
+        window.__TMKE_REGEN_ALL__ = async function (onProgress) {
+          const { data: list, error } = await supabase
+            .from('templates')
+            .select('id, canvas, elements');
+          if (error || !list) throw error || new Error('Could not load templates.');
+          let done = 0, failed = 0;
+          for (const t of list) {
+            try {
+              const dataUrl = (typeof window.__TMKE_RENDER_THUMB_FROM__ === 'function')
+                ? await window.__TMKE_RENDER_THUMB_FROM__(t.canvas, t.elements)
+                : null;
+              if (dataUrl) {
+                const url = await externUploadDataUrl(dataUrl);
+                const { error: uErr } = await supabase.from('templates').update({ thumb_url: url }).eq('id', t.id);
+                if (uErr) { failed++; console.error('[regen update]', t.id, uErr); }
+              } else { failed++; }
+            } catch (e) { failed++; console.error('[regen render]', t.id, e); }
+            done++;
+            if (onProgress) onProgress(done, list.length, failed);
+          }
+          return { total: list.length, done, failed };
+        };
+
         // Brand-kit links point at the customer profile (/profile). In admin we
         // author shared templates, so redirect brand edits to the admin
         // fonts/brand area instead — and open in a new tab so the in-progress
@@ -4215,20 +4244,23 @@ const googleFonts = [
     }
 
     // Styled, centred publish modal. Resolves to a choice object or null.
-    function openPublishModal(packs) {
+    function openPublishModal(packs, currentPackId) {
       return new Promise((resolve) => {
         const scrim = document.createElement("div");
         scrim.className = "ed-pub-scrim";
-        const opts = packs.map((p) => `<option value="${p.id}">${(p.title || p.slug).replace(/</g, "&lt;")}</option>`).join("");
+        // If this design is already in a pack, pre-select that pack so re-
+        // publishing keeps it where it is (unless the admin changes it).
+        const inPack = !!currentPackId && packs.some((p) => p.id === currentPackId);
+        const opts = packs.map((p) => `<option value="${p.id}" ${p.id === currentPackId ? "selected" : ""}>${(p.title || p.slug).replace(/</g, "&lt;")}</option>`).join("");
         scrim.innerHTML = `
           <div class="ed-pub" role="dialog" aria-modal="true">
             <div class="ed-pub-eyebrow">Publish</div>
             <h2 class="ed-pub-title">Save this design <em>to a pack?</em></h2>
-            <p class="ed-pub-sub">These pages become editable templates. Add them to a pack now, or publish without one.</p>
+            <p class="ed-pub-sub">${inPack ? "This design is already in a pack — that pack is pre-selected below. Re-publishing keeps it there unless you change it." : "These pages become editable templates. Add them to a pack now, or publish without one."}</p>
             <div class="ed-pub-choices">
-              <label class="ed-pub-choice"><input type="radio" name="ed-pub" value="new" checked> <span>Create a new pack</span></label>
+              <label class="ed-pub-choice"><input type="radio" name="ed-pub" value="new" ${inPack ? "" : "checked"}> <span>Create a new pack</span></label>
               <input type="text" class="ed-pub-newname" placeholder="Pack name — e.g. Community Spotlight" />
-              <label class="ed-pub-choice ${packs.length ? "" : "is-disabled"}"><input type="radio" name="ed-pub" value="existing" ${packs.length ? "" : "disabled"}> <span>Add to an existing pack</span></label>
+              <label class="ed-pub-choice ${packs.length ? "" : "is-disabled"}"><input type="radio" name="ed-pub" value="existing" ${packs.length ? "" : "disabled"} ${inPack ? "checked" : ""}> <span>Add to an existing pack</span></label>
               <select class="ed-pub-existing" ${packs.length ? "" : "disabled"}>${opts || '<option>No packs yet</option>'}</select>
               <label class="ed-pub-choice"><input type="radio" name="ed-pub" value="none"> <span>Not yet — just publish the templates</span></label>
             </div>
@@ -4267,7 +4299,19 @@ const googleFonts = [
         packs = data || [];
       } catch (_) {}
 
-      const choice = await openPublishModal(packs);
+      // If this design is already a published template, find which pack it's in
+      // so the modal can pre-select it (no guessing on re-publish).
+      let currentPackId = null;
+      try {
+        const sum = typeof window.__TMKE_EDITOR_SUMMARY__ === "function" ? window.__TMKE_EDITOR_SUMMARY__() : null;
+        const tid = sum && sum.templateId;
+        if (tid && !String(tid).startsWith("draft-")) {
+          const { data: row } = await supabase.from("templates").select("pack_id").eq("id", tid).single();
+          currentPackId = (row && row.pack_id) || null;
+        }
+      } catch (_) {}
+
+      const choice = await openPublishModal(packs, currentPackId);
       if (!choice) return;
 
       publishBtn.disabled = true;
@@ -4302,25 +4346,56 @@ const googleFonts = [
           packId = choice.packId;
         }
 
-        // First image (page background, then any image element) → the template's
-        // thumbnail, so the catalogue + pack editor show a real preview.
+        // Each page's thumbnail is a proper RENDER of the design (text and all),
+        // uploaded to storage. Fall back to the bare background only if the
+        // render is missing.
         const pageThumb = (pg) => {
           if (pg.canvas && pg.canvas.backgroundImage) return pg.canvas.backgroundImage;
           const img = (pg.elements || []).find((e) => e && e.type === "image" && e.src);
           return img ? img.src : null;
         };
+        async function thumbFor(pg) {
+          if (typeof pg.thumb === "string" && pg.thumb.startsWith("data:")) {
+            try { return await _pubUpload(pg.thumb); } catch (_) {}
+          }
+          return pageThumb(pg);
+        }
 
-        // Write each page as a template row, linked to the pack.
-        const rows = data.pages.map((pg, i) => ({
-          id: "tmpl-" + Math.random().toString(36).slice(2, 9),
-          name: data.filename + (data.pages.length > 1 ? " — " + String(i + 1).padStart(2, "0") : ""),
-          canvas: pg.canvas,
-          elements: pg.elements,
-          thumb_url: pageThumb(pg),
-          pack_id: packId,
-          status: "active",
-          sort_order: i,
-        }));
+        // A loaded, already-published design carries its real template id. Re-
+        // publishing must UPDATE that same row (never duplicate) and re-assign it
+        // to the chosen pack — moving it out of whatever pack it was in.
+        const existingId = data.templateId && !String(data.templateId).startsWith("draft-") ? data.templateId : null;
+
+        if (existingId && data.pages.length === 1) {
+          const pg = data.pages[0];
+          const thumb_url = await thumbFor(pg);
+          const patch = { name: data.filename, canvas: pg.canvas, elements: pg.elements, thumb_url, status: "active" };
+          if (choice.mode !== "none") patch.pack_id = packId;   // move into the chosen pack
+          const { error: uErr } = await supabase.from("templates").update(patch).eq("id", existingId);
+          if (uErr) throw uErr;
+          publishBtn.textContent = "Re-published ✓";
+          alert(choice.mode !== "none"
+            ? "Updated this template in place and moved it to the chosen pack — no duplicate created."
+            : "Updated this template in place — no duplicate created.");
+          setTimeout(() => { publishBtn.textContent = original; publishBtn.disabled = false; }, 1800);
+          return;
+        }
+
+        // New design — write each page as a fresh template row, linked to the pack.
+        const rows = [];
+        for (let i = 0; i < data.pages.length; i++) {
+          const pg = data.pages[i];
+          rows.push({
+            id: "tmpl-" + Math.random().toString(36).slice(2, 9),
+            name: data.filename + (data.pages.length > 1 ? " — " + String(i + 1).padStart(2, "0") : ""),
+            canvas: pg.canvas,
+            elements: pg.elements,
+            thumb_url: await thumbFor(pg),
+            pack_id: packId,
+            status: "active",
+            sort_order: i,
+          });
+        }
         const { error: tErr } = await supabase.from("templates").insert(rows);
         if (tErr) throw tErr;
 
@@ -4336,6 +4411,31 @@ const googleFonts = [
     }
 
     if (isAdmin && publishBtn) publishBtn.addEventListener("click", doPublish);
+
+    // Bulk "Regenerate previews" — re-render every template's thumbnail at full
+    // resolution so existing packs get crisp previews without re-opening each.
+    const regenBtn = document.getElementById("ed-regen");
+    if (isAdmin && regenBtn) {
+      regenBtn.hidden = false;
+      regenBtn.addEventListener("click", async () => {
+        if (typeof window.__TMKE_REGEN_ALL__ !== "function") { alert("Not ready yet — give the studio a second to finish loading, then try again."); return; }
+        if (!confirm("Re-render EVERY template preview at full resolution? This updates all packs and can take a minute or two. It only changes previews, not your designs.")) return;
+        const orig = regenBtn.textContent;
+        regenBtn.disabled = true;
+        try {
+          const res = await window.__TMKE_REGEN_ALL__((done, total) => { regenBtn.textContent = `Regenerating ${done}/${total}…`; });
+          const ok = res.done - res.failed;
+          regenBtn.textContent = `Done ✓`;
+          alert(`Regenerated ${ok} of ${res.total} previews.` + (res.failed ? ` ${res.failed} failed — see the console.` : " Re-publishing covers will now use the crisp versions."));
+        } catch (e) {
+          console.error("[regen]", e);
+          alert("Regenerate failed: " + (e.message || e));
+        } finally {
+          regenBtn.disabled = false;
+          setTimeout(() => { regenBtn.textContent = orig; }, 3000);
+        }
+      });
+    }
 
     // ---- Canva import (admin): a TWO-STAGE flow that fixes the duplicate-words
     // problem. Stage 1 = the finished designs (text baked in) — we read the
