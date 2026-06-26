@@ -244,217 +244,165 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .show-inner {
       display: flex;
       align-items: center;
-      gap: clamp(36px, 5.5vw, 104px);
-      min-height: min(80vh, 760px);
+      gap: clamp(28px, 4vw, 76px);
+      min-height: min(78vh, 740px);
     }
-    .show-media { flex: 1 1 54%; min-width: 0; }
-    .show-copy  { flex: 1 1 40%; min-width: 0; }
-    /* Flip every other band so the page zig-zags down the screen. */
-    .show:nth-child(even) .show-inner { flex-direction: row-reverse; }
-    @media (max-width: 900px) {
-      .show-inner,
-      .show:nth-child(even) .show-inner { flex-direction: column; gap: 38px; min-height: 0; }
-      .show-media, .show-copy { flex: none; width: 100%; }
+    /* Three zones across the band: framed hero photo · description (middle) ·
+       hoverable preview collage. They alternate sides band to band. */
+    .show-hero { flex: 1 1 38%; min-width: 0; order: 1; }
+    .show-copy { flex: 1 1 23%; min-width: 0; order: 2; }
+    .show-shop { flex: 1 1 39%; min-width: 0; order: 3; }
+    .show:nth-child(even) .show-hero { order: 3; }
+    .show:nth-child(even) .show-shop { order: 1; }
+    @media (max-width: 980px) {
+      .show-inner { flex-wrap: wrap; gap: 36px clamp(28px, 4vw, 56px); }
+      .show-hero { flex: 1 1 46%; order: 1 !important; }
+      .show-copy { flex: 1 1 46%; order: 2 !important; }
+      .show-shop { flex: 1 1 100%; order: 3 !important; }
+    }
+    @media (max-width: 680px) {
+      .show-inner { flex-direction: column; min-height: 0; }
+      .show-hero, .show-copy, .show-shop { flex: none; width: 100%; }
     }
 
-    /* ---- Photo cluster (the built frame + supporting prints) ---- */
-    .show-media {
-      position: relative;
-      display: flex;
-      justify-content: center;
-      padding: clamp(30px, 4vw, 72px);   /* room for the accents to peek out */
-    }
+    /* ---- Framed hero photo ---- */
+    .show-hero { position: relative; display: flex; justify-content: center; }
     .show-ghost {
       position: absolute;
-      top: -8%; left: 0;
-      font-family: var(--serif);
-      font-weight: 500;
-      font-size: clamp(130px, 17vw, 250px);
-      line-height: 1;
+      top: -15%; left: -8%;
+      font-family: var(--serif); font-weight: 500;
+      font-size: clamp(120px, 15vw, 230px); line-height: 1;
       color: rgba(55, 30, 40, 0.06);
-      z-index: 0;
-      pointer-events: none;
-      user-select: none;
+      z-index: 0; pointer-events: none; user-select: none;
       translate: 0 var(--par, 0px);
     }
-    .show:nth-child(even) .show-ghost { left: auto; right: 0; }
+    .show:nth-child(even) .show-ghost { left: auto; right: -8%; }
 
     .show-stage {
-      position: relative;
-      display: block;
-      width: min(390px, 78%);
+      position: relative; display: block;
+      width: min(400px, 94%);
       aspect-ratio: 3 / 4;
-      z-index: 3;
-      text-decoration: none;
+      z-index: 1; text-decoration: none;
     }
-
-    /* The frame itself — a gallery-mounted print: paper mount, hairline bevel,
-       layered drop shadow. (Built in CSS, not an image — swap for a PNG frame
-       later if you prefer a more literal one.) */
+    /* Gallery-mounted print: paper mount, hairline bevel, layered shadow.
+       (Built in CSS — swap for a PNG frame later if you prefer a literal one.) */
     .show-frame {
-      position: relative;
-      margin: 0;
-      width: 100%;
-      height: 100%;
+      position: relative; margin: 0; width: 100%; height: 100%;
       background: var(--paper);
       padding: clamp(12px, 1.5vw, 20px);
       border: 1px solid rgba(28, 29, 34, 0.10);
-      box-shadow:
-        0 40px 70px -30px rgba(28, 29, 34, 0.5),
-        0 8px 20px -10px rgba(28, 29, 34, 0.28);
-      transition: transform 0.85s cubic-bezier(.2,.7,.2,1), box-shadow 0.85s;
+      box-shadow: 0 40px 70px -30px rgba(28,29,34,0.5), 0 8px 20px -10px rgba(28,29,34,0.28);
+      transition: transform 0.7s cubic-bezier(.2,.7,.2,1), box-shadow 0.7s;
+    }
+    .show-stage:hover .show-frame {
+      transform: translateY(-6px);
+      box-shadow: 0 54px 92px -34px rgba(28,29,34,0.55), 0 10px 26px -10px rgba(28,29,34,0.3);
     }
     .show-frame::after {
-      content: "";
-      position: absolute;
-      inset: clamp(7px, 1vw, 13px);
-      border: 1px solid rgba(28, 29, 34, 0.16);
-      pointer-events: none;
-      z-index: 4;
+      content: ""; position: absolute; inset: clamp(7px, 1vw, 13px);
+      border: 1px solid rgba(28, 29, 34, 0.16); pointer-events: none; z-index: 4;
     }
-    .show-mount {
-      position: relative;
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: var(--platinum);
-    }
-    .show-slide {
+    .show-mount { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--platinum); }
+    .show-heroimg {
       position: absolute; inset: 0;
       background-size: cover; background-position: center;
-      opacity: 0;
-      transition: opacity 0.7s ease;
+      transition: opacity 0.28s ease;
     }
-    .show-slide.is-active { opacity: 1; }
     .show-frame-cap {
-      position: absolute;
-      left: 2px; bottom: -28px;
-      font-family: var(--sans);
-      font-size: 10px;
-      letter-spacing: 0.26em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: rgba(28, 29, 34, 0.45);
+      position: absolute; left: 2px; bottom: -28px;
+      font-family: var(--sans); font-size: 10px;
+      letter-spacing: 0.26em; text-transform: uppercase;
+      font-weight: 700; color: rgba(28, 29, 34, 0.45);
     }
 
-    /* Supporting prints peeking out behind the frame. */
-    .show-accent {
-      position: absolute;
-      width: 47%;
-      aspect-ratio: 3 / 4;
-      background-size: cover; background-position: center;
-      background-color: var(--platinum);
-      border: 6px solid var(--paper);
-      box-shadow: 0 24px 44px -20px rgba(28, 29, 34, 0.45);
-      z-index: 2;
-      transition: transform 0.9s cubic-bezier(.2,.7,.2,1);
-    }
-    .show-accent--top { top: -13%; right: -9%; transform: rotate(5deg); }
-    .show-accent--bot { bottom: -13%; left: -9%; width: 41%; transform: rotate(-6deg); }
-    .show:nth-child(even) .show-accent--top { right: auto; left: -9%; transform: rotate(-5deg); }
-    .show:nth-child(even) .show-accent--bot { left: auto; right: -9%; transform: rotate(6deg); }
-
-    /* Hover: the whole cluster comes alive — frame lifts, prints fan out. */
-    .show-media:hover .show-frame {
-      transform: translateY(-8px) rotate(-0.6deg);
-      box-shadow:
-        0 56px 96px -34px rgba(28, 29, 34, 0.55),
-        0 10px 26px -10px rgba(28, 29, 34, 0.3);
-    }
-    .show-media:hover .show-accent--top { transform: translate(10%, -7%) rotate(8deg); }
-    .show-media:hover .show-accent--bot { transform: translate(-10%, 7%) rotate(-9deg); }
-    .show:nth-child(even) .show-media:hover .show-accent--top { transform: translate(-10%, -7%) rotate(-8deg); }
-    .show:nth-child(even) .show-media:hover .show-accent--bot { transform: translate(10%, 7%) rotate(9deg); }
-
-    @media (max-width: 560px) {
-      .show-stage { width: min(300px, 86%); }
-      .show-accent--top { right: -7%; } .show-accent--bot { left: -7%; }
-      .show:nth-child(even) .show-accent--top { left: -7%; }
-      .show:nth-child(even) .show-accent--bot { right: -7%; }
-    }
-
-    /* ---- Copy side ---- */
-    .show-copy { position: relative; max-width: 540px; }
-    .show:nth-child(even) .show-copy { margin-left: auto; }
+    /* ---- Description (middle) ---- */
+    .show-copy { position: relative; }
     .show-eyebrow {
       display: flex; align-items: center; gap: 12px;
-      font-family: var(--sans);
-      font-size: 11px; font-weight: 700;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.28em; text-transform: uppercase;
-      color: var(--english-violet);
-      margin: 0 0 18px;
+      color: var(--english-violet); margin: 0 0 18px;
     }
-    .show-eyebrow::before {
-      content: ""; width: 36px; height: 1px;
-      background: var(--english-violet); opacity: 0.5;
-    }
+    .show-eyebrow::before { content: ""; width: 30px; height: 1px; background: var(--english-violet); opacity: 0.5; }
     .show-title {
       font-family: var(--serif); font-weight: 500;
-      font-size: clamp(36px, 4.4vw, 62px);
-      line-height: 1.0; letter-spacing: -0.02em;
+      font-size: clamp(32px, 3.6vw, 52px);
+      line-height: 1.02; letter-spacing: -0.02em;
       margin: 0; color: var(--ink);
     }
     .show-desc {
-      font-family: var(--sans);
-      font-size: clamp(15px, 1.2vw, 17px);
-      line-height: 1.62; color: rgba(28, 29, 34, 0.66);
-      margin: 20px 0 0; max-width: 46ch;
+      font-family: var(--sans); font-size: clamp(15px, 1.15vw, 16.5px);
+      line-height: 1.62; color: rgba(28, 29, 34, 0.66); margin: 18px 0 0;
     }
     .show-inside {
-      list-style: none; padding: 0; margin: 24px 0 0;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 9px 20px;
+      list-style: none; padding: 0; margin: 22px 0 0;
+      display: flex; flex-direction: column; gap: 8px;
     }
-    @media (max-width: 460px) { .show-inside { grid-template-columns: 1fr; } }
     .show-inside li {
       font-family: var(--sans); font-size: 13px; line-height: 1.4;
       color: rgba(28, 29, 34, 0.62); padding-left: 19px; position: relative;
     }
-    .show-inside li::before {
-      content: "\2192"; position: absolute; left: 0; color: var(--english-violet);
+    .show-inside li::before { content: "\2192"; position: absolute; left: 0; color: var(--english-violet); }
+
+    /* ---- Preview collage + shop foot ---- */
+    .show-shop { position: relative; display: flex; flex-direction: column; }
+    .show-collage { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .show-thumb {
+      appearance: none; padding: 0; cursor: pointer;
+      position: relative; aspect-ratio: 3 / 4;
+      background-size: cover; background-position: center;
+      background-color: var(--platinum);
+      border: 4px solid var(--paper);
+      box-shadow: 0 12px 26px -14px rgba(28, 29, 34, 0.45);
+      transition: transform 0.45s cubic-bezier(.2,.7,.2,1), box-shadow 0.45s, opacity 0.45s, rotate 0.45s;
     }
-    .show-foot {
-      margin-top: clamp(28px, 3.4vw, 42px);
-      display: flex; align-items: center; gap: clamp(18px, 2.4vw, 32px);
-      flex-wrap: wrap;
+    .show-thumb:nth-child(3n+1) { rotate: -2.5deg; }
+    .show-thumb:nth-child(3n+2) { rotate: 1.5deg; }
+    .show-thumb:nth-child(3n)   { rotate: -1deg; }
+    /* Hover one → it pops forward; the rest flicker back. */
+    .show-collage:hover .show-thumb { opacity: 0.5; }
+    .show-collage .show-thumb:hover,
+    .show-collage .show-thumb.is-active {
+      opacity: 1; rotate: 0deg;
+      transform: translateY(-5px) scale(1.06);
+      box-shadow: 0 20px 38px -16px rgba(28, 29, 34, 0.55); z-index: 2;
     }
-    .show-price {
-      font-family: var(--serif); font-size: 32px; font-weight: 500;
-      color: var(--ink); letter-spacing: 0;
+    .show-shopfoot {
+      margin-top: clamp(22px, 2.4vw, 32px);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap;
     }
+    .show-price { font-family: var(--serif); font-size: 30px; font-weight: 500; color: var(--ink); }
     .show-price small { font-size: 13px; color: rgba(28, 29, 34, 0.5); }
     .show-ctas { display: flex; align-items: center; gap: 16px; }
     .show-see {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.22em; text-transform: uppercase;
-      color: var(--ink); text-decoration: none;
-      border-bottom: 1px solid rgba(28, 29, 34, 0.3); padding-bottom: 3px;
+      letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink);
+      text-decoration: none; border-bottom: 1px solid rgba(28, 29, 34, 0.3); padding-bottom: 3px;
       transition: color 0.25s, border-color 0.25s;
     }
     .show-see:hover { color: var(--english-violet); border-color: var(--english-violet); }
     .show-buy {
-      appearance: none;
-      background: var(--ink); color: var(--paper);
+      appearance: none; background: var(--ink); color: var(--paper);
       border: 0; padding: 13px 22px; border-radius: 2px;
       font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.24em; text-transform: uppercase;
-      cursor: pointer;
+      letter-spacing: 0.24em; text-transform: uppercase; cursor: pointer;
       transition: background 0.3s, transform 0.4s cubic-bezier(.2,.7,.2,1);
     }
     .show-buy:hover { background: var(--english-violet); transform: translateX(2px); }
-    .show-buy em {
-      font-family: var(--serif); font-style: italic; font-size: 15px;
-      letter-spacing: 0; text-transform: none; margin-left: 8px;
-    }
+    .show-buy em { font-family: var(--serif); font-style: italic; font-size: 15px; letter-spacing: 0; text-transform: none; margin-left: 8px; }
 
     /* ---- Scroll-in reveal ---- */
-    .show-media, .show-copy {
-      opacity: 0; transform: translateY(36px);
+    .show-hero, .show-copy, .show-shop {
+      opacity: 0; transform: translateY(34px);
       transition: opacity 1s cubic-bezier(.2,.7,.2,1), transform 1s cubic-bezier(.2,.7,.2,1);
     }
-    .show.is-in .show-media { opacity: 1; transform: none; transition-delay: 0.05s; }
-    .show.is-in .show-copy  { opacity: 1; transform: none; transition-delay: 0.16s; }
+    .show.is-in .show-hero { opacity: 1; transform: none; transition-delay: 0.04s; }
+    .show.is-in .show-copy { opacity: 1; transform: none; transition-delay: 0.14s; }
+    .show.is-in .show-shop { opacity: 1; transform: none; transition-delay: 0.22s; }
     @media (prefers-reduced-motion: reduce) {
-      .show-media, .show-copy { opacity: 1 !important; transform: none !important; }
-      .show-frame, .show-accent { transition: none; }
+      .show-hero, .show-copy, .show-shop { opacity: 1 !important; transform: none !important; }
+      .show-frame, .show-thumb, .show-heroimg { transition: none; }
     }
 
     /* ============ Checkout modal ============ */
@@ -893,17 +841,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     function renderShowcase(p, i) {
-      // Slides shown inside the framed hero: cover first, then any preview images.
-      const slideUrls = [p.cover_image_url, ...(p.preview_images ?? [])]
-        .filter((u) => typeof u === 'string' && u.length > 0);
-      const slides = slideUrls
-        .map((url, idx) => `<div class="show-slide${idx === 0 ? ' is-active' : ''}" style="background-image:url('${escapeHtml(url)}')"></div>`)
-        .join('');
-
-      // Supporting prints fanned behind the frame — prefer the preview images.
+      const cover = (typeof p.cover_image_url === 'string' && p.cover_image_url) ? p.cover_image_url : '';
       const previews = (p.preview_images ?? []).filter((u) => typeof u === 'string' && u.length > 0);
-      const accentTop = previews[0] || p.cover_image_url || '';
-      const accentBot = previews[1] || previews[0] || p.cover_image_url || '';
+      // The collage shows the pack's previews; hovering one flickers it into the
+      // framed hero. Fall back to the cover if a pack has no separate previews.
+      const collageUrls = (previews.length ? previews : (cover ? [cover] : [])).slice(0, 6);
+      const thumbs = collageUrls
+        .map((url) => `<button type="button" class="show-thumb" data-src="${escapeHtml(url)}" style="background-image:url('${escapeHtml(url)}')" aria-label="Preview"></button>`)
+        .join('');
 
       const isFree = (p.price_pence ?? 0) === 0;
       const priceLabel = isFree ? 'Free' : gbpFromPence(p.price_pence);
@@ -915,19 +860,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         : '';
       const capBits = [`№ ${num}`];
       if (p.category) capBits.push(escapeHtml(p.category));
-      if (contentsCount) capBits.push(`${contentsCount} inside`);
       const eyebrow = `${p.category ? escapeHtml(p.category) : 'The Edit'}${contentsCount ? ` · ${contentsCount} posts` : ''}`;
 
       return `
         <section class="show" data-id="${p.id}" data-slug="${escapeHtml(p.slug)}">
           <div class="show-inner">
-            <div class="show-media">
-              <span class="show-ghost" data-par="34" aria-hidden="true">${num}</span>
-              ${accentTop ? `<div class="show-accent show-accent--top" style="background-image:url('${escapeHtml(accentTop)}')" aria-hidden="true"></div>` : ''}
-              ${accentBot ? `<div class="show-accent show-accent--bot" style="background-image:url('${escapeHtml(accentBot)}')" aria-hidden="true"></div>` : ''}
+            <div class="show-hero">
+              <span class="show-ghost" data-par="30" aria-hidden="true">${num}</span>
               <a class="show-stage" href="/edit/${encodeURIComponent(p.slug)}" aria-label="See inside ${escapeHtml(p.title)}">
                 <figure class="show-frame">
-                  <div class="show-mount">${slides}</div>
+                  <div class="show-mount">
+                    <div class="show-heroimg" data-cover="${escapeHtml(cover)}" style="background-image:url('${escapeHtml(cover)}')"></div>
+                  </div>
                   <figcaption class="show-frame-cap">${capBits.join(' · ')}</figcaption>
                 </figure>
               </a>
@@ -937,7 +881,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <h2 class="show-title">${escapeHtml(p.title)}</h2>
               ${p.description ? `<p class="show-desc">${escapeHtml(p.description)}</p>` : ''}
               ${insideList}
-              <div class="show-foot">
+            </div>
+            <div class="show-shop">
+              <div class="show-collage">${thumbs}</div>
+              <div class="show-shopfoot">
                 <span class="show-price">${priceLabel}</span>
                 <div class="show-ctas">
                   <a class="show-see" href="/edit/${encodeURIComponent(p.slug)}">See inside</a>
@@ -950,25 +897,36 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       `;
     }
 
-    // Cycle the framed preview slides while a band is hovered — starts on the
-    // hero cover, advances every 1.1s, and resets to the cover on mouseleave.
-    const HOVER_INTERVAL = 1100;
-    function wireHoverGallery(root) {
+    // Hovering a collage thumbnail flickers it into the framed hero, and the
+    // rest of the collage dims back (CSS). Leaving the collage restores the cover.
+    function wireCollage(root) {
       root.querySelectorAll('.show').forEach((sec) => {
-        const media = sec.querySelector('.show-media');
-        const slides = sec.querySelectorAll('.show-slide');
-        if (!media || slides.length <= 1) return;
-        let timer = null;
-        let i = 0;
-        const setActive = (idx) => slides.forEach((s, n) => s.classList.toggle('is-active', n === idx));
-        media.addEventListener('mouseenter', () => {
-          if (timer) return;
-          timer = setInterval(() => { i = (i + 1) % slides.length; setActive(i); }, HOVER_INTERVAL);
+        const hero = sec.querySelector('.show-heroimg');
+        const collage = sec.querySelector('.show-collage');
+        const thumbs = [...sec.querySelectorAll('.show-thumb')];
+        if (!hero || !collage || !thumbs.length) return;
+        const cover = hero.dataset.cover || '';
+        let raf = 0;
+        const swap = (url) => {
+          if (!url) return;
+          hero.style.opacity = '0.18';   // flicker out…
+          cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(() => setTimeout(() => {
+            hero.style.backgroundImage = `url('${url}')`;
+            hero.style.opacity = '1';    // …and back in on the new shot
+          }, 80));
+        };
+        thumbs.forEach((t) => {
+          const show = () => {
+            thumbs.forEach((x) => x.classList.toggle('is-active', x === t));
+            swap(t.dataset.src);
+          };
+          t.addEventListener('mouseenter', show);
+          t.addEventListener('focus', show);
         });
-        media.addEventListener('mouseleave', () => {
-          if (timer) { clearInterval(timer); timer = null; }
-          i = 0;
-          setActive(0);
+        collage.addEventListener('mouseleave', () => {
+          thumbs.forEach((x) => x.classList.remove('is-active'));
+          swap(cover);
         });
       });
     }
@@ -1019,7 +977,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         title: 'New Instruction', price_pence: 29900,
         description: 'The full launch moment for a fresh listing — coming-soon teasers, a just-listed carousel and matching story covers that make every new instruction feel like an event.',
         cover_image_url: '/assets/home%20kitchen.jpg',
-        preview_images: ['/assets/cosy%20home.jpg', '/assets/sitting%20chair.jpg'],
+        preview_images: ['/assets/cosy%20home.jpg', '/assets/sitting%20chair.jpg', '/assets/home%20chair.jpg', '/assets/home%20window.jpg', '/assets/Doors.jpg', '/assets/outside.jpg'],
         contents: ['9 feed posts', '6 story covers', 'Just-listed carousel', 'Coming-soon teaser'],
       },
       {
@@ -1027,7 +985,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         title: 'Just Sold', price_pence: 24900,
         description: 'Turn every completion into content. A celebratory “sold” set with testimonial frames and before/after layouts that keep your pipeline warm.',
         cover_image_url: '/assets/Home-window.jpg',
-        preview_images: ['/assets/home%20chair.jpg', '/assets/Doors.jpg'],
+        preview_images: ['/assets/home%20chair.jpg', '/assets/Doors.jpg', '/assets/doors-open.png', '/assets/home%20forest.jpg', '/assets/cosy%20home.jpg', '/assets/sitting%20chair.jpg'],
         contents: ['8 feed posts', 'Testimonial frames', 'Before / after layout', 'Sold-board story'],
       },
       {
@@ -1035,7 +993,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         title: 'Market Update', price_pence: 19900,
         description: 'Position yourself as the local expert — clean, data-led templates for monthly market notes, tips and “ask the agent” prompts.',
         cover_image_url: '/assets/outside.jpg',
-        preview_images: ['/assets/home%20forest.jpg', '/assets/tea.jpg'],
+        preview_images: ['/assets/home%20forest.jpg', '/assets/tea.jpg', '/assets/home%20deer.jpg', '/assets/home%20ginger.jpg', '/assets/vibes.jpg', '/assets/cosy%20home.jpg'],
         contents: ['6 feed posts', 'Stat / chart frames', 'Tip-of-the-week set', 'Q&A story template'],
       },
       {
@@ -1043,7 +1001,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         title: 'Meet the Team', price_pence: 17900,
         description: 'Put faces to the name. A warm personal-brand set for team intros, day-in-the-life stories and the human side of your agency.',
         cover_image_url: '/assets/social%20media.jpg',
-        preview_images: ['/assets/vibes.jpg', '/assets/home%20ginger.jpg'],
+        preview_images: ['/assets/Danni.png', '/assets/Abbie.png', '/assets/June1.png', '/assets/abbie%202.png', '/assets/Danni%202.png', '/assets/vibes.jpg'],
         contents: ['7 feed posts', 'Team intro frames', 'Day-in-the-life story', 'Quote cards'],
       },
     ];
@@ -1073,7 +1031,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       packsById = new Map(packs.map((p) => [p.id, p]));
       grid.innerHTML = packs.map((p, i) => renderShowcase(p, i)).join('');
-      wireHoverGallery(grid);
+      wireCollage(grid);
       wireMotion(grid);
       maybeOpenFromQuery();
     })();
