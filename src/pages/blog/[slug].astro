@@ -31,56 +31,58 @@ const related = posts
   ogImage={(post.seo?.ogImage) || post.hero}
   canonical={(post.seo?.canonical) || undefined}
 >
-  <article class="post">
-    <!-- ============================== HERO -->
-    <header class="post-hero wrap">
-      <a href="/blog" class="post-back">&larr; All insights</a>
-      <div class="post-eyebrow">
-        <span class="post-cat">{post.category}</span>
-        <span class="post-dot">·</span>
-        <span>{post.eyebrow}</span>
+  <article class="post post--split">
+    <!-- Split: the image pins on the left while the article scrolls on the right. -->
+    <div class="post-split">
+      <div class="post-split-media">
+        <img class="post-split-img" src={post.hero} alt={post.title} loading="eager" />
       </div>
-      <h1 class="post-title">{post.title}</h1>
-      <p class="post-stand">{post.standfirst}</p>
-      <div class="post-meta">
-        <div class="post-meta-author">
-          <span class="post-avatar" aria-hidden="true">TMKE</span>
-          <div>
-            <div class="post-author-name">The TMKE Desk</div>
-            <div class="post-author-role">{fmtDate(post.date)} · {post.readTime} min read</div>
+
+      <div class="post-split-main">
+        <a href="/blog" class="post-back">&larr; All insights</a>
+        <div class="post-eyebrow">
+          <span class="post-cat">{post.category}</span>
+          <span class="post-dot">·</span>
+          <span>{post.eyebrow}</span>
+        </div>
+        <h1 class="post-title">{post.title}</h1>
+        <p class="post-stand">{post.standfirst}</p>
+        <div class="post-meta">
+          <div class="post-meta-author">
+            <span class="post-avatar" aria-hidden="true">TMKE</span>
+            <div>
+              <div class="post-author-name">The TMKE Desk</div>
+              <div class="post-author-role">{fmtDate(post.date)} · {post.readTime} min read</div>
+            </div>
+          </div>
+          <div class="post-share" aria-label="Share">
+            <button class="post-share-btn" data-share="copy" title="Copy link">Copy link</button>
+            <a class="post-share-btn" target="_blank" rel="noopener" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}`}>Share</a>
           </div>
         </div>
-        <div class="post-share" aria-label="Share">
-          <button class="post-share-btn" data-share="copy" title="Copy link">Copy link</button>
-          <a class="post-share-btn" target="_blank" rel="noopener" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}`}>Share</a>
-        </div>
+
+        <!-- ============================== BODY -->
+        <div class="post-body" set:html={post.body}></div>
+
+        <!-- ============================== AUTHOR / OUTRO -->
+        <section class="post-outro">
+          <div class="post-outro-card">
+            <div class="post-outro-avatar" aria-hidden="true">TMKE</div>
+            <div>
+              <div class="post-outro-eyebrow">Written by</div>
+              <h3>The TMKE Desk</h3>
+              <p>
+                We're a specialist social media and content studio for the UK
+                property sector. We write what we see — across the agents we
+                work with, the market we watch, and the things they're getting
+                right and wrong.
+              </p>
+              <a href="/services" class="post-outro-cta">See how we work <em>&rarr;</em></a>
+            </div>
+          </div>
+        </section>
       </div>
-    </header>
-
-    <figure class="post-cover wrap">
-      <img src={post.hero} alt={post.title} loading="eager" />
-    </figure>
-
-    <!-- ============================== BODY -->
-    <div class="post-body wrap" set:html={post.body}></div>
-
-    <!-- ============================== AUTHOR / OUTRO -->
-    <section class="post-outro wrap">
-      <div class="post-outro-card">
-        <div class="post-outro-avatar" aria-hidden="true">TMKE</div>
-        <div>
-          <div class="post-outro-eyebrow">Written by</div>
-          <h3>The TMKE Desk</h3>
-          <p>
-            We're a specialist social media and content studio for the UK
-            property sector. We write what we see — across the agents we
-            work with, the market we watch, and the things they're getting
-            right and wrong.
-          </p>
-          <a href="/services" class="post-outro-cta">See how we work <em>&rarr;</em></a>
-        </div>
-      </div>
-    </section>
+    </div>
 
     <!-- ============================== RELATED -->
     <section class="post-related wrap">
@@ -113,6 +115,42 @@ const related = posts
       max-width: 1280px;
       margin: 0 auto;
       padding: 0 36px;
+    }
+
+    /* ============== SPLIT LAYOUT (image left, text scrolls right) ============== */
+    .post--split .post-split {
+      display: grid;
+      grid-template-columns: 44% 56%;
+      align-items: start;
+    }
+    /* Left image pins for the full height of the article; the right column scrolls. */
+    .post-split-media {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100vh;
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .post-split-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .post-split-main {
+      padding: clamp(80px, 9vh, 130px) clamp(28px, 4.5vw, 80px) clamp(60px, 8vh, 110px);
+      min-width: 0;
+    }
+    /* The right column is already a narrow measure, so let the copy fill it
+       (override the wide-layout caps) while keeping the tuned type + justify. */
+    .post--split .post-title { font-size: clamp(30px, 3.4vw, 52px); margin-top: 4px; }
+    .post--split .post-stand { max-width: none; }
+    .post--split .post-body :global(p),
+    .post--split .post-body :global(ul),
+    .post--split .post-body :global(h2),
+    .post--split .post-body :global(blockquote) { max-width: none; }
+    .post--split .post-outro { max-width: none; margin: clamp(40px, 5vh, 72px) 0 0; padding: 0; }
+    @media (max-width: 900px) {
+      /* Stack on small screens: image on top (not full-height), then the text. */
+      .post--split .post-split { grid-template-columns: 1fr; }
+      .post-split-media { position: relative; top: auto; height: clamp(240px, 42vh, 420px); }
+      .post-split-main { padding: 34px 22px 56px; }
     }
 
     /* ============== POST HERO ============== */
@@ -514,7 +552,7 @@ const related = posts
           }
           setText(".post-title", row.title);
           setText(".post-stand", row.standfirst);
-          var hero = document.querySelector(".post-cover img");
+          var hero = document.querySelector(".post-split-img");
           if (hero && row.hero_image_url && hero.getAttribute("src") !== row.hero_image_url) {
             hero.src = row.hero_image_url;
             if (row.hero_image_alt) hero.alt = row.hero_image_alt;
