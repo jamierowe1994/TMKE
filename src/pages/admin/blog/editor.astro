@@ -936,6 +936,10 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       if (!payload.title) { alert("Give the article a title."); return; }
       if (!payload.slug) { alert("Give the article a slug."); return; }
 
+      // Capture the live state BEFORE the write — an already-published post that
+      // is being switched to draft/archived must still rebuild to drop off the site.
+      const wasLive = loaded && loaded.status === "published";
+
       toast(opts.publish ? "Publishing…" : "Saving…");
       const tableQuery = id
         ? supabase.from("blog_posts").update(payload).eq("id", id).select().single()
@@ -954,8 +958,9 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         }
         updateSub();
         toast(opts.publish ? "Published ✓" : "Saved ✓");
-        // If the post is live, rebuild the public site so the change goes out.
-        if (payload.status === "published") triggerDeploy();
+        // Rebuild the public site when the post is live now, OR was live and is
+        // being taken down (unpublished/archived) — both change the front end.
+        if (payload.status === "published" || wasLive) triggerDeploy();
       }
     }
     $save.addEventListener("click", () => save());
@@ -968,8 +973,11 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     // ─── Delete ───
     $delete.addEventListener("click", async () => {
       if (!id || !confirm(`Delete "${$title.value || "this article"}"? Can't be undone.`)) return;
+      const wasLive = loaded && loaded.status === "published";
       const { error } = await supabase.from("blog_posts").delete().eq("id", id);
       if (error) { toast(`Delete failed: ${error.message}`); return; }
+      // If it was live, rebuild the public site so it drops off before we leave.
+      if (wasLive) { toast("Deleted — updating the live site…"); await triggerDeploy(); }
       location.replace("/admin/blog");
     });
 

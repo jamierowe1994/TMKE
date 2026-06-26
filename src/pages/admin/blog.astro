@@ -255,6 +255,41 @@ import "../../styles/admin.css";
     let activeAud = "all";
     let activeSearch = "";
 
+    // Small transient toast (the list page has no toast region of its own).
+    function note(msg) {
+      let el = document.getElementById("blog-note");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "blog-note";
+        el.style.cssText = "position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:9999;background:#1c1c1c;color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,0.25);max-width:80vw;text-align:center";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.opacity = "1";
+      clearTimeout(note._t);
+      note._t = setTimeout(() => { el.style.transition = "opacity .4s"; el.style.opacity = "0"; }, 4000);
+    }
+
+    // Rebuild the public static site (same admin-only Worker route the editor
+    // uses on publish). Deleting/unpublishing a live post only drops it from the
+    // front end after a rebuild, so we ping this whenever a *live* post changes.
+    const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    async function triggerDeploy(verb = "update") {
+      if (!WORKER_URL) return; // Worker not configured (e.g. local dev)
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data && data.session && data.session.access_token;
+        if (!token) return;
+        const res = await fetch(`${WORKER_URL}/deploy`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const out = await res.json().catch(() => ({}));
+        if (out && out.message) note(out.message);
+        else if (out && out.error) note(`Removed — but the site ${verb} didn't trigger: ` + out.error);
+      } catch (_) { /* the DB change already persisted; the rebuild is best-effort */ }
+    }
+
     function audiencePill(aud) {
       return aud === "members"
         ? '<span class="blog-status-pill" style="background:rgba(55,30,40,0.12);color:var(--english-violet)">Exclusive</span>'
@@ -324,6 +359,7 @@ import "../../styles/admin.css";
           const row = all.find((p) => p.id === id);
           if (!row) return;
           if (!confirm(`Delete "${row.title}"? This can't be undone.`)) return;
+          const wasLive = row.status === "published";
           btn.setAttribute("disabled", "true");
           btn.textContent = "Deleting…";
           const { error } = await supabase.from("blog_posts").delete().eq("id", id);
@@ -335,6 +371,8 @@ import "../../styles/admin.css";
           }
           all = all.filter((p) => p.id !== id);
           render();
+          // If the post was live on the site, rebuild so it drops off the front end.
+          if (wasLive) { note("Removing from the live site…"); triggerDeploy("removal"); }
         });
       });
 
