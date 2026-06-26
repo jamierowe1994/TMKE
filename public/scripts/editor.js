@@ -3159,6 +3159,16 @@
     const xTargets = [0, W / 2, W];
     const yTargets = [0, H / 2, H];
 
+    // Safe-area margins (when on) are snap lines too — an element nearing a
+    // margin sticks to it (and releases if you keep pulling, via the threshold),
+    // so designers can align to the margin without fiddling.
+    const _m = state.margins;
+    if (_m && _m.on && _m.size > 0) {
+      const ms = _m.size;
+      if (ms < W) xTargets.push(ms, W - ms);
+      if (ms < H) yTargets.push(ms, H - ms);
+    }
+
     xTargets.forEach((tx) => {
       if (Math.abs(cx - tx) < threshold) { el.x = tx - el.w / 2; drawGuide("v", tx); }
       else if (Math.abs(el.x - tx) < threshold) { el.x = tx; drawGuide("v", tx); }
@@ -3518,7 +3528,29 @@
   // ---------- Canvas: drag a marquee to multi-select, or click to deselect ----
   canvasEl.addEventListener("pointerdown", (ev) => {
     if (ev.target !== canvasEl || ev.button !== 0) return;
+    if (_bgRepoActive) return; // reposition mode runs its own drag
     closeColorPanel();
+    // Plain drag on the empty background PANS the view; hold Shift to box-select.
+    if (!ev.shiftKey) {
+      const startX = ev.clientX, startY = ev.clientY;
+      const startL = stageEl.scrollLeft, startT = stageEl.scrollTop;
+      let panned = false;
+      stageEl.style.cursor = "grabbing";
+      function pMove(e) {
+        if (Math.abs(e.clientX - startX) > 2 || Math.abs(e.clientY - startY) > 2) panned = true;
+        stageEl.scrollLeft = startL - (e.clientX - startX);
+        stageEl.scrollTop = startT - (e.clientY - startY);
+      }
+      function pUp(e) {
+        document.removeEventListener("pointermove", pMove);
+        document.removeEventListener("pointerup", pUp);
+        stageEl.style.cursor = "";
+        if (!panned) { state.selectedIds = []; state.selectedGuideId = null; fullRender(); } // click = deselect
+      }
+      document.addEventListener("pointermove", pMove);
+      document.addEventListener("pointerup", pUp);
+      return;
+    }
     const rect = canvasEl.getBoundingClientRect();
     const z = state.zoom || 1;
     const sx = (ev.clientX - rect.left) / z, sy = (ev.clientY - rect.top) / z;
