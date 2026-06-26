@@ -308,6 +308,7 @@ import "../../styles/admin.css";
           <span class="blog-row-status">${statusPill(p.status)}${audiencePill(p.audience)}</span>
           <div class="blog-row-actions">
             <a href="/admin/blog/editor?id=${p.id}" class="blog-row-action">Edit</a>
+            <button type="button" class="blog-row-action" data-duplicate="${p.id}">Duplicate</button>
             <button type="button" class="blog-row-action danger" data-delete="${p.id}">Delete</button>
           </div>
         </div>
@@ -333,6 +334,40 @@ import "../../styles/admin.css";
           render();
         });
       });
+
+      // Wire duplicate handlers — clone a post as a fresh draft.
+      $table.querySelectorAll("[data-duplicate]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-duplicate");
+          const src = all.find((p) => p.id === id);
+          if (!src) return;
+          btn.setAttribute("disabled", "true");
+          btn.textContent = "Duplicating…";
+          const copy = Object.assign({}, src);
+          delete copy.id; delete copy.created_at; delete copy.updated_at; delete copy.published_at;
+          copy.title = (src.title || "Untitled") + " (copy)";
+          copy.slug = uniqueSlug((src.slug || "post") + "-copy");
+          copy.status = "draft";
+          copy.publish_date = null;
+          const { data, error } = await supabase.from("blog_posts").insert(copy).select().single();
+          if (error) {
+            btn.removeAttribute("disabled");
+            btn.textContent = "Duplicate";
+            alert(`Couldn't duplicate: ${error.message}`);
+            return;
+          }
+          if (data) { all.unshift(data); render(); }
+        });
+      });
+    }
+
+    // Make a slug unique against the posts we've loaded (slug is unique in DB).
+    function uniqueSlug(base) {
+      const taken = new Set(all.map((p) => p.slug));
+      if (!taken.has(base)) return base;
+      let i = 2;
+      while (taken.has(`${base}-${i}`)) i++;
+      return `${base}-${i}`;
     }
 
     // Each chip group toggles is-active within its own group only.
