@@ -940,12 +940,31 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       // is being switched to draft/archived must still rebuild to drop off the site.
       const wasLive = loaded && loaded.status === "published";
 
+      // A published post still *reads* without auth (RLS lets anyone see it), so a
+      // long edit can outlive the access token and the editor still looks signed in
+      // — but the write then matches 0 rows and surfaces as the cryptic
+      // "Cannot coerce the result to a single JSON object". Refresh the session
+      // first so a recoverable token lapse is fixed transparently.
+      {
+        const { data: s } = await supabase.auth.getSession();
+        if (!s.session) await supabase.auth.refreshSession().catch(() => {});
+      }
+
       toast(opts.publish ? "Publishing…" : "Saving…");
       const tableQuery = id
-        ? supabase.from("blog_posts").update(payload).eq("id", id).select().single()
-        : supabase.from("blog_posts").insert(payload).select().single();
+        ? supabase.from("blog_posts").update(payload).eq("id", id).select().maybeSingle()
+        : supabase.from("blog_posts").insert(payload).select().maybeSingle();
       const { data, error } = await tableQuery;
       if (error) { toast(`Save failed: ${error.message}`); return; }
+      // No row came back: the write touched 0 rows. For an existing post this is
+      // almost always an expired admin sign-in (RLS blocked the update) rather than
+      // anything wrong with the content — give an actionable, work-preserving message.
+      if (!data) {
+        toast(id
+          ? "Couldn't save — your admin sign-in looks like it expired. Open the admin in a new tab to sign in again, then come back and save. Your changes are still here."
+          : "Couldn't save — please sign in to the admin again and retry.");
+        return;
+      }
       if (data) {
         id = data.id;
         loaded = data;
