@@ -1853,7 +1853,20 @@
     // on every render — load, resize (preset or custom), page switch, undo/redo —
     // so it always shows the format you're working in (e.g. 1080 × 1440).
     var _szEl = document.getElementById("ed-canvas-size");
-    if (_szEl) _szEl.textContent = Math.round(state.canvas.width) + " × " + Math.round(state.canvas.height);
+    if (_szEl) {
+      var _W = Math.round(state.canvas.width), _H = Math.round(state.canvas.height);
+      // Customer Studio shows the platform name (estate agents think in platforms,
+      // not pixels); custom sizes fall back to W × H. Admin keeps exact dimensions.
+      var _szNames = {
+        "1080x1920": "Instagram Story", "1080x1350": "Instagram Portrait",
+        "1080x1440": "Instagram Portrait", "1080x1080": "Instagram Square",
+        "1200x1200": "Instagram Square", "1200x630": "Facebook Cover",
+        "1640x856": "Facebook Cover", "1584x396": "LinkedIn Banner",
+        "1200x628": "LinkedIn Post", "600x200": "Email Header"
+      };
+      var _szName = location.search.indexOf("mode=admin") !== -1 ? null : _szNames[_W + "x" + _H];
+      _szEl.textContent = _szName || (_W + " × " + _H);
+    }
 
     canvasEl.innerHTML = "";
 
