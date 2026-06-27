@@ -465,4 +465,56 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }, { threshold: 0.25 });
     document.querySelectorAll('.ws-hero, .ws-widget').forEach((el) => io.observe(el));
   </script>
+
+  <!-- Stage A migration: wire the real signed-in identity. Falls back to the
+       mock preview when signed out (the hard login-gate lands at go-live). -->
+  <script>
+    import { supabase } from '../lib/supabase.js';
+
+    const titleCase = (s) => String(s || '').replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+    const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return; // signed out → keep the mock preview for now
+
+        const email = session.user.email ?? '';
+        const meta = session.user.user_metadata ?? {};
+        const fullName = titleCase(meta.name || email.split('@')[0].replace(/[._]/g, ' '));
+        const firstName = fullName.split(' ')[0];
+        const initials = fullName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'T';
+
+        const hour = new Date().getHours();
+        let greeting = 'Welcome back';
+        if (hour >= 5 && hour < 12) greeting = 'Good morning';
+        else if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+        else if (hour >= 17 && hour < 22) greeting = 'Good evening';
+        else greeting = 'Burning the midnight oil';
+
+        const g = document.querySelector('.ws-greeting');
+        if (g) g.innerHTML = `${escapeHtml(greeting)},<br><em>${escapeHtml(firstName)}.</em>`;
+
+        document.querySelectorAll('.ws-whoav').forEach((e) => { e.textContent = initials; });
+        const setText = (sel, val) => { const el = document.querySelector(sel); if (el && val) el.textContent = val; };
+        setText('.ws-whotext strong', fullName);
+        setText('.ws-whotext span', email);
+        setText('.ws-dropdown-head strong', fullName);
+        setText('.ws-dropdown-head span', email);
+
+        // Headshot from the brand kit, if they've set one.
+        try {
+          const bk = JSON.parse(localStorage.getItem('tmke.brand') || 'null');
+          if (bk && typeof bk.headshot === 'string' && bk.headshot) {
+            document.querySelectorAll('.ws-whoav').forEach((e) => {
+              e.textContent = '';
+              e.style.backgroundImage = 'url(' + JSON.stringify(bk.headshot) + ')';
+              e.style.backgroundSize = 'cover';
+              e.style.backgroundPosition = 'center';
+            });
+          }
+        } catch (_) {}
+      } catch (_) { /* keep the mock preview on any error */ }
+    })();
+  </script>
 </BaseLayout>
