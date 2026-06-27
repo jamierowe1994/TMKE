@@ -105,6 +105,7 @@ const featMeta = featured
       <span class="ins-label">The Archive</span>
       <button class="arc-close" id="arc-close" type="button" aria-label="Close archive">&times;</button>
     </div>
+    <div class="arc-scroll">
     <div class="arc-grid">
       {gridItems.map((it) => (
         it.type === "post" ? (
@@ -119,6 +120,7 @@ const featMeta = featured
           <div class="arc-tile arc-tile--image" style={`background-image:url('${it.img}')`}></div>
         )
       ))}
+    </div>
     </div>
   </div>
 
@@ -143,12 +145,15 @@ const featMeta = featured
   <style>
     /* ============ Insights — one-screen, three sections ============ */
     .ins {
-      height: 100vh; min-height: 640px;
+      height: 100vh; min-height: 0;
       display: grid; grid-template-columns: 1.25fr 1.18fr clamp(170px, 15vw, 230px);
+      grid-template-rows: minmax(0, 1fr);   /* constrain columns to the viewport so they shrink, never overflow */
       gap: clamp(14px, 1.5vw, 30px);
-      padding: clamp(78px, 10vh, 104px) clamp(24px, 3.4vw, 60px) clamp(30px, 4vh, 56px);
+      padding: clamp(68px, 9vh, 100px) clamp(24px, 3.4vw, 60px) clamp(22px, 3.5vh, 48px);
       background: var(--paper); color: var(--ink); overflow: hidden;
     }
+    /* Each column manages its own overflow so nothing spills past the screen. */
+    .ins-intro, .ins-feature, .ins-strip { min-height: 0; }
     .ins-label {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.5);
@@ -241,8 +246,8 @@ const featMeta = featured
     }
     .arc-close:hover { background: var(--ink); color: var(--paper); transform: rotate(90deg); }
 
+    .arc-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
     .arc-grid {
-      flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
       display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
       align-content: start; padding: 0 6px 6px;
     }
