@@ -2,17 +2,13 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getPublishedPosts } from "../../data/blog.js";
 
-// Pulled from Supabase if configured, otherwise from the static fallback.
+// Pulled from Supabase if configured, otherwise the static fallback.
 const allPosts = await getPublishedPosts();
-const posts = [...allPosts]
-  .sort((a, b) => (a.date < b.date ? 1 : -1))
-  .slice(0, 16);
+const posts = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
 
-// A deliberately jumbled size/position sequence so the grid reads scattered, not
-// choreographed — no obvious repeating rhythm across the posts, and big/small
-// tiles interleaved rather than sorted top-to-bottom. Length is coprime-ish to
-// the post count so it doesn't visibly loop.
-const SCATTER = [3, 7, 0, 9, 4, 1, 10, 6, 2, 8, 5, 0, 7, 9, 1, 4, 6, 2];
+const featured = posts[0] || null;     // newest = featured (auto)
+const archivePosts = posts.slice(1);   // everything else
+const recent3 = archivePosts.slice(0, 3); // the right-hand "peek" strip
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -21,16 +17,34 @@ function fmtDate(iso) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
-// Lightweight data for the reader (bodies are embedded as <template>s below so
-// the post opens IN A FRAME — no navigation away from the grid).
+// Decorative, NON-post tiles scattered through the archive grid. Brand photos
+// for now — swap for bespoke imagery later.
+const STATIC_TILES = [
+  { img: "/assets/sitting%20chair.jpg", label: "Studio" },
+  { img: "/assets/home%20kitchen.jpg", label: "On location" },
+  { img: "/assets/vibes.jpg", label: "Field notes" },
+  { img: "/assets/home%20window.jpg", label: "Studio" },
+  { img: "/assets/Doors.jpg", label: "Archive" },
+];
+
+// Interleave posts with a static tile every couple of posts so the grid reads
+// like an archive (some images, some titled post boxes), not a plain list.
+const gridItems = [];
+let si = 0;
+archivePosts.forEach((p, i) => {
+  gridItems.push({ type: "post", post: p, num: String(i + 1).padStart(2, "0") });
+  if (i % 2 === 1 && si < STATIC_TILES.length) gridItems.push({ type: "image", ...STATIC_TILES[si++] });
+});
+while (si < STATIC_TILES.length) gridItems.push({ type: "image", ...STATIC_TILES[si++] });
+
+// Lite data for the reader (full bodies embedded as <template>s below).
 const lite = posts.map((p) => ({
-  slug: p.slug,
-  title: p.title,
-  eyebrow: p.eyebrow || p.category || "",
-  date: fmtDate(p.date),
-  readTime: p.readTime || null,
-  hero: p.hero,
+  slug: p.slug, title: p.title, eyebrow: p.eyebrow || p.category || "",
+  date: fmtDate(p.date), readTime: p.readTime || null, hero: p.hero,
 }));
+const featMeta = featured
+  ? [featured.eyebrow || featured.category, fmtDate(featured.date), featured.readTime ? featured.readTime + " min read" : ""].filter(Boolean).join("  ·  ")
+  : "";
 ---
 
 <BaseLayout
@@ -38,38 +52,75 @@ const lite = posts.map((p) => ({
   description="Structured insights on social media, brand positioning, content systems, and the future of estate agency marketing — written for UK property professionals."
   hideFooter
 >
-  <div class="flow-grain" aria-hidden="true"></div>
+  <section class="ins">
+    <!-- ===== Left: static title + intro ===== -->
+    <div class="ins-intro">
+      <span class="ins-eyebrow">Insights</span>
+      <div class="ins-intro-foot">
+        <p class="ins-intro-note">Notes from the desk — structured thinking on social media, brand and content for UK property.</p>
+        <h1 class="ins-bigtitle">Insights</h1>
+      </div>
+    </div>
 
-  <section class="flow-page">
-    <header class="flow-head">
-      <span class="flow-eyebrow">Insights</span>
-      <span class="flow-eyebrow flow-eyebrow--muted">Notes from the desk</span>
-    </header>
-
-    <!-- Scattered FLOW grid — image + title only. Hover fades the rest;
-         clicking flies the image to the centre and opens the reader. -->
-    <div class="flow" id="flow">
-      {posts.map((p, i) => (
-        <button class="flow-item" type="button" data-slug={p.slug} data-variant={SCATTER[i % SCATTER.length]}>
-          <span class="flow-media">
-            <img src={p.hero} alt={p.title} loading={i < 6 ? "eager" : "lazy"} />
+    <!-- ===== Middle: featured article ===== -->
+    <div class="ins-feature">
+      <span class="ins-label">Featured Article</span>
+      {featured && (
+        <button class="ins-feature-card" type="button" data-slug={featured.slug}>
+          <span class="ins-feature-headline">
+            <span class="ins-feature-eyebrow">{featured.eyebrow || featured.category}</span>
+            <span class="ins-feature-title">{featured.title}</span>
           </span>
-          <span class="flow-cap">
-            <span class="flow-title">{p.title}</span>
-            {p.readTime ? <span class="flow-count">[ {p.readTime} ]</span> : null}
+          <span class="ins-feature-media"><img src={featured.hero} alt={featured.title} loading="eager" /></span>
+          <span class="ins-feature-foot">
+            <span class="ins-feature-meta">{featMeta}</span>
+            <span class="ins-feature-stand">{featured.standfirst}</span>
           </span>
         </button>
-      ))}
+      )}
+    </div>
+
+    <!-- ===== Right: recent strip → hover expands the archive ===== -->
+    <div class="ins-strip" id="ins-strip" tabindex="0" role="button" aria-label="Open the article archive">
+      <span class="ins-label ins-label--strip">Image Archive <em aria-hidden="true">&rarr;</em></span>
+      <div class="ins-strip-imgs">
+        {recent3.map((p) => (
+          <span class="ins-strip-img" style={`background-image:url('${p.hero}')`}></span>
+        ))}
+      </div>
     </div>
   </section>
 
-  <!-- Reader — opens in-frame over the grid. -->
+  <!-- ===== Archive overlay — the expanded grid ===== -->
+  <div class="arc" id="arc" hidden>
+    <div class="arc-head">
+      <span class="ins-label">The Archive</span>
+      <button class="arc-close" id="arc-close" type="button" aria-label="Close archive">&times;</button>
+    </div>
+    <div class="arc-grid">
+      {gridItems.map((it) => (
+        it.type === "post" ? (
+          <button class="arc-tile arc-tile--post" type="button" data-slug={it.post.slug}>
+            <span class="arc-tile-img"><img src={it.post.hero} alt={it.post.title} loading="lazy" /></span>
+            <span class="arc-tile-cap">
+              <span class="arc-tile-num">Article {it.num}</span>
+              <span class="arc-tile-name">{it.post.title}</span>
+            </span>
+          </button>
+        ) : (
+          <div class="arc-tile arc-tile--image" style={`background-image:url('${it.img}')`}>
+            {it.label ? <span class="arc-tile-cap arc-tile-cap--static">{it.label}</span> : null}
+          </div>
+        )
+      ))}
+    </div>
+  </div>
+
+  <!-- ===== Reader — opens in-frame over everything ===== -->
   <div class="reader" id="reader" hidden>
     <button class="reader-x" id="reader-x" type="button" aria-label="Close">&times;</button>
     <div class="reader-frame" role="dialog" aria-modal="true" aria-labelledby="reader-title">
-      <div class="reader-hero" id="reader-hero">
-        <img id="reader-hero-img" src="" alt="" />
-      </div>
+      <div class="reader-hero" id="reader-hero"><img id="reader-hero-img" src="" alt="" /></div>
       <div class="reader-col">
         <div class="reader-meta" id="reader-meta"></div>
         <h2 class="reader-title" id="reader-title"></h2>
@@ -78,261 +129,277 @@ const lite = posts.map((p) => ({
     </div>
   </div>
 
-  <!-- Flying clone used for the grid → centre transition. -->
   <img class="flow-fly" id="flow-fly" alt="" aria-hidden="true" />
 
-  <!-- Embedded post bodies (cloned into the reader on open). -->
-  {posts.map((p) => (
-    <template data-post={p.slug} set:html={p.body}></template>
-  ))}
-
+  {posts.map((p) => (<template data-post={p.slug} set:html={p.body}></template>))}
   <script type="application/json" id="flow-data" set:html={JSON.stringify(lite)}></script>
 
   <style>
-    /* Insights — FLOW scattered grid + in-frame reader. */
-    /* ============== PAGE ============== */
-    .flow-grain {
-      position: fixed; inset: 0; z-index: 60; pointer-events: none;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
-      background-size: 240px 240px; opacity: 0.1; mix-blend-mode: overlay;
+    /* ============ Insights — one-screen, three sections ============ */
+    .ins {
+      height: 100vh; min-height: 640px;
+      display: grid; grid-template-columns: 1fr 1.18fr clamp(180px, 17vw, 260px);
+      gap: clamp(28px, 3vw, 60px);
+      padding: clamp(78px, 10vh, 104px) clamp(24px, 3.4vw, 60px) clamp(30px, 4vh, 56px);
+      background: var(--paper); color: var(--ink); overflow: hidden;
     }
-    .flow-page {
-      max-width: 1680px; margin: 0 auto;
-      padding: clamp(96px, 11vh, 132px) clamp(20px, 4vw, 72px) clamp(80px, 10vh, 140px);
-    }
-    .flow-head {
-      display: flex; align-items: center; gap: 18px;
-      margin-bottom: clamp(34px, 5vh, 64px);
-    }
-    .flow-eyebrow {
+    .ins-label {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet);
-      display: inline-flex; align-items: center; gap: 14px;
+      letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.5);
     }
-    .flow-eyebrow::before {
-      content: ""; width: 42px; height: 1px; background: currentColor; opacity: 0.4;
-    }
-    .flow-eyebrow--muted { color: rgba(28, 29, 34, 0.4); }
-
-    /* ============== FLOW GRID (column masonry → scattered) ============== */
-    .flow {
-      column-count: 5;
-      column-gap: clamp(34px, 3.6vw, 78px);
-      transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.2,.7,.2,1), filter 0.6s ease;
-    }
-    @media (max-width: 1320px) { .flow { column-count: 4; } }
-    @media (max-width: 1000px) { .flow { column-count: 3; } }
-    @media (max-width: 680px)  { .flow { column-count: 2; } }
-    @media (max-width: 440px)  { .flow { column-count: 1; } }
-
-    /* Reader open → grid stays lightly visible behind (single-page feel). */
-    .flow.is-away {
-      opacity: 0.4; transform: scale(0.99); filter: blur(2.5px);
-      pointer-events: none;
+    .ins-eyebrow {
+      font-family: var(--serif); font-style: italic; font-size: clamp(15px, 1.2vw, 19px);
+      color: var(--ink);
     }
 
-    .flow-item {
-      -webkit-appearance: none; appearance: none; border: 0; background: none;
-      padding: 0; margin: 0 0 clamp(56px, 6vw, 124px); width: 100%;
-      display: block; text-align: left; cursor: pointer;
-      break-inside: avoid; color: var(--ink);
-      transition: opacity 0.4s ease;
+    /* Left intro */
+    .ins-intro { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+    .ins-intro-foot { display: flex; flex-direction: column; gap: clamp(16px, 2vh, 26px); }
+    .ins-intro-note {
+      font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); line-height: 1.5;
+      color: rgba(28,29,34,0.7); margin: 0; max-width: 34ch;
     }
-    /* Hover any tile → fade the others out. */
-    .flow:hover .flow-item { opacity: 0.28; }
-    .flow:hover .flow-item:hover { opacity: 1; }
-
-    /* Size + position variety → the semi-random scatter. Horizontal padding
-       shrinks the tile within its column (smaller images, big range) and offsets
-       it left/right; aspect-ratio varies the height; and the top/bottom margins
-       vary independently so tiles sit closer or further apart unevenly — not on
-       a tidy rhythm. */
-    .flow-item[data-variant="0"] .flow-media { aspect-ratio: 3 / 4; }
-    .flow-item[data-variant="0"] { margin-bottom: clamp(70px, 8vw, 150px); }
-
-    .flow-item[data-variant="1"] { padding-right: 38%; margin-top: clamp(54px, 6.5vw, 118px); margin-bottom: clamp(34px, 3.8vw, 70px); }
-    .flow-item[data-variant="1"] .flow-media { aspect-ratio: 1 / 1; }
-
-    .flow-item[data-variant="2"] { padding-left: 20%; margin-top: clamp(10px, 1.4vw, 26px); margin-bottom: clamp(56px, 6vw, 120px); }
-    .flow-item[data-variant="2"] .flow-media { aspect-ratio: 4 / 5; }
-
-    .flow-item[data-variant="3"] { margin-top: clamp(84px, 10vw, 172px); margin-bottom: clamp(44px, 5vw, 90px); }
-    .flow-item[data-variant="3"] .flow-media { aspect-ratio: 2 / 3; }
-
-    .flow-item[data-variant="4"] { padding-right: 13%; margin-top: clamp(22px, 2.8vw, 52px); margin-bottom: clamp(76px, 8.6vw, 158px); }
-    .flow-item[data-variant="4"] .flow-media { aspect-ratio: 4 / 3; }
-
-    .flow-item[data-variant="5"] { padding-left: 42%; margin-top: clamp(18px, 2.4vw, 46px); margin-bottom: clamp(28px, 3.2vw, 58px); }
-    .flow-item[data-variant="5"] .flow-media { aspect-ratio: 1 / 1; }
-
-    .flow-item[data-variant="6"] { margin-top: clamp(4px, 0.8vw, 16px); margin-bottom: clamp(92px, 10.5vw, 184px); }
-    .flow-item[data-variant="6"] .flow-media { aspect-ratio: 3 / 4; }
-
-    .flow-item[data-variant="7"] { padding-right: 30%; margin-top: clamp(64px, 7.6vw, 142px); margin-bottom: clamp(48px, 5.4vw, 102px); }
-    .flow-item[data-variant="7"] .flow-media { aspect-ratio: 3 / 2; }
-
-    .flow-item[data-variant="8"] { padding-left: 12%; margin-top: clamp(40px, 4.6vw, 92px); margin-bottom: clamp(66px, 7.2vw, 138px); }
-    .flow-item[data-variant="8"] .flow-media { aspect-ratio: 5 / 6; }
-
-    .flow-item[data-variant="9"] { padding-right: 26%; margin-top: clamp(8px, 1.2vw, 22px); margin-bottom: clamp(34px, 3.8vw, 68px); }
-    .flow-item[data-variant="9"] .flow-media { aspect-ratio: 1 / 1; }
-
-    .flow-item[data-variant="10"] { margin-top: clamp(50px, 5.8vw, 110px); margin-bottom: clamp(58px, 6.4vw, 124px); }
-    .flow-item[data-variant="10"] .flow-media { aspect-ratio: 5 / 7; }
-
-    /* On narrow screens drop the horizontal offset so tiles stay legible. */
-    @media (max-width: 1000px) { .flow-item { padding-left: 0 !important; padding-right: 0 !important; } }
-
-    .flow-media {
-      display: block; overflow: hidden; background: rgba(28, 29, 34, 0.05);
-      border-radius: 4px;
+    .ins-bigtitle {
+      font-family: var(--serif); font-weight: 400; font-size: clamp(64px, 9vw, 168px);
+      line-height: 0.86; letter-spacing: -0.02em; color: var(--ink); margin: 0;
     }
-    .flow-media img {
+
+    /* Middle featured */
+    .ins-feature { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .ins-feature-card {
+      flex: 1; min-height: 0; -webkit-appearance: none; appearance: none; border: 0; background: none;
+      padding: 0; margin: 0; text-align: left; cursor: pointer; color: var(--ink);
+      display: flex; flex-direction: column; gap: clamp(12px, 1.6vh, 22px);
+      border-top: 1px solid rgba(28,29,34,0.16); padding-top: clamp(14px, 1.8vh, 22px);
+    }
+    .ins-feature-headline { display: flex; flex-direction: column; gap: 4px; }
+    .ins-feature-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--english-violet);
+    }
+    .ins-feature-title {
+      font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 2.1vw, 32px);
+      line-height: 1.08; letter-spacing: -0.015em; color: var(--ink);
+    }
+    .ins-feature-media {
+      flex: 1; min-height: 0; display: block; overflow: hidden; border-radius: 3px;
+      background: rgba(28,29,34,0.05);
+    }
+    .ins-feature-media img {
       width: 100%; height: 100%; object-fit: cover; display: block;
-      transition: transform 1.3s cubic-bezier(.2,.7,.2,1);
+      transition: transform 1.2s cubic-bezier(.2,.7,.2,1);
     }
-    .flow-item:hover .flow-media img { transform: scale(1.045); }
-
-    .flow-cap {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-      margin-top: 14px;
+    .ins-feature-card:hover .ins-feature-media img { transform: scale(1.035); }
+    .ins-feature-foot { display: flex; flex-direction: column; gap: 6px; }
+    .ins-feature-meta {
+      font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: rgba(28,29,34,0.45);
     }
-    .flow-title {
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.35;
-      color: var(--ink); transition: color 0.3s ease;
-    }
-    .flow-item:hover .flow-title { color: var(--english-violet); }
-    .flow-count {
-      font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.1em; color: rgba(28, 29, 34, 0.4); flex-shrink: 0;
+    .ins-feature-stand {
+      font-family: var(--sans); font-size: clamp(12.5px, 1vw, 14px); line-height: 1.5;
+      color: rgba(28,29,34,0.72); max-width: 62ch;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     }
 
-    /* ============== FLYING CLONE ============== */
+    /* Right strip */
+    .ins-strip {
+      display: flex; flex-direction: column; gap: 12px; min-width: 0; cursor: pointer;
+      border: 0; background: none; outline: none;
+    }
+    .ins-label--strip { color: var(--english-violet); display: inline-flex; gap: 8px; align-items: center; }
+    .ins-label--strip em { font-style: normal; transition: transform 0.3s; }
+    .ins-strip:hover .ins-label--strip em { transform: translateX(4px); }
+    .ins-strip-imgs { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+    .ins-strip-img {
+      flex: 1; min-height: 0; background-size: cover; background-position: center;
+      background-color: rgba(28,29,34,0.06); border-radius: 3px;
+      transition: transform 0.5s cubic-bezier(.2,.7,.2,1), opacity 0.4s ease;
+    }
+    .ins-strip:hover .ins-strip-img { transform: translateX(-6px); }
+
+    /* ============ Archive overlay ============ */
+    .arc {
+      position: fixed; inset: 0; z-index: 150; background: var(--paper);
+      padding: clamp(20px, 3vh, 40px) clamp(20px, 3vw, 48px);
+      display: flex; flex-direction: column; gap: clamp(14px, 2vh, 24px);
+      opacity: 0; transform: scale(1.015); transition: opacity 0.5s ease, transform 0.6s cubic-bezier(.16,1,.3,1);
+    }
+    .arc[hidden] { display: none; }
+    .arc.is-open { opacity: 1; transform: none; }
+    .arc-head { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; }
+    .arc-close {
+      width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2);
+      background: none; color: var(--ink); font-size: 24px; line-height: 1; cursor: pointer;
+      display: grid; place-items: center; transition: background 0.25s, color 0.25s, transform 0.4s;
+    }
+    .arc-close:hover { background: var(--ink); color: var(--paper); transform: rotate(90deg); }
+
+    .arc-grid {
+      flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: clamp(8px, 0.8vw, 14px);
+      align-content: start; padding-right: 4px;
+    }
+    @media (max-width: 1200px) { .arc-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 760px)  { .arc-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .arc-tile {
+      position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 3px;
+      opacity: 0; transform: translateY(14px); animation: arcIn 0.55s cubic-bezier(.2,.8,.2,1) forwards;
+    }
+    @keyframes arcIn { to { opacity: 1; transform: none; } }
+    .arc.is-open .arc-tile { animation-delay: calc(var(--i, 0) * 22ms); }
+
+    /* Post tiles — off-white box, title bottom-left; hover reveals the image. */
+    .arc-tile--post {
+      -webkit-appearance: none; appearance: none; border: 0; text-align: left; cursor: pointer;
+      background: #eceae3; color: var(--ink);
+    }
+    .arc-tile-img { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s ease; }
+    .arc-tile-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .arc-tile-img::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(20,18,22,0) 38%, rgba(20,18,22,0.72) 100%);
+    }
+    .arc-tile--post:hover .arc-tile-img { opacity: 1; }
+
+    .arc-tile-cap {
+      position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 2;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .arc-tile-num {
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--english-violet); transition: color 0.4s ease;
+    }
+    .arc-tile-name {
+      font-family: var(--serif); font-weight: 400; font-size: clamp(14px, 1.05vw, 17px);
+      line-height: 1.14; letter-spacing: -0.01em; color: var(--ink); transition: color 0.4s ease;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .arc-tile--post:hover .arc-tile-num { color: rgba(244,242,240,0.75); }
+    .arc-tile--post:hover .arc-tile-name { color: var(--paper); }
+
+    /* Static image tiles */
+    .arc-tile--image { background-size: cover; background-position: center; background-color: rgba(28,29,34,0.06); }
+    .arc-tile-cap--static {
+      position: absolute; left: 14px; bottom: 14px; right: auto; z-index: 2;
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 10px rgba(0,0,0,0.5);
+    }
+
+    /* ============ Flying clone + reader (reused) ============ */
     .flow-fly {
-      position: fixed; z-index: 210; object-fit: cover; border-radius: 4px;
+      position: fixed; z-index: 260; object-fit: cover; border-radius: 4px;
       opacity: 0; pointer-events: none; will-change: left, top, width, height;
       box-shadow: 0 40px 110px -30px rgba(0,0,0,0.45);
     }
-
-    /* While the reader is open the body is pinned so the background can't move. */
     :global(body.reader-locked) { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
 
-    /* ============== READER (in-frame) ============== */
     .reader {
-      position: fixed; inset: 0; z-index: 200;
-      display: grid; place-items: center; padding: clamp(20px, 4vh, 56px);
-      background: rgba(244, 242, 240, 0); backdrop-filter: blur(0px);
+      position: fixed; inset: 0; z-index: 250; display: grid; place-items: center;
+      padding: clamp(20px, 4vh, 56px);
+      background: rgba(244,242,240,0); backdrop-filter: blur(0px);
       transition: background 0.45s ease, backdrop-filter 0.45s ease;
     }
     .reader[hidden] { display: none; }
-    .reader.is-open { background: rgba(244, 242, 240, 0.42); backdrop-filter: blur(5px); }
-
+    .reader.is-open { background: rgba(244,242,240,0.5); backdrop-filter: blur(6px); }
     .reader-frame {
       width: min(1060px, 94vw); height: 88vh;
       display: grid; grid-template-columns: minmax(0, 0.74fr) minmax(0, 1fr);
-      grid-template-rows: minmax(0, 1fr);
-      gap: clamp(26px, 3vw, 56px);
-      background: var(--paper, #fff); border-radius: 6px;
-      padding: clamp(22px, 2.6vw, 44px);
-      box-shadow: 0 50px 130px -36px rgba(0,0,0,0.5);
-      overflow: hidden;
-      /* The box expands outward from behind the hero image (origin sits over the
-         left-hand hero), so it grows to "fit" around the picture as it lands. */
-      opacity: 0; transform: scale(0.58);
-      transform-origin: 26% 46%;
+      grid-template-rows: minmax(0, 1fr); gap: clamp(26px, 3vw, 56px);
+      background: var(--paper, #fff); border-radius: 6px; padding: clamp(22px, 2.6vw, 44px);
+      box-shadow: 0 50px 130px -36px rgba(0,0,0,0.5); overflow: hidden;
+      opacity: 0; transform: scale(0.58); transform-origin: 26% 46%;
       transition: opacity 0.46s ease, transform 0.74s cubic-bezier(.16,.84,.3,1);
     }
     .reader.is-open .reader-frame { opacity: 1; transform: scale(1); }
-
-    /* Fills the full frame height and stays put while the right column scrolls. */
-    .reader-hero {
-      height: 100%; overflow: hidden; border-radius: 4px;
-      background: rgba(28, 29, 34, 0.06);
-    }
+    .reader-hero { height: 100%; overflow: hidden; border-radius: 4px; background: rgba(28,29,34,0.06); }
     .reader-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
     .reader-col {
       min-width: 0; min-height: 0; height: 100%; overflow-y: auto; overscroll-behavior: contain; padding-right: 6px;
-      /* Copy fades in just after the box has opened. */
       opacity: 0; transform: translateY(10px);
       transition: opacity 0.5s ease 0.2s, transform 0.6s cubic-bezier(.2,.7,.2,1) 0.2s;
     }
     .reader.is-open .reader-col { opacity: 1; transform: none; }
-    .reader-meta {
-      font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet);
-      margin-bottom: 14px;
-    }
-    .reader-title {
-      font-family: var(--serif); font-weight: 400;
-      font-size: clamp(26px, 2.6vw, 40px); line-height: 1.06; letter-spacing: -0.02em;
-      color: var(--ink); margin: 0 0 18px;
-    }
-    .reader-content {
-      font-family: var(--sans); font-size: 15.5px; line-height: 1.66;
-      color: rgba(28, 29, 34, 0.82);
-    }
-    .reader-content :global(h2) {
-      font-family: var(--serif); font-weight: 400; font-size: 21px; line-height: 1.2;
-      color: var(--ink); margin: 26px 0 10px; letter-spacing: -0.01em;
-    }
+    .reader-meta { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 14px; }
+    .reader-title { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 40px); line-height: 1.06; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 18px; }
+    .reader-content { font-family: var(--sans); font-size: 15.5px; line-height: 1.66; color: rgba(28,29,34,0.82); }
+    .reader-content :global(h2) { font-family: var(--serif); font-weight: 400; font-size: 21px; line-height: 1.2; color: var(--ink); margin: 26px 0 10px; letter-spacing: -0.01em; }
     .reader-content :global(p) { margin: 0 0 14px; }
     .reader-content :global(p.lede) { font-size: 17px; color: var(--ink); }
     .reader-content :global(ul) { margin: 0 0 16px; padding-left: 20px; }
     .reader-content :global(li) { margin: 0 0 7px; }
-    .reader-content :global(blockquote) {
-      margin: 22px 0; padding: 4px 0 4px 20px; border-left: 2px solid var(--english-violet);
-      font-family: var(--serif); font-style: italic; font-size: 18px; color: var(--ink);
-    }
+    .reader-content :global(blockquote) { margin: 22px 0; padding: 4px 0 4px 20px; border-left: 2px solid var(--english-violet); font-family: var(--serif); font-style: italic; font-size: 18px; color: var(--ink); }
     .reader-content :global(strong) { color: var(--ink); }
-
     .reader-x {
-      position: fixed; top: clamp(16px, 3vh, 30px); right: clamp(16px, 3vw, 34px);
-      z-index: 220; width: 48px; height: 48px; border-radius: 50%; border: 0;
-      background: var(--ink); color: var(--paper); font-size: 24px; line-height: 1;
-      display: grid; place-items: center; cursor: pointer;
+      position: fixed; top: clamp(16px, 3vh, 30px); right: clamp(16px, 3vw, 34px); z-index: 270;
+      width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--ink); color: var(--paper);
+      font-size: 24px; line-height: 1; display: grid; place-items: center; cursor: pointer;
       opacity: 0; transform: scale(0.8); transition: opacity 0.4s ease 0.15s, transform 0.4s ease 0.15s, background 0.2s;
     }
     .reader.is-open .reader-x { opacity: 1; transform: none; }
     .reader-x:hover { background: var(--english-violet); }
 
+    /* ============ Responsive ============ */
+    @media (max-width: 1000px) {
+      .ins { height: auto; min-height: 0; grid-template-columns: 1fr; gap: 40px; padding-top: 96px; }
+      .ins-bigtitle { font-size: clamp(56px, 16vw, 110px); }
+      .ins-strip-imgs { flex-direction: row; height: 30vh; }
+    }
     @media (max-width: 760px) {
-      /* Stack: image on top (fixed), text scrolls beneath. */
-      .reader-frame {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto minmax(0, 1fr);
-        height: auto; max-height: 90vh;
-        gap: 20px;
-      }
+      .reader-frame { grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); height: auto; max-height: 90vh; gap: 20px; }
       .reader-hero { height: auto; aspect-ratio: 16 / 10; }
     }
-
     @media (prefers-reduced-motion: reduce) {
-      .flow, .flow.is-away, .reader-frame, .reader, .flow-fly, .reader-x { transition: none !important; }
+      .arc, .arc-tile, .reader, .reader-frame, .flow-fly, .reader-x, .ins-strip-img { transition: none !important; animation: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
 
   <script is:inline>
     (function () {
-      const flow = document.getElementById("flow");
+      const strip = document.getElementById("ins-strip");
+      const arc = document.getElementById("arc");
+      const arcClose = document.getElementById("arc-close");
       const reader = document.getElementById("reader");
-      const frameHero = document.getElementById("reader-hero");
       const heroImg = document.getElementById("reader-hero-img");
+      const frameHero = document.getElementById("reader-hero");
       const metaEl = document.getElementById("reader-meta");
       const titleEl = document.getElementById("reader-title");
       const contentEl = document.getElementById("reader-content");
       const closeBtn = document.getElementById("reader-x");
       const fly = document.getElementById("flow-fly");
-      if (!flow || !reader || !heroImg) return;
+      if (!reader || !heroImg) return;
 
       let data = {};
       try { data = (JSON.parse(document.getElementById("flow-data").textContent || "[]") || []).reduce((m, p) => (m[p.slug] = p, m), {}); } catch (_) {}
       const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      let isOpen = false;
-      let flyTimer = null;
-      let scrollLockY = 0;
 
+      // ----- Archive overlay (hover the strip to expand) -----
+      let arcOpen = false, closeT = null;
+      // stagger index for the tile entrance
+      arc && arc.querySelectorAll(".arc-tile").forEach((t, i) => t.style.setProperty("--i", i));
+      function openArc() {
+        if (closeT) { clearTimeout(closeT); closeT = null; }
+        if (arcOpen) return; arcOpen = true;
+        arc.hidden = false;
+        requestAnimationFrame(() => arc.classList.add("is-open"));
+      }
+      function closeArc(now) {
+        if (!arcOpen) return; arcOpen = false;
+        arc.classList.remove("is-open");
+        setTimeout(() => { if (!arcOpen) arc.hidden = true; }, now ? 0 : 480);
+      }
+      if (strip && arc) {
+        strip.addEventListener("mouseenter", openArc);
+        strip.addEventListener("click", openArc);
+        strip.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openArc(); } });
+        // Keep open while over the overlay; close shortly after leaving it.
+        arc.addEventListener("mouseenter", () => { if (closeT) { clearTimeout(closeT); closeT = null; } });
+        arc.addEventListener("mouseleave", () => { closeT = setTimeout(() => closeArc(false), 140); });
+        arcClose && arcClose.addEventListener("click", () => closeArc(true));
+      }
+
+      // ----- Reader -----
+      let isOpen = false, flyTimer = null, scrollLockY = 0;
       function populate(slug) {
         const p = data[slug]; if (!p) return false;
         metaEl.textContent = [p.eyebrow, p.date, p.readTime ? p.readTime + " min read" : ""].filter(Boolean).join("  ·  ");
@@ -343,97 +410,58 @@ const lite = posts.map((p) => ({
         if (tpl && tpl.content) contentEl.appendChild(tpl.content.cloneNode(true));
         return true;
       }
-
-      function open(slug, imgEl) {
+      function openReader(slug, imgEl) {
         if (isOpen || !populate(slug)) return;
         isOpen = true;
-        // Fully lock the background: pin the body in place (the reliable
-        // cross-browser lock — overflow:hidden alone leaves the page scrollable
-        // here). The modal is position:fixed, so it stays put; we restore the
-        // exact scroll position on close.
         scrollLockY = window.scrollY || window.pageYOffset || 0;
-        document.body.style.top = `-${scrollLockY}px`;
+        document.body.style.top = "-" + scrollLockY + "px";
         document.body.classList.add("reader-locked");
-        reader.hidden = false;
-        reader.scrollTop = 0; contentEl.scrollTop = 0;
-        var rcol = reader.querySelector(".reader-col"); if (rcol) rcol.scrollTop = 0;
+        reader.hidden = false; reader.scrollTop = 0; contentEl.scrollTop = 0;
+        const rcol = reader.querySelector(".reader-col"); if (rcol) rcol.scrollTop = 0;
 
-        if (reduce || !imgEl) {
-          flow.classList.add("is-away");
-          requestAnimationFrame(() => reader.classList.add("is-open"));
-          return;
-        }
-
-        // FLIP: fly the clicked image from its grid slot to the hero target.
+        if (reduce || !imgEl) { requestAnimationFrame(() => reader.classList.add("is-open")); return; }
         const s = imgEl.getBoundingClientRect();
         const p = data[slug];
         const frame = reader.querySelector(".reader-frame");
-
-        // Measure the hero's FINAL rect (box at full size) before it animates,
-        // so the flying image lands exactly where the hero settles.
-        frame.style.transition = "none";
-        frame.style.transform = "none";
+        frame.style.transition = "none"; frame.style.transform = "none";
         const t = frameHero.getBoundingClientRect();
-        frame.style.transform = "";       // back to the CSS start scale
-        frame.getBoundingClientRect();    // reflow
-        frame.style.transition = "";
-
-        // Place the flying clone over the clicked image, tilted slightly.
-        fly.src = p.hero;
-        fly.style.transition = "none";
-        fly.style.transformOrigin = "50% 50%";
-        fly.style.transform = "rotate(-5deg)";
-        fly.style.opacity = "1";
+        frame.style.transform = ""; frame.getBoundingClientRect(); frame.style.transition = "";
+        fly.src = p.hero; fly.style.transition = "none"; fly.style.transformOrigin = "50% 50%";
+        fly.style.transform = "rotate(-5deg)"; fly.style.opacity = "1";
         fly.style.left = s.left + "px"; fly.style.top = s.top + "px";
         fly.style.width = s.width + "px"; fly.style.height = s.height + "px";
-        frameHero.style.opacity = "0";
-        fly.getBoundingClientRect();      // reflow
-
-        // Open the box (expands outward from behind the image) while the image
-        // glides + rotates to the hero spot.
-        flow.classList.add("is-away");
+        frameHero.style.opacity = "0"; fly.getBoundingClientRect();
         requestAnimationFrame(() => {
           reader.classList.add("is-open");
-          fly.style.transition =
-            "left .74s cubic-bezier(.16,.84,.3,1), top .74s cubic-bezier(.16,.84,.3,1), " +
-            "width .74s cubic-bezier(.16,.84,.3,1), height .74s cubic-bezier(.16,.84,.3,1), " +
-            "transform .74s cubic-bezier(.16,.84,.3,1), opacity .3s ease";
+          fly.style.transition = "left .74s cubic-bezier(.16,.84,.3,1), top .74s cubic-bezier(.16,.84,.3,1), width .74s cubic-bezier(.16,.84,.3,1), height .74s cubic-bezier(.16,.84,.3,1), transform .74s cubic-bezier(.16,.84,.3,1), opacity .3s ease";
           fly.style.left = t.left + "px"; fly.style.top = t.top + "px";
           fly.style.width = t.width + "px"; fly.style.height = t.height + "px";
           fly.style.transform = "rotate(0deg)";
         });
-
-        // Hand off to the real hero once the box has finished expanding.
         clearTimeout(flyTimer);
-        flyTimer = setTimeout(function () {
-          if (!isOpen) return;
-          frameHero.style.opacity = "1";
-          fly.style.opacity = "0";
-        }, 760);
+        flyTimer = setTimeout(() => { if (!isOpen) return; frameHero.style.opacity = "1"; fly.style.opacity = "0"; }, 760);
       }
-
-      function close() {
-        if (!isOpen) return;
-        isOpen = false;
-        clearTimeout(flyTimer);
-        reader.classList.remove("is-open");
-        flow.classList.remove("is-away");
-        fly.style.opacity = "0";
-        document.body.classList.remove("reader-locked");
-        document.body.style.top = "";
+      function closeReader() {
+        if (!isOpen) return; isOpen = false; clearTimeout(flyTimer);
+        reader.classList.remove("is-open"); fly.style.opacity = "0";
+        document.body.classList.remove("reader-locked"); document.body.style.top = "";
         window.scrollTo(0, scrollLockY);
         setTimeout(() => { if (!isOpen) { reader.hidden = true; contentEl.innerHTML = ""; } }, 540);
       }
 
-      flow.addEventListener("click", function (e) {
-        const item = e.target.closest(".flow-item");
-        if (!item) return;
-        const img = item.querySelector(".flow-media img");
-        open(item.getAttribute("data-slug"), img);
+      // Any element with a data-slug opens the reader (featured card + grid tiles).
+      document.addEventListener("click", function (e) {
+        const el = e.target.closest("[data-slug]");
+        if (!el) return;
+        const img = el.querySelector("img");
+        openReader(el.getAttribute("data-slug"), img);
       });
-      closeBtn.addEventListener("click", close);
-      reader.addEventListener("click", function (e) { if (e.target === reader) close(); });
-      document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isOpen) close(); });
+      closeBtn.addEventListener("click", closeReader);
+      reader.addEventListener("click", function (e) { if (e.target === reader) closeReader(); });
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        if (isOpen) closeReader(); else if (arcOpen) closeArc(true);
+      });
     })();
   </script>
 </BaseLayout>
