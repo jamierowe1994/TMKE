@@ -208,38 +208,34 @@ const services = [
     </div>
   </section>
 
+  <!-- Bottom CTA — mirrors the hero: title top-left, body + CTA bottom-left,
+       image right, so the page bookends symmetrically. -->
   <section class="about-together">
-    <div
-      class="about-together-bg"
-      style={`background-image: url('${togetherImage}')`}
-    >
-    </div>
-    <div class="about-together-blur"></div>
-    <div class="about-together-overlay"></div>
-
-    <div class="about-together-inner">
-      <h2 class="about-together-title">
-        <span class="about-together-small">Working</span>
-        <span class="about-together-big">Together</span>
-      </h2>
-
-      <p class="about-together-lede">
-        <strong>
-          TMKE is built for estate agents who want to take their marketing
-          seriously,<br />
-          whether that's finding a better way to stay consistent or<br />
-          hand it over completely.
-        </strong>
-      </p>
-
-      <p class="about-together-body">
-        We've created different ways to work with us, so you can choose what
-        fits<br />
-        your time, budget, and how involved you want to be. Because<br />
-        better marketing shouldn't be out of reach.
-      </p>
-
-      <a href="/services" class="about-together-btn">Explore Our Services</a>
+    <div class="about-together-wrap">
+      <div class="about-together-grid">
+        <div class="about-together-copy">
+          <div class="about-together-top">
+            <h2 class="about-together-title">Working<br />Together</h2>
+          </div>
+          <div class="about-together-bottom">
+            <p class="about-together-lede">
+              TMKE is built for estate agents who want to take their marketing
+              seriously &mdash; whether that&rsquo;s finding a better way to stay
+              consistent or handing it over completely.
+            </p>
+            <p class="about-together-body">
+              We&rsquo;ve created different ways to work with us, so you can choose
+              what fits your time, budget, and how involved you want to be.
+            </p>
+            <a href="/services" class="about-together-btn">
+              Explore Our Services <span aria-hidden="true">&rarr;</span>
+            </a>
+          </div>
+        </div>
+        <figure class="about-together-media">
+          <img src={togetherImage} alt="TMKE social content on a phone" loading="lazy" />
+        </figure>
+      </div>
     </div>
   </section>
 
@@ -385,11 +381,16 @@ const services = [
     border-radius: 2px;
   }
   @media (max-width: 860px) {
-    .about-lede-grid { grid-template-columns: 1fr; gap: 32px; align-items: start; }
-    .about-lede-copy { display: block; }
-    .about-lede-bottom { margin-top: 26px; }
-    .about-lede-media { justify-self: stretch; }
-    .about-lede-media img { width: 100%; height: auto; aspect-ratio: 16 / 10; }
+    .about-lede-grid,
+    .about-together-grid { grid-template-columns: 1fr; gap: 32px; align-items: start; }
+    .about-lede-copy,
+    .about-together-copy { display: block; }
+    .about-lede-bottom,
+    .about-together-bottom { margin-top: 26px; }
+    .about-lede-media,
+    .about-together-media { justify-self: stretch; }
+    .about-lede-media img,
+    .about-together-media img { width: 100%; height: auto; aspect-ratio: 16 / 10; }
   }
 
   /* ============ About — intro split ============ */
@@ -741,129 +742,77 @@ const services = [
     text-align: justify;
   }
 
-  /* ============ About — Working Together CTA ============ */
+  /* ============ About — Working Together CTA (mirrors the hero) ============ */
   .about-together {
-    position: relative;
-    min-height: 64vh;            /* was 88vh — too tall */
+    background: var(--paper);
+    color: var(--ink);
+    padding: var(--about-gap) 76px clamp(56px, 9vh, 112px);
+  }
+  .about-together-wrap { max-width: 1360px; margin: 0 auto; }
+  .about-together-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: clamp(32px, 5vw, 80px);
+    align-items: stretch;
+  }
+  .about-together-copy {
+    max-width: 480px;
     display: flex;
-    align-items: center;
-    overflow: hidden;
-    color: var(--paper);
-    /* Inset frame so it reads as its own block, broken away from the
-       full-bleed footer below (matches the home page treatment). */
-    margin: 0 40px 64px;
-  }
-  .about-together-bg {
-    position: absolute;
-    inset: 0;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-  }
-  /* Darkening + blur fade from the left (behind the copy) out to roughly
-     three-quarters across, leaving the right end of the photo clean and
-     untouched. The blur lives on its own masked layer so it can fade out
-     independently of the gradient. */
-  .about-together-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      90deg,
-      rgba(20, 18, 26, 0.82) 0%,
-      rgba(20, 18, 26, 0.62) 32%,
-      rgba(20, 18, 26, 0.3) 58%,
-      rgba(20, 18, 26, 0) 78%
-    );
-  }
-  .about-together-blur {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    -webkit-mask-image: linear-gradient(
-      90deg,
-      #000 0%,
-      #000 42%,
-      rgba(0, 0, 0, 0) 75%
-    );
-    mask-image: linear-gradient(
-      90deg,
-      #000 0%,
-      #000 42%,
-      rgba(0, 0, 0, 0) 75%
-    );
-  }
-  .about-together-inner {
-    position: relative;
-    z-index: 2;
-    max-width: 1360px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 120px 36px 100px;
-    color: var(--paper);
+    flex-direction: column;
+    justify-content: space-between;
   }
   .about-together-title {
-    font-family: var(--serif);
-    font-weight: 400;
-    margin: 0 0 48px;
-    line-height: 0.98;
-    color: rgba(244, 242, 241, 0.92);
-    display: block;
-  }
-  .about-together-small {
-    display: block;
-    font-size: clamp(20px, 2vw, 28px);
-    font-weight: 400;
-    margin-left: 0;
-    margin-bottom: 2px;
-    color: rgba(244, 242, 241, 0.7);
-  }
-  /* "Together" sits flush to the inner left edge — the lede and body below
-     share that same edge, so the block stays aligned at any size. */
-  .about-together-big {
-    display: block;
-    font-size: clamp(48px, 6.5vw, 104px);
-    font-weight: 400;
-    letter-spacing: -0.02em;
-    line-height: 1;
+    font-family: var(--subhead);
+    font-weight: 500;
+    font-size: clamp(40px, 4.6vw, 66px);
+    line-height: 0.94;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+    margin: 0;
   }
   .about-together-lede {
     font-family: var(--sans);
-    font-size: clamp(15px, 1.2vw, 17px);
+    font-size: 14px;
     line-height: 1.7;
-    color: var(--paper);
-    margin: 0 0 28px;
-    max-width: 760px;
-  }
-  .about-together-lede strong {
-    font-weight: 700;
+    color: rgba(28, 29, 34, 0.8);
+    margin: 0 0 14px;
+    max-width: 44ch;
   }
   .about-together-body {
     font-family: var(--sans);
-    font-size: clamp(14px, 1.1vw, 16px);
-    line-height: 1.75;
-    color: rgba(244, 242, 241, 0.88);
-    margin: 0 0 44px;
-    max-width: 760px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: rgba(28, 29, 34, 0.72);
+    margin: 0 0 24px;
+    max-width: 44ch;
   }
   .about-together-btn {
-    display: inline-block;
-    padding: 11px 36px;
-    border-radius: 6px;
-    border: 1px solid rgba(244, 242, 241, 0.85);
-    background: transparent;
-    color: var(--paper);
-    font-family: var(--sans);
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    transition: background 0.3s, color 0.3s, border-color 0.3s;
-  }
-  .about-together-btn:hover {
-    background: var(--paper);
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 24px;
+    border: 1px solid var(--ink);
     color: var(--ink);
-    border-color: var(--paper);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: background 0.3s, color 0.3s;
+  }
+  .about-together-btn:hover { background: var(--ink); color: var(--paper); }
+  .about-together-btn span { transition: transform 0.3s; }
+  .about-together-btn:hover span { transform: translateX(4px); }
+  .about-together-media { margin: 0; justify-self: end; }
+  .about-together-media img {
+    display: block;
+    height: clamp(300px, 36vh, 372px);
+    width: auto;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border-radius: 2px;
   }
 
   /* ============ About — responsive ============ */
@@ -894,8 +843,6 @@ const services = [
     .about-feature { padding: 12px 22px 48px; }
     .about-services { padding: 48px 22px 72px; }
     .about-method { padding: 60px 22px 80px; }
-    .about-together { min-height: 58vh; margin: 0 22px 44px; }
-    .about-together-inner { padding: 100px 22px 80px; }
-    .about-together-small { margin-left: 24px; }
+    .about-together { padding: 40px 22px 72px; }
   }
 </style>
