@@ -592,5 +592,52 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const num = document.querySelector('.ws-ring b');
       if (num) num.setAttribute('data-count', String(pct));
     })();
+
+    // ---- Stage A.4: real planner (this week from calendar_items) ----
+    (async function wirePlanner() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return; // signed out → keep the mock week
+
+        const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const now = new Date();
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // back to Monday
+        monday.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(monday); weekEnd.setDate(monday.getDate() + 5); // Mon..Fri
+
+        const { data, error } = await supabase
+          .from('calendar_items')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .gte('scheduled_date', ymd(monday))
+          .lt('scheduled_date', ymd(weekEnd))
+          .in('status', ['scheduled', 'reminder_sent', 'done'])
+          .order('scheduled_date', { ascending: true });
+        if (error) return;
+
+        const byDate = {};
+        (data || []).forEach((it) => { if (it.scheduled_date && !byDate[it.scheduled_date]) byDate[it.scheduled_date] = it; });
+
+        const week = document.querySelector('.ws-week');
+        if (!week) return;
+        const todayYmd = ymd(new Date());
+        const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        week.innerHTML = names.map((nm, i) => {
+          const d = new Date(monday); d.setDate(monday.getDate() + i);
+          const dYmd = ymd(d);
+          const isToday = dYmd === todayYmd ? ' is-today' : '';
+          const nameHtml = `<span class="ws-day-name">${nm}${dYmd === todayYmd ? ' <i>Today</i>' : ''}</span>`;
+          const href = `/account/schedule?focus=${dYmd}`;
+          const it = byDate[dYmd];
+          if (it) {
+            const thumb = it.thumbnail_url || it.asset_url || '';
+            const label = it.title || it.caption || it.content_type || it.name || 'Scheduled';
+            return `<a class="ws-day${isToday}" href="${href}"><span class="ws-day-name">${nm}${dYmd === todayYmd ? ' <i>Today</i>' : ''}</span><span class="ws-day-type">${escapeHtml(String(label))}</span><span class="ws-day-thumb"${thumb ? ` style="background-image:url('${escapeHtml(thumb)}')"` : ''}></span></a>`;
+          }
+          return `<a class="ws-day ws-day--empty${isToday}" href="${href}">${nameHtml}<span class="ws-day-add">+ Add content</span></a>`;
+        }).join('');
+      } catch (_) { /* keep the mock week */ }
+    })();
   </script>
 </BaseLayout>
