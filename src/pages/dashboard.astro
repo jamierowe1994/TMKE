@@ -487,8 +487,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     (async () => {
       try {
+        const isDemo = import.meta.env.DEV && location.search.includes('demo=1');
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return; // signed out → keep the mock preview for now
+        if (!session) {
+          // Live workspace — require sign-in. (Dev ?demo=1 still previews the mock.)
+          if (!isDemo) { location.replace('/login?next=' + encodeURIComponent('/dashboard')); return; }
+          return;
+        }
 
         const email = session.user.email ?? '';
         const meta = session.user.user_metadata ?? {};
