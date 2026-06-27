@@ -17,25 +17,33 @@ function fmtDate(iso) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
-// Decorative, NON-post tiles scattered through the archive grid. Brand photos
-// for now — swap for bespoke imagery later.
-const STATIC_TILES = [
-  { img: "/assets/sitting%20chair.jpg", label: "Studio" },
-  { img: "/assets/home%20kitchen.jpg", label: "On location" },
-  { img: "/assets/vibes.jpg", label: "Field notes" },
-  { img: "/assets/home%20window.jpg", label: "Studio" },
-  { img: "/assets/Doors.jpg", label: "Archive" },
+// Decorative, NON-post tiles — brand photos for now (swap later). Reused across
+// the grid; fine for placeholders.
+const STATIC_POOL = [
+  "/assets/sitting%20chair.jpg", "/assets/home%20kitchen.jpg", "/assets/vibes.jpg",
+  "/assets/home%20window.jpg", "/assets/Doors.jpg", "/assets/tea.jpg",
+  "/assets/home%20chair.jpg", "/assets/home%20forest.jpg", "/assets/home%20deer.jpg",
+  "/assets/outside.jpg", "/assets/glasses.jpg", "/assets/cosy%20home.jpg",
+  "/assets/lay%20down.jpg", "/assets/home%20ginger.jpg",
 ];
 
-// Interleave posts with a static tile every couple of posts so the grid reads
-// like an archive (some images, some titled post boxes), not a plain list.
+// Lay out a 6-col grid: ~2 posts per row at SCATTERED columns (no obvious
+// pattern / no column alignment), every other cell a static photo.
+const COLS = 6;
+const ROW_POST_COLS = [[0, 3], [2, 5], [1, 4], [0, 4], [2, 3], [1, 5]];
 const gridItems = [];
-let si = 0;
-archivePosts.forEach((p, i) => {
-  gridItems.push({ type: "post", post: p, num: String(i + 1).padStart(2, "0") });
-  if (i % 2 === 1 && si < STATIC_TILES.length) gridItems.push({ type: "image", ...STATIC_TILES[si++] });
-});
-while (si < STATIC_TILES.length) gridItems.push({ type: "image", ...STATIC_TILES[si++] });
+let pi = 0, gi = 0;
+for (let r = 0; pi < archivePosts.length; r++) {
+  const cols = ROW_POST_COLS[r % ROW_POST_COLS.length];
+  for (let c = 0; c < COLS; c++) {
+    if (cols.includes(c) && pi < archivePosts.length) {
+      const p = archivePosts[pi++];
+      gridItems.push({ type: "post", post: p, num: String(pi).padStart(2, "0") });
+    } else {
+      gridItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
+    }
+  }
+}
 
 // Lite data for the reader (full bodies embedded as <template>s below).
 const lite = posts.map((p) => ({
@@ -108,9 +116,7 @@ const featMeta = featured
             </span>
           </button>
         ) : (
-          <div class="arc-tile arc-tile--image" style={`background-image:url('${it.img}')`}>
-            {it.label ? <span class="arc-tile-cap arc-tile-cap--static">{it.label}</span> : null}
-          </div>
+          <div class="arc-tile arc-tile--image" style={`background-image:url('${it.img}')`}></div>
         )
       ))}
     </div>
