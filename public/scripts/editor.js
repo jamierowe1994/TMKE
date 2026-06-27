@@ -845,15 +845,18 @@
     const sec = (title, inner) => '<div class="ed-cp-sec"><h5>' + title + '</h5>' + inner + '</div>';
     const grid = (cells, mod) => '<div class="ed-cp-grid' + (mod || "") + '">' + (Array.isArray(cells) ? cells.join("") : cells) + '</div>';
 
+    // Customer Studio keeps the colour picker to the essentials (per the brief):
+    // a custom hex, brand colours, and gradients. Admin keeps every colour source.
+    var _cpFull = location.search.indexOf("mode=admin") !== -1;
     panel.innerHTML =
       '<div class="ed-cp-head"><span class="ed-cp-title">' + (opts.title || "Colour") + '</span><button class="ed-cp-close" title="Close">&times;</button></div>' +
       '<div class="ed-cp-scroll">' +
         '<input class="ed-cp-hex" placeholder="Type a colour or #hex" value="' + (current || "") + '">' +
-        (recent.length ? sec("Recently used", grid(recent.map(swHtml))) : "") +
-        sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
+        (_cpFull && recent.length ? sec("Recently used", grid(recent.map(swHtml))) : "") +
+        (_cpFull ? sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') : "") +
         sec(brandName, brand.length ? grid(brand.map(swHtml)) : '<p class="ed-cp-empty">No brand colours saved.</p>') +
-        sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') +
-        sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
+        (_cpFull ? sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') : "") +
+        (_cpFull ? sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) : "") +
         (panel._onGradient ? sec("Gradients", grid(CP_DEFAULT_GRADS.map(gradHtml), " ed-cp-grid--grad")) : "") +
         (panel._onGradient ? sec("Custom gradient", cpGradEditorHtml(panel._gradDraft)) : "") +
       '</div>';
