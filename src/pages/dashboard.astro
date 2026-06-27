@@ -1,5 +1,10 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { templates } from "../data/library.js";
+
+// "Continue working" falls back to templates the user can start from (so it's
+// never blank) when they have no saved drafts. JS swaps in real drafts if any.
+const recentTemplates = templates.slice(0, 4);
 ---
 
 <!--
@@ -80,10 +85,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <div class="ws-hero-brief">
             <h1 class="ws-greeting"><span class="ws-greeting-sm">Good morning,</span><em>Danielle.</em></h1>
             <ul class="ws-brief">
-              <li style="--d:1"><span class="ws-brief-ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span><span><strong>3 posts</strong> scheduled today</span></li>
-              <li style="--d:2"><span class="ws-brief-ic"><svg viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg></span><span>Engagement <strong>up 12%</strong> this week</span></li>
-              <li style="--d:3"><span class="ws-brief-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span>Best time to post <strong>6:30pm</strong></span></li>
-              <li style="--d:4"><span class="ws-brief-ic"><svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.3 5.6.5-4.2 3.7 1.3 5.5L12 20.7 6.9 23.5l1.3-5.5L4 14.3l5.6-.5z"/></svg></span><span><strong>Wimbledon</strong> pack unlocks tomorrow</span></li>
+              <li style="--d:1"><span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span><span><strong id="brief-sched">— posts</strong> scheduled this week</span></li>
+              <li style="--d:2"><span class="ws-brief-ic ws-brief-ic--eng"><svg viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg></span><span>Engagement <strong id="brief-eng">up 12%</strong> this week</span></li>
+              <li style="--d:3"><span class="ws-brief-ic ws-brief-ic--time"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span>Best time to post <strong id="brief-time">6:30pm</strong></span></li>
+              <li style="--d:4"><span class="ws-brief-ic ws-brief-ic--star"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.6l2.72 5.52 6.08.88-4.4 4.29 1.04 6.06L12 16.98l-5.44 2.85 1.04-6.06-4.4-4.29 6.08-.88z"/></svg></span><span><strong>Wimbledon</strong> pack unlocks tomorrow</span></li>
             </ul>
             <div class="ws-hero-cta">
               <a class="ws-btn ws-btn--primary" href="/editor">Continue designing
@@ -111,10 +116,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </header>
           <div class="ws-week">
             <a class="ws-day" href="/account/schedule"><span class="ws-day-name">Mon</span><span class="ws-day-type">Just Listed</span><span class="ws-day-thumb" style="background-image:url('/assets/home%20kitchen.jpg')"></span></a>
-            <button class="ws-day ws-day--empty" type="button"><span class="ws-day-name">Tue</span><span class="ws-day-add">+ Add content</span></button>
+            <button class="ws-day ws-day--empty" type="button"><span class="ws-day-name">Tue</span><span class="ws-day-empty-msg">No content scheduled</span><span class="ws-day-plus" aria-hidden="true">+</span></button>
             <a class="ws-day is-today" href="/account/schedule"><span class="ws-day-name">Wed <i>Today</i></span><span class="ws-day-type">Market Update</span><span class="ws-day-thumb" style="background-image:url('/assets/sitting%20chair.jpg')"></span></a>
             <a class="ws-day" href="/account/schedule"><span class="ws-day-name">Thu</span><span class="ws-day-type">Personal Branding</span><span class="ws-day-thumb" style="background-image:url('/assets/home%20chair.jpg')"></span></a>
-            <button class="ws-day ws-day--empty" type="button"><span class="ws-day-name">Fri</span><span class="ws-day-add">+ Add content</span></button>
+            <button class="ws-day ws-day--empty" type="button"><span class="ws-day-name">Fri</span><span class="ws-day-empty-msg">No content scheduled</span><span class="ws-day-plus" aria-hidden="true">+</span></button>
           </div>
         </section>
 
@@ -124,10 +129,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             <h2 class="ws-block-h" id="recent-h">Continue working</h2>
           </header>
           <div class="ws-reel">
-            <a class="ws-thumb" href="/editor" style="background-image:url('/assets/cosy%20home.jpg')"><span class="ws-thumb-tag">80%</span></a>
-            <a class="ws-thumb" href="/editor" style="background-image:url('/assets/home%20window.jpg')"><span class="ws-thumb-tag ws-thumb-tag--done">Done</span></a>
-            <a class="ws-thumb" href="/editor" style="background-image:url('/assets/sitting%20chair.jpg')"><span class="ws-thumb-tag ws-thumb-tag--done">Done</span></a>
-            <a class="ws-thumb" href="/editor" style="background-image:url('/assets/home%20forest.jpg')"><span class="ws-thumb-tag">35%</span></a>
+            {recentTemplates.map((t) => (
+              <a class="ws-thumb" href={`/editor?template=${encodeURIComponent(t.id)}`} style={`background-image:url('${t.thumb}')`}><span class="ws-thumb-tag">Template</span></a>
+            ))}
             <a class="ws-thumb ws-thumb--new" href="/editor"><span class="ws-thumb-plus">+</span><span>New design</span></a>
           </div>
         </section>
@@ -288,9 +292,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ws-dd-sec { margin: 10px 12px 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
 
     /* Widget titles — black, plain-case, optional leading glyph */
-    .ws-wtitle { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--ws-ink); }
-    .ws-spark { color: var(--ws-accent); font-size: 14px; }
-    .ws-ig-svg { width: 17px; height: 17px; fill: none; stroke: var(--ws-ink); stroke-width: 1.7; }
+    .ws-wtitle { display: inline-flex; align-items: center; gap: 8px; font-family: var(--subhead); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; color: var(--ws-ink); }
+    .ws-spark { color: #e3a008; font-size: 14px; }
+    .ws-ig-svg { width: 17px; height: 17px; fill: none; stroke: #E1306C; stroke-width: 1.7; }
     .ws-iconround { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 50%; border: 1px solid var(--ws-line); background: #fff; color: var(--ws-tx); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.2s var(--ws-ease), color 0.2s, border-color 0.2s; }
     .ws-iconround:hover { transform: rotate(-90deg); color: var(--ws-ink); border-color: rgba(28,29,34,0.28); }
     .ws-iconround svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -328,7 +332,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       gap: clamp(24px, 3vw, 52px); background: transparent;
     }
     .ws-hero-brief { display: flex; flex-direction: column; padding: 4px 0; }
-    .ws-greeting { font-family: var(--serif); margin: 0; line-height: 1.0; color: var(--ws-ink); }
+    .ws-greeting { font-family: var(--subhead); margin: 0; line-height: 1.0; color: var(--ws-ink); }
     .ws-greeting-sm { display: block; font-size: clamp(20px, 1.9vw, 26px); font-weight: 500; font-style: normal; color: var(--ws-ink); margin-bottom: 3px; }
     .ws-greeting em { font-style: italic; font-weight: 500; font-size: clamp(40px, 4.6vw, 60px); letter-spacing: -0.02em; color: var(--ws-ink); }
     .ws-brief { list-style: none; margin: 28px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
@@ -336,6 +340,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ws-brief strong { color: var(--ws-ink); font-weight: 600; }
     .ws-brief-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--ws-line); color: var(--ws-tx); }
     .ws-brief-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    /* Each brief icon its own colour, on a soft tint of that colour. */
+    .ws-brief-ic--sched { color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 13%, #fff); border-color: color-mix(in srgb, var(--ws-accent) 22%, var(--ws-line)); }
+    .ws-brief-ic--eng { color: #2f9e5e; background: rgba(47,158,94,0.12); border-color: rgba(47,158,94,0.26); }
+    .ws-brief-ic--time { color: #2f7dc4; background: rgba(47,125,196,0.12); border-color: rgba(47,125,196,0.24); }
+    .ws-brief-ic--star { color: #e3a008; background: rgba(227,160,8,0.15); border-color: rgba(227,160,8,0.30); }
+    .ws-brief-ic--star svg { fill: currentColor; stroke: none; }   /* a star fills, it doesn't stroke */
+    .ws-brief-ic--eng.is-down { color: #c0392b; background: rgba(192,57,43,0.10); border-color: rgba(192,57,43,0.24); }
     @keyframes wsBriefIn { to { opacity: 1; transform: none; } }
     .ws-hero-cta { margin-top: auto; padding-top: 28px; }
 
@@ -344,7 +355,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ws-hero-preview:hover img { transform: scale(1.05); }
     .ws-hero-preview::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(15,12,18,0) 42%, rgba(15,12,18,0.72) 100%); }
     .ws-hero-preview-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 28px 30px; color: #fff; }
-    .ws-hero-preview-foot h3 { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 2.4vw, 34px); line-height: 1.06; letter-spacing: -0.01em; margin: 0 0 16px; }
+    .ws-hero-preview-foot h3 { font-family: var(--subhead); font-weight: 500; font-size: clamp(24px, 2.4vw, 34px); line-height: 1.06; letter-spacing: -0.01em; margin: 0 0 16px; }
     .ws-hero-progress { display: flex; align-items: center; gap: 14px; }
     .ws-hero-pct { font-size: 14px; font-weight: 600; color: #fff; min-width: 40px; }
     .ws-hero-track { flex: 1; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.28); overflow: hidden; }
@@ -354,7 +365,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     /* ---------- Section blocks (plan, recent) — borderless, grouped by space ---------- */
     .ws-block { display: flex; flex-direction: column; gap: 16px; }
     .ws-block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 0 2px; }
-    .ws-block-h { font-family: var(--serif); font-weight: 500; font-size: 20px; letter-spacing: -0.01em; margin: 0; color: var(--ws-ink); }
+    .ws-block-h { font-family: var(--subhead); font-weight: 500; font-size: 20px; letter-spacing: -0.01em; margin: 0; color: var(--ws-ink); }
 
     /* Planner week */
     .ws-week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
@@ -366,10 +377,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ws-day-type { font-size: 13px; font-weight: 600; color: var(--ws-ink); line-height: 1.25; }
     .ws-day-thumb { height: 56px; border-radius: 9px; background-size: cover; background-position: center; background-color: #e9e6e2; margin-top: auto; transition: height 0.28s var(--ws-ease); }
     .ws-day:hover .ws-day-thumb { height: 64px; }
-    .ws-day--empty { justify-content: space-between; }
+    .ws-day--empty { justify-content: space-between; position: relative; }
     .ws-day--empty:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--ws-accent) 40%, var(--ws-line)); }
-    .ws-day-add { font-size: 12px; font-weight: 600; color: var(--ws-faint); margin-top: auto; transition: color 0.2s; }
-    .ws-day--empty:hover .ws-day-add { color: var(--ws-accent); }
+    .ws-day-empty-msg { font-size: 12px; font-weight: 500; color: var(--ws-faint); margin-top: auto; transition: opacity 0.2s; }
+    .ws-day-plus { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 200; line-height: 1; color: var(--ws-accent); opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+    .ws-day--empty:hover .ws-day-empty-msg { opacity: 0; }
+    .ws-day--empty:hover .ws-day-plus { opacity: 1; }
 
     /* Recent designs reel — portrait, fan out on hover */
     .ws-reel { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
@@ -390,7 +403,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ws-widget { background: transparent; border: 1px solid var(--ws-line); border-radius: var(--ws-r); padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; transition: border-color 0.25s var(--ws-ease); }
     .ws-widget:hover { border-color: rgba(28, 29, 34, 0.22); }
     .ws-widget-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .ws-idea { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 1.7vw, 21px); line-height: 1.4; color: var(--ws-ink); margin: 0; }
+    .ws-idea { font-family: var(--subhead); font-style: italic; font-size: clamp(18px, 1.7vw, 21px); line-height: 1.4; color: var(--ws-ink); margin: 0; }
     .ws-widget-foot { display: flex; align-items: center; gap: 16px; margin-top: 2px; }
 
     /* Brand health */
@@ -398,7 +411,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ws-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
     .ws-ring-bg { fill: none; stroke: rgba(28,29,34,0.1); stroke-width: 3; }
     .ws-ring-fg { fill: none; stroke: var(--ws-success); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 97.4; stroke-dashoffset: 97.4; transition: stroke-dashoffset 1.2s var(--ws-ease); }
-    .ws-ring b { font-family: var(--serif); font-size: 14px; color: var(--ws-ink); }
+    .ws-ring b { font-family: var(--subhead); font-size: 14px; color: var(--ws-ink); }
     .ws-ring i { font-size: 8px; color: var(--ws-faint); font-style: normal; }
     .ws-journey { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
     .ws-journey li { display: flex; align-items: center; gap: 11px; font-size: 13.5px; color: var(--ws-faint); }
@@ -410,7 +423,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     /* Instagram snapshot */
     .ws-metrics { display: flex; gap: 20px; }
     .ws-metric { display: flex; flex-direction: column; gap: 3px; }
-    .ws-metric-val { font-family: var(--serif); font-size: clamp(24px, 2.4vw, 30px); line-height: 1; letter-spacing: -0.02em; color: var(--ws-ink); }
+    .ws-metric-val { font-family: var(--subhead); font-size: clamp(24px, 2.4vw, 30px); line-height: 1; letter-spacing: -0.02em; color: var(--ws-ink); }
     .ws-metric-label { font-size: 11px; color: var(--ws-faint); display: flex; align-items: center; gap: 5px; }
     .ws-trend { font-style: normal; font-size: 10px; font-weight: 700; color: var(--ws-success); }
     .ws-best { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--ws-r-sm); background: transparent; border: 1px solid var(--ws-line); text-decoration: none; color: var(--ws-ink); transition: border-color 0.22s var(--ws-ease); }
@@ -427,8 +440,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ws-discover-art { position: relative; background-size: cover; background-position: center; transition: transform 1.2s var(--ws-ease); }
     .ws-discover:hover .ws-discover-art { transform: scale(1.05); }
     .ws-discover-body { position: relative; padding: clamp(28px, 3vw, 44px); display: flex; flex-direction: column; justify-content: center; gap: 10px; color: #fff; background: linear-gradient(110deg, #2a2530 60%, rgba(42,37,48,0.85)); }
-    .ws-discover-flag { align-self: flex-start; font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.7); }
-    .ws-discover-h { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 2.8vw, 38px); letter-spacing: -0.015em; margin: 0; }
+    .ws-discover-flag { position: absolute; top: clamp(20px, 2.2vw, 30px); right: clamp(20px, 2.2vw, 30px); align-self: auto; padding: 6px 12px; border-radius: 8px; background: #fff; border: 1px solid rgba(28,29,34,0.14); color: #1c1d22; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+    .ws-discover-h { font-family: var(--subhead); font-weight: 500; font-size: clamp(26px, 2.8vw, 38px); letter-spacing: -0.015em; margin: 0; }
     .ws-discover-desc { font-size: 14.5px; line-height: 1.55; color: rgba(255,255,255,0.72); margin: 0; max-width: 40ch; }
     .ws-discover-cta { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: #fff; margin-top: 8px; }
     .ws-discover-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
@@ -556,7 +569,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     (function wireWork() {
       const drafts = readLocalDrafts();
-      if (!drafts.length) return; // no saved work yet → keep the mock preview
+      if (!drafts.length) return; // no saved work yet → keep the starter templates
 
       // Hero preview = the most recently edited draft.
       const top = drafts[0];
@@ -651,8 +664,31 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             const label = it.title || it.caption || it.content_type || it.name || 'Scheduled';
             return `<a class="ws-day${isToday}" href="${href}"><span class="ws-day-name">${nm}${dYmd === todayYmd ? ' <i>Today</i>' : ''}</span><span class="ws-day-type">${escapeHtml(String(label))}</span><span class="ws-day-thumb"${thumb ? ` style="background-image:url('${escapeHtml(thumb)}')"` : ''}></span></a>`;
           }
-          return `<a class="ws-day ws-day--empty${isToday}" href="${href}">${nameHtml}<span class="ws-day-add">+ Add content</span></a>`;
+          return `<a class="ws-day ws-day--empty${isToday}" href="${href}">${nameHtml}<span class="ws-day-empty-msg">No content scheduled</span><span class="ws-day-plus" aria-hidden="true">+</span></a>`;
         }).join('');
+
+        // Hero brief: live count of posts scheduled this week.
+        const schedCount = (data || []).length;
+        const sb = document.getElementById('brief-sched');
+        if (sb) sb.textContent = schedCount + (schedCount === 1 ? ' post' : ' posts');
+
+        // Best time to post: their most common scheduled hour if they have a
+        // pattern; otherwise the evening slot Instagram currently favours.
+        const tb = document.getElementById('brief-time');
+        if (tb) {
+          const hours = {};
+          (data || []).forEach((it) => {
+            const t = it.scheduled_time || it.scheduled_at || '';
+            const m = String(t).match(/(\d{1,2}):(\d{2})/);
+            if (m) { const h = m[1] + ':' + m[2]; hours[h] = (hours[h] || 0) + 1; }
+          });
+          const top = Object.keys(hours).sort((a, b) => hours[b] - hours[a])[0];
+          if (top) {
+            const [H, M] = top.split(':').map(Number);
+            const ap = H >= 12 ? 'pm' : 'am'; const h12 = ((H + 11) % 12) + 1;
+            tb.textContent = h12 + (M ? ':' + String(M).padStart(2, '0') : '') + ap;
+          }
+        }
       } catch (_) { /* keep the mock week */ }
     })();
 
