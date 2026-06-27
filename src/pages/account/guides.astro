@@ -1,39 +1,589 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import DashSidebar from "../../components/account/DashSidebar.astro";
-import GuidesPanel from "../../components/account/GuidesPanel.astro";
-import "../../styles/workspace.css";
-import "../../styles/account-sections.css";
 ---
 
+<!--
+  TMKE workspace — Learn (Guides). Editorial rehaul that adopts the new
+  top-nav workspace shell from /dashboard. Self-contained on purpose: the
+  nav markup + tokens mirror dashboard.astro so the chrome stays consistent
+  while this page owns its own `.lrn-*` content. Links are intentionally
+  blank (#) placeholders — we'll wire each guide/path/lesson up over time.
+-->
 <BaseLayout
   dashboard
-  title="Guides — TMKE workspace"
-  description="Practical playbooks for the platform — brand kit setup, posting cadence, captions, photography, reels and more."
   hideNav
   hideFooter
+  title="Learn — TMKE workspace"
+  description="Practical playbooks and expert guidance to grow your brand on social media — topics, courses, learning paths and quick lessons."
 >
-  <div class="dash-shell">
-    <DashSidebar active="guides" />
+  <div class="ws lrn">
+    <!-- ============ Top navigation (shared shell) ============ -->
+    <header class="ws-nav" aria-label="Primary">
+      <button type="button" class="ws-burger" data-drawer-open aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
 
-    <main class="app-main dash-main">
-      <GuidesPanel />
+      <nav class="ws-tabs" aria-label="Sections">
+        <a class="ws-tab" href="/dashboard">Dashboard</a>
+        <a class="ws-tab" href="/studio">Studio</a>
+        <a class="ws-tab" href="/edit">Library</a>
+        <a class="ws-tab" href="/account/schedule">Planner</a>
+        <a class="ws-tab" href="/account">Analytics</a>
+      </nav>
+
+      <div class="ws-nav-right">
+        <button type="button" class="ws-circ" data-tip="Search anything"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg><span class="ws-sr">Search</span></button>
+        <button type="button" class="ws-circ" data-tip="3 new updates"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="ws-dot"></span><span class="ws-sr">Notifications</span></button>
+        <div class="ws-menu ws-who" data-menu>
+          <button type="button" class="ws-whobtn" data-menu-btn aria-expanded="false" aria-haspopup="true">
+            <span class="ws-whoav">DC</span>
+            <svg class="ws-caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="ws-dropdown ws-dropdown--right" role="menu">
+            <div class="ws-dropdown-head"><strong>Danielle Carter</strong><span>danielle@marinaestates.co.uk</span></div>
+            <a role="menuitem" href="/profile">Your profile</a>
+            <a role="menuitem" href="/profile">Brand Kit</a>
+            <a role="menuitem" href="/account/orders">Billing</a>
+            <a role="menuitem" href="/login" class="ws-dropdown-out">Sign out</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ============ Off-canvas drawer (everything that isn't a primary tab) ============ -->
+    <div class="ws-drawer" data-drawer hidden>
+      <div class="ws-drawer-scrim" data-drawer-close></div>
+      <aside class="ws-drawer-panel" aria-label="More menu">
+        <div class="ws-drawer-top">
+          <a class="ws-logo" href="/dashboard">TMKE</a>
+          <button type="button" class="ws-circ" data-drawer-close aria-label="Close menu"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        </div>
+        <nav class="ws-drawer-nav" aria-label="All sections">
+          <span class="ws-drawer-label">Workspace</span>
+          <a href="/dashboard">Dashboard</a>
+          <a href="/studio">Studio</a>
+          <a href="/edit">Library</a>
+          <a href="/account/schedule">Planner</a>
+          <a href="/account">Analytics</a>
+
+          <span class="ws-drawer-label">Learn</span>
+          <a href="/account/guides" class="is-active" aria-current="page">Guides</a>
+          <a href="/account/blog">Blog</a>
+
+          <span class="ws-drawer-label">Manage</span>
+          <a href="/profile">Brand Kit</a>
+          <a href="/account/services">Managed Socials</a>
+          <a href="/account/bookings">Bookings</a>
+          <a href="/account/orders">Orders &amp; Billing</a>
+          <a href="/profile">Settings</a>
+
+          <span class="ws-drawer-label">Help</span>
+          <a href="/contact">Contact</a>
+          <a href="/contact">Help Centre</a>
+        </nav>
+        <a class="ws-drawer-out" href="/login">Sign out</a>
+      </aside>
+    </div>
+
+    <main class="lrn-main">
+      <!-- ============ Hero — full-width header, on-brand R2 image behind ============ -->
+      <section class="lrn-hero ws-rise" style="--i:0">
+        <div class="lrn-hero-bg" style="background-image:url('https://assets.tmke.co.uk/Smm%20hero.jpg')"></div>
+        <div class="lrn-hero-inner">
+          <h1 class="lrn-title">Learn. Apply. Grow.</h1>
+          <p class="lrn-lede">Practical playbooks and expert guidance to grow your brand on social media.</p>
+          <form class="lrn-search" role="search" onsubmit="return false">
+            <input type="search" placeholder="What do you want to learn today?" aria-label="Search guides and lessons" />
+            <button type="submit" class="lrn-search-btn" aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg></button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============ Explore by topic ============ -->
+      <section class="lrn-sec ws-rise" style="--i:1" aria-labelledby="topics-h">
+        <header class="lrn-sec-head">
+          <h2 class="ws-eyebrow" id="topics-h">Explore by topic</h2>
+        </header>
+        <div class="lrn-rail">
+          <div class="lrn-row" data-rail>
+            <a class="lrn-topic" href="#">
+              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5c-.7.7-1 1.2-1 2.5H9c0-1.3-.3-1.8-1-2.5A6 6 0 0 1 12 3z"/></svg></span>
+              <span class="lrn-topic-name">Getting started</span>
+              <span class="lrn-topic-count">8 guides</span>
+            </a>
+            <a class="lrn-topic" href="#">
+              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h7"/></svg></span>
+              <span class="lrn-topic-name">Content strategy</span>
+              <span class="lrn-topic-count">12 guides</span>
+            </a>
+            <a class="lrn-topic" href="#">
+              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2s-.6-2-1-2.5.4-1.5 1.5-1.5H17a4 4 0 0 0 4-4c0-3.9-4-6-9-6z"/><circle cx="7.5" cy="11" r="1"/><circle cx="11" cy="7.5" r="1"/><circle cx="15.5" cy="8.5" r="1"/></svg></span>
+              <span class="lrn-topic-name">Design &amp; branding</span>
+              <span class="lrn-topic-count">14 guides</span>
+            </a>
+            <a class="lrn-topic" href="#">
+              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9l5 3-5 3z"/></svg></span>
+              <span class="lrn-topic-name">Reels &amp; video</span>
+              <span class="lrn-topic-count">10 guides</span>
+            </a>
+            <a class="lrn-topic" href="#">
+              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M7 11V6a2 2 0 0 1 4 0v5M11 11l1-7a1.5 1.5 0 0 1 3 .3L14.5 11M4 13a8 8 0 0 0 8 8 8 8 0 0 0 8-8c0-1-.7-2-2-2H6c-1.3 0-2 1-2 2z"/></svg></span>
+              <span class="lrn-topic-name">Posting &amp; growth</span>
+              <span class="lrn-topic-count">10 guides</span>
+            </a>
+            <a class="lrn-topic" href="#">
+              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></span>
+              <span class="lrn-topic-name">Analytics</span>
+              <span class="lrn-topic-count">8 guides</span>
+            </a>
+            <a class="lrn-topic" href="#">
+              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 6.5a3 3 0 0 1 0 5.6M18 14c2.3.7 4 2.8 4 5.3"/></svg></span>
+              <span class="lrn-topic-name">Client attraction</span>
+              <span class="lrn-topic-count">7 guides</span>
+            </a>
+          </div>
+          <button type="button" class="lrn-arrow" data-rail-next aria-label="Show more topics"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        </div>
+      </section>
+
+      <!-- ============ Continue learning ============ -->
+      <section class="lrn-sec ws-rise" style="--i:2" aria-labelledby="cont-h">
+        <header class="lrn-sec-head">
+          <h2 class="ws-eyebrow" id="cont-h">Continue learning</h2>
+          <a class="ws-textlink" href="#">See all →</a>
+        </header>
+        <div class="lrn-rail">
+          <div class="lrn-row" data-rail>
+            <a class="lrn-course" href="#">
+              <span class="lrn-course-art" style="background-image:url('/assets/cosy%20home.jpg')"><span class="lrn-ring" style="--p:60"><span>60%</span></span></span>
+              <span class="lrn-course-body">
+                <span class="lrn-kind">Guide</span>
+                <span class="lrn-course-title">Setting up your brand kit</span>
+                <span class="lrn-course-meta">5 steps left</span>
+                <span class="lrn-bar"><span class="lrn-bar-fill" style="width:60%"></span></span>
+              </span>
+            </a>
+            <a class="lrn-course" href="#">
+              <span class="lrn-course-art" style="background-image:url('/assets/home%20kitchen.jpg')"><span class="lrn-ring" style="--p:30"><span>30%</span></span></span>
+              <span class="lrn-course-body">
+                <span class="lrn-kind">Course</span>
+                <span class="lrn-course-title">Content that converts</span>
+                <span class="lrn-course-meta">3 of 10 lessons</span>
+                <span class="lrn-bar"><span class="lrn-bar-fill" style="width:30%"></span></span>
+              </span>
+            </a>
+            <a class="lrn-course" href="#">
+              <span class="lrn-course-art" style="background-image:url('/assets/sitting%20chair.jpg')"><span class="lrn-ring" style="--p:75"><span>75%</span></span></span>
+              <span class="lrn-course-body">
+                <span class="lrn-kind">Course</span>
+                <span class="lrn-course-title">Instagram growth playbook</span>
+                <span class="lrn-course-meta">6 of 8 lessons</span>
+                <span class="lrn-bar"><span class="lrn-bar-fill" style="width:75%"></span></span>
+              </span>
+            </a>
+            <a class="lrn-course" href="#">
+              <span class="lrn-course-art" style="background-image:url('/assets/tea.jpg')"><span class="lrn-ring" style="--p:20"><span>20%</span></span></span>
+              <span class="lrn-course-body">
+                <span class="lrn-kind">Guide</span>
+                <span class="lrn-course-title">Captions that connect</span>
+                <span class="lrn-course-meta">2 steps left</span>
+                <span class="lrn-bar"><span class="lrn-bar-fill" style="width:20%"></span></span>
+              </span>
+            </a>
+          </div>
+          <button type="button" class="lrn-arrow" data-rail-next aria-label="Show more"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        </div>
+      </section>
+
+      <!-- ============ Featured learning paths ============ -->
+      <section class="lrn-sec ws-rise" style="--i:3" aria-labelledby="paths-h">
+        <header class="lrn-sec-head">
+          <h2 class="ws-eyebrow" id="paths-h">Featured learning paths</h2>
+        </header>
+        <div class="lrn-paths">
+          <a class="lrn-path lrn-path--dark" href="#">
+            <div class="lrn-path-body">
+              <span class="lrn-path-eyebrow">8 lessons</span>
+              <h3 class="lrn-path-title">The Foundation</h3>
+              <p class="lrn-path-desc">Everything you need to build a strong, on-brand presence.</p>
+              <span class="lrn-path-cta">Start path <em>→</em></span>
+            </div>
+            <span class="lrn-path-art" style="background-image:url('/assets/home%20forest.jpg')"></span>
+          </a>
+          <a class="lrn-path" href="#">
+            <div class="lrn-path-body">
+              <span class="lrn-path-eyebrow">6 lessons</span>
+              <h3 class="lrn-path-title">Content That Converts</h3>
+              <p class="lrn-path-desc">Create content that attracts, engages and gets results.</p>
+              <span class="lrn-path-cta">Start path <em>→</em></span>
+            </div>
+            <span class="lrn-path-art" style="background-image:url('/assets/home%20window.jpg')"></span>
+          </a>
+        </div>
+        <div class="lrn-dots" aria-hidden="true"><span class="is-on"></span><span></span><span></span></div>
+      </section>
+
+      <!-- ============ Quick lessons ============ -->
+      <section class="lrn-sec ws-rise" style="--i:4" aria-labelledby="quick-h">
+        <header class="lrn-sec-head">
+          <h2 class="ws-eyebrow" id="quick-h">Quick lessons</h2>
+          <a class="ws-textlink" href="#">Browse all →</a>
+        </header>
+        <div class="lrn-rail">
+          <div class="lrn-row" data-rail>
+            <a class="lrn-clip" href="#">
+              <span class="lrn-clip-art" style="background-image:url('/assets/home%20chair.jpg')"><span class="lrn-clip-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="lrn-clip-dur">4:21</span></span>
+              <span class="lrn-clip-title">3 content ideas for today</span>
+              <span class="lrn-clip-cat">Idea</span>
+            </a>
+            <a class="lrn-clip" href="#">
+              <span class="lrn-clip-art" style="background-image:url('/assets/phone%20me.jpg')"><span class="lrn-clip-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="lrn-clip-dur">3:17</span></span>
+              <span class="lrn-clip-title">Design a post in 10 minutes</span>
+              <span class="lrn-clip-cat">Design</span>
+            </a>
+            <a class="lrn-clip" href="#">
+              <span class="lrn-clip-art" style="background-image:url('/assets/glasses.jpg')"><span class="lrn-clip-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="lrn-clip-dur">2:58</span></span>
+              <span class="lrn-clip-title">Write captions that sell</span>
+              <span class="lrn-clip-cat">Copywriting</span>
+            </a>
+            <a class="lrn-clip" href="#">
+              <span class="lrn-clip-art" style="background-image:url('/assets/outside.jpg')"><span class="lrn-clip-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="lrn-clip-dur">2:42</span></span>
+              <span class="lrn-clip-title">Best times to post</span>
+              <span class="lrn-clip-cat">Strategy</span>
+            </a>
+            <a class="lrn-clip" href="#">
+              <span class="lrn-clip-art" style="background-image:url('/assets/vibes.jpg')"><span class="lrn-clip-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="lrn-clip-dur">2:35</span></span>
+              <span class="lrn-clip-title">Reels that get watched</span>
+              <span class="lrn-clip-cat">Video</span>
+            </a>
+          </div>
+          <button type="button" class="lrn-arrow" data-rail-next aria-label="Show more lessons"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        </div>
+      </section>
+
+      <!-- ============ New to TMKE ============ -->
+      <section class="lrn-onboard ws-rise" style="--i:5" aria-labelledby="onb-h">
+        <div class="lrn-onboard-intro">
+          <span class="lrn-onboard-star"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></span>
+          <div>
+            <h2 class="lrn-onboard-h" id="onb-h">New to TMKE?</h2>
+            <p class="lrn-onboard-sub">Start here. These essentials will get you set up for success.</p>
+            <a class="ws-btn ws-btn--primary ws-btn--sm" href="#">Start the essentials
+              <svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </div>
+        <ol class="lrn-steps">
+          <li class="lrn-step">
+            <span class="lrn-step-thumb" style="background-image:url('/assets/home%20ginger.jpg')"></span>
+            <span class="lrn-step-no">1</span>
+            <span class="lrn-step-text"><strong>Set up your brand kit</strong>Build a recognisable brand in minutes.</span>
+          </li>
+          <li class="lrn-step">
+            <span class="lrn-step-thumb" style="background-image:url('/assets/lay%20down.jpg')"></span>
+            <span class="lrn-step-no">2</span>
+            <span class="lrn-step-text"><strong>Plan your content</strong>Create consistent content with ease.</span>
+          </li>
+          <li class="lrn-step">
+            <span class="lrn-step-thumb" style="background-image:url('/assets/home%20deer.jpg')"></span>
+            <span class="lrn-step-no">3</span>
+            <span class="lrn-step-text"><strong>Post with confidence</strong>Know what to post, and when.</span>
+          </li>
+        </ol>
+      </section>
     </main>
   </div>
 
+  <style is:global>
+    /* =====================================================================
+       Learn (Guides) — adopts the /dashboard workspace shell + tokens, then
+       layers an editorial learning library on top. Mirrors dashboard.astro
+       for the nav so the chrome stays identical across tabs.
+       ===================================================================== */
+    body[data-dashboard] { background: var(--ws-bg); }
+    .ws {
+      --ws-bg: #f5f4f1;
+      --ws-card: #ffffff;
+      --ws-soft: #fbfaf8;
+      --ws-ink: #1c1d22;
+      --ws-tx: rgba(28, 29, 34, 0.60);
+      --ws-faint: rgba(28, 29, 34, 0.40);
+      --ws-line: rgba(28, 29, 34, 0.07);
+      --ws-accent: var(--english-violet, #5b4a55);
+      --ws-success: #3f9468;
+      --ws-r-lg: 26px; --ws-r: 20px; --ws-r-sm: 14px;
+      --ws-sh-hero: 0 2px 4px rgba(28,29,34,0.03), 0 34px 64px -34px rgba(28,29,34,0.30), 0 14px 30px -22px rgba(28,29,34,0.20);
+      --ws-sh: 0 1px 2px rgba(28,29,34,0.02), 0 18px 40px -30px rgba(28,29,34,0.16);
+      --ws-ease: cubic-bezier(.2, .8, .2, 1);
+      min-height: 100vh;
+      color: var(--ws-ink);
+      font-family: var(--sans);
+      background:
+        radial-gradient(120% 80% at 100% -5%, rgba(91, 74, 85, 0.055), transparent 55%),
+        radial-gradient(100% 70% at -5% 105%, rgba(91, 74, 85, 0.045), transparent 52%),
+        var(--ws-bg);
+    }
+
+    /* ---------- Navigation (identical to /dashboard) ---------- */
+    .ws-nav {
+      position: sticky; top: 0; z-index: 40;
+      display: flex; align-items: center; gap: clamp(12px, 2vw, 28px);
+      padding: 14px clamp(22px, 2.6vw, 56px);
+      background: color-mix(in srgb, var(--ws-bg) 78%, transparent);
+      -webkit-backdrop-filter: saturate(1.1) blur(14px); backdrop-filter: saturate(1.1) blur(14px);
+    }
+    .ws-brand { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
+    .ws-logo { font-family: var(--serif); font-size: 20px; font-weight: 600; letter-spacing: 0.05em; color: var(--ws-ink); text-decoration: none; }
+    .ws-whobtn { display: inline-flex; align-items: center; gap: 10px; padding: 5px 12px 5px 5px; border: 0; border-radius: 999px; background: transparent; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+    .ws-whobtn:hover { background: rgba(28, 29, 34, 0.05); }
+    .ws-whoav { width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #fff; background: linear-gradient(140deg, color-mix(in srgb, var(--ws-accent) 70%, #fff), var(--ws-accent)); background-size: cover; background-position: center; }
+    .ws-whotext { display: flex; flex-direction: column; line-height: 1.2; text-align: left; }
+    .ws-whotext strong { font-size: 13px; font-weight: 600; color: var(--ws-ink); }
+    .ws-whotext span { font-size: 11px; color: var(--ws-faint); }
+    @media (max-width: 980px) { .ws-whotext { display: none; } }
+
+    .ws-tabs { flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; flex-wrap: wrap; }
+    .ws-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; border-radius: 999px; font-size: 13.5px; font-weight: 500; color: var(--ws-tx); text-decoration: none; border: 0; background: transparent; cursor: pointer; font-family: inherit; transition: color 0.2s, background 0.2s, box-shadow 0.2s, transform 0.2s var(--ws-ease); }
+    .ws-tab:hover { color: var(--ws-ink); background: rgba(28, 29, 34, 0.05); }
+    .ws-tab.is-active { color: var(--ws-ink); font-weight: 600; background: var(--ws-card); box-shadow: 0 1px 2px rgba(28,29,34,0.04), 0 6px 16px -10px rgba(28,29,34,0.2); }
+    .ws-caret { width: 9px; height: 6px; opacity: 0.55; transition: transform 0.25s var(--ws-ease); }
+
+    .ws-nav-right { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+    .ws-circ { position: relative; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--ws-card) 70%, transparent); border: 1px solid var(--ws-line); cursor: pointer; color: var(--ws-tx); transition: transform 0.2s var(--ws-ease), box-shadow 0.2s, color 0.2s, background 0.2s; }
+    .ws-circ:hover { transform: translateY(-2px); color: var(--ws-ink); background: var(--ws-card); box-shadow: 0 9px 20px -10px rgba(28,29,34,0.3); }
+    .ws-circ svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .ws-dot { position: absolute; top: 9px; right: 10px; width: 7px; height: 7px; border-radius: 50%; background: var(--ws-accent); box-shadow: 0 0 0 2px var(--ws-bg); }
+    .ws-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+    .ws-menu { position: relative; }
+    .ws-dropdown { position: absolute; top: calc(100% + 10px); left: 0; min-width: 210px; padding: 8px; background: #fff; border: 1px solid var(--ws-line); border-radius: 14px; box-shadow: 0 24px 50px -22px rgba(28,29,34,0.28); opacity: 0; transform: translateY(-6px) scale(0.98); transform-origin: top left; pointer-events: none; transition: opacity 0.2s var(--ws-ease), transform 0.2s var(--ws-ease); z-index: 50; }
+    .ws-menu.is-open .ws-dropdown { opacity: 1; transform: none; pointer-events: auto; }
+    .ws-menu.is-open .ws-caret { transform: rotate(180deg); }
+    .ws-dropdown a { display: block; padding: 10px 12px; border-radius: 9px; font-size: 13.5px; color: var(--ws-tx); text-decoration: none; transition: background 0.16s, color 0.16s; }
+    .ws-dropdown a:hover { background: rgba(28, 29, 34, 0.05); color: var(--ws-ink); }
+    .ws-dropdown-head { padding: 8px 12px 10px; border-bottom: 1px solid var(--ws-line); margin-bottom: 6px; display: flex; flex-direction: column; gap: 2px; }
+    .ws-dropdown-head strong { font-size: 14px; color: var(--ws-ink); }
+    .ws-dropdown-head span { font-size: 12px; color: var(--ws-faint); }
+    .ws-dropdown-out { color: var(--ws-accent) !important; font-weight: 600; }
+    .ws-dropdown--right { left: auto; right: 0; transform-origin: top right; }
+    .ws-who .ws-whobtn { padding: 4px 9px 4px 4px; }
+
+    /* ---------- Hamburger (left) — opens the off-canvas drawer ---------- */
+    .ws-burger { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: transparent; border: 0; cursor: pointer; transition: background 0.2s; }
+    .ws-burger:hover { background: rgba(28,29,34,0.06); }
+    .ws-burger span { display: block; width: 19px; height: 1.8px; border-radius: 2px; background: var(--ws-ink); transition: width 0.3s var(--ws-ease); }
+    .ws-burger span:nth-child(2) { width: 13px; align-self: flex-start; margin-left: 11.5px; }
+    .ws-burger:hover span:nth-child(2) { width: 19px; }
+
+    /* ---------- Off-canvas drawer ---------- */
+    .ws-drawer { position: fixed; inset: 0; z-index: 90; }
+    .ws-drawer[hidden] { display: none; }
+    .ws-drawer-scrim { position: absolute; inset: 0; background: rgba(20,16,22,0.42); opacity: 0; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); transition: opacity 0.3s var(--ws-ease); }
+    .ws-drawer.is-open .ws-drawer-scrim { opacity: 1; }
+    .ws-drawer-panel { position: absolute; top: 0; left: 0; bottom: 0; width: min(320px, 86vw); display: flex; flex-direction: column; padding: 18px 18px 22px; background: var(--ws-card); box-shadow: 0 0 60px -10px rgba(28,29,34,0.45); transform: translateX(-100%); transition: transform 0.34s var(--ws-ease); overflow-y: auto; }
+    .ws-drawer.is-open .ws-drawer-panel { transform: none; }
+    .ws-drawer-top { display: flex; align-items: center; justify-content: space-between; padding: 6px 6px 14px; margin-bottom: 8px; border-bottom: 1px solid var(--ws-line); }
+    .ws-drawer-nav { display: flex; flex-direction: column; gap: 1px; }
+    .ws-drawer-label { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); padding: 16px 10px 6px; }
+    .ws-drawer-nav a { display: block; padding: 9px 12px; border-radius: 10px; font-size: 14px; font-weight: 500; color: var(--ws-tx); text-decoration: none; transition: background 0.16s, color 0.16s; }
+    .ws-drawer-nav a:hover { background: rgba(28,29,34,0.05); color: var(--ws-ink); }
+    .ws-drawer-nav a.is-active { background: color-mix(in srgb, var(--ws-accent) 10%, #fff); color: var(--ws-accent); font-weight: 600; }
+    .ws-drawer-out { margin-top: auto; padding: 12px; border-radius: 11px; text-align: center; font-size: 13.5px; font-weight: 600; color: var(--ws-accent); text-decoration: none; border: 1px solid var(--ws-line); transition: background 0.18s; }
+    .ws-drawer-out:hover { background: rgba(28,29,34,0.05); }
+
+    /* ---------- Shared bits reused from the dashboard ---------- */
+    .ws-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0; }
+    .ws-textlink { font-size: 13px; font-weight: 600; color: var(--ws-tx); background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; text-decoration: none; transition: color 0.2s; }
+    .ws-textlink:hover { color: var(--ws-ink); }
+    .ws-btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 13px; font-family: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform 0.22s var(--ws-ease), box-shadow 0.22s, background 0.2s; }
+    .ws-btn svg { width: 15px; height: 15px; }
+    .ws-btn--sm { padding: 10px 16px; font-size: 13px; border-radius: 11px; }
+    .ws-btn--primary { background: var(--ws-accent); color: #fff; box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--ws-accent) 80%, transparent); }
+    .ws-btn--primary:hover { transform: translateY(-2px); box-shadow: 0 18px 32px -12px color-mix(in srgb, var(--ws-accent) 75%, transparent); }
+    .ws-btn--primary svg { transition: transform 0.25s var(--ws-ease); }
+    .ws-btn--primary:hover svg { transform: translateX(3px); }
+
+    /* ---------- Page shell ---------- */
+    .lrn-main {
+      max-width: 1500px; margin: 0 auto;
+      padding: clamp(20px, 3vh, 38px) clamp(22px, 2.6vw, 56px) 120px;
+      display: flex; flex-direction: column; gap: clamp(34px, 4.4vh, 56px);
+    }
+
+    /* ---------- Hero — full-width header, on-brand image behind ---------- */
+    .lrn-hero { position: relative; isolation: isolate; display: flex; align-items: center; min-height: clamp(320px, 44vh, 470px); border-radius: var(--ws-r-lg); overflow: hidden; box-shadow: var(--ws-sh-hero); }
+    .lrn-hero-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center 38%; transform: scale(1.02); transition: transform 1.8s var(--ws-ease); }
+    .lrn-hero:hover .lrn-hero-bg { transform: scale(1.06); }
+    .lrn-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(96deg, rgba(22,15,19,0.9) 0%, rgba(22,15,19,0.66) 34%, rgba(22,15,19,0.28) 62%, rgba(22,15,19,0.04) 100%); }
+    .lrn-hero-inner { padding: clamp(28px, 4.4vw, 64px); max-width: 640px; }
+    .lrn-title { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 5.4vw, 72px); line-height: 1.0; letter-spacing: -0.02em; margin: 0; color: #fff; }
+    .lrn-lede { font-size: clamp(15px, 1.4vw, 17px); line-height: 1.6; color: rgba(255,255,255,0.84); margin: 18px 0 0; max-width: 42ch; }
+    .lrn-search { display: flex; align-items: center; gap: 8px; margin-top: 28px; max-width: 440px; padding: 6px 6px 6px 18px; background: rgba(255,255,255,0.96); border: 1px solid rgba(255,255,255,0.5); border-radius: 999px; box-shadow: 0 18px 40px -20px rgba(0,0,0,0.5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: box-shadow 0.25s var(--ws-ease); }
+    .lrn-search:focus-within { box-shadow: 0 22px 46px -20px rgba(0,0,0,0.55); }
+    .lrn-search input { flex: 1; border: 0; outline: 0; background: transparent; font-family: inherit; font-size: 14.5px; color: var(--ws-ink); min-width: 0; }
+    .lrn-search input::placeholder { color: var(--ws-faint); }
+    .lrn-search-btn { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: var(--ws-accent); color: #fff; transition: transform 0.2s var(--ws-ease); }
+    .lrn-search-btn:hover { transform: translateY(-1px) scale(1.04); }
+    .lrn-search-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    @media (max-width: 620px) { .lrn-hero { min-height: 360px; } }
+
+    /* ---------- Section scaffolding ---------- */
+    .lrn-sec { display: flex; flex-direction: column; gap: 16px; }
+    .lrn-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 0 2px; }
+
+    /* Horizontal rails (topics / courses / clips) */
+    .lrn-rail { position: relative; }
+    .lrn-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 14px; overflow-x: auto; scroll-behavior: smooth; scroll-snap-type: x proximity; padding: 4px 2px 6px; margin: -4px -2px -6px; -ms-overflow-style: none; scrollbar-width: none; }
+    .lrn-row::-webkit-scrollbar { display: none; }
+    .lrn-row > * { scroll-snap-align: start; }
+    .lrn-arrow { position: absolute; top: 50%; right: -6px; transform: translateY(-50%); z-index: 5; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--ws-line); background: var(--ws-card); color: var(--ws-ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 10px 24px -12px rgba(28,29,34,0.34); transition: transform 0.2s var(--ws-ease), box-shadow 0.2s; }
+    .lrn-arrow:hover { transform: translateY(-50%) scale(1.06); box-shadow: 0 14px 28px -12px rgba(28,29,34,0.4); }
+    .lrn-arrow svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+    @media (max-width: 720px) { .lrn-arrow { display: none; } }
+
+    /* Topic cards */
+    .lrn-topic { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 22px 14px; border-radius: var(--ws-r-sm); background: var(--ws-card); border: 1px solid var(--ws-line); text-decoration: none; transition: transform 0.24s var(--ws-ease), box-shadow 0.24s, border-color 0.2s; }
+    .lrn-topic:hover { transform: translateY(-4px); border-color: transparent; box-shadow: 0 2px 4px rgba(28,29,34,0.04), 0 22px 40px -26px rgba(28,29,34,0.3); }
+    .lrn-topic-ic { width: 42px; height: 42px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--ws-accent) 9%, #fff); color: var(--ws-accent); }
+    .lrn-topic-ic svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .lrn-topic-name { font-size: 13.5px; font-weight: 600; color: var(--ws-ink); line-height: 1.25; }
+    .lrn-topic-count { font-size: 11px; color: var(--ws-faint); }
+
+    /* Course cards */
+    .lrn-course { min-width: 250px; display: flex; flex-direction: column; text-decoration: none; }
+    .lrn-course-art { position: relative; display: block; aspect-ratio: 16 / 10; border-radius: var(--ws-r-sm); background-size: cover; background-position: center; background-color: #e9e6e2; box-shadow: var(--ws-sh); transition: transform 0.28s var(--ws-ease), box-shadow 0.28s; }
+    .lrn-course:hover .lrn-course-art { transform: translateY(-4px); box-shadow: 0 2px 4px rgba(28,29,34,0.04), 0 24px 42px -26px rgba(28,29,34,0.34); }
+    .lrn-ring { position: absolute; top: 12px; right: 12px; width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: conic-gradient(var(--ws-accent) calc(var(--p) * 1%), rgba(28,29,34,0.16) 0); box-shadow: 0 4px 10px -4px rgba(28,29,34,0.3); }
+    .lrn-ring > span { display: inline-flex; align-items: center; justify-content: center; width: calc(100% - 8px); height: calc(100% - 8px); border-radius: 50%; background: #fff; font-size: 11.5px; font-weight: 700; color: var(--ws-ink); }
+    .lrn-course-body { display: flex; flex-direction: column; gap: 5px; padding: 14px 2px 0; }
+    .lrn-kind { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
+    .lrn-course-title { font-size: 15px; font-weight: 600; color: var(--ws-ink); line-height: 1.3; }
+    .lrn-course-meta { font-size: 12px; color: var(--ws-faint); }
+    .lrn-bar { height: 4px; border-radius: 999px; background: rgba(28,29,34,0.09); overflow: hidden; margin-top: 7px; }
+    .lrn-bar-fill { display: block; height: 100%; border-radius: 999px; background: var(--ws-accent); }
+
+    /* Featured learning paths */
+    .lrn-paths { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(16px, 1.8vw, 26px); }
+    @media (max-width: 860px) { .lrn-paths { grid-template-columns: 1fr; } }
+    .lrn-path { position: relative; display: grid; grid-template-columns: 1.05fr 0.95fr; align-items: stretch; min-height: 230px; border-radius: var(--ws-r-lg); overflow: hidden; background: var(--ws-card); box-shadow: var(--ws-sh-hero); text-decoration: none; transition: transform 0.28s var(--ws-ease); }
+    .lrn-path:hover { transform: translateY(-4px); }
+    .lrn-path-body { padding: clamp(24px, 2.4vw, 36px); display: flex; flex-direction: column; justify-content: center; gap: 9px; }
+    .lrn-path-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
+    .lrn-path-title { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 2.5vw, 34px); line-height: 1.05; letter-spacing: -0.015em; margin: 0; color: var(--ws-ink); }
+    .lrn-path-desc { font-size: 14px; line-height: 1.5; color: var(--ws-tx); margin: 2px 0 0; max-width: 30ch; }
+    .lrn-path-cta { margin-top: 16px; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 11px; background: var(--ws-accent); color: #fff; font-size: 13px; font-weight: 600; }
+    .lrn-path-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
+    .lrn-path:hover .lrn-path-cta em { transform: translateX(4px); }
+    .lrn-path-art { background-size: cover; background-position: center; background-color: #e9e6e2; transition: transform 1.2s var(--ws-ease); }
+    .lrn-path:hover .lrn-path-art { transform: scale(1.05); }
+    /* Dark variant — The Foundation */
+    .lrn-path--dark { background: var(--english-violet, #371e28); }
+    .lrn-path--dark .lrn-path-eyebrow { color: rgba(255,255,255,0.6); }
+    .lrn-path--dark .lrn-path-title { color: #fff; }
+    .lrn-path--dark .lrn-path-desc { color: rgba(255,255,255,0.72); }
+    .lrn-path--dark .lrn-path-cta { background: #fff; color: var(--english-violet, #371e28); }
+    @media (max-width: 620px) { .lrn-path { grid-template-columns: 1fr; } .lrn-path-art { min-height: 150px; order: -1; } }
+
+    .lrn-dots { display: flex; justify-content: center; gap: 7px; margin-top: 4px; }
+    .lrn-dots span { width: 7px; height: 7px; border-radius: 50%; background: rgba(28,29,34,0.16); }
+    .lrn-dots span.is-on { width: 22px; border-radius: 999px; background: var(--ws-accent); }
+
+    /* Quick lessons */
+    .lrn-clip { min-width: 200px; display: flex; flex-direction: column; gap: 9px; text-decoration: none; }
+    .lrn-clip-art { position: relative; display: block; aspect-ratio: 4 / 3; border-radius: var(--ws-r-sm); background-size: cover; background-position: center; background-color: #e9e6e2; box-shadow: var(--ws-sh); overflow: hidden; transition: transform 0.28s var(--ws-ease), box-shadow 0.28s; }
+    .lrn-clip:hover .lrn-clip-art { transform: translateY(-4px); box-shadow: 0 2px 4px rgba(28,29,34,0.04), 0 24px 42px -26px rgba(28,29,34,0.34); }
+    .lrn-clip-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(15,12,18,0) 55%, rgba(15,12,18,0.4) 100%); }
+    .lrn-clip-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2; width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.9); color: var(--ws-accent); box-shadow: 0 10px 22px -10px rgba(0,0,0,0.4); transition: transform 0.25s var(--ws-ease); }
+    .lrn-clip:hover .lrn-clip-play { transform: translate(-50%, -50%) scale(1.08); }
+    .lrn-clip-play svg { width: 18px; height: 18px; fill: currentColor; margin-left: 2px; }
+    .lrn-clip-dur { position: absolute; bottom: 9px; right: 9px; z-index: 2; padding: 3px 8px; border-radius: 999px; background: rgba(15,12,18,0.7); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); font-size: 10.5px; font-weight: 600; color: #fff; }
+    .lrn-clip-title { font-size: 13.5px; font-weight: 600; color: var(--ws-ink); line-height: 1.3; padding: 0 2px; }
+    .lrn-clip-cat { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-faint); padding: 0 2px; }
+
+    /* New to TMKE */
+    .lrn-onboard { display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); align-items: center; gap: clamp(24px, 3vw, 48px); padding: clamp(24px, 2.6vw, 38px); border-radius: var(--ws-r-lg); background: var(--ws-soft); border: 1px solid var(--ws-line); }
+    @media (max-width: 900px) { .lrn-onboard { grid-template-columns: 1fr; } }
+    .lrn-onboard-intro { display: flex; align-items: flex-start; gap: 16px; }
+    .lrn-onboard-star { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--ws-accent) 12%, #fff); color: var(--ws-accent); }
+    .lrn-onboard-star svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
+    .lrn-onboard-h { font-family: var(--serif); font-weight: 500; font-size: clamp(20px, 2vw, 26px); letter-spacing: -0.01em; margin: 0; color: var(--ws-ink); }
+    .lrn-onboard-sub { font-size: 13.5px; line-height: 1.5; color: var(--ws-tx); margin: 6px 0 16px; max-width: 30ch; }
+    .lrn-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    @media (max-width: 620px) { .lrn-steps { grid-template-columns: 1fr; } }
+    .lrn-step { position: relative; display: flex; align-items: center; gap: 13px; }
+    .lrn-step-thumb { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 12px; background-size: cover; background-position: center; background-color: #e9e6e2; box-shadow: var(--ws-sh); }
+    .lrn-step-no { flex: 0 0 auto; position: absolute; left: 40px; top: -6px; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--ws-accent); box-shadow: 0 0 0 2px var(--ws-soft); }
+    .lrn-step-text { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--ws-tx); line-height: 1.4; }
+    .lrn-step-text strong { font-size: 13.5px; font-weight: 600; color: var(--ws-ink); }
+
+    /* ---------- Entrance ---------- */
+    .ws-rise { opacity: 0; transform: translateY(24px); }
+    body.ws-ready .ws-rise { animation: wsRise 0.8s var(--ws-ease) both; animation-delay: calc(var(--i) * 0.09s); }
+    @keyframes wsRise { to { opacity: 1; transform: none; } }
+
+    /* ---------- Tooltips ---------- */
+    [data-tip] { position: relative; }
+    [data-tip]::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%) translateY(4px); width: max-content; max-width: 220px; padding: 9px 12px; border-radius: 10px; background: #1c1d22; color: #fff; font-size: 12px; font-weight: 500; line-height: 1.4; letter-spacing: 0; text-transform: none; text-align: center; white-space: normal; opacity: 0; pointer-events: none; z-index: 60; box-shadow: 0 12px 28px -10px rgba(0,0,0,0.4); transition: opacity 0.22s var(--ws-ease), transform 0.22s var(--ws-ease); }
+    [data-tip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (prefers-reduced-motion: reduce) { .ws-rise { opacity: 1 !important; transform: none !important; animation: none !important; } .lrn-row { scroll-behavior: auto; } }
+  </style>
+
+  <script>
+    requestAnimationFrame(() => document.body.classList.add('ws-ready'));
+
+    // Dropdowns (shared with /dashboard)
+    const menus = [...document.querySelectorAll('[data-menu]')];
+    function closeAll(except) { menus.forEach((m) => { if (m !== except) { m.classList.remove('is-open'); m.querySelector('[data-menu-btn]')?.setAttribute('aria-expanded', 'false'); } }); }
+    menus.forEach((m) => { const b = m.querySelector('[data-menu-btn]'); b?.addEventListener('click', (e) => { e.stopPropagation(); const open = m.classList.toggle('is-open'); b.setAttribute('aria-expanded', String(open)); closeAll(m); }); });
+    document.addEventListener('click', () => closeAll(null));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(null); });
+
+    // Off-canvas drawer (hamburger → everything that isn't a primary tab)
+    const drawer = document.querySelector('[data-drawer]');
+    const burger = document.querySelector('[data-drawer-open]');
+    let drawerTimer;
+    function openDrawer() { if (!drawer) return; clearTimeout(drawerTimer); drawer.hidden = false; requestAnimationFrame(() => drawer.classList.add('is-open')); burger?.setAttribute('aria-expanded', 'true'); }
+    function closeDrawer() { if (!drawer) return; drawer.classList.remove('is-open'); burger?.setAttribute('aria-expanded', 'false'); drawerTimer = setTimeout(() => { drawer.hidden = true; }, 340); }
+    burger?.addEventListener('click', openDrawer);
+    document.querySelectorAll('[data-drawer-close]').forEach((b) => b.addEventListener('click', closeDrawer));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawer && !drawer.hidden) closeDrawer(); });
+
+    // Horizontal rails — arrow nudges the row along by ~one screenful.
+    document.querySelectorAll('[data-rail-next]').forEach((btn) => {
+      const row = btn.closest('.lrn-rail')?.querySelector('[data-rail]');
+      if (!row) return;
+      btn.addEventListener('click', () => {
+        const atEnd = row.scrollLeft + row.clientWidth >= row.scrollWidth - 8;
+        row.scrollTo({ left: atEnd ? 0 : row.scrollLeft + row.clientWidth * 0.85, behavior: 'smooth' });
+      });
+    });
+  </script>
+
+  <!-- Auth gate + identity. Customers must be signed in to reach Guides (mirrors
+       the old page); local dev keeps the mock preview so the design stays viewable. -->
   <script>
     import { supabase } from "../../lib/supabase.js";
+    const titleCase = (s) => String(s || '').replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        location.replace('/login?next=' + encodeURIComponent('/account/guides'));
-        return;
-      }
-      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
-      document.getElementById('app-signout')?.addEventListener('click', async () => {
-        await supabase.auth.signOut();
-        location.replace('/login');
-      });
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          // Production: require sign-in. Local dev: keep the mock preview visible.
+          if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/guides'));
+          return;
+        }
+        const email = session.user.email ?? '';
+        const meta = session.user.user_metadata ?? {};
+        const fullName = titleCase(meta.name || email.split('@')[0].replace(/[._]/g, ' '));
+        const initials = fullName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'T';
+        document.querySelectorAll('.ws-whoav').forEach((e) => { e.textContent = initials; });
+        const setText = (sel, val) => { const el = document.querySelector(sel); if (el && val) el.textContent = val; };
+        setText('.ws-whotext strong', fullName);
+        setText('.ws-whotext span', email);
+        setText('.ws-dropdown-head strong', fullName);
+        setText('.ws-dropdown-head span', email);
+      } catch (_) { /* keep the mock preview on any error */ }
     })();
   </script>
 </BaseLayout>
