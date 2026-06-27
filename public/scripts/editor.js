@@ -6098,6 +6098,27 @@
     if (_photosLbl) _photosLbl.textContent = "Images";
     var _bgBtn = document.querySelector('.ed-rail-btn[data-tool="background"]');
     if (_bgBtn) _bgBtn.style.display = "none";
+
+    // Merge Brand + Elements into a single "Assets" tab (the brief's defining
+    // rail simplification). Shape buttons are wired per-button (querySelectorAll
+    // later), so they keep working when moved into the Brand pane.
+    var _brandPane = document.querySelector('.ed-panel-pane[data-pane="brand"]');
+    var _elemsPane = document.querySelector('.ed-panel-pane[data-pane="elements"]');
+    if (_brandPane && _elemsPane) {
+      var _divider = document.createElement("div");
+      _divider.className = "ed-section-title";
+      _divider.textContent = "Shapes & elements";
+      _brandPane.appendChild(_divider);
+      Array.prototype.slice.call(_elemsPane.children).forEach(function (n) {
+        if (!(n.classList && n.classList.contains("ed-pane-header"))) _brandPane.appendChild(n);
+      });
+      var _assetsHdr = _brandPane.querySelector(".ed-pane-header h3");
+      if (_assetsHdr) _assetsHdr.textContent = "Assets";
+      var _brandRailLbl = document.querySelector('.ed-rail-btn[data-tool="brand"] span');
+      if (_brandRailLbl) _brandRailLbl.textContent = "Assets";
+      var _elemsRailBtn = document.querySelector('.ed-rail-btn[data-tool="elements"]');
+      if (_elemsRailBtn) _elemsRailBtn.style.display = "none";
+    }
   }
 
   // Open a tool pane programmatically (clears any selection so the pane shows).
