@@ -6063,6 +6063,21 @@
     });
   });
 
+  // Customer Studio: a calm "choose something to edit" start panel is shown when
+  // nothing is selected, instead of the brand kit. Its options just trigger the
+  // matching rail tool. Admin (?mode=admin) keeps brand-kit-first, untouched.
+  document.querySelectorAll("[data-start-tool]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var railBtn = document.querySelector('.ed-rail-btn[data-tool="' + b.dataset.startTool + '"]');
+      if (railBtn) railBtn.click();
+    });
+  });
+  if (!location.search.includes("mode=admin")) {
+    activeToolPane = "start";
+    showPane("start");
+    document.querySelectorAll(".ed-rail-btn").forEach(function (b) { b.classList.remove("is-active"); });
+  }
+
   // Open a tool pane programmatically (clears any selection so the pane shows).
   function openTool(name) {
     state.selectedIds = [];
