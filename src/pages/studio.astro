@@ -1,0 +1,718 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<!--
+  Studio redesign — STANDALONE INTERACTIVE PREVIEW (mock data).
+  A calm, light, "creative workspace" reimagining of the customer design editor
+  per the brief. Deliberately separate from the live /editor (and its
+  ?mode=admin admin studio) so nothing functional is touched until signed off.
+
+  Demonstrates the headline ideas: light/airy theme with the canvas as hero,
+  contextual panels + progressive disclosure (click an element → only its tools
+  appear; click empty → a simple starting panel), a slimmed rail, a 3-section
+  toolbar, platform-name canvas sizes, a single Brand Kit, and the Creative
+  Assistant. Selection + accordion + assistant are wired; editing is mocked.
+-->
+<BaseLayout
+  dashboard
+  hideNav
+  hideFooter
+  pageTransition={false}
+  title="Studio — TMKE"
+  description="A calm, premium creative workspace for estate-agent marketing."
+>
+  <div class="st" id="st">
+    <!-- ============ Top toolbar — 3 sections ============ -->
+    <header class="st-top">
+      <div class="st-top-left">
+        <a class="st-icbtn" href="/dashboard" data-tip="Back to dashboard" aria-label="Back">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </a>
+        <div class="st-proj">
+          <input class="st-projname" value="Just Listed — Marina Heights" aria-label="Project name" />
+          <span class="st-saved"><span class="st-saved-dot"></span>Auto saved</span>
+        </div>
+      </div>
+
+      <div class="st-top-mid">
+        <button class="st-icbtn" data-tip="Undo" aria-label="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+        <button class="st-icbtn" data-tip="Redo" aria-label="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
+        <span class="st-top-div"></span>
+        <div class="st-zoom">
+          <button class="st-zoom-btn" aria-label="Zoom out">−</button>
+          <span class="st-zoom-val">68%</span>
+          <button class="st-zoom-btn" aria-label="Zoom in">+</button>
+        </div>
+      </div>
+
+      <div class="st-top-right">
+        <button class="st-btn st-btn--ghost" data-tip="See it the way your followers will">Preview</button>
+        <button class="st-btn st-btn--ghost">Schedule</button>
+        <button class="st-btn st-btn--primary">Download
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M5 7l3 3 3-3M3 13h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="st-icbtn st-icbtn--more" data-tip="More" aria-label="More">⋯</button>
+      </div>
+    </header>
+
+    <!-- ============ Left rail — what you can add ============ -->
+    <nav class="st-rail" aria-label="Tools">
+      <button class="st-rail-btn is-active" data-rail="assets">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>Assets</span>
+      </button>
+      <button class="st-rail-btn" data-rail="text">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M9 6v13M12 6v6"/></svg>
+        <span>Text</span>
+      </button>
+      <button class="st-rail-btn" data-rail="images">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/></svg>
+        <span>Images</span>
+      </button>
+      <button class="st-rail-btn" data-rail="uploads">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+        <span>Uploads</span>
+      </button>
+      <button class="st-rail-btn" data-rail="layers">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5"/></svg>
+        <span>Layers</span>
+      </button>
+    </nav>
+
+    <!-- ============ Contextual inspector panel ============ -->
+    <aside class="st-panel" id="st-panel" aria-label="Editor">
+      <!-- Nothing selected — a calm starting panel -->
+      <div class="st-pane is-active" data-pane="start">
+        <p class="st-pane-eyebrow">Let's make something beautiful</p>
+        <h2 class="st-pane-h">Choose something to edit</h2>
+        <p class="st-pane-sub">Tap an item on your design, or start here.</p>
+        <div class="st-choose">
+          <button class="st-choose-btn" data-go="bg">
+            <span class="st-choose-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/></svg></span>
+            <span><b>Background</b><i>Photo, crop & overlay</i></span>
+          </button>
+          <button class="st-choose-btn" data-go="text">
+            <span class="st-choose-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M9 6v13M12 6v6"/></svg></span>
+            <span><b>Text</b><i>Headlines & captions</i></span>
+          </button>
+          <button class="st-choose-btn" data-rail-go="images">
+            <span class="st-choose-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>
+            <span><b>Images</b><i>Add a photo</i></span>
+          </button>
+          <button class="st-choose-btn" data-rail-go="assets">
+            <span class="st-choose-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.4 5.3 5.6.5-4.2 3.7 1.3 5.5L12 20.7 6.9 23.5l1.3-5.5L4 14.3l5.6-.5z"/></svg></span>
+            <span><b>Elements</b><i>Shapes, lines, icons</i></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Text selected — only typography -->
+      <div class="st-pane" data-pane="text">
+        <div class="st-pane-head">
+          <span class="st-pane-tag">Text</span>
+          <span class="st-pane-name">“JUST LISTED”</span>
+        </div>
+        <div class="st-acc">
+          <div class="st-sec is-open">
+            <button class="st-sec-head" type="button">Font <svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <button class="st-field-btn">Helios — Bold <span>Change</span></button>
+              <div class="st-chips">
+                <button class="st-chip is-on">Bold</button>
+                <button class="st-chip">Medium</button>
+                <button class="st-chip">Regular</button>
+              </div>
+            </div>
+          </div>
+          <div class="st-sec">
+            <button class="st-sec-head" type="button">Size <svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <div class="st-slider"><span class="st-slider-fill" style="width:64%"></span><span class="st-slider-knob" style="left:64%"></span></div>
+              <div class="st-slider-row"><span>Smaller</span><b>96 px</b><span>Larger</span></div>
+            </div>
+          </div>
+          <div class="st-sec">
+            <button class="st-sec-head" type="button">Alignment <svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <div class="st-seg">
+                <button class="is-on" aria-label="Left"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h14"/></svg></button>
+                <button aria-label="Centre"><svg viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M5 17h14"/></svg></button>
+                <button aria-label="Right"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 12h10M6 17h14"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="st-sec">
+            <button class="st-sec-head" type="button">Colour <svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <div class="st-swatches">
+                <button class="st-sw is-on" style="background:#ffffff" aria-label="White"></button>
+                <button class="st-sw" style="background:#1c1d22"></button>
+                <button class="st-sw" style="background:#5b4a55"></button>
+                <button class="st-sw" style="background:#c7a98b"></button>
+                <button class="st-sw st-sw--add">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="st-sec">
+            <button class="st-sec-head" type="button">Spacing <span class="st-tip-q" data-tip="A little more letter-spacing makes ALL-CAPS headlines feel premium.">?</span><svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <div class="st-slider"><span class="st-slider-fill" style="width:30%"></span><span class="st-slider-knob" style="left:30%"></span></div>
+              <div class="st-slider-row"><span>Letter</span><b>0.06em</b><span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Background selected — only background tools -->
+      <div class="st-pane" data-pane="bg">
+        <div class="st-pane-head">
+          <span class="st-pane-tag">Background</span>
+          <span class="st-pane-name">Property photo</span>
+        </div>
+        <div class="st-acc">
+          <div class="st-sec is-open">
+            <button class="st-sec-head" type="button">Photo <svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <button class="st-field-btn st-field-btn--primary">Replace photo</button>
+              <div class="st-row2"><button class="st-field-btn">Crop</button><button class="st-field-btn">Reposition</button></div>
+            </div>
+          </div>
+          <div class="st-sec">
+            <button class="st-sec-head" type="button">Overlay <span class="st-tip-q" data-tip="A dark overlay sits between the photo and your text so the words stay readable over any image.">?</span><svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <div class="st-swatches">
+                <button class="st-sw is-on" style="background:#1c1d22"></button>
+                <button class="st-sw" style="background:#5b4a55"></button>
+                <button class="st-sw" style="background:#2f5d50"></button>
+                <button class="st-sw st-sw--none" data-tip="No overlay">∅</button>
+              </div>
+            </div>
+          </div>
+          <div class="st-sec">
+            <button class="st-sec-head" type="button">Opacity <svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <div class="st-slider"><span class="st-slider-fill" style="width:42%"></span><span class="st-slider-knob" style="left:42%"></span></div>
+              <div class="st-slider-row"><span>Clear</span><b>42%</b><span>Solid</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Assets rail → single Brand Kit -->
+      <div class="st-pane" data-pane="assets">
+        <h2 class="st-pane-h st-pane-h--sm">Brand Kit</h2>
+        <p class="st-pane-eyebrow st-pane-eyebrow--soft">Marina Estates</p>
+        <div class="st-acc st-acc--flush">
+          <div class="st-sec is-open">
+            <button class="st-sec-head" type="button">Brand colours <svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <div class="st-swatches st-swatches--lg">
+                <button class="st-sw" style="background:#1c1d22"></button>
+                <button class="st-sw" style="background:#5b4a55"></button>
+                <button class="st-sw" style="background:#c7a98b"></button>
+                <button class="st-sw" style="background:#2f5d50"></button>
+                <button class="st-sw" style="background:#f4f2f1"></button>
+              </div>
+            </div>
+          </div>
+          <div class="st-sec">
+            <button class="st-sec-head" type="button">Custom colour <svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body"><button class="st-field-btn">Pick a colour</button></div>
+          </div>
+          <div class="st-sec">
+            <button class="st-sec-head" type="button">Gradients <svg class="st-chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+            <div class="st-sec-body">
+              <div class="st-swatches st-swatches--lg">
+                <button class="st-sw" style="background:linear-gradient(135deg,#5b4a55,#c7a98b)"></button>
+                <button class="st-sw" style="background:linear-gradient(135deg,#1c1d22,#2f5d50)"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add-text presets -->
+      <div class="st-pane" data-pane="textadd">
+        <h2 class="st-pane-h st-pane-h--sm">Add text</h2>
+        <div class="st-textpresets">
+          <button class="st-textpreset" style="font-family:var(--serif);font-size:24px;font-weight:600">Add a headline</button>
+          <button class="st-textpreset" style="font-size:16px;font-weight:600">Add a subheading</button>
+          <button class="st-textpreset" style="font-size:13px">Add body text</button>
+        </div>
+      </div>
+
+      <!-- Simple, encouraging empty states for the rest -->
+      <div class="st-pane" data-pane="images">
+        <h2 class="st-pane-h st-pane-h--sm">Images</h2>
+        <div class="st-empty">
+          <div class="st-empty-ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/></svg></div>
+          <p>Drop in a property photo, or browse millions of free stock images.</p>
+          <button class="st-field-btn st-field-btn--primary">Browse photos</button>
+        </div>
+      </div>
+      <div class="st-pane" data-pane="uploads">
+        <h2 class="st-pane-h st-pane-h--sm">Uploads</h2>
+        <div class="st-empty">
+          <div class="st-empty-ic"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg></div>
+          <p>Your photos and logos will live here. Upload one to begin.</p>
+          <button class="st-field-btn st-field-btn--primary">Upload a file</button>
+        </div>
+      </div>
+      <div class="st-pane" data-pane="layers">
+        <h2 class="st-pane-h st-pane-h--sm">Layers</h2>
+        <ul class="st-layers">
+          <li data-go="text"><span class="st-layer-ic">T</span>“JUST LISTED”</li>
+          <li><span class="st-layer-ic">T</span>Marina Heights · £750,000</li>
+          <li><span class="st-layer-ic">◇</span>Agent badge</li>
+          <li data-go="bg"><span class="st-layer-ic">▦</span>Property photo</li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- ============ Stage — the canvas is the hero ============ -->
+    <main class="st-stage" id="st-stage">
+      <div class="st-sizepill" data-tip="Sized for an Instagram portrait post (4:5)">
+        Instagram Portrait
+        <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </div>
+
+      <div class="st-canvas" id="st-canvas">
+        <!-- background -->
+        <button class="st-el st-el-bg" data-sel="bg" aria-label="Background"
+          style="background-image:url('/assets/cosy%20home.jpg')"></button>
+        <span class="st-overlay" aria-hidden="true"></span>
+        <!-- elements -->
+        <span class="st-el st-el-badge" data-sel="badge">MARINA ESTATES</span>
+        <span class="st-el st-el-head" data-sel="text">JUST LISTED</span>
+        <span class="st-el st-el-sub" data-sel="sub">Marina Heights · £750,000</span>
+        <span class="st-el st-el-foot" data-sel="sub">Book your viewing today</span>
+      </div>
+
+      <div class="st-stage-foot">
+        <span class="st-stage-hint">Tap any part of your design to edit it</span>
+      </div>
+
+      <!-- Creative Assistant -->
+      <button class="st-assist-fab" id="st-assist-fab" data-tip="Your designer-in-a-button">
+        <span class="st-assist-spark">✦</span> Creative Assistant
+      </button>
+      <div class="st-assist" id="st-assist" hidden>
+        <div class="st-assist-head">
+          <span class="st-assist-spark">✦</span>
+          <div><strong>Creative Assistant</strong><span>Tell me what you'd like — I'll handle the design.</span></div>
+          <button class="st-assist-x" id="st-assist-x" aria-label="Close">×</button>
+        </div>
+        <div class="st-assist-chips">
+          <button>Make this look more premium</button>
+          <button>Improve readability</button>
+          <button>Move the text higher</button>
+          <button>Match my brand colours</button>
+          <button>Create another variation</button>
+          <button>Turn this into a Facebook version</button>
+          <button>Generate another headline</button>
+        </div>
+        <div class="st-assist-input">
+          <input placeholder="Ask for anything…" aria-label="Ask the Creative Assistant" />
+          <button class="st-assist-send" aria-label="Send">↑</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <style is:global>
+    /* =====================================================================
+       Studio preview — light, airy, calm. The UI fades into a soft off-white
+       field; the white canvas floats as the hero. Colour only for meaning.
+       ===================================================================== */
+    body[data-dashboard] { background: var(--st-app); }
+    .st {
+      --st-app: #f4f3f1;      /* application field — very soft off-white */
+      --st-panel: #faf9f7;    /* side panels — a hair lighter than the field */
+      --st-white: #ffffff;    /* canvas + cards */
+      --st-line: rgba(28, 29, 34, 0.08);
+      --st-line-soft: rgba(28, 29, 34, 0.05);
+      --st-ink: #1c1d22;
+      --st-soft: rgba(28, 29, 34, 0.60);
+      --st-faint: rgba(28, 29, 34, 0.40);
+      --st-accent: var(--english-violet, #5b4a55);
+      --st-ease: cubic-bezier(.2, .8, .2, 1);
+
+      position: fixed; inset: 0;
+      display: grid;
+      grid-template-columns: 84px 320px 1fr;
+      grid-template-rows: 68px 1fr;
+      grid-template-areas:
+        "top top top"
+        "rail panel stage";
+      background: var(--st-app);
+      color: var(--st-ink);
+      font-family: var(--sans);
+    }
+
+    .st-icbtn, .st-btn, .st-rail-btn, .st-sec-head, .st-field-btn, .st-chip,
+    .st-sw, .st-choose-btn, .st-textpreset, .st-assist-fab, .st-zoom-btn,
+    .st-seg button { font-family: inherit; }
+
+    /* ---------- Top toolbar ---------- */
+    .st-top {
+      grid-area: top;
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+      padding: 0 22px; background: transparent;
+    }
+    .st-top-left { display: flex; align-items: center; gap: 14px; justify-self: start; }
+    .st-top-mid { display: flex; align-items: center; gap: 6px; justify-self: center; }
+    .st-top-right { display: flex; align-items: center; gap: 10px; justify-self: end; }
+
+    .st-icbtn {
+      width: 38px; height: 38px; border-radius: 11px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 0; background: transparent; color: var(--st-soft); cursor: pointer; text-decoration: none;
+      transition: background 0.2s, color 0.2s, transform 0.2s var(--st-ease);
+    }
+    .st-icbtn:hover { background: rgba(28, 29, 34, 0.05); color: var(--st-ink); transform: translateY(-1px); }
+    .st-icbtn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .st-icbtn--more { font-size: 20px; letter-spacing: 1px; }
+
+    .st-proj { display: flex; flex-direction: column; gap: 1px; }
+    .st-projname {
+      border: 0; background: transparent; font-family: inherit; font-size: 14px; font-weight: 600;
+      color: var(--st-ink); padding: 3px 6px; border-radius: 7px; width: 240px;
+      transition: background 0.2s;
+    }
+    .st-projname:hover { background: rgba(28, 29, 34, 0.04); }
+    .st-projname:focus { outline: none; background: #fff; box-shadow: 0 0 0 2px rgba(28,29,34,0.08); }
+    .st-saved { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--st-faint); padding-left: 6px; }
+    .st-saved-dot { width: 6px; height: 6px; border-radius: 50%; background: #3f9468; }
+
+    .st-top-div { width: 1px; height: 22px; background: var(--st-line); margin: 0 6px; }
+    .st-zoom { display: flex; align-items: center; gap: 2px; }
+    .st-zoom-btn {
+      width: 30px; height: 30px; border-radius: 8px; border: 0; background: transparent;
+      color: var(--st-soft); font-size: 16px; cursor: pointer; transition: background 0.2s;
+    }
+    .st-zoom-btn:hover { background: rgba(28, 29, 34, 0.05); color: var(--st-ink); }
+    .st-zoom-val { font-size: 12.5px; color: var(--st-soft); min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+
+    .st-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 18px; border-radius: 11px; border: 1px solid transparent;
+      font-size: 13.5px; font-weight: 600; cursor: pointer;
+      transition: transform 0.2s var(--st-ease), box-shadow 0.2s, background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .st-btn svg { width: 15px; height: 15px; }
+    .st-btn--ghost { background: transparent; color: var(--st-soft); }
+    .st-btn--ghost:hover { background: rgba(28, 29, 34, 0.05); color: var(--st-ink); }
+    .st-btn--primary { background: var(--st-ink); color: #fff; box-shadow: 0 8px 18px -10px rgba(28,29,34,0.5); }
+    .st-btn--primary:hover { transform: translateY(-2px); box-shadow: 0 14px 26px -12px rgba(28,29,34,0.55); }
+    .st-btn--primary svg { transition: transform 0.25s var(--st-ease); }
+    .st-btn--primary:hover svg { transform: translateY(2px); }
+
+    /* ---------- Left rail ---------- */
+    .st-rail {
+      grid-area: rail;
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 10px 12px; background: transparent;
+    }
+    .st-rail-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      padding: 12px 4px; border: 0; border-radius: 14px; background: transparent;
+      color: var(--st-soft); font-size: 11px; font-weight: 500; cursor: pointer;
+      transition: background 0.2s, color 0.2s, transform 0.2s var(--st-ease);
+    }
+    .st-rail-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .st-rail-btn:hover { background: rgba(28, 29, 34, 0.05); color: var(--st-ink); transform: translateY(-1px); }
+    .st-rail-btn.is-active { background: var(--st-white); color: var(--st-accent); box-shadow: 0 2px 8px -4px rgba(28,29,34,0.18); }
+
+    /* ---------- Inspector panel ---------- */
+    .st-panel {
+      grid-area: panel;
+      background: var(--st-panel);
+      border-radius: 20px;
+      margin: 0 0 16px;
+      padding: 24px 22px;
+      overflow-y: auto;
+      box-shadow: inset 0 0 0 1px var(--st-line-soft);
+    }
+    .st-pane { display: none; animation: stFade 0.35s var(--st-ease); }
+    .st-pane.is-active { display: block; }
+    @keyframes stFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .st-pane-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--st-accent); margin: 0 0 10px; }
+    .st-pane-eyebrow--soft { color: var(--st-faint); margin: -6px 0 18px; }
+    .st-pane-h { font-family: var(--serif); font-weight: 500; font-size: 27px; line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 6px; }
+    .st-pane-h--sm { font-size: 22px; margin-bottom: 14px; }
+    .st-pane-sub { font-size: 13.5px; color: var(--st-soft); line-height: 1.5; margin: 0 0 22px; }
+
+    .st-choose { display: flex; flex-direction: column; gap: 10px; }
+    .st-choose-btn {
+      display: flex; align-items: center; gap: 14px; text-align: left;
+      padding: 15px 16px; border: 1px solid var(--st-line); border-radius: 14px;
+      background: var(--st-white); cursor: pointer;
+      transition: transform 0.2s var(--st-ease), box-shadow 0.2s, border-color 0.2s;
+    }
+    .st-choose-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -16px rgba(28,29,34,0.3); border-color: rgba(28,29,34,0.14); }
+    .st-choose-ic { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 11px; background: rgba(28,29,34,0.04); display: inline-flex; align-items: center; justify-content: center; color: var(--st-accent); }
+    .st-choose-ic svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .st-choose-btn span span, .st-choose-btn > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+    .st-choose-btn b { font-size: 14.5px; font-weight: 600; color: var(--st-ink); }
+    .st-choose-btn i { font-size: 12px; font-style: normal; color: var(--st-faint); }
+
+    .st-pane-head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+    .st-pane-tag { font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #fff; background: var(--st-accent); padding: 5px 11px; border-radius: 999px; }
+    .st-pane-name { font-size: 13px; color: var(--st-soft); }
+
+    /* Accordion sections */
+    .st-acc { display: flex; flex-direction: column; gap: 6px; }
+    .st-acc--flush .st-sec-head { padding-left: 0; padding-right: 0; }
+    .st-sec { border-radius: 13px; overflow: hidden; }
+    .st-sec-head {
+      width: 100%; display: flex; align-items: center; gap: 8px;
+      padding: 13px 2px; border: 0; background: transparent; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: var(--st-ink); text-align: left;
+    }
+    .st-chev { width: 10px; height: 6px; margin-left: auto; color: var(--st-faint); transition: transform 0.3s var(--st-ease); }
+    .st-sec.is-open .st-chev { transform: rotate(180deg); }
+    .st-sec-body {
+      max-height: 0; opacity: 0; overflow: hidden; padding-bottom: 0;
+      transition: max-height 0.35s var(--st-ease), opacity 0.3s ease, padding 0.35s var(--st-ease);
+    }
+    .st-sec.is-open .st-sec-body { max-height: 440px; opacity: 1; padding-bottom: 14px; }
+
+    .st-field-btn {
+      width: 100%; padding: 12px 14px; border: 1px solid var(--st-line); border-radius: 11px;
+      background: var(--st-white); color: var(--st-ink); font-size: 13.5px; font-weight: 500; cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      transition: transform 0.18s var(--st-ease), border-color 0.2s, box-shadow 0.2s;
+    }
+    .st-field-btn span { color: var(--st-faint); font-size: 12px; }
+    .st-field-btn:hover { transform: translateY(-1px); border-color: rgba(28,29,34,0.16); box-shadow: 0 8px 18px -12px rgba(28,29,34,0.25); }
+    .st-field-btn--primary { background: var(--st-ink); color: #fff; border-color: var(--st-ink); justify-content: center; }
+    .st-field-btn--primary:hover { box-shadow: 0 12px 22px -12px rgba(28,29,34,0.5); }
+    .st-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .st-row2 .st-field-btn { justify-content: center; }
+
+    .st-chips { display: flex; gap: 6px; margin-top: 10px; }
+    .st-chip { flex: 1; padding: 9px 8px; border: 1px solid var(--st-line); border-radius: 9px; background: var(--st-white); font-size: 12.5px; color: var(--st-soft); cursor: pointer; transition: all 0.18s var(--st-ease); }
+    .st-chip:hover { color: var(--st-ink); border-color: rgba(28,29,34,0.16); }
+    .st-chip.is-on { background: var(--st-ink); color: #fff; border-color: var(--st-ink); }
+
+    .st-slider { position: relative; height: 6px; border-radius: 999px; background: rgba(28,29,34,0.09); margin: 6px 0 10px; }
+    .st-slider-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 999px; background: var(--st-accent); }
+    .st-slider-knob { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 1px solid var(--st-line); box-shadow: 0 2px 6px -2px rgba(28,29,34,0.35); transform: translate(-50%, -50%); cursor: grab; }
+    .st-slider-row { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--st-faint); }
+    .st-slider-row b { color: var(--st-ink); font-size: 13px; }
+
+    .st-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .st-seg button { padding: 10px; border: 1px solid var(--st-line); border-radius: 10px; background: var(--st-white); color: var(--st-soft); cursor: pointer; transition: all 0.18s var(--st-ease); }
+    .st-seg button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+    .st-seg button:hover { color: var(--st-ink); }
+    .st-seg button.is-on { background: var(--st-ink); color: #fff; border-color: var(--st-ink); }
+
+    .st-swatches { display: flex; flex-wrap: wrap; gap: 9px; }
+    .st-swatches--lg .st-sw { width: 38px; height: 38px; }
+    .st-sw {
+      width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--st-line); cursor: pointer; position: relative;
+      transition: transform 0.18s var(--st-ease), box-shadow 0.18s;
+    }
+    .st-sw:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 6px 14px -6px rgba(28,29,34,0.4); }
+    .st-sw.is-on { box-shadow: 0 0 0 2px var(--st-app), 0 0 0 4px var(--st-accent); }
+    .st-sw--add, .st-sw--none { display: inline-flex; align-items: center; justify-content: center; background: var(--st-white); color: var(--st-faint); font-size: 16px; }
+
+    .st-tip-q { width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--st-line); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--st-faint); cursor: help; margin-left: 2px; }
+
+    .st-textpresets { display: flex; flex-direction: column; gap: 10px; }
+    .st-textpreset { padding: 18px; border: 1px solid var(--st-line); border-radius: 13px; background: var(--st-white); color: var(--st-ink); cursor: pointer; text-align: left; transition: transform 0.2s var(--st-ease), box-shadow 0.2s; }
+    .st-textpreset:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -16px rgba(28,29,34,0.3); }
+
+    .st-empty { text-align: center; padding: 30px 10px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .st-empty-ic { width: 52px; height: 52px; border-radius: 15px; background: rgba(28,29,34,0.04); display: inline-flex; align-items: center; justify-content: center; color: var(--st-faint); }
+    .st-empty-ic svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .st-empty p { font-size: 13.5px; color: var(--st-soft); line-height: 1.55; margin: 0; max-width: 230px; }
+
+    .st-layers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+    .st-layers li { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-radius: 11px; font-size: 13.5px; color: var(--st-ink); cursor: pointer; transition: background 0.18s; }
+    .st-layers li:hover { background: rgba(28,29,34,0.04); }
+    .st-layer-ic { width: 26px; height: 26px; border-radius: 8px; background: var(--st-white); border: 1px solid var(--st-line); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: var(--st-soft); }
+
+    /* ---------- Stage / canvas ---------- */
+    .st-stage {
+      grid-area: stage; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      padding: clamp(28px, 4vw, 64px);
+      overflow: auto;
+    }
+    .st-sizepill {
+      position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px; border-radius: 999px; background: var(--st-white);
+      border: 1px solid var(--st-line); box-shadow: 0 2px 8px -4px rgba(28,29,34,0.18);
+      font-size: 12.5px; font-weight: 600; color: var(--st-ink); cursor: pointer;
+      transition: transform 0.2s var(--st-ease), box-shadow 0.2s; z-index: 5;
+    }
+    .st-sizepill:hover { transform: translateX(-50%) translateY(-1px); box-shadow: 0 8px 18px -8px rgba(28,29,34,0.28); }
+    .st-sizepill svg { width: 10px; height: 6px; color: var(--st-faint); }
+
+    .st-canvas {
+      position: relative; width: min(46vh, 420px); aspect-ratio: 4 / 5;
+      background: var(--st-white); border-radius: 6px; overflow: hidden;
+      box-shadow: 0 1px 2px rgba(28,29,34,0.06), 0 40px 80px -40px rgba(28,29,34,0.45), 0 16px 40px -30px rgba(28,29,34,0.3);
+    }
+    .st-el { position: absolute; border: 0; background: transparent; cursor: pointer; font-family: var(--sans); }
+    .st-el-bg { inset: 0; width: 100%; height: 100%; background-size: cover; background-position: center; padding: 0; }
+    .st-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,24,0.1) 0%, rgba(20,18,24,0.55) 100%); pointer-events: none; }
+    .st-el-badge { top: 26px; left: 0; right: 0; text-align: center; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.28em; text-shadow: 0 1px 6px rgba(0,0,0,0.3); }
+    .st-el-head { left: 24px; right: 24px; bottom: 110px; color: #fff; font-family: var(--serif); font-weight: 600; font-size: clamp(30px, 6vh, 48px); line-height: 0.98; letter-spacing: 0.02em; text-align: left; text-shadow: 0 2px 18px rgba(0,0,0,0.35); }
+    .st-el-sub { left: 24px; right: 24px; bottom: 78px; color: rgba(255,255,255,0.92); font-size: 14px; font-weight: 500; text-align: left; text-shadow: 0 1px 10px rgba(0,0,0,0.35); }
+    .st-el-foot { left: 24px; right: 24px; bottom: 36px; color: rgba(255,255,255,0.78); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; text-align: left; }
+    /* selection outline — subtle, premium */
+    .st-el.is-sel { outline: 2px solid var(--st-accent); outline-offset: 2px; border-radius: 3px; }
+    .st-el-bg.is-sel { outline-offset: -3px; border-radius: 6px; }
+    .st-el:hover:not(.is-sel) { outline: 1.5px solid rgba(255,255,255,0.6); outline-offset: 2px; border-radius: 3px; }
+
+    .st-stage-foot { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; pointer-events: none; }
+    .st-stage-hint { font-size: 12px; color: var(--st-faint); }
+
+    /* ---------- Creative Assistant ---------- */
+    .st-assist-fab {
+      position: absolute; right: 24px; bottom: 22px; z-index: 20;
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 12px 20px; border: 0; border-radius: 999px; cursor: pointer;
+      background: linear-gradient(135deg, var(--st-accent), #3a2f3e); color: #fff;
+      font-size: 13.5px; font-weight: 600;
+      box-shadow: 0 12px 30px -10px color-mix(in srgb, var(--st-accent) 70%, transparent);
+      transition: transform 0.22s var(--st-ease), box-shadow 0.22s;
+    }
+    .st-assist-fab:hover { transform: translateY(-2px); box-shadow: 0 18px 38px -12px color-mix(in srgb, var(--st-accent) 70%, transparent); }
+    .st-assist-spark { font-size: 14px; }
+    .st-assist {
+      position: absolute; right: 24px; bottom: 22px; z-index: 21;
+      width: min(360px, calc(100% - 48px));
+      background: var(--st-white); border: 1px solid var(--st-line); border-radius: 18px;
+      box-shadow: 0 30px 70px -24px rgba(28,29,34,0.4);
+      padding: 18px; transform-origin: bottom right;
+      animation: stPop 0.3s var(--st-ease);
+    }
+    .st-assist[hidden] { display: none; }
+    @keyframes stPop { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+    .st-assist-head { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 14px; }
+    .st-assist-head .st-assist-spark { width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, var(--st-accent) 14%, #fff); color: var(--st-accent); display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+    .st-assist-head div { display: flex; flex-direction: column; gap: 1px; }
+    .st-assist-head strong { font-size: 14px; }
+    .st-assist-head span { font-size: 12px; color: var(--st-faint); line-height: 1.4; }
+    .st-assist-x { margin-left: auto; background: none; border: 0; font-size: 20px; color: var(--st-faint); cursor: pointer; line-height: 1; }
+    .st-assist-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+    .st-assist-chips button { padding: 8px 12px; border: 1px solid var(--st-line); border-radius: 999px; background: var(--st-app); font-size: 12.5px; color: var(--st-soft); cursor: pointer; transition: all 0.18s var(--st-ease); }
+    .st-assist-chips button:hover { color: var(--st-ink); border-color: var(--st-accent); transform: translateY(-1px); }
+    .st-assist-input { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border: 1px solid var(--st-line); border-radius: 12px; }
+    .st-assist-input input { flex: 1; border: 0; background: transparent; font-family: inherit; font-size: 13.5px; color: var(--st-ink); }
+    .st-assist-input input:focus { outline: none; }
+    .st-assist-send { width: 32px; height: 32px; border-radius: 9px; border: 0; background: var(--st-accent); color: #fff; cursor: pointer; font-size: 15px; }
+
+    /* ---------- Tooltips ---------- */
+    [data-tip] { position: relative; }
+    [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%) translateY(4px);
+      width: max-content; max-width: 220px; padding: 9px 12px; border-radius: 10px;
+      background: #1c1d22; color: #fff; font-size: 12px; font-weight: 500; line-height: 1.4;
+      text-align: center; white-space: normal; opacity: 0; pointer-events: none; z-index: 80;
+      box-shadow: 0 12px 28px -10px rgba(0,0,0,0.4); transition: opacity 0.2s var(--st-ease), transform 0.2s var(--st-ease);
+    }
+    [data-tip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .st-assist-fab[data-tip]::after, .st-sizepill[data-tip]::after { bottom: calc(100% + 9px); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .st-pane, .st-assist { animation: none; }
+      * { transition: none !important; }
+    }
+    @media (max-width: 860px) {
+      .st { grid-template-columns: 70px 1fr; grid-template-areas: "top top" "rail panel" "stage stage"; grid-template-rows: 64px auto 1fr; }
+      .st-stage { min-height: 60vh; }
+    }
+  </style>
+
+  <script>
+    const panel = document.getElementById('st-panel');
+    const canvas = document.getElementById('st-canvas');
+    const stage = document.getElementById('st-stage');
+    const railBtns = [...document.querySelectorAll('.st-rail-btn')];
+    const panes = [...document.querySelectorAll('.st-pane')];
+
+    function showPane(name) {
+      panes.forEach((p) => p.classList.toggle('is-active', p.dataset.pane === name));
+    }
+    function setRailActive(name) {
+      railBtns.forEach((b) => b.classList.toggle('is-active', b.dataset.rail === name));
+    }
+    function clearSelection() {
+      canvas.querySelectorAll('.st-el.is-sel').forEach((e) => e.classList.remove('is-sel'));
+    }
+
+    // Selection → contextual edit pane (progressive disclosure)
+    const selToPane = { text: 'text', sub: 'text', badge: 'text', bg: 'bg' };
+    canvas.querySelectorAll('.st-el').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearSelection();
+        el.classList.add('is-sel');
+        const sel = el.dataset.sel;
+        showPane(selToPane[sel] || 'start');
+        setRailActive(null);
+      });
+    });
+
+    // Click empty stage → deselect → simple starting panel
+    stage.addEventListener('click', (e) => {
+      if (e.target.closest('.st-el') || e.target.closest('.st-assist') || e.target.closest('.st-assist-fab') || e.target.closest('.st-sizepill')) return;
+      clearSelection();
+      showPane('start');
+      setRailActive(null);
+    });
+
+    // Rail → add panes
+    const railToPane = { assets: 'assets', text: 'textadd', images: 'images', uploads: 'uploads', layers: 'layers' };
+    railBtns.forEach((b) => b.addEventListener('click', () => {
+      clearSelection();
+      setRailActive(b.dataset.rail);
+      showPane(railToPane[b.dataset.rail]);
+    }));
+
+    // Starting-panel shortcuts
+    panel.addEventListener('click', (e) => {
+      const go = e.target.closest('[data-go]');
+      if (go) { const sel = go.dataset.go; const el = canvas.querySelector(`.st-el[data-sel="${sel}"]`); if (el) el.click(); return; }
+      const rg = e.target.closest('[data-rail-go]');
+      if (rg) { const b = railBtns.find((x) => x.dataset.rail === rg.dataset.railGo); if (b) b.click(); }
+    });
+
+    // Accordion — open one section at a time within an accordion group
+    document.querySelectorAll('.st-acc').forEach((acc) => {
+      acc.querySelectorAll('.st-sec-head').forEach((head) => {
+        head.addEventListener('click', () => {
+          const sec = head.closest('.st-sec');
+          const open = sec.classList.contains('is-open');
+          acc.querySelectorAll('.st-sec').forEach((s) => s.classList.remove('is-open'));
+          if (!open) sec.classList.add('is-open');
+        });
+      });
+    });
+
+    // Swatch + chip single-select within a group
+    document.querySelectorAll('.st-swatches, .st-chips, .st-seg').forEach((grp) => {
+      grp.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn || btn.classList.contains('st-sw--add')) return;
+        grp.querySelectorAll('button').forEach((b) => b.classList.remove('is-on'));
+        btn.classList.add('is-on');
+      });
+    });
+
+    // Creative Assistant
+    const fab = document.getElementById('st-assist-fab');
+    const assist = document.getElementById('st-assist');
+    const assistX = document.getElementById('st-assist-x');
+    fab.addEventListener('click', () => { assist.hidden = false; fab.style.display = 'none'; });
+    assistX.addEventListener('click', () => { assist.hidden = true; fab.style.display = ''; });
+  </script>
+</BaseLayout>
