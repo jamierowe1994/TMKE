@@ -5,6 +5,11 @@ import { templates } from "../data/library.js";
 // "Continue working" falls back to templates the user can start from (so it's
 // never blank) when they have no saved drafts. JS swaps in real drafts if any.
 const recentTemplates = templates.slice(0, 4);
+
+// The hero shows a mini Studio with a real pack template on the canvas; it
+// rotates to the next template on each visit (see the rotate script below).
+const heroTemplates = templates.map((t) => ({ id: t.id, thumb: t.thumb, name: t.name }));
+const heroFirst = heroTemplates[0];
 ---
 
 <!--
@@ -97,15 +102,30 @@ const recentTemplates = templates.slice(0, 4);
             </div>
           </div>
 
-          <a class="ws-hero-preview" href="/editor" aria-label="Continue Just Listed — Marina Heights">
-            <img src="/assets/home%20kitchen.jpg" alt="Just Listed — Marina Heights design in progress" loading="eager" />
-            <div class="ws-hero-preview-foot">
-              <h3>Just Listed<br>Marina Heights</h3>
-              <div class="ws-hero-progress">
-                <span class="ws-hero-pct"><b data-count="80">0</b>%</span>
-                <span class="ws-hero-track"><span class="ws-hero-fill" data-val="80"></span></span>
-              </div>
-            </div>
+          <a class="ws-edmock" id="ws-edmock" href={`/editor?template=${encodeURIComponent(heroFirst.id)}`} aria-label="Open this template in the Studio">
+            <span class="ws-edmock-top" aria-hidden="true">
+              <span class="ws-edmock-dots"><i></i><i></i><i></i></span>
+              <span class="ws-edmock-title" id="ws-edmock-title">{heroFirst.name}</span>
+              <span class="ws-edmock-acts"><span class="ws-edmock-pill">Share</span><span class="ws-edmock-pill ws-edmock-pill--solid">Download</span></span>
+            </span>
+            <span class="ws-edmock-body">
+              <span class="ws-edmock-rail" aria-hidden="true">
+                <i class="ws-em-ic is-active"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></i>
+                <i class="ws-em-ic"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 7V5h14v2M12 7v12M9 19h6"/></svg></i>
+                <i class="ws-em-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5L5 19"/></svg></i>
+                <i class="ws-em-ic"><svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.3 5.6.5-4.2 3.7 1.3 5.5L12 16.5 7.9 18l1.3-5.5L5 8.8l5.6-.5z"/></svg></i>
+                <i class="ws-em-ic"><svg viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg></i>
+              </span>
+              <span class="ws-edmock-stage">
+                <span class="ws-edmock-canvas"><img id="ws-edmock-img" src={heroFirst.thumb} alt={heroFirst.name} loading="eager" /></span>
+              </span>
+              <span class="ws-edmock-panel" aria-hidden="true">
+                <span class="ws-emp-sec"><b>Brand Kit</b><span class="ws-emp-row"><i class="ws-emp-aa">Aa</i><i class="ws-emp-sw" style="background:#2a2530"></i><i class="ws-emp-sw" style="background:#b79b78"></i></span></span>
+                <span class="ws-emp-sec"><b>Background</b><span class="ws-emp-row"><i class="ws-emp-bg"></i><i class="ws-emp-bg"></i><i class="ws-emp-bg"></i></span></span>
+                <span class="ws-emp-sec"><b>Resize</b><span class="ws-emp-row"><i class="ws-emp-sz"></i><i class="ws-emp-sz"></i></span></span>
+              </span>
+            </span>
+            <span class="ws-edmock-hint">Click to open in the Studio</span>
           </a>
         </section>
 
@@ -350,16 +370,36 @@ const recentTemplates = templates.slice(0, 4);
     @keyframes wsBriefIn { to { opacity: 1; transform: none; } }
     .ws-hero-cta { margin-top: auto; padding-top: 28px; }
 
-    .ws-hero-preview { position: relative; display: block; overflow: hidden; background: #e9e6e2; text-decoration: none; min-height: 0; aspect-ratio: 4 / 5; max-height: 460px; width: auto; margin-left: auto; border-radius: 0; }
-    .ws-hero-preview img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 1.3s var(--ws-ease); }
-    .ws-hero-preview:hover img { transform: scale(1.05); }
-    .ws-hero-preview::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(15,12,18,0) 42%, rgba(15,12,18,0.72) 100%); }
-    .ws-hero-preview-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 28px 30px; color: #fff; }
-    .ws-hero-preview-foot h3 { font-family: var(--subhead); font-weight: 500; font-size: clamp(24px, 2.4vw, 34px); line-height: 1.06; letter-spacing: -0.01em; margin: 0 0 16px; }
-    .ws-hero-progress { display: flex; align-items: center; gap: 14px; }
-    .ws-hero-pct { font-size: 14px; font-weight: 600; color: #fff; min-width: 40px; }
-    .ws-hero-track { flex: 1; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.28); overflow: hidden; }
-    .ws-hero-fill { display: block; height: 100%; width: 0; border-radius: 999px; background: #fff; transition: width 1.4s var(--ws-ease); }
+    /* Hero = a mini Studio window (landscape) with a rotating pack template on the canvas. */
+    .ws-edmock { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 600px; margin-left: auto; aspect-ratio: 4 / 3; border-radius: 14px; overflow: hidden; background: #f4f3f1; border: 1px solid var(--ws-line); box-shadow: 0 30px 60px -34px rgba(28,29,34,0.4); text-decoration: none; transition: transform 0.3s var(--ws-ease), box-shadow 0.3s; }
+    .ws-edmock:hover { transform: translateY(-4px); box-shadow: 0 42px 72px -34px rgba(28,29,34,0.46); }
+    .ws-edmock-top { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: #fff; border-bottom: 1px solid var(--ws-line); }
+    .ws-edmock-dots { display: inline-flex; gap: 5px; }
+    .ws-edmock-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(28,29,34,0.14); }
+    .ws-edmock-title { flex: 1; text-align: center; font-size: 11px; font-weight: 600; color: var(--ws-tx); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .ws-edmock-acts { display: inline-flex; gap: 6px; }
+    .ws-edmock-pill { font-size: 9.5px; font-weight: 600; color: var(--ws-tx); border: 1px solid var(--ws-line); border-radius: 999px; padding: 3px 9px; }
+    .ws-edmock-pill--solid { background: var(--ws-accent); color: #fff; border-color: var(--ws-accent); }
+    .ws-edmock-body { flex: 1; display: flex; gap: 10px; padding: 12px; min-height: 0; }
+    .ws-edmock-rail { display: flex; flex-direction: column; gap: 6px; padding: 8px 6px; background: #fff; border: 1px solid var(--ws-line); border-radius: 10px; }
+    .ws-em-ic { width: 30px; height: 30px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; color: var(--ws-faint); }
+    .ws-em-ic.is-active { background: color-mix(in srgb, var(--ws-accent) 12%, #fff); color: var(--ws-accent); }
+    .ws-em-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .ws-edmock-stage { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
+    .ws-edmock-canvas { height: 100%; aspect-ratio: 3 / 4; max-width: 100%; border-radius: 4px; overflow: hidden; background: #fff; box-shadow: 0 12px 26px -14px rgba(28,29,34,0.45); transition: transform 0.32s var(--ws-ease), box-shadow 0.32s; }
+    .ws-edmock:hover .ws-edmock-canvas { transform: translateY(-7px) scale(1.035); box-shadow: 0 24px 42px -16px rgba(28,29,34,0.5); }
+    .ws-edmock-canvas img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ws-edmock-panel { display: flex; flex-direction: column; gap: 10px; width: 92px; padding: 9px; background: #fff; border: 1px solid var(--ws-line); border-radius: 10px; }
+    .ws-emp-sec { display: flex; flex-direction: column; gap: 5px; }
+    .ws-emp-sec b { font-size: 8px; font-weight: 600; color: var(--ws-tx); }
+    .ws-emp-row { display: flex; gap: 4px; }
+    .ws-emp-aa { width: 20px; height: 18px; border-radius: 4px; border: 1px solid var(--ws-line); display: inline-flex; align-items: center; justify-content: center; font-family: var(--subhead); font-size: 10px; color: var(--ws-ink); }
+    .ws-emp-sw, .ws-emp-bg, .ws-emp-sz { width: 18px; height: 18px; border-radius: 4px; flex: 0 0 auto; }
+    .ws-emp-bg { background: #efece6; }
+    .ws-emp-sz { border: 1px solid var(--ws-line); }
+    .ws-edmock-hint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%) translateY(6px); font-size: 11px; font-weight: 600; color: #fff; background: rgba(28,25,22,0.72); padding: 7px 14px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; }
+    .ws-edmock:hover .ws-edmock-hint { opacity: 1; transform: translateX(-50%); }
+    @media (max-width: 880px) { .ws-edmock { max-width: 100%; } }
     @media (max-width: 620px) { .ws-hero { grid-template-columns: 1fr; } .ws-hero-preview { margin: 0 auto; max-height: 400px; } }
 
     /* ---------- Section blocks (plan, recent) — borderless, grouped by space ---------- */
@@ -716,6 +756,24 @@ const recentTemplates = templates.slice(0, 4);
         const flag = document.querySelector('.ws-discover-flag');
         if (flag) flag.textContent = 'New in The Edit';
       } catch (_) { /* keep the mock */ }
+    })();
+  </script>
+
+  <script define:vars={{ heroTemplates }}>
+    // Rotate the hero Studio canvas through the published pack templates — a new
+    // one each visit (index persisted in localStorage so it advances per sign-in).
+    (function rotateHero() {
+      if (!Array.isArray(heroTemplates) || !heroTemplates.length) return;
+      let idx = 0;
+      try { idx = parseInt(localStorage.getItem('tmke.dashHeroIdx') || '0', 10) || 0; } catch (_) {}
+      const t = heroTemplates[idx % heroTemplates.length];
+      try { localStorage.setItem('tmke.dashHeroIdx', String((idx + 1) % heroTemplates.length)); } catch (_) {}
+      const img = document.getElementById('ws-edmock-img');
+      if (img && t.thumb) { img.src = t.thumb; img.alt = t.name || ''; }
+      const title = document.getElementById('ws-edmock-title');
+      if (title && t.name) title.textContent = t.name;
+      const link = document.getElementById('ws-edmock');
+      if (link && t.id) link.setAttribute('href', '/editor?template=' + encodeURIComponent(t.id));
     })();
   </script>
 </BaseLayout>
