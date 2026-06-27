@@ -639,5 +639,31 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         }).join('');
       } catch (_) { /* keep the mock week */ }
     })();
+
+    // ---- Stage A.3: real discovery card (a pack from The Edit) ----
+    (async function wireDiscovery() {
+      try {
+        const { data } = await supabase
+          .from('packs')
+          .select('slug, title, description, cover_image_url, status, sort_order, created_at')
+          .eq('status', 'active')
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const pack = (data || [])[0];
+        if (!pack) return; // no live packs → keep the mock Wimbledon card
+
+        const card = document.querySelector('.ws-discover');
+        if (card && pack.slug) card.setAttribute('href', '/edit/' + encodeURIComponent(pack.slug));
+        const art = document.querySelector('.ws-discover-art');
+        if (art && pack.cover_image_url) art.style.backgroundImage = `url('${pack.cover_image_url}')`;
+        const h = document.querySelector('.ws-discover-h');
+        if (h) h.textContent = pack.title;
+        const desc = document.querySelector('.ws-discover-desc');
+        if (desc && pack.description) desc.textContent = pack.description;
+        const flag = document.querySelector('.ws-discover-flag');
+        if (flag) flag.textContent = 'New in The Edit';
+      } catch (_) { /* keep the mock */ }
+    })();
   </script>
 </BaseLayout>
