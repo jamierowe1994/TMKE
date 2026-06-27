@@ -566,5 +566,31 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <a class="ws-thumb ws-thumb--new" href="/editor"><span class="ws-thumb-plus">+</span><span>New design</span></a>`;
       }
     })();
+
+    // ---- Stage A.5: real Brand Health (from the saved brand kit) ----
+    (function wireBrandHealth() {
+      let brand;
+      try { brand = JSON.parse(localStorage.getItem('tmke.brand') || 'null'); } catch (_) { brand = null; }
+      if (!brand) return; // no brand kit saved yet → keep the mock
+
+      const hasLogo = (brand.logos || []).length > 0;
+      const hasColours = (brand.colors || []).filter((c) => c && c.hex).length > 0;
+      const hasFonts = !!(brand.fonts && (brand.fonts.heading || brand.fonts.body));
+      const items = [...document.querySelectorAll('.ws-journey li')];
+      if (items.length < 3) return;
+      items[0].classList.toggle('is-done', hasLogo);
+      items[1].classList.toggle('is-done', hasColours);
+      items[2].classList.toggle('is-done', hasFonts);
+      // Social connections aren't wired to a live source yet → show as to-do.
+      items.slice(3).forEach((li) => li.classList.remove('is-done'));
+
+      const done = items.filter((li) => li.classList.contains('is-done')).length;
+      const pct = Math.round((done / items.length) * 100);
+      // Hand the real % to the same observer that animates the ring + number.
+      const ring = document.querySelector('.ws-ring-fg');
+      if (ring) ring.setAttribute('data-ring', String(pct));
+      const num = document.querySelector('.ws-ring b');
+      if (num) num.setAttribute('data-count', String(pct));
+    })();
   </script>
 </BaseLayout>
