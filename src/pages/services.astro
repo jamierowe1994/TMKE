@@ -81,15 +81,24 @@ const total = 7;
 
     <div class="pf-stage" id="pf-deck">
       <div class="pf-plane" id="pf-plane">
-        <!-- Slide 1 (col 0,row 0) — full-screen dictionary hero -->
+        <!-- Slide 1 (col 0,row 0) — editorial hero, mirrors the About lede:
+             term + pronunciation top-left, lead + scroll hint bottom-left,
+             contained image held to the right. -->
         <section class="pf-panel sm-hero" style="--col:0;--row:0">
-          <div class="sm-hero-bg" style={`background-image:url('${SMM_HERO_IMG}')`}></div>
-          <div class="sm-hero-overlay"></div>
-          <div class="sm-hero-inner">
-            <h1 class="sm-word">Social Media Management</h1>
-            <div class="sm-pron"><span class="sm-abbr">SMM</span> <span class="sm-phon">/&thinsp;es em &#712;em&thinsp;/</span> <em>noun</em></div>
-            <p class="sm-lead">Full-service social media management for agents who want a consistent, professional presence. Everything from strategy to execution, delivered to a standard that reflects your business.</p>
-            <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
+          <div class="sm-hero-grid">
+            <div class="sm-hero-copy">
+              <div class="sm-hero-top">
+                <h1 class="sm-word">Social Media Management</h1>
+                <div class="sm-pron"><span class="sm-abbr">SMM</span> <span class="sm-phon">/&thinsp;es em &#712;em&thinsp;/</span> <em>noun</em></div>
+              </div>
+              <div class="sm-hero-bottom">
+                <p class="sm-lead">Full-service social media management for agents who want a consistent, professional presence. Everything from strategy to execution, delivered to a standard that reflects your business.</p>
+                <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
+              </div>
+            </div>
+            <figure class="sm-hero-media">
+              <img src={SMM_HERO_IMG} alt="Social media management by TMKE" />
+            </figure>
           </div>
         </section>
 
@@ -337,37 +346,37 @@ const total = 7;
     .pf-scroll-hint { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
     .pf-scroll-hint em { font-style: normal; margin-left: 8px; }
 
-    /* Slide 1 — full-screen dictionary hero (matches /videography .vh) */
-    .sm-hero { overflow: hidden; padding: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; }
-    .sm-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #2a2733; }
-    .sm-hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.55) 0%, rgba(20,18,26,0.4) 45%, rgba(20,18,26,0.68) 100%); }
-    .sm-hero-inner { position: relative; z-index: 2; max-width: 860px; margin: 0; padding: 0 clamp(28px, 6vw, 120px) 80px; color: var(--paper); }
-    .sm-hero .sm-eyebrow { color: rgba(240,238,235,0.85); }
-    .sm-hero .sm-eyebrow span { opacity: 0.55; }
-    .sm-hero .sm-word { color: var(--paper); }
-    .sm-hero .sm-abbr { color: var(--paper); }
-    .sm-hero .sm-phon { color: var(--paper); }
-    .sm-hero .sm-pron em { color: rgba(240,238,235,0.7); }
-    .sm-hero .sm-lead { color: rgba(240,238,235,0.92); }
-    .sm-hero .pf-scroll-hint { color: rgba(240,238,235,0.7); }
+    /* Slide 1 — editorial hero, mirrors the About lede: copy split on the left
+       (term + pronunciation at the top, lead + scroll hint at the base), with a
+       contained image held to the right. Light, to match the About header. */
+    .sm-hero { overflow: hidden; padding: 0; background: var(--paper); display: flex; align-items: center; justify-content: center; }
+    .sm-hero-grid {
+      width: 100%; max-width: 1440px; margin: 0 auto;
+      padding: 112px clamp(28px, 8vw, 140px) 92px;
+      display: grid; grid-template-columns: 1fr auto;
+      gap: clamp(40px, 6vw, 110px); align-items: stretch;
+    }
+    .sm-hero-copy { max-width: 540px; display: flex; flex-direction: column; justify-content: space-between; }
+    .sm-hero-media { margin: 0; justify-self: end; }
+    .sm-hero-media img { display: block; height: clamp(360px, 62vh, 600px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; }
 
-    /* First-slide entrance — image settles, then the wording rises (as /videography) */
-    #pf-deck .pf-panel:first-child .sm-hero-bg { animation: smImgIn 2.4s cubic-bezier(.16,1,.3,1) 0.2s both; }
-    #pf-deck .pf-panel:first-child .sm-hero-inner { animation: smTextIn 1.6s cubic-bezier(.16,1,.3,1) 0.9s both; }
-    @keyframes smImgIn { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
-    @keyframes smTextIn { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+    /* First-slide entrance — image settles, then the copy rises */
+    #pf-deck .pf-panel:first-child .sm-hero-media img { animation: smImgIn 2.4s cubic-bezier(.16,1,.3,1) 0.2s both; }
+    #pf-deck .pf-panel:first-child .sm-hero-copy { animation: smTextIn 1.6s cubic-bezier(.16,1,.3,1) 0.7s both; }
+    @keyframes smImgIn { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
+    @keyframes smTextIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
     @media (prefers-reduced-motion: reduce) {
-      #pf-deck .pf-panel:first-child .sm-hero-bg,
-      #pf-deck .pf-panel:first-child .sm-hero-inner { animation-duration: 0.01ms; }
+      #pf-deck .pf-panel:first-child .sm-hero-media img,
+      #pf-deck .pf-panel:first-child .sm-hero-copy { animation-duration: 0.01ms; }
     }
     /* The full term is the headline; the abbreviation + pronunciation sit small
        beneath it on one line (dictionary style). */
-    .sm-word { font-family: var(--serif); font-weight: 500; font-size: clamp(32px, 5.6vw, 81px); line-height: 0.98; letter-spacing: -0.025em; margin: 0; color: var(--ink); max-width: 13ch; }
-    .sm-pron { display: flex; align-items: baseline; flex-wrap: wrap; gap: 14px; margin: 18px 0 38px; }
+    .sm-word { font-family: var(--serif); font-weight: 500; font-size: clamp(36px, 4.2vw, 60px); line-height: 0.98; letter-spacing: -0.02em; margin: 0; color: var(--ink); }
+    .sm-pron { display: flex; align-items: baseline; flex-wrap: wrap; gap: 14px; margin: 16px 0 0; }
     .sm-abbr { font-family: var(--serif); font-weight: 600; font-size: 20px; letter-spacing: 0.02em; color: rgba(28,29,34,0.85); }
     .sm-phon { font-family: var(--serif); font-style: italic; font-size: 18px; color: rgba(28,29,34,0.6); }
     .sm-pron em { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); font-style: normal; }
-    .sm-lead { font-family: var(--sans); font-size: clamp(16px, 1.4vw, 19px); line-height: 1.65; color: rgba(28,29,34,0.72); max-width: 54ch; margin: 0 0 36px; }
+    .sm-lead { font-family: var(--sans); font-size: clamp(15px, 1.3vw, 18px); line-height: 1.65; color: rgba(28,29,34,0.72); max-width: 46ch; margin: 0 0 22px; }
 
     /* Slide 2 — Intro & Why: text left, full-bleed image right (matches /videography) */
     .sm-why { padding: 0; align-items: stretch; }
@@ -424,7 +433,7 @@ const total = 7;
     .sm-tieritem { display: flex; gap: 14px; align-items: flex-start; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(28,29,34,0.1); border-left: 2px solid transparent; padding: 13px 0; cursor: pointer; transition: border-color 0.3s ease, padding 0.3s ease; -webkit-tap-highlight-color: transparent; }
     .sm-tieritem-num { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--english-violet); padding-top: 5px; flex: 0 0 auto; }
     .sm-tieritem-body { display: flex; flex-direction: column; min-width: 0; }
-    .sm-tieritem-name { font-family: var(--serif); font-weight: 500; font-size: clamp(18px, 1.7vw, 24px); line-height: 1.1; letter-spacing: -0.01em; color: rgba(28,29,34,0.5); transition: color 0.3s ease; }
+    .sm-tieritem-name { font-family: var(--serif); font-weight: 500; font-size: clamp(15px, 1.4vw, 20px); line-height: 1.1; letter-spacing: -0.01em; color: rgba(28,29,34,0.5); transition: color 0.3s ease; }
     .sm-tieritem-sub { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); margin-top: 6px; opacity: 0; max-height: 0; overflow: hidden; transition: opacity 0.35s ease, max-height 0.35s ease, margin 0.35s ease; }
     .sm-tieritem-blurb { font-family: var(--sans); font-size: clamp(14px, 1.05vw, 16px); line-height: 1.55; color: rgba(28,29,34,0.66); margin-top: 0; max-width: 66ch; opacity: 0; max-height: 0; overflow: hidden; transition: opacity 0.4s ease, max-height 0.5s ease, margin 0.4s ease; }
     .sm-tieritem.is-active { border-left-color: var(--english-violet); padding-left: 16px; }
@@ -603,8 +612,12 @@ const total = 7;
 
     @media (max-width: 760px) {
       .pf-panel { padding: 96px 28px 80px; }
-      .sm-hero { padding: 0; }
-      .sm-hero-inner { max-width: none; padding: 0 24px clamp(56px, 12vh, 90px); }
+      .sm-hero { padding: 0; align-items: stretch; }
+      .sm-hero-grid { grid-template-columns: 1fr; padding: 92px 24px 56px; gap: 26px; align-items: start; }
+      .sm-hero-copy { display: block; max-width: none; }
+      .sm-hero-bottom { margin-top: 22px; }
+      .sm-hero-media { justify-self: stretch; }
+      .sm-hero-media img { width: 100%; height: auto; aspect-ratio: 16 / 10; }
       .sm-why { flex-direction: column; padding: 0; }
       .sm-why-text { width: 100%; min-width: 0; padding: 88px 28px 30px; }
       .sm-why-img { flex: 0 0 auto; min-height: 36vh; }
