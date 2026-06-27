@@ -6092,6 +6092,12 @@
     activeToolPane = "start";
     showPane("start");
     document.querySelectorAll(".ed-rail-btn").forEach(function (b) { b.classList.remove("is-active"); });
+    // Slim the rail toward the brief: "Photos" -> "Images", and hide the
+    // Background tool (reached via the start panel + double-clicking the canvas).
+    var _photosLbl = document.querySelector('.ed-rail-btn[data-tool="photos"] span');
+    if (_photosLbl) _photosLbl.textContent = "Images";
+    var _bgBtn = document.querySelector('.ed-rail-btn[data-tool="background"]');
+    if (_bgBtn) _bgBtn.style.display = "none";
   }
 
   // Open a tool pane programmatically (clears any selection so the pane shows).
