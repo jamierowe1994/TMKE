@@ -115,6 +115,13 @@ const googleFonts = [
   <!-- Studio entry keeps the dashboard sidebar (left) so it reads as part of the
        account; .dash-shell brings the grid + theme tokens + DashThemePicker. The
        whole overlay is dismissed (.is-gone) once a design opens into the editor. -->
+  <script is:inline>
+    /* Studio rebuild — the CUSTOMER editor gets the new light skin; the admin
+       authoring mode (?mode=admin) keeps its existing look untouched. Set before
+       paint so there's no flash. */
+    if (!location.search.includes('mode=admin')) document.documentElement.classList.add('editor-light');
+  </script>
+
   <div class="ed-onboard dash-shell" id="ed-onboard">
     <DashSidebar active="studio" />
     <div class="ed-onboard-col">
@@ -836,6 +843,17 @@ const googleFonts = [
         linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f4f2f1 100%);
       font-family: var(--sans);
       color: var(--ink);
+    }
+
+    /* ===== Customer Studio — light/airy skin (rebuild · stage 1) =====
+       Replace the mauve wash with a calm off-white "desk" so the white canvas +
+       panels read as bright and airy. Scoped to .editor-light, so the admin
+       authoring studio (?mode=admin, no class) keeps its current look. ===== */
+    html.editor-light .editor { background: #f4f3f1; }
+    html.editor-light .ed-onboard { background: #f4f3f1; }
+    /* A touch more lift on the canvas so it floats cleanly on the lighter desk. */
+    html.editor-light .ed-canvas-shadow {
+      box-shadow: 0 1px 2px rgba(28,29,34,0.06), 0 30px 60px -34px rgba(28,29,34,0.28), 0 12px 30px -24px rgba(28,29,34,0.18);
     }
 
     /* ===== Top bar — floating pill, detached from the page edges ===== */
