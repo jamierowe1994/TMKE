@@ -6,10 +6,24 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   title="The Edit — Template Shop · TMKE"
   description="A curated shop of social media templates designed specifically for the UK property sector. On-brand, easy to customise, ready to post."
 >
-  <!-- simple hero — small, left-aligned "The Edit" + sub at the top-left -->
+  <!-- Hero — featured-pack copy on the left, an auto-playing template "film" on the right -->
   <header class="edit-hero">
-    <h1 class="edit-hero-title">The Edit</h1>
-    <p class="edit-hero-sub">Ready-to-post template packs, built for property — on-brand and yours to customise.</p>
+    <div class="edit-hero-copy">
+      <p class="edit-hero-eyebrow">The Edit — Template Shop</p>
+      <h1 class="edit-hero-title">The Proof Is in the Posts</h1>
+      <p class="edit-hero-desc">Being a great agent means nothing if the people looking for one can't see it. This pack gives you the content to change that. Client testimonials, results, milestones, and service-led posts that build trust, communicate your value, and position you as the agent worth choosing. No guesswork, no generic captions. Just proof.</p>
+      <div class="edit-hero-actions">
+        <span class="edit-hero-size">Pack Size: 30</span>
+        <a class="edit-hero-cta" href="#edit-grid">Discover</a>
+      </div>
+    </div>
+    <div class="edit-hero-film">
+      <div class="eh-grid" id="eh-grid" aria-hidden="true">
+        {Array.from({ length: 16 }).map(() => (
+          <div class="eh-tile"><div class="eh-tile-img"></div></div>
+        ))}
+      </div>
+    </div>
   </header>
 
   <section class="edit-wrap" id="edit-catalogue" aria-busy="true">
@@ -177,29 +191,91 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .edit-hero {
       position: relative;
       z-index: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      text-align: left;
-      padding: clamp(130px, 16vh, 180px) clamp(24px, 4vw, 64px) clamp(28px, 4vh, 48px);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: clamp(32px, 5vw, 88px);
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: clamp(120px, 15vh, 184px) clamp(24px, 4vw, 64px) clamp(48px, 7vh, 96px);
+    }
+    @media (max-width: 880px) {
+      .edit-hero { grid-template-columns: 1fr; gap: 40px; padding-top: clamp(104px, 14vh, 150px); }
+    }
+    .edit-hero-copy { max-width: 540px; }
+    .edit-hero-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.28em; text-transform: uppercase;
+      color: var(--english-violet); margin: 0 0 18px;
     }
     .edit-hero-title {
       margin: 0;
-      font-family: var(--serif);
-      font-weight: 500;
-      font-size: clamp(30px, 4vw, 52px);   /* much smaller than before */
-      line-height: 1;
+      font-family: var(--sans);
+      font-weight: 700;
+      font-size: clamp(30px, 3.5vw, 50px);
+      line-height: 1.08;
       letter-spacing: -0.02em;
       color: var(--ink);
     }
-    .edit-hero-sub {
-      margin: 14px 0 0;
-      max-width: 560px;
+    .edit-hero-desc {
+      margin: 22px 0 0;
+      max-width: 44ch;
       font-family: var(--sans);
-      font-size: clamp(14px, 1.25vw, 18px);   /* unchanged — same text size */
-      line-height: 1.55;
-      letter-spacing: 0.01em;
-      color: rgba(28, 29, 34, 0.6);
+      font-size: clamp(15px, 1.15vw, 16.5px);
+      line-height: 1.66;
+      color: rgba(28, 29, 34, 0.66);
+    }
+    .edit-hero-actions {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      margin-top: clamp(28px, 3.4vw, 40px);
+    }
+    .edit-hero-size {
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
+      padding: 11px 18px; border: 1px solid rgba(28, 29, 34, 0.4); border-radius: 2px;
+    }
+    .edit-hero-cta {
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--paper); background: var(--ink);
+      padding: 12px 26px; border-radius: 2px; text-decoration: none;
+      transition: background 0.25s, transform 0.4s cubic-bezier(.2,.7,.2,1);
+    }
+    .edit-hero-cta:hover { background: var(--english-violet); transform: translateY(-1px); }
+
+    /* The "film": a 4×4 grid of template stills that flip in, fill, then fade. */
+    .edit-hero-film { display: flex; justify-content: center; }
+    .eh-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: clamp(6px, 0.7vw, 10px);
+      width: min(100%, 480px);
+      perspective: 1400px;
+      transition: opacity 0.9s ease;
+    }
+    .eh-grid.is-fading { opacity: 0; }
+    .eh-tile { position: relative; aspect-ratio: 3 / 4; }
+    .eh-tile-img {
+      position: absolute; inset: 0;
+      background-size: cover; background-position: center;
+      background-color: rgba(28, 29, 34, 0.05);
+      border-radius: 2px;
+      box-shadow: 0 8px 18px -12px rgba(28, 29, 34, 0.45);
+      opacity: 0;
+      will-change: transform, opacity;
+      backface-visibility: hidden;
+    }
+    .eh-tile.is-on .eh-tile-img { opacity: 1; }
+    .eh-tile.is-pop .eh-tile-img { animation: ehPop 0.55s cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes ehPop {
+      0%   { opacity: 0; transform: rotateY(-78deg) scale(0.86); }
+      55%  { opacity: 1; }
+      100% { opacity: 1; transform: rotateY(0deg) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .eh-tile-img { opacity: 1 !important; }
+      .eh-tile.is-pop .eh-tile-img { animation: none; }
+      .eh-grid.is-fading { opacity: 1; }
     }
     /* ====== STRIPPED — studio demo moved to the homepage Chapter 5 ====== */
 
@@ -966,6 +1042,84 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
     }
 
+    // ===== Hero "film" =====================================================
+    // Auto-plays a ~15s title sequence: template stills flip into a 4×4 grid in
+    // a random order, keep firing through, settle on a full grid, then the whole
+    // grid fades to empty — and loops. Pool = every image across the packs.
+    function initHeroFilm(pool) {
+      const grid = document.getElementById('eh-grid');
+      if (!grid) return;
+      pool = [...new Set((pool || []).filter((u) => typeof u === 'string' && u.length))];
+      if (!pool.length) return;
+
+      let tiles = [...grid.querySelectorAll('.eh-tile')];
+      if (!tiles.length) {
+        grid.innerHTML = Array.from({ length: 16 }, () => '<div class="eh-tile"><div class="eh-tile-img"></div></div>').join('');
+        tiles = [...grid.querySelectorAll('.eh-tile')];
+      }
+
+      const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (reduce) {
+        const imgs = shuffle(pool);
+        tiles.forEach((t, i) => { t.classList.add('is-on'); t.querySelector('.eh-tile-img').style.backgroundImage = `url('${imgs[i % imgs.length]}')`; });
+        return;
+      }
+
+      // Preload so flips don't show empty cells on first pass.
+      pool.forEach((u) => { const im = new Image(); im.src = u; });
+
+      let timers = [];
+      let bag = [];
+      const nextImg = () => { if (!bag.length) bag = shuffle(pool); return bag.pop(); };
+      const setTile = (t, url) => {
+        const img = t.querySelector('.eh-tile-img');
+        img.style.backgroundImage = `url('${url}')`;
+        t.classList.add('is-on');
+        t.classList.remove('is-pop'); void t.offsetWidth; t.classList.add('is-pop');
+      };
+
+      const FILL_START = 500, FILL_END = 10000, FADE_AT = 13000, LOOP_AT = 15400;
+
+      function run() {
+        timers.forEach(clearTimeout); timers = [];
+        grid.classList.remove('is-fading');
+        tiles.forEach((t) => { t.classList.remove('is-on', 'is-pop'); t.querySelector('.eh-tile-img').style.backgroundImage = ''; });
+        bag = [];
+
+        // 1) reveal each cell once, in a random order, accelerating to the end.
+        const order = shuffle(tiles.map((_, i) => i));
+        order.forEach((cellIdx, n) => {
+          const frac = order.length > 1 ? n / (order.length - 1) : 0;
+          const at = n === 0 ? FILL_START : FILL_START + 600 + Math.pow(frac, 1.5) * (FILL_END - FILL_START - 600);
+          timers.push(setTimeout(() => setTile(tiles[cellIdx], nextImg()), at));
+        });
+
+        // 2) "fire through" — keep re-flipping already-revealed cells to new stills.
+        for (let at = 2400; at < FILL_END; at += 140 + Math.random() * 170) {
+          const when = at;
+          timers.push(setTimeout(() => {
+            const on = tiles.filter((t) => t.classList.contains('is-on'));
+            if (on.length) setTile(on[Math.floor(Math.random() * on.length)], nextImg());
+          }, when));
+        }
+
+        // 3) hold the full grid → fade to empty → loop.
+        timers.push(setTimeout(() => grid.classList.add('is-fading'), FADE_AT));
+        timers.push(setTimeout(run, LOOP_AT));
+      }
+
+      // Kick off once the hero is on screen (it's at the top, so ~immediately).
+      if ('IntersectionObserver' in window) {
+        let started = false;
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach((e) => { if (e.isIntersecting && !started) { started = true; run(); io.disconnect(); } });
+        }, { threshold: 0.2 });
+        io.observe(grid);
+      } else { run(); }
+    }
+
     let packsById = new Map();
 
     // Dev/preview-only sample packs so the showcase is visible before any packs
@@ -1034,6 +1188,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       wireCollage(grid);
       wireMotion(grid);
       maybeOpenFromQuery();
+
+      // Feed the hero "film" every image across the packs.
+      initHeroFilm(packs.flatMap((p) => [p.cover_image_url, ...(p.preview_images ?? [])]));
     })();
 
     // ============== Modal helpers ==============
