@@ -72,12 +72,39 @@ const togetherImage = "https://assets.tmke.co.uk/TMKE%20About%20Us/Insta%20Phone
     </div>
   </section>
 
+  <section class="about-team">
+    <div class="about-team-wrap">
+      {team.map((member) => (
+        <article
+          class={`about-team-card${member.video ? " has-video" : ""}`}
+          style={`background-image: url('${member.image}')`}
+        >
+          {member.video && (
+            <video
+              class="about-team-video"
+              src={member.video}
+              poster={member.image}
+              muted
+              playsinline
+              preload="none"
+              aria-hidden="true"
+            ></video>
+          )}
+          {member.realImage && (
+            <img class="about-team-real" src={member.realImage} alt={member.name} />
+          )}
+          <div class="about-team-overlay">
+            <div class="about-team-name">{member.name}</div>
+            <div class="about-team-role">{member.role}</div>
+            {member.bio && <p class="about-team-bio">{member.bio}</p>}
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+
   <section class="about-intro" id="about-intro">
     <div class="about-intro-wrap">
-      <div class="about-chapter">
-        <span class="chapter">Chapter 01 &mdash; Philosophy</span>
-        <span class="about-chapter-rule" aria-hidden="true"></span>
-      </div>
       <div class="about-intro-grid">
         <div class="about-intro-copy">
           <p>
@@ -111,37 +138,6 @@ const togetherImage = "https://assets.tmke.co.uk/TMKE%20About%20Us/Insta%20Phone
           </p>
         </aside>
       </div>
-    </div>
-  </section>
-
-  <section class="about-team">
-    <div class="about-team-wrap">
-      {team.map((member) => (
-        <article
-          class={`about-team-card${member.video ? " has-video" : ""}`}
-          style={`background-image: url('${member.image}')`}
-        >
-          {member.video && (
-            <video
-              class="about-team-video"
-              src={member.video}
-              poster={member.image}
-              muted
-              playsinline
-              preload="none"
-              aria-hidden="true"
-            ></video>
-          )}
-          {member.realImage && (
-            <img class="about-team-real" src={member.realImage} alt={member.name} />
-          )}
-          <div class="about-team-overlay">
-            <div class="about-team-name">{member.name}</div>
-            <div class="about-team-role">{member.role}</div>
-            {member.bio && <p class="about-team-bio">{member.bio}</p>}
-          </div>
-        </article>
-      ))}
     </div>
   </section>
 
@@ -374,18 +370,6 @@ const togetherImage = "https://assets.tmke.co.uk/TMKE%20About%20Us/Insta%20Phone
   .about-intro-wrap {
     max-width: 1360px;
     margin: 0 auto;
-  }
-  /* Section break — chapter marker + hairline, between the hero and the intro. */
-  .about-chapter {
-    display: flex;
-    align-items: center;
-    gap: 26px;
-    padding-bottom: clamp(36px, 5vh, 56px);
-  }
-  .about-chapter-rule {
-    flex: 1;
-    height: 1px;
-    background: rgba(28, 29, 34, 0.16);
   }
   .about-intro-eyebrow {
     font-family: var(--serif);
