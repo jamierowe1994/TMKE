@@ -65,8 +65,8 @@ const featMeta = featured
     <div class="ins-intro">
       <span class="ins-eyebrow">Insights</span>
       <div class="ins-intro-foot">
-        <p class="ins-intro-note">Notes from the desk — structured thinking on social media, brand and content for UK property.</p>
-        <h1 class="ins-bigtitle">Insights</h1>
+        <p class="ins-intro-note">Structured thinking on social media, brand and content — written for UK property professionals.</p>
+        <h1 class="ins-bigtitle">Notes from the desk</h1>
       </div>
     </div>
 
@@ -90,7 +90,7 @@ const featMeta = featured
 
     <!-- ===== Right: recent strip → hover expands the archive ===== -->
     <div class="ins-strip" id="ins-strip" tabindex="0" role="button" aria-label="Open the article archive">
-      <span class="ins-label ins-label--strip">Image Archive <em aria-hidden="true">&rarr;</em></span>
+      <span class="ins-label ins-label--strip">Article Archive <em aria-hidden="true">&rarr;</em></span>
       <div class="ins-strip-imgs">
         {recent3.map((p) => (
           <span class="ins-strip-img" style={`background-image:url('${p.hero}')`}></span>
@@ -102,10 +102,10 @@ const featMeta = featured
   <!-- ===== Archive overlay — the expanded grid ===== -->
   <div class="arc" id="arc" hidden>
     <div class="arc-head">
-      <span class="ins-label">The Archive</span>
+      <span class="ins-label">Article Archive</span>
       <button class="arc-close" id="arc-close" type="button" aria-label="Close archive">&times;</button>
     </div>
-    <div class="arc-scroll">
+    <div class="arc-scroll" data-lenis-prevent>
     <div class="arc-grid">
       {gridItems.map((it) => (
         it.type === "post" ? (
@@ -129,7 +129,7 @@ const featMeta = featured
     <button class="reader-x" id="reader-x" type="button" aria-label="Close">&times;</button>
     <div class="reader-frame" role="dialog" aria-modal="true" aria-labelledby="reader-title">
       <div class="reader-hero" id="reader-hero"><img id="reader-hero-img" src="" alt="" /></div>
-      <div class="reader-col">
+      <div class="reader-col" data-lenis-prevent>
         <div class="reader-meta" id="reader-meta"></div>
         <h2 class="reader-title" id="reader-title"></h2>
         <div class="reader-content" id="reader-content"></div>
@@ -148,19 +148,15 @@ const featMeta = featured
       height: 100vh; min-height: 0;
       display: grid; grid-template-columns: 1.25fr 1.18fr clamp(170px, 15vw, 230px);
       grid-template-rows: minmax(0, 1fr);   /* constrain columns to the viewport so they shrink, never overflow */
-      gap: clamp(14px, 1.5vw, 30px);
+      gap: 6px;
       padding: clamp(68px, 9vh, 100px) clamp(24px, 3.4vw, 60px) clamp(22px, 3.5vh, 48px);
       background: var(--paper); color: var(--ink); overflow: hidden;
     }
     /* Each column manages its own overflow so nothing spills past the screen. */
     .ins-intro, .ins-feature, .ins-strip { min-height: 0; }
-    .ins-label {
+    .ins-label, .ins-eyebrow {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.5);
-    }
-    .ins-eyebrow {
-      font-family: var(--serif); font-style: italic; font-size: clamp(15px, 1.2vw, 19px);
-      color: var(--ink);
+      letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
     }
 
     /* Left intro */
@@ -387,11 +383,13 @@ const featMeta = featured
       function openArc() {
         if (closeT) { clearTimeout(closeT); closeT = null; }
         if (arcOpen) return; arcOpen = true;
+        try { window.__lenis && window.__lenis.stop(); } catch (_) {}
         arc.hidden = false;
         requestAnimationFrame(() => arc.classList.add("is-open"));
       }
       function closeArc(now) {
         if (!arcOpen) return; arcOpen = false;
+        try { window.__lenis && window.__lenis.start(); } catch (_) {}
         arc.classList.remove("is-open");
         setTimeout(() => { if (!arcOpen) arc.hidden = true; }, now ? 0 : 480);
       }
