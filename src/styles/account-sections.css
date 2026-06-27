@@ -20,17 +20,18 @@
   --dash-accent: #7e6765;
   --dash-accent-ink: #ffffff;
   --dash-accent-ink-soft: rgba(255, 255, 255, 0.78);
-  --dash-bg: #f4f2f1;
+  /* Clean, neutral, Notion-style palette: a pure-white page, with the old warm
+     off-white moved onto the cards + nav so every tile reads as a soft surface
+     floating on white. */
+  --dash-bg: #ffffff;
   --dash-bg-ink: #1c1d22;
   --dash-bg-ink-soft: rgba(28, 29, 34, 0.66);
   --english-violet: var(--dash-accent);
   --violet-deep: var(--dash-accent);
-  /* Whisper-soft light blooms over the warm paper so the surface isn't a dead
-     flat fill — kept very subtle to stay minimalist. */
-  background:
-    radial-gradient(80% 70% at 100% 0%, rgba(255, 255, 255, 0.5), transparent 58%),
-    radial-gradient(64% 56% at 0% 6%, rgba(255, 255, 255, 0.34), transparent 54%),
-    var(--dash-bg);
+  /* Tile / nav surface — solid off-white (the colour the page used to be), so
+     each tile is a flat clean card rather than a tinted frosted pane. */
+  --card-glass: #f4f2f1;
+  background: var(--dash-bg);
 }
 
 /* Wash-level headings + the back link adapt to the chosen background colour.
@@ -196,24 +197,35 @@
   word-break: break-all;
 }
 
-/* ===== Accent sidebar: the nav sits on the SOLID accent (--dash-accent, set by
-   the theme picker), so its text/controls use the accent's contrast ink so they
-   stay legible whatever accent is chosen. ===== */
-.dash-side { background: var(--dash-accent); border-color: rgba(255, 255, 255, 0.14); }
-.dash-logo { color: var(--dash-accent-ink); }
-.dash-link { color: var(--dash-accent-ink-soft); }
-.dash-link:hover { color: var(--dash-accent-ink); background: rgba(255, 255, 255, 0.08); }
-.dash-link.is-active { color: var(--dash-accent-ink); background: rgba(255, 255, 255, 0.16); box-shadow: inset 3px 0 0 0 var(--dash-accent-ink); }
-.dash-link--sub { color: var(--dash-accent-ink-soft); }
-.dash-divider { background: rgba(255, 255, 255, 0.18); }
-.dash-side-foot { border-top-color: rgba(255, 255, 255, 0.18); }
-.dash-cal-btn { color: var(--dash-accent-ink); background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.22); }
-.dash-cal-btn:hover { color: var(--dash-accent-ink); background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.34); }
-.dash-cal-count, .dash-cal-btn:hover .dash-cal-count { background: var(--dash-accent-ink); color: var(--dash-accent); }
-.dash-side-tag { color: var(--dash-accent-ink-soft); }
-.dash-side-meta strong { color: var(--dash-accent-ink); }
-.app-signout { color: var(--dash-accent-ink); border-color: rgba(255, 255, 255, 0.22); }
-.app-signout:hover { color: var(--dash-accent-ink); background: rgba(255, 255, 255, 0.14); }
+/* ===== Clean Notion theme: the sidebar is an off-white tile (var(--card-glass))
+   like every other card, so the nav keeps the dark-on-light styling defined
+   above; only the sign-out chip needs a light treatment here. The brand accent
+   stays for small touches (active link, eyebrows, figures), never as a fill. ===== */
+.app-signout {
+  color: rgba(28, 29, 34, 0.62);
+  border-color: rgba(28, 29, 34, 0.16);
+}
+.app-signout:hover {
+  color: var(--ink);
+  background: rgba(28, 29, 34, 0.05);
+  border-color: rgba(28, 29, 34, 0.28);
+}
+
+/* ===== Soft, flat tile surfaces — a hairline neutral border + a whisper shadow,
+   replacing the old heavy plum-tinted glass shadows, for the clean Notion feel. */
+.dash-shell .dash-card,
+.dash-shell .dash-pair-card,
+.dash-shell .dash-streak,
+.dash-shell .dash-side,
+.dash-shell .pack-row,
+.dash-shell .draft-card,
+.dash-shell .lib-empty {
+  border: 1px solid rgba(28, 29, 34, 0.08);
+  box-shadow:
+    0 1px 2px rgba(28, 29, 34, 0.03),
+    0 8px 20px -14px rgba(28, 29, 34, 0.12);
+}
+.dash-shell .dash-newdesign { border: 0; }   /* the photo tile stays edge-to-edge */
 
 /* Override .app-main when used inside the dash shell so the content
    takes the full right column rather than being centred at 1280. */
