@@ -8,14 +8,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 >
   <!-- Hero — featured-pack copy on the left, an auto-playing template "film" on the right -->
   <header class="edit-hero">
-    <div class="edit-hero-copy" id="eh-copy">
+    <div class="edit-hero-copy">
       <p class="edit-hero-eyebrow">The Edit — Template Shop</p>
-      <h1 class="edit-hero-title" id="eh-title">The Proof Is in the Posts</h1>
-      <p class="edit-hero-desc" id="eh-desc">Being a great agent means nothing if the people looking for one can't see it. This pack gives you the content to change that. Client testimonials, results, milestones, and service-led posts that build trust, communicate your value, and position you as the agent worth choosing. No guesswork, no generic captions. Just proof.</p>
-      <div class="edit-hero-actions">
-        <span class="edit-hero-size" id="eh-size">Pack Size: 30</span>
-        <a class="edit-hero-cta" id="eh-cta" href="#edit-catalogue">Discover</a>
+      <div class="eh-copy-in" id="eh-copy-in">
+        <h1 class="edit-hero-title" id="eh-title">The Proof Is in the Posts</h1>
+        <p class="edit-hero-desc" id="eh-desc">Being a great agent means nothing if the people looking for one can't see it. This pack gives you the content to change that. Client testimonials, results, milestones, and service-led posts that build trust, communicate your value, and position you as the agent worth choosing. No guesswork, no generic captions. Just proof.</p>
+        <div class="edit-hero-actions">
+          <span class="edit-hero-size" id="eh-size">Pack Size: 30</span>
+          <a class="edit-hero-cta" id="eh-cta" href="#edit-catalogue">Discover</a>
+        </div>
       </div>
+      <div class="eh-dots" id="eh-dots" aria-hidden="true"></div>
     </div>
     <div class="edit-hero-film">
       <div class="eh-grid" id="eh-grid" aria-hidden="true">
@@ -195,7 +198,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       box-sizing: border-box;
       display: grid;
       grid-template-columns: minmax(260px, 1fr) auto;  /* copy left, big grid hard right */
-      align-items: center;
+      align-items: end;                                 /* copy sits at the bottom of the grid */
       gap: clamp(28px, 4vw, 72px);
       max-width: none;
       margin: 0;
@@ -205,9 +208,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     @media (max-width: 880px) {
       .edit-hero { min-height: 0; grid-template-columns: 1fr; gap: 40px; padding-top: clamp(104px, 14vh, 150px); }
     }
-    /* the rotating copy cross-fades between packs */
-    .edit-hero-copy { transition: opacity 0.5s ease; }
-    .edit-hero-copy.is-swapping { opacity: 0; }
+    /* the per-pack copy cross-fades; the eyebrow + dots stay put */
+    .eh-copy-in { transition: opacity 0.5s ease; }
+    .eh-copy-in.is-swapping { opacity: 0; }
+    /* auto-scroll indicator — one dot per pack, the current one filled */
+    .eh-dots { display: flex; gap: 9px; margin-top: clamp(22px, 2.6vw, 32px); }
+    .eh-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      border: 1px solid rgba(28, 29, 34, 0.35); background: transparent;
+      transition: background 0.4s ease, border-color 0.4s ease;
+    }
+    .eh-dot.is-active { background: var(--ink); border-color: var(--ink); }
     .edit-hero-copy { max-width: 540px; }
     .edit-hero-eyebrow {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
@@ -267,7 +278,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .eh-tile {
       position: relative; min-height: 0; overflow: hidden;
       border-radius: 2px;
-      background: rgba(28, 29, 34, 0.045);   /* faint frame while empty */
+      background: transparent;   /* no frame — tiles flash in on a blank screen */
     }
     .eh-tile-img {
       position: absolute; inset: 0;
@@ -1055,10 +1066,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     // (1-3 at a time); every few seconds the hero cross-fades to the next pack.
     function setupHero(packs) {
       const grid = document.getElementById('eh-grid');
-      const copyEl = document.getElementById('eh-copy');
+      const copyEl = document.getElementById('eh-copy-in');
       const titleEl = document.getElementById('eh-title');
       const descEl = document.getElementById('eh-desc');
       const sizeEl = document.getElementById('eh-size');
+      const dotsEl = document.getElementById('eh-dots');
       if (!grid) return;
       const list = (packs || []).filter((p) => p && p.templates && p.templates.length);
       if (!list.length) return;
@@ -1069,9 +1081,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const tImg = (t) => t.querySelector('.eh-tile-img');
       list.forEach((p) => p.templates.forEach((u) => { const im = new Image(); im.src = u; }));   // preload
 
+      // auto-scroll indicator — one dot per pack
+      let dots = [];
+      if (dotsEl) {
+        if (list.length > 1) {
+          dotsEl.innerHTML = list.map((_, i) => `<span class="eh-dot${i === 0 ? ' is-active' : ''}"></span>`).join('');
+          dots = [...dotsEl.querySelectorAll('.eh-dot')];
+        } else { dotsEl.style.display = 'none'; }
+      }
+      const setDot = (i) => dots.forEach((d, n) => d.classList.toggle('is-active', n === i));
+
       let packIdx = 0, pulseTimer = 0, rotTimer = 0;
       const busy = new Set();
-      const FADE = 540, HOLD = 1500;
+      const FADE = 440, HOLD = 1050;
 
       const fillCopy = (p) => {
         if (titleEl) titleEl.textContent = p.title || '';
@@ -1096,15 +1118,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const free = tiles.map((_, i) => i).filter((i) => !busy.has(i));
         if (free.length) {
           const k = Math.min(free.length, 1 + Math.floor(Math.random() * 3));   // 1-3 at a time
-          shuffle(free).slice(0, k).forEach((i, n) => {
-            const url = p.templates[Math.floor(Math.random() * p.templates.length)];
-            setTimeout(() => pulse(i, url), n * 150);                            // slight stagger
-          });
+          const imgs = shuffle(p.templates);
+          shuffle(free).slice(0, k).forEach((i, n) => pulse(i, imgs[n % imgs.length]));   // synced — in together
         }
-        pulseTimer = setTimeout(pulseTick, HOLD + 250 + Math.random() * 600);    // next group
+        pulseTimer = setTimeout(pulseTick, 980 + Math.random() * 520);           // next group (kept to ~2-3 on screen)
       };
       const rotTick = () => {
         packIdx = (packIdx + 1) % list.length;
+        setDot(packIdx);
         if (copyEl) {
           copyEl.classList.add('is-swapping');
           setTimeout(() => { fillCopy(list[packIdx]); copyEl.classList.remove('is-swapping'); }, 500);
