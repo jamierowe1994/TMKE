@@ -112,7 +112,9 @@ const featMeta = featured
 
       <!-- ===== Archive: the draggable grid, led by the 3 images ===== -->
       <div class="ins-archive" id="ins-archive">
-        <div class="arc-grid">
+        <span class="ins-label arc-title">Article Archive</span>
+        <div class="arc-scroll" id="arc-scroll" data-lenis-prevent>
+          <div class="arc-grid">
           {gridItems.map((it) => (
             it.type === "post" ? (
               <button class="arc-tile arc-tile--post" type="button" data-slug={it.post.slug}>
@@ -126,6 +128,7 @@ const featMeta = featured
               <div class="arc-tile arc-tile--image" style={`background-image:url('${it.img}')`}></div>
             )
           ))}
+          </div>
         </div>
       </div>
     </div>
@@ -157,6 +160,7 @@ const featMeta = featured
     .ins {
       --peek: clamp(150px, 16vw, 224px);   /* how much of the grid peeks at rest */
       --arc-inset: clamp(68px, 9vh, 100px); /* archive sits in an inset band: top = bottom, top aligned with the labels (clears the nav) */
+      --hairline: rgba(28,29,34,0.16);      /* the featured-article rule: reused for the archive line + tile outlines */
       position: relative; height: 100vh; overflow: hidden;
       background: var(--paper); color: var(--ink);
     }
@@ -199,7 +203,7 @@ const featMeta = featured
       flex: 1; min-height: 0; -webkit-appearance: none; appearance: none; border: 0; background: none;
       padding: 0; margin: 0; text-align: left; cursor: pointer; color: var(--ink);
       display: flex; flex-direction: column; gap: clamp(12px, 1.6vh, 22px);
-      border-top: 1px solid rgba(28,29,34,0.16); padding-top: clamp(14px, 1.8vh, 22px);
+      border-top: 1px solid var(--hairline); padding-top: clamp(14px, 1.8vh, 22px);
     }
     .ins-feature-headline { display: flex; flex-direction: column; gap: 4px; }
     .ins-feature-eyebrow {
@@ -234,11 +238,21 @@ const featMeta = featured
       flex: 0 0 100vw; box-sizing: border-box;
       /* inset band: top margin = bottom margin, top aligned with the Insights /
          Featured-article labels, so the grid clears the nav (login/menu) and its
-         content never scrolls up underneath it. */
+         content never scrolls up underneath it. Laid out like the featured column:
+         a label, then a hairline rule, then the grid. */
       align-self: flex-start; margin-top: var(--arc-inset);
       height: calc(100% - var(--arc-inset) * 2);
-      overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin;
+      display: flex; flex-direction: column; gap: 14px;
       padding: 0 10px 0 6px;   /* left pad = the 6px card gap (gap to the featured) */
+    }
+    /* "Article Archive" label — fades in as you drag the grid across (set in JS),
+       so it isn't shown cut-off in the peek at rest. */
+    .arc-title { flex: 0 0 auto; opacity: 0; transition: opacity 0.3s ease; }
+    .arc-scroll {
+      flex: 1 1 auto; min-height: 0;
+      overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin;
+      border-top: 1px solid var(--hairline);            /* same line as under the featured article */
+      padding-top: clamp(14px, 1.8vh, 22px);
     }
     .arc-grid {
       display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
@@ -264,7 +278,7 @@ const featMeta = featured
     /* Post tiles — off-white box, title bottom-left; hover reveals the image. */
     .arc-tile--post {
       -webkit-appearance: none; appearance: none; box-sizing: border-box;
-      border: 1px solid var(--english-violet);   /* TMKE outline so the resting box reads as a frame */
+      border: 1px solid var(--hairline);   /* same weight/colour as the featured-article rule */
       text-align: left; cursor: pointer;
       background: var(--paper); color: var(--english-violet);
     }
@@ -368,6 +382,8 @@ const featMeta = featured
       .ins-home { flex: none; width: 100%; height: auto; min-height: 90vh; grid-template-columns: 1fr; gap: 40px; padding: 90px 24px 48px; }
       .ins-bigtitle { font-size: clamp(56px, 16vw, 110px); }
       .ins-archive { flex: none; width: 100%; height: auto; overflow: visible; margin-top: 0; }
+      .arc-scroll { overflow: visible; }
+      .arc-title { opacity: 1; }
       .arc-grid { grid-template-columns: repeat(2, 1fr); }
       .arc-tile--lead { grid-column: auto !important; grid-row: auto !important; }
       .arc-back { display: none; }
@@ -403,7 +419,8 @@ const featMeta = featured
       // between mouse-wheel notches; it doesn't add a separate slide.
       const ins = document.querySelector(".ins");
       const rail = document.getElementById("ins-rail");
-      const archive = document.getElementById("ins-archive");
+      const archive = document.getElementById("arc-scroll");   // the grid's vertical scroll container
+      const arcTitle = document.querySelector(".arc-title");
       const backBtn = document.getElementById("arc-back");
       const desktop = window.matchMedia("(min-width: 1001px)");
       const DRAG = 1100;                  // wheel px to drag fully across
@@ -424,6 +441,7 @@ const featMeta = featured
           backBtn.style.opacity = on ? "1" : "0";
           backBtn.style.pointerEvents = on ? "auto" : "none";
         }
+        if (arcTitle) arcTitle.style.opacity = String(Math.max(0, Math.min(1, (prog - 0.5) * 2)));
       }
       (function raf() {
         prog += (progTarget - prog) * (reduce ? 1 : 0.3);   // tight follow = drag feel
@@ -432,20 +450,37 @@ const featMeta = featured
         requestAnimationFrame(raf);
       })();
 
+      // The same gesture that drags the grid across shouldn't also fling it to the
+      // bottom. After it lands we LOCK the grid at the top and only release once the
+      // scroll settles (a brief pause), so moving down needs a fresh, deliberate scroll.
+      let gridLocked = false, settleTimer = 0;
       function onWheel(e) {
         if (!desktop.matches || isOpen) return;     // mobile = native scroll; reader open = let it scroll
-        if (progTarget >= 1) {                       // fully dragged in → grid scrolls
-          if (e.deltaY < 0 && archive && archive.scrollTop <= 0) {
-            e.preventDefault();                      // at the top, scrolling up → drag it back
-            setProg(progTarget + e.deltaY / DRAG);
-          }
-          return;                                    // otherwise native vertical grid scroll
+        if (progTarget < 1) {                        // dragging across
+          e.preventDefault();
+          setProg(progTarget + e.deltaY / DRAG);
+          if (archive) archive.scrollTop = 0;        // keep the grid pinned at the top during the drag
+          if (progTarget >= 1) gridLocked = true;    // just landed → lock at the top
+          return;
         }
-        e.preventDefault();                          // dragging across
-        setProg(progTarget + e.deltaY / DRAG);
+        // fully across
+        if (e.deltaY < 0 && archive && archive.scrollTop <= 0) {
+          e.preventDefault();                        // at the top, scrolling up → drag it back
+          gridLocked = false;
+          setProg(progTarget + e.deltaY / DRAG);
+          return;
+        }
+        if (gridLocked) {                            // hold at the top until the scroll pauses,
+          e.preventDefault();                        // absorbing the carry-over momentum
+          if (archive) archive.scrollTop = 0;
+          clearTimeout(settleTimer);
+          settleTimer = setTimeout(() => { gridLocked = false; }, 150);
+          return;
+        }
+        // otherwise native vertical grid scroll
       }
       window.addEventListener("wheel", onWheel, { passive: false });
-      if (backBtn) backBtn.addEventListener("click", () => { setProg(0); if (archive) archive.scrollTop = 0; });
+      if (backBtn) backBtn.addEventListener("click", () => { setProg(0); gridLocked = false; if (archive) archive.scrollTop = 0; });
 
       // ----- Reader -----
       let flyTimer = null, scrollLockY = 0;
