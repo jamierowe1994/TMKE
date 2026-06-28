@@ -13,7 +13,6 @@ posts.forEach((p, i) => { if (BLOG_HERO[i]) p.hero = BLOG_HERO[i]; });
 
 const featured = posts[0] || null;     // newest = featured (auto)
 const archivePosts = posts.slice(1);   // everything else
-const recent3 = archivePosts.slice(0, 3); // the right-hand "peek" strip
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -22,8 +21,7 @@ function fmtDate(iso) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
-// Decorative, NON-post tiles — brand photos for now (swap later). Reused across
-// the grid; fine for placeholders.
+// Decorative, NON-post tiles — brand photos for now (swap later).
 const STATIC_POOL = [
   "/assets/sitting%20chair.jpg", "/assets/home%20kitchen.jpg", "/assets/vibes.jpg",
   "/assets/home%20window.jpg", "/assets/Doors.jpg", "/assets/tea.jpg",
@@ -32,31 +30,19 @@ const STATIC_POOL = [
   "/assets/lay%20down.jpg", "/assets/home%20ginger.jpg",
 ];
 
-// 6-col archive grid. The FIRST three tiles are the three articles already
-// shown on the home screen (the strip) — they lead, then the rest of the posts
-// follow, scattered amongst brand photos. So the strip flows straight into the
-// start of the grid: you're one row short because those three are pre-shown.
-const COLS = 6;
-const gridItems = [];
-let gi = 0;
-archivePosts.slice(0, 3).forEach((p, idx) =>
-  gridItems.push({ type: "post", post: p, num: String(idx + 1).padStart(2, "0") })
-);
-for (let c = 3; c < COLS; c++) gridItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
+// The three lead articles ARE the images shown peeking on the home screen; they
+// form column 1 of the archive grid and lead it as it's dragged across. The rest
+// of the posts trail behind, scattered amongst brand photos in the same grid.
+const leadPosts = archivePosts.slice(0, 3);
 const restPosts = archivePosts.slice(3);
-const REST_COLS = [[1, 4], [0, 3], [2, 5], [0, 4], [1, 3], [2, 5]];
-let ri = 0;
-for (let r = 0; ri < restPosts.length; r++) {
-  const cols = REST_COLS[r % REST_COLS.length];
-  for (let c = 0; c < COLS; c++) {
-    if (cols.includes(c) && ri < restPosts.length) {
-      const p = restPosts[ri++];
-      gridItems.push({ type: "post", post: p, num: String(3 + ri).padStart(2, "0") });
-    } else {
-      gridItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
-    }
-  }
-}
+const restItems = [];
+let gi = 0;
+restPosts.forEach((p, idx) => {
+  restItems.push({ type: "post", post: p, num: String(idx + 4).padStart(2, "0") });
+  restItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
+  restItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
+});
+for (let k = 0; k < 6; k++) restItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
 
 // Lite data for the reader (full bodies embedded as <template>s below).
 const lite = posts.map((p) => ({
@@ -74,68 +60,71 @@ const featMeta = featured
   hideFooter
 >
   <section class="ins" data-lenis-prevent>
-    <!-- ===== Left: static title + intro ===== -->
-    <div class="ins-intro">
-      <span class="ins-eyebrow">Insights</span>
-      <div class="ins-intro-foot">
-        <p class="ins-intro-note">Structured thinking on social media, brand and content — written for UK property professionals.</p>
-        <h1 class="ins-bigtitle">Notes from<br />the desk</h1>
+    <!-- One horizontal rail: home (intro + featured) then the archive grid.
+         Scroll drags the rail left — the home is pushed off and the grid (led
+         by its first column, the 3 images peeking on the right) comes across. -->
+    <div class="ins-rail" id="ins-rail">
+
+      <!-- ===== Home: intro + featured ===== -->
+      <div class="ins-home">
+        <div class="ins-intro">
+          <span class="ins-eyebrow">Insights</span>
+          <div class="ins-intro-foot">
+            <p class="ins-intro-note">Structured thinking on social media, brand and content — written for UK property professionals.</p>
+            <h1 class="ins-bigtitle">Notes from<br />the desk</h1>
+          </div>
+        </div>
+
+        <div class="ins-feature">
+          <span class="ins-label">Featured Article</span>
+          {featured && (
+            <button class="ins-feature-card" type="button" data-slug={featured.slug}>
+              <span class="ins-feature-headline">
+                <span class="ins-feature-eyebrow">{featured.eyebrow || featured.category}</span>
+                <span class="ins-feature-title">{featured.title}</span>
+              </span>
+              <span class="ins-feature-media"><img src={featured.hero} alt={featured.title} loading="eager" /></span>
+              <span class="ins-feature-foot">
+                <span class="ins-feature-meta">{featMeta}</span>
+                <span class="ins-feature-stand">{featured.standfirst}</span>
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      <!-- ===== Archive: the draggable grid, led by the 3 images ===== -->
+      <div class="ins-archive" id="ins-archive">
+        <div class="arc-grid">
+          {leadPosts.map((p, i) => (
+            <button class="arc-tile arc-tile--lead" type="button" data-slug={p.slug} style={`grid-column:1;grid-row:${i + 1}`}>
+              <img src={p.hero} alt={p.title} loading="eager" />
+              <span class="arc-tile-cap">
+                <span class="arc-tile-num">Article {String(i + 1).padStart(2, "0")}</span>
+                <span class="arc-tile-name">{p.title}</span>
+              </span>
+            </button>
+          ))}
+          {restItems.map((it) => (
+            it.type === "post" ? (
+              <button class="arc-tile arc-tile--post" type="button" data-slug={it.post.slug}>
+                <span class="arc-tile-img"><img src={it.post.hero} alt={it.post.title} loading="lazy" /></span>
+                <span class="arc-tile-cap">
+                  <span class="arc-tile-num">Article {it.num}</span>
+                  <span class="arc-tile-name">{it.post.title}</span>
+                </span>
+              </button>
+            ) : (
+              <div class="arc-tile arc-tile--image" style={`background-image:url('${it.img}')`}></div>
+            )
+          ))}
+        </div>
       </div>
     </div>
 
-    <!-- ===== Middle: featured article ===== -->
-    <div class="ins-feature">
-      <span class="ins-label">Featured Article</span>
-      {featured && (
-        <button class="ins-feature-card" type="button" data-slug={featured.slug}>
-          <span class="ins-feature-headline">
-            <span class="ins-feature-eyebrow">{featured.eyebrow || featured.category}</span>
-            <span class="ins-feature-title">{featured.title}</span>
-          </span>
-          <span class="ins-feature-media"><img src={featured.hero} alt={featured.title} loading="eager" /></span>
-          <span class="ins-feature-foot">
-            <span class="ins-feature-meta">{featMeta}</span>
-            <span class="ins-feature-stand">{featured.standfirst}</span>
-          </span>
-        </button>
-      )}
-    </div>
-
-    <!-- ===== Right: recent strip → hover expands the archive ===== -->
-    <div class="ins-strip" id="ins-strip" tabindex="0" role="button" aria-label="Open the article archive">
-      <span class="ins-label ins-label--strip">Article Archive <em aria-hidden="true">&rarr;</em></span>
-      <div class="ins-strip-imgs">
-        {recent3.map((p) => (
-          <span class="ins-strip-img" style={`background-image:url('${p.hero}')`}></span>
-        ))}
-      </div>
-    </div>
+    <!-- "back to home" appears once the grid is dragged in -->
+    <button class="arc-back" id="arc-back" type="button" aria-label="Back">&times;</button>
   </section>
-
-  <!-- ===== Archive overlay — the expanded grid ===== -->
-  <div class="arc" id="arc" data-lenis-prevent hidden>
-    <div class="arc-head">
-      <span class="ins-label">Article Archive</span>
-      <button class="arc-close" id="arc-close" type="button" aria-label="Close archive">&times;</button>
-    </div>
-    <div class="arc-scroll" data-lenis-prevent>
-    <div class="arc-grid">
-      {gridItems.map((it) => (
-        it.type === "post" ? (
-          <button class="arc-tile arc-tile--post" type="button" data-slug={it.post.slug}>
-            <span class="arc-tile-img"><img src={it.post.hero} alt={it.post.title} loading="lazy" /></span>
-            <span class="arc-tile-cap">
-              <span class="arc-tile-num">Article {it.num}</span>
-              <span class="arc-tile-name">{it.post.title}</span>
-            </span>
-          </button>
-        ) : (
-          <div class="arc-tile arc-tile--image" style={`background-image:url('${it.img}')`}></div>
-        )
-      ))}
-    </div>
-    </div>
-  </div>
 
   <!-- ===== Reader — opens in-frame over everything ===== -->
   <div class="reader" id="reader" hidden>
@@ -156,23 +145,26 @@ const featMeta = featured
   <script type="application/json" id="flow-data" set:html={JSON.stringify(lite)}></script>
 
   <style>
-    /* ============ Insights — one-screen, three sections ============ */
+    /* ============ Insights — drag-across archive ============ */
     .ins {
-      height: 100vh; min-height: 0;
-      display: grid; grid-template-columns: 1.25fr 1.18fr clamp(170px, 15vw, 230px);
-      grid-template-rows: minmax(0, 1fr);   /* constrain columns to the viewport so they shrink, never overflow */
-      gap: 6px;
-      padding: clamp(68px, 9vh, 100px) clamp(24px, 3.4vw, 60px) clamp(22px, 3.5vh, 48px);
-      background: var(--paper); color: var(--ink); overflow: hidden;
+      --peek: clamp(150px, 16vw, 224px);   /* how much of the grid peeks at rest */
+      position: relative; height: 100vh; overflow: hidden;
+      background: var(--paper); color: var(--ink);
     }
-    /* Each column manages its own overflow so nothing spills past the screen. */
-    .ins-intro, .ins-feature, .ins-strip { min-height: 0; }
+    .ins-rail { display: flex; height: 100%; will-change: transform; }
+
     .ins-label, .ins-eyebrow {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
     }
 
-    /* Left intro */
+    /* ----- Home panel ----- */
+    .ins-home {
+      flex: 0 0 calc(100vw - var(--peek)); height: 100%; box-sizing: border-box;
+      display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr); gap: clamp(28px, 3.4vw, 60px);
+      padding: clamp(68px, 9vh, 100px) clamp(18px, 2vw, 34px) clamp(22px, 3.5vh, 48px) clamp(24px, 3.4vw, 60px);
+    }
     .ins-intro { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
     .ins-intro-foot { display: flex; flex-direction: column; gap: clamp(16px, 2vh, 26px); }
     .ins-intro-note {
@@ -184,7 +176,6 @@ const featMeta = featured
       line-height: 1.0; letter-spacing: -0.015em; text-transform: uppercase; color: var(--ink); margin: 0;
     }
 
-    /* Middle featured */
     .ins-feature { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     .ins-feature-card {
       flex: 1; min-height: 0; -webkit-appearance: none; appearance: none; border: 0; background: none;
@@ -202,8 +193,7 @@ const featMeta = featured
       line-height: 1.08; letter-spacing: -0.015em; color: var(--ink);
     }
     .ins-feature-media {
-      flex: 1; min-height: 0; display: block; overflow: hidden; border-radius: 3px;
-      background: rgba(28,29,34,0.05);
+      flex: 1; min-height: 0; display: block; overflow: hidden; border-radius: 3px; background: rgba(28,29,34,0.05);
     }
     .ins-feature-media img {
       width: 100%; height: 100%; object-fit: cover; display: block;
@@ -221,44 +211,32 @@ const featMeta = featured
       display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     }
 
-    /* Right strip */
-    .ins-strip {
-      display: flex; flex-direction: column; gap: 12px; min-width: 0; cursor: pointer;
-      border: 0; background: none; outline: none;
+    /* ----- Archive panel (the grid) ----- */
+    .ins-archive {
+      flex: 0 0 100vw; height: 100%; box-sizing: border-box;
+      overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin;
+      padding: 10px 10px 10px;
     }
-    .ins-label--strip { color: var(--english-violet); display: inline-flex; gap: 8px; align-items: center; }
-    .ins-label--strip em { font-style: normal; }
-    .ins-strip-imgs { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
-    .ins-strip-img {
-      flex: 0 0 auto; aspect-ratio: 3 / 4; background-size: cover; background-position: center;
-      background-color: rgba(28,29,34,0.06); border-radius: 2px;
-    }
-
-    /* ============ Archive overlay ============ */
-    .arc {
-      position: fixed; inset: 0; z-index: 150; background: var(--paper);
-      padding: 8px 8px 8px;
-      display: flex; flex-direction: column; gap: 8px;
-      transform: translateX(-100%); will-change: transform;  /* JS slides this -100%→0 */
-    }
-    .arc[hidden] { display: none; }
-    .arc-head { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 6px 6px 0; }
-    .arc-close {
-      width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2);
-      background: none; color: var(--ink); font-size: 24px; line-height: 1; cursor: pointer;
-      display: grid; place-items: center; transition: background 0.25s, color 0.25s, transform 0.4s;
-    }
-    .arc-close:hover { background: var(--ink); color: var(--paper); transform: rotate(90deg); }
-
-    .arc-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
     .arc-grid {
       display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
-      align-content: start; padding: 0 6px 6px;
+      grid-auto-flow: row dense; align-content: start;
     }
     @media (max-width: 1200px) { .arc-grid { grid-template-columns: repeat(4, 1fr); } }
-    @media (max-width: 760px)  { .arc-grid { grid-template-columns: repeat(2, 1fr); } }
 
     .arc-tile { position: relative; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; }
+
+    /* Lead tiles — the 3 images: hero shown, caption over a soft gradient. */
+    .arc-tile--lead {
+      -webkit-appearance: none; appearance: none; border: 0; padding: 0; margin: 0;
+      text-align: left; cursor: pointer; color: var(--paper); background-color: rgba(28,29,34,0.06);
+    }
+    .arc-tile--lead img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .arc-tile--lead::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg, rgba(20,18,22,0) 42%, rgba(20,18,22,0.74) 100%);
+    }
+    .arc-tile--lead .arc-tile-num { color: rgba(244,242,240,0.8); }
+    .arc-tile--lead .arc-tile-name { color: var(--paper); }
 
     /* Post tiles — off-white box, title bottom-left; hover reveals the image. */
     .arc-tile--post {
@@ -289,13 +267,17 @@ const featMeta = featured
     .arc-tile--post:hover .arc-tile-num { color: rgba(244,242,240,0.75); }
     .arc-tile--post:hover .arc-tile-name { color: var(--paper); }
 
-    /* Static image tiles */
     .arc-tile--image { background-size: cover; background-position: center; background-color: rgba(28,29,34,0.06); }
-    .arc-tile-cap--static {
-      position: absolute; left: 14px; bottom: 14px; right: auto; z-index: 2;
-      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
-      text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 10px rgba(0,0,0,0.5);
+
+    /* Back-to-home control (appears once the grid is dragged in) */
+    .arc-back {
+      position: fixed; top: clamp(16px, 3vh, 30px); right: clamp(16px, 3vw, 34px); z-index: 160;
+      width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2);
+      background: var(--paper); color: var(--ink); font-size: 24px; line-height: 1; cursor: pointer;
+      display: grid; place-items: center; opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease, background 0.25s, color 0.25s, transform 0.4s;
     }
+    .arc-back:hover { background: var(--ink); color: var(--paper); transform: rotate(90deg); }
 
     /* ============ Flying clone + reader (reused) ============ */
     .flow-fly {
@@ -350,26 +332,28 @@ const featMeta = featured
     .reader.is-open .reader-x { opacity: 1; transform: none; }
     .reader-x:hover { background: var(--english-violet); }
 
-    /* ============ Responsive ============ */
+    /* ============ Responsive — mobile stacks, no drag ============ */
     @media (max-width: 1000px) {
-      .ins { height: auto; min-height: 0; grid-template-columns: 1fr; gap: 40px; padding-top: 96px; }
+      .ins { height: auto; overflow: visible; }
+      .ins-rail { flex-direction: column; transform: none !important; height: auto; }
+      .ins-home { flex: none; width: 100%; height: auto; min-height: 90vh; grid-template-columns: 1fr; gap: 40px; }
       .ins-bigtitle { font-size: clamp(56px, 16vw, 110px); }
-      .ins-strip-imgs { flex-direction: row; height: 30vh; }
+      .ins-archive { flex: none; width: 100%; height: auto; overflow: visible; }
+      .arc-grid { grid-template-columns: repeat(2, 1fr); }
+      .arc-tile--lead { grid-column: auto !important; grid-row: auto !important; }
+      .arc-back { display: none; }
     }
     @media (max-width: 760px) {
       .reader-frame { grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); height: auto; max-height: 90vh; gap: 20px; }
       .reader-hero { height: auto; aspect-ratio: 16 / 10; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .reader, .reader-frame, .flow-fly, .reader-x, .ins-strip-img { transition: none !important; animation: none !important; opacity: 1 !important; transform: none !important; }
+      .reader, .reader-frame, .flow-fly, .reader-x { transition: none !important; animation: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
 
   <script is:inline>
     (function () {
-      const strip = document.getElementById("ins-strip");
-      const arc = document.getElementById("arc");
-      const arcClose = document.getElementById("arc-close");
       const reader = document.getElementById("reader");
       const heroImg = document.getElementById("reader-hero-img");
       const frameHero = document.getElementById("reader-hero");
@@ -384,61 +368,58 @@ const featMeta = featured
       try { data = (JSON.parse(document.getElementById("flow-data").textContent || "[]") || []).reduce((m, p) => (m[p.slug] = p, m), {}); } catch (_) {}
       const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      // ----- Archive reveal — one smooth slide (single GPU transform) -----
-      // The grid sweeps in from the left, so its top-left tiles (the three lead
-      // articles) appear first and the rest roll in left→right behind them. No
-      // per-tile work = no jank. Once fully in, the grid scrolls for more rows.
-      const insSection = document.querySelector(".ins");
-      const arcScroll = arc ? arc.querySelector(".arc-scroll") : null;
-      const REVEAL = 1100;                 // wheel px to fully roll the grid in
-      let prog = 0, progTarget = 0;        // 0 = home, 1 = grid fully in
-      let arcShown = false;
+      // ----- Drag the archive across (single transform, tracks the scroll) -----
+      // No reveal animation: the rail's position follows the scroll directly, so
+      // it feels like dragging the grid across. A light follow smooths the steps
+      // between mouse-wheel notches; it doesn't add a separate slide.
+      const ins = document.querySelector(".ins");
+      const rail = document.getElementById("ins-rail");
+      const archive = document.getElementById("ins-archive");
+      const backBtn = document.getElementById("arc-back");
+      const desktop = window.matchMedia("(min-width: 1001px)");
+      const DRAG = 1100;                  // wheel px to drag fully across
+      let prog = 0, progTarget = 0, maxShift = 0;
+      let isOpen = false;                 // reader state (read by the wheel handler)
 
-      function paintArc() {
-        if (!arc) return;
-        const vis = prog > 0.0005 || progTarget > 0.0005;
-        if (vis && !arcShown) { arc.hidden = false; arcShown = true; }
-        arc.style.transform = "translate3d(" + (-(1 - prog) * 100).toFixed(3) + "%,0,0)";
-        if (insSection) {                  // gentle parallax: home eases out as the grid covers it
-          insSection.style.transform = "translate3d(" + (prog * 5).toFixed(3) + "vw,0,0)";
-          insSection.style.opacity = (1 - prog * 0.35).toFixed(3);
-        }
-        if (!vis && arcShown && prog <= 0.0005) {
-          arc.hidden = true; arcShown = false;
-          if (insSection) { insSection.style.transform = ""; insSection.style.opacity = ""; }
-        }
-      }
-      (function arcRaf() {
-        prog += (progTarget - prog) * (reduce ? 1 : 0.1);   // gentle ease toward the scroll target
-        if (Math.abs(progTarget - prog) < 0.0008) prog = progTarget;
-        paintArc();
-        requestAnimationFrame(arcRaf);
-      })();
+      function measure() { maxShift = rail ? (rail.scrollWidth - ins.clientWidth) : 0; }
+      measure();
+      window.addEventListener("resize", measure);
       function setProg(v) { progTarget = Math.min(1, Math.max(0, v)); }
 
-      function onWheel(e) {
-        if (isOpen) return;                         // reader open → let it scroll
-        if (progTarget >= 1) {                      // grid fully in → it scrolls
-          if (e.deltaY < 0 && arcScroll && arcScroll.scrollTop <= 0) {
-            e.preventDefault();                     // at top, scrolling up → roll it away
-            setProg(progTarget + e.deltaY / REVEAL);
-          }
-          return;                                   // otherwise native grid scroll
+      function paint() {
+        if (!rail) return;
+        if (!desktop.matches) { rail.style.transform = ""; return; }
+        rail.style.transform = "translate3d(" + (-prog * maxShift).toFixed(1) + "px,0,0)";
+        if (backBtn) {
+          const on = prog > 0.6;
+          backBtn.style.opacity = on ? "1" : "0";
+          backBtn.style.pointerEvents = on ? "auto" : "none";
         }
-        e.preventDefault();                         // mid-roll → scroll drives the slide
-        setProg(progTarget + e.deltaY / REVEAL);
+      }
+      (function raf() {
+        prog += (progTarget - prog) * (reduce ? 1 : 0.3);   // tight follow = drag feel
+        if (Math.abs(progTarget - prog) < 0.0006) prog = progTarget;
+        paint();
+        requestAnimationFrame(raf);
+      })();
+
+      function onWheel(e) {
+        if (!desktop.matches || isOpen) return;     // mobile = native scroll; reader open = let it scroll
+        if (progTarget >= 1) {                       // fully dragged in → grid scrolls
+          if (e.deltaY < 0 && archive && archive.scrollTop <= 0) {
+            e.preventDefault();                      // at the top, scrolling up → drag it back
+            setProg(progTarget + e.deltaY / DRAG);
+          }
+          return;                                    // otherwise native vertical grid scroll
+        }
+        e.preventDefault();                          // dragging across
+        setProg(progTarget + e.deltaY / DRAG);
       }
       window.addEventListener("wheel", onWheel, { passive: false });
-
-      // Strip / × keep working: click snaps fully in, × rolls it away.
-      if (strip) {
-        strip.addEventListener("click", () => setProg(1));
-        strip.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setProg(1); } });
-      }
-      arcClose && arcClose.addEventListener("click", () => { setProg(0); if (arcScroll) arcScroll.scrollTop = 0; });
+      if (backBtn) backBtn.addEventListener("click", () => { setProg(0); if (archive) archive.scrollTop = 0; });
 
       // ----- Reader -----
-      let isOpen = false, flyTimer = null, scrollLockY = 0;
+      let flyTimer = null, scrollLockY = 0;
       function populate(slug) {
         const p = data[slug]; if (!p) return false;
         metaEl.textContent = [p.eyebrow, p.date, p.readTime ? p.readTime + " min read" : ""].filter(Boolean).join("  ·  ");
@@ -488,7 +469,7 @@ const featMeta = featured
         setTimeout(() => { if (!isOpen) { reader.hidden = true; contentEl.innerHTML = ""; } }, 540);
       }
 
-      // Any element with a data-slug opens the reader (featured card + grid tiles).
+      // Any element with a data-slug opens the reader (featured + grid tiles).
       document.addEventListener("click", function (e) {
         const el = e.target.closest("[data-slug]");
         if (!el) return;
@@ -500,7 +481,7 @@ const featMeta = featured
       document.addEventListener("keydown", function (e) {
         if (e.key !== "Escape") return;
         if (isOpen) closeReader();
-        else if (progTarget > 0) { setProg(0); if (arcScroll) arcScroll.scrollTop = 0; }
+        else if (progTarget > 0) { setProg(0); if (archive) archive.scrollTop = 0; }
       });
     })();
   </script>
