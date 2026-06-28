@@ -5,7 +5,19 @@ import { getPublishedPosts } from "../../data/blog.js";
 
 // Pulled from Supabase if configured, otherwise the static fallback.
 const allPosts = await getPublishedPosts();
-const posts = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
+// The client archived 7 seed posts (added in PR #201) — exclude them so only the
+// real blogs show. On the live site the admin/Supabase drives the list and these
+// slugs aren't there, so this filter is a harmless no-op.
+const ARCHIVED_SEED = new Set([
+  "hyperlocal-facebook-groups-win-instructions",
+  "the-follow-method-done-properly",
+  "how-long-to-build-a-property-following",
+  "five-video-editing-tools-for-estate-agents",
+  "filming-a-property-walkthrough-on-your-phone",
+  "the-reviews-engine-google-business-profile",
+  "showing-up-offline-local-events",
+]);
+const posts = [...allPosts].filter((p) => !ARCHIVED_SEED.has(p.slug)).sort((a, b) => (a.date < b.date ? 1 : -1));
 
 const featured = posts[0] || null;     // newest = featured (auto)
 const archivePosts = posts.slice(1);   // everything else
