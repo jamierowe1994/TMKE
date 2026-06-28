@@ -31,23 +31,22 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 >
   <!-- ============================== HERO — "TMKE Agency" split reveal
        On load the wordmark floats into the centre, eases back, then "TMKE"
-       slides left / "Agency" slides right, splitting the screen down a centre
-       divider to reveal two images. The four agency sections sit in the centre
-       (replacing the old services grid below). Inspired by Particolare Studio. -->
-  <section id="top" class="hero-static hero-intro" aria-label="TMKE Agency">
+       slides left / "Edit" slides right (slow, with a hold). As they part, the
+       tagline folds out in the middle, holds, then rises to the top while the
+       two images fold in to fill each half. No centre divider. The four sections
+       sit in the centre. Inspired by Particolare Studio. -->
+  <section id="top" class="hero-static hero-intro" aria-label="TMKE Edit">
     <!-- Two images behind, split L/R, revealed once the words part. -->
     <div class="hi-bg" aria-hidden="true">
       <span class="hi-img hi-img--l" style="background-image:url('https://assets.tmke.co.uk/Table%201.jpg')"></span>
       <span class="hi-img hi-img--r" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Bag.jpg')"></span>
     </div>
-    <span class="hi-divider" aria-hidden="true"></span>
+    <p class="hi-tagline">We blend strategy, design, and content to<br />help property brands show up better online.</p>
 
-    <p class="hi-tagline">We blend strategy, design and content to<br />help property brands show up better online.</p>
-
-    <!-- The wordmark joins as one word "#TMKEAgency" in the centre; on the split
-         the # drops and TMKE/Agency part to the edges. -->
+    <!-- The wordmark joins as one word "#TMKEEdit" in the centre; on the split
+         the # drops and TMKE/Edit part to the edges. -->
     <span class="hi-word hi-word--l"><span class="hi-hash" aria-hidden="true">#</span>TMKE</span>
-    <span class="hi-word hi-word--r">Agency</span>
+    <span class="hi-word hi-word--r">Edit</span>
 
     <!-- The four sections, centred on the wordmark, flanking the divider. -->
     <nav class="hi-center" aria-label="Sections">
@@ -435,7 +434,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 
     /* ===================== HERO — "TMKE Agency" split reveal ===================== */
     .hero-intro {
-      background: #141310; color: var(--paper);
+      background: var(--violet-deep); color: var(--paper);
       --hi-pad: clamp(24px, 4vw, 80px);
       --hi-gap: 0.07em;               /* a hair of space so the joined words sit
                                          adjacent (one word) without crossing */
@@ -444,12 +443,9 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     /* Two images behind, split L/R. */
     .hi-bg { position: absolute; inset: 0; display: flex; z-index: 1; }
     .hi-img { flex: 1; background-size: cover; background-position: center; opacity: 0; }
-    /* Subtle darken so the cream wordmark stays legible over the photos. */
-    .hi-bg::after { content: ""; position: absolute; inset: 0; background: rgba(20,19,16,0.34); pointer-events: none; }
-    .hi-divider {
-      position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; z-index: 2;
-      background: rgba(242,239,233,0.32); transform: translateX(-0.5px) scaleY(0); transform-origin: center;
-    }
+    /* Darken for legibility once the photos are in — fades in WITH them so the
+       split plays over the pure deep-purple background. */
+    .hi-bg::after { content: ""; position: absolute; inset: 0; background: rgba(20,19,16,0.34); pointer-events: none; opacity: 0; }
     /* The splitting wordmark. Default = intro START (centred, large, hidden);
        JS adds .is-playing to animate to the final split; reduced-motion / no-JS
        jump straight to the final state. */
@@ -505,41 +501,53 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     /* ---- Play (JS adds .is-playing) ---- */
     @keyframes hiWord {
       0%   { opacity: 0; transform: translate(var(--join-big), -50%) scale(1.8); }
-      14%  { opacity: 1; }
-      52%  { opacity: 1; transform: translate(var(--join-small), -50%) scale(1); }  /* receded — still one word */
-      64%  { opacity: 1; transform: translate(var(--join-small), -50%) scale(1); }  /* hold (recede done) */
-      100% { opacity: 1; transform: translate(0, -50%) scale(1); }                   /* split to the edges */
+      10%  { opacity: 1; }
+      38%  { opacity: 1; transform: translate(var(--join-small), -50%) scale(1); }  /* receded — still one word */
+      48%  { opacity: 1; transform: translate(var(--join-small), -50%) scale(1); }  /* brief hold */
+      80%  { opacity: 1; transform: translate(0, -50%) scale(1); }                   /* split to the edges (slow) */
+      100% { opacity: 1; transform: translate(0, -50%) scale(1); }                   /* hold ~1s at the edges */
     }
     @keyframes hiHash {
-      0%, 52% { opacity: 1; transform: translateY(0); }
-      72%, 100% { opacity: 0; transform: translateY(0.24em); }
+      0%, 38% { opacity: 1; transform: translateY(0); }
+      58%, 100% { opacity: 0; transform: translateY(0.24em); }
     }
     @keyframes hiFade { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes hiDivider { from { transform: translateX(-0.5px) scaleY(0); } to { transform: translateX(-0.5px) scaleY(1); } }
-    /* Smooth ease-out so the recede isn't jerky. Recede + split first; the
-       divider draws as the split begins; the IMAGES only reveal once the words
-       have reached the edges (nothing "changes" until the transition is done). */
-    .hero-intro.is-playing .hi-word { animation: hiWord 3.4s cubic-bezier(.22, 1, .36, 1) both; }
-    .hero-intro.is-playing .hi-hash { animation: hiHash 3.4s cubic-bezier(.22, 1, .36, 1) both; }
-    .hero-intro.is-playing .hi-divider { animation: hiDivider 1s cubic-bezier(.16, 1, .3, 1) 1.9s both; }
-    .hero-intro.is-playing .hi-img { animation: hiFade 1.2s ease 3.4s both; }
-    .hero-intro.is-playing .hi-tagline { animation: hiFade 0.9s ease 3.5s both; }
-    .hero-intro.is-playing .hi-center { animation: hiFade 0.9s ease 3.65s both; }
-    .hero-intro.is-playing .hi-scroll { animation: hiFade 0.9s ease 3.9s both; }
+    /* Tagline: folds out in the CENTRE as the words part, holds ~1s, then rises
+       to its resting place at the top. */
+    @keyframes hiTagOut {
+      0%   { opacity: 0; transform: translate(-50%, 44vh) scaleY(0.08); }
+      22%  { opacity: 1; transform: translate(-50%, 44vh) scaleY(1); }   /* unfolded, centred */
+      54%  { opacity: 1; transform: translate(-50%, 44vh) scaleY(1); }   /* hold */
+      100% { opacity: 1; transform: translate(-50%, 0) scaleY(1); }      /* rise to the top */
+    }
+    /* Images fold in from the outer edges to fill each half. */
+    @keyframes hiFoldL { 0% { opacity: 0; clip-path: inset(0 100% 0 0); } 100% { opacity: 1; clip-path: inset(0 0 0 0); } }
+    @keyframes hiFoldR { 0% { opacity: 0; clip-path: inset(0 0 0 100%); } 100% { opacity: 1; clip-path: inset(0 0 0 0); } }
+
+    /* Recede → SLOW split (with a hold) → tagline folds out in the middle, holds,
+       then rises to the top while the two images fold in to fill; sections +
+       scroll arrive last. No centre divider. */
+    .hero-intro.is-playing .hi-word    { animation: hiWord 4.4s cubic-bezier(.22, 1, .36, 1) both; }
+    .hero-intro.is-playing .hi-hash    { animation: hiHash 4.4s cubic-bezier(.22, 1, .36, 1) both; }
+    .hero-intro.is-playing .hi-tagline { animation: hiTagOut 2.8s cubic-bezier(.22, 1, .36, 1) 2.7s both; }
+    .hero-intro.is-playing .hi-img--l  { animation: hiFoldL 1.3s cubic-bezier(.16, 1, .3, 1) 4.1s both; }
+    .hero-intro.is-playing .hi-img--r  { animation: hiFoldR 1.3s cubic-bezier(.16, 1, .3, 1) 4.1s both; }
+    .hero-intro.is-playing .hi-bg::after { animation: hiFade 1.3s ease 4.1s both; }
+    .hero-intro.is-playing .hi-center  { animation: hiFade 0.9s ease 5.4s both; }
+    .hero-intro.is-playing .hi-scroll  { animation: hiFade 0.9s ease 5.7s both; }
 
     /* ---- Final state for reduced-motion / no-JS (skip the animation) ---- */
     .hero-intro.is-final .hi-word { opacity: 1; transform: translate(0, -50%) scale(1); animation: none; }
     .hero-intro.is-final .hi-hash { opacity: 0; animation: none; }
     .hero-intro.is-final .hi-img,
+    .hero-intro.is-final .hi-bg::after,
     .hero-intro.is-final .hi-center,
     .hero-intro.is-final .hi-tagline,
     .hero-intro.is-final .hi-scroll { opacity: 1; animation: none; }
-    .hero-intro.is-final .hi-divider { transform: translateX(-0.5px) scaleY(1); animation: none; }
     @media (prefers-reduced-motion: reduce) {
       .hero-intro .hi-word { opacity: 1; transform: translate(0, -50%) scale(1); animation: none; }
       .hero-intro .hi-hash { opacity: 0; animation: none; }
-      .hero-intro .hi-img, .hero-intro .hi-center, .hero-intro .hi-tagline, .hero-intro .hi-scroll { opacity: 1; animation: none; }
-      .hero-intro .hi-divider { transform: translateX(-0.5px) scaleY(1); animation: none; }
+      .hero-intro .hi-img, .hero-intro .hi-bg::after, .hero-intro .hi-center, .hero-intro .hi-tagline, .hero-intro .hi-scroll { opacity: 1; animation: none; }
     }
     @media (max-width: 720px) {
       .hero-intro { --hi-font: clamp(24px, 7.2vw, 42px); }
@@ -761,8 +769,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     <style>
       .hero-intro .hi-word { opacity: 1 !important; transform: translate(0, -50%) scale(1) !important; }
       .hero-intro .hi-hash { opacity: 0 !important; }
-      .hero-intro .hi-img, .hero-intro .hi-center, .hero-intro .hi-tagline, .hero-intro .hi-scroll { opacity: 1 !important; }
-      .hero-intro .hi-divider { transform: translateX(-0.5px) scaleY(1) !important; }
+      .hero-intro .hi-img, .hero-intro .hi-bg::after, .hero-intro .hi-center, .hero-intro .hi-tagline, .hero-intro .hi-scroll { opacity: 1 !important; }
     </style>
   </noscript>
 
