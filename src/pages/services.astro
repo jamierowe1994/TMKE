@@ -22,13 +22,19 @@ const SMM_HERO_BG = (await getImage({
   src: "https://assets.tmke.co.uk/TMKE%20SMM/SMM%20Background%202.png",
   width: 2560, height: 1440, quality: 86, format: "webp",
 })).src;
-const [FEATURE3_IMG, FEATURE4_IMG, SMM_MKTG_IMG] = await Promise.all(
+// Full-bleed feature backgrounds (slides 3 & 4) — near native (2560×1440, 16:9)
+// at high quality so they stay crisp full-screen, matching slide 1.
+const [FEATURE3_IMG, FEATURE4_IMG] = await Promise.all(
   [
-    "https://assets.tmke.co.uk/TMKE%20SMM/SMM%202.png",                                       // S3 · property first, always
-    "https://assets.tmke.co.uk/TMKE%20SMM/SMM3.png",                                          // S4 · one account manager
-    "https://assets.tmke.co.uk/TMKE%20SMM/Slide%202%20-%20Social%20Media%20Marketing.png",    // S5 · what we do (half-screen)
-  ].map((src) => getImage({ src, inferSize: true, width: 1600, quality: 72, format: "webp" }).then((r) => r.src))
+    "https://assets.tmke.co.uk/TMKE%20SMM/SMM%202.png",   // S3 · property first, always
+    "https://assets.tmke.co.uk/TMKE%20SMM/SMM3.png",      // S4 · one account manager
+  ].map((src) => getImage({ src, width: 2560, height: 1440, quality: 86, format: "webp" }).then((r) => r.src))
 );
+// Slide-5 half-screen image (kept at half-screen res).
+const SMM_MKTG_IMG = (await getImage({
+  src: "https://assets.tmke.co.uk/TMKE%20SMM/Slide%202%20-%20Social%20Media%20Marketing.png",
+  inferSize: true, width: 1600, quality: 72, format: "webp",
+})).src;
 // Slide 5 — one image per service tier (swaps on hover). Default (index 0) is the
 // Social Media Marketing image (replaces the old kitchen placeholder).
 const TIER_IMAGES = [SMM_MKTG_IMG, R2("white-2"), R2("table"), R2("living-2")];
@@ -375,27 +381,27 @@ const total = 7;
        is left blank for a hero image the client will add. */
     .sm-hero {
       overflow: hidden; padding: 0; display: flex; align-items: stretch;
-      /* Background photo + a paper scrim that's strong at the base (copy stays
-         legible) and light up top (photo fills the blank space). */
+      /* Background photo + the SAME dark gradient as the feature slides (2-4), so
+         slide 1 reads as part of the set. Copy below is light, like those slides. */
       background:
-        linear-gradient(to top, rgba(244,242,241,0.95) 0%, rgba(244,242,241,0.72) 30%, rgba(244,242,241,0.34) 62%, rgba(244,242,241,0.18) 100%),
+        linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%),
         var(--sm-hero-bg, none) center / cover no-repeat,
-        var(--paper);
+        #2a2733;
     }
     .sm-hero-inner {
       width: 100%; display: flex; flex-direction: column; justify-content: flex-end;  /* built from the bottom up */
       padding: 60px 80px;
     }
     .sm-lede-grid { display: grid; grid-template-columns: 1fr auto; gap: clamp(32px, 5vw, 80px); align-items: stretch; }
-    .sm-lede-copy { max-width: 480px; display: flex; flex-direction: column; justify-content: space-between; }
-    .sm-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--ink); }
+    .sm-lede-copy { max-width: 480px; display: flex; flex-direction: column; justify-content: space-between; text-shadow: 0 2px 22px rgba(0,0,0,0.42); }
+    .sm-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--paper); }
     .sm-lede-pron { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin: 12px 0 0; }
-    .sm-lede-abbr { font-family: var(--serif); font-weight: 600; font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.04em; color: rgba(28,29,34,0.7); }
-    .sm-lede-phon { font-family: var(--serif); font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.06em; color: rgba(28,29,34,0.6); }
-    .sm-lede-pos { font-family: var(--serif); font-style: italic; font-size: clamp(13px, 1vw, 15px); color: rgba(28,29,34,0.5); }
-    .sm-lede-text { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6; color: rgba(28,29,34,0.78); margin: 0; max-width: 44ch; }
-    .sm-lede-btn { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 8px 24px; border: 1px solid var(--ink); background: none; cursor: pointer; color: var(--ink); font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; transition: background 0.3s, color 0.3s; }
-    .sm-lede-btn:hover { background: var(--ink); color: var(--paper); }
+    .sm-lede-abbr { font-family: var(--serif); font-weight: 600; font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.04em; color: rgba(244,242,241,0.85); }
+    .sm-lede-phon { font-family: var(--serif); font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.06em; color: rgba(244,242,241,0.7); }
+    .sm-lede-pos { font-family: var(--serif); font-style: italic; font-size: clamp(13px, 1vw, 15px); color: rgba(244,242,241,0.6); }
+    .sm-lede-text { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6; color: rgba(240,238,235,0.92); margin: 0; max-width: 44ch; }
+    .sm-lede-btn { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 8px 24px; border: 1px solid var(--paper); background: none; cursor: pointer; color: var(--paper); font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; transition: background 0.3s, color 0.3s; }
+    .sm-lede-btn:hover { background: var(--paper); color: var(--ink); }
     .sm-lede-btn span { transition: transform 0.3s; }
     .sm-lede-btn:hover span { transform: translateX(4px); }
     .sm-lede-media { margin: 0; justify-self: end; }
