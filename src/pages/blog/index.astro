@@ -13,6 +13,7 @@ posts.forEach((p, i) => { if (BLOG_HERO[i]) p.hero = BLOG_HERO[i]; });
 
 const featured = posts[0] || null;     // newest = featured (auto)
 const archivePosts = posts.slice(1);   // everything else
+const recent3 = archivePosts.slice(0, 3); // the right-hand "peek" strip
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -31,14 +32,23 @@ const STATIC_POOL = [
   "/assets/lay%20down.jpg", "/assets/home%20ginger.jpg",
 ];
 
-// Horizontal archive slider: the articles slide across on scroll. Mostly post
-// cards (newest first), punctuated with a brand photo every couple of articles.
-const sliderItems = [];
-let si = 0;
-archivePosts.forEach((p, i) => {
-  sliderItems.push({ type: "post", post: p, num: String(i + 1).padStart(2, "0") });
-  if (i % 2 === 1) sliderItems.push({ type: "image", img: STATIC_POOL[si++ % STATIC_POOL.length] });
-});
+// Lay out a 6-col grid: ~2 posts per row at SCATTERED columns (no obvious
+// pattern / no column alignment), every other cell a static photo.
+const COLS = 6;
+const ROW_POST_COLS = [[0, 3], [2, 5], [1, 4], [0, 4], [2, 3], [1, 5]];
+const gridItems = [];
+let pi = 0, gi = 0;
+for (let r = 0; pi < archivePosts.length; r++) {
+  const cols = ROW_POST_COLS[r % ROW_POST_COLS.length];
+  for (let c = 0; c < COLS; c++) {
+    if (cols.includes(c) && pi < archivePosts.length) {
+      const p = archivePosts[pi++];
+      gridItems.push({ type: "post", post: p, num: String(pi).padStart(2, "0") });
+    } else {
+      gridItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
+    }
+  }
+}
 
 // Lite data for the reader (full bodies embedded as <template>s below).
 const lite = posts.map((p) => ({
@@ -83,28 +93,41 @@ const featMeta = featured
       )}
     </div>
 
-    <!-- ===== Right: archive slider — slides across on scroll ===== -->
-    <div class="ins-slider">
-      <span class="ins-label ins-slider-label">Article Archive <em class="ins-slider-hint" aria-hidden="true">scroll &rarr;</em></span>
-      <div class="ins-track-vp">
-        <div class="ins-track" id="ins-track">
-          {sliderItems.map((it) => (
-            it.type === "post" ? (
-              <button class="slide slide--post" type="button" data-slug={it.post.slug}>
-                <img src={it.post.hero} alt={it.post.title} loading="lazy" />
-                <span class="slide-cap">
-                  <span class="slide-num">Article {it.num}</span>
-                  <span class="slide-name">{it.post.title}</span>
-                </span>
-              </button>
-            ) : (
-              <div class="slide slide--image"><img src={it.img} alt="" loading="lazy" /></div>
-            )
-          ))}
-        </div>
+    <!-- ===== Right: recent strip → hover expands the archive ===== -->
+    <div class="ins-strip" id="ins-strip" tabindex="0" role="button" aria-label="Open the article archive">
+      <span class="ins-label ins-label--strip">Article Archive <em aria-hidden="true">&rarr;</em></span>
+      <div class="ins-strip-imgs">
+        {recent3.map((p) => (
+          <span class="ins-strip-img" style={`background-image:url('${p.hero}')`}></span>
+        ))}
       </div>
     </div>
   </section>
+
+  <!-- ===== Archive overlay — the expanded grid ===== -->
+  <div class="arc" id="arc" data-lenis-prevent hidden>
+    <div class="arc-head">
+      <span class="ins-label">Article Archive</span>
+      <button class="arc-close" id="arc-close" type="button" aria-label="Close archive">&times;</button>
+    </div>
+    <div class="arc-scroll" data-lenis-prevent>
+    <div class="arc-grid">
+      {gridItems.map((it) => (
+        it.type === "post" ? (
+          <button class="arc-tile arc-tile--post" type="button" data-slug={it.post.slug}>
+            <span class="arc-tile-img"><img src={it.post.hero} alt={it.post.title} loading="lazy" /></span>
+            <span class="arc-tile-cap">
+              <span class="arc-tile-num">Article {it.num}</span>
+              <span class="arc-tile-name">{it.post.title}</span>
+            </span>
+          </button>
+        ) : (
+          <div class="arc-tile arc-tile--image" style={`background-image:url('${it.img}')`}></div>
+        )
+      ))}
+    </div>
+    </div>
+  </div>
 
   <!-- ===== Reader — opens in-frame over everything ===== -->
   <div class="reader" id="reader" hidden>
@@ -128,14 +151,14 @@ const featMeta = featured
     /* ============ Insights — one-screen, three sections ============ */
     .ins {
       height: 100vh; min-height: 0;
-      display: grid; grid-template-columns: clamp(170px, 14vw, 230px) clamp(280px, 22vw, 360px) minmax(0, 1fr);
+      display: grid; grid-template-columns: 1.25fr 1.18fr clamp(170px, 15vw, 230px);
       grid-template-rows: minmax(0, 1fr);   /* constrain columns to the viewport so they shrink, never overflow */
       gap: 6px;
       padding: clamp(68px, 9vh, 100px) clamp(24px, 3.4vw, 60px) clamp(22px, 3.5vh, 48px);
       background: var(--paper); color: var(--ink); overflow: hidden;
     }
     /* Each column manages its own overflow so nothing spills past the screen. */
-    .ins-intro, .ins-feature, .ins-slider { min-height: 0; }
+    .ins-intro, .ins-feature, .ins-strip { min-height: 0; }
     .ins-label, .ins-eyebrow {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
@@ -190,46 +213,81 @@ const featMeta = featured
       display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     }
 
-    /* Right: horizontal archive slider */
-    .ins-slider { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-    .ins-slider-label { color: var(--english-violet); display: inline-flex; gap: 10px; align-items: baseline; }
-    .ins-slider-hint {
-      font-style: normal; font-size: 10px; letter-spacing: 0.18em;
-      color: rgba(28,29,34,0.4);
+    /* Right strip */
+    .ins-strip {
+      display: flex; flex-direction: column; gap: 12px; min-width: 0; cursor: pointer;
+      border: 0; background: none; outline: none;
     }
-    .ins-track-vp { flex: 1; min-height: 0; overflow: hidden; }
-    .ins-track {
-      display: flex; gap: 6px; height: 100%; will-change: transform;
+    .ins-label--strip { color: var(--english-violet); display: inline-flex; gap: 8px; align-items: center; }
+    .ins-label--strip em { font-style: normal; }
+    .ins-strip-imgs { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+    .ins-strip-img {
+      flex: 0 0 auto; aspect-ratio: 3 / 4; background-size: cover; background-position: center;
+      background-color: rgba(28,29,34,0.06); border-radius: 2px;
     }
-    .slide {
-      position: relative; flex: 0 0 auto; height: 100%; aspect-ratio: 3 / 4;
-      overflow: hidden; border-radius: 2px; background-color: rgba(28,29,34,0.06);
-    }
-    .slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    /* Article cards — image always shown, title bottom-left over a soft gradient. */
-    .slide--post {
-      -webkit-appearance: none; appearance: none; border: 0; padding: 0; margin: 0;
-      text-align: left; cursor: pointer; color: var(--paper);
+    /* ============ Archive overlay ============ */
+    .arc {
+      position: fixed; inset: 0; z-index: 150; background: var(--paper);
+      padding: 8px 8px 8px;
+      display: flex; flex-direction: column; gap: 8px;
+      transform: translateX(-100%);   /* JS drives this from scroll progress */
+      will-change: transform;
     }
-    .slide--post::after {
-      content: ""; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(180deg, rgba(20,18,22,0) 42%, rgba(20,18,22,0.74) 100%);
+    .arc[hidden] { display: none; }
+    .arc-head { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 6px 6px 0; }
+    .arc-close {
+      width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2);
+      background: none; color: var(--ink); font-size: 24px; line-height: 1; cursor: pointer;
+      display: grid; place-items: center; transition: background 0.25s, color 0.25s, transform 0.4s;
     }
-    .slide--post img { transition: transform 1.1s cubic-bezier(.2,.7,.2,1); }
-    .slide--post:hover img { transform: scale(1.04); }
-    .slide-cap {
-      position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 2;
-      display: flex; flex-direction: column; gap: 5px;
+    .arc-close:hover { background: var(--ink); color: var(--paper); transform: rotate(90deg); }
+
+    .arc-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+    .arc-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+      align-content: start; padding: 0 6px 6px;
     }
-    .slide-num {
+    @media (max-width: 1200px) { .arc-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 760px)  { .arc-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .arc-tile { position: relative; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; }
+
+    /* Post tiles — off-white box, title bottom-left; hover reveals the image. */
+    .arc-tile--post {
+      -webkit-appearance: none; appearance: none; border: 0; text-align: left; cursor: pointer;
+      background: var(--paper); color: var(--english-violet);
+    }
+    .arc-tile-img { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s ease; }
+    .arc-tile-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .arc-tile-img::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(20,18,22,0) 38%, rgba(20,18,22,0.72) 100%);
+    }
+    .arc-tile--post:hover .arc-tile-img { opacity: 1; }
+
+    .arc-tile-cap {
+      position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 2;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .arc-tile-num {
       font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
-      text-transform: uppercase; color: rgba(244,242,240,0.78);
+      text-transform: uppercase; color: var(--english-violet); transition: color 0.4s ease;
     }
-    .slide-name {
-      font-family: var(--sans); font-weight: 600; font-size: clamp(15px, 1.15vw, 20px);
-      line-height: 1.14; letter-spacing: -0.005em; color: var(--paper);
+    .arc-tile-name {
+      font-family: var(--sans); font-weight: 600; font-size: clamp(15px, 1.1vw, 19px);
+      line-height: 1.12; letter-spacing: -0.005em; color: var(--english-violet); transition: color 0.4s ease;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .arc-tile--post:hover .arc-tile-num { color: rgba(244,242,240,0.75); }
+    .arc-tile--post:hover .arc-tile-name { color: var(--paper); }
+
+    /* Static image tiles */
+    .arc-tile--image { background-size: cover; background-position: center; background-color: rgba(28,29,34,0.06); }
+    .arc-tile-cap--static {
+      position: absolute; left: 14px; bottom: 14px; right: auto; z-index: 2;
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 10px rgba(0,0,0,0.5);
     }
 
     /* ============ Flying clone + reader (reused) ============ */
@@ -289,21 +347,22 @@ const featMeta = featured
     @media (max-width: 1000px) {
       .ins { height: auto; min-height: 0; grid-template-columns: 1fr; gap: 40px; padding-top: 96px; }
       .ins-bigtitle { font-size: clamp(56px, 16vw, 110px); }
-      .ins-slider { height: 62vh; }
-      .ins-track-vp { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
-      .ins-track { transform: none !important; }
+      .ins-strip-imgs { flex-direction: row; height: 30vh; }
     }
     @media (max-width: 760px) {
       .reader-frame { grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); height: auto; max-height: 90vh; gap: 20px; }
       .reader-hero { height: auto; aspect-ratio: 16 / 10; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .reader, .reader-frame, .flow-fly, .reader-x, .slide--post img { transition: none !important; animation: none !important; opacity: 1 !important; transform: none !important; }
+      .arc, .arc-tile, .reader, .reader-frame, .flow-fly, .reader-x, .ins-strip-img { transition: none !important; animation: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
 
   <script is:inline>
     (function () {
+      const strip = document.getElementById("ins-strip");
+      const arc = document.getElementById("arc");
+      const arcClose = document.getElementById("arc-close");
       const reader = document.getElementById("reader");
       const heroImg = document.getElementById("reader-hero-img");
       const frameHero = document.getElementById("reader-hero");
@@ -318,37 +377,50 @@ const featMeta = featured
       try { data = (JSON.parse(document.getElementById("flow-data").textContent || "[]") || []).reduce((m, p) => (m[p.slug] = p, m), {}); } catch (_) {}
       const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      // ----- Archive slider (articles glide across on scroll) -----
-      const track = document.getElementById("ins-track");
-      const vp = track && track.parentElement;       // .ins-track-vp
-      const section = document.querySelector(".ins");
-      const desktop = window.matchMedia("(min-width: 1001px)");
-      if (track && vp && section) {
-        let target = 0, cur = 0, max = 0;
-        function recalc() { max = Math.max(0, track.scrollWidth - vp.clientWidth); target = Math.min(target, max); }
-        recalc();
-        // Image widths feed scrollWidth — recalc as they settle.
-        track.querySelectorAll("img").forEach((img) => { if (!img.complete) img.addEventListener("load", recalc, { once: true }); });
-        window.addEventListener("resize", recalc);
-        // Vertical (or horizontal) wheel → horizontal travel. Reader open = let it scroll.
-        section.addEventListener("wheel", function (e) {
-          if (!desktop.matches || isOpen) return;     // mobile = native swipe
-          const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-          if (!d) return;
-          e.preventDefault();
-          target = Math.max(0, Math.min(max, target + d));
-        }, { passive: false });
-        (function raf() {
-          if (desktop.matches) {
-            cur += (target - cur) * (reduce ? 1 : 0.09);   // gentle ease toward target
-            if (Math.abs(target - cur) < 0.15) cur = target;
-            track.style.transform = "translate3d(" + (-cur) + "px,0,0)";
-          } else if (cur !== 0 || track.style.transform) {
-            cur = 0; target = 0; track.style.transform = "";  // hand back to native swipe on mobile
-          }
-          requestAnimationFrame(raf);
-        })();
+      // ----- Archive reveal — scroll drags the grid across the screen -----
+      // The hero view stays put; as you scroll, the archive grid slides in from
+      // the left (left→right) until it fully covers the screen, then the grid
+      // itself scrolls. Scroll back up at the grid's top to drag it away again.
+      const arcScroll = arc ? arc.querySelector(".arc-scroll") : null;
+      const REVEAL = 1100;                 // wheel px needed to fully reveal
+      let prog = 0, progTarget = 0;        // 0 = hidden, 1 = fully revealed
+      let arcShown = false;
+
+      function paintArc() {
+        if (!arc) return;
+        const visible = prog > 0.001 || progTarget > 0.001;
+        if (visible && !arcShown) { arc.hidden = false; arcShown = true; }
+        arc.style.transform = "translateX(" + (-100 + prog * 100).toFixed(3) + "%)";
+        if (!visible && arcShown && prog <= 0.001) { arc.hidden = true; arcShown = false; }
       }
+      (function arcRaf() {
+        prog += (progTarget - prog) * (reduce ? 1 : 0.12);   // gentle ease
+        if (Math.abs(progTarget - prog) < 0.0015) prog = progTarget;
+        paintArc();
+        requestAnimationFrame(arcRaf);
+      })();
+      function setProg(v) { progTarget = Math.min(1, Math.max(0, v)); }
+
+      function onWheel(e) {
+        if (isOpen) return;                         // reader open → let it scroll
+        if (progTarget >= 1) {                      // fully open → grid scrolls
+          if (e.deltaY < 0 && arcScroll && arcScroll.scrollTop <= 0) {
+            e.preventDefault();                     // at top, scrolling up → drag away
+            setProg(progTarget + e.deltaY / REVEAL);
+          }
+          return;                                   // otherwise native grid scroll
+        }
+        e.preventDefault();                         // mid-reveal → scroll drives the slide
+        setProg(progTarget + e.deltaY / REVEAL);
+      }
+      window.addEventListener("wheel", onWheel, { passive: false });
+
+      // Strip / × keep working: click snaps fully open, × drags it away.
+      if (strip) {
+        strip.addEventListener("click", () => setProg(1));
+        strip.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setProg(1); } });
+      }
+      arcClose && arcClose.addEventListener("click", () => { setProg(0); if (arcScroll) arcScroll.scrollTop = 0; });
 
       // ----- Reader -----
       let isOpen = false, flyTimer = null, scrollLockY = 0;
@@ -411,7 +483,9 @@ const featMeta = featured
       closeBtn.addEventListener("click", closeReader);
       reader.addEventListener("click", function (e) { if (e.target === reader) closeReader(); });
       document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && isOpen) closeReader();
+        if (e.key !== "Escape") return;
+        if (isOpen) closeReader();
+        else if (progTarget > 0) { setProg(0); if (arcScroll) arcScroll.scrollTop = 0; }
       });
     })();
   </script>
