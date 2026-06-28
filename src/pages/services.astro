@@ -12,27 +12,26 @@ const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
 // SMM dictionary-hero backdrop — the client's "Smm hero" still on R2 (reused on
 // the slide-6 work-samples field; the hero itself is now a portrait video).
 const SMM_HERO_IMG = "https://assets.tmke.co.uk/Smm%20hero.jpg";
-// Hero is now a portrait video (cropped to 3:4 via object-fit).
+// Slide 2 ("doesn't want you to go viral") is now the VIDEO; the hero goes back
+// to the still image (SMM_HERO_IMG). The stills shift down one slide each.
 const SMM_HERO_VIDEO = "https://assets.tmke.co.uk/TMKE%20SMM/hf_20260628_061058_a6d65665-2848-4f20-bae4-4c4ef6066688.mp4";
-// Full-bleed feature-slide backgrounds (slides 2–4). The client's R2 PNGs are
-// 2–6 MB each, so optimise them to WebP. The old slide-2 "Social Media
-// Marketing" image shifts onto slide 4 (One account manager), per the client.
-const [FEATURE2_IMG, FEATURE3_IMG, FEATURE4_IMG] = await Promise.all(
+const [FEATURE3_IMG, FEATURE4_IMG, SMM_MKTG_IMG] = await Promise.all(
   [
-    "https://assets.tmke.co.uk/TMKE%20SMM/SMM%202.png",                                       // S2 · don't go viral
-    "https://assets.tmke.co.uk/TMKE%20SMM/SMM3.png",                                          // S3 · property first, always
-    "https://assets.tmke.co.uk/TMKE%20SMM/Slide%202%20-%20Social%20Media%20Marketing.png",    // S4 · one account manager
+    "https://assets.tmke.co.uk/TMKE%20SMM/SMM%202.png",                                       // S3 · property first, always
+    "https://assets.tmke.co.uk/TMKE%20SMM/SMM3.png",                                          // S4 · one account manager
+    "https://assets.tmke.co.uk/TMKE%20SMM/Slide%202%20-%20Social%20Media%20Marketing.png",    // S5 · what we do (half-screen)
   ].map((src) => getImage({ src, inferSize: true, width: 1600, quality: 72, format: "webp" }).then((r) => r.src))
 );
-// Slide 5 — one image per service tier (swaps on hover). Placeholders — swap freely.
-const TIER_IMAGES = [R2("kitchen-1"), R2("white-2"), R2("table"), R2("living-2")];
+// Slide 5 — one image per service tier (swaps on hover). Default (index 0) is the
+// Social Media Marketing image (replaces the old kitchen placeholder).
+const TIER_IMAGES = [SMM_MKTG_IMG, R2("white-2"), R2("table"), R2("living-2")];
 
 // Slide 6 — floating "work samples" field. Mix of images, brand swatches and
 // logo tiles; all render as consistent 3:4 boxes. Placeholders — swap freely.
 // 24 tiles scattered to fill the screen, drifting fast toward the viewer.
 const GIMG = [
   R2("white-1"), R2("living-1"), R2("kitchen-1"), R2("orange-1"), R2("table"), R2("white-2"),
-  R2("kitchen-2"), R2("living-2"), R2("orange-2"), R2("vibes"), FEATURE2_IMG, SMM_HERO_IMG,
+  R2("kitchen-2"), R2("living-2"), R2("orange-2"), R2("vibes"), FEATURE3_IMG, SMM_MKTG_IMG,
 ];
 const GSW = ["var(--english-violet)", "var(--ink)", "#c9a88e", "#8a9a8e", "#d8c4b0"];
 // Concentric-ring depth field: tiles emerge from the BACK (far, faint, small),
@@ -101,7 +100,7 @@ const total = 7;
                 <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
               </div>
               <figure class="sm-hero-media">
-                <video src={SMM_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-label="Social media management by TMKE"></video>
+                <img src={SMM_HERO_IMG} alt="Social media management by TMKE" />
               </figure>
             </div>
             <div class="sm-hero-title">
@@ -113,7 +112,7 @@ const total = 7;
 
         <!-- Slide 2 (col 1,row 0) — full-image: don't go viral. Scroll DOWN. -->
         <section class="pf-panel sm-feature" style="--col:1;--row:0;--step:1">
-          <div class="sm-feature-bg" style={`background-image:url('${FEATURE2_IMG}')`}></div>
+          <video class="sm-feature-bg sm-feature-vid" src={SMM_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>
           <div class="sm-feature-overlay"></div>
           <div class="sm-line" aria-hidden="true"><span class="sm-line-fill"></span></div>
           <span class="sm-line-num" aria-hidden="true">01</span>
@@ -289,6 +288,7 @@ const total = 7;
        rides up together. JS sets the per-panel translateY. */
     .sm-feature { padding: 0; overflow: hidden; --steps: 3; }
     .sm-feature-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #2a2733; }
+    .sm-feature-vid { width: 100%; height: 100%; object-fit: cover; }
     .sm-feature-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); }
 
     /* progress line across the screen + step number above its left end */
@@ -778,14 +778,30 @@ const total = 7;
         items.forEach((it, n) => it.classList.toggle("is-active", openTier && n === i));
         imgs.forEach((im, n) => im.classList.toggle("is-active", n === i));
       };
+      const collapse = () => setActive(0, false);   // default: image only, no blurb open
+      // "armed" gates the hover-expand. On arriving at the slide we DON'T expand
+      // if the cursor happens to be resting on a tier — only a deliberate hover
+      // (leave + re-enter) opens it, so the slide always lands looking collapsed.
+      let armed = false;
       items.forEach((it, i) => {
-        it.addEventListener("mouseenter", () => setActive(i));
-        it.addEventListener("focus", () => setActive(i));
-        it.addEventListener("click", () => setActive(i));
+        it.addEventListener("mouseenter", () => { if (armed) setActive(i); });
+        it.addEventListener("focus", () => setActive(i));          // keyboard = deliberate
+        it.addEventListener("click", () => { armed = true; setActive(i); });
       });
-      // Start collapsed (no blurb open) so slide 5 stays short enough not to
-      // crop on laptop screens; still show the first image so media isn't blank.
-      setActive(0, false);
+      // Leaving the list arms it, so the next genuine hover opens.
+      list.addEventListener("mouseleave", () => { armed = true; });
+
+      collapse();
+      // Re-collapse + re-arm whenever the slide (re)enters view. If the cursor is
+      // already over the list at that moment, stay un-armed until it leaves.
+      const panel = list.closest(".pf-panel");
+      if (panel) {
+        const sync = () => {
+          if (panel.classList.contains("is-in")) { collapse(); armed = !list.matches(":hover"); }
+        };
+        new MutationObserver(sync).observe(panel, { attributes: true, attributeFilter: ["class"] });
+        sync();
+      }
     })();
 
     // "Book a call" -> the booking wizard mounts inside the panel (in-place),
