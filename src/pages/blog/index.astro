@@ -7,16 +7,6 @@ import { getPublishedPosts } from "../../data/blog.js";
 const allPosts = await getPublishedPosts();
 const posts = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
 
-// Client-supplied blog hero images (R2 "Blog Static Images/" 1–6.png), applied
-// to the posts in date order (1.png = newest, etc.). The originals are 4–9 MB
-// PNGs, so optimise them (downscale + WebP) — at full size they make the
-// archive grid composite/scroll painfully slowly.
-const BLOG_SRC = [1, 2, 3, 4, 5, 6].map((n) => `https://assets.tmke.co.uk/Blog%20Static%20Images/${n}.png`);
-const BLOG_HERO = await Promise.all(
-  BLOG_SRC.map((src) => getImage({ src, inferSize: true, width: 1000, quality: 72, format: "webp" }).then((r) => r.src))
-);
-posts.forEach((p, i) => { if (BLOG_HERO[i]) p.hero = BLOG_HERO[i]; });
-
 const featured = posts[0] || null;     // newest = featured (auto)
 const archivePosts = posts.slice(1);   // everything else
 
@@ -27,14 +17,18 @@ function fmtDate(iso) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
-// Decorative, NON-post tiles — brand photos for now (swap later).
-const STATIC_POOL = [
-  "/assets/sitting%20chair.jpg", "/assets/home%20kitchen.jpg", "/assets/vibes.jpg",
-  "/assets/home%20window.jpg", "/assets/Doors.jpg", "/assets/tea.jpg",
-  "/assets/home%20chair.jpg", "/assets/home%20forest.jpg", "/assets/home%20deer.jpg",
-  "/assets/outside.jpg", "/assets/glasses.jpg", "/assets/cosy%20home.jpg",
-  "/assets/lay%20down.jpg", "/assets/home%20ginger.jpg",
-];
+// Decorative, NON-article tiles = the client's 16 static photos (R2 "Blog Static
+// Images/1–16.png"). Originals are large PNGs, so optimise each (downscale +
+// crop to the 3:4 tile + WebP) so the grid stays light. Articles themselves
+// carry NO photo until hovered (see the grid markup) — only these change.
+const STATIC_POOL = await Promise.all(
+  Array.from({ length: 16 }, (_, i) =>
+    getImage({
+      src: `https://assets.tmke.co.uk/Blog%20Static%20Images/${i + 1}.png`,
+      width: 700, height: 933, quality: 72, format: "webp",
+    }).then((r) => r.src)
+  )
+);
 
 // The three lead articles ARE the images shown peeking on the home screen; they
 // form column 1 of the archive grid and lead it as it's dragged across. The rest
@@ -103,8 +97,8 @@ const featMeta = featured
       <div class="ins-archive" id="ins-archive">
         <div class="arc-grid">
           {leadPosts.map((p, i) => (
-            <button class="arc-tile arc-tile--lead" type="button" data-slug={p.slug} style={`grid-column:1;grid-row:${i + 1}`}>
-              <img src={p.hero} alt={p.title} loading="eager" />
+            <button class="arc-tile arc-tile--post" type="button" data-slug={p.slug} style={`grid-column:1;grid-row:${i + 1}`}>
+              <span class="arc-tile-img"><img src={p.hero} alt={p.title} loading="lazy" /></span>
               <span class="arc-tile-cap">
                 <span class="arc-tile-num">Article {String(i + 1).padStart(2, "0")}</span>
                 <span class="arc-tile-name">{p.title}</span>
