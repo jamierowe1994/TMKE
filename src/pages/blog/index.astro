@@ -156,6 +156,7 @@ const featMeta = featured
     /* ============ Insights — drag-across archive ============ */
     .ins {
       --peek: clamp(150px, 16vw, 224px);   /* how much of the grid peeks at rest */
+      --arc-inset: clamp(68px, 9vh, 100px); /* archive sits in an inset band: top = bottom, top aligned with the labels (clears the nav) */
       position: relative; height: 100vh; overflow: hidden;
       background: var(--paper); color: var(--ink);
     }
@@ -230,9 +231,14 @@ const featMeta = featured
 
     /* ----- Archive panel (the grid) ----- */
     .ins-archive {
-      flex: 0 0 100vw; height: 100%; box-sizing: border-box;
+      flex: 0 0 100vw; box-sizing: border-box;
+      /* inset band: top margin = bottom margin, top aligned with the Insights /
+         Featured-article labels, so the grid clears the nav (login/menu) and its
+         content never scrolls up underneath it. */
+      align-self: flex-start; margin-top: var(--arc-inset);
+      height: calc(100% - var(--arc-inset) * 2);
       overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin;
-      padding: 10px 10px 10px 6px;   /* left pad = the 6px card gap (gap to the featured) */
+      padding: 0 10px 0 6px;   /* left pad = the 6px card gap (gap to the featured) */
     }
     .arc-grid {
       display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
@@ -361,7 +367,7 @@ const featMeta = featured
       .ins-rail { flex-direction: column; transform: none !important; height: auto; }
       .ins-home { flex: none; width: 100%; height: auto; min-height: 90vh; grid-template-columns: 1fr; gap: 40px; padding: 90px 24px 48px; }
       .ins-bigtitle { font-size: clamp(56px, 16vw, 110px); }
-      .ins-archive { flex: none; width: 100%; height: auto; overflow: visible; }
+      .ins-archive { flex: none; width: 100%; height: auto; overflow: visible; margin-top: 0; }
       .arc-grid { grid-template-columns: repeat(2, 1fr); }
       .arc-tile--lead { grid-column: auto !important; grid-row: auto !important; }
       .arc-back { display: none; }
