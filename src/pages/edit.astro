@@ -335,13 +335,46 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        price + CTA on the other. Rows alternate (image left / right) and reveal as
        they scroll into view. */
     .edit-shows {
-      display: flex;
-      flex-direction: column;
-      gap: clamp(64px, 9vh, 150px);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(28px, 3vw, 60px);
       max-width: 1280px;
       margin: 0 auto;
       padding-top: clamp(16px, 4vh, 48px);
     }
+    @media (max-width: 900px) { .edit-shows { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .edit-shows { grid-template-columns: 1fr; } }
+
+    /* Simple shop card — cover, name, type, Pack Size + Discover (mirrors the hero). */
+    .pcard { display: flex; flex-direction: column; opacity: 0; transform: translateY(28px);
+      transition: opacity 0.9s cubic-bezier(.2,.7,.2,1), transform 0.9s cubic-bezier(.2,.7,.2,1); }
+    .pcard.is-in { opacity: 1; transform: none; }
+    .pcard-media { display: block; overflow: hidden; border-radius: 2px; }
+    .pcard-img {
+      display: block; aspect-ratio: 3 / 4; border-radius: 2px;
+      background-color: var(--platinum); background-size: cover; background-position: center;
+      transition: transform 0.7s cubic-bezier(.2,.7,.2,1);
+    }
+    .pcard-media:hover .pcard-img { transform: scale(1.03); }
+    .pcard-title {
+      font-family: var(--sans); font-weight: 700; font-size: clamp(16px, 1.25vw, 21px);
+      line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); margin: 20px 0 0;
+    }
+    .pcard-type { font-family: var(--sans); font-size: 13px; line-height: 1.4; color: rgba(28,29,34,0.55); margin: 6px 0 0; }
+    .pcard-actions { display: flex; align-items: center; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+    .pcard-size {
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ink);
+      padding: 10px 16px; border: 1px solid rgba(28,29,34,0.4); border-radius: 2px;
+    }
+    .pcard-cta {
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--paper); background: var(--ink);
+      padding: 11px 24px; border-radius: 2px; text-decoration: none;
+      transition: background 0.25s, transform 0.4s cubic-bezier(.2,.7,.2,1);
+    }
+    .pcard-cta:hover { background: var(--english-violet); transform: translateY(-1px); }
+    @media (prefers-reduced-motion: reduce) { .pcard { opacity: 1; transform: none; } }
 
     .show { position: relative; }
     .show-inner {
@@ -944,59 +977,26 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     function renderShowcase(p, i) {
-      const cover = (typeof p.cover_image_url === 'string' && p.cover_image_url) ? p.cover_image_url : '';
-      const previews = (p.preview_images ?? []).filter((u) => typeof u === 'string' && u.length > 0);
-      // The collage shows the pack's previews; hovering one flickers it into the
-      // framed hero. Fall back to the cover if a pack has no separate previews.
-      const collageUrls = (previews.length ? previews : (cover ? [cover] : [])).slice(0, 6);
-      const thumbs = collageUrls
-        .map((url) => `<button type="button" class="show-thumb" data-src="${escapeHtml(url)}" style="background-image:url('${escapeHtml(url)}')" aria-label="Preview"></button>`)
-        .join('');
-
-      const isFree = (p.price_pence ?? 0) === 0;
-      const priceLabel = isFree ? 'Free' : gbpFromPence(p.price_pence);
-      const num = String(i + 1).padStart(2, '0');
-      const contentsCount = (p.contents ?? []).length;
-      const previewItems = (p.contents ?? []).slice(0, 4);
-      const insideList = previewItems.length
-        ? `<ul class="show-inside">${previewItems.map((it) => `<li>${escapeHtml(it)}</li>`).join('')}</ul>`
-        : '';
-      const capBits = [`№ ${num}`];
-      if (p.category) capBits.push(escapeHtml(p.category));
-      const eyebrow = `${p.category ? escapeHtml(p.category) : 'The Edit'}${contentsCount ? ` · ${contentsCount} posts` : ''}`;
-
+      // Simple shop card (matches the draft): cover image, name, type, Pack Size,
+      // Discover. The full detail opens on click.
+      const cover = (typeof p.cover_image_url === 'string' && p.cover_image_url) ? p.cover_image_url
+        : ((p.templates && p.templates[0]) || (p.preview_images && p.preview_images[0]) || '');
+      const n = (p.packSize != null) ? p.packSize
+        : ((p.templates && p.templates.length) || (p.contents && p.contents.length) || 0);
+      const type = p.category ? `${escapeHtml(p.category)} Template Pack` : 'Template Pack';
+      const href = `/edit/${encodeURIComponent(p.slug)}`;
       return `
-        <section class="show" data-id="${p.id}" data-slug="${escapeHtml(p.slug)}">
-          <div class="show-inner">
-            <div class="show-hero">
-              <span class="show-ghost" data-par="30" aria-hidden="true">${num}</span>
-              <a class="show-stage" href="/edit/${encodeURIComponent(p.slug)}" aria-label="See inside ${escapeHtml(p.title)}">
-                <figure class="show-frame">
-                  <div class="show-mount">
-                    <div class="show-heroimg" data-cover="${escapeHtml(cover)}" style="background-image:url('${escapeHtml(cover)}')"></div>
-                  </div>
-                  <figcaption class="show-frame-cap">${capBits.join(' · ')}</figcaption>
-                </figure>
-              </a>
-            </div>
-            <div class="show-copy">
-              <p class="show-eyebrow">${eyebrow}</p>
-              <h2 class="show-title">${escapeHtml(p.title)}</h2>
-              ${p.description ? `<p class="show-desc">${escapeHtml(p.description)}</p>` : ''}
-              ${insideList}
-            </div>
-            <div class="show-shop">
-              <div class="show-collage">${thumbs}</div>
-              <div class="show-shopfoot">
-                <span class="show-price">${priceLabel}</span>
-                <div class="show-ctas">
-                  <a class="show-see" href="/edit/${encodeURIComponent(p.slug)}">See inside</a>
-                  <button type="button" class="show-buy" data-buy="${p.id}">Buy pack <em>&rarr;</em></button>
-                </div>
-              </div>
-            </div>
+        <article class="pcard" data-id="${p.id}" data-slug="${escapeHtml(p.slug)}">
+          <a class="pcard-media" href="${href}" aria-label="Discover ${escapeHtml(p.title)}">
+            <span class="pcard-img" style="background-image:url('${escapeHtml(cover)}')"></span>
+          </a>
+          <h3 class="pcard-title">${escapeHtml(p.title)}</h3>
+          <p class="pcard-type">${type}</p>
+          <div class="pcard-actions">
+            <span class="pcard-size">Pack Size: ${n}</span>
+            <a class="pcard-cta" href="${href}">Discover</a>
           </div>
-        </section>
+        </article>
       `;
     }
 
@@ -1034,9 +1034,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       });
     }
 
-    // Reveal each band on scroll, and gently parallax the big ghost numbers.
+    // Reveal each card on scroll.
     function wireMotion(root) {
-      const shows = [...root.querySelectorAll('.show')];
+      const shows = [...root.querySelectorAll('.pcard')];
       if (!('IntersectionObserver' in window)) {
         shows.forEach((s) => s.classList.add('is-in'));
       } else {
@@ -1241,7 +1241,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       packsById = new Map(packs.map((p) => [p.id, p]));
       grid.innerHTML = packs.map((p, i) => renderShowcase(p, i)).join('');
-      wireCollage(grid);
       wireMotion(grid);
       maybeOpenFromQuery();
 
