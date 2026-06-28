@@ -8,18 +8,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 >
   <!-- Hero — featured-pack copy on the left, an auto-playing template "film" on the right -->
   <header class="edit-hero">
-    <div class="edit-hero-copy">
+    <div class="edit-hero-copy" id="eh-copy">
       <p class="edit-hero-eyebrow">The Edit — Template Shop</p>
-      <h1 class="edit-hero-title">The Proof Is in the Posts</h1>
-      <p class="edit-hero-desc">Being a great agent means nothing if the people looking for one can't see it. This pack gives you the content to change that. Client testimonials, results, milestones, and service-led posts that build trust, communicate your value, and position you as the agent worth choosing. No guesswork, no generic captions. Just proof.</p>
+      <h1 class="edit-hero-title" id="eh-title">The Proof Is in the Posts</h1>
+      <p class="edit-hero-desc" id="eh-desc">Being a great agent means nothing if the people looking for one can't see it. This pack gives you the content to change that. Client testimonials, results, milestones, and service-led posts that build trust, communicate your value, and position you as the agent worth choosing. No guesswork, no generic captions. Just proof.</p>
       <div class="edit-hero-actions">
-        <span class="edit-hero-size">Pack Size: 30</span>
-        <a class="edit-hero-cta" href="#edit-grid">Discover</a>
+        <span class="edit-hero-size" id="eh-size">Pack Size: 30</span>
+        <a class="edit-hero-cta" id="eh-cta" href="#edit-catalogue">Discover</a>
       </div>
     </div>
     <div class="edit-hero-film">
       <div class="eh-grid" id="eh-grid" aria-hidden="true">
-        {Array.from({ length: 16 }).map(() => (
+        {Array.from({ length: 9 }).map(() => (
           <div class="eh-tile"><div class="eh-tile-img"></div></div>
         ))}
       </div>
@@ -191,17 +191,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .edit-hero {
       position: relative;
       z-index: 1;
+      min-height: 100vh;                 /* the header is one whole screen */
+      box-sizing: border-box;
       display: grid;
       grid-template-columns: 1fr 1fr;
       align-items: center;
       gap: clamp(32px, 5vw, 88px);
       max-width: 1320px;
       margin: 0 auto;
-      padding: clamp(120px, 15vh, 184px) clamp(24px, 4vw, 64px) clamp(48px, 7vh, 96px);
+      padding: clamp(104px, 13vh, 150px) clamp(24px, 4vw, 64px) clamp(40px, 6vh, 72px);
     }
     @media (max-width: 880px) {
-      .edit-hero { grid-template-columns: 1fr; gap: 40px; padding-top: clamp(104px, 14vh, 150px); }
+      .edit-hero { min-height: 0; grid-template-columns: 1fr; gap: 40px; padding-top: clamp(104px, 14vh, 150px); }
     }
+    /* the rotating copy cross-fades between packs */
+    .edit-hero-copy { transition: opacity 0.5s ease; }
+    .edit-hero-copy.is-swapping { opacity: 0; }
     .edit-hero-copy { max-width: 540px; }
     .edit-hero-eyebrow {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
@@ -243,15 +248,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
     .edit-hero-cta:hover { background: var(--english-violet); transform: translateY(-1px); }
 
-    /* The "film": a 4×4 grid of template stills that flip in, fill, then fade. */
+    /* The "film": a 3×3 grid of a pack's template stills that flash in/out at
+       random (2-3 at a time). Sized off the viewport height so the whole header
+       fits one screen with no scroll. */
     .edit-hero-film { display: flex; justify-content: center; }
     .eh-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: clamp(6px, 0.7vw, 10px);
-      width: min(100%, 480px);
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(8px, 0.7vw, 12px);
+      width: min(100%, 52vh, 480px);
+      margin: 0 auto;
       perspective: 1400px;
-      transition: opacity 0.9s ease;
+      transition: opacity 0.6s ease;
     }
     .eh-grid.is-fading { opacity: 0; }
     .eh-tile { position: relative; aspect-ratio: 3 / 4; }
@@ -1042,82 +1050,70 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
     }
 
-    // ===== Hero "film" =====================================================
-    // Auto-plays a ~15s title sequence: template stills flip into a 4×4 grid in
-    // a random order, keep firing through, settle on a full grid, then the whole
-    // grid fades to empty — and loops. Pool = every image across the packs.
-    function initHeroFilm(pool) {
+    // ===== Hero — one screen per pack, auto-rotating =======================
+    // The header shows ONE pack at a time: copy on the left, a 3×3 grid of THAT
+    // pack's templates on the right. The grid flashes (1-3 tiles swap at random),
+    // and every few seconds the whole hero cross-fades to the next pack.
+    function setupHero(packs) {
       const grid = document.getElementById('eh-grid');
+      const copyEl = document.getElementById('eh-copy');
+      const titleEl = document.getElementById('eh-title');
+      const descEl = document.getElementById('eh-desc');
+      const sizeEl = document.getElementById('eh-size');
       if (!grid) return;
-      pool = [...new Set((pool || []).filter((u) => typeof u === 'string' && u.length))];
-      if (!pool.length) return;
+      const list = (packs || []).filter((p) => p && p.templates && p.templates.length);
+      if (!list.length) return;
 
-      let tiles = [...grid.querySelectorAll('.eh-tile')];
-      if (!tiles.length) {
-        grid.innerHTML = Array.from({ length: 16 }, () => '<div class="eh-tile"><div class="eh-tile-img"></div></div>').join('');
-        tiles = [...grid.querySelectorAll('.eh-tile')];
-      }
-
-      const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      const tiles = [...grid.querySelectorAll('.eh-tile')];
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      if (reduce) {
-        const imgs = shuffle(pool);
-        tiles.forEach((t, i) => { t.classList.add('is-on'); t.querySelector('.eh-tile-img').style.backgroundImage = `url('${imgs[i % imgs.length]}')`; });
-        return;
-      }
-
-      // Preload so flips don't show empty cells on first pass.
-      pool.forEach((u) => { const im = new Image(); im.src = u; });
-
-      let timers = [];
-      let bag = [];
-      const nextImg = () => { if (!bag.length) bag = shuffle(pool); return bag.pop(); };
+      const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
       const setTile = (t, url) => {
         const img = t.querySelector('.eh-tile-img');
         img.style.backgroundImage = `url('${url}')`;
         t.classList.add('is-on');
         t.classList.remove('is-pop'); void t.offsetWidth; t.classList.add('is-pop');
       };
+      // preload every pack's templates so flips never show an empty cell
+      list.forEach((p) => p.templates.forEach((u) => { const im = new Image(); im.src = u; }));
 
-      const FILL_START = 500, FILL_END = 10000, FADE_AT = 13000, LOOP_AT = 15400;
-
-      function run() {
-        timers.forEach(clearTimeout); timers = [];
-        grid.classList.remove('is-fading');
-        tiles.forEach((t) => { t.classList.remove('is-on', 'is-pop'); t.querySelector('.eh-tile-img').style.backgroundImage = ''; });
-        bag = [];
-
-        // 1) reveal each cell once, in a random order, accelerating to the end.
-        const order = shuffle(tiles.map((_, i) => i));
-        order.forEach((cellIdx, n) => {
-          const frac = order.length > 1 ? n / (order.length - 1) : 0;
-          const at = n === 0 ? FILL_START : FILL_START + 600 + Math.pow(frac, 1.5) * (FILL_END - FILL_START - 600);
-          timers.push(setTimeout(() => setTile(tiles[cellIdx], nextImg()), at));
+      let packIdx = 0, flashTimer = 0, rotTimer = 0;
+      const fillCopy = (p) => {
+        if (titleEl) titleEl.textContent = p.title || '';
+        if (descEl) descEl.textContent = p.description || '';
+        const n = (p.packSize != null) ? p.packSize : (p.templates ? p.templates.length : 0);
+        if (sizeEl) sizeEl.textContent = 'Pack Size: ' + n;
+      };
+      const fillGrid = (p) => { const imgs = shuffle(p.templates); tiles.forEach((t, i) => setTile(t, imgs[i % imgs.length])); };
+      const showPack = (i, instant) => {
+        const p = list[i];
+        if (instant) { fillCopy(p); fillGrid(p); return; }
+        if (copyEl) copyEl.classList.add('is-swapping');
+        grid.classList.add('is-fading');
+        setTimeout(() => {
+          fillCopy(p); fillGrid(p);
+          if (copyEl) copyEl.classList.remove('is-swapping');
+          grid.classList.remove('is-fading');
+        }, 520);
+      };
+      // gentle continuous flashing: 1-3 tiles swap to another template of the pack
+      const flashTick = () => {
+        const p = list[packIdx];
+        const k = 1 + Math.floor(Math.random() * 3);
+        shuffle(tiles.map((_, i) => i)).slice(0, k).forEach((ci) => {
+          setTile(tiles[ci], p.templates[Math.floor(Math.random() * p.templates.length)]);
         });
+        flashTimer = setTimeout(flashTick, 900 + Math.random() * 900);
+      };
+      const rotTick = () => {
+        packIdx = (packIdx + 1) % list.length;
+        showPack(packIdx, false);
+        rotTimer = setTimeout(rotTick, 7000);
+      };
 
-        // 2) "fire through" — keep re-flipping already-revealed cells to new stills.
-        for (let at = 2400; at < FILL_END; at += 140 + Math.random() * 170) {
-          const when = at;
-          timers.push(setTimeout(() => {
-            const on = tiles.filter((t) => t.classList.contains('is-on'));
-            if (on.length) setTile(on[Math.floor(Math.random() * on.length)], nextImg());
-          }, when));
-        }
-
-        // 3) hold the full grid → fade to empty → loop.
-        timers.push(setTimeout(() => grid.classList.add('is-fading'), FADE_AT));
-        timers.push(setTimeout(run, LOOP_AT));
-      }
-
-      // Kick off once the hero is on screen (it's at the top, so ~immediately).
-      if ('IntersectionObserver' in window) {
-        let started = false;
-        const io = new IntersectionObserver((entries) => {
-          entries.forEach((e) => { if (e.isIntersecting && !started) { started = true; run(); io.disconnect(); } });
-        }, { threshold: 0.2 });
-        io.observe(grid);
-      } else { run(); }
+      showPack(0, true);
+      if (reduce) return;
+      flashTimer = setTimeout(flashTick, 1500);
+      if (list.length > 1) rotTimer = setTimeout(rotTick, 7000);
     }
 
     let packsById = new Map();
@@ -1125,38 +1121,33 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     // Dev/preview-only sample packs so the showcase is visible before any packs
     // exist in Supabase. Never shown in production (real packs or the empty
     // state). Images are local placeholders from /public/assets.
+    // Template thumbnails live on R2 (the Greenfield design set). In production a
+    // pack's templates come from the Supabase `templates` table (by pack_id); these
+    // sample packs let the page show the draft's three packs locally with no DB.
+    const TPL = (n) => `https://assets.tmke.co.uk/TMKE%20Home%20Page/Templates/${n}.png`;
+    const TPL_ALL = Array.from({ length: 13 }, (_, i) => TPL(i + 1));
+    const rot = (a, n) => a.slice(n).concat(a.slice(0, n));   // vary the order per pack
     const SAMPLE_PACKS = [
       {
-        id: 'sample-new-instruction', slug: 'new-instruction', category: 'Listings',
-        title: 'New Instruction', price_pence: 29900,
-        description: 'The full launch moment for a fresh listing — coming-soon teasers, a just-listed carousel and matching story covers that make every new instruction feel like an event.',
-        cover_image_url: '/assets/home%20kitchen.jpg',
-        preview_images: ['/assets/cosy%20home.jpg', '/assets/sitting%20chair.jpg', '/assets/home%20chair.jpg', '/assets/home%20window.jpg', '/assets/Doors.jpg', '/assets/outside.jpg'],
-        contents: ['9 feed posts', '6 story covers', 'Just-listed carousel', 'Coming-soon teaser'],
+        id: 'sample-proof', slug: 'the-proof-is-in-the-posts', category: 'Service',
+        title: 'The Proof Is in the Posts', price_pence: 0, packSize: 30,
+        description: "Being a great agent means nothing if the people looking for one can't see it. This pack gives you the content to change that. Client testimonials, results, milestones, and service-led posts that build trust, communicate your value, and position you as the agent worth choosing. No guesswork, no generic captions. Just proof.",
+        cover_image_url: TPL(8), preview_images: [TPL(1), TPL(2), TPL(3), TPL(4), TPL(5), TPL(6)],
+        contents: [], templates: TPL_ALL,
       },
       {
-        id: 'sample-just-sold', slug: 'just-sold', category: 'Social Proof',
-        title: 'Just Sold', price_pence: 24900,
-        description: 'Turn every completion into content. A celebratory “sold” set with testimonial frames and before/after layouts that keep your pipeline warm.',
-        cover_image_url: '/assets/Home-window.jpg',
-        preview_images: ['/assets/home%20chair.jpg', '/assets/Doors.jpg', '/assets/doors-open.png', '/assets/home%20forest.jpg', '/assets/cosy%20home.jpg', '/assets/sitting%20chair.jpg'],
-        contents: ['8 feed posts', 'Testimonial frames', 'Before / after layout', 'Sold-board story'],
+        id: 'sample-portfolio', slug: 'property-portfolio', category: 'Property',
+        title: 'Property Portfolio', price_pence: 0, packSize: 25,
+        description: 'Show the homes, not just the headlines. A polished set of listing layouts — new instructions, open houses, price changes and just-sold — that make every property on your books look the part across the feed.',
+        cover_image_url: TPL(13), preview_images: [TPL(13), TPL(1), TPL(5), TPL(8), TPL(2), TPL(10)],
+        contents: [], templates: rot(TPL_ALL, 5),
       },
       {
-        id: 'sample-market-update', slug: 'market-update', category: 'Authority',
-        title: 'Market Update', price_pence: 19900,
-        description: 'Position yourself as the local expert — clean, data-led templates for monthly market notes, tips and “ask the agent” prompts.',
-        cover_image_url: '/assets/outside.jpg',
-        preview_images: ['/assets/home%20forest.jpg', '/assets/tea.jpg', '/assets/home%20deer.jpg', '/assets/home%20ginger.jpg', '/assets/vibes.jpg', '/assets/cosy%20home.jpg'],
-        contents: ['6 feed posts', 'Stat / chart frames', 'Tip-of-the-week set', 'Q&A story template'],
-      },
-      {
-        id: 'sample-meet-the-team', slug: 'meet-the-team', category: 'Brand',
-        title: 'Meet the Team', price_pence: 17900,
-        description: 'Put faces to the name. A warm personal-brand set for team intros, day-in-the-life stories and the human side of your agency.',
-        cover_image_url: '/assets/social%20media.jpg',
-        preview_images: ['/assets/Danni.png', '/assets/Abbie.png', '/assets/June1.png', '/assets/abbie%202.png', '/assets/Danni%202.png', '/assets/vibes.jpg'],
-        contents: ['7 feed posts', 'Team intro frames', 'Day-in-the-life story', 'Quote cards'],
+        id: 'sample-become', slug: 'become-the-name', category: 'Community',
+        title: 'Become the Name They Already Know', price_pence: 0, packSize: 25,
+        description: 'Be the agent your area already trusts. Local-favourite features, recommendations and community-led posts that put you at the heart of the neighbourhood long before anyone is ready to move.',
+        cover_image_url: TPL(10), preview_images: [TPL(10), TPL(6), TPL(3), TPL(12), TPL(7), TPL(9)],
+        contents: [], templates: rot(TPL_ALL, 9),
       },
     ];
 
@@ -1189,8 +1180,27 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       wireMotion(grid);
       maybeOpenFromQuery();
 
-      // Feed the hero "film" every image across the packs.
-      initHeroFilm(packs.flatMap((p) => [p.cover_image_url, ...(p.preview_images ?? [])]));
+      // Attach each pack's templates (the editor designs linked by pack_id) so the
+      // hero grid shows THAT pack's templates. Sample packs already carry them.
+      const needTpl = packs.filter((p) => !p.templates);
+      if (needTpl.length) {
+        const { data: tdata } = await supabase
+          .from('templates')
+          .select('thumb_url, pack_id, sort_order')
+          .in('pack_id', needTpl.map((p) => p.id))
+          .eq('status', 'active')
+          .order('sort_order', { ascending: true });
+        const byPack = new Map();
+        (tdata || []).forEach((t) => {
+          if (!t.thumb_url) return;
+          if (!byPack.has(t.pack_id)) byPack.set(t.pack_id, []);
+          byPack.get(t.pack_id).push(t.thumb_url);
+        });
+        packs.forEach((p) => { if (!p.templates) p.templates = byPack.get(p.id) || []; });
+      }
+
+      // Rotate the hero one pack at a time (copy + that pack's flashing grid).
+      setupHero(packs);
     })();
 
     // ============== Modal helpers ==============
