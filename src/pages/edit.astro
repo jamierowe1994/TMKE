@@ -236,7 +236,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
     .edit-hero-desc {
       margin: 22px 0 0;
-      max-width: 44ch;
+      max-width: none;            /* width is set on .edit-hero-copy = longest title width */
+      text-align: justify;        /* even lines, same width as the title */
       font-family: var(--sans);
       font-size: clamp(15px, 1.15vw, 16.5px);
       line-height: 1.66;
@@ -1091,9 +1092,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
       const setDot = (i) => dots.forEach((d, n) => d.classList.toggle('is-active', n === i));
 
-      let packIdx = 0, pulseTimer = 0, rotTimer = 0;
+      let packIdx = 0, pulseTimer = 0, rotTimer = 0, gen = 0;
       const busy = new Set();
-      const FADE = 440, HOLD = 1050;
+      const FADE = 440, HOLD = 1050, ROT = 13000;   // ~13s a pack — long enough to show a fair amount
 
       const fillCopy = (p) => {
         if (titleEl) titleEl.textContent = p.title || '';
@@ -1101,16 +1102,36 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const n = (p.packSize != null) ? p.packSize : (p.templates ? p.templates.length : 0);
         if (sizeEl) sizeEl.textContent = 'Pack Size: ' + n;
       };
-      // one tile: flash IN (set image, fade up), hold, then flash OUT (fade away).
+      // Lock the copy width to the longest title's width and justify the body, so
+      // every pack's body text is the same length as that title.
+      const copyOuter = (copyEl && copyEl.parentElement) || null;
+      const sizeCopy = () => {
+        if (!copyOuter || !titleEl) return;
+        copyOuter.style.width = '';
+        const colW = copyOuter.getBoundingClientRect().width;
+        const cs = getComputedStyle(titleEl);
+        const probe = document.createElement('span');
+        probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0';
+        probe.style.fontFamily = cs.fontFamily; probe.style.fontSize = cs.fontSize;
+        probe.style.fontWeight = cs.fontWeight; probe.style.letterSpacing = cs.letterSpacing;
+        document.body.appendChild(probe);
+        let maxW = 0;
+        list.forEach((p) => { probe.textContent = p.title || ''; maxW = Math.max(maxW, probe.getBoundingClientRect().width); });
+        probe.remove();
+        copyOuter.style.width = Math.min(colW, Math.max(300, Math.round(maxW * 0.6))) + 'px';   // longest title wraps to ~2 lines
+      };
+
+      // one tile: flash IN (set image, fade up), hold, then flash OUT.
       const pulse = (i, url) => {
         if (busy.has(i)) return;
         busy.add(i);
-        const t = tiles[i], img = tImg(t);
+        const myGen = gen, t = tiles[i], img = tImg(t);
         img.style.backgroundImage = `url('${url}')`;
-        requestAnimationFrame(() => t.classList.add('is-on'));
+        requestAnimationFrame(() => { if (myGen === gen) t.classList.add('is-on'); });
         setTimeout(() => {
+          if (myGen !== gen) return;                 // a pack change reset the grid
           t.classList.remove('is-on');
-          setTimeout(() => { img.style.backgroundImage = ''; busy.delete(i); }, FADE + 40);
+          setTimeout(() => { if (myGen === gen) { img.style.backgroundImage = ''; busy.delete(i); } }, FADE + 40);
         }, HOLD);
       };
       const pulseTick = () => {
@@ -1121,26 +1142,35 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           const imgs = shuffle(p.templates);
           shuffle(free).slice(0, k).forEach((i, n) => pulse(i, imgs[n % imgs.length]));   // synced — in together
         }
-        pulseTimer = setTimeout(pulseTick, 980 + Math.random() * 520);           // next group (kept to ~2-3 on screen)
+        pulseTimer = setTimeout(pulseTick, 980 + Math.random() * 520);
       };
+      // pack change — clear the whole grid (clean break), swap, then flash the
+      // NEW pack in, so the templates always match the pack on the left.
       const rotTick = () => {
-        packIdx = (packIdx + 1) % list.length;
-        setDot(packIdx);
-        if (copyEl) {
-          copyEl.classList.add('is-swapping');
-          setTimeout(() => { fillCopy(list[packIdx]); copyEl.classList.remove('is-swapping'); }, 500);
-        } else { fillCopy(list[packIdx]); }
-        rotTimer = setTimeout(rotTick, 8000);
+        gen++; clearTimeout(pulseTimer);
+        tiles.forEach((t) => t.classList.remove('is-on'));
+        setTimeout(() => { tiles.forEach((t) => { tImg(t).style.backgroundImage = ''; }); busy.clear(); }, FADE + 40);
+        if (copyEl) copyEl.classList.add('is-swapping');
+        setTimeout(() => {
+          packIdx = (packIdx + 1) % list.length;
+          setDot(packIdx);
+          fillCopy(list[packIdx]);
+          if (copyEl) copyEl.classList.remove('is-swapping');
+          pulseTimer = setTimeout(pulseTick, 260);
+        }, FADE + 140);
+        rotTimer = setTimeout(rotTick, ROT);
       };
 
+      sizeCopy();
       fillCopy(list[0]);
+      window.addEventListener('resize', sizeCopy);
       if (reduce) {   // static: fill every cell, no motion
         const imgs = shuffle(list[0].templates);
         tiles.forEach((t, i) => { tImg(t).style.backgroundImage = `url('${imgs[i % imgs.length]}')`; t.classList.add('is-on'); });
         return;
       }
       pulseTimer = setTimeout(pulseTick, 400);
-      if (list.length > 1) rotTimer = setTimeout(rotTick, 8000);
+      if (list.length > 1) rotTimer = setTimeout(rotTick, ROT);
     }
 
     let packsById = new Map();
