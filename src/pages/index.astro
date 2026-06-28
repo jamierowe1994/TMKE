@@ -45,8 +45,8 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 
     <!-- "TMKE EDIT" pops up big in the centre (each word independently), holds,
          then the two words part to the edges and downsize. -->
-    <span class="hi-word hi-word--l">TMKE</span>
-    <span class="hi-word hi-word--r">Edit</span>
+    <span class="hi-word hi-word--l"><span class="hi-word-in">TMKE</span></span>
+    <span class="hi-word hi-word--r"><span class="hi-word-in">Edit</span></span>
 
     <!-- The four sections, centred on the wordmark, flanking the divider. -->
     <nav class="hi-center" aria-label="Sections">
@@ -453,8 +453,10 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       font-family: var(--sans), "Helvetica Neue", Arial, sans-serif; font-weight: 400;
       font-size: var(--hi-font); line-height: 1; letter-spacing: -0.01em; white-space: nowrap;
       color: var(--paper); text-shadow: 0 2px 34px rgba(0,0,0,0.38);
-      opacity: 0; transform: translate(var(--join-big), -50%) scale(2.0); will-change: transform, opacity;
+      transform: translate(var(--join-big), -50%) scale(1.75); will-change: transform;
     }
+    /* inner = the per-word "pop up" (staggered); outer = the synced split. */
+    .hi-word-in { display: inline-block; opacity: 0; transform: translateY(48px); will-change: transform, opacity; }
     /* --join-big / --join-small place each word so the pair TOUCHES (one word) at
        scale 1.8 and at scale 1.0 — factor = (1 + scale)/2 tracks half the SCALED
        width. The word recedes big→small while staying joined, then slides to the
@@ -462,9 +464,9 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     /* --join-big places each word so the pair touches (with --hi-gap of space)
        at the big touch scale (2.0 → factor (1+2)/2 = 1.5). */
     .hi-word--l { left: var(--hi-pad);
-      --join-big: calc(50vw - var(--hi-gap) - var(--hi-pad) - 1.5 * 100%); }
+      --join-big: calc(50vw - var(--hi-gap) - var(--hi-pad) - 1.375 * 100%); }
     .hi-word--r { right: var(--hi-pad); text-transform: uppercase;
-      --join-big: calc(-50vw + var(--hi-gap) + var(--hi-pad) + 1.5 * 100%); }
+      --join-big: calc(-50vw + var(--hi-gap) + var(--hi-pad) + 1.375 * 100%); }
 
     /* Centre sections — symmetric around the page centre (= centred on the
        wordmark), the two pairs flanking the divider. */
@@ -496,21 +498,27 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     }
 
     /* ---- Play (JS adds .is-playing) ---- */
-    @keyframes hiWord {
-      0%   { opacity: 0; transform: translate(var(--join-big), calc(-50% + 48px)) scale(2.0); }  /* below, hidden, big */
-      16%  { opacity: 1; transform: translate(var(--join-big), -50%) scale(2.0); }                 /* popped up to the big touch */
-      44%  { opacity: 1; transform: translate(var(--join-big), -50%) scale(2.0); }                 /* hold big "TMKE EDIT" */
-      90%  { opacity: 1; transform: translate(0, -50%) scale(1); }                                  /* part to the edges + downsize */
-      100% { opacity: 1; transform: translate(0, -50%) scale(1); }                                  /* settle */
+    /* Outer = the SPLIT (both words run on the same timeline → part in sync):
+       holds the big touch, then parts to the edges + downsizes. */
+    @keyframes hiWordSplit {
+      0%   { transform: translate(var(--join-big), -50%) scale(1.75); }
+      44%  { transform: translate(var(--join-big), -50%) scale(1.75); }   /* hold big "TMKE EDIT" */
+      90%  { transform: translate(0, -50%) scale(1); }                    /* part to the edges + downsize */
+      100% { transform: translate(0, -50%) scale(1); }
+    }
+    /* Inner = the per-word POP up (staggered via per-word delay). */
+    @keyframes hiWordPop {
+      0%   { opacity: 0; transform: translateY(48px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
     @keyframes hiFade { from { opacity: 0; } to { opacity: 1; } }
-    /* Tagline: folds out in the CENTRE as the words part, holds (read time), then
-       rises a short way to its resting place at the top. */
+    /* Tagline: folds out DIRECTLY in the middle as the words part, holds (read
+       time), then rises a short way to its resting place at the top. */
     @keyframes hiTagOut {
-      0%   { opacity: 0; transform: translate(-50%, 36vh) scaleY(0.08); }
-      17%  { opacity: 1; transform: translate(-50%, 36vh) scaleY(1); }   /* unfolded, centred */
-      60%  { opacity: 1; transform: translate(-50%, 36vh) scaleY(1); }   /* hold — longer, to read */
-      100% { opacity: 1; transform: translate(-50%, 0) scaleY(1); }      /* short rise to the top */
+      0%   { opacity: 0; transform: translate(-50%, calc(50vh - 82px)) scaleY(0.08); }
+      17%  { opacity: 1; transform: translate(-50%, calc(50vh - 82px)) scaleY(1); }   /* unfolded, dead centre */
+      60%  { opacity: 1; transform: translate(-50%, calc(50vh - 82px)) scaleY(1); }   /* hold — to read */
+      100% { opacity: 1; transform: translate(-50%, 0) scaleY(1); }                   /* short rise to the top */
     }
     /* Images fold in from the outer edges to fill each half. */
     @keyframes hiFoldL { 0% { opacity: 0; clip-path: inset(0 100% 0 0); } 100% { opacity: 1; clip-path: inset(0 0 0 0); } }
@@ -519,24 +527,27 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     /* Each word pops up independently (slight stagger), holds big, then parts to
        the edges + downsizes; the tagline folds out in the middle, holds to be
        read, then rises a short way; images fold in last. No centre divider. */
-    .hero-intro.is-playing .hi-word--l { animation: hiWord 3.2s cubic-bezier(.22, 1, .36, 1) 0s both; }
-    .hero-intro.is-playing .hi-word--r { animation: hiWord 3.2s cubic-bezier(.22, 1, .36, 1) 0.16s both; }
-    .hero-intro.is-playing .hi-tagline { animation: hiTagOut 3.4s cubic-bezier(.22, 1, .36, 1) 2.6s both; }
-    .hero-intro.is-playing .hi-img--l  { animation: hiFoldL 1.3s cubic-bezier(.16, 1, .3, 1) 4.7s both; }
-    .hero-intro.is-playing .hi-img--r  { animation: hiFoldR 1.3s cubic-bezier(.16, 1, .3, 1) 4.7s both; }
-    .hero-intro.is-playing .hi-bg::after { animation: hiFade 1.3s ease 4.7s both; }
-    .hero-intro.is-playing .hi-center  { animation: hiFade 0.9s ease 5.9s both; }
-    .hero-intro.is-playing .hi-scroll  { animation: hiFade 0.9s ease 6.2s both; }
+    .hero-intro.is-playing .hi-word           { animation: hiWordSplit 3.0s cubic-bezier(.22, 1, .36, 1) both; }   /* both words, same timeline → synced split */
+    .hero-intro.is-playing .hi-word--l .hi-word-in { animation: hiWordPop 0.7s cubic-bezier(.22, 1, .36, 1) 0s both; }
+    .hero-intro.is-playing .hi-word--r .hi-word-in { animation: hiWordPop 0.7s cubic-bezier(.22, 1, .36, 1) 0.16s both; }  /* pops a beat later */
+    .hero-intro.is-playing .hi-tagline { animation: hiTagOut 3.4s cubic-bezier(.22, 1, .36, 1) 2.5s both; }
+    .hero-intro.is-playing .hi-img--l  { animation: hiFoldL 1.3s cubic-bezier(.16, 1, .3, 1) 4.6s both; }
+    .hero-intro.is-playing .hi-img--r  { animation: hiFoldR 1.3s cubic-bezier(.16, 1, .3, 1) 4.6s both; }
+    .hero-intro.is-playing .hi-bg::after { animation: hiFade 1.3s ease 4.6s both; }
+    .hero-intro.is-playing .hi-center  { animation: hiFade 0.9s ease 5.8s both; }
+    .hero-intro.is-playing .hi-scroll  { animation: hiFade 0.9s ease 6.1s both; }
 
     /* ---- Final state for reduced-motion / no-JS (skip the animation) ---- */
-    .hero-intro.is-final .hi-word { opacity: 1; transform: translate(0, -50%) scale(1); animation: none; }
+    .hero-intro.is-final .hi-word { transform: translate(0, -50%) scale(1); animation: none; }
+    .hero-intro.is-final .hi-word-in { opacity: 1; transform: none; animation: none; }
     .hero-intro.is-final .hi-img,
     .hero-intro.is-final .hi-bg::after,
     .hero-intro.is-final .hi-center,
     .hero-intro.is-final .hi-tagline,
     .hero-intro.is-final .hi-scroll { opacity: 1; animation: none; }
     @media (prefers-reduced-motion: reduce) {
-      .hero-intro .hi-word { opacity: 1; transform: translate(0, -50%) scale(1); animation: none; }
+      .hero-intro .hi-word { transform: translate(0, -50%) scale(1); animation: none; }
+      .hero-intro .hi-word-in { opacity: 1; transform: none; animation: none; }
       .hero-intro .hi-img, .hero-intro .hi-bg::after, .hero-intro .hi-center, .hero-intro .hi-tagline, .hero-intro .hi-scroll { opacity: 1; animation: none; }
     }
     @media (max-width: 720px) {
@@ -757,7 +768,8 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
   </script>
   <noscript>
     <style>
-      .hero-intro .hi-word { opacity: 1 !important; transform: translate(0, -50%) scale(1) !important; }
+      .hero-intro .hi-word { transform: translate(0, -50%) scale(1) !important; }
+      .hero-intro .hi-word-in { opacity: 1 !important; transform: none !important; }
       .hero-intro .hi-img, .hero-intro .hi-bg::after, .hero-intro .hi-center, .hero-intro .hi-tagline, .hero-intro .hi-scroll { opacity: 1 !important; }
     </style>
   </noscript>
