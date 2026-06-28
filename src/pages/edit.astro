@@ -19,7 +19,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </div>
     <div class="edit-hero-film">
       <div class="eh-grid" id="eh-grid" aria-hidden="true">
-        {Array.from({ length: 9 }).map(() => (
+        {Array.from({ length: 12 }).map(() => (
           <div class="eh-tile"><div class="eh-tile-img"></div></div>
         ))}
       </div>
@@ -194,12 +194,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       min-height: 100vh;                 /* the header is one whole screen */
       box-sizing: border-box;
       display: grid;
-      grid-template-columns: minmax(280px, 1fr) auto;  /* copy left, big grid right */
+      grid-template-columns: minmax(260px, 1fr) auto;  /* copy left, big grid hard right */
       align-items: center;
       gap: clamp(28px, 4vw, 72px);
-      max-width: 1800px;
-      margin: 0 auto;
-      padding: clamp(86px, 11vh, 120px) clamp(24px, 3.5vw, 56px) clamp(38px, 5.5vh, 60px);
+      max-width: none;
+      margin: 0;
+      /* no right padding — the grid runs to the very edge of the page */
+      padding: clamp(86px, 11vh, 120px) 0 clamp(38px, 5.5vh, 60px) clamp(28px, 4vw, 72px);
     }
     @media (max-width: 880px) {
       .edit-hero { min-height: 0; grid-template-columns: 1fr; gap: 40px; padding-top: clamp(104px, 14vh, 150px); }
@@ -254,44 +255,34 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .edit-hero-film { display: flex; justify-content: center; }
     .eh-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       grid-template-rows: repeat(3, 1fr);
-      gap: clamp(8px, 0.7vw, 12px);
-      /* a 3×3 of 3:4 tiles is itself 3:4 — size by height so it fills the screen
-         (top margin + slight bottom), like the blog archive, only slightly smaller. */
-      aspect-ratio: 3 / 4;
+      gap: 6px;                          /* same as the insights archive grid */
+      /* a 4×3 of 3:4 tiles is square overall — size by height so it fills the
+         screen (top margin + slight bottom) and runs to the right edge. */
+      aspect-ratio: 1 / 1;
       height: calc(100vh - clamp(150px, 18vh, 196px));
       width: auto;
-      justify-self: end;
-      perspective: 1400px;
-      transition: opacity 0.6s ease;
     }
-    .eh-grid.is-fading { opacity: 0; }
-    .eh-tile { position: relative; min-height: 0; }
-    @media (max-width: 880px) {
-      .eh-grid { height: auto; width: 100%; justify-self: stretch; }
+    .eh-tile {
+      position: relative; min-height: 0; overflow: hidden;
+      border-radius: 2px;
+      background: rgba(28, 29, 34, 0.045);   /* faint frame while empty */
     }
     .eh-tile-img {
       position: absolute; inset: 0;
       background-size: cover; background-position: center;
-      background-color: rgba(28, 29, 34, 0.05);
       border-radius: 2px;
-      box-shadow: 0 8px 18px -12px rgba(28, 29, 34, 0.45);
-      opacity: 0;
-      will-change: transform, opacity;
-      backface-visibility: hidden;
+      opacity: 0; transform: scale(0.985);
+      transition: opacity 0.52s ease, transform 0.62s cubic-bezier(.2,.7,.2,1);
+      will-change: opacity, transform;
     }
-    .eh-tile.is-on .eh-tile-img { opacity: 1; }
-    .eh-tile.is-pop .eh-tile-img { animation: ehPop 0.55s cubic-bezier(.2,.8,.2,1) both; }
-    @keyframes ehPop {
-      0%   { opacity: 0; transform: rotateY(-78deg) scale(0.86); }
-      55%  { opacity: 1; }
-      100% { opacity: 1; transform: rotateY(0deg) scale(1); }
+    .eh-tile.is-on .eh-tile-img { opacity: 1; transform: scale(1); }   /* flash in, then out */
+    @media (max-width: 880px) {
+      .eh-grid { height: auto; width: 100%; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .eh-tile-img { opacity: 1 !important; }
-      .eh-tile.is-pop .eh-tile-img { animation: none; }
-      .eh-grid.is-fading { opacity: 1; }
+      .eh-tile-img { transition: none; }
     }
     /* ====== STRIPPED — studio demo moved to the homepage Chapter 5 ====== */
 
@@ -1059,9 +1050,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     // ===== Hero — one screen per pack, auto-rotating =======================
-    // The header shows ONE pack at a time: copy on the left, a 3×3 grid of THAT
-    // pack's templates on the right. The grid flashes (1-3 tiles swap at random),
-    // and every few seconds the whole hero cross-fades to the next pack.
+    // The header shows ONE pack at a time: copy on the left, a 4×3 grid of THAT
+    // pack's templates on the right. Tiles flash IN then OUT in small groups
+    // (1-3 at a time); every few seconds the hero cross-fades to the next pack.
     function setupHero(packs) {
       const grid = document.getElementById('eh-grid');
       const copyEl = document.getElementById('eh-copy');
@@ -1075,53 +1066,60 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const tiles = [...grid.querySelectorAll('.eh-tile')];
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-      const setTile = (t, url) => {
-        const img = t.querySelector('.eh-tile-img');
-        img.style.backgroundImage = `url('${url}')`;
-        t.classList.add('is-on');
-        t.classList.remove('is-pop'); void t.offsetWidth; t.classList.add('is-pop');
-      };
-      // preload every pack's templates so flips never show an empty cell
-      list.forEach((p) => p.templates.forEach((u) => { const im = new Image(); im.src = u; }));
+      const tImg = (t) => t.querySelector('.eh-tile-img');
+      list.forEach((p) => p.templates.forEach((u) => { const im = new Image(); im.src = u; }));   // preload
 
-      let packIdx = 0, flashTimer = 0, rotTimer = 0;
+      let packIdx = 0, pulseTimer = 0, rotTimer = 0;
+      const busy = new Set();
+      const FADE = 540, HOLD = 1500;
+
       const fillCopy = (p) => {
         if (titleEl) titleEl.textContent = p.title || '';
         if (descEl) descEl.textContent = p.description || '';
         const n = (p.packSize != null) ? p.packSize : (p.templates ? p.templates.length : 0);
         if (sizeEl) sizeEl.textContent = 'Pack Size: ' + n;
       };
-      const fillGrid = (p) => { const imgs = shuffle(p.templates); tiles.forEach((t, i) => setTile(t, imgs[i % imgs.length])); };
-      const showPack = (i, instant) => {
-        const p = list[i];
-        if (instant) { fillCopy(p); fillGrid(p); return; }
-        if (copyEl) copyEl.classList.add('is-swapping');
-        grid.classList.add('is-fading');
+      // one tile: flash IN (set image, fade up), hold, then flash OUT (fade away).
+      const pulse = (i, url) => {
+        if (busy.has(i)) return;
+        busy.add(i);
+        const t = tiles[i], img = tImg(t);
+        img.style.backgroundImage = `url('${url}')`;
+        requestAnimationFrame(() => t.classList.add('is-on'));
         setTimeout(() => {
-          fillCopy(p); fillGrid(p);
-          if (copyEl) copyEl.classList.remove('is-swapping');
-          grid.classList.remove('is-fading');
-        }, 520);
+          t.classList.remove('is-on');
+          setTimeout(() => { img.style.backgroundImage = ''; busy.delete(i); }, FADE + 40);
+        }, HOLD);
       };
-      // gentle continuous flashing: 1-3 tiles swap to another template of the pack
-      const flashTick = () => {
+      const pulseTick = () => {
         const p = list[packIdx];
-        const k = 1 + Math.floor(Math.random() * 3);
-        shuffle(tiles.map((_, i) => i)).slice(0, k).forEach((ci) => {
-          setTile(tiles[ci], p.templates[Math.floor(Math.random() * p.templates.length)]);
-        });
-        flashTimer = setTimeout(flashTick, 900 + Math.random() * 900);
+        const free = tiles.map((_, i) => i).filter((i) => !busy.has(i));
+        if (free.length) {
+          const k = Math.min(free.length, 1 + Math.floor(Math.random() * 3));   // 1-3 at a time
+          shuffle(free).slice(0, k).forEach((i, n) => {
+            const url = p.templates[Math.floor(Math.random() * p.templates.length)];
+            setTimeout(() => pulse(i, url), n * 150);                            // slight stagger
+          });
+        }
+        pulseTimer = setTimeout(pulseTick, HOLD + 250 + Math.random() * 600);    // next group
       };
       const rotTick = () => {
         packIdx = (packIdx + 1) % list.length;
-        showPack(packIdx, false);
-        rotTimer = setTimeout(rotTick, 7000);
+        if (copyEl) {
+          copyEl.classList.add('is-swapping');
+          setTimeout(() => { fillCopy(list[packIdx]); copyEl.classList.remove('is-swapping'); }, 500);
+        } else { fillCopy(list[packIdx]); }
+        rotTimer = setTimeout(rotTick, 8000);
       };
 
-      showPack(0, true);
-      if (reduce) return;
-      flashTimer = setTimeout(flashTick, 1500);
-      if (list.length > 1) rotTimer = setTimeout(rotTick, 7000);
+      fillCopy(list[0]);
+      if (reduce) {   // static: fill every cell, no motion
+        const imgs = shuffle(list[0].templates);
+        tiles.forEach((t, i) => { tImg(t).style.backgroundImage = `url('${imgs[i % imgs.length]}')`; t.classList.add('is-on'); });
+        return;
+      }
+      pulseTimer = setTimeout(pulseTick, 400);
+      if (list.length > 1) rotTimer = setTimeout(rotTick, 8000);
     }
 
     let packsById = new Map();
