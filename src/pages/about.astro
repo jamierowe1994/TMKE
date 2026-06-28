@@ -34,8 +34,11 @@ const team = [
 
 // The real photos are 21–31 MB PNGs — optimise them (downscale + WebP) so the
 // team grid loads and hovers smoothly. Each member.photo is the optimised src.
+// NB: inferSize + width alone kept the original height (→ a tall centre-strip
+// crop showing only heads). Give an explicit 3:4 output so the full portrait
+// shows; sharp cover-crops the 3:4 originals with no loss.
 const teamPhotos = await Promise.all(
-  team.map((m) => getImage({ src: m.realImage, inferSize: true, width: 900, quality: 72, format: "webp" }).then((r) => r.src))
+  team.map((m) => getImage({ src: m.realImage, width: 900, height: 1200, quality: 72, format: "webp" }).then((r) => r.src))
 );
 team.forEach((m, i) => { m.photo = teamPhotos[i]; });
 
