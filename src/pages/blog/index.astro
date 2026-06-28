@@ -32,18 +32,26 @@ const STATIC_POOL = [
   "/assets/lay%20down.jpg", "/assets/home%20ginger.jpg",
 ];
 
-// Lay out a 6-col grid: ~2 posts per row at SCATTERED columns (no obvious
-// pattern / no column alignment), every other cell a static photo.
+// 6-col archive grid. The FIRST three tiles are the three articles already
+// shown on the home screen (the strip) — they lead, then the rest of the posts
+// follow, scattered amongst brand photos. So the strip flows straight into the
+// start of the grid: you're one row short because those three are pre-shown.
 const COLS = 6;
-const ROW_POST_COLS = [[0, 3], [2, 5], [1, 4], [0, 4], [2, 3], [1, 5]];
 const gridItems = [];
-let pi = 0, gi = 0;
-for (let r = 0; pi < archivePosts.length; r++) {
-  const cols = ROW_POST_COLS[r % ROW_POST_COLS.length];
+let gi = 0;
+archivePosts.slice(0, 3).forEach((p, idx) =>
+  gridItems.push({ type: "post", post: p, num: String(idx + 1).padStart(2, "0") })
+);
+for (let c = 3; c < COLS; c++) gridItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
+const restPosts = archivePosts.slice(3);
+const REST_COLS = [[1, 4], [0, 3], [2, 5], [0, 4], [1, 3], [2, 5]];
+let ri = 0;
+for (let r = 0; ri < restPosts.length; r++) {
+  const cols = REST_COLS[r % REST_COLS.length];
   for (let c = 0; c < COLS; c++) {
-    if (cols.includes(c) && pi < archivePosts.length) {
-      const p = archivePosts[pi++];
-      gridItems.push({ type: "post", post: p, num: String(pi).padStart(2, "0") });
+    if (cols.includes(c) && ri < restPosts.length) {
+      const p = restPosts[ri++];
+      gridItems.push({ type: "post", post: p, num: String(3 + ri).padStart(2, "0") });
     } else {
       gridItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
     }
@@ -228,11 +236,9 @@ const featMeta = featured
 
     /* ============ Archive overlay ============ */
     .arc {
-      position: fixed; inset: 0; z-index: 150; background: var(--paper);
+      position: fixed; inset: 0; z-index: 150; background: transparent; /* JS ramps paper in behind tiles */
       padding: 8px 8px 8px;
       display: flex; flex-direction: column; gap: 8px;
-      transform: translateX(-100%);   /* JS drives this from scroll progress */
-      will-change: transform;
     }
     .arc[hidden] { display: none; }
     .arc-head { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 6px 6px 0; }
@@ -251,7 +257,7 @@ const featMeta = featured
     @media (max-width: 1200px) { .arc-grid { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 760px)  { .arc-grid { grid-template-columns: repeat(2, 1fr); } }
 
-    .arc-tile { position: relative; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; }
+    .arc-tile { position: relative; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; will-change: transform, opacity; }
 
     /* Post tiles — off-white box, title bottom-left; hover reveals the image. */
     .arc-tile--post {
@@ -377,21 +383,32 @@ const featMeta = featured
       try { data = (JSON.parse(document.getElementById("flow-data").textContent || "[]") || []).reduce((m, p) => (m[p.slug] = p, m), {}); } catch (_) {}
       const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      // ----- Archive reveal — scroll drags the grid across the screen -----
-      // The hero view stays put; as you scroll, the archive grid slides in from
-      // the left (left→right) until it fully covers the screen, then the grid
-      // itself scrolls. Scroll back up at the grid's top to drag it away again.
+      // ----- Archive reveal — scroll drags the articles into the page -----
+      // The three cards already on screen lead; the rest stream in behind them,
+      // filling the grid left→right. The paper fills in behind the tiles so the
+      // home view shows through early. Once full, the grid scrolls for more rows.
       const arcScroll = arc ? arc.querySelector(".arc-scroll") : null;
-      const REVEAL = 1100;                 // wheel px needed to fully reveal
-      let prog = 0, progTarget = 0;        // 0 = hidden, 1 = fully revealed
+      const arcHead = arc ? arc.querySelector(".arc-head") : null;
+      const tiles = arc ? Array.prototype.slice.call(arc.querySelectorAll(".arc-tile")) : [];
+      const REVEAL = 1200;                 // wheel px to fully populate the first screen
+      const CASCADE = 18;                  // tiles that stream in across the reveal (~first screen)
+      let prog = 0, progTarget = 0;        // 0 = home, 1 = grid fully in
       let arcShown = false;
 
       function paintArc() {
         if (!arc) return;
-        const visible = prog > 0.001 || progTarget > 0.001;
-        if (visible && !arcShown) { arc.hidden = false; arcShown = true; }
-        arc.style.transform = "translateX(" + (-100 + prog * 100).toFixed(3) + "%)";
-        if (!visible && arcShown && prog <= 0.001) { arc.hidden = true; arcShown = false; }
+        const vis = prog > 0.001 || progTarget > 0.001;
+        if (vis && !arcShown) { arc.hidden = false; arcShown = true; }
+        arc.style.backgroundColor = "rgba(244,242,240," + Math.min(1, prog * 1.6).toFixed(3) + ")";
+        if (arcHead) arcHead.style.opacity = Math.min(1, prog * 2.5).toFixed(3);
+        if (strip) strip.style.opacity = Math.max(0, 1 - prog * 4).toFixed(3);
+        for (let i = 0; i < tiles.length; i++) {
+          const tp = i < CASCADE ? Math.min(1, Math.max(0, prog * CASCADE - i)) : (prog > 0.001 ? 1 : 0);
+          const t = tiles[i];
+          t.style.opacity = tp.toFixed(3);
+          t.style.transform = "translateX(" + ((1 - tp) * 80).toFixed(1) + "px)";
+        }
+        if (!vis && arcShown && prog <= 0.001) { arc.hidden = true; arcShown = false; arc.style.backgroundColor = ""; }
       }
       (function arcRaf() {
         prog += (progTarget - prog) * (reduce ? 1 : 0.12);   // gentle ease
@@ -403,19 +420,19 @@ const featMeta = featured
 
       function onWheel(e) {
         if (isOpen) return;                         // reader open → let it scroll
-        if (progTarget >= 1) {                      // fully open → grid scrolls
+        if (progTarget >= 1) {                      // grid fully in → it scrolls
           if (e.deltaY < 0 && arcScroll && arcScroll.scrollTop <= 0) {
-            e.preventDefault();                     // at top, scrolling up → drag away
+            e.preventDefault();                     // at top, scrolling up → drag it away
             setProg(progTarget + e.deltaY / REVEAL);
           }
           return;                                   // otherwise native grid scroll
         }
-        e.preventDefault();                         // mid-reveal → scroll drives the slide
+        e.preventDefault();                         // mid-reveal → scroll drives the fill
         setProg(progTarget + e.deltaY / REVEAL);
       }
       window.addEventListener("wheel", onWheel, { passive: false });
 
-      // Strip / × keep working: click snaps fully open, × drags it away.
+      // Strip / × keep working: click snaps fully in, × drags it away.
       if (strip) {
         strip.addEventListener("click", () => setProg(1));
         strip.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setProg(1); } });
