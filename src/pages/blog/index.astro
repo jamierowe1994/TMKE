@@ -30,19 +30,23 @@ const STATIC_POOL = await Promise.all(
   )
 );
 
-// The three lead articles ARE the images shown peeking on the home screen; they
-// form column 1 of the archive grid and lead it as it's dragged across. The rest
-// of the posts trail behind, scattered amongst brand photos in the same grid.
-const leadPosts = archivePosts.slice(0, 3);
-const restPosts = archivePosts.slice(3);
-const restItems = [];
-let gi = 0;
-restPosts.forEach((p, idx) => {
-  restItems.push({ type: "post", post: p, num: String(idx + 4).padStart(2, "0") });
-  restItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
-  restItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
-});
-for (let k = 0; k < 6; k++) restItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
+// 6-col grid: exactly 2 articles + 4 stock photos per row, articles scattered.
+// Rows are only created while articles remain — no image-only rows, no padding.
+const COLS = 6;
+const ROW_POST_COLS = [[0, 3], [2, 5], [1, 4], [0, 4], [2, 3], [1, 5]];
+const gridItems = [];
+let pi = 0, gi = 0;
+for (let r = 0; pi < archivePosts.length; r++) {
+  const cols = ROW_POST_COLS[r % ROW_POST_COLS.length];
+  for (let c = 0; c < COLS; c++) {
+    if (cols.includes(c) && pi < archivePosts.length) {
+      const p = archivePosts[pi++];
+      gridItems.push({ type: "post", post: p, num: String(pi).padStart(2, "0") });
+    } else {
+      gridItems.push({ type: "image", img: STATIC_POOL[gi++ % STATIC_POOL.length] });
+    }
+  }
+}
 
 // Lite data for the reader (full bodies embedded as <template>s below).
 const lite = posts.map((p) => ({
@@ -96,16 +100,7 @@ const featMeta = featured
       <!-- ===== Archive: the draggable grid, led by the 3 images ===== -->
       <div class="ins-archive" id="ins-archive">
         <div class="arc-grid">
-          {leadPosts.map((p, i) => (
-            <button class="arc-tile arc-tile--post" type="button" data-slug={p.slug} style={`grid-column:1;grid-row:${i + 1}`}>
-              <span class="arc-tile-img"><img src={p.hero} alt={p.title} loading="lazy" /></span>
-              <span class="arc-tile-cap">
-                <span class="arc-tile-num">Article {String(i + 1).padStart(2, "0")}</span>
-                <span class="arc-tile-name">{p.title}</span>
-              </span>
-            </button>
-          ))}
-          {restItems.map((it) => (
+          {gridItems.map((it) => (
             it.type === "post" ? (
               <button class="arc-tile arc-tile--post" type="button" data-slug={it.post.slug}>
                 <span class="arc-tile-img"><img src={it.post.hero} alt={it.post.title} loading="lazy" /></span>
