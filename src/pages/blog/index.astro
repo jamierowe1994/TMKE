@@ -173,7 +173,10 @@ const featMeta = featured
       grid-template-rows: minmax(0, 1fr); gap: clamp(28px, 3.4vw, 60px);
       /* right padding 0 so the featured sits flush to the archive edge — the only
          gap to the peeking cards is the archive's 6px left pad (= the card gap). */
-      padding: clamp(68px, 9vh, 100px) 0 clamp(22px, 3.5vh, 48px) clamp(24px, 3.4vw, 60px);
+      /* left edge tracks the About/SMM 1360 content wrap (so the intro starts at
+         the same x as the other pages); bigger bottom pad lifts the title + shrinks
+         the featured image a touch. */
+      padding: clamp(68px, 9vh, 100px) 0 clamp(36px, 5.5vh, 80px) max(76px, calc((100vw - 1360px) / 2));
     }
     .ins-intro { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
     .ins-intro-foot { display: flex; flex-direction: column; gap: clamp(16px, 2vh, 26px); }
@@ -221,8 +224,8 @@ const featMeta = featured
     }
     .ins-feature-stand {
       font-family: var(--sans); font-size: clamp(12.5px, 1vw, 14px); line-height: 1.5;
-      color: rgba(28,29,34,0.72); max-width: 62ch;
-      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+      color: rgba(28,29,34,0.72); max-width: none; text-align: justify;   /* full image width, justified */
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
 
     /* ----- Archive panel (the grid) ----- */
@@ -254,7 +257,9 @@ const featMeta = featured
 
     /* Post tiles — off-white box, title bottom-left; hover reveals the image. */
     .arc-tile--post {
-      -webkit-appearance: none; appearance: none; border: 0; text-align: left; cursor: pointer;
+      -webkit-appearance: none; appearance: none; box-sizing: border-box;
+      border: 1px solid var(--english-violet);   /* TMKE outline so the resting box reads as a frame */
+      text-align: left; cursor: pointer;
       background: var(--paper); color: var(--english-violet);
     }
     .arc-tile-img { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s ease; }
@@ -285,7 +290,7 @@ const featMeta = featured
 
     /* Back-to-home control (appears once the grid is dragged in) */
     .arc-back {
-      position: fixed; top: clamp(16px, 3vh, 30px); right: clamp(16px, 3vw, 34px); z-index: 160;
+      position: fixed; bottom: clamp(16px, 3vh, 30px); right: clamp(16px, 3vw, 34px); z-index: 160;
       width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2);
       background: var(--paper); color: var(--ink); font-size: 24px; line-height: 1; cursor: pointer;
       display: grid; place-items: center; opacity: 0; pointer-events: none;
@@ -300,6 +305,10 @@ const featMeta = featured
       box-shadow: 0 40px 110px -30px rgba(0,0,0,0.45);
     }
     :global(body.reader-locked) { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
+    /* While reading an article, strip the nav back to just the menu (drop the logo
+       and the login control) so the reader feels like a focused pop-out. */
+    :global(body.reader-locked .nav-logo),
+    :global(body.reader-locked #nav-login) { display: none; }
 
     .reader {
       position: fixed; inset: 0; z-index: 250; display: grid; place-items: center;
@@ -350,7 +359,7 @@ const featMeta = featured
     @media (max-width: 1000px) {
       .ins { height: auto; overflow: visible; }
       .ins-rail { flex-direction: column; transform: none !important; height: auto; }
-      .ins-home { flex: none; width: 100%; height: auto; min-height: 90vh; grid-template-columns: 1fr; gap: 40px; }
+      .ins-home { flex: none; width: 100%; height: auto; min-height: 90vh; grid-template-columns: 1fr; gap: 40px; padding: 90px 24px 48px; }
       .ins-bigtitle { font-size: clamp(56px, 16vw, 110px); }
       .ins-archive { flex: none; width: 100%; height: auto; overflow: visible; }
       .arc-grid { grid-template-columns: repeat(2, 1fr); }
