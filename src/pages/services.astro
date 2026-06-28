@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { getImage } from "astro:assets";
 import DiscoveryPanel from "../components/DiscoveryPanel.astro";
 import SMMForms from "../components/SMMForms.astro";
 import NavDrawer from "../components/NavDrawer.astro";
@@ -8,13 +9,21 @@ import { gbpFromPence } from "../lib/supabase.js";
 
 // Horizontal slide deck (videography-style). Placeholder portfolio imagery on R2.
 const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
-// SMM dictionary-hero backdrop — the client's "Smm hero" still on R2.
+// SMM dictionary-hero backdrop — the client's "Smm hero" still on R2 (reused on
+// the slide-6 work-samples field; the hero itself is now a portrait video).
 const SMM_HERO_IMG = "https://assets.tmke.co.uk/Smm%20hero.jpg";
-// Full-bleed feature-slide images (slides 2–4, floema-style). Placeholders —
-// swap freely; the layout is image-agnostic.
-const FEATURE2_IMG = "https://assets.tmke.co.uk/TMKE%20SMM/Slide%202%20-%20Social%20Media%20Marketing.png";
-const FEATURE3_IMG = R2("living-1");
-const FEATURE4_IMG = R2("orange-1");
+// Hero is now a portrait video (cropped to 3:4 via object-fit).
+const SMM_HERO_VIDEO = "https://assets.tmke.co.uk/TMKE%20SMM/hf_20260628_061058_a6d65665-2848-4f20-bae4-4c4ef6066688.mp4";
+// Full-bleed feature-slide backgrounds (slides 2–4). The client's R2 PNGs are
+// 2–6 MB each, so optimise them to WebP. The old slide-2 "Social Media
+// Marketing" image shifts onto slide 4 (One account manager), per the client.
+const [FEATURE2_IMG, FEATURE3_IMG, FEATURE4_IMG] = await Promise.all(
+  [
+    "https://assets.tmke.co.uk/TMKE%20SMM/SMM%202.png",                                       // S2 · don't go viral
+    "https://assets.tmke.co.uk/TMKE%20SMM/SMM3.png",                                          // S3 · property first, always
+    "https://assets.tmke.co.uk/TMKE%20SMM/Slide%202%20-%20Social%20Media%20Marketing.png",    // S4 · one account manager
+  ].map((src) => getImage({ src, inferSize: true, width: 1600, quality: 72, format: "webp" }).then((r) => r.src))
+);
 // Slide 5 — one image per service tier (swaps on hover). Placeholders — swap freely.
 const TIER_IMAGES = [R2("kitchen-1"), R2("white-2"), R2("table"), R2("living-2")];
 
@@ -92,7 +101,7 @@ const total = 7;
                 <span class="pf-scroll-hint" aria-hidden="true">Scroll <em>&rarr;</em></span>
               </div>
               <figure class="sm-hero-media">
-                <img src={SMM_HERO_IMG} alt="Social media management by TMKE" />
+                <video src={SMM_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-label="Social media management by TMKE"></video>
               </figure>
             </div>
             <div class="sm-hero-title">
@@ -360,7 +369,7 @@ const total = 7;
     .sm-hero-lead { flex: 0 0 auto; width: 42.4vw; }
     .sm-lead { font-family: var(--sans); font-size: clamp(16px, 1.54vw, 22px); line-height: 1.25; color: rgba(28,29,34,0.78); margin: 0 0 24px; max-width: none; text-align: justify; }
     .sm-hero-media { margin: 0; flex: 0 0 auto; }
-    .sm-hero-media img { display: block; height: clamp(360px, 56vh, 620px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; }
+    .sm-hero-media img, .sm-hero-media video { display: block; height: clamp(360px, 56vh, 620px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; }
 
     /* Full-width term — sized to span margin to margin; pronunciation beneath. */
     .sm-hero-title { margin-top: clamp(28px, 4vh, 56px); }
@@ -371,13 +380,15 @@ const total = 7;
     .sm-pron em { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); font-style: normal; }
 
     /* First-slide entrance — image settles, then the wording rises */
-    #pf-deck .pf-panel:first-child .sm-hero-media img { animation: smImgIn 2.4s cubic-bezier(.16,1,.3,1) 0.2s both; }
+    #pf-deck .pf-panel:first-child .sm-hero-media img,
+    #pf-deck .pf-panel:first-child .sm-hero-media video { animation: smImgIn 2.4s cubic-bezier(.16,1,.3,1) 0.2s both; }
     #pf-deck .pf-panel:first-child .sm-hero-lead,
     #pf-deck .pf-panel:first-child .sm-hero-title { animation: smTextIn 1.6s cubic-bezier(.16,1,.3,1) 0.6s both; }
     @keyframes smImgIn { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
     @keyframes smTextIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
     @media (prefers-reduced-motion: reduce) {
       #pf-deck .pf-panel:first-child .sm-hero-media img,
+      #pf-deck .pf-panel:first-child .sm-hero-media video,
       #pf-deck .pf-panel:first-child .sm-hero-lead,
       #pf-deck .pf-panel:first-child .sm-hero-title { animation-duration: 0.01ms; }
     }
@@ -621,7 +632,7 @@ const total = 7;
       .sm-hero-top { flex-direction: column; gap: 22px; }
       .sm-hero-lead { width: auto; max-width: none; }
       .sm-hero-media { align-self: stretch; }
-      .sm-hero-media img { width: 100%; height: auto; aspect-ratio: 4 / 5; }
+      .sm-hero-media img, .sm-hero-media video { width: 100%; height: auto; aspect-ratio: 4 / 5; }
       .sm-word { font-size: 12.5vw; white-space: normal; line-height: 0.92; }
       .sm-why { flex-direction: column; padding: 0; }
       .sm-why-text { width: 100%; min-width: 0; padding: 88px 28px 30px; }
