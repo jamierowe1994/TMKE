@@ -15,6 +15,11 @@ const SMM_HERO_IMG = "https://assets.tmke.co.uk/Smm%20hero.jpg";
 // Slide 2 ("doesn't want you to go viral") is now the VIDEO; the hero goes back
 // to the still image (SMM_HERO_IMG). The stills shift down one slide each.
 const SMM_HERO_VIDEO = "https://assets.tmke.co.uk/TMKE%20SMM/hf_20260628_061058_a6d65665-2848-4f20-bae4-4c4ef6066688.mp4";
+// Slide-1 background photo (fills the blank space above the bottom-anchored copy).
+const SMM_HERO_BG = (await getImage({
+  src: "https://assets.tmke.co.uk/TMKE%20SMM/SMM%20Background%20.png",
+  width: 1600, height: 900, quality: 72, format: "webp",
+})).src;
 const [FEATURE3_IMG, FEATURE4_IMG, SMM_MKTG_IMG] = await Promise.all(
   [
     "https://assets.tmke.co.uk/TMKE%20SMM/SMM%202.png",                                       // S3 · property first, always
@@ -93,7 +98,7 @@ const total = 7;
              pronunciation top, mini brief + Discover button bottom, image right),
              anchored to the BOTTOM of the slide. The blank space above is left
              for a hero image the client will add. -->
-        <section class="pf-panel sm-hero" style="--col:0;--row:0">
+        <section class="pf-panel sm-hero" style={`--col:0;--row:0;--sm-hero-bg:url('${SMM_HERO_BG}')`}>
           <div class="sm-hero-inner">
             <div class="sm-lede-grid">
               <div class="sm-lede-copy">
@@ -366,7 +371,15 @@ const total = 7;
        slide: copy column left (term + pronunciation at the top, mini brief +
        Discover button at its base), contained image held right. The space above
        is left blank for a hero image the client will add. */
-    .sm-hero { overflow: hidden; padding: 0; background: var(--paper); display: flex; align-items: stretch; }
+    .sm-hero {
+      overflow: hidden; padding: 0; display: flex; align-items: stretch;
+      /* Background photo + a paper scrim that's strong at the base (copy stays
+         legible) and light up top (photo fills the blank space). */
+      background:
+        linear-gradient(to top, rgba(244,242,241,0.95) 0%, rgba(244,242,241,0.72) 30%, rgba(244,242,241,0.34) 62%, rgba(244,242,241,0.18) 100%),
+        var(--sm-hero-bg, none) center / cover no-repeat,
+        var(--paper);
+    }
     .sm-hero-inner {
       width: 100%; display: flex; flex-direction: column; justify-content: flex-end;  /* built from the bottom up */
       padding: 60px 80px;
