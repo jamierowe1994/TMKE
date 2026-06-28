@@ -194,12 +194,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       min-height: 100vh;                 /* the header is one whole screen */
       box-sizing: border-box;
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(280px, 1fr) auto;  /* copy left, big grid right */
       align-items: center;
-      gap: clamp(32px, 5vw, 88px);
-      max-width: 1320px;
+      gap: clamp(28px, 4vw, 72px);
+      max-width: 1800px;
       margin: 0 auto;
-      padding: clamp(104px, 13vh, 150px) clamp(24px, 4vw, 64px) clamp(40px, 6vh, 72px);
+      padding: clamp(86px, 11vh, 120px) clamp(24px, 3.5vw, 56px) clamp(38px, 5.5vh, 60px);
     }
     @media (max-width: 880px) {
       .edit-hero { min-height: 0; grid-template-columns: 1fr; gap: 40px; padding-top: clamp(104px, 14vh, 150px); }
@@ -255,14 +255,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .eh-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
       gap: clamp(8px, 0.7vw, 12px);
-      width: min(100%, 52vh, 480px);
-      margin: 0 auto;
+      /* a 3×3 of 3:4 tiles is itself 3:4 — size by height so it fills the screen
+         (top margin + slight bottom), like the blog archive, only slightly smaller. */
+      aspect-ratio: 3 / 4;
+      height: calc(100vh - clamp(150px, 18vh, 196px));
+      width: auto;
+      justify-self: end;
       perspective: 1400px;
       transition: opacity 0.6s ease;
     }
     .eh-grid.is-fading { opacity: 0; }
-    .eh-tile { position: relative; aspect-ratio: 3 / 4; }
+    .eh-tile { position: relative; min-height: 0; }
+    @media (max-width: 880px) {
+      .eh-grid { height: auto; width: 100%; justify-self: stretch; }
+    }
     .eh-tile-img {
       position: absolute; inset: 0;
       background-size: cover; background-position: center;
