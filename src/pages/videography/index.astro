@@ -1075,8 +1075,8 @@ const navLinks = [
       // inset grows from the rest box (inset like the About photos) to full-bleed,
       // so on scroll it rises up over the header into a full-page video. Only once
       // heroP hits 1 does a further scroll advance the deck (see the wheel handler).
-      const HEROSENS = 0.0012;
-      let heroP = 0, heroDisp = 0, heroApplied = -1;
+      const HEROSENS = 0.0012, HERO_HOLD = 1200;   // ms dwell once the video is full-page
+      let heroP = 0, heroDisp = 0, heroApplied = -1, heroHold = 0;
       const heroPanel = stage.querySelector(".vh");
       const heroHeader = heroPanel && heroPanel.querySelector(".vh-header");
       const heroWrap = heroPanel && heroPanel.querySelector(".vh-wrap");
@@ -1152,8 +1152,15 @@ const navLinks = [
         // Slide 1: scroll first raises the long video to a full-page video; only
         // once it's full does a further scroll advance the deck across.
         if (display < 0.5) {
-          if (d > 0 && heroP < 1) { heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
+          if (d > 0 && heroP < 1) {
+            heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS));
+            if (heroP >= 1) heroHold = performance.now() + HERO_HOLD;   // just landed full → start the dwell
+            return;
+          }
           if (d < 0 && heroP > 0) { heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
+          // Full-page video — hold a beat before a forward scroll advances, so the
+          // viewer registers it's a video and can choose to watch it.
+          if (d > 0 && performance.now() < heroHold) return;
         }
         if (atLast() && d > 0) { if (!revealed) setReveal(true); return; }
         if (atLast() && revealed && d < 0) { setReveal(false); return; }
@@ -1185,8 +1192,9 @@ const navLinks = [
         // Slide 1: a drag raises the long video to full-page first (then advance).
         if (display < 0.5) {
           const np = Math.max(0, Math.min(1, thp - dom * 0.0024));
+          if (np >= 1 && heroP < 1) heroHold = performance.now() + HERO_HOLD;   // just landed full → start the dwell
           heroP = np;
-          if (np >= 1 && dom < 0) acc = clamp(Math.round(display) + 1);
+          if (np >= 1 && dom < 0 && performance.now() >= heroHold) acc = clamp(Math.round(display) + 1);
           return;
         }
         if (atLast() && dom < -24) { if (!revealed) setReveal(true); return; }
