@@ -236,9 +236,10 @@ const featMeta = featured
 
     /* ============ Archive overlay ============ */
     .arc {
-      position: fixed; inset: 0; z-index: 150; background: transparent; /* JS ramps paper in behind tiles */
+      position: fixed; inset: 0; z-index: 150; background: var(--paper);
       padding: 8px 8px 8px;
       display: flex; flex-direction: column; gap: 8px;
+      transform: translateX(-100%); will-change: transform;  /* JS slides this -100%→0 */
     }
     .arc[hidden] { display: none; }
     .arc-head { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 6px 6px 0; }
@@ -257,7 +258,7 @@ const featMeta = featured
     @media (max-width: 1200px) { .arc-grid { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 760px)  { .arc-grid { grid-template-columns: repeat(2, 1fr); } }
 
-    .arc-tile { position: relative; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; will-change: transform, opacity; }
+    .arc-tile { position: relative; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; }
 
     /* Post tiles — off-white box, title bottom-left; hover reveals the image. */
     .arc-tile--post {
@@ -360,7 +361,7 @@ const featMeta = featured
       .reader-hero { height: auto; aspect-ratio: 16 / 10; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .arc, .arc-tile, .reader, .reader-frame, .flow-fly, .reader-x, .ins-strip-img { transition: none !important; animation: none !important; opacity: 1 !important; transform: none !important; }
+      .reader, .reader-frame, .flow-fly, .reader-x, .ins-strip-img { transition: none !important; animation: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
 
@@ -383,36 +384,33 @@ const featMeta = featured
       try { data = (JSON.parse(document.getElementById("flow-data").textContent || "[]") || []).reduce((m, p) => (m[p.slug] = p, m), {}); } catch (_) {}
       const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      // ----- Archive reveal — scroll drags the articles into the page -----
-      // The three cards already on screen lead; the rest stream in behind them,
-      // filling the grid left→right. The paper fills in behind the tiles so the
-      // home view shows through early. Once full, the grid scrolls for more rows.
+      // ----- Archive reveal — one smooth slide (single GPU transform) -----
+      // The grid sweeps in from the left, so its top-left tiles (the three lead
+      // articles) appear first and the rest roll in left→right behind them. No
+      // per-tile work = no jank. Once fully in, the grid scrolls for more rows.
+      const insSection = document.querySelector(".ins");
       const arcScroll = arc ? arc.querySelector(".arc-scroll") : null;
-      const arcHead = arc ? arc.querySelector(".arc-head") : null;
-      const tiles = arc ? Array.prototype.slice.call(arc.querySelectorAll(".arc-tile")) : [];
-      const REVEAL = 1200;                 // wheel px to fully populate the first screen
-      const CASCADE = 18;                  // tiles that stream in across the reveal (~first screen)
+      const REVEAL = 1100;                 // wheel px to fully roll the grid in
       let prog = 0, progTarget = 0;        // 0 = home, 1 = grid fully in
       let arcShown = false;
 
       function paintArc() {
         if (!arc) return;
-        const vis = prog > 0.001 || progTarget > 0.001;
+        const vis = prog > 0.0005 || progTarget > 0.0005;
         if (vis && !arcShown) { arc.hidden = false; arcShown = true; }
-        arc.style.backgroundColor = "rgba(244,242,240," + Math.min(1, prog * 1.6).toFixed(3) + ")";
-        if (arcHead) arcHead.style.opacity = Math.min(1, prog * 2.5).toFixed(3);
-        if (strip) strip.style.opacity = Math.max(0, 1 - prog * 4).toFixed(3);
-        for (let i = 0; i < tiles.length; i++) {
-          const tp = i < CASCADE ? Math.min(1, Math.max(0, prog * CASCADE - i)) : (prog > 0.001 ? 1 : 0);
-          const t = tiles[i];
-          t.style.opacity = tp.toFixed(3);
-          t.style.transform = "translateX(" + ((1 - tp) * 80).toFixed(1) + "px)";
+        arc.style.transform = "translate3d(" + (-(1 - prog) * 100).toFixed(3) + "%,0,0)";
+        if (insSection) {                  // gentle parallax: home eases out as the grid covers it
+          insSection.style.transform = "translate3d(" + (prog * 5).toFixed(3) + "vw,0,0)";
+          insSection.style.opacity = (1 - prog * 0.35).toFixed(3);
         }
-        if (!vis && arcShown && prog <= 0.001) { arc.hidden = true; arcShown = false; arc.style.backgroundColor = ""; }
+        if (!vis && arcShown && prog <= 0.0005) {
+          arc.hidden = true; arcShown = false;
+          if (insSection) { insSection.style.transform = ""; insSection.style.opacity = ""; }
+        }
       }
       (function arcRaf() {
-        prog += (progTarget - prog) * (reduce ? 1 : 0.12);   // gentle ease
-        if (Math.abs(progTarget - prog) < 0.0015) prog = progTarget;
+        prog += (progTarget - prog) * (reduce ? 1 : 0.1);   // gentle ease toward the scroll target
+        if (Math.abs(progTarget - prog) < 0.0008) prog = progTarget;
         paintArc();
         requestAnimationFrame(arcRaf);
       })();
@@ -422,17 +420,17 @@ const featMeta = featured
         if (isOpen) return;                         // reader open → let it scroll
         if (progTarget >= 1) {                      // grid fully in → it scrolls
           if (e.deltaY < 0 && arcScroll && arcScroll.scrollTop <= 0) {
-            e.preventDefault();                     // at top, scrolling up → drag it away
+            e.preventDefault();                     // at top, scrolling up → roll it away
             setProg(progTarget + e.deltaY / REVEAL);
           }
           return;                                   // otherwise native grid scroll
         }
-        e.preventDefault();                         // mid-reveal → scroll drives the fill
+        e.preventDefault();                         // mid-roll → scroll drives the slide
         setProg(progTarget + e.deltaY / REVEAL);
       }
       window.addEventListener("wheel", onWheel, { passive: false });
 
-      // Strip / × keep working: click snaps fully in, × drags it away.
+      // Strip / × keep working: click snaps fully in, × rolls it away.
       if (strip) {
         strip.addEventListener("click", () => setProg(1));
         strip.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setProg(1); } });
