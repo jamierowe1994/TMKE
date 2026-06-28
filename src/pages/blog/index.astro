@@ -159,7 +159,8 @@ const featMeta = featured
     /* ============ Insights — drag-across archive ============ */
     .ins {
       --peek: clamp(150px, 16vw, 224px);   /* how much of the grid peeks at rest */
-      --arc-inset: clamp(68px, 9vh, 100px); /* archive sits in an inset band: top = bottom, top aligned with the labels (clears the nav) */
+      --arc-inset: clamp(68px, 9vh, 100px); /* archive band TOP — aligned with the labels (clears the nav) */
+      --arc-bottom: clamp(36px, 5.5vh, 80px); /* archive band BOTTOM — matches the home text bottom margin (seamless) */
       --hairline: rgba(28,29,34,0.16);      /* the featured-article rule: reused for the archive line + tile outlines */
       position: relative; height: 100vh; overflow: hidden;
       background: var(--paper); color: var(--ink);
@@ -241,7 +242,7 @@ const featMeta = featured
          content never scrolls up underneath it. Laid out like the featured column:
          a label, then a hairline rule, then the grid. */
       align-self: flex-start; margin-top: var(--arc-inset);
-      height: calc(100% - var(--arc-inset) * 2);
+      height: calc(100% - var(--arc-inset) - var(--arc-bottom));   /* bottom comes down to the home text margin */
       display: flex; flex-direction: column; gap: 14px;
       padding: 0 10px 0 6px;   /* left pad = the 6px card gap (gap to the featured) */
     }
@@ -312,9 +313,10 @@ const featMeta = featured
 
     /* Back-to-home control (appears once the grid is dragged in) */
     .arc-back {
-      position: fixed; bottom: clamp(16px, 3vh, 30px); right: clamp(16px, 3vw, 34px); z-index: 160;
-      width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2);
-      background: var(--paper); color: var(--ink); font-size: 24px; line-height: 1; cursor: pointer;
+      /* smaller + lower so it sits within the bottom text margin, clear of the grid */
+      position: fixed; bottom: clamp(12px, 1.6vh, 16px); right: clamp(16px, 3vw, 34px); z-index: 160;
+      width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2);
+      background: var(--paper); color: var(--ink); font-size: 19px; line-height: 1; cursor: pointer;
       display: grid; place-items: center; opacity: 0; pointer-events: none;
       transition: opacity 0.3s ease, background 0.25s, color 0.25s, transform 0.4s;
     }
