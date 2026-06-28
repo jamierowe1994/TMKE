@@ -867,26 +867,25 @@ const total = 7;
         imgs.forEach((im, n) => im.classList.toggle("is-active", n === i));
       };
       const collapse = () => setActive(0, false);   // default: image only, no blurb open
-      // "armed" gates the hover-expand. On arriving at the slide we DON'T expand
-      // if the cursor happens to be resting on a tier — only a deliberate hover
-      // (leave + re-enter) opens it, so the slide always lands looking collapsed.
-      let armed = false;
+      // Open ONLY on a real pointer move over a tier. A mouseenter fires when the
+      // slide transitions in under a stationary cursor — that's what popped a box
+      // open on arrival; mousemove never fires without genuine movement, so the
+      // slide always lands fully collapsed and a box opens only once the user
+      // actively moves onto it. Leaving the list closes everything back down.
+      let cur = -1;
+      const openItem = (i) => { if (i !== cur) { cur = i; setActive(i); } };
       items.forEach((it, i) => {
-        it.addEventListener("mouseenter", () => { if (armed) setActive(i); });
-        it.addEventListener("focus", () => setActive(i));          // keyboard = deliberate
-        it.addEventListener("click", () => { armed = true; setActive(i); });
+        it.addEventListener("mousemove", () => openItem(i));
+        it.addEventListener("focus", () => openItem(i));          // keyboard = deliberate
+        it.addEventListener("click", () => openItem(i));
       });
-      // Leaving the list arms it, so the next genuine hover opens.
-      list.addEventListener("mouseleave", () => { armed = true; });
+      list.addEventListener("mouseleave", () => { cur = -1; collapse(); });
 
       collapse();
-      // Re-collapse + re-arm whenever the slide (re)enters view. If the cursor is
-      // already over the list at that moment, stay un-armed until it leaves.
+      // Re-collapse whenever the slide (re)enters view, so it always lands closed.
       const panel = list.closest(".pf-panel");
       if (panel) {
-        const sync = () => {
-          if (panel.classList.contains("is-in")) { collapse(); armed = !list.matches(":hover"); }
-        };
+        const sync = () => { if (panel.classList.contains("is-in")) { cur = -1; collapse(); } };
         new MutationObserver(sync).observe(panel, { attributes: true, attributeFilter: ["class"] });
         sync();
       }
