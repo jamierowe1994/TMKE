@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getImage } from "astro:assets";
 import { getPublishedPosts } from "../../data/blog.js";
 
 // Pulled from Supabase if configured, otherwise the static fallback.
@@ -7,8 +8,13 @@ const allPosts = await getPublishedPosts();
 const posts = [...allPosts].sort((a, b) => (a.date < b.date ? 1 : -1));
 
 // Client-supplied blog hero images (R2 "Blog Static Images/" 1–6.png), applied
-// to the posts in date order (1.png = newest, etc.).
-const BLOG_HERO = [1, 2, 3, 4, 5, 6].map((n) => `https://assets.tmke.co.uk/Blog%20Static%20Images/${n}.png`);
+// to the posts in date order (1.png = newest, etc.). The originals are 4–9 MB
+// PNGs, so optimise them (downscale + WebP) — at full size they make the
+// archive grid composite/scroll painfully slowly.
+const BLOG_SRC = [1, 2, 3, 4, 5, 6].map((n) => `https://assets.tmke.co.uk/Blog%20Static%20Images/${n}.png`);
+const BLOG_HERO = await Promise.all(
+  BLOG_SRC.map((src) => getImage({ src, inferSize: true, width: 1000, quality: 72, format: "webp" }).then((r) => r.src))
+);
 posts.forEach((p, i) => { if (BLOG_HERO[i]) p.hero = BLOG_HERO[i]; });
 
 const featured = posts[0] || null;     // newest = featured (auto)

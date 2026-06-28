@@ -20,4 +20,9 @@ export default defineConfig({
   build: {
     inlineStylesheets: 'auto',
   },
+  image: {
+    // Allow Astro to fetch + optimise the client's full-size R2 blog images at
+    // build time (they ship as 4–9 MB PNGs; we downscale + convert to WebP).
+    domains: ['assets.tmke.co.uk'],
+  },
 });
