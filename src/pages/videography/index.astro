@@ -18,13 +18,13 @@ const R2 = (name) => `https://assets.tmke.co.uk/${name}.webp`;
 const serviceKey = (p) => (p.slug === "studio" ? "content-studio" : p.slug);
 // Dictionary-hero backdrop — the client's "Camera View" still on R2.
 const HERO_IMG = "https://assets.tmke.co.uk/camera%20view.jpg";
-// Slide-1 hero (SMM-style): placeholder image background (client to replace) +
-// a right-hand VIDEO box.
-const VID_HERO_BG = (await getImage({
-  src: "https://assets.tmke.co.uk/camera%20view.jpg",
-  width: 2560, height: 1440, quality: 86, format: "webp",
-})).src;
+// Slide-1 hero (SMM-style): full-bleed background VIDEO + a right-hand static
+// image box (placeholder pulled from the site; client to replace).
 const VID_HERO_VIDEO = "https://assets.tmke.co.uk/Jack%20Photos%20-%20Homepage/Property%20Edit%20Video%201%20.mov";
+const VID_BOX_IMG = (await getImage({
+  src: "https://assets.tmke.co.uk/camera%20view.jpg",
+  width: 700, height: 933, quality: 78, format: "webp",
+})).src;
 
 const navLinks = [
   { label: "About", href: "/about" },
@@ -62,7 +62,9 @@ const navLinks = [
            lead + Discover button at its base) left, a VIDEO box right, over a
            placeholder image background with the feature-slide gradient. Anchored
            to the bottom; client will swap the background image. -->
-      <section class="pf-panel vh" style={`--vh-bg:url('${VID_HERO_BG}')`}>
+      <section class="pf-panel vh">
+        <video class="vh-bgvideo" src={VID_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>
+        <div class="vh-scrim"></div>
         <div class="vh-inner">
           <div class="vh-lede-grid">
             <div class="vh-lede-copy">
@@ -80,7 +82,7 @@ const navLinks = [
               </div>
             </div>
             <figure class="vh-lede-media">
-              <video src={VID_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-label="Property video by TMKE"></video>
+              <img src={VID_BOX_IMG} alt="TMKE videography" />
             </figure>
           </div>
         </div>
@@ -333,15 +335,11 @@ const navLinks = [
        justified blocks of equal width. ---- */
     /* .pf-panel.vh (two classes) so the background beats .pf-panel's paper bg
        defined later; don't set position so the panel keeps .pf-panel's absolute. */
-    .pf-panel.vh {
-      overflow: hidden; display: flex; align-items: stretch;
-      /* Same gradient as the feature slides (2-4), so slide 1 reads as part of the set. */
-      background:
-        linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%),
-        var(--vh-bg, none) center / cover no-repeat,
-        #2a2733;
-    }
-    .vh-inner { width: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 60px 80px; color: var(--paper); }
+    .pf-panel.vh { overflow: hidden; display: flex; align-items: stretch; background: #2a2733; }
+    /* Full-bleed background VIDEO + the same gradient as the feature slides (2-4). */
+    .vh-bgvideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+    .vh-scrim { position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); }
+    .vh-inner { position: relative; z-index: 2; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 60px 80px; color: var(--paper); }
     .vh-lede-grid { display: grid; grid-template-columns: 1fr auto; gap: clamp(32px, 5vw, 80px); align-items: stretch; }
     .vh-lede-copy { width: min-content; max-width: 480px; display: flex; flex-direction: column; justify-content: space-between; text-shadow: 0 2px 22px rgba(0,0,0,0.42); }
     .vh-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--paper); text-align: justify; }
@@ -354,7 +352,7 @@ const navLinks = [
     .vh-lede-btn span { transition: transform 0.3s; }
     .vh-lede-btn:hover span { transform: translateX(4px); }
     .vh-lede-media { margin: 0; justify-self: end; }
-    .vh-lede-media video { display: block; height: clamp(300px, 36vh, 372px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; background: #1a1822; }
+    .vh-lede-media img { display: block; height: clamp(300px, 36vh, 372px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; background: #1a1822; }
     .vh .pf-partner { margin: 14px 0 0; }
 
     /* ---- Slide 2: Intro & Why ---- */
@@ -624,7 +622,7 @@ const navLinks = [
       .vh-lede-copy { display: block; width: auto; max-width: none; }
       .vh-lede-bottom { margin-top: 24px; }
       .vh-lede-media { justify-self: stretch; }
-      .vh-lede-media video { width: 100%; height: auto; aspect-ratio: 16 / 10; }
+      .vh-lede-media img { width: 100%; height: auto; aspect-ratio: 16 / 10; }
       .vh-lede-mark { font-size: clamp(34px, 9vw, 54px); }
     }
 
