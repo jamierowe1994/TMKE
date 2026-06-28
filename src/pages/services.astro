@@ -113,10 +113,9 @@ const total = 7;
               <div class="sm-lede-grid">
                 <div class="sm-lede-copy">
                   <div class="sm-lede-top">
-                    <h1 class="sm-lede-mark">Social Media Management</h1>
+                    <h1 class="sm-lede-mark">SMM</h1>
                     <p class="sm-lede-pron">
-                      <span class="sm-lede-abbr">SMM</span>
-                      <span class="sm-lede-phon">/&thinsp;es em &#712;em&thinsp;/</span>
+                      <span class="sm-lede-phon">Social Media Management</span>
                       <span class="sm-lede-pos"><em>noun</em></span>
                     </p>
                   </div>
@@ -131,12 +130,12 @@ const total = 7;
               </div>
             </div>
           </div>
-          <!-- One long image below the header: shows whatever fits, scrolls UP on
-               wheel; at its bottom edge the deck advances across to slide 2 (the
-               wheel handler's edgeBlocked passes through until then). -->
-          <div class="sm-hero-scroll" data-lenis-prevent>
+          <!-- One long image, inset like the About photos. On scroll it rises up
+               OVER the header to a full-page image (JS drives the inset), then the
+               deck advances across to slide 2. -->
+          <figure class="sm-hero-pic">
             <img class="sm-hero-long" src={SMM_HERO_BG} alt="" />
-          </div>
+          </figure>
         </section>
 
         <!-- Slide 2 (col 1,row 0) — full-image: don't go viral. Scroll DOWN. -->
@@ -388,31 +387,30 @@ const total = 7;
        slide: copy column left (term + pronunciation at the top, mini brief +
        Discover button at its base), contained image held right. The space above
        is left blank for a hero image the client will add. */
-    .sm-hero { overflow: hidden; padding: 0; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); }
-    /* Header pinned at the top, in the About lede format (matches /about). */
-    .sm-hero-header { flex: 0 0 auto; padding: clamp(64px, 8vh, 96px) 76px clamp(26px, 3.5vh, 40px); }
+    .sm-hero { display: block; overflow: hidden; padding: 0; background: var(--paper); color: var(--ink); }
+    /* Header pinned at the top — copied from the About lede EXACTLY: same
+       top/side/bottom padding, same 1360 wrap, copy left + photo right. */
+    .sm-hero-header { position: relative; z-index: 1; padding: clamp(84px, 10vh, 106px) 76px clamp(40px, 5vh, 56px); }
     .sm-hero-wrap { max-width: 1360px; margin: 0 auto; }
     .sm-lede-grid { display: grid; grid-template-columns: 1fr auto; gap: clamp(32px, 5vw, 80px); align-items: stretch; }
-    /* Column hugs the title (min-content = the "Management" line) so the title and
-       body form two blocks of the SAME width, both justified. */
-    .sm-lede-copy { width: min-content; max-width: 480px; display: flex; flex-direction: column; justify-content: space-between; }
-    .sm-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--ink); text-align: justify; }
-    .sm-lede-pron { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin: 12px 0 0; }
-    .sm-lede-abbr { font-family: var(--serif); font-weight: 600; font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.04em; color: rgba(28,29,34,0.85); }
+    .sm-lede-copy { max-width: 480px; display: flex; flex-direction: column; justify-content: space-between; }
+    .sm-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--ink); }
+    .sm-lede-pron { display: flex; align-items: baseline; gap: 12px; margin: 12px 0 0; }
     .sm-lede-phon { font-family: var(--serif); font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.06em; color: rgba(28,29,34,0.6); }
     .sm-lede-pos { font-family: var(--serif); font-style: italic; font-size: clamp(13px, 1vw, 15px); color: rgba(28,29,34,0.5); }
-    .sm-lede-text { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6; color: rgba(28,29,34,0.78); margin: 0; max-width: none; text-align: justify; }
+    .sm-lede-text { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6; color: rgba(28,29,34,0.78); margin: 0; max-width: 44ch; }
     .sm-lede-btn { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 8px 24px; border: 1px solid var(--ink); background: none; cursor: pointer; color: var(--ink); font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; transition: background 0.3s, color 0.3s; }
     .sm-lede-btn:hover { background: var(--ink); color: var(--paper); }
     .sm-lede-btn span { transition: transform 0.3s; }
     .sm-lede-btn:hover span { transform: translateX(4px); }
     .sm-lede-media { margin: 0; justify-self: end; }
     .sm-lede-media img { display: block; height: clamp(300px, 36vh, 372px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; }
-    /* The one long image: a fixed band that fills the rest of the slide; the image
-       is full-width and taller than the band, so the wheel scrolls it up. */
-    .sm-hero-scroll { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
-    .sm-hero-scroll::-webkit-scrollbar { display: none; }
-    .sm-hero-long { display: block; width: 100%; height: auto; }
+    /* The one long image — inset like the About photos at rest (left/right/bottom
+       indents); the deck JS grows its inset to full-bleed as you scroll, so it
+       rises up over the header into a full-page image, then advances across.
+       (top/left/right/bottom + radius are set by JS; these are the rest fallback.) */
+    .sm-hero-pic { position: absolute; z-index: 2; margin: 0; overflow: hidden; top: 52%; left: 76px; right: 76px; bottom: 40px; border-radius: 2px; }
+    .sm-hero-pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 0%; }
 
     /* First-slide entrance — image settles, then the copy rises */
     #pf-deck .pf-panel:first-child .sm-lede-media img { animation: smImgIn 2.4s cubic-bezier(.16,1,.3,1) 0.2s both; }
@@ -724,6 +722,39 @@ const total = 7;
       const STEP = 0.5;      // extra scroll past a slide needed to advance (resistance)
       let acc = 0, display = 0, lastCur = -1, anchor = 0, lockUntil = 0;
       const clamp = (v) => Math.max(0, Math.min(last, v));
+
+      // Slide-1 long image: heroP (target, 0→1) eases to heroDisp; the image's
+      // inset grows from the rest box (inset like About's photos) to full-bleed,
+      // so on scroll it rises up over the header into a full-page image. Only when
+      // heroP hits 1 does a further scroll advance the deck (see the wheel handler).
+      const HEROSENS = 0.0012;
+      let heroP = 0, heroDisp = 0, heroApplied = -1;
+      const heroPanel = stage.querySelector(".sm-hero");
+      const heroHeader = heroPanel && heroPanel.querySelector(".sm-hero-header");
+      const heroWrap = heroPanel && heroPanel.querySelector(".sm-hero-wrap");
+      const heroPic = heroPanel && heroPanel.querySelector(".sm-hero-pic");
+      const heroImg = heroPic && heroPic.querySelector("img");
+      let heroGeo = null;
+      const measureHero = () => {
+        if (!heroPanel) return;
+        const pr = heroPanel.getBoundingClientRect();
+        const wr = heroWrap.getBoundingClientRect();
+        heroGeo = { hH: heroHeader.offsetHeight, gx: wr.left - pr.left, rgx: pr.right - wr.right, bot: 40 };
+      };
+      const applyHero = (p) => {
+        if (!heroPic) return;
+        if (!heroGeo) measureHero();
+        const g = heroGeo, q = 1 - p;
+        heroPic.style.top = (g.hH * q).toFixed(1) + "px";
+        heroPic.style.left = (g.gx * q).toFixed(1) + "px";
+        heroPic.style.right = (g.rgx * q).toFixed(1) + "px";
+        heroPic.style.bottom = (g.bot * q).toFixed(1) + "px";
+        heroPic.style.borderRadius = (2 * q).toFixed(1) + "px";
+        if (heroImg) heroImg.style.objectPosition = "center " + (p * 100).toFixed(1) + "%";
+      };
+      measureHero(); applyHero(0);
+      window.addEventListener("resize", () => { measureHero(); applyHero(heroDisp); });
+      window.addEventListener("load", () => { measureHero(); applyHero(heroDisp); });
       // EVERY slide snaps to full screen and holds: you must scroll a little PAST
       // it (STEP) and the dwell (PAUSE) must elapse before the next one starts —
       // so each page settles full-screen and you can't accidentally scroll through.
@@ -760,15 +791,17 @@ const total = 7;
         const ease = t >= 5 ? SLOW_EASE : EASE;   // slides 6 & 7 glide in slower
         display += (t - display) * ease;
         if (Math.abs(t - display) < 0.0004) display = t;
+        heroDisp += (heroP - heroDisp) * 0.16;
+        if (Math.abs(heroP - heroDisp) < 0.0008) heroDisp = heroP;
+        if (heroDisp !== heroApplied) { applyHero(heroDisp); heroApplied = heroDisp; }
         render();
         requestAnimationFrame(tick);
       };
       render(); requestAnimationFrame(tick);
 
-      // let the wheel scroll the tiers box (slide 5) OR the slide-1 long image
-      // band until it hits an edge — only then does the deck take the wheel.
+      // let the wheel scroll the tiers box (slide 5) until it hits an edge
       const edgeBlocked = (ev, dir) => {
-        const box = ev.target.closest && ev.target.closest(".sm-tiers, .sm-hero-scroll");
+        const box = ev.target.closest && ev.target.closest(".sm-tiers");
         if (!box) return false;
         const atTop = box.scrollTop <= 0;
         const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
@@ -777,6 +810,12 @@ const total = 7;
       stage.addEventListener("wheel", (ev) => {
         if (portfolioOpen) return;
         const d = Math.abs(ev.deltaY) >= Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
+        // Slide 1: scroll first raises the long image to a full-page image; only
+        // once it's full does a further scroll advance the deck across.
+        if (Math.round(anchor) === 0) {
+          if (d > 0 && heroP < 1) { ev.preventDefault(); heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
+          if (d < 0 && heroP > 0) { ev.preventDefault(); heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
+        }
         if (edgeBlocked(ev, d)) return;
         ev.preventDefault();
         acc = clamp(acc + d * SENS);
@@ -793,27 +832,24 @@ const total = 7;
         b.addEventListener("click", () => { acc = clamp(Math.round(anchor) + 1); }));
 
       // touch — drag continuously (up/left advances); ignored inside the tiers box
-      let tx = 0, ty = 0, tp = 0, tScroll = false;
+      let tx = 0, ty = 0, tp = 0, thp = 0, tScroll = false;
       stage.addEventListener("touchstart", (ev) => {
-        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc;
-        tScroll = !!(ev.target.closest && ev.target.closest(".sm-tiers, .sm-hero-scroll"));
+        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc; thp = heroP;
+        tScroll = !!(ev.target.closest && ev.target.closest(".sm-tiers"));
       }, { passive: true });
       stage.addEventListener("touchmove", (ev) => {
         if (portfolioOpen || tScroll) return;
         const t = ev.touches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
         const dom = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        // Slide 1: a drag raises the long image to full-page first (then advance).
+        if (Math.round(anchor) === 0) {
+          const np = Math.max(0, Math.min(1, thp - dom * 0.0024));
+          heroP = np;
+          if (np >= 1 && dom < 0) acc = clamp(Math.round(anchor) + 1);
+          return;
+        }
         acc = clamp(tp - dom * 0.004);
       }, { passive: true });
-    })();
-
-    // Slide 1 — whenever it (re)enters view, scroll its long image back to the
-    // top so it always lands showing the top of the image under the header.
-    (function heroScroll() {
-      const panel = document.querySelector(".sm-hero");
-      const band = panel && panel.querySelector(".sm-hero-scroll");
-      if (!band) return;
-      new MutationObserver(() => { if (panel.classList.contains("is-in")) band.scrollTop = 0; })
-        .observe(panel, { attributes: true, attributeFilter: ["class"] });
     })();
 
     // Slide 5 — tier list drives the reactive image: hover/focus/click a tier to
