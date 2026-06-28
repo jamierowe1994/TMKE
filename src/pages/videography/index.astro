@@ -58,34 +58,37 @@ const navLinks = [
 
     <!-- Horizontal deck — each panel is one "page"; scroll right to advance. -->
     <div class="pf-deck" id="pf-deck">
-      <!-- Slide 1 — SMM-style lede: copy column (term + pronunciation at the top,
-           lead + Discover button at its base) left, a VIDEO box right, over a
-           placeholder image background with the feature-slide gradient. Anchored
-           to the bottom; client will swap the background image. -->
+      <!-- Slide 1 — like /services slide 1 (About lede pinned to the top: copy
+           left, photo right) with one long element below that rises up over the
+           header into a full-page on scroll, then advances across. Here that long
+           element is the VIDEO (the .mov), not an image. -->
       <section class="pf-panel vh">
-        <video class="vh-bgvideo" src={VID_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>
-        <div class="vh-scrim"></div>
-        <div class="vh-inner">
-          <div class="vh-lede-grid">
-            <div class="vh-lede-copy">
-              <div class="vh-lede-top">
-                <h1 class="vh-lede-mark">Videography</h1>
-                <p class="vh-lede-pron">
-                  <span class="vh-lede-phon">/&thinsp;vid.i&#712;&#594;g.r&#601;.fi&thinsp;/</span>
-                  <span class="vh-lede-pos"><em>noun</em></span>
-                </p>
+        <div class="vh-header">
+          <div class="vh-wrap">
+            <div class="vh-lede-grid">
+              <div class="vh-lede-copy">
+                <div class="vh-lede-top">
+                  <h1 class="vh-lede-mark">Videography</h1>
+                  <p class="vh-lede-pron">
+                    <span class="vh-lede-phon">/&thinsp;vid.i&#712;&#594;g.r&#601;.fi&thinsp;/</span>
+                    <span class="vh-lede-pos"><em>noun</em></span>
+                  </p>
+                </div>
+                <div class="vh-lede-bottom">
+                  <p class="vh-lede-text">Professional property video and photography for agents who understand that first impressions are made online. From tours to short-form content, delivered to a standard that wins instructions.</p>
+                  <div class="pf-partner" id="vid-partner-banner" hidden><span id="vid-partner-text"></span></div>
+                  <button type="button" class="vh-lede-btn" data-deck-next>Discover <span aria-hidden="true">&rarr;</span></button>
+                </div>
               </div>
-              <div class="vh-lede-bottom">
-                <p class="vh-lede-text">Professional property video and photography for agents who understand that first impressions are made online. From tours to short-form content, delivered to a standard that wins instructions.</p>
-                <div class="pf-partner" id="vid-partner-banner" hidden><span id="vid-partner-text"></span></div>
-                <button type="button" class="vh-lede-btn" data-deck-next>Discover <span aria-hidden="true">&rarr;</span></button>
-              </div>
+              <figure class="vh-lede-media">
+                <img src={VID_BOX_IMG} alt="TMKE videography" />
+              </figure>
             </div>
-            <figure class="vh-lede-media">
-              <img src={VID_BOX_IMG} alt="TMKE videography" />
-            </figure>
           </div>
         </div>
+        <figure class="vh-pic">
+          <video class="vh-pic-vid" src={VID_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>
+        </figure>
       </section>
 
       <!-- Slide 2 — Intro & Why -->
@@ -329,31 +332,32 @@ const navLinks = [
       #pf-deck .pf-panel:first-child .vh-lede-copy { animation-duration: 0.01ms; }
     }
 
-    /* ---- Slide 1: SMM-style lede (copy left, VIDEO box right), bottom-anchored.
-       Mirrors /services slide 1: same dark gradient over a placeholder image, the
-       copy column hugs the title (min-content) so the term + body read as two
-       justified blocks of equal width. ---- */
-    /* .pf-panel.vh (two classes) so the background beats .pf-panel's paper bg
-       defined later; don't set position so the panel keeps .pf-panel's absolute. */
-    .pf-panel.vh { overflow: hidden; display: flex; align-items: stretch; background: #2a2733; }
-    /* Full-bleed background VIDEO + the same gradient as the feature slides (2-4). */
-    .vh-bgvideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-    .vh-scrim { position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); }
-    .vh-inner { position: relative; z-index: 2; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 60px 80px; color: var(--paper); }
+    /* ---- Slide 1: copied from /services slide 1 (the About lede pinned to the
+       top — copy left, photo right, ink on paper), with one long element below
+       that rises up over the header into a full-page on scroll. Here that long
+       element is the VIDEO (the .mov), not an image. ---- */
+    .pf-panel.vh { display: block; overflow: hidden; padding: 0; background: var(--paper); color: var(--ink); }
+    .vh-header { position: relative; z-index: 1; padding: clamp(84px, 10vh, 106px) 76px clamp(40px, 5vh, 56px); }
+    .vh-wrap { max-width: 1360px; margin: 0 auto; }
     .vh-lede-grid { display: grid; grid-template-columns: 1fr auto; gap: clamp(32px, 5vw, 80px); align-items: stretch; }
-    .vh-lede-copy { width: min-content; max-width: 480px; display: flex; flex-direction: column; justify-content: space-between; text-shadow: 0 2px 22px rgba(0,0,0,0.42); }
-    .vh-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--paper); text-align: justify; }
-    .vh-lede-pron { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin: 12px 0 0; }
-    .vh-lede-phon { font-family: var(--serif); font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.06em; color: rgba(244,242,241,0.7); }
-    .vh-lede-pos { font-family: var(--serif); font-style: italic; font-size: clamp(13px, 1vw, 15px); color: rgba(244,242,241,0.6); }
-    .vh-lede-text { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6; color: rgba(240,238,235,0.92); margin: 0; text-align: justify; }
-    .vh-lede-btn { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 8px 24px; border: 1px solid var(--paper); background: none; cursor: pointer; color: var(--paper); font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; transition: background 0.3s, color 0.3s; }
-    .vh-lede-btn:hover { background: var(--paper); color: var(--ink); }
+    .vh-lede-copy { max-width: 480px; display: flex; flex-direction: column; justify-content: space-between; }
+    .vh-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--ink); }
+    .vh-lede-pron { display: flex; align-items: baseline; gap: 12px; margin: 12px 0 0; }
+    .vh-lede-phon { font-family: var(--serif); font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.06em; color: rgba(28,29,34,0.6); }
+    .vh-lede-pos { font-family: var(--serif); font-style: italic; font-size: clamp(13px, 1vw, 15px); color: rgba(28,29,34,0.5); }
+    .vh-lede-text { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6; color: rgba(28,29,34,0.78); margin: 0; max-width: 44ch; }
+    .vh-lede-btn { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 8px 24px; border: 1px solid var(--ink); background: none; cursor: pointer; color: var(--ink); font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; transition: background 0.3s, color 0.3s; }
+    .vh-lede-btn:hover { background: var(--ink); color: var(--paper); }
     .vh-lede-btn span { transition: transform 0.3s; }
     .vh-lede-btn:hover span { transform: translateX(4px); }
     .vh-lede-media { margin: 0; justify-self: end; }
-    .vh-lede-media img { display: block; height: clamp(300px, 36vh, 372px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; background: #1a1822; }
+    .vh-lede-media img { display: block; height: clamp(300px, 36vh, 372px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; }
     .vh .pf-partner { margin: 14px 0 0; }
+    /* The long VIDEO — inset like the About photos at rest; the deck JS grows its
+       inset to full-bleed as you scroll (top/left/right/radius set by JS), rising
+       up over the header into a full-page video, then advances across. */
+    .vh-pic { position: absolute; z-index: 2; margin: 0; overflow: hidden; top: 52%; left: 76px; right: 76px; bottom: 0; border-radius: 2px; background: #1a1822; }
+    .vh-pic video { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 0%; }
 
     /* ---- Slide 2: Intro & Why ---- */
     .vintro { display: flex; align-items: flex-end; padding: 96px clamp(28px, 8vw, 140px) 72px; background: #eae5e1; }
@@ -617,7 +621,7 @@ const navLinks = [
       .pf-cta-img { max-width: none; height: 46vh; }
       .pf-news { flex: 0 0 100vw; padding: 90px 28px 40px; }
       /* Slide-1 lede stacks on mobile (matches /services). */
-      .vh-inner { padding: 88px 24px 44px; }
+      .vh-header { padding: 88px 24px 26px; }
       .vh-lede-grid { grid-template-columns: 1fr; gap: 26px; align-items: start; }
       .vh-lede-copy { display: block; width: auto; max-width: none; }
       .vh-lede-bottom { margin-top: 24px; }
@@ -683,6 +687,7 @@ const navLinks = [
 
     /* ---- Counter ---- */
     .pf-counter {
+      display: none;
       position: fixed; right: 36px; bottom: 30px; z-index: 55;
       font-family: var(--sans); font-size: 13px; font-weight: 700;
       letter-spacing: 0.18em; color: rgba(28,29,34,0.6);
@@ -1065,6 +1070,39 @@ const navLinks = [
       const PAUSE = 800;      // ms hold after a snap so it settles before the next
       let acc = 0, display = 0, lastCur = -1, anchor = THRESH, lockUntil = 0;
       const clamp = (v) => Math.max(0, Math.min(last, v));
+
+      // Slide-1 long video: heroP (target, 0→1) eases to heroDisp; the video's
+      // inset grows from the rest box (inset like the About photos) to full-bleed,
+      // so on scroll it rises up over the header into a full-page video. Only once
+      // heroP hits 1 does a further scroll advance the deck (see the wheel handler).
+      const HEROSENS = 0.0012;
+      let heroP = 0, heroDisp = 0, heroApplied = -1;
+      const heroPanel = stage.querySelector(".vh");
+      const heroHeader = heroPanel && heroPanel.querySelector(".vh-header");
+      const heroWrap = heroPanel && heroPanel.querySelector(".vh-wrap");
+      const heroPic = heroPanel && heroPanel.querySelector(".vh-pic");
+      const heroMedia = heroPic && heroPic.querySelector("video, img");
+      let heroGeo = null;
+      const measureHero = () => {
+        if (!heroPanel) return;
+        const pr = heroPanel.getBoundingClientRect();
+        const wr = heroWrap.getBoundingClientRect();
+        heroGeo = { hH: heroHeader.offsetHeight, gx: wr.left - pr.left, rgx: pr.right - wr.right };
+      };
+      const applyHero = (p) => {
+        if (!heroPic) return;
+        if (!heroGeo) measureHero();
+        const g = heroGeo, q = 1 - p;
+        heroPic.style.top = (g.hH * q).toFixed(1) + "px";
+        heroPic.style.left = (g.gx * q).toFixed(1) + "px";
+        heroPic.style.right = (g.rgx * q).toFixed(1) + "px";
+        heroPic.style.bottom = "0px";
+        heroPic.style.borderRadius = (2 * q).toFixed(1) + "px";
+        if (heroMedia) heroMedia.style.objectPosition = "center " + (p * 100).toFixed(1) + "%";
+      };
+      measureHero(); applyHero(0);
+      window.addEventListener("resize", () => { measureHero(); applyHero(heroDisp); });
+      window.addEventListener("load", () => { measureHero(); applyHero(heroDisp); });
       const targetOf = (now) => {
         if (acc < THRESH + 0.5) { anchor = THRESH; return Math.min(acc, THRESH); }
         if (anchor < THRESH + 1) { anchor = THRESH + 1; lockUntil = now + PAUSE; return anchor; }
@@ -1086,7 +1124,7 @@ const navLinks = [
           lastCur = cur;
           panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
           if (curEl) curEl.textContent = pad(cur);
-          if (topBar) topBar.classList.toggle("on-dark", cur === 0);   // only slide 1 (hero) is dark
+          if (topBar) topBar.classList.toggle("on-dark", false);   // slide 1 is now light (About-style) — nav stays ink
           if (cur !== last && revealed) setReveal(false);
         }
       };
@@ -1096,6 +1134,9 @@ const navLinks = [
         const ease = t >= last - 1 ? SLOW_EASE : EASE;            // last two glide slower
         display += (t - display) * ease;
         if (Math.abs(t - display) < 0.0004) display = t;
+        heroDisp += (heroP - heroDisp) * 0.16;
+        if (Math.abs(heroP - heroDisp) < 0.0008) heroDisp = heroP;
+        if (heroDisp !== heroApplied) { applyHero(heroDisp); heroApplied = heroDisp; }
         render();
         requestAnimationFrame(tick);
       };
@@ -1108,6 +1149,12 @@ const navLinks = [
         if (openSlug) return;                       // a showcase pop-up is open
         ev.preventDefault();
         const d = Math.abs(ev.deltaY) >= Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
+        // Slide 1: scroll first raises the long video to a full-page video; only
+        // once it's full does a further scroll advance the deck across.
+        if (display < 0.5) {
+          if (d > 0 && heroP < 1) { heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
+          if (d < 0 && heroP > 0) { heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
+        }
         if (atLast() && d > 0) { if (!revealed) setReveal(true); return; }
         if (atLast() && revealed && d < 0) { setReveal(false); return; }
         acc = clamp(acc + d * SENS);
@@ -1127,14 +1174,21 @@ const navLinks = [
       });
 
       // touch — drag continuously (swipe left/up advances)
-      let tx = 0, ty = 0, tp = 0;
+      let tx = 0, ty = 0, tp = 0, thp = 0;
       stage.addEventListener("touchstart", (ev) => {
-        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc;
+        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc; thp = heroP;
       }, { passive: true });
       stage.addEventListener("touchmove", (ev) => {
         if (openSlug) return;
         const t = ev.touches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
         const dom = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        // Slide 1: a drag raises the long video to full-page first (then advance).
+        if (display < 0.5) {
+          const np = Math.max(0, Math.min(1, thp - dom * 0.0024));
+          heroP = np;
+          if (np >= 1 && dom < 0) acc = clamp(Math.round(display) + 1);
+          return;
+        }
         if (atLast() && dom < -24) { if (!revealed) setReveal(true); return; }
         if (atLast() && revealed && dom > 24) { setReveal(false); return; }
         acc = clamp(tp - dom * 0.004);
