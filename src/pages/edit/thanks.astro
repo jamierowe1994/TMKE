@@ -109,17 +109,10 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     </section>
   </main>
 
-  <!-- Page-level wash (this page kicks off the customer's hub journey, so it
-       matches the dashboard). Global because scoped CSS can't target <body>. -->
+  <!-- Clean white page — the receipt card and form carry the structure.
+       Global because scoped CSS can't target <body>. -->
   <style is:global>
-    body:has(.thanks-shell) {
-      background:
-        radial-gradient(70% 55% at 0% 0%, rgba(126, 103, 101, 0.18), transparent 50%),
-        radial-gradient(75% 65% at 100% 0%, rgba(126, 103, 101, 0.26), transparent 55%),
-        radial-gradient(85% 75% at 60% 120%, rgba(126, 103, 101, 0.15), transparent 55%),
-        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f4f2f1 100%);
-      background-attachment: fixed;
-    }
+    body:has(.thanks-shell) { background: #ffffff; }
   </style>
 
   <style>
@@ -161,11 +154,11 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       margin: 0 0 18px;
     }
     .thanks-h1 {
-      font-family: var(--serif);
+      font-family: var(--subhead);
       font-weight: 400;
       font-size: clamp(48px, 6vw, 88px);
-      line-height: 1;
-      letter-spacing: -0.02em;
+      line-height: 1.02;
+      letter-spacing: -0.005em;
       color: var(--ink);
       margin: 0 0 22px;
     }
@@ -315,11 +308,11 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       padding: 6px 0 0;
     }
     .thanks-setup-h {
-      font-family: var(--serif);
-      font-size: clamp(28px, 3vw, 38px);
-      font-weight: 500;
-      letter-spacing: -0.015em;
-      line-height: 1.1;
+      font-family: var(--subhead);
+      font-size: clamp(28px, 3vw, 40px);
+      font-weight: 400;
+      letter-spacing: -0.005em;
+      line-height: 1.08;
       margin: 12px 0 14px;
     }
     .thanks-setup-sub {
@@ -364,6 +357,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       margin: 0;
     }
     .thanks-success p { font-size: 14px; color: rgba(28,29,34,0.65); margin: 0; }
+
+    /* Let the [hidden] attribute win over the flex/grid display rules above,
+       so the success card stays hidden until sign-up and the grid hides on
+       the order-not-found state. */
+    .thanks-grid[hidden],
+    .thanks-form[hidden],
+    .thanks-success[hidden] { display: none !important; }
 
     /* Reuse small bits of checkout look */
     .ck-field { display: flex; flex-direction: column; gap: 6px; }
