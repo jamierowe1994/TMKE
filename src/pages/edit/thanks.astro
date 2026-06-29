@@ -490,6 +490,30 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       elDate.textContent = formatDate(data.created_at);
       elPackTitle.textContent = data.pack_title;
 
+      // Status pill. With Stripe, the webhook flips the order to 'paid' a moment
+      // after the redirect lands here — so if it's still 'pending', poll briefly.
+      const statusEl = document.getElementById('thanks-status');
+      const paintStatus = (st) => {
+        if (!statusEl) return;
+        statusEl.textContent = ({ paid: 'Paid', pending: 'Processing…', failed: 'Failed', refunded: 'Refunded' })[st] || st;
+        statusEl.dataset.status = st;
+      };
+      paintStatus(data.status);
+      if (data.status === 'pending') {
+        let tries = 0;
+        const iv = setInterval(async () => {
+          tries += 1;
+          const { data: fresh } = await supabase.from('orders').select('status, payment_method').eq('id', orderId).single();
+          if (fresh && fresh.status && fresh.status !== 'pending') {
+            paintStatus(fresh.status);
+            if (fresh.payment_method) elMethod.textContent = formatMethod(fresh.payment_method);
+            clearInterval(iv);
+          } else if (tries >= 8) {
+            clearInterval(iv);
+          }
+        }, 1500);
+      }
+
       // Pull description + cover from the pack record so the receipt shows context.
       if (data.pack_id) {
         const { data: pack } = await supabase

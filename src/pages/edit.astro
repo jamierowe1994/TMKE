@@ -1630,7 +1630,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         return;
       }
       state.contact = { name, email, phone, company };
-      showStep('payment');
+      startCheckout();
     });
 
     // ============== Step 2: payment ==============
@@ -1680,7 +1680,42 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       processPayment();
     });
 
-    // ============== Step 3: processing → redirect ==============
+    // ============== Stripe: hosted Checkout ==============
+    // Ask the Worker to create a Stripe Checkout Session, then redirect to
+    // Stripe's secure page. The order is recorded server-side and confirmed by
+    // the Stripe webhook — the client never sees the secret key or card details.
+    const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    async function startCheckout() {
+      showStep('done');
+      doneH.textContent = 'Taking you to secure checkout…';
+      doneSub.textContent = 'You’ll complete payment on Stripe’s secure page.';
+
+      if (WORKER_URL) {
+        try {
+          const res = await fetch(`${WORKER_URL}/stripe/checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pack_id: state.pack.id, ...state.contact }),
+          });
+          const out = await res.json().catch(() => ({}));
+          if (res.ok && out.url) { window.location.href = out.url; return; }
+          // 503 = payments not configured on the Worker yet → fall back to the
+          // local stub so the flow still works in dev. Any other error is real.
+          if (res.status !== 503) throw new Error(out.error || 'Could not start checkout.');
+        } catch (e) {
+          if (!import.meta.env.DEV) {
+            doneH.textContent = 'Something went wrong';
+            doneSub.textContent = (e && e.message) || 'Please try again in a moment.';
+            return;
+          }
+          /* DEV: fall through to the stub below */
+        }
+      }
+      // Fallback for local dev / payments-not-configured: the original stub.
+      await processPayment();
+    }
+
+    // ============== Step 3 (stub fallback): processing → redirect ==============
     async function processPayment() {
       showStep('done');
       doneH.textContent = state.payMethod === 'card' ? 'Charging your card…' : 'Authenticating with your wallet…';

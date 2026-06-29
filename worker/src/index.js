@@ -210,6 +210,46 @@ async function sbAdminUserEmail(env, userId) {
   const u = await res.json();
   return u && u.email ? u.email : null;
 }
+
+// ---- Stripe (hosted Checkout) -------------------------------------------
+// Call the Stripe REST API with form-encoded params. `params` is a flat object
+// whose keys are already bracketed (e.g. "line_items[0][quantity]"). The secret
+// key lives only here as a Worker secret — never in the browser or the repo.
+async function stripeApi(env, path, params) {
+  const body = new URLSearchParams();
+  Object.entries(params || {}).forEach(([k, v]) => { if (v !== undefined && v !== null) body.append(k, String(v)); });
+  const res = await fetch("https://api.stripe.com/v1/" + path, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data && data.error && data.error.message) || ("Stripe " + res.status));
+  return data;
+}
+
+// Verify a Stripe webhook signature ("t=…,v1=…") against the raw request body,
+// using the endpoint's signing secret. Returns true only on an exact HMAC match
+// within a 5-minute tolerance (replay guard).
+async function stripeVerify(rawBody, sigHeader, secret) {
+  if (!sigHeader || !secret) return false;
+  const parts = {};
+  sigHeader.split(",").forEach((p) => { const [k, v] = p.split("="); if (k) parts[k.trim()] = (v || "").trim(); });
+  const t = parts.t, v1 = parts.v1;
+  if (!t || !v1) return false;
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false; // 5-min replay window
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`${t}.${rawBody}`));
+  const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  if (hex.length !== v1.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hex.length; i++) diff |= hex.charCodeAt(i) ^ v1.charCodeAt(i);
+  return diff === 0;
+}
 function bufToBase64(buf) {
   let binary = "";
   const bytes = new Uint8Array(buf);
@@ -619,6 +659,91 @@ export default {
           return json({ ok: false, error: "Couldn't reach the Railway API." }, 502, request, env);
         }
         return json({ ok: true, queued: true, message: "Site is updating — your post will be live in a minute or two." }, 200, request, env);
+      }
+
+      // ---- Stripe: create a hosted Checkout Session ---------------------------
+      // The browser posts the pack id + buyer details; we re-read the pack price
+      // from Supabase (never trust the client), create a `pending` order with the
+      // service role, then hand back Stripe's hosted payment URL to redirect to.
+      if (path.endsWith("/stripe/checkout") && request.method === "POST") {
+        if (!env.STRIPE_SECRET_KEY) return json({ error: "Payments aren't set up yet — add the STRIPE_SECRET_KEY secret to the Worker." }, 503, request, env);
+        let body;
+        try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        const name = String(body.name || "").trim();
+        const email = String(body.email || "").trim();
+        const phone = String(body.phone || "").trim();
+        const company = String(body.company || "").trim();
+        const packId = String(body.pack_id || "").trim();
+        if (!packId || !name || !email) return json({ error: "Please complete your details." }, 400, request, env);
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "That email doesn't look right." }, 400, request, env);
+
+        const packs = await sbGet(env, "packs", `id=eq.${encodeURIComponent(packId)}&status=eq.active&select=id,slug,title,price_pence,cover_image_url&limit=1`);
+        const pack = packs && packs[0];
+        if (!pack) return json({ error: "That pack isn't available." }, 404, request, env);
+        const amount = pack.price_pence || 0;
+
+        // Only redirect back to a known-good origin.
+        const origin = request.headers.get("Origin") || "";
+        const allowed = String(env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim());
+        const base = allowed.includes(origin) ? origin : (env.SITE_URL || "https://tmke.co.uk");
+
+        // Create the order up-front as `pending` (or `paid` for free packs).
+        const ins = await sbPost(env, "orders", {
+          pack_id: pack.id, pack_slug: pack.slug, pack_title: pack.title, amount_pence: amount,
+          buyer_name: name, buyer_email: email, buyer_phone: phone || null, buyer_company: company || null,
+          payment_method: "card", status: amount === 0 ? "paid" : "pending",
+        }, "return=representation");
+        const created = await ins.json().catch(() => null);
+        const order = Array.isArray(created) ? created[0] : created;
+        if (!order || !order.id) return json({ error: "Couldn't start your order. Please try again." }, 500, request, env);
+
+        // Free pack — no Stripe needed.
+        if (amount === 0) return json({ url: `${base}/edit/thanks?order=${order.id}` }, 200, request, env);
+
+        try {
+          const session = await stripeApi(env, "checkout/sessions", {
+            mode: "payment",
+            "payment_method_types[0]": "card",
+            success_url: `${base}/edit/thanks?order=${order.id}`,
+            cancel_url: `${base}/edit?canceled=1`,
+            customer_email: email,
+            client_reference_id: order.id,
+            "metadata[order_id]": order.id,
+            "line_items[0][quantity]": 1,
+            "line_items[0][price_data][currency]": "gbp",
+            "line_items[0][price_data][unit_amount]": amount,
+            "line_items[0][price_data][product_data][name]": pack.title,
+          });
+          await sbPatch(env, "orders", `id=eq.${order.id}`, { stripe_session_id: session.id });
+          return json({ url: session.url }, 200, request, env);
+        } catch (e) {
+          await sbPatch(env, "orders", `id=eq.${order.id}`, { status: "failed" });
+          return json({ error: "Couldn't reach the payment provider. Please try again." }, 502, request, env);
+        }
+      }
+
+      // ---- Stripe: webhook (the source of truth that marks an order paid) -----
+      // Stripe POSTs here after checkout. We verify the signature against the raw
+      // body, then flip the matching order to `paid` with the PaymentIntent id.
+      if (path.endsWith("/stripe/webhook") && request.method === "POST") {
+        const raw = await request.text();
+        const ok = await stripeVerify(raw, request.headers.get("Stripe-Signature") || "", env.STRIPE_WEBHOOK_SECRET);
+        if (!ok) return json({ error: "Bad signature" }, 400, request, env);
+        let event;
+        try { event = JSON.parse(raw); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        if (event.type === "checkout.session.completed") {
+          const s = event.data && event.data.object;
+          const orderId = (s && s.metadata && s.metadata.order_id) || (s && s.client_reference_id);
+          const pi = s && (typeof s.payment_intent === "string" ? s.payment_intent : (s.payment_intent && s.payment_intent.id));
+          if (orderId) {
+            // Only existing columns here, so this can't fail if orders_stripe.sql
+            // hasn't run yet. status=neq.paid keeps it idempotent on Stripe retries.
+            await sbPatch(env, "orders", `id=eq.${encodeURIComponent(orderId)}&status=neq.paid`, {
+              status: "paid", payment_ref: pi || null,
+            });
+          }
+        }
+        return json({ received: true }, 200, request, env);
       }
 
       // ---- AI: read text + positions from a finished design image ----
