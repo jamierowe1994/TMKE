@@ -112,7 +112,7 @@ const heroFirst = heroTemplates[0];
       <!-- ============ Left: the workflow ============ -->
       <div class="ws-left">
         <!-- HERO — compact greeting band: one-line greeting + brief stats on a row -->
-        <section class="ws-hero ws-rise" style="--i:0">
+        <section class="ws-hero">
           <div class="ws-hero-top">
             <h1 class="ws-greeting">Good evening, <em>Danielle</em>.</h1>
           </div>
@@ -128,7 +128,7 @@ const heroFirst = heroTemplates[0];
         </section>
 
         <!-- PLAN -->
-        <section class="ws-block ws-rise" style="--i:2" aria-labelledby="plan-h">
+        <section class="ws-block" aria-labelledby="plan-h">
           <header class="ws-block-head">
             <h2 class="ws-block-h" id="plan-h">This Week</h2>
           </header>
@@ -142,7 +142,7 @@ const heroFirst = heroTemplates[0];
         </section>
 
         <!-- RECENT DESIGNS -->
-        <section class="ws-block ws-rise" style="--i:3" aria-labelledby="recent-h">
+        <section class="ws-block" aria-labelledby="recent-h">
           <header class="ws-block-head">
             <h2 class="ws-block-h" id="recent-h">Continue working</h2>
           </header>
@@ -158,7 +158,7 @@ const heroFirst = heroTemplates[0];
       <!-- ============ Right: the insights ============ -->
       <div class="ws-right">
         <!-- TODAY'S IDEA -->
-        <section class="ws-widget ws-rise" style="--i:1" aria-labelledby="idea-h">
+        <section class="ws-widget ws-rise" style="--delay:1.8s" aria-labelledby="idea-h">
           <header class="ws-widget-head">
             <span class="ws-wtitle"><span class="ws-spark">✦</span> Today's prompt</span>
           </header>
@@ -174,7 +174,7 @@ const heroFirst = heroTemplates[0];
         </section>
 
         <!-- BRAND HEALTH -->
-        <section class="ws-widget ws-rise" style="--i:2" aria-labelledby="brand-h">
+        <section class="ws-widget ws-rise" style="--delay:1.95s" aria-labelledby="brand-h">
           <header class="ws-widget-head">
             <span class="ws-wtitle">Brand Health</span>
             <span class="ws-ring" data-tip="Finish your Brand Kit so every design is on-brand automatically">
@@ -194,7 +194,7 @@ const heroFirst = heroTemplates[0];
         </section>
 
         <!-- INSTAGRAM SNAPSHOT -->
-        <section class="ws-widget ws-rise" style="--i:3" aria-labelledby="ig-h">
+        <section class="ws-widget ws-rise" style="--delay:2.1s" aria-labelledby="ig-h">
           <header class="ws-widget-head">
             <span class="ws-wtitle"><svg class="ws-ig-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg> Instagram</span>
           </header>
@@ -212,7 +212,7 @@ const heroFirst = heroTemplates[0];
       </div>
 
       <!-- ============ Discovery — full width ============ -->
-      <a class="ws-discover ws-rise" style="--i:4" href="/edit" aria-label="Preview the Wimbledon seasonal pack">
+      <a class="ws-discover ws-rise" style="--delay:1.65s" href="/edit" aria-label="Preview the Wimbledon seasonal pack">
         <div class="ws-discover-art" style="background-image:url('/assets/outside.jpg')"></div>
         <div class="ws-discover-body">
           <span class="ws-discover-flag">Unlocks tomorrow</span>
@@ -396,7 +396,7 @@ const heroFirst = heroTemplates[0];
     .ws-greeting em { font-style: normal; font-weight: 500; color: var(--ws-ink); }
     .ws-hero-cta-btn { flex: 0 0 auto; align-self: flex-start; }
     .ws-brief { list-style: none; margin: 0; padding: 0; display: flex; flex-flow: row wrap; gap: 13px clamp(20px, 2.4vw, 38px); }
-    .ws-brief li { display: flex; align-items: center; gap: 13px; font-size: 15px; color: var(--ws-tx); opacity: 0; transform: translateX(-8px); animation: wsBriefIn 0.6s var(--ws-ease) forwards; animation-delay: calc(0.4s + var(--d) * 0.09s); }
+    .ws-brief li { display: flex; align-items: center; gap: 13px; font-size: 15px; color: var(--ws-tx); opacity: 0; transform: translateY(14px); animation: wsBriefIn 0.55s var(--ws-ease) forwards; animation-delay: calc(0.5s + var(--d) * 0.1s); }
     .ws-brief strong { color: var(--ws-ink); font-weight: 600; }
     .ws-brief-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--ws-line); color: var(--ws-tx); }
     .ws-brief-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -537,10 +537,39 @@ const heroFirst = heroTemplates[0];
     .ws-tip-right[data-tip]:hover::after { transform: translateY(-50%) translateX(0); }
 
     /* ---------- Entrance ---------- */
+    /* ===== Entrance choreography — greeting → stats → button → This Week +
+       Continue working (tiles bubble in column-by-column) → property pack →
+       right widgets one-by-one → nav drops in last with a bounce. ===== */
     .ws-rise { opacity: 0; transform: translateY(24px); }
-    body.ws-ready .ws-rise { animation: wsRise 0.8s var(--ws-ease) both; animation-delay: calc(var(--i) * 0.1s); }
+    body.ws-ready .ws-rise { animation: wsRise 0.7s var(--ws-ease) both; animation-delay: var(--delay, 0s); }
     @keyframes wsRise { to { opacity: 1; transform: none; } }
-    @media (prefers-reduced-motion: reduce) { .ws-rise, .ws-brief li { opacity: 1 !important; transform: none !important; animation: none !important; } .ws-hero-fill, .ws-ring-fg { transition: none !important; } }
+    @keyframes wsIn { from { opacity: 0; transform: translateY(20px) scale(.985); } to { opacity: 1; transform: none; } }
+    @keyframes wsNavDrop { from { opacity: 0; transform: translateY(-100%); } to { opacity: 1; transform: none; } }
+
+    /* hero greeting + CTA (brief stats keep their own stagger between them) */
+    .ws-greeting, .ws-hero-cta-btn { opacity: 0; }
+    body.ws-ready .ws-greeting { animation: wsIn 0.6s var(--ws-ease) both; animation-delay: 0.12s; }
+    body.ws-ready .ws-hero-cta-btn { animation: wsIn 0.55s var(--ws-ease) both; animation-delay: 1.0s; }
+
+    /* This Week + Continue working: headers, then tiles bubble in column-by-column (parallel) */
+    .ws-block-head { opacity: 0; }
+    body.ws-ready .ws-block-head { animation: wsIn 0.5s var(--ws-ease) both; animation-delay: 1.1s; }
+    .ws-week .ws-day, .ws-reel .ws-thumb { opacity: 0; }
+    body.ws-ready .ws-week .ws-day, body.ws-ready .ws-reel .ws-thumb { animation: wsIn 0.55s var(--ws-ease) both; }
+    body.ws-ready .ws-week .ws-day:nth-child(1), body.ws-ready .ws-reel .ws-thumb:nth-child(1) { animation-delay: 1.18s; }
+    body.ws-ready .ws-week .ws-day:nth-child(2), body.ws-ready .ws-reel .ws-thumb:nth-child(2) { animation-delay: 1.28s; }
+    body.ws-ready .ws-week .ws-day:nth-child(3), body.ws-ready .ws-reel .ws-thumb:nth-child(3) { animation-delay: 1.38s; }
+    body.ws-ready .ws-week .ws-day:nth-child(4), body.ws-ready .ws-reel .ws-thumb:nth-child(4) { animation-delay: 1.48s; }
+    body.ws-ready .ws-week .ws-day:nth-child(5), body.ws-ready .ws-reel .ws-thumb:nth-child(5) { animation-delay: 1.58s; }
+
+    /* nav drops in last, bouncy (real-world spring) */
+    .ws-nav { opacity: 0; }
+    body.ws-ready .ws-nav { animation: wsNavDrop 0.72s cubic-bezier(.3, 1.55, .5, 1) both; animation-delay: 2.35s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ws-rise, .ws-brief li, .ws-greeting, .ws-hero-cta-btn, .ws-block-head, .ws-week .ws-day, .ws-reel .ws-thumb, .ws-nav { opacity: 1 !important; transform: none !important; animation: none !important; }
+      .ws-hero-fill, .ws-ring-fg { transition: none !important; }
+    }
   </style>
 
   <script>
