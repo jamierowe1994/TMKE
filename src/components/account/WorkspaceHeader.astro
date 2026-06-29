@@ -1,0 +1,233 @@
+---
+// Shared top header for signed-in workspace pages — matches /dashboard.
+// Replaces the old left DashSidebar. Pass `active` to highlight the tab.
+interface Props {
+  active?: "dashboard" | "studio" | "library" | "planner" | "orders" | "bookings";
+}
+const { active = "dashboard" } = Astro.props;
+const is = (k: string) => (active === k ? "is-active" : "");
+const cur = (k: string) => (active === k ? "page" : undefined);
+---
+
+<header class="ws-nav" aria-label="Primary">
+  <!-- LEFT: hamburger holds Learn / Manage / Resources -->
+  <div class="ws-menu ws-burger" data-menu>
+    <button type="button" class="ws-burgerbtn" data-menu-btn aria-expanded="false" aria-haspopup="true" aria-label="Menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+    <div class="ws-dropdown ws-dropdown--mega" role="menu">
+      <a role="menuitem" href="/account/guides">Learn</a>
+      <p class="ws-dd-sec">Manage</p>
+      <a role="menuitem" href="/profile">Brand Kit</a>
+      <a role="menuitem" href="/account/services">Managed Socials</a>
+      <a role="menuitem" href="/account/orders">Billing</a>
+      <a role="menuitem" href="/profile">Settings</a>
+      <p class="ws-dd-sec">Resources</p>
+      <a role="menuitem" href="/account/guides">Guides</a>
+      <a role="menuitem" href="/account/blog">Blog</a>
+      <a role="menuitem" href="/contact">Contact</a>
+      <a role="menuitem" href="/contact">Help Centre</a>
+    </div>
+  </div>
+
+  <!-- CENTRE: the six core sections -->
+  <nav class="ws-tabs" aria-label="Sections">
+    <a class={`ws-tab ${is("dashboard")}`} href="/dashboard" aria-current={cur("dashboard")}>Dashboard</a>
+    <a class={`ws-tab ${is("studio")}`} href="/studio" aria-current={cur("studio")}>Studio</a>
+    <a class={`ws-tab ${is("library")}`} href="/edit" aria-current={cur("library")}>Library</a>
+    <a class={`ws-tab ${is("planner")}`} href="/account/schedule" aria-current={cur("planner")}>Planner</a>
+    <a class={`ws-tab ${is("orders")}`} href="/account/orders" aria-current={cur("orders")}>Orders</a>
+    <a class={`ws-tab ${is("bookings")}`} href="/account/bookings" aria-current={cur("bookings")}>Bookings</a>
+  </nav>
+
+  <!-- RIGHT: notifications, log out, you -->
+  <div class="ws-nav-right">
+    <div class="ws-menu ws-notif" data-menu>
+      <button type="button" class="ws-navic" data-menu-btn aria-expanded="false" aria-haspopup="true" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="ws-dot" data-notif-dot></span></button>
+      <div class="ws-dropdown ws-dropdown--right ws-dropdown--notif" role="menu">
+        <div class="ws-notif-head"><strong>Notifications</strong><button type="button" class="ws-notif-clear" data-notif-clear>Mark all read</button></div>
+        <div class="ws-notif-list">
+          <a class="ws-notif-item" role="menuitem" href="/account/orders">
+            <span class="ws-notif-ic ws-notif-ic--order"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
+            <span class="ws-notif-txt"><b>Order confirmed</b><i>Your “City Centre” pack is ready to edit</i></span>
+            <span class="ws-notif-time">2h</span>
+          </a>
+          <a class="ws-notif-item" role="menuitem" href="/account/bookings">
+            <span class="ws-notif-ic ws-notif-ic--booking"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
+            <span class="ws-notif-txt"><b>Booking confirmed</b><i>Content Studio — Wed 9 Jul, 10:00</i></span>
+            <span class="ws-notif-time">5h</span>
+          </a>
+          <a class="ws-notif-item" role="menuitem" href="/account/blog">
+            <span class="ws-notif-ic ws-notif-ic--blog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+            <span class="ws-notif-txt"><b>New on the blog</b><i>5 hooks that stop the scroll</i></span>
+            <span class="ws-notif-time">1d</span>
+          </a>
+          <a class="ws-notif-item" role="menuitem" href="/account/guides">
+            <span class="ws-notif-ic ws-notif-ic--news"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg></span>
+            <span class="ws-notif-txt"><b>What’s new</b><i>Scheduling just got faster in the Planner</i></span>
+            <span class="ws-notif-time">2d</span>
+          </a>
+        </div>
+      </div>
+    </div>
+    <a class="ws-navic ws-logout" href="/login" data-logout data-tip="Log out" aria-label="Log out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><line x1="15" y1="12" x2="3" y2="12"/></svg></a>
+    <div class="ws-menu ws-who" data-menu>
+      <button type="button" class="ws-whobtn" data-menu-btn aria-expanded="false" aria-haspopup="true">
+        <span class="ws-whoav">··</span>
+        <svg class="ws-caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="ws-dropdown ws-dropdown--right" role="menu">
+        <div class="ws-dropdown-head"><strong>Your account</strong><span>…</span></div>
+        <a role="menuitem" href="/profile">Your profile</a>
+        <a role="menuitem" href="/profile">Brand Kit</a>
+        <a role="menuitem" href="/account/orders">Billing</a>
+        <a role="menuitem" href="/login" class="ws-dropdown-out" data-logout>Sign out</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<style is:global>
+  /* Top header — matches /dashboard. Scoped vars so it stands alone on the
+     account pages (which don't load the dashboard's inline styles). */
+  .ws-nav {
+    --ws-ink: #1c1d22; --ws-tx: rgba(28,29,34,0.64); --ws-faint: rgba(28,29,34,0.46);
+    --ws-line: rgba(28,29,34,0.13); --ws-accent: var(--english-violet, #5b4a55);
+    --ws-ease: cubic-bezier(.2,.8,.2,1);
+    position: relative; display: flex; align-items: center; gap: clamp(14px, 2.4vw, 36px);
+    padding: 22px clamp(22px, 2.6vw, 56px) 16px; background: transparent;
+    font-family: var(--sans); color: var(--ws-ink);
+  }
+  .ws-burger { flex: 0 0 auto; position: relative; }
+  .ws-burgerbtn { width: 46px; height: 46px; border: 0; border-radius: 12px; background: transparent; color: var(--ws-ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s; }
+  .ws-burgerbtn:hover { background: rgba(28,29,34,0.05); }
+  .ws-burgerbtn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .ws-burgerbtn svg line { transition: transform 0.36s cubic-bezier(.4,.1,.2,1.25), opacity 0.2s; transform-box: fill-box; transform-origin: center; }
+  .ws-burger.is-open .ws-burgerbtn svg line:nth-child(1) { transform: translateY(5px) rotate(45deg); }
+  .ws-burger.is-open .ws-burgerbtn svg line:nth-child(2) { opacity: 0; transform: scaleX(0.3); }
+  .ws-burger.is-open .ws-burgerbtn svg line:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
+
+  .ws-tabs { flex: 1; display: flex; align-items: center; justify-content: center; gap: clamp(12px, 1.9vw, 36px); }
+  .ws-tab { position: relative; display: inline-flex; align-items: center; padding: 6px 2px; font-size: clamp(15px, 1.1vw, 17px); font-weight: 500; color: var(--ws-tx); text-decoration: none; transition: color 0.2s; }
+  .ws-tab:hover { color: var(--ws-ink); }
+  .ws-tab.is-active { color: var(--ws-ink); font-weight: 600; }
+  .ws-tab.is-active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -7px; height: 2px; border-radius: 2px; background: var(--ws-ink); }
+  .ws-caret { width: 9px; height: 6px; opacity: 0.55; transition: transform 0.25s var(--ws-ease); }
+
+  .ws-nav-right { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; }
+  .ws-navic { position: relative; width: 42px; height: 42px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; color: var(--ws-tx); text-decoration: none; transition: background 0.2s, color 0.2s; }
+  .ws-navic:hover { background: rgba(28,29,34,0.05); color: var(--ws-ink); }
+  .ws-navic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .ws-logout svg { width: 19px; height: 19px; }
+  .ws-dot { position: absolute; top: 9px; right: 11px; width: 7px; height: 7px; border-radius: 50%; background: var(--ws-accent); box-shadow: 0 0 0 2px #fff; }
+  .ws-notif.is-read .ws-dot { display: none; }
+
+  .ws-whobtn { display: inline-flex; align-items: center; gap: 7px; padding: 4px 8px 4px 4px; border: 0; border-radius: 999px; background: transparent; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+  .ws-whobtn:hover { background: rgba(28,29,34,0.05); }
+  .ws-whoav { width: 38px; height: 38px; border-radius: 50%; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; letter-spacing: 0.03em; color: #fff; background: linear-gradient(140deg, color-mix(in srgb, var(--ws-accent) 70%, #fff), var(--ws-accent)); background-size: cover; background-position: center; }
+
+  .ws-menu { position: relative; }
+  .ws-dropdown { position: absolute; top: calc(100% + 10px); left: 0; min-width: 210px; padding: 8px; background: #fff; border: 1px solid var(--ws-line); border-radius: 14px; box-shadow: 0 24px 50px -22px rgba(28,29,34,0.28); opacity: 0; transform: translateY(-10px) scale(0.9); transform-origin: top left; pointer-events: none; transition: opacity 0.22s var(--ws-ease), transform 0.38s cubic-bezier(.34, 1.56, .4, 1); z-index: 50; }
+  .ws-menu.is-open .ws-dropdown { opacity: 1; transform: none; pointer-events: auto; }
+  .ws-menu.is-open .ws-caret { transform: rotate(180deg); }
+  .ws-menu.is-open .ws-dropdown--mega > * { animation: wsDdItem 0.32s var(--ws-ease) both; }
+  .ws-dropdown--mega > *:nth-child(1) { animation-delay: .03s } .ws-dropdown--mega > *:nth-child(2) { animation-delay: .06s }
+  .ws-dropdown--mega > *:nth-child(3) { animation-delay: .09s } .ws-dropdown--mega > *:nth-child(4) { animation-delay: .12s }
+  .ws-dropdown--mega > *:nth-child(5) { animation-delay: .15s } .ws-dropdown--mega > *:nth-child(6) { animation-delay: .18s }
+  .ws-dropdown--mega > *:nth-child(7) { animation-delay: .21s } .ws-dropdown--mega > *:nth-child(8) { animation-delay: .24s }
+  .ws-dropdown--mega > *:nth-child(9) { animation-delay: .27s } .ws-dropdown--mega > *:nth-child(10) { animation-delay: .30s }
+  .ws-dropdown--mega > *:nth-child(11) { animation-delay: .33s }
+  @keyframes wsDdItem { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+  .ws-dropdown a { display: block; padding: 10px 12px; border-radius: 9px; font-size: 13.5px; color: var(--ws-tx); text-decoration: none; transition: background 0.16s, color 0.16s; }
+  .ws-dropdown a:hover { background: rgba(28,29,34,0.05); color: var(--ws-ink); }
+  .ws-dropdown-head { padding: 8px 12px 10px; border-bottom: 1px solid var(--ws-line); margin-bottom: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .ws-dropdown-head strong { font-size: 14px; color: var(--ws-ink); }
+  .ws-dropdown-head span { font-size: 12px; color: var(--ws-faint); }
+  .ws-dropdown-out { color: var(--ws-accent) !important; font-weight: 600; }
+  .ws-dropdown--mega { min-width: 232px; }
+  .ws-dd-sec { margin: 10px 12px 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
+  .ws-dropdown--right { left: auto; right: 0; transform-origin: top right; }
+
+  .ws-dropdown--notif { width: 332px; min-width: 332px; padding: 8px; }
+  .ws-notif-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px 10px; border-bottom: 1px solid var(--ws-line); margin-bottom: 4px; }
+  .ws-notif-head strong { font-size: 14px; color: var(--ws-ink); }
+  .ws-notif-clear { font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--ws-accent); background: none; border: 0; padding: 0; cursor: pointer; }
+  .ws-notif-clear:hover { text-decoration: underline; }
+  .ws-notif-list { display: flex; flex-direction: column; }
+  .ws-notif-item { display: flex; align-items: flex-start; gap: 11px; padding: 10px 10px; border-radius: 10px; text-decoration: none; transition: background 0.16s; }
+  .ws-notif-item:hover { background: rgba(28,29,34,0.05); }
+  .ws-notif-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
+  .ws-notif-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .ws-notif-ic--order { color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 13%, #fff); }
+  .ws-notif-ic--booking { color: #2f9e5e; background: rgba(47,158,94,0.12); }
+  .ws-notif-ic--blog { color: #2f7dc4; background: rgba(47,125,196,0.12); }
+  .ws-notif-ic--news { color: #e3a008; background: rgba(227,160,8,0.15); }
+  .ws-notif-txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .ws-notif-txt b { font-size: 13px; font-weight: 600; color: var(--ws-ink); }
+  .ws-notif-txt i { font-style: normal; font-size: 12px; line-height: 1.4; color: var(--ws-faint); }
+  .ws-notif-time { flex: 0 0 auto; font-size: 11px; color: var(--ws-faint); padding-top: 1px; }
+
+  [data-tip] { position: relative; }
+  [data-tip]::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%) translateY(4px); width: max-content; max-width: 220px; padding: 9px 12px; border-radius: 10px; background: #1c1d22; color: #fff; font-size: 12px; font-weight: 500; line-height: 1.4; text-align: center; opacity: 0; pointer-events: none; z-index: 60; box-shadow: 0 12px 28px -10px rgba(0,0,0,0.4); transition: opacity 0.22s var(--ws-ease), transform 0.22s var(--ws-ease); }
+  [data-tip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Content below the header keeps the themeable .dash-shell context (vars +
+     legible heading colours) but drops its 264px sidebar column — one centred
+     column instead. */
+  .dash-shell--top { display: block; min-height: 0; }
+  .dash-shell--top .app-main { max-width: 1180px; margin: 0 auto; width: 100%; }
+  body:has(.dash-shell--top) { background: #fff; }
+  /* Pages on the new top header drop the old left-edge Calendar tab/popup
+     (its JS stays harmlessly wired to the hidden markup). */
+  body:has(.dash-shell--top) .cal-tab,
+  body:has(.dash-shell--top) .cal-popup-backdrop { display: none !important; }
+
+  @media (max-width: 820px) {
+    .ws-tabs { gap: 14px; font-size: 14px; overflow-x: auto; }
+  }
+</style>
+
+<script>
+  import { supabase } from "../../lib/supabase.js";
+
+  // Dropdown menus (hamburger, notifications, account)
+  const menus = Array.from(document.querySelectorAll(".ws-nav [data-menu]"));
+  function closeAll(except: Element | null) {
+    menus.forEach((m) => { if (m !== except) { m.classList.remove("is-open"); m.querySelector("[data-menu-btn]")?.setAttribute("aria-expanded", "false"); } });
+  }
+  menus.forEach((m) => {
+    const b = m.querySelector("[data-menu-btn]");
+    b?.addEventListener("click", (e) => { e.stopPropagation(); const open = m.classList.toggle("is-open"); b.setAttribute("aria-expanded", String(open)); closeAll(m); });
+  });
+  document.addEventListener("click", () => closeAll(null));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAll(null); });
+
+  // "Mark all read" clears the unread dot
+  document.querySelector("[data-notif-clear]")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.querySelector(".ws-notif")?.classList.add("is-read");
+  });
+
+  // Log out (icon + dropdown) — clear the session, then /login
+  document.querySelectorAll("[data-logout]").forEach((el) => {
+    el.addEventListener("click", async (e) => { e.preventDefault(); try { await supabase.auth.signOut(); } catch (_) {} location.href = "/login"; });
+  });
+
+  // Identity — avatar initials + account dropdown head
+  const titleCase = (s: string) => String(s || "").replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+  (async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const email = session.user.email ?? "";
+      const meta = (session.user.user_metadata ?? {}) as Record<string, any>;
+      const fullName = titleCase(meta.name || email.split("@")[0].replace(/[._]/g, " "));
+      const initials = fullName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "T";
+      document.querySelectorAll(".ws-whoav").forEach((e) => { (e as HTMLElement).textContent = initials; });
+      const headStrong = document.querySelector(".ws-dropdown-head strong");
+      const headSpan = document.querySelector(".ws-dropdown-head span");
+      if (headStrong) headStrong.textContent = fullName;
+      if (headSpan) headSpan.textContent = email;
+    } catch (_) { /* keep placeholders */ }
+  })();
+</script>

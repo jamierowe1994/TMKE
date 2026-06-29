@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import DashSidebar from "../../components/account/DashSidebar.astro";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
 ---
@@ -12,9 +12,8 @@ import "../../styles/account-sections.css";
   hideNav
   hideFooter
 >
-  <div class="dash-shell">
-    <DashSidebar active="orders" />
-
+  <WorkspaceHeader active="orders" />
+  <div class="dash-shell dash-shell--top">
     <main class="app-main dash-main">
     <section class="welcome">
       <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
@@ -166,9 +165,10 @@ import "../../styles/account-sections.css";
     document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
 
     (async () => {
+      const isDemo = import.meta.env.DEV && location.search.includes('demo=1');
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        location.replace('/login?next=' + encodeURIComponent('/account/orders'));
+        if (!isDemo) location.replace('/login?next=' + encodeURIComponent('/account/orders'));
         return;
       }
 
