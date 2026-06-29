@@ -150,7 +150,7 @@ const heroFirst = heroTemplates[0];
             {recentTemplates.map((t) => (
               <a class="ws-thumb" href={`/editor?template=${encodeURIComponent(t.id)}`} style={`background-image:url('${t.thumb}')`}><span class="ws-thumb-tag">Template</span></a>
             ))}
-            <a class="ws-thumb ws-thumb--new" href="/editor"><span class="ws-thumb-plus">+</span><span>New design</span></a>
+            <a class="ws-thumb ws-thumb--new" href="/editor"><span class="ws-thumb-new-msg">New design</span><span class="ws-thumb-plus" aria-hidden="true">+</span></a>
           </div>
         </section>
       </div>
@@ -266,6 +266,11 @@ const heroFirst = heroTemplates[0];
     }
     .ws-burgerbtn:hover { background: rgba(28, 29, 34, 0.05); }
     .ws-burgerbtn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+    /* Hamburger morphs into an X when the menu opens */
+    .ws-burgerbtn svg line { transition: transform 0.36s cubic-bezier(.4,.1,.2,1.25), opacity 0.2s; transform-box: fill-box; transform-origin: center; }
+    .ws-burger.is-open .ws-burgerbtn svg line:nth-child(1) { transform: translateY(5px) rotate(45deg); }
+    .ws-burger.is-open .ws-burgerbtn svg line:nth-child(2) { opacity: 0; transform: scaleX(0.3); }
+    .ws-burger.is-open .ws-burgerbtn svg line:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
 
     .ws-tabs { flex: 1; display: flex; align-items: center; justify-content: center; gap: clamp(12px, 1.9vw, 36px); }
     .ws-tab {
@@ -297,8 +302,22 @@ const heroFirst = heroTemplates[0];
 
     /* ---------- Dropdowns ---------- */
     .ws-menu { position: relative; }
-    .ws-dropdown { position: absolute; top: calc(100% + 10px); left: 0; min-width: 210px; padding: 8px; background: #fff; border: 1px solid var(--ws-line); border-radius: 14px; box-shadow: 0 24px 50px -22px rgba(28,29,34,0.28); opacity: 0; transform: translateY(-6px) scale(0.98); transform-origin: top left; pointer-events: none; transition: opacity 0.2s var(--ws-ease), transform 0.2s var(--ws-ease); z-index: 50; }
+    .ws-dropdown { position: absolute; top: calc(100% + 10px); left: 0; min-width: 210px; padding: 8px; background: #fff; border: 1px solid var(--ws-line); border-radius: 14px; box-shadow: 0 24px 50px -22px rgba(28,29,34,0.28); opacity: 0; transform: translateY(-10px) scale(0.9); transform-origin: top left; pointer-events: none; transition: opacity 0.22s var(--ws-ease), transform 0.38s cubic-bezier(.34, 1.56, .4, 1); z-index: 50; }
     .ws-menu.is-open .ws-dropdown { opacity: 1; transform: none; pointer-events: auto; }
+    /* Mega-menu items cascade in — the lively "bubble out" reveal */
+    .ws-menu.is-open .ws-dropdown--mega > * { animation: wsDdItem 0.32s var(--ws-ease) both; }
+    .ws-dropdown--mega > *:nth-child(1) { animation-delay: .03s }
+    .ws-dropdown--mega > *:nth-child(2) { animation-delay: .06s }
+    .ws-dropdown--mega > *:nth-child(3) { animation-delay: .09s }
+    .ws-dropdown--mega > *:nth-child(4) { animation-delay: .12s }
+    .ws-dropdown--mega > *:nth-child(5) { animation-delay: .15s }
+    .ws-dropdown--mega > *:nth-child(6) { animation-delay: .18s }
+    .ws-dropdown--mega > *:nth-child(7) { animation-delay: .21s }
+    .ws-dropdown--mega > *:nth-child(8) { animation-delay: .24s }
+    .ws-dropdown--mega > *:nth-child(9) { animation-delay: .27s }
+    .ws-dropdown--mega > *:nth-child(10) { animation-delay: .30s }
+    .ws-dropdown--mega > *:nth-child(11) { animation-delay: .33s }
+    @keyframes wsDdItem { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
     .ws-menu.is-open .ws-caret { transform: rotate(180deg); }
     .ws-dropdown a { display: block; padding: 10px 12px; border-radius: 9px; font-size: 13.5px; color: var(--ws-tx); text-decoration: none; transition: background 0.16s, color 0.16s; }
     .ws-dropdown a:hover { background: rgba(28, 29, 34, 0.05); color: var(--ws-ink); }
@@ -451,9 +470,12 @@ const heroFirst = heroTemplates[0];
     .ws-reel .ws-thumb:hover { transform: translateY(-7px) scale(1.03); box-shadow: 0 22px 38px -16px rgba(28,29,34,0.45); z-index: 2; }
     .ws-thumb-tag { position: absolute; bottom: 8px; left: 8px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.92); font-size: 10px; font-weight: 700; color: var(--ws-accent); }
     .ws-thumb-tag--done { color: var(--ws-success); }
-    .ws-thumb--new { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; background: transparent; box-shadow: inset 0 0 0 1.5px var(--ws-line); font-size: 12px; font-weight: 600; color: var(--ws-faint); }
+    .ws-thumb--new { position: relative; display: flex; align-items: center; justify-content: center; background: transparent; box-shadow: inset 0 0 0 1.5px var(--ws-line); font-size: 12px; font-weight: 600; color: var(--ws-faint); transition: box-shadow 0.22s var(--ws-ease), color 0.22s, transform 0.28s var(--ws-ease); }
     .ws-thumb--new:hover { box-shadow: inset 0 0 0 1.5px var(--ws-accent); color: var(--ws-accent); transform: translateY(-7px); }
-    .ws-thumb-plus { font-size: 26px; line-height: 1; font-weight: 300; }
+    .ws-thumb-new-msg { transition: opacity 0.2s; }
+    .ws-thumb--new:hover .ws-thumb-new-msg { opacity: 0; }
+    .ws-thumb-plus { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 42px; line-height: 1; font-weight: 200; color: var(--ws-accent); opacity: 0; transform: scale(0.78); transition: opacity 0.2s, transform 0.28s var(--ws-ease); pointer-events: none; }
+    .ws-thumb--new:hover .ws-thumb-plus { opacity: 1; transform: scale(1); }
 
     /* ---------- Right column widgets — lighter, recede ---------- */
     .ws-widget { background: transparent; border: 1px solid var(--ws-line); border-radius: var(--ws-r); padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; transition: border-color 0.25s var(--ws-ease); }
@@ -536,6 +558,49 @@ const heroFirst = heroTemplates[0];
       e.stopPropagation();
       document.querySelector('.ws-notif')?.classList.add('is-read');
     });
+
+    // Today's prompt — "Another idea" cycles a curated pool of content ideas.
+    // (A simple, free pool for now; can be swapped for AI generation via the
+    // Worker later without touching this markup.)
+    const TMKE_PROMPTS = [
+      "Three questions every buyer asks during a viewing — and how you answer them.",
+      "The one room that sells the home. Show buyers why.",
+      "What a little styling actually adds to a sale price.",
+      "A 60-second tour of your favourite listing this week.",
+      "Five things buyers notice in the first ten seconds of a viewing.",
+      "Behind the scenes: how we shoot a property that sells.",
+      "Sell the lifestyle, not just the house — the cafe, the school, the park.",
+      "Just listed: tease it before the portal goes live.",
+      "A day in the life of an agent who actually answers the phone.",
+      "Why the right asking price sells faster than the highest one.",
+      "Myth vs fact: what really adds value before you sell.",
+      "Client win of the week — let the result do the talking.",
+      "Your honest take on the local market this month, in 30 seconds.",
+      "First-time buyer? The one thing to sort before you offer.",
+      "Sold fast — the story behind the result.",
+      "Three quick wins to get a home viewing-ready this weekend.",
+    ];
+    (function wirePrompt() {
+      const idea = document.querySelector('.ws-idea');
+      const btn = document.querySelector('.ws-iconround');
+      if (!idea || !btn) return;
+      let current = idea.textContent.replace(/[“”"]/g, '').trim();
+      btn.addEventListener('click', () => {
+        let next = current;
+        for (let i = 0; i < 8 && next === current; i++) {
+          next = TMKE_PROMPTS[Math.floor(Math.random() * TMKE_PROMPTS.length)];
+        }
+        current = next;
+        idea.style.transition = 'opacity 0.22s cubic-bezier(.2,.8,.2,1), transform 0.22s cubic-bezier(.2,.8,.2,1)';
+        idea.style.opacity = '0';
+        idea.style.transform = 'translateY(8px)';
+        setTimeout(() => {
+          idea.textContent = '“' + next + '”';
+          idea.style.opacity = '1';
+          idea.style.transform = 'none';
+        }, 220);
+      });
+    })();
 
     // Count-up + bars/ring on view
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -666,7 +731,7 @@ const heroFirst = heroTemplates[0];
             <span class="ws-thumb-tag">Draft</span>
           </a>`).join('');
         reel.innerHTML = cards + `
-          <a class="ws-thumb ws-thumb--new" href="/editor"><span class="ws-thumb-plus">+</span><span>New design</span></a>`;
+          <a class="ws-thumb ws-thumb--new" href="/editor"><span class="ws-thumb-new-msg">New design</span><span class="ws-thumb-plus" aria-hidden="true">+</span></a>`;
       }
     })();
 
