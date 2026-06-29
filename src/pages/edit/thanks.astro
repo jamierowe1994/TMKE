@@ -94,8 +94,8 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
         <div class="thanks-success" id="password-success" hidden>
           <div class="thanks-success-mark">✓</div>
-          <h3>Your library is ready.</h3>
-          <p id="thanks-success-msg">Welcome to TMKE — you're signed in.</p>
+          <h3>Password saved.</h3>
+          <p id="thanks-success-msg">Your library is unlocked — jump straight in.</p>
           <a href="/account" class="ck-cta">
             Open your library <em>&rarr;</em>
           </a>
@@ -109,17 +109,10 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     </section>
   </main>
 
-  <!-- Page-level wash (this page kicks off the customer's hub journey, so it
-       matches the dashboard). Global because scoped CSS can't target <body>. -->
+  <!-- Clean white page — the receipt card and form carry the structure.
+       Global because scoped CSS can't target <body>. -->
   <style is:global>
-    body:has(.thanks-shell) {
-      background:
-        radial-gradient(70% 55% at 0% 0%, rgba(126, 103, 101, 0.18), transparent 50%),
-        radial-gradient(75% 65% at 100% 0%, rgba(126, 103, 101, 0.26), transparent 55%),
-        radial-gradient(85% 75% at 60% 120%, rgba(126, 103, 101, 0.15), transparent 55%),
-        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f4f2f1 100%);
-      background-attachment: fixed;
-    }
+    body:has(.thanks-shell) { background: #ffffff; }
   </style>
 
   <style>
@@ -161,11 +154,11 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       margin: 0 0 18px;
     }
     .thanks-h1 {
-      font-family: var(--serif);
+      font-family: var(--subhead);
       font-weight: 400;
       font-size: clamp(48px, 6vw, 88px);
-      line-height: 1;
-      letter-spacing: -0.02em;
+      line-height: 1.02;
+      letter-spacing: -0.005em;
       color: var(--ink);
       margin: 0 0 22px;
     }
@@ -315,11 +308,11 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       padding: 6px 0 0;
     }
     .thanks-setup-h {
-      font-family: var(--serif);
-      font-size: clamp(28px, 3vw, 38px);
-      font-weight: 500;
-      letter-spacing: -0.015em;
-      line-height: 1.1;
+      font-family: var(--subhead);
+      font-size: clamp(28px, 3vw, 40px);
+      font-weight: 400;
+      letter-spacing: -0.005em;
+      line-height: 1.08;
       margin: 12px 0 14px;
     }
     .thanks-setup-sub {
@@ -364,6 +357,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       margin: 0;
     }
     .thanks-success p { font-size: 14px; color: rgba(28,29,34,0.65); margin: 0; }
+
+    /* Let the [hidden] attribute win over the flex/grid display rules above,
+       so the success card stays hidden until sign-up and the grid hides on
+       the order-not-found state. */
+    .thanks-grid[hidden],
+    .thanks-form[hidden],
+    .thanks-success[hidden] { display: none !important; }
 
     /* Reuse small bits of checkout look */
     .ck-field { display: flex; flex-direction: column; gap: 6px; }
@@ -490,6 +490,30 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       elDate.textContent = formatDate(data.created_at);
       elPackTitle.textContent = data.pack_title;
 
+      // Status pill. With Stripe, the webhook flips the order to 'paid' a moment
+      // after the redirect lands here — so if it's still 'pending', poll briefly.
+      const statusEl = document.getElementById('thanks-status');
+      const paintStatus = (st) => {
+        if (!statusEl) return;
+        statusEl.textContent = ({ paid: 'Paid', pending: 'Processing…', failed: 'Failed', refunded: 'Refunded' })[st] || st;
+        statusEl.dataset.status = st;
+      };
+      paintStatus(data.status);
+      if (data.status === 'pending') {
+        let tries = 0;
+        const iv = setInterval(async () => {
+          tries += 1;
+          const { data: fresh } = await supabase.from('orders').select('status, payment_method').eq('id', orderId).single();
+          if (fresh && fresh.status && fresh.status !== 'pending') {
+            paintStatus(fresh.status);
+            if (fresh.payment_method) elMethod.textContent = formatMethod(fresh.payment_method);
+            clearInterval(iv);
+          } else if (tries >= 8) {
+            clearInterval(iv);
+          }
+        }, 1500);
+      }
+
       // Pull description + cover from the pack record so the receipt shows context.
       if (data.pack_id) {
         const { data: pack } = await supabase
@@ -586,7 +610,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       form.hidden = true;
       successEl.hidden = false;
       if (data?.session) {
-        successMsg.textContent = "You're signed in and your library is ready.";
+        successMsg.textContent = "You're signed in — your library is unlocked. Jump straight in.";
       } else {
         successMsg.textContent =
           'Check your inbox to verify your email, then sign in to open your library.';
