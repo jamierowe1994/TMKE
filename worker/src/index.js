@@ -311,26 +311,85 @@ function buildICS({ uid, date, start, endHm, summary, description, location, org
     "STATUS:CONFIRMED", "END:VEVENT", "END:VCALENDAR",
   ].filter(Boolean).join("\r\n");
 }
-function bookingConfirmHtml({ name, service, packageLabel, dateNice, time, addOns, postcode, surchargePence, totalPence, manageUrl }) {
+// Branded, per-service booking confirmation. The booking's service_type (or the
+// display name, as a fallback) picks the heading, which detail rows show, and
+// the "before your shoot/session/call" prep block. Email-safe (tables + inline
+// styles + web-safe fonts so it renders in Outlook/Gmail/Apple Mail).
+function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice, time, addOns, postcode, surchargePence, totalPence, manageUrl }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const rows = [
-    ["Service", esc(service)],
-    packageLabel ? [service && service.includes("Agent") ? "Packages" : "Package", esc(packageLabel)] : null,
-    addOns && addOns.length ? ["Add-ons", esc(addOns.map((a) => a.name).join(", "))] : null,
-    postcode ? ["Location", esc(postcode)] : null,
-    ["Date", esc(dateNice)],
-    ["Time", esc(time)],
-    surchargePence ? ["Travel", gbpW(surchargePence) + " + VAT"] : null,
-    totalPence != null ? ["Total", "<strong>" + gbpW(totalPence) + " inc. VAT</strong>"] : null,
-  ].filter(Boolean);
-  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-    <h1 style="font-size:22px;margin:0 0 6px">Your booking is confirmed</h1>
-    <p style="color:#555;font-size:14px;margin:0 0 20px">Hi ${esc(name)}, thanks for booking with TMKE. Here are the details &mdash; we've attached a calendar invite so you can add it to your diary.</p>
-    <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
-      ${rows.map(([k, v]) => `<div><span style="color:#888">${k}:</span> ${v}</div>`).join("")}
+  const st = String(serviceType || "").toLowerCase();
+  const svc = String(service || "").toLowerCase();
+  const kind = (st.includes("content") || svc.includes("studio")) ? "studio"
+    : (st.includes("property") || svc.includes("property")) ? "property"
+    : (st.includes("agent") || svc.includes("agent") || svc.includes("location")) ? "agent"
+    : (st.includes("discovery") || svc.includes("call") || svc.includes("discovery")) ? "call"
+    : "generic";
+  const isCall = kind === "call";
+
+  const heading = ({ studio: "Your Content Studio session is booked.", property: "Your property shoot is booked.", agent: "Your shoot is booked.", call: "Your call with Jack is booked.", generic: "Your booking is confirmed." })[kind];
+  const eyebrow = isCall ? "You're booked in" : "Booking confirmed";
+  const intro = isCall
+    ? `Hi ${esc(name || "there")}, looking forward to chatting. Here's when &mdash; we've attached a calendar invite so it's in your diary.`
+    : `Hi ${esc(name || "there")}, you're all set &mdash; here are the details. We've attached a calendar invite so you can drop it straight into your diary.`;
+  const cta = isCall ? "Reschedule the call" : "Manage your booking";
+
+  const rowsArr = isCall
+    ? [["Call with", "Jack &middot; TMKE"], service ? ["About", esc(service)] : null, ["Date", esc(dateNice)], ["Time", esc(time)]]
+    : [
+        ["Service", esc(service)],
+        packageLabel ? [(svc.includes("agent") ? "Packages" : "Package"), esc(packageLabel)] : null,
+        addOns && addOns.length ? ["Add-ons", esc(addOns.map((a) => a.name).join(", "))] : null,
+        postcode ? ["Location", esc(postcode)] : null,
+        ["Date", esc(dateNice)],
+        ["Time", esc(time)],
+        surchargePence ? ["Travel", gbpW(surchargePence) + " + VAT"] : null,
+      ];
+  const rowsHtml = rowsArr.filter(Boolean).map(([k, v]) => `<tr><td style="padding:5px 0;color:#8a8690;width:36%;">${k}</td><td style="padding:5px 0;font-weight:bold;color:#1c1d22;">${v}</td></tr>`).join("");
+  const totalHtml = (!isCall && totalPence != null)
+    ? `<tr><td style="padding:13px 0 0;color:#8a8690;border-top:1px solid #e7e3dc;">Total</td><td style="padding:13px 0 0;border-top:1px solid #e7e3dc;font-weight:bold;font-size:17px;color:#1c1d22;">${gbpW(totalPence)} <span style="font-weight:normal;color:#8a8690;font-size:12px;">inc. VAT</span></td></tr>`
+    : "";
+
+  const prepByKind = {
+    studio: [["Your prompt pack is coming.", "About 3 days before, we'll email a set of tailored conversational prompts so you make the most of your time in the studio."], ["Bring your bits.", "Any outfits, props or scripts you'd like to use on the day."], ["Arrive on time.", "Sessions start and end at the scheduled time, so getting there promptly keeps the full session yours."]],
+    property: [["Access &amp; permissions.", "Please make sure we have safe, timely access to the property at the agreed time, and consent of anyone who may appear on camera."], ["Drone is weather-dependent.", "Jack holds a valid CAA licence; capturing drone footage on the day is subject to weather and local airspace. If it's not possible, we'll talk through the options."], ["Twilight add-ons.", "Faux-twilight images are confirmed and quoted after the shoot, once we know how many you'd like."]],
+    agent: [["Be ready at the location.", "Please be ready and available at the agreed location and time."], ["Permissions &amp; consent.", "Make sure you have permission to film at the location and the consent of anyone who may appear on camera."]],
+    call: [["No pressure, no pitch.", "It's a relaxed chat to understand what you're after and which service would suit you best."], ["Jack will call you", "at the time above on the number you gave us. If anything changes, you can rearrange any time."]],
+    generic: [],
+  };
+  const prep = prepByKind[kind] || [];
+  const prepTitle = isCall ? "What to expect" : ("Before your " + (kind === "studio" ? "session" : "shoot"));
+  const prepHtml = prep.length
+    ? `<div style="padding:28px 32px 0;"><div style="font-size:11px;font-weight:bold;letter-spacing:0.18em;color:#371e28;text-transform:uppercase;margin-bottom:13px;">${prepTitle}</div>${prep.map(([h, t], i) => `<div style="font-size:14px;line-height:1.55;color:#55565b;${i < prep.length - 1 ? "margin-bottom:11px;" : ""}"><strong style="color:#1c1d22;">${h}</strong> ${t}</div>`).join("")}</div>`
+    : "";
+
+  const policy = isCall
+    ? "Can't make it? You can rearrange any time from your account."
+    : (kind === "property" || kind === "agent")
+    ? "Travel is included in your total, calculated from the postcode above; if the location changes we'll re-quote before the shoot. Reschedule with 2 days' notice or cancel with 3 days' notice from your account."
+    : "Need to change something? Reschedule with 2 days' notice or cancel with 3 days' notice from your account. Cancellations inside 72 hours are chargeable in full.";
+
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f1efec;margin:0;padding:24px 0;">
+    <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">
+      <div style="background:#371e28;padding:20px 32px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td style="font-family:Georgia,'Times New Roman',serif;font-size:21px;letter-spacing:0.05em;color:#ffffff;">TMKE</td>
+          <td align="right" style="font-size:11px;letter-spacing:0.22em;color:rgba(255,255,255,0.62);">VIDEOGRAPHY</td>
+        </tr></table>
+      </div>
+      <div style="padding:34px 32px 0;">
+        <div style="font-size:11px;font-weight:bold;letter-spacing:0.2em;color:#b9826a;text-transform:uppercase;margin-bottom:12px;">${eyebrow}</div>
+        <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-weight:normal;font-size:29px;line-height:1.18;color:#1c1d22;">${heading}</h1>
+      </div>
+      <div style="padding:16px 32px 0;font-size:15px;line-height:1.6;color:#55565b;">${intro}</div>
+      <div style="padding:22px 32px 0;"><div style="background:#f6f4f1;border-radius:10px;padding:18px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">${rowsHtml}${totalHtml}</table></div></div>
+      ${manageUrl ? `<div style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#371e28;border-radius:8px;"><a href="${esc(manageUrl)}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;">${cta} &rarr;</a></td></tr></table></div>` : ""}
+      ${prepHtml}
+      <div style="padding:22px 32px 0;font-size:12.5px;line-height:1.6;color:#8a8690;">${policy}</div>
+      <div style="margin-top:28px;padding:24px 32px;border-top:1px solid #ece9e4;">
+        <div style="font-family:Georgia,serif;font-size:16px;color:#371e28;">TMKE</div>
+        <div style="margin-top:6px;font-size:12px;line-height:1.6;color:#9a9aa0;">Questions? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28;text-decoration:none;">hello@tmke.co.uk</a>.<br><a href="https://tmke.co.uk/videography" style="color:#9a9aa0;">tmke.co.uk</a></div>
+      </div>
     </div>
-    <p style="font-size:13px;color:#555;margin:18px 0 0">We've set up your account so you can view, reschedule or cancel this booking any time${manageUrl ? ` at <a href="${manageUrl}" style="color:#371e28">your account</a>` : ""}. Please give at least 3 days' notice to cancel and 2 days to rearrange.</p>
-    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p>
   </div>`;
 }
 function jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns, postcode, distanceMiles, surchargePence, dateNice, time, totalPence, signedName, marketingOptIn }) {
@@ -1174,7 +1233,7 @@ export default {
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         await sendEmail(env, {
           to: email, subject: `Booking confirmed — ${service || "TMKE"}`,
-          html: bookingConfirmHtml({ name, service, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}` }),
+          html: bookingConfirmHtml({ name, service, serviceType: service_type, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}` }),
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, {
