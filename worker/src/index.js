@@ -599,12 +599,71 @@ async function runAutomationsTick(env) {
   return due.length;
 }
 
+// ---- Abandoned password-setup reminder ------------------------------------
+// A buyer can pay and then never set a password (orders.user_id stays null),
+// so they never see the pack they bought. ~30 min after a paid order is still
+// unclaimed, email them a one-click link back to set it. Sends once (stamped
+// via setup_reminder_sent_at) and skips anyone who already has an account for
+// that email (an existing customer who'll just sign in).
+function setupReminderHtml({ name, pack, link }) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+    <h1 style="font-size:22px;margin:0 0 6px">Your pack is waiting${pack ? ` &mdash; ${esc(pack)}` : ""}</h1>
+    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 20px">Hi ${first}, thanks for your purchase! You haven't set a password yet, so your library is still locked. Set one now and your pack unlocks straight away.</p>
+    <p style="margin:0 0 26px"><a href="${esc(link)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:13px 22px;border-radius:6px">Set my password &amp; open my library &rarr;</a></p>
+    <p style="font-size:12px;color:#999;line-height:1.6;margin:0">If the button doesn't work, paste this into your browser:<br><span style="color:#777">${esc(link)}</span></p>
+    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk" style="color:#371e28">tmke.co.uk</a></p>
+  </div>`;
+}
+
+async function runSetupReminders(env) {
+  if (!env.SUPABASE_SERVICE_ROLE) return;
+  const MINUTES = 30; // remind once a paid order has been unclaimed this long
+  try {
+    const newer = new Date(Date.now() - MINUTES * 60 * 1000).toISOString();
+    const older = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(); // don't chase ancient orders
+    const rows = await sbGet(
+      env,
+      "orders",
+      `status=eq.paid&user_id=is.null&setup_reminder_sent_at=is.null` +
+        `&created_at=lt.${encodeURIComponent(newer)}&created_at=gt.${encodeURIComponent(older)}` +
+        `&select=id,buyer_email,buyer_name,pack_title&order=created_at.asc&limit=50`
+    );
+    if (!rows || !rows.length) return;
+    for (const o of rows) {
+      if (!o.buyer_email) continue;
+      // Stamp first so a slow/failed send can't double-email on the next tick.
+      await sbPatch(env, "orders", `id=eq.${o.id}`, { setup_reminder_sent_at: new Date().toISOString() });
+      // Skip if an account already exists for this email — they can just sign in.
+      let hasAccount = false;
+      try {
+        const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(o.buyer_email)}`, {
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; hasAccount = Array.isArray(list) && list.length > 0; }
+      } catch (_) {}
+      if (hasAccount) continue;
+      const link = `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/edit/thanks?order=${encodeURIComponent(o.id)}`;
+      await sendEmail(env, {
+        to: o.buyer_email,
+        subject: "Set your password to unlock your TMKE pack",
+        html: setupReminderHtml({ name: o.buyer_name, pack: o.pack_title, link }),
+      });
+    }
+  } catch (_) { /* best-effort; the next tick retries any newly-eligible orders */ }
+}
+
 export default {
   // Cron (see wrangler.toml [triggers]). The daily 07:00 run sends post
-  // reminders; every other (frequent) run advances due automation enrolments.
+  // reminders; every other (frequent) run advances automations + chases any
+  // paid-but-no-password orders.
   async scheduled(event, env, ctx) {
     if (event && event.cron === "0 7 * * *") ctx.waitUntil(runReminders(env));
-    else ctx.waitUntil(runAutomationsTick(env));
+    else {
+      ctx.waitUntil(runAutomationsTick(env));
+      ctx.waitUntil(runSetupReminders(env));
+    }
   },
 
   async fetch(request, env) {

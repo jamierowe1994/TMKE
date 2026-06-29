@@ -11,6 +11,16 @@ alter table public.orders
 create index if not exists orders_stripe_session_idx
   on public.orders (stripe_session_id);
 
+-- Abandoned-setup reminder: stamped when the Worker has emailed a buyer who
+-- paid but never created a password (orders.user_id still null). Stops re-sends.
+alter table public.orders
+  add column if not exists setup_reminder_sent_at timestamptz;
+
+-- Speeds up the cron query (paid + no linked account + not yet reminded).
+create index if not exists orders_setup_pending_idx
+  on public.orders (created_at)
+  where status = 'paid' and user_id is null and setup_reminder_sent_at is null;
+
 -- status already allows 'pending' and payment_method already allows 'card'
 -- (see orders.sql), so no constraint changes are needed here.
 --
