@@ -222,6 +222,14 @@ const heroFirst = heroTemplates[0];
         </div>
       </a>
     </main>
+
+    <!-- Contextual coach — one state-driven nudge, anchored to the relevant
+         element, shown after the entrance settles. Rule list in the script. -->
+    <div id="ws-coach" class="ws-coach" role="status" aria-live="polite" hidden>
+      <span class="ws-coach-spark" aria-hidden="true">✦</span>
+      <span class="ws-coach-msg" id="ws-coach-msg"></span>
+      <button type="button" class="ws-coach-x" id="ws-coach-x" aria-label="Dismiss tip">&times;</button>
+    </div>
   </div>
 
   <style is:global>
@@ -570,6 +578,16 @@ const heroFirst = heroTemplates[0];
       .ws-rise, .ws-brief li, .ws-greeting, .ws-hero-cta-btn, .ws-block-head, .ws-week .ws-day, .ws-reel .ws-thumb, .ws-nav { opacity: 1 !important; transform: none !important; animation: none !important; }
       .ws-hero-fill, .ws-ring-fg { transition: none !important; }
     }
+
+    /* ===== Contextual coach bubble ===== */
+    .ws-coach { position: absolute; z-index: 80; max-width: 280px; display: flex; align-items: flex-start; gap: 9px; padding: 12px 12px 12px 13px; background: #fff; border: 1px solid var(--ws-line); border-radius: 13px; box-shadow: 0 20px 44px -18px rgba(28,29,34,0.32); opacity: 0; transform: translateY(-6px) scale(0.92); transform-origin: top center; transition: opacity 0.25s var(--ws-ease), transform 0.5s cubic-bezier(.34, 1.56, .4, 1); }
+    .ws-coach.is-in { opacity: 1; transform: none; }
+    .ws-coach::before { content: ""; position: absolute; top: -6px; left: var(--arrow-x, 26px); width: 11px; height: 11px; background: #fff; border-left: 1px solid var(--ws-line); border-top: 1px solid var(--ws-line); transform: translateX(-50%) rotate(45deg); }
+    .ws-coach-spark { flex: 0 0 auto; color: #e3a008; font-size: 14px; line-height: 1.5; }
+    .ws-coach-msg { flex: 1; font-size: 13px; line-height: 1.5; color: var(--ws-ink); }
+    .ws-coach-x { flex: 0 0 auto; border: 0; background: transparent; color: var(--ws-faint); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; transition: color 0.2s; }
+    .ws-coach-x:hover { color: var(--ws-ink); }
+    @media (prefers-reduced-motion: reduce) { .ws-coach { transition: opacity 0.2s; transform: none; } }
   </style>
 
   <script>
@@ -902,6 +920,68 @@ const heroFirst = heroTemplates[0];
       if (title && t.name) title.textContent = t.name;
       const link = document.getElementById('ws-edmock');
       if (link && t.id) link.setAttribute('href', '/editor?template=' + encodeURIComponent(t.id));
+    })();
+  </script>
+
+  <script>
+    // ===== Contextual coach =====
+    // Picks the single most relevant, not-yet-dismissed tip from a prioritised
+    // rule list, anchors it to the related element, and shows it once the
+    // entrance settles. State is read locally (drafts / brand kit) so it works
+    // signed-out in the preview; remembers dismissals in localStorage. The rule
+    // shape (id / when / target / text) is ready for Claude to fill `text` later.
+    (function coach() {
+      const coach = document.getElementById('ws-coach');
+      const msgEl = document.getElementById('ws-coach-msg');
+      const xBtn = document.getElementById('ws-coach-x');
+      if (!coach || !msgEl) return;
+
+      const SEEN_KEY = 'tmke.coach.seen';
+      let seen = [];
+      try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'); } catch (_) {}
+
+      const hasDraft = (() => {
+        try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('tmke.editor.')) return true; } } catch (_) {}
+        return false;
+      })();
+      const brand = (() => { try { return JSON.parse(localStorage.getItem('tmke.brand') || 'null'); } catch (_) { return null; } })();
+      const brandDone = !!(brand && (brand.logos || []).length && (brand.colors || []).some((c) => c && c.hex) && brand.fonts && (brand.fonts.heading || brand.fonts.body));
+
+      const RULES = [
+        { id: 'brand-health', when: () => !brandDone, target: '.ws-textlink--accent', text: 'Finishing your Brand Kit means every design comes out on-brand automatically — worth a couple of minutes.' },
+        { id: 'continue-draft', when: () => hasDraft, target: '.ws-reel .ws-thumb', text: 'Pick up where you left off — your most recent design is right here.' },
+        { id: 'first-studio', when: () => !hasDraft, target: '.ws-tab[href="/studio"]', text: 'New here? Hop into Studio to make your first design — it only takes a minute.' },
+        { id: 'prompt-hint', when: () => true, target: '.ws-iconround', text: "Not feeling today's prompt? Tap here for another idea." },
+        { id: 'schedule', when: () => true, target: '#plan-h', text: "Nothing planned yet this week — a midweek post tends to land well." },
+      ];
+
+      const pick = RULES.find((r) => !seen.includes(r.id) && r.when() && document.querySelector(r.target));
+      if (!pick) return;
+      const target = document.querySelector(pick.target);
+      msgEl.textContent = pick.text;
+
+      function place() {
+        coach.hidden = false;
+        const r = target.getBoundingClientRect();
+        const cx = r.left + r.width / 2 + window.scrollX;
+        coach.style.top = (r.bottom + window.scrollY + 12) + 'px';
+        coach.style.left = '0px';
+        const cw = coach.offsetWidth;
+        const maxLeft = document.documentElement.clientWidth - cw - 16;
+        const left = Math.max(16, Math.min(cx - cw / 2, maxLeft));
+        coach.style.left = left + 'px';
+        coach.style.setProperty('--arrow-x', Math.max(16, Math.min(cx - left, cw - 16)) + 'px');
+      }
+      function dismiss() {
+        coach.classList.remove('is-in');
+        setTimeout(() => { coach.hidden = true; }, 320);
+        if (!seen.includes(pick.id)) { seen.push(pick.id); try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (_) {} }
+      }
+      xBtn?.addEventListener('click', dismiss);
+      window.addEventListener('resize', () => { if (!coach.hidden) place(); });
+
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      setTimeout(() => { place(); requestAnimationFrame(() => coach.classList.add('is-in')); }, reduce ? 400 : 3300);
     })();
   </script>
 </BaseLayout>
