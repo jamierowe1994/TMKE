@@ -583,6 +583,10 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     /* ===== MOBILE-ONLY hero (phones ≤600px) ===== */
     .hi-mobile { display: none; }
     @media (max-width: 600px) {
+      /* Fill the phone screen exactly — svh is the stable "bars visible" height,
+         so the hero never overshoots the viewport (which made the scroll bounce). */
+      .hero-static { height: 100svh; }
+
       /* Hide every part of the desktop split-reveal on phones. */
       .hero-intro .hi-bg,
       .hero-intro .hi-word,
@@ -599,8 +603,8 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       .him-inner {
         position: absolute; inset: 0; z-index: 1;
         display: flex; flex-direction: column; align-items: flex-start;
-        justify-content: flex-end;
-        padding: 0 26px 17vh 28px;
+        justify-content: flex-start;
+        padding: 24vh 26px 0 28px;
         color: var(--paper);
       }
       .him-eyebrow {
@@ -610,7 +614,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       }
       .him-tagline {
         margin: 0 0 22px; font-family: var(--sans), "Helvetica Neue", Arial, sans-serif;
-        font-size: 20px; font-weight: 700; line-height: 1.2; letter-spacing: 0.01em;
+        font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: 0.01em;
         text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 20px rgba(0,0,0,0.28);
       }
       .him-tagline span { display: block; }
@@ -621,8 +625,8 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         color: var(--paper); text-shadow: 0 2px 30px rgba(0,0,0,0.3);
       }
       .him-nav {
-        display: flex; width: 100%; justify-content: space-between; align-items: center;
-        gap: 8px; margin: 0 0 18px;
+        display: flex; width: auto; justify-content: flex-start; align-items: center;
+        flex-wrap: wrap; gap: 8px 18px; margin: 0 0 18px;
       }
       .him-nav a {
         font-family: var(--sans), "Helvetica Neue", Arial, sans-serif;
@@ -937,6 +941,13 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         width: min(78vw, 360px); min-height: 0;
       }
       .ch4-label-heading { font-size: clamp(16px, 4.4vw, 22px); }
+    }
+    /* ===== MOBILE-ONLY (phones ≤600px): one full-bleed photo that slides up —
+       drop the 30px frame and the second (alternating) column so each stage is
+       a single full-screen image. ===== */
+    @media (max-width: 600px) {
+      .ch4-panels { inset: 0; grid-template-columns: 1fr; }
+      .ch4-col--right { display: none; }
     }
   </style>
 
