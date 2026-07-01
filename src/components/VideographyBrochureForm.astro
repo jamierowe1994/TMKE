@@ -31,15 +31,23 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       <label class="vbf-field">Full name <span>*</span><input name="full_name" required autocomplete="name" /></label>
       <label class="vbf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
 
-      <p class="vbf-help vbf-help--lead">{VIDEOGRAPHY_BROCHURE.accountHelp}</p>
-      <label class="vbf-field vbf-pw">Create a password <span class="vbf-opt">— optional</span><input type="password" name="password" autocomplete="new-password" /></label>
-      <label class="vbf-field vbf-confirm" hidden>Confirm password<input type="password" name="confirm" autocomplete="new-password" /></label>
+      <!-- Revealed only after we've checked whether this email already has an
+           account. New visitors get the option to set a password; returning
+           account-holders skip straight to the brochure. -->
+      <div class="vbf-stage2" hidden>
+        <div class="vbf-newacct" hidden>
+          <p class="vbf-help vbf-help--lead">{VIDEOGRAPHY_BROCHURE.accountHelp}</p>
+          <label class="vbf-field vbf-pw">Create a password <span class="vbf-opt">— optional</span><input type="password" name="password" autocomplete="new-password" /></label>
+          <label class="vbf-field vbf-confirm" hidden>Confirm password<input type="password" name="confirm" autocomplete="new-password" /></label>
+        </div>
+        <p class="vbf-help vbf-help--lead vbf-existing" hidden>Welcome back — you already have a TMKE account, so we'll email the brochure straight over.</p>
+        <label class="vbf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
+      </div>
 
       <div class="vbf-hp" aria-hidden="true"><label>Leave this field blank<input type="text" name="hp" tabindex="-1" autocomplete="off" /></label></div>
-      <label class="vbf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
 
       <p class="vbf-error" hidden></p>
-      <button type="submit" class="vbf-submit">Email me the brochure <span aria-hidden="true">&rarr;</span></button>
+      <button type="submit" class="vbf-submit" data-stage="check">Continue <span aria-hidden="true">&rarr;</span></button>
       <p class="vbf-privacy">By submitting this form you agree to our <a href={PRIVACY_URL}>Privacy Policy</a>.</p>
     </form>
 
@@ -74,6 +82,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .vbf-x:hover { background: rgba(28,29,34,0.12); transform: rotate(90deg); }
 
   .vbf-form[hidden], .vbf-done[hidden] { display: none; }
+  .vbf-stage2[hidden], .vbf-newacct[hidden], .vbf-existing[hidden], .vbf-confirm[hidden] { display: none; }
 
   .vbf-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 12px; }
   .vbf-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.02; letter-spacing: -0.02em; margin: 0 0 10px; }
@@ -153,10 +162,51 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     function showErr(m) { const el = form.querySelector(".vbf-error"); el.textContent = m; el.hidden = false; el.scrollIntoView({ block: "nearest" }); }
 
+    const submitBtn = form.querySelector(".vbf-submit");
+    const stage2 = form.querySelector(".vbf-stage2");
+    const newAcct = form.querySelector(".vbf-newacct");
+    const existingMsg = form.querySelector(".vbf-existing");
+    const emailInput = form.querySelector('input[name="email"]');
+
     // Reveal "confirm password" once a password is being typed.
     const pw = form.querySelector('input[name="password"]');
     const confirmWrap = form.querySelector(".vbf-confirm");
     if (pw && confirmWrap) pw.addEventListener("input", () => { confirmWrap.hidden = pw.value.length === 0; });
+
+    // If they edit the email after the check, drop back to the "Continue" step
+    // so the account status is re-checked against the new address.
+    let checkedEmail = null;
+    if (emailInput) emailInput.addEventListener("input", () => {
+      if (checkedEmail !== null && emailInput.value.trim().toLowerCase() !== checkedEmail) {
+        checkedEmail = null; stage2.hidden = true;
+        submitBtn.dataset.stage = "check"; submitBtn.innerHTML = 'Continue <span aria-hidden="true">&rarr;</span>';
+      }
+    });
+
+    // Step 1 → look up whether this email already has a TMKE account, then reveal
+    // the right stage-2 content (password option for new people, nothing for
+    // returning account-holders).
+    async function runCheck(name, email) {
+      const btn = submitBtn; const orig = btn.innerHTML;
+      btn.disabled = true; btn.textContent = "Checking…";
+      let exists = false;
+      if (WORKER) {
+        try {
+          const r = await fetch(`${WORKER}/videography/account-exists?email=${encodeURIComponent(email)}`);
+          const d = await r.json().catch(() => ({})); exists = !!(d && d.exists);
+        } catch (_) { /* if the check fails, fall back to offering an account */ }
+      }
+      checkedEmail = email.toLowerCase();
+      newAcct.hidden = exists;
+      existingMsg.hidden = !exists;
+      if (exists && pw) { pw.value = ""; if (confirmWrap) { confirmWrap.hidden = true; } }
+      stage2.hidden = false;
+      btn.disabled = false;
+      btn.dataset.stage = "send";
+      btn.innerHTML = 'Email me the brochure <span aria-hidden="true">&rarr;</span>';
+      form.querySelector(".vbf-error").hidden = true;
+      stage2.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
 
     function showDone(data) {
       form.hidden = true;
@@ -174,11 +224,20 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       e.preventDefault();
       form.querySelector(".vbf-error").hidden = true;
       const fd = new FormData(form);
-      const pwv = String(fd.get("password") || "");
-      const cf = String(fd.get("confirm") || "");
-      if (!String(fd.get("full_name") || "").trim() || !/.+@.+\..+/.test(String(fd.get("email") || ""))) {
+      const namev = String(fd.get("full_name") || "").trim();
+      const emailv = String(fd.get("email") || "").trim();
+      if (!namev || !/.+@.+\..+/.test(emailv)) {
         return showErr("Please add your name and a valid email.");
       }
+
+      // Stage 1 — check the account before deciding what to show.
+      if (submitBtn.dataset.stage === "check") {
+        return runCheck(namev, emailv);
+      }
+
+      // Stage 2 — send the brochure (and optionally create the account).
+      const pwv = String(fd.get("password") || "");
+      const cf = String(fd.get("confirm") || "");
       if (pwv) {
         if (!PW_RE.test(pwv)) return showErr("Password must be at least 8 characters and include a number and a special character.");
         if (pwv !== cf) return showErr("Those passwords don't match.");

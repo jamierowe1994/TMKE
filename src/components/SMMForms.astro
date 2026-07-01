@@ -63,16 +63,24 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
       <label class="smf-field">Full name <span>*</span><input name="full_name" required autocomplete="name" /></label>
       <label class="smf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
 
-      <p class="smf-help smf-help--lead">{ACCOUNT_HELP.brochure}</p>
-      <label class="smf-field smf-pw">Create a password <span class="smf-opt">— optional</span><input type="password" name="password" autocomplete="new-password" /></label>
-      <label class="smf-field smf-confirm" hidden>Confirm password<input type="password" name="confirm" autocomplete="new-password" /></label>
+      <!-- Revealed after we've checked whether this email already has an account:
+           new visitors get the option to set a password; returning account-holders
+           skip straight to the brochure. -->
+      <div class="smf-stage2" hidden>
+        <div class="smf-newacct" hidden>
+          <p class="smf-help smf-help--lead">{ACCOUNT_HELP.brochure}</p>
+          <label class="smf-field smf-pw">Create a password <span class="smf-opt">— optional</span><input type="password" name="password" autocomplete="new-password" /></label>
+          <label class="smf-field smf-confirm" hidden>Confirm password<input type="password" name="confirm" autocomplete="new-password" /></label>
+        </div>
+        <p class="smf-help smf-help--lead smf-existing" hidden>Welcome back — you already have a TMKE account, so we'll email the brochure straight over.</p>
+        <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
+      </div>
 
       <div class="smf-hp" aria-hidden="true"><label>Leave this field blank<input type="text" name="hp" tabindex="-1" autocomplete="off" /></label></div>
-      <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
 
       <div class="smf-turnstile"></div>
       <p class="smf-error" hidden></p>
-      <button type="submit" class="smf-submit">Email me the brochure <span aria-hidden="true">&rarr;</span></button>
+      <button type="submit" class="smf-submit" data-stage="check">Continue <span aria-hidden="true">&rarr;</span></button>
       <p class="smf-privacy">By submitting this form you agree to our <a href={PRIVACY_URL}>Privacy Policy</a>.</p>
     </form>
 
@@ -147,6 +155,7 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
   .smf-x:hover { background: rgba(28,29,34,0.12); transform: rotate(90deg); }
 
   .smf-form[hidden], .smf-done[hidden] { display: none; }
+  .smf-stage2[hidden], .smf-newacct[hidden], .smf-existing[hidden], .smf-confirm[hidden] { display: none; }
 
   .smf-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 12px; }
   .smf-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.02; letter-spacing: -0.02em; margin: 0 0 10px; }
@@ -260,6 +269,7 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
       requestAnimationFrame(() => requestAnimationFrame(() => { scrim.classList.add("is-open"); modal.classList.add("is-open"); }));
       renderTurnstile(form);
       if (typeof form.__checkReveal === "function") form.__checkReveal();
+      if (typeof form.__resetStage === "function") form.__resetStage();
       modal.querySelector(".smf-scroll").scrollTop = 0;
     }
     function close() {
@@ -351,6 +361,33 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
       dateInput.addEventListener("change", () => loadSlots(dateInput.value));
     }
 
+    // ---- Brochure: email-first account check ----
+    // The brochure form opens as name + email only. On "Continue" we look up
+    // whether that email already has a TMKE account; new visitors then get the
+    // option to set a password, returning account-holders skip straight to the
+    // brochure. Reuses /videography/account-exists (it's service-agnostic).
+    async function runBrochureCheck(form, btn, email) {
+      const stage2 = form.querySelector(".smf-stage2");
+      const newAcct = form.querySelector(".smf-newacct");
+      const existingMsg = form.querySelector(".smf-existing");
+      const pw = form.querySelector('input[name="password"]');
+      const confirmWrap = form.querySelector(".smf-confirm");
+      btn.disabled = true; btn.textContent = "Checking…";
+      let exists = false;
+      if (WORKER) {
+        try { const r = await fetch(`${WORKER}/videography/account-exists?email=${encodeURIComponent(email)}`); const d = await r.json().catch(() => ({})); exists = !!(d && d.exists); } catch (_) {}
+      }
+      form.dataset.checkedEmail = email.toLowerCase();
+      newAcct.hidden = exists; existingMsg.hidden = !exists;
+      if (exists && pw) { pw.value = ""; if (confirmWrap) confirmWrap.hidden = true; }
+      stage2.hidden = false;
+      btn.disabled = false; btn.dataset.stage = "send";
+      btn.innerHTML = 'Email me the brochure <span aria-hidden="true">&rarr;</span>';
+      form.querySelector(".smf-error").hidden = true;
+      renderTurnstile(form);
+      stage2.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
     // ---- Per-form wiring ----
     forms.forEach((form) => {
       const pw = form.querySelector('input[name="password"]');
@@ -358,11 +395,41 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
       if (pw && confirmWrap) pw.addEventListener("input", () => { confirmWrap.hidden = pw.value.length === 0; });
       if (form.dataset.kind === "discovery") setupDiscovery(form);
 
+      if (form.dataset.kind === "brochure") {
+        const btn = form.querySelector(".smf-submit");
+        const stage2 = form.querySelector(".smf-stage2");
+        const newAcct = form.querySelector(".smf-newacct");
+        const existingMsg = form.querySelector(".smf-existing");
+        const emailInput = form.querySelector('input[name="email"]');
+        // Reset to step 1 whenever the brochure pane is (re)opened.
+        form.__resetStage = () => {
+          form.dataset.checkedEmail = "";
+          stage2.hidden = true; newAcct.hidden = true; existingMsg.hidden = true;
+          btn.dataset.stage = "check"; btn.innerHTML = 'Continue <span aria-hidden="true">&rarr;</span>';
+        };
+        // Editing the email after the check drops back to step 1 to re-check.
+        if (emailInput) emailInput.addEventListener("input", () => {
+          if (form.dataset.checkedEmail && emailInput.value.trim().toLowerCase() !== form.dataset.checkedEmail) {
+            form.__resetStage();
+          }
+        });
+      }
+
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const errEl = form.querySelector(".smf-error"); errEl.hidden = true;
         const fd = new FormData(form);
         const kind = form.dataset.kind;
+        const submitBtn = form.querySelector(".smf-submit");
+
+        // Brochure stage 1 — check the account before revealing the password option.
+        if (kind === "brochure" && submitBtn.dataset.stage === "check") {
+          const namev = String(fd.get("full_name") || "").trim();
+          const emailv = String(fd.get("email") || "").trim();
+          if (!namev || !/.+@.+\..+/.test(emailv)) return showErr(form, "Please add your name and a valid email.");
+          return runBrochureCheck(form, submitBtn, emailv);
+        }
+
         const pwv = String(fd.get("password") || "");
         const cf = String(fd.get("confirm") || "");
         if (kind === "discovery" && (!fd.get("date") || !fd.get("start"))) return showErr(form, "Please pick a time for your call.");

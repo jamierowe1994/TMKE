@@ -1648,6 +1648,73 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // ---- Videography — Download a Brochure: emails the videography brochure,
+      //      stores the lead, optional account creation (password only offered to
+      //      people who don't already have a TMKE account — the form checks
+      //      /videography/account-exists first). Brochure goes out on EVERY
+      //      submit regardless of account creation. ----------------------------
+      if (path.endsWith("/videography/brochure") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const { full_name, email, password, marketing_opt_in, hp } = b || {};
+        if (hp) return json({ ok: true }, 200, request, env);
+        if (!full_name || !email) return json({ error: "Please add your name and email." }, 400, request, env);
+
+        // Optional account creation (password is optional; the form only shows
+        // it to people who don't yet have an account).
+        let accountUserId = null, accountCreated = false;
+        if (password) {
+          if (!smmPasswordOk(password)) return json({ error: "Password must be at least 8 characters and include a number and a special character." }, 400, request, env);
+          try {
+            const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+              method: "POST",
+              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name } }),
+            });
+            if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
+            else {
+              const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+                headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+              });
+              if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+            }
+          } catch (_) { /* account is best-effort; the brochure still sends */ }
+        }
+
+        await sbPost(env, "videography_bookings", {
+          kind: "brochure", service_type: "brochure", audience: accountUserId ? "member" : "non-member",
+          client_email: email, client_name: full_name, service: "Videography Brochure",
+          stage: "brochure_downloaded", notes: "Brochure download", marketing_opt_in: !!marketing_opt_in,
+          account_user_id: accountUserId, account_created: accountCreated,
+        });
+
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const brochureUrl = env.VIDEOGRAPHY_BROCHURE_URL || "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf";
+        const firstName = String(full_name).trim().split(/\s+/)[0] || "there";
+
+        // Email the brochure (a link — works the moment the PDF is uploaded).
+        await sendEmail(env, {
+          to: email, subject: "Your TMKE videography brochure",
+          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            <h1 style="font-size:22px;margin:0 0 6px">Here's your brochure, ${esc(firstName)}</h1>
+            <p style="color:#555;font-size:14px;margin:0 0 22px">Thanks for your interest in TMKE videography. Everything's in the brochure below — what's included, how it works, and what it costs.</p>
+            <p style="margin:0 0 22px"><a href="${esc(brochureUrl)}" style="display:inline-block;background:#1c1d22;color:#fff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:14px 26px;border-radius:6px">Download the brochure &rarr;</a></p>
+            ${accountCreated ? `<p style="color:#555;font-size:14px;margin:0 0 6px">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
+            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p></div>`,
+        });
+
+        // CRM + automations: upsert the contact + fire any "form submitted" flow.
+        try {
+          const bparts = String(full_name).trim().split(/\s+/);
+          await fireTrigger(env, "form_submitted", {
+            email, first_name: bparts.shift() || full_name, last_name: bparts.join(" ") || null,
+            source: "videography_brochure", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
+            tags: ["TMKE Videography", "Brochure Download"], user_id: accountUserId || null,
+          }, { form: "videography_brochure", tag: "Brochure Download" });
+        } catch (_) {}
+
+        return json({ ok: true, account_created: accountCreated, brochure_url: brochureUrl }, 200, request, env);
+      }
+
       // ---- Does this email already have a TMKE account? (booking gate) -------
       if (path.endsWith("/videography/account-exists") && request.method === "GET") {
         const email = (url.searchParams.get("email") || "").trim().toLowerCase();
