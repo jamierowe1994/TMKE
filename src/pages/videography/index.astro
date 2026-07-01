@@ -797,6 +797,9 @@ const navLinks = [
     .vmodal-gallery { flex: 0 0 auto; display: flex; gap: 10px; padding: 14px; background: rgba(28,29,34,0.05); overflow-x: auto; scrollbar-width: none; }
     .vmodal-gallery::-webkit-scrollbar { display: none; }
     .vmodal-thumb { flex: 0 0 116px; height: 82px; border-radius: 4px; border: 2px solid transparent; cursor: pointer; background-size: cover; background-position: center; padding: 0; transition: border-color 0.25s, transform 0.25s; }
+    /* Headshot galleries: uniform height, width follows each image's own aspect
+       (set in JS), so headshots show fully instead of a squashed cover-crop. */
+    .vdraw-right[data-live-headshots="1"] .vmodal-gallery .vmodal-thumb { flex: 0 0 auto; width: auto; height: 116px; aspect-ratio: 4 / 5; background-position: center; }
     .vmodal-thumb:hover { transform: translateY(-2px); }
     .vmodal-thumb.is-active { border-color: var(--english-violet); }
 
@@ -1002,6 +1005,18 @@ const navLinks = [
     // thumbnail strip for products flagged data-live-headshots; the fixed video
     // stays as the main media (the headshots are the swap-in images).
     (function liveHeadshots() {
+      // Size each headshot thumbnail to its own image's aspect (the strip keeps a
+      // uniform height; the width follows the image) so headshots show fully in
+      // either orientation instead of a squashed cover-crop.
+      const sizeThumb = (btn, src) => {
+        if (!src) return;
+        const im = new Image();
+        im.onload = () => { if (im.naturalWidth && im.naturalHeight) btn.style.aspectRatio = im.naturalWidth + " / " + im.naturalHeight; };
+        im.src = src;
+      };
+      // server-rendered (placeholder) headshot thumbs
+      document.querySelectorAll('.vdraw-right[data-live-headshots="1"] .vmodal-thumb[data-full]').forEach((b) => sizeThumb(b, b.getAttribute("data-full")));
+
       const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (!WORKER) return;
       document.querySelectorAll('.vdraw-right[data-live-headshots="1"]').forEach((right) => {
@@ -1021,6 +1036,7 @@ const navLinks = [
             b.style.backgroundImage = `url('${src}')`;
             b.setAttribute("aria-label", `Headshot ${i + 1}`);
             gal.appendChild(b);
+            sizeThumb(b, src);
           });
           const total = right.querySelector(".vmodal-count-total");
           if (total) total.textContent = String(gal.querySelectorAll(".vmodal-thumb").length);
