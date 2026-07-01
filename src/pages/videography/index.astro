@@ -192,7 +192,20 @@ const navLinks = [
   <!-- ============ SHOWCASE POP-UPS (inset modal; sticky image + scrolling info) ============ -->
   <div class="vmodal-scrim" id="vmodal-scrim" hidden></div>
   <button type="button" class="vmodal-x" id="vmodal-x" data-close aria-label="Close" hidden>&times;</button>
-  {PRODUCTS.map((p) => (
+  {PRODUCTS.map((p) => {
+    // Unified, ordered media list for the pop-out gallery. Prefer an explicit
+    // `media` list (hand-ordered mix of stills + film); otherwise fall back to
+    // the legacy heroVideo + gallery images.
+    const galItems = p.media
+      ? p.media
+      : [
+          ...(p.heroVideo ? [{ type: "video", src: p.heroVideo }] : []),
+          ...((p.gallery || []).map((src) => ({ type: "image", src }))),
+        ];
+    const firstIsVideo = galItems[0] && galItems[0].type === "video";
+    const anyVideo = galItems.some((m) => m.type === "video");
+    const firstImg = (galItems.find((m) => m.type === "image") || {}).src || p.hero;
+    return (
     <section
       class="vdraw"
       data-product={p.slug}
@@ -276,30 +289,31 @@ const navLinks = [
           <!-- RIGHT (60%): sticky media stage + showcase thumbnails. When a
                product has heroVideo, the video is the main media (default) and
                the thumbnails (video first) swap an image in over it. -->
-          <div class="vdraw-right" data-product-right={p.slug} data-live-folder={p.assetFolder || undefined}>
-            <div class={`vdraw-stage${p.assetFolder && !p.heroVideo ? " show-img" : ""}`}>
-              {(p.assetFolder || p.heroVideo) && (
+          <div class="vdraw-right" data-product-right={p.slug} data-media-gallery={p.media ? "1" : undefined}>
+            <div class={`vdraw-stage${firstIsVideo ? "" : " show-img"}`}>
+              {anyVideo && (
                 <video class="vdraw-hero-video" autoplay muted loop playsinline preload="metadata">
-                  {p.heroVideo && <source src={p.heroVideo} type="video/mp4" />}
+                  {firstIsVideo && <source src={galItems[0].src} type="video/mp4" />}
                 </video>
               )}
-              <div class="vdraw-hero-img is-active" style={`background-image:url('${(p.gallery && p.gallery[0]) || p.hero}')`}></div>
+              <div class="vdraw-hero-img is-active" style={`background-image:url('${firstImg}')`}></div>
               <div class="vdraw-hero-img"></div>
-              {((p.gallery && p.gallery.length > 1) || p.heroVideo) && (
+              {galItems.length > 1 && (
                 <div class="vmodal-nav">
-                  <button type="button" class="vmodal-arrow" data-dir="-1" aria-label="Previous photo">&larr;</button>
-                  <span class="vmodal-count"><b class="vmodal-count-cur">1</b> / <b class="vmodal-count-total">{(p.gallery ? p.gallery.length : 0) + (p.heroVideo ? 1 : 0)}</b></span>
-                  <button type="button" class="vmodal-arrow" data-dir="1" aria-label="Next photo">&rarr;</button>
+                  <button type="button" class="vmodal-arrow" data-dir="-1" aria-label="Previous">&larr;</button>
+                  <span class="vmodal-count"><b class="vmodal-count-cur">1</b> / <b class="vmodal-count-total">{galItems.length}</b></span>
+                  <button type="button" class="vmodal-arrow" data-dir="1" aria-label="Next">&rarr;</button>
                 </div>
               )}
             </div>
-            {((p.gallery && p.gallery.length > 0) || p.heroVideo) && (
+            {galItems.length > 0 && (
               <div class="vmodal-gallery">
-                {p.heroVideo && (
-                  <button type="button" class="vmodal-thumb vmodal-thumb--video is-active" data-video aria-label="Intro video"><span class="vmodal-thumb-play" aria-hidden="true">&#9658;</span></button>
-                )}
-                {p.gallery && p.gallery.map((src, i) => (
-                  <button type="button" class={`vmodal-thumb ${(!p.heroVideo && i === 0) ? "is-active" : ""}`} data-full={src} style={`background-image:url('${src}')`} aria-label={`View photo ${i + 1}`}></button>
+                {galItems.map((m, i) => (
+                  m.type === "video" ? (
+                    <button type="button" class={`vmodal-thumb vmodal-thumb--video ${i === 0 ? "is-active" : ""}`} data-video data-video-src={m.src} aria-label={`Video ${i + 1}`}><span class="vmodal-thumb-play" aria-hidden="true">&#9658;</span></button>
+                  ) : (
+                    <button type="button" class={`vmodal-thumb ${i === 0 ? "is-active" : ""}`} data-full={m.src} style={`background-image:url('${m.src}')`} aria-label={`View photo ${i + 1}`}></button>
+                  )
                 ))}
               </div>
             )}
@@ -307,7 +321,8 @@ const navLinks = [
         </div>
       </div>
     </section>
-  ))}
+    );
+  })}
 
   <VideographyBooking />
   <VideographyBrochureForm />
@@ -799,7 +814,7 @@ const navLinks = [
     .vmodal-thumb { flex: 0 0 116px; height: 82px; border-radius: 4px; border: 2px solid transparent; cursor: pointer; background-size: cover; background-position: center; padding: 0; transition: border-color 0.25s, transform 0.25s; }
     /* Headshot galleries: uniform height, width follows each image's own aspect
        (set in JS), so headshots show fully instead of a squashed cover-crop. */
-    .vdraw-right[data-live-folder] .vmodal-gallery .vmodal-thumb { flex: 0 0 auto; width: auto; height: 116px; aspect-ratio: 4 / 5; background-position: center; }
+    .vdraw-right[data-media-gallery] .vmodal-gallery .vmodal-thumb { flex: 0 0 auto; width: auto; height: 116px; aspect-ratio: 16 / 9; background-position: center; }
     .vmodal-thumb:hover { transform: translateY(-2px); }
     .vmodal-thumb.is-active { border-color: var(--english-violet); }
 
@@ -1012,59 +1027,17 @@ const navLinks = [
       });
     });
 
-    // Live folder galleries — auto-updating from an R2 folder. Products flagged
-    // with data-live-folder rebuild their thumbnail strip from the folder's
-    // contents (videos first, then images, newest first), so swapping the media
-    // on the CDN updates the site with no code change.
-    (function liveFolder() {
-      // Size each image thumbnail to its own image's aspect (the strip keeps a
-      // uniform height; the width follows the image) so photos show fully in
-      // either orientation instead of a squashed cover-crop.
-      const sizeThumb = (btn, src) => {
+    // Size each image thumbnail in a hand-ordered media gallery to its own
+    // image's aspect (the strip keeps a uniform height; the width follows the
+    // image) so photos show fully in either orientation instead of a squashed
+    // cover-crop. Video thumbs keep the 16:9 default from CSS.
+    (function sizeMediaThumbs() {
+      document.querySelectorAll('.vdraw-right[data-media-gallery] .vmodal-thumb[data-full]').forEach((btn) => {
+        const src = btn.getAttribute("data-full");
         if (!src) return;
         const im = new Image();
         im.onload = () => { if (im.naturalWidth && im.naturalHeight) btn.style.aspectRatio = im.naturalWidth + " / " + im.naturalHeight; };
         im.src = src;
-      };
-      // server-rendered (seed) image thumbs
-      document.querySelectorAll('.vdraw-right[data-live-folder] .vmodal-thumb[data-full]').forEach((b) => sizeThumb(b, b.getAttribute("data-full")));
-
-      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-      if (!WORKER) return;
-      document.querySelectorAll('.vdraw-right[data-live-folder]').forEach((right) => {
-        const folder = right.getAttribute("data-live-folder");
-        const gal = right.querySelector(".vmodal-gallery");
-        const draw = right.closest(".vdraw");
-        if (!gal || !folder) return;
-        fetch(`${WORKER}/headshots?prefix=${encodeURIComponent(folder)}&limit=100`).then((r) => r.json()).then((d) => {
-          const items = (d && d.items) || [];
-          if (!items.length) return;
-          // Rebuild the whole strip from the live folder.
-          gal.querySelectorAll(".vmodal-thumb").forEach((t) => t.remove());
-          items.forEach((it, i) => {
-            const b = document.createElement("button");
-            b.type = "button";
-            if (it.type === "video") {
-              b.className = "vmodal-thumb vmodal-thumb--video";
-              b.setAttribute("data-video", "");
-              b.setAttribute("data-video-src", it.url);
-              b.setAttribute("aria-label", `Video ${i + 1}`);
-              b.innerHTML = '<span class="vmodal-thumb-play" aria-hidden="true">&#9658;</span>';
-            } else {
-              b.className = "vmodal-thumb";
-              b.setAttribute("data-full", it.url);
-              b.style.backgroundImage = `url('${it.url}')`;
-              b.setAttribute("aria-label", `Photo ${i + 1}`);
-              sizeThumb(b, it.url);
-            }
-            gal.appendChild(b);
-          });
-          const total = right.querySelector(".vmodal-count-total");
-          if (total) total.textContent = String(items.length);
-          // Lead with the first item (a video if the folder has one).
-          const first = gal.querySelector(".vmodal-thumb");
-          if (first) first.click();
-        }).catch(() => {});
       });
     })();
 

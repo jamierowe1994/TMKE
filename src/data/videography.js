@@ -110,18 +110,19 @@ export const PRODUCTS = [
     slideBlurb:
       "From presenter-led video tours and drone footage to portal-ready photography and 360 virtual tours — everything a property needs to generate more clicks, more enquiries, and more viewings.",
     ctaLabel: "Discover our Property Packages",
-    // Media is pulled live from the "Jack - headshots/Property/" folder on R2
-    // (images + videos, newest first). The gallery below is a static seed so the
-    // page still shows content in dev / before the Worker is reachable.
-    hero: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/LeahMusana-14.jpg",
-    gallery: [
-      "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/LeahMusana-14.jpg",
-      "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg",
-      "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/FC2-13%20(1).jpg",
-      "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/FC2-9%20(1).jpg",
-      "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/Twilight3%20(1).png",
+    // Hand-ordered gallery from the "Jack - headshots/Property/" R2 folder.
+    // `media` is the source of truth for the pop-out (order + mix of stills and
+    // film); the stage leads with the first item.
+    hero: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg",
+    media: [
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/LeahMusana-14.jpg" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/FC2-9%20(1).jpg" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/FC2-13%20(1).jpg" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/CV311WHCompressed8.jpg" },
+      // TODO: property video — awaiting the exact filename in Jack - headshots/Property/
+      // { type: "video", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/<FILENAME>" },
     ],
-    assetFolder: "Jack - headshots/Property/",
     popLede: "First impressions are made online, long before anyone steps through the door.",
     popIntro: [
       "On the portals, that impression comes down entirely to the quality of the media. Listings with professional photography and video consistently outperform those without, generating more clicks, more enquiries, and more viewings.",
@@ -171,17 +172,17 @@ export const PRODUCTS = [
     slideBlurb:
       "Elevator pitch videos, lifestyle portraits, and professional headshots — created on location to keep you visible, credible, and front of mind in your local market.",
     ctaLabel: "Discover our Agent Edit",
-    // Media is pulled live from the "Jack - headshots/Agent/" folder on R2
-    // (images + videos, newest first). The gallery below is a static seed so the
-    // page still shows content in dev / before the Worker is reachable.
+    // Hand-ordered gallery from the "Jack - headshots/Agent/" R2 folder:
+    // video, four stills, video. `media` is the source of truth for the pop-out.
     hero: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg",
-    gallery: [
-      "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg",
-      "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/12-June-6.jpg",
-      "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/AM-40.jpg",
-      "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/EMay-61.jpg",
+    media: [
+      { type: "video", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/IntroVideoWide.mp4" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/12-June-6.jpg" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/AM-40.jpg" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/EMay-61.jpg" },
+      { type: "video", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/Widescreen.mp4" },
     ],
-    assetFolder: "Jack - headshots/Agent/",
     popLede: "Professional video and photography content built around you, not just your listings.",
     popIntro: [
       "The agents who win instructions consistently aren't always the most experienced — they're the ones who show up, stay visible, and build genuine trust with their audience over time.",
