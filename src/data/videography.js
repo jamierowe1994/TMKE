@@ -38,7 +38,7 @@ export const VIDEOGRAPHY_BROCHURE = {
   accountHelp:
     "Create a TMKE account to manage your brochures, downloads, and bookings in one place.",
   // Live videography services brochure (PDF).
-  url: "https://assets.tmke.co.uk/Jack%20Photos%20-%20Homepage/TMKE%20-%20Videography%20Services.pdf",
+  url: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf",
 };
 
 // Gated-access work-email domains. The Studio (and other gated sections) only

@@ -144,7 +144,7 @@ export const PIPELINE_STATUS = {
 // ---- Brochure (Section 8) ---------------------------------------------------
 // Configurable download link. Drop the PDF at this R2 path (or change the URL)
 // and the "Download brochure" links go live — no code change.
-export const BROCHURE_URL = "https://assets.tmke.co.uk/Jack%20Photos%20-%20Homepage/TMKE%20-%20Videography%20Services.pdf";
+export const BROCHURE_URL = "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf";
 
 // ---- Booking terms (Section 9) ----------------------------------------------
 // Per-service booking agreements, rendered in the flow and reusable in
