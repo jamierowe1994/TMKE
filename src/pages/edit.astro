@@ -315,10 +315,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       z-index: 1;
       max-width: none;
       margin: 0;
-      padding: 0 clamp(24px, 4vw, 64px) 180px;
+      /* left gutter matches the hero's, so the first pack card lines up with the
+         start of the hero copy. */
+      padding: 0 clamp(24px, 4vw, 64px) 180px clamp(28px, 4vw, 72px);
     }
     @media (max-width: 720px) {
-      .edit-wrap { padding: 0 24px 120px; }
+      .edit-wrap { padding: 0 28px 120px; }
     }
     .edit-loading,
     .edit-empty {
@@ -339,7 +341,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       grid-template-columns: repeat(3, 1fr);
       gap: clamp(28px, 3vw, 60px);
       max-width: 1280px;
-      margin: 0 auto;
+      margin: 0;                    /* left-aligned so the first card sits at the hero gutter */
       padding-top: clamp(16px, 4vh, 48px);
     }
     @media (max-width: 900px) { .edit-shows { grid-template-columns: repeat(2, 1fr); } }
@@ -982,7 +984,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const cover = (typeof p.cover_image_url === 'string' && p.cover_image_url) ? p.cover_image_url
         : ((p.templates && p.templates[0]) || (p.preview_images && p.preview_images[0]) || '');
       const n = (p.packSize != null) ? p.packSize
-        : ((p.templates && p.templates.length) || (p.contents && p.contents.length) || 0);
+        : (p.templateCount != null ? p.templateCount
+        : ((p.templates && p.templates.length) || (p.contents && p.contents.length) || 0));
       const type = p.category ? `${escapeHtml(p.category)} Template Pack` : 'Template Pack';
       const href = `/edit/${encodeURIComponent(p.slug)}`;
       return `
@@ -1107,7 +1110,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const fillCopy = (p) => {
         if (titleEl) titleEl.textContent = p.title || '';
         if (descEl) descEl.textContent = p.description || '';
-        const n = (p.packSize != null) ? p.packSize : (p.templates ? p.templates.length : 0);
+        const n = (p.packSize != null) ? p.packSize : (p.templateCount != null ? p.templateCount : (p.templates ? p.templates.length : 0));
         if (sizeEl) sizeEl.textContent = 'Pack Size: ' + n;
       };
       // Lock the copy width to the longest title's width and justify the body, so
@@ -1240,12 +1243,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (packs.length === 0) { empty.hidden = false; return; }
 
       packsById = new Map(packs.map((p) => [p.id, p]));
-      grid.innerHTML = packs.map((p, i) => renderShowcase(p, i)).join('');
-      wireMotion(grid);
-      maybeOpenFromQuery();
 
-      // Attach each pack's templates (the editor designs linked by pack_id) so the
-      // hero grid shows THAT pack's templates. Sample packs already carry them.
+      // Attach each pack's templates (the editor designs linked by pack_id) AND
+      // its true template COUNT, BEFORE rendering — so "Pack Size" and the hero
+      // grid reflect the real pack (the count is every active template, even ones
+      // without a thumbnail; the grid just uses the ones that have a thumbnail).
       const needTpl = packs.filter((p) => !p.templates);
       if (needTpl.length) {
         const { data: tdata } = await supabase
@@ -1254,14 +1256,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           .in('pack_id', needTpl.map((p) => p.id))
           .eq('status', 'active')
           .order('sort_order', { ascending: true });
-        const byPack = new Map();
+        const thumbs = new Map(), count = new Map();
         (tdata || []).forEach((t) => {
-          if (!t.thumb_url) return;
-          if (!byPack.has(t.pack_id)) byPack.set(t.pack_id, []);
-          byPack.get(t.pack_id).push(t.thumb_url);
+          count.set(t.pack_id, (count.get(t.pack_id) || 0) + 1);
+          if (t.thumb_url) {
+            if (!thumbs.has(t.pack_id)) thumbs.set(t.pack_id, []);
+            thumbs.get(t.pack_id).push(t.thumb_url);
+          }
         });
-        packs.forEach((p) => { if (!p.templates) p.templates = byPack.get(p.id) || []; });
+        packs.forEach((p) => {
+          if (!p.templates) { p.templates = thumbs.get(p.id) || []; p.templateCount = count.get(p.id) || 0; }
+        });
       }
+
+      grid.innerHTML = packs.map((p, i) => renderShowcase(p, i)).join('');
+      wireMotion(grid);
+      maybeOpenFromQuery();
 
       // Rotate the hero one pack at a time (copy + that pack's flashing grid).
       setupHero(packs);
@@ -1287,7 +1297,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       pkgTitleEl.textContent = pack.title;
       pkgDescEl.textContent = pack.description ?? '';
       pkgListEl.innerHTML = (pack.contents ?? []).slice(0, 4).map((c) => `<li>${escapeHtml(c)}</li>`).join('');
-      pkgPriceEl.textContent = gbpFromPence(pack.price_pence);
+      pkgPriceEl.textContent = gbpFromPence(pack.price_pence) + ' + VAT';
       coverEl.style.backgroundImage = pack.cover_image_url ? `url('${pack.cover_image_url}')` : '';
 
       // Update £ amount on payment step in two places
