@@ -61,6 +61,27 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     </nav>
 
     <span class="hi-scroll">(Scroll)</span>
+
+    <!-- ===== MOBILE-ONLY hero (phones ≤600px) =====================
+         The desktop split-reveal doesn't fit a phone, so on mobile we hide it
+         and show this single-image composition instead: one portrait brand
+         still with the copy stacked over the top-left. Desktop/tablet never
+         render this (display:none above 600px). -->
+    <div class="hi-mobile" aria-label="TMKE">
+      <div class="him-bg" style="background-image:url('https://assets.tmke.co.uk/Copy%20of%20TMKE-%20brand.png')"></div>
+      <div class="him-inner">
+        <p class="him-eyebrow">&mdash; Chapter 01 &mdash; Welcome</p>
+        <p class="him-tagline"><span>The social media agency that</span><span>doesn&rsquo;t want you to go viral</span></p>
+        <span class="him-word">TMKE</span>
+        <nav class="him-nav" aria-label="Sections">
+          <a href="/about">Studio</a>
+          <a href="/edit">Templates</a>
+          <a href="/services">Management</a>
+          <a href="/contact">Discover</a>
+        </nav>
+        <a class="him-scroll" href="#about" aria-label="Scroll down">&#9662;</a>
+      </div>
+    </div>
   </section>
 
   <!-- Everything below slides UP over the pinned hero (sticky reveal). -->
@@ -557,6 +578,61 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       .hi-center { gap: clamp(40px, 12vw, 120px); }
       .hi-center a { font-size: 11px; }
       .hi-tagline { font-size: 10px; max-width: 80vw; }
+    }
+
+    /* ===== MOBILE-ONLY hero (phones ≤600px) ===== */
+    .hi-mobile { display: none; }
+    @media (max-width: 600px) {
+      /* Hide every part of the desktop split-reveal on phones. */
+      .hero-intro .hi-bg,
+      .hero-intro .hi-word,
+      .hero-intro .hi-center,
+      .hero-intro .hi-tagline,
+      .hero-intro .hi-scroll { display: none !important; }
+
+      .hi-mobile { display: block; position: absolute; inset: 0; z-index: 3; }
+      .him-bg {
+        position: absolute; inset: 0; z-index: 0;
+        background-size: cover; background-position: center;
+        background-color: var(--violet-deep);
+      }
+      .him-inner {
+        position: absolute; inset: 0; z-index: 1;
+        display: flex; flex-direction: column; align-items: flex-start;
+        justify-content: flex-end;
+        padding: 0 26px 17vh 28px;
+        color: var(--paper);
+      }
+      .him-eyebrow {
+        margin: 0 0 16px; font-family: var(--sans), "Helvetica Neue", Arial, sans-serif;
+        font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
+        color: rgba(240,238,235,0.92);
+      }
+      .him-tagline {
+        margin: 0 0 22px; font-family: var(--sans), "Helvetica Neue", Arial, sans-serif;
+        font-size: 20px; font-weight: 700; line-height: 1.2; letter-spacing: 0.01em;
+        text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 20px rgba(0,0,0,0.28);
+      }
+      .him-tagline span { display: block; }
+      .him-word {
+        display: block; margin: 0 0 20px;
+        font-family: var(--sans), "Helvetica Neue", Arial, sans-serif; font-weight: 400;
+        font-size: clamp(64px, 22vw, 96px); line-height: 0.95; letter-spacing: -0.01em;
+        color: var(--paper); text-shadow: 0 2px 30px rgba(0,0,0,0.3);
+      }
+      .him-nav {
+        display: flex; width: 100%; justify-content: space-between; align-items: center;
+        gap: 8px; margin: 0 0 18px;
+      }
+      .him-nav a {
+        font-family: var(--sans), "Helvetica Neue", Arial, sans-serif;
+        font-size: clamp(13px, 4vw, 16px); font-weight: 500; letter-spacing: 0.01em;
+        color: var(--paper); text-decoration: none; white-space: nowrap;
+      }
+      .him-scroll {
+        display: block; color: var(--paper); font-size: 22px; line-height: 1;
+        text-decoration: none; opacity: 0.9;
+      }
     }
 
     .hero-zoom {
