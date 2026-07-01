@@ -15,7 +15,14 @@ export const VAT_RATE = 0.20;
 export const MEMBER_DOMAINS = {
   "thepropertyexperts.co.uk":       { brand: "tpe",      label: "The Property Experts" },
   "prestigepropertyexperts.co.uk":  { brand: "prestige", label: "Prestige Property Experts" },
+  "thelettingsexperts.co.uk":       { brand: "tle",      label: "The Lettings Experts" },
+  "themortgageexperts.co.uk":       { brand: "tme",      label: "The Mortgage Experts" },
   "fineandcountry.co.uk":           { brand: "fc",       label: "Fine & Country" },
+  // TMKE staff — treated as members so the team can test every booking flow
+  // end-to-end (Content Studio, Property, Agent). Remove or restrict before
+  // launch if you don't want all @tmke.co.uk addresses booking at member rates.
+  // (Property tier falls back to "gold" for this brand — see propertyTierForBrand.)
+  "tmke.co.uk":                     { brand: "tmke",     label: "TMKE" },
 };
 
 // Returns { audience: "member"|"non-member", brand, label, domain }.

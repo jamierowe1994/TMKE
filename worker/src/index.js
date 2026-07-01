@@ -210,6 +210,46 @@ async function sbAdminUserEmail(env, userId) {
   const u = await res.json();
   return u && u.email ? u.email : null;
 }
+
+// ---- Stripe (hosted Checkout) -------------------------------------------
+// Call the Stripe REST API with form-encoded params. `params` is a flat object
+// whose keys are already bracketed (e.g. "line_items[0][quantity]"). The secret
+// key lives only here as a Worker secret — never in the browser or the repo.
+async function stripeApi(env, path, params) {
+  const body = new URLSearchParams();
+  Object.entries(params || {}).forEach(([k, v]) => { if (v !== undefined && v !== null) body.append(k, String(v)); });
+  const res = await fetch("https://api.stripe.com/v1/" + path, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data && data.error && data.error.message) || ("Stripe " + res.status));
+  return data;
+}
+
+// Verify a Stripe webhook signature ("t=…,v1=…") against the raw request body,
+// using the endpoint's signing secret. Returns true only on an exact HMAC match
+// within a 5-minute tolerance (replay guard).
+async function stripeVerify(rawBody, sigHeader, secret) {
+  if (!sigHeader || !secret) return false;
+  const parts = {};
+  sigHeader.split(",").forEach((p) => { const [k, v] = p.split("="); if (k) parts[k.trim()] = (v || "").trim(); });
+  const t = parts.t, v1 = parts.v1;
+  if (!t || !v1) return false;
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false; // 5-min replay window
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`${t}.${rawBody}`));
+  const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  if (hex.length !== v1.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hex.length; i++) diff |= hex.charCodeAt(i) ^ v1.charCodeAt(i);
+  return diff === 0;
+}
 function bufToBase64(buf) {
   let binary = "";
   const bytes = new Uint8Array(buf);
@@ -271,26 +311,85 @@ function buildICS({ uid, date, start, endHm, summary, description, location, org
     "STATUS:CONFIRMED", "END:VEVENT", "END:VCALENDAR",
   ].filter(Boolean).join("\r\n");
 }
-function bookingConfirmHtml({ name, service, packageLabel, dateNice, time, addOns, postcode, surchargePence, totalPence, manageUrl }) {
+// Branded, per-service booking confirmation. The booking's service_type (or the
+// display name, as a fallback) picks the heading, which detail rows show, and
+// the "before your shoot/session/call" prep block. Email-safe (tables + inline
+// styles + web-safe fonts so it renders in Outlook/Gmail/Apple Mail).
+function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice, time, addOns, postcode, surchargePence, totalPence, manageUrl }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const rows = [
-    ["Service", esc(service)],
-    packageLabel ? [service && service.includes("Agent") ? "Packages" : "Package", esc(packageLabel)] : null,
-    addOns && addOns.length ? ["Add-ons", esc(addOns.map((a) => a.name).join(", "))] : null,
-    postcode ? ["Location", esc(postcode)] : null,
-    ["Date", esc(dateNice)],
-    ["Time", esc(time)],
-    surchargePence ? ["Travel", gbpW(surchargePence) + " + VAT"] : null,
-    totalPence != null ? ["Total", "<strong>" + gbpW(totalPence) + " inc. VAT</strong>"] : null,
-  ].filter(Boolean);
-  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-    <h1 style="font-size:22px;margin:0 0 6px">Your booking is confirmed</h1>
-    <p style="color:#555;font-size:14px;margin:0 0 20px">Hi ${esc(name)}, thanks for booking with TMKE. Here are the details &mdash; we've attached a calendar invite so you can add it to your diary.</p>
-    <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
-      ${rows.map(([k, v]) => `<div><span style="color:#888">${k}:</span> ${v}</div>`).join("")}
+  const st = String(serviceType || "").toLowerCase();
+  const svc = String(service || "").toLowerCase();
+  const kind = (st.includes("content") || svc.includes("studio")) ? "studio"
+    : (st.includes("property") || svc.includes("property")) ? "property"
+    : (st.includes("agent") || svc.includes("agent") || svc.includes("location")) ? "agent"
+    : (st.includes("discovery") || svc.includes("call") || svc.includes("discovery")) ? "call"
+    : "generic";
+  const isCall = kind === "call";
+
+  const heading = ({ studio: "Your Content Studio session is booked.", property: "Your property shoot is booked.", agent: "Your shoot is booked.", call: "Your call with Jack is booked.", generic: "Your booking is confirmed." })[kind];
+  const eyebrow = isCall ? "You're booked in" : "Booking confirmed";
+  const intro = isCall
+    ? `Hi ${esc(name || "there")}, looking forward to chatting. Here's when &mdash; we've attached a calendar invite so it's in your diary.`
+    : `Hi ${esc(name || "there")}, you're all set &mdash; here are the details. We've attached a calendar invite so you can drop it straight into your diary.`;
+  const cta = isCall ? "Reschedule the call" : "Manage your booking";
+
+  const rowsArr = isCall
+    ? [["Call with", "Jack &middot; TMKE"], service ? ["About", esc(service)] : null, ["Date", esc(dateNice)], ["Time", esc(time)]]
+    : [
+        ["Service", esc(service)],
+        packageLabel ? [(svc.includes("agent") ? "Packages" : "Package"), esc(packageLabel)] : null,
+        addOns && addOns.length ? ["Add-ons", esc(addOns.map((a) => a.name).join(", "))] : null,
+        postcode ? ["Location", esc(postcode)] : null,
+        ["Date", esc(dateNice)],
+        ["Time", esc(time)],
+        surchargePence ? ["Travel", gbpW(surchargePence) + " + VAT"] : null,
+      ];
+  const rowsHtml = rowsArr.filter(Boolean).map(([k, v]) => `<tr><td style="padding:5px 0;color:#8a8690;width:36%;">${k}</td><td style="padding:5px 0;font-weight:bold;color:#1c1d22;">${v}</td></tr>`).join("");
+  const totalHtml = (!isCall && totalPence != null)
+    ? `<tr><td style="padding:13px 0 0;color:#8a8690;border-top:1px solid #e7e3dc;">Total</td><td style="padding:13px 0 0;border-top:1px solid #e7e3dc;font-weight:bold;font-size:17px;color:#1c1d22;">${gbpW(totalPence)} <span style="font-weight:normal;color:#8a8690;font-size:12px;">inc. VAT</span></td></tr>`
+    : "";
+
+  const prepByKind = {
+    studio: [["Your prompt pack is coming.", "About 3 days before, we'll email a set of tailored conversational prompts so you make the most of your time in the studio."], ["Bring your bits.", "Any outfits, props or scripts you'd like to use on the day."], ["Arrive on time.", "Sessions start and end at the scheduled time, so getting there promptly keeps the full session yours."]],
+    property: [["Access &amp; permissions.", "Please make sure we have safe, timely access to the property at the agreed time, and consent of anyone who may appear on camera."], ["Drone is weather-dependent.", "Jack holds a valid CAA licence; capturing drone footage on the day is subject to weather and local airspace. If it's not possible, we'll talk through the options."], ["Twilight add-ons.", "Faux-twilight images are confirmed and quoted after the shoot, once we know how many you'd like."]],
+    agent: [["Be ready at the location.", "Please be ready and available at the agreed location and time."], ["Permissions &amp; consent.", "Make sure you have permission to film at the location and the consent of anyone who may appear on camera."]],
+    call: [["No pressure, no pitch.", "It's a relaxed chat to understand what you're after and which service would suit you best."], ["Jack will call you", "at the time above on the number you gave us. If anything changes, you can rearrange any time."]],
+    generic: [],
+  };
+  const prep = prepByKind[kind] || [];
+  const prepTitle = isCall ? "What to expect" : ("Before your " + (kind === "studio" ? "session" : "shoot"));
+  const prepHtml = prep.length
+    ? `<div style="padding:28px 32px 0;"><div style="font-size:11px;font-weight:bold;letter-spacing:0.18em;color:#371e28;text-transform:uppercase;margin-bottom:13px;">${prepTitle}</div>${prep.map(([h, t], i) => `<div style="font-size:14px;line-height:1.55;color:#55565b;${i < prep.length - 1 ? "margin-bottom:11px;" : ""}"><strong style="color:#1c1d22;">${h}</strong> ${t}</div>`).join("")}</div>`
+    : "";
+
+  const policy = isCall
+    ? "Can't make it? You can rearrange any time from your account."
+    : (kind === "property" || kind === "agent")
+    ? "Travel is included in your total, calculated from the postcode above; if the location changes we'll re-quote before the shoot. Reschedule with 2 days' notice or cancel with 3 days' notice from your account."
+    : "Need to change something? Reschedule with 2 days' notice or cancel with 3 days' notice from your account. Cancellations inside 72 hours are chargeable in full.";
+
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f1efec;margin:0;padding:24px 0;">
+    <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">
+      <div style="background:#371e28;padding:20px 32px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td style="font-family:Georgia,'Times New Roman',serif;font-size:21px;letter-spacing:0.05em;color:#ffffff;">TMKE</td>
+          <td align="right" style="font-size:11px;letter-spacing:0.22em;color:rgba(255,255,255,0.62);">VIDEOGRAPHY</td>
+        </tr></table>
+      </div>
+      <div style="padding:34px 32px 0;">
+        <div style="font-size:11px;font-weight:bold;letter-spacing:0.2em;color:#b9826a;text-transform:uppercase;margin-bottom:12px;">${eyebrow}</div>
+        <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-weight:normal;font-size:29px;line-height:1.18;color:#1c1d22;">${heading}</h1>
+      </div>
+      <div style="padding:16px 32px 0;font-size:15px;line-height:1.6;color:#55565b;">${intro}</div>
+      <div style="padding:22px 32px 0;"><div style="background:#f6f4f1;border-radius:10px;padding:18px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">${rowsHtml}${totalHtml}</table></div></div>
+      ${manageUrl ? `<div style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#371e28;border-radius:8px;"><a href="${esc(manageUrl)}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;">${cta} &rarr;</a></td></tr></table></div>` : ""}
+      ${prepHtml}
+      <div style="padding:22px 32px 0;font-size:12.5px;line-height:1.6;color:#8a8690;">${policy}</div>
+      <div style="margin-top:28px;padding:24px 32px;border-top:1px solid #ece9e4;">
+        <div style="font-family:Georgia,serif;font-size:16px;color:#371e28;">TMKE</div>
+        <div style="margin-top:6px;font-size:12px;line-height:1.6;color:#9a9aa0;">Questions? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28;text-decoration:none;">hello@tmke.co.uk</a>.<br><a href="https://tmke.co.uk/videography" style="color:#9a9aa0;">tmke.co.uk</a></div>
+      </div>
     </div>
-    <p style="font-size:13px;color:#555;margin:18px 0 0">We've set up your account so you can view, reschedule or cancel this booking any time${manageUrl ? ` at <a href="${manageUrl}" style="color:#371e28">your account</a>` : ""}. Please give at least 3 days' notice to cancel and 2 days to rearrange.</p>
-    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p>
   </div>`;
 }
 function jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns, postcode, distanceMiles, surchargePence, dateNice, time, totalPence, signedName, marketingOptIn }) {
@@ -559,12 +658,71 @@ async function runAutomationsTick(env) {
   return due.length;
 }
 
+// ---- Abandoned password-setup reminder ------------------------------------
+// A buyer can pay and then never set a password (orders.user_id stays null),
+// so they never see the pack they bought. ~30 min after a paid order is still
+// unclaimed, email them a one-click link back to set it. Sends once (stamped
+// via setup_reminder_sent_at) and skips anyone who already has an account for
+// that email (an existing customer who'll just sign in).
+function setupReminderHtml({ name, pack, link }) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+    <h1 style="font-size:22px;margin:0 0 6px">Your pack is waiting${pack ? ` &mdash; ${esc(pack)}` : ""}</h1>
+    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 20px">Hi ${first}, thanks for your purchase! You haven't set a password yet, so your library is still locked. Set one now and your pack unlocks straight away.</p>
+    <p style="margin:0 0 26px"><a href="${esc(link)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:13px 22px;border-radius:6px">Set my password &amp; open my library &rarr;</a></p>
+    <p style="font-size:12px;color:#999;line-height:1.6;margin:0">If the button doesn't work, paste this into your browser:<br><span style="color:#777">${esc(link)}</span></p>
+    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk" style="color:#371e28">tmke.co.uk</a></p>
+  </div>`;
+}
+
+async function runSetupReminders(env) {
+  if (!env.SUPABASE_SERVICE_ROLE) return;
+  const MINUTES = 30; // remind once a paid order has been unclaimed this long
+  try {
+    const newer = new Date(Date.now() - MINUTES * 60 * 1000).toISOString();
+    const older = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(); // don't chase ancient orders
+    const rows = await sbGet(
+      env,
+      "orders",
+      `status=eq.paid&user_id=is.null&setup_reminder_sent_at=is.null` +
+        `&created_at=lt.${encodeURIComponent(newer)}&created_at=gt.${encodeURIComponent(older)}` +
+        `&select=id,buyer_email,buyer_name,pack_title&order=created_at.asc&limit=50`
+    );
+    if (!rows || !rows.length) return;
+    for (const o of rows) {
+      if (!o.buyer_email) continue;
+      // Stamp first so a slow/failed send can't double-email on the next tick.
+      await sbPatch(env, "orders", `id=eq.${o.id}`, { setup_reminder_sent_at: new Date().toISOString() });
+      // Skip if an account already exists for this email — they can just sign in.
+      let hasAccount = false;
+      try {
+        const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(o.buyer_email)}`, {
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; hasAccount = Array.isArray(list) && list.length > 0; }
+      } catch (_) {}
+      if (hasAccount) continue;
+      const link = `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/edit/thanks?order=${encodeURIComponent(o.id)}`;
+      await sendEmail(env, {
+        to: o.buyer_email,
+        subject: "Set your password to unlock your TMKE pack",
+        html: setupReminderHtml({ name: o.buyer_name, pack: o.pack_title, link }),
+      });
+    }
+  } catch (_) { /* best-effort; the next tick retries any newly-eligible orders */ }
+}
+
 export default {
   // Cron (see wrangler.toml [triggers]). The daily 07:00 run sends post
-  // reminders; every other (frequent) run advances due automation enrolments.
+  // reminders; every other (frequent) run advances automations + chases any
+  // paid-but-no-password orders.
   async scheduled(event, env, ctx) {
     if (event && event.cron === "0 7 * * *") ctx.waitUntil(runReminders(env));
-    else ctx.waitUntil(runAutomationsTick(env));
+    else {
+      ctx.waitUntil(runAutomationsTick(env));
+      ctx.waitUntil(runSetupReminders(env));
+    }
   },
 
   async fetch(request, env) {
@@ -619,6 +777,91 @@ export default {
           return json({ ok: false, error: "Couldn't reach the Railway API." }, 502, request, env);
         }
         return json({ ok: true, queued: true, message: "Site is updating — your post will be live in a minute or two." }, 200, request, env);
+      }
+
+      // ---- Stripe: create a hosted Checkout Session ---------------------------
+      // The browser posts the pack id + buyer details; we re-read the pack price
+      // from Supabase (never trust the client), create a `pending` order with the
+      // service role, then hand back Stripe's hosted payment URL to redirect to.
+      if (path.endsWith("/stripe/checkout") && request.method === "POST") {
+        if (!env.STRIPE_SECRET_KEY) return json({ error: "Payments aren't set up yet — add the STRIPE_SECRET_KEY secret to the Worker." }, 503, request, env);
+        let body;
+        try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        const name = String(body.name || "").trim();
+        const email = String(body.email || "").trim();
+        const phone = String(body.phone || "").trim();
+        const company = String(body.company || "").trim();
+        const packId = String(body.pack_id || "").trim();
+        if (!packId || !name || !email) return json({ error: "Please complete your details." }, 400, request, env);
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "That email doesn't look right." }, 400, request, env);
+
+        const packs = await sbGet(env, "packs", `id=eq.${encodeURIComponent(packId)}&status=eq.active&select=id,slug,title,price_pence,cover_image_url&limit=1`);
+        const pack = packs && packs[0];
+        if (!pack) return json({ error: "That pack isn't available." }, 404, request, env);
+        const amount = pack.price_pence || 0;
+
+        // Only redirect back to a known-good origin.
+        const origin = request.headers.get("Origin") || "";
+        const allowed = String(env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim());
+        const base = allowed.includes(origin) ? origin : (env.SITE_URL || "https://tmke.co.uk");
+
+        // Create the order up-front as `pending` (or `paid` for free packs).
+        const ins = await sbPost(env, "orders", {
+          pack_id: pack.id, pack_slug: pack.slug, pack_title: pack.title, amount_pence: amount,
+          buyer_name: name, buyer_email: email, buyer_phone: phone || null, buyer_company: company || null,
+          payment_method: "card", status: amount === 0 ? "paid" : "pending",
+        }, "return=representation");
+        const created = await ins.json().catch(() => null);
+        const order = Array.isArray(created) ? created[0] : created;
+        if (!order || !order.id) return json({ error: "Couldn't start your order. Please try again." }, 500, request, env);
+
+        // Free pack — no Stripe needed.
+        if (amount === 0) return json({ url: `${base}/edit/thanks?order=${order.id}` }, 200, request, env);
+
+        try {
+          const session = await stripeApi(env, "checkout/sessions", {
+            mode: "payment",
+            "payment_method_types[0]": "card",
+            success_url: `${base}/edit/thanks?order=${order.id}`,
+            cancel_url: `${base}/edit?canceled=1`,
+            customer_email: email,
+            client_reference_id: order.id,
+            "metadata[order_id]": order.id,
+            "line_items[0][quantity]": 1,
+            "line_items[0][price_data][currency]": "gbp",
+            "line_items[0][price_data][unit_amount]": amount,
+            "line_items[0][price_data][product_data][name]": pack.title,
+          });
+          await sbPatch(env, "orders", `id=eq.${order.id}`, { stripe_session_id: session.id });
+          return json({ url: session.url }, 200, request, env);
+        } catch (e) {
+          await sbPatch(env, "orders", `id=eq.${order.id}`, { status: "failed" });
+          return json({ error: "Couldn't reach the payment provider. Please try again." }, 502, request, env);
+        }
+      }
+
+      // ---- Stripe: webhook (the source of truth that marks an order paid) -----
+      // Stripe POSTs here after checkout. We verify the signature against the raw
+      // body, then flip the matching order to `paid` with the PaymentIntent id.
+      if (path.endsWith("/stripe/webhook") && request.method === "POST") {
+        const raw = await request.text();
+        const ok = await stripeVerify(raw, request.headers.get("Stripe-Signature") || "", env.STRIPE_WEBHOOK_SECRET);
+        if (!ok) return json({ error: "Bad signature" }, 400, request, env);
+        let event;
+        try { event = JSON.parse(raw); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        if (event.type === "checkout.session.completed") {
+          const s = event.data && event.data.object;
+          const orderId = (s && s.metadata && s.metadata.order_id) || (s && s.client_reference_id);
+          const pi = s && (typeof s.payment_intent === "string" ? s.payment_intent : (s.payment_intent && s.payment_intent.id));
+          if (orderId) {
+            // Only existing columns here, so this can't fail if orders_stripe.sql
+            // hasn't run yet. status=neq.paid keeps it idempotent on Stripe retries.
+            await sbPatch(env, "orders", `id=eq.${encodeURIComponent(orderId)}&status=neq.paid`, {
+              status: "paid", payment_ref: pi || null,
+            });
+          }
+        }
+        return json({ received: true }, 200, request, env);
       }
 
       // ---- AI: read text + positions from a finished design image ----
@@ -990,7 +1233,7 @@ export default {
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         await sendEmail(env, {
           to: email, subject: `Booking confirmed — ${service || "TMKE"}`,
-          html: bookingConfirmHtml({ name, service, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}` }),
+          html: bookingConfirmHtml({ name, service, serviceType: service_type, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}` }),
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, {
