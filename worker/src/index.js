@@ -1049,19 +1049,28 @@ export default {
         return json({ miles: Math.round(miles * 10) / 10, surcharge_pence, free_radius_miles: freeRadius, pence_per_mile: perMile, source }, 200, request, env);
       }
 
-      // ---- Live headshots: newest N images in the assets "Jack - headshots/"
-      // folder. Public GET; powers the auto-updating Agent gallery. ----
+      // ---- Live media listing: images + videos in an assets folder, newest
+      // first. Public GET; powers the auto-updating videography galleries. The
+      // ?prefix= param selects the folder (defaults to the whole headshots
+      // folder for backward compatibility). Returns videos first so a gallery
+      // can lead with its film. ----
       if (path.endsWith("/headshots") && request.method === "GET") {
-        if (!env.ASSETS) return json({ images: [] }, 200, request, env);
-        const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "60", 10)));
-        const prefix = "Jack - headshots/";
+        if (!env.ASSETS) return json({ images: [], videos: [], items: [] }, 200, request, env);
+        const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "60", 10)));
+        const prefix = url.searchParams.get("prefix") || "Jack - headshots/";
+        const toUrl = (o) => "https://assets.tmke.co.uk/" + o.key.split("/").map(encodeURIComponent).join("/");
         const listed = await env.ASSETS.list({ prefix });
-        const imgs = (listed.objects || [])
-          .filter((o) => /\.(jpe?g|png|webp|avif)$/i.test(o.key))     // images only (skip the intro video etc.)
-          .sort((a, b) => new Date(b.uploaded) - new Date(a.uploaded)) // newest first
-          .slice(0, limit)
-          .map((o) => "https://assets.tmke.co.uk/" + o.key.split("/").map(encodeURIComponent).join("/"));
-        return json({ images: imgs }, 200, request, env);
+        const rows = (listed.objects || [])
+          .filter((o) => !o.key.endsWith("/"))                              // skip folder markers
+          .filter((o) => /\.(jpe?g|png|webp|avif|mp4|mov|webm|m4v)$/i.test(o.key))
+          .sort((a, b) => new Date(b.uploaded) - new Date(a.uploaded));     // newest first
+        const videos = rows.filter((o) => /\.(mp4|mov|webm|m4v)$/i.test(o.key)).map(toUrl);
+        const images = rows.filter((o) => /\.(jpe?g|png|webp|avif)$/i.test(o.key)).map(toUrl);
+        const items = [
+          ...videos.map((u) => ({ url: u, type: "video" })),
+          ...images.map((u) => ({ url: u, type: "image" })),
+        ].slice(0, limit);
+        return json({ images: images.slice(0, limit), videos, items }, 200, request, env);
       }
 
       // ---- Bookable slots for a day (Jack's diary hours minus 365 busy) ----

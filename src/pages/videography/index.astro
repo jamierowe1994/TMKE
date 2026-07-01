@@ -276,11 +276,11 @@ const navLinks = [
           <!-- RIGHT (60%): sticky media stage + showcase thumbnails. When a
                product has heroVideo, the video is the main media (default) and
                the thumbnails (video first) swap an image in over it. -->
-          <div class="vdraw-right" data-product-right={p.slug} data-live-headshots={p.liveHeadshots ? "1" : undefined}>
-            <div class="vdraw-stage">
-              {p.heroVideo && (
+          <div class="vdraw-right" data-product-right={p.slug} data-live-folder={p.assetFolder || undefined}>
+            <div class={`vdraw-stage${p.assetFolder && !p.heroVideo ? " show-img" : ""}`}>
+              {(p.assetFolder || p.heroVideo) && (
                 <video class="vdraw-hero-video" autoplay muted loop playsinline preload="metadata">
-                  <source src={p.heroVideo} type="video/mp4" />
+                  {p.heroVideo && <source src={p.heroVideo} type="video/mp4" />}
                 </video>
               )}
               <div class="vdraw-hero-img is-active" style={`background-image:url('${(p.gallery && p.gallery[0]) || p.hero}')`}></div>
@@ -799,7 +799,7 @@ const navLinks = [
     .vmodal-thumb { flex: 0 0 116px; height: 82px; border-radius: 4px; border: 2px solid transparent; cursor: pointer; background-size: cover; background-position: center; padding: 0; transition: border-color 0.25s, transform 0.25s; }
     /* Headshot galleries: uniform height, width follows each image's own aspect
        (set in JS), so headshots show fully instead of a squashed cover-crop. */
-    .vdraw-right[data-live-headshots="1"] .vmodal-gallery .vmodal-thumb { flex: 0 0 auto; width: auto; height: 116px; aspect-ratio: 4 / 5; background-position: center; }
+    .vdraw-right[data-live-folder] .vmodal-gallery .vmodal-thumb { flex: 0 0 auto; width: auto; height: 116px; aspect-ratio: 4 / 5; background-position: center; }
     .vmodal-thumb:hover { transform: translateY(-2px); }
     .vmodal-thumb.is-active { border-color: var(--english-violet); }
 
@@ -931,9 +931,20 @@ const navLinks = [
       const cur = draw.querySelector(".vmodal-count-cur");
       if (cur) cur.textContent = String(i + 1);
       draw.__galIdx = i;
-      // The video thumb returns to the (fixed) video; image thumbs swap an image
-      // in over it (stage.show-img hides the video).
-      if (thumb.hasAttribute("data-video")) { stage.classList.remove("show-img"); return; }
+      // Video thumbs show the film over the stage; image thumbs swap an image in
+      // over it (stage.show-img hides the video). Live folders carry a per-thumb
+      // video source; a legacy fixed video has none (its <source> is baked in).
+      if (thumb.hasAttribute("data-video")) {
+        const vsrc = thumb.getAttribute("data-video-src");
+        const vid = stage.querySelector(".vdraw-hero-video");
+        if (vsrc && vid && vid.getAttribute("data-src") !== vsrc) {
+          vid.setAttribute("data-src", vsrc);
+          vid.src = vsrc;
+          try { vid.load(); const pl = vid.play(); if (pl && pl.catch) pl.catch(() => {}); } catch (_) {}
+        }
+        stage.classList.remove("show-img");
+        return;
+      }
       stage.classList.add("show-img");
       const layers = stage.querySelectorAll(".vdraw-hero-img");
       const full = thumb.getAttribute("data-full");
@@ -1001,12 +1012,13 @@ const navLinks = [
       });
     });
 
-    // Live "Jack - headshots" gallery — newest 8, auto-updating. Populates the
-    // thumbnail strip for products flagged data-live-headshots; the fixed video
-    // stays as the main media (the headshots are the swap-in images).
-    (function liveHeadshots() {
-      // Size each headshot thumbnail to its own image's aspect (the strip keeps a
-      // uniform height; the width follows the image) so headshots show fully in
+    // Live folder galleries — auto-updating from an R2 folder. Products flagged
+    // with data-live-folder rebuild their thumbnail strip from the folder's
+    // contents (videos first, then images, newest first), so swapping the media
+    // on the CDN updates the site with no code change.
+    (function liveFolder() {
+      // Size each image thumbnail to its own image's aspect (the strip keeps a
+      // uniform height; the width follows the image) so photos show fully in
       // either orientation instead of a squashed cover-crop.
       const sizeThumb = (btn, src) => {
         if (!src) return;
@@ -1014,32 +1026,44 @@ const navLinks = [
         im.onload = () => { if (im.naturalWidth && im.naturalHeight) btn.style.aspectRatio = im.naturalWidth + " / " + im.naturalHeight; };
         im.src = src;
       };
-      // server-rendered (placeholder) headshot thumbs
-      document.querySelectorAll('.vdraw-right[data-live-headshots="1"] .vmodal-thumb[data-full]').forEach((b) => sizeThumb(b, b.getAttribute("data-full")));
+      // server-rendered (seed) image thumbs
+      document.querySelectorAll('.vdraw-right[data-live-folder] .vmodal-thumb[data-full]').forEach((b) => sizeThumb(b, b.getAttribute("data-full")));
 
       const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (!WORKER) return;
-      document.querySelectorAll('.vdraw-right[data-live-headshots="1"]').forEach((right) => {
+      document.querySelectorAll('.vdraw-right[data-live-folder]').forEach((right) => {
+        const folder = right.getAttribute("data-live-folder");
         const gal = right.querySelector(".vmodal-gallery");
-        if (!gal) return;
-        fetch(`${WORKER}/headshots?limit=100`).then((r) => r.json()).then((d) => {
-          const imgs = (d && d.images) || [];
-          if (!imgs.length) return;
-          // Keep the video thumb (if any), drop the placeholder image thumbs,
-          // then append a thumb per live headshot.
-          gal.querySelectorAll(".vmodal-thumb:not(.vmodal-thumb--video)").forEach((t) => t.remove());
-          imgs.forEach((src, i) => {
+        const draw = right.closest(".vdraw");
+        if (!gal || !folder) return;
+        fetch(`${WORKER}/headshots?prefix=${encodeURIComponent(folder)}&limit=100`).then((r) => r.json()).then((d) => {
+          const items = (d && d.items) || [];
+          if (!items.length) return;
+          // Rebuild the whole strip from the live folder.
+          gal.querySelectorAll(".vmodal-thumb").forEach((t) => t.remove());
+          items.forEach((it, i) => {
             const b = document.createElement("button");
             b.type = "button";
-            b.className = "vmodal-thumb";
-            b.setAttribute("data-full", src);
-            b.style.backgroundImage = `url('${src}')`;
-            b.setAttribute("aria-label", `Headshot ${i + 1}`);
+            if (it.type === "video") {
+              b.className = "vmodal-thumb vmodal-thumb--video";
+              b.setAttribute("data-video", "");
+              b.setAttribute("data-video-src", it.url);
+              b.setAttribute("aria-label", `Video ${i + 1}`);
+              b.innerHTML = '<span class="vmodal-thumb-play" aria-hidden="true">&#9658;</span>';
+            } else {
+              b.className = "vmodal-thumb";
+              b.setAttribute("data-full", it.url);
+              b.style.backgroundImage = `url('${it.url}')`;
+              b.setAttribute("aria-label", `Photo ${i + 1}`);
+              sizeThumb(b, it.url);
+            }
             gal.appendChild(b);
-            sizeThumb(b, src);
           });
           const total = right.querySelector(".vmodal-count-total");
-          if (total) total.textContent = String(gal.querySelectorAll(".vmodal-thumb").length);
+          if (total) total.textContent = String(items.length);
+          // Lead with the first item (a video if the folder has one).
+          const first = gal.querySelector(".vmodal-thumb");
+          if (first) first.click();
         }).catch(() => {});
       });
     })();
