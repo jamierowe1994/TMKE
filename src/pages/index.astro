@@ -346,6 +346,11 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         margin-left: -71vw;
         gap: 36px 8vw;
       }
+      /* Swap the "Shop The Edit" CTA (col4, cut off in the right half-peek) with
+         the "Coming Soon" tile to its left (col3, the centred column) so the
+         shop link is fully visible and "Coming Soon" takes the peeking slot. */
+      .edit-grid .edit-cell:nth-child(13) { grid-column: 4; grid-row: 3; }
+      .edit-grid .edit-cell--cta { grid-column: 3; grid-row: 3; }
     }
   </style>
 
@@ -395,7 +400,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
   <section id="social" class="quote quote--split" data-reveal-root>
     <div class="quote-split-grid">
       <div class="quote-left">
-        <div class="chapter reveal" data-reveal data-reveal-dir="left">Chapter 05 &mdash; Social Media Management</div>
+        <div class="chapter reveal" data-reveal data-reveal-dir="left">Chapter 05 &mdash; Social Media<span class="ch5-mgmt"> Management</span></div>
         <div class="quote-mark" aria-hidden="true">&ldquo;</div>
         <blockquote class="quote-text split" data-reveal data-reveal-dir="up">
           <span class="split-line"><span>We work with agents who know their</span></span>
@@ -958,11 +963,11 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
        drop the 30px frame and the second (alternating) column so each stage is
        a single full-screen image. ===== */
     @media (max-width: 600px) {
-      .ch4-panels { inset: 0; grid-template-columns: 1fr; }
+      /* Bring back a small frame so the photo isn't edge-to-edge. */
+      .ch4-panels { inset: 14px; grid-template-columns: 1fr; }
       .ch4-col--right { display: none; }
-      /* Text boxes sit at the TOP of each photo (bottom-anchored they fell
-         near/off the bottom of a tall full-screen cell). */
-      .ch4-label { top: 22px; bottom: auto; }
+      /* Text boxes sit a fifth (20%) down from the top of each photo. */
+      .ch4-label { top: 20%; bottom: auto; }
     }
   </style>
 
@@ -1090,6 +1095,19 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         position: static; transform: none; width: auto; right: auto;
         margin: 40px 22px 0;
       }
+    }
+    /* ===== MOBILE-ONLY (phones ≤600px) — Chapter 05 ===== */
+    @media (max-width: 600px) {
+      /* Title on one line: drop " Management" and tighten the tracking. */
+      #social .chapter { letter-spacing: 0.16em; }
+      #social .ch5-mgmt { display: none; }
+      /* Quote mirrors the "We work with estate agents" lead: smaller, and flows
+         as one paragraph (drop the hard line breaks + the slide-in). */
+      #social .quote-text { font-size: 24px; }
+      #social .quote-text .split-line,
+      #social .quote-text .split-line > span { display: inline; transform: none; }
+      /* Remove the table image so Get Started hands straight to Chapter 06. */
+      #social .quote-photo--table { display: none; }
     }
   </style>
 </BaseLayout>
