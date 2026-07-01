@@ -15,6 +15,8 @@ export const VAT_RATE = 0.20;
 export const MEMBER_DOMAINS = {
   "thepropertyexperts.co.uk":       { brand: "tpe",      label: "The Property Experts" },
   "prestigepropertyexperts.co.uk":  { brand: "prestige", label: "Prestige Property Experts" },
+  "thelettingsexperts.co.uk":       { brand: "tle",      label: "The Lettings Experts" },
+  "themortgageexperts.co.uk":       { brand: "tme",      label: "The Mortgage Experts" },
   "fineandcountry.co.uk":           { brand: "fc",       label: "Fine & Country" },
   // TMKE staff — treated as members so the team can test every booking flow
   // end-to-end (Content Studio, Property, Agent). Remove or restrict before
