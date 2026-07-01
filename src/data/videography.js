@@ -84,9 +84,9 @@ export const PRODUCTS = [
     pricingMode: "tiers",
     pricingHeading: "Booking and Pricing",
     priceTiers: [
-      { label: "Single Session", sub: "1.5 hours of filming · 12 short-form videos", minutes: 90, prices: { direct: 13900 } },
-      { label: "Half Day", sub: "3 hours of filming · 24 short-form videos", minutes: 180, prices: { direct: 27800 } },
-      { label: "Full Day", sub: "8 hours of filming · 60 short-form videos", minutes: 480, prices: { direct: 67300 } },
+      { label: "Single Session", sub: "1.5 hours of filming · 12 short-form videos", minutes: 90, prices: { direct: 16500 } },
+      { label: "Half Day", sub: "3 hours of filming · 24 short-form videos", minutes: 180, prices: { direct: 32500 } },
+      { label: "Full Day", sub: "8 hours of filming · 60 short-form videos", minutes: 480, prices: { direct: 78500 } },
     ],
     bookCtaLabel: "Book a Session",
     // Gated waitlist flow: pick package -> work-email-gated details -> preferred
@@ -178,21 +178,21 @@ export const PRODUCTS = [
       "Landscape elevator pitch video",
       "Portrait elevator pitch video",
       "Five professional headshots",
+      "10 lifestyle photographs",
     ],
     extrasHeading: "Optional Add-Ons",
     extras: [
-      { label: "10 lifestyle portraits", price: "£70 +VAT" },
       { label: "10 × 60-second B-roll scenes", price: "£155 +VAT" },
-      { label: "Twilight shoot (Apr–Sep)", price: "£200 +VAT" },
+      { label: "Twilight shoot", price: "£200 +VAT" },
     ],
     pricingMode: "prose",
     pricingHeading: "Booking & Pricing",
     pricingProse: [
-      "Agent videography starts from £250 +VAT. Your rate is calculated automatically based on your membership to our network — just click below for a personalised quote.",
+      "Agent videography starts from £295 +VAT. Your rate is calculated automatically based on your membership to our network — just click below for a personalised quote.",
       "Jack covers a 40-mile radius of NN14, Kettering. Outside of that area? No problem — travel expenses apply for anything beyond the 40 miles, and we'll factor that into your quote automatically.",
     ],
     priceTiers: [
-      { label: "Agent Edit", sub: "Video & photography", minutes: 120, prices: { direct: 25000 } },
+      { label: "Agent Edit", sub: "Video & photography", minutes: 120, prices: { direct: 29500 } },
     ],
     bookCtaLabel: "Check Availability",
     aboutHeading: "About",

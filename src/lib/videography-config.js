@@ -57,9 +57,9 @@ export const SERVICES = {
     surcharge: false,           // studio-based, no travel surcharge
     select: "single",           // pick one session
     sessions: [
-      { key: "single", name: "Single Session", price_pence: 13900, output: "12 short-form videos", desc: "1.5 hrs filming + 1.5 hrs editing." },
-      { key: "half",   name: "Half Day",       price_pence: 27800, output: "24 short-form videos", desc: "3 hrs filming + 3 hrs editing." },
-      { key: "full",   name: "Full Day",       price_pence: 67300, output: "60 short-form videos", desc: "8 hrs filming + 8 hrs editing." },
+      { key: "single", name: "Single Session", price_pence: 16500, output: "12 short-form videos", desc: "1.5 hrs filming + 1.5 hrs editing." },
+      { key: "half",   name: "Half Day",       price_pence: 32500, output: "24 short-form videos", desc: "3 hrs filming + 3 hrs editing." },
+      { key: "full",   name: "Full Day",       price_pence: 78500, output: "60 short-form videos", desc: "8 hrs filming + 8 hrs editing." },
     ],
   },
 
@@ -113,11 +113,11 @@ export const SERVICES = {
     select: "multi",            // members may combine packages
     requiresLocationAddress: true,
     packages: [
-      { key: "launch",    name: "Launch Package",            price_pence: 25000, desc: "Landscape + portrait elevator pitch video, 5 professional headshots." },
-      { key: "lifestyle", name: "Lifestyle Portraits ×10",   price_pence: 7000,  desc: "10 professional lifestyle portrait photographs." },
-      { key: "broll",     name: "B-Roll / Short-Form ×10",   price_pence: 15500, desc: "10 × 60-second short-form clips, filmed and edited." },
+      { key: "launch", name: "Launch Package",              price_pence: 29500, desc: "Landscape + portrait elevator pitch video, 5 professional headshots, and 10 lifestyle photographs." },
+      { key: "broll",  name: "10 × 60-second B-roll scenes", price_pence: 15500, desc: "10 × 60-second short-form clips, filmed and edited." },
+      { key: "twilight", name: "Twilight Shoot",            price_pence: 20000, desc: "Twilight exterior shoot." },
     ],
-    nonMemberFrom_pence: 29900,  // indicative only
+    nonMemberFrom_pence: 29500,  // indicative only
   },
 
   "discovery": {
