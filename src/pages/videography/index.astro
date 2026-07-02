@@ -1084,8 +1084,23 @@ const navLinks = [
       const newsEl = finalPanel ? finalPanel.querySelector(".pf-news") : null;
       let revealed = false;
       const revealAmt = () => (finalTrack ? Math.max(0, finalTrack.scrollWidth - finalPanel.clientWidth) : 0);
+      // Phones step through the final panel one column at a time (card 1 → 2 → 3
+      // → newsletter) instead of jumping straight to the newsletter.
+      const isPhone = () => window.innerWidth <= 600;
+      const finalItems = () => (finalTrack ? finalTrack.children.length : 1);
+      let finalStep = 0;
+      function setFinalStep(n) {
+        if (!finalTrack) return;
+        n = Math.max(0, Math.min(finalItems() - 1, n));
+        finalStep = n;
+        finalTrack.style.transform = `translateX(-${n * finalPanel.clientWidth}px)`;
+        revealed = n >= finalItems() - 1;
+        finalPanel.classList.toggle("is-revealed", revealed);
+        if (revealTab) revealTab.style.right = (revealed && newsEl) ? newsEl.offsetWidth + "px" : "0px";
+      }
       function setReveal(on) {
         if (!finalTrack) return;
+        if (isPhone()) { setFinalStep(on ? finalItems() - 1 : 0); return; }
         revealed = on;
         finalTrack.style.transform = on ? `translateX(-${revealAmt()}px)` : "translateX(0)";
         if (revealTab) revealTab.style.right = on && newsEl ? newsEl.offsetWidth + "px" : "0px";
@@ -1155,7 +1170,7 @@ const navLinks = [
           panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
           if (curEl) curEl.textContent = pad(cur);
           if (topBar) topBar.classList.toggle("on-dark", false);   // slide 1 is now light (About-style) — nav stays ink
-          if (cur !== last && revealed) setReveal(false);
+          if (cur !== last && (revealed || (isPhone() && finalStep !== 0))) setReveal(false);
         }
       };
       const tick = () => {
@@ -1211,9 +1226,9 @@ const navLinks = [
       });
 
       // touch — drag continuously (swipe left/up advances)
-      let tx = 0, ty = 0, tp = 0, thp = 0;
+      let tx = 0, ty = 0, tp = 0, thp = 0, finalStepped = false;
       stage.addEventListener("touchstart", (ev) => {
-        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc; thp = heroP;
+        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc; thp = heroP; finalStepped = false;
       }, { passive: true });
       stage.addEventListener("touchmove", (ev) => {
         if (openSlug) return;
@@ -1226,6 +1241,19 @@ const navLinks = [
           heroP = np;
           if (np >= 1 && dom < 0 && performance.now() >= heroHold) acc = clamp(Math.round(display) + 1);
           return;
+        }
+        // Phones: on the final panel, step one column per swipe (card → card →
+        // newsletter) rather than jumping straight to the newsletter.
+        if (isPhone() && atLast()) {
+          if (dom < -24) {   // swipe left → next column
+            if (!finalStepped && finalStep < finalItems() - 1) { finalStepped = true; setFinalStep(finalStep + 1); }
+            return;
+          }
+          if (dom > 24 && finalStep > 0) {   // swipe right → previous column
+            if (!finalStepped) { finalStepped = true; setFinalStep(finalStep - 1); }
+            return;
+          }
+          // at column 0 swiping right → fall through to move the deck back a slide
         }
         if (atLast() && dom < -24) { if (!revealed) setReveal(true); return; }
         if (atLast() && revealed && dom > 24) { setReveal(false); return; }
