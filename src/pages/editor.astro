@@ -5108,6 +5108,16 @@ const googleFonts = [
         return;
       }
 
+      // Opening a specific design (?template=…) — e.g. clicking one of "Your
+      // designs" — skips the pack-picker onboarding and lands straight on the
+      // canvas with that design loaded (editor.js loads it behind the overlay).
+      if (new URLSearchParams(location.search).has("template")) {
+        overlay.classList.add("is-gone");
+        editor.classList.remove("is-onboarding");
+        editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
+        return;
+      }
+
       const isDemo = import.meta.env.DEV && new URLSearchParams(location.search).has("demo");
       if (isDemo) {
         loading.hidden = true;
