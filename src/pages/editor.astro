@@ -5165,6 +5165,21 @@ const googleFonts = [
       const owned = allPacks.filter((p) => ownedIds.has(p.id));
       const unowned = allPacks.filter((p) => !ownedIds.has(p.id));
 
+      // Deep-link from the Studio "Pick from your packs": /editor?pack=<id>
+      // jumps straight to that pack's design chooser (onboarding step 2).
+      const _packParam = new URLSearchParams(location.search).get("pack");
+      if (_packParam) {
+        const _p = owned.find((p) => p.id === _packParam) || allPacks.find((p) => p.id === _packParam);
+        if (_p) {
+          grid.innerHTML = owned.map(packCard).join("");
+          grid.hidden = false;
+          renderMoreCell(unowned);
+          wirePackGrid(owned);
+          showPackDesigns(_p);
+          return;
+        }
+      }
+
       if (owned.length === 0) {
         // Nothing purchased yet — nudge toward the shop, but the blank-canvas
         // skip button below still lets them explore the studio.

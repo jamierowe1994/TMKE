@@ -174,7 +174,9 @@ const inspo = [
           <a class="ws-textlink" href="/edit">View all templates <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-rail" data-rail>
-          <div class="st-row st-row--packs">
+          <!-- SSR sample packs; the wirePacks script below swaps in the member's
+               actually-purchased packs (or a "Shop packs" card if they own none). -->
+          <div class="st-row st-row--packs" data-packs>
             {packs.map((p) => (
               <a class="st-pack" href="/edit">
                 <span class="st-pack-img" style={`background-image:url('${p.thumb}')`}><span class="st-pack-label">{p.name}</span></span>
@@ -384,6 +386,12 @@ const inspo = [
     .st-pack-label { position: relative; z-index: 1; font-family: var(--subhead); font-size: 17px; font-weight: 500; color: #fff; line-height: 1.05; }
     .st-pack-name { font-size: 13.5px; font-weight: 600; }
     .st-pack-count { font-size: 12px; color: var(--ws-faint); margin-top: -4px; }
+    /* Empty state — no packs owned yet → nudge to the shop */
+    .st-pack--shop .st-pack-img { align-items: center; justify-content: center; padding: 0; background: transparent; box-shadow: inset 0 0 0 1.5px var(--ws-line); }
+    .st-pack--shop .st-pack-img::after { display: none; }
+    .st-pack--shop:hover .st-pack-img { box-shadow: inset 0 0 0 1.5px var(--ws-accent); }
+    .st-pack-shop-ic { font-size: 34px; font-weight: 200; line-height: 1; color: var(--ws-faint); transition: color 0.2s; }
+    .st-pack--shop:hover .st-pack-shop-ic { color: var(--ws-accent); }
 
     /* Design cards */
     .st-design { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ws-ink); }
@@ -475,6 +483,41 @@ const inspo = [
         </a>`).join('');
       row.innerHTML = cards + `
         <a class="st-design st-design--new" href="/editor"><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
+    })();
+  </script>
+
+  <!-- "Pick from your packs" → the member's actually-purchased packs. -->
+  <script>
+    import { supabase } from "../lib/supabase.js";
+    (async function wirePacks() {
+      const row = document.querySelector('[data-packs]');
+      if (!row) return;
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const shopCard = `
+        <a class="st-pack st-pack--shop" href="/edit">
+          <span class="st-pack-img"><span class="st-pack-shop-ic">+</span></span>
+          <span class="st-pack-name">Shop packs</span>
+          <span class="st-pack-count">Browse The Edit &rarr;</span>
+        </a>`;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return; // signed out (preview) → keep the SSR sample packs
+        const email = session.user.email || '';
+        const [packsRes, ordersRes] = await Promise.all([
+          supabase.from('packs').select('id, slug, title, cover_image_url').eq('status', 'active').order('sort_order', { ascending: true }),
+          supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`),
+        ]);
+        const allPacks = packsRes.data || [];
+        const ownedIds = new Set((ordersRes.data || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
+        const owned = allPacks.filter((p) => ownedIds.has(p.id));
+        if (!owned.length) { row.innerHTML = shopCard; return; } // no packs → Shop card
+        row.innerHTML = owned.map((p) => `
+          <a class="st-pack" href="/editor?pack=${encodeURIComponent(p.id)}">
+            <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}><span class="st-pack-label">${esc(p.title)}</span></span>
+            <span class="st-pack-name">${esc(p.title)}</span>
+            <span class="st-pack-count">Open pack &rarr;</span>
+          </a>`).join('');
+      } catch (_) { /* keep the SSR sample packs on any error */ }
     })();
   </script>
 </BaseLayout>
