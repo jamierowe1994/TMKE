@@ -198,8 +198,10 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   /* Content below the header keeps the themeable .dash-shell context (vars +
      legible heading colours) but drops its 264px sidebar column — one centred
      column instead. */
-  .dash-shell--top { display: block; min-height: 0; }
-  .dash-shell--top .app-main { max-width: 1180px; margin: 0 auto; width: 100%; }
+  /* Higher specificity than account-sections.css's `.dash-shell { display:grid }`
+     so the sidebar column collapses and the content spans full width. */
+  .dash-shell.dash-shell--top { display: block; min-height: 0; }
+  .dash-shell.dash-shell--top .app-main { max-width: 1180px; margin: 0 auto; width: 100%; grid-column: auto; }
   body:has(.dash-shell--top) { background: #fff; }
   /* Pages on the new top header drop the old left-edge Calendar tab/popup
      (its JS stays harmlessly wired to the hidden markup). */
