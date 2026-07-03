@@ -837,6 +837,17 @@ const navLinks = [
          button, then it flows into the rising video. */
       .vh-lede-media { display: none; }
 
+      /* Slide 1: no slow video rise on phones — the video sits as a static
+         framed block under the lede (autoplaying), and a swipe advances
+         straight to slide 2. The JS rise mechanic is bypassed on phones so no
+         inline geometry fights this layout. */
+      .pf-panel.vh { display: flex; flex-direction: column; }
+      .vh-header { padding: 84px 24px 18px; }
+      .vh-pic {
+        position: relative; inset: auto; flex: 1; min-height: 220px;
+        margin: 0 20px 20px; border-radius: 4px;
+      }
+
       /* Product slides: Book Now + Discover the same size (full-width, stacked). */
       .pf-panel-actions { flex-direction: column; align-items: stretch; gap: 12px; }
       .pf-act-btn { width: 100%; justify-content: center; }
@@ -1136,6 +1147,7 @@ const navLinks = [
       };
       const applyHero = (p) => {
         if (!heroPic) return;
+        if (isPhone()) return;   // phones: static layout, no rise (CSS-driven)
         if (!heroGeo) measureHero();
         const g = heroGeo, q = 1 - p;
         heroPic.style.top = (g.hH * q).toFixed(1) + "px";
@@ -1196,6 +1208,12 @@ const navLinks = [
         const d = Math.abs(ev.deltaY) >= Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
         // Slide 1: scroll first raises the long video to a full-page video; only
         // once it's full does a further scroll advance the deck across.
+        // Phones skip the rise entirely — the video sits as a static block and a
+        // scroll advances straight to slide 2.
+        if (display < 0.5 && isPhone()) {
+          if (d > 0) acc = clamp(Math.round(display) + 1);
+          return;
+        }
         if (display < 0.5) {
           if (d > 0 && heroP < 1) {
             heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS));
@@ -1235,6 +1253,11 @@ const navLinks = [
         const t = ev.touches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
         const dom = Math.abs(dx) > Math.abs(dy) ? dx : dy;
         // Slide 1: a drag raises the long video to full-page first (then advance).
+        // Phones skip the rise — a swipe drags the deck straight toward slide 2.
+        if (display < 0.5 && isPhone()) {
+          acc = clamp(tp - dom * 0.004);
+          return;
+        }
         if (display < 0.5) {
           const np = Math.max(0, Math.min(1, thp - dom * 0.0024));
           if (np >= 1 && heroP < 1) heroHold = performance.now() + HERO_HOLD;   // just landed full → start the dwell
