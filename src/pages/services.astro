@@ -617,6 +617,9 @@ const total = 7;
     /* Slide 1 is light (About-style) — flip the nav to ink so it stays legible. */
     .pf-top.is-ink .pf-top-logo { color: var(--ink); mix-blend-mode: normal; }
     .pf-top.is-ink .pf-top-menu span { background: var(--ink); mix-blend-mode: normal; }
+    /* From "What we do" onward the slides are light — TMKE + Menu turn wine. */
+    .pf-top.is-wine .pf-top-logo { color: var(--english-violet); mix-blend-mode: normal; }
+    .pf-top.is-wine .pf-top-menu span { background: var(--english-violet); mix-blend-mode: normal; }
     .pf-top-menu { display: inline-flex; flex-direction: column; justify-content: center; gap: 5px; width: 30px; height: 22px; padding: 0; background: none; border: none; cursor: pointer; position: relative; z-index: 2; }
     .pf-top-menu span { display: block; width: 100%; height: 2px; border-radius: 2px; background: #fff; mix-blend-mode: difference; transition: transform 0.3s ease, opacity 0.25s ease; }
     .pf-top.is-open .pf-top-menu span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
@@ -777,9 +780,14 @@ const total = 7;
           lastCur = cur;
           panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
           if (curEl) curEl.textContent = pad(cur);
-          // Slide 1 is light → ink nav; the rest are dark → white nav.
+          // Slide 1 is light → ink nav; the dark image slides → white nav; and
+          // from "What we do" onward (light slides) → TMKE wine.
           const top = document.getElementById("pf-top");
-          if (top) top.classList.toggle("is-ink", !!panels[cur] && panels[cur].classList.contains("sm-hero"));
+          const wineFrom = panels.findIndex((p) => p.classList.contains("sm-services"));
+          if (top) {
+            top.classList.toggle("is-ink", !!panels[cur] && panels[cur].classList.contains("sm-hero"));
+            top.classList.toggle("is-wine", wineFrom !== -1 && cur >= wineFrom);
+          }
         }
       };
       const tick = () => {
