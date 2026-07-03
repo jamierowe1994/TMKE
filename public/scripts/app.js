@@ -47,7 +47,13 @@
   // instead, so trackpad/wheel scrolling looks dead (only dragging the scrollbar
   // works). Skip Lenis entirely there; native scrolling of `.ash-content` is fine.
   const isAdminShell = location.pathname.startsWith('/admin') || !!document.getElementById('ash');
-  if (!isAdminShell) {
+  // Horizontal deck pages (/services, /videography) run their own wheel-driven
+  // scroll world and destroy Lenis on load — but this script polls for the Lenis
+  // lib and can re-create it AFTER that destroy (a race). A live Lenis there
+  // hijacks the wheel over overlay modals (booking forms etc.) and pushes it at
+  // the overflow:hidden window, so laptop users can't scroll the forms at all.
+  const isDeckPage = !!document.getElementById('pf-deck');
+  if (!isAdminShell && !isDeckPage) {
     if (typeof Lenis !== 'undefined') {
       initLenis();
     } else {
