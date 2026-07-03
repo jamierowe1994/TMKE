@@ -1342,9 +1342,13 @@ export default {
           return json({ error: "Please complete all required fields." }, 400, request, env);
         const fullName = `${first_name} ${last_name}`.trim();
 
+        // Signed-in members are identified by their session token — the enquiry
+        // links straight to their account, no password prompt needed.
+        const authedUser = await getUser(request, env);
+
         // Optional account creation (password is optional on this form).
-        let accountUserId = null, accountCreated = false;
-        if (password) {
+        let accountUserId = authedUser ? authedUser.id : null, accountCreated = false;
+        if (!authedUser && password) {
           if (!smmPasswordOk(password)) return json({ error: "Password must be at least 8 characters and include a number and a special character." }, 400, request, env);
           try {
             const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
@@ -1540,7 +1544,11 @@ export default {
         const ip = request.headers.get("CF-Connecting-IP") || "";
         if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed — please try again." }, 400, request, env);
         if (!first_name || !last_name || !business || !email || !date || !start) return json({ error: "Please complete all required fields and pick a time." }, 400, request, env);
-        if (!password || !smmPasswordOk(password)) return json({ error: "A password of at least 8 characters including a number and a special character is required." }, 400, request, env);
+        // Signed-in members are identified by their session token and book
+        // straight onto their existing account; everyone else must set a
+        // password (account creation is part of booking a call).
+        const authedUser = await getUser(request, env);
+        if (!authedUser && (!password || !smmPasswordOk(password))) return json({ error: "A password of at least 8 characters including a number and a special character is required." }, 400, request, env);
         const fullName = `${first_name} ${last_name}`.trim();
         const dur = parseInt(duration || "30", 10);
         const endHm = minToHm(hmToMin(start) + dur);
@@ -1555,9 +1563,10 @@ export default {
         const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
         if (view && /[^0]/.test(view)) return json({ error: "That time was just taken — please choose another." }, 409, request, env);
 
-        // Account creation is mandatory at this step.
-        let accountUserId = null, accountCreated = false;
-        try {
+        // Account creation is mandatory at this step (signed-in members already
+        // have one — their verified id is used directly).
+        let accountUserId = authedUser ? authedUser.id : null, accountCreated = false;
+        if (!authedUser) try {
           const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
             method: "POST",
             headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },

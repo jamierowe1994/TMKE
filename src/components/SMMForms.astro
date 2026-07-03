@@ -232,6 +232,41 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
     const donePane = modal.querySelector('[data-smf-pane="done"]');
     const tsWidgets = new WeakMap();
 
+    // ---- Signed-in member? Skip the password step entirely ----
+    // Members are identified to the Worker by their session token; the booking
+    // or enquiry links straight to their account, so no password is requested.
+    let memberToken = null, memberEmail = null;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data && data.session;
+        if (!session || !session.user) return;
+        memberToken = session.access_token;
+        memberEmail = session.user.email || null;
+        forms.forEach((form) => {
+          if (form.dataset.kind === "brochure") return;   // has its own email-first check
+          // Hide the password field, its confirm, its row and the account help.
+          form.querySelectorAll('input[name="password"], input[name="confirm"]').forEach((inp) => {
+            inp.required = false;
+            const wrap = inp.closest(".smf-field");
+            const row = wrap && wrap.parentElement && wrap.parentElement.classList.contains("smf-row2") ? wrap.parentElement : wrap;
+            if (row) row.hidden = true;
+            if (wrap) wrap.hidden = true;
+          });
+          form.querySelectorAll(".smf-help").forEach((h) => { h.hidden = true; });
+          // Prefill their email + a small signed-in note above the submit button.
+          const em = form.querySelector('input[name="email"]');
+          if (em && !em.value && memberEmail) em.value = memberEmail;
+          const note = document.createElement("p");
+          note.className = "smf-help";
+          note.style.margin = "0 0 16px";
+          note.textContent = "You’re signed in" + (memberEmail ? " as " + memberEmail : "") + " — no password needed; this will be linked to your account.";
+          const submit = form.querySelector(".smf-submit");
+          if (submit) form.insertBefore(note, submit);
+        });
+      } catch (_) { /* signed-out flow stays as-is */ }
+    })();
+
     // ---- Turnstile (per form, lazy) ----
     let tsScriptLoading = false;
     function ensureTurnstileScript(cb) {
@@ -433,7 +468,7 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
         const pwv = String(fd.get("password") || "");
         const cf = String(fd.get("confirm") || "");
         if (kind === "discovery" && (!fd.get("date") || !fd.get("start"))) return showErr(form, "Please pick a time for your call.");
-        if (kind === "discovery" && !pwv) return showErr(form, "Please create a password to confirm your booking.");
+        if (kind === "discovery" && !pwv && !memberToken) return showErr(form, "Please create a password to confirm your booking.");
         if (pwv) {
           if (!PW_RE.test(pwv)) return showErr(form, "Password must be at least 8 characters and include a number and a special character.");
           if (pwv !== cf) return showErr(form, "Those passwords don't match.");
@@ -452,11 +487,15 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
           payload.marketing_opt_in = !!fd.get("optin");
           payload.turnstile_token = token;
           payload.hp = fd.get("hp") || "";
-          const res = await fetch(`${WORKER}${form.dataset.endpoint}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+          const res = await fetch(`${WORKER}${form.dataset.endpoint}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(memberToken ? { Authorization: "Bearer " + memberToken } : {}) },
+            body: JSON.stringify(payload),
+          });
           const d = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(d.error || "Something went wrong — please try again.");
           // Auto sign-in when an account was just created.
-          if (d.account_created && pwv) { try { await supabase.signInWithPassword({ email: fd.get("email"), password: pwv }); } catch (_) {} }
+          if (d.account_created && pwv) { try { await supabase.auth.signInWithPassword({ email: fd.get("email"), password: pwv }); } catch (_) {} }
           showDone(kind, d);
         } catch (err) {
           showErr(form, err && err.message ? err.message : "Something went wrong — please try again.");
