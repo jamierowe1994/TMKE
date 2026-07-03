@@ -246,14 +246,15 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
         forms.forEach((form) => {
           if (form.dataset.kind === "brochure") return;   // has its own email-first check
           // Hide the password field, its confirm, its row and the account help.
+          // (Inline display — the hidden attribute loses to `.smf-field { display:block }`.)
           form.querySelectorAll('input[name="password"], input[name="confirm"]').forEach((inp) => {
             inp.required = false;
             const wrap = inp.closest(".smf-field");
-            const row = wrap && wrap.parentElement && wrap.parentElement.classList.contains("smf-row2") ? wrap.parentElement : wrap;
-            if (row) row.hidden = true;
-            if (wrap) wrap.hidden = true;
+            if (wrap) wrap.style.display = "none";
+            const row = wrap && wrap.parentElement;
+            if (row && row.classList.contains("smf-row2")) row.style.display = "none";
           });
-          form.querySelectorAll(".smf-help").forEach((h) => { h.hidden = true; });
+          form.querySelectorAll(".smf-help").forEach((h) => { h.style.display = "none"; });
           // Prefill their email + a small signed-in note above the submit button.
           const em = form.querySelector('input[name="email"]');
           if (em && !em.value && memberEmail) em.value = memberEmail;

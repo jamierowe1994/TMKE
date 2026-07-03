@@ -213,6 +213,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
           <!-- New account: create a password. Existing account (detected at the
                email gate): sign in instead — toggled by the script. -->
           <p class="vb-signin-note" id="vb-signin-note" hidden>You already have a TMKE account — enter your password to sign in and we'll attach this booking to it. <a href="/forgot-password" target="_blank" rel="noopener">Forgotten it?</a></p>
+          <p class="vb-signin-note" id="vb-signedin-note" hidden>You&rsquo;re signed in — no password needed. This booking will be added to your TMKE account.</p>
           <div class="dc-field-row" id="vb-pw-create">
             <label class="dc-field"><span>Create a password *</span><input name="password" type="password" autocomplete="new-password" minlength="8" /></label>
             <label class="dc-field"><span>Confirm password *</span><input name="password2" type="password" autocomplete="new-password" minlength="8" /></label>
@@ -311,6 +312,19 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let flow = "booking";      // "booking" | "discovery"
     let promo = null;          // applied promo { code, discount_pence } | null
     let existingAccount = false; // gate email already has a TMKE account → sign in, don't create
+    let sessionEmail = null;     // signed-in Supabase user's email (lowercase) — skips the password entirely
+    // Detect a live session up front; if the booker is already signed in under
+    // the gate email, the details step asks for no password at all.
+    (async () => {
+      try {
+        const m = await import("../lib/supabase.js");
+        if (!m || !m.isConfigured || !m.supabase) return;
+        const { data } = await m.supabase.auth.getSession();
+        const em = data && data.session && data.session.user && data.session.user.email;
+        sessionEmail = em ? String(em).toLowerCase() : null;
+      } catch (_) { /* signed-out flow stays as-is */ }
+    })();
+    const signedInAsGate = () => !!(sessionEmail && gateEmail && sessionEmail === gateEmail.trim().toLowerCase());
     let selectedInterests = []; // discovery-call interests
     let duration = 90;         // minutes (for availability)
     let selectedDate = null, selectedSlot = null;
@@ -850,12 +864,15 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (termsCta.disabled) return;
       const f = $("vb-details-form");
       if (f) f.querySelector('[name="email"]').value = gateEmail;   // pre-fill from the gate
-      // Existing account → ask them to sign in instead of creating a duplicate.
-      const create = $("vb-pw-create"), signin = $("vb-pw-signin"), note = $("vb-signin-note");
-      if (create) create.hidden = existingAccount;
-      if (signin) signin.hidden = !existingAccount;
-      if (note) note.hidden = !existingAccount;
-      const dcta = $("vb-details-cta"); if (dcta) resetCta(dcta, existingAccount ? "Sign in & confirm" : "Confirm booking");
+      // Signed in under the gate email → no password at all. Existing account
+      // (signed out) → sign in. Brand new → create a password.
+      const signedIn = signedInAsGate();
+      const create = $("vb-pw-create"), signin = $("vb-pw-signin"), note = $("vb-signin-note"), inNote = $("vb-signedin-note");
+      if (create) create.hidden = existingAccount || signedIn;
+      if (signin) signin.hidden = !existingAccount || signedIn;
+      if (note) note.hidden = !existingAccount || signedIn;
+      if (inNote) inNote.hidden = !signedIn;
+      const dcta = $("vb-details-cta"); if (dcta) resetCta(dcta, (existingAccount && !signedIn) ? "Sign in & confirm" : "Confirm booking");
       goTo("details");
     });
 
@@ -865,9 +882,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const fd = new FormData(e.target);
       const err = $("vb-details-error"); err.hidden = true;
       const bookEmail0 = gateEmail || String(fd.get("email") || "");
-      // Existing account → sign in with one password; new account → create + confirm.
-      let pw;
-      if (existingAccount) {
+      // Signed in under this email → no password step at all. Existing account
+      // → sign in with one password; new account → create + confirm.
+      let pw = null;
+      if (signedInAsGate()) {
+        // nothing to validate — the live session is the proof
+      } else if (existingAccount) {
         pw = String(fd.get("signin_password") || "");
         if (!pw) { err.textContent = "Please enter your password to sign in."; err.hidden = false; return; }
         try {
@@ -919,15 +939,15 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
             name: fd.get("name"), email: bookEmail, phone: fd.get("phone"), company: fd.get("company"), notes,
             signed_name: signName.value.trim(), signed_at: signDate.value ? `${signDate.value}T12:00:00` : null,
             marketing_opt_in: !!fd.get("optin"),
-            // Existing members sign in client-side above; only send a password to
-            // CREATE an account for brand-new customers.
-            account_exists: existingAccount, password: existingAccount ? null : pw,
+            // Existing members sign in client-side above (or are already signed
+            // in); only send a password to CREATE an account for new customers.
+            account_exists: existingAccount || signedInAsGate(), password: (existingAccount || signedInAsGate()) ? null : pw,
             total_pence: withVat(sub),
           }),
         });
         const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || "Booking failed");
         // Best-effort: sign a brand-new account in so the portal works immediately.
-        if (!existingAccount) { try { const m = await import("../lib/supabase.js"); if (m && m.isConfigured && m.supabase) await m.supabase.auth.signInWithPassword({ email: bookEmail, password: pw }); } catch (_) {} }
+        if (!existingAccount && !signedInAsGate() && pw) { try { const m = await import("../lib/supabase.js"); if (m && m.isConfigured && m.supabase) await m.supabase.auth.signInWithPassword({ email: bookEmail, password: pw }); } catch (_) {} }
         const wait = 1100 - (Date.now() - t0); if (wait > 0) await sleep(wait);
         const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
         $("vb-success-title").textContent = "Booking confirmed";
