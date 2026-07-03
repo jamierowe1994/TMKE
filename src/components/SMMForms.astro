@@ -102,14 +102,22 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
           <label class="smf-field">Phone<input type="tel" name="phone" autocomplete="tel" /></label>
         </div>
 
-        <!-- Calendar — revealed once name, business and email are filled. -->
-        <div class="smf-booking" hidden>
+        <!-- Pick a time — the calendar is visible from the start; the times
+             load in once a date is chosen. -->
+        <div class="smf-booking">
           <p class="smf-booking-h">Pick a time <span>*</span></p>
-          <label class="smf-field">Date<input type="date" class="smf-date" /></label>
+          <div class="smf-cal">
+            <header class="smf-cal-head">
+              <button type="button" class="smf-cal-nav" data-cal-prev aria-label="Previous month">&larr;</button>
+              <div class="smf-cal-label"></div>
+              <button type="button" class="smf-cal-nav" data-cal-next aria-label="Next month">&rarr;</button>
+            </header>
+            <div class="smf-cal-weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+            <div class="smf-cal-grid"></div>
+          </div>
           <div class="smf-slots"><p class="smf-slots-msg">Choose a date to see available times.</p></div>
           <input type="hidden" name="date" /><input type="hidden" name="start" /><input type="hidden" name="duration" value="30" />
         </div>
-        <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
       </div>
 
       <!-- STEP 2 — confirm. Signed in: just confirm. Existing account: enter
@@ -127,6 +135,8 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
             <label class="smf-field">Create a password <span>*</span><input type="password" name="password" autocomplete="new-password" /></label>
             <label class="smf-field smf-confirm" hidden>Confirm password <span>*</span><input type="password" name="confirm" autocomplete="new-password" /></label>
           </div>
+          <!-- Newsletter opt-in only makes sense for someone new to TMKE. -->
+          <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
         </div>
       </div>
 
@@ -215,7 +225,34 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
   .smf-booking[hidden] { display: none; }
   .smf-booking-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 14px; }
   .smf-booking-h span { color: var(--english-violet); }
-  .smf-date { max-width: 220px; }
+
+  /* Branded inline calendar (replaces the native date input): roomy grid,
+     serif month label, wine accents. */
+  .smf-cal { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px; padding: 18px 18px 20px; margin: 0 0 16px; }
+  .smf-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .smf-cal-label { font-family: var(--serif); font-size: 21px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); }
+  .smf-cal-nav {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(55,30,40,0.25);
+    background: transparent; color: var(--english-violet); font-size: 14px; line-height: 1; cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .smf-cal-nav:hover { background: rgba(55,30,40,0.06); border-color: var(--english-violet); }
+  .smf-cal-weekdays {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 8px;
+    font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(28,29,34,0.45); text-align: center;
+  }
+  .smf-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .smf-cal-day {
+    aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid transparent; background: transparent; padding: 0;
+    font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .smf-cal-day:hover:not(:disabled) { background: rgba(55,30,40,0.08); }
+  .smf-cal-day:disabled { color: rgba(28,29,34,0.22); cursor: default; }
+  .smf-cal-day.is-today { font-weight: 700; color: var(--english-violet); }
+  .smf-cal-day.is-selected { background: var(--english-violet); color: var(--paper); }
+  .smf-cal-day.is-empty { visibility: hidden; }
   .smf-slots { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
   .smf-slots-msg { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0; }
   .smf-slot { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.2); border-radius: 999px; padding: 8px 16px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
@@ -389,25 +426,44 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
       donePane.scrollIntoView({ block: "nearest" });
     }
 
-    // ---- Discovery-call calendar (Form 2) ----
+    // ---- Discovery-call calendar (Form 2) — branded inline month calendar,
+    //      visible from the start; times load once a date is picked. ----
     function setupDiscovery(form) {
       const booking = form.querySelector(".smf-booking");
-      const dateInput = form.querySelector(".smf-date");
       const slotsEl = form.querySelector(".smf-slots");
       const hDate = form.querySelector('input[name="date"]');
       const hStart = form.querySelector('input[name="start"]');
-      if (!booking || !dateInput || !slotsEl) return;
-      const reqNames = ["first_name", "last_name", "business", "email"];
-      try { dateInput.min = new Date().toISOString().slice(0, 10); } catch (_) {}
+      const cal = form.querySelector(".smf-cal");
+      if (!booking || !slotsEl || !cal) return;
+      const grid = cal.querySelector(".smf-cal-grid");
+      const label = cal.querySelector(".smf-cal-label");
+      const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      const view = new Date(); view.setDate(1);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-      const detailsComplete = () =>
-        reqNames.every((n) => { const v = form.querySelector(`[name="${n}"]`); return v && v.value.trim(); }) &&
-        /.+@.+\..+/.test(form.querySelector('[name="email"]').value || "");
-      const checkReveal = () => { booking.hidden = !detailsComplete(); };
-      form.__checkReveal = checkReveal;
-      reqNames.forEach((n) => { const el = form.querySelector(`[name="${n}"]`); if (el) el.addEventListener("input", checkReveal); });
+      function renderCal() {
+        label.textContent = MONTHS[view.getMonth()] + " " + view.getFullYear();
+        grid.innerHTML = "";
+        const lead = (new Date(view.getFullYear(), view.getMonth(), 1).getDay() + 6) % 7;   // Monday-first
+        for (let i = 0; i < lead; i++) { const s = document.createElement("span"); s.className = "smf-cal-day is-empty"; grid.appendChild(s); }
+        const days = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+        for (let d = 1; d <= days; d++) {
+          const date = new Date(view.getFullYear(), view.getMonth(), d);
+          const b = document.createElement("button");
+          b.type = "button"; b.className = "smf-cal-day"; b.textContent = String(d);
+          if (date < today) b.disabled = true;
+          if (date.getTime() === today.getTime()) b.classList.add("is-today");
+          if (hDate.value === iso(date)) b.classList.add("is-selected");
+          b.addEventListener("click", () => { hDate.value = iso(date); hStart.value = ""; renderCal(); loadSlots(iso(date)); });
+          grid.appendChild(b);
+        }
+      }
+      cal.querySelector("[data-cal-prev]").addEventListener("click", () => { view.setMonth(view.getMonth() - 1); renderCal(); });
+      cal.querySelector("[data-cal-next]").addEventListener("click", () => { view.setMonth(view.getMonth() + 1); renderCal(); });
+      renderCal();
 
-      const clearSlots = (msg) => { slotsEl.innerHTML = `<p class="smf-slots-msg">${msg}</p>`; hDate.value = ""; hStart.value = ""; };
+      const clearSlots = (msg) => { slotsEl.innerHTML = `<p class="smf-slots-msg">${msg}</p>`; hStart.value = ""; };
       async function loadSlots(date) {
         if (!date) return clearSlots("Choose a date to see available times.");
         if (!WORKER) return clearSlots("Booking is being set up — please check back shortly.");
@@ -425,13 +481,12 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
             btn.addEventListener("click", () => {
               slotsEl.querySelectorAll(".smf-slot").forEach((x) => x.classList.remove("is-selected"));
               btn.classList.add("is-selected");
-              hDate.value = date; hStart.value = s;
+              hStart.value = s;
             });
             slotsEl.appendChild(btn);
           });
         } catch (_) { clearSlots("Couldn't load times — please try again."); }
       }
-      dateInput.addEventListener("change", () => loadSlots(dateInput.value));
     }
 
     // ---- Brochure: email-first account check ----
@@ -477,11 +532,19 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
         } catch (_) { /* fall back to create */ }
       }
       form.dataset.acctMode = mode;
+      // Signed in under this email → no second step at all: Continue IS the
+      // booking. The submit handler books straight through on the session token.
+      if (mode === "signedin") {
+        btn.dataset.stage = "send";
+        btn.disabled = false;
+        btn.innerHTML = 'Booking… <span aria-hidden="true">&rarr;</span>';
+        form.requestSubmit(btn);
+        return;
+      }
       form.querySelector(".smf-d1").hidden = true;
       form.querySelector(".smf-d2").hidden = false;
       const signedinEl = form.querySelector(".smf-acct-signedin");
-      signedinEl.hidden = mode !== "signedin";
-      if (mode === "signedin") signedinEl.textContent = "You’re signed in as " + memberEmail + " — confirm below and the call is booked to your account.";
+      signedinEl.hidden = true;
       form.querySelector(".smf-acct-signin").hidden = mode !== "signin";
       form.querySelector(".smf-acct-create").hidden = mode !== "create";
       const d = String(fd.get("date") || ""), t = String(fd.get("start") || "");

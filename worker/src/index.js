@@ -82,6 +82,29 @@ async function getUser(request, env) {
   }
 }
 
+// Look up an auth user by EXACT email. NB the admin list endpoint IGNORES an
+// `email` query param (it just returns the paginated user list), so the old
+// `?email=` lookups matched EVERY address — any random email looked like it
+// "had an account", and `list[0].id` was simply the first user in the database.
+// `filter` narrows server-side (it's what the Supabase dashboard search uses)
+// and the exact-match find guarantees correctness either way.
+async function findUserByEmail(env, email) {
+  const em = String(email || "").trim().toLowerCase();
+  if (!em) return null;
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(em)}&per_page=200`, {
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+    });
+    if (!res.ok) return null;
+    const d = await res.json();
+    const list = (d && d.users) || d;
+    if (!Array.isArray(list)) return null;
+    return list.find((u) => String(u.email || "").toLowerCase() === em) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 // Admin gate for staff-only endpoints (e.g. sending email). Mirrors the client
 // allowlist in src/lib/admin-gate.js: a TMKE-domain email, or the named extra.
 const ADMIN_EMAIL_DOMAINS = ["tmke.co.uk"];
@@ -695,13 +718,7 @@ async function runSetupReminders(env) {
       // Stamp first so a slow/failed send can't double-email on the next tick.
       await sbPatch(env, "orders", `id=eq.${o.id}`, { setup_reminder_sent_at: new Date().toISOString() });
       // Skip if an account already exists for this email — they can just sign in.
-      let hasAccount = false;
-      try {
-        const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(o.buyer_email)}`, {
-          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
-        });
-        if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; hasAccount = Array.isArray(list) && list.length > 0; }
-      } catch (_) {}
+      const hasAccount = !!(await findUserByEmail(env, o.buyer_email));
       if (hasAccount) continue;
       const link = `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/edit/thanks?order=${encodeURIComponent(o.id)}`;
       await sendEmail(env, {
@@ -1173,10 +1190,8 @@ export default {
         try {
           if (account_exists) {
             // Existing member (already signed in client-side) — just link the id.
-            const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
-            });
-            if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+            const u = await findUserByEmail(env, email);
+            if (u) accountUserId = u.id;
           } else {
             const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
               method: "POST",
@@ -1186,10 +1201,8 @@ export default {
             if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
             else {
               // Already registered — find their id so the booking still links (best-effort).
-              const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-                headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
-              });
-              if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+              const u = await findUserByEmail(env, email);
+              if (u) accountUserId = u.id;
             }
           }
         } catch (_) { /* account is best-effort; the booking still proceeds */ }
@@ -1358,10 +1371,8 @@ export default {
             });
             if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
             else {
-              const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-                headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
-              });
-              if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+              const u = await findUserByEmail(env, email);
+              if (u) accountUserId = u.id;
             }
           } catch (_) { /* account is best-effort; the enquiry still saves */ }
         }
@@ -1445,10 +1456,8 @@ export default {
             });
             if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
             else {
-              const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-                headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
-              });
-              if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+              const u = await findUserByEmail(env, email);
+              if (u) accountUserId = u.id;
             }
           } catch (_) { /* account is best-effort; the brochure still sends */ }
         }
@@ -1574,10 +1583,8 @@ export default {
           });
           if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
           else {
-            const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
-            });
-            if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+            const u = await findUserByEmail(env, email);
+            if (u) accountUserId = u.id;
           }
         } catch (_) { /* account is best-effort; the booking still proceeds */ }
 
@@ -1690,10 +1697,8 @@ export default {
             });
             if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
             else {
-              const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-                headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
-              });
-              if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; if (Array.isArray(list) && list[0]) accountUserId = list[0].id; }
+              const u = await findUserByEmail(env, email);
+              if (u) accountUserId = u.id;
             }
           } catch (_) { /* account is best-effort; the brochure still sends */ }
         }
@@ -1737,13 +1742,8 @@ export default {
       if (path.endsWith("/videography/account-exists") && request.method === "GET") {
         const email = (url.searchParams.get("email") || "").trim().toLowerCase();
         if (!email) return json({ exists: false }, 200, request, env);
-        try {
-          const look = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
-          });
-          if (look.ok) { const d = await look.json(); const list = (d && d.users) || d; return json({ exists: Array.isArray(list) && list.length > 0 }, 200, request, env); }
-        } catch (_) {}
-        return json({ exists: false }, 200, request, env);
+        const u = await findUserByEmail(env, email);
+        return json({ exists: !!u }, 200, request, env);
       }
 
       // ---- Validate a promo code (admin-managed table) -----------------------
