@@ -349,15 +349,20 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     }
     /* ===== MOBILE-ONLY (phones ≤600px): keep the desktop 5-column arrangement
        (so "The Edit" brand cell stays the TRUE middle column) and centre that
-       middle column, with the neighbouring columns peeking as halves each side;
-       the far-left/far-right columns fall off-screen. Same tile size as before. ===== */
+       middle column. Tiles sized so the neighbouring columns show ~90% of
+       their design (only the outer corner clips off-screen) — essentially
+       three visible boxes per row. ===== */
     @media (max-width: 600px) {
       .edit-grid {
-        grid-template-columns: repeat(5, 42vw);
-        width: 242vw;
-        margin-left: -71vw;
-        gap: 36px 8vw;
+        grid-template-columns: repeat(5, 32vw);
+        width: 184vw;
+        margin-left: -42vw;
+        gap: 30px 6vw;
       }
+      /* Brand cell: the chapter line was wrapping at the smaller tile size. */
+      .edit-brand-chapter { font-size: 9px; letter-spacing: 0.2em; gap: 8px; white-space: nowrap; }
+      .edit-brand-chapter::before { width: 20px; }
+      .edit-brand-box { padding: 0 0 14px 12px; }
       /* Swap the "Shop The Edit" CTA (col4, cut off in the right half-peek) with
          the "Coming Soon" tile to its left (col3, the centred column) so the
          shop link is fully visible and "Coming Soon" takes the peeking slot. */
@@ -390,7 +395,24 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         // way back up). No fade-out; once they're there, they're there.
         const start = vh * 1.15;   // tile top here -> just beginning (below fold)
         const end = vh * 0.55;     // tile top here -> fully in place
-        cells.forEach((c) => {
+        // Phones: reversible scroll-linked slide — side columns glide in from
+        // left/right as they rise through the viewport and glide back OUT when
+        // scrolling up (no latch). Measured from untransformed layout positions
+        // so the motion can't feed back into itself. Desktop keeps the original
+        // latched grow-in.
+        const phone = window.innerWidth <= 600;
+        const secTop = phone ? sr.top : 0;   // section is the cells' offsetParent
+        cells.forEach((c, i) => {
+          if (phone) {
+            const eNow = smooth(clamp01((start - (secTop + c.offsetTop)) / (start - end)));
+            const dir = (i % 5) - 2;                    // column: -2..2, 0 = centre
+            const ox = dir * 110 * (1 - eNow);          // sides slide in from L/R
+            const oy = (1 - eNow) * 46;
+            c.style.transform = "translate(" + ox.toFixed(1) + "px, " + oy.toFixed(1) + "px) scale(" + (0.72 + 0.28 * eNow).toFixed(3) + ")";
+            c.style.opacity = eNow.toFixed(3);
+            c.__editE = 0;                              // reset the desktop latch
+            return;
+          }
           const eNow = smooth(clamp01((start - c.getBoundingClientRect().top) / (start - end)));
           const e = Math.max(c.__editE || 0, eNow);   // latch: never decreases
           c.__editE = e;
