@@ -141,6 +141,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
                 <span class="ch4-label-chapter">Chapter 03 &mdash; Approach</span>
                 <span class="ch4-label-heading">More Than Just Property Posts</span>
                 <span class="ch4-label-sub">Every piece of content has a reason to exist &mdash; strategy-led and structured from the start, so your social works as a system, not a series of disconnected posts.</span>
+                <button type="button" class="ch4-more" data-ch3-more data-cta-href="/services" data-cta-label="Explore Social Media Management">Discover more <span aria-hidden="true">&rarr;</span></button>
               </div>
             </div>
             <div class="ch4-cell">
@@ -149,6 +150,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
                 <span class="ch4-label-chapter">Chapter 03 &mdash; Approach</span>
                 <span class="ch4-label-heading">Templates That Mean Business</span>
                 <span class="ch4-label-sub">Ready-made templates, fully editable in our online editor. Professional, polished, and designed to reflect the standard of your agency, not just fill a feed.</span>
+                <button type="button" class="ch4-more" data-ch3-more data-cta-href="/edit" data-cta-label="Shop The Edit">Discover more <span aria-hidden="true">&rarr;</span></button>
               </div>
             </div>
             <div class="ch4-cell">
@@ -157,6 +159,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
                 <span class="ch4-label-chapter">Chapter 03 &mdash; Approach</span>
                 <span class="ch4-label-heading">Made For Agents, Not Anyone</span>
                 <span class="ch4-label-sub">TMKE works exclusively in the property sector. We already understand the market, the audience, and what resonates, so you&rsquo;re never paying for generic content and someone else&rsquo;s learning curve.</span>
+                <button type="button" class="ch4-more" data-ch3-more data-cta-href="/about" data-cta-label="Meet the team">Discover more <span aria-hidden="true">&rarr;</span></button>
               </div>
             </div>
             <div class="ch4-cell">
@@ -165,6 +168,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
                 <span class="ch4-label-chapter">Chapter 03 &mdash; Approach</span>
                 <span class="ch4-label-heading">Done With You, Or Done For You</span>
                 <span class="ch4-label-sub">Whether you start with The Edit or go all-in with our fully managed social media services, there&rsquo;s a level of support designed to fit where your business is right now.</span>
+                <button type="button" class="ch4-more" data-ch3-more data-cta-href="/services" data-cta-label="Get started">Discover more <span aria-hidden="true">&rarr;</span></button>
               </div>
             </div>
           </div>
@@ -180,6 +184,14 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         </div>
       </div>
 
+      <!-- MOBILE-ONLY: bubble picker — one thumbnail per approach; tapping a
+           bubble floods its photo across the frame. display:none on desktop. -->
+      <div class="ch4-bubbles" aria-label="Choose an approach">
+        <button type="button" class="ch4-bubble is-on" data-ch4-go="0" aria-label="More than just property posts" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Slider%201.png')"></button>
+        <button type="button" class="ch4-bubble" data-ch4-go="1" aria-label="Templates that mean business" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Slider%205.png')"></button>
+        <button type="button" class="ch4-bubble" data-ch4-go="2" aria-label="Made for agents" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Slider%203.png')"></button>
+        <button type="button" class="ch4-bubble" data-ch4-go="3" aria-label="Done with you or for you" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Home%20Page/Slider%207.png')"></button>
+      </div>
     </div>
   </section>
 
@@ -961,16 +973,56 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       }
       .ch4-label-heading { font-size: clamp(16px, 4.4vw, 22px); }
     }
-    /* ===== MOBILE-ONLY (phones ≤600px): one full-bleed photo that slides up —
-       drop the 30px frame and the second (alternating) column so each stage is
-       a single full-screen image. ===== */
+    /* Bubble picker + per-label Discover button are mobile-only. */
+    .ch4-bubbles { display: none; }
+    .ch4-more { display: none; }
+
+    /* ===== MOBILE-ONLY (phones ≤600px): Chapter 03 becomes a one-screen
+       bubble picker — one framed photo with thumbnail bubbles across the
+       bottom; tapping a bubble floods that photo across the frame (circular
+       reveal). No more 4.6-screen scroll-jack on phones. ===== */
     @media (max-width: 600px) {
-      /* Bring back a small frame so the photo isn't edge-to-edge. */
-      .ch4-panels { inset: 14px; grid-template-columns: 1fr; }
+      .ch4 { height: 100svh; }
+      .ch4-pin { height: 100svh; }
+      /* Keep a small frame so the photo isn't edge-to-edge; playful entrance —
+         the whole panel rises into place as the section scrolls in (app.js
+         adds .in to reveal roots). */
+      .ch4-panels {
+        inset: 14px; grid-template-columns: 1fr;
+        transform: translateY(64px) scale(0.965); opacity: 0;
+        transition: transform 1s cubic-bezier(.16,1,.3,1), opacity 0.8s ease;
+      }
+      .ch4.in .ch4-panels { transform: none; opacity: 1; }
       .ch4-col--right { display: none; }
-      /* Text boxes sit ~a tenth (10%) down — half way between the top and the
-         earlier fifth-down position. */
+      /* Cells become stacked layers; one active at a time. The scroll
+         controller's inline translate is neutralised. */
+      .ch4-strip { position: absolute; inset: 0; height: 100%; display: block; transform: none !important; }
+      .ch4-cell { position: absolute; inset: 0; height: 100%; opacity: 0; pointer-events: none; z-index: 1; }
+      .ch4-cell.is-active { opacity: 1; pointer-events: auto; z-index: 2; }
+      .ch4-cell.is-entering { z-index: 3; transition: clip-path 0.75s cubic-bezier(.3,.7,.2,1); will-change: clip-path; }
+      /* Text boxes sit ~a tenth down from the top of the photo. */
       .ch4-label { top: 10%; bottom: auto; }
+      .ch4-more {
+        display: inline-flex; align-items: center; gap: 8px; margin-top: 14px;
+        background: var(--english-violet); color: var(--paper); border: none; cursor: pointer;
+        font-family: var(--sans); font-size: 11px; font-weight: 700;
+        letter-spacing: 0.16em; text-transform: uppercase;
+        padding: 10px 16px; border-radius: 3px;
+      }
+      /* Thumbnail bubbles along the bottom of the frame. */
+      .ch4-bubbles {
+        position: absolute; left: 0; right: 0; bottom: 34px; z-index: 5;
+        display: flex; justify-content: center; gap: 14px;
+      }
+      .ch4-bubble {
+        width: 54px; height: 54px; border-radius: 50%; padding: 0; cursor: pointer;
+        border: 2px solid rgba(255,255,255,0.75);
+        background-size: cover; background-position: center;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+        opacity: 0.75; transform: scale(0.9);
+        transition: transform 0.4s cubic-bezier(.2,.9,.3,1.4), opacity 0.3s, border-color 0.3s;
+      }
+      .ch4-bubble.is-on { opacity: 1; transform: scale(1.14); border-color: #fff; }
     }
   </style>
 
@@ -1016,7 +1068,11 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         return N - 1;
       };
 
+      // Phones use the bubble picker below — no scroll-scrubbing or snapping.
+      const isPhone = () => window.innerWidth <= 600;
+
       const update = () => {
+        if (isPhone()) return;
         const { p, rect } = prog();
         // Only move the panels while the section is on screen.
         if (rect.bottom < 0 || rect.top > window.innerHeight) return;
@@ -1035,7 +1091,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 
       // when scrolling stops over the pinned section, snap to the nearest hold
       const scheduleSnap = () => {
-        if (snapping) return;
+        if (snapping || isPhone()) return;
         clearTimeout(snapTimer);
         snapTimer = setTimeout(() => {
           const { p, rect } = prog();
@@ -1056,6 +1112,41 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       if (lenis && typeof lenis.on === "function") lenis.on("scroll", onScroll);
       else window.addEventListener("scroll", onScroll, { passive: true });
       window.addEventListener("resize", update, { passive: true });
+
+      // ---- MOBILE bubble picker: tap a thumbnail bubble and its photo floods
+      //      across the frame in a circular reveal from the bubble. The classes
+      //      only style anything at ≤600px, so desktop is untouched. ----
+      const cells = Array.prototype.slice.call(left.querySelectorAll(".ch4-cell"));
+      const bubbles = Array.prototype.slice.call(ch4.querySelectorAll(".ch4-bubble"));
+      if (cells.length && bubbles.length) {
+        let active = 0, busy = false;
+        cells.forEach((c, i) => c.classList.toggle("is-active", i === 0));
+        const go = (i, bubble) => {
+          if (!isPhone() || i === active || busy) return;
+          busy = true;
+          const cell = cells[i];
+          const pin = ch4.querySelector(".ch4-pin");
+          const pr = pin.getBoundingClientRect();
+          const br = bubble.getBoundingClientRect();
+          const x = (((br.left + br.width / 2) - pr.left) / pr.width * 100).toFixed(1);
+          const y = (((br.top + br.height / 2) - pr.top) / pr.height * 100).toFixed(1);
+          cell.style.clipPath = "circle(0% at " + x + "% " + y + "%)";
+          cell.classList.add("is-active", "is-entering");
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            cell.style.clipPath = "circle(142% at " + x + "% " + y + "%)";
+          }));
+          bubbles.forEach((b, bi) => b.classList.toggle("is-on", bi === i));
+          const prev = cells[active];
+          active = i;
+          setTimeout(() => {
+            if (prev !== cell) prev.classList.remove("is-active");
+            cell.classList.remove("is-entering");
+            cell.style.clipPath = "";
+            busy = false;
+          }, 800);
+        };
+        bubbles.forEach((b) => b.addEventListener("click", () => go(parseInt(b.getAttribute("data-ch4-go"), 10) || 0, b)));
+      }
     })();
   </script>
 
