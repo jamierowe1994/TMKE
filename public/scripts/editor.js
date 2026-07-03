@@ -6092,12 +6092,11 @@
     activeToolPane = "start";
     showPane("start");
     document.querySelectorAll(".ed-rail-btn").forEach(function (b) { b.classList.remove("is-active"); });
-    // Slim the rail toward the brief: "Photos" -> "Images", and hide the
-    // Background tool (reached via the start panel + double-clicking the canvas).
+    // Slim the rail toward the brief: "Photos" -> "Images". Background stays in
+    // the customer rail too — it's a core design tool (also reachable via the
+    // start panel + double-clicking the canvas).
     var _photosLbl = document.querySelector('.ed-rail-btn[data-tool="photos"] span');
     if (_photosLbl) _photosLbl.textContent = "Images";
-    var _bgBtn = document.querySelector('.ed-rail-btn[data-tool="background"]');
-    if (_bgBtn) _bgBtn.style.display = "none";
 
     // Merge Brand + Elements into a single "Assets" tab (the brief's defining
     // rail simplification). Shape buttons are wired per-button (querySelectorAll
