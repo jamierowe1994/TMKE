@@ -117,6 +117,7 @@ const services = [
         </article>
       ))}
     </div>
+    <span class="about-team-hint" aria-hidden="true">Swipe to meet the team &rarr;</span>
   </section>
 
   <section class="about-intro" id="about-intro">
@@ -401,6 +402,8 @@ const services = [
     background: var(--paper);
     padding: 0 76px 0;
   }
+  /* Swipe hint is mobile-only (shown in the ≤600px block). */
+  .about-team-hint { display: none; }
   /* Three equal portrait cards. */
   .about-team-wrap {
     max-width: 1360px;
@@ -701,4 +704,65 @@ const services = [
     .about-feature { padding: var(--about-gap) 22px 0; }
     .about-services { padding: calc(var(--about-gap) * 2) 22px 64px; }
   }
+
+  /* ===== MOBILE-ONLY (phones ≤600px) ===== */
+  @media (max-width: 600px) {
+    /* Hero fills the phone screen — copy up top, the studio photo grows to
+       take the rest of the height. */
+    .about-lede {
+      min-height: 100svh; box-sizing: border-box;
+      display: flex; padding-bottom: 22px;
+    }
+    .about-lede-wrap { display: flex; flex-direction: column; flex: 1; width: 100%; max-width: none; }
+    .about-lede-grid { flex: 1; grid-template-rows: auto 1fr; gap: 26px; }
+    .about-lede-media { display: flex; }
+    .about-lede-media img { flex: 1; width: 100%; height: auto; aspect-ratio: auto; object-fit: cover; min-height: 280px; }
+
+    /* Team — a flickable snap carousel instead of a flat stack: one card per
+       swipe with the neighbours peeking; a script scales the centred card up. */
+    .about-team-wrap {
+      display: flex; grid-template-columns: none; gap: 16px;
+      overflow-x: auto; scroll-snap-type: x mandatory;
+      padding: 8px 11vw 4px; margin: 0 -22px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .about-team-wrap::-webkit-scrollbar { display: none; }
+    .about-team-card {
+      flex: 0 0 78vw; scroll-snap-align: center;
+      transition: box-shadow 0.3s ease;
+      will-change: transform;
+    }
+    .about-team-hint {
+      display: block; margin: 14px 0 0; text-align: center;
+      font-family: var(--sans); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.45);
+    }
+
+    /* The sofa still goes — the promo video further down carries the visual. */
+    .about-marketing-media { display: none; }
+    .about-marketing { padding-top: var(--about-gap); }
+  }
 </style>
+
+<script>
+  // MOBILE team carousel: scale + tilt cards by their distance from centre so
+  // flicking between Sam / Danni / Abbie feels playful. Phones only.
+  (function () {
+    if (window.innerWidth > 600) return;
+    const wrap = document.querySelector(".about-team-wrap");
+    if (!wrap) return;
+    const cards = Array.prototype.slice.call(wrap.querySelectorAll(".about-team-card"));
+    const update = () => {
+      const mid = wrap.scrollLeft + wrap.clientWidth / 2;
+      cards.forEach((c) => {
+        const centre = c.offsetLeft + c.offsetWidth / 2;
+        const t = (centre - mid) / wrap.clientWidth;          // -1..1
+        const d = Math.min(1, Math.abs(t));
+        c.style.transform = "scale(" + (1 - d * 0.09).toFixed(3) + ") rotate(" + (t * 2.4).toFixed(2) + "deg)";
+      });
+    };
+    wrap.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update, { passive: true });
+    update();
+  })();
+</script>
