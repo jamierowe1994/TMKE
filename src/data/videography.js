@@ -63,11 +63,14 @@ export const PRODUCTS = [
     slideBlurb:
       "A professional filming space in Rugby where you come in, film a batch of content, and leave with weeks of social media sorted. Sessions are available to members.",
     ctaLabel: "Discover the Studio",
-    hero: "/assets/podcast-studio.jpeg",
-    gallery: [
-      "/assets/podcast-studio.jpeg",
-      IMG("1598488035139-bdbb2231ce04"), IMG("1478737270239-2f02b77fc618"),
-      IMG("1505236858219-8359eb29e329"), IMG("1521737604893-d14cc237f11d"),
+    // Hand-ordered gallery from the "Jack - headshots/Content Studio/" R2 folder.
+    hero: "https://assets.tmke.co.uk/Jack%20-%20headshots/Content%20Studio/1.png",
+    media: [
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Content%20Studio/1.png" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Content%20Studio/2.png" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Content%20Studio/3.png" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Content%20Studio/4.png" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Content%20Studio/5.png" },
     ],
     // ---- Pop-out ----
     popLede: "Our Rugby content studio, available exclusively to members.",
@@ -119,9 +122,8 @@ export const PRODUCTS = [
       { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/LeahMusana-14.jpg" },
       { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/FC2-9%20(1).jpg" },
       { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/FC2-13%20(1).jpg" },
-      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/CV311WHCompressed8.jpg" },
-      // TODO: property video — awaiting the exact filename in Jack - headshots/Property/
-      // { type: "video", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/<FILENAME>" },
+      { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/CV311WHCompressed21%20(1).jpg" },
+      { type: "video", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/MainVideo%20(1).mp4", thumb: "https://assets.tmke.co.uk/Jack%20-%20headshots/Property/CV311WHCompressed8.jpg" },
     ],
     popLede: "First impressions are made online, long before anyone steps through the door.",
     popIntro: [
@@ -176,12 +178,12 @@ export const PRODUCTS = [
     // video, four stills, video. `media` is the source of truth for the pop-out.
     hero: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg",
     media: [
-      { type: "video", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/IntroVideoWide.mp4" },
+      { type: "video", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/IntroVideoWide.mp4", thumb: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/Z63_2333-62.jpg" },
       { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg" },
       { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/12-June-6.jpg" },
       { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/AM-40.jpg" },
       { type: "image", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/EMay-61.jpg" },
-      { type: "video", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/Widescreen.mp4" },
+      { type: "video", src: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/Widescreen.mp4", thumb: "https://assets.tmke.co.uk/Jack%20-%20headshots/Agent/ADMay-28.jpg" },
     ],
     popLede: "Professional video and photography content built around you, not just your listings.",
     popIntro: [

@@ -305,12 +305,21 @@ const navLinks = [
                   <button type="button" class="vmodal-arrow" data-dir="1" aria-label="Next">&rarr;</button>
                 </div>
               )}
+              {anyVideo && (
+                <button type="button" class="vmodal-sound" data-sound aria-label="Turn sound on" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"></polygon>
+                    <g class="vs-waves"><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18.5 5.5a9 9 0 0 1 0 13"></path></g>
+                    <g class="vs-mute"><line x1="16" y1="9" x2="22" y2="15"></line><line x1="22" y1="9" x2="16" y2="15"></line></g>
+                  </svg>
+                </button>
+              )}
             </div>
             {galItems.length > 0 && (
               <div class="vmodal-gallery">
                 {galItems.map((m, i) => (
                   m.type === "video" ? (
-                    <button type="button" class={`vmodal-thumb vmodal-thumb--video ${i === 0 ? "is-active" : ""}`} data-video data-video-src={m.src} aria-label={`Video ${i + 1}`}><span class="vmodal-thumb-play" aria-hidden="true">&#9658;</span></button>
+                    <button type="button" class={`vmodal-thumb vmodal-thumb--video ${i === 0 ? "is-active" : ""}`} data-video data-video-src={m.src} style={m.thumb ? `background-image:url('${m.thumb}')` : undefined} aria-label={`Video ${i + 1}`}><span class="vmodal-thumb-play" aria-hidden="true">&#9658;</span></button>
                   ) : (
                     <button type="button" class={`vmodal-thumb ${i === 0 ? "is-active" : ""}`} data-full={m.src} style={`background-image:url('${m.src}')`} aria-label={`View photo ${i + 1}`}></button>
                   )
@@ -805,6 +814,21 @@ const navLinks = [
     .vmodal-thumb--video { position: relative; background: #1c1d22; }
     .vmodal-thumb-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--paper); font-size: 13px; }
     .vmodal-nav { position: absolute; right: 18px; bottom: 18px; z-index: 4; display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 999px; background: rgba(16,14,22,0.42); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+    /* Sound toggle — bottom-left of the stage, only relevant while a video is
+       playing (fades out when a photo is selected). Mirrors the nav pill. */
+    .vmodal-sound {
+      position: absolute; left: 18px; bottom: 18px; z-index: 4;
+      width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(16,14,22,0.42); color: var(--paper);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      transition: background 0.25s, opacity 0.3s;
+    }
+    .vmodal-sound:hover { background: rgba(16,14,22,0.62); }
+    .vmodal-sound .vs-waves { display: none; }
+    .vmodal-sound.is-on .vs-waves { display: block; }
+    .vmodal-sound.is-on .vs-mute { display: none; }
+    .vdraw-stage.show-img .vmodal-sound { opacity: 0; pointer-events: none; }
     .vmodal-arrow { width: 34px; height: 34px; border-radius: 50%; border: none; background: transparent; color: var(--paper); font-size: 15px; line-height: 1; cursor: pointer; transition: background 0.2s; }
     .vmodal-arrow:hover { background: rgba(255,255,255,0.2); }
     .vmodal-count { font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--paper); padding: 0 8px; min-width: 44px; text-align: center; }
@@ -917,6 +941,13 @@ const navLinks = [
       if (!openSlug || !scrim) return;
       const draw = document.querySelector(`.vdraw[data-product="${openSlug}"]`);
       stopRotation();
+      // Re-mute so reopening a pop-out never starts with sound blaring.
+      document.querySelectorAll(".vdraw-hero-video").forEach((v) => { v.muted = true; });
+      document.querySelectorAll(".vmodal-sound").forEach((b) => {
+        b.classList.remove("is-on");
+        b.setAttribute("aria-pressed", "false");
+        b.setAttribute("aria-label", "Turn sound on");
+      });
       scrim.classList.remove("is-open");
       if (draw) draw.classList.remove("is-open");
       if (closeX) closeX.hidden = true;
@@ -1052,6 +1083,20 @@ const navLinks = [
         const thumbs = Array.from(draw.querySelectorAll(".vmodal-thumb"));
         setGalleryIndex(draw, thumbs.indexOf(thumb));
         startRotation(draw);
+      });
+    });
+
+    // Sound toggle — unmute/mute the stage video. Videos start muted (autoplay
+    // requirement); the toggle is a user gesture so unmuting is allowed.
+    document.querySelectorAll(".vmodal-sound").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const vid = btn.closest(".vdraw-stage").querySelector(".vdraw-hero-video");
+        if (!vid) return;
+        vid.muted = !vid.muted;
+        btn.classList.toggle("is-on", !vid.muted);
+        btn.setAttribute("aria-pressed", String(!vid.muted));
+        btn.setAttribute("aria-label", vid.muted ? "Turn sound on" : "Turn sound off");
       });
     });
 
