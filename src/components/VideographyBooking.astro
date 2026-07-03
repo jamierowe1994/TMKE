@@ -180,21 +180,41 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         <div class="dc-step-actions"><button type="button" class="dc-next" id="vb-terms-cta" disabled>Agree &amp; continue <em>&rarr;</em></button></div>
       </section>
 
-      <!-- 7b. Call details (Discovery — no account / no terms) -->
+      <!-- 7b. Call details (Discovery) — two stages, matching the SMM Book a
+           Call: details first, then the account treatment decided by the email
+           (signed in → books instantly · existing → enter password · new →
+           create a password + newsletter opt-in). -->
       <section class="dc-step" id="vb-step-call-details" hidden>
         <h2 class="dc-step-title">Your <em>details.</em></h2>
         <p class="dc-form-summary" id="vb-call-summary"></p>
         <form class="dc-panel-form" id="vb-call-form">
-          <label class="dc-field"><span>Full name *</span><input name="name" autocomplete="name" required /></label>
-          <div class="dc-field-row">
-            <label class="dc-field"><span>Email *</span><input name="email" type="email" autocomplete="email" required /></label>
-            <label class="dc-field"><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" required /></label>
+          <div id="vb-call-fields">
+            <label class="dc-field"><span>Full name *</span><input name="name" autocomplete="name" required /></label>
+            <div class="dc-field-row">
+              <label class="dc-field"><span>Email *</span><input name="email" type="email" autocomplete="email" required /></label>
+              <label class="dc-field"><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" required /></label>
+            </div>
+            <label class="dc-field"><span>Company / Brand</span><input name="company" /></label>
+            <label class="dc-field"><span>Anything you'd like to cover?</span><textarea name="message" rows="2"></textarea></label>
           </div>
-          <label class="dc-field"><span>Company / Brand</span><input name="company" /></label>
-          <label class="dc-field"><span>Anything you'd like to cover?</span><textarea name="message" rows="2"></textarea></label>
+          <div id="vb-call-acct" hidden>
+            <div id="vbc-signin" hidden>
+              <p class="vb-signin-note">Welcome back — you already have a TMKE account. Enter your password and we&rsquo;ll link this call to it. <a href="/forgot-password" target="_blank" rel="noopener">Forgotten it?</a></p>
+              <label class="dc-field"><span>Your password *</span><input name="signin_password" type="password" autocomplete="current-password" /></label>
+            </div>
+            <div id="vbc-create" hidden>
+              <p class="vb-signin-note">We&rsquo;ll set up your TMKE account as part of the booking, so you can manage your call, bookings and downloads in one place.</p>
+              <div class="dc-field-row">
+                <label class="dc-field"><span>Create a password *</span><input name="password" type="password" autocomplete="new-password" /></label>
+                <label class="dc-field"><span>Confirm password *</span><input name="password2" type="password" autocomplete="new-password" /></label>
+              </div>
+              <label class="vb-optin"><input type="checkbox" name="optin" /><span>Sign me up to the TMKE newsletter and marketing emails</span></label>
+            </div>
+            <button type="button" class="vmodal-consult" id="vbc-back">&larr; <strong>Edit your details</strong></button>
+          </div>
           <p class="dc-privacy">We use your details to arrange your call. See our <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
           <p class="dc-gate-error" id="vb-call-error" hidden></p>
-          <button type="submit" class="dc-form-cta" id="vb-call-cta">Book the call <em>&rarr;</em></button>
+          <button type="submit" class="dc-form-cta" id="vb-call-cta" data-stage="details">Continue <em>&rarr;</em></button>
         </form>
       </section>
 
@@ -253,6 +273,17 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .vb-signin-note[hidden] { display: none; }
   .vb-signin-note a { color: var(--english-violet); font-weight: 600; }
   #vb-pw-signin[hidden], #vb-pw-create[hidden] { display: none; }
+  /* Call-details staging (details → account step). */
+  #vb-call-fields[hidden], #vb-call-acct[hidden], #vbc-signin[hidden], #vbc-create[hidden] { display: none !important; }
+  #vb-call-fields, #vb-call-acct { display: flex; flex-direction: column; gap: 16px; }
+  #vbc-signin, #vbc-create { display: flex; flex-direction: column; gap: 16px; }
+  #vbc-back {
+    align-self: center; background: none; border: none; cursor: pointer; padding: 6px;
+    font-family: var(--sans); font-size: 12px; letter-spacing: 0.04em; color: rgba(28,29,34,0.55);
+    transition: color 0.2s;
+  }
+  #vbc-back:hover { color: var(--ink); }
+  #vbc-back strong { font-weight: 600; color: inherit; }
   .dc-choice-output { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); margin-top: 2px; }
   .dc-choice-incl { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.6); margin-top: 6px; }
   .vb-running { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 0 0; padding: 14px 18px; background: rgba(var(--violet-rgb),0.05); border-radius: 10px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
@@ -313,6 +344,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let promo = null;          // applied promo { code, discount_pence } | null
     let existingAccount = false; // gate email already has a TMKE account → sign in, don't create
     let sessionEmail = null;     // signed-in Supabase user's email (lowercase) — skips the password entirely
+    let sessionToken = null;     // their access token — sent as a Bearer so the Worker links the record
     // Detect a live session up front; if the booker is already signed in under
     // the gate email, the details step asks for no password at all.
     (async () => {
@@ -320,8 +352,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         const m = await import("../lib/supabase.js");
         if (!m || !m.isConfigured || !m.supabase) return;
         const { data } = await m.supabase.auth.getSession();
-        const em = data && data.session && data.session.user && data.session.user.email;
-        sessionEmail = em ? String(em).toLowerCase() : null;
+        const s = data && data.session;
+        sessionEmail = s && s.user && s.user.email ? String(s.user.email).toLowerCase() : null;
+        sessionToken = (s && s.access_token) || null;
       } catch (_) { /* signed-out flow stays as-is */ }
     })();
     const signedInAsGate = () => !!(sessionEmail && gateEmail && sessionEmail === gateEmail.trim().toLowerCase());
@@ -746,41 +779,112 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     $("vb-slots-grid")?.addEventListener("click", (e) => {
       const btn = e.target.closest(".dc-slot"); if (!btn) return;
       selectedSlot = btn.dataset.slot;
-      if (flow === "discovery") { renderCallSummary(); goTo("call-details"); }
+      if (flow === "discovery") { renderCallSummary(); resetCallStage(); goTo("call-details"); }
       else { renderSummary(); goTo("summary"); }
     });
     function renderCallSummary() {
       const dt = selectedDate ? selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) : "";
       $("vb-call-summary").textContent = `Discovery call — ${dt} at ${selectedSlot} (about 30 minutes).`;
     }
-    // ---- 7b. discovery call → confirm ----
+    // ---- 7b. discovery call → account step → confirm (matches the SMM Book a
+    //      Call: signed in books instantly · existing account signs in · new
+    //      customers create a password). ----
+    const PW_OK = (p) => /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(p);
+    function resetCallStage() {
+      const fields = $("vb-call-fields"), acct = $("vb-call-acct"), btn = $("vb-call-cta"), form = $("vb-call-form");
+      if (!fields || !acct || !btn || !form) return;
+      fields.hidden = false; acct.hidden = true;
+      form.dataset.acctMode = "";
+      btn.dataset.stage = "details";
+      resetCta(btn, "Continue");
+      const err = $("vb-call-error"); if (err) err.hidden = true;
+    }
+    $("vbc-back")?.addEventListener("click", resetCallStage);
+
     $("vb-call-form")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
+      const form = e.target;
+      const fd = new FormData(form);
       const err = $("vb-call-error"); err.hidden = true;
-      const btn = $("vb-call-cta"); loadingCta(btn, "Booking…");
+      const btn = $("vb-call-cta");
+      const email = String(fd.get("email") || "").trim().toLowerCase();
+
+      // Stage 1 — validate the details, then decide the account treatment.
+      if ((btn.dataset.stage || "details") === "details") {
+        if (!String(fd.get("name") || "").trim() || !/.+@.+\..+/.test(email) || !String(fd.get("phone") || "").trim()) {
+          err.textContent = "Please add your name, a valid email, and a phone number."; err.hidden = false; return;
+        }
+        loadingCta(btn, "Checking…");
+        let mode = "create";
+        if (sessionEmail && sessionEmail === email) mode = "signedin";
+        else if (await checkAccountExists(email)) mode = "signin";
+        form.dataset.acctMode = mode;
+        if (mode === "signedin") {
+          // Continue IS the booking — straight through on the session token.
+          btn.dataset.stage = "send";
+          return bookCall(form, fd, btn, null);
+        }
+        $("vb-call-fields").hidden = true;
+        $("vb-call-acct").hidden = false;
+        $("vbc-signin").hidden = mode !== "signin";
+        $("vbc-create").hidden = mode !== "create";
+        btn.dataset.stage = "send";
+        resetCta(btn, mode === "signin" ? "Sign in & book" : "Book the call");
+        return;
+      }
+
+      // Stage 2 — sign in or create, then book.
+      const mode = form.dataset.acctMode || "create";
+      let pw = null;
+      if (mode === "signin") {
+        const sp = String(fd.get("signin_password") || "");
+        if (!sp) { err.textContent = "Please enter your password."; err.hidden = false; return; }
+        loadingCta(btn, "Signing in…");
+        try {
+          const m = await import("../lib/supabase.js");
+          const { data: si, error: siErr } = await m.supabase.auth.signInWithPassword({ email, password: sp });
+          if (siErr || !si || !si.session) { resetCta(btn, "Sign in & book"); err.textContent = "That password didn't match — please try again, or reset it via the link above."; err.hidden = false; return; }
+          sessionEmail = email; sessionToken = si.session.access_token;
+        } catch (_) { resetCta(btn, "Sign in & book"); err.textContent = "Couldn't sign you in just now — please try again."; err.hidden = false; return; }
+      } else {
+        pw = String(fd.get("password") || ""); const pw2 = String(fd.get("password2") || "");
+        if (!PW_OK(pw)) { err.textContent = "Password must be at least 8 characters and include a number and a special character."; err.hidden = false; return; }
+        if (pw !== pw2) { err.textContent = "Passwords don't match."; err.hidden = false; return; }
+      }
+      bookCall(form, fd, btn, pw);
+    });
+
+    async function bookCall(form, fd, btn, pw) {
+      const err = $("vb-call-error");
+      loadingCta(btn, "Booking…");
       const t0 = Date.now();
+      const email = String(fd.get("email") || "").trim();
       try {
         if (!WORKER) throw new Error("Booking is being set up — please check back shortly.");
+        const headers = { "Content-Type": "application/json" };
+        if (sessionToken) headers.Authorization = "Bearer " + sessionToken;
         const res = await fetch(`${WORKER}/videography/discovery`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST", headers,
           body: JSON.stringify({
             date: localISO(selectedDate), start: selectedSlot, duration: 30, interests: selectedInterests,
-            name: fd.get("name"), email: fd.get("email"), phone: fd.get("phone"), company: fd.get("company"), message: fd.get("message"),
+            name: fd.get("name"), email, phone: fd.get("phone"), company: fd.get("company"), message: fd.get("message"),
+            password: pw || undefined, marketing_opt_in: !!fd.get("optin"),
           }),
         });
         const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || "Booking failed");
+        // Best-effort: sign a brand-new account in so the portal works immediately.
+        if (pw && data.account_created) { try { const m = await import("../lib/supabase.js"); if (m && m.isConfigured && m.supabase) await m.supabase.auth.signInWithPassword({ email, password: pw }); } catch (_) {} }
         const wait = 1100 - (Date.now() - t0); if (wait > 0) await sleep(wait);
         const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
         $("vb-success-title").textContent = "Call booked";
         $("vb-success-msg").textContent = `Your discovery call with Jack is set for ${dt} at ${selectedSlot}. A calendar invite is on its way.`;
         history = []; goTo("success"); history = []; backBtn.hidden = true;
-        resetCta(btn, "Book the call");
+        resetCallStage();
       } catch (e2) {
-        resetCta(btn, "Book the call");
+        resetCta(btn, (form.dataset.acctMode === "signin") ? "Sign in & book" : (btn.dataset.stage === "send" && form.dataset.acctMode === "create") ? "Book the call" : "Continue");
         err.textContent = (e2 && e2.message) || "Sorry, that didn't go through — please try another time."; err.hidden = false;
       }
-    });
+    }
 
     // ---- 6. summary ----
     function bookingLabel() {

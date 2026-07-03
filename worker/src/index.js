@@ -1703,11 +1703,13 @@ export default {
           } catch (_) { /* account is best-effort; the brochure still sends */ }
         }
 
+        // NB videography_bookings has no account_created column — sending it
+        // makes PostgREST reject the whole insert.
         await sbPost(env, "videography_bookings", {
           kind: "brochure", service_type: "brochure", audience: accountUserId ? "member" : "non-member",
           client_email: email, client_name: full_name, service: "Videography Brochure",
           stage: "brochure_downloaded", notes: "Brochure download", marketing_opt_in: !!marketing_opt_in,
-          account_user_id: accountUserId, account_created: accountCreated,
+          account_user_id: accountUserId,
         });
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -1806,8 +1808,26 @@ export default {
       // ---- Discovery call — books a short call + a CRM lead ------------------
       if (path.endsWith("/videography/discovery") && request.method === "POST") {
         const b = await request.json().catch(() => ({}));
-        const { date, start, duration, interests, name, email, phone, company, message } = b || {};
+        const { date, start, duration, interests, name, email, phone, company, message, password, marketing_opt_in } = b || {};
         if (!date || !start || !name || !email) return json({ error: "Missing call details" }, 400, request, env);
+        // Account treatment mirrors /smm/discovery: a verified session token
+        // books straight onto the member's account; everyone else sets a
+        // password (account-at-booking).
+        const authedUser = await getUser(request, env);
+        if (!authedUser && (!password || !smmPasswordOk(password))) return json({ error: "A password of at least 8 characters including a number and a special character is required." }, 400, request, env);
+        let accountUserId = authedUser ? authedUser.id : null, accountCreated = false;
+        if (!authedUser) try {
+          const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: name, company: company || null, phone: phone || null } }),
+          });
+          if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
+          else {
+            const u = await findUserByEmail(env, email);
+            if (u) accountUserId = u.id;
+          }
+        } catch (_) { /* account is best-effort; the call still books */ }
         const dur = parseInt(duration || "30", 10);
         const endHm = minToHm(hmToMin(start) + dur);
         const check = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
@@ -1833,6 +1853,7 @@ export default {
           client_phone: phone || null, company: company || null, service: "Discovery Call",
           shoot_date: `${date}T${start}:00`, stage: "discovery_call_booked",
           discovery_interests: interestList, notes: message || null, reschedule_token: token, ms_event_id: ev.id || null, duration_min: dur,
+          account_user_id: accountUserId, marketing_opt_in: !!marketing_opt_in,
         });
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
         const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call — TMKE", description: ["A quick call with Jack to talk through your videography.", interestList.length && `Interested in: ${interestList.join(", ")}`].filter(Boolean).join("\n"), location: "Online / phone", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name });
@@ -1861,7 +1882,7 @@ export default {
               ${message ? `<div><span style="color:#888">Notes:</span> ${esc(message)}</div>` : ""}
             </div></div>`,
         });
-        return json({ ok: true, eventId: ev.id }, 200, request, env);
+        return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
       }
 
       // ---- Manage a booking by token (portal + tokenised email links) -------
