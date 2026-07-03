@@ -90,36 +90,52 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
       <h2 class="smf-title">Book a call.</h2>
       <p class="smf-lead">{COPY.ctas.call.body}</p>
 
-      <div class="smf-row2">
-        <label class="smf-field">First name <span>*</span><input name="first_name" required autocomplete="given-name" /></label>
-        <label class="smf-field">Last name <span>*</span><input name="last_name" required autocomplete="family-name" /></label>
-      </div>
-      <label class="smf-field">Business name <span>*</span><input name="business" required autocomplete="organization" /></label>
-      <div class="smf-row2">
-        <label class="smf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
-        <label class="smf-field">Phone<input type="tel" name="phone" autocomplete="tel" /></label>
+      <!-- STEP 1 — details + time. No password anywhere on this step. -->
+      <div class="smf-d1">
+        <div class="smf-row2">
+          <label class="smf-field">First name <span>*</span><input name="first_name" required autocomplete="given-name" /></label>
+          <label class="smf-field">Last name <span>*</span><input name="last_name" required autocomplete="family-name" /></label>
+        </div>
+        <label class="smf-field">Business name <span>*</span><input name="business" required autocomplete="organization" /></label>
+        <div class="smf-row2">
+          <label class="smf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
+          <label class="smf-field">Phone<input type="tel" name="phone" autocomplete="tel" /></label>
+        </div>
+
+        <!-- Calendar — revealed once name, business and email are filled. -->
+        <div class="smf-booking" hidden>
+          <p class="smf-booking-h">Pick a time <span>*</span></p>
+          <label class="smf-field">Date<input type="date" class="smf-date" /></label>
+          <div class="smf-slots"><p class="smf-slots-msg">Choose a date to see available times.</p></div>
+          <input type="hidden" name="date" /><input type="hidden" name="start" /><input type="hidden" name="duration" value="30" />
+        </div>
+        <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
       </div>
 
-      <!-- Calendar — revealed once name, business and email are filled. -->
-      <div class="smf-booking" hidden>
-        <p class="smf-booking-h">Pick a time <span>*</span></p>
-        <label class="smf-field">Date<input type="date" class="smf-date" /></label>
-        <div class="smf-slots"><p class="smf-slots-msg">Choose a date to see available times.</p></div>
-        <input type="hidden" name="date" /><input type="hidden" name="start" /><input type="hidden" name="duration" value="30" />
-      </div>
-
-      <p class="smf-help">{ACCOUNT_HELP.discovery}</p>
-      <div class="smf-row2">
-        <label class="smf-field">Create a password <span>*</span><input type="password" name="password" required autocomplete="new-password" /></label>
-        <label class="smf-field smf-confirm" hidden>Confirm password <span>*</span><input type="password" name="confirm" autocomplete="new-password" /></label>
+      <!-- STEP 2 — confirm. Signed in: just confirm. Existing account: enter
+           your password. New: create one. Revealed by "Continue". -->
+      <div class="smf-d2" hidden>
+        <p class="smf-d2-summary"></p>
+        <p class="smf-help smf-acct-signedin" hidden></p>
+        <div class="smf-acct-signin" hidden>
+          <p class="smf-help">Welcome back — you already have a TMKE account. Enter your password and we&rsquo;ll link this booking to it. <a href="/forgot-password" target="_blank" rel="noopener">Forgotten it?</a></p>
+          <label class="smf-field">Your password <span>*</span><input type="password" name="signin_password" autocomplete="current-password" /></label>
+        </div>
+        <div class="smf-acct-create" hidden>
+          <p class="smf-help">{ACCOUNT_HELP.discovery}</p>
+          <div class="smf-row2">
+            <label class="smf-field">Create a password <span>*</span><input type="password" name="password" autocomplete="new-password" /></label>
+            <label class="smf-field smf-confirm" hidden>Confirm password <span>*</span><input type="password" name="confirm" autocomplete="new-password" /></label>
+          </div>
+        </div>
       </div>
 
       <div class="smf-hp" aria-hidden="true"><label>Leave this field blank<input type="text" name="hp" tabindex="-1" autocomplete="off" /></label></div>
-      <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
 
       <div class="smf-turnstile"></div>
       <p class="smf-error" hidden></p>
-      <button type="submit" class="smf-submit">Confirm booking <span aria-hidden="true">&rarr;</span></button>
+      <button type="submit" class="smf-submit" data-stage="details">Continue <span aria-hidden="true">&rarr;</span></button>
+      <button type="button" class="smf-d2-back" data-d2-back hidden>&larr; Edit your details</button>
       <p class="smf-privacy">By submitting this form you agree to our <a href={PRIVACY_URL}>Privacy Policy</a>.</p>
     </form>
 
@@ -156,6 +172,24 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
 
   .smf-form[hidden], .smf-done[hidden] { display: none; }
   .smf-stage2[hidden], .smf-newacct[hidden], .smf-existing[hidden], .smf-confirm[hidden] { display: none; }
+  /* Book-a-call two-step: step wrappers + account variants. !important so no
+     display rule can resurrect a hidden step (the bug that kept the password
+     visible next to the "no password needed" note). */
+  .smf-d1[hidden], .smf-d2[hidden],
+  .smf-acct-signedin[hidden], .smf-acct-signin[hidden], .smf-acct-create[hidden],
+  .smf-d2-back[hidden] { display: none !important; }
+  .smf-d2-summary {
+    font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.75);
+    background: rgba(55,30,40,0.06); border-left: 3px solid var(--english-violet);
+    border-radius: 0 6px 6px 0; padding: 12px 14px; margin: 0 0 18px;
+  }
+  .smf-acct-signedin { font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.75); background: rgba(46,106,74,0.08); border-radius: 8px; padding: 12px 14px; margin: 0 0 18px; }
+  .smf-d2-back {
+    display: block; width: 100%; margin-top: 10px; padding: 8px; background: none; border: none; cursor: pointer;
+    font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+    color: rgba(28,29,34,0.55); text-align: center;
+  }
+  .smf-d2-back:hover { color: var(--ink); }
 
   .smf-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 12px; }
   .smf-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.02; letter-spacing: -0.02em; margin: 0 0 10px; }
@@ -244,9 +278,15 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
         memberToken = session.access_token;
         memberEmail = session.user.email || null;
         forms.forEach((form) => {
-          if (form.dataset.kind === "brochure") return;   // has its own email-first check
-          // Hide the password field, its confirm, its row and the account help.
-          // (Inline display — the hidden attribute loses to `.smf-field { display:block }`.)
+          const kind = form.dataset.kind;
+          // Prefill their email wherever it helps.
+          if (kind !== "brochure") {
+            const em = form.querySelector('input[name="email"]');
+            if (em && !em.value && memberEmail) em.value = memberEmail;
+          }
+          // Brochure + discovery run their own staged account checks; only the
+          // Get in Touch form hides its (optional) password inline.
+          if (kind !== "contact") return;
           form.querySelectorAll('input[name="password"], input[name="confirm"]').forEach((inp) => {
             inp.required = false;
             const wrap = inp.closest(".smf-field");
@@ -255,9 +295,6 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
             if (row && row.classList.contains("smf-row2")) row.style.display = "none";
           });
           form.querySelectorAll(".smf-help").forEach((h) => { h.style.display = "none"; });
-          // Prefill their email + a small signed-in note above the submit button.
-          const em = form.querySelector('input[name="email"]');
-          if (em && !em.value && memberEmail) em.value = memberEmail;
           const note = document.createElement("p");
           note.className = "smf-help";
           note.style.margin = "0 0 16px";
@@ -424,12 +461,60 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
       stage2.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
 
+    // ---- Book a Call: step 1 (details + time) → step 2 (confirm) ----
+    // Step 2 works out the right account treatment AFTER the email is known:
+    // signed in under that email → just confirm; existing account → enter your
+    // password; brand new → create one.
+    async function discoveryStep2(form, btn, email, fd) {
+      btn.disabled = true; btn.textContent = "Checking…";
+      let mode = "create";
+      if (memberToken && memberEmail && memberEmail.toLowerCase() === email.toLowerCase()) mode = "signedin";
+      else if (WORKER) {
+        try {
+          const r = await fetch(`${WORKER}/videography/account-exists?email=${encodeURIComponent(email)}`);
+          const d = await r.json().catch(() => ({}));
+          if (d && d.exists) mode = "signin";
+        } catch (_) { /* fall back to create */ }
+      }
+      form.dataset.acctMode = mode;
+      form.querySelector(".smf-d1").hidden = true;
+      form.querySelector(".smf-d2").hidden = false;
+      const signedinEl = form.querySelector(".smf-acct-signedin");
+      signedinEl.hidden = mode !== "signedin";
+      if (mode === "signedin") signedinEl.textContent = "You’re signed in as " + memberEmail + " — confirm below and the call is booked to your account.";
+      form.querySelector(".smf-acct-signin").hidden = mode !== "signin";
+      form.querySelector(".smf-acct-create").hidden = mode !== "create";
+      const d = String(fd.get("date") || ""), t = String(fd.get("start") || "");
+      let nice = d;
+      try { nice = new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }); } catch (_) {}
+      form.querySelector(".smf-d2-summary").textContent = "30-minute call — " + nice + " at " + t + " · " + email;
+      form.querySelector("[data-d2-back]").hidden = false;
+      btn.disabled = false; btn.dataset.stage = "send";
+      btn.innerHTML = 'Confirm booking <span aria-hidden="true">&rarr;</span>';
+      form.querySelector(".smf-error").hidden = true;
+      modal.querySelector(".smf-scroll").scrollTop = 0;
+    }
+
     // ---- Per-form wiring ----
     forms.forEach((form) => {
       const pw = form.querySelector('input[name="password"]');
       const confirmWrap = form.querySelector(".smf-confirm");
       if (pw && confirmWrap) pw.addEventListener("input", () => { confirmWrap.hidden = pw.value.length === 0; });
-      if (form.dataset.kind === "discovery") setupDiscovery(form);
+      if (form.dataset.kind === "discovery") {
+        setupDiscovery(form);
+        const btn = form.querySelector(".smf-submit");
+        const toStep1 = () => {
+          form.querySelector(".smf-d1").hidden = false;
+          form.querySelector(".smf-d2").hidden = true;
+          form.querySelector("[data-d2-back]").hidden = true;
+          btn.dataset.stage = "details";
+          btn.innerHTML = 'Continue <span aria-hidden="true">&rarr;</span>';
+          form.querySelector(".smf-error").hidden = true;
+        };
+        const backBtn = form.querySelector("[data-d2-back]");
+        if (backBtn) backBtn.addEventListener("click", toStep1);
+        form.__resetStage = toStep1;   // open() resets the pane to step 1
+      }
 
       if (form.dataset.kind === "brochure") {
         const btn = form.querySelector(".smf-submit");
@@ -466,10 +551,23 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
           return runBrochureCheck(form, submitBtn, emailv);
         }
 
+        // Book a Call STEP 1 → validate the details + time, then move to the
+        // confirm step (which decides signed-in / sign-in / create-account).
+        if (kind === "discovery" && submitBtn.dataset.stage === "details") {
+          const emailv = String(fd.get("email") || "").trim();
+          if (!String(fd.get("first_name") || "").trim() || !String(fd.get("last_name") || "").trim() || !String(fd.get("business") || "").trim())
+            return showErr(form, "Please add your name and business.");
+          if (!/.+@.+\..+/.test(emailv)) return showErr(form, "Please add a valid email.");
+          if (!fd.get("date") || !fd.get("start")) return showErr(form, "Please pick a time for your call.");
+          return discoveryStep2(form, submitBtn, emailv, fd);
+        }
+
         const pwv = String(fd.get("password") || "");
         const cf = String(fd.get("confirm") || "");
+        const acctMode = kind === "discovery" ? (form.dataset.acctMode || "create") : null;
         if (kind === "discovery" && (!fd.get("date") || !fd.get("start"))) return showErr(form, "Please pick a time for your call.");
-        if (kind === "discovery" && !pwv && !memberToken) return showErr(form, "Please create a password to confirm your booking.");
+        if (kind === "discovery" && acctMode === "create" && !pwv) return showErr(form, "Please create a password to confirm your booking.");
+        if (kind === "discovery" && acctMode === "signin" && !String(fd.get("signin_password") || "")) return showErr(form, "Please enter your password.");
         if (pwv) {
           if (!PW_RE.test(pwv)) return showErr(form, "Password must be at least 8 characters and include a number and a special character.");
           if (pwv !== cf) return showErr(form, "Those passwords don't match.");
@@ -479,6 +577,15 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
           if (!WORKER) throw new Error("This isn't quite live yet — please email hello@tmke.co.uk and we'll sort it.");
           const token = tokenFor(form);
           if (SITE && !token) throw new Error("Please complete the spam check above.");
+          // Book a Call — returning account holder: verify their password by
+          // signing them in; the booking then rides on the fresh session token.
+          if (kind === "discovery" && acctMode === "signin") {
+            const sp = String(fd.get("signin_password") || "");
+            const { data: si, error: siErr } = await supabase.auth.signInWithPassword({ email: String(fd.get("email") || ""), password: sp });
+            if (siErr || !si || !si.session) throw new Error("That password didn’t match — please try again, or use the reset link above.");
+            memberToken = si.session.access_token;
+            memberEmail = (si.session.user && si.session.user.email) || memberEmail;
+          }
           const payload = kind === "contact"
             ? { first_name: fd.get("first_name"), last_name: fd.get("last_name"), business: fd.get("business"), email: fd.get("email"), phone: fd.get("phone"), message: fd.get("message") }
             : kind === "discovery"
