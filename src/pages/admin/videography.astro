@@ -384,31 +384,29 @@ const DELIVER_CATEGORIES = [
     }
     .vid-cand-back:hover { color: var(--ink); }
     .vid-cand {
-      max-width: 820px; margin: 0 auto; text-align: center;
+      max-width: 820px; margin: 0 auto; text-align: left;
       background: var(--paper); border: 1px solid rgba(var(--violet-rgb), 0.16); border-radius: 14px;
-      padding: clamp(32px, 5vw, 64px) clamp(24px, 5vw, 64px) clamp(36px, 5vw, 56px);
+      padding: clamp(26px, 3.5vw, 44px) clamp(24px, 3.5vw, 44px) clamp(28px, 3.5vw, 40px);
     }
     .vid-cand-who { font-family: var(--sans); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: rgba(28, 29, 34, 0.5); }
     .vid-cand-co { font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.55); margin-top: 4px; }
     .vid-cand-big {
       font-family: var(--serif); font-weight: 500; color: var(--ink);
-      font-size: clamp(34px, 5.5vw, 60px); line-height: 1.05; letter-spacing: -0.01em;
-      margin: 22px 0 6px;
+      font-size: clamp(28px, 4vw, 44px); line-height: 1.08; letter-spacing: -0.01em;
+      margin: 2px 0 0;
     }
-    .vid-cand-sub { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2vw, 24px); color: var(--english-violet); margin: 0 0 18px; }
+    .vid-cand-sub { font-family: var(--serif); font-style: italic; font-size: clamp(16px, 1.7vw, 21px); color: var(--english-violet); margin: 8px 0 0; }
     .vid-cand-next {
-      font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(28, 29, 34, 0.72);
-      max-width: 52ch; margin: 0 auto 8px;
+      font-family: var(--sans); font-size: 14.5px; line-height: 1.6; color: rgba(28, 29, 34, 0.72);
+      max-width: 62ch; margin: 10px 0 0;
     }
     .vid-cand-meta {
-      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 26px;
+      display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px 26px;
       font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.6);
       margin: 22px 0 4px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
     }
     .vid-cand-meta strong { color: var(--ink); font-weight: 700; }
-    .vid-cand-advance { margin: 30px 0 10px; }
-    .vid-cand-advance .admin-btn { font-size: 12px; padding: 14px 28px; }
-    .vid-cand-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
+    .vid-cand-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 22px; }
     .vid-cand-drawer {
       margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
       text-align: left; display: none;
@@ -431,6 +429,7 @@ const DELIVER_CATEGORIES = [
     /* ---- Client correspondence + documents ---- */
     .vid-cand-thread { margin-top: 26px; border-top: 1px solid rgba(28,29,34,0.1); padding-top: 20px; text-align: left; }
     .vid-cand-thread h4 { font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55); margin: 0 0 12px; }
+    .vid-msg-sec { margin-top: 24px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.14); }
     .vid-thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
     .vid-msg { border: 1px solid rgba(28,29,34,0.1); border-left: 3px solid var(--english-violet); border-radius: 8px; padding: 10px 12px; background: #fff; }
     .vid-msg.is-auto { border-left-color: rgba(28,29,34,0.3); }
@@ -959,20 +958,23 @@ const DELIVER_CATEGORIES = [
       if (!b || !el) return;
       const f = STAGE_FLOW[b.stage] || STAGE_FLOW.booked;
       const amount = b.amount_pence != null ? gbpFromPence(b.amount_pence) : "—";
+      const isStudio = /content|studio/i.test((b.service_type || "") + " " + (b.service || ""));
+      const whenStr = b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
       el.innerHTML = `
         <div class="vid-cand-who">${escapeHtml(b.client_name)}</div>
         ${b.client_company ? `<div class="vid-cand-co">${escapeHtml(b.client_company)}</div>` : ""}
-        <div class="vid-cand-sub">${escapeHtml(f.sub)}</div>
         <div class="vid-cand-big">${escapeHtml(f.big(b))}</div>
+        <div class="vid-cand-sub">${escapeHtml(f.sub)}</div>
         <p class="vid-cand-next">${escapeHtml(f.next)}</p>
         <div class="vid-cand-meta">
           ${b.service ? `<span>Service&nbsp; <strong>${escapeHtml(b.service)}</strong></span>` : ""}
+          ${whenStr ? `<span>When&nbsp; <strong>${escapeHtml(whenStr)}</strong></span>` : ""}
           <span>Quote&nbsp; <strong>${amount}</strong></span>
           ${b.location ? `<span>Location&nbsp; <strong>${escapeHtml(b.location)}</strong></span>` : ""}
-          <span data-distance>Distance&nbsp; <strong>…</strong></span>
+          ${!isStudio ? `<span data-distance>Distance&nbsp; <strong>…</strong></span>` : ""}
         </div>
-        ${f.advance ? `<div class="vid-cand-advance"><button type="button" class="admin-btn admin-btn-primary" data-advance>${escapeHtml(f.advance.label)} &rarr;</button></div>` : ""}
         <div class="vid-cand-actions">
+          ${f.advance ? `<button type="button" class="admin-btn admin-btn-primary" data-advance>${escapeHtml(f.advance.label)} &rarr;</button>` : ""}
           <button type="button" class="admin-btn admin-btn-ghost" data-act="reschedule">Reschedule</button>
           <button type="button" class="admin-btn admin-btn-ghost" data-act="edit">Edit</button>
           <button type="button" class="admin-btn admin-btn-ghost" data-act="add">Add</button>
@@ -982,7 +984,7 @@ const DELIVER_CATEGORIES = [
         <div class="vid-cand-thread" id="vid-cand-thread"></div>`;
       if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => advanceStage(f.advance.to));
       el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
-      showDistance(b);
+      if (!isStudio) showDistance(b);
       loadThread(b);
     }
 
@@ -1010,21 +1012,23 @@ const DELIVER_CATEGORIES = [
       }).join("") || `<p class="vid-loading">No messages yet.</p>`;
       const docs = (data.documents || []).map((d) => `<div class="vid-doc"><span class="vid-doc-name">${escapeHtml(d.title || d.file_name)}</span><span class="vid-doc-cat">${escapeHtml((BK_CATS.find((c) => c[0] === d.category) || [, "Other"])[1])}</span><button type="button" class="vid-doc-x" data-doc-del="${escapeHtml(d.id)}" title="Remove">&times;</button></div>`).join("") || `<p class="vid-loading">No documents attached.</p>`;
       host.innerHTML = `
-        <h4>Messages</h4>
-        <div class="vid-thread">${msgs}</div>
-        <div class="vid-compose">
-          <input type="text" id="vid-msg-subj" placeholder="Subject (optional)" />
-          <textarea id="vid-msg-body" rows="3" placeholder="Write a message to the client…"></textarea>
-          <label class="vid-compose-file"><span>Attach a file (optional)</span><input type="file" id="vid-msg-file" /></label>
-          <label class="vid-compose-notify"><input type="checkbox" id="vid-msg-notify" checked /> Email the client too (any attachment rides along)</label>
-          <button type="button" class="admin-btn admin-btn-primary" id="vid-msg-send">Send message</button>
-        </div>
-        <h4 style="margin-top:22px">Documents</h4>
+        <h4>Internal Documents</h4>
         <div class="vid-docs">${docs}</div>
         <div class="vid-doc-upload">
           <select id="vid-doc-cat">${BK_CATS.map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select>
           <input type="file" id="vid-doc-file" />
           <button type="button" class="admin-btn admin-btn-ghost" id="vid-doc-up">Attach document</button>
+        </div>
+        <div class="vid-msg-sec">
+          <h4>Messages</h4>
+          <div class="vid-thread">${msgs}</div>
+          <div class="vid-compose">
+            <input type="text" id="vid-msg-subj" placeholder="Subject (optional)" />
+            <textarea id="vid-msg-body" rows="3" placeholder="Write a message to the client…"></textarea>
+            <label class="vid-compose-file"><span>Attach a file (optional)</span><input type="file" id="vid-msg-file" /></label>
+            <label class="vid-compose-notify"><input type="checkbox" id="vid-msg-notify" checked /> Email the client too (any attachment rides along)</label>
+            <button type="button" class="admin-btn admin-btn-primary" id="vid-msg-send">Send message</button>
+          </div>
         </div>
         <p class="vid-thread-status" id="vid-thread-status" hidden></p>`;
       document.getElementById("vid-msg-send")?.addEventListener("click", () => sendMsg(b));
