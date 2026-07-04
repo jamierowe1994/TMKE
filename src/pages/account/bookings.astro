@@ -9,7 +9,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 <BaseLayout
   dashboard
   title="Bookings — TMKE workspace"
-  description="Your videography bookings and discovery calls — reschedule or cancel."
+  description="Your videography bookings and discovery calls — view details, messages, documents, reschedule or cancel."
   hideNav
   hideFooter
 >
@@ -31,18 +31,26 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
     <section class="orders-section">
       <header class="section-head">
-        <h2 class="section-h">All bookings</h2>
-        <p class="section-sub">Your upcoming and past videography bookings.</p>
+        <h2 class="section-h">Upcoming</h2>
+        <p class="section-sub">Shoots, studio sessions and calls still to come. Click one to see the full details.</p>
       </header>
-      <div id="bk-list" class="bk-list">
+      <div id="bk-upcoming" class="bk-list">
         <div class="lib-state" style="padding:18px 22px;">Loading bookings…</div>
       </div>
+    </section>
+
+    <section class="orders-section" id="bk-past-sec" hidden>
+      <header class="section-head">
+        <h2 class="section-h">Past &amp; cancelled</h2>
+        <p class="section-sub">Everything you've booked with us before.</p>
+      </header>
+      <div id="bk-past" class="bk-list"></div>
     </section>
 
     <footer class="app-foot dash-foot">
       <div class="app-foot-block">
         <div class="app-foot-tag">Help</div>
-        <a href="/contact">hello@tmke.co.uk</a>
+        <a href="/account/contact">hello@tmke.co.uk</a>
       </div>
       <div class="app-foot-block app-foot-block--right">
         <strong id="footer-email" class="dash-foot-email">&hellip;</strong>
@@ -51,7 +59,20 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     </main>
   </div>
 
-  <!-- Reschedule modal — a compact calendar + slots, reusing the wizard styles. -->
+  <!-- ===================== Booking detail drawer ===================== -->
+  <div class="bk-detail-scrim" id="bk-detail" hidden>
+    <aside class="bk-detail-panel" role="dialog" aria-modal="true" aria-label="Booking details">
+      <button type="button" class="bk-detail-x" id="bk-detail-close" aria-label="Close">&times;</button>
+      <header class="bk-detail-head">
+        <span class="bk-pill" id="bk-detail-pill">…</span>
+        <h2 class="bk-detail-title" id="bk-detail-title">…</h2>
+        <p class="bk-detail-count" id="bk-detail-count"></p>
+      </header>
+      <div class="bk-detail-body" id="bk-detail-body"></div>
+    </aside>
+  </div>
+
+  <!-- ===================== Reschedule modal ===================== -->
   <div class="bk-resched-scrim" id="bk-resched" hidden>
     <div class="bk-resched-card" role="dialog" aria-modal="true" aria-label="Reschedule booking">
       <header class="bk-resched-head">
@@ -82,42 +103,84 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
   <style is:global>
     .bk-list { display: flex; flex-direction: column; gap: 14px; }
     .bk-card {
-      display: grid; grid-template-columns: 1fr auto; gap: 16px 24px; align-items: center;
-      padding: 20px 24px; background: var(--card-glass);
-      -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
-      border: 1px solid rgba(28,29,34,0.07); border-left: 3px solid var(--violet-deep); border-radius: 10px;
-      box-shadow: 0 10px 24px -16px rgba(var(--violet-rgb),0.22);
+      display: grid; grid-template-columns: 1fr auto; gap: 10px 24px; align-items: center;
+      padding: 18px 22px; border-radius: 10px; cursor: pointer;
+      background: var(--dash-accent); border: 1px solid rgba(255,255,255,0.16); border-left: 3px solid rgba(255,255,255,0.5);
+      box-shadow: 0 10px 24px -16px rgba(var(--violet-rgb),0.22); transition: transform .18s ease, box-shadow .18s ease;
     }
-    .bk-card.is-cancelled { border-left-color: rgba(28,29,34,0.2); opacity: 0.72; }
+    .bk-card:hover { transform: translateY(-2px); box-shadow: 0 16px 30px -18px rgba(var(--violet-rgb),0.4); }
+    .bk-card:focus-visible { outline: 2px solid var(--dash-accent-ink); outline-offset: 2px; }
+    .bk-card.is-cancelled { border-left-color: rgba(255,255,255,0.25); opacity: 0.66; }
     .bk-card-main { min-width: 0; }
-    .bk-card-title { font-family: var(--serif); font-size: 22px; color: var(--ink); margin: 0 0 4px; }
-    .bk-card-when { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.7); }
-    .bk-card-meta { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 4px; }
-    .bk-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-    .bk-pill { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); white-space: nowrap; }
-    .bk-pill.is-cancelled { background: rgba(28,29,34,0.1); color: rgba(28,29,34,0.55); }
-    .bk-pill.is-complete { background: rgba(46,106,74,0.14); color: #2e6a4a; }
-    .bk-actions { display: flex; gap: 8px; }
-    .bk-btn { appearance: none; border: 1px solid rgba(var(--violet-rgb),0.3); background: #fff; color: var(--ink); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; padding: 9px 14px; border-radius: 7px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
-    .bk-btn:hover { border-color: var(--english-violet); color: var(--english-violet); }
-    .bk-btn--danger:hover { border-color: #8a3b2f; color: #8a3b2f; }
-    .bk-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .bk-note { font-family: var(--sans); font-size: 12px; color: var(--dash-accent-ink-soft); }
-    /* Booking cards sit on the solid accent (theme-picker driven) + ink. */
-    .bk-card { background: var(--dash-accent); border-color: rgba(255,255,255,0.16); border-left-color: rgba(255,255,255,0.5); }
-    .bk-card-title { color: var(--dash-accent-ink); }
-    .bk-card-when { color: var(--dash-accent-ink); }
-    .bk-card-meta { color: var(--dash-accent-ink-soft); }
-    .bk-pill { background: rgba(255,255,255,0.18); color: var(--dash-accent-ink); }
-    .bk-btn { background: rgba(255,255,255,0.14); color: var(--dash-accent-ink); border-color: rgba(255,255,255,0.3); }
-    .bk-btn:hover { color: var(--dash-accent-ink); border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.22); }
+    .bk-card-title { font-family: var(--serif); font-size: 21px; color: var(--dash-accent-ink); margin: 0 0 3px; }
+    .bk-card-when { font-family: var(--sans); font-size: 14px; color: var(--dash-accent-ink); }
+    .bk-card-meta { font-family: var(--sans); font-size: 12.5px; color: var(--dash-accent-ink-soft); margin-top: 3px; }
+    .bk-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
+    .bk-pill { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; background: rgba(255,255,255,0.18); color: var(--dash-accent-ink); white-space: nowrap; }
+    .bk-pill.is-cancelled { background: rgba(255,255,255,0.14); color: var(--dash-accent-ink-soft); }
+    .bk-pill.is-complete { background: rgba(46,106,74,0.2); color: #d8f0e2; }
+    .bk-view-cue { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--dash-accent-ink); opacity: 0.8; }
     @media (max-width: 680px) {
       .bk-card { grid-template-columns: 1fr; }
-      .bk-card-side { align-items: flex-start; }
+      .bk-card-side { align-items: flex-start; text-align: left; }
     }
 
-    /* Reschedule modal */
-    .bk-resched-scrim { position: fixed; inset: 0; z-index: 500; background: rgba(28,29,34,0.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    /* ---- Detail drawer ---- */
+    .bk-detail-scrim { position: fixed; inset: 0; z-index: 520; background: rgba(28,29,34,0.5); display: flex; justify-content: flex-end; }
+    .bk-detail-scrim[hidden] { display: none; }
+    .bk-detail-panel { position: relative; width: min(560px, 100vw); height: 100%; overflow-y: auto; background: var(--paper); box-shadow: -30px 0 80px rgba(0,0,0,0.32); padding: 30px 34px 60px; animation: bkSlideIn .28s cubic-bezier(.2,.7,.3,1); }
+    @keyframes bkSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .bk-detail-x { position: absolute; top: 20px; right: 22px; appearance: none; background: none; border: 0; font-size: 30px; line-height: 1; color: rgba(28,29,34,0.45); cursor: pointer; }
+    .bk-detail-x:hover { color: var(--ink); }
+    .bk-detail-head { margin: 4px 40px 22px 0; }
+    .bk-detail-head .bk-pill { display: inline-block; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); margin-bottom: 12px; }
+    .bk-detail-head .bk-pill.is-cancelled { background: rgba(28,29,34,0.1); color: rgba(28,29,34,0.55); }
+    .bk-detail-head .bk-pill.is-complete { background: rgba(46,106,74,0.14); color: #2e6a4a; }
+    .bk-detail-title { font-family: var(--serif); font-weight: 500; font-size: 30px; line-height: 1.1; color: var(--ink); margin: 0; }
+    .bk-detail-count { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.6); margin: 6px 0 0; }
+    .bk-detail-block { border-top: 1px solid rgba(28,29,34,0.09); padding: 20px 0; }
+    .bk-detail-block:first-child { border-top: 0; padding-top: 0; }
+    .bk-detail-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 14px; }
+    .bk-facts { display: flex; flex-direction: column; gap: 0; }
+    .bk-fact { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; padding: 9px 0; border-bottom: 1px dashed rgba(28,29,34,0.1); font-family: var(--sans); font-size: 14.5px; color: var(--ink); }
+    .bk-fact:last-child { border-bottom: 0; }
+    .bk-fact > span:first-child { color: rgba(28,29,34,0.55); flex: 0 0 auto; }
+    .bk-fact > strong, .bk-fact > span:last-child { text-align: right; font-weight: 600; }
+    .bk-fact--sub { padding: 4px 0; border-bottom: 0; font-size: 13px; color: rgba(28,29,34,0.6); }
+    .bk-fact--sub > span:last-child { font-weight: 500; }
+    .bk-fact--note { padding-top: 8px; border-bottom: 0; font-size: 12.5px; font-style: italic; color: rgba(28,29,34,0.5); }
+    .bk-expect { font-family: var(--sans); font-size: 14.5px; line-height: 1.6; color: rgba(28,29,34,0.75); margin: 0; }
+    .bk-detail-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .bk-btn { appearance: none; border: 1px solid rgba(var(--violet-rgb),0.3); background: #fff; color: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; padding: 11px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; transition: border-color .2s, background .2s, color .2s; }
+    .bk-btn:hover { border-color: var(--english-violet); color: var(--english-violet); }
+    .bk-btn--primary { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .bk-btn--primary:hover { background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
+    .bk-btn--danger:hover { border-color: #8a3b2f; color: #8a3b2f; }
+    .bk-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .bk-note { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); }
+    .bk-empty { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.55); margin: 0; }
+
+    /* Messages thread */
+    .bk-thread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+    .bk-msg { border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 12px 14px; background: #fff; }
+    .bk-msg.is-out { border-left: 3px solid var(--violet-deep); }
+    .bk-msg.is-in { border-left: 3px solid rgba(28,29,34,0.25); background: rgba(28,29,34,0.02); }
+    .bk-msg-meta { display: flex; justify-content: space-between; gap: 12px; font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.5); margin-bottom: 5px; }
+    .bk-msg-meta strong { color: rgba(28,29,34,0.7); font-weight: 700; }
+    .bk-msg-subj { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+    .bk-msg-body { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.78); }
+
+    /* Documents */
+    .bk-doc { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; background: #fff; margin-bottom: 8px; }
+    .bk-doc.is-agreement { background: rgba(var(--violet-rgb),0.05); border-color: rgba(var(--violet-rgb),0.18); }
+    .bk-doc-ic { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: rgba(var(--violet-rgb),0.12); color: var(--english-violet); font-size: 15px; }
+    .bk-doc-main { min-width: 0; flex: 1; }
+    .bk-doc-main strong { display: block; font-family: var(--sans); font-size: 14px; color: var(--ink); }
+    .bk-doc-main span { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); }
+    .bk-doc .bk-btn { padding: 8px 13px; font-size: 12px; }
+
+    /* ---- Reschedule modal ---- */
+    .bk-resched-scrim { position: fixed; inset: 0; z-index: 560; background: rgba(28,29,34,0.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
     .bk-resched-scrim[hidden] { display: none; }
     .bk-resched-card { width: min(440px, 96vw); max-height: 90vh; overflow-y: auto; background: var(--paper); border-radius: 14px; padding: 24px 26px 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.34); }
     .bk-resched-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
@@ -141,94 +204,284 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       try { return new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
       catch (_) { return iso; }
     }
+    function fmtDate(iso) {
+      if (!iso) return '';
+      try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (_) { return iso; }
+    }
+    function fmtBytes(n) { if (!n) return ''; const u = ['B', 'KB', 'MB', 'GB']; let i = 0, v = n; while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; } return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${u[i]}`; }
     const STAGE_LABEL = {
       booked: 'Booked', shoot_day: 'Shoot day', editing: 'In edit', final_draft: 'Final draft',
       invoice_out: 'Invoice sent', complete: 'Complete', cancelled: 'Cancelled',
       discovery_call_booked: 'Call booked', enquiry_non_member: 'Enquiry sent',
     };
+    const CAT_LABEL = { agreement: 'Service agreement', prep: 'Prep document', invoice: 'Invoice', delivery: 'Delivered files', other: 'Document' };
+    const CAT_ICON = { agreement: '✓', prep: '📋', invoice: '£', delivery: '🎬', other: '📄' };
+    const keyOf = (r) => `${r.source}:${r.id}`;
 
     async function signOut() { await supabase.auth.signOut(); location.replace('/login'); }
     $('app-signout')?.addEventListener('click', signOut);
-    $('cal-side-trigger')?.addEventListener('click', () => { location.href = '/account/schedule'; });
 
     let rows = [];
+    const msgsByKey = new Map();
+    const docsByKey = new Map();
 
+    // ---------- Load ----------
     (async () => {
       const isDemo = import.meta.env.DEV;
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { if (!isDemo) location.replace('/login?next=' + encodeURIComponent('/account/bookings')); return; }
+      if (!session) {
+        if (!isDemo) { location.replace('/login?next=' + encodeURIComponent('/account/bookings')); return; }
+        seedDemo();
+        render();
+        return;
+      }
       const email = session.user.email ?? '';
       $('footer-email').textContent = email;
-      const sidebarEmail = $('sidebar-email'); if (sidebarEmail) sidebarEmail.textContent = email;
 
-      const { data, error } = await supabase
+      // Videography bookings + discovery calls (one table).
+      const { data: vid, error: vidErr } = await supabase
         .from('videography_bookings')
-        .select('id, kind, service, service_type, shoot_date, stage, total_pence, postcode, reschedule_token, duration_min, created_at')
+        .select('id, kind, service, service_type, shoot_date, stage, total_pence, surcharge_pence, add_ons, package, postcode, reschedule_token, duration_min, created_at, client_name, client_email, client_phone, signed_name, signed_at, notes, discovery_interests')
         .or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`)
         .order('shoot_date', { ascending: false, nullsFirst: false });
 
-      const $list = $('bk-list');
-      if (error) { $list.innerHTML = `<div class="lib-state" style="padding:18px 22px;">Couldn't load bookings: ${escapeHtml(error.message)}</div>`; return; }
-      rows = data || [];
+      // SMM discovery calls (separate table).
+      const { data: smm } = await supabase
+        .from('smm_leads')
+        .select('id, kind, full_name, email, phone, business, call_at, duration_min, reschedule_token, stage, created_at')
+        .eq('kind', 'discovery')
+        .or(`account_user_id.eq.${session.user.id},email.eq.${email}`)
+        .order('call_at', { ascending: false, nullsFirst: false });
+
+      if (vidErr) {
+        $('bk-upcoming').innerHTML = `<div class="lib-state" style="padding:18px 22px;">Couldn't load bookings: ${escapeHtml(vidErr.message)}</div>`;
+        return;
+      }
+      rows = (vid || []).map(normVid).concat((smm || []).map(normSmm));
+
+      // Messages + documents (tables may not exist yet — fail soft to empty).
+      const ids = rows.map((r) => r.id);
+      if (ids.length) {
+        const { data: msgs } = await supabase.from('booking_messages').select('*').in('booking_id', ids).order('created_at', { ascending: true });
+        (msgs || []).forEach((m) => { const k = `${m.booking_source}:${m.booking_id}`; if (!msgsByKey.has(k)) msgsByKey.set(k, []); msgsByKey.get(k).push(m); });
+        const { data: docs } = await supabase.from('booking_documents').select('*').in('booking_id', ids).order('created_at', { ascending: true });
+        (docs || []).forEach((d) => { const k = `${d.booking_source}:${d.booking_id}`; if (!docsByKey.has(k)) docsByKey.set(k, []); docsByKey.get(k).push(d); });
+      }
       render();
     })();
 
-    function render() {
-      const $list = $('bk-list');
-      if (!rows.length) {
-        $list.innerHTML = `<div class="lib-state" style="padding:32px;"><strong style="display:block;font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:6px;">No bookings yet.</strong><p style="margin:0;line-height:1.6;">When you book a shoot or a call, it'll appear here. <a href="/videography">Browse videography &rarr;</a></p></div>`;
-        return;
-      }
-      const now = Date.now();
-      $list.innerHTML = rows.map((b) => {
-        const cancelled = b.stage === 'cancelled';
-        const complete = b.stage === 'complete';
-        const isEnquiry = b.kind === 'enquiry' || !b.shoot_date;
-        const when = fmtWhen(b.shoot_date);
-        const ts = b.shoot_date ? new Date(b.shoot_date).getTime() : null;
-        const days = ts != null ? (ts - now) / 86400000 : null;
-        const future = ts != null && ts > now;
-        const canResched = future && !cancelled && days >= 2 && b.reschedule_token;
-        const canCancel = future && !cancelled && days >= 3 && b.reschedule_token;
-        const pillCls = cancelled ? 'is-cancelled' : complete ? 'is-complete' : '';
-        const label = STAGE_LABEL[b.stage] || b.stage || '—';
-
-        let actions = '';
-        if (isEnquiry) actions = `<span class="bk-note">Awaiting quote</span>`;
-        else if (cancelled) actions = '';
-        else if (!future) actions = `<span class="bk-note">${complete ? '' : 'Past booking'}</span>`;
-        else {
-          const parts = [];
-          if (canResched) parts.push(`<button type="button" class="bk-btn" data-resched="${escapeHtml(b.reschedule_token)}" data-dur="${b.duration_min || 60}" data-service="${escapeHtml(b.service || 'Booking')}">Reschedule</button>`);
-          if (canCancel) parts.push(`<button type="button" class="bk-btn bk-btn--danger" data-cancel="${escapeHtml(b.reschedule_token)}">Cancel</button>`);
-          actions = parts.length ? `<div class="bk-actions">${parts.join('')}</div>` : `<span class="bk-note">Within 48 hrs — email Jack to change</span>`;
-        }
-
-        const metaBits = [];
-        if (b.postcode) metaBits.push(escapeHtml(b.postcode));
-        if (b.total_pence != null) metaBits.push(gbpFromPence(b.total_pence) + ' inc. VAT');
-
-        return `<div class="bk-card ${cancelled ? 'is-cancelled' : ''}" data-row="${b.id}">
-          <div class="bk-card-main">
-            <h3 class="bk-card-title">${escapeHtml(b.service || 'Booking')}</h3>
-            <div class="bk-card-when">${when ? escapeHtml(when) : 'No date — enquiry'}</div>
-            ${metaBits.length ? `<div class="bk-card-meta">${metaBits.join(' · ')}</div>` : ''}
-          </div>
-          <div class="bk-card-side">
-            <span class="bk-pill ${pillCls}">${escapeHtml(label)}</span>
-            ${actions}
-          </div>
-        </div>`;
-      }).join('');
+    function normVid(r) {
+      return {
+        source: 'videography', id: r.id, kind: r.kind, service: r.service || 'Videography booking',
+        when: r.shoot_date, duration_min: r.duration_min || 60, stage: r.stage,
+        location: r.postcode || '', total_pence: r.total_pence, surcharge_pence: r.surcharge_pence,
+        add_ons: r.add_ons, package: r.package, service_type: r.service_type,
+        reschedule_token: r.reschedule_token, client_name: r.client_name, client_email: r.client_email,
+        client_phone: r.client_phone, signed_name: r.signed_name, signed_at: r.signed_at,
+        notes: r.notes, created_at: r.created_at, discovery_interests: r.discovery_interests, canManageOnline: true,
+      };
+    }
+    function normSmm(r) {
+      return {
+        source: 'smm', id: r.id, kind: 'discovery', service: 'Social media discovery call',
+        when: r.call_at, duration_min: r.duration_min || 30, stage: r.stage || 'discovery_call_booked',
+        location: 'Online video call', total_pence: null, service_type: 'discovery',
+        reschedule_token: r.reschedule_token, client_name: r.full_name, client_email: r.email,
+        client_phone: r.phone, company: r.business, created_at: r.created_at, canManageOnline: false,
+      };
     }
 
-    // ---- Cancel ----
+    // ---------- Render list ----------
+    function render() {
+      const now = Date.now();
+      const up = [], past = [];
+      for (const r of rows) {
+        const ts = r.when ? new Date(r.when).getTime() : null;
+        const isPast = r.stage === 'cancelled' || r.stage === 'complete' || (ts != null && ts < now);
+        (isPast ? past : up).push(r);
+      }
+      up.sort((a, b) => new Date(a.when || 0) - new Date(b.when || 0));
+      past.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
+
+      const $up = $('bk-upcoming');
+      if (!up.length) {
+        $up.innerHTML = `<div class="lib-state" style="padding:32px;"><strong style="display:block;font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:6px;">Nothing upcoming.</strong><p style="margin:0;line-height:1.6;">When you book a shoot or a call, it'll appear here. <a href="/videography">Browse videography &rarr;</a></p></div>`;
+      } else {
+        $up.innerHTML = up.map(cardHtml).join('');
+      }
+      const $pastSec = $('bk-past-sec');
+      if (past.length) { $pastSec.hidden = false; $('bk-past').innerHTML = past.map(cardHtml).join(''); }
+      else { $pastSec.hidden = true; }
+    }
+
+    function cardHtml(r) {
+      const cancelled = r.stage === 'cancelled';
+      const complete = r.stage === 'complete';
+      const when = fmtWhen(r.when);
+      const pillCls = cancelled ? 'is-cancelled' : complete ? 'is-complete' : '';
+      const label = STAGE_LABEL[r.stage] || r.stage || '—';
+      const metaBits = [];
+      if (r.location) metaBits.push(escapeHtml(r.location));
+      if (r.total_pence != null) metaBits.push(gbpFromPence(r.total_pence) + ' inc. VAT');
+      else if (r.service_type === 'discovery') metaBits.push('Complimentary');
+      return `<div class="bk-card ${cancelled ? 'is-cancelled' : ''}" data-open="${escapeHtml(keyOf(r))}" role="button" tabindex="0">
+        <div class="bk-card-main">
+          <h3 class="bk-card-title">${escapeHtml(r.service)}</h3>
+          <div class="bk-card-when">${when ? escapeHtml(when) : 'No date yet — enquiry'}</div>
+          ${metaBits.length ? `<div class="bk-card-meta">${metaBits.join(' · ')}</div>` : ''}
+        </div>
+        <div class="bk-card-side">
+          <span class="bk-pill ${pillCls}">${escapeHtml(label)}</span>
+          <span class="bk-view-cue">View details &rarr;</span>
+        </div>
+      </div>`;
+    }
+
+    // ---------- Detail drawer ----------
+    let currentKey = null;
+    function openDetail(key) {
+      const r = rows.find((x) => keyOf(x) === key); if (!r) return;
+      currentKey = key;
+      const now = Date.now();
+      const ts = r.when ? new Date(r.when).getTime() : null;
+      const cancelled = r.stage === 'cancelled';
+      const complete = r.stage === 'complete';
+      const future = ts != null && ts > now;
+      const days = ts != null ? (ts - now) / 86400000 : null;
+
+      $('bk-detail-pill').className = 'bk-pill ' + (cancelled ? 'is-cancelled' : complete ? 'is-complete' : '');
+      $('bk-detail-pill').textContent = STAGE_LABEL[r.stage] || r.stage || 'Booking';
+      $('bk-detail-title').textContent = r.service;
+      let countdown = '';
+      if (cancelled) countdown = 'This booking was cancelled.';
+      else if (future && days != null) { const d = Math.ceil(days); countdown = d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : `In ${d} days`; }
+      else if (ts != null && ts < now) countdown = 'Past booking';
+      $('bk-detail-count').textContent = countdown;
+
+      // ---- Facts ----
+      const facts = [];
+      if (r.when) facts.push(`<div class="bk-fact"><span>When</span><strong>${escapeHtml(fmtWhen(r.when))}</strong></div>`);
+      facts.push(`<div class="bk-fact"><span>Duration</span><strong>${r.duration_min} min</strong></div>`);
+      if (r.location) facts.push(`<div class="bk-fact"><span>Where</span><strong>${escapeHtml(r.location)}</strong></div>`);
+      if (r.package) facts.push(`<div class="bk-fact"><span>Package</span><strong>${escapeHtml(r.package)}</strong></div>`);
+      if (r.service_type === 'discovery' || r.source === 'smm') {
+        facts.push(`<div class="bk-fact"><span>Cost</span><strong>Complimentary</strong></div>`);
+      } else if (r.total_pence != null) {
+        facts.push(`<div class="bk-fact"><span>Total</span><strong>${gbpFromPence(r.total_pence)} inc. VAT</strong></div>`);
+        if (r.surcharge_pence) facts.push(`<div class="bk-fact bk-fact--sub"><span>Includes travel</span><span>${gbpFromPence(r.surcharge_pence)}</span></div>`);
+        if (Array.isArray(r.add_ons) && r.add_ons.length) facts.push(`<div class="bk-fact bk-fact--sub"><span>Add-ons</span><span>${r.add_ons.map((a) => escapeHtml(a && a.name ? a.name : a)).join(', ')}</span></div>`);
+        facts.push(`<div class="bk-fact bk-fact--note"><span></span><span>Invoiced on delivery</span></div>`);
+      }
+
+      // ---- What to expect ----
+      const expect = (r.service_type === 'discovery' || r.source === 'smm')
+        ? 'A relaxed video call, around 20–30 minutes. No pressure and no pitch — just a chat about your goals and where we can help.'
+        : 'Your videographer will confirm the running order the day before. Please have access arranged and any spaces ready to shoot.';
+
+      // ---- Actions ----
+      const acts = [];
+      const canResched = future && !cancelled && days != null && days >= 2 && r.reschedule_token && r.canManageOnline;
+      const canCancel = future && !cancelled && days != null && days >= 3 && r.reschedule_token && r.canManageOnline;
+      if (canResched) acts.push(`<button type="button" class="bk-btn bk-btn--primary" data-resched="${escapeHtml(r.reschedule_token)}" data-dur="${r.duration_min}" data-service="${escapeHtml(r.service)}">Reschedule</button>`);
+      const ics = icsFor(r); if (ics && future && !cancelled) acts.push(`<a class="bk-btn" href="${ics}" download="tmke-booking.ics">Add to calendar</a>`);
+      acts.push(`<a class="bk-btn" href="/account/contact">Ask about this booking</a>`);
+      if (canCancel) acts.push(`<button type="button" class="bk-btn bk-btn--danger" data-cancel="${escapeHtml(r.reschedule_token)}">Cancel</button>`);
+      let actNote = '';
+      if (future && !cancelled && !r.canManageOnline) actNote = `<p class="bk-note" style="margin-top:8px">To move or cancel this call, use “Ask about this booking”.</p>`;
+      else if (future && !cancelled && r.reschedule_token && days != null && days < 2) actNote = `<p class="bk-note" style="margin-top:8px">Within 48 hours — please contact us to make changes.</p>`;
+
+      // ---- Messages + documents ----
+      const msgs = msgsByKey.get(key) || [];
+      const docs = docsByKey.get(key) || [];
+
+      $('bk-detail-body').innerHTML = `
+        <section class="bk-detail-block"><div class="bk-facts">${facts.join('')}</div></section>
+        ${!cancelled ? `<section class="bk-detail-block"><h3 class="bk-detail-h">What to expect</h3><p class="bk-expect">${escapeHtml(expect)}</p></section>` : ''}
+        <section class="bk-detail-block"><h3 class="bk-detail-h">Manage</h3><div class="bk-detail-actions">${acts.join('')}</div>${actNote}</section>
+        <section class="bk-detail-block"><h3 class="bk-detail-h">Messages</h3>${renderMessages(msgs)}</section>
+        <section class="bk-detail-block"><h3 class="bk-detail-h">Documents</h3>${renderDocs(r, docs)}</section>
+      `;
+      $('bk-detail').hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+    function closeDetail() { $('bk-detail').hidden = true; currentKey = null; document.body.style.overflow = ''; }
+
+    function renderMessages(list) {
+      if (!list.length) return `<p class="bk-empty">No messages yet. Booking confirmations and any updates from the team will appear here.</p>`;
+      return `<ul class="bk-thread">` + list.map((m) => {
+        const out = m.direction !== 'inbound';
+        const who = out ? (m.is_automated ? 'TMKE · automated' : (m.created_by && m.created_by !== 'system' ? m.created_by : 'TMKE')) : 'You';
+        return `<li class="bk-msg ${out ? 'is-out' : 'is-in'}">
+          <div class="bk-msg-meta"><strong>${escapeHtml(who)}</strong><span>${escapeHtml(fmtWhen(m.created_at) || '')}</span></div>
+          ${m.subject ? `<div class="bk-msg-subj">${escapeHtml(m.subject)}</div>` : ''}
+          <div class="bk-msg-body">${escapeHtml(m.body || '').replace(/\n/g, '<br>')}</div>
+        </li>`;
+      }).join('') + `</ul>`;
+    }
+
+    function renderDocs(r, list) {
+      const out = [];
+      if (r.signed_at || r.signed_name) {
+        out.push(`<div class="bk-doc is-agreement"><div class="bk-doc-ic">✓</div><div class="bk-doc-main"><strong>Service agreement</strong><span>Signed by ${escapeHtml(r.signed_name || r.client_name || 'you')}${r.signed_at ? ' · ' + fmtDate(r.signed_at) : ''}</span></div></div>`);
+      }
+      list.forEach((d) => {
+        out.push(`<div class="bk-doc"><div class="bk-doc-ic">${CAT_ICON[d.category] || '📄'}</div><div class="bk-doc-main"><strong>${escapeHtml(d.title || d.file_name)}</strong><span>${escapeHtml(CAT_LABEL[d.category] || 'Document')}${d.size_bytes ? ' · ' + fmtBytes(d.size_bytes) : ''}</span></div><button type="button" class="bk-btn" data-doc="${escapeHtml(d.id)}" data-name="${escapeHtml(d.file_name)}">Download</button></div>`);
+      });
+      if (!out.length) return `<p class="bk-empty">No documents yet. Your agreement, prep notes, invoice and delivered files will appear here as your booking progresses.</p>`;
+      return out.join('');
+    }
+
+    function icsFor(r) {
+      if (!r.when) return null;
+      const dt = new Date(r.when); if (isNaN(dt)) return null;
+      const end = new Date(dt.getTime() + (r.duration_min || 60) * 60000);
+      const fmt = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+      const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//TMKE//Bookings//EN', 'BEGIN:VEVENT',
+        'UID:' + (r.id || 'bk') + '@tmke.co.uk', 'DTSTAMP:' + fmt(new Date()), 'DTSTART:' + fmt(dt), 'DTEND:' + fmt(end),
+        'SUMMARY:' + (r.service || 'TMKE booking'), r.location ? 'LOCATION:' + r.location : '', 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean);
+      return 'data:text/calendar;charset=utf-8,' + encodeURIComponent(lines.join('\r\n'));
+    }
+
+    // Open detail (click or keyboard).
+    document.addEventListener('click', (e) => {
+      const card = e.target.closest('[data-open]'); if (!card) return;
+      openDetail(card.getAttribute('data-open'));
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$('bk-detail').hidden) { closeDetail(); return; }
+      const card = e.target.closest?.('[data-open]');
+      if (card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDetail(card.getAttribute('data-open')); }
+    });
+    $('bk-detail-close')?.addEventListener('click', closeDetail);
+    $('bk-detail')?.addEventListener('click', (e) => { if (e.target === $('bk-detail')) closeDetail(); });
+
+    // ---------- Document download (ownership-checked Worker endpoint) ----------
     document.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-cancel]');
-      if (!btn) return;
+      const btn = e.target.closest('[data-doc]'); if (!btn) return;
+      const id = btn.getAttribute('data-doc');
+      const name = btn.getAttribute('data-name') || 'document';
+      if (String(id).startsWith('demo')) { alert('This is a sample document — real files download once your booking is delivered.'); return; }
+      if (!WORKER) { alert('Downloads are being set up — please email hello@tmke.co.uk.'); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      btn.disabled = true; const t = btn.textContent; btn.textContent = '…';
+      try {
+        const res = await fetch(`${WORKER}/booking/document?id=${encodeURIComponent(id)}`, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+        if (!res.ok) throw new Error('Download failed');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      } catch (_) { alert('Could not download — please try again.'); }
+      finally { btn.disabled = false; btn.textContent = t; }
+    });
+
+    // ---------- Cancel ----------
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-cancel]'); if (!btn) return;
       const token = btn.getAttribute('data-cancel');
       if (!confirm('Cancel this booking? This frees the slot and emails you a confirmation.')) return;
-      if (!WORKER) { alert('Booking management is being set up — please email jack@tmke.co.uk.'); return; }
+      if (!WORKER) { alert('Booking management is being set up — please email hello@tmke.co.uk.'); return; }
       btn.disabled = true; btn.textContent = 'Cancelling…';
       try {
         const res = await fetch(`${WORKER}/videography/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
@@ -236,13 +489,14 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         if (!res.ok) throw new Error(d.error || 'Could not cancel');
         const row = rows.find((r) => r.reschedule_token === token); if (row) row.stage = 'cancelled';
         render();
+        if (currentKey) openDetail(currentKey);
       } catch (err) { alert(err.message || 'Could not cancel — please try again.'); btn.disabled = false; btn.textContent = 'Cancel'; }
     });
 
-    // ---- Reschedule modal ----
+    // ---------- Reschedule modal ----------
     let rsToken = null, rsDur = 60, rsService = '', viewMonth = new Date(); viewMonth.setDate(1);
     let availWeekdays = null, configFetched = false;
-    const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
     async function fetchConfig() {
@@ -251,8 +505,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     }
 
     document.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-resched]');
-      if (!btn) return;
+      const btn = e.target.closest('[data-resched]'); if (!btn) return;
       rsToken = btn.getAttribute('data-resched');
       rsDur = parseInt(btn.getAttribute('data-dur') || '60', 10);
       rsService = btn.getAttribute('data-service') || 'Booking';
@@ -277,7 +530,6 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const first = new Date(viewMonth), off = (first.getDay() + 6) % 7;
       const gs = new Date(first); gs.setDate(first.getDate() - off);
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      // Reschedule needs ≥2 days notice — disable anything sooner.
       const minDate = new Date(today); minDate.setDate(today.getDate() + 2);
       const cells = [];
       for (let i = 0; i < 42; i++) {
@@ -318,10 +570,31 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         const res = await fetch(`${WORKER}/videography/reschedule`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: rsToken, date, start }) });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error || 'Could not reschedule');
-        const row = rows.find((r) => r.reschedule_token === rsToken); if (row) row.shoot_date = `${date}T${start}:00`;
+        const row = rows.find((r) => r.reschedule_token === rsToken); if (row) row.when = `${date}T${start}:00`;
         $('bk-resched').hidden = true;
         render();
+        if (currentKey) openDetail(currentKey);
       } catch (e2) { err.textContent = e2.message || 'Could not reschedule — try another time.'; err.hidden = false; btn.disabled = false; btn.textContent = start; }
     });
+
+    // ---------- Demo data (preview only, no Supabase session) ----------
+    function seedDemo() {
+      const soon = new Date(Date.now() + 6 * 86400000); soon.setHours(10, 30, 0, 0);
+      const call = new Date(Date.now() + 2 * 86400000); call.setHours(14, 0, 0, 0);
+      const pastShoot = new Date(Date.now() - 21 * 86400000); pastShoot.setHours(9, 0, 0, 0);
+      rows = [
+        { source: 'videography', id: 'demo-1', kind: 'booking', service: 'Property shoot — full package', when: soon.toISOString(), duration_min: 120, stage: 'booked', location: 'NN14 1AA', total_pence: 54000, surcharge_pence: 4000, add_ons: [{ name: 'Drone footage' }], package: 'Full property package', service_type: 'property', reschedule_token: 'demo-tok-1', client_name: 'Danielle Adams', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 30 * 86400000).toISOString(), canManageOnline: true },
+        { source: 'smm', id: 'demo-2', kind: 'discovery', service: 'Social media discovery call', when: call.toISOString(), duration_min: 30, stage: 'discovery_call_booked', location: 'Online video call', total_pence: null, service_type: 'discovery', client_name: 'Danielle Adams', canManageOnline: false },
+        { source: 'videography', id: 'demo-3', kind: 'booking', service: 'Content Studio session', when: pastShoot.toISOString(), duration_min: 90, stage: 'complete', location: 'TMKE Studio, Kettering', total_pence: 36000, surcharge_pence: 0, package: 'Studio half-day', service_type: 'content', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 40 * 86400000).toISOString(), canManageOnline: true },
+      ];
+      msgsByKey.set('videography:demo-1', [
+        { direction: 'outbound', is_automated: true, kind: 'confirmation', subject: 'Your property shoot is confirmed', body: "Thanks Danielle — your shoot is booked in for the morning. Jack will confirm the running order the day before. Anything to add? Just reply here.", created_at: new Date(Date.now() - 30 * 86400000).toISOString(), created_by: 'system' },
+        { direction: 'outbound', is_automated: false, kind: 'manual', subject: 'Parking on the day', body: "Quick note — there's visitor parking round the back of the building, I'll meet you there at 10:15.", created_at: new Date(Date.now() - 3 * 86400000).toISOString(), created_by: 'jack@tmke.co.uk' },
+      ]);
+      docsByKey.set('videography:demo-3', [
+        { id: 'demo-doc-1', category: 'delivery', title: 'Final edit — Studio session', file_name: 'studio-final.mp4', size_bytes: 428000000, booking_source: 'videography', booking_id: 'demo-3' },
+        { id: 'demo-doc-2', category: 'invoice', title: 'Invoice TMKE-2026-0142', file_name: 'invoice.pdf', size_bytes: 82000, booking_source: 'videography', booking_id: 'demo-3' },
+      ]);
+    }
   </script>
 </BaseLayout>
