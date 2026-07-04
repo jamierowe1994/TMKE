@@ -340,6 +340,9 @@ const heroFirst = heroTemplates[0];
     .ws-notif-list { display: flex; flex-direction: column; }
     .ws-notif-item { display: flex; align-items: flex-start; gap: 11px; padding: 10px 10px; border-radius: 10px; text-decoration: none; transition: background 0.16s; }
     .ws-notif-item:hover { background: rgba(28, 29, 34, 0.05); }
+    .ws-notif-item.is-unread { background: color-mix(in srgb, var(--ws-accent) 7%, transparent); }
+    .ws-notif-item.is-unread .ws-notif-txt b::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ws-accent); margin-right: 6px; vertical-align: middle; }
+    .ws-notif-empty { padding: 22px 12px; text-align: center; font-size: 13px; color: var(--ws-faint); }
     .ws-notif-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
     .ws-notif-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .ws-notif-ic--order { color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 13%, #fff); }
@@ -603,11 +606,7 @@ const heroFirst = heroTemplates[0];
     document.addEventListener('click', () => closeAll(null));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(null); });
 
-    // Notifications: "Mark all read" clears the unread dot (panel stays open).
-    document.querySelector('[data-notif-clear]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      document.querySelector('.ws-notif')?.classList.add('is-read');
-    });
+    // Notifications are wired in the module script below (initNotifications).
 
     // Today's prompt — "Another idea" cycles a curated pool of content ideas.
     // (A simple, free pool for now; can be swapped for AI generation via the
@@ -681,6 +680,10 @@ const heroFirst = heroTemplates[0];
        mock preview when signed out (the hard login-gate lands at go-live). -->
   <script>
     import { supabase } from '../lib/supabase.js';
+    import { initNotifications } from '../lib/notifications.js';
+
+    // Notifications — real booking correspondence, unread dot + deep links.
+    initNotifications();
 
     const titleCase = (s) => String(s || '').replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
     const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

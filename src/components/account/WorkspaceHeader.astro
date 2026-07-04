@@ -180,6 +180,9 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   .ws-notif-list { display: flex; flex-direction: column; }
   .ws-notif-item { display: flex; align-items: flex-start; gap: 11px; padding: 10px 10px; border-radius: 10px; text-decoration: none; transition: background 0.16s; }
   .ws-notif-item:hover { background: rgba(28,29,34,0.05); }
+  .ws-notif-item.is-unread { background: color-mix(in srgb, var(--ws-accent) 7%, transparent); }
+  .ws-notif-item.is-unread .ws-notif-txt b::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ws-accent); margin-right: 6px; vertical-align: middle; }
+  .ws-notif-empty { padding: 22px 12px; text-align: center; font-size: 13px; color: var(--ws-faint); }
   .ws-notif-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
   .ws-notif-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   .ws-notif-ic--order { color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 13%, #fff); }
@@ -215,6 +218,7 @@ const cur = (k: string) => (active === k ? "page" : undefined);
 
 <script>
   import { supabase } from "../../lib/supabase.js";
+  import { initNotifications } from "../../lib/notifications.js";
 
   // Off-canvas drawer (hamburger → everything that isn't a tab)
   const drawer = document.querySelector("[data-drawer]") as HTMLElement | null;
@@ -238,11 +242,8 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   document.addEventListener("click", () => closeAll(null));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAll(null); });
 
-  // "Mark all read" clears the unread dot
-  document.querySelector("[data-notif-clear]")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    document.querySelector(".ws-notif")?.classList.add("is-read");
-  });
+  // Notifications — real booking correspondence, unread dot + deep links.
+  initNotifications();
 
   // Log out (icon + dropdown) — clear the session, then /login
   document.querySelectorAll("[data-logout]").forEach((el) => {
