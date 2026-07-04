@@ -428,6 +428,29 @@ const DELIVER_CATEGORIES = [
     .vid-cand-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 14px; }
     .vid-cand-form .vid-field { flex: 1; min-width: 160px; }
     .vid-cand-form .vid-field input { width: 100%; }
+    /* ---- Client correspondence + documents ---- */
+    .vid-cand-thread { margin-top: 26px; border-top: 1px solid rgba(28,29,34,0.1); padding-top: 20px; text-align: left; }
+    .vid-cand-thread h4 { font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55); margin: 0 0 12px; }
+    .vid-thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+    .vid-msg { border: 1px solid rgba(28,29,34,0.1); border-left: 3px solid var(--english-violet); border-radius: 8px; padding: 10px 12px; background: #fff; }
+    .vid-msg.is-auto { border-left-color: rgba(28,29,34,0.3); }
+    .vid-msg-meta { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; color: rgba(28,29,34,0.5); margin-bottom: 4px; }
+    .vid-msg-meta strong { color: rgba(28,29,34,0.7); }
+    .vid-msg-subj { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+    .vid-msg-body { font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.78); }
+    .vid-compose { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
+    .vid-compose input[type="text"], .vid-compose textarea { width: 100%; font-family: var(--sans); font-size: 14px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; background: #fff; }
+    .vid-compose-notify { font-size: 12.5px; color: rgba(28,29,34,0.6); display: flex; align-items: center; gap: 7px; }
+    .vid-compose .admin-btn { align-self: flex-start; }
+    .vid-docs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .vid-doc { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 8px 11px; background: #fff; }
+    .vid-doc-name { font-size: 13.5px; color: var(--ink); flex: 1; }
+    .vid-doc-cat { font-size: 11px; color: rgba(28,29,34,0.5); }
+    .vid-doc-x { appearance: none; border: 0; background: none; font-size: 18px; color: rgba(28,29,34,0.4); cursor: pointer; line-height: 1; }
+    .vid-doc-x:hover { color: #8a3b2f; }
+    .vid-doc-upload { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .vid-doc-upload select { font-family: var(--sans); font-size: 13px; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; background: #fff; }
+    .vid-thread-status { font-size: 12.5px; margin-top: 10px; }
 
     /* ---- Settings ---- */
     .vid-settings { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
@@ -952,10 +975,96 @@ const DELIVER_CATEGORIES = [
           <button type="button" class="admin-btn admin-btn-ghost" data-act="add">Add</button>
           ${b.stage !== "booked" ? `<button type="button" class="admin-btn admin-btn-ghost" data-act="back">Move back a step</button>` : ""}
         </div>
-        <div class="vid-cand-drawer" id="vid-cand-drawer"></div>`;
+        <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
+        <div class="vid-cand-thread" id="vid-cand-thread"></div>`;
       if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => advanceStage(f.advance.to));
       el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
       showDistance(b);
+      loadThread(b);
+    }
+
+    // ---- Client correspondence + documents (booking_messages / booking_documents) ----
+    const BK_CATS = [["prep", "Prep document"], ["agreement", "Agreement"], ["invoice", "Invoice"], ["delivery", "Delivered files"], ["other", "Other"]];
+    async function loadThread(b) {
+      const host = document.getElementById("vid-cand-thread");
+      if (!host || !b) return;
+      if (!WORKER_URL) { host.innerHTML = `<h4>Messages &amp; documents</h4><p class="vid-loading">Connect the Worker (PUBLIC_R2_WORKER_URL) to manage correspondence.</p>`; return; }
+      host.innerHTML = `<h4>Messages &amp; documents</h4><p class="vid-loading">Loading…</p>`;
+      let data = { messages: [], documents: [] };
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/booking/thread?booking_id=${encodeURIComponent(b.id)}`, { headers: { Authorization: "Bearer " + token } });
+        if (res.ok) data = await res.json();
+      } catch (_) {}
+      renderThread(b, data);
+    }
+    function renderThread(b, data) {
+      const host = document.getElementById("vid-cand-thread");
+      if (!host) return;
+      const msgs = (data.messages || []).map((m) => {
+        const who = m.is_automated ? "Automated" : (m.created_by && m.created_by !== "system" ? m.created_by : "You");
+        return `<div class="vid-msg ${m.is_automated ? "is-auto" : ""}"><div class="vid-msg-meta"><strong>${escapeHtml(who)}</strong><span>${escapeHtml(fmtWhen(m.created_at) || "")}</span></div>${m.subject ? `<div class="vid-msg-subj">${escapeHtml(m.subject)}</div>` : ""}<div class="vid-msg-body">${escapeHtml(m.body || "").replace(/\n/g, "<br>")}</div></div>`;
+      }).join("") || `<p class="vid-loading">No messages yet.</p>`;
+      const docs = (data.documents || []).map((d) => `<div class="vid-doc"><span class="vid-doc-name">${escapeHtml(d.title || d.file_name)}</span><span class="vid-doc-cat">${escapeHtml((BK_CATS.find((c) => c[0] === d.category) || [, "Other"])[1])}</span><button type="button" class="vid-doc-x" data-doc-del="${escapeHtml(d.id)}" title="Remove">&times;</button></div>`).join("") || `<p class="vid-loading">No documents attached.</p>`;
+      host.innerHTML = `
+        <h4>Messages</h4>
+        <div class="vid-thread">${msgs}</div>
+        <div class="vid-compose">
+          <input type="text" id="vid-msg-subj" placeholder="Subject (optional)" />
+          <textarea id="vid-msg-body" rows="3" placeholder="Write a message to the client…"></textarea>
+          <label class="vid-compose-notify"><input type="checkbox" id="vid-msg-notify" checked /> Email the client too</label>
+          <button type="button" class="admin-btn admin-btn-primary" id="vid-msg-send">Send message</button>
+        </div>
+        <h4 style="margin-top:22px">Documents</h4>
+        <div class="vid-docs">${docs}</div>
+        <div class="vid-doc-upload">
+          <select id="vid-doc-cat">${BK_CATS.map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select>
+          <input type="file" id="vid-doc-file" />
+          <button type="button" class="admin-btn admin-btn-ghost" id="vid-doc-up">Attach document</button>
+        </div>
+        <p class="vid-thread-status" id="vid-thread-status" hidden></p>`;
+      document.getElementById("vid-msg-send")?.addEventListener("click", () => sendMsg(b));
+      document.getElementById("vid-doc-up")?.addEventListener("click", () => uploadDoc(b));
+      host.querySelectorAll("[data-doc-del]").forEach((btn) => btn.addEventListener("click", () => deleteDoc(b, btn.getAttribute("data-doc-del"))));
+    }
+    function threadStatus(msg, ok) {
+      const el = document.getElementById("vid-thread-status"); if (!el) return;
+      el.hidden = false; el.textContent = msg; el.style.color = ok === false ? "#8a3b2f" : "var(--english-violet)";
+    }
+    async function sendMsg(b) {
+      const body = document.getElementById("vid-msg-body")?.value.trim();
+      const subject = document.getElementById("vid-msg-subj")?.value.trim();
+      const notify = document.getElementById("vid-msg-notify")?.checked;
+      if (!body) return;
+      const btn = document.getElementById("vid-msg-send"); btn.disabled = true; btn.textContent = "Sending…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/booking/message`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: b.id, source: "videography", subject, body, notify }) });
+        if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || "Failed to send");
+        loadThread(b);
+      } catch (e) { threadStatus(e.message || "Couldn't send", false); btn.disabled = false; btn.textContent = "Send message"; }
+    }
+    async function uploadDoc(b) {
+      const fileInput = document.getElementById("vid-doc-file");
+      const cat = document.getElementById("vid-doc-cat")?.value || "other";
+      const file = fileInput && fileInput.files && fileInput.files[0];
+      if (!file) { threadStatus("Choose a file first.", false); return; }
+      const btn = document.getElementById("vid-doc-up"); btn.disabled = true; btn.textContent = "Uploading…";
+      try {
+        const token = await authToken();
+        const qs = new URLSearchParams({ booking_id: b.id, source: "videography", category: cat, file_name: file.name, content_type: file.type || "application/octet-stream" });
+        const res = await fetch(`${WORKER_URL}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
+        if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || "Upload failed");
+        loadThread(b);
+      } catch (e) { threadStatus(e.message || "Couldn't upload", false); btn.disabled = false; btn.textContent = "Attach document"; }
+    }
+    async function deleteDoc(b, id) {
+      if (!confirm("Remove this document?")) return;
+      try {
+        const token = await authToken();
+        await fetch(`${WORKER_URL}/booking/document?id=${encodeURIComponent(id)}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+        loadThread(b);
+      } catch (_) {}
     }
     function prevStageOf(k) { const i = STAGES.findIndex((s) => s.key === k); return i > 0 ? STAGES[i - 1].key : k; }
     async function advanceStage(to) {
