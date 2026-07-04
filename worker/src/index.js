@@ -286,6 +286,26 @@ async function memberBookingIds(env, user) {
   return out;
 }
 
+// Upsert a CRM contact from a paid order, so pack purchasers become contacts.
+// Deliberately does NOT set marketing_opt_in — buying a pack is not marketing
+// consent. Lifecycle → customer; purchases are derived live in the CRM by email.
+async function contactFromOrder(env, order) {
+  if (!order || !order.buyer_email) return;
+  const parts = String(order.buyer_name || "").trim().split(/\s+/);
+  try {
+    await sbRpc(env, "upsert_contact", {
+      p_email: order.buyer_email,
+      p_first_name: parts.shift() || order.buyer_name || null,
+      p_last_name: parts.join(" ") || null,
+      p_phone: order.buyer_phone || null,
+      p_company: order.buyer_company || null,
+      p_source: "pack_purchase",
+      p_lifecycle: "customer",
+      p_user_id: order.user_id || null,
+    });
+  } catch (_) {}
+}
+
 // ---- Stripe (hosted Checkout) -------------------------------------------
 // Call the Stripe REST API with form-encoded params. `params` is a flat object
 // whose keys are already bracketed (e.g. "line_items[0][quantity]"). The secret
@@ -884,8 +904,8 @@ export default {
         const order = Array.isArray(created) ? created[0] : created;
         if (!order || !order.id) return json({ error: "Couldn't start your order. Please try again." }, 500, request, env);
 
-        // Free pack — no Stripe needed.
-        if (amount === 0) return json({ url: `${base}/edit/thanks?order=${order.id}` }, 200, request, env);
+        // Free pack — no Stripe needed. Still a customer → make/merge a contact.
+        if (amount === 0) { await contactFromOrder(env, order); return json({ url: `${base}/edit/thanks?order=${order.id}` }, 200, request, env); }
 
         try {
           const session = await stripeApi(env, "checkout/sessions", {
@@ -928,6 +948,9 @@ export default {
             await sbPatch(env, "orders", `id=eq.${encodeURIComponent(orderId)}&status=neq.paid`, {
               status: "paid", payment_ref: pi || null,
             });
+            // Pack purchaser → make/merge a CRM contact.
+            const orows = await sbGet(env, "orders", `id=eq.${encodeURIComponent(orderId)}&select=buyer_name,buyer_email,buyer_company,buyer_phone,pack_title,user_id&limit=1`);
+            await contactFromOrder(env, orows && orows[0]);
           }
         }
         return json({ received: true }, 200, request, env);
@@ -1748,6 +1771,12 @@ export default {
           client_email: email, service: "Content Studio", stage: "enquiry_non_member",
           notes: "Register interest (members-only service)", marketing_opt_in: optin,
         });
+        try {
+          await fireTrigger(env, "form_submitted", {
+            email, source: "videography_register_interest", lifecycle: "lead",
+            marketing_opt_in: optin, tags: ["TMKE Videography", "Content Studio", "Register Interest"],
+          }, { form: "videography_register_interest" });
+        } catch (_) {}
         return json({ ok: true }, 200, request, env);
       }
 
@@ -1971,6 +2000,16 @@ export default {
               ${message ? `<div><span style="color:#888">Notes:</span> ${esc(message)}</div>` : ""}
             </div></div>`,
         });
+        // CRM: upsert the contact (this endpoint previously skipped it).
+        try {
+          const parts = String(name || "").trim().split(/\s+/);
+          const ci = { email, first_name: parts.shift() || name, last_name: parts.join(" ") || null,
+            phone: phone || null, company: company || null, source: "videography_discovery",
+            lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
+            tags: ["TMKE Videography", "Discovery Call"], user_id: accountUserId || null };
+          await fireTrigger(env, "form_submitted", ci, { form: "videography_discovery", tag: "Discovery Call" });
+          if (accountCreated) await fireTrigger(env, "account_created", ci, { form: "videography_discovery" });
+        } catch (_) {}
         return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
       }
 
@@ -2383,6 +2422,23 @@ export default {
         headers.set("etag", obj.httpEtag);
         headers.set("Content-Disposition", `attachment; filename="${String(doc.file_name || "document").replace(/"/g, "")}"`);
         return new Response(obj.body, { headers });
+      }
+
+      // ---- Newsletter signup — opts the contact into marketing + tags them ----
+      if (path.endsWith("/newsletter") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        if (b && b.hp) return json({ ok: true }, 200, request, env); // honeypot
+        const email = String((b && b.email) || "").trim();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
+        const name = String((b && b.name) || "").trim();
+        const parts = name.split(/\s+/).filter(Boolean);
+        try {
+          await fireTrigger(env, "form_submitted", {
+            email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
+            source: "newsletter", lifecycle: "lead", marketing_opt_in: true, tags: ["Newsletter"],
+          }, { form: "newsletter" });
+        } catch (_) {}
+        return json({ ok: true }, 200, request, env);
       }
 
       return json({ error: "Not found" }, 404, request, env);
