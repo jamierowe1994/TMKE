@@ -407,17 +407,21 @@ const DELIVER_CATEGORIES = [
     }
     .vid-cand-meta strong { color: var(--ink); font-weight: 700; }
     .vid-cand-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 22px; }
-    /* Progress timeline */
-    .vid-timeline { display: flex; margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12); }
+    /* Progress timeline — runs edge-to-edge (same width as the meta above),
+       evenly split, first step at the start, last at the end. */
+    .vid-timeline { position: relative; margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12); height: 62px; }
     .vid-timeline.is-cancelled { opacity: 0.5; }
-    .vid-tl-step { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; gap: 9px; }
-    .vid-tl-step::after { content: ""; position: absolute; top: 6px; left: 50%; width: 100%; height: 2px; background: rgba(28, 29, 34, 0.15); z-index: 0; }
-    .vid-tl-step:last-child::after { display: none; }
-    .vid-tl-step.is-linkdone::after { background: var(--english-violet); }
+    .vid-tl-track { position: absolute; top: 29px; left: 7px; right: 7px; height: 2px; background: rgba(28, 29, 34, 0.15); }
+    .vid-tl-track-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--english-violet); transition: width 0.3s ease; }
+    .vid-tl-step { position: absolute; top: 22px; display: flex; flex-direction: column; align-items: center; gap: 9px; transform: translateX(-50%); }
+    .vid-tl-step--first { transform: translateX(0); align-items: flex-start; }
+    .vid-tl-step--last { transform: translateX(-100%); align-items: flex-end; }
     .vid-tl-dot { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid rgba(28, 29, 34, 0.22); position: relative; z-index: 1; transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; }
     .vid-tl-step.is-done .vid-tl-dot { background: var(--english-violet); border-color: var(--english-violet); }
     .vid-tl-step.is-current .vid-tl-dot { box-shadow: 0 0 0 4px rgba(var(--violet-rgb), 0.18); }
-    .vid-tl-label { font-family: var(--sans); font-size: 11.5px; color: rgba(28, 29, 34, 0.5); text-align: center; }
+    .vid-tl-label { font-family: var(--sans); font-size: 11.5px; color: rgba(28, 29, 34, 0.5); text-align: center; white-space: nowrap; }
+    .vid-tl-step--first .vid-tl-label { text-align: left; }
+    .vid-tl-step--last .vid-tl-label { text-align: right; }
     .vid-tl-step.is-done .vid-tl-label, .vid-tl-step.is-current .vid-tl-label { color: var(--ink); font-weight: 600; }
     .vid-cand-drawer {
       margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
@@ -933,14 +937,19 @@ const DELIVER_CATEGORIES = [
       const cancelled = b.stage === "cancelled";
       const cur = STAGE_ORDER.indexOf(b.stage);
       const curIdx = cur < 0 ? 0 : cur;
+      const n = steps.length;
       let lastReached = 0;
       steps.forEach(([, t], i) => { if (curIdx >= t) lastReached = i; });
-      return `<div class="vid-timeline${cancelled ? " is-cancelled" : ""}">${steps.map(([label, t], i) => {
-        const done = !cancelled && curIdx >= t;
-        const isCur = !cancelled && i === lastReached;
-        const linkDone = !cancelled && i < steps.length - 1 && curIdx >= steps[i + 1][1];
-        return `<div class="vid-tl-step${done ? " is-done" : ""}${isCur ? " is-current" : ""}${linkDone ? " is-linkdone" : ""}"><span class="vid-tl-dot"></span><span class="vid-tl-label">${label}</span></div>`;
-      }).join("")}</div>`;
+      const fillPct = cancelled || n <= 1 ? 0 : (lastReached / (n - 1)) * 100;
+      return `<div class="vid-timeline${cancelled ? " is-cancelled" : ""}">
+        <div class="vid-tl-track"><div class="vid-tl-track-fill" style="width:${fillPct}%"></div></div>
+        ${steps.map(([label, t], i) => {
+          const pct = n <= 1 ? 0 : (i / (n - 1)) * 100;
+          const done = !cancelled && curIdx >= t;
+          const isCur = !cancelled && i === lastReached;
+          return `<div class="vid-tl-step${i === 0 ? " vid-tl-step--first" : ""}${i === n - 1 ? " vid-tl-step--last" : ""}${done ? " is-done" : ""}${isCur ? " is-current" : ""}" style="left:${pct}%"><span class="vid-tl-dot"></span><span class="vid-tl-label">${escapeHtml(label)}</span></div>`;
+        }).join("")}
+      </div>`;
     }
     function nextActionHint(b) {
       if (b.stage === "booked" && b.shoot_date) return "Shoot " + fmtBig(b.shoot_date);
