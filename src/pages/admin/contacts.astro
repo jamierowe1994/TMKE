@@ -22,7 +22,7 @@ import "../../styles/admin.css";
       <div class="ct-chips-bar" id="ct-chips">
         <button type="button" class="ct-chip-f is-active" data-seg="all">All <b data-n="all">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="members">Members <b data-n="members">0</b></button>
-        <button type="button" class="ct-chip-f" data-seg="email">Can email <b data-n="email">0</b></button>
+        <button type="button" class="ct-chip-f" data-seg="email">Marketing opt-in <b data-n="email">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="purchasers">Purchasers <b data-n="purchasers">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="booked">Booked <b data-n="booked">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="contact">Contact-only <b data-n="contact">0</b></button>
@@ -133,8 +133,7 @@ import "../../styles/admin.css";
     // (has account) > Lead (contact only); 'past' is a manual override.
     function deriveLifecycle(c) {
       if (c.lifecycle === "past") return "past";
-      const tg = c.tags || [];
-      if (tg.includes("Pack-Purchased") || tg.includes("Videography-Client")) return "customer";
+      if (isPurchaser(c) || isSession(c)) return "customer";
       if (c.user_id) return "member";
       return "lead";
     }
@@ -153,14 +152,23 @@ import "../../styles/admin.css";
     ];
 
     let ALL = [], q = "", seg = "all", current = null;
+    // Who has actually purchased / booked — read live from orders + bookings by
+    // email (not just the tag), so the chips are reliable even before a backfill.
+    let PURCHASER_EMAILS = new Set(), SESSION_EMAILS = new Set(), CALL_EMAILS = new Set();
+    const lc = (e) => String(e || "").toLowerCase().trim();
+    const isPurchaser = (c) => PURCHASER_EMAILS.has(lc(c.email)) || (c.tags || []).includes("Pack-Purchased");
+    const isSession = (c) => SESSION_EMAILS.has(lc(c.email)) || (c.tags || []).includes("Videography-Client");
+    const isCall = (c) => CALL_EMAILS.has(lc(c.email)) || (c.tags || []).some((t) => t.indexOf("Discovery-Call-Booked") === 0);
+    const isBooked = (c) => isSession(c) || isCall(c);
     // Attribute-based segments (what the CRM slices by).
     const SEGMENTS = {
       all: () => true,
       members: (c) => !!c.user_id,
       email: (c) => c.marketing_opt_in === true,
-      purchasers: (c) => (c.tags || []).includes("Pack-Purchased"),
-      booked: (c) => (c.tags || []).some((t) => t === "Videography-Client" || t.indexOf("Discovery-Call-Booked") === 0),
-      contact: (c) => !c.user_id && c.marketing_opt_in !== true,
+      purchasers: isPurchaser,
+      booked: isBooked,
+      // Just a contact: no account, no marketing consent, and not a customer.
+      contact: (c) => !c.user_id && c.marketing_opt_in !== true && !isPurchaser(c) && !isBooked(c),
     };
 
     // Fire a contact-action trigger into the automations engine (admin authed).
@@ -378,10 +386,22 @@ import "../../styles/admin.css";
     $("ct-export").addEventListener("click", exportCsv);
 
     async function load() {
-      const { data, error } = await supabase.from("contacts").select("*").order("updated_at", { ascending: false }).limit(1000);
+      const [cRes, oRes, vRes, sRes] = await Promise.all([
+        supabase.from("contacts").select("*").order("updated_at", { ascending: false }).limit(2000),
+        supabase.from("orders").select("buyer_email").eq("status", "paid"),
+        supabase.from("videography_bookings").select("client_email, kind, service_type"),
+        supabase.from("smm_leads").select("email, kind").eq("kind", "discovery"),
+      ]);
       $("ct-loading").hidden = true;
-      if (error) { $("ct-loading").hidden = false; $("ct-loading").textContent = "Couldn't load contacts: " + error.message; return; }
-      ALL = data || [];
+      if (cRes.error) { $("ct-loading").hidden = false; $("ct-loading").textContent = "Couldn't load contacts: " + cRes.error.message; return; }
+      PURCHASER_EMAILS = new Set(((oRes && oRes.data) || []).map((o) => lc(o.buyer_email)).filter(Boolean));
+      const vb = (vRes && vRes.data) || [];
+      SESSION_EMAILS = new Set(vb.filter((b) => b.kind === "booking").map((b) => lc(b.client_email)).filter(Boolean));
+      CALL_EMAILS = new Set([
+        ...vb.filter((b) => b.kind === "discovery" || b.service_type === "discovery").map((b) => lc(b.client_email)),
+        ...((sRes && sRes.data) || []).map((b) => lc(b.email)),
+      ].filter(Boolean));
+      ALL = (cRes && cRes.data) || [];
       render();
     }
 
