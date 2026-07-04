@@ -73,6 +73,11 @@ import "../../styles/admin.css";
     .ct-badges { display: flex; flex-wrap: wrap; gap: 8px; }
     .ct-badge { font-family: var(--sans); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.6); }
     .ct-badge.is-on { background: rgba(44,122,75,0.12); color: #2c7a4b; }
+    .ct-timeline { display: flex; flex-direction: column; }
+    .ct-tl-item { display: flex; gap: 12px; padding: 8px 0; position: relative; }
+    .ct-tl-item:not(:last-child)::before { content: ""; position: absolute; left: 4px; top: 18px; bottom: -8px; width: 1px; background: rgba(28,29,34,0.12); }
+    .ct-tl-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: var(--english-violet); margin-top: 5px; position: relative; z-index: 1; }
+    .ct-tl-body { font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
     .ct-list { max-width: 1360px; margin: 0 auto; padding: 24px 0 140px; }
     .ct-loading, .ct-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 22px 0; }
     .ct-loading[hidden], .ct-empty[hidden], .ct-table[hidden] { display: none; }
@@ -123,6 +128,29 @@ import "../../styles/admin.css";
     const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
     const fullName = (c) => [c.first_name, c.last_name].filter(Boolean).join(" ") || "(no name)";
     const gbp = (p) => (p == null ? "—" : "£" + (p / 100).toLocaleString("en-GB", { minimumFractionDigits: p % 100 ? 2 : 0, maximumFractionDigits: 2 }));
+    const humanizeSource = (s) => { if (!s) return "—"; return String(s).replace(/_/g, " ").replace(/\bsmm\b/gi, "SMM").replace(/\btmke\b/gi, "TMKE").replace(/^./, (ch) => ch.toUpperCase()); };
+    // Single lifecycle label from attributes: Customer (paid/booked) > Member
+    // (has account) > Lead (contact only); 'past' is a manual override.
+    function deriveLifecycle(c) {
+      if (c.lifecycle === "past") return "past";
+      const tg = c.tags || [];
+      if (tg.includes("Pack-Purchased") || tg.includes("Videography-Client")) return "customer";
+      if (c.user_id) return "member";
+      return "lead";
+    }
+    // Framework tags for the manual "add tag" dropdown — no free-text.
+    const TAG_GROUPS = [
+      ["Consent", ["Newsletter-Subscriber", "Marketing-Not-Opted-In", "Unsubscribed"]],
+      ["Interest", ["Interest: SMM", "Interest: Videography"]],
+      ["Discovery calls", ["Discovery-Call-Booked: SMM", "Discovery-Call-Booked: Videography"]],
+      ["Purchases", ["Pack-Purchased"]],
+      ["Videography", ["Videography-Client", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography"]],
+      ["SMM client", ["SMM-Status: Active", "SMM-Status: Paused", "SMM-Status: Ended"]],
+      ["Account", ["TMKE-Account-Member", "Portal-User"]],
+      ["Network", ["Network: TEG", "Network: Fine-and-Country", "Network: External"]],
+      ["Type", ["Type: Estate-Agent", "Type: Lettings", "Type: Financial-Services"]],
+      ["Region", ["Region: Videography-Radius"]],
+    ];
 
     let ALL = [], q = "", seg = "all", current = null;
     // Attribute-based segments (what the CRM slices by).
@@ -167,7 +195,7 @@ import "../../styles/admin.css";
         <tr data-id="${esc(c.id)}">
           <td>${esc(fullName(c))}</td>
           <td>${esc(c.email)}</td>
-          <td><span class="ct-life ${c.dnd ? "dnd" : esc(c.lifecycle)}">${c.dnd ? "DND" : esc(c.lifecycle)}</span></td>
+          <td><span class="ct-life ${c.dnd ? "dnd" : esc(deriveLifecycle(c))}">${c.dnd ? "DND" : esc(deriveLifecycle(c))}</span></td>
           <td>${(c.tags || []).slice(0, 4).map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") || "—"}</td>
           <td>${esc(fmtDate(c.last_seen_at))}</td>
         </tr>`).join("");
@@ -182,31 +210,42 @@ import "../../styles/admin.css";
       $("ct-scrim").hidden = false; $("ct-drawer").hidden = false;
       $("ct-drawer-body").innerHTML = `<p class="ct-meta">Loading…</p>`;
       const email = current.email;
-      // Purchases + bookings are derived live by email, so they're always accurate.
+      // Purchases, bookings + activity are derived live by email, always accurate.
       const [{ data: notes }, { data: tasks }, ord, vidb, smmb] = await Promise.all([
         supabase.from("contact_notes").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("contact_tasks").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("orders").select("pack_title, amount_pence, status, created_at").ilike("buyer_email", email).order("created_at", { ascending: false }),
-        supabase.from("videography_bookings").select("service, service_type, kind, shoot_date, stage").ilike("client_email", email).order("shoot_date", { ascending: false, nullsFirst: false }),
-        supabase.from("smm_leads").select("kind, call_at, stage").eq("kind", "discovery").ilike("email", email).order("call_at", { ascending: false, nullsFirst: false }),
+        supabase.from("videography_bookings").select("service, service_type, kind, shoot_date, stage, created_at").ilike("client_email", email).order("created_at", { ascending: false }),
+        supabase.from("smm_leads").select("kind, call_at, stage, created_at").ilike("email", email).order("created_at", { ascending: false }),
       ]);
+      const orders = (ord && ord.data) || [], vrows = (vidb && vidb.data) || [], srows = (smmb && smmb.data) || [];
+      // Booked = actual sessions + discovery calls (not enquiries/brochures).
       const bookings = [
-        ...((vidb && vidb.data) || []).map((b) => ({ label: b.service || b.service_type || "Videography", when: b.shoot_date, stage: b.stage })),
-        ...((smmb && smmb.data) || []).map((b) => ({ label: "Social media discovery call", when: b.call_at, stage: b.stage })),
+        ...vrows.filter((b) => b.kind === "booking").map((b) => ({ label: b.service || b.service_type || "Videography session", when: b.shoot_date, stage: b.stage })),
+        ...vrows.filter((b) => b.kind === "discovery" || b.service_type === "discovery").map((b) => ({ label: "Videography discovery call", when: b.shoot_date, stage: b.stage })),
+        ...srows.filter((b) => b.kind === "discovery").map((b) => ({ label: "Social media discovery call", when: b.call_at, stage: b.stage })),
       ];
-      drawNote(notes || [], tasks || [], (ord && ord.data) || [], bookings);
+      // Activity = every dated action, newest first.
+      const VID_ACT = { booking: "Booked a videography session", discovery: "Booked a videography discovery call", brochure: "Downloaded the videography brochure", enquiry: "Made a videography enquiry", register_interest: "Registered interest in the Content Studio" };
+      const SMM_ACT = { discovery: "Booked a social media discovery call", brochure: "Downloaded the social media brochure", enquiry: "Made a social media enquiry" };
+      const activity = [
+        ...orders.map((o) => ({ when: o.created_at, label: `Purchased ${o.pack_title || "a pack"}` })),
+        ...vrows.map((b) => ({ when: b.created_at || b.shoot_date, label: VID_ACT[b.kind] || "Videography activity" })),
+        ...srows.map((b) => ({ when: b.created_at || b.call_at, label: SMM_ACT[b.kind] || "Social media activity" })),
+      ].filter((a) => a.when).sort((a, b) => new Date(b.when) - new Date(a.when));
+      drawNote(notes || [], tasks || [], orders, bookings, activity);
     }
     function closeDrawer() { $("ct-scrim").hidden = true; $("ct-drawer").hidden = true; current = null; }
     $("ct-close").addEventListener("click", closeDrawer);
     $("ct-scrim").addEventListener("click", closeDrawer);
 
-    function drawNote(notes, tasks, orders, bookings) {
+    function drawNote(notes, tasks, orders, bookings, activity) {
       const c = current;
       $("ct-drawer-body").innerHTML = `
         <div class="ct-sec">
           <h3>Status</h3>
           <div class="ct-badges">
-            <span class="ct-badge ${c.user_id ? "is-on" : ""}">${c.user_id ? "Member — has account" : "No account"}</span>
+            <span class="ct-badge ${c.user_id ? "is-on" : ""}">${c.user_id ? "Member — Has account" : "No account"}</span>
             <span class="ct-badge ${c.marketing_opt_in ? "is-on" : ""}">Marketing: ${c.marketing_opt_in ? "Yes" : "No"}</span>
           </div>
         </div>
@@ -223,7 +262,7 @@ import "../../styles/admin.css";
           <p class="ct-meta">
             <span>Company:</span> ${esc(c.company || "—")}<br>
             <span>Phone:</span> ${esc(c.phone || "—")}<br>
-            <span>Source:</span> ${esc(c.source || "—")}<br>
+            <span>Source:</span> ${esc(humanizeSource(c.source))}<br>
             <span>Marketing opt-in:</span> ${c.marketing_opt_in ? "Yes" : "No"}
           </p>
           <div class="ct-row" style="margin-top:10px">
@@ -234,7 +273,10 @@ import "../../styles/admin.css";
         <div class="ct-sec">
           <h3>Tags</h3>
           <div class="ct-chips" id="ct-tags">${(c.tags || []).map((t) => `<span class="ct-chip">${esc(t)}<button data-untag="${esc(t)}" title="Remove">&times;</button></span>`).join("") || '<span class="ct-meta">No tags</span>'}</div>
-          <div class="ct-row" style="margin-top:10px"><input id="ct-tag-input" placeholder="Add a tag" /><button class="ct-mini" id="ct-tag-add">Add</button></div>
+          <div class="ct-row" style="margin-top:10px">
+            <select id="ct-tag-input"><option value="">Add a tag…</option>${TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("")}</select>
+            <button class="ct-mini" id="ct-tag-add">Add</button>
+          </div>
         </div>
         <div class="ct-sec">
           <h3>Tasks</h3>
@@ -250,6 +292,10 @@ import "../../styles/admin.css";
           <div id="ct-notes">${notes.length ? notes.map((n) => `<div class="ct-item">${esc(n.body)}<div class="ct-item-meta">${esc(n.author || "")} · ${fmtDate(n.created_at)}</div></div>`).join("") : '<p class="ct-meta">No notes</p>'}</div>
           <div class="ct-row" style="margin-top:10px"><textarea id="ct-note-input" rows="2" placeholder="Add a note"></textarea></div>
           <button class="ct-mini" id="ct-note-add" style="margin-top:8px">Add note</button>
+        </div>
+        <div class="ct-sec">
+          <h3>Activity</h3>
+          <div class="ct-timeline">${activity && activity.length ? activity.map((a) => `<div class="ct-tl-item"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
         </div>`;
       wireDrawer(notes, tasks);
     }
@@ -308,14 +354,21 @@ import "../../styles/admin.css";
     const csvCell = (v) => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     function exportCsv() {
       const rows = getFiltered();
-      const cols = ["First name", "Last name", "Email", "Phone", "Company", "Lifecycle", "Member", "Marketing opt-in", "Do-not-contact", "Tags", "Source", "Created", "Last seen"];
       const iso = (d) => { try { return d ? new Date(d).toISOString().slice(0, 10) : ""; } catch (_) { return ""; } };
+      // One column per tag present (Yes / blank), so tags can be filtered in a spreadsheet.
+      const allTags = Array.from(new Set(rows.flatMap((c) => c.tags || []))).sort();
+      const base = ["First name", "Last name", "Email", "Phone", "Company", "Lifecycle", "Member", "Marketing opt-in", "Do-not-contact", "Source", "Created", "Last seen"];
+      const cols = base.concat(allTags);
       const lines = [cols.map(csvCell).join(",")];
-      rows.forEach((c) => lines.push([
-        c.first_name || "", c.last_name || "", c.email || "", c.phone || "", c.company || "",
-        c.lifecycle || "", c.user_id ? "Yes" : "No", c.marketing_opt_in ? "Yes" : "No", c.dnd ? "Yes" : "No",
-        (c.tags || []).join("; "), c.source || "", iso(c.created_at), iso(c.last_seen_at),
-      ].map(csvCell).join(",")));
+      rows.forEach((c) => {
+        const row = [
+          c.first_name || "", c.last_name || "", c.email || "", c.phone || "", c.company || "",
+          deriveLifecycle(c), c.user_id ? "Yes" : "No", c.marketing_opt_in ? "Yes" : "No", c.dnd ? "Yes" : "No",
+          humanizeSource(c.source), iso(c.created_at), iso(c.last_seen_at),
+        ];
+        allTags.forEach((t) => row.push((c.tags || []).includes(t) ? "Yes" : ""));
+        lines.push(row.map(csvCell).join(","));
+      });
       const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
