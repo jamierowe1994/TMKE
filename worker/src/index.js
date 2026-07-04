@@ -286,12 +286,38 @@ async function memberBookingIds(env, user) {
   return out;
 }
 
+// ---- CRM tag helpers ----------------------------------------------------
+// Network from the email domain: *experts.co.uk → TEG, fineandcountry.com →
+// Fine-and-Country, everything else → External.
+function networkTag(email) {
+  const dom = (String(email || "").toLowerCase().match(/@([^@\s]+)$/) || [])[1] || "";
+  if (!dom) return null;
+  if (dom.endsWith("experts.co.uk")) return "Network: TEG";
+  if (dom === "fineandcountry.com") return "Network: Fine-and-Country";
+  return "Network: External";
+}
+function videographyProductTag(serviceType) {
+  const map = { content: "Content-Studio", "content-studio": "Content-Studio", property: "Property-Videography", agent: "Agent-Videography" };
+  const p = map[serviceType]; return p ? `Videography-Product: ${p}` : null;
+}
+// Compose the standard CRM tags: service tag(s) + consent + membership + network.
+// optIn: true → Newsletter-Subscriber; false → Marketing-Not-Opted-In;
+// undefined → neither (flows with no opt-in choice, e.g. a purchase).
+function crmTags(email, service, { optIn, member } = {}) {
+  const t = (Array.isArray(service) ? service.slice() : service ? [service] : []).filter(Boolean);
+  if (optIn === true) t.push("Newsletter-Subscriber");
+  else if (optIn === false) t.push("Marketing-Not-Opted-In");
+  if (member) t.push("TMKE-Account-Member");
+  const n = networkTag(email); if (n) t.push(n);
+  return t;
+}
+
 // Upsert a CRM contact from a paid order, so pack purchasers become contacts.
-// Deliberately does NOT set marketing_opt_in — buying a pack is not marketing
-// consent. Lifecycle → customer; purchases are derived live in the CRM by email.
+// No marketing_opt_in (buying ≠ consent). Tags: Pack-Purchased + Pack Name.
 async function contactFromOrder(env, order) {
   if (!order || !order.buyer_email) return;
   const parts = String(order.buyer_name || "").trim().split(/\s+/);
+  const packTags = ["Pack-Purchased", order.pack_title ? `Pack Name: ${order.pack_title}` : null];
   try {
     await sbRpc(env, "upsert_contact", {
       p_email: order.buyer_email,
@@ -301,6 +327,7 @@ async function contactFromOrder(env, order) {
       p_company: order.buyer_company || null,
       p_source: "pack_purchase",
       p_lifecycle: "customer",
+      p_tags: crmTags(order.buyer_email, packTags, { member: !!order.user_id }),
       p_user_id: order.user_id || null,
     });
   } catch (_) {}
@@ -1359,11 +1386,12 @@ export default {
         // any "account created" automation (e.g. the welcome series).
         try {
           const fn = String(name || "").trim().split(/\s+/);
+          const bkTags = crmTags(email, ["Videography-Client", videographyProductTag(service_type)], { optIn: !!marketing_opt_in, member: !!(accountCreated || accountUserId) });
           const ci = { email, first_name: fn.shift() || name, last_name: fn.join(" ") || null, phone, company,
             source: "videography_" + (service_type || "booking"), lifecycle: "customer",
-            marketing_opt_in: !!marketing_opt_in, user_id: accountUserId };
+            marketing_opt_in: !!marketing_opt_in, tags: bkTags, user_id: accountUserId };
           if (accountCreated) await fireTrigger(env, "account_created", ci, { service, package: pkg });
-          else await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: ci.first_name, p_last_name: ci.last_name, p_phone: phone || null, p_company: company || null, p_source: ci.source, p_lifecycle: "customer", p_marketing_opt_in: !!marketing_opt_in, p_user_id: accountUserId });
+          else await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: ci.first_name, p_last_name: ci.last_name, p_phone: phone || null, p_company: company || null, p_source: ci.source, p_lifecycle: "customer", p_marketing_opt_in: !!marketing_opt_in, p_tags: bkTags, p_user_id: accountUserId });
         } catch (_) {}
 
         return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
@@ -1428,6 +1456,7 @@ export default {
             email, first_name: firstName, last_name: lastName === "—" ? null : lastName,
             phone: phone || null, company: company || null, source: "videography_enquiry",
             lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
+            tags: crmTags(email, "Interest: Videography", { optIn: !!marketing_opt_in }),
           }, { form: service_type || "videography" });
         } catch (_) {}
         return json({ ok: true }, 200, request, env);
@@ -1518,7 +1547,7 @@ export default {
           await fireTrigger(env, "form_submitted", {
             email, first_name, last_name, phone: phone || null, company: business || null,
             source: "smm_enquiry", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
-            tags: ["TMKE Social Media", "General Enquiry"], user_id: accountUserId || null,
+            tags: crmTags(email, "Interest: SMM", { optIn: !!marketing_opt_in, member: !!(accountUserId || accountCreated) }), user_id: accountUserId || null,
           }, { form: "smm_enquiry", tag: "General Enquiry" });
         } catch (_) {}
 
@@ -1586,7 +1615,7 @@ export default {
           await fireTrigger(env, "form_submitted", {
             email, first_name: bparts.shift() || full_name, last_name: bparts.join(" ") || null,
             source: "smm_brochure", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
-            tags: ["TMKE Social Media", "Brochure Download"], user_id: accountUserId || null,
+            tags: crmTags(email, "Interest: SMM", { optIn: !!marketing_opt_in, member: !!(accountUserId || accountCreated) }), user_id: accountUserId || null,
           }, { form: "smm_brochure", tag: "Brochure Download" });
         } catch (_) {}
 
@@ -1750,7 +1779,7 @@ export default {
           await fireTrigger(env, "form_submitted", {
             email, first_name, last_name, phone: phone || null, company: business || null,
             source: "smm_discovery", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
-            tags: ["TMKE Social Media", "Discovery Call"], user_id: accountUserId || null,
+            tags: crmTags(email, ["Interest: SMM", "Discovery-Call-Booked: SMM"], { optIn: !!marketing_opt_in, member: !!(accountUserId || accountCreated) }), user_id: accountUserId || null,
           }, { form: "smm_discovery", tag: "Discovery Call" });
           if (accountCreated) await fireTrigger(env, "account_created", {
             email, first_name, last_name, company: business || null, user_id: accountUserId || null, lifecycle: "lead",
@@ -1774,7 +1803,7 @@ export default {
         try {
           await fireTrigger(env, "form_submitted", {
             email, source: "videography_register_interest", lifecycle: "lead",
-            marketing_opt_in: optin, tags: ["TMKE Videography", "Content Studio", "Register Interest"],
+            marketing_opt_in: optin, tags: crmTags(email, "Interest: Videography", { optIn: optin }),
           }, { form: "videography_register_interest" });
         } catch (_) {}
         return json({ ok: true }, 200, request, env);
@@ -1840,7 +1869,7 @@ export default {
           await fireTrigger(env, "form_submitted", {
             email, first_name: bparts.shift() || full_name, last_name: bparts.join(" ") || null,
             source: "videography_brochure", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
-            tags: ["TMKE Videography", "Brochure Download"], user_id: accountUserId || null,
+            tags: crmTags(email, "Interest: Videography", { optIn: !!marketing_opt_in, member: !!accountUserId }), user_id: accountUserId || null,
           }, { form: "videography_brochure", tag: "Brochure Download" });
         } catch (_) {}
 
@@ -2006,7 +2035,7 @@ export default {
           const ci = { email, first_name: parts.shift() || name, last_name: parts.join(" ") || null,
             phone: phone || null, company: company || null, source: "videography_discovery",
             lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
-            tags: ["TMKE Videography", "Discovery Call"], user_id: accountUserId || null };
+            tags: crmTags(email, ["Interest: Videography", "Discovery-Call-Booked: Videography"], { optIn: !!marketing_opt_in, member: !!(accountUserId || accountCreated) }), user_id: accountUserId || null };
           await fireTrigger(env, "form_submitted", ci, { form: "videography_discovery", tag: "Discovery Call" });
           if (accountCreated) await fireTrigger(env, "account_created", ci, { form: "videography_discovery" });
         } catch (_) {}
@@ -2435,7 +2464,8 @@ export default {
         try {
           await fireTrigger(env, "form_submitted", {
             email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
-            source: "newsletter", lifecycle: "lead", marketing_opt_in: true, tags: ["Newsletter"],
+            source: "newsletter", lifecycle: "lead", marketing_opt_in: true,
+            tags: crmTags(email, [], { optIn: true }),
           }, { form: "newsletter" });
         } catch (_) {}
         return json({ ok: true }, 200, request, env);
