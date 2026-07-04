@@ -1344,12 +1344,16 @@ const navLinks = [
     (function newsForm() {
       const form = document.getElementById("pf-news-form");
       if (!form) return;
-      form.addEventListener("submit", (e) => {
+      form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const email = form.querySelector('input[type="email"]');
         if (!email || !email.value) return;
+        const first = (form.querySelector('input[name="first"]')?.value || "").trim();
+        const last = (form.querySelector('input[name="last"]')?.value || "").trim();
         const btn = form.querySelector(".pf-news-send");
         const original = btn.innerHTML;
+        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+        if (WORKER) { try { await fetch(`${WORKER}/newsletter`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.value.trim(), name: [first, last].filter(Boolean).join(" ") }) }); } catch (_) {} }
         btn.textContent = "You're in ✓";
         setTimeout(() => { btn.innerHTML = original; form.reset(); }, 2400);
       });
