@@ -207,7 +207,7 @@ const heroFirst = heroTemplates[0];
         </section>
 
         <!-- BOOKINGS -->
-        <section class="ws-widget ws-rise" style="--delay:2.1s" aria-labelledby="bk-h">
+        <section class="ws-widget ws-widget--fill ws-rise" style="--delay:2.1s" aria-labelledby="bk-h">
           <header class="ws-widget-head">
             <span class="ws-wtitle" id="bk-h">Bookings</span>
             <a class="ws-textlink ws-textlink--accent ws-wlink" href="/account/bookings">View all →</a>
@@ -362,19 +362,27 @@ const heroFirst = heroTemplates[0];
     .ws-notif-item.is-unread .ws-notif-txt b::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ws-accent); margin-right: 6px; vertical-align: middle; }
     .ws-notif-empty { padding: 22px 12px; text-align: center; font-size: 13px; color: var(--ws-faint); }
 
-    /* Bookings widget — a slide-across carousel of active bookings */
+    /* Bookings widget — a slide-across carousel of active bookings that grows to
+       fill the right column so its base lines up with the left column. */
+    .ws-right { align-self: stretch; }
+    .ws-widget--fill { flex: 1 1 auto; }
+    .ws-widget--fill .ws-bk { flex: 1; }
     .ws-wlink { font-size: 12px; }
-    .ws-bk { position: relative; }
-    .ws-bk-track { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none; margin: 0 -2px; padding: 2px; }
+    .ws-bk { position: relative; display: flex; flex-direction: column; }
+    .ws-bk-track { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none; margin: 0 -2px; padding: 2px; flex: 1; }
     .ws-bk-track::-webkit-scrollbar { display: none; }
-    .ws-bk-card { flex: 0 0 100%; scroll-snap-align: start; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: var(--ws-r); border: 1px solid var(--ws-line); background: var(--ws-soft); text-decoration: none; transition: border-color .18s, transform .18s; }
+    .ws-bk-card { flex: 0 0 100%; scroll-snap-align: start; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; min-height: 132px; padding: 16px; border-radius: var(--ws-r); border: 1px solid var(--ws-line); background: var(--ws-soft); text-decoration: none; transition: border-color .18s, transform .18s; }
     .ws-bk-card:hover { border-color: var(--ws-accent); transform: translateY(-1px); }
-    .ws-bk-pill { align-self: flex-start; font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 12%, #fff); padding: 4px 9px; border-radius: 999px; }
+    .ws-bk-top { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+    .ws-bk-bot { display: flex; flex-direction: column; gap: 3px; }
+    .ws-bk-pill { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 12%, #fff); padding: 4px 9px; border-radius: 999px; }
     .ws-bk-pill.is-call { color: #2f9e5e; background: rgba(47,158,94,0.12); }
     .ws-bk-title { font-size: 15px; font-weight: 600; color: var(--ws-ink); line-height: 1.2; }
+    .ws-bk-loc { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ws-tx); }
+    .ws-bk-loc svg { width: 13px; height: 13px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .ws-bk-when { font-size: 12.5px; color: var(--ws-tx); }
     .ws-bk-count { font-size: 12px; color: var(--ws-faint); }
-    .ws-bk-empty { flex: 0 0 100%; box-sizing: border-box; text-align: center; padding: 18px 12px; font-size: 13px; color: var(--ws-faint); line-height: 1.6; }
+    .ws-bk-empty { flex: 0 0 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 18px 12px; font-size: 13px; color: var(--ws-faint); line-height: 1.6; }
     .ws-bk-empty a { color: var(--ws-accent); font-weight: 600; text-decoration: none; }
     .ws-bk-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; }
     .ws-bk-arrow { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--ws-line); background: #fff; color: var(--ws-ink); font-size: 15px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: border-color .18s; }
@@ -720,6 +728,7 @@ const heroFirst = heroTemplates[0];
   <script>
     import { supabase } from '../lib/supabase.js';
     import { initNotifications } from '../lib/notifications.js';
+    import { bookingLocation } from '../lib/videography-config.js';
 
     // Notifications — real booking correspondence, unread dot + deep links.
     initNotifications();
@@ -749,11 +758,17 @@ const heroFirst = heroTemplates[0];
       }
       track.innerHTML = items.map((b) => {
         const isCall = b.source === 'smm' || b.service_type === 'discovery';
+        const loc = bookingLocation(b);
         return `<a class="ws-bk-card" href="/account/bookings?open=${encodeURIComponent(b.source + ':' + b.id)}">
-          <span class="ws-bk-pill${isCall ? ' is-call' : ''}">${isCall ? 'Call booked' : 'Booked'}</span>
-          <span class="ws-bk-title">${escapeHtml(b.title)}</span>
-          <span class="ws-bk-when">${escapeHtml(bkFmt(b.when))}</span>
-          <span class="ws-bk-count">${escapeHtml(bkCountdown(b.when))}</span>
+          <span class="ws-bk-top">
+            <span class="ws-bk-pill${isCall ? ' is-call' : ''}">${isCall ? 'Call booked' : 'Booked'}</span>
+            <span class="ws-bk-title">${escapeHtml(b.title)}</span>
+            ${loc ? `<span class="ws-bk-loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHtml(loc)}</span>` : ''}
+          </span>
+          <span class="ws-bk-bot">
+            <span class="ws-bk-when">${escapeHtml(bkFmt(b.when))}</span>
+            <span class="ws-bk-count">${escapeHtml(bkCountdown(b.when))}</span>
+          </span>
         </a>`;
       }).join('');
       if (items.length > 1 && nav && dots) {
@@ -778,16 +793,17 @@ const heroFirst = heroTemplates[0];
         const email = session.user.email ?? '';
         try {
           const [v, s] = await Promise.all([
-            supabase.from('videography_bookings').select('id, service, service_type, shoot_date, stage').or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`),
+            supabase.from('videography_bookings').select('id, service, service_type, shoot_date, stage, postcode').or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`),
             supabase.from('smm_leads').select('id, call_at, stage').eq('kind', 'discovery').or(`account_user_id.eq.${session.user.id},email.eq.${email}`),
           ]);
-          const vid = (v.data || []).map((r) => ({ source: 'videography', id: r.id, title: r.service || 'Videography booking', service_type: r.service_type, when: r.shoot_date, stage: r.stage }));
+          const vid = (v.data || []).map((r) => ({ source: 'videography', id: r.id, title: r.service || 'Videography booking', service_type: r.service_type, when: r.shoot_date, stage: r.stage, postcode: r.postcode }));
           const smm = (s.data || []).map((r) => ({ source: 'smm', id: r.id, title: 'Social media discovery call', service_type: 'discovery', when: r.call_at, stage: r.stage || 'discovery_call_booked' }));
           items = vid.concat(smm);
         } catch (_) {}
       } else {
         items = [
-          { source: 'videography', id: 'demo-1', title: 'Property shoot', service_type: 'property', when: new Date(now + 6 * 86400000).toISOString(), stage: 'booked' },
+          { source: 'videography', id: 'demo-1', title: 'Property shoot', service_type: 'property', when: new Date(now + 6 * 86400000).toISOString(), stage: 'booked', postcode: 'NN1 1AA' },
+          { source: 'videography', id: 'demo-3', title: 'Content Studio session', service_type: 'content', when: new Date(now + 9 * 86400000).toISOString(), stage: 'booked' },
           { source: 'smm', id: 'demo-2', title: 'Social media discovery call', service_type: 'discovery', when: new Date(now + 2 * 86400000).toISOString(), stage: 'discovery_call_booked' },
         ];
       }

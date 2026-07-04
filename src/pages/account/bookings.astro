@@ -222,6 +222,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
   <script>
     import { supabase, gbpFromPence } from '../../lib/supabase.js';
+    import { bookingLocation } from '../../lib/videography-config.js';
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
 
     const $ = (id) => document.getElementById(id);
@@ -310,7 +311,8 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       return {
         source: 'videography', id: r.id, kind: r.kind, service: r.service || 'Videography booking',
         when: r.shoot_date, duration_min: r.duration_min || 60, stage: r.stage,
-        location: r.postcode || '', total_pence: r.total_pence, surcharge_pence: r.surcharge_pence,
+        location: bookingLocation({ service_type: r.service_type, source: 'videography', postcode: r.postcode }),
+        total_pence: r.total_pence, surcharge_pence: r.surcharge_pence,
         add_ons: r.add_ons, package: r.package, service_type: r.service_type,
         reschedule_token: r.reschedule_token, client_name: r.client_name, client_email: r.client_email,
         client_phone: r.client_phone, signed_name: r.signed_name, signed_at: r.signed_at,
@@ -321,7 +323,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       return {
         source: 'smm', id: r.id, kind: 'discovery', service: 'Social media discovery call',
         when: r.call_at, duration_min: r.duration_min || 30, stage: r.stage || 'discovery_call_booked',
-        location: 'Online video call', total_pence: null, service_type: 'discovery',
+        location: bookingLocation({ source: 'smm' }), total_pence: null, service_type: 'discovery',
         reschedule_token: r.reschedule_token, client_name: r.full_name, client_email: r.email,
         client_phone: r.phone, company: r.business, created_at: r.created_at, canManageOnline: false,
       };
@@ -651,8 +653,8 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const pastShoot = new Date(Date.now() - 21 * 86400000); pastShoot.setHours(9, 0, 0, 0);
       rows = [
         { source: 'videography', id: 'demo-1', kind: 'booking', service: 'Property shoot — full package', when: soon.toISOString(), duration_min: 120, stage: 'booked', location: 'NN14 1AA', total_pence: 54000, surcharge_pence: 4000, add_ons: [{ name: 'Drone footage' }], package: 'Full property package', service_type: 'property', reschedule_token: 'demo-tok-1', client_name: 'Danielle Adams', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 30 * 86400000).toISOString(), canManageOnline: true },
-        { source: 'smm', id: 'demo-2', kind: 'discovery', service: 'Social media discovery call', when: call.toISOString(), duration_min: 30, stage: 'discovery_call_booked', location: 'Online video call', total_pence: null, service_type: 'discovery', client_name: 'Danielle Adams', canManageOnline: false },
-        { source: 'videography', id: 'demo-3', kind: 'booking', service: 'Content Studio session', when: pastShoot.toISOString(), duration_min: 90, stage: 'complete', location: 'TMKE Studio, Kettering', total_pence: 36000, surcharge_pence: 0, package: 'Studio half-day', service_type: 'content', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 40 * 86400000).toISOString(), canManageOnline: true },
+        { source: 'smm', id: 'demo-2', kind: 'discovery', service: 'Social media discovery call', when: call.toISOString(), duration_min: 30, stage: 'discovery_call_booked', location: 'Teams call', total_pence: null, service_type: 'discovery', client_name: 'Danielle Adams', canManageOnline: false },
+        { source: 'videography', id: 'demo-3', kind: 'booking', service: 'Content Studio session', when: pastShoot.toISOString(), duration_min: 90, stage: 'complete', location: 'TMKE Content Studio', total_pence: 36000, surcharge_pence: 0, package: 'Studio half-day', service_type: 'content', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 40 * 86400000).toISOString(), canManageOnline: true },
       ];
       msgsByKey.set('videography:demo-1', [
         { direction: 'outbound', is_automated: true, kind: 'confirmation', subject: 'Your property shoot is confirmed', body: "Thanks Danielle — your shoot is booked in for the morning. Jack will confirm the running order the day before. Anything to add? Just reply here.", created_at: new Date(Date.now() - 30 * 86400000).toISOString(), created_by: 'system' },
