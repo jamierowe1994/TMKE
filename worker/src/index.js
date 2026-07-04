@@ -234,6 +234,44 @@ async function sbAdminUserEmail(env, userId) {
   return u && u.email ? u.email : null;
 }
 
+// ---- Booking correspondence + documents ---------------------------------
+// Log a piece of correspondence against a booking (service role). Automated
+// confirmations call this alongside the email; admin calls it for manual notes.
+// Fail-soft: a booking must never break because the message log write failed
+// (e.g. the booking_messages table hasn't been created yet).
+async function logBookingMessage(env, m) {
+  if (!m || !m.booking_id) return;
+  try {
+    await sbPost(env, "booking_messages", {
+      booking_id: m.booking_id,
+      booking_source: m.booking_source || "videography",
+      account_user_id: m.account_user_id || null,
+      client_email: m.client_email || null,
+      direction: m.direction || "outbound",
+      channel: m.channel || "email",
+      kind: m.kind || null,
+      subject: m.subject || null,
+      body: m.body || null,
+      is_automated: m.is_automated !== false,
+      created_by: m.created_by || "system",
+    });
+  } catch (_) {}
+}
+
+// Resolve a booking's owner (email + account) + a label across the two source
+// tables, so a message/document can be attributed to the right member.
+async function lookupBooking(env, source, id) {
+  if (!id) return null;
+  if (source === "smm") {
+    const r = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(id)}&select=id,email,account_user_id,full_name`);
+    const b = r && r[0];
+    return b ? { id: b.id, email: b.email, account_user_id: b.account_user_id, name: b.full_name, service: "Social media discovery call" } : null;
+  }
+  const r = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}&select=id,client_email,account_user_id,client_name,service`);
+  const b = r && r[0];
+  return b ? { id: b.id, email: b.client_email, account_user_id: b.account_user_id, name: b.client_name, service: b.service } : null;
+}
+
 // ---- Stripe (hosted Checkout) -------------------------------------------
 // Call the Stripe REST API with form-encoded params. `params` is a flat object
 // whose keys are already bracketed (e.g. "line_items[0][quantity]"). The secret
@@ -1228,19 +1266,25 @@ export default {
           attendees: [{ emailAddress: { address: email, name }, type: "required" }],
         });
 
-        // 4) Write the full pipeline row.
+        // 4) Write the full pipeline row (capture the id so we can thread the
+        //    confirmation into the member's booking correspondence).
         const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${Math.abs(hmToMin(start))}-${ev.id || ""}`;
-        await sbPost(env, "videography_bookings", {
-          kind: "booking", service_type: service_type || null, audience: audience || null, brand: brand || null,
-          package: pkg || null, add_ons: Array.isArray(add_ons) ? add_ons : [], postcode: postcode || null,
-          distance_miles: distance_miles ?? null, surcharge_pence: surcharge_pence || 0,
-          client_name: name, client_email: email, client_phone: phone || null, company: company || null,
-          service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
-          signed_name: signed_name || null, signed_at: signed_at || null, marketing_opt_in: !!marketing_opt_in,
-          promo_code: promo_code || null, discount_pence: discount_pence || 0,
-          account_user_id: accountUserId, reschedule_token: rescheduleToken, total_pence: total_pence ?? null,
-          ms_event_id: ev.id || null, duration_min: dur,
-        });
+        let newBookingId = null;
+        try {
+          const insRes = await sbPost(env, "videography_bookings", {
+            kind: "booking", service_type: service_type || null, audience: audience || null, brand: brand || null,
+            package: pkg || null, add_ons: Array.isArray(add_ons) ? add_ons : [], postcode: postcode || null,
+            distance_miles: distance_miles ?? null, surcharge_pence: surcharge_pence || 0,
+            client_name: name, client_email: email, client_phone: phone || null, company: company || null,
+            service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
+            signed_name: signed_name || null, signed_at: signed_at || null, marketing_opt_in: !!marketing_opt_in,
+            promo_code: promo_code || null, discount_pence: discount_pence || 0,
+            account_user_id: accountUserId, reschedule_token: rescheduleToken, total_pence: total_pence ?? null,
+            ms_event_id: ev.id || null, duration_min: dur,
+          }, "return=representation");
+          const arr = await insRes.json();
+          newBookingId = Array.isArray(arr) && arr[0] ? arr[0].id : null;
+        } catch (_) {}
 
         // 5) Confirmation emails (best-effort, never block the booking).
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
@@ -1261,6 +1305,17 @@ export default {
         await sendEmail(env, {
           to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New booking — ${service || "Shoot"} — ${name}`,
           html: jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns: add_ons, postcode, distanceMiles: distance_miles, surchargePence: surcharge_pence, dateNice, time: start, totalPence: total_pence, signedName: signed_name, marketingOptIn: marketing_opt_in }),
+        });
+
+        // Thread the confirmation into the member's booking correspondence.
+        await logBookingMessage(env, {
+          booking_id: newBookingId, booking_source: "videography",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: `Booking confirmed — ${service || "TMKE"}`,
+          body: `Your ${service || "booking"} is confirmed for ${dateNice} at ${start}.`
+            + (postcode ? ` Location: ${postcode}.` : "")
+            + (total_pence != null ? ` Total ${gbpW(total_pence)} inc. VAT, invoiced on delivery.` : "")
+            + ` We'll be in touch the day before to confirm the details.`,
         });
 
         // CRM + automations: upsert the contact; a brand-new account kicks off
@@ -1916,6 +1971,11 @@ export default {
           html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><h1 style="font-size:22px;margin:0 0 6px">Your booking is cancelled</h1><p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(bk.client_name || "")}, we've cancelled your ${esc(bk.service || "booking")}. If this was a mistake or you'd like to rebook, just head back to <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk/videography</a>.</p></div>`,
         });
         await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Cancelled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} cancelled their ${esc(bk.service || "booking")} (was ${esc(bk.shoot_date || "")}).</p></div>` });
+        await logBookingMessage(env, {
+          booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
+          kind: "cancellation", subject: `Booking cancelled — ${bk.service || "TMKE"}`,
+          body: `Your ${bk.service || "booking"} has been cancelled. If this was a mistake or you'd like to rebook, head to tmke.co.uk/videography.`,
+        });
         return json({ ok: true }, 200, request, env);
       }
 
@@ -1965,6 +2025,11 @@ export default {
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Rescheduled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} moved their ${esc(bk.service || "booking")} to ${esc(dateNice)} at ${esc(start)}.</p></div>` });
+        await logBookingMessage(env, {
+          booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
+          kind: "reschedule", subject: `Booking rescheduled — ${dateNice}`,
+          body: `Your ${bk.service || "booking"} has moved to ${dateNice} at ${start}. An updated calendar invite is on its way.`,
+        });
         return json({ ok: true }, 200, request, env);
       }
 
@@ -2145,6 +2210,117 @@ export default {
         headers.set("etag", obj.httpEtag);
         const name = key.split("/").pop();
         headers.set("Content-Disposition", `inline; filename="${name}"`);
+        return new Response(obj.body, { headers });
+      }
+
+      // ============================================================
+      // Booking correspondence + documents (member portal + admin)
+      // ============================================================
+
+      // ---- Admin: post a manual message to a booking (optionally email it) ----
+      if (path.endsWith("/booking/message") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const bookingId = b && b.booking_id;
+        const source = b && b.source === "smm" ? "smm" : "videography";
+        const bodyText = b && b.body;
+        if (!bookingId || !bodyText) return json({ error: "Missing booking or message." }, 400, request, env);
+        const bk = await lookupBooking(env, source, bookingId);
+        if (!bk) return json({ error: "Booking not found." }, 404, request, env);
+        await logBookingMessage(env, {
+          booking_id: bookingId, booking_source: source,
+          account_user_id: bk.account_user_id, client_email: bk.email,
+          channel: b.notify ? "email" : "note", kind: "manual", subject: b.subject || null,
+          body: bodyText, is_automated: false, created_by: user.email || "admin",
+        });
+        if (b.notify && bk.email) {
+          const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          try {
+            await sendEmail(env, {
+              to: bk.email, subject: b.subject || `A message about your ${bk.service || "booking"}`,
+              html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:14px;margin:0 0 12px">Hi ${esc(bk.name || "")},</p><div style="font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(bodyText)}</div><p style="color:#888;font-size:12px;margin:18px 0 0">You can view this and manage your booking in your TMKE workspace.</p></div>`,
+            });
+          } catch (_) {}
+        }
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: list a booking's messages + documents ----
+      if (path.endsWith("/booking/thread") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = (url.searchParams.get("booking_id") || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+        const messages = (await sbGet(env, "booking_messages", `booking_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.asc`)) || [];
+        const documents = (await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,created_at&order=created_at.asc`)) || [];
+        return json({ messages, documents }, 200, request, env);
+      }
+
+      // ---- Admin: attach a document (raw body → R2 + row) ----
+      if (path.endsWith("/booking/document") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const q = url.searchParams;
+        const bookingId = (q.get("booking_id") || "").trim();
+        const source = q.get("source") === "smm" ? "smm" : "videography";
+        const category = ["agreement", "prep", "invoice", "delivery", "other"].includes(q.get("category")) ? q.get("category") : "other";
+        const fileName = (q.get("file_name") || "document").replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
+        const title = q.get("title") || null;
+        const contentType = q.get("content_type") || request.headers.get("Content-Type") || "application/octet-stream";
+        if (!bookingId) return json({ error: "Missing booking_id" }, 400, request, env);
+        const bk = await lookupBooking(env, source, bookingId);
+        if (!bk) return json({ error: "Booking not found." }, 404, request, env);
+        const idSafe = bookingId.replace(/[^a-zA-Z0-9_-]/g, "");
+        const key = `booking-docs/${idSafe}/${Date.now()}-${fileName}`;
+        const body = await request.arrayBuffer();
+        await env.BUCKET.put(key, body, { httpMetadata: { contentType } });
+        let row = null;
+        try {
+          const ins = await sbPost(env, "booking_documents", {
+            booking_id: bookingId, booking_source: source, account_user_id: bk.account_user_id, client_email: bk.email,
+            category, title, file_name: fileName, r2_key: key, content_type: contentType, size_bytes: body.byteLength,
+            uploaded_by: user.email || "admin",
+          }, "return=representation");
+          const arr = await ins.json();
+          row = Array.isArray(arr) && arr[0] ? arr[0] : null;
+        } catch (_) {}
+        return json({ ok: true, document: row }, 200, request, env);
+      }
+
+      // ---- Admin: remove a document (R2 object + row) ----
+      if (path.endsWith("/booking/document") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        const rows = await sbGet(env, "booking_documents", `id=eq.${encodeURIComponent(id)}&select=r2_key`);
+        const doc = rows && rows[0];
+        if (doc && doc.r2_key) { try { await env.BUCKET.delete(doc.r2_key); } catch (_) {} }
+        await fetch(`${env.SUPABASE_URL}/rest/v1/booking_documents?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Member (or admin): download a booking document (ownership-checked) ----
+      if (path.endsWith("/booking/document") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in to download." }, 401, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        const rows = await sbGet(env, "booking_documents", `id=eq.${encodeURIComponent(id)}&select=*`);
+        const doc = rows && rows[0];
+        if (!doc) return json({ error: "Not found" }, 404, request, env);
+        const owns = (doc.account_user_id && doc.account_user_id === user.id) ||
+          (doc.client_email && String(doc.client_email).toLowerCase() === String(user.email || "").toLowerCase());
+        if (!owns && !isAdminEmail(user)) return json({ error: "Forbidden" }, 403, request, env);
+        const obj = await env.BUCKET.get(doc.r2_key);
+        if (!obj) return json({ error: "File missing" }, 404, request, env);
+        const headers = new Headers(corsHeaders(request, env));
+        obj.writeHttpMetadata(headers);
+        headers.set("etag", obj.httpEtag);
+        headers.set("Content-Disposition", `attachment; filename="${String(doc.file_name || "document").replace(/"/g, "")}"`);
         return new Response(obj.body, { headers });
       }
 
