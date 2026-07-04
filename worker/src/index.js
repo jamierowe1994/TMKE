@@ -1665,11 +1665,14 @@ export default {
           first_name, last_name, full_name: fullName, email, phone: phone || null, business: business || null,
           call_at: `${date}T${start}:00`, duration_min: dur, reschedule_token: token, ms_event_id: ev.id || null,
           marketing_opt_in: !!marketing_opt_in, account_user_id: accountUserId, account_created: accountCreated,
-        });
+        }, "return=representation");
+        let smmDiscoveryId = null;
         if (!saved.ok) {
           const detail = await saved.text().catch(() => "");
           console.error("smm discovery insert failed", saved.status, detail);
           // The calendar event was created — don't fake failure to the user, but log it.
+        } else {
+          try { const arr = await saved.json(); smmDiscoveryId = Array.isArray(arr) && arr[0] ? arr[0].id : null; } catch (_) {}
         }
 
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
@@ -1685,6 +1688,12 @@ export default {
             <p style="font-size:13px;color:#555;margin:0 0 8px">Need to change it? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28">hello@tmke.co.uk</a>.</p>
             <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
+        });
+        await logBookingMessage(env, {
+          booking_id: smmDiscoveryId, booking_source: "smm",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: `Your call is booked — ${dateNice}`,
+          body: `Your social media discovery call is booked for ${dateNice} at ${start}. It's an online/phone call — no prep needed, just bring your questions.`,
         });
         await sendEmail(env, {
           to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New discovery call — Social Media — ${fullName} — ${dateNice} ${start}`,
@@ -1903,13 +1912,18 @@ export default {
           isOnlineMeeting: true,
         });
         const token = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}`;
-        await sbPost(env, "videography_bookings", {
-          kind: "discovery", service_type: "discovery", client_name: name, client_email: email,
-          client_phone: phone || null, company: company || null, service: "Discovery Call",
-          shoot_date: `${date}T${start}:00`, stage: "discovery_call_booked",
-          discovery_interests: interestList, notes: message || null, reschedule_token: token, ms_event_id: ev.id || null, duration_min: dur,
-          account_user_id: accountUserId, marketing_opt_in: !!marketing_opt_in,
-        });
+        let discoveryId = null;
+        try {
+          const insRes = await sbPost(env, "videography_bookings", {
+            kind: "discovery", service_type: "discovery", client_name: name, client_email: email,
+            client_phone: phone || null, company: company || null, service: "Discovery Call",
+            shoot_date: `${date}T${start}:00`, stage: "discovery_call_booked",
+            discovery_interests: interestList, notes: message || null, reschedule_token: token, ms_event_id: ev.id || null, duration_min: dur,
+            account_user_id: accountUserId, marketing_opt_in: !!marketing_opt_in,
+          }, "return=representation");
+          const arr = await insRes.json();
+          discoveryId = Array.isArray(arr) && arr[0] ? arr[0].id : null;
+        } catch (_) {}
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
         const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call — TMKE", description: ["A quick call with Jack to talk through your videography.", interestList.length && `Interested in: ${interestList.join(", ")}`].filter(Boolean).join("\n"), location: "Online / phone", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name });
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
@@ -1922,6 +1936,12 @@ export default {
             <p style="font-size:13px;color:#555;margin:0 0 8px">Need to change it? <a href="${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(token)}" style="color:#371e28">Reschedule or cancel your call</a>.</p>
             <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p></div>`,
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
+        });
+        await logBookingMessage(env, {
+          booking_id: discoveryId, booking_source: "videography",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: `Your discovery call is booked — ${dateNice}`,
+          body: `Your discovery call with Jack is confirmed for ${dateNice} at ${start}. It's an online/phone call — no prep needed, just bring your questions.`,
         });
         await sendEmail(env, {
           to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New discovery call — ${name} — ${dateNice} ${start}`,
