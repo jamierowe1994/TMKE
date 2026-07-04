@@ -441,6 +441,9 @@ const DELIVER_CATEGORIES = [
     .vid-compose { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
     .vid-compose input[type="text"], .vid-compose textarea { width: 100%; font-family: var(--sans); font-size: 14px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; background: #fff; }
     .vid-compose-notify { font-size: 12.5px; color: rgba(28,29,34,0.6); display: flex; align-items: center; gap: 7px; }
+    .vid-compose-file { font-size: 12.5px; color: rgba(28,29,34,0.6); display: flex; flex-direction: column; gap: 5px; }
+    .vid-compose-file span { font-weight: 700; letter-spacing: 0.02em; }
+    .vid-compose-file input[type="file"] { font-family: var(--sans); font-size: 12.5px; }
     .vid-compose .admin-btn { align-self: flex-start; }
     .vid-docs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
     .vid-doc { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 8px 11px; background: #fff; }
@@ -1012,7 +1015,8 @@ const DELIVER_CATEGORIES = [
         <div class="vid-compose">
           <input type="text" id="vid-msg-subj" placeholder="Subject (optional)" />
           <textarea id="vid-msg-body" rows="3" placeholder="Write a message to the client…"></textarea>
-          <label class="vid-compose-notify"><input type="checkbox" id="vid-msg-notify" checked /> Email the client too</label>
+          <label class="vid-compose-file"><span>Attach a file (optional)</span><input type="file" id="vid-msg-file" /></label>
+          <label class="vid-compose-notify"><input type="checkbox" id="vid-msg-notify" checked /> Email the client too (any attachment rides along)</label>
           <button type="button" class="admin-btn admin-btn-primary" id="vid-msg-send">Send message</button>
         </div>
         <h4 style="margin-top:22px">Documents</h4>
@@ -1035,11 +1039,24 @@ const DELIVER_CATEGORIES = [
       const body = document.getElementById("vid-msg-body")?.value.trim();
       const subject = document.getElementById("vid-msg-subj")?.value.trim();
       const notify = document.getElementById("vid-msg-notify")?.checked;
-      if (!body) return;
+      const fileInput = document.getElementById("vid-msg-file");
+      const file = fileInput && fileInput.files && fileInput.files[0];
+      if (!body && !file) return;
       const btn = document.getElementById("vid-msg-send"); btn.disabled = true; btn.textContent = "Sending…";
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER_URL}/booking/message`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: b.id, source: "videography", subject, body, notify }) });
+        // If a file is attached, store it as a booking document first so it both
+        // appears under the booking AND can be attached to the notification email.
+        let documentId = null;
+        if (file) {
+          const qs = new URLSearchParams({ booking_id: b.id, source: "videography", category: "other", file_name: file.name, content_type: file.type || "application/octet-stream" });
+          const up = await fetch(`${WORKER_URL}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
+          if (!up.ok) throw new Error(((await up.json().catch(() => ({}))).error) || "Attachment upload failed");
+          const upd = await up.json().catch(() => ({}));
+          documentId = upd && upd.document ? upd.document.id : null;
+        }
+        const finalBody = body || `I've attached a document for you: ${file.name}`;
+        const res = await fetch(`${WORKER_URL}/booking/message`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: b.id, source: "videography", subject, body: finalBody, notify, document_id: documentId }) });
         if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || "Failed to send");
         loadThread(b);
       } catch (e) { threadStatus(e.message || "Couldn't send", false); btn.disabled = false; btn.textContent = "Send message"; }

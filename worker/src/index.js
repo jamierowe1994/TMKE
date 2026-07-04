@@ -272,6 +272,20 @@ async function lookupBooking(env, source, id) {
   return b ? { id: b.id, email: b.client_email, account_user_id: b.account_user_id, name: b.client_name, service: b.service } : null;
 }
 
+// All of a member's booking ids across the two source tables — by linked
+// account OR by the email on the booking (case-insensitive). Lets the member
+// portal read its whole correspondence through the service role, so a message
+// is never lost to an RLS/email-casing mismatch.
+async function memberBookingIds(env, user) {
+  const email = String((user && user.email) || "").toLowerCase();
+  const out = [];
+  const vid = (await sbGet(env, "videography_bookings", `or=(account_user_id.eq.${user.id},client_email.ilike.${encodeURIComponent(email)})&select=id`)) || [];
+  const smm = (await sbGet(env, "smm_leads", `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id`)) || [];
+  for (const r of vid) out.push(r.id);
+  for (const r of smm) out.push(r.id);
+  return out;
+}
+
 // ---- Stripe (hosted Checkout) -------------------------------------------
 // Call the Stripe REST API with form-encoded params. `params` is a flat object
 // whose keys are already bracketed (e.g. "line_items[0][quantity]"). The secret
@@ -2256,14 +2270,41 @@ export default {
         });
         if (b.notify && bk.email) {
           const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          // Attach a booking document to the email when one was sent with the message.
+          let attachments;
+          if (b.document_id) {
+            try {
+              const drows = await sbGet(env, "booking_documents", `id=eq.${encodeURIComponent(b.document_id)}&select=r2_key,file_name,content_type`);
+              const d = drows && drows[0];
+              if (d && d.r2_key) {
+                const obj = await env.BUCKET.get(d.r2_key);
+                if (obj) { const buf = await obj.arrayBuffer(); attachments = [{ filename: d.file_name || "attachment", content: bufToBase64(buf), contentType: d.content_type || "application/octet-stream" }]; }
+              }
+            } catch (_) {}
+          }
           try {
             await sendEmail(env, {
               to: bk.email, subject: b.subject || `A message about your ${bk.service || "booking"}`,
-              html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:14px;margin:0 0 12px">Hi ${esc(bk.name || "")},</p><div style="font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(bodyText)}</div><p style="color:#888;font-size:12px;margin:18px 0 0">You can view this and manage your booking in your TMKE workspace.</p></div>`,
+              html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:14px;margin:0 0 12px">Hi ${esc(bk.name || "")},</p><div style="font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(bodyText)}</div>${attachments ? `<p style="color:#888;font-size:12px;margin:14px 0 0">📎 A document is attached to this email.</p>` : ""}<p style="color:#888;font-size:12px;margin:18px 0 0">You can view this and manage your booking in your TMKE workspace.</p></div>`,
+              attachments,
             });
           } catch (_) {}
         }
         return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Member: my whole correspondence + documents (service role) --------
+      // Reads through the verified member session, matching by account OR email,
+      // so the portal never misses a row to an RLS/email-casing edge case.
+      if (path.endsWith("/booking/mine") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in." }, 401, request, env);
+        const ids = await memberBookingIds(env, user);
+        if (!ids.length) return json({ messages: [], documents: [] }, 200, request, env);
+        const inList = `in.(${ids.join(",")})`;
+        const messages = (await sbGet(env, "booking_messages", `booking_id=${inList}&select=id,booking_id,booking_source,direction,channel,kind,subject,body,is_automated,created_by,created_at&order=created_at.asc`)) || [];
+        const documents = (await sbGet(env, "booking_documents", `booking_id=${inList}&select=id,booking_id,booking_source,category,title,file_name,size_bytes,content_type,created_at&order=created_at.asc`)) || [];
+        return json({ messages, documents }, 200, request, env);
       }
 
       // ---- Admin: list a booking's messages + documents ----
