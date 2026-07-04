@@ -226,7 +226,7 @@ export function termsForService(serviceKey) {
 // glance. Property/Agent use the postcode submitted on the form; Content Studio
 // is our fixed studio; discovery calls run over Teams.
 // TODO: swap in the full studio street address once confirmed.
-export const STUDIO_LOCATION = "TMKE Content Studio";
+export const STUDIO_LOCATION = "TMKE Content Studio, 5 Regent Street, Rugby, CV21 2PE";
 export function bookingLocation({ service_type, source, postcode } = {}) {
   if (source === "smm" || service_type === "discovery") return "Teams call";
   if (service_type === "content" || service_type === "content-studio") return STUDIO_LOCATION;
