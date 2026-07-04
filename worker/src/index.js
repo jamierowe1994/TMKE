@@ -2471,6 +2471,40 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // ---- Admin: bulk-import contacts (one chunk of rows per request) --------
+      if (path.endsWith("/contacts/import") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const rows = Array.isArray(b.rows) ? b.rows : [];
+        const batchTags = Array.isArray(b.batch_tags) ? b.batch_tags : [];
+        const optIn = b.marketing_opt_in === true;
+        if (!rows.length) return json({ error: "No rows." }, 400, request, env);
+        if (rows.length > 500) return json({ error: "Send at most 500 rows per request." }, 400, request, env);
+        let imported = 0, skipped = 0;
+        for (const r of rows) {
+          const email = String((r && r.email) || "").trim().toLowerCase();
+          if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { skipped++; continue; }
+          const rowTags = Array.isArray(r.tags) ? r.tags : (r.tags ? String(r.tags).split(/[;,]/).map((s) => s.trim()) : []);
+          const tags = Array.from(new Set([...rowTags, ...batchTags, optIn ? "Newsletter-Subscriber" : null, networkTag(email)].filter(Boolean)));
+          try {
+            await sbRpc(env, "upsert_contact", {
+              p_email: email,
+              p_first_name: r.first_name || null,
+              p_last_name: r.last_name || null,
+              p_phone: r.phone || null,
+              p_company: r.company || null,
+              p_source: "import",
+              p_lifecycle: "lead",
+              p_marketing_opt_in: optIn ? true : null,
+              p_tags: tags,
+            });
+            imported++;
+          } catch (_) { skipped++; }
+        }
+        return json({ ok: true, imported, skipped }, 200, request, env);
+      }
+
       return json({ error: "Not found" }, 404, request, env);
     } catch (err) {
       return json({ error: String(err && err.message ? err.message : err) }, 500, request, env);

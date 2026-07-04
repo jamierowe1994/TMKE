@@ -13,6 +13,10 @@ import "../../styles/admin.css";
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input type="search" id="ct-search" placeholder="Search name, email, company…" aria-label="Search contacts" />
           </label>
+          <button type="button" class="ct-tool-btn" id="ct-import-btn" title="Import contacts from a CSV">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+            Import CSV
+          </button>
           <button type="button" class="ct-tool-btn" id="ct-export" title="Download the current list as a CSV">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
             Export CSV
@@ -52,6 +56,27 @@ import "../../styles/admin.css";
     <div class="ct-drawer-body" id="ct-drawer-body"><!-- filled by JS --></div>
   </aside>
 
+  <!-- Import CSV modal -->
+  <div class="ct-import-scrim" id="ct-import" hidden>
+    <div class="ct-import-card" role="dialog" aria-modal="true" aria-label="Import contacts">
+      <button type="button" class="ct-drawer-x ct-import-x" id="ct-import-close" aria-label="Close">&times;</button>
+      <h2 class="ct-import-title">Import contacts</h2>
+      <p class="ct-import-sub">Upload a CSV (Excel → Save As → CSV). We match on email, so re-importing the same people never duplicates them — it just merges.</p>
+      <label class="ct-import-file"><input type="file" id="ct-import-input" accept=".csv,text/csv" /></label>
+      <div id="ct-import-map" hidden>
+        <h3 class="ct-sec-h">Map your columns</h3>
+        <div id="ct-map-rows" class="ct-map-rows"></div>
+        <div class="ct-import-opts">
+          <label class="ct-import-opt">Apply a tag to everyone in this file<select id="ct-import-tag"></select></label>
+          <label class="ct-toggle"><input type="checkbox" id="ct-import-optin" /> These contacts have opted into marketing</label>
+        </div>
+        <p class="ct-import-preview ct-meta" id="ct-import-preview"></p>
+        <button type="button" class="admin-btn admin-btn-primary" id="ct-import-go">Import</button>
+        <p class="ct-import-status" id="ct-import-status" hidden></p>
+      </div>
+    </div>
+  </div>
+
   <style is:global>
     .admin-bar { display: flex; flex-direction: column; align-items: stretch; gap: 16px; max-width: 1360px; margin: 0 auto; padding: 40px 0 22px; border-bottom: 1px solid rgba(55,30,40,0.14); }
     .admin-bar-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
@@ -78,6 +103,23 @@ import "../../styles/admin.css";
     .ct-tl-item:not(:last-child)::before { content: ""; position: absolute; left: 4px; top: 18px; bottom: -8px; width: 1px; background: rgba(28,29,34,0.12); }
     .ct-tl-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: var(--english-violet); margin-top: 5px; position: relative; z-index: 1; }
     .ct-tl-body { font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
+    /* Import modal */
+    .ct-import-scrim { position: fixed; inset: 0; z-index: 70; background: rgba(20,18,26,0.45); display: flex; align-items: flex-start; justify-content: center; padding: 60px 20px; overflow-y: auto; }
+    .ct-import-scrim[hidden] { display: none; }
+    .ct-import-card { position: relative; width: min(560px, 96vw); background: #fff; border-radius: 14px; padding: 30px 32px 34px; box-shadow: 0 30px 80px rgba(0,0,0,0.3); }
+    .ct-import-x { position: absolute; top: 18px; right: 20px; }
+    .ct-import-title { font-family: var(--serif); font-weight: 500; font-size: 24px; color: var(--ink); margin: 0 30px 6px 0; }
+    .ct-import-sub { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.6); margin: 0 0 18px; }
+    .ct-import-file { display: block; margin-bottom: 18px; font-family: var(--sans); font-size: 13px; }
+    .ct-sec-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 12px; }
+    .ct-map-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .ct-map-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .ct-map-row label { font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
+    .ct-map-row select, .ct-import-opt select { font-family: var(--sans); font-size: 13px; padding: 7px 10px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; min-width: 200px; }
+    .ct-import-opts { display: flex; flex-direction: column; gap: 12px; padding: 16px 0; border-top: 1px solid rgba(28,29,34,0.08); }
+    .ct-import-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
+    .ct-import-preview { margin: 8px 0 14px; }
+    .ct-import-status { font-family: var(--sans); font-size: 13px; font-weight: 600; margin: 12px 0 0; }
     .ct-list { max-width: 1360px; margin: 0 auto; padding: 24px 0 140px; }
     .ct-loading, .ct-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 22px 0; }
     .ct-loading[hidden], .ct-empty[hidden], .ct-table[hidden] { display: none; }
@@ -384,6 +426,85 @@ import "../../styles/admin.css";
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
     $("ct-export").addEventListener("click", exportCsv);
+
+    // ---- Import CSV ----
+    const IMPORT_FIELDS = [
+      { key: "email", label: "Email", required: true, match: ["email", "e-mail", "email address"] },
+      { key: "first_name", label: "First name", match: ["first name", "firstname", "first", "forename"] },
+      { key: "last_name", label: "Last name", match: ["last name", "lastname", "last", "surname"] },
+      { key: "name", label: "Full name (if not split)", match: ["name", "full name", "contact name"] },
+      { key: "phone", label: "Phone", match: ["phone", "mobile", "telephone", "tel"] },
+      { key: "company", label: "Company", match: ["company", "business", "organisation", "organization", "agency"] },
+      { key: "tags", label: "Tags (; or , separated)", match: ["tags", "tag"] },
+    ];
+    let importHeaders = [], importData = [];
+    function parseCSV(text) {
+      const rows = []; let row = [], field = "", inQ = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i], nx = text[i + 1];
+        if (inQ) { if (ch === '"' && nx === '"') { field += '"'; i++; } else if (ch === '"') inQ = false; else field += ch; }
+        else if (ch === '"') inQ = true;
+        else if (ch === ",") { row.push(field); field = ""; }
+        else if (ch === "\r") { /* skip */ }
+        else if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+        else field += ch;
+      }
+      if (field !== "" || row.length) { row.push(field); rows.push(row); }
+      return rows.filter((r) => r.some((c) => String(c).trim() !== ""));
+    }
+    $("ct-import-tag").innerHTML = `<option value="">— none —</option>` + TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("");
+    $("ct-import-btn").addEventListener("click", () => { $("ct-import").hidden = false; });
+    $("ct-import-close").addEventListener("click", () => { $("ct-import").hidden = true; });
+    $("ct-import").addEventListener("click", (e) => { if (e.target === $("ct-import")) $("ct-import").hidden = true; });
+    $("ct-import-input").addEventListener("change", async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      const rows = parseCSV(await file.text());
+      const prev = $("ct-import-preview");
+      if (rows.length < 2) { $("ct-import-map").hidden = true; prev.hidden = false; prev.textContent = "That file has no data rows."; return; }
+      importHeaders = rows[0].map((h) => String(h).trim());
+      importData = rows.slice(1);
+      const norm = (s) => String(s).toLowerCase().trim();
+      const opts = (sel) => `<option value="">— skip —</option>` + importHeaders.map((h, i) => `<option value="${i}" ${sel === i ? "selected" : ""}>${esc(h)}</option>`).join("");
+      $("ct-map-rows").innerHTML = IMPORT_FIELDS.map((f) => {
+        const auto = importHeaders.findIndex((h) => f.match.some((m) => norm(h) === m || norm(h).includes(m)));
+        return `<div class="ct-map-row"><label>${f.label}${f.required ? " *" : ""}</label><select data-field="${f.key}">${opts(auto)}</select></div>`;
+      }).join("");
+      $("ct-import-preview").textContent = `${importData.length} row${importData.length === 1 ? "" : "s"} ready to import.`;
+      $("ct-import-map").hidden = false;
+    });
+    function setImportStatus(msg, ok) { const el = $("ct-import-status"); el.hidden = false; el.textContent = msg; el.style.color = ok ? "#2c7a4b" : "#a05a3c"; }
+    async function doImport() {
+      const map = {};
+      $("ct-map-rows").querySelectorAll("[data-field]").forEach((s) => { if (s.value !== "") map[s.getAttribute("data-field")] = parseInt(s.value, 10); });
+      if (map.email == null) { setImportStatus("Please map the Email column first.", false); return; }
+      const tag = $("ct-import-tag").value, optin = $("ct-import-optin").checked;
+      const rows = importData.map((r) => {
+        const val = (k) => (map[k] != null ? String(r[map[k]] || "").trim() : "");
+        let fn = val("first_name"), ln = val("last_name");
+        if (!fn && !ln && map.name != null) { const p = val("name").split(/\s+/); fn = p.shift() || ""; ln = p.join(" "); }
+        return { email: val("email"), first_name: fn || null, last_name: ln || null, phone: val("phone") || null, company: val("company") || null, tags: val("tags") };
+      }).filter((r) => r.email);
+      if (!rows.length) { setImportStatus("No rows had an email address.", false); return; }
+      if (!WORKER) { setImportStatus("Import backend isn't connected.", false); return; }
+      const btn = $("ct-import-go"); btn.disabled = true;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session && session.access_token;
+      let imported = 0, skipped = 0;
+      const CHUNK = 200;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        btn.textContent = `Importing… ${Math.min(i + CHUNK, rows.length)}/${rows.length}`;
+        try {
+          const res = await fetch(`${WORKER}/contacts/import`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" }, body: JSON.stringify({ rows: rows.slice(i, i + CHUNK), batch_tags: tag ? [tag] : [], marketing_opt_in: optin }) });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { setImportStatus(d.error || "Import failed.", false); btn.disabled = false; btn.textContent = "Import"; return; }
+          imported += d.imported || 0; skipped += d.skipped || 0;
+        } catch (_) { setImportStatus("Network error during import.", false); btn.disabled = false; btn.textContent = "Import"; return; }
+      }
+      btn.disabled = false; btn.textContent = "Import";
+      setImportStatus(`Imported ${imported} contact${imported === 1 ? "" : "s"}${skipped ? `, skipped ${skipped} (no/invalid email)` : ""}.`, true);
+      load();
+    }
+    $("ct-import-go").addEventListener("click", doImport);
 
     async function load() {
       const [cRes, oRes, vRes, sRes] = await Promise.all([
