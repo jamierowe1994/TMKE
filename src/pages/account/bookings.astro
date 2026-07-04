@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import { TERMS_BY_SERVICE, TERMS_NOTE } from "../../lib/videography-config.js";
 import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
 import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the reschedule picker
@@ -100,6 +101,19 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     </div>
   </div>
 
+  <!-- ===================== Service-agreement modal ===================== -->
+  <div class="bk-agree-scrim" id="bk-agree" hidden>
+    <div class="bk-agree-card" role="dialog" aria-modal="true" aria-label="Service agreement">
+      <button type="button" class="bk-detail-x" id="bk-agree-close" aria-label="Close">&times;</button>
+      <h2 class="bk-agree-title" id="bk-agree-title">Service agreement</h2>
+      <p class="bk-agree-signed" id="bk-agree-signed"></p>
+      <div class="bk-agree-body" id="bk-agree-body"></div>
+      <p class="bk-agree-note" id="bk-agree-note"></p>
+    </div>
+  </div>
+
+  <script type="application/json" id="tmke-terms" set:html={JSON.stringify({ note: TERMS_NOTE, byService: TERMS_BY_SERVICE })}></script>
+
   <style is:global>
     .bk-list { display: flex; flex-direction: column; gap: 14px; }
     .bk-card {
@@ -189,6 +203,21 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-resched-x:hover { color: var(--ink); }
     .bk-resched-sub { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.6); margin: 0 0 16px; }
     .bk-resched-back { appearance: none; background: none; border: 0; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; margin-top: 16px; padding: 0; }
+
+    /* ---- Service-agreement modal ---- */
+    .bk-agree-scrim { position: fixed; inset: 0; z-index: 560; background: rgba(28,29,34,0.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .bk-agree-scrim[hidden] { display: none; }
+    .bk-agree-card { position: relative; width: min(640px, 96vw); max-height: 88vh; overflow-y: auto; background: var(--paper); border-radius: 14px; padding: 30px 34px 34px; box-shadow: 0 30px 80px rgba(0,0,0,0.34); }
+    .bk-agree-title { font-family: var(--serif); font-weight: 500; font-size: 26px; color: var(--ink); margin: 0 34px 4px 0; }
+    .bk-agree-signed { font-family: var(--sans); font-size: 13px; color: var(--english-violet); font-weight: 700; margin: 0 0 18px; }
+    .bk-agree-body { border-top: 1px solid rgba(28,29,34,0.1); padding-top: 8px; }
+    .bk-clause { padding: 14px 0; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .bk-clause:last-child { border-bottom: 0; }
+    .bk-clause h4 { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); margin: 0 0 5px; }
+    .bk-clause p { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.75); margin: 0; }
+    .bk-agree-note { font-family: var(--sans); font-size: 12px; font-style: italic; color: rgba(28,29,34,0.5); line-height: 1.5; margin: 18px 0 0; }
+    .bk-doc.is-agreement { cursor: default; }
+    .bk-doc.is-agreement .bk-btn { padding: 8px 13px; font-size: 12px; }
   </style>
 
   <script>
@@ -258,16 +287,21 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         return;
       }
       rows = (vid || []).map(normVid).concat((smm || []).map(normSmm));
-
-      // Messages + documents (tables may not exist yet — fail soft to empty).
-      const ids = rows.map((r) => r.id);
-      if (ids.length) {
-        const { data: msgs } = await supabase.from('booking_messages').select('*').in('booking_id', ids).order('created_at', { ascending: true });
-        (msgs || []).forEach((m) => { const k = `${m.booking_source}:${m.booking_id}`; if (!msgsByKey.has(k)) msgsByKey.set(k, []); msgsByKey.get(k).push(m); });
-        const { data: docs } = await supabase.from('booking_documents').select('*').in('booking_id', ids).order('created_at', { ascending: true });
-        (docs || []).forEach((d) => { const k = `${d.booking_source}:${d.booking_id}`; if (!docsByKey.has(k)) docsByKey.set(k, []); docsByKey.get(k).push(d); });
-      }
       render();
+
+      // Messages + documents come through the Worker (service role + verified
+      // session), so nothing is lost to an RLS or email-casing edge case.
+      if (WORKER) {
+        try {
+          const res = await fetch(`${WORKER}/booking/mine`, { headers: { Authorization: 'Bearer ' + session.access_token } });
+          if (res.ok) {
+            const t = await res.json();
+            (t.messages || []).forEach((m) => { const k = `${m.booking_source}:${m.booking_id}`; if (!msgsByKey.has(k)) msgsByKey.set(k, []); msgsByKey.get(k).push(m); });
+            (t.documents || []).forEach((d) => { const k = `${d.booking_source}:${d.booking_id}`; if (!docsByKey.has(k)) docsByKey.set(k, []); docsByKey.get(k).push(d); });
+            if (currentKey) openDetail(currentKey);
+          }
+        } catch (_) {}
+      }
     })();
 
     function normVid(r) {
@@ -422,7 +456,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     function renderDocs(r, list) {
       const out = [];
       if (r.signed_at || r.signed_name) {
-        out.push(`<div class="bk-doc is-agreement"><div class="bk-doc-ic">✓</div><div class="bk-doc-main"><strong>Service agreement</strong><span>Signed by ${escapeHtml(r.signed_name || r.client_name || 'you')}${r.signed_at ? ' · ' + fmtDate(r.signed_at) : ''}</span></div></div>`);
+        out.push(`<div class="bk-doc is-agreement"><div class="bk-doc-ic">✓</div><div class="bk-doc-main"><strong>Service agreement</strong><span>Signed by ${escapeHtml(r.signed_name || r.client_name || 'you')}${r.signed_at ? ' · ' + fmtDate(r.signed_at) : ''}</span></div><button type="button" class="bk-btn" data-agreement="${escapeHtml(r.service_type || '')}" data-signer="${escapeHtml(r.signed_name || r.client_name || '')}" data-signed="${escapeHtml(r.signed_at || '')}">View</button></div>`);
       }
       list.forEach((d) => {
         out.push(`<div class="bk-doc"><div class="bk-doc-ic">${CAT_ICON[d.category] || '📄'}</div><div class="bk-doc-main"><strong>${escapeHtml(d.title || d.file_name)}</strong><span>${escapeHtml(CAT_LABEL[d.category] || 'Document')}${d.size_bytes ? ' · ' + fmtBytes(d.size_bytes) : ''}</span></div><button type="button" class="bk-btn" data-doc="${escapeHtml(d.id)}" data-name="${escapeHtml(d.file_name)}">Download</button></div>`);
@@ -441,6 +475,29 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         'SUMMARY:' + (r.service || 'TMKE booking'), r.location ? 'LOCATION:' + r.location : '', 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean);
       return 'data:text/calendar;charset=utf-8,' + encodeURIComponent(lines.join('\r\n'));
     }
+
+    // ---------- Service-agreement modal ----------
+    const TERMS_DATA = (() => { try { return JSON.parse(document.getElementById('tmke-terms').textContent); } catch (_) { return { note: '', byService: {} }; } })();
+    const TERMS_KEY = { content: 'content-studio', 'content-studio': 'content-studio', property: 'property', agent: 'agent' };
+    function openAgreement(serviceType, signer, signed) {
+      const t = TERMS_DATA.byService || {};
+      const terms = t[TERMS_KEY[serviceType]] || t[serviceType] || t.property || null;
+      $('bk-agree-title').textContent = (terms && terms.title) || 'Service agreement';
+      $('bk-agree-signed').textContent = signer ? `Signed by ${signer}${signed ? ' · ' + fmtDate(signed) : ''}` : '';
+      $('bk-agree-body').innerHTML = terms && terms.clauses
+        ? terms.clauses.map((c, i) => `<div class="bk-clause"><h4>${i + 1}. ${escapeHtml(c.h)}</h4><p>${c.p}</p></div>`).join('')
+        : `<p class="bk-empty">Agreement terms are unavailable — please contact us for a copy.</p>`;
+      $('bk-agree-note').textContent = TERMS_DATA.note || '';
+      $('bk-agree').hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+    function closeAgreement() { $('bk-agree').hidden = true; document.body.style.overflow = currentKey ? 'hidden' : ''; }
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-agreement]'); if (!btn) return;
+      openAgreement(btn.getAttribute('data-agreement'), btn.getAttribute('data-signer'), btn.getAttribute('data-signed'));
+    });
+    $('bk-agree-close')?.addEventListener('click', closeAgreement);
+    $('bk-agree')?.addEventListener('click', (e) => { if (e.target === $('bk-agree')) closeAgreement(); });
 
     // Open detail (click or keyboard).
     document.addEventListener('click', (e) => {
