@@ -262,6 +262,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         if (!isDemo) { location.replace('/login?next=' + encodeURIComponent('/account/bookings')); return; }
         seedDemo();
         render();
+        openFromUrl();
         return;
       }
       const email = session.user.email ?? '';
@@ -288,6 +289,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       }
       rows = (vid || []).map(normVid).concat((smm || []).map(normSmm));
       render();
+      openFromUrl();
 
       // Messages + documents come through the Worker (service role + verified
       // session), so nothing is lost to an RLS or email-casing edge case.
@@ -498,6 +500,14 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     });
     $('bk-agree-close')?.addEventListener('click', closeAgreement);
     $('bk-agree')?.addEventListener('click', (e) => { if (e.target === $('bk-agree')) closeAgreement(); });
+
+    // Deep link from a notification: /account/bookings?open=<source>:<id>
+    function openFromUrl() {
+      try {
+        const p = new URLSearchParams(location.search).get('open');
+        if (p && rows.some((r) => keyOf(r) === p)) openDetail(p);
+      } catch (_) {}
+    }
 
     // Open detail (click or keyboard).
     document.addEventListener('click', (e) => {
