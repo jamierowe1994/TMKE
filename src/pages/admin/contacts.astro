@@ -13,18 +13,19 @@ import "../../styles/admin.css";
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input type="search" id="ct-search" placeholder="Search name, email, company…" aria-label="Search contacts" />
           </label>
-          <select class="ct-filter" id="ct-filter" aria-label="Filter by lifecycle">
-            <option value="all">All</option>
-            <option value="lead">Leads</option>
-            <option value="customer">Customers</option>
-            <option value="member">Members</option>
-            <option value="dnd">Do-not-contact</option>
-          </select>
           <button type="button" class="ct-tool-btn" id="ct-export" title="Download the current list as a CSV">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
             Export CSV
           </button>
         </div>
+      </div>
+      <div class="ct-chips-bar" id="ct-chips">
+        <button type="button" class="ct-chip-f is-active" data-seg="all">All <b data-n="all">0</b></button>
+        <button type="button" class="ct-chip-f" data-seg="members">Members <b data-n="members">0</b></button>
+        <button type="button" class="ct-chip-f" data-seg="email">Can email <b data-n="email">0</b></button>
+        <button type="button" class="ct-chip-f" data-seg="purchasers">Purchasers <b data-n="purchasers">0</b></button>
+        <button type="button" class="ct-chip-f" data-seg="booked">Booked <b data-n="booked">0</b></button>
+        <button type="button" class="ct-chip-f" data-seg="contact">Contact-only <b data-n="contact">0</b></button>
       </div>
     </section>
 
@@ -63,6 +64,15 @@ import "../../styles/admin.css";
     .ct-tool-btn { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid rgba(var(--violet-rgb),0.4); border-radius: 999px; padding: 9px 16px; cursor: pointer; font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); transition: background 0.15s, color 0.15s; }
     .ct-tool-btn:hover { background: var(--english-violet); color: #fff; }
     .ct-tool-btn svg { width: 14px; height: 14px; }
+    .ct-chips-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ct-chip-f { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); transition: background 0.15s, border-color 0.15s, color 0.15s; }
+    .ct-chip-f:hover { border-color: rgba(var(--violet-rgb),0.4); }
+    .ct-chip-f.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .ct-chip-f b { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.6); }
+    .ct-chip-f.is-active b { background: rgba(255,255,255,0.22); color: #fff; }
+    .ct-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ct-badge { font-family: var(--sans); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.6); }
+    .ct-badge.is-on { background: rgba(44,122,75,0.12); color: #2c7a4b; }
     .ct-list { max-width: 1360px; margin: 0 auto; padding: 24px 0 140px; }
     .ct-loading, .ct-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 22px 0; }
     .ct-loading[hidden], .ct-empty[hidden], .ct-table[hidden] { display: none; }
@@ -112,8 +122,18 @@ import "../../styles/admin.css";
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
     const fullName = (c) => [c.first_name, c.last_name].filter(Boolean).join(" ") || "(no name)";
+    const gbp = (p) => (p == null ? "—" : "£" + (p / 100).toLocaleString("en-GB", { minimumFractionDigits: p % 100 ? 2 : 0, maximumFractionDigits: 2 }));
 
-    let ALL = [], q = "", filter = "all", current = null;
+    let ALL = [], q = "", seg = "all", current = null;
+    // Attribute-based segments (what the CRM slices by).
+    const SEGMENTS = {
+      all: () => true,
+      members: (c) => !!c.user_id,
+      email: (c) => c.marketing_opt_in === true,
+      purchasers: (c) => (c.tags || []).includes("Pack-Purchased"),
+      booked: (c) => (c.tags || []).some((t) => t === "Videography-Client" || t.indexOf("Discovery-Call-Booked") === 0),
+      contact: (c) => !c.user_id && c.marketing_opt_in !== true,
+    };
 
     // Fire a contact-action trigger into the automations engine (admin authed).
     async function fire(trigger, contact, payload) {
@@ -131,10 +151,14 @@ import "../../styles/admin.css";
 
     function getFiltered() {
       return ALL
-        .filter((c) => filter === "all" || (filter === "dnd" ? c.dnd : c.lifecycle === filter))
+        .filter(SEGMENTS[seg] || SEGMENTS.all)
         .filter((c) => !q || (fullName(c) + " " + c.email + " " + (c.company || "")).toLowerCase().includes(q));
     }
+    function updateCounts() {
+      Object.keys(SEGMENTS).forEach((k) => { const el = document.querySelector(`[data-n="${k}"]`); if (el) el.textContent = ALL.filter(SEGMENTS[k]).length; });
+    }
     function render() {
+      updateCounts();
       const list = getFiltered();
       $("ct-count").textContent = `${ALL.length} contact${ALL.length === 1 ? "" : "s"}`;
       $("ct-empty").hidden = ALL.length !== 0;
@@ -157,19 +181,43 @@ import "../../styles/admin.css";
       $("ct-d-email").textContent = current.email;
       $("ct-scrim").hidden = false; $("ct-drawer").hidden = false;
       $("ct-drawer-body").innerHTML = `<p class="ct-meta">Loading…</p>`;
-      const [{ data: notes }, { data: tasks }] = await Promise.all([
+      const email = current.email;
+      // Purchases + bookings are derived live by email, so they're always accurate.
+      const [{ data: notes }, { data: tasks }, ord, vidb, smmb] = await Promise.all([
         supabase.from("contact_notes").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("contact_tasks").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
+        supabase.from("orders").select("pack_title, amount_pence, status, created_at").ilike("buyer_email", email).order("created_at", { ascending: false }),
+        supabase.from("videography_bookings").select("service, service_type, kind, shoot_date, stage").ilike("client_email", email).order("shoot_date", { ascending: false, nullsFirst: false }),
+        supabase.from("smm_leads").select("kind, call_at, stage").eq("kind", "discovery").ilike("email", email).order("call_at", { ascending: false, nullsFirst: false }),
       ]);
-      drawNote(notes || [], tasks || []);
+      const bookings = [
+        ...((vidb && vidb.data) || []).map((b) => ({ label: b.service || b.service_type || "Videography", when: b.shoot_date, stage: b.stage })),
+        ...((smmb && smmb.data) || []).map((b) => ({ label: "Social media discovery call", when: b.call_at, stage: b.stage })),
+      ];
+      drawNote(notes || [], tasks || [], (ord && ord.data) || [], bookings);
     }
     function closeDrawer() { $("ct-scrim").hidden = true; $("ct-drawer").hidden = true; current = null; }
     $("ct-close").addEventListener("click", closeDrawer);
     $("ct-scrim").addEventListener("click", closeDrawer);
 
-    function drawNote(notes, tasks) {
+    function drawNote(notes, tasks, orders, bookings) {
       const c = current;
       $("ct-drawer-body").innerHTML = `
+        <div class="ct-sec">
+          <h3>Status</h3>
+          <div class="ct-badges">
+            <span class="ct-badge ${c.user_id ? "is-on" : ""}">${c.user_id ? "Member — has account" : "No account"}</span>
+            <span class="ct-badge ${c.marketing_opt_in ? "is-on" : ""}">Marketing: ${c.marketing_opt_in ? "Yes" : "No"}</span>
+          </div>
+        </div>
+        <div class="ct-sec">
+          <h3>Purchased</h3>
+          ${orders.length ? orders.map((o) => `<div class="ct-item">${esc(o.pack_title || "Pack")}<div class="ct-item-meta">${gbp(o.amount_pence)}${o.status && o.status !== "paid" ? " · " + esc(o.status) : ""} · ${fmtDate(o.created_at)}</div></div>`).join("") : '<p class="ct-meta">No purchases</p>'}
+        </div>
+        <div class="ct-sec">
+          <h3>Booked</h3>
+          ${bookings.length ? bookings.map((b) => `<div class="ct-item">${esc(b.label)}<div class="ct-item-meta">${b.when ? fmtDate(b.when) : "—"}${b.stage ? " · " + esc(b.stage) : ""}</div></div>`).join("") : '<p class="ct-meta">No bookings</p>'}
+        </div>
         <div class="ct-sec">
           <h3>Details</h3>
           <p class="ct-meta">
@@ -249,7 +297,12 @@ import "../../styles/admin.css";
     }
 
     $("ct-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); render(); });
-    $("ct-filter").addEventListener("change", (e) => { filter = e.target.value; render(); });
+    $("ct-chips").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-seg]"); if (!b) return;
+      seg = b.getAttribute("data-seg");
+      $("ct-chips").querySelectorAll("[data-seg]").forEach((x) => x.classList.toggle("is-active", x === b));
+      render();
+    });
 
     // ---- Export the current (filtered) list as CSV ----
     const csvCell = (v) => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
