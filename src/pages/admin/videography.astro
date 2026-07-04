@@ -407,6 +407,18 @@ const DELIVER_CATEGORIES = [
     }
     .vid-cand-meta strong { color: var(--ink); font-weight: 700; }
     .vid-cand-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 22px; }
+    /* Progress timeline */
+    .vid-timeline { display: flex; margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12); }
+    .vid-timeline.is-cancelled { opacity: 0.5; }
+    .vid-tl-step { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+    .vid-tl-step::after { content: ""; position: absolute; top: 6px; left: 50%; width: 100%; height: 2px; background: rgba(28, 29, 34, 0.15); z-index: 0; }
+    .vid-tl-step:last-child::after { display: none; }
+    .vid-tl-step.is-linkdone::after { background: var(--english-violet); }
+    .vid-tl-dot { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid rgba(28, 29, 34, 0.22); position: relative; z-index: 1; transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+    .vid-tl-step.is-done .vid-tl-dot { background: var(--english-violet); border-color: var(--english-violet); }
+    .vid-tl-step.is-current .vid-tl-dot { box-shadow: 0 0 0 4px rgba(var(--violet-rgb), 0.18); }
+    .vid-tl-label { font-family: var(--sans); font-size: 11.5px; color: rgba(28, 29, 34, 0.5); text-align: center; }
+    .vid-tl-step.is-done .vid-tl-label, .vid-tl-step.is-current .vid-tl-label { color: var(--ink); font-weight: 600; }
     .vid-cand-drawer {
       margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
       text-align: left; display: none;
@@ -728,6 +740,7 @@ const DELIVER_CATEGORIES = [
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
+    import { bookingLocation } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -908,6 +921,27 @@ const DELIVER_CATEGORIES = [
     function fmtBig(iso) {
       return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
     }
+    // Progress timeline. DB stages in order; each display step maps to the stage
+    // index it is "reached" at. Content Studio has a Prepped step (prompt pack);
+    // Property / Agent don't (no prep element).
+    const STAGE_ORDER = ["booked", "shoot_day", "editing", "final_draft", "invoice_out", "complete"];
+    function renderTimeline(b) {
+      const isStudio = /content|studio/i.test((b.service_type || "") + " " + (b.service || ""));
+      const steps = isStudio
+        ? [["Booked", 0], ["Prepped", 0.5], ["Shoot day", 1], ["Edited", 2], ["Preview sent", 3], ["Paid", 5]]
+        : [["Booked", 0], ["Shoot day", 1], ["Edited", 2], ["Preview sent", 3], ["Paid", 5]];
+      const cancelled = b.stage === "cancelled";
+      const cur = STAGE_ORDER.indexOf(b.stage);
+      const curIdx = cur < 0 ? 0 : cur;
+      let lastReached = 0;
+      steps.forEach(([, t], i) => { if (curIdx >= t) lastReached = i; });
+      return `<div class="vid-timeline${cancelled ? " is-cancelled" : ""}">${steps.map(([label, t], i) => {
+        const done = !cancelled && curIdx >= t;
+        const isCur = !cancelled && i === lastReached;
+        const linkDone = !cancelled && i < steps.length - 1 && curIdx >= steps[i + 1][1];
+        return `<div class="vid-tl-step${done ? " is-done" : ""}${isCur ? " is-current" : ""}${linkDone ? " is-linkdone" : ""}"><span class="vid-tl-dot"></span><span class="vid-tl-label">${label}</span></div>`;
+      }).join("")}</div>`;
+    }
     function nextActionHint(b) {
       if (b.stage === "booked" && b.shoot_date) return "Shoot " + fmtBig(b.shoot_date);
       return (STAGE_FLOW[b.stage] || {}).sub || b.stage;
@@ -960,6 +994,7 @@ const DELIVER_CATEGORIES = [
       const amount = b.amount_pence != null ? gbpFromPence(b.amount_pence) : "—";
       const isStudio = /content|studio/i.test((b.service_type || "") + " " + (b.service || ""));
       const whenStr = b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+      const loc = bookingLocation({ service_type: b.service_type, source: "videography", postcode: b.location || b.postcode });
       el.innerHTML = `
         <div class="vid-cand-who">${escapeHtml(b.client_name)}</div>
         ${b.client_company ? `<div class="vid-cand-co">${escapeHtml(b.client_company)}</div>` : ""}
@@ -970,7 +1005,7 @@ const DELIVER_CATEGORIES = [
           ${b.service ? `<span>Service&nbsp; <strong>${escapeHtml(b.service)}</strong></span>` : ""}
           ${whenStr ? `<span>When&nbsp; <strong>${escapeHtml(whenStr)}</strong></span>` : ""}
           <span>Quote&nbsp; <strong>${amount}</strong></span>
-          ${b.location ? `<span>Location&nbsp; <strong>${escapeHtml(b.location)}</strong></span>` : ""}
+          ${loc ? `<span>Location&nbsp; <strong>${escapeHtml(loc)}</strong></span>` : ""}
           ${!isStudio ? `<span data-distance>Distance&nbsp; <strong>…</strong></span>` : ""}
         </div>
         <div class="vid-cand-actions">
@@ -980,6 +1015,7 @@ const DELIVER_CATEGORIES = [
           <button type="button" class="admin-btn admin-btn-ghost" data-act="add">Add</button>
           ${b.stage !== "booked" ? `<button type="button" class="admin-btn admin-btn-ghost" data-act="back">Move back a step</button>` : ""}
         </div>
+        ${renderTimeline(b)}
         <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
         <div class="vid-cand-thread" id="vid-cand-thread"></div>`;
       if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => advanceStage(f.advance.to));
@@ -1172,7 +1208,7 @@ const DELIVER_CATEGORIES = [
     async function showDistance(b) {
       const span = document.querySelector("#vid-cand [data-distance] strong");
       if (!span) return;
-      const m = (b.location || "").match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
+      const m = ((b.location || b.postcode) || "").match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
       if (!m) { span.textContent = "add a postcode"; return; }
       try {
         const base = await getBaseCoords();
