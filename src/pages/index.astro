@@ -634,11 +634,17 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         });
       });
 
-      // Newsletter subscribe → toast confirmation on phones.
+      // Newsletter subscribe → opts the email in (marketing + "Newsletter" tag).
       const newsForm = document.getElementById("news-form");
-      if (newsForm) newsForm.addEventListener("submit", () => {
+      if (newsForm) newsForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
         const input = newsForm.querySelector("input");
-        if (input && input.value) toast("You’re on the list — see you in your inbox ✓");
+        const email = input && input.value.trim();
+        if (!email) return;
+        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+        if (WORKER) { try { await fetch(`${WORKER}/newsletter`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }); } catch (_) {} }
+        toast("You’re on the list — see you in your inbox ✓");
+        newsForm.reset();
       });
     })();
   </script>
