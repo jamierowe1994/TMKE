@@ -205,6 +205,24 @@ const heroFirst = heroTemplates[0];
           </ul>
           <a class="ws-textlink ws-textlink--accent" href="/profile">Finish setup →</a>
         </section>
+
+        <!-- BOOKINGS -->
+        <section class="ws-widget ws-rise" style="--delay:2.1s" aria-labelledby="bk-h">
+          <header class="ws-widget-head">
+            <span class="ws-wtitle" id="bk-h">Bookings</span>
+            <a class="ws-textlink ws-textlink--accent ws-wlink" href="/account/bookings">View all →</a>
+          </header>
+          <div class="ws-bk">
+            <div class="ws-bk-track" id="ws-bk-track">
+              <div class="ws-bk-empty">Loading…</div>
+            </div>
+            <div class="ws-bk-nav" id="ws-bk-nav" hidden>
+              <button type="button" class="ws-bk-arrow" data-bk-prev aria-label="Previous booking">&lsaquo;</button>
+              <div class="ws-bk-dots" id="ws-bk-dots"></div>
+              <button type="button" class="ws-bk-arrow" data-bk-next aria-label="Next booking">&rsaquo;</button>
+            </div>
+          </div>
+        </section>
       </div>
 
       <!-- ============ Discovery — full width ============ -->
@@ -343,6 +361,27 @@ const heroFirst = heroTemplates[0];
     .ws-notif-item.is-unread { background: color-mix(in srgb, var(--ws-accent) 7%, transparent); }
     .ws-notif-item.is-unread .ws-notif-txt b::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ws-accent); margin-right: 6px; vertical-align: middle; }
     .ws-notif-empty { padding: 22px 12px; text-align: center; font-size: 13px; color: var(--ws-faint); }
+
+    /* Bookings widget — a slide-across carousel of active bookings */
+    .ws-wlink { font-size: 12px; }
+    .ws-bk { position: relative; }
+    .ws-bk-track { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none; margin: 0 -2px; padding: 2px; }
+    .ws-bk-track::-webkit-scrollbar { display: none; }
+    .ws-bk-card { flex: 0 0 100%; scroll-snap-align: start; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: var(--ws-r); border: 1px solid var(--ws-line); background: var(--ws-soft); text-decoration: none; transition: border-color .18s, transform .18s; }
+    .ws-bk-card:hover { border-color: var(--ws-accent); transform: translateY(-1px); }
+    .ws-bk-pill { align-self: flex-start; font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 12%, #fff); padding: 4px 9px; border-radius: 999px; }
+    .ws-bk-pill.is-call { color: #2f9e5e; background: rgba(47,158,94,0.12); }
+    .ws-bk-title { font-size: 15px; font-weight: 600; color: var(--ws-ink); line-height: 1.2; }
+    .ws-bk-when { font-size: 12.5px; color: var(--ws-tx); }
+    .ws-bk-count { font-size: 12px; color: var(--ws-faint); }
+    .ws-bk-empty { flex: 0 0 100%; box-sizing: border-box; text-align: center; padding: 18px 12px; font-size: 13px; color: var(--ws-faint); line-height: 1.6; }
+    .ws-bk-empty a { color: var(--ws-accent); font-weight: 600; text-decoration: none; }
+    .ws-bk-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; }
+    .ws-bk-arrow { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--ws-line); background: #fff; color: var(--ws-ink); font-size: 15px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: border-color .18s; }
+    .ws-bk-arrow:hover { border-color: var(--ws-accent); }
+    .ws-bk-dots { display: flex; gap: 6px; }
+    .ws-bk-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ws-line); border: 0; padding: 0; cursor: pointer; transition: background .18s, transform .18s; }
+    .ws-bk-dot.is-active { background: var(--ws-accent); transform: scale(1.25); }
     .ws-notif-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
     .ws-notif-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .ws-notif-ic--order { color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 13%, #fff); }
@@ -695,6 +734,69 @@ const heroFirst = heroTemplates[0];
       location.href = '/login';
     }));
 
+    // ---- Bookings widget (right-column carousel of active bookings) ----
+    const bkFmt = (iso) => { try { return new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; } };
+    const bkCountdown = (iso) => { const ts = new Date(iso).getTime(); if (isNaN(ts)) return ''; const d = Math.ceil((ts - Date.now()) / 86400000); return d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : `In ${d} days`; };
+    function renderBookings(items) {
+      const track = document.getElementById('ws-bk-track');
+      const nav = document.getElementById('ws-bk-nav');
+      const dots = document.getElementById('ws-bk-dots');
+      if (!track) return;
+      if (!items.length) {
+        track.innerHTML = `<div class="ws-bk-empty">No upcoming bookings.<br><a href="/videography">Book a shoot or call →</a></div>`;
+        if (nav) nav.hidden = true;
+        return;
+      }
+      track.innerHTML = items.map((b) => {
+        const isCall = b.source === 'smm' || b.service_type === 'discovery';
+        return `<a class="ws-bk-card" href="/account/bookings?open=${encodeURIComponent(b.source + ':' + b.id)}">
+          <span class="ws-bk-pill${isCall ? ' is-call' : ''}">${isCall ? 'Call booked' : 'Booked'}</span>
+          <span class="ws-bk-title">${escapeHtml(b.title)}</span>
+          <span class="ws-bk-when">${escapeHtml(bkFmt(b.when))}</span>
+          <span class="ws-bk-count">${escapeHtml(bkCountdown(b.when))}</span>
+        </a>`;
+      }).join('');
+      if (items.length > 1 && nav && dots) {
+        nav.hidden = false;
+        dots.innerHTML = items.map((_, i) => `<button type="button" class="ws-bk-dot${i === 0 ? ' is-active' : ''}" data-bk-dot="${i}" aria-label="Booking ${i + 1}"></button>`).join('');
+        const dotEls = [...dots.querySelectorAll('[data-bk-dot]')];
+        const cardW = () => track.firstElementChild ? track.firstElementChild.getBoundingClientRect().width + 10 : track.clientWidth;
+        const current = () => Math.round(track.scrollLeft / cardW());
+        const go = (i) => track.scrollTo({ left: Math.max(0, Math.min(items.length - 1, i)) * cardW(), behavior: 'smooth' });
+        document.querySelector('[data-bk-prev]')?.addEventListener('click', () => go(current() - 1));
+        document.querySelector('[data-bk-next]')?.addEventListener('click', () => go(current() + 1));
+        dotEls.forEach((d, i) => d.addEventListener('click', () => go(i)));
+        track.addEventListener('scroll', () => { const i = current(); dotEls.forEach((d, j) => d.classList.toggle('is-active', j === i)); }, { passive: true });
+      } else if (nav) {
+        nav.hidden = true;
+      }
+    }
+    async function initBookingsWidget(session) {
+      let items = [];
+      const now = Date.now();
+      if (session) {
+        const email = session.user.email ?? '';
+        try {
+          const [v, s] = await Promise.all([
+            supabase.from('videography_bookings').select('id, service, service_type, shoot_date, stage').or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`),
+            supabase.from('smm_leads').select('id, call_at, stage').eq('kind', 'discovery').or(`account_user_id.eq.${session.user.id},email.eq.${email}`),
+          ]);
+          const vid = (v.data || []).map((r) => ({ source: 'videography', id: r.id, title: r.service || 'Videography booking', service_type: r.service_type, when: r.shoot_date, stage: r.stage }));
+          const smm = (s.data || []).map((r) => ({ source: 'smm', id: r.id, title: 'Social media discovery call', service_type: 'discovery', when: r.call_at, stage: r.stage || 'discovery_call_booked' }));
+          items = vid.concat(smm);
+        } catch (_) {}
+      } else {
+        items = [
+          { source: 'videography', id: 'demo-1', title: 'Property shoot', service_type: 'property', when: new Date(now + 6 * 86400000).toISOString(), stage: 'booked' },
+          { source: 'smm', id: 'demo-2', title: 'Social media discovery call', service_type: 'discovery', when: new Date(now + 2 * 86400000).toISOString(), stage: 'discovery_call_booked' },
+        ];
+      }
+      items = items
+        .filter((b) => b.stage !== 'cancelled' && b.when && new Date(b.when).getTime() > now)
+        .sort((a, b) => new Date(a.when) - new Date(b.when));
+      renderBookings(items);
+    }
+
     (async () => {
       try {
         const isDemo = import.meta.env.DEV;
@@ -702,8 +804,10 @@ const heroFirst = heroTemplates[0];
         if (!session) {
           // Live workspace — require sign-in. (Dev ?demo=1 still previews the mock.)
           if (!isDemo) { location.replace('/login?next=' + encodeURIComponent('/dashboard')); return; }
+          initBookingsWidget(null);
           return;
         }
+        initBookingsWidget(session);
 
         const email = session.user.email ?? '';
         const meta = session.user.user_metadata ?? {};
