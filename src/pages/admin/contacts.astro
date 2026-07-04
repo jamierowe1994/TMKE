@@ -20,6 +20,10 @@ import "../../styles/admin.css";
             <option value="member">Members</option>
             <option value="dnd">Do-not-contact</option>
           </select>
+          <button type="button" class="ct-tool-btn" id="ct-export" title="Download the current list as a CSV">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Export CSV
+          </button>
         </div>
       </div>
     </section>
@@ -56,6 +60,9 @@ import "../../styles/admin.css";
     .ct-search svg { width: 15px; height: 15px; color: rgba(28,29,34,0.42); flex: none; }
     .ct-search input { border: 0; outline: none; background: none; width: 100%; font-family: var(--sans); font-size: 13px; color: var(--ink); }
     .ct-filter { appearance: none; -webkit-appearance: none; background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 9px 32px 9px 14px; cursor: pointer; font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--english-violet); }
+    .ct-tool-btn { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid rgba(var(--violet-rgb),0.4); border-radius: 999px; padding: 9px 16px; cursor: pointer; font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); transition: background 0.15s, color 0.15s; }
+    .ct-tool-btn:hover { background: var(--english-violet); color: #fff; }
+    .ct-tool-btn svg { width: 14px; height: 14px; }
     .ct-list { max-width: 1360px; margin: 0 auto; padding: 24px 0 140px; }
     .ct-loading, .ct-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 22px 0; }
     .ct-loading[hidden], .ct-empty[hidden], .ct-table[hidden] { display: none; }
@@ -122,10 +129,13 @@ import "../../styles/admin.css";
       } catch (_) {}
     }
 
-    function render() {
-      const list = ALL
+    function getFiltered() {
+      return ALL
         .filter((c) => filter === "all" || (filter === "dnd" ? c.dnd : c.lifecycle === filter))
         .filter((c) => !q || (fullName(c) + " " + c.email + " " + (c.company || "")).toLowerCase().includes(q));
+    }
+    function render() {
+      const list = getFiltered();
       $("ct-count").textContent = `${ALL.length} contact${ALL.length === 1 ? "" : "s"}`;
       $("ct-empty").hidden = ALL.length !== 0;
       $("ct-table").hidden = list.length === 0;
@@ -240,6 +250,26 @@ import "../../styles/admin.css";
 
     $("ct-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); render(); });
     $("ct-filter").addEventListener("change", (e) => { filter = e.target.value; render(); });
+
+    // ---- Export the current (filtered) list as CSV ----
+    const csvCell = (v) => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    function exportCsv() {
+      const rows = getFiltered();
+      const cols = ["First name", "Last name", "Email", "Phone", "Company", "Lifecycle", "Member", "Marketing opt-in", "Do-not-contact", "Tags", "Source", "Created", "Last seen"];
+      const iso = (d) => { try { return d ? new Date(d).toISOString().slice(0, 10) : ""; } catch (_) { return ""; } };
+      const lines = [cols.map(csvCell).join(",")];
+      rows.forEach((c) => lines.push([
+        c.first_name || "", c.last_name || "", c.email || "", c.phone || "", c.company || "",
+        c.lifecycle || "", c.user_id ? "Yes" : "No", c.marketing_opt_in ? "Yes" : "No", c.dnd ? "Yes" : "No",
+        (c.tags || []).join("; "), c.source || "", iso(c.created_at), iso(c.last_seen_at),
+      ].map(csvCell).join(",")));
+      const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `tmke-contacts-${iso(Date.now())}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    }
+    $("ct-export").addEventListener("click", exportCsv);
 
     async function load() {
       const { data, error } = await supabase.from("contacts").select("*").order("updated_at", { ascending: false }).limit(1000);
