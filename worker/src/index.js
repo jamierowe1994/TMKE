@@ -536,9 +536,9 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
 // real inbox, and a copy sits in Sent Items. Reuses the same app-only token as
 // the calendar integration (needs the `Mail.Send` application permission).
 // Best-effort: never throws — the caller's record is already saved.
-async function sendEmail(env, { to, subject, html, attachments }) {
+async function sendEmail(env, { to, subject, html, attachments, from, fromName }) {
   if (!to) return;
-  const sender = env.MAIL_SENDER || env.JACK_UPN;
+  const sender = from || env.MAIL_SENDER || env.JACK_UPN;
   if (!sender) return;
   const recipients = (Array.isArray(to) ? to : [to])
     .map((a) => String(a || "").trim())
@@ -550,7 +550,8 @@ async function sendEmail(env, { to, subject, html, attachments }) {
     body: { contentType: "HTML", content: html },
     toRecipients: recipients,
   };
-  if (env.MAIL_FROM_NAME) message.from = { emailAddress: { address: sender, name: env.MAIL_FROM_NAME } };
+  const dispName = fromName || env.MAIL_FROM_NAME;
+  if (dispName) message.from = { emailAddress: { address: sender, name: dispName } };
   if (attachments && attachments.length) {
     message.attachments = attachments.map((a) => ({
       "@odata.type": "#microsoft.graph.fileAttachment",
@@ -1505,12 +1506,14 @@ export default {
           business: business || null, message: message || null,
           marketing_opt_in: !!marketing_opt_in,
           account_user_id: accountUserId, account_created: accountCreated,
-        });
+        }, "return=representation");
         if (!saved.ok) {
           const detail = await saved.text().catch(() => "");
           console.error("smm enquiry insert failed", saved.status, detail);
           return json({ error: "We couldn't save your message just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
+        let smmEnquiryId = null;
+        try { const arr = await saved.json(); smmEnquiryId = Array.isArray(arr) && arr[0] ? arr[0].id : null; } catch (_) {}
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -1523,6 +1526,12 @@ export default {
             ${message ? `<div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(message)}</div>` : ""}
             ${accountCreated ? `<p style="color:#555;font-size:14px;margin:18px 0 0">We've also created your TMKE account — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
             <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
+        });
+        await logBookingMessage(env, {
+          booking_id: smmEnquiryId, booking_source: "smm",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: "Thanks — we've got your message",
+          body: `Auto-acknowledgement sent: we've received ${first_name}'s enquiry and will be in touch within one working day.`,
         });
 
         // Notify the SMM team.
@@ -1587,12 +1596,14 @@ export default {
           kind: "brochure", tag: "Brochure Download", stage: "brochure_downloaded", brochure_sent: true,
           full_name, email, marketing_opt_in: !!marketing_opt_in,
           account_user_id: accountUserId, account_created: accountCreated,
-        });
+        }, "return=representation");
         if (!saved.ok) {
           const detail = await saved.text().catch(() => "");
           console.error("smm brochure insert failed", saved.status, detail);
           return json({ error: "We couldn't process that just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
+        let smmBrochureId = null;
+        try { const arr = await saved.json(); smmBrochureId = Array.isArray(arr) && arr[0] ? arr[0].id : null; } catch (_) {}
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const brochureUrl = env.SMM_BROCHURE_URL || "https://assets.tmke.co.uk/tmke-smm-brochure.pdf";
@@ -1607,6 +1618,12 @@ export default {
             <p style="margin:0 0 22px"><a href="${esc(brochureUrl)}" style="display:inline-block;background:#1c1d22;color:#fff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:14px 26px;border-radius:6px">Download the brochure &rarr;</a></p>
             ${accountCreated ? `<p style="color:#555;font-size:14px;margin:0 0 6px">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
             <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
+        });
+        await logBookingMessage(env, {
+          booking_id: smmBrochureId, booking_source: "smm",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: "Your TMKE social media brochure",
+          body: `Brochure sent to ${firstName}. Link: ${brochureUrl}`,
         });
 
         // CRM + automations: upsert the contact + fire any "form submitted" flow.
@@ -2350,11 +2367,17 @@ export default {
               }
             } catch (_) {}
           }
+          // SMM correspondence sends from the SMM manager's mailbox when one is
+          // configured (SMM_MAIL_SENDER — Danielle's for now, Abby's later), so
+          // replies land in her inbox; otherwise falls back to the TMKE mailbox.
+          const smmFrom = source === "smm" ? env.SMM_MAIL_SENDER : null;
+          const smmFromName = source === "smm" ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : null;
           try {
             await sendEmail(env, {
               to: bk.email, subject: b.subject || `A message about your ${bk.service || "booking"}`,
               html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:14px;margin:0 0 12px">Hi ${esc(bk.name || "")},</p><div style="font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(bodyText)}</div>${attachments ? `<p style="color:#888;font-size:12px;margin:14px 0 0">📎 A document is attached to this email.</p>` : ""}<p style="color:#888;font-size:12px;margin:18px 0 0">You can view this and manage your booking in your TMKE workspace.</p></div>`,
               attachments,
+              from: smmFrom || undefined, fromName: smmFrom ? smmFromName : undefined,
             });
           } catch (_) {}
         }
@@ -2385,6 +2408,48 @@ export default {
         await fetch(`${env.SUPABASE_URL}/rest/v1/booking_messages?id=eq.${encodeURIComponent(id)}`, {
           method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
         });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: set an SMM client's status (active / paused / ended) --------
+      // Persists on the lead and swaps the SMM-Status tag on their CRM contact.
+      // Active also lifts their lifecycle to Customer (per the tagging framework).
+      if (path.endsWith("/smm/status") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const leadId = b && b.lead_id;
+        const status = ["active", "paused", "ended"].includes(b && b.status) ? b.status : null;
+        if (!leadId || !status) return json({ error: "Missing lead or status." }, 400, request, env);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,last_name,business,account_user_id`);
+        const lead = rows && rows[0];
+        if (!lead) return json({ error: "Lead not found." }, 404, request, env);
+        // Persist the status on the lead.
+        await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, {
+          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ client_status: status }),
+        });
+        // Reflect on the CRM contact: one SMM-Status tag at a time.
+        const statusTag = `SMM-Status: ${{ active: "Active", paused: "Paused", ended: "Ended" }[status]}`;
+        if (lead.email) {
+          const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lead.email)}&select=id,tags,lifecycle`);
+          const c = cRows && cRows[0];
+          if (c) {
+            const tags = Array.from(new Set([...(c.tags || []).filter((t) => !/^SMM-Status:/.test(t)), statusTag, "Interest: SMM"]));
+            const patch = { tags };
+            if (status === "active") patch.lifecycle = "customer";
+            await fetch(`${env.SUPABASE_URL}/rest/v1/contacts?id=eq.${c.id}`, {
+              method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+              body: JSON.stringify(patch),
+            });
+          } else {
+            await sbRpc(env, "upsert_contact", {
+              p_email: lead.email, p_first_name: lead.first_name || lead.full_name || null, p_last_name: lead.last_name || null,
+              p_company: lead.business || null, p_source: "smm", p_lifecycle: status === "active" ? "customer" : "lead",
+              p_tags: [statusTag, "Interest: SMM", networkTag(lead.email)].filter(Boolean), p_user_id: lead.account_user_id || null,
+            });
+          }
+        }
         return json({ ok: true }, 200, request, env);
       }
 
