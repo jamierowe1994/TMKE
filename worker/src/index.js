@@ -2627,8 +2627,8 @@ export default {
         const messages = (await sbGet(env, "booking_messages", `booking_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.asc`)) || [];
         // Full select includes the invoice date columns; fall back to the base
         // columns if they haven't been added yet (so documents still load).
-        let documents = await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,invoice_date,paid_date,created_at&order=created_at.asc`);
-        if (documents == null) documents = (await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,created_at&order=created_at.asc`)) || [];
+        let documents = await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,uploaded_by,invoice_date,paid_date,created_at&order=created_at.asc`);
+        if (documents == null) documents = (await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,uploaded_by,created_at&order=created_at.asc`)) || [];
         return json({ messages, documents }, 200, request, env);
       }
 
@@ -2639,7 +2639,7 @@ export default {
         const q = url.searchParams;
         const bookingId = (q.get("booking_id") || "").trim();
         const source = q.get("source") === "smm" ? "smm" : "videography";
-        const category = ["agreement", "prep", "invoice", "delivery", "other"].includes(q.get("category")) ? q.get("category") : "other";
+        const category = ["agreement", "prep", "invoice", "delivery", "content_plan", "insights_report", "other"].includes(q.get("category")) ? q.get("category") : "other";
         const fileName = (q.get("file_name") || "document").replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
         const title = q.get("title") || null;
         const invoiceDate = /^\d{4}-\d{2}-\d{2}$/.test(q.get("invoice_date") || "") ? q.get("invoice_date") : null;

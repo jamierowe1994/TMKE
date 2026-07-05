@@ -209,6 +209,16 @@ import "../../styles/admin.css";
     .smm-add-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
     .smm-note { border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 11px 13px; margin-bottom: 8px; background: #fff; }
     .smm-note.is-pinned { border-color: rgba(var(--violet-rgb),0.35); background: rgba(var(--violet-rgb),0.04); }
+    .smm-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 16px; }
+    .smm-divider::before, .smm-divider::after { content: ""; flex: 1; height: 1px; background: rgba(28,29,34,0.1); }
+    .smm-divider span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .smm-activity { display: flex; flex-direction: column; }
+    .smm-act { display: flex; gap: 11px; padding: 8px 0; }
+    .smm-act-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(var(--violet-rgb),0.4); margin-top: 5px; flex: none; position: relative; }
+    .smm-act:not(:last-child) .smm-act-dot::after { content: ""; position: absolute; left: 50%; top: 12px; transform: translateX(-50%); width: 1px; height: calc(100% + 8px); background: rgba(28,29,34,0.1); }
+    .smm-act-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .smm-act-text { font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .smm-act-meta { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
     .smm-note-body { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
     .smm-note-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
     .smm-note-meta { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); display: inline-flex; align-items: center; gap: 6px; }
@@ -304,7 +314,7 @@ import "../../styles/admin.css";
     const USER_SVG = '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-    const SMM_CATS = [["agreement", "Contract"], ["prep", "Proposal"], ["invoice", "Invoice"], ["delivery", "Deliverables"], ["other", "Other"]];
+    const SMM_CATS = [["agreement", "Contract"], ["prep", "Proposal"], ["content_plan", "Content plan"], ["insights_report", "Insights report"], ["delivery", "Deliverables"], ["invoice", "Invoice"], ["other", "Other"]];
     const catLabel = (c) => (SMM_CATS.find((x) => x[0] === c) || [, "Document"])[1];
     const isDemo = (r) => String(r.id).startsWith("demo");
     async function authToken() { try { return (await supabase.auth.getSession()).data.session?.access_token || ""; } catch (_) { return ""; } }
@@ -791,6 +801,32 @@ import "../../styles/admin.css";
       try { const token = await authToken(); const res = await fetch(`${WORKER}/booking/thread?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) data = await res.json(); } catch (_) {}
       renderThread(r, data);
     }
+    // Build a chronological audit feed from the thread (notes, emails in/out,
+    // meetings, files/invoices added, invoices marked paid).
+    function buildActivity(data) {
+      const ev = [];
+      for (const m of (data.messages || [])) {
+        const t = m.created_at, who = m.created_by && m.created_by !== "system" ? m.created_by : null;
+        if (m.kind === "meeting") ev.push({ t, text: m.body || "Meeting booked", who });
+        else if (m.channel === "activity") ev.push({ t, text: m.body || "Activity", who });
+        else if (m.channel === "email") {
+          if (m.direction === "inbound") ev.push({ t, text: `Reply received${m.subject ? ": " + m.subject : ""}`, who: null });
+          else ev.push({ t, text: `${m.is_automated ? "Automated email" : "Email"} sent${m.subject ? ": " + m.subject : ""}`, who });
+        } else if (m.channel === "note") ev.push({ t, text: "Note added", who });
+        else if (m.channel === "system") ev.push({ t, text: m.subject || m.body || "Update", who });
+      }
+      for (const d of (data.documents || [])) {
+        const who = d.uploaded_by && d.uploaded_by !== "system" ? d.uploaded_by : null;
+        const name = d.title || d.file_name || "document";
+        if (d.category === "invoice") {
+          ev.push({ t: d.created_at, text: `Invoice added: ${name}`, who });
+          if (d.paid_date) ev.push({ t: d.paid_date + "T12:00:00", text: `Invoice marked paid: ${name}`, who: null });
+        } else {
+          ev.push({ t: d.created_at, text: `File added: ${name} (${catLabel(d.category)})`, who });
+        }
+      }
+      return ev.sort((a, b) => new Date(b.t) - new Date(a.t));
+    }
     function renderThread(r, data, warn, loading) {
       const pNotes = $("smm-panel-notes"), pMail = $("smm-panel-emails"), pFiles = $("smm-panel-files");
       if (!pNotes) return;
@@ -814,12 +850,20 @@ import "../../styles/admin.css";
           </div>
         </div>`;
       }).join("") || `<p class="smm-mail-empty">No notes yet.</p>`);
+      // ACTIVITY LOG (derived audit of everything on the account)
+      const acts = loading ? [] : buildActivity(data);
+      const actHtml = loading ? "" : (acts.length ? acts.map((a) => `<div class="smm-act">
+        <span class="smm-act-dot"></span>
+        <div class="smm-act-main"><span class="smm-act-text">${esc(a.text)}</span><span class="smm-act-meta">${a.who ? esc(a.who) + " · " : ""}${esc(fmtWhen(a.t))}</span></div>
+      </div>`).join("") : `<p class="smm-mail-empty">No activity yet.</p>`);
       pNotes.innerHTML = `
         <div class="smm-add">
           <textarea id="smm-note-input" rows="2" placeholder="Add an internal note…"></textarea>
           <div class="smm-add-row"><span></span><button type="button" class="smm-btn smm-btn--sm" id="smm-note-add">${PLUS_SVG}Add note</button></div>
         </div>
-        ${noteHtml}`;
+        ${noteHtml}
+        <div class="smm-divider"><span>Client activity</span></div>
+        <div class="smm-activity">${actHtml}</div>`;
 
       // EMAILS
       const mailHtml = loading ? '<p class="smm-soon">Loading…</p>' : (emails.map((m) => {
