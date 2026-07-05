@@ -14,5 +14,10 @@ alter table public.smm_leads add column if not exists meeting_at timestamptz;
 -- Pinnable notes on the shared correspondence thread (booking_messages, source='smm').
 alter table public.booking_messages add column if not exists is_pinned boolean not null default false;
 
+-- Active-client lifecycle status (set by the Active / Pause / End controls on the
+-- customer file). Drives the SMM-Status: Active/Paused/Ended tag on the contact.
+--   active | paused | ended  (null = not yet an active client)
+alter table public.smm_leads add column if not exists client_status text;
+
 -- Seed a sensible starting stage for existing rows that predate this column.
 update public.smm_leads set pipeline_stage = 'inquiry' where pipeline_stage is null;
