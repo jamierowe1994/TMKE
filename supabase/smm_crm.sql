@@ -19,5 +19,10 @@ alter table public.booking_messages add column if not exists is_pinned boolean n
 --   active | paused | ended  (null = not yet an active client)
 alter table public.smm_leads add column if not exists client_status text;
 
+-- Phase 4: dedup key for captured inbound emails (the Graph message id), so the
+-- inbox poll never logs the same reply twice.
+alter table public.booking_messages add column if not exists external_id text;
+create index if not exists booking_messages_external_id_idx on public.booking_messages (external_id);
+
 -- Seed a sensible starting stage for existing rows that predate this column.
 update public.smm_leads set pipeline_stage = 'inquiry' where pipeline_stage is null;
