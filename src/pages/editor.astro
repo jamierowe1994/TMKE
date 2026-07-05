@@ -3645,6 +3645,48 @@ const googleFonts = [
       }
     }
 
+    // ---- Customer design persistence (members' own copies of templates) ------
+    // Not admin mode: when a signed-in member edits, editor.js calls this hook.
+    // First save from a template INSERTS a copy into user_designs (copy-on-edit)
+    // and returns its id so the editor adopts it; later saves UPDATE that row.
+    // The original template is never touched.
+    if (!wantAdmin) {
+      const { data: { session: memberSession } } = await supabase.auth.getSession();
+      if (memberSession) {
+        const memberUid = memberSession.user.id;
+        let currentDesignId = params.get('design') || null;
+        window.__TMKE_DESIGN_SAVE__ = async (payload) => {
+          try {
+            // Externalise embedded data-URL images to storage (keeps the row small).
+            try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (_) {}
+            let thumbUrl;
+            if (typeof payload.thumb === 'string' && payload.thumb.startsWith('data:')) {
+              try { thumbUrl = await externUploadDataUrl(payload.thumb); } catch (_) {}
+            }
+            const row = {
+              user_id: memberUid,
+              name: payload.filename || 'Untitled design',
+              canvas: payload.canvas,
+              elements: payload.elements,
+              pages: payload.pages || null,
+              updated_at: new Date().toISOString(),
+            };
+            if (thumbUrl) row.thumb_url = thumbUrl;
+            if (currentDesignId) {
+              const { error } = await supabase.from('user_designs').update(row).eq('id', currentDesignId).eq('user_id', memberUid);
+              return error ? { ok: false } : { ok: true, id: currentDesignId };
+            }
+            row.source_template_id = payload.templateId || null;
+            const { data, error } = await supabase.from('user_designs').insert(row).select('id').single();
+            if (error || !data) return { ok: false };
+            currentDesignId = data.id;
+            try { const u = new URL(location.href); u.searchParams.set('design', currentDesignId); u.searchParams.delete('template'); history.replaceState(null, '', u); } catch (_) {}
+            return { ok: true, id: currentDesignId };
+          } catch (_) { return { ok: false }; }
+        };
+      }
+    }
+
     // Custom brand fonts — fetched for BOTH admin and customer modes so the
     // canvas renders templates that reference them correctly. Each row is
     // registered with the document via Font Face API; editor.js picks them
