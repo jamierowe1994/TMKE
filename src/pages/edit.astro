@@ -1052,13 +1052,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       // Shop card: name, type, Pack Size, Discover — with the media area flicking
       // through the pack's flagged preview templates (click the dots to change; no
       // autoplay). The full detail opens on click of the image.
-      const cover = (typeof p.cover_image_url === 'string' && p.cover_image_url) ? p.cover_image_url
-        : ((p.templates && p.templates[0]) || (p.preview_images && p.preview_images[0]) || '');
-      // The six-or-so highlighted previews chosen when the pack was built.
-      let previews = (Array.isArray(p.preview_images) && p.preview_images.length)
-        ? p.preview_images.filter(Boolean)
-        : (Array.isArray(p.templates) && p.templates.length ? p.templates.slice(0, 6).filter(Boolean) : []);
-      if (!previews.length && cover) previews = [cover];
+      // Flick frames = the pack's flagged preview gallery (preview_images). These
+      // are the full-resolution uploads — the SAME high-quality source the single
+      // cover used. Fall back to the high-res cover on its own, and only to the
+      // low-res template thumbnails if a pack has neither, so a pack with real
+      // artwork is never downgraded to pixelated thumbs.
+      const coverHi = (typeof p.cover_image_url === 'string' && p.cover_image_url.trim()) ? p.cover_image_url.trim() : '';
+      const gallery = (Array.isArray(p.preview_images) ? p.preview_images : []).filter((u) => typeof u === 'string' && u.trim());
+      let previews = gallery.length ? gallery
+        : (coverHi ? [coverHi]
+        : (Array.isArray(p.templates) && p.templates.length ? p.templates.slice(0, 6).filter(Boolean) : []));
       const n = (p.packSize != null) ? p.packSize
         : (p.templateCount != null ? p.templateCount
         : ((p.templates && p.templates.length) || (p.contents && p.contents.length) || 0));
