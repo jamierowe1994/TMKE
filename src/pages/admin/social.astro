@@ -105,7 +105,7 @@ import "../../styles/admin.css";
     .smm-status-pill.is-ended, .smm-card-status.is-ended { background: rgba(28,29,34,0.09); color: rgba(28,29,34,0.55); }
 
     /* Pipeline stepper */
-    .smm-pipe { position: relative; display: flex; margin: 8px 0 40px; padding-top: 4px; }
+    .smm-pipe { position: relative; display: flex; margin: 8px 0 58px; padding-top: 4px; }
     .smm-pipe-track { position: absolute; top: 10px; left: 7px; right: 7px; height: 2px; background: rgba(28,29,34,0.12); }
     .smm-pipe-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--english-violet); transition: width .25s; }
     .smm-pipe-step { position: absolute; top: 4px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
@@ -179,7 +179,7 @@ import "../../styles/admin.css";
     .smm-platforms { margin-top: 12px; }
     .smm-plat-label { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 8px; }
     .smm-plat-grid { display: flex; flex-wrap: wrap; gap: 6px 14px; }
-    .smm-plat { display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
+    .smm-plat { display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.68); cursor: pointer; }
     /* Invoices */
     .smm-inv { border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 12px 13px; margin-bottom: 9px; }
     .smm-inv-top { display: flex; align-items: center; gap: 10px; }
@@ -431,6 +431,8 @@ import "../../styles/admin.css";
                 <label class="smm-eng-row smm-eng-row--full"><span>Instagram</span><input type="text" data-ef="instagram_url" value="${esc(r.instagram_url || "")}" placeholder="instagram.com/…"></label>
                 <label class="smm-eng-row smm-eng-row--full"><span>Facebook</span><input type="text" data-ef="facebook_url" value="${esc(r.facebook_url || "")}" placeholder="facebook.com/…"></label>
                 <label class="smm-eng-row smm-eng-row--full"><span>LinkedIn</span><input type="text" data-ef="linkedin_url" value="${esc(r.linkedin_url || "")}" placeholder="linkedin.com/…"></label>
+                <label class="smm-eng-row smm-eng-row--full"><span>YouTube</span><input type="text" data-ef="youtube_url" value="${esc(r.youtube_url || "")}" placeholder="youtube.com/…"></label>
+                <label class="smm-eng-row smm-eng-row--full"><span>TikTok</span><input type="text" data-ef="tiktok_url" value="${esc(r.tiktok_url || "")}" placeholder="tiktok.com/@…"></label>
               </div>
               <p class="smm-eng-status" id="smm-chan-status"></p>
             </div>
@@ -669,9 +671,10 @@ import "../../styles/admin.css";
         const qs = new URLSearchParams({ booking_id: r.id, source: "smm", category: cat, file_name: file.name, content_type: file.type || "application/octet-stream" });
         if (title) qs.set("title", title);
         const res = await fetch(`${WORKER}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
-        if (!res.ok) throw 0;
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.document) throw new Error(j.error || "Upload failed");
         closeModal(); activeTab = "files"; loadThread(r);
-      } catch (_) { status.hidden = false; status.textContent = "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add file"; }
+      } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add file"; }
     }
 
     // ---------- Invoices ----------
@@ -710,9 +713,10 @@ import "../../styles/admin.css";
         if (title) qs.set("title", title);
         if (date) qs.set("invoice_date", date);
         const res = await fetch(`${WORKER}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
-        if (!res.ok) throw 0;
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.document) throw new Error(j.error || "Upload failed");
         closeModal(); activeTab = "invoices"; loadThread(r);
-      } catch (_) { status.hidden = false; status.textContent = "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add invoice"; }
+      } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add invoice"; }
     }
     async function setInvoicePaid(r, id, date) {
       if (isDemo(r)) { const d = r._thread.documents.find((x) => x.id === id); if (d) d.paid_date = date || null; renderThread(r, r._thread); return; }

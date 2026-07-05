@@ -38,6 +38,8 @@ alter table public.smm_leads add column if not exists business_address text; -- 
 alter table public.smm_leads add column if not exists instagram_url text;
 alter table public.smm_leads add column if not exists facebook_url text;
 alter table public.smm_leads add column if not exists linkedin_url text;
+alter table public.smm_leads add column if not exists youtube_url text;
+alter table public.smm_leads add column if not exists tiktok_url text;
 alter table public.smm_leads add column if not exists platforms text[];       -- e.g. {Instagram,Facebook,LinkedIn}
 
 -- Invoices reuse booking_documents (category='invoice') + record the dates.
