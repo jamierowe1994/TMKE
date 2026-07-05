@@ -2453,6 +2453,62 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // ---- Admin: book a sales meeting for an SMM lead --------------------
+      // Saves meeting_at + moves the lead to Meeting set; optionally sends the
+      // client a diary invite (calendar event on the SMM manager's diary + ICS).
+      if (path.endsWith("/smm/meeting") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const leadId = b && b.lead_id;
+        const date = b && b.date, start = b && b.start;
+        if (!leadId || !date || !start) return json({ error: "Missing lead, date or time." }, 400, request, env);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,account_user_id`);
+        const lead = rows && rows[0];
+        if (!lead) return json({ error: "Lead not found." }, 404, request, env);
+        const meetingAt = `${date}T${start}:00`;
+        await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, {
+          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ meeting_at: meetingAt, pipeline_stage: "meeting_set" }),
+        });
+        const cal = env.SMM_MANAGER_UPN;
+        const dur = parseInt(b.duration || "30", 10);
+        const endHm = minToHm(hmToMin(start) + dur);
+        const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
+        let invited = false;
+        if (b.send_invite && cal && lead.email) {
+          try {
+            await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, {
+              subject: `TMKE Social Media — Meeting with ${lead.full_name || lead.email}`,
+              start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+              end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+              attendees: [
+                { emailAddress: { address: lead.email, name: lead.full_name || "" }, type: "required" },
+                ...(env.SMM_NOTIFY && env.SMM_NOTIFY.toLowerCase() !== cal.toLowerCase()
+                  ? [{ emailAddress: { address: env.SMM_NOTIFY, name: "TMKE Social Media" }, type: "required" }] : []),
+              ],
+              isOnlineMeeting: true,
+            });
+            const ics = buildICS({ uid: `smm-${leadId}-${date}-${start}@tmke.co.uk`, date, start, endHm, summary: "TMKE Social Media — Meeting", description: "A meeting with the TMKE social media team.", location: "Online / phone", organizer: cal, attendeeEmail: lead.email, attendeeName: lead.full_name || "" });
+            const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
+            const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            await sendEmail(env, {
+              to: lead.email, subject: `Your meeting with TMKE — ${dateNice}`,
+              html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:14px;margin:0 0 12px">Hi ${esc(lead.first_name || "")},</p><p style="font-size:15px;line-height:1.6">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`,
+              attachments: [{ filename: "meeting.ics", content: icsB64, contentType: "text/calendar" }],
+              from: env.SMM_MAIL_SENDER || undefined, fromName: env.SMM_MAIL_SENDER ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : undefined,
+            });
+            invited = true;
+          } catch (_) {}
+        }
+        await logBookingMessage(env, {
+          booking_id: leadId, booking_source: "smm", account_user_id: lead.account_user_id, client_email: lead.email,
+          kind: "meeting", subject: "Meeting booked", is_automated: false, created_by: user.email || "admin",
+          body: `Meeting booked for ${dateNice} at ${start}.${invited ? " Diary invite sent to the client." : ""}`,
+        });
+        return json({ ok: true, invited }, 200, request, env);
+      }
+
       // ---- Member: my whole correspondence + documents (service role) --------
       // Reads through the verified member session, matching by account OR email,
       // so the portal never misses a row to an RLS/email-casing edge case.

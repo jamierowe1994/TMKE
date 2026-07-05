@@ -35,6 +35,9 @@ import "../../styles/admin.css";
     </div>
   </div>
 
+  <!-- Modal host (meeting booking / add file) -->
+  <div id="smm-modal-host"></div>
+
   <style is:global>
     /* ---- Toolbar ---- */
     .smm-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; max-width: 1440px; margin: 0 auto; padding: 34px 36px 20px; }
@@ -49,35 +52,52 @@ import "../../styles/admin.css";
     .smm-lost-toggle { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
     .smm-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 40px 36px; max-width: 1440px; margin: 0 auto; }
 
-    /* ---- Pipeline board ---- */
-    .smm-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(248px, 1fr); gap: 16px; align-items: start; max-width: 1440px; margin: 0 auto; padding: 6px 36px 160px; overflow-x: auto; }
-    .smm-col { background: transparent; }
-    .smm-col-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 12px; position: sticky; top: 0; }
-    .smm-col-name { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    /* ---- Pipeline board — fits the screen, no side-scroll ---- */
+    .smm-board { display: grid; grid-template-columns: repeat(var(--smm-cols, 4), minmax(0, 1fr)); gap: 14px; align-items: start; max-width: 1440px; margin: 0 auto; padding: 6px 36px 120px; }
+    .smm-col { background: transparent; min-width: 0; }
+    .smm-col-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 12px; }
+    .smm-col-name { font-family: var(--sans); font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
     .smm-col-count { font-family: var(--sans); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.5); background: rgba(28,29,34,0.06); border-radius: 999px; padding: 1px 8px; }
-    .smm-col-body { display: flex; flex-direction: column; gap: 10px; min-height: 40px; }
-    .smm-col-empty { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.35); padding: 14px 4px; }
-    .smm-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 14px 15px; cursor: pointer; transition: border-color .16s, transform .16s, box-shadow .16s; }
+    .smm-col-body { display: flex; flex-direction: column; gap: 10px; min-height: 120px; padding: 4px; border-radius: 12px; transition: background .15s, box-shadow .15s; }
+    .smm-col-body.drop-hover { background: rgba(var(--violet-rgb),0.07); box-shadow: inset 0 0 0 2px rgba(var(--violet-rgb),0.35); }
+    .smm-col-empty { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.32); padding: 14px 6px; }
+    .smm-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 15px 16px; cursor: pointer; transition: border-color .16s, transform .16s, box-shadow .16s; }
     .smm-card:hover { border-color: rgba(var(--violet-rgb),0.45); transform: translateY(-1px); box-shadow: 0 10px 24px -18px rgba(28,29,34,0.4); }
-    .smm-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .smm-card.dragging { opacity: .45; }
+    .smm-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
     .smm-kind { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
     .smm-kind.is-discovery { background: rgba(47,158,94,0.12); color: #2c7a4b; }
     .smm-kind.is-brochure { background: rgba(227,160,8,0.14); color: #9a6a04; }
     .smm-card-when { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.42); }
-    .smm-card-name { font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--ink); }
-    .smm-card-biz { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 1px; }
+    .smm-card-name { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--ink); }
+    .smm-card-biz { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 2px; }
+    .smm-card-line { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+    .smm-card-line svg { width: 13px; height: 13px; flex: none; color: rgba(28,29,34,0.4); }
     .smm-card-meta { font-family: var(--sans); font-size: 11.5px; color: var(--english-violet); margin-top: 8px; display: inline-flex; align-items: center; gap: 5px; }
     .smm-card-meta svg { width: 12px; height: 12px; }
+    .smm-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+    .smm-card-next { font-family: var(--sans); font-size: 11px; font-weight: 700; color: var(--english-violet); background: rgba(var(--violet-rgb),0.08); border: 0; border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+    .smm-card-next:hover { background: rgba(var(--violet-rgb),0.16); }
+    .smm-card-status { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
 
     /* ---- Full-screen customer file ---- */
     .smm-file-scrim { position: fixed; inset: 0; z-index: 200; background: rgba(20,18,26,0.5); display: flex; align-items: stretch; justify-content: center; padding: 28px; }
     .smm-file-scrim[hidden] { display: none; }
-    .smm-file-card { position: relative; width: min(1100px, 100%); background: #fff; border-radius: 14px; box-shadow: 0 40px 100px rgba(20,18,26,0.4); overflow-y: auto; padding: 34px 40px 48px; }
-    .smm-file-x { position: absolute; top: 20px; right: 24px; background: none; border: 0; font-size: 30px; line-height: 1; color: rgba(28,29,34,0.4); cursor: pointer; }
+    .smm-file-card { position: relative; width: min(1120px, 100%); background: #fff; border-radius: 14px; box-shadow: 0 40px 100px rgba(20,18,26,0.4); overflow-y: auto; padding: 34px 40px 48px; }
+    .smm-file-x { position: absolute; top: 20px; right: 24px; background: none; border: 0; font-size: 30px; line-height: 1; color: rgba(28,29,34,0.4); cursor: pointer; z-index: 2; }
     .smm-file-x:hover { color: var(--ink); }
-    .smm-file-head { margin: 0 40px 22px 0; }
-    .smm-file-name { font-family: var(--serif); font-weight: 500; font-size: 30px; color: var(--ink); margin: 0; }
-    .smm-file-sub { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); margin: 4px 0 0; }
+    .smm-file-head { margin: 0 40px 20px 0; }
+    .smm-name-wrap { display: inline-flex; align-items: center; gap: 6px; }
+    .smm-file-name { font-family: var(--serif); font-weight: 500; font-size: 30px; color: var(--ink); margin: 0; display: inline-flex; align-items: center; gap: 6px; }
+    .smm-name-edit { background: none; border: 0; padding: 5px; border-radius: 7px; color: rgba(28,29,34,0.32); cursor: pointer; display: inline-flex; }
+    .smm-name-edit:hover { background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
+    .smm-name-edit svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .smm-name-input { font-family: var(--serif); font-weight: 500; font-size: 30px; color: var(--ink); border: 0; border-bottom: 2px solid var(--english-violet); outline: none; background: none; min-width: 220px; padding: 0 0 2px; }
+    .smm-file-sub { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); margin: 5px 0 0; }
+    .smm-status-pill { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-left: 6px; position: relative; top: -4px; }
+    .smm-status-pill.is-active, .smm-card-status.is-active { background: rgba(47,158,94,0.14); color: #2c7a4b; }
+    .smm-status-pill.is-paused, .smm-card-status.is-paused { background: rgba(227,160,8,0.16); color: #9a6a04; }
+    .smm-status-pill.is-ended, .smm-card-status.is-ended { background: rgba(28,29,34,0.09); color: rgba(28,29,34,0.55); }
 
     /* Pipeline stepper */
     .smm-pipe { position: relative; display: flex; margin: 8px 0 40px; padding-top: 4px; }
@@ -94,41 +114,69 @@ import "../../styles/admin.css";
     .smm-pipe-step:hover .smm-pipe-label { color: var(--english-violet); }
 
     /* File layout */
-    .smm-file-grid { display: grid; grid-template-columns: 300px 1fr; gap: 32px; }
-    @media (max-width: 820px) { .smm-file-grid { grid-template-columns: 1fr; } }
+    .smm-file-grid { display: grid; grid-template-columns: 320px 1fr; gap: 34px; }
+    @media (max-width: 860px) { .smm-file-grid { grid-template-columns: 1fr; } }
     .smm-sec { border-top: 1px solid rgba(28,29,34,0.09); padding: 18px 0; }
     .smm-sec:first-child { border-top: 0; padding-top: 0; }
-    .smm-sec-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 12px; }
-    .smm-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px dashed rgba(28,29,34,0.09); font-family: var(--sans); font-size: 14px; color: var(--ink); }
-    .smm-field:last-child { border-bottom: 0; }
-    .smm-field-k { color: rgba(28,29,34,0.5); flex: 0 0 auto; font-size: 13px; }
-    .smm-field-v { display: inline-flex; align-items: center; gap: 6px; text-align: right; min-width: 0; }
-    .smm-field-v a { color: var(--english-violet); text-decoration: none; }
-    .smm-copy { background: none; border: 0; padding: 3px; border-radius: 6px; color: rgba(28,29,34,0.4); cursor: pointer; display: inline-flex; transition: background .15s, color .15s; }
+    .smm-sec-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+    /* Contact details card */
+    .smm-cd-card { border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 6px 16px; }
+    .smm-cd-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(28,29,34,0.07); }
+    .smm-cd-row:last-child { border-bottom: 0; }
+    .smm-cd-ico { width: 34px; height: 34px; flex: none; border-radius: 9px; background: rgba(var(--violet-rgb),0.09); color: var(--english-violet); display: inline-flex; align-items: center; justify-content: center; }
+    .smm-cd-ico svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .smm-cd-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .smm-cd-k { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.42); }
+    .smm-cd-v { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    a.smm-cd-v:hover { color: var(--english-violet); }
+    .smm-copy { background: none; border: 0; padding: 6px; border-radius: 7px; color: rgba(28,29,34,0.38); cursor: pointer; display: inline-flex; flex: none; transition: background .15s, color .15s; }
     .smm-copy:hover { background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
-    .smm-copy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .smm-copy svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
     .smm-copy.is-done { color: #2c7a4b; }
-    .smm-notes { width: 100%; min-height: 90px; padding: 12px 14px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink); background: #fff; resize: vertical; box-sizing: border-box; }
-    .smm-notes:focus { outline: none; border-color: var(--english-violet); }
-    .smm-notes-status { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin-top: 6px; }
-    .smm-msg { background: rgba(var(--violet-rgb),0.04); border-left: 3px solid var(--english-violet); padding: 14px 16px; border-radius: 6px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
-    .smm-soon { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.45); line-height: 1.6; }
-    .smm-file-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+
+    /* See more */
+    .smm-more-toggle { margin-top: 14px; background: none; border: 0; padding: 6px 0; font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--english-violet); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .smm-more-toggle svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; transition: transform .18s; }
+    .smm-more-toggle.is-open svg { transform: rotate(180deg); }
+    .smm-more { margin-top: 4px; }
+    .smm-more[hidden] { display: none; }
+    .smm-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(28,29,34,0.09); font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
+    .smm-field:last-child { border-bottom: 0; }
+    .smm-field-k { color: rgba(28,29,34,0.5); flex: 0 0 auto; font-size: 12.5px; }
+    .smm-field-v { text-align: right; min-width: 0; }
+
+    /* Actions */
+    .smm-file-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .smm-btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: 8px; font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; border: 1px solid rgba(var(--violet-rgb),0.3); background: #fff; color: var(--english-violet); text-decoration: none; transition: background .15s, border-color .15s, color .15s; }
     .smm-btn:hover { background: rgba(var(--violet-rgb),0.06); }
+    .smm-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
     .smm-btn--primary { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     .smm-btn--primary:hover { background: var(--ink); color: #fff; }
+    .smm-btn--block { width: 100%; justify-content: center; }
     .smm-btn--danger { border-color: #a05a3c; color: #a05a3c; }
     .smm-btn--danger:hover { background: #a05a3c; color: #fff; }
+    .smm-btn--sm { padding: 6px 12px; font-size: 12px; }
+    .smm-status-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .smm-hint { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 8px 0 0; }
+    .smm-msg { background: rgba(var(--violet-rgb),0.04); border-left: 3px solid var(--english-violet); padding: 14px 16px; border-radius: 6px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; margin-bottom: 18px; }
+    .smm-soon { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.45); line-height: 1.6; }
 
-    /* ---- Thread: notes / emails / documents ---- */
+    /* Right-panel tabs */
+    .smm-tabs { display: inline-flex; gap: 4px; padding: 4px; background: rgba(28,29,34,0.05); border-radius: 10px; margin-bottom: 18px; }
+    .smm-tab { padding: 7px 18px; border: 0; background: none; border-radius: 7px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: rgba(28,29,34,0.55); cursor: pointer; transition: background .15s, color .15s; }
+    .smm-tab:hover { color: var(--ink); }
+    .smm-tab.is-active { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(28,29,34,0.14); }
+    .smm-panel-body[hidden] { display: none; }
+    .smm-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .smm-panel-head h4 { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); margin: 0; }
+
+    /* Thread: notes / emails / documents */
     .smm-thread-status { font-family: var(--sans); font-size: 12.5px; margin: 10px 0 0; }
     .smm-add { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
     .smm-add textarea, .smm-add input[type=text] { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: var(--ink); background: #fff; resize: vertical; }
     .smm-add textarea:focus, .smm-add input[type=text]:focus { outline: none; border-color: var(--english-violet); }
     .smm-add-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-
-    /* Notes feed */
     .smm-note { border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 11px 13px; margin-bottom: 8px; background: #fff; }
     .smm-note.is-pinned { border-color: rgba(var(--violet-rgb),0.35); background: rgba(var(--violet-rgb),0.04); }
     .smm-note-body { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
@@ -139,8 +187,6 @@ import "../../styles/admin.css";
     .smm-mini { background: none; border: 0; padding: 3px 7px; border-radius: 6px; font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: rgba(28,29,34,0.5); cursor: pointer; transition: background .15s, color .15s; }
     .smm-mini:hover { background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
     .smm-mini.is-danger:hover { background: rgba(160,90,60,0.12); color: #a05a3c; }
-
-    /* Email dialogue */
     .smm-mail { max-width: 88%; margin-bottom: 10px; padding: 11px 14px; border-radius: 12px; font-family: var(--sans); }
     .smm-mail.is-in { background: rgba(28,29,34,0.045); border: 1px solid rgba(28,29,34,0.08); border-top-left-radius: 4px; margin-right: auto; }
     .smm-mail.is-out { background: rgba(var(--violet-rgb),0.07); border: 1px solid rgba(var(--violet-rgb),0.16); border-top-right-radius: 4px; margin-left: auto; }
@@ -151,29 +197,31 @@ import "../../styles/admin.css";
     .smm-mail-subj { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
     .smm-mail-body { font-size: 13.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
     .smm-mail-empty, .smm-doc-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.4); padding: 4px 0 10px; }
-    .smm-hint { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 2px 0 0; }
-
-    /* Documents */
-    .smm-doc { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; margin-bottom: 7px; }
-    .smm-doc-ico { width: 26px; height: 26px; flex: none; border-radius: 6px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); display: inline-flex; align-items: center; justify-content: center; }
-    .smm-doc-ico svg { width: 14px; height: 14px; }
+    .smm-doc { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; margin-bottom: 7px; }
+    .smm-doc-ico { width: 28px; height: 28px; flex: none; border-radius: 6px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); display: inline-flex; align-items: center; justify-content: center; }
+    .smm-doc-ico svg { width: 15px; height: 15px; }
     .smm-doc-main { min-width: 0; flex: 1; }
     .smm-doc-name { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .smm-doc-cat { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
     .smm-doc-tools { display: inline-flex; gap: 2px; flex: none; }
-    .smm-docadd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-    .smm-docadd select { padding: 8px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 12.5px; color: var(--ink); background: #fff; }
-    .smm-file-input { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); }
+    .smm-file-input { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); width: 100%; }
     .smm-file-input::file-selector-button { margin-right: 10px; padding: 8px 13px; border-radius: 8px; border: 1px solid rgba(var(--violet-rgb),0.3); background: #fff; color: var(--english-violet); font-family: var(--sans); font-size: 12.5px; font-weight: 700; cursor: pointer; }
     .smm-file-input::file-selector-button:hover { background: rgba(var(--violet-rgb),0.06); }
 
-    /* Client status */
-    .smm-status-row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .smm-status-pill { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-left: 12px; vertical-align: middle; position: relative; top: -3px; }
-    .smm-card-status { display: inline-block; margin-top: 8px; font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
-    .smm-status-pill.is-active, .smm-card-status.is-active { background: rgba(47,158,94,0.14); color: #2c7a4b; }
-    .smm-status-pill.is-paused, .smm-card-status.is-paused { background: rgba(227,160,8,0.16); color: #9a6a04; }
-    .smm-status-pill.is-ended, .smm-card-status.is-ended { background: rgba(28,29,34,0.09); color: rgba(28,29,34,0.55); }
+    /* Modals (meeting / add file) */
+    .smm-modal-scrim { position: fixed; inset: 0; z-index: 220; background: rgba(20,18,26,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .smm-modal { background: #fff; border-radius: 14px; width: min(440px, 100%); padding: 26px 28px 24px; box-shadow: 0 40px 100px rgba(20,18,26,0.45); }
+    .smm-modal h3 { font-family: var(--serif); font-weight: 500; font-size: 21px; color: var(--ink); margin: 0 0 4px; }
+    .smm-modal p.smm-modal-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0 0 18px; }
+    .smm-modal-field { margin-bottom: 14px; }
+    .smm-modal-field > label { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin-bottom: 6px; }
+    .smm-modal-field input[type=text], .smm-modal-field input[type=date], .smm-modal-field input[type=time], .smm-modal-field select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; }
+    .smm-modal-field input:focus, .smm-modal-field select:focus { outline: none; border-color: var(--english-violet); }
+    .smm-modal-two { display: flex; gap: 12px; }
+    .smm-modal-two > * { flex: 1; }
+    .smm-check { display: flex; align-items: center; gap: 9px; font-family: var(--sans); font-size: 13.5px; color: var(--ink); cursor: pointer; margin: 4px 0 2px; }
+    .smm-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+    .smm-modal-status { font-family: var(--sans); font-size: 12.5px; color: #a05a3c; margin: 10px 0 0; }
   </style>
 
   <script>
@@ -183,13 +231,15 @@ import "../../styles/admin.css";
     const STAGES = [
       { key: "inquiry", label: "Inquiry" },
       { key: "meeting_set", label: "Meeting set" },
-      { key: "contract_sent", label: "Contract sent" },
       { key: "contract_signed", label: "Contract signed" },
       { key: "active_client", label: "Active client" },
     ];
     const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.key, i]));
+    // Legacy stages that predate the 4-column board map onto the nearest one.
+    const STAGE_ALIAS = { contract_sent: "meeting_set", brochure_downloaded: "inquiry", general_enquiry: "inquiry", discovery_call_booked: "inquiry" };
     const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Discovery call" };
     const CLIENT_STATUS = { active: "Active", paused: "Paused", ended: "Ended" };
+    const NEXT_LABEL = { meeting_set: "Set a meeting", contract_signed: "Mark contract signed", active_client: "Make active client" };
 
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -203,9 +253,30 @@ import "../../styles/admin.css";
       return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
     }
     const fmtDateTime = (iso) => { try { return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (_) { return ""; } };
-    const stageOf = (r) => (r.pipeline_stage && STAGE_INDEX[r.pipeline_stage] != null ? r.pipeline_stage : "inquiry");
+    function stageOf(r) {
+      let s = r.pipeline_stage;
+      if (s && STAGE_ALIAS[s]) s = STAGE_ALIAS[s];
+      return s && STAGE_INDEX[s] != null ? s : "inquiry";
+    }
 
-    let all = [], kindFilter = "all", q = "", showLost = false, current = null;
+    // Icons
+    const COPY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    const PENCIL_SVG = '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+    const PLUS_SVG = '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    const CHEV_SVG = '<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>';
+    const EMAIL_SVG = '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>';
+    const PHONE_SVG = '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+    const BIZ_SVG = '<svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>';
+    const DOC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    const CAL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>';
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const SMM_CATS = [["agreement", "Contract"], ["prep", "Proposal"], ["invoice", "Invoice"], ["delivery", "Deliverables"], ["other", "Other"]];
+    const catLabel = (c) => (SMM_CATS.find((x) => x[0] === c) || [, "Document"])[1];
+    const isDemo = (r) => String(r.id).startsWith("demo");
+    async function authToken() { try { return (await supabase.auth.getSession()).data.session?.access_token || ""; } catch (_) { return ""; } }
+
+    let all = [], kindFilter = "all", q = "", showLost = false, current = null, activeTab = "notes";
 
     // ---------- Board ----------
     function visible() {
@@ -216,83 +287,121 @@ import "../../styles/admin.css";
     }
     function renderBoard() {
       const board = $("smm-board");
+      board.style.setProperty("--smm-cols", STAGES.length);
       const rows = visible();
       board.innerHTML = STAGES.map((s) => {
         const cards = rows.filter((r) => stageOf(r) === s.key);
         return `<div class="smm-col">
           <div class="smm-col-head"><span class="smm-col-name">${esc(s.label)}</span><span class="smm-col-count">${cards.length}</span></div>
-          <div class="smm-col-body">${cards.length ? cards.map(cardHtml).join("") : '<div class="smm-col-empty">—</div>'}</div>
+          <div class="smm-col-body" data-stage="${s.key}">${cards.length ? cards.map(cardHtml).join("") : '<div class="smm-col-empty">Drop here</div>'}</div>
         </div>`;
       }).join("");
-      board.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => openFile(el.getAttribute("data-id"))));
+      // Open on click
+      board.querySelectorAll("[data-id]").forEach((el) => {
+        el.addEventListener("click", (e) => { if (e.target.closest("[data-next]")) return; openFile(el.getAttribute("data-id")); });
+        el.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", el.getAttribute("data-id")); e.dataTransfer.effectAllowed = "move"; el.classList.add("dragging"); });
+        el.addEventListener("dragend", () => el.classList.remove("dragging"));
+        const nx = el.querySelector("[data-next]");
+        if (nx) nx.addEventListener("click", (e) => { e.stopPropagation(); const r = all.find((x) => x.id === el.getAttribute("data-id")); if (r) moveToStage(r, nx.getAttribute("data-next")); });
+      });
+      // Drop targets
+      board.querySelectorAll(".smm-col-body").forEach((col) => {
+        col.addEventListener("dragover", (e) => { e.preventDefault(); col.classList.add("drop-hover"); });
+        col.addEventListener("dragleave", () => col.classList.remove("drop-hover"));
+        col.addEventListener("drop", (e) => {
+          e.preventDefault(); col.classList.remove("drop-hover");
+          const id = e.dataTransfer.getData("text/plain");
+          const r = all.find((x) => x.id === id); if (!r) return;
+          moveToStage(r, col.getAttribute("data-stage"));
+        });
+      });
     }
     function cardHtml(r) {
       const kc = r.kind === "discovery" ? " is-discovery" : r.kind === "brochure" ? " is-brochure" : "";
-      const when = r.kind === "discovery" && r.call_at ? `<span class="smm-card-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>${esc(fmtDateTime(r.call_at))}</span>`
-        : r.meeting_at ? `<span class="smm-card-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>Meeting ${esc(fmtDateTime(r.meeting_at))}</span>` : "";
-      const cstatus = r.client_status && r.client_status !== "active" ? `<span class="smm-card-status is-${r.client_status}">${esc(CLIENT_STATUS[r.client_status] || r.client_status)}</span>` : "";
-      return `<div class="smm-card" data-id="${esc(r.id)}">
+      const st = stageOf(r);
+      const meeting = r.meeting_at ? `<div class="smm-card-line">${CAL_SVG}Meeting ${esc(fmtDateTime(r.meeting_at))}</div>`
+        : (r.kind === "discovery" && r.call_at ? `<div class="smm-card-line">${CAL_SVG}Call ${esc(fmtDateTime(r.call_at))}</div>` : "");
+      const next = st !== "active_client" ? `<button type="button" class="smm-card-next" data-next="${STAGES[STAGE_INDEX[st] + 1].key}">${esc(NEXT_LABEL[STAGES[STAGE_INDEX[st] + 1].key])} →</button>` : "";
+      const cstatus = st === "active_client" && r.client_status && r.client_status !== "active" ? `<span class="smm-card-status is-${r.client_status}">${esc(CLIENT_STATUS[r.client_status] || r.client_status)}</span>` : "";
+      return `<div class="smm-card" draggable="true" data-id="${esc(r.id)}">
         <div class="smm-card-top"><span class="smm-kind${kc}">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span><span class="smm-card-when">${esc(fmtWhen(r.created_at))}</span></div>
         <div class="smm-card-name">${esc(nameOf(r))}</div>
         ${r.business ? `<div class="smm-card-biz">${esc(r.business)}</div>` : ""}
-        ${when}${cstatus}
+        ${r.email ? `<div class="smm-card-line">${EMAIL_SVG}${esc(r.email)}</div>` : ""}
+        ${meeting}
+        <div class="smm-card-foot">${next || "<span></span>"}${cstatus}</div>
       </div>`;
     }
 
     // ---------- Customer file ----------
-    const COPY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-    function copyField(label, value, href) {
-      if (!value) return `<div class="smm-field"><span class="smm-field-k">${esc(label)}</span><span class="smm-field-v">—</span></div>`;
-      const shown = href ? `<a href="${esc(href)}">${esc(value)}</a>` : esc(value);
-      return `<div class="smm-field"><span class="smm-field-k">${esc(label)}</span><span class="smm-field-v">${shown}<button type="button" class="smm-copy" data-copy="${esc(value)}" title="Copy">${COPY_SVG}</button></span></div>`;
+    function contactRow(icon, label, value, href) {
+      if (!value) return "";
+      const v = href ? `<a class="smm-cd-v" href="${esc(href)}">${esc(value)}</a>` : `<span class="smm-cd-v">${esc(value)}</span>`;
+      return `<div class="smm-cd-row"><span class="smm-cd-ico">${icon}</span><div class="smm-cd-main"><span class="smm-cd-k">${esc(label)}</span>${v}</div><button type="button" class="smm-copy" data-copy="${esc(value)}" title="Copy">${COPY_SVG}</button></div>`;
     }
     function openFile(id) {
       const r = all.find((x) => x.id === id); if (!r) return;
       current = r;
-      const idx = STAGE_INDEX[stageOf(r)];
+      const st = stageOf(r);
+      const idx = STAGE_INDEX[st];
       const n = STAGES.length;
+      const isActive = st === "active_client";
+      const cs = r.client_status || "active";
+      const next = idx < n - 1 ? STAGES[idx + 1].key : null;
       const pipe = `<div class="smm-pipe"><div class="smm-pipe-track"><div class="smm-pipe-fill" style="width:${(idx / (n - 1)) * 100}%"></div></div>${STAGES.map((s, i) => {
         const cls = (i <= idx ? " is-done" : "") + (i === idx ? " is-current" : "") + (i === 0 ? " smm-pipe-step--first" : "") + (i === n - 1 ? " smm-pipe-step--last" : "");
         return `<div class="smm-pipe-step${cls}" data-stage="${s.key}" style="left:${(i / (n - 1)) * 100}%"><span class="smm-pipe-dot"></span><span class="smm-pipe-label">${esc(s.label)}</span></div>`;
       }).join("")}</div>`;
       const acct = r.account_created ? "Created at submission" : (r.account_user_id ? "Existing account" : "None");
-      const isActive = idx === n - 1;
-      const cs = r.client_status || "active";
       $("smm-file-body").innerHTML = `
         <header class="smm-file-head">
-          <h2 class="smm-file-name">${esc(nameOf(r))}${isActive ? `<span class="smm-status-pill is-${cs}">${esc(CLIENT_STATUS[cs])}</span>` : ""}</h2>
+          <h2 class="smm-file-name"><span class="smm-name-text">${esc(nameOf(r))}</span><button type="button" class="smm-name-edit" data-editname title="Edit name">${PENCIL_SVG}</button>${isActive ? `<span class="smm-status-pill is-${cs}">${esc(CLIENT_STATUS[cs])}</span>` : ""}</h2>
           <p class="smm-file-sub">${esc(r.business || KIND_LABEL[r.kind] || "Lead")}</p>
         </header>
         ${pipe}
         <div class="smm-file-grid">
           <div>
             <div class="smm-sec">
-              <h3 class="smm-sec-h">Contact</h3>
-              ${copyField("Email", r.email, "mailto:" + (r.email || ""))}
-              ${copyField("Phone", r.phone, r.phone ? "tel:" + r.phone : "")}
-              ${copyField("Business", r.business)}
-              <div class="smm-field"><span class="smm-field-k">Type</span><span class="smm-field-v"><span class="smm-kind">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span></span></div>
-              <div class="smm-field"><span class="smm-field-k">Received</span><span class="smm-field-v">${esc(fmtDateTime(r.created_at))}</span></div>
-              ${r.call_at ? `<div class="smm-field"><span class="smm-field-k">Discovery call</span><span class="smm-field-v">${esc(fmtDateTime(r.call_at))}</span></div>` : ""}
-              <div class="smm-field"><span class="smm-field-k">Marketing</span><span class="smm-field-v">${r.marketing_opt_in ? "Opted in" : "Not opted in"}</span></div>
-              <div class="smm-field"><span class="smm-field-k">Account</span><span class="smm-field-v">${esc(acct)}</span></div>
+              <h3 class="smm-sec-h">Contact details</h3>
+              <div class="smm-cd-card">
+                ${contactRow(EMAIL_SVG, "Email", r.email, "mailto:" + (r.email || "")) || `<div class="smm-cd-row"><span class="smm-cd-ico">${EMAIL_SVG}</span><div class="smm-cd-main"><span class="smm-cd-k">Email</span><span class="smm-cd-v">—</span></div></div>`}
+                ${contactRow(PHONE_SVG, "Phone", r.phone, r.phone ? "tel:" + r.phone : "") || `<div class="smm-cd-row"><span class="smm-cd-ico">${PHONE_SVG}</span><div class="smm-cd-main"><span class="smm-cd-k">Phone</span><span class="smm-cd-v">—</span></div></div>`}
+                ${contactRow(BIZ_SVG, "Business", r.business) || `<div class="smm-cd-row"><span class="smm-cd-ico">${BIZ_SVG}</span><div class="smm-cd-main"><span class="smm-cd-k">Business</span><span class="smm-cd-v">—</span></div></div>`}
+              </div>
+              <button type="button" class="smm-more-toggle" data-more>See more info ${CHEV_SVG}</button>
+              <div class="smm-more" hidden>
+                <div class="smm-field"><span class="smm-field-k">Type</span><span class="smm-field-v">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span></div>
+                <div class="smm-field"><span class="smm-field-k">Received</span><span class="smm-field-v">${esc(fmtDateTime(r.created_at))}</span></div>
+                ${r.call_at ? `<div class="smm-field"><span class="smm-field-k">Discovery call</span><span class="smm-field-v">${esc(fmtDateTime(r.call_at))}</span></div>` : ""}
+                ${r.meeting_at ? `<div class="smm-field"><span class="smm-field-k">Meeting</span><span class="smm-field-v">${esc(fmtDateTime(r.meeting_at))}</span></div>` : ""}
+                <div class="smm-field"><span class="smm-field-k">Marketing</span><span class="smm-field-v">${r.marketing_opt_in ? "Opted in" : "Not opted in"}</span></div>
+                <div class="smm-field"><span class="smm-field-k">Account</span><span class="smm-field-v">${esc(acct)}</span></div>
+              </div>
             </div>
             <div class="smm-sec">
               <h3 class="smm-sec-h">${isActive ? "Client status" : "Actions"}</h3>
               ${isActive ? `<div class="smm-status-row">
-                <button type="button" class="smm-btn ${cs === "active" ? "smm-btn--primary" : ""}" data-cstatus="active">Active</button>
-                <button type="button" class="smm-btn ${cs === "paused" ? "smm-btn--primary" : ""}" data-cstatus="paused">Paused</button>
-                <button type="button" class="smm-btn ${cs === "ended" ? "smm-btn--primary" : ""}" data-cstatus="ended">Ended</button>
+                <button type="button" class="smm-btn smm-btn--sm ${cs === "active" ? "smm-btn--primary" : ""}" data-cstatus="active">Active</button>
+                <button type="button" class="smm-btn smm-btn--sm ${cs === "paused" ? "smm-btn--primary" : ""}" data-cstatus="paused">Paused</button>
+                <button type="button" class="smm-btn smm-btn--sm ${cs === "ended" ? "smm-btn--primary" : ""}" data-cstatus="ended">Ended</button>
+              </div>` : `<button type="button" class="smm-btn smm-btn--primary smm-btn--block" data-move="${next}">${esc(NEXT_LABEL[next])}</button>`}
+              <div class="smm-file-actions" style="margin-top:10px">
+                <button type="button" class="smm-btn smm-btn--danger smm-btn--block" data-lost>Mark lost</button>
               </div>
-              <p class="smm-hint">Sets the CRM tag <strong>SMM-Status: ${esc(CLIENT_STATUS[cs])}</strong>${cs === "active" ? " and marks them a Customer" : ""}.</p>` : ""}
-              <div class="smm-file-actions"${isActive ? ' style="margin-top:12px"' : ""}>
-                <button type="button" class="smm-btn smm-btn--danger" data-lost>Mark lost</button>
-              </div>
+              ${isActive ? `<p class="smm-hint">Status sets the CRM tag <strong>SMM-Status: ${esc(CLIENT_STATUS[cs])}</strong>${cs === "active" ? " and marks them a Customer" : ""}.</p>` : ""}
             </div>
           </div>
           <div>
-            ${r.message ? `<div class="smm-sec"><h3 class="smm-sec-h">Their message</h3><div class="smm-msg">${esc(r.message)}</div></div>` : ""}
-            <div id="smm-thread"><div class="smm-sec"><p class="smm-soon">Loading correspondence…</p></div></div>
+            ${r.message ? `<div class="smm-msg">${esc(r.message)}</div>` : ""}
+            <div class="smm-tabs" role="tablist">
+              <button type="button" class="smm-tab ${activeTab === "notes" ? "is-active" : ""}" data-tab="notes">Notes</button>
+              <button type="button" class="smm-tab ${activeTab === "emails" ? "is-active" : ""}" data-tab="emails">Emails</button>
+              <button type="button" class="smm-tab ${activeTab === "files" ? "is-active" : ""}" data-tab="files">Files</button>
+            </div>
+            <div id="smm-panel-notes" class="smm-panel-body" ${activeTab === "notes" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>
+            <div id="smm-panel-emails" class="smm-panel-body" ${activeTab === "emails" ? "" : "hidden"}></div>
+            <div id="smm-panel-files" class="smm-panel-body" ${activeTab === "files" ? "" : "hidden"}></div>
+            <p class="smm-thread-status" id="smm-thread-status" hidden></p>
           </div>
         </div>`;
       $("smm-file").hidden = false;
@@ -302,30 +411,70 @@ import "../../styles/admin.css";
     function closeFile() { $("smm-file").hidden = true; current = null; document.body.style.overflow = ""; }
 
     function wireFile(r) {
+      const body = $("smm-file-body");
       // Quick-copy
-      $("smm-file-body").querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async (e) => {
+      body.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async (e) => {
         e.stopPropagation();
         try { await navigator.clipboard.writeText(b.getAttribute("data-copy")); b.classList.add("is-done"); setTimeout(() => b.classList.remove("is-done"), 1200); } catch (_) {}
       }));
-      // Pipeline advance
-      $("smm-file-body").querySelectorAll("[data-stage]").forEach((s) => s.addEventListener("click", () => setStage(r, s.getAttribute("data-stage"))));
+      // Edit name
+      body.querySelector("[data-editname]")?.addEventListener("click", () => startEditName(r));
+      // See more
+      body.querySelector("[data-more]")?.addEventListener("click", (e) => {
+        const btn = e.currentTarget, more = body.querySelector(".smm-more");
+        const open = more.hasAttribute("hidden");
+        if (open) more.removeAttribute("hidden"); else more.setAttribute("hidden", "");
+        btn.classList.toggle("is-open", open);
+        btn.firstChild.textContent = open ? "Hide info " : "See more info ";
+      });
+      // Pipeline advance (a step = move to that stage)
+      body.querySelectorAll("[data-stage]").forEach((s) => s.addEventListener("click", () => moveToStage(r, s.getAttribute("data-stage"))));
+      // Move to next stage
+      body.querySelector("[data-move]")?.addEventListener("click", (e) => moveToStage(r, e.currentTarget.getAttribute("data-move")));
       // Mark lost
-      $("smm-file-body").querySelector("[data-lost]")?.addEventListener("click", () => setStage(r, "lost"));
-      // Client status (active / paused / ended)
-      $("smm-file-body").querySelectorAll("[data-cstatus]").forEach((b) => b.addEventListener("click", () => setClientStatus(r, b.getAttribute("data-cstatus"))));
-      // Correspondence (notes / emails / documents)
+      body.querySelector("[data-lost]")?.addEventListener("click", () => setStage(r, "lost"));
+      // Client status
+      body.querySelectorAll("[data-cstatus]").forEach((b) => b.addEventListener("click", () => setClientStatus(r, b.getAttribute("data-cstatus"))));
+      // Tabs
+      body.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
+        activeTab = b.getAttribute("data-tab");
+        body.querySelectorAll("[data-tab]").forEach((x) => x.classList.toggle("is-active", x === b));
+        ["notes", "emails", "files"].forEach((t) => $("smm-panel-" + t).hidden = t !== activeTab);
+      }));
+      // Correspondence
       loadThread(r);
+    }
+
+    function startEditName(r) {
+      const h = $("smm-file-body").querySelector(".smm-file-name");
+      h.innerHTML = `<input class="smm-name-input" value="${esc(nameOf(r))}" />`;
+      const inp = h.querySelector("input"); inp.focus(); inp.select();
+      let done = false;
+      const save = async () => { if (done) return; done = true; const v = inp.value.trim(); if (v && v !== nameOf(r)) await saveName(r, v); renderBoard(); openFile(r.id); };
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape") { done = true; openFile(r.id); } });
+      inp.addEventListener("blur", save);
+    }
+    async function saveName(r, v) {
+      r.full_name = v; const parts = v.split(/\s+/); r.first_name = parts.shift() || v; r.last_name = parts.join(" ") || null;
+      if (!isDemo(r)) { try { await supabase.from("smm_leads").update({ full_name: v, first_name: r.first_name, last_name: r.last_name }).eq("id", r.id); } catch (_) {} }
+    }
+
+    // ---------- Stage moves ----------
+    function moveToStage(r, stageKey) {
+      if (!stageKey) return;
+      if (stageKey === "meeting_set") { openMeeting(r); return; }
+      if (stageKey === stageOf(r)) return;
+      setStage(r, stageKey);
     }
     async function setStage(r, stage) {
       r.pipeline_stage = stage;
       if (!isDemo(r)) { try { await supabase.from("smm_leads").update({ pipeline_stage: stage }).eq("id", r.id); } catch (_) {} }
-      // Landing on Active client tags them Active + Customer in the CRM.
       if (stage === "active_client") { if (!r.client_status) r.client_status = "active"; pushClientStatus(r, "active"); }
       renderBoard();
       if (stage === "lost") closeFile(); else openFile(r.id);
     }
     async function pushClientStatus(r, status) {
-      if (isDemo(r)) return;
+      if (isDemo(r) || !WORKER) return;
       try { const token = await authToken(); await fetch(`${WORKER}/smm/status`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, status }) }); } catch (_) {}
     }
     async function setClientStatus(r, status) {
@@ -334,36 +483,112 @@ import "../../styles/admin.css";
       renderBoard(); openFile(r.id);
     }
 
-    // ---------- Correspondence: notes, emails, documents ----------
-    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-    const SMM_CATS = [["agreement", "Contract"], ["prep", "Proposal"], ["invoice", "Invoice"], ["delivery", "Deliverables"], ["other", "Other"]];
-    const catLabel = (c) => (SMM_CATS.find((x) => x[0] === c) || [, "Document"])[1];
-    const isDemo = (r) => String(r.id).startsWith("demo");
-    async function authToken() { try { return (await supabase.auth.getSession()).data.session?.access_token || ""; } catch (_) { return ""; } }
-    const DOC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    // ---------- Meeting modal ----------
+    function closeModal() { $("smm-modal-host").innerHTML = ""; }
+    function openMeeting(r) {
+      const d = new Date(Date.now() + 2 * 86400000);
+      const dstr = d.toISOString().slice(0, 10);
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Book a meeting">
+            <h3>Book a meeting</h3>
+            <p class="smm-modal-sub">with ${esc(nameOf(r))}${r.business ? " · " + esc(r.business) : ""}</p>
+            <div class="smm-modal-two">
+              <div class="smm-modal-field"><label>Date</label><input type="date" id="smm-mt-date" value="${dstr}"></div>
+              <div class="smm-modal-field"><label>Time</label><input type="time" id="smm-mt-time" value="10:00"></div>
+            </div>
+            <div class="smm-modal-field"><label>Length</label><select id="smm-mt-dur"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">1 hour</option></select></div>
+            <label class="smm-check"><input type="checkbox" id="smm-mt-invite" checked> Send a diary invite to the client</label>
+            <p class="smm-modal-status" id="smm-mt-status" hidden></p>
+            <div class="smm-modal-actions">
+              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
+              <button type="button" class="smm-btn smm-btn--primary" id="smm-mt-save">Save meeting</button>
+            </div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("smm-mt-save").addEventListener("click", () => saveMeeting(r));
+    }
+    async function saveMeeting(r) {
+      const date = $("smm-mt-date").value, start = $("smm-mt-time").value;
+      const duration = $("smm-mt-dur").value, invite = $("smm-mt-invite").checked;
+      if (!date || !start) { const s = $("smm-mt-status"); s.hidden = false; s.textContent = "Pick a date and time."; return; }
+      const btn = $("smm-mt-save"); btn.disabled = true; btn.textContent = "Saving…";
+      r.meeting_at = `${date}T${start}:00`; r.pipeline_stage = "meeting_set";
+      if (!isDemo(r)) {
+        let ok = false;
+        if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/meeting`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, date, start, duration, send_invite: invite }) }); ok = res.ok; } catch (_) {} }
+        if (!ok) { try { await supabase.from("smm_leads").update({ meeting_at: r.meeting_at, pipeline_stage: "meeting_set" }).eq("id", r.id); } catch (_) {} }
+      }
+      closeModal(); renderBoard(); openFile(r.id);
+    }
 
+    // ---------- Add-file modal ----------
+    function openAddFile(r) {
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Add a file">
+            <h3>Add a file</h3>
+            <p class="smm-modal-sub">Attach it to ${esc(nameOf(r))}'s file.</p>
+            <div class="smm-modal-field"><label>File</label><input type="file" id="smm-af-file" class="smm-file-input"></div>
+            <div class="smm-modal-field"><label>Type</label><select id="smm-af-type">${SMM_CATS.map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select></div>
+            <div class="smm-modal-field"><label>Name (optional)</label><input type="text" id="smm-af-name" placeholder="e.g. Signed agreement"></div>
+            <p class="smm-modal-status" id="smm-af-status" hidden></p>
+            <div class="smm-modal-actions">
+              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
+              <button type="button" class="smm-btn smm-btn--primary" id="smm-af-add">Add file</button>
+            </div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("smm-af-add").addEventListener("click", () => uploadFile(r));
+    }
+    async function uploadFile(r) {
+      const fileEl = $("smm-af-file"); const file = fileEl && fileEl.files && fileEl.files[0];
+      const cat = $("smm-af-type").value || "other"; const title = $("smm-af-name").value.trim();
+      const status = $("smm-af-status");
+      if (!file) { status.hidden = false; status.textContent = "Choose a file first."; return; }
+      if (isDemo(r)) { r._thread.documents.push({ id: "d" + Date.now(), file_name: file.name, title: title || null, category: cat }); closeModal(); activeTab = "files"; renderThread(r, r._thread); return; }
+      const btn = $("smm-af-add"); btn.disabled = true; btn.textContent = "Uploading…";
+      try {
+        const token = await authToken();
+        const qs = new URLSearchParams({ booking_id: r.id, source: "smm", category: cat, file_name: file.name, content_type: file.type || "application/octet-stream" });
+        if (title) qs.set("title", title);
+        const res = await fetch(`${WORKER}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
+        if (!res.ok) throw 0;
+        closeModal(); activeTab = "files"; loadThread(r);
+      } catch (_) { status.hidden = false; status.textContent = "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add file"; }
+    }
+
+    // ---------- Correspondence ----------
     function threadStatus(msg, ok) {
       const el = $("smm-thread-status"); if (!el) return;
       el.hidden = !msg; el.textContent = msg || ""; el.style.color = ok === false ? "#a05a3c" : "var(--english-violet)";
     }
     async function loadThread(r) {
-      const host = $("smm-thread"); if (!host) return;
+      if (!$("smm-panel-notes")) return;
       if (isDemo(r)) { r._thread = r._thread || { messages: [], documents: [] }; renderThread(r, r._thread); return; }
-      if (!WORKER) { renderThread(r, { messages: [], documents: [] }, "Connect the Worker (PUBLIC_R2_WORKER_URL) to log emails, notes and documents."); return; }
-      host.innerHTML = '<div class="smm-sec"><p class="smm-soon">Loading correspondence…</p></div>';
+      if (!WORKER) { renderThread(r, { messages: [], documents: [] }, "Connect the Worker (PUBLIC_R2_WORKER_URL) to log emails, notes and files."); return; }
+      renderThread(r, { messages: [], documents: [] }, null, true);
       let data = { messages: [], documents: [] };
       try { const token = await authToken(); const res = await fetch(`${WORKER}/booking/thread?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) data = await res.json(); } catch (_) {}
       renderThread(r, data);
     }
-    function renderThread(r, data, warn) {
-      const host = $("smm-thread"); if (!host) return;
+    function renderThread(r, data, warn, loading) {
+      const pNotes = $("smm-panel-notes"), pMail = $("smm-panel-emails"), pFiles = $("smm-panel-files");
+      if (!pNotes) return;
       const msgs = data.messages || [], docs = data.documents || [];
       const notes = msgs.filter((m) => m.channel === "note")
         .sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0) || new Date(a.created_at) - new Date(b.created_at));
       const emails = msgs.filter((m) => m.channel === "email" || m.channel === "system")
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-      const noteHtml = notes.map((m) => {
+      // NOTES
+      const noteHtml = loading ? '<p class="smm-soon">Loading…</p>' : (notes.map((m) => {
         const who = m.created_by && m.created_by !== "system" ? m.created_by : "You";
         return `<div class="smm-note ${m.is_pinned ? "is-pinned" : ""}">
           <div class="smm-note-body">${esc(m.body || "").replace(/\n/g, "<br>")}</div>
@@ -375,9 +600,16 @@ import "../../styles/admin.css";
             </span>
           </div>
         </div>`;
-      }).join("") || `<p class="smm-mail-empty">No notes yet.</p>`;
+      }).join("") || `<p class="smm-mail-empty">No notes yet.</p>`);
+      pNotes.innerHTML = `
+        <div class="smm-add">
+          <textarea id="smm-note-input" rows="2" placeholder="Add an internal note…"></textarea>
+          <div class="smm-add-row"><span></span><button type="button" class="smm-btn smm-btn--sm" id="smm-note-add">${PLUS_SVG}Add note</button></div>
+        </div>
+        ${noteHtml}`;
 
-      const mailHtml = emails.map((m) => {
+      // EMAILS
+      const mailHtml = loading ? '<p class="smm-soon">Loading…</p>' : (emails.map((m) => {
         const out = m.direction !== "inbound";
         const who = m.is_automated ? "TMKE (automated)" : (out ? (m.created_by && m.created_by !== "system" ? m.created_by : "TMKE") : (r.email || "Client"));
         return `<div class="smm-mail ${out ? "is-out" : "is-in"}">
@@ -385,58 +617,41 @@ import "../../styles/admin.css";
           ${m.subject ? `<div class="smm-mail-subj">${esc(m.subject)}</div>` : ""}
           <div class="smm-mail-body">${esc(m.body || "").replace(/\n/g, "<br>")}</div>
         </div>`;
-      }).join("") || `<p class="smm-mail-empty">No emails logged yet.</p>`;
+      }).join("") || `<p class="smm-mail-empty">No emails logged yet.</p>`);
+      pMail.innerHTML = `
+        ${mailHtml}
+        <div class="smm-add" style="margin-top:14px">
+          <input type="text" id="smm-mail-subj" placeholder="Subject" />
+          <textarea id="smm-mail-body" rows="3" placeholder="Write an email to ${esc(r.email || "the client")}…"></textarea>
+          <input type="file" id="smm-mail-file" class="smm-file-input" />
+          <div class="smm-add-row">
+            <p class="smm-hint">Sends from the manager mailbox and logs here.</p>
+            <button type="button" class="smm-btn smm-btn--primary smm-btn--sm" id="smm-mail-send">Send email</button>
+          </div>
+        </div>`;
 
-      const docHtml = docs.map((d) => `<div class="smm-doc">
+      // FILES
+      const docHtml = loading ? '<p class="smm-soon">Loading…</p>' : (docs.map((d) => `<div class="smm-doc">
         <span class="smm-doc-ico">${DOC_SVG}</span>
         <span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span><span class="smm-doc-cat">${esc(catLabel(d.category))}</span></span>
         <span class="smm-doc-tools">
           <button type="button" class="smm-mini" data-docdl="${esc(d.id)}" data-docname="${esc(d.file_name || "document")}">Download</button>
           <button type="button" class="smm-mini is-danger" data-docdel="${esc(d.id)}">Remove</button>
         </span>
-      </div>`).join("") || `<p class="smm-doc-empty">No documents attached.</p>`;
+      </div>`).join("") || `<p class="smm-doc-empty">No files attached yet.</p>`);
+      pFiles.innerHTML = `
+        <div class="smm-panel-head"><h4>Documents</h4><button type="button" class="smm-btn smm-btn--sm" id="smm-file-add">${PLUS_SVG}Add file</button></div>
+        ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
+        ${docHtml}`;
 
-      host.innerHTML = `
-        ${warn ? `<div class="smm-sec"><p class="smm-soon">${esc(warn)}</p></div>` : ""}
-        <div class="smm-sec">
-          <h3 class="smm-sec-h">Notes</h3>
-          <div class="smm-add">
-            <textarea id="smm-note-input" rows="2" placeholder="Add an internal note…"></textarea>
-            <div class="smm-add-row"><span></span><button type="button" class="smm-btn" id="smm-note-add">Add note</button></div>
-          </div>
-          ${noteHtml}
-        </div>
-        <div class="smm-sec">
-          <h3 class="smm-sec-h">Emails</h3>
-          ${mailHtml}
-          <div class="smm-add" style="margin-top:14px">
-            <input type="text" id="smm-mail-subj" placeholder="Subject" />
-            <textarea id="smm-mail-body" rows="3" placeholder="Write an email to ${esc(r.email || "the client")}…"></textarea>
-            <input type="file" id="smm-mail-file" class="smm-file-input" />
-            <div class="smm-add-row">
-              <p class="smm-hint">Sends from the TMKE inbox and logs to this file.</p>
-              <button type="button" class="smm-btn smm-btn--primary" id="smm-mail-send">Send email</button>
-            </div>
-          </div>
-        </div>
-        <div class="smm-sec">
-          <h3 class="smm-sec-h">Documents</h3>
-          ${docHtml}
-          <div class="smm-docadd">
-            <select id="smm-doc-cat">${SMM_CATS.map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select>
-            <input type="file" id="smm-doc-file" class="smm-file-input" />
-            <button type="button" class="smm-btn" id="smm-doc-up">Attach</button>
-          </div>
-        </div>
-        <p class="smm-thread-status" id="smm-thread-status" hidden></p>`;
-
+      // Wire
       $("smm-note-add")?.addEventListener("click", () => addNote(r));
       $("smm-mail-send")?.addEventListener("click", () => sendEmail(r));
-      $("smm-doc-up")?.addEventListener("click", () => uploadDoc(r));
-      host.querySelectorAll("[data-pin]").forEach((b) => b.addEventListener("click", () => pinNote(r, b.getAttribute("data-pin"), b.getAttribute("data-pinned") !== "1")));
-      host.querySelectorAll("[data-delnote]").forEach((b) => b.addEventListener("click", () => delNote(r, b.getAttribute("data-delnote"))));
-      host.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
-      host.querySelectorAll("[data-docdel]").forEach((b) => b.addEventListener("click", () => deleteDoc(r, b.getAttribute("data-docdel"))));
+      $("smm-file-add")?.addEventListener("click", () => openAddFile(r));
+      pNotes.querySelectorAll("[data-pin]").forEach((b) => b.addEventListener("click", () => pinNote(r, b.getAttribute("data-pin"), b.getAttribute("data-pinned") !== "1")));
+      pNotes.querySelectorAll("[data-delnote]").forEach((b) => b.addEventListener("click", () => delNote(r, b.getAttribute("data-delnote"))));
+      pFiles.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
+      pFiles.querySelectorAll("[data-docdel]").forEach((b) => b.addEventListener("click", () => deleteDoc(r, b.getAttribute("data-docdel"))));
     }
 
     async function addNote(r) {
@@ -474,17 +689,8 @@ import "../../styles/admin.css";
         if (!res.ok) throw 0; loadThread(r);
       } catch (_) { threadStatus("Couldn't send email.", false); btn.disabled = false; btn.textContent = "Send email"; }
     }
-    async function uploadDoc(r) {
-      const fileEl = $("smm-doc-file"); const file = fileEl && fileEl.files && fileEl.files[0];
-      const cat = $("smm-doc-cat")?.value || "other";
-      if (!file) { threadStatus("Choose a file first.", false); return; }
-      if (isDemo(r)) { r._thread.documents.push({ id: "d" + Date.now(), file_name: file.name, category: cat }); renderThread(r, r._thread); return; }
-      const btn = $("smm-doc-up"); btn.disabled = true; btn.textContent = "Uploading…";
-      try { const token = await authToken(); const qs = new URLSearchParams({ booking_id: r.id, source: "smm", category: cat, file_name: file.name, content_type: file.type || "application/octet-stream" }); const res = await fetch(`${WORKER}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file }); if (!res.ok) throw 0; loadThread(r); }
-      catch (_) { threadStatus("Couldn't upload.", false); btn.disabled = false; btn.textContent = "Attach"; }
-    }
     async function downloadDoc(id, name) {
-      if (current && isDemo(current)) return; // demo documents aren't real files
+      if (current && isDemo(current)) return;
       if (!WORKER) return;
       try {
         const token = await authToken();
@@ -495,7 +701,7 @@ import "../../styles/admin.css";
       } catch (_) {}
     }
     async function deleteDoc(r, id) {
-      if (!confirm("Remove this document?")) return;
+      if (!confirm("Remove this file?")) return;
       if (isDemo(r)) { r._thread.documents = r._thread.documents.filter((x) => x.id !== id); renderThread(r, r._thread); return; }
       try { const token = await authToken(); await fetch(`${WORKER}/booking/document?id=${encodeURIComponent(id)}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } }); loadThread(r); } catch (_) {}
     }
@@ -507,14 +713,13 @@ import "../../styles/admin.css";
       const mk = (o) => Object.assign({ id: "demo-" + Math.abs((o.email || "").length * 7 + (o.full_name || "").length), kind: "enquiry", marketing_opt_in: false, created_at: new Date(now - (o.ageDays || 1) * 86400000).toISOString() }, o);
       const rows = [
         mk({ full_name: "Harriet Vance", email: "harriet@vancehomes.co.uk", phone: "07700 900111", business: "Vance & Co Estate Agents", kind: "enquiry", message: "We'd love help running our Instagram and reels — struggling to post consistently.", pipeline_stage: "inquiry", ageDays: 1 }),
-        mk({ full_name: "Marcus Bell", email: "marcus@thelettingsexperts.co.uk", phone: "07700 900222", business: "The Lettings Experts", kind: "discovery", call_at: new Date(now + 2 * 86400000).toISOString(), pipeline_stage: "meeting_set", ageDays: 3 }),
-        mk({ full_name: "Priya Anand", email: "priya@anandproperty.com", business: "Anand Property", kind: "brochure", pipeline_stage: "inquiry", ageDays: 2 }),
-        mk({ full_name: "Tom Whitfield", email: "tom@whitfield.co.uk", phone: "07700 900333", business: "Whitfield & Sons", kind: "discovery", meeting_at: new Date(now + 5 * 86400000).toISOString(), pipeline_stage: "contract_sent", ageDays: 8 }),
-        mk({ full_name: "Sofia Reyes", email: "sofia@reyeshomes.co.uk", business: "Reyes Homes", kind: "enquiry", pipeline_stage: "contract_signed", ageDays: 12 }),
+        mk({ full_name: "Priya Anand", email: "priya@anandproperty.com", phone: "07700 900666", business: "Anand Property", kind: "brochure", pipeline_stage: "inquiry", ageDays: 2 }),
+        mk({ full_name: "Marcus Bell", email: "marcus@thelettingsexperts.co.uk", phone: "07700 900222", business: "The Lettings Experts", kind: "discovery", call_at: new Date(now + 2 * 86400000).toISOString(), meeting_at: new Date(now + 2 * 86400000).toISOString(), pipeline_stage: "meeting_set", ageDays: 3 }),
+        mk({ full_name: "Daniel Law", email: "daniel@lawandmoore.co.uk", phone: "07700 900333", business: "Law & Moore", kind: "enquiry", pipeline_stage: "inquiry", ageDays: 4 }),
+        mk({ full_name: "Sofia Reyes", email: "sofia@reyeshomes.co.uk", phone: "07700 900777", business: "Reyes Homes", kind: "enquiry", pipeline_stage: "contract_signed", ageDays: 12 }),
         mk({ full_name: "James Okafor", email: "james@fineandcountry.com", phone: "07700 900444", business: "Fine & Country (Kettering)", kind: "enquiry", marketing_opt_in: true, pipeline_stage: "active_client", client_status: "active", ageDays: 40 }),
         mk({ full_name: "Elena Frost", email: "elena@frostandco.co.uk", phone: "07700 900555", business: "Frost & Co", kind: "discovery", marketing_opt_in: true, pipeline_stage: "active_client", client_status: "paused", ageDays: 90 }),
       ];
-      // Seed a couple of threads so the customer file shows populated notes / emails / documents in the preview.
       rows[0]._thread = { messages: [
         { id: "n1", channel: "note", body: "Warm lead — followed us on Instagram first. Wants reels + a content plan.", is_pinned: true, created_by: "Abby", created_at: ago(0.5) },
       ], documents: [] };
@@ -557,7 +762,11 @@ import "../../styles/admin.css";
       $("smm-show-lost").addEventListener("change", (e) => { showLost = e.target.checked; renderBoard(); });
       $("smm-file-close").addEventListener("click", closeFile);
       $("smm-file").addEventListener("click", (e) => { if (e.target === $("smm-file")) closeFile(); });
-      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("smm-file").hidden) closeFile(); });
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        if ($("smm-modal-host").children.length) { closeModal(); return; }
+        if (!$("smm-file").hidden) closeFile();
+      });
     })();
   </script>
 </AdminShell>
