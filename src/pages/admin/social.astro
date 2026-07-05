@@ -6,24 +6,27 @@ import "../../styles/admin.css";
 <AdminShell active="social" title="Social media">
   <div class="ash-panel ash-page">
     <section class="smm-bar">
-      <div class="smm-bar-left">
+      <div class="smm-bar-top">
         <div class="smm-filters" id="smm-filters" role="tablist">
           <button type="button" class="smm-chip is-active" data-filter="all">All</button>
           <button type="button" class="smm-chip" data-filter="enquiry">Enquiries</button>
           <button type="button" class="smm-chip" data-filter="brochure">Brochures</button>
-          <button type="button" class="smm-chip" data-filter="discovery">Discovery calls</button>
+          <button type="button" class="smm-chip" data-filter="meeting_set">Discovery calls</button>
           <button type="button" class="smm-chip" data-filter="proposal_sent">Proposals</button>
           <button type="button" class="smm-chip" data-filter="contract_signed">Contracts</button>
           <button type="button" class="smm-chip" data-filter="onboarding">Onboarding clients</button>
+          <button type="button" class="smm-chip" data-filter="active_client">Clients</button>
+        </div>
+        <div class="smm-bar-actions">
+          <label class="smm-lost-toggle"><input type="checkbox" id="smm-show-lost" /> Show lost</label>
+          <button type="button" class="smm-add-btn" id="smm-add-lead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add</button>
         </div>
       </div>
-      <div class="smm-bar-right">
+      <div class="smm-bar-bottom">
         <label class="smm-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input type="search" id="smm-search" placeholder="Search name, email, business…" aria-label="Search leads" />
         </label>
-        <label class="smm-lost-toggle"><input type="checkbox" id="smm-show-lost" /> Show lost</label>
-        <button type="button" class="smm-add-btn" id="smm-add-lead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add</button>
       </div>
     </section>
 
@@ -44,16 +47,17 @@ import "../../styles/admin.css";
 
   <style is:global>
     /* ---- Toolbar ---- */
-    .smm-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; max-width: 1440px; margin: 0 auto; padding: 34px 36px 20px; }
-    .smm-bar-left, .smm-bar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .smm-filters { display: inline-flex; gap: 6px; flex-wrap: wrap; }
-    .smm-chip { padding: 7px 14px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+    .smm-bar { display: flex; flex-direction: column; gap: 12px; max-width: 1440px; margin: 0 auto; padding: 34px 36px 20px; }
+    .smm-bar-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .smm-bar-actions { display: flex; align-items: center; gap: 12px; flex: none; }
+    .smm-filters { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
+    .smm-chip { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 14px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
     .smm-chip:hover { border-color: rgba(var(--violet-rgb),0.4); }
     .smm-chip.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
-    .smm-search { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 8px 14px; min-width: 240px; }
+    .smm-search { height: 34px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 0 14px; width: 340px; max-width: 100%; }
     .smm-search svg { width: 15px; height: 15px; color: rgba(28,29,34,0.42); flex: none; }
     .smm-search input { border: 0; outline: none; background: none; width: 100%; font-family: var(--sans); font-size: 13px; color: var(--ink); }
-    .smm-lost-toggle { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+    .smm-lost-toggle { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); display: inline-flex; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; }
     .smm-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 40px 36px; max-width: 1440px; margin: 0 auto; }
 
     /* ---- Pipeline board — fits the screen, no side-scroll ---- */
@@ -73,7 +77,7 @@ import "../../styles/admin.css";
     .smm-kind.is-discovery { background: rgba(47,158,94,0.12); color: #2c7a4b; }
     .smm-kind.is-brochure { background: rgba(227,160,8,0.14); color: #9a6a04; }
     .smm-kind.is-package { background: var(--english-violet); color: #fff; }
-    .smm-add-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; background: var(--english-violet); border: 1px solid var(--english-violet); border-radius: 999px; font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: #fff; cursor: pointer; transition: background .15s; }
+    .smm-add-btn { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; background: var(--english-violet); border: 1px solid var(--english-violet); border-radius: 999px; font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: #fff; cursor: pointer; transition: background .15s; white-space: nowrap; }
     .smm-add-btn:hover { background: var(--ink); border-color: var(--ink); }
     .smm-add-btn svg { width: 14px; height: 14px; }
     .smm-card-when { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.42); }
@@ -277,7 +281,7 @@ import "../../styles/admin.css";
       { key: "inquiry", label: "Inquiry" },
       { key: "meeting_set", label: "Meeting set" },
       { key: "proposal_sent", label: "Proposal sent" },
-      { key: "contract_signed", label: "Contract signed" },
+      { key: "contract_signed", label: "Contract sent" },
       { key: "onboarding", label: "Onboarding" },
       { key: "active_client", label: "Active client" },
     ];
@@ -286,7 +290,7 @@ import "../../styles/admin.css";
     const STAGE_ALIAS = { contract_sent: "proposal_sent", brochure_downloaded: "inquiry", general_enquiry: "inquiry", discovery_call_booked: "inquiry" };
     const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Discovery call", manual: "Manual" };
     const CLIENT_STATUS = { active: "Active", paused: "Paused", ended: "Ended" };
-    const NEXT_LABEL = { meeting_set: "Set a meeting", proposal_sent: "Mark proposal sent", contract_signed: "Mark contract signed", onboarding: "Start onboarding", active_client: "Make active client" };
+    const NEXT_LABEL = { meeting_set: "Set a meeting", proposal_sent: "Mark proposal sent", contract_signed: "Mark contract sent", onboarding: "Start onboarding", active_client: "Make active client" };
     const PLATFORMS = ["Instagram", "Facebook", "LinkedIn", "YouTube", "TikTok"];
 
     const $ = (id) => document.getElementById(id);
@@ -334,8 +338,8 @@ import "../../styles/admin.css";
         .filter((r) => {
           const f = kindFilter;
           if (f === "all") return true;
-          if (f === "enquiry" || f === "brochure" || f === "discovery") return r.kind === f;
-          return stageOf(r) === f; // proposal_sent / contract_signed / onboarding
+          if (f === "enquiry" || f === "brochure") return r.kind === f;
+          return stageOf(r) === f; // meeting_set (Discovery calls) / proposal_sent / contract_signed / onboarding / active_client (Clients)
         })
         .filter((r) => !q || (nameOf(r) + " " + (r.email || "") + " " + (r.business || "")).toLowerCase().includes(q));
     }
