@@ -1484,7 +1484,7 @@
 
   // Persistent save-status pill so a failed cloud save is never silent.
   function setSaveStatus(kind) {
-    if (!ADMIN_MODE_URL) return;
+    if (!ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ !== "function") return;
     let el = document.getElementById("ed-save-status");
     if (!el) {
       el = document.createElement("div");
@@ -1518,9 +1518,11 @@
   // failure the work is already safe locally — show it + retry with backoff so
   // a transient blip self-heals without anyone losing work.
   async function autosaveToDb() {
-    if (!ADMIN_MODE_URL) return;
-    if (!state.templateId || String(state.templateId).indexOf("draft-") === 0) return;
-    if (typeof window.__TMKE_ADMIN_SAVE__ !== "function") { setSaveStatus("local"); return; }
+    const adminHook = ADMIN_MODE_URL && typeof window.__TMKE_ADMIN_SAVE__ === "function";
+    const designHook = !ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ === "function";
+    if (!adminHook && !designHook) { if (ADMIN_MODE_URL) setSaveStatus("local"); return; }
+    // Admin never autosaves a scratch draft over a real template row.
+    if (adminHook && (!state.templateId || String(state.templateId).indexOf("draft-") === 0)) return;
     if (_dbSaving) { clearTimeout(_dbSaveTimer); _dbSaveTimer = setTimeout(autosaveToDb, 1500); return; }
     _dbSaving = true;
     setSaveStatus("saving");
@@ -1528,7 +1530,7 @@
     try {
       let thumb;
       try { thumb = await _renderThumbDataUrl(); } catch (_) {}
-      ok = await window.__TMKE_ADMIN_SAVE__({
+      const payload = {
         templateId: state.templateId,
         filename: filenameEl ? filenameEl.value : "",
         canvas: state.canvas,
@@ -1537,7 +1539,11 @@
         guides: deep(state.guides || []),
         savedAt: Date.now(),
         thumb,
-      });
+      };
+      const res = await (adminHook ? window.__TMKE_ADMIN_SAVE__(payload) : window.__TMKE_DESIGN_SAVE__(payload));
+      ok = res === true || (res && res.ok === true);
+      // Customer: adopt the new copy's id so subsequent saves update the same row.
+      if (designHook && res && res.id && state.templateId !== res.id) state.templateId = res.id;
     } catch (_) { ok = false; }
     _dbSaving = false;
     if (ok) { _dbRetries = 0; setSaveStatus("saved"); }
@@ -1554,11 +1560,14 @@
     }
   }
   function scheduleAutosave() {
-    if (!ADMIN_MODE_URL) return;
-    clearTimeout(_autosaveTimer);
-    _autosaveTimer = setTimeout(autosaveDraft, 1200);   // local copy — always
+    const customer = !ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ === "function";
+    if (!ADMIN_MODE_URL && !customer) return;
+    if (ADMIN_MODE_URL) {   // admin also keeps a local draft; customers save to their copy only
+      clearTimeout(_autosaveTimer);
+      _autosaveTimer = setTimeout(autosaveDraft, 1200);
+    }
     clearTimeout(_dbSaveTimer);
-    _dbSaveTimer = setTimeout(autosaveToDb, 3500);       // cloud copy — when up
+    _dbSaveTimer = setTimeout(autosaveToDb, 3500);       // cloud copy
   }
   window.addEventListener("beforeunload", function () { try { if (ADMIN_MODE_URL) autosaveDraft(); } catch (_) {} });
 
