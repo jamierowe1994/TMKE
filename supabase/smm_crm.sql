@@ -24,13 +24,25 @@ alter table public.smm_leads add column if not exists client_status text;
 alter table public.booking_messages add column if not exists external_id text;
 create index if not exists booking_messages_external_id_idx on public.booking_messages (external_id);
 
--- Active-client engagement + billing details (manually captured once a lead
--- signs a contract; feeds the ongoing-management hub + invoicing).
+-- Active-client engagement + billing details (manually captured from Proposal
+-- sent onward; feeds the ongoing-management hub + invoicing).
 alter table public.smm_leads add column if not exists package_name text;
 alter table public.smm_leads add column if not exists price text;            -- pricing structure, free text e.g. "£750 / month"
 alter table public.smm_leads add column if not exists start_date date;       -- engagement start
 alter table public.smm_leads add column if not exists end_date date;         -- confirmed no longer using our services
 alter table public.smm_leads add column if not exists business_address text; -- for invoicing
+
+-- Proposal-stage additions: their social channel links + the platforms we manage
+-- (shown from Proposal sent onward). Pipeline now:
+--   inquiry | meeting_set | proposal_sent | contract_signed | active_client | lost
+alter table public.smm_leads add column if not exists instagram_url text;
+alter table public.smm_leads add column if not exists facebook_url text;
+alter table public.smm_leads add column if not exists linkedin_url text;
+alter table public.smm_leads add column if not exists platforms text[];       -- e.g. {Instagram,Facebook,LinkedIn}
+
+-- Invoices reuse booking_documents (category='invoice') + record the dates.
+alter table public.booking_documents add column if not exists invoice_date date; -- date sent / raised
+alter table public.booking_documents add column if not exists paid_date date;    -- manual paid date
 
 -- Seed a sensible starting stage for existing rows that predate this column.
 update public.smm_leads set pipeline_stage = 'inquiry' where pipeline_stage is null;

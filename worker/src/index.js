@@ -2559,6 +2559,43 @@ export default {
         return json({ ok: true, invited }, 200, request, env);
       }
 
+      // ---- Admin: add a lead manually (other channels / existing clients) ----
+      if (path.endsWith("/smm/lead") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const email = String((b && b.email) || "").trim();
+        const first = String((b && b.first_name) || "").trim();
+        const last = String((b && b.last_name) || "").trim();
+        const full = (String((b && b.full_name) || "").trim()) || `${first} ${last}`.trim();
+        if (!full && !email) return json({ error: "Add a name or email." }, 400, request, env);
+        const stage = ["inquiry", "meeting_set", "proposal_sent", "contract_signed", "active_client"].includes(b && b.pipeline_stage) ? b.pipeline_stage : "inquiry";
+        const ins = await sbPost(env, "smm_leads", {
+          kind: "manual", tag: "Manual", stage: "manual", pipeline_stage: stage,
+          first_name: first || null, last_name: last || null, full_name: full || email,
+          email: email || null, phone: (b && b.phone) || null, business: (b && b.business) || null,
+          client_status: stage === "active_client" ? "active" : null,
+        }, "return=representation");
+        if (!ins.ok) { const detail = await ins.text().catch(() => ""); console.error("smm manual lead insert failed", ins.status, detail); return json({ error: "Couldn't save the lead." }, 502, request, env); }
+        let row = null; try { const arr = await ins.json(); row = Array.isArray(arr) && arr[0] ? arr[0] : null; } catch (_) {}
+        return json({ ok: true, lead: row }, 200, request, env);
+      }
+
+      // ---- Admin: set an invoice document's paid date -------------------------
+      if (path.endsWith("/booking/document/paid") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = b && b.id;
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        const paid = /^\d{4}-\d{2}-\d{2}$/.test((b && b.paid_date) || "") ? b.paid_date : null;
+        await fetch(`${env.SUPABASE_URL}/rest/v1/booking_documents?id=eq.${encodeURIComponent(id)}`, {
+          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ paid_date: paid }),
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: manually run the inbound-email capture (also on the cron) ---
       if (path.endsWith("/smm/inbox/poll") && request.method === "POST") {
         const user = await getUser(request, env);
@@ -2588,7 +2625,7 @@ export default {
         const id = (url.searchParams.get("booking_id") || "").trim();
         if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
         const messages = (await sbGet(env, "booking_messages", `booking_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.asc`)) || [];
-        const documents = (await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,created_at&order=created_at.asc`)) || [];
+        const documents = (await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,invoice_date,paid_date,created_at&order=created_at.asc`)) || [];
         return json({ messages, documents }, 200, request, env);
       }
 
@@ -2602,6 +2639,7 @@ export default {
         const category = ["agreement", "prep", "invoice", "delivery", "other"].includes(q.get("category")) ? q.get("category") : "other";
         const fileName = (q.get("file_name") || "document").replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
         const title = q.get("title") || null;
+        const invoiceDate = /^\d{4}-\d{2}-\d{2}$/.test(q.get("invoice_date") || "") ? q.get("invoice_date") : null;
         const contentType = q.get("content_type") || request.headers.get("Content-Type") || "application/octet-stream";
         if (!bookingId) return json({ error: "Missing booking_id" }, 400, request, env);
         const bk = await lookupBooking(env, source, bookingId);
@@ -2615,7 +2653,7 @@ export default {
           const ins = await sbPost(env, "booking_documents", {
             booking_id: bookingId, booking_source: source, account_user_id: bk.account_user_id, client_email: bk.email,
             category, title, file_name: fileName, r2_key: key, content_type: contentType, size_bytes: body.byteLength,
-            uploaded_by: user.email || "admin",
+            invoice_date: invoiceDate, uploaded_by: user.email || "admin",
           }, "return=representation");
           const arr = await ins.json();
           row = Array.isArray(arr) && arr[0] ? arr[0] : null;
