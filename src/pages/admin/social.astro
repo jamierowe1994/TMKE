@@ -816,11 +816,12 @@ import "../../styles/admin.css";
         <div class="smm-modal-scrim" id="smm-modal">
           <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Upload report">
             <h3>Upload a monthly report</h3>
-            <p class="smm-modal-sub">Paste the JSON Claude produced from ${esc(nameOf(r))}'s SocialPilot PDF.</p>
+            <p class="smm-modal-sub">Drop in ${esc(nameOf(r))}'s SocialPilot PDF and we'll read it into a report — or paste the JSON yourself.</p>
             <div class="smm-modal-two">
               <div class="smm-modal-field"><label>Month</label><select id="smm-rp-month">${RI_MONTHS.map((m, i) => `<option value="${i}" ${i === now.getMonth() ? "selected" : ""}>${m}</option>`).join("")}</select></div>
               <div class="smm-modal-field"><label>Year</label><input type="number" id="smm-rp-year" value="${now.getFullYear()}"></div>
             </div>
+            <div class="smm-modal-field"><label>SocialPilot PDF</label><input type="file" id="smm-rp-pdf" accept="application/pdf" class="smm-file-input"><p class="smm-hint" id="smm-rp-pdfhint">We send it to Claude to read the charts — takes a few seconds. Review the result below before saving.</p></div>
             <div class="smm-modal-field"><label>Report JSON</label><textarea id="smm-rp-json" rows="8" class="smm-ri-json" placeholder='{ "summary": "…", "profile": { … }, … }'></textarea></div>
             <p class="smm-modal-status" id="smm-rp-status" hidden></p>
             <div class="smm-modal-actions">
@@ -833,6 +834,24 @@ import "../../styles/admin.css";
       scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
       $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
       $("smm-rp-save").addEventListener("click", () => saveReport(r));
+      $("smm-rp-pdf").addEventListener("change", (e) => parseReportPdf(e.target.files && e.target.files[0]));
+    }
+    async function parseReportPdf(file) {
+      if (!file) return;
+      const hint = $("smm-rp-pdfhint"), status = $("smm-rp-status"), save = $("smm-rp-save");
+      status.hidden = true;
+      if (!WORKER) { hint.textContent = "PDF reading runs on the deployed Worker — for now, paste the JSON below."; return; }
+      hint.textContent = "Reading the PDF with Claude…"; save.disabled = true;
+      try {
+        const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = rej; fr.readAsDataURL(file); });
+        const token = await authToken();
+        const resp = await fetch(`${WORKER}/smm/report/parse`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ pdf: b64 }) });
+        const j = await resp.json().catch(() => ({}));
+        if (!resp.ok || !j.data) throw new Error(j.error || "Couldn't read the PDF");
+        $("smm-rp-json").value = JSON.stringify(j.data, null, 2);
+        hint.textContent = "Read ✓ — check the figures below, then save.";
+      } catch (e) { hint.textContent = ""; status.hidden = false; status.textContent = e.message || "Couldn't read the PDF — try again or paste the JSON."; }
+      finally { save.disabled = false; }
     }
     async function saveReport(r) {
       const month = parseInt($("smm-rp-month").value, 10), year = parseInt($("smm-rp-year").value, 10);
