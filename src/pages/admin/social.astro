@@ -31,6 +31,7 @@ import "../../styles/admin.css";
     </section>
 
     <p class="smm-loading" id="smm-loading">Loading pipeline…</p>
+    <div class="smm-scrolltop" id="smm-scrolltop" hidden><div id="smm-scrolltop-inner"></div></div>
     <div class="smm-board" id="smm-board" hidden></div>
   </div>
 
@@ -61,6 +62,11 @@ import "../../styles/admin.css";
     .smm-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 40px 36px; max-width: 1440px; margin: 0 auto; }
 
     /* ---- Pipeline board — comfortable columns, scroll along the bottom ---- */
+    /* A synced scrollbar above the board so you don't have to scroll down a
+       laptop screen to reach the native one. */
+    .smm-scrolltop { max-width: 1440px; margin: 14px auto 6px; padding: 0 36px; overflow-x: auto; overflow-y: hidden; }
+    .smm-scrolltop[hidden] { display: none; }
+    #smm-scrolltop-inner { height: 1px; }
     .smm-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 1fr); gap: 14px; align-items: start; max-width: 1440px; margin: 0 auto; padding: 6px 36px 120px; overflow-x: auto; }
     /* Filter active → a single-column line view instead of the board. */
     .smm-board.is-list { display: block; overflow-x: visible; }
@@ -359,7 +365,17 @@ import "../../styles/admin.css";
     const SMM_CATS = [["agreement", "Contract"], ["prep", "Proposal"], ["content_plan", "Content plan"], ["insights_report", "Insights report"], ["delivery", "Deliverables"], ["invoice", "Invoice"], ["other", "Other"]];
     const catLabel = (c) => (SMM_CATS.find((x) => x[0] === c) || [, "Document"])[1];
     const isDemo = (r) => String(r.id).startsWith("demo");
-    async function authToken() { try { return (await supabase.auth.getSession()).data.session?.access_token || ""; } catch (_) { return ""; } }
+    async function authToken() {
+      try {
+        let session = (await supabase.auth.getSession()).data.session;
+        // Refresh if the token is missing or expiring within 60s, so uploads
+        // don't fail with "Unauthorised" on a stale session.
+        if (!session || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
+          try { const r = await supabase.auth.refreshSession(); if (r.data && r.data.session) session = r.data.session; } catch (_) {}
+        }
+        return (session && session.access_token) || "";
+      } catch (_) { return ""; }
+    }
 
     let all = [], kindFilter = "all", q = "", showLost = false, current = null, activeTab = "notes";
 
@@ -406,6 +422,15 @@ import "../../styles/admin.css";
         board.innerHTML = `<div class="smm-list"><div class="smm-list-head">${esc(label)} · ${rows.length}</div>${rows.length ? rows.map(rowHtml).join("") : '<div class="smm-col-empty">No matches.</div>'}</div>`;
         wireCards(board);
       }
+      syncTopScroll();
+    }
+    function syncTopScroll() {
+      const board = $("smm-board"), top = $("smm-scrolltop"), inner = $("smm-scrolltop-inner");
+      if (!board || !top) return;
+      if (board.classList.contains("is-list")) { top.hidden = true; return; }
+      const over = board.scrollWidth > board.clientWidth + 1;
+      top.hidden = !over;
+      if (over) inner.style.width = board.scrollWidth + "px";
     }
     function wireCards(board) {
       board.querySelectorAll("[data-id]").forEach((el) => {
@@ -1237,6 +1262,11 @@ import "../../styles/admin.css";
       $("smm-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); renderBoard(); });
       $("smm-show-lost").addEventListener("change", (e) => { showLost = e.target.checked; renderBoard(); });
       $("smm-add-lead").addEventListener("click", openAddLead);
+      // Keep the top scrollbar and the board in sync (either can be dragged).
+      let riSyncLock = false;
+      $("smm-scrolltop").addEventListener("scroll", () => { if (riSyncLock) return; riSyncLock = true; $("smm-board").scrollLeft = $("smm-scrolltop").scrollLeft; riSyncLock = false; });
+      $("smm-board").addEventListener("scroll", () => { if (riSyncLock) return; riSyncLock = true; $("smm-scrolltop").scrollLeft = $("smm-board").scrollLeft; riSyncLock = false; });
+      window.addEventListener("resize", syncTopScroll);
       $("smm-file-close").addEventListener("click", closeFile);
       $("smm-file").addEventListener("click", (e) => { if (e.target === $("smm-file")) closeFile(); });
       document.addEventListener("keydown", (e) => {
