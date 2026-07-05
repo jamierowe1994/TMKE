@@ -20,6 +20,7 @@ import "../../styles/admin.css";
           <input type="search" id="smm-search" placeholder="Search name, email, business…" aria-label="Search leads" />
         </label>
         <label class="smm-lost-toggle"><input type="checkbox" id="smm-show-lost" /> Show lost</label>
+        <button type="button" class="smm-add-btn" id="smm-add-lead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add</button>
       </div>
     </section>
 
@@ -68,6 +69,10 @@ import "../../styles/admin.css";
     .smm-kind { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
     .smm-kind.is-discovery { background: rgba(47,158,94,0.12); color: #2c7a4b; }
     .smm-kind.is-brochure { background: rgba(227,160,8,0.14); color: #9a6a04; }
+    .smm-kind.is-package { background: var(--english-violet); color: #fff; }
+    .smm-add-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; background: var(--english-violet); border: 1px solid var(--english-violet); border-radius: 999px; font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: #fff; cursor: pointer; transition: background .15s; }
+    .smm-add-btn:hover { background: var(--ink); border-color: var(--ink); }
+    .smm-add-btn svg { width: 14px; height: 14px; }
     .smm-card-when { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.42); }
     .smm-card-name { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--ink); }
     .smm-card-biz { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 2px; }
@@ -166,6 +171,19 @@ import "../../styles/admin.css";
     .smm-eng-row input, .smm-eng-row textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; resize: vertical; }
     .smm-eng-row input:focus, .smm-eng-row textarea:focus { outline: none; border-color: var(--english-violet); }
     .smm-eng-status { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 8px 0 0; min-height: 14px; }
+    .smm-platforms { margin-top: 12px; }
+    .smm-plat-label { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 8px; }
+    .smm-plat-grid { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+    .smm-plat { display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
+    /* Invoices */
+    .smm-inv { border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 12px 13px; margin-bottom: 9px; }
+    .smm-inv-top { display: flex; align-items: center; gap: 10px; }
+    .smm-inv-status { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; flex: none; }
+    .smm-inv-status.is-paid { background: rgba(47,158,94,0.14); color: #2c7a4b; }
+    .smm-inv-status.is-due { background: rgba(227,160,8,0.16); color: #9a6a04; }
+    .smm-inv-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(28,29,34,0.07); }
+    .smm-inv-paid { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); display: inline-flex; align-items: center; gap: 7px; }
+    .smm-inv-paid input { padding: 5px 8px; border: 1px solid rgba(28,29,34,0.16); border-radius: 7px; font-family: var(--sans); font-size: 12px; color: var(--ink); }
     .smm-msg { background: rgba(var(--violet-rgb),0.04); border-left: 3px solid var(--english-violet); padding: 14px 16px; border-radius: 6px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; margin-bottom: 18px; }
     .smm-soon { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.45); line-height: 1.6; }
 
@@ -238,15 +256,17 @@ import "../../styles/admin.css";
     const STAGES = [
       { key: "inquiry", label: "Inquiry" },
       { key: "meeting_set", label: "Meeting set" },
+      { key: "proposal_sent", label: "Proposal sent" },
       { key: "contract_signed", label: "Contract signed" },
       { key: "active_client", label: "Active client" },
     ];
     const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.key, i]));
-    // Legacy stages that predate the 4-column board map onto the nearest one.
-    const STAGE_ALIAS = { contract_sent: "meeting_set", brochure_downloaded: "inquiry", general_enquiry: "inquiry", discovery_call_booked: "inquiry" };
-    const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Discovery call" };
+    // Legacy stages map onto the nearest current column.
+    const STAGE_ALIAS = { contract_sent: "proposal_sent", brochure_downloaded: "inquiry", general_enquiry: "inquiry", discovery_call_booked: "inquiry" };
+    const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Discovery call", manual: "Manual" };
     const CLIENT_STATUS = { active: "Active", paused: "Paused", ended: "Ended" };
-    const NEXT_LABEL = { meeting_set: "Set a meeting", contract_signed: "Mark contract signed", active_client: "Make active client" };
+    const NEXT_LABEL = { meeting_set: "Set a meeting", proposal_sent: "Mark proposal sent", contract_signed: "Mark contract signed", active_client: "Make active client" };
+    const PLATFORMS = ["Instagram", "Facebook", "LinkedIn", "YouTube", "TikTok"];
 
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -326,12 +346,18 @@ import "../../styles/admin.css";
     function cardHtml(r) {
       const kc = r.kind === "discovery" ? " is-discovery" : r.kind === "brochure" ? " is-brochure" : "";
       const st = stageOf(r);
+      // From Contract signed on, the pill shows the package they're on (falls back
+      // to the lead type until a package is set).
+      const signed = STAGE_INDEX[st] >= STAGE_INDEX["contract_signed"];
+      const pill = signed && r.package_name
+        ? `<span class="smm-kind is-package">${esc(r.package_name)}</span>`
+        : `<span class="smm-kind${kc}">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span>`;
       const meeting = r.meeting_at ? `<div class="smm-card-line">${CAL_SVG}Meeting ${esc(fmtDateTime(r.meeting_at))}</div>`
         : (r.kind === "discovery" && r.call_at ? `<div class="smm-card-line">${CAL_SVG}Call ${esc(fmtDateTime(r.call_at))}</div>` : "");
       const next = st !== "active_client" ? `<button type="button" class="smm-card-next" data-next="${STAGES[STAGE_INDEX[st] + 1].key}">${esc(NEXT_LABEL[STAGES[STAGE_INDEX[st] + 1].key])} →</button>` : "";
       const cstatus = st === "active_client" && r.client_status && r.client_status !== "active" ? `<span class="smm-card-status is-${r.client_status}">${esc(CLIENT_STATUS[r.client_status] || r.client_status)}</span>` : "";
       return `<div class="smm-card" draggable="true" data-id="${esc(r.id)}">
-        <div class="smm-card-top"><span class="smm-kind${kc}">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span><span class="smm-card-when">${esc(fmtWhen(r.created_at))}</span></div>
+        <div class="smm-card-top">${pill}<span class="smm-card-when">${esc(fmtWhen(r.created_at))}</span></div>
         <div class="smm-card-name">${esc(nameOf(r))}</div>
         ${r.business ? `<div class="smm-card-biz">${esc(r.business)}</div>` : ""}
         ${r.email ? `<div class="smm-card-line">${EMAIL_SVG}${esc(r.email)}</div>` : ""}
@@ -355,6 +381,8 @@ import "../../styles/admin.css";
       const isActive = st === "active_client";
       const cs = r.client_status || "active";
       const next = idx < n - 1 ? STAGES[idx + 1].key : null;
+      const showProp = idx >= STAGE_INDEX["proposal_sent"]; // social channels + engagement from Proposal sent on
+      const plats = Array.isArray(r.platforms) ? r.platforms : [];
       const pipe = `<div class="smm-pipe"><div class="smm-pipe-track"><div class="smm-pipe-fill" style="width:${(idx / (n - 1)) * 100}%"></div></div>${STAGES.map((s, i) => {
         const cls = (i <= idx ? " is-done" : "") + (i === idx ? " is-current" : "") + (i === 0 ? " smm-pipe-step--first" : "") + (i === n - 1 ? " smm-pipe-step--last" : "");
         return `<div class="smm-pipe-step${cls}" data-stage="${s.key}" style="left:${(i / (n - 1)) * 100}%"><span class="smm-pipe-dot"></span><span class="smm-pipe-label">${esc(s.label)}</span></div>`;
@@ -385,7 +413,16 @@ import "../../styles/admin.css";
                 <div class="smm-field"><span class="smm-field-k">Account</span><span class="smm-field-v">${esc(acct)}</span></div>
               </div>
             </div>
-            ${idx >= STAGE_INDEX["contract_signed"] ? `<div class="smm-sec">
+            ${showProp ? `<div class="smm-sec">
+              <h3 class="smm-sec-h">Social channels</h3>
+              <div class="smm-eng">
+                <label class="smm-eng-row smm-eng-row--full"><span>Instagram</span><input type="text" data-ef="instagram_url" value="${esc(r.instagram_url || "")}" placeholder="instagram.com/…"></label>
+                <label class="smm-eng-row smm-eng-row--full"><span>Facebook</span><input type="text" data-ef="facebook_url" value="${esc(r.facebook_url || "")}" placeholder="facebook.com/…"></label>
+                <label class="smm-eng-row smm-eng-row--full"><span>LinkedIn</span><input type="text" data-ef="linkedin_url" value="${esc(r.linkedin_url || "")}" placeholder="linkedin.com/…"></label>
+              </div>
+              <p class="smm-eng-status" id="smm-chan-status"></p>
+            </div>
+            <div class="smm-sec">
               <h3 class="smm-sec-h">Engagement &amp; billing</h3>
               <div class="smm-eng">
                 <label class="smm-eng-row"><span>Package</span><input type="text" data-ef="package_name" value="${esc(r.package_name || "")}" placeholder="e.g. Growth"></label>
@@ -393,6 +430,10 @@ import "../../styles/admin.css";
                 <label class="smm-eng-row"><span>Start date</span><input type="date" data-ef="start_date" value="${esc(r.start_date || "")}"></label>
                 <label class="smm-eng-row"><span>End date</span><input type="date" data-ef="end_date" value="${esc(r.end_date || "")}"></label>
                 <label class="smm-eng-row smm-eng-row--full"><span>Business address</span><textarea data-ef="business_address" rows="2" placeholder="For invoicing">${esc(r.business_address || "")}</textarea></label>
+              </div>
+              <div class="smm-platforms" data-platforms>
+                <span class="smm-plat-label">Platforms we manage</span>
+                <div class="smm-plat-grid">${PLATFORMS.map((p) => `<label class="smm-plat"><input type="checkbox" data-plat="${p}" ${plats.includes(p) ? "checked" : ""}> ${p}</label>`).join("")}</div>
               </div>
               <p class="smm-eng-status" id="smm-eng-status"></p>
             </div>` : ""}
@@ -415,10 +456,12 @@ import "../../styles/admin.css";
               <button type="button" class="smm-tab ${activeTab === "notes" ? "is-active" : ""}" data-tab="notes">Notes</button>
               <button type="button" class="smm-tab ${activeTab === "emails" ? "is-active" : ""}" data-tab="emails">Emails</button>
               <button type="button" class="smm-tab ${activeTab === "files" ? "is-active" : ""}" data-tab="files">Files</button>
+              ${isActive ? `<button type="button" class="smm-tab ${activeTab === "invoices" ? "is-active" : ""}" data-tab="invoices">Invoices</button>` : ""}
             </div>
             <div id="smm-panel-notes" class="smm-panel-body" ${activeTab === "notes" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>
             <div id="smm-panel-emails" class="smm-panel-body" ${activeTab === "emails" ? "" : "hidden"}></div>
             <div id="smm-panel-files" class="smm-panel-body" ${activeTab === "files" ? "" : "hidden"}></div>
+            ${isActive ? `<div id="smm-panel-invoices" class="smm-panel-body" ${activeTab === "invoices" ? "" : "hidden"}></div>` : ""}
             <p class="smm-thread-status" id="smm-thread-status" hidden></p>
           </div>
         </div>`;
@@ -453,13 +496,14 @@ import "../../styles/admin.css";
       body.querySelector("[data-lost]")?.addEventListener("click", () => setStage(r, "lost"));
       // Client status
       body.querySelectorAll("[data-cstatus]").forEach((b) => b.addEventListener("click", () => setClientStatus(r, b.getAttribute("data-cstatus"))));
-      // Engagement & billing (autosave)
+      // Engagement, channels & platforms (autosave)
       body.querySelectorAll("[data-ef]").forEach((el) => el.addEventListener("change", () => saveEngagement(r, el.getAttribute("data-ef"), el.value)));
+      body.querySelectorAll("[data-plat]").forEach((el) => el.addEventListener("change", () => savePlatforms(r)));
       // Tabs
       body.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
         activeTab = b.getAttribute("data-tab");
         body.querySelectorAll("[data-tab]").forEach((x) => x.classList.toggle("is-active", x === b));
-        ["notes", "emails", "files"].forEach((t) => $("smm-panel-" + t).hidden = t !== activeTab);
+        ["notes", "emails", "files", "invoices"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
       }));
       // Correspondence
       loadThread(r);
@@ -480,9 +524,17 @@ import "../../styles/admin.css";
     }
     async function saveEngagement(r, field, value) {
       const v = value.trim(); r[field] = v || null;
-      const s = $("smm-eng-status"); if (s) s.textContent = "Saving…";
+      const s = $(/_url$/.test(field) ? "smm-chan-status" : "smm-eng-status"); if (s) s.textContent = "Saving…";
       if (isDemo(r)) { if (s) s.textContent = "Saved (demo)."; return; }
       try { await supabase.from("smm_leads").update({ [field]: v || null }).eq("id", r.id); if (s) s.textContent = "Saved."; }
+      catch (_) { if (s) s.textContent = "Couldn't save."; }
+    }
+    async function savePlatforms(r) {
+      const arr = [...document.querySelectorAll("[data-plat]")].filter((c) => c.checked).map((c) => c.getAttribute("data-plat"));
+      r.platforms = arr;
+      const s = $("smm-eng-status"); if (s) s.textContent = "Saving…";
+      if (isDemo(r)) { if (s) s.textContent = "Saved (demo)."; return; }
+      try { await supabase.from("smm_leads").update({ platforms: arr }).eq("id", r.id); if (s) s.textContent = "Saved."; }
       catch (_) { if (s) s.textContent = "Couldn't save."; }
     }
 
@@ -560,7 +612,7 @@ import "../../styles/admin.css";
             <h3>Add a file</h3>
             <p class="smm-modal-sub">Attach it to ${esc(nameOf(r))}'s file.</p>
             <div class="smm-modal-field"><label>File</label><input type="file" id="smm-af-file" class="smm-file-input"></div>
-            <div class="smm-modal-field"><label>Type</label><select id="smm-af-type">${SMM_CATS.map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select></div>
+            <div class="smm-modal-field"><label>Type</label><select id="smm-af-type">${SMM_CATS.filter((c) => c[0] !== "invoice").map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select></div>
             <div class="smm-modal-field"><label>Name (optional)</label><input type="text" id="smm-af-name" placeholder="e.g. Signed agreement"></div>
             <p class="smm-modal-status" id="smm-af-status" hidden></p>
             <div class="smm-modal-actions">
@@ -589,6 +641,105 @@ import "../../styles/admin.css";
         if (!res.ok) throw 0;
         closeModal(); activeTab = "files"; loadThread(r);
       } catch (_) { status.hidden = false; status.textContent = "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add file"; }
+    }
+
+    // ---------- Invoices ----------
+    function openAddInvoice(r) {
+      const today = new Date().toISOString().slice(0, 10);
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Add an invoice">
+            <h3>Add an invoice</h3>
+            <p class="smm-modal-sub">A record for ${esc(nameOf(r))}.</p>
+            <div class="smm-modal-field"><label>File</label><input type="file" id="smm-iv-file" class="smm-file-input"></div>
+            <div class="smm-modal-field"><label>Title</label><input type="text" id="smm-iv-name" placeholder="e.g. Invoice #1024"></div>
+            <div class="smm-modal-field"><label>Date sent</label><input type="date" id="smm-iv-date" value="${today}"></div>
+            <p class="smm-modal-status" id="smm-iv-status" hidden></p>
+            <div class="smm-modal-actions">
+              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
+              <button type="button" class="smm-btn smm-btn--primary" id="smm-iv-add">Add invoice</button>
+            </div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("smm-iv-add").addEventListener("click", () => uploadInvoice(r));
+    }
+    async function uploadInvoice(r) {
+      const fileEl = $("smm-iv-file"); const file = fileEl && fileEl.files && fileEl.files[0];
+      const title = $("smm-iv-name").value.trim(); const date = $("smm-iv-date").value;
+      const status = $("smm-iv-status");
+      if (!file) { status.hidden = false; status.textContent = "Choose a file first."; return; }
+      if (isDemo(r)) { r._thread.documents.push({ id: "d" + Date.now(), file_name: file.name, title: title || null, category: "invoice", invoice_date: date || null, paid_date: null }); closeModal(); activeTab = "invoices"; renderThread(r, r._thread); return; }
+      const btn = $("smm-iv-add"); btn.disabled = true; btn.textContent = "Uploading…";
+      try {
+        const token = await authToken();
+        const qs = new URLSearchParams({ booking_id: r.id, source: "smm", category: "invoice", file_name: file.name, content_type: file.type || "application/octet-stream" });
+        if (title) qs.set("title", title);
+        if (date) qs.set("invoice_date", date);
+        const res = await fetch(`${WORKER}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
+        if (!res.ok) throw 0;
+        closeModal(); activeTab = "invoices"; loadThread(r);
+      } catch (_) { status.hidden = false; status.textContent = "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add invoice"; }
+    }
+    async function setInvoicePaid(r, id, date) {
+      if (isDemo(r)) { const d = r._thread.documents.find((x) => x.id === id); if (d) d.paid_date = date || null; renderThread(r, r._thread); return; }
+      try { const token = await authToken(); await fetch(`${WORKER}/booking/document/paid`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id, paid_date: date || null }) }); loadThread(r); } catch (_) {}
+    }
+
+    // ---------- Manual add ----------
+    function openAddLead() {
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Add a person">
+            <h3>Add a person</h3>
+            <p class="smm-modal-sub">For clients from other channels or existing ones.</p>
+            <div class="smm-modal-two">
+              <div class="smm-modal-field"><label>First name</label><input type="text" id="smm-nl-first"></div>
+              <div class="smm-modal-field"><label>Last name</label><input type="text" id="smm-nl-last"></div>
+            </div>
+            <div class="smm-modal-field"><label>Business</label><input type="text" id="smm-nl-biz"></div>
+            <div class="smm-modal-two">
+              <div class="smm-modal-field"><label>Email</label><input type="text" id="smm-nl-email"></div>
+              <div class="smm-modal-field"><label>Phone</label><input type="text" id="smm-nl-phone"></div>
+            </div>
+            <div class="smm-modal-field"><label>Stage</label><select id="smm-nl-stage">${STAGES.map((s) => `<option value="${s.key}">${s.label}</option>`).join("")}</select></div>
+            <p class="smm-modal-status" id="smm-nl-status" hidden></p>
+            <div class="smm-modal-actions">
+              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
+              <button type="button" class="smm-btn smm-btn--primary" id="smm-nl-add">Add person</button>
+            </div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("smm-nl-add").addEventListener("click", saveLead);
+    }
+    async function saveLead() {
+      const first = $("smm-nl-first").value.trim(), last = $("smm-nl-last").value.trim();
+      const full = `${first} ${last}`.trim();
+      const email = $("smm-nl-email").value.trim();
+      const status = $("smm-nl-status");
+      if (!full && !email) { status.hidden = false; status.textContent = "Add a name or email."; return; }
+      const lead = {
+        first_name: first || null, last_name: last || null, full_name: full || email,
+        business: $("smm-nl-biz").value.trim() || null, email: email || null, phone: $("smm-nl-phone").value.trim() || null,
+        pipeline_stage: $("smm-nl-stage").value, kind: "manual", created_at: new Date().toISOString(),
+        client_status: $("smm-nl-stage").value === "active_client" ? "active" : null,
+      };
+      const btn = $("smm-nl-add"); btn.disabled = true; btn.textContent = "Adding…";
+      // Preview / no worker: add locally.
+      if (!WORKER) { lead.id = "demo-new-" + Date.now(); all.unshift(lead); closeModal(); renderBoard(); openFile(lead.id); return; }
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/smm/lead`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(lead) });
+        if (!res.ok) throw 0;
+        const j = await res.json().catch(() => ({}));
+        const row = j.lead || Object.assign({ id: "tmp-" + Date.now() }, lead);
+        all.unshift(row); closeModal(); renderBoard(); openFile(row.id);
+      } catch (_) { status.hidden = false; status.textContent = "Couldn't add — try again."; btn.disabled = false; btn.textContent = "Add person"; }
     }
 
     // ---------- Correspondence ----------
@@ -657,8 +808,9 @@ import "../../styles/admin.css";
           </div>
         </div>`;
 
-      // FILES
-      const docHtml = loading ? '<p class="smm-soon">Loading…</p>' : (docs.map((d) => `<div class="smm-doc">
+      // FILES (everything except invoices)
+      const files = docs.filter((d) => d.category !== "invoice");
+      const docHtml = loading ? '<p class="smm-soon">Loading…</p>' : (files.map((d) => `<div class="smm-doc">
         <span class="smm-doc-ico">${DOC_SVG}</span>
         <span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span><span class="smm-doc-cat">${esc(catLabel(d.category))}</span></span>
         <span class="smm-doc-tools">
@@ -670,6 +822,36 @@ import "../../styles/admin.css";
         <div class="smm-panel-head"><h4>Documents</h4><button type="button" class="smm-btn smm-btn--sm" id="smm-file-add">${PLUS_SVG}Add file</button></div>
         ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
         ${docHtml}`;
+
+      // INVOICES (active clients only)
+      const pInv = $("smm-panel-invoices");
+      if (pInv) {
+        const invoices = docs.filter((d) => d.category === "invoice")
+          .sort((a, b) => new Date(b.invoice_date || b.created_at) - new Date(a.invoice_date || a.created_at));
+        const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
+        const invHtml = loading ? '<p class="smm-soon">Loading…</p>' : (invoices.map((d) => `<div class="smm-inv">
+          <div class="smm-inv-top">
+            <span class="smm-doc-ico">${DOC_SVG}</span>
+            <span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span><span class="smm-doc-cat">Sent ${fmtDate(d.invoice_date)}</span></span>
+            <span class="smm-inv-status ${d.paid_date ? "is-paid" : "is-due"}">${d.paid_date ? "Paid" : "Outstanding"}</span>
+          </div>
+          <div class="smm-inv-foot">
+            <label class="smm-inv-paid">Paid <input type="date" data-invpaid="${esc(d.id)}" value="${esc(d.paid_date || "")}"></label>
+            <span class="smm-doc-tools">
+              <button type="button" class="smm-mini" data-docdl="${esc(d.id)}" data-docname="${esc(d.file_name || "invoice")}">Download</button>
+              <button type="button" class="smm-mini is-danger" data-docdel="${esc(d.id)}">Remove</button>
+            </span>
+          </div>
+        </div>`).join("") || `<p class="smm-doc-empty">No invoices yet.</p>`);
+        pInv.innerHTML = `
+          <div class="smm-panel-head"><h4>Invoices</h4><button type="button" class="smm-btn smm-btn--sm" id="smm-inv-add">${PLUS_SVG}Add invoice</button></div>
+          ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
+          ${invHtml}`;
+        $("smm-inv-add")?.addEventListener("click", () => openAddInvoice(r));
+        pInv.querySelectorAll("[data-invpaid]").forEach((el) => el.addEventListener("change", () => setInvoicePaid(r, el.getAttribute("data-invpaid"), el.value)));
+        pInv.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
+        pInv.querySelectorAll("[data-docdel]").forEach((b) => b.addEventListener("click", () => deleteDoc(r, b.getAttribute("data-docdel"))));
+      }
 
       // Wire
       $("smm-note-add")?.addEventListener("click", () => addNote(r));
@@ -743,14 +925,15 @@ import "../../styles/admin.css";
         mk({ full_name: "Priya Anand", email: "priya@anandproperty.com", phone: "07700 900666", business: "Anand Property", kind: "brochure", pipeline_stage: "inquiry", ageDays: 2 }),
         mk({ full_name: "Marcus Bell", email: "marcus@thelettingsexperts.co.uk", phone: "07700 900222", business: "The Lettings Experts", kind: "discovery", call_at: new Date(now + 2 * 86400000).toISOString(), meeting_at: new Date(now + 2 * 86400000).toISOString(), pipeline_stage: "meeting_set", ageDays: 3 }),
         mk({ full_name: "Daniel Law", email: "daniel@lawandmoore.co.uk", phone: "07700 900333", business: "Law & Moore", kind: "enquiry", pipeline_stage: "inquiry", ageDays: 4 }),
-        mk({ full_name: "Sofia Reyes", email: "sofia@reyeshomes.co.uk", phone: "07700 900777", business: "Reyes Homes", kind: "enquiry", pipeline_stage: "contract_signed", package_name: "Starter", price: "£450 / month", ageDays: 12 }),
-        mk({ full_name: "James Okafor", email: "james@fineandcountry.com", phone: "07700 900444", business: "Fine & Country (Kettering)", kind: "enquiry", marketing_opt_in: true, pipeline_stage: "active_client", client_status: "active", package_name: "Growth", price: "£750 / month", start_date: "2026-05-01", business_address: "12 Market Street, Kettering, NN16 0AH", ageDays: 40 }),
+        mk({ full_name: "Nadia Kerr", email: "nadia@kerrestates.co.uk", phone: "07700 900888", business: "Kerr Estates", kind: "discovery", pipeline_stage: "proposal_sent", instagram_url: "instagram.com/kerrestates", facebook_url: "facebook.com/kerrestates", platforms: ["Instagram", "Facebook"], ageDays: 6 }),
+        mk({ full_name: "Sofia Reyes", email: "sofia@reyeshomes.co.uk", phone: "07700 900777", business: "Reyes Homes", kind: "enquiry", pipeline_stage: "contract_signed", package_name: "Starter", price: "£450 / month", platforms: ["Instagram"], ageDays: 12 }),
+        mk({ full_name: "James Okafor", email: "james@fineandcountry.com", phone: "07700 900444", business: "Fine & Country (Kettering)", kind: "enquiry", marketing_opt_in: true, pipeline_stage: "active_client", client_status: "active", package_name: "Growth", price: "£750 / month", start_date: "2026-05-01", business_address: "12 Market Street, Kettering, NN16 0AH", instagram_url: "instagram.com/fineandcountrykettering", facebook_url: "facebook.com/fineandcountrykettering", linkedin_url: "linkedin.com/company/fineandcountry", platforms: ["Instagram", "Facebook", "LinkedIn"], ageDays: 40 }),
         mk({ full_name: "Elena Frost", email: "elena@frostandco.co.uk", phone: "07700 900555", business: "Frost & Co", kind: "discovery", marketing_opt_in: true, pipeline_stage: "active_client", client_status: "paused", ageDays: 90 }),
       ];
       rows[0]._thread = { messages: [
         { id: "n1", channel: "note", body: "Warm lead — followed us on Instagram first. Wants reels + a content plan.", is_pinned: true, created_by: "Abby", created_at: ago(0.5) },
       ], documents: [] };
-      rows[5]._thread = { messages: [
+      rows[6]._thread = { messages: [
         { id: "n2", channel: "note", body: "On the £750/mo Growth plan. Prefers a monthly call on the first Tuesday.", is_pinned: true, created_by: "Abby", created_at: ago(38) },
         { id: "e1", channel: "email", direction: "inbound", subject: "Social media help", body: "Hi — we're looking to hand over our Instagram and Facebook. Can you tell me how it works?", created_at: ago(41) },
         { id: "e2", channel: "email", direction: "outbound", subject: "Re: Social media help", body: "Hi James, absolutely — I've attached our brochure. Shall we set up a quick discovery call this week?", created_by: "Danielle", created_at: ago(40) },
@@ -759,6 +942,8 @@ import "../../styles/admin.css";
       ], documents: [
         { id: "doc1", file_name: "TMKE-Social-Brochure.pdf", title: "Social media brochure", category: "prep" },
         { id: "doc2", file_name: "Fine-and-Country-Agreement.pdf", title: "Signed agreement", category: "agreement" },
+        { id: "doc3", file_name: "Invoice-1024.pdf", title: "Invoice #1024", category: "invoice", invoice_date: "2026-06-01", paid_date: "2026-06-09" },
+        { id: "doc4", file_name: "Invoice-1041.pdf", title: "Invoice #1041", category: "invoice", invoice_date: "2026-07-01", paid_date: null },
       ] };
       return rows;
     }
@@ -787,6 +972,7 @@ import "../../styles/admin.css";
       });
       $("smm-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); renderBoard(); });
       $("smm-show-lost").addEventListener("change", (e) => { showLost = e.target.checked; renderBoard(); });
+      $("smm-add-lead").addEventListener("click", openAddLead);
       $("smm-file-close").addEventListener("click", closeFile);
       $("smm-file").addEventListener("click", (e) => { if (e.target === $("smm-file")) closeFile(); });
       document.addEventListener("keydown", (e) => {
