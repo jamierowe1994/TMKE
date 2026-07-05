@@ -243,14 +243,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       text-transform: uppercase; color: #d9b8c4;   /* soft wine tint on dark */
     }
     .eh2-title {
-      margin: 0; font-weight: 700; font-size: clamp(34px, 4.6vw, 62px);
-      line-height: 1.02; letter-spacing: -0.022em; color: var(--paper);
+      margin: 0; font-weight: 700; font-size: clamp(30px, 4.2vw, 50px);
+      line-height: 1.08; letter-spacing: -0.022em; color: var(--paper);
       text-shadow: 0 2px 30px rgba(0,0,0,0.5);
+      min-height: 2.16em;   /* always reserve two lines so the box is uniform */
     }
     .eh2-bio {
-      margin: 20px 0 0; max-width: 46ch;
+      margin: 18px 0 0; max-width: 46ch;
       font-size: clamp(14px, 1.05vw, 16px); line-height: 1.68;
       color: rgba(244,242,241,0.84); text-shadow: 0 1px 18px rgba(0,0,0,0.5);
+      /* Clamp every body to a uniform five lines so they all match. */
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5;
+      overflow: hidden; min-height: calc(1.68em * 5);
     }
     .eh2-more {
       display: inline-flex; align-items: center; gap: 10px; margin-top: clamp(24px, 3vw, 34px);
@@ -1130,6 +1134,37 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const dots = [...dotsEl.children];
       list.forEach((p) => { const im = new Image(); im.src = cover(p); });   // preload
 
+      // ---- Titles: split each into two BALANCED lines and auto-fit ONE font
+      // size (the smallest any title needs) so every title reads as two uniform
+      // lines as you click through. ----
+      const _cv = document.createElement('canvas'), _cx = _cv.getContext('2d');
+      const _titleFont = (px) => { const cs = getComputedStyle(titleEl); return `${cs.fontWeight} ${px}px ${cs.fontFamily}`; };
+      const _lineW = (str, px) => { _cx.font = _titleFont(px); return _cx.measureText(str).width; };
+      function splitTwo(title) {
+        const words = String(title || '').trim().split(/\s+/).filter(Boolean);
+        if (words.length <= 1) return [String(title || ''), ''];
+        let best = 1, bestDiff = Infinity;
+        for (let i = 1; i < words.length; i++) {
+          const d = Math.abs(_lineW(words.slice(0, i).join(' '), 100) - _lineW(words.slice(i).join(' '), 100));
+          if (d < bestDiff) { bestDiff = d; best = i; }
+        }
+        return [words.slice(0, best).join(' '), words.slice(best).join(' ')];
+      }
+      list.forEach((p) => { p._lines = splitTwo(p.title || ''); });
+      function putTitle(p) {
+        const parts = p._lines || (p._lines = splitTwo(p.title || ''));
+        titleEl.innerHTML = escapeHtml(parts[0]) + (parts[1] ? '<br>' + escapeHtml(parts[1]) : '');
+      }
+      function fitTitles() {
+        const avail = titleEl.clientWidth;
+        if (!avail) return;
+        let widest = 1;
+        list.forEach((p) => (p._lines || []).forEach((l) => { if (l) widest = Math.max(widest, _lineW(l, 100)); }));
+        let fs = Math.floor((avail / (widest / 100)) * 0.98);
+        fs = Math.max(26, Math.min(52, fs));   // one shared size, within sensible bounds
+        titleEl.style.fontSize = fs + 'px';
+      }
+
       let idx = 0;
       function go(i) {
         i = ((i % list.length) + list.length) % list.length;
@@ -1139,7 +1174,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         featEl.classList.add('is-swap');
         setTimeout(() => {
           catEl.textContent = p.category || 'The Edit';
-          titleEl.textContent = p.title || '';
+          putTitle(p);
           bioEl.textContent = p.description || '';
           if (p.slug) moreEl.href = `/edit/${encodeURIComponent(p.slug)}`;
           featEl.classList.remove('is-swap');
@@ -1156,31 +1191,34 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       // Init — fill the feature from the first pack (no fade on load).
       catEl.textContent = list[0].category || 'The Edit';
-      titleEl.textContent = list[0].title || '';
+      putTitle(list[0]);
       bioEl.textContent = list[0].description || '';
       if (list[0].slug) moreEl.href = `/edit/${encodeURIComponent(list[0].slug)}`;
 
       if (list.length <= 1) { const controls = hero.querySelector('.eh2-controls'); if (controls) controls.style.display = 'none'; }
 
-      // Lock the panel to the TALLEST pack so the box never resizes as the copy
-      // changes. Re-measured on resize (font sizes are viewport-based).
-      function lockFeatureHeight() {
-        featEl.classList.remove('is-swap');
+      // Fit the shared title size, then lock the panel height to the tallest pack
+      // so the box never resizes as the copy changes. Re-run on resize (sizes are
+      // viewport-based).
+      function relayout() {
+        fitTitles();
         featEl.style.minHeight = '';
-        const cur = { c: catEl.textContent, t: titleEl.textContent, b: bioEl.textContent };
+        const cur = idx;
         let maxH = 0;
         list.forEach((p) => {
           catEl.textContent = p.category || 'The Edit';
-          titleEl.textContent = p.title || '';
+          putTitle(p);
           bioEl.textContent = p.description || '';
           maxH = Math.max(maxH, featEl.offsetHeight);
         });
-        catEl.textContent = cur.c; titleEl.textContent = cur.t; bioEl.textContent = cur.b;
+        catEl.textContent = list[cur].category || 'The Edit';
+        putTitle(list[cur]);
+        bioEl.textContent = list[cur].description || '';
         featEl.style.minHeight = maxH + 'px';
       }
-      lockFeatureHeight();
+      relayout();
       let lockT = 0;
-      window.addEventListener('resize', () => { clearTimeout(lockT); lockT = setTimeout(lockFeatureHeight, 180); });
+      window.addEventListener('resize', () => { clearTimeout(lockT); lockT = setTimeout(relayout, 180); });
     }
 
     let packsById = new Map();
