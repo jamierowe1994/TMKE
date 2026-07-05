@@ -12,6 +12,8 @@ import "../../styles/admin.css";
           <button type="button" class="smm-chip" data-filter="enquiry">Enquiries</button>
           <button type="button" class="smm-chip" data-filter="brochure">Brochures</button>
           <button type="button" class="smm-chip" data-filter="discovery">Discovery calls</button>
+          <button type="button" class="smm-chip" data-filter="manual">Manual</button>
+          <button type="button" class="smm-chip" data-filter="client">Clients</button>
         </div>
       </div>
       <div class="smm-bar-right">
@@ -76,14 +78,16 @@ import "../../styles/admin.css";
     .smm-card-when { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.42); }
     .smm-card-name { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--ink); }
     .smm-card-biz { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 2px; }
-    .smm-card-line { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+    .smm-card-line { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin-top: 8px; display: flex; align-items: center; gap: 6px; min-width: 0; }
     .smm-card-line svg { width: 13px; height: 13px; flex: none; color: rgba(28,29,34,0.4); }
+    .smm-card-line-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .smm-card-meta { font-family: var(--sans); font-size: 11.5px; color: var(--english-violet); margin-top: 8px; display: inline-flex; align-items: center; gap: 5px; }
     .smm-card-meta svg { width: 12px; height: 12px; }
-    .smm-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
-    .smm-card-next { font-family: var(--sans); font-size: 11px; font-weight: 700; color: var(--english-violet); background: rgba(var(--violet-rgb),0.08); border: 0; border-radius: 6px; padding: 4px 9px; cursor: pointer; }
-    .smm-card-next:hover { background: rgba(var(--violet-rgb),0.16); }
-    .smm-card-status { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+    .smm-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+    .smm-card-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .smm-card-act { font-family: var(--sans); font-size: 11px; font-weight: 700; color: var(--english-violet); background: rgba(var(--violet-rgb),0.08); border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; transition: background .15s; }
+    .smm-card-act:hover { background: rgba(var(--violet-rgb),0.18); }
+    .smm-card-status { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; flex: none; }
 
     /* ---- Full-screen customer file ---- */
     .smm-file-scrim { position: fixed; inset: 0; z-index: 200; background: rgba(20,18,26,0.5); display: flex; align-items: stretch; justify-content: center; padding: 28px; }
@@ -105,7 +109,7 @@ import "../../styles/admin.css";
     .smm-status-pill.is-ended, .smm-card-status.is-ended { background: rgba(28,29,34,0.09); color: rgba(28,29,34,0.55); }
 
     /* Pipeline stepper */
-    .smm-pipe { position: relative; display: flex; margin: 8px 0 116px; padding-top: 4px; }
+    .smm-pipe { position: relative; display: flex; margin: 8px 0 93px; padding-top: 4px; }
     .smm-pipe-track { position: absolute; top: 10px; left: 7px; right: 7px; height: 2px; background: rgba(28,29,34,0.12); }
     .smm-pipe-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--english-violet); transition: width .25s; }
     .smm-pipe-step { position: absolute; top: 4px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
@@ -325,7 +329,11 @@ import "../../styles/admin.css";
     function visible() {
       return all
         .filter((r) => showLost ? true : r.pipeline_stage !== "lost" && r.status !== "spam")
-        .filter((r) => kindFilter === "all" || r.kind === kindFilter)
+        .filter((r) => {
+          if (kindFilter === "all") return true;
+          if (kindFilter === "client") return stageOf(r) === "active_client";
+          return r.kind === kindFilter;
+        })
         .filter((r) => !q || (nameOf(r) + " " + (r.email || "") + " " + (r.business || "")).toLowerCase().includes(q));
     }
     function renderBoard() {
@@ -339,13 +347,14 @@ import "../../styles/admin.css";
           <div class="smm-col-body" data-stage="${s.key}">${cards.length ? cards.map(cardHtml).join("") : '<div class="smm-col-empty">Drop here</div>'}</div>
         </div>`;
       }).join("");
-      // Open on click
+      // Open on click (ignore the quick-action buttons)
       board.querySelectorAll("[data-id]").forEach((el) => {
-        el.addEventListener("click", (e) => { if (e.target.closest("[data-next]")) return; openFile(el.getAttribute("data-id")); });
+        const r = () => all.find((x) => x.id === el.getAttribute("data-id"));
+        el.addEventListener("click", (e) => { if (e.target.closest(".smm-card-act")) return; openFile(el.getAttribute("data-id")); });
         el.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", el.getAttribute("data-id")); e.dataTransfer.effectAllowed = "move"; el.classList.add("dragging"); });
         el.addEventListener("dragend", () => el.classList.remove("dragging"));
-        const nx = el.querySelector("[data-next]");
-        if (nx) nx.addEventListener("click", (e) => { e.stopPropagation(); const r = all.find((x) => x.id === el.getAttribute("data-id")); if (r) moveToStage(r, nx.getAttribute("data-next")); });
+        el.querySelector("[data-cmeet]")?.addEventListener("click", (e) => { e.stopPropagation(); const x = r(); if (x) openMeeting(x); });
+        el.querySelector("[data-cmsg]")?.addEventListener("click", (e) => { e.stopPropagation(); const x = r(); if (x) { activeTab = "emails"; openFile(x.id); } });
       });
       // Drop targets
       board.querySelectorAll(".smm-col-body").forEach((col) => {
@@ -370,15 +379,20 @@ import "../../styles/admin.css";
         : `<span class="smm-kind${kc}">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span>`;
       const meeting = r.meeting_at ? `<div class="smm-card-line">${CAL_SVG}Meeting ${esc(fmtDateTime(r.meeting_at))}</div>`
         : (r.kind === "discovery" && r.call_at ? `<div class="smm-card-line">${CAL_SVG}Call ${esc(fmtDateTime(r.call_at))}</div>` : "");
-      const next = st !== "active_client" ? `<button type="button" class="smm-card-next" data-next="${STAGES[STAGE_INDEX[st] + 1].key}">${esc(NEXT_LABEL[STAGES[STAGE_INDEX[st] + 1].key])} →</button>` : "";
       const cstatus = st === "active_client" && r.client_status && r.client_status !== "active" ? `<span class="smm-card-status is-${r.client_status}">${esc(CLIENT_STATUS[r.client_status] || r.client_status)}</span>` : "";
       return `<div class="smm-card" draggable="true" data-id="${esc(r.id)}">
         <div class="smm-card-top">${pill}<span class="smm-card-when">${esc(fmtWhen(r.created_at))}</span></div>
         <div class="smm-card-name">${esc(nameOf(r))}</div>
         ${r.business ? `<div class="smm-card-biz">${esc(r.business)}</div>` : ""}
-        ${r.email ? `<div class="smm-card-line">${EMAIL_SVG}${esc(r.email)}</div>` : ""}
+        ${r.email ? `<div class="smm-card-line">${EMAIL_SVG}<span class="smm-card-line-t">${esc(r.email)}</span></div>` : ""}
         ${meeting}
-        <div class="smm-card-foot">${next || "<span></span>"}${cstatus}</div>
+        <div class="smm-card-foot">
+          <div class="smm-card-acts">
+            <button type="button" class="smm-card-act" data-cmeet>Set a meeting</button>
+            <button type="button" class="smm-card-act" data-cmsg>Send a message</button>
+          </div>
+          ${cstatus}
+        </div>
       </div>`;
     }
 
@@ -638,11 +652,14 @@ import "../../styles/admin.css";
       const duration = $("smm-mt-dur").value, invite = $("smm-mt-invite").checked;
       if (!date || !start) { const s = $("smm-mt-status"); s.hidden = false; s.textContent = "Pick a date and time."; return; }
       const btn = $("smm-mt-save"); btn.disabled = true; btn.textContent = "Saving…";
-      r.meeting_at = `${date}T${start}:00`; r.pipeline_stage = "meeting_set";
+      // Only move them into Meeting set if they're still before it — booking a
+      // meeting with a later-stage client shouldn't drag them back.
+      const setStage = STAGE_INDEX[stageOf(r)] < STAGE_INDEX["meeting_set"];
+      r.meeting_at = `${date}T${start}:00`; if (setStage) r.pipeline_stage = "meeting_set";
       if (!isDemo(r)) {
         let ok = false;
-        if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/meeting`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, date, start, duration, send_invite: invite }) }); ok = res.ok; } catch (_) {} }
-        if (!ok) { try { await supabase.from("smm_leads").update({ meeting_at: r.meeting_at, pipeline_stage: "meeting_set" }).eq("id", r.id); } catch (_) {} }
+        if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/meeting`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, date, start, duration, send_invite: invite, set_stage: setStage }) }); ok = res.ok; } catch (_) {} }
+        if (!ok) { try { const patch = { meeting_at: r.meeting_at }; if (setStage) patch.pipeline_stage = "meeting_set"; await supabase.from("smm_leads").update(patch).eq("id", r.id); } catch (_) {} }
       }
       closeModal(); renderBoard(); openFile(r.id);
     }

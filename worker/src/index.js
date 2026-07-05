@@ -2517,9 +2517,13 @@ export default {
         const lead = rows && rows[0];
         if (!lead) return json({ error: "Lead not found." }, 404, request, env);
         const meetingAt = `${date}T${start}:00`;
+        // Advance to Meeting set only when asked (a booking for a later-stage
+        // client just records the meeting without moving them back).
+        const meetingPatch = { meeting_at: meetingAt };
+        if (b.set_stage !== false) meetingPatch.pipeline_stage = "meeting_set";
         await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, {
           method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ meeting_at: meetingAt, pipeline_stage: "meeting_set" }),
+          body: JSON.stringify(meetingPatch),
         });
         const cal = env.SMM_MANAGER_UPN;
         const dur = parseInt(b.duration || "30", 10);
