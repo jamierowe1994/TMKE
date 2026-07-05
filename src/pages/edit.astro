@@ -224,8 +224,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       padding: clamp(102px, 13vh, 138px) clamp(26px, 4vw, 60px) clamp(104px, 13vh, 128px) clamp(56px, 8vw, 150px);
     }
 
-    /* ---- Featured copy (left) ---- */
-    .eh2-feature { max-width: 480px; transition: opacity 0.4s ease, transform 0.55s cubic-bezier(.2,.8,.2,1); }
+    /* ---- Featured copy (left) — sits in a fixed-size panel with a very
+       subtle gradient + white outline (matching the covers) so the words read
+       clearly. Its height is locked to the tallest pack in JS so the box never
+       changes size as you switch. ---- */
+    .eh2-feature {
+      max-width: 500px; width: 100%; box-sizing: border-box;
+      padding: clamp(26px, 2.6vw, 38px) clamp(28px, 2.8vw, 40px);
+      background: linear-gradient(145deg, rgba(15,13,18,0.42) 0%, rgba(15,13,18,0.14) 100%);
+      border: 1px solid rgba(244,242,241,0.55);
+      border-radius: 12px;
+      -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+      transition: opacity 0.4s ease, transform 0.55s cubic-bezier(.2,.8,.2,1);
+    }
     .eh2-feature.is-swap { opacity: 0; transform: translateY(14px); }
     .eh2-cat {
       margin: 0 0 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.28em;
@@ -1151,6 +1162,26 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (list[0].slug) moreEl.href = `/edit/${encodeURIComponent(list[0].slug)}`;
 
       if (list.length <= 1) { const controls = hero.querySelector('.eh2-controls'); if (controls) controls.style.display = 'none'; }
+
+      // Lock the panel to the TALLEST pack so the box never resizes as the copy
+      // changes. Re-measured on resize (font sizes are viewport-based).
+      function lockFeatureHeight() {
+        featEl.classList.remove('is-swap');
+        featEl.style.minHeight = '';
+        const cur = { c: catEl.textContent, t: titleEl.textContent, b: bioEl.textContent };
+        let maxH = 0;
+        list.forEach((p) => {
+          catEl.textContent = p.category || 'The Edit';
+          titleEl.textContent = p.title || '';
+          bioEl.textContent = p.description || '';
+          maxH = Math.max(maxH, featEl.offsetHeight);
+        });
+        catEl.textContent = cur.c; titleEl.textContent = cur.t; bioEl.textContent = cur.b;
+        featEl.style.minHeight = maxH + 'px';
+      }
+      lockFeatureHeight();
+      let lockT = 0;
+      window.addEventListener('resize', () => { clearTimeout(lockT); lockT = setTimeout(lockFeatureHeight, 180); });
     }
 
     let packsById = new Map();
