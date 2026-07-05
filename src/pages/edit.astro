@@ -6,25 +6,45 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   title="The Edit — Template Shop · TMKE"
   description="A curated shop of social media templates designed specifically for the UK property sector. On-brand, easy to customise, ready to post."
 >
-  <!-- Hero — featured-pack copy on the left, an auto-playing template "film" on the right -->
-  <header class="edit-hero">
-    <div class="edit-hero-copy">
-      <p class="edit-hero-eyebrow">The Edit — Template Shop</p>
-      <div class="eh-copy-in" id="eh-copy-in">
-        <h1 class="edit-hero-title" id="eh-title">The Proof Is in the Posts</h1>
-        <p class="edit-hero-desc" id="eh-desc">Being a great agent means nothing if the people looking for one can't see it. This pack gives you the content to change that. Client testimonials, results, milestones, and service-led posts that build trust, communicate your value, and position you as the agent worth choosing. No guesswork, no generic captions. Just proof.</p>
-        <div class="edit-hero-actions">
-          <span class="edit-hero-size" id="eh-size">Pack Size: 30</span>
-          <a class="edit-hero-cta" id="eh-cta" href="#edit-catalogue">Discover</a>
-        </div>
+  <!-- Hero — a cinematic "featured pack" reel: the selected pack fills the
+       screen (cover behind, copy on the left) and the covers sit as a clickable
+       carousel on the right. Autoplays; click a cover to feature it. JS fills
+       every slot from the live packs (setupHero). -->
+  <script is:inline>document.body.classList.add("edit-page");</script>
+  <style is:global>
+    /* Keep the fixed nav legible where it floats over the dark hero (top only —
+       once scrolled it takes its usual light bar back). */
+    body.edit-page .nav:not(.scrolled) { color: var(--paper); }
+    body.edit-page .nav:not(.scrolled) .nav-menu-btn-glyph span { background: var(--paper); }
+  </style>
+  <header class="eh2" id="edit-hero2" aria-label="The Edit — featured packs">
+    <div class="eh2-bgs" id="eh2-bgs" aria-hidden="true"></div>
+    <div class="eh2-scrim" aria-hidden="true"></div>
+
+    <div class="eh2-inner">
+      <div class="eh2-feature" id="eh2-feature">
+        <p class="eh2-cat" id="eh2-cat">The Edit</p>
+        <h1 class="eh2-title" id="eh2-title">The Edit</h1>
+        <p class="eh2-bio" id="eh2-bio"></p>
+        <a class="eh2-more" id="eh2-more" href="#edit-catalogue">See more <span aria-hidden="true">&rarr;</span></a>
       </div>
-      <div class="eh-dots" id="eh-dots" aria-hidden="true"></div>
+
+      <div class="eh2-reel" id="eh2-reel" role="tablist" aria-label="Choose a pack"></div>
     </div>
-    <div class="edit-hero-film">
-      <div class="eh-grid" id="eh-grid" aria-hidden="true">
-        {Array.from({ length: 12 }).map(() => (
-          <div class="eh-tile"><div class="eh-tile-img"></div></div>
-        ))}
+
+    <div class="eh2-controls">
+      <div class="eh2-btns">
+        <button type="button" class="eh2-ctrl" id="eh2-play" aria-label="Pause">
+          <svg class="eh2-ic eh2-ic-pause" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+          <svg class="eh2-ic eh2-ic-play" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button type="button" class="eh2-ctrl" id="eh2-next" aria-label="Next pack">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="eh2-meter">
+        <div class="eh2-track"><span class="eh2-fill" id="eh2-fill"></span></div>
+        <div class="eh2-dots" id="eh2-dots" aria-hidden="true"></div>
       </div>
     </div>
   </header>
@@ -189,120 +209,162 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        and would otherwise reset padding-top to 0. */
     .page-hero.wrap { padding-top: 200px; }
 
-    /* ===== Hero — small, left-aligned "The Edit" + sub, aligned to the
-       catalogue's left edge (same horizontal padding as .edit-wrap). ===== */
-    .edit-hero {
-      position: relative;
-      z-index: 1;
-      min-height: 100vh;                 /* the header is one whole screen */
-      box-sizing: border-box;
-      display: grid;
-      grid-template-columns: minmax(260px, 1fr) auto;  /* copy left, big grid hard right */
-      align-items: end;                                 /* copy sits at the bottom of the grid */
-      gap: clamp(28px, 4vw, 72px);
-      max-width: none;
-      margin: 0;
-      /* no right padding — the grid runs to the very edge of the page */
-      padding: clamp(86px, 11vh, 120px) 0 clamp(38px, 5.5vh, 60px) clamp(28px, 4vw, 72px);
-    }
-    @media (max-width: 880px) {
-      .edit-hero { min-height: 0; grid-template-columns: 1fr; gap: 40px; padding-top: clamp(104px, 14vh, 150px); }
-    }
-    /* the per-pack copy cross-fades; the eyebrow + dots stay put */
-    .eh-copy-in { transition: opacity 0.5s ease; }
-    .eh-copy-in.is-swapping { opacity: 0; }
-    /* auto-scroll indicator — one dot per pack, the current one filled */
-    .eh-dots { display: flex; gap: 9px; margin-top: clamp(22px, 2.6vw, 32px); }
-    .eh-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      border: 1px solid rgba(28, 29, 34, 0.35); background: transparent;
-      transition: background 0.4s ease, border-color 0.4s ease;
-    }
-    .eh-dot.is-active { background: var(--ink); border-color: var(--ink); }
-    .edit-hero-copy { max-width: 540px; }
-    .edit-hero-eyebrow {
-      font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.28em; text-transform: uppercase;
-      color: var(--english-violet); margin: 0 0 18px;
-    }
-    .edit-hero-title {
-      margin: 0;
+    /* ===== The Edit — cinematic "featured pack" hero =====
+       A full-screen bordered stage: the selected pack's cover fills it, its copy
+       sits on the left, and the covers form a clickable reel on the right. ===== */
+
+    .eh2 {
+      position: relative; z-index: 1;
+      margin: clamp(14px, 1.5vw, 20px);
+      height: calc(100svh - clamp(28px, 3vw, 40px));
+      min-height: 560px;
+      border: 1px solid #17151b;
+      border-radius: 12px;
+      overflow: hidden; isolation: isolate;
+      background: #17151b;
+      color: var(--paper);
       font-family: var(--sans);
-      font-weight: 700;
-      font-size: clamp(30px, 3.5vw, 50px);
-      line-height: 1.08;
-      letter-spacing: -0.02em;
-      color: var(--ink);
+      box-shadow: 0 40px 90px -50px rgba(0,0,0,0.7);
     }
-    .edit-hero-desc {
-      margin: 22px 0 0;
-      max-width: none;            /* width is set on .edit-hero-copy = longest title width */
-      text-align: justify;        /* even lines, same width as the title */
-      font-family: var(--sans);
-      font-size: clamp(15px, 1.15vw, 16.5px);
-      line-height: 1.66;
-      color: rgba(28, 29, 34, 0.66);
+
+    /* Cross-fading cover backgrounds (one layer per pack) with a slow zoom. */
+    .eh2-bgs { position: absolute; inset: 0; z-index: 0; }
+    .eh2-bg {
+      position: absolute; inset: 0; background-size: cover; background-position: center;
+      opacity: 0; transform: scale(1.07);
+      transition: opacity 1s ease, transform 8s ease;
     }
-    .edit-hero-actions {
-      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-      margin-top: clamp(28px, 3.4vw, 40px);
+    .eh2-bg.is-on { opacity: 1; transform: scale(1); }
+    /* Darken for legibility — heavier at the left + bottom where the copy sits. */
+    .eh2-scrim {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(15,13,18,0.9) 0%, rgba(15,13,18,0.62) 32%, rgba(15,13,18,0.12) 60%, rgba(15,13,18,0.5) 100%),
+        linear-gradient(0deg, rgba(15,13,18,0.9) 0%, rgba(15,13,18,0.18) 42%, rgba(15,13,18,0.28) 100%);
     }
-    .edit-hero-size {
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
-      padding: 11px 18px; border: 1px solid rgba(28, 29, 34, 0.4); border-radius: 2px;
+
+    .eh2-inner {
+      position: absolute; inset: 0; z-index: 2;
+      display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+      align-items: center; gap: clamp(24px, 4vw, 60px);
+      padding: clamp(102px, 13vh, 138px) clamp(26px, 4vw, 60px) clamp(104px, 13vh, 128px);
     }
-    .edit-hero-cta {
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--paper); background: var(--ink);
-      padding: 12px 26px; border-radius: 2px; text-decoration: none;
+
+    /* ---- Featured copy (left) ---- */
+    .eh2-feature { max-width: 480px; transition: opacity 0.4s ease, transform 0.55s cubic-bezier(.2,.8,.2,1); }
+    .eh2-feature.is-swap { opacity: 0; transform: translateY(14px); }
+    .eh2-cat {
+      margin: 0 0 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.28em;
+      text-transform: uppercase; color: #d9b8c4;   /* soft wine tint on dark */
+    }
+    .eh2-title {
+      margin: 0; font-weight: 700; font-size: clamp(34px, 4.6vw, 62px);
+      line-height: 1.02; letter-spacing: -0.022em; color: var(--paper);
+      text-shadow: 0 2px 30px rgba(0,0,0,0.45);
+    }
+    .eh2-bio {
+      margin: 20px 0 0; max-width: 46ch;
+      font-size: clamp(14px, 1.05vw, 16px); line-height: 1.68;
+      color: rgba(244,242,241,0.82); text-shadow: 0 1px 18px rgba(0,0,0,0.4);
+    }
+    .eh2-more {
+      display: inline-flex; align-items: center; gap: 10px; margin-top: clamp(24px, 3vw, 34px);
+      font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--paper); background: var(--english-violet); text-decoration: none;
+      padding: 14px 26px; border-radius: 3px;
       transition: background 0.25s, transform 0.4s cubic-bezier(.2,.7,.2,1);
     }
-    .edit-hero-cta:hover { background: var(--english-violet); transform: translateY(-1px); }
+    .eh2-more span { transition: transform 0.3s; }
+    .eh2-more:hover { background: #4a2836; transform: translateY(-1px); }
+    .eh2-more:hover span { transform: translateX(4px); }
 
-    /* The "film": a 3×3 grid of a pack's template stills that flash in/out at
-       random (2-3 at a time). Sized off the viewport height so the whole header
-       fits one screen with no scroll. */
-    .edit-hero-film { display: flex; justify-content: center; }
-    .eh-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      grid-template-rows: repeat(3, 1fr);
-      gap: 6px;                          /* same as the insights archive grid */
-      /* 4×3 of 3:4 tiles is square overall. Fit it to the viewport HEIGHT, but
-         cap the width (64vw) so it never eats the copy; runs to the right edge. */
-      aspect-ratio: 1 / 1;
-      width: min(64vw, calc(100vh - 180px));
+    /* ---- Cover reel (right) ---- */
+    .eh2-reel {
+      display: flex; align-items: center; gap: clamp(12px, 1.3vw, 18px);
+      justify-content: flex-start;
+      overflow-x: auto; overflow-y: hidden;
+      padding: 30px 8px; margin: -30px 0;
+      scrollbar-width: none; -ms-overflow-style: none;
+      scroll-snap-type: x proximity;
     }
-    /* Shorter screens (laptops): drop to 2 rows so the cards get bigger. */
-    @media (max-height: 1000px) {
-      .eh-grid {
-        grid-template-rows: repeat(2, 1fr);
-        aspect-ratio: 3 / 2;
-        width: min(64vw, calc((100vh - 180px) * 1.5));
-      }
-      .eh-tile:nth-child(n+9) { display: none; }   /* hide the 3rd row */
+    .eh2-reel::-webkit-scrollbar { display: none; }
+    .eh2-tile {
+      position: relative; flex: 0 0 auto; scroll-snap-align: center;
+      height: clamp(190px, 30vh, 260px); aspect-ratio: 3 / 4;
+      border: 0; padding: 0; cursor: pointer;
+      border-radius: 8px; overflow: hidden;
+      background-size: cover; background-position: center; background-color: #241f2a;
+      opacity: 0.62; filter: saturate(0.9);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+      transition: height 0.5s cubic-bezier(.2,.8,.2,1), opacity 0.4s ease, box-shadow 0.4s ease, outline-color 0.3s ease;
+      outline: 2px solid transparent; outline-offset: 3px;
     }
-    .eh-tile {
-      position: relative; min-height: 0; overflow: hidden;
-      border-radius: 2px;
-      background: transparent;   /* no frame — tiles flash in on a blank screen */
+    .eh2-tile:hover { opacity: 0.9; }
+    .eh2-tile.is-active {
+      height: clamp(250px, 42vh, 360px); opacity: 1; filter: none;
+      outline-color: var(--paper);
+      box-shadow: 0 26px 60px rgba(0,0,0,0.55);
     }
-    .eh-tile-img {
-      position: absolute; inset: 0;
-      background-size: cover; background-position: center;
-      border-radius: 2px;
-      opacity: 0; transform: scale(0.985);
-      transition: opacity 0.52s ease, transform 0.62s cubic-bezier(.2,.7,.2,1);
-      will-change: opacity, transform;
+    .eh2-tile::after {
+      content: ""; position: absolute; inset: 0; border-radius: 8px;
+      background: linear-gradient(0deg, rgba(15,13,18,0.55), transparent 46%);
+      opacity: 0; transition: opacity 0.4s;
     }
-    .eh-tile.is-on .eh-tile-img { opacity: 1; transform: scale(1); }   /* flash in, then out */
+    .eh2-tile.is-active::after { opacity: 1; }
+    .eh2-tile-cap {
+      position: absolute; left: 12px; right: 12px; bottom: 11px; z-index: 1;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.02em; line-height: 1.25;
+      color: var(--paper); text-shadow: 0 1px 8px rgba(0,0,0,0.7);
+      opacity: 0; transform: translateY(6px); transition: opacity 0.4s, transform 0.4s;
+      text-align: left;
+    }
+    .eh2-tile.is-active .eh2-tile-cap { opacity: 1; transform: none; }
+
+    /* ---- Controls (bottom): play / next + progress + dots ---- */
+    .eh2-controls {
+      position: absolute; z-index: 3; left: clamp(24px, 4vw, 56px); right: clamp(24px, 4vw, 56px);
+      bottom: clamp(24px, 4vh, 40px);
+      display: flex; align-items: center; gap: clamp(16px, 2vw, 26px);
+    }
+    .eh2-btns { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+    .eh2-ctrl {
+      width: 52px; height: 52px; border-radius: 50%; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--paper); background: rgba(244,242,241,0.1);
+      border: 1px solid rgba(244,242,241,0.28);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      transition: background 0.25s, border-color 0.25s, transform 0.25s;
+    }
+    .eh2-ctrl:hover { background: rgba(244,242,241,0.2); transform: scale(1.05); }
+    .eh2-ctrl .eh2-ic-play { display: none; margin-left: 2px; }
+    .eh2-ctrl.is-paused .eh2-ic-pause { display: none; }
+    .eh2-ctrl.is-paused .eh2-ic-play { display: block; }
+    .eh2-meter { flex: 1 1 auto; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .eh2-track { position: relative; height: 3px; border-radius: 999px; background: rgba(244,242,241,0.22); overflow: hidden; }
+    .eh2-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--english-violet); border-radius: 999px; }
+    .eh2-dots { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .eh2-dot {
+      width: 8px; height: 8px; border-radius: 50%; padding: 0; cursor: pointer;
+      border: 1px solid rgba(244,242,241,0.45); background: transparent;
+      transition: background 0.3s, border-color 0.3s, transform 0.3s;
+    }
+    .eh2-dot.is-active { background: var(--paper); border-color: var(--paper); transform: scale(1.15); }
+
+    /* ---- Mobile: stack the feature over the reel; simpler controls ---- */
     @media (max-width: 880px) {
-      .eh-grid { height: auto; width: 100%; }
+      .eh2 { height: auto; min-height: calc(100svh - 28px); }
+      .eh2-inner {
+        position: relative; grid-template-columns: 1fr;
+        align-content: center; gap: 26px;
+        padding: clamp(104px, 15vh, 150px) 24px 116px;
+      }
+      .eh2-feature { max-width: none; }
+      .eh2-reel { margin: 0 -24px; padding: 24px; }
+      .eh2-tile { height: clamp(150px, 26vh, 210px); }
+      .eh2-tile.is-active { height: clamp(180px, 32vh, 250px); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .eh-tile-img { transition: none; }
+      .eh2-bg, .eh2-tile, .eh2-feature { transition: opacity 0.2s ease; }
     }
     /* ====== STRIPPED — studio demo moved to the homepage Chapter 5 ====== */
 
@@ -1077,111 +1139,95 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     // pack's templates on the right. Tiles flash IN then OUT in small groups
     // (1-3 at a time); every few seconds the hero cross-fades to the next pack.
     function setupHero(packs) {
-      const grid = document.getElementById('eh-grid');
-      const copyEl = document.getElementById('eh-copy-in');
-      const titleEl = document.getElementById('eh-title');
-      const descEl = document.getElementById('eh-desc');
-      const sizeEl = document.getElementById('eh-size');
-      const dotsEl = document.getElementById('eh-dots');
-      if (!grid) return;
-      const list = (packs || []).filter((p) => p && p.templates && p.templates.length);
-      if (!list.length) return;
+      const hero = document.getElementById('edit-hero2');
+      if (!hero) return;
+      const cover = (p) => p.cover_image_url || (p.preview_images && p.preview_images[0]) || (p.templates && p.templates[0]) || '';
+      const list = (packs || []).filter((p) => p && cover(p));
+      if (!list.length) { hero.style.display = 'none'; return; }
 
-      const tiles = [...grid.querySelectorAll('.eh-tile')];
+      const bgsEl = document.getElementById('eh2-bgs');
+      const reelEl = document.getElementById('eh2-reel');
+      const dotsEl = document.getElementById('eh2-dots');
+      const featEl = document.getElementById('eh2-feature');
+      const catEl = document.getElementById('eh2-cat');
+      const titleEl = document.getElementById('eh2-title');
+      const bioEl = document.getElementById('eh2-bio');
+      const moreEl = document.getElementById('eh2-more');
+      const fillEl = document.getElementById('eh2-fill');
+      const playBtn = document.getElementById('eh2-play');
+      const nextBtn = document.getElementById('eh2-next');
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-      const tImg = (t) => t.querySelector('.eh-tile-img');
-      list.forEach((p) => p.templates.forEach((u) => { const im = new Image(); im.src = u; }));   // preload
 
-      // auto-scroll indicator — one dot per pack
-      let dots = [];
-      if (dotsEl) {
-        if (list.length > 1) {
-          dotsEl.innerHTML = list.map((_, i) => `<span class="eh-dot${i === 0 ? ' is-active' : ''}"></span>`).join('');
-          dots = [...dotsEl.querySelectorAll('.eh-dot')];
-        } else { dotsEl.style.display = 'none'; }
-      }
-      const setDot = (i) => dots.forEach((d, n) => d.classList.toggle('is-active', n === i));
+      // Build the layers: one cover background + one reel tile + one dot per pack.
+      bgsEl.innerHTML = list.map((p, i) => `<div class="eh2-bg${i === 0 ? ' is-on' : ''}" style="background-image:url('${cover(p)}')"></div>`).join('');
+      const bgs = [...bgsEl.children];
+      reelEl.innerHTML = list.map((p, i) =>
+        `<button type="button" class="eh2-tile${i === 0 ? ' is-active' : ''}" role="tab" aria-selected="${i === 0}" data-i="${i}" style="background-image:url('${cover(p)}')"><span class="eh2-tile-cap">${escapeHtml(p.title || '')}</span></button>`
+      ).join('');
+      const tiles = [...reelEl.children];
+      dotsEl.innerHTML = list.map((_, i) => `<button type="button" class="eh2-dot${i === 0 ? ' is-active' : ''}" data-i="${i}" aria-label="Pack ${i + 1}"></button>`).join('');
+      const dots = [...dotsEl.children];
+      list.forEach((p) => { const im = new Image(); im.src = cover(p); });   // preload
 
-      let packIdx = 0, pulseTimer = 0, rotTimer = 0, gen = 0;
-      const busy = new Set();
-      const FADE = 440, HOLD = 1050, ROT = 13000;   // ~13s a pack — long enough to show a fair amount
+      const ROT = 7000;
+      let idx = 0, playing = !reduce && list.length > 1, raf = 0, startedAt = 0, elapsed = 0;
 
-      const fillCopy = (p) => {
-        if (titleEl) titleEl.textContent = p.title || '';
-        if (descEl) descEl.textContent = p.description || '';
-        const n = (p.packSize != null) ? p.packSize : (p.templateCount != null ? p.templateCount : (p.templates ? p.templates.length : 0));
-        if (sizeEl) sizeEl.textContent = 'Pack Size: ' + n;
-      };
-      // Lock the copy width to the longest title's width and justify the body, so
-      // every pack's body text is the same length as that title.
-      const copyOuter = (copyEl && copyEl.parentElement) || null;
-      const sizeCopy = () => {
-        if (!copyOuter || !titleEl) return;
-        copyOuter.style.width = '';
-        const colW = copyOuter.getBoundingClientRect().width;
-        const cs = getComputedStyle(titleEl);
-        const probe = document.createElement('span');
-        probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0';
-        probe.style.fontFamily = cs.fontFamily; probe.style.fontSize = cs.fontSize;
-        probe.style.fontWeight = cs.fontWeight; probe.style.letterSpacing = cs.letterSpacing;
-        document.body.appendChild(probe);
-        let maxW = 0;
-        list.forEach((p) => { probe.textContent = p.title || ''; maxW = Math.max(maxW, probe.getBoundingClientRect().width); });
-        probe.remove();
-        copyOuter.style.width = Math.min(colW, Math.max(300, Math.round(maxW * 0.6))) + 'px';   // longest title wraps to ~2 lines
-      };
-
-      // one tile: flash IN (set image, fade up), hold, then flash OUT.
-      const pulse = (i, url) => {
-        if (busy.has(i)) return;
-        busy.add(i);
-        const myGen = gen, t = tiles[i], img = tImg(t);
-        img.style.backgroundImage = `url('${url}')`;
-        requestAnimationFrame(() => { if (myGen === gen) t.classList.add('is-on'); });
+      function fill(i) {
+        const p = list[i];
+        featEl.classList.add('is-swap');
         setTimeout(() => {
-          if (myGen !== gen) return;                 // a pack change reset the grid
-          t.classList.remove('is-on');
-          setTimeout(() => { if (myGen === gen) { img.style.backgroundImage = ''; busy.delete(i); } }, FADE + 40);
-        }, HOLD);
-      };
-      const pulseTick = () => {
-        const p = list[packIdx];
-        const free = tiles.map((_, i) => i).filter((i) => !busy.has(i) && tiles[i].offsetParent !== null);
-        if (free.length) {
-          const k = Math.min(free.length, 1 + Math.floor(Math.random() * 3));   // 1-3 at a time
-          const imgs = shuffle(p.templates);
-          shuffle(free).slice(0, k).forEach((i, n) => pulse(i, imgs[n % imgs.length]));   // synced — in together
+          catEl.textContent = p.category || 'The Edit';
+          titleEl.textContent = p.title || '';
+          bioEl.textContent = p.description || '';
+          if (p.slug) moreEl.href = `/edit/${encodeURIComponent(p.slug)}`;
+          featEl.classList.remove('is-swap');
+        }, 240);
+        bgs.forEach((b, n) => b.classList.toggle('is-on', n === i));
+        tiles.forEach((t, n) => { t.classList.toggle('is-active', n === i); t.setAttribute('aria-selected', n === i); });
+        dots.forEach((d, n) => d.classList.toggle('is-active', n === i));
+        const t = tiles[i];
+        if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+      function go(i) {
+        idx = ((i % list.length) + list.length) % list.length;
+        fill(idx);
+        elapsed = 0; startedAt = performance.now();
+        if (fillEl) fillEl.style.width = '0%';
+      }
+
+      function frame(now) {
+        if (playing && list.length > 1) {
+          elapsed = now - startedAt;
+          const pct = Math.min(1, elapsed / ROT);
+          if (fillEl) fillEl.style.width = (pct * 100).toFixed(2) + '%';
+          if (pct >= 1) go(idx + 1);
         }
-        pulseTimer = setTimeout(pulseTick, 980 + Math.random() * 520);
-      };
-      // pack change — clear the whole grid (clean break), swap, then flash the
-      // NEW pack in, so the templates always match the pack on the left.
-      const rotTick = () => {
-        gen++; clearTimeout(pulseTimer);
-        tiles.forEach((t) => t.classList.remove('is-on'));
-        setTimeout(() => { tiles.forEach((t) => { tImg(t).style.backgroundImage = ''; }); busy.clear(); }, FADE + 40);
-        if (copyEl) copyEl.classList.add('is-swapping');
-        setTimeout(() => {
-          packIdx = (packIdx + 1) % list.length;
-          setDot(packIdx);
-          fillCopy(list[packIdx]);
-          if (copyEl) copyEl.classList.remove('is-swapping');
-          pulseTimer = setTimeout(pulseTick, 260);
-        }, FADE + 140);
-        rotTimer = setTimeout(rotTick, ROT);
-      };
-
-      sizeCopy();
-      fillCopy(list[0]);
-      window.addEventListener('resize', sizeCopy);
-      if (reduce) {   // static: fill every cell, no motion
-        const imgs = shuffle(list[0].templates);
-        tiles.forEach((t, i) => { tImg(t).style.backgroundImage = `url('${imgs[i % imgs.length]}')`; t.classList.add('is-on'); });
-        return;
+        raf = requestAnimationFrame(frame);
       }
-      pulseTimer = setTimeout(pulseTick, 400);
-      if (list.length > 1) rotTimer = setTimeout(rotTick, ROT);
+
+      // Interactions — click a cover or dot to feature it; next/prev + pause.
+      reelEl.addEventListener('click', (e) => { const b = e.target.closest('.eh2-tile'); if (b) go(+b.dataset.i); });
+      dotsEl.addEventListener('click', (e) => { const b = e.target.closest('.eh2-dot'); if (b) go(+b.dataset.i); });
+      if (nextBtn) nextBtn.addEventListener('click', () => go(idx + 1));
+      if (playBtn) playBtn.addEventListener('click', () => {
+        playing = !playing;
+        playBtn.classList.toggle('is-paused', !playing);
+        playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+        if (playing) startedAt = performance.now() - elapsed;
+      });
+
+      // Init.
+      catEl.textContent = list[0].category || 'The Edit';
+      titleEl.textContent = list[0].title || '';
+      bioEl.textContent = list[0].description || '';
+      if (list[0].slug) moreEl.href = `/edit/${encodeURIComponent(list[0].slug)}`;
+
+      const controls = hero.querySelector('.eh2-controls');
+      if (list.length <= 1) { if (controls) controls.style.display = 'none'; return; }
+      if (reduce) { if (playBtn) { playBtn.classList.add('is-paused'); playBtn.setAttribute('aria-label', 'Play'); } if (fillEl) fillEl.style.width = '0%'; }
+
+      startedAt = performance.now();
+      raf = requestAnimationFrame(frame);
     }
 
     let packsById = new Map();
