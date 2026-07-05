@@ -5,253 +5,318 @@ import "../../styles/admin.css";
 
 <AdminShell active="social" title="Social media">
   <div class="ash-panel ash-page">
-    <section class="admin-bar">
-      <div class="admin-bar-actions">
-        <div class="enquiry-filters" id="smm-filters" role="tablist">
-          <button type="button" class="enquiry-chip is-active" data-filter="all">All <span class="enquiry-chip-count" data-count="all">0</span></button>
-          <button type="button" class="enquiry-chip" data-filter="enquiry">Enquiries <span class="enquiry-chip-count" data-count="enquiry">0</span></button>
-          <button type="button" class="enquiry-chip" data-filter="brochure">Brochure <span class="enquiry-chip-count" data-count="brochure">0</span></button>
-          <button type="button" class="enquiry-chip" data-filter="discovery">Discovery calls <span class="enquiry-chip-count" data-count="discovery">0</span></button>
+    <section class="smm-bar">
+      <div class="smm-bar-left">
+        <div class="smm-filters" id="smm-filters" role="tablist">
+          <button type="button" class="smm-chip is-active" data-filter="all">All</button>
+          <button type="button" class="smm-chip" data-filter="enquiry">Enquiries</button>
+          <button type="button" class="smm-chip" data-filter="brochure">Brochures</button>
+          <button type="button" class="smm-chip" data-filter="discovery">Discovery calls</button>
         </div>
-        <span class="admin-bar-count" id="smm-count">…</span>
+      </div>
+      <div class="smm-bar-right">
+        <label class="smm-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="search" id="smm-search" placeholder="Search name, email, business…" aria-label="Search leads" />
+        </label>
+        <label class="smm-lost-toggle"><input type="checkbox" id="smm-show-lost" /> Show lost</label>
       </div>
     </section>
 
-    <section class="enquiry-list wrap" id="smm-list" aria-busy="true">
-      <p class="enquiry-loading" id="smm-loading">Loading leads…</p>
-      <p class="enquiry-empty" id="smm-empty" hidden>No leads match this filter.</p>
-      <div class="enquiry-table" id="smm-table" role="table"></div>
-    </section>
+    <p class="smm-loading" id="smm-loading">Loading pipeline…</p>
+    <div class="smm-board" id="smm-board" hidden></div>
   </div>
 
-  <div class="modal-backdrop" id="smm-modal" hidden>
-    <div class="modal enquiry-modal" role="dialog" aria-modal="true" aria-labelledby="smm-modal-title">
-      <header class="modal-head">
-        <h2 id="smm-modal-title">Lead</h2>
-        <button type="button" class="modal-close" id="smm-modal-close" aria-label="Close">&times;</button>
-      </header>
-      <div class="enquiry-detail" id="smm-detail"></div>
-      <footer class="modal-foot">
-        <button type="button" class="admin-btn admin-btn-danger" data-status="spam">Spam</button>
-        <div class="spacer"></div>
-        <button type="button" class="admin-btn admin-btn-ghost" data-status="contacted">Contacted</button>
-        <button type="button" class="admin-btn admin-btn-ghost" data-status="lost">Lost</button>
-        <button type="button" class="admin-btn admin-btn-ghost" data-status="won">Won</button>
-        <a href="#" class="admin-btn admin-btn-primary" id="smm-reply">Reply via email</a>
-      </footer>
+  <!-- Full-screen customer file -->
+  <div class="smm-file-scrim" id="smm-file" hidden>
+    <div class="smm-file-card" role="dialog" aria-modal="true" aria-label="Customer file">
+      <button type="button" class="smm-file-x" id="smm-file-close" aria-label="Close">&times;</button>
+      <div class="smm-file-body" id="smm-file-body"></div>
     </div>
   </div>
 
   <style is:global>
-    .admin-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; max-width: 1360px; margin: 0 auto; padding: 12px 36px 40px; flex-wrap: wrap; }
-    .admin-bar-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-    .admin-bar-count { font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.6); font-weight: 600; }
-    .enquiry-filters { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-    .enquiry-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: #fff; border: 1px solid rgba(var(--violet-rgb),0.3); border-radius: 999px; font-family: var(--sans); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
-    .enquiry-chip:hover { background: rgba(var(--violet-rgb),0.06); }
-    .enquiry-chip.is-active { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
-    .enquiry-chip-count { display: inline-block; min-width: 18px; padding: 1px 6px; border-radius: 999px; background: rgba(28,29,34,0.12); font-size: 10px; letter-spacing: 0; }
-    .enquiry-chip.is-active .enquiry-chip-count { background: rgba(244,242,241,0.2); }
+    /* ---- Toolbar ---- */
+    .smm-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; max-width: 1440px; margin: 0 auto; padding: 34px 36px 20px; }
+    .smm-bar-left, .smm-bar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .smm-filters { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .smm-chip { padding: 7px 14px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+    .smm-chip:hover { border-color: rgba(var(--violet-rgb),0.4); }
+    .smm-chip.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .smm-search { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 8px 14px; min-width: 240px; }
+    .smm-search svg { width: 15px; height: 15px; color: rgba(28,29,34,0.42); flex: none; }
+    .smm-search input { border: 0; outline: none; background: none; width: 100%; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .smm-lost-toggle { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+    .smm-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 40px 36px; max-width: 1440px; margin: 0 auto; }
 
-    .enquiry-list { max-width: 1360px; margin: 0 auto; padding: 0 36px 200px; }
-    .enquiry-loading, .enquiry-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 40px 0; }
-    .enquiry-table { display: grid; gap: 1px; background: rgba(var(--violet-rgb),0.18); border: 1px solid rgba(var(--violet-rgb),0.18); border-radius: 2px; overflow: hidden; }
-    .enquiry-row { display: grid; grid-template-columns: 100px 1.4fr 1.2fr 1.4fr 110px 24px; gap: 16px; padding: 16px 20px; background: var(--paper); align-items: center; cursor: pointer; transition: background .15s; }
-    .enquiry-row.is-header { cursor: default; background: rgba(var(--violet-rgb),0.04); font-family: var(--sans); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55); }
-    .enquiry-row:not(.is-header):hover { background: rgba(var(--violet-rgb),0.04); }
-    .enquiry-when { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.7); }
-    .enquiry-who { font-family: var(--sans); font-size: 14px; color: var(--ink); }
-    .enquiry-who-name { font-weight: 700; }
-    .enquiry-who-meta { font-size: 12px; color: rgba(28,29,34,0.55); margin-top: 2px; }
-    .enquiry-snippet { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.7); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    .smm-kind { display: inline-block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); margin-bottom: 4px; }
-    .enquiry-status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-family: var(--sans); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700; }
-    .enquiry-status-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-    .enquiry-status-pill.is-new       { color: #2c7a4b; background: rgba(44,122,75,0.1); }
-    .enquiry-status-pill.is-contacted { color: var(--english-violet); background: rgba(var(--violet-rgb),0.1); }
-    .enquiry-status-pill.is-won       { color: #2c7a4b; background: rgba(44,122,75,0.16); }
-    .enquiry-status-pill.is-lost      { color: rgba(28,29,34,0.55); background: rgba(28,29,34,0.06); }
-    .enquiry-status-pill.is-spam      { color: #a05a3c; background: rgba(160,90,60,0.1); }
-    .enquiry-row-arrow { font-family: var(--serif); font-style: italic; color: var(--english-violet); justify-self: end; font-size: 16px; }
+    /* ---- Pipeline board ---- */
+    .smm-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(248px, 1fr); gap: 16px; align-items: start; max-width: 1440px; margin: 0 auto; padding: 6px 36px 160px; overflow-x: auto; }
+    .smm-col { background: transparent; }
+    .smm-col-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 12px; position: sticky; top: 0; }
+    .smm-col-name { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .smm-col-count { font-family: var(--sans); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.5); background: rgba(28,29,34,0.06); border-radius: 999px; padding: 1px 8px; }
+    .smm-col-body { display: flex; flex-direction: column; gap: 10px; min-height: 40px; }
+    .smm-col-empty { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.35); padding: 14px 4px; }
+    .smm-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 14px 15px; cursor: pointer; transition: border-color .16s, transform .16s, box-shadow .16s; }
+    .smm-card:hover { border-color: rgba(var(--violet-rgb),0.45); transform: translateY(-1px); box-shadow: 0 10px 24px -18px rgba(28,29,34,0.4); }
+    .smm-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .smm-kind { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
+    .smm-kind.is-discovery { background: rgba(47,158,94,0.12); color: #2c7a4b; }
+    .smm-kind.is-brochure { background: rgba(227,160,8,0.14); color: #9a6a04; }
+    .smm-card-when { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.42); }
+    .smm-card-name { font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--ink); }
+    .smm-card-biz { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 1px; }
+    .smm-card-meta { font-family: var(--sans); font-size: 11.5px; color: var(--english-violet); margin-top: 8px; display: inline-flex; align-items: center; gap: 5px; }
+    .smm-card-meta svg { width: 12px; height: 12px; }
 
-    .modal-backdrop { position: fixed; inset: 0; z-index: 200; background: rgba(20,18,26,0.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .modal-backdrop[hidden] { display: none; }
-    .modal.enquiry-modal { background: var(--paper); max-width: 720px; width: 100%; max-height: 86vh; display: flex; flex-direction: column; border-radius: 4px; overflow: hidden; box-shadow: 0 30px 80px rgba(20,18,26,0.35); }
-    .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 20px 28px; border-bottom: 1px solid rgba(var(--violet-rgb),0.12); }
-    .modal-head h2 { font-family: var(--serif); font-size: 22px; font-weight: 500; margin: 0; color: var(--ink); }
-    .modal-close { background: transparent; border: none; font-size: 28px; line-height: 1; color: var(--english-violet); cursor: pointer; padding: 0 4px; }
-    .enquiry-detail { padding: 24px 28px; overflow-y: auto; flex: 1; }
-    .enquiry-detail dl { display: grid; grid-template-columns: 130px 1fr; gap: 6px 18px; margin: 0 0 24px; font-family: var(--sans); font-size: 14px; }
-    .enquiry-detail dt { color: rgba(28,29,34,0.55); font-weight: 600; letter-spacing: 0.04em; }
-    .enquiry-detail dd { margin: 0; color: var(--ink); word-break: break-word; }
-    .enquiry-detail dd a { color: var(--english-violet); text-decoration: underline; }
-    .enquiry-message { background: rgba(var(--violet-rgb),0.04); border-left: 3px solid var(--english-violet); padding: 16px 18px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; border-radius: 2px; margin-bottom: 20px; }
-    .enquiry-notes-label { display: block; font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.6); margin: 0 0 8px; }
-    .enquiry-notes { width: 100%; min-height: 80px; padding: 12px 14px; border: 1px solid rgba(var(--violet-rgb),0.3); border-radius: 2px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: var(--paper); resize: vertical; box-sizing: border-box; }
-    .enquiry-notes:focus { outline: none; border-color: var(--english-violet); }
-    .enquiry-notes-save { margin-top: 8px; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
-    .modal-foot { display: flex; gap: 8px; align-items: center; padding: 16px 28px; border-top: 1px solid rgba(var(--violet-rgb),0.12); flex-wrap: wrap; }
-    .modal-foot .spacer { flex: 1; }
-    .admin-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 2px; font-family: var(--sans); font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; font-weight: 700; cursor: pointer; border: 1px solid transparent; transition: background .2s, color .2s, border-color .2s; text-decoration: none; }
-    .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
-    .admin-btn-primary:hover { background: var(--ink); color: var(--paper); }
-    .admin-btn-ghost { background: transparent; border-color: rgba(var(--violet-rgb),0.4); color: var(--english-violet); }
-    .admin-btn-ghost:hover { background: rgba(var(--violet-rgb),0.06); }
-    .admin-btn-danger { background: transparent; border-color: #a05a3c; color: #a05a3c; }
-    .admin-btn-danger:hover { background: #a05a3c; color: var(--paper); }
+    /* ---- Full-screen customer file ---- */
+    .smm-file-scrim { position: fixed; inset: 0; z-index: 200; background: rgba(20,18,26,0.5); display: flex; align-items: stretch; justify-content: center; padding: 28px; }
+    .smm-file-scrim[hidden] { display: none; }
+    .smm-file-card { position: relative; width: min(1100px, 100%); background: #fff; border-radius: 14px; box-shadow: 0 40px 100px rgba(20,18,26,0.4); overflow-y: auto; padding: 34px 40px 48px; }
+    .smm-file-x { position: absolute; top: 20px; right: 24px; background: none; border: 0; font-size: 30px; line-height: 1; color: rgba(28,29,34,0.4); cursor: pointer; }
+    .smm-file-x:hover { color: var(--ink); }
+    .smm-file-head { margin: 0 40px 22px 0; }
+    .smm-file-name { font-family: var(--serif); font-weight: 500; font-size: 30px; color: var(--ink); margin: 0; }
+    .smm-file-sub { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); margin: 4px 0 0; }
 
-    @media (max-width: 860px) {
-      .enquiry-row { grid-template-columns: 1fr; gap: 6px; padding: 14px 16px; }
-      .enquiry-row.is-header { display: none; }
-      .enquiry-row-arrow { display: none; }
-    }
+    /* Pipeline stepper */
+    .smm-pipe { position: relative; display: flex; margin: 8px 0 40px; padding-top: 4px; }
+    .smm-pipe-track { position: absolute; top: 10px; left: 7px; right: 7px; height: 2px; background: rgba(28,29,34,0.12); }
+    .smm-pipe-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--english-violet); transition: width .25s; }
+    .smm-pipe-step { position: absolute; top: 4px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+    .smm-pipe-step--first { transform: translateX(0); align-items: flex-start; }
+    .smm-pipe-step--last { transform: translateX(-100%); align-items: flex-end; }
+    .smm-pipe-dot { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid rgba(28,29,34,0.25); position: relative; z-index: 1; transition: background .18s, border-color .18s, box-shadow .18s; }
+    .smm-pipe-step.is-done .smm-pipe-dot { background: var(--english-violet); border-color: var(--english-violet); }
+    .smm-pipe-step.is-current .smm-pipe-dot { box-shadow: 0 0 0 4px rgba(var(--violet-rgb),0.18); }
+    .smm-pipe-label { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.5); white-space: nowrap; }
+    .smm-pipe-step.is-done .smm-pipe-label, .smm-pipe-step.is-current .smm-pipe-label { color: var(--ink); font-weight: 600; }
+    .smm-pipe-step:hover .smm-pipe-label { color: var(--english-violet); }
+
+    /* File layout */
+    .smm-file-grid { display: grid; grid-template-columns: 300px 1fr; gap: 32px; }
+    @media (max-width: 820px) { .smm-file-grid { grid-template-columns: 1fr; } }
+    .smm-sec { border-top: 1px solid rgba(28,29,34,0.09); padding: 18px 0; }
+    .smm-sec:first-child { border-top: 0; padding-top: 0; }
+    .smm-sec-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 12px; }
+    .smm-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px dashed rgba(28,29,34,0.09); font-family: var(--sans); font-size: 14px; color: var(--ink); }
+    .smm-field:last-child { border-bottom: 0; }
+    .smm-field-k { color: rgba(28,29,34,0.5); flex: 0 0 auto; font-size: 13px; }
+    .smm-field-v { display: inline-flex; align-items: center; gap: 6px; text-align: right; min-width: 0; }
+    .smm-field-v a { color: var(--english-violet); text-decoration: none; }
+    .smm-copy { background: none; border: 0; padding: 3px; border-radius: 6px; color: rgba(28,29,34,0.4); cursor: pointer; display: inline-flex; transition: background .15s, color .15s; }
+    .smm-copy:hover { background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
+    .smm-copy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .smm-copy.is-done { color: #2c7a4b; }
+    .smm-notes { width: 100%; min-height: 90px; padding: 12px 14px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink); background: #fff; resize: vertical; box-sizing: border-box; }
+    .smm-notes:focus { outline: none; border-color: var(--english-violet); }
+    .smm-notes-status { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin-top: 6px; }
+    .smm-msg { background: rgba(var(--violet-rgb),0.04); border-left: 3px solid var(--english-violet); padding: 14px 16px; border-radius: 6px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
+    .smm-soon { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.45); line-height: 1.6; }
+    .smm-file-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .smm-btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: 8px; font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; border: 1px solid rgba(var(--violet-rgb),0.3); background: #fff; color: var(--english-violet); text-decoration: none; transition: background .15s, border-color .15s, color .15s; }
+    .smm-btn:hover { background: rgba(var(--violet-rgb),0.06); }
+    .smm-btn--primary { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .smm-btn--primary:hover { background: var(--ink); color: #fff; }
+    .smm-btn--danger { border-color: #a05a3c; color: #a05a3c; }
+    .smm-btn--danger:hover { background: #a05a3c; color: #fff; }
   </style>
 
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase } from "../../lib/supabase.js";
 
-    const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Call" };
-    const STATUS_LABEL = { new: "New", contacted: "Contacted", won: "Won", lost: "Lost", spam: "Spam" };
+    const STAGES = [
+      { key: "inquiry", label: "Inquiry" },
+      { key: "meeting_set", label: "Meeting set" },
+      { key: "contract_sent", label: "Contract sent" },
+      { key: "contract_signed", label: "Contract signed" },
+      { key: "active_client", label: "Active client" },
+    ];
+    const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.key, i]));
+    const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Discovery call" };
 
-    const escapeHtml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const nameOf = (r) => (r.full_name || `${r.first_name || ""} ${r.last_name || ""}`).trim() || "—";
     function fmtWhen(iso) {
       if (!iso) return "";
-      const d = new Date(iso); const diff = (Date.now() - d) / 1000;
-      if (diff < 60) return "just now";
-      if (diff < 3600) return Math.floor(diff / 60) + "m ago";
-      if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
-      if (diff < 86400 * 7) return Math.floor(diff / 86400) + "d ago";
-      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      const d = new Date(iso), diff = (Date.now() - d) / 1000;
+      if (diff < 3600) return Math.max(1, Math.floor(diff / 60)) + "m";
+      if (diff < 86400) return Math.floor(diff / 3600) + "h";
+      if (diff < 604800) return Math.floor(diff / 86400) + "d";
+      return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
     }
-    const nameOf = (r) => (r.full_name || `${r.first_name || ""} ${r.last_name || ""}`).trim() || "—";
-    const detailOf = (r) => {
-      if (r.kind === "discovery") return r.call_at ? `Call: ${new Date(r.call_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Discovery call";
-      if (r.kind === "brochure") return r.brochure_sent ? "Brochure sent" : "Brochure request";
-      return r.message || "—";
-    };
+    const fmtDateTime = (iso) => { try { return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (_) { return ""; } };
+    const stageOf = (r) => (r.pipeline_stage && STAGE_INDEX[r.pipeline_stage] != null ? r.pipeline_stage : "inquiry");
 
-    let all = [], activeFilter = "all", current = null;
+    let all = [], kindFilter = "all", q = "", showLost = false, current = null;
 
-    function refreshCounts() {
-      const counts = { all: all.length, enquiry: 0, brochure: 0, discovery: 0 };
-      all.forEach((r) => { if (counts[r.kind] != null) counts[r.kind]++; });
-      Object.entries(counts).forEach(([k, v]) => { const el = document.querySelector(`[data-count="${k}"]`); if (el) el.textContent = String(v); });
+    // ---------- Board ----------
+    function visible() {
+      return all
+        .filter((r) => showLost ? true : r.pipeline_stage !== "lost" && r.status !== "spam")
+        .filter((r) => kindFilter === "all" || r.kind === kindFilter)
+        .filter((r) => !q || (nameOf(r) + " " + (r.email || "") + " " + (r.business || "")).toLowerCase().includes(q));
     }
-
-    function applyFilter() {
-      const grid = document.getElementById("smm-table");
-      const emptyEl = document.getElementById("smm-empty");
-      if (!grid) return;
-      const rows = activeFilter === "all" ? all : all.filter((r) => r.kind === activeFilter);
-      const countEl = document.getElementById("smm-count");
-      if (countEl) countEl.textContent = `${rows.length} ${rows.length === 1 ? "lead" : "leads"}`;
-      if (!rows.length) { grid.innerHTML = ""; if (emptyEl) emptyEl.hidden = false; return; }
-      if (emptyEl) emptyEl.hidden = true;
-      grid.innerHTML =
-        `<div class="enquiry-row is-header"><div>When</div><div>Who</div><div>Business</div><div>Detail</div><div>Status</div><div></div></div>` +
-        rows.map((r) => `
-          <div class="enquiry-row" data-id="${r.id}">
-            <div class="enquiry-when">${fmtWhen(r.created_at)}</div>
-            <div class="enquiry-who"><div class="enquiry-who-name">${escapeHtml(nameOf(r))}</div><div class="enquiry-who-meta">${escapeHtml(r.email)}</div></div>
-            <div class="enquiry-who">${escapeHtml(r.business || "—")}</div>
-            <div><span class="smm-kind">${KIND_LABEL[r.kind] || r.kind}</span><div class="enquiry-snippet">${escapeHtml(detailOf(r))}</div></div>
-            <div><span class="enquiry-status-pill is-${r.status || "new"}">${STATUS_LABEL[r.status] || r.status || "New"}</span></div>
-            <div class="enquiry-row-arrow">&rarr;</div>
-          </div>`).join("");
-      grid.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => openDetail(el.getAttribute("data-id"))));
+    function renderBoard() {
+      const board = $("smm-board");
+      const rows = visible();
+      board.innerHTML = STAGES.map((s) => {
+        const cards = rows.filter((r) => stageOf(r) === s.key);
+        return `<div class="smm-col">
+          <div class="smm-col-head"><span class="smm-col-name">${esc(s.label)}</span><span class="smm-col-count">${cards.length}</span></div>
+          <div class="smm-col-body">${cards.length ? cards.map(cardHtml).join("") : '<div class="smm-col-empty">—</div>'}</div>
+        </div>`;
+      }).join("");
+      board.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => openFile(el.getAttribute("data-id"))));
+    }
+    function cardHtml(r) {
+      const kc = r.kind === "discovery" ? " is-discovery" : r.kind === "brochure" ? " is-brochure" : "";
+      const when = r.kind === "discovery" && r.call_at ? `<span class="smm-card-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>${esc(fmtDateTime(r.call_at))}</span>`
+        : r.meeting_at ? `<span class="smm-card-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>Meeting ${esc(fmtDateTime(r.meeting_at))}</span>` : "";
+      return `<div class="smm-card" data-id="${esc(r.id)}">
+        <div class="smm-card-top"><span class="smm-kind${kc}">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span><span class="smm-card-when">${esc(fmtWhen(r.created_at))}</span></div>
+        <div class="smm-card-name">${esc(nameOf(r))}</div>
+        ${r.business ? `<div class="smm-card-biz">${esc(r.business)}</div>` : ""}
+        ${when}
+      </div>`;
     }
 
-    function openDetail(id) {
-      const row = all.find((r) => r.id === id);
-      if (!row) return;
-      current = row;
-      const modal = document.getElementById("smm-modal");
-      const detail = document.getElementById("smm-detail");
-      const reply = document.getElementById("smm-reply");
-      const title = document.getElementById("smm-modal-title");
-      if (!modal || !detail || !reply || !title) return;
-      title.textContent = nameOf(row);
-      const subject = encodeURIComponent("Re: Your enquiry to TMKE");
-      const body = encodeURIComponent(`Hi ${row.first_name || nameOf(row)},\n\nThanks for getting in touch about ${row.business || "your business"}.\n\n`);
-      reply.setAttribute("href", `mailto:${row.email}?subject=${subject}&body=${body}`);
+    // ---------- Customer file ----------
+    const COPY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    function copyField(label, value, href) {
+      if (!value) return `<div class="smm-field"><span class="smm-field-k">${esc(label)}</span><span class="smm-field-v">—</span></div>`;
+      const shown = href ? `<a href="${esc(href)}">${esc(value)}</a>` : esc(value);
+      return `<div class="smm-field"><span class="smm-field-k">${esc(label)}</span><span class="smm-field-v">${shown}<button type="button" class="smm-copy" data-copy="${esc(value)}" title="Copy">${COPY_SVG}</button></span></div>`;
+    }
+    function openFile(id) {
+      const r = all.find((x) => x.id === id); if (!r) return;
+      current = r;
+      const idx = STAGE_INDEX[stageOf(r)];
+      const n = STAGES.length;
+      const pipe = `<div class="smm-pipe"><div class="smm-pipe-track"><div class="smm-pipe-fill" style="width:${(idx / (n - 1)) * 100}%"></div></div>${STAGES.map((s, i) => {
+        const cls = (i <= idx ? " is-done" : "") + (i === idx ? " is-current" : "") + (i === 0 ? " smm-pipe-step--first" : "") + (i === n - 1 ? " smm-pipe-step--last" : "");
+        return `<div class="smm-pipe-step${cls}" data-stage="${s.key}" style="left:${(i / (n - 1)) * 100}%"><span class="smm-pipe-dot"></span><span class="smm-pipe-label">${esc(s.label)}</span></div>`;
+      }).join("")}</div>`;
+      const acct = r.account_created ? "Created at submission" : (r.account_user_id ? "Existing account" : "None");
+      $("smm-file-body").innerHTML = `
+        <header class="smm-file-head">
+          <h2 class="smm-file-name">${esc(nameOf(r))}</h2>
+          <p class="smm-file-sub">${esc(r.business || KIND_LABEL[r.kind] || "Lead")}</p>
+        </header>
+        ${pipe}
+        <div class="smm-file-grid">
+          <div>
+            <div class="smm-sec">
+              <h3 class="smm-sec-h">Contact</h3>
+              ${copyField("Email", r.email, "mailto:" + (r.email || ""))}
+              ${copyField("Phone", r.phone, r.phone ? "tel:" + r.phone : "")}
+              ${copyField("Business", r.business)}
+              <div class="smm-field"><span class="smm-field-k">Type</span><span class="smm-field-v"><span class="smm-kind">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span></span></div>
+              <div class="smm-field"><span class="smm-field-k">Received</span><span class="smm-field-v">${esc(fmtDateTime(r.created_at))}</span></div>
+              ${r.call_at ? `<div class="smm-field"><span class="smm-field-k">Discovery call</span><span class="smm-field-v">${esc(fmtDateTime(r.call_at))}</span></div>` : ""}
+              <div class="smm-field"><span class="smm-field-k">Marketing</span><span class="smm-field-v">${r.marketing_opt_in ? "Opted in" : "Not opted in"}</span></div>
+              <div class="smm-field"><span class="smm-field-k">Account</span><span class="smm-field-v">${esc(acct)}</span></div>
+            </div>
+            <div class="smm-sec">
+              <h3 class="smm-sec-h">Move</h3>
+              <div class="smm-file-actions">
+                <a class="smm-btn smm-btn--primary" href="mailto:${esc(r.email || "")}?subject=${encodeURIComponent("TMKE social media")}">Email</a>
+                <button type="button" class="smm-btn smm-btn--danger" data-lost>Mark lost</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            ${r.message ? `<div class="smm-sec"><h3 class="smm-sec-h">Their message</h3><div class="smm-msg">${esc(r.message)}</div></div>` : ""}
+            <div class="smm-sec">
+              <h3 class="smm-sec-h">Notes</h3>
+              <textarea class="smm-notes" id="smm-notes" placeholder="Anything worth remembering…">${esc(r.notes || "")}</textarea>
+              <div class="smm-notes-status" id="smm-notes-status"></div>
+            </div>
+            <div class="smm-sec">
+              <h3 class="smm-sec-h">Emails &amp; documents</h3>
+              <p class="smm-soon">The full email dialogue, pinnable notes and PDF attachments land in the next step — the plumbing (send + log + attach) is already in place.</p>
+            </div>
+          </div>
+        </div>`;
+      $("smm-file").hidden = false;
+      document.body.style.overflow = "hidden";
+      wireFile(r);
+    }
+    function closeFile() { $("smm-file").hidden = true; current = null; document.body.style.overflow = ""; }
 
-      const acct = row.account_created ? "Created at submission" : (row.account_user_id ? "Existing account" : "None");
-      detail.innerHTML = `
-        <dl>
-          <dt>Type</dt><dd><span class="smm-kind">${KIND_LABEL[row.kind] || row.kind}</span></dd>
-          <dt>Received</dt><dd>${new Date(row.created_at).toLocaleString("en-GB")}</dd>
-          <dt>Email</dt><dd><a href="mailto:${row.email}">${escapeHtml(row.email)}</a></dd>
-          <dt>Phone</dt><dd>${row.phone ? `<a href="tel:${row.phone}">${escapeHtml(row.phone)}</a>` : "—"}</dd>
-          <dt>Business</dt><dd>${escapeHtml(row.business || "—")}</dd>
-          ${row.kind === "discovery" ? `<dt>Call time</dt><dd>${row.call_at ? new Date(row.call_at).toLocaleString("en-GB") : "—"}</dd>` : ""}
-          <dt>Marketing</dt><dd>${row.marketing_opt_in ? "Opted in" : "Not opted in"}</dd>
-          <dt>Account</dt><dd>${acct}</dd>
-          <dt>Status</dt><dd><span class="enquiry-status-pill is-${row.status || "new"}">${STATUS_LABEL[row.status] || row.status || "New"}</span></dd>
-        </dl>
-        ${row.message ? `<div class="enquiry-message">${escapeHtml(row.message)}</div>` : ""}
-        <label class="enquiry-notes-label" for="smm-notes">Internal notes</label>
-        <textarea class="enquiry-notes" id="smm-notes" placeholder="Anything worth remembering…">${escapeHtml(row.notes || "")}</textarea>
-        <div class="enquiry-notes-save" id="smm-notes-save"></div>`;
-      modal.hidden = false;
-
-      const notesEl = document.getElementById("smm-notes");
-      const notesSave = document.getElementById("smm-notes-save");
-      let saveTimer = null;
-      notesEl?.addEventListener("input", () => {
-        if (saveTimer) clearTimeout(saveTimer);
-        if (notesSave) notesSave.textContent = "Saving…";
-        saveTimer = setTimeout(async () => {
-          const { error } = await supabase.from("smm_leads").update({ notes: notesEl.value }).eq("id", row.id);
-          if (notesSave) notesSave.textContent = error ? "Couldn't save." : "Saved.";
-          row.notes = notesEl.value;
+    function wireFile(r) {
+      // Quick-copy
+      $("smm-file-body").querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        try { await navigator.clipboard.writeText(b.getAttribute("data-copy")); b.classList.add("is-done"); setTimeout(() => b.classList.remove("is-done"), 1200); } catch (_) {}
+      }));
+      // Pipeline advance
+      $("smm-file-body").querySelectorAll("[data-stage]").forEach((s) => s.addEventListener("click", () => setStage(r, s.getAttribute("data-stage"))));
+      // Mark lost
+      $("smm-file-body").querySelector("[data-lost]")?.addEventListener("click", () => setStage(r, "lost"));
+      // Notes autosave
+      const notes = $("smm-notes"), status = $("smm-notes-status");
+      let t = null;
+      notes?.addEventListener("input", () => {
+        if (t) clearTimeout(t);
+        if (status) status.textContent = "Saving…";
+        t = setTimeout(async () => {
+          if (r.id.startsWith("demo")) { r.notes = notes.value; if (status) status.textContent = "Saved (demo)."; return; }
+          const { error } = await supabase.from("smm_leads").update({ notes: notes.value }).eq("id", r.id);
+          r.notes = notes.value; if (status) status.textContent = error ? "Couldn't save." : "Saved.";
         }, 600);
       });
     }
-
-    function closeDetail() { const m = document.getElementById("smm-modal"); if (m) m.hidden = true; current = null; }
-
-    async function changeStatus(status) {
-      if (!current) return;
-      const id = current.id;
-      const { error } = await supabase.from("smm_leads").update({ status }).eq("id", id);
-      if (error) { alert("Couldn't update status: " + error.message); return; }
-      const row = all.find((r) => r.id === id); if (row) row.status = status;
-      applyFilter(); closeDetail();
+    async function setStage(r, stage) {
+      r.pipeline_stage = stage;
+      if (!r.id.startsWith("demo")) { try { await supabase.from("smm_leads").update({ pipeline_stage: stage }).eq("id", r.id); } catch (_) {} }
+      renderBoard();
+      if (stage === "lost") closeFile(); else openFile(r.id);
     }
 
+    // ---------- Demo data (preview only) ----------
+    function demoRows() {
+      const now = Date.now();
+      const mk = (o) => Object.assign({ id: "demo-" + Math.abs((o.email || "").length * 7 + (o.full_name || "").length), kind: "enquiry", marketing_opt_in: false, created_at: new Date(now - (o.ageDays || 1) * 86400000).toISOString() }, o);
+      return [
+        mk({ full_name: "Harriet Vance", email: "harriet@vancehomes.co.uk", phone: "07700 900111", business: "Vance & Co Estate Agents", kind: "enquiry", message: "We'd love help running our Instagram and reels — struggling to post consistently.", pipeline_stage: "inquiry", ageDays: 1 }),
+        mk({ full_name: "Marcus Bell", email: "marcus@thelettingsexperts.co.uk", phone: "07700 900222", business: "The Lettings Experts", kind: "discovery", call_at: new Date(now + 2 * 86400000).toISOString(), pipeline_stage: "meeting_set", ageDays: 3 }),
+        mk({ full_name: "Priya Anand", email: "priya@anandproperty.com", business: "Anand Property", kind: "brochure", pipeline_stage: "inquiry", ageDays: 2 }),
+        mk({ full_name: "Tom Whitfield", email: "tom@whitfield.co.uk", phone: "07700 900333", business: "Whitfield & Sons", kind: "discovery", meeting_at: new Date(now + 5 * 86400000).toISOString(), pipeline_stage: "contract_sent", ageDays: 8 }),
+        mk({ full_name: "Sofia Reyes", email: "sofia@reyeshomes.co.uk", business: "Reyes Homes", kind: "enquiry", pipeline_stage: "contract_signed", ageDays: 12 }),
+        mk({ full_name: "James Okafor", email: "james@fineandcountry.com", phone: "07700 900444", business: "Fine & Country (Kettering)", kind: "enquiry", marketing_opt_in: true, pipeline_stage: "active_client", ageDays: 40 }),
+      ];
+    }
+
+    // ---------- Boot ----------
     (async () => {
       let session;
-      if (import.meta.env.DEV) {
-        session = (await supabase.auth.getSession()).data.session || { user: { email: "dev-preview@tmke.co.uk", id: "dev" } };
-      } else {
-        session = await requireAdmin();
-        if (!session) return;
-      }
+      if (import.meta.env.DEV) session = (await supabase.auth.getSession()).data.session || { user: { email: "dev@tmke.co.uk", id: "dev" } };
+      else { session = await requireAdmin(); if (!session) return; }
 
-      const { data, error } = await supabase.from("smm_leads").select("*").order("created_at", { ascending: false });
-      const loading = document.getElementById("smm-loading");
-      if (loading) loading.hidden = true;
-      const listEl = document.getElementById("smm-list");
-      if (listEl) listEl.removeAttribute("aria-busy");
-      if (error) { if (loading) { loading.hidden = false; loading.textContent = "Could not load leads: " + error.message; } return; }
+      let rows = [];
+      try { const { data } = await supabase.from("smm_leads").select("*").order("created_at", { ascending: false }); rows = data || []; } catch (_) {}
+      if (!rows.length && import.meta.env.DEV) rows = demoRows();
+      all = rows;
 
-      all = data || [];
-      refreshCounts();
-      applyFilter();
+      $("smm-loading").hidden = true;
+      $("smm-board").hidden = false;
+      renderBoard();
 
-      document.getElementById("smm-filters")?.addEventListener("click", (e) => {
-        const btn = e.target.closest(".enquiry-chip");
-        if (!btn) return;
-        document.querySelectorAll(".enquiry-chip").forEach((c) => c.classList.remove("is-active"));
+      $("smm-filters").addEventListener("click", (e) => {
+        const btn = e.target.closest(".smm-chip"); if (!btn) return;
+        document.querySelectorAll(".smm-chip").forEach((c) => c.classList.remove("is-active"));
         btn.classList.add("is-active");
-        activeFilter = btn.getAttribute("data-filter") || "all";
-        applyFilter();
+        kindFilter = btn.getAttribute("data-filter") || "all";
+        renderBoard();
       });
-      document.getElementById("smm-modal-close")?.addEventListener("click", closeDetail);
-      document.getElementById("smm-modal")?.addEventListener("click", (e) => { if (e.target instanceof HTMLElement && e.target.id === "smm-modal") closeDetail(); });
-      document.querySelectorAll(".modal-foot [data-status]").forEach((btn) => btn.addEventListener("click", () => changeStatus(btn.getAttribute("data-status"))));
+      $("smm-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); renderBoard(); });
+      $("smm-show-lost").addEventListener("change", (e) => { showLost = e.target.checked; renderBoard(); });
+      $("smm-file-close").addEventListener("click", closeFile);
+      $("smm-file").addEventListener("click", (e) => { if (e.target === $("smm-file")) closeFile(); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("smm-file").hidden) closeFile(); });
     })();
   </script>
 </AdminShell>
