@@ -2361,6 +2361,33 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // ---- Admin: pin / unpin a thread note ----
+      if (path.endsWith("/booking/message/pin") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = b && b.id;
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/booking_messages?id=eq.${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ is_pinned: !!(b && b.pinned) }),
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: delete a thread note / message ----
+      if (path.endsWith("/booking/message") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/booking_messages?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Member: my whole correspondence + documents (service role) --------
       // Reads through the verified member session, matching by account OR email,
       // so the portal never misses a row to an RLS/email-casing edge case.
