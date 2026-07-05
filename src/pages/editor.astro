@@ -3645,6 +3645,58 @@ const googleFonts = [
       }
     }
 
+    // ---- Customer design persistence (members' own copies of templates) ------
+    // Not admin mode: when a signed-in member edits, editor.js calls this hook.
+    // First save from a template INSERTS a copy into user_designs (copy-on-edit)
+    // and returns its id so the editor adopts it; later saves UPDATE that row.
+    // The original template is never touched.
+    if (!wantAdmin) {
+      const { data: { session: memberSession } } = await supabase.auth.getSession();
+      if (memberSession) {
+        const memberUid = memberSession.user.id;
+        let currentDesignId = params.get('design') || null;
+        window.__TMKE_DESIGN_SAVE__ = async (payload) => {
+          try {
+            // Externalise embedded data-URL images to storage (keeps the row small).
+            try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (_) {}
+            let thumbUrl;
+            if (typeof payload.thumb === 'string' && payload.thumb.startsWith('data:')) {
+              try { thumbUrl = await externUploadDataUrl(payload.thumb); } catch (_) {}
+            }
+            const row = {
+              user_id: memberUid,
+              name: payload.filename || 'Untitled design',
+              canvas: payload.canvas,
+              elements: payload.elements,
+              pages: payload.pages || null,
+              updated_at: new Date().toISOString(),
+            };
+            if (thumbUrl) row.thumb_url = thumbUrl;
+            if (currentDesignId) {
+              const { error } = await supabase.from('user_designs').update(row).eq('id', currentDesignId).eq('user_id', memberUid);
+              return error ? { ok: false } : { ok: true, id: currentDesignId };
+            }
+            row.source_template_id = payload.templateId || null;
+            const { data, error } = await supabase.from('user_designs').insert(row).select('id').single();
+            if (error || !data) return { ok: false };
+            currentDesignId = data.id;
+            try { const u = new URL(location.href); u.searchParams.set('design', currentDesignId); u.searchParams.delete('template'); history.replaceState(null, '', u); } catch (_) {}
+            return { ok: true, id: currentDesignId };
+          } catch (_) { return { ok: false }; }
+        };
+        // Re-open a saved design (?design=<id>): fetch the row + boot the editor onto it.
+        if (currentDesignId) {
+          let design = null;
+          try {
+            const { data: d } = await supabase.from('user_designs').select('*').eq('id', currentDesignId).eq('user_id', memberUid).single();
+            if (d) design = { id: d.id, name: d.name, canvas: d.canvas, elements: d.elements, pages: d.pages };
+          } catch (_) {}
+          if (typeof window.__TMKE_BOOT_DESIGN__ === 'function') window.__TMKE_BOOT_DESIGN__(design);
+          else window.__TMKE_DESIGN_BOOTSTRAP_DONE__ = design;
+        }
+      }
+    }
+
     // Custom brand fonts — fetched for BOTH admin and customer modes so the
     // canvas renders templates that reference them correctly. Each row is
     // registered with the document via Font Face API; editor.js picks them
@@ -5108,6 +5160,16 @@ const googleFonts = [
         return;
       }
 
+      // Opening a specific design (?template=… a pack template, or ?design=… a
+      // member's saved copy) — e.g. clicking one of "Your designs" — skips the
+      // pack-picker onboarding and lands straight on the canvas with it loaded.
+      if (new URLSearchParams(location.search).has("template") || new URLSearchParams(location.search).has("design")) {
+        overlay.classList.add("is-gone");
+        editor.classList.remove("is-onboarding");
+        editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
+        return;
+      }
+
       const isDemo = import.meta.env.DEV && new URLSearchParams(location.search).has("demo");
       if (isDemo) {
         loading.hidden = true;
@@ -5154,6 +5216,21 @@ const googleFonts = [
 
       const owned = allPacks.filter((p) => ownedIds.has(p.id));
       const unowned = allPacks.filter((p) => !ownedIds.has(p.id));
+
+      // Deep-link from the Studio "Pick from your packs": /editor?pack=<id>
+      // jumps straight to that pack's design chooser (onboarding step 2).
+      const _packParam = new URLSearchParams(location.search).get("pack");
+      if (_packParam) {
+        const _p = owned.find((p) => p.id === _packParam) || allPacks.find((p) => p.id === _packParam);
+        if (_p) {
+          grid.innerHTML = owned.map(packCard).join("");
+          grid.hidden = false;
+          renderMoreCell(unowned);
+          wirePackGrid(owned);
+          showPackDesigns(_p);
+          return;
+        }
+      }
 
       if (owned.length === 0) {
         // Nothing purchased yet — nudge toward the shop, but the blank-canvas

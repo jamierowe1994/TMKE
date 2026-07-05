@@ -221,6 +221,18 @@ export function termsForService(serviceKey) {
   return TERMS_BY_SERVICE[serviceKey] || TERMS_BY_SERVICE.property;
 }
 
+// ---- Booking location label -------------------------------------------------
+// A friendly "where" line so a member can tell multiple bookings apart at a
+// glance. Property/Agent use the postcode submitted on the form; Content Studio
+// is our fixed studio; discovery calls run over Teams.
+// TODO: swap in the full studio street address once confirmed.
+export const STUDIO_LOCATION = "TMKE Content Studio, 5 Regent Street, Rugby, CV21 2PE";
+export function bookingLocation({ service_type, source, postcode } = {}) {
+  if (source === "smm" || service_type === "discovery") return "Teams call";
+  if (service_type === "content" || service_type === "content-studio") return STUDIO_LOCATION;
+  return postcode || "";
+}
+
 // ---- Money helpers ----------------------------------------------------------
 export function vatOf(pence) { return Math.round(pence * VAT_RATE); }
 export function withVat(pence) { return pence + vatOf(pence); }

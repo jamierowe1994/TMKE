@@ -384,31 +384,45 @@ const DELIVER_CATEGORIES = [
     }
     .vid-cand-back:hover { color: var(--ink); }
     .vid-cand {
-      max-width: 820px; margin: 0 auto; text-align: center;
+      max-width: 820px; margin: 0 auto; text-align: left;
       background: var(--paper); border: 1px solid rgba(var(--violet-rgb), 0.16); border-radius: 14px;
-      padding: clamp(32px, 5vw, 64px) clamp(24px, 5vw, 64px) clamp(36px, 5vw, 56px);
+      padding: clamp(26px, 3.5vw, 44px) clamp(24px, 3.5vw, 44px) clamp(28px, 3.5vw, 40px);
     }
     .vid-cand-who { font-family: var(--sans); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: rgba(28, 29, 34, 0.5); }
     .vid-cand-co { font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.55); margin-top: 4px; }
     .vid-cand-big {
       font-family: var(--serif); font-weight: 500; color: var(--ink);
-      font-size: clamp(34px, 5.5vw, 60px); line-height: 1.05; letter-spacing: -0.01em;
-      margin: 22px 0 6px;
+      font-size: clamp(28px, 4vw, 44px); line-height: 1.08; letter-spacing: -0.01em;
+      margin: 2px 0 0;
     }
-    .vid-cand-sub { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2vw, 24px); color: var(--english-violet); margin: 0 0 18px; }
+    .vid-cand-sub { font-family: var(--serif); font-style: italic; font-size: clamp(16px, 1.7vw, 21px); color: var(--english-violet); margin: 8px 0 0; }
     .vid-cand-next {
-      font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(28, 29, 34, 0.72);
-      max-width: 52ch; margin: 0 auto 8px;
+      font-family: var(--sans); font-size: 14.5px; line-height: 1.6; color: rgba(28, 29, 34, 0.72);
+      max-width: 62ch; margin: 10px 0 0;
     }
     .vid-cand-meta {
-      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 26px;
+      display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px 26px;
       font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.6);
       margin: 22px 0 4px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
     }
     .vid-cand-meta strong { color: var(--ink); font-weight: 700; }
-    .vid-cand-advance { margin: 30px 0 10px; }
-    .vid-cand-advance .admin-btn { font-size: 12px; padding: 14px 28px; }
-    .vid-cand-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
+    .vid-cand-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 22px; }
+    /* Progress timeline — runs edge-to-edge (same width as the meta above),
+       evenly split, first step at the start, last at the end. */
+    .vid-timeline { position: relative; margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12); height: 62px; }
+    .vid-timeline.is-cancelled { opacity: 0.5; }
+    .vid-tl-track { position: absolute; top: 29px; left: 7px; right: 7px; height: 2px; background: rgba(28, 29, 34, 0.15); }
+    .vid-tl-track-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--english-violet); transition: width 0.3s ease; }
+    .vid-tl-step { position: absolute; top: 22px; display: flex; flex-direction: column; align-items: center; gap: 9px; transform: translateX(-50%); }
+    .vid-tl-step--first { transform: translateX(0); align-items: flex-start; }
+    .vid-tl-step--last { transform: translateX(-100%); align-items: flex-end; }
+    .vid-tl-dot { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid rgba(28, 29, 34, 0.22); position: relative; z-index: 1; transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+    .vid-tl-step.is-done .vid-tl-dot { background: var(--english-violet); border-color: var(--english-violet); }
+    .vid-tl-step.is-current .vid-tl-dot { box-shadow: 0 0 0 4px rgba(var(--violet-rgb), 0.18); }
+    .vid-tl-label { font-family: var(--sans); font-size: 11.5px; color: rgba(28, 29, 34, 0.5); text-align: center; white-space: nowrap; }
+    .vid-tl-step--first .vid-tl-label { text-align: left; }
+    .vid-tl-step--last .vid-tl-label { text-align: right; }
+    .vid-tl-step.is-done .vid-tl-label, .vid-tl-step.is-current .vid-tl-label { color: var(--ink); font-weight: 600; }
     .vid-cand-drawer {
       margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
       text-align: left; display: none;
@@ -428,6 +442,39 @@ const DELIVER_CATEGORIES = [
     .vid-cand-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 14px; }
     .vid-cand-form .vid-field { flex: 1; min-width: 160px; }
     .vid-cand-form .vid-field input { width: 100%; }
+    /* ---- Client correspondence + documents ---- */
+    .vid-cand-thread { margin-top: 26px; border-top: 1px solid rgba(28,29,34,0.1); padding-top: 20px; text-align: left; }
+    .vid-cand-thread h4 { font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55); margin: 0 0 12px; }
+    .vid-msg-sec { margin-top: 24px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.14); }
+    .vid-thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+    .vid-msg { border: 1px solid rgba(28,29,34,0.1); border-left: 3px solid var(--english-violet); border-radius: 8px; padding: 10px 12px; background: #fff; }
+    .vid-msg.is-auto { border-left-color: rgba(28,29,34,0.3); }
+    .vid-msg-meta { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; color: rgba(28,29,34,0.5); margin-bottom: 4px; }
+    .vid-msg-meta strong { color: rgba(28,29,34,0.7); }
+    .vid-msg-subj { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+    .vid-msg-body { font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.78); }
+    .vid-compose { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
+    .vid-compose input[type="text"], .vid-compose textarea { width: 100%; font-family: var(--sans); font-size: 14px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; background: #fff; }
+    .vid-compose-notify { font-size: 12.5px; color: rgba(28,29,34,0.6); display: flex; align-items: center; gap: 7px; }
+    .vid-compose-file { font-size: 12.5px; color: rgba(28,29,34,0.6); display: flex; flex-direction: column; gap: 5px; }
+    .vid-compose-file span { font-weight: 700; letter-spacing: 0.02em; }
+    .vid-compose-file input[type="file"] { font-family: var(--sans); font-size: 12.5px; }
+    .vid-compose .admin-btn { align-self: flex-start; }
+    .vid-docs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .vid-doc { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 8px 11px; background: #fff; }
+    .vid-doc-name { font-size: 13.5px; color: var(--ink); flex: 1; }
+    .vid-doc-cat { font-size: 11px; color: rgba(28,29,34,0.5); }
+    .vid-doc-x { appearance: none; border: 0; background: none; font-size: 18px; color: rgba(28,29,34,0.4); cursor: pointer; line-height: 1; }
+    .vid-doc-x:hover { color: #8a3b2f; }
+    .vid-doc-upload { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .vid-doc-upload select { font-family: var(--sans); font-size: 13px; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; background: #fff; }
+    /* Push the primary "Attach document" button to the end of the row. */
+    .vid-doc-upload .admin-btn { margin-left: auto; }
+    /* Native file inputs styled to match the outline (ghost) admin button. */
+    .vid-file { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); }
+    .vid-file::file-selector-button { font-family: var(--sans); font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; font-weight: 700; padding: 10px 16px; margin-right: 12px; border-radius: 2px; border: 1px solid rgba(var(--violet-rgb), 0.4); background: transparent; color: var(--english-violet); cursor: pointer; transition: background 0.2s, border-color 0.2s; }
+    .vid-file::file-selector-button:hover { background: rgba(var(--violet-rgb), 0.06); }
+    .vid-thread-status { font-size: 12.5px; margin-top: 10px; }
 
     /* ---- Settings ---- */
     .vid-settings { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
@@ -703,6 +750,7 @@ const DELIVER_CATEGORIES = [
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
+    import { bookingLocation } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -883,6 +931,32 @@ const DELIVER_CATEGORIES = [
     function fmtBig(iso) {
       return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
     }
+    // Progress timeline. DB stages in order; each display step maps to the stage
+    // index it is "reached" at. Content Studio has a Prepped step (prompt pack);
+    // Property / Agent don't (no prep element).
+    const STAGE_ORDER = ["booked", "shoot_day", "editing", "final_draft", "invoice_out", "complete"];
+    function renderTimeline(b) {
+      const isStudio = /content|studio/i.test((b.service_type || "") + " " + (b.service || ""));
+      const steps = isStudio
+        ? [["Booked", 0], ["Prepped", 0.5], ["Shoot day", 1], ["Edited", 2], ["Preview sent", 3], ["Paid", 5]]
+        : [["Booked", 0], ["Shoot day", 1], ["Edited", 2], ["Preview sent", 3], ["Paid", 5]];
+      const cancelled = b.stage === "cancelled";
+      const cur = STAGE_ORDER.indexOf(b.stage);
+      const curIdx = cur < 0 ? 0 : cur;
+      const n = steps.length;
+      let lastReached = 0;
+      steps.forEach(([, t], i) => { if (curIdx >= t) lastReached = i; });
+      const fillPct = cancelled || n <= 1 ? 0 : (lastReached / (n - 1)) * 100;
+      return `<div class="vid-timeline${cancelled ? " is-cancelled" : ""}">
+        <div class="vid-tl-track"><div class="vid-tl-track-fill" style="width:${fillPct}%"></div></div>
+        ${steps.map(([label, t], i) => {
+          const pct = n <= 1 ? 0 : (i / (n - 1)) * 100;
+          const done = !cancelled && curIdx >= t;
+          const isCur = !cancelled && i === lastReached;
+          return `<div class="vid-tl-step${i === 0 ? " vid-tl-step--first" : ""}${i === n - 1 ? " vid-tl-step--last" : ""}${done ? " is-done" : ""}${isCur ? " is-current" : ""}" style="left:${pct}%"><span class="vid-tl-dot"></span><span class="vid-tl-label">${escapeHtml(label)}</span></div>`;
+        }).join("")}
+      </div>`;
+    }
     function nextActionHint(b) {
       if (b.stage === "booked" && b.shoot_date) return "Shoot " + fmtBig(b.shoot_date);
       return (STAGE_FLOW[b.stage] || {}).sub || b.stage;
@@ -933,29 +1007,136 @@ const DELIVER_CATEGORIES = [
       if (!b || !el) return;
       const f = STAGE_FLOW[b.stage] || STAGE_FLOW.booked;
       const amount = b.amount_pence != null ? gbpFromPence(b.amount_pence) : "—";
+      const isStudio = /content|studio/i.test((b.service_type || "") + " " + (b.service || ""));
+      const whenStr = b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+      const loc = bookingLocation({ service_type: b.service_type, source: "videography", postcode: b.location || b.postcode });
       el.innerHTML = `
         <div class="vid-cand-who">${escapeHtml(b.client_name)}</div>
         ${b.client_company ? `<div class="vid-cand-co">${escapeHtml(b.client_company)}</div>` : ""}
-        <div class="vid-cand-sub">${escapeHtml(f.sub)}</div>
         <div class="vid-cand-big">${escapeHtml(f.big(b))}</div>
+        <div class="vid-cand-sub">${escapeHtml(f.sub)}</div>
         <p class="vid-cand-next">${escapeHtml(f.next)}</p>
         <div class="vid-cand-meta">
           ${b.service ? `<span>Service&nbsp; <strong>${escapeHtml(b.service)}</strong></span>` : ""}
+          ${whenStr ? `<span>When&nbsp; <strong>${escapeHtml(whenStr)}</strong></span>` : ""}
           <span>Quote&nbsp; <strong>${amount}</strong></span>
-          ${b.location ? `<span>Location&nbsp; <strong>${escapeHtml(b.location)}</strong></span>` : ""}
-          <span data-distance>Distance&nbsp; <strong>…</strong></span>
+          ${loc ? `<span>Location&nbsp; <strong>${escapeHtml(loc)}</strong></span>` : ""}
+          ${!isStudio ? `<span data-distance>Distance&nbsp; <strong>…</strong></span>` : ""}
         </div>
-        ${f.advance ? `<div class="vid-cand-advance"><button type="button" class="admin-btn admin-btn-primary" data-advance>${escapeHtml(f.advance.label)} &rarr;</button></div>` : ""}
         <div class="vid-cand-actions">
+          ${f.advance ? `<button type="button" class="admin-btn admin-btn-primary" data-advance>${escapeHtml(f.advance.label)} &rarr;</button>` : ""}
           <button type="button" class="admin-btn admin-btn-ghost" data-act="reschedule">Reschedule</button>
           <button type="button" class="admin-btn admin-btn-ghost" data-act="edit">Edit</button>
           <button type="button" class="admin-btn admin-btn-ghost" data-act="add">Add</button>
           ${b.stage !== "booked" ? `<button type="button" class="admin-btn admin-btn-ghost" data-act="back">Move back a step</button>` : ""}
         </div>
-        <div class="vid-cand-drawer" id="vid-cand-drawer"></div>`;
+        ${renderTimeline(b)}
+        <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
+        <div class="vid-cand-thread" id="vid-cand-thread"></div>`;
       if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => advanceStage(f.advance.to));
       el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
-      showDistance(b);
+      if (!isStudio) showDistance(b);
+      loadThread(b);
+    }
+
+    // ---- Client correspondence + documents (booking_messages / booking_documents) ----
+    const BK_CATS = [["prep", "Prep document"], ["agreement", "Agreement"], ["invoice", "Invoice"], ["delivery", "Delivered files"], ["other", "Other"]];
+    async function loadThread(b) {
+      const host = document.getElementById("vid-cand-thread");
+      if (!host || !b) return;
+      if (!WORKER_URL) { host.innerHTML = `<h4>Messages &amp; documents</h4><p class="vid-loading">Connect the Worker (PUBLIC_R2_WORKER_URL) to manage correspondence.</p>`; return; }
+      host.innerHTML = `<h4>Messages &amp; documents</h4><p class="vid-loading">Loading…</p>`;
+      let data = { messages: [], documents: [] };
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/booking/thread?booking_id=${encodeURIComponent(b.id)}`, { headers: { Authorization: "Bearer " + token } });
+        if (res.ok) data = await res.json();
+      } catch (_) {}
+      renderThread(b, data);
+    }
+    function renderThread(b, data) {
+      const host = document.getElementById("vid-cand-thread");
+      if (!host) return;
+      const msgs = (data.messages || []).map((m) => {
+        const who = m.is_automated ? "Automated" : (m.created_by && m.created_by !== "system" ? m.created_by : "You");
+        return `<div class="vid-msg ${m.is_automated ? "is-auto" : ""}"><div class="vid-msg-meta"><strong>${escapeHtml(who)}</strong><span>${escapeHtml(fmtWhen(m.created_at) || "")}</span></div>${m.subject ? `<div class="vid-msg-subj">${escapeHtml(m.subject)}</div>` : ""}<div class="vid-msg-body">${escapeHtml(m.body || "").replace(/\n/g, "<br>")}</div></div>`;
+      }).join("") || `<p class="vid-loading">No messages yet.</p>`;
+      const docs = (data.documents || []).map((d) => `<div class="vid-doc"><span class="vid-doc-name">${escapeHtml(d.title || d.file_name)}</span><span class="vid-doc-cat">${escapeHtml((BK_CATS.find((c) => c[0] === d.category) || [, "Other"])[1])}</span><button type="button" class="vid-doc-x" data-doc-del="${escapeHtml(d.id)}" title="Remove">&times;</button></div>`).join("") || `<p class="vid-loading">No documents attached.</p>`;
+      host.innerHTML = `
+        <h4>Internal Documents</h4>
+        <div class="vid-docs">${docs}</div>
+        <div class="vid-doc-upload">
+          <select id="vid-doc-cat">${BK_CATS.map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select>
+          <input type="file" id="vid-doc-file" class="vid-file" />
+          <button type="button" class="admin-btn admin-btn-primary" id="vid-doc-up">Attach document</button>
+        </div>
+        <div class="vid-msg-sec">
+          <h4>Messages</h4>
+          <div class="vid-thread">${msgs}</div>
+          <div class="vid-compose">
+            <input type="text" id="vid-msg-subj" placeholder="Subject (optional)" />
+            <textarea id="vid-msg-body" rows="3" placeholder="Write a message to the client…"></textarea>
+            <label class="vid-compose-file"><span>Attach a file (optional)</span><input type="file" id="vid-msg-file" class="vid-file" /></label>
+            <label class="vid-compose-notify"><input type="checkbox" id="vid-msg-notify" checked /> Email the client too (any attachment rides along)</label>
+            <button type="button" class="admin-btn admin-btn-primary" id="vid-msg-send">Send message</button>
+          </div>
+        </div>
+        <p class="vid-thread-status" id="vid-thread-status" hidden></p>`;
+      document.getElementById("vid-msg-send")?.addEventListener("click", () => sendMsg(b));
+      document.getElementById("vid-doc-up")?.addEventListener("click", () => uploadDoc(b));
+      host.querySelectorAll("[data-doc-del]").forEach((btn) => btn.addEventListener("click", () => deleteDoc(b, btn.getAttribute("data-doc-del"))));
+    }
+    function threadStatus(msg, ok) {
+      const el = document.getElementById("vid-thread-status"); if (!el) return;
+      el.hidden = false; el.textContent = msg; el.style.color = ok === false ? "#8a3b2f" : "var(--english-violet)";
+    }
+    async function sendMsg(b) {
+      const body = document.getElementById("vid-msg-body")?.value.trim();
+      const subject = document.getElementById("vid-msg-subj")?.value.trim();
+      const notify = document.getElementById("vid-msg-notify")?.checked;
+      const fileInput = document.getElementById("vid-msg-file");
+      const file = fileInput && fileInput.files && fileInput.files[0];
+      if (!body && !file) return;
+      const btn = document.getElementById("vid-msg-send"); btn.disabled = true; btn.textContent = "Sending…";
+      try {
+        const token = await authToken();
+        // If a file is attached, store it as a booking document first so it both
+        // appears under the booking AND can be attached to the notification email.
+        let documentId = null;
+        if (file) {
+          const qs = new URLSearchParams({ booking_id: b.id, source: "videography", category: "other", file_name: file.name, content_type: file.type || "application/octet-stream" });
+          const up = await fetch(`${WORKER_URL}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
+          if (!up.ok) throw new Error(((await up.json().catch(() => ({}))).error) || "Attachment upload failed");
+          const upd = await up.json().catch(() => ({}));
+          documentId = upd && upd.document ? upd.document.id : null;
+        }
+        const finalBody = body || `I've attached a document for you: ${file.name}`;
+        const res = await fetch(`${WORKER_URL}/booking/message`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: b.id, source: "videography", subject, body: finalBody, notify, document_id: documentId }) });
+        if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || "Failed to send");
+        loadThread(b);
+      } catch (e) { threadStatus(e.message || "Couldn't send", false); btn.disabled = false; btn.textContent = "Send message"; }
+    }
+    async function uploadDoc(b) {
+      const fileInput = document.getElementById("vid-doc-file");
+      const cat = document.getElementById("vid-doc-cat")?.value || "other";
+      const file = fileInput && fileInput.files && fileInput.files[0];
+      if (!file) { threadStatus("Choose a file first.", false); return; }
+      const btn = document.getElementById("vid-doc-up"); btn.disabled = true; btn.textContent = "Uploading…";
+      try {
+        const token = await authToken();
+        const qs = new URLSearchParams({ booking_id: b.id, source: "videography", category: cat, file_name: file.name, content_type: file.type || "application/octet-stream" });
+        const res = await fetch(`${WORKER_URL}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
+        if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || "Upload failed");
+        loadThread(b);
+      } catch (e) { threadStatus(e.message || "Couldn't upload", false); btn.disabled = false; btn.textContent = "Attach document"; }
+    }
+    async function deleteDoc(b, id) {
+      if (!confirm("Remove this document?")) return;
+      try {
+        const token = await authToken();
+        await fetch(`${WORKER_URL}/booking/document?id=${encodeURIComponent(id)}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+        loadThread(b);
+      } catch (_) {}
     }
     function prevStageOf(k) { const i = STAGES.findIndex((s) => s.key === k); return i > 0 ? STAGES[i - 1].key : k; }
     async function advanceStage(to) {
@@ -1042,7 +1223,7 @@ const DELIVER_CATEGORIES = [
     async function showDistance(b) {
       const span = document.querySelector("#vid-cand [data-distance] strong");
       if (!span) return;
-      const m = (b.location || "").match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
+      const m = ((b.location || b.postcode) || "").match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
       if (!m) { span.textContent = "add a postcode"; return; }
       try {
         const base = await getBaseCoords();

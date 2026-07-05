@@ -1484,7 +1484,7 @@
 
   // Persistent save-status pill so a failed cloud save is never silent.
   function setSaveStatus(kind) {
-    if (!ADMIN_MODE_URL) return;
+    if (!ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ !== "function") return;
     let el = document.getElementById("ed-save-status");
     if (!el) {
       el = document.createElement("div");
@@ -1518,9 +1518,11 @@
   // failure the work is already safe locally — show it + retry with backoff so
   // a transient blip self-heals without anyone losing work.
   async function autosaveToDb() {
-    if (!ADMIN_MODE_URL) return;
-    if (!state.templateId || String(state.templateId).indexOf("draft-") === 0) return;
-    if (typeof window.__TMKE_ADMIN_SAVE__ !== "function") { setSaveStatus("local"); return; }
+    const adminHook = ADMIN_MODE_URL && typeof window.__TMKE_ADMIN_SAVE__ === "function";
+    const designHook = !ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ === "function";
+    if (!adminHook && !designHook) { if (ADMIN_MODE_URL) setSaveStatus("local"); return; }
+    // Admin never autosaves a scratch draft over a real template row.
+    if (adminHook && (!state.templateId || String(state.templateId).indexOf("draft-") === 0)) return;
     if (_dbSaving) { clearTimeout(_dbSaveTimer); _dbSaveTimer = setTimeout(autosaveToDb, 1500); return; }
     _dbSaving = true;
     setSaveStatus("saving");
@@ -1528,7 +1530,7 @@
     try {
       let thumb;
       try { thumb = await _renderThumbDataUrl(); } catch (_) {}
-      ok = await window.__TMKE_ADMIN_SAVE__({
+      const payload = {
         templateId: state.templateId,
         filename: filenameEl ? filenameEl.value : "",
         canvas: state.canvas,
@@ -1537,7 +1539,11 @@
         guides: deep(state.guides || []),
         savedAt: Date.now(),
         thumb,
-      });
+      };
+      const res = await (adminHook ? window.__TMKE_ADMIN_SAVE__(payload) : window.__TMKE_DESIGN_SAVE__(payload));
+      ok = res === true || (res && res.ok === true);
+      // Customer: adopt the new copy's id so subsequent saves update the same row.
+      if (designHook && res && res.id && state.templateId !== res.id) state.templateId = res.id;
     } catch (_) { ok = false; }
     _dbSaving = false;
     if (ok) { _dbRetries = 0; setSaveStatus("saved"); }
@@ -1554,11 +1560,14 @@
     }
   }
   function scheduleAutosave() {
-    if (!ADMIN_MODE_URL) return;
-    clearTimeout(_autosaveTimer);
-    _autosaveTimer = setTimeout(autosaveDraft, 1200);   // local copy — always
+    const customer = !ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ === "function";
+    if (!ADMIN_MODE_URL && !customer) return;
+    if (ADMIN_MODE_URL) {   // admin also keeps a local draft; customers save to their copy only
+      clearTimeout(_autosaveTimer);
+      _autosaveTimer = setTimeout(autosaveDraft, 1200);
+    }
     clearTimeout(_dbSaveTimer);
-    _dbSaveTimer = setTimeout(autosaveToDb, 3500);       // cloud copy — when up
+    _dbSaveTimer = setTimeout(autosaveToDb, 3500);       // cloud copy
   }
   window.addEventListener("beforeunload", function () { try { if (ADMIN_MODE_URL) autosaveDraft(); } catch (_) {} });
 
@@ -1676,6 +1685,29 @@
     normalizeLegacySize();
     state.history = [];
     state.historyIndex = -1;
+    pushHistory();
+    fullRender();
+    fitZoom();
+  }
+
+  // ---------- Load a member's saved design (their own copy) ----------
+  // Mirrors loadTemplate's restore branch but from a passed-in design object
+  // (from user_designs), so multi-page copies re-open correctly.
+  function loadDesignData(d) {
+    if (!d || !d.id) { loadBlank(); return; }
+    resetToSinglePage(d.canvas && d.canvas.background);
+    state.templateId = d.id;
+    if (d.pages && d.pages.length) { state.pages = d.pages; state.currentPage = 0; }
+    else { if (d.canvas) state.canvas = d.canvas; state.elements = d.elements || []; }
+    state.selectedIds = [];
+    state.selectedGuideId = null;
+    state.guides = [];
+    if (filenameEl) filenameEl.value = d.name || "My design";
+    state.history = [];
+    state.historyIndex = -1;
+    (state.pages || []).forEach((pg) => preloadFontsForElements(pg.elements));
+    if (!(d.pages && d.pages.length)) preloadFontsForElements(state.elements);
+    normalizeLegacySize();
     pushHistory();
     fullRender();
     fitZoom();
@@ -6092,12 +6124,11 @@
     activeToolPane = "start";
     showPane("start");
     document.querySelectorAll(".ed-rail-btn").forEach(function (b) { b.classList.remove("is-active"); });
-    // Slim the rail toward the brief: "Photos" -> "Images", and hide the
-    // Background tool (reached via the start panel + double-clicking the canvas).
+    // Slim the rail toward the brief: "Photos" -> "Images". Background stays in
+    // the customer rail too — it's a core design tool (also reachable via the
+    // start panel + double-clicking the canvas).
     var _photosLbl = document.querySelector('.ed-rail-btn[data-tool="photos"] span');
     if (_photosLbl) _photosLbl.textContent = "Images";
-    var _bgBtn = document.querySelector('.ed-rail-btn[data-tool="background"]');
-    if (_bgBtn) _bgBtn.style.display = "none";
 
     // Merge Brand + Elements into a single "Assets" tab (the brief's defining
     // rail simplification). Shape buttons are wired per-button (querySelectorAll
@@ -7071,6 +7102,7 @@
   // template behind the onboarding overlay.
   const urlParams = new URLSearchParams(window.location.search);
   const explicitTpl = urlParams.get("template");
+  const explicitDesign = urlParams.get("design");
   const adminPending = urlParams.get("mode") === "admin";
 
   // Re-read the templates blob from the DOM and mutate TEMPLATES *in place* so
@@ -7140,6 +7172,15 @@
           else loadBlank();
         }
       }, 6000);
+    }
+  } else if (explicitDesign) {
+    // Customer re-opening their own saved design. editor.astro fetches the row
+    // and calls __TMKE_BOOT_DESIGN__ (or leaves a breadcrumb if it ran first).
+    window.__TMKE_BOOT_DESIGN__ = function (d) { loadDesignData(d); };
+    if (typeof window.__TMKE_DESIGN_BOOTSTRAP_DONE__ !== "undefined") {
+      window.__TMKE_BOOT_DESIGN__(window.__TMKE_DESIGN_BOOTSTRAP_DONE__);
+    } else {
+      setTimeout(function () { if (!state.templateId && !(state.elements && state.elements.length)) loadBlank(); }, 6000);
     }
   } else if (explicitTpl) {
     loadTemplate(explicitTpl, false);

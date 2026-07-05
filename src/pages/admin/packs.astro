@@ -587,6 +587,9 @@ import "../../styles/admin.css";
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
 
+    // Network tag from the email domain (mirrors the Worker's crmTags).
+    const netTag = (email) => { const d = (String(email || "").toLowerCase().match(/@([^@\s]+)$/) || [])[1] || ""; if (!d) return null; if (d.endsWith("experts.co.uk")) return "Network: TEG"; if (d === "fineandcountry.com") return "Network: Fine-and-Country"; return "Network: External"; };
+
     /** @type {any[]} */
     let allPacks = [];
     let filter = "all";
@@ -972,7 +975,8 @@ import "../../styles/admin.css";
             body: JSON.stringify({
               trigger: "order_placed", email,
               first_name: parts.shift() || (name || email.split("@")[0]), last_name: parts.join(" ") || null,
-              source: "pack_order", lifecycle: "customer",
+              source: "pack_gift", lifecycle: "customer",
+              tags: ["Pack-Purchased", "Pack Name: " + pack.title, netTag(email)].filter(Boolean),
               payload: { pack: pack.title, pack_slug: pack.slug, amount_pence: 0 },
             }),
           }).catch(() => {});

@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import DashSidebar from "../../components/account/DashSidebar.astro";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import ServicesPanel from "../../components/account/ServicesPanel.astro";
 import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
@@ -13,9 +13,8 @@ import "../../styles/account-sections.css";
   hideNav
   hideFooter
 >
-  <div class="dash-shell">
-    <DashSidebar active="services" />
-
+  <WorkspaceHeader active="services" />
+  <div class="dash-shell dash-shell--top">
     <main class="app-main dash-main">
       <ServicesPanel />
     </main>
@@ -26,7 +25,7 @@ import "../../styles/account-sections.css";
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        location.replace('/login?next=' + encodeURIComponent('/account/services'));
+        if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/services'));
         return;
       }
       requestAnimationFrame(() => document.body.classList.add('is-loaded'));

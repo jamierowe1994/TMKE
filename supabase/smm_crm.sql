@@ -1,0 +1,28 @@
+-- TMKE — SMM sales CRM additions. Run in the Supabase SQL editor.
+--
+-- Adds the sales pipeline to smm_leads and a pin flag to the shared thread so
+-- the social-media manager can run leads from first enquiry through to an
+-- active managed client.
+
+-- Sales pipeline stage (free-text, defaults to the first stage). Values:
+--   inquiry | meeting_set | contract_sent | contract_signed | active_client | lost
+alter table public.smm_leads add column if not exists pipeline_stage text default 'inquiry';
+
+-- The sales meeting date (distinct from call_at, which is the discovery-call booking).
+alter table public.smm_leads add column if not exists meeting_at timestamptz;
+
+-- Pinnable notes on the shared correspondence thread (booking_messages, source='smm').
+alter table public.booking_messages add column if not exists is_pinned boolean not null default false;
+
+-- Active-client lifecycle status (set by the Active / Pause / End controls on the
+-- customer file). Drives the SMM-Status: Active/Paused/Ended tag on the contact.
+--   active | paused | ended  (null = not yet an active client)
+alter table public.smm_leads add column if not exists client_status text;
+
+-- Phase 4: dedup key for captured inbound emails (the Graph message id), so the
+-- inbox poll never logs the same reply twice.
+alter table public.booking_messages add column if not exists external_id text;
+create index if not exists booking_messages_external_id_idx on public.booking_messages (external_id);
+
+-- Seed a sensible starting stage for existing rows that predate this column.
+update public.smm_leads set pipeline_stage = 'inquiry' where pipeline_stage is null;

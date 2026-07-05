@@ -20,10 +20,10 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   <nav class="ws-tabs" aria-label="Sections">
     <a class={`ws-tab ${is("dashboard")}`} href="/dashboard" aria-current={cur("dashboard")}>Dashboard</a>
     <a class={`ws-tab ${is("studio")}`} href="/studio" aria-current={cur("studio")}>Studio</a>
-    <a class={`ws-tab ${is("library")}`} href="/edit" aria-current={cur("library")}>Library</a>
     <a class={`ws-tab ${is("planner")}`} href="/account/schedule" aria-current={cur("planner")}>Planner</a>
     <a class={`ws-tab ${is("orders")}`} href="/account/orders" aria-current={cur("orders")}>Orders</a>
     <a class={`ws-tab ${is("bookings")}`} href="/account/bookings" aria-current={cur("bookings")}>Bookings</a>
+    <a class={`ws-tab ${is("library")}`} href="/edit" aria-current={cur("library")}>Shop</a>
   </nav>
 
   <!-- RIGHT: notifications, log out, you -->
@@ -85,10 +85,10 @@ const cur = (k: string) => (active === k ? "page" : undefined);
       <span class="ws-drawer-label">Workspace</span>
       <a href="/dashboard" class={is("dashboard")} aria-current={cur("dashboard")}>Dashboard</a>
       <a href="/studio" class={is("studio")}>Studio</a>
-      <a href="/edit" class={is("library")}>Library</a>
       <a href="/account/schedule" class={is("planner")}>Planner</a>
       <a href="/account/orders" class={is("orders")}>Orders</a>
       <a href="/account/bookings" class={is("bookings")}>Bookings</a>
+      <a href="/edit" class={is("library")}>Shop</a>
       <span class="ws-drawer-label">Learn</span>
       <a href="/account/guides" class={is("guides")} aria-current={cur("guides")}>Guides</a>
       <a href="/account/blog" class={is("blog")}>Blog</a>
@@ -112,7 +112,7 @@ const cur = (k: string) => (active === k ? "page" : undefined);
     --ws-ink: #1c1d22; --ws-tx: rgba(28,29,34,0.64); --ws-faint: rgba(28,29,34,0.46);
     --ws-line: rgba(28,29,34,0.13); --ws-accent: var(--english-violet, #5b4a55);
     --ws-ease: cubic-bezier(.2,.8,.2,1);
-    position: relative; display: flex; align-items: center; gap: clamp(14px, 2.4vw, 36px);
+    position: relative; z-index: 60; display: flex; align-items: center; gap: clamp(14px, 2.4vw, 36px);
     padding: 22px clamp(22px, 2.6vw, 56px) 16px; background: transparent;
     font-family: var(--sans); color: var(--ws-ink);
   }
@@ -180,6 +180,9 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   .ws-notif-list { display: flex; flex-direction: column; }
   .ws-notif-item { display: flex; align-items: flex-start; gap: 11px; padding: 10px 10px; border-radius: 10px; text-decoration: none; transition: background 0.16s; }
   .ws-notif-item:hover { background: rgba(28,29,34,0.05); }
+  .ws-notif-item.is-unread { background: color-mix(in srgb, var(--ws-accent) 7%, transparent); }
+  .ws-notif-item.is-unread .ws-notif-txt b::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ws-accent); margin-right: 6px; vertical-align: middle; }
+  .ws-notif-empty { padding: 22px 12px; text-align: center; font-size: 13px; color: var(--ws-faint); }
   .ws-notif-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
   .ws-notif-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   .ws-notif-ic--order { color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 13%, #fff); }
@@ -198,8 +201,10 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   /* Content below the header keeps the themeable .dash-shell context (vars +
      legible heading colours) but drops its 264px sidebar column — one centred
      column instead. */
-  .dash-shell--top { display: block; min-height: 0; }
-  .dash-shell--top .app-main { max-width: 1180px; margin: 0 auto; width: 100%; }
+  /* Higher specificity than account-sections.css's `.dash-shell { display:grid }`
+     so the sidebar column collapses and the content spans full width. */
+  .dash-shell.dash-shell--top { display: block; min-height: 0; }
+  .dash-shell.dash-shell--top .app-main { max-width: 1180px; margin: 0 auto; width: 100%; grid-column: auto; }
   body:has(.dash-shell--top) { background: #fff; }
   /* Pages on the new top header drop the old left-edge Calendar tab/popup
      (its JS stays harmlessly wired to the hidden markup). */
@@ -213,6 +218,7 @@ const cur = (k: string) => (active === k ? "page" : undefined);
 
 <script>
   import { supabase } from "../../lib/supabase.js";
+  import { initNotifications } from "../../lib/notifications.js";
 
   // Off-canvas drawer (hamburger → everything that isn't a tab)
   const drawer = document.querySelector("[data-drawer]") as HTMLElement | null;
@@ -236,11 +242,8 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   document.addEventListener("click", () => closeAll(null));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAll(null); });
 
-  // "Mark all read" clears the unread dot
-  document.querySelector("[data-notif-clear]")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    document.querySelector(".ws-notif")?.classList.add("is-read");
-  });
+  // Notifications — real booking correspondence, unread dot + deep links.
+  initNotifications();
 
   // Log out (icon + dropdown) — clear the session, then /login
   document.querySelectorAll("[data-logout]").forEach((el) => {

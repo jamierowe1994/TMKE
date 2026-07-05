@@ -234,6 +234,106 @@ async function sbAdminUserEmail(env, userId) {
   return u && u.email ? u.email : null;
 }
 
+// ---- Booking correspondence + documents ---------------------------------
+// Log a piece of correspondence against a booking (service role). Automated
+// confirmations call this alongside the email; admin calls it for manual notes.
+// Fail-soft: a booking must never break because the message log write failed
+// (e.g. the booking_messages table hasn't been created yet).
+async function logBookingMessage(env, m) {
+  if (!m || !m.booking_id) return;
+  try {
+    await sbPost(env, "booking_messages", {
+      booking_id: m.booking_id,
+      booking_source: m.booking_source || "videography",
+      account_user_id: m.account_user_id || null,
+      client_email: m.client_email || null,
+      direction: m.direction || "outbound",
+      channel: m.channel || "email",
+      kind: m.kind || null,
+      subject: m.subject || null,
+      body: m.body || null,
+      is_automated: m.is_automated !== false,
+      created_by: m.created_by || "system",
+      external_id: m.external_id || null,
+    });
+  } catch (_) {}
+}
+
+// Resolve a booking's owner (email + account) + a label across the two source
+// tables, so a message/document can be attributed to the right member.
+async function lookupBooking(env, source, id) {
+  if (!id) return null;
+  if (source === "smm") {
+    const r = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(id)}&select=id,email,account_user_id,full_name`);
+    const b = r && r[0];
+    return b ? { id: b.id, email: b.email, account_user_id: b.account_user_id, name: b.full_name, service: "Social media discovery call" } : null;
+  }
+  const r = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}&select=id,client_email,account_user_id,client_name,service`);
+  const b = r && r[0];
+  return b ? { id: b.id, email: b.client_email, account_user_id: b.account_user_id, name: b.client_name, service: b.service } : null;
+}
+
+// All of a member's booking ids across the two source tables — by linked
+// account OR by the email on the booking (case-insensitive). Lets the member
+// portal read its whole correspondence through the service role, so a message
+// is never lost to an RLS/email-casing mismatch.
+async function memberBookingIds(env, user) {
+  const email = String((user && user.email) || "").toLowerCase();
+  const out = [];
+  const vid = (await sbGet(env, "videography_bookings", `or=(account_user_id.eq.${user.id},client_email.ilike.${encodeURIComponent(email)})&select=id`)) || [];
+  const smm = (await sbGet(env, "smm_leads", `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id`)) || [];
+  for (const r of vid) out.push(r.id);
+  for (const r of smm) out.push(r.id);
+  return out;
+}
+
+// ---- CRM tag helpers ----------------------------------------------------
+// Network from the email domain: *experts.co.uk → TEG, fineandcountry.com →
+// Fine-and-Country, everything else → External.
+function networkTag(email) {
+  const dom = (String(email || "").toLowerCase().match(/@([^@\s]+)$/) || [])[1] || "";
+  if (!dom) return null;
+  if (dom.endsWith("experts.co.uk")) return "Network: TEG";
+  if (dom === "fineandcountry.com") return "Network: Fine-and-Country";
+  return "Network: External";
+}
+function videographyProductTag(serviceType) {
+  const map = { content: "Content-Studio", "content-studio": "Content-Studio", property: "Property-Videography", agent: "Agent-Videography" };
+  const p = map[serviceType]; return p ? `Videography-Product: ${p}` : null;
+}
+// Compose the standard CRM tags: service tag(s) + consent + membership + network.
+// optIn: true → Newsletter-Subscriber; false → Marketing-Not-Opted-In;
+// undefined → neither (flows with no opt-in choice, e.g. a purchase).
+function crmTags(email, service, { optIn, member } = {}) {
+  const t = (Array.isArray(service) ? service.slice() : service ? [service] : []).filter(Boolean);
+  if (optIn === true) t.push("Newsletter-Subscriber");
+  else if (optIn === false) t.push("Marketing-Not-Opted-In");
+  if (member) t.push("TMKE-Account-Member");
+  const n = networkTag(email); if (n) t.push(n);
+  return t;
+}
+
+// Upsert a CRM contact from a paid order, so pack purchasers become contacts.
+// No marketing_opt_in (buying ≠ consent). Tags: Pack-Purchased + Pack Name.
+async function contactFromOrder(env, order) {
+  if (!order || !order.buyer_email) return;
+  const parts = String(order.buyer_name || "").trim().split(/\s+/);
+  const packTags = ["Pack-Purchased", order.pack_title ? `Pack Name: ${order.pack_title}` : null];
+  try {
+    await sbRpc(env, "upsert_contact", {
+      p_email: order.buyer_email,
+      p_first_name: parts.shift() || order.buyer_name || null,
+      p_last_name: parts.join(" ") || null,
+      p_phone: order.buyer_phone || null,
+      p_company: order.buyer_company || null,
+      p_source: "pack_purchase",
+      p_lifecycle: "customer",
+      p_tags: crmTags(order.buyer_email, packTags, { member: !!order.user_id }),
+      p_user_id: order.user_id || null,
+    });
+  } catch (_) {}
+}
+
 // ---- Stripe (hosted Checkout) -------------------------------------------
 // Call the Stripe REST API with form-encoded params. `params` is a flat object
 // whose keys are already bracketed (e.g. "line_items[0][quantity]"). The secret
@@ -437,9 +537,9 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
 // real inbox, and a copy sits in Sent Items. Reuses the same app-only token as
 // the calendar integration (needs the `Mail.Send` application permission).
 // Best-effort: never throws — the caller's record is already saved.
-async function sendEmail(env, { to, subject, html, attachments }) {
+async function sendEmail(env, { to, subject, html, attachments, from, fromName }) {
   if (!to) return;
-  const sender = env.MAIL_SENDER || env.JACK_UPN;
+  const sender = from || env.MAIL_SENDER || env.JACK_UPN;
   if (!sender) return;
   const recipients = (Array.isArray(to) ? to : [to])
     .map((a) => String(a || "").trim())
@@ -451,7 +551,8 @@ async function sendEmail(env, { to, subject, html, attachments }) {
     body: { contentType: "HTML", content: html },
     toRecipients: recipients,
   };
-  if (env.MAIL_FROM_NAME) message.from = { emailAddress: { address: sender, name: env.MAIL_FROM_NAME } };
+  const dispName = fromName || env.MAIL_FROM_NAME;
+  if (dispName) message.from = { emailAddress: { address: sender, name: dispName } };
   if (attachments && attachments.length) {
     message.attachments = attachments.map((a) => ({
       "@odata.type": "#microsoft.graph.fileAttachment",
@@ -730,6 +831,54 @@ async function runSetupReminders(env) {
   } catch (_) { /* best-effort; the next tick retries any newly-eligible orders */ }
 }
 
+// ---- Inbound email capture (Phase 4) -----------------------------------
+// Polls the SMM manager's mailbox on the frequent cron and logs client replies
+// into the correspondence thread as inbound emails, matched to the lead by
+// sender address. Best-effort: needs the Mail.Read application permission on the
+// Graph app (admin-consented); without it the Graph read 403s and we skip.
+async function pollSmmInbox(env) {
+  const mailbox = env.SMM_MAIL_SENDER || env.MAIL_SENDER;
+  if (!mailbox) return { ok: false, error: "No mailbox configured (SMM_MAIL_SENDER / MAIL_SENDER)." };
+  // Look back a generous window and dedup by the Graph message id, so a message
+  // is never logged twice however often the cron runs.
+  const sinceIso = new Date(Date.now() - 2 * 3600000).toISOString();
+  let messages = [];
+  try {
+    const q = `/users/${encodeURIComponent(mailbox)}/mailFolders/inbox/messages?$filter=receivedDateTime ge ${sinceIso}&$select=id,subject,bodyPreview,from,receivedDateTime&$orderby=receivedDateTime desc&$top=40`;
+    const data = await graph(env, "GET", q);
+    messages = (data && data.value) || [];
+  } catch (err) { return { ok: false, error: (err && err.message) || "Graph read failed (Mail.Read may be missing)." }; }
+  if (!messages.length) return { ok: true, read: 0, captured: 0 };
+
+  // Message ids we've already captured recently, to dedup.
+  const seen = new Set();
+  try {
+    const rows = await sbGet(env, "booking_messages", `booking_source=eq.smm&direction=eq.inbound&external_id=not.is.null&select=external_id&order=created_at.desc&limit=200`);
+    for (const r of (rows || [])) if (r.external_id) seen.add(r.external_id);
+  } catch (_) {}
+
+  let captured = 0;
+  for (const m of messages) {
+    if (!m.id || seen.has(m.id)) continue;
+    const from = m.from && m.from.emailAddress && m.from.emailAddress.address;
+    if (!from) continue;
+    // Match to the most recent SMM lead with this sender address.
+    let lead = null;
+    try {
+      const rows = await sbGet(env, "smm_leads", `email=ilike.${encodeURIComponent(String(from).toLowerCase())}&select=id,email,account_user_id&order=created_at.desc&limit=1`);
+      lead = rows && rows[0];
+    } catch (_) {}
+    if (!lead) continue;
+    await logBookingMessage(env, {
+      booking_id: lead.id, booking_source: "smm", account_user_id: lead.account_user_id, client_email: lead.email,
+      direction: "inbound", channel: "email", kind: "reply", subject: m.subject || null,
+      body: (m.bodyPreview || "").trim(), is_automated: false, created_by: from, external_id: m.id,
+    });
+    captured++;
+  }
+  return { ok: true, read: messages.length, captured };
+}
+
 export default {
   // Cron (see wrangler.toml [triggers]). The daily 07:00 run sends post
   // reminders; every other (frequent) run advances automations + chases any
@@ -739,6 +888,7 @@ export default {
     else {
       ctx.waitUntil(runAutomationsTick(env));
       ctx.waitUntil(runSetupReminders(env));
+      ctx.waitUntil(pollSmmInbox(env));
     }
   },
 
@@ -832,8 +982,8 @@ export default {
         const order = Array.isArray(created) ? created[0] : created;
         if (!order || !order.id) return json({ error: "Couldn't start your order. Please try again." }, 500, request, env);
 
-        // Free pack — no Stripe needed.
-        if (amount === 0) return json({ url: `${base}/edit/thanks?order=${order.id}` }, 200, request, env);
+        // Free pack — no Stripe needed. Still a customer → make/merge a contact.
+        if (amount === 0) { await contactFromOrder(env, order); return json({ url: `${base}/edit/thanks?order=${order.id}` }, 200, request, env); }
 
         try {
           const session = await stripeApi(env, "checkout/sessions", {
@@ -876,6 +1026,9 @@ export default {
             await sbPatch(env, "orders", `id=eq.${encodeURIComponent(orderId)}&status=neq.paid`, {
               status: "paid", payment_ref: pi || null,
             });
+            // Pack purchaser → make/merge a CRM contact.
+            const orows = await sbGet(env, "orders", `id=eq.${encodeURIComponent(orderId)}&select=buyer_name,buyer_email,buyer_company,buyer_phone,pack_title,user_id&limit=1`);
+            await contactFromOrder(env, orows && orows[0]);
           }
         }
         return json({ received: true }, 200, request, env);
@@ -1228,19 +1381,25 @@ export default {
           attendees: [{ emailAddress: { address: email, name }, type: "required" }],
         });
 
-        // 4) Write the full pipeline row.
+        // 4) Write the full pipeline row (capture the id so we can thread the
+        //    confirmation into the member's booking correspondence).
         const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${Math.abs(hmToMin(start))}-${ev.id || ""}`;
-        await sbPost(env, "videography_bookings", {
-          kind: "booking", service_type: service_type || null, audience: audience || null, brand: brand || null,
-          package: pkg || null, add_ons: Array.isArray(add_ons) ? add_ons : [], postcode: postcode || null,
-          distance_miles: distance_miles ?? null, surcharge_pence: surcharge_pence || 0,
-          client_name: name, client_email: email, client_phone: phone || null, company: company || null,
-          service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
-          signed_name: signed_name || null, signed_at: signed_at || null, marketing_opt_in: !!marketing_opt_in,
-          promo_code: promo_code || null, discount_pence: discount_pence || 0,
-          account_user_id: accountUserId, reschedule_token: rescheduleToken, total_pence: total_pence ?? null,
-          ms_event_id: ev.id || null, duration_min: dur,
-        });
+        let newBookingId = null;
+        try {
+          const insRes = await sbPost(env, "videography_bookings", {
+            kind: "booking", service_type: service_type || null, audience: audience || null, brand: brand || null,
+            package: pkg || null, add_ons: Array.isArray(add_ons) ? add_ons : [], postcode: postcode || null,
+            distance_miles: distance_miles ?? null, surcharge_pence: surcharge_pence || 0,
+            client_name: name, client_email: email, client_phone: phone || null, company: company || null,
+            service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
+            signed_name: signed_name || null, signed_at: signed_at || null, marketing_opt_in: !!marketing_opt_in,
+            promo_code: promo_code || null, discount_pence: discount_pence || 0,
+            account_user_id: accountUserId, reschedule_token: rescheduleToken, total_pence: total_pence ?? null,
+            ms_event_id: ev.id || null, duration_min: dur,
+          }, "return=representation");
+          const arr = await insRes.json();
+          newBookingId = Array.isArray(arr) && arr[0] ? arr[0].id : null;
+        } catch (_) {}
 
         // 5) Confirmation emails (best-effort, never block the booking).
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
@@ -1263,15 +1422,27 @@ export default {
           html: jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns: add_ons, postcode, distanceMiles: distance_miles, surchargePence: surcharge_pence, dateNice, time: start, totalPence: total_pence, signedName: signed_name, marketingOptIn: marketing_opt_in }),
         });
 
+        // Thread the confirmation into the member's booking correspondence.
+        await logBookingMessage(env, {
+          booking_id: newBookingId, booking_source: "videography",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: `Booking confirmed — ${service || "TMKE"}`,
+          body: `Your ${service || "booking"} is confirmed for ${dateNice} at ${start}.`
+            + (postcode ? ` Location: ${postcode}.` : "")
+            + (total_pence != null ? ` Total ${gbpW(total_pence)} inc. VAT, invoiced on delivery.` : "")
+            + ` We'll be in touch the day before to confirm the details.`,
+        });
+
         // CRM + automations: upsert the contact; a brand-new account kicks off
         // any "account created" automation (e.g. the welcome series).
         try {
           const fn = String(name || "").trim().split(/\s+/);
+          const bkTags = crmTags(email, ["Videography-Client", videographyProductTag(service_type)], { optIn: !!marketing_opt_in, member: !!(accountCreated || accountUserId) });
           const ci = { email, first_name: fn.shift() || name, last_name: fn.join(" ") || null, phone, company,
             source: "videography_" + (service_type || "booking"), lifecycle: "customer",
-            marketing_opt_in: !!marketing_opt_in, user_id: accountUserId };
+            marketing_opt_in: !!marketing_opt_in, tags: bkTags, user_id: accountUserId };
           if (accountCreated) await fireTrigger(env, "account_created", ci, { service, package: pkg });
-          else await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: ci.first_name, p_last_name: ci.last_name, p_phone: phone || null, p_company: company || null, p_source: ci.source, p_lifecycle: "customer", p_marketing_opt_in: !!marketing_opt_in, p_user_id: accountUserId });
+          else await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: ci.first_name, p_last_name: ci.last_name, p_phone: phone || null, p_company: company || null, p_source: ci.source, p_lifecycle: "customer", p_marketing_opt_in: !!marketing_opt_in, p_tags: bkTags, p_user_id: accountUserId });
         } catch (_) {}
 
         return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
@@ -1336,6 +1507,7 @@ export default {
             email, first_name: firstName, last_name: lastName === "—" ? null : lastName,
             phone: phone || null, company: company || null, source: "videography_enquiry",
             lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
+            tags: crmTags(email, "Interest: Videography", { optIn: !!marketing_opt_in }),
           }, { form: service_type || "videography" });
         } catch (_) {}
         return json({ ok: true }, 200, request, env);
@@ -1384,12 +1556,14 @@ export default {
           business: business || null, message: message || null,
           marketing_opt_in: !!marketing_opt_in,
           account_user_id: accountUserId, account_created: accountCreated,
-        });
+        }, "return=representation");
         if (!saved.ok) {
           const detail = await saved.text().catch(() => "");
           console.error("smm enquiry insert failed", saved.status, detail);
           return json({ error: "We couldn't save your message just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
+        let smmEnquiryId = null;
+        try { const arr = await saved.json(); smmEnquiryId = Array.isArray(arr) && arr[0] ? arr[0].id : null; } catch (_) {}
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -1402,6 +1576,12 @@ export default {
             ${message ? `<div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(message)}</div>` : ""}
             ${accountCreated ? `<p style="color:#555;font-size:14px;margin:18px 0 0">We've also created your TMKE account — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
             <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
+        });
+        await logBookingMessage(env, {
+          booking_id: smmEnquiryId, booking_source: "smm",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: "Thanks — we've got your message",
+          body: `Auto-acknowledgement sent: we've received ${first_name}'s enquiry and will be in touch within one working day.`,
         });
 
         // Notify the SMM team.
@@ -1426,7 +1606,7 @@ export default {
           await fireTrigger(env, "form_submitted", {
             email, first_name, last_name, phone: phone || null, company: business || null,
             source: "smm_enquiry", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
-            tags: ["TMKE Social Media", "General Enquiry"], user_id: accountUserId || null,
+            tags: crmTags(email, "Interest: SMM", { optIn: !!marketing_opt_in, member: !!(accountUserId || accountCreated) }), user_id: accountUserId || null,
           }, { form: "smm_enquiry", tag: "General Enquiry" });
         } catch (_) {}
 
@@ -1466,12 +1646,14 @@ export default {
           kind: "brochure", tag: "Brochure Download", stage: "brochure_downloaded", brochure_sent: true,
           full_name, email, marketing_opt_in: !!marketing_opt_in,
           account_user_id: accountUserId, account_created: accountCreated,
-        });
+        }, "return=representation");
         if (!saved.ok) {
           const detail = await saved.text().catch(() => "");
           console.error("smm brochure insert failed", saved.status, detail);
           return json({ error: "We couldn't process that just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
+        let smmBrochureId = null;
+        try { const arr = await saved.json(); smmBrochureId = Array.isArray(arr) && arr[0] ? arr[0].id : null; } catch (_) {}
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const brochureUrl = env.SMM_BROCHURE_URL || "https://assets.tmke.co.uk/tmke-smm-brochure.pdf";
@@ -1487,6 +1669,12 @@ export default {
             ${accountCreated ? `<p style="color:#555;font-size:14px;margin:0 0 6px">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
             <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
         });
+        await logBookingMessage(env, {
+          booking_id: smmBrochureId, booking_source: "smm",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: "Your TMKE social media brochure",
+          body: `Brochure sent to ${firstName}. Link: ${brochureUrl}`,
+        });
 
         // CRM + automations: upsert the contact + fire any "form submitted" flow.
         try {
@@ -1494,7 +1682,7 @@ export default {
           await fireTrigger(env, "form_submitted", {
             email, first_name: bparts.shift() || full_name, last_name: bparts.join(" ") || null,
             source: "smm_brochure", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
-            tags: ["TMKE Social Media", "Brochure Download"], user_id: accountUserId || null,
+            tags: crmTags(email, "Interest: SMM", { optIn: !!marketing_opt_in, member: !!(accountUserId || accountCreated) }), user_id: accountUserId || null,
           }, { form: "smm_brochure", tag: "Brochure Download" });
         } catch (_) {}
 
@@ -1610,11 +1798,14 @@ export default {
           first_name, last_name, full_name: fullName, email, phone: phone || null, business: business || null,
           call_at: `${date}T${start}:00`, duration_min: dur, reschedule_token: token, ms_event_id: ev.id || null,
           marketing_opt_in: !!marketing_opt_in, account_user_id: accountUserId, account_created: accountCreated,
-        });
+        }, "return=representation");
+        let smmDiscoveryId = null;
         if (!saved.ok) {
           const detail = await saved.text().catch(() => "");
           console.error("smm discovery insert failed", saved.status, detail);
           // The calendar event was created — don't fake failure to the user, but log it.
+        } else {
+          try { const arr = await saved.json(); smmDiscoveryId = Array.isArray(arr) && arr[0] ? arr[0].id : null; } catch (_) {}
         }
 
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
@@ -1630,6 +1821,12 @@ export default {
             <p style="font-size:13px;color:#555;margin:0 0 8px">Need to change it? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28">hello@tmke.co.uk</a>.</p>
             <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
+        });
+        await logBookingMessage(env, {
+          booking_id: smmDiscoveryId, booking_source: "smm",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: `Your call is booked — ${dateNice}`,
+          body: `Your social media discovery call is booked for ${dateNice} at ${start}. It's an online/phone call — no prep needed, just bring your questions.`,
         });
         await sendEmail(env, {
           to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New discovery call — Social Media — ${fullName} — ${dateNice} ${start}`,
@@ -1649,7 +1846,7 @@ export default {
           await fireTrigger(env, "form_submitted", {
             email, first_name, last_name, phone: phone || null, company: business || null,
             source: "smm_discovery", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
-            tags: ["TMKE Social Media", "Discovery Call"], user_id: accountUserId || null,
+            tags: crmTags(email, ["Interest: SMM", "Discovery-Call-Booked: SMM"], { optIn: !!marketing_opt_in, member: !!(accountUserId || accountCreated) }), user_id: accountUserId || null,
           }, { form: "smm_discovery", tag: "Discovery Call" });
           if (accountCreated) await fireTrigger(env, "account_created", {
             email, first_name, last_name, company: business || null, user_id: accountUserId || null, lifecycle: "lead",
@@ -1670,6 +1867,12 @@ export default {
           client_email: email, service: "Content Studio", stage: "enquiry_non_member",
           notes: "Register interest (members-only service)", marketing_opt_in: optin,
         });
+        try {
+          await fireTrigger(env, "form_submitted", {
+            email, source: "videography_register_interest", lifecycle: "lead",
+            marketing_opt_in: optin, tags: crmTags(email, "Interest: Videography", { optIn: optin }),
+          }, { form: "videography_register_interest" });
+        } catch (_) {}
         return json({ ok: true }, 200, request, env);
       }
 
@@ -1733,7 +1936,7 @@ export default {
           await fireTrigger(env, "form_submitted", {
             email, first_name: bparts.shift() || full_name, last_name: bparts.join(" ") || null,
             source: "videography_brochure", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
-            tags: ["TMKE Videography", "Brochure Download"], user_id: accountUserId || null,
+            tags: crmTags(email, "Interest: Videography", { optIn: !!marketing_opt_in, member: !!accountUserId }), user_id: accountUserId || null,
           }, { form: "videography_brochure", tag: "Brochure Download" });
         } catch (_) {}
 
@@ -1848,13 +2051,18 @@ export default {
           isOnlineMeeting: true,
         });
         const token = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}`;
-        await sbPost(env, "videography_bookings", {
-          kind: "discovery", service_type: "discovery", client_name: name, client_email: email,
-          client_phone: phone || null, company: company || null, service: "Discovery Call",
-          shoot_date: `${date}T${start}:00`, stage: "discovery_call_booked",
-          discovery_interests: interestList, notes: message || null, reschedule_token: token, ms_event_id: ev.id || null, duration_min: dur,
-          account_user_id: accountUserId, marketing_opt_in: !!marketing_opt_in,
-        });
+        let discoveryId = null;
+        try {
+          const insRes = await sbPost(env, "videography_bookings", {
+            kind: "discovery", service_type: "discovery", client_name: name, client_email: email,
+            client_phone: phone || null, company: company || null, service: "Discovery Call",
+            shoot_date: `${date}T${start}:00`, stage: "discovery_call_booked",
+            discovery_interests: interestList, notes: message || null, reschedule_token: token, ms_event_id: ev.id || null, duration_min: dur,
+            account_user_id: accountUserId, marketing_opt_in: !!marketing_opt_in,
+          }, "return=representation");
+          const arr = await insRes.json();
+          discoveryId = Array.isArray(arr) && arr[0] ? arr[0].id : null;
+        } catch (_) {}
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
         const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call — TMKE", description: ["A quick call with Jack to talk through your videography.", interestList.length && `Interested in: ${interestList.join(", ")}`].filter(Boolean).join("\n"), location: "Online / phone", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name });
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
@@ -1867,6 +2075,12 @@ export default {
             <p style="font-size:13px;color:#555;margin:0 0 8px">Need to change it? <a href="${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(token)}" style="color:#371e28">Reschedule or cancel your call</a>.</p>
             <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p></div>`,
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
+        });
+        await logBookingMessage(env, {
+          booking_id: discoveryId, booking_source: "videography",
+          account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: `Your discovery call is booked — ${dateNice}`,
+          body: `Your discovery call with Jack is confirmed for ${dateNice} at ${start}. It's an online/phone call — no prep needed, just bring your questions.`,
         });
         await sendEmail(env, {
           to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New discovery call — ${name} — ${dateNice} ${start}`,
@@ -1882,6 +2096,16 @@ export default {
               ${message ? `<div><span style="color:#888">Notes:</span> ${esc(message)}</div>` : ""}
             </div></div>`,
         });
+        // CRM: upsert the contact (this endpoint previously skipped it).
+        try {
+          const parts = String(name || "").trim().split(/\s+/);
+          const ci = { email, first_name: parts.shift() || name, last_name: parts.join(" ") || null,
+            phone: phone || null, company: company || null, source: "videography_discovery",
+            lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
+            tags: crmTags(email, ["Interest: Videography", "Discovery-Call-Booked: Videography"], { optIn: !!marketing_opt_in, member: !!(accountUserId || accountCreated) }), user_id: accountUserId || null };
+          await fireTrigger(env, "form_submitted", ci, { form: "videography_discovery", tag: "Discovery Call" });
+          if (accountCreated) await fireTrigger(env, "account_created", ci, { form: "videography_discovery" });
+        } catch (_) {}
         return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
       }
 
@@ -1916,6 +2140,11 @@ export default {
           html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><h1 style="font-size:22px;margin:0 0 6px">Your booking is cancelled</h1><p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(bk.client_name || "")}, we've cancelled your ${esc(bk.service || "booking")}. If this was a mistake or you'd like to rebook, just head back to <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk/videography</a>.</p></div>`,
         });
         await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Cancelled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} cancelled their ${esc(bk.service || "booking")} (was ${esc(bk.shoot_date || "")}).</p></div>` });
+        await logBookingMessage(env, {
+          booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
+          kind: "cancellation", subject: `Booking cancelled — ${bk.service || "TMKE"}`,
+          body: `Your ${bk.service || "booking"} has been cancelled. If this was a mistake or you'd like to rebook, head to tmke.co.uk/videography.`,
+        });
         return json({ ok: true }, 200, request, env);
       }
 
@@ -1965,6 +2194,11 @@ export default {
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Rescheduled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} moved their ${esc(bk.service || "booking")} to ${esc(dateNice)} at ${esc(start)}.</p></div>` });
+        await logBookingMessage(env, {
+          booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
+          kind: "reschedule", subject: `Booking rescheduled — ${dateNice}`,
+          body: `Your ${bk.service || "booking"} has moved to ${dateNice} at ${start}. An updated calendar invite is on its way.`,
+        });
         return json({ ok: true }, 200, request, env);
       }
 
@@ -2146,6 +2380,335 @@ export default {
         const name = key.split("/").pop();
         headers.set("Content-Disposition", `inline; filename="${name}"`);
         return new Response(obj.body, { headers });
+      }
+
+      // ============================================================
+      // Booking correspondence + documents (member portal + admin)
+      // ============================================================
+
+      // ---- Admin: post a manual message to a booking (optionally email it) ----
+      if (path.endsWith("/booking/message") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const bookingId = b && b.booking_id;
+        const source = b && b.source === "smm" ? "smm" : "videography";
+        const bodyText = b && b.body;
+        if (!bookingId || !bodyText) return json({ error: "Missing booking or message." }, 400, request, env);
+        const bk = await lookupBooking(env, source, bookingId);
+        if (!bk) return json({ error: "Booking not found." }, 404, request, env);
+        await logBookingMessage(env, {
+          booking_id: bookingId, booking_source: source,
+          account_user_id: bk.account_user_id, client_email: bk.email,
+          channel: b.notify ? "email" : "note", kind: "manual", subject: b.subject || null,
+          body: bodyText, is_automated: false, created_by: user.email || "admin",
+        });
+        if (b.notify && bk.email) {
+          const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          // Attach a booking document to the email when one was sent with the message.
+          let attachments;
+          if (b.document_id) {
+            try {
+              const drows = await sbGet(env, "booking_documents", `id=eq.${encodeURIComponent(b.document_id)}&select=r2_key,file_name,content_type`);
+              const d = drows && drows[0];
+              if (d && d.r2_key) {
+                const obj = await env.BUCKET.get(d.r2_key);
+                if (obj) { const buf = await obj.arrayBuffer(); attachments = [{ filename: d.file_name || "attachment", content: bufToBase64(buf), contentType: d.content_type || "application/octet-stream" }]; }
+              }
+            } catch (_) {}
+          }
+          // SMM correspondence sends from the SMM manager's mailbox when one is
+          // configured (SMM_MAIL_SENDER — Danielle's for now, Abby's later), so
+          // replies land in her inbox; otherwise falls back to the TMKE mailbox.
+          const smmFrom = source === "smm" ? env.SMM_MAIL_SENDER : null;
+          const smmFromName = source === "smm" ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : null;
+          try {
+            await sendEmail(env, {
+              to: bk.email, subject: b.subject || `A message about your ${bk.service || "booking"}`,
+              html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:14px;margin:0 0 12px">Hi ${esc(bk.name || "")},</p><div style="font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(bodyText)}</div>${attachments ? `<p style="color:#888;font-size:12px;margin:14px 0 0">📎 A document is attached to this email.</p>` : ""}<p style="color:#888;font-size:12px;margin:18px 0 0">You can view this and manage your booking in your TMKE workspace.</p></div>`,
+              attachments,
+              from: smmFrom || undefined, fromName: smmFrom ? smmFromName : undefined,
+            });
+          } catch (_) {}
+        }
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: pin / unpin a thread note ----
+      if (path.endsWith("/booking/message/pin") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = b && b.id;
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/booking_messages?id=eq.${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ is_pinned: !!(b && b.pinned) }),
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: delete a thread note / message ----
+      if (path.endsWith("/booking/message") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/booking_messages?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: set an SMM client's status (active / paused / ended) --------
+      // Persists on the lead and swaps the SMM-Status tag on their CRM contact.
+      // Active also lifts their lifecycle to Customer (per the tagging framework).
+      if (path.endsWith("/smm/status") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const leadId = b && b.lead_id;
+        const status = ["active", "paused", "ended"].includes(b && b.status) ? b.status : null;
+        if (!leadId || !status) return json({ error: "Missing lead or status." }, 400, request, env);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,last_name,business,account_user_id`);
+        const lead = rows && rows[0];
+        if (!lead) return json({ error: "Lead not found." }, 404, request, env);
+        // Persist the status on the lead.
+        await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, {
+          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ client_status: status }),
+        });
+        // Reflect on the CRM contact: one SMM-Status tag at a time.
+        const statusTag = `SMM-Status: ${{ active: "Active", paused: "Paused", ended: "Ended" }[status]}`;
+        if (lead.email) {
+          const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lead.email)}&select=id,tags,lifecycle`);
+          const c = cRows && cRows[0];
+          if (c) {
+            const tags = Array.from(new Set([...(c.tags || []).filter((t) => !/^SMM-Status:/.test(t)), statusTag, "Interest: SMM"]));
+            const patch = { tags };
+            if (status === "active") patch.lifecycle = "customer";
+            await fetch(`${env.SUPABASE_URL}/rest/v1/contacts?id=eq.${c.id}`, {
+              method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+              body: JSON.stringify(patch),
+            });
+          } else {
+            await sbRpc(env, "upsert_contact", {
+              p_email: lead.email, p_first_name: lead.first_name || lead.full_name || null, p_last_name: lead.last_name || null,
+              p_company: lead.business || null, p_source: "smm", p_lifecycle: status === "active" ? "customer" : "lead",
+              p_tags: [statusTag, "Interest: SMM", networkTag(lead.email)].filter(Boolean), p_user_id: lead.account_user_id || null,
+            });
+          }
+        }
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: book a sales meeting for an SMM lead --------------------
+      // Saves meeting_at + moves the lead to Meeting set; optionally sends the
+      // client a diary invite (calendar event on the SMM manager's diary + ICS).
+      if (path.endsWith("/smm/meeting") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const leadId = b && b.lead_id;
+        const date = b && b.date, start = b && b.start;
+        if (!leadId || !date || !start) return json({ error: "Missing lead, date or time." }, 400, request, env);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,account_user_id`);
+        const lead = rows && rows[0];
+        if (!lead) return json({ error: "Lead not found." }, 404, request, env);
+        const meetingAt = `${date}T${start}:00`;
+        await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, {
+          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ meeting_at: meetingAt, pipeline_stage: "meeting_set" }),
+        });
+        const cal = env.SMM_MANAGER_UPN;
+        const dur = parseInt(b.duration || "30", 10);
+        const endHm = minToHm(hmToMin(start) + dur);
+        const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
+        let invited = false;
+        if (b.send_invite && cal && lead.email) {
+          try {
+            await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, {
+              subject: `TMKE Social Media — Meeting with ${lead.full_name || lead.email}`,
+              start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+              end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+              attendees: [
+                { emailAddress: { address: lead.email, name: lead.full_name || "" }, type: "required" },
+                ...(env.SMM_NOTIFY && env.SMM_NOTIFY.toLowerCase() !== cal.toLowerCase()
+                  ? [{ emailAddress: { address: env.SMM_NOTIFY, name: "TMKE Social Media" }, type: "required" }] : []),
+              ],
+              isOnlineMeeting: true,
+            });
+            const ics = buildICS({ uid: `smm-${leadId}-${date}-${start}@tmke.co.uk`, date, start, endHm, summary: "TMKE Social Media — Meeting", description: "A meeting with the TMKE social media team.", location: "Online / phone", organizer: cal, attendeeEmail: lead.email, attendeeName: lead.full_name || "" });
+            const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
+            const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            await sendEmail(env, {
+              to: lead.email, subject: `Your meeting with TMKE — ${dateNice}`,
+              html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:14px;margin:0 0 12px">Hi ${esc(lead.first_name || "")},</p><p style="font-size:15px;line-height:1.6">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`,
+              attachments: [{ filename: "meeting.ics", content: icsB64, contentType: "text/calendar" }],
+              from: env.SMM_MAIL_SENDER || undefined, fromName: env.SMM_MAIL_SENDER ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : undefined,
+            });
+            invited = true;
+          } catch (_) {}
+        }
+        await logBookingMessage(env, {
+          booking_id: leadId, booking_source: "smm", account_user_id: lead.account_user_id, client_email: lead.email,
+          kind: "meeting", subject: "Meeting booked", is_automated: false, created_by: user.email || "admin",
+          body: `Meeting booked for ${dateNice} at ${start}.${invited ? " Diary invite sent to the client." : ""}`,
+        });
+        return json({ ok: true, invited }, 200, request, env);
+      }
+
+      // ---- Admin: manually run the inbound-email capture (also on the cron) ---
+      if (path.endsWith("/smm/inbox/poll") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const result = await pollSmmInbox(env);
+        return json(result || { ok: false }, 200, request, env);
+      }
+
+      // ---- Member: my whole correspondence + documents (service role) --------
+      // Reads through the verified member session, matching by account OR email,
+      // so the portal never misses a row to an RLS/email-casing edge case.
+      if (path.endsWith("/booking/mine") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in." }, 401, request, env);
+        const ids = await memberBookingIds(env, user);
+        if (!ids.length) return json({ messages: [], documents: [] }, 200, request, env);
+        const inList = `in.(${ids.join(",")})`;
+        const messages = (await sbGet(env, "booking_messages", `booking_id=${inList}&select=id,booking_id,booking_source,direction,channel,kind,subject,body,is_automated,created_by,created_at&order=created_at.asc`)) || [];
+        const documents = (await sbGet(env, "booking_documents", `booking_id=${inList}&select=id,booking_id,booking_source,category,title,file_name,size_bytes,content_type,created_at&order=created_at.asc`)) || [];
+        return json({ messages, documents }, 200, request, env);
+      }
+
+      // ---- Admin: list a booking's messages + documents ----
+      if (path.endsWith("/booking/thread") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = (url.searchParams.get("booking_id") || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+        const messages = (await sbGet(env, "booking_messages", `booking_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.asc`)) || [];
+        const documents = (await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,created_at&order=created_at.asc`)) || [];
+        return json({ messages, documents }, 200, request, env);
+      }
+
+      // ---- Admin: attach a document (raw body → R2 + row) ----
+      if (path.endsWith("/booking/document") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const q = url.searchParams;
+        const bookingId = (q.get("booking_id") || "").trim();
+        const source = q.get("source") === "smm" ? "smm" : "videography";
+        const category = ["agreement", "prep", "invoice", "delivery", "other"].includes(q.get("category")) ? q.get("category") : "other";
+        const fileName = (q.get("file_name") || "document").replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
+        const title = q.get("title") || null;
+        const contentType = q.get("content_type") || request.headers.get("Content-Type") || "application/octet-stream";
+        if (!bookingId) return json({ error: "Missing booking_id" }, 400, request, env);
+        const bk = await lookupBooking(env, source, bookingId);
+        if (!bk) return json({ error: "Booking not found." }, 404, request, env);
+        const idSafe = bookingId.replace(/[^a-zA-Z0-9_-]/g, "");
+        const key = `booking-docs/${idSafe}/${Date.now()}-${fileName}`;
+        const body = await request.arrayBuffer();
+        await env.BUCKET.put(key, body, { httpMetadata: { contentType } });
+        let row = null;
+        try {
+          const ins = await sbPost(env, "booking_documents", {
+            booking_id: bookingId, booking_source: source, account_user_id: bk.account_user_id, client_email: bk.email,
+            category, title, file_name: fileName, r2_key: key, content_type: contentType, size_bytes: body.byteLength,
+            uploaded_by: user.email || "admin",
+          }, "return=representation");
+          const arr = await ins.json();
+          row = Array.isArray(arr) && arr[0] ? arr[0] : null;
+        } catch (_) {}
+        return json({ ok: true, document: row }, 200, request, env);
+      }
+
+      // ---- Admin: remove a document (R2 object + row) ----
+      if (path.endsWith("/booking/document") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        const rows = await sbGet(env, "booking_documents", `id=eq.${encodeURIComponent(id)}&select=r2_key`);
+        const doc = rows && rows[0];
+        if (doc && doc.r2_key) { try { await env.BUCKET.delete(doc.r2_key); } catch (_) {} }
+        await fetch(`${env.SUPABASE_URL}/rest/v1/booking_documents?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Member (or admin): download a booking document (ownership-checked) ----
+      if (path.endsWith("/booking/document") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in to download." }, 401, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        const rows = await sbGet(env, "booking_documents", `id=eq.${encodeURIComponent(id)}&select=*`);
+        const doc = rows && rows[0];
+        if (!doc) return json({ error: "Not found" }, 404, request, env);
+        const owns = (doc.account_user_id && doc.account_user_id === user.id) ||
+          (doc.client_email && String(doc.client_email).toLowerCase() === String(user.email || "").toLowerCase());
+        if (!owns && !isAdminEmail(user)) return json({ error: "Forbidden" }, 403, request, env);
+        const obj = await env.BUCKET.get(doc.r2_key);
+        if (!obj) return json({ error: "File missing" }, 404, request, env);
+        const headers = new Headers(corsHeaders(request, env));
+        obj.writeHttpMetadata(headers);
+        headers.set("etag", obj.httpEtag);
+        headers.set("Content-Disposition", `attachment; filename="${String(doc.file_name || "document").replace(/"/g, "")}"`);
+        return new Response(obj.body, { headers });
+      }
+
+      // ---- Newsletter signup — opts the contact into marketing + tags them ----
+      if (path.endsWith("/newsletter") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        if (b && b.hp) return json({ ok: true }, 200, request, env); // honeypot
+        const email = String((b && b.email) || "").trim();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
+        const name = String((b && b.name) || "").trim();
+        const parts = name.split(/\s+/).filter(Boolean);
+        try {
+          await fireTrigger(env, "form_submitted", {
+            email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
+            source: "newsletter", lifecycle: "lead", marketing_opt_in: true,
+            tags: crmTags(email, [], { optIn: true }),
+          }, { form: "newsletter" });
+        } catch (_) {}
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: bulk-import contacts (one chunk of rows per request) --------
+      if (path.endsWith("/contacts/import") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const rows = Array.isArray(b.rows) ? b.rows : [];
+        const batchTags = Array.isArray(b.batch_tags) ? b.batch_tags : [];
+        const optIn = b.marketing_opt_in === true;
+        if (!rows.length) return json({ error: "No rows." }, 400, request, env);
+        if (rows.length > 500) return json({ error: "Send at most 500 rows per request." }, 400, request, env);
+        let imported = 0, skipped = 0;
+        for (const r of rows) {
+          const email = String((r && r.email) || "").trim().toLowerCase();
+          if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { skipped++; continue; }
+          const rowTags = Array.isArray(r.tags) ? r.tags : (r.tags ? String(r.tags).split(/[;,]/).map((s) => s.trim()) : []);
+          const tags = Array.from(new Set([...rowTags, ...batchTags, optIn ? "Newsletter-Subscriber" : null, networkTag(email)].filter(Boolean)));
+          try {
+            await sbRpc(env, "upsert_contact", {
+              p_email: email,
+              p_first_name: r.first_name || null,
+              p_last_name: r.last_name || null,
+              p_phone: r.phone || null,
+              p_company: r.company || null,
+              p_source: "import",
+              p_lifecycle: "lead",
+              p_marketing_opt_in: optIn ? true : null,
+              p_tags: tags,
+            });
+            imported++;
+          } catch (_) { skipped++; }
+        }
+        return json({ ok: true, imported, skipped }, 200, request, env);
       }
 
       return json({ error: "Not found" }, 404, request, env);

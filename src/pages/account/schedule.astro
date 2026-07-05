@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import DashSidebar from "../../components/account/DashSidebar.astro";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
 ---
@@ -12,14 +12,20 @@ import "../../styles/account-sections.css";
   hideNav
   hideFooter
 >
-  <div class="dash-shell">
-    <DashSidebar active="schedule" />
-
+  <WorkspaceHeader active="planner" />
+  <div class="dash-shell dash-shell--top">
     <main class="app-main dash-main">
-    <section class="welcome fade-up" data-delay="1">
-      <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
-      <h1 class="welcome-h">Your <em>content calendar.</em></h1>
-      <p class="welcome-sub">A month-by-month diary of what's going out — with UK bank holidays and key marketing dates so nothing sneaks up on you.</p>
+    <section class="dash-hero fade-up" data-delay="1">
+      <div class="dash-hero-copy">
+        <div class="dash-hero-top">
+          <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
+          <h1 class="welcome-h">Your <em>content calendar.</em></h1>
+        </div>
+        <p class="welcome-sub">Your content calendar, all in one view. See what's scheduled, plan around key dates, and keep your social media moving consistently.</p>
+      </div>
+      <figure class="dash-hero-media">
+        <img src="/assets/home%20chair.jpg" alt="" loading="eager" />
+      </figure>
     </section>
 
     <!-- Calendar shell -->
@@ -33,7 +39,7 @@ import "../../styles/account-sections.css";
         </div>
         <div class="cal-bar-r">
           <div class="cal-legend" aria-hidden="true">
-            <span class="cal-leg cal-leg--post">Scheduled</span>
+            <span class="cal-leg cal-leg--post">Planned</span>
             <span class="cal-leg cal-leg--bank">Bank holiday</span>
             <span class="cal-leg cal-leg--aware">Awareness day</span>
           </div>
@@ -80,7 +86,7 @@ import "../../styles/account-sections.css";
         <!-- Filled in by JS -->
       </div>
       <footer class="day-foot">
-        <a href="#" id="day-new" class="day-new-btn">+ Schedule a post for this day</a>
+        <a href="#" id="day-new" class="day-new-btn">+ Plan a post for this day</a>
       </footer>
     </aside>
   </div>
@@ -350,7 +356,7 @@ import "../../styles/account-sections.css";
     /* Empty-state hint on hover for blank days. We don't render a chip
        so the calendar reads clean; the prompt only shows on hover. */
     .cal-day.is-empty:hover::after {
-      content: "+ Schedule";
+      content: "+ Plan a post";
       position: absolute;
       bottom: 8px; left: 11px;
       font-family: var(--sans);
@@ -798,7 +804,7 @@ import "../../styles/account-sections.css";
 
       const itemsHtml = dayItems.length ? `
         <div>
-          <h3 class="day-section-h">Scheduled posts</h3>
+          <h3 class="day-section-h">Planned posts</h3>
           ${dayItems.map((p) => {
             const thumb = p.thumbnail_url || p.asset_url || '';
             const thumbStyle = thumb ? `style="background-image:url('${escapeHtml(thumb)}')"` : '';
@@ -831,7 +837,7 @@ import "../../styles/account-sections.css";
 
       const empty = (!dayHols.length && !dayItems.length) ? `
         <div class="day-empty">
-          Nothing scheduled for this day yet. Use the button below to design and schedule a post — your calendar will fill up as you plan ahead.
+          Nothing planned for this day yet. Use the button below to design and plan a post — your calendar will fill up as you plan ahead.
         </div>
       ` : '';
 
@@ -870,7 +876,7 @@ import "../../styles/account-sections.css";
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        location.replace('/login?next=' + encodeURIComponent('/account/schedule'));
+        if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/schedule'));
         return;
       }
       $footerEmail.textContent = session.user.email ?? '';
