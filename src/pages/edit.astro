@@ -18,21 +18,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   </style>
   <header class="eh2" id="edit-hero2" aria-label="The Edit — featured packs">
     <div class="eh2-inner">
-      <!-- Dictionary-lede structure (mirrors the About hero): the category is the
-           big one-word title, the pack name sits in the pronunciation slot, and
-           the body + link anchor to the bottom — aligned with the covers. -->
-      <div class="eh2-feature" id="eh2-feature">
-        <div class="eh2-top">
-          <h1 class="eh2-cat" id="eh2-cat">The Edit</h1>
-          <p class="eh2-name"><span class="eh2-name-full" id="eh2-name">The Edit</span></p>
-        </div>
-        <div class="eh2-bottom">
+      <!-- Dictionary-lede structure (mirrors the About hero). The title band —
+           category + pack name — sits ABOVE the images. Below a gap, the body and
+           the covers drop down together with their tops aligned. -->
+      <div class="eh2-head" id="eh2-head">
+        <h1 class="eh2-cat" id="eh2-cat">The Edit</h1>
+        <p class="eh2-name"><span class="eh2-name-full" id="eh2-name">The Edit</span></p>
+      </div>
+
+      <div class="eh2-lower">
+        <div class="eh2-copy" id="eh2-copy">
           <p class="eh2-bio" id="eh2-bio"></p>
           <a class="eh2-more" id="eh2-more" href="#edit-catalogue">See more <span aria-hidden="true">&rarr;</span></a>
         </div>
-      </div>
 
-      <div class="eh2-reel" id="eh2-reel" role="tablist" aria-label="Choose a pack"></div>
+        <div class="eh2-reel" id="eh2-reel" role="tablist" aria-label="Choose a pack"></div>
+      </div>
     </div>
 
     <div class="eh2-controls">
@@ -225,24 +226,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     /* Inner content is held in the SAME centred container as the pack catalogue
        below (max-width 1360, 76px gutters) so the copy's left edge lines up with
-       card one and the reel's right edge lines up with card three. */
+       card one and the reel's right edge lines up with card three. The block is a
+       column — title band on top, then a gap, then the body + covers row — and is
+       vertically centred for equal top/bottom margins. */
     .eh2-inner {
       position: absolute; inset: 0; z-index: 2;
       max-width: 1360px; margin: 0 auto; box-sizing: border-box;
-      display: flex; align-items: center; gap: clamp(30px, 4.5vw, 72px);
-      padding: clamp(108px, 15vh, 150px) 76px clamp(96px, 12vh, 122px);
+      display: flex; flex-direction: column; justify-content: center;
+      gap: clamp(30px, 5.5vh, 68px);
+      /* Equal top/bottom padding so the centred block has equal margins. */
+      padding: clamp(96px, 12vh, 124px) 76px;
     }
 
-    /* ---- Featured copy (left) — the About-page "dictionary" lede: the category
-       is the big one-word title, the pack name sits in the pronunciation slot,
-       and the body + link anchor to the bottom, aligned with the covers. Height
-       is locked to the tallest pack in JS so nothing shifts as you click through. */
-    .eh2-feature {
-      flex: 0 0 clamp(300px, 38%, 452px); box-sizing: border-box;
-      display: flex; flex-direction: column; justify-content: space-between;
+    /* ---- Title band (top) — the About-page "dictionary" lede: the category is
+       the big one-word title, the pack name sits in the pronunciation slot. It
+       sits above the line where the covers start. ---- */
+    .eh2-head {
       transition: opacity 0.4s ease, transform 0.55s cubic-bezier(.2,.8,.2,1);
     }
-    .eh2-feature.is-swap { opacity: 0; transform: translateY(14px); }
+    .eh2-head.is-swap { opacity: 0; transform: translateY(14px); }
     .eh2-cat {
       margin: 0; font-family: var(--serif); font-weight: 500;
       font-size: clamp(38px, 4.6vw, 68px); line-height: 0.94; letter-spacing: 0.02em;
@@ -257,7 +259,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       letter-spacing: 0.02em; color: rgba(244,242,241,0.82);
       text-shadow: 0 1px 16px rgba(0,0,0,0.5);
     }
-    .eh2-bottom { margin-top: clamp(26px, 5vh, 56px); }
+
+    /* ---- Lower row — body (left) + covers (right), tops aligned, dropped below
+       the title band. ---- */
+    .eh2-lower {
+      display: flex; align-items: flex-start; gap: clamp(30px, 4.5vw, 72px);
+    }
+    .eh2-copy {
+      flex: 0 0 clamp(300px, 38%, 452px); box-sizing: border-box;
+      transition: opacity 0.4s ease, transform 0.55s cubic-bezier(.2,.8,.2,1);
+    }
+    .eh2-copy.is-swap { opacity: 0; transform: translateY(14px); }
     .eh2-bio {
       margin: 0; max-width: 44ch;
       font-family: var(--sans);
@@ -284,7 +296,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        at rest; the active one scales in place (a slight overhang when selected). */
     .eh2-reel {
       flex: 1 1 auto; min-width: 0;
-      display: flex; align-items: center; justify-content: flex-end;
+      display: flex; align-items: flex-start; justify-content: flex-end;
       gap: clamp(12px, 1.3vw, 18px);
     }
     .eh2-tile {
@@ -325,15 +337,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       .eh2-inner { padding-left: 36px; padding-right: 36px; }
     }
 
-    /* ---- Mobile: stack the feature over the reel ---- */
+    /* ---- Mobile: title band, then body, then the reel — all stacked ---- */
     @media (max-width: 880px) {
       .eh2 { height: auto; min-height: 100svh; }
       .eh2-inner {
-        position: relative; flex-direction: column;
-        align-items: stretch; justify-content: center; gap: 26px;
+        position: relative; justify-content: center; gap: 22px;
         padding: clamp(104px, 15vh, 150px) 22px 116px;
       }
-      .eh2-feature { flex: 0 0 auto; }
+      .eh2-lower { flex-direction: column; align-items: stretch; gap: 24px; }
+      .eh2-copy { flex: 0 0 auto; }
       .eh2-reel { justify-content: flex-start; margin: 0 -22px; padding: 4px 22px; overflow-x: auto; }
       .eh2-tile { flex: 0 0 auto; width: clamp(128px, 34vw, 180px); }
     }
@@ -1174,7 +1186,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       const reelEl = document.getElementById('eh2-reel');
       const dotsEl = document.getElementById('eh2-dots');
-      const featEl = document.getElementById('eh2-feature');
+      const headEl = document.getElementById('eh2-head');
+      const copyEl = document.getElementById('eh2-copy');
       const catEl = document.getElementById('eh2-cat');
       const nameEl = document.getElementById('eh2-name');
       const bioEl = document.getElementById('eh2-bio');
@@ -1201,14 +1214,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       let idx = 0;
       function go(i) {
         i = ((i % list.length) + list.length) % list.length;
-        if (i === idx && titleEl.textContent) { /* still refresh visuals below */ }
         idx = i;
         const p = list[i];
-        featEl.classList.add('is-swap');
+        headEl.classList.add('is-swap'); copyEl.classList.add('is-swap');
         setTimeout(() => {
           fillCopy(p);
           if (p.slug) moreEl.href = `/edit/${encodeURIComponent(p.slug)}`;
-          featEl.classList.remove('is-swap');
+          headEl.classList.remove('is-swap'); copyEl.classList.remove('is-swap');
         }, 220);
         tiles.forEach((t, n) => { t.classList.toggle('is-active', n === i); t.setAttribute('aria-selected', n === i); });
         dots.forEach((d, n) => d.classList.toggle('is-active', n === i));
@@ -1227,18 +1239,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       if (list.length <= 1) { const controls = hero.querySelector('.eh2-controls'); if (controls) controls.style.display = 'none'; }
 
-      // Lock the feature height so the top group (category + name) pins to the top
-      // and the bottom group (body + link) pins to the bottom — the About-lede
-      // split — with no shift as the copy changes. Use the tallest pack's content,
-      // and at least the cover height so the copy aligns with the images.
+      // Lock the title band + body to their tallest so the covers' top line and the
+      // overall block never shift as you click through (the body is already clamped
+      // to five lines; this covers a pack name that wraps to two).
       function relayout() {
-        featEl.style.minHeight = '';
+        headEl.style.minHeight = ''; copyEl.style.minHeight = '';
         const cur = idx;
-        let maxH = 0;
-        list.forEach((p) => { fillCopy(p); maxH = Math.max(maxH, featEl.offsetHeight); });
+        let headH = 0, copyH = 0;
+        list.forEach((p) => { fillCopy(p); headH = Math.max(headH, headEl.offsetHeight); copyH = Math.max(copyH, copyEl.offsetHeight); });
         fillCopy(list[cur]);
-        const coverH = tiles[0] ? tiles[0].offsetHeight : 0;
-        featEl.style.minHeight = Math.max(maxH, coverH) + 'px';
+        headEl.style.minHeight = headH + 'px';
+        copyEl.style.minHeight = copyH + 'px';
       }
       relayout();
       let lockT = 0;
