@@ -12,8 +12,9 @@ import "../../styles/admin.css";
           <button type="button" class="smm-chip" data-filter="enquiry">Enquiries</button>
           <button type="button" class="smm-chip" data-filter="brochure">Brochures</button>
           <button type="button" class="smm-chip" data-filter="discovery">Discovery calls</button>
-          <button type="button" class="smm-chip" data-filter="manual">Manual</button>
-          <button type="button" class="smm-chip" data-filter="client">Clients</button>
+          <button type="button" class="smm-chip" data-filter="proposal_sent">Proposals</button>
+          <button type="button" class="smm-chip" data-filter="contract_signed">Contracts</button>
+          <button type="button" class="smm-chip" data-filter="onboarding">Onboarding clients</button>
         </div>
       </div>
       <div class="smm-bar-right">
@@ -277,6 +278,7 @@ import "../../styles/admin.css";
       { key: "meeting_set", label: "Meeting set" },
       { key: "proposal_sent", label: "Proposal sent" },
       { key: "contract_signed", label: "Contract signed" },
+      { key: "onboarding", label: "Onboarding" },
       { key: "active_client", label: "Active client" },
     ];
     const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.key, i]));
@@ -284,7 +286,7 @@ import "../../styles/admin.css";
     const STAGE_ALIAS = { contract_sent: "proposal_sent", brochure_downloaded: "inquiry", general_enquiry: "inquiry", discovery_call_booked: "inquiry" };
     const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Discovery call", manual: "Manual" };
     const CLIENT_STATUS = { active: "Active", paused: "Paused", ended: "Ended" };
-    const NEXT_LABEL = { meeting_set: "Set a meeting", proposal_sent: "Mark proposal sent", contract_signed: "Mark contract signed", active_client: "Make active client" };
+    const NEXT_LABEL = { meeting_set: "Set a meeting", proposal_sent: "Mark proposal sent", contract_signed: "Mark contract signed", onboarding: "Start onboarding", active_client: "Make active client" };
     const PLATFORMS = ["Instagram", "Facebook", "LinkedIn", "YouTube", "TikTok"];
 
     const $ = (id) => document.getElementById(id);
@@ -330,9 +332,10 @@ import "../../styles/admin.css";
       return all
         .filter((r) => showLost ? true : r.pipeline_stage !== "lost" && r.status !== "spam")
         .filter((r) => {
-          if (kindFilter === "all") return true;
-          if (kindFilter === "client") return stageOf(r) === "active_client";
-          return r.kind === kindFilter;
+          const f = kindFilter;
+          if (f === "all") return true;
+          if (f === "enquiry" || f === "brochure" || f === "discovery") return r.kind === f;
+          return stageOf(r) === f; // proposal_sent / contract_signed / onboarding
         })
         .filter((r) => !q || (nameOf(r) + " " + (r.email || "") + " " + (r.business || "")).toLowerCase().includes(q));
     }
@@ -1025,6 +1028,7 @@ import "../../styles/admin.css";
         mk({ full_name: "Sofia Reyes", email: "sofia@reyeshomes.co.uk", phone: "07700 900777", business: "Reyes Homes", kind: "enquiry", pipeline_stage: "contract_signed", package_name: "Starter", price: "£450 / month", platforms: ["Instagram"], ageDays: 12 }),
         mk({ full_name: "James Okafor", email: "james@fineandcountry.com", phone: "07700 900444", business: "Fine & Country (Kettering)", kind: "enquiry", marketing_opt_in: true, pipeline_stage: "active_client", client_status: "active", package_name: "Growth", price: "£750 / month", start_date: "2026-05-01", business_address: "12 Market Street, Kettering, NN16 0AH", instagram_url: "instagram.com/fineandcountrykettering", facebook_url: "facebook.com/fineandcountrykettering", linkedin_url: "linkedin.com/company/fineandcountry", platforms: ["Instagram", "Facebook", "LinkedIn"], ageDays: 40 }),
         mk({ full_name: "Elena Frost", email: "elena@frostandco.co.uk", phone: "07700 900555", business: "Frost & Co", kind: "discovery", marketing_opt_in: true, pipeline_stage: "active_client", client_status: "paused", ageDays: 90 }),
+        mk({ full_name: "Owen Pryce", email: "owen@pryceandpartners.co.uk", phone: "07700 900999", business: "Pryce & Partners", kind: "enquiry", pipeline_stage: "onboarding", package_name: "Growth", price: "£750 / month", start_date: "2026-07-15", platforms: ["Instagram", "Facebook"], ageDays: 5 }),
       ];
       rows[0]._thread = { messages: [
         { id: "n1", channel: "note", body: "Warm lead — followed us on Instagram first. Wants reels + a content plan.", is_pinned: true, created_by: "Abby", created_at: ago(0.5) },
