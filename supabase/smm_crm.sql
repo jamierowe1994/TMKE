@@ -24,5 +24,13 @@ alter table public.smm_leads add column if not exists client_status text;
 alter table public.booking_messages add column if not exists external_id text;
 create index if not exists booking_messages_external_id_idx on public.booking_messages (external_id);
 
+-- Active-client engagement + billing details (manually captured once a lead
+-- signs a contract; feeds the ongoing-management hub + invoicing).
+alter table public.smm_leads add column if not exists package_name text;
+alter table public.smm_leads add column if not exists price text;            -- pricing structure, free text e.g. "£750 / month"
+alter table public.smm_leads add column if not exists start_date date;       -- engagement start
+alter table public.smm_leads add column if not exists end_date date;         -- confirmed no longer using our services
+alter table public.smm_leads add column if not exists business_address text; -- for invoicing
+
 -- Seed a sensible starting stage for existing rows that predate this column.
 update public.smm_leads set pipeline_stage = 'inquiry' where pipeline_stage is null;
