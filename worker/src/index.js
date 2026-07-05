@@ -2600,6 +2600,51 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // ---- Admin: save/upsert a monthly performance report -------------------
+      if (path.endsWith("/smm/report") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const leadId = b && b.lead_id;
+        const month = Number(b && b.month), year = Number(b && b.year);
+        const platform = (b && b.platform) || "Instagram";
+        const data = (b && b.data && typeof b.data === "object") ? b.data : null;
+        if (!leadId || !(month >= 0 && month <= 11) || !year || !data) return json({ error: "Need lead, a valid month/year and the report JSON." }, 400, request, env);
+        // Link the client's account for member reads.
+        let accountUserId = b && b.account_user_id;
+        if (!accountUserId) { const r = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=account_user_id`); accountUserId = (r && r[0] && r[0].account_user_id) || null; }
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?on_conflict=lead_id,platform,month,year`, {
+          method: "POST",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
+          body: JSON.stringify({ lead_id: leadId, account_user_id: accountUserId, platform, month, year, data, uploaded_by: user.email || "admin" }),
+        });
+        if (!res.ok) { const t = await res.text().catch(() => ""); console.error("smm report upsert failed", res.status, t); return json({ error: "Couldn't save the report. If this is the first run, apply smm_reports.sql.", detail: t }, 502, request, env); }
+        let row = null; try { const arr = await res.json(); row = Array.isArray(arr) && arr[0] ? arr[0] : null; } catch (_) {}
+        return json({ ok: true, report: row }, 200, request, env);
+      }
+
+      // ---- Admin: list reports (optionally for one account) ------------------
+      if (path.endsWith("/smm/reports") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const leadId = (url.searchParams.get("lead_id") || "").trim();
+        const q = leadId ? `lead_id=eq.${encodeURIComponent(leadId)}&` : "";
+        const reports = (await sbGet(env, "smm_reports", `${q}select=id,lead_id,account_user_id,platform,month,year,data,created_at&order=year.desc,month.desc`)) || [];
+        return json({ reports }, 200, request, env);
+      }
+
+      // ---- Admin: delete a report --------------------------------------------
+      if (path.endsWith("/smm/report") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: manually run the inbound-email capture (also on the cron) ---
       if (path.endsWith("/smm/inbox/poll") && request.method === "POST") {
         const user = await getUser(request, env);

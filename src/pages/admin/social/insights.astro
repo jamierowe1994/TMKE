@@ -1,0 +1,235 @@
+---
+import AdminShell from "../../../components/admin/AdminShell.astro";
+import "../../../styles/admin.css";
+---
+
+<AdminShell active="social" title="Social insights">
+  <div class="ash-panel ash-page">
+    <section class="ri-bar">
+      <div class="ri-bar-left">
+        <a class="ri-btn ri-btn-ghost ri-btn-sm" href="/admin/social">← Pipeline</a>
+        <span class="ri-bar-note">Monthly performance reports — latest per managed account.</span>
+      </div>
+      <button type="button" class="ri-btn ri-btn-primary" id="ri-import-open">+ Upload report</button>
+    </section>
+
+    <p class="ri-loading" id="ri-loading">Loading reports…</p>
+    <p class="ri-empty" id="ri-empty" hidden>No reports yet. Hit <strong>Upload report</strong> to add your first month.</p>
+    <div class="ri-cards" id="ri-cards"></div>
+  </div>
+
+  <!-- Report Detail side panel -->
+  <div class="ri-scrim" id="ri-detail" hidden>
+    <div class="ri-drawer" role="dialog" aria-modal="true" aria-label="Report detail">
+      <div class="ri-drawer-head">
+        <div class="ri-drawer-title">
+          <span class="ri-dot" id="ri-dt-dot"></span>
+          <div><div class="ri-dt-name" id="ri-dt-name"></div><div class="ri-dt-sub" id="ri-dt-sub"></div></div>
+        </div>
+        <button type="button" class="ri-btn ri-btn-onhead ri-btn-sm" id="ri-dt-close">✕ Close</button>
+      </div>
+      <div class="ri-tabs" id="ri-dt-tabs">
+        <button type="button" class="ri-tab is-active" data-tab="overview">Overview</button>
+        <button type="button" class="ri-tab" data-tab="content">Content</button>
+        <button type="button" class="ri-tab" data-tab="audience">Audience</button>
+        <button type="button" class="ri-tab" data-tab="actions">Actions</button>
+      </div>
+      <div class="ri-drawer-body" id="ri-dt-body"></div>
+    </div>
+  </div>
+
+  <!-- Import modal -->
+  <div class="ri-modal-scrim" id="ri-import" hidden>
+    <div class="ri-modal" role="dialog" aria-modal="true" aria-label="Upload report">
+      <h3>Upload a monthly report</h3>
+      <p class="ri-modal-sub">Paste the JSON Claude produced from the SocialPilot PDF. Pick the account and month it's for.</p>
+      <div class="ri-modal-two">
+        <div class="ri-field"><label>Account</label><select id="ri-im-account"></select></div>
+        <div class="ri-field"><label>Platform</label><input type="text" id="ri-im-platform" value="Instagram"></div>
+      </div>
+      <div class="ri-modal-two">
+        <div class="ri-field"><label>Month</label><select id="ri-im-month"></select></div>
+        <div class="ri-field"><label>Year</label><input type="number" id="ri-im-year" value="2026"></div>
+      </div>
+      <div class="ri-field"><label>Report JSON</label><textarea id="ri-im-json" rows="8" placeholder='{ "summary": "…", "profile": { … }, "reach": { … }, … }'></textarea></div>
+      <p class="ri-modal-status" id="ri-im-status" hidden></p>
+      <div class="ri-modal-actions">
+        <button type="button" class="ri-btn ri-btn-ghost" id="ri-im-cancel">Cancel</button>
+        <button type="button" class="ri-btn ri-btn-primary" id="ri-im-save">Save report</button>
+      </div>
+    </div>
+  </div>
+
+  <style is:global>
+    .ri-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; max-width: 1180px; margin: 0 auto; padding: 28px 36px 18px; }
+    .ri-bar-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .ri-bar-note { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+    .ri-loading, .ri-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); max-width: 1180px; margin: 0 auto; padding: 20px 36px; }
+    .ri-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; max-width: 1180px; margin: 0 auto; padding: 4px 36px 120px; }
+
+    /* shared component classes (used by report-insights.js) */
+    .ri-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 18px; }
+    .ri-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; border-radius: 8px; border: 0; cursor: pointer; font-family: var(--sans); font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; text-decoration: none; transition: background .15s, border-color .15s, color .15s; }
+    .ri-btn-primary { background: var(--english-violet); color: #fff; }
+    .ri-btn-primary:hover { background: var(--ink); }
+    .ri-btn-ghost { background: #fff; border: 1px solid rgba(var(--violet-rgb),0.3); color: var(--english-violet); }
+    .ri-btn-ghost:hover { background: rgba(var(--violet-rgb),0.06); }
+    .ri-btn-sm { padding: 6px 12px; font-size: 11.5px; }
+    .ri-btn-onhead { background: transparent; border: 1px solid rgba(255,255,255,0.4); color: #fff; }
+    .ri-btn-onhead:hover { background: rgba(255,255,255,0.12); }
+    .ri-kpi { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 13px 14px; }
+    .ri-kpi-label { font-size: 10px; color: #8a8796; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+    .ri-kpi-val { font-size: 22px; font-weight: 600; line-height: 1; color: var(--ink); }
+    .ri-kpi-sub { font-size: 10px; margin-top: 4px; }
+    .ri-panel { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+    .ri-sec { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8a8796; margin: 22px 0 10px; }
+    .ri-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+
+    /* detail side panel */
+    .ri-scrim { position: fixed; inset: 0; z-index: 200; background: rgba(20,18,26,0.45); display: flex; justify-content: flex-end; }
+    .ri-scrim[hidden] { display: none; }
+    .ri-drawer { width: min(780px, 100vw); height: 100vh; background: var(--paper); display: flex; flex-direction: column; box-shadow: -8px 0 40px rgba(20,18,26,0.3); }
+    .ri-drawer-head { background: var(--english-violet); padding: 18px 24px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .ri-drawer-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .ri-dt-name { font-family: var(--serif); font-weight: 500; font-size: 18px; color: #fff; }
+    .ri-dt-sub { font-family: var(--sans); font-size: 11.5px; color: rgba(255,255,255,0.65); margin-top: 2px; }
+    .ri-tabs { background: var(--english-violet); padding: 0 24px; display: flex; gap: 2px; }
+    .ri-tab { background: none; border: 0; border-bottom: 3px solid transparent; color: rgba(255,255,255,0.6); font-family: var(--sans); font-size: 12.5px; font-weight: 600; padding: 8px 16px 11px; cursor: pointer; }
+    .ri-tab:hover { color: #fff; }
+    .ri-tab.is-active { color: #fff; border-bottom-color: #fff; }
+    .ri-drawer-body { flex: 1; padding: 22px 24px 60px; overflow-y: auto; }
+
+    /* import modal */
+    .ri-modal-scrim { position: fixed; inset: 0; z-index: 220; background: rgba(20,18,26,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .ri-modal-scrim[hidden] { display: none; }
+    .ri-modal { background: #fff; border-radius: 14px; width: min(560px, 100%); padding: 26px 28px 24px; box-shadow: 0 40px 100px rgba(20,18,26,0.45); max-height: 92vh; overflow-y: auto; }
+    .ri-modal h3 { font-family: var(--serif); font-weight: 500; font-size: 22px; color: var(--ink); margin: 0 0 4px; }
+    .ri-modal-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0 0 18px; }
+    .ri-modal-two { display: flex; gap: 12px; }
+    .ri-modal-two > * { flex: 1; }
+    .ri-field { margin-bottom: 14px; }
+    .ri-field > label { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin-bottom: 6px; }
+    .ri-field input, .ri-field select, .ri-field textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; }
+    .ri-field textarea { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; line-height: 1.5; resize: vertical; }
+    .ri-field input:focus, .ri-field select:focus, .ri-field textarea:focus { outline: none; border-color: var(--english-violet); }
+    .ri-modal-status { font-family: var(--sans); font-size: 12.5px; color: #a05a3c; margin: 10px 0 0; }
+    .ri-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  </style>
+
+  <script>
+    import { renderCard, renderTab, MONTHS } from "../../../lib/report-insights.js";
+    import { DEMO_ACCOUNTS, DEMO_REPORTS } from "../../../lib/report-insights-demo.js";
+    import { supabase } from "../../../lib/supabase.js";
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const PALETTE = ["#371e28", "#2c7a4b", "#b9826a", "#3f5a75", "#9a6a04", "#5b7a9a"];
+    const $ = (id) => document.getElementById(id);
+    let accounts = [], reports = [], curReportId = null, curTab = "overview";
+
+    async function authToken() { try { return (await supabase.auth.getSession()).data.session?.access_token || ""; } catch (_) { return ""; } }
+    const isDemo = () => import.meta.env.DEV && !WORKER;
+
+    async function loadData() {
+      if (isDemo()) { accounts = DEMO_ACCOUNTS.slice(); reports = DEMO_REPORTS.slice(); return; }
+      // Active clients = accounts
+      let leads = [];
+      try { const { data } = await supabase.from("smm_leads").select("id,full_name,business,pipeline_stage").eq("pipeline_stage", "active_client"); leads = data || []; } catch (_) {}
+      accounts = leads.map((l, i) => ({ id: l.id, name: l.business || l.full_name || "Client", color: PALETTE[i % PALETTE.length] }));
+      const accMap = Object.fromEntries(accounts.map((a) => [a.id, a]));
+      let raw = [];
+      if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/reports`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) raw = (await res.json()).reports || []; } catch (_) {} }
+      reports = raw.map((r) => ({ id: r.id, accountId: r.lead_id, accountName: (accMap[r.lead_id] || {}).name || "Client", accountColor: (accMap[r.lead_id] || {}).color || "#371e28", platform: r.platform, month: r.month, year: r.year, data: r.data || {} }));
+    }
+
+    function renderCards() {
+      const el = $("ri-cards");
+      const latest = {};
+      reports.forEach((r) => { const ex = latest[r.accountId]; if (!ex || r.year > ex.year || (r.year === ex.year && r.month > ex.month)) latest[r.accountId] = r; });
+      const disp = Object.values(latest).sort((a, b) => (a.accountName < b.accountName ? -1 : 1));
+      $("ri-loading").hidden = true;
+      $("ri-empty").hidden = disp.length > 0;
+      el.innerHTML = disp.map(renderCard).join("");
+      el.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => openDetail(b.getAttribute("data-view"))));
+      el.querySelectorAll("[data-hub]").forEach((b) => b.addEventListener("click", () => openHub(b.getAttribute("data-hub"))));
+    }
+
+    function openDetail(id) {
+      const r = reports.find((x) => x.id === id); if (!r) return;
+      curReportId = id; curTab = "overview";
+      $("ri-dt-dot").style.background = r.accountColor || "#371e28";
+      $("ri-dt-name").textContent = r.accountName;
+      $("ri-dt-sub").textContent = MONTHS[r.month] + " " + r.year + " · " + (r.platform || "Instagram") + " analytics";
+      $("ri-dt-tabs").querySelectorAll(".ri-tab").forEach((t) => t.classList.toggle("is-active", t.getAttribute("data-tab") === "overview"));
+      renderBody();
+      $("ri-detail").hidden = false; document.body.style.overflow = "hidden";
+    }
+    function openHub(accountId) {
+      // Phase 2 (trends + Ask AI) — for now open the latest report's detail.
+      const accR = reports.filter((r) => r.accountId === accountId).sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
+      if (accR.length) openDetail(accR[accR.length - 1].id);
+    }
+    function renderBody() {
+      const r = reports.find((x) => x.id === curReportId); if (!r) return;
+      $("ri-dt-body").innerHTML = renderTab(curTab, r.data || {}, r);
+    }
+    function closeDetail() { $("ri-detail").hidden = true; document.body.style.overflow = ""; }
+
+    // ---- import ----
+    function openImport() {
+      const acc = $("ri-im-account"); acc.innerHTML = accounts.map((a) => `<option value="${a.id}">${a.name}</option>`).join("") || '<option value="">No active clients</option>';
+      $("ri-im-month").innerHTML = MONTHS.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+      $("ri-im-status").hidden = true; $("ri-im-json").value = "";
+      $("ri-import").hidden = false;
+    }
+    function closeImport() { $("ri-import").hidden = true; }
+    async function saveImport() {
+      const accountId = $("ri-im-account").value;
+      const platform = $("ri-im-platform").value.trim() || "Instagram";
+      const month = parseInt($("ri-im-month").value, 10);
+      const year = parseInt($("ri-im-year").value, 10);
+      const status = $("ri-im-status");
+      if (!accountId) { status.hidden = false; status.textContent = "Pick an account."; return; }
+      let data;
+      try { const parsed = JSON.parse($("ri-im-json").value); data = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed; }
+      catch (_) { status.hidden = false; status.textContent = "That doesn't look like valid JSON — paste the report Claude produced."; return; }
+      const btn = $("ri-im-save"); btn.disabled = true; btn.textContent = "Saving…";
+      const acc = accounts.find((a) => a.id === accountId) || {};
+      if (isDemo()) {
+        const id = "demo-" + Date.now();
+        reports = reports.filter((r) => !(r.accountId === accountId && r.month === month && r.year === year));
+        reports.push({ id, accountId, accountName: acc.name, accountColor: acc.color, platform, month, year, data });
+        closeImport(); renderCards(); btn.disabled = false; btn.textContent = "Save report"; return;
+      }
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/smm/report`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: accountId, platform, month, year, data }) });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.error || "Save failed");
+        closeImport(); await loadData(); renderCards();
+      } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't save — try again."; btn.disabled = false; btn.textContent = "Save report"; }
+    }
+
+    function wireStatic() {
+      $("ri-import-open").addEventListener("click", openImport);
+      $("ri-im-cancel").addEventListener("click", closeImport);
+      $("ri-im-save").addEventListener("click", saveImport);
+      $("ri-import").addEventListener("click", (e) => { if (e.target === $("ri-import")) closeImport(); });
+      $("ri-dt-close").addEventListener("click", closeDetail);
+      $("ri-detail").addEventListener("click", (e) => { if (e.target === $("ri-detail")) closeDetail(); });
+      $("ri-dt-tabs").querySelectorAll(".ri-tab").forEach((t) => t.addEventListener("click", () => {
+        curTab = t.getAttribute("data-tab");
+        $("ri-dt-tabs").querySelectorAll(".ri-tab").forEach((x) => x.classList.toggle("is-active", x === t));
+        renderBody();
+      }));
+      document.addEventListener("keydown", (e) => { if (e.key !== "Escape") return; if (!$("ri-import").hidden) closeImport(); else if (!$("ri-detail").hidden) closeDetail(); });
+    }
+
+    (async () => {
+      if (!import.meta.env.DEV) { const s = await requireAdmin(); if (!s) return; }
+      await loadData();
+      renderCards();
+      wireStatic();
+    })();
+  </script>
+</AdminShell>
