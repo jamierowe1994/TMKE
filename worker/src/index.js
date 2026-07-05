@@ -2623,6 +2623,59 @@ export default {
         return json({ ok: true, report: row }, 200, request, env);
       }
 
+      // ---- Admin: parse a SocialPilot PDF into report JSON (via Claude) ------
+      // So team members who don't use Claude can just upload the PDF here.
+      if (path.endsWith("/smm/report/parse") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const raw = String((b && b.pdf) || "");
+        const mm = /^data:application\/pdf;base64,(.+)$/i.exec(raw);
+        const b64 = mm ? mm[1] : raw;
+        if (!b64) return json({ error: "Missing PDF." }, 400, request, env);
+        const prompt =
+          "The attached PDF is a SocialPilot monthly social-media analytics report. Its charts are images — read the values visually. " +
+          "Extract the figures into ONE JSON object with this exact shape, and reply with ONLY that JSON (no prose, no markdown fences):\n" +
+          '{ "summary": string (1-2 sentence plain-English summary), ' +
+          '"profile": { "followers": number, "newFollowers": number, "reach": number, "reachChange": number (percent vs prior month), "views": number, "interactions": number, "interactionRate": number (percent), "linkTaps": number, "ukFollowers": number (optional) }, ' +
+          '"reach": { "reels": number, "posts": number, "stories": number, "ads": number (only if paid ran), "nonFollower": number, "follower": number, "organicReach": number (=reels+posts+stories when ads ran), "paidReach": number (only if ads ran) }, ' +
+          '"reels": { "published": number, "reach": number, "views": number, "interactions": number, "likes": number, "comments": number, "saves": number, "shares": number, "interactionRate": "x.x%" }, ' +
+          '"posts": { same fields as reels }, ' +
+          '"ads": { "reach": number, "views": number, "interactions": number, "clicks": number, "cpc": number (GBP), "spend": number (GBP), "impressions": number } (OMIT this whole object if there were no paid ads), ' +
+          '"topContent": [ { "title": string, "type": "Reel"|"Post"|"Ad"|"Story", "reach": number, "interactions": number } ], ' +
+          '"hashtags": [ { "name": "#tag", "reach": number, "interactions": number } ], ' +
+          '"peakTimes": { "slots": ["8am","10am","12pm","2pm","4pm","6pm","8pm"], "grid": seven rows (Mon..Sun), each a row of N cells matching slots, each cell 0-3 (0 low, 1 moderate, 2 good, 3 peak) }, ' +
+          '"timing": string, "bestDays": string, "morningWindow": string, "eveningWindow": string, ' +
+          '"demographics": { "gender": [ { "label": "Women"|"Men", "pct": number, "count": number } ], "topCities": [ { "city": string, "count": number } ], "topCountries": [ { "country": string, "count": number } ] }, ' +
+          '"priorities": [ { "type": "go"|"caution"|"action", "text": string } ] (go = do more, caution = improve, action = fix now — infer 2-4 sensible ones from the data), ' +
+          '"comingSoon": [ string ] (optional; omit if unknown) }\n' +
+          "Only include fields you can determine; omit anything not present (especially the ads object when there were no paid ads). Numbers must be plain (no commas or units) except cpc/spend which are numeric GBP amounts. Reply with ONLY the JSON object.";
+        let aiRes;
+        try {
+          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "pdfs-2024-09-25", "content-type": "application/json" },
+            body: JSON.stringify({
+              model: env.AI_MODEL || "claude-sonnet-4-6",
+              max_tokens: 4000,
+              messages: [{ role: "user", content: [
+                { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
+                { type: "text", text: prompt },
+              ] }],
+            }),
+          });
+        } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env); }
+        const dataRes = await aiRes.json();
+        const text = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+        let parsed;
+        try { const s = text.indexOf("{"), e = text.lastIndexOf("}"); parsed = JSON.parse(text.slice(s, e + 1)); }
+        catch (_) { return json({ error: "Couldn't read the AI output — try again, or paste the JSON manually.", raw: text.slice(0, 200) }, 502, request, env); }
+        const out = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed;
+        return json({ ok: true, data: out, usage: dataRes.usage || null }, 200, request, env);
+      }
+
       // ---- Admin: list reports (optionally for one account) ------------------
       if (path.endsWith("/smm/reports") && request.method === "GET") {
         const user = await getUser(request, env);
