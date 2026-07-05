@@ -3684,6 +3684,16 @@ const googleFonts = [
             return { ok: true, id: currentDesignId };
           } catch (_) { return { ok: false }; }
         };
+        // Re-open a saved design (?design=<id>): fetch the row + boot the editor onto it.
+        if (currentDesignId) {
+          let design = null;
+          try {
+            const { data: d } = await supabase.from('user_designs').select('*').eq('id', currentDesignId).eq('user_id', memberUid).single();
+            if (d) design = { id: d.id, name: d.name, canvas: d.canvas, elements: d.elements, pages: d.pages };
+          } catch (_) {}
+          if (typeof window.__TMKE_BOOT_DESIGN__ === 'function') window.__TMKE_BOOT_DESIGN__(design);
+          else window.__TMKE_DESIGN_BOOTSTRAP_DONE__ = design;
+        }
       }
     }
 
@@ -5150,10 +5160,10 @@ const googleFonts = [
         return;
       }
 
-      // Opening a specific design (?template=…) — e.g. clicking one of "Your
-      // designs" — skips the pack-picker onboarding and lands straight on the
-      // canvas with that design loaded (editor.js loads it behind the overlay).
-      if (new URLSearchParams(location.search).has("template")) {
+      // Opening a specific design (?template=… a pack template, or ?design=… a
+      // member's saved copy) — e.g. clicking one of "Your designs" — skips the
+      // pack-picker onboarding and lands straight on the canvas with it loaded.
+      if (new URLSearchParams(location.search).has("template") || new URLSearchParams(location.search).has("design")) {
         overlay.classList.add("is-gone");
         editor.classList.remove("is-onboarding");
         editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");

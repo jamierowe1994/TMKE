@@ -1690,6 +1690,29 @@
     fitZoom();
   }
 
+  // ---------- Load a member's saved design (their own copy) ----------
+  // Mirrors loadTemplate's restore branch but from a passed-in design object
+  // (from user_designs), so multi-page copies re-open correctly.
+  function loadDesignData(d) {
+    if (!d || !d.id) { loadBlank(); return; }
+    resetToSinglePage(d.canvas && d.canvas.background);
+    state.templateId = d.id;
+    if (d.pages && d.pages.length) { state.pages = d.pages; state.currentPage = 0; }
+    else { if (d.canvas) state.canvas = d.canvas; state.elements = d.elements || []; }
+    state.selectedIds = [];
+    state.selectedGuideId = null;
+    state.guides = [];
+    if (filenameEl) filenameEl.value = d.name || "My design";
+    state.history = [];
+    state.historyIndex = -1;
+    (state.pages || []).forEach((pg) => preloadFontsForElements(pg.elements));
+    if (!(d.pages && d.pages.length)) preloadFontsForElements(state.elements);
+    normalizeLegacySize();
+    pushHistory();
+    fullRender();
+    fitZoom();
+  }
+
   // ---------- Blank canvas ----------
   // A truly-empty starting point (the onboarding "Start with a blank canvas"
   // choice). A violet page with a "Start building here" hint — the hint is
@@ -7079,6 +7102,7 @@
   // template behind the onboarding overlay.
   const urlParams = new URLSearchParams(window.location.search);
   const explicitTpl = urlParams.get("template");
+  const explicitDesign = urlParams.get("design");
   const adminPending = urlParams.get("mode") === "admin";
 
   // Re-read the templates blob from the DOM and mutate TEMPLATES *in place* so
@@ -7148,6 +7172,15 @@
           else loadBlank();
         }
       }, 6000);
+    }
+  } else if (explicitDesign) {
+    // Customer re-opening their own saved design. editor.astro fetches the row
+    // and calls __TMKE_BOOT_DESIGN__ (or leaves a breadcrumb if it ran first).
+    window.__TMKE_BOOT_DESIGN__ = function (d) { loadDesignData(d); };
+    if (typeof window.__TMKE_DESIGN_BOOTSTRAP_DONE__ !== "undefined") {
+      window.__TMKE_BOOT_DESIGN__(window.__TMKE_DESIGN_BOOTSTRAP_DONE__);
+    } else {
+      setTimeout(function () { if (!state.templateId && !(state.elements && state.elements.length)) loadBlank(); }, 6000);
     }
   } else if (explicitTpl) {
     loadTemplate(explicitTpl, false);
