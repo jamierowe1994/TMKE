@@ -1,7 +1,6 @@
 ---
-import BaseLayout from "../../../layouts/BaseLayout.astro";
+import AdminShell from "../../../components/admin/AdminShell.astro";
 import "../../../styles/admin.css";
-import AdminBack from "../../../components/AdminBack.astro";
 import { EMAIL_CATALOG, EMAIL_GROUPS } from "../../../lib/email-catalog.js";
 
 const clientCount = EMAIL_CATALOG.filter((e) => e.audience === "client").length;
@@ -10,20 +9,9 @@ const searchText = (e) => [e.name, e.subject, e.trigger, e.summary, e.group, e.f
 const AUD_LABEL = { client: "To client", internal: "Internal" };
 ---
 
-<BaseLayout
-  title="Automated emails — Admin · TMKE"
-  description="Every automated email the platform sends — what it is, what triggers it, and where it goes."
-  hideNav
-  hideFooter
->
-  <header class="ae-hero wrap">
-    <div class="ae-eyebrow">Admin — Email</div>
-    <h1 class="ae-title">Automated <em>emails.</em></h1>
-    <p class="ae-lead">Every email the platform sends automatically — what fires it, who it goes to, and what it contains. Editing these is coming next; for now this is your single view of them all.</p>
-  </header>
-
-  <section class="admin-bar wrap">
-    <AdminBack />
+<AdminShell active="email" title="Automated emails">
+  <div class="ash-panel ash-page">
+  <section class="admin-bar">
     <div class="admin-bar-actions">
       <div class="enquiry-chips" role="tablist">
         <button type="button" class="enquiry-chip is-active" data-filter="all">All</button>
@@ -36,10 +24,10 @@ const AUD_LABEL = { client: "To client", internal: "Internal" };
     </div>
   </section>
 
-  <section class="ae-wrap wrap">
+  <section class="ae-wrap">
     <p class="ae-note">
-      These are hard-coded in the delivery Worker today — the summaries below are the single reference for what exists and what triggers each one.
-      <strong>Editing them in here is Phase 2.</strong>
+      Every automated email the platform sends — what fires it, who it goes to, and what it contains. These are hard-coded in the delivery Worker today;
+      <strong>editing them in here is Phase 2.</strong>
     </p>
     <p class="ae-empty" id="ae-empty" hidden>No emails match that search.</p>
 
@@ -81,17 +69,10 @@ const AUD_LABEL = { client: "To client", internal: "Internal" };
       );
     })}
   </section>
+  </div>
 
   <style is:global>
-    /* Clean, compact admin header — larger serif title + small left-aligned body,
-       following the site/member-hub heading format (not the big marketing hero). */
-    .ae-hero { max-width: 1100px; margin: 0 auto; padding: 96px 36px 20px; }
-    .ae-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 16px; }
-    .ae-title { font-family: var(--serif); font-weight: 400; font-size: clamp(32px, 4vw, 50px); line-height: 1.08; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 14px; }
-    .ae-title em { font-style: italic; color: var(--english-violet); }
-    .ae-lead { font-family: var(--sans); font-size: 15px; line-height: 1.65; color: rgba(28,29,34,0.6); max-width: 640px; margin: 0; }
-    @media (max-width: 720px) { .ae-hero { padding: 76px 24px 12px; } }
-    .admin-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; max-width: 1100px; margin: 0 auto; padding: 0 36px 16px; flex-wrap: wrap; }
+    .admin-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; max-width: 1100px; margin: 0 auto; padding: 30px 36px 12px; flex-wrap: wrap; }
     .admin-bar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .admin-search { padding: 8px 12px; border: 1px solid rgba(55, 30, 40, 0.3); border-radius: 2px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: var(--paper); min-width: 240px; }
     .admin-search:focus { outline: none; border-color: var(--english-violet); }
@@ -179,4 +160,4 @@ const AUD_LABEL = { client: "To client", internal: "Internal" };
     }));
     search.addEventListener("input", () => { q = (search.value || "").trim().toLowerCase(); apply(); });
   </script>
-</BaseLayout>
+</AdminShell>
