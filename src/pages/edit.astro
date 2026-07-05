@@ -386,13 +386,36 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .pcard { display: flex; flex-direction: column; opacity: 0; transform: translateY(28px);
       transition: opacity 0.9s cubic-bezier(.2,.7,.2,1), transform 0.9s cubic-bezier(.2,.7,.2,1); }
     .pcard.is-in { opacity: 1; transform: none; }
-    .pcard-media { display: block; overflow: hidden; border-radius: 2px; }
-    .pcard-img {
-      display: block; aspect-ratio: 3 / 4; border-radius: 2px;
-      background-color: var(--platinum); background-size: cover; background-position: center;
+    .pcard-media { position: relative; overflow: hidden; border-radius: 2px; }
+    .pcard-frames {
+      display: block; position: relative; aspect-ratio: 3 / 4; border-radius: 2px;
+      background-color: var(--platinum); overflow: hidden;
       transition: transform 0.7s cubic-bezier(.2,.7,.2,1);
     }
-    .pcard-media:hover .pcard-img { transform: scale(1.03); }
+    .pcard-media:hover .pcard-frames { transform: scale(1.03); }
+    .pcard-frame {
+      position: absolute; inset: 0; background-size: cover; background-position: center;
+      opacity: 0; transition: opacity 0.5s ease;
+    }
+    .pcard-frame.is-active { opacity: 1; }
+    /* Faint bottom vignette so the dots read on any template. */
+    .pcard-media::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 68px;
+      background: linear-gradient(0deg, rgba(15,13,18,0.32), rgba(15,13,18,0));
+      pointer-events: none; z-index: 1;
+    }
+    .pcard-dots {
+      position: absolute; left: 0; right: 0; bottom: 12px; z-index: 2;
+      display: flex; justify-content: center; align-items: center; gap: 7px;
+    }
+    .pcard-dot {
+      width: 7px; height: 7px; border-radius: 50%; padding: 0; cursor: pointer;
+      border: 1px solid rgba(244,242,241,0.9); background: rgba(28,29,34,0.28);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      transition: background 0.3s, transform 0.3s, border-color 0.3s;
+    }
+    .pcard-dot:hover { background: rgba(244,242,241,0.55); }
+    .pcard-dot.is-active { background: var(--paper); border-color: var(--paper); transform: scale(1.28); }
     .pcard-title {
       font-family: var(--sans); font-weight: 700; font-size: clamp(16px, 1.25vw, 21px);
       line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); margin: 20px 0 0;
@@ -1014,20 +1037,35 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     function renderShowcase(p, i) {
-      // Simple shop card (matches the draft): cover image, name, type, Pack Size,
-      // Discover. The full detail opens on click.
+      // Shop card: name, type, Pack Size, Discover — with the media area flicking
+      // through the pack's flagged preview templates (click the dots to change; no
+      // autoplay). The full detail opens on click of the image.
       const cover = (typeof p.cover_image_url === 'string' && p.cover_image_url) ? p.cover_image_url
         : ((p.templates && p.templates[0]) || (p.preview_images && p.preview_images[0]) || '');
+      // The six-or-so highlighted previews chosen when the pack was built.
+      let previews = (Array.isArray(p.preview_images) && p.preview_images.length)
+        ? p.preview_images.filter(Boolean)
+        : (Array.isArray(p.templates) && p.templates.length ? p.templates.slice(0, 6).filter(Boolean) : []);
+      if (!previews.length && cover) previews = [cover];
       const n = (p.packSize != null) ? p.packSize
         : (p.templateCount != null ? p.templateCount
         : ((p.templates && p.templates.length) || (p.contents && p.contents.length) || 0));
       const type = p.category ? `${escapeHtml(p.category)} Template Pack` : 'Template Pack';
       const href = `/edit/${encodeURIComponent(p.slug)}`;
+      const frames = previews.map((src, k) =>
+        `<span class="pcard-frame${k === 0 ? ' is-active' : ''}" style="background-image:url('${escapeHtml(src)}')"></span>`
+      ).join('');
+      const dots = previews.length > 1
+        ? `<div class="pcard-dots">${previews.map((_, k) =>
+            `<button type="button" class="pcard-dot${k === 0 ? ' is-active' : ''}" data-i="${k}" aria-label="Preview ${k + 1} of ${previews.length}"></button>`
+          ).join('')}</div>`
+        : '';
       return `
         <article class="pcard" data-id="${p.id}" data-slug="${escapeHtml(p.slug)}">
-          <a class="pcard-media" href="${href}" aria-label="Discover ${escapeHtml(p.title)}">
-            <span class="pcard-img" style="background-image:url('${escapeHtml(cover)}')"></span>
-          </a>
+          <div class="pcard-media">
+            <a class="pcard-frames" href="${href}" aria-label="Discover ${escapeHtml(p.title)}">${frames}</a>
+            ${dots}
+          </div>
           <h3 class="pcard-title">${escapeHtml(p.title)}</h3>
           <p class="pcard-type">${type}</p>
           <div class="pcard-actions">
@@ -1036,6 +1074,23 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </div>
         </article>
       `;
+    }
+
+    // Wire the preview dots: click a dot to swap the active frame (no autoplay).
+    function wirePreviews(root) {
+      root.querySelectorAll('.pcard-media').forEach((media) => {
+        const frames = [...media.querySelectorAll('.pcard-frame')];
+        const dots = [...media.querySelectorAll('.pcard-dot')];
+        if (dots.length < 2) return;
+        const show = (k) => {
+          frames.forEach((f, n) => f.classList.toggle('is-active', n === k));
+          dots.forEach((d, n) => d.classList.toggle('is-active', n === k));
+        };
+        dots.forEach((d) => d.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          show(+d.dataset.i);
+        }));
+      });
     }
 
     // Hovering a collage thumbnail flickers it into the framed hero, and the
@@ -1277,6 +1332,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       grid.innerHTML = packs.map((p, i) => renderShowcase(p, i)).join('');
       wireMotion(grid);
+      wirePreviews(grid);
       maybeOpenFromQuery();
 
       // Rotate the hero one pack at a time (copy + that pack's flashing grid).
