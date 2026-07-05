@@ -10,6 +10,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        left and the pack covers as a clickable reel on the right. No autoplay;
        click a cover (or a dot) to feature it. JS fills every slot (setupHero). -->
   <script is:inline>document.body.classList.add("edit-page");</script>
+  <style is:global>
+    /* Keep the fixed nav legible where it floats over the dark hero (top only —
+       once scrolled it takes its usual light bar back). */
+    body.edit-page .nav:not(.scrolled) { color: var(--paper); }
+    body.edit-page .nav:not(.scrolled) .nav-menu-btn-glyph span { background: var(--paper); }
+  </style>
   <header class="eh2" id="edit-hero2" aria-label="The Edit — featured packs">
     <div class="eh2-inner">
       <div class="eh2-feature" id="eh2-feature">
@@ -193,23 +199,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     .eh2 {
       position: relative; z-index: 1;
-      margin: clamp(14px, 1.5vw, 20px);
-      height: calc(100svh - clamp(28px, 3vw, 40px));
-      min-height: 560px;
-      border: 1px solid #17151b;
-      border-radius: 12px;
+      margin: 0;
+      height: 100svh; min-height: 560px;
       overflow: hidden; isolation: isolate;
-      /* The single fixed brand backdrop (a light, editorial scene) — no dark tint. */
-      background: #efece9 url("https://assets.tmke.co.uk/Untitled%20design%20-%202026-07-05T130222.393.png") center / cover no-repeat;
-      color: var(--ink);
+      /* Full-bleed fixed brand backdrop (a darker, editorial scene). */
+      background: #17151b url("https://assets.tmke.co.uk/Untitled%20design%20-%202026-07-05T133629.509.png") center / cover no-repeat;
+      color: var(--paper);
       font-family: var(--sans);
-      box-shadow: 0 40px 90px -50px rgba(0,0,0,0.5);
     }
-    /* A soft PAPER lift on the left so the dark copy always reads over the busy
-       moodboard — brightens rather than tints (fades out well before centre). */
+    /* A dark fade rising from the bottom for drama (+ a light-copy lift on the
+       left so the headline always reads over the scene). */
     .eh2::after {
       content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-      background: linear-gradient(90deg, rgba(239,236,233,0.86) 0%, rgba(239,236,233,0.55) 24%, rgba(239,236,233,0) 50%);
+      background:
+        linear-gradient(0deg, rgba(15,13,18,0.78) 0%, rgba(15,13,18,0.28) 20%, rgba(15,13,18,0) 40%),
+        linear-gradient(90deg, rgba(15,13,18,0.5) 0%, rgba(15,13,18,0.18) 30%, rgba(15,13,18,0) 54%);
     }
 
     .eh2-inner {
@@ -225,17 +229,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .eh2-feature.is-swap { opacity: 0; transform: translateY(14px); }
     .eh2-cat {
       margin: 0 0 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.28em;
-      text-transform: uppercase; color: var(--english-violet);
+      text-transform: uppercase; color: #d9b8c4;   /* soft wine tint on dark */
     }
     .eh2-title {
       margin: 0; font-weight: 700; font-size: clamp(34px, 4.6vw, 62px);
-      line-height: 1.02; letter-spacing: -0.022em; color: var(--ink);
-      text-shadow: 0 1px 22px rgba(239,236,233,0.85);
+      line-height: 1.02; letter-spacing: -0.022em; color: var(--paper);
+      text-shadow: 0 2px 30px rgba(0,0,0,0.5);
     }
     .eh2-bio {
       margin: 20px 0 0; max-width: 46ch;
       font-size: clamp(14px, 1.05vw, 16px); line-height: 1.68;
-      color: rgba(28,29,34,0.74); text-shadow: 0 1px 14px rgba(239,236,233,0.9);
+      color: rgba(244,242,241,0.84); text-shadow: 0 1px 18px rgba(0,0,0,0.5);
     }
     .eh2-more {
       display: inline-flex; align-items: center; gap: 10px; margin-top: clamp(24px, 3vw, 34px);
@@ -272,8 +276,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .eh2-tile:hover { opacity: 0.9; }
     .eh2-tile.is-active {
       height: clamp(250px, 42vh, 360px); opacity: 1; filter: none;
-      outline-color: var(--english-violet);
-      box-shadow: 0 26px 60px rgba(0,0,0,0.4);
+      outline-color: var(--paper);
+      box-shadow: 0 26px 60px rgba(0,0,0,0.55);
     }
     .eh2-tile::after {
       content: ""; position: absolute; inset: 0; border-radius: 8px;
@@ -299,16 +303,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .eh2-dots { display: flex; align-items: center; gap: 11px; }
     .eh2-dot {
       width: 9px; height: 9px; border-radius: 50%; padding: 0; cursor: pointer;
-      border: 1px solid rgba(28,29,34,0.5); background: rgba(239,236,233,0.5);
-      box-shadow: 0 1px 6px rgba(239,236,233,0.6);
+      border: 1px solid rgba(244,242,241,0.6); background: transparent;
       transition: background 0.3s, border-color 0.3s, transform 0.3s;
     }
-    .eh2-dot:hover { background: rgba(28,29,34,0.35); }
-    .eh2-dot.is-active { background: var(--ink); border-color: var(--ink); transform: scale(1.2); }
+    .eh2-dot:hover { background: rgba(244,242,241,0.4); }
+    .eh2-dot.is-active { background: var(--paper); border-color: var(--paper); transform: scale(1.2); }
 
     /* ---- Mobile: stack the feature over the reel; simpler controls ---- */
     @media (max-width: 880px) {
-      .eh2 { height: auto; min-height: calc(100svh - 28px); }
+      .eh2 { height: auto; min-height: 100svh; }
       .eh2-inner {
         position: relative; grid-template-columns: 1fr;
         align-content: center; gap: 26px;
