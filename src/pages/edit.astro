@@ -6,21 +6,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   title="The Edit — Template Shop · TMKE"
   description="A curated shop of social media templates designed specifically for the UK property sector. On-brand, easy to customise, ready to post."
 >
-  <!-- Hero — a cinematic "featured pack" reel: the selected pack fills the
-       screen (cover behind, copy on the left) and the covers sit as a clickable
-       carousel on the right. Autoplays; click a cover to feature it. JS fills
-       every slot from the live packs (setupHero). -->
+  <!-- Hero — a fixed brand backdrop with the featured pack's copy inset on the
+       left and the pack covers as a clickable reel on the right. No autoplay;
+       click a cover (or a dot) to feature it. JS fills every slot (setupHero). -->
   <script is:inline>document.body.classList.add("edit-page");</script>
-  <style is:global>
-    /* Keep the fixed nav legible where it floats over the dark hero (top only —
-       once scrolled it takes its usual light bar back). */
-    body.edit-page .nav:not(.scrolled) { color: var(--paper); }
-    body.edit-page .nav:not(.scrolled) .nav-menu-btn-glyph span { background: var(--paper); }
-  </style>
   <header class="eh2" id="edit-hero2" aria-label="The Edit — featured packs">
-    <div class="eh2-bgs" id="eh2-bgs" aria-hidden="true"></div>
-    <div class="eh2-scrim" aria-hidden="true"></div>
-
     <div class="eh2-inner">
       <div class="eh2-feature" id="eh2-feature">
         <p class="eh2-cat" id="eh2-cat">The Edit</p>
@@ -33,19 +23,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </div>
 
     <div class="eh2-controls">
-      <div class="eh2-btns">
-        <button type="button" class="eh2-ctrl" id="eh2-play" aria-label="Pause">
-          <svg class="eh2-ic eh2-ic-pause" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-          <svg class="eh2-ic eh2-ic-play" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-        <button type="button" class="eh2-ctrl" id="eh2-next" aria-label="Next pack">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </button>
-      </div>
-      <div class="eh2-meter">
-        <div class="eh2-track"><span class="eh2-fill" id="eh2-fill"></span></div>
-        <div class="eh2-dots" id="eh2-dots" aria-hidden="true"></div>
-      </div>
+      <div class="eh2-dots" id="eh2-dots" aria-label="Choose a pack"></div>
     </div>
   </header>
 
@@ -209,9 +187,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        and would otherwise reset padding-top to 0. */
     .page-hero.wrap { padding-top: 200px; }
 
-    /* ===== The Edit — cinematic "featured pack" hero =====
-       A full-screen bordered stage: the selected pack's cover fills it, its copy
-       sits on the left, and the covers form a clickable reel on the right. ===== */
+    /* ===== The Edit — featured-pack hero =====
+       A fixed brand backdrop; the featured pack's copy is inset on the left and
+       the pack covers sit as a clickable reel on the right. ===== */
 
     .eh2 {
       position: relative; z-index: 1;
@@ -221,33 +199,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       border: 1px solid #17151b;
       border-radius: 12px;
       overflow: hidden; isolation: isolate;
-      background: #17151b;
-      color: var(--paper);
+      /* The single fixed brand backdrop (a light, editorial scene) — no dark tint. */
+      background: #efece9 url("https://assets.tmke.co.uk/Untitled%20design%20-%202026-07-05T130222.393.png") center / cover no-repeat;
+      color: var(--ink);
       font-family: var(--sans);
-      box-shadow: 0 40px 90px -50px rgba(0,0,0,0.7);
+      box-shadow: 0 40px 90px -50px rgba(0,0,0,0.5);
     }
-
-    /* Cross-fading cover backgrounds (one layer per pack) with a slow zoom. */
-    .eh2-bgs { position: absolute; inset: 0; z-index: 0; }
-    .eh2-bg {
-      position: absolute; inset: 0; background-size: cover; background-position: center;
-      opacity: 0; transform: scale(1.07);
-      transition: opacity 1s ease, transform 8s ease;
-    }
-    .eh2-bg.is-on { opacity: 1; transform: scale(1); }
-    /* Darken for legibility — heavier at the left + bottom where the copy sits. */
-    .eh2-scrim {
-      position: absolute; inset: 0; z-index: 1; pointer-events: none;
-      background:
-        linear-gradient(90deg, rgba(15,13,18,0.9) 0%, rgba(15,13,18,0.62) 32%, rgba(15,13,18,0.12) 60%, rgba(15,13,18,0.5) 100%),
-        linear-gradient(0deg, rgba(15,13,18,0.9) 0%, rgba(15,13,18,0.18) 42%, rgba(15,13,18,0.28) 100%);
+    /* A soft PAPER lift on the left so the dark copy always reads over the busy
+       moodboard — brightens rather than tints (fades out well before centre). */
+    .eh2::after {
+      content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(90deg, rgba(239,236,233,0.86) 0%, rgba(239,236,233,0.55) 24%, rgba(239,236,233,0) 50%);
     }
 
     .eh2-inner {
       position: absolute; inset: 0; z-index: 2;
       display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
       align-items: center; gap: clamp(24px, 4vw, 60px);
-      padding: clamp(102px, 13vh, 138px) clamp(26px, 4vw, 60px) clamp(104px, 13vh, 128px);
+      /* Extra left inset so the copy sits in from the edge, not hard against it. */
+      padding: clamp(102px, 13vh, 138px) clamp(26px, 4vw, 60px) clamp(104px, 13vh, 128px) clamp(56px, 8vw, 150px);
     }
 
     /* ---- Featured copy (left) ---- */
@@ -255,17 +225,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .eh2-feature.is-swap { opacity: 0; transform: translateY(14px); }
     .eh2-cat {
       margin: 0 0 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.28em;
-      text-transform: uppercase; color: #d9b8c4;   /* soft wine tint on dark */
+      text-transform: uppercase; color: var(--english-violet);
     }
     .eh2-title {
       margin: 0; font-weight: 700; font-size: clamp(34px, 4.6vw, 62px);
-      line-height: 1.02; letter-spacing: -0.022em; color: var(--paper);
-      text-shadow: 0 2px 30px rgba(0,0,0,0.45);
+      line-height: 1.02; letter-spacing: -0.022em; color: var(--ink);
+      text-shadow: 0 1px 22px rgba(239,236,233,0.85);
     }
     .eh2-bio {
       margin: 20px 0 0; max-width: 46ch;
       font-size: clamp(14px, 1.05vw, 16px); line-height: 1.68;
-      color: rgba(244,242,241,0.82); text-shadow: 0 1px 18px rgba(0,0,0,0.4);
+      color: rgba(28,29,34,0.74); text-shadow: 0 1px 14px rgba(239,236,233,0.9);
     }
     .eh2-more {
       display: inline-flex; align-items: center; gap: 10px; margin-top: clamp(24px, 3vw, 34px);
@@ -302,8 +272,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .eh2-tile:hover { opacity: 0.9; }
     .eh2-tile.is-active {
       height: clamp(250px, 42vh, 360px); opacity: 1; filter: none;
-      outline-color: var(--paper);
-      box-shadow: 0 26px 60px rgba(0,0,0,0.55);
+      outline-color: var(--english-violet);
+      box-shadow: 0 26px 60px rgba(0,0,0,0.4);
     }
     .eh2-tile::after {
       content: ""; position: absolute; inset: 0; border-radius: 8px;
@@ -320,35 +290,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
     .eh2-tile.is-active .eh2-tile-cap { opacity: 1; transform: none; }
 
-    /* ---- Controls (bottom): play / next + progress + dots ---- */
+    /* ---- Controls (bottom): dots only — click a dot (or a cover) to switch ---- */
     .eh2-controls {
-      position: absolute; z-index: 3; left: clamp(24px, 4vw, 56px); right: clamp(24px, 4vw, 56px);
-      bottom: clamp(24px, 4vh, 40px);
-      display: flex; align-items: center; gap: clamp(16px, 2vw, 26px);
+      position: absolute; z-index: 3; left: 0; right: 0;
+      bottom: clamp(22px, 3.6vh, 38px);
+      display: flex; justify-content: center;
     }
-    .eh2-btns { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
-    .eh2-ctrl {
-      width: 52px; height: 52px; border-radius: 50%; cursor: pointer;
-      display: inline-flex; align-items: center; justify-content: center;
-      color: var(--paper); background: rgba(244,242,241,0.1);
-      border: 1px solid rgba(244,242,241,0.28);
-      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-      transition: background 0.25s, border-color 0.25s, transform 0.25s;
-    }
-    .eh2-ctrl:hover { background: rgba(244,242,241,0.2); transform: scale(1.05); }
-    .eh2-ctrl .eh2-ic-play { display: none; margin-left: 2px; }
-    .eh2-ctrl.is-paused .eh2-ic-pause { display: none; }
-    .eh2-ctrl.is-paused .eh2-ic-play { display: block; }
-    .eh2-meter { flex: 1 1 auto; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-    .eh2-track { position: relative; height: 3px; border-radius: 999px; background: rgba(244,242,241,0.22); overflow: hidden; }
-    .eh2-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--english-violet); border-radius: 999px; }
-    .eh2-dots { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .eh2-dots { display: flex; align-items: center; gap: 11px; }
     .eh2-dot {
-      width: 8px; height: 8px; border-radius: 50%; padding: 0; cursor: pointer;
-      border: 1px solid rgba(244,242,241,0.45); background: transparent;
+      width: 9px; height: 9px; border-radius: 50%; padding: 0; cursor: pointer;
+      border: 1px solid rgba(28,29,34,0.5); background: rgba(239,236,233,0.5);
+      box-shadow: 0 1px 6px rgba(239,236,233,0.6);
       transition: background 0.3s, border-color 0.3s, transform 0.3s;
     }
-    .eh2-dot.is-active { background: var(--paper); border-color: var(--paper); transform: scale(1.15); }
+    .eh2-dot:hover { background: rgba(28,29,34,0.35); }
+    .eh2-dot.is-active { background: var(--ink); border-color: var(--ink); transform: scale(1.2); }
 
     /* ---- Mobile: stack the feature over the reel; simpler controls ---- */
     @media (max-width: 880px) {
@@ -364,7 +320,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       .eh2-tile.is-active { height: clamp(180px, 32vh, 250px); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .eh2-bg, .eh2-tile, .eh2-feature { transition: opacity 0.2s ease; }
+      .eh2-tile, .eh2-feature { transition: opacity 0.2s ease; }
     }
     /* ====== STRIPPED — studio demo moved to the homepage Chapter 5 ====== */
 
@@ -1134,10 +1090,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
     }
 
-    // ===== Hero — one screen per pack, auto-rotating =======================
-    // The header shows ONE pack at a time: copy on the left, a 4×3 grid of THAT
-    // pack's templates on the right. Tiles flash IN then OUT in small groups
-    // (1-3 at a time); every few seconds the hero cross-fades to the next pack.
+    // ===== Hero — fixed backdrop, click a cover/dot to feature a pack ========
+    // No autoplay: the featured copy (left) reflects whichever cover is active
+    // in the reel (right). Clicking a cover or a dot switches the feature.
     function setupHero(packs) {
       const hero = document.getElementById('edit-hero2');
       if (!hero) return;
@@ -1145,7 +1100,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const list = (packs || []).filter((p) => p && cover(p));
       if (!list.length) { hero.style.display = 'none'; return; }
 
-      const bgsEl = document.getElementById('eh2-bgs');
       const reelEl = document.getElementById('eh2-reel');
       const dotsEl = document.getElementById('eh2-dots');
       const featEl = document.getElementById('eh2-feature');
@@ -1153,14 +1107,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const titleEl = document.getElementById('eh2-title');
       const bioEl = document.getElementById('eh2-bio');
       const moreEl = document.getElementById('eh2-more');
-      const fillEl = document.getElementById('eh2-fill');
-      const playBtn = document.getElementById('eh2-play');
-      const nextBtn = document.getElementById('eh2-next');
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      // Build the layers: one cover background + one reel tile + one dot per pack.
-      bgsEl.innerHTML = list.map((p, i) => `<div class="eh2-bg${i === 0 ? ' is-on' : ''}" style="background-image:url('${cover(p)}')"></div>`).join('');
-      const bgs = [...bgsEl.children];
+      // One reel tile + one dot per pack.
       reelEl.innerHTML = list.map((p, i) =>
         `<button type="button" class="eh2-tile${i === 0 ? ' is-active' : ''}" role="tab" aria-selected="${i === 0}" data-i="${i}" style="background-image:url('${cover(p)}')"><span class="eh2-tile-cap">${escapeHtml(p.title || '')}</span></button>`
       ).join('');
@@ -1169,10 +1117,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const dots = [...dotsEl.children];
       list.forEach((p) => { const im = new Image(); im.src = cover(p); });   // preload
 
-      const ROT = 7000;
-      let idx = 0, playing = !reduce && list.length > 1, raf = 0, startedAt = 0, elapsed = 0;
-
-      function fill(i) {
+      let idx = 0;
+      function go(i) {
+        i = ((i % list.length) + list.length) % list.length;
+        if (i === idx && titleEl.textContent) { /* still refresh visuals below */ }
+        idx = i;
         const p = list[i];
         featEl.classList.add('is-swap');
         setTimeout(() => {
@@ -1181,53 +1130,24 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           bioEl.textContent = p.description || '';
           if (p.slug) moreEl.href = `/edit/${encodeURIComponent(p.slug)}`;
           featEl.classList.remove('is-swap');
-        }, 240);
-        bgs.forEach((b, n) => b.classList.toggle('is-on', n === i));
+        }, 220);
         tiles.forEach((t, n) => { t.classList.toggle('is-active', n === i); t.setAttribute('aria-selected', n === i); });
         dots.forEach((d, n) => d.classList.toggle('is-active', n === i));
         const t = tiles[i];
         if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
-      function go(i) {
-        idx = ((i % list.length) + list.length) % list.length;
-        fill(idx);
-        elapsed = 0; startedAt = performance.now();
-        if (fillEl) fillEl.style.width = '0%';
-      }
 
-      function frame(now) {
-        if (playing && list.length > 1) {
-          elapsed = now - startedAt;
-          const pct = Math.min(1, elapsed / ROT);
-          if (fillEl) fillEl.style.width = (pct * 100).toFixed(2) + '%';
-          if (pct >= 1) go(idx + 1);
-        }
-        raf = requestAnimationFrame(frame);
-      }
-
-      // Interactions — click a cover or dot to feature it; next/prev + pause.
+      // Click a cover or a dot to feature it.
       reelEl.addEventListener('click', (e) => { const b = e.target.closest('.eh2-tile'); if (b) go(+b.dataset.i); });
       dotsEl.addEventListener('click', (e) => { const b = e.target.closest('.eh2-dot'); if (b) go(+b.dataset.i); });
-      if (nextBtn) nextBtn.addEventListener('click', () => go(idx + 1));
-      if (playBtn) playBtn.addEventListener('click', () => {
-        playing = !playing;
-        playBtn.classList.toggle('is-paused', !playing);
-        playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
-        if (playing) startedAt = performance.now() - elapsed;
-      });
 
-      // Init.
+      // Init — fill the feature from the first pack (no fade on load).
       catEl.textContent = list[0].category || 'The Edit';
       titleEl.textContent = list[0].title || '';
       bioEl.textContent = list[0].description || '';
       if (list[0].slug) moreEl.href = `/edit/${encodeURIComponent(list[0].slug)}`;
 
-      const controls = hero.querySelector('.eh2-controls');
-      if (list.length <= 1) { if (controls) controls.style.display = 'none'; return; }
-      if (reduce) { if (playBtn) { playBtn.classList.add('is-paused'); playBtn.setAttribute('aria-label', 'Play'); } if (fillEl) fillEl.style.width = '0%'; }
-
-      startedAt = performance.now();
-      raf = requestAnimationFrame(frame);
+      if (list.length <= 1) { const controls = hero.querySelector('.eh2-controls'); if (controls) controls.style.display = 'none'; }
     }
 
     let packsById = new Map();
