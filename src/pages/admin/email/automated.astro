@@ -1,0 +1,163 @@
+---
+import AdminShell from "../../../components/admin/AdminShell.astro";
+import "../../../styles/admin.css";
+import { EMAIL_CATALOG, EMAIL_GROUPS } from "../../../lib/email-catalog.js";
+
+const clientCount = EMAIL_CATALOG.filter((e) => e.audience === "client").length;
+const internalCount = EMAIL_CATALOG.filter((e) => e.audience === "internal").length;
+const searchText = (e) => [e.name, e.subject, e.trigger, e.summary, e.group, e.fires, e.to].filter(Boolean).join(" ").toLowerCase();
+const AUD_LABEL = { client: "To client", internal: "Internal" };
+---
+
+<AdminShell active="email" title="Automated emails">
+  <div class="ash-panel ash-page">
+  <section class="admin-bar">
+    <div class="admin-bar-actions">
+      <div class="enquiry-chips" role="tablist">
+        <button type="button" class="enquiry-chip is-active" data-filter="all">All</button>
+        <button type="button" class="enquiry-chip" data-filter="client">To clients</button>
+        <button type="button" class="enquiry-chip" data-filter="internal">Internal alerts</button>
+      </div>
+      <input type="search" id="ae-search" class="admin-search" placeholder="Search name, subject, trigger…" />
+      <span class="admin-bar-count" id="ae-count">{EMAIL_CATALOG.length} emails</span>
+      <a href="/admin/email" class="admin-btn admin-btn-ghost">Email studio →</a>
+    </div>
+  </section>
+
+  <section class="ae-wrap">
+    <p class="ae-note">
+      Every automated email the platform sends — what fires it, who it goes to, and what it contains. These are hard-coded in the delivery Worker today;
+      <strong>editing them in here is Phase 2.</strong>
+    </p>
+    <p class="ae-empty" id="ae-empty" hidden>No emails match that search.</p>
+
+    {EMAIL_GROUPS.map((group) => {
+      const items = EMAIL_CATALOG.filter((e) => e.group === group);
+      if (!items.length) return null;
+      return (
+        <div class="ae-group" data-group={group}>
+          <h2 class="ae-group-h">{group}</h2>
+          {items.map((e) => (
+            <div class="ae-item" data-audience={e.audience} data-text={searchText(e)}>
+              <button type="button" class="ae-head" aria-expanded="false">
+                <span class="ae-head-main">
+                  <span class="ae-name">{e.name}</span>
+                  <span class="ae-subject">{e.subject}</span>
+                </span>
+                <span class:list={["ae-badge", `is-${e.audience}`]}>{AUD_LABEL[e.audience] || e.audience}</span>
+                <svg class="ae-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="ae-body" hidden>
+                <div class="ae-grid">
+                  <div class="ae-field"><span class="ae-k">Triggered by</span><span class="ae-v">{e.trigger}</span></div>
+                  <div class="ae-field"><span class="ae-k">Fires on</span><code class="ae-code">{e.fires}</code></div>
+                  <div class="ae-field"><span class="ae-k">Sent to</span><span class="ae-v">{e.to}</span></div>
+                  <div class="ae-field"><span class="ae-k">From</span><span class="ae-v">{e.sender}</span></div>
+                  <div class="ae-field"><span class="ae-k">Subject</span><span class="ae-v">{e.subject}</span></div>
+                  {e.attachments && <div class="ae-field"><span class="ae-k">Attaches</span><span class="ae-v">{e.attachments}</span></div>}
+                </div>
+                <p class="ae-summary">{e.summary}</p>
+                {e.fields && e.fields.length && (
+                  <div class="ae-fields"><span class="ae-k">Merge fields</span>{e.fields.map((f) => <code class="ae-tag">{"{{" + f + "}}"}</code>)}</div>
+                )}
+                {e.editableToday && <p class="ae-flag is-good">✓ Already editable today — this one is an Email Studio template.</p>}
+                {e.external && <p class="ae-flag">↗ Managed outside the Worker (Supabase dashboard).</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    })}
+  </section>
+  </div>
+
+  <style is:global>
+    .admin-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; max-width: 1100px; margin: 0 auto; padding: 30px 36px 12px; flex-wrap: wrap; }
+    .admin-bar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .admin-search { padding: 8px 12px; border: 1px solid rgba(55, 30, 40, 0.3); border-radius: 2px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: var(--paper); min-width: 240px; }
+    .admin-search:focus { outline: none; border-color: var(--english-violet); }
+    .admin-bar-count { font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.5); white-space: nowrap; }
+    .enquiry-chips { display: inline-flex; gap: 4px; align-items: center; }
+    .enquiry-chip { background: transparent; border: 1px solid rgba(28,29,34,0.18); padding: 7px 13px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.65); cursor: pointer; border-radius: 999px; transition: background .25s, color .25s, border-color .25s; }
+    .enquiry-chip:hover { color: var(--ink); }
+    .enquiry-chip.is-active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .admin-btn { padding: 9px 16px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; border: 1px solid transparent; border-radius: 2px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+    .admin-btn-ghost { background: transparent; border-color: rgba(28,29,34,0.2); color: rgba(28,29,34,0.7); }
+    .admin-btn-ghost:hover { border-color: var(--english-violet); color: var(--english-violet); }
+
+    .ae-wrap { max-width: 1100px; margin: 24px auto 200px; padding: 0 36px; }
+    .ae-note { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.6); background: rgba(55,30,40,0.05); border: 1px solid rgba(55,30,40,0.1); border-radius: 8px; padding: 12px 16px; margin: 0 0 28px; }
+    .ae-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 24px 0; }
+    .ae-group { margin-bottom: 34px; }
+    .ae-group[hidden] { display: none; }
+    .ae-group-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 12px; }
+    .ae-item { border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; margin-bottom: 8px; background: #fff; overflow: hidden; }
+    .ae-item[hidden] { display: none; }
+    .ae-head { width: 100%; display: flex; align-items: center; gap: 14px; padding: 15px 18px; background: none; border: 0; cursor: pointer; text-align: left; }
+    .ae-head:hover { background: rgba(55,30,40,0.03); }
+    .ae-head-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .ae-name { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--ink); }
+    .ae-subject { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ae-badge { flex: none; font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+    .ae-badge.is-client { background: rgba(47,158,94,0.13); color: #2c7a4b; }
+    .ae-badge.is-internal { background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.6); }
+    .ae-chev { width: 17px; height: 17px; flex: none; color: rgba(28,29,34,0.4); transition: transform .2s; }
+    .ae-head[aria-expanded="true"] .ae-chev { transform: rotate(180deg); }
+    .ae-body { padding: 4px 18px 20px; border-top: 1px solid rgba(28,29,34,0.07); }
+    .ae-body[hidden] { display: none; }
+    .ae-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin: 16px 0 4px; }
+    @media (max-width: 640px) { .ae-grid { grid-template-columns: 1fr; } }
+    .ae-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .ae-k { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.42); }
+    .ae-v { font-family: var(--sans); font-size: 13.5px; color: var(--ink); line-height: 1.4; }
+    .ae-code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: var(--english-violet); background: rgba(55,30,40,0.07); padding: 2px 7px; border-radius: 5px; align-self: flex-start; }
+    .ae-summary { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.75); margin: 14px 0 0; }
+    .ae-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 14px; }
+    .ae-tag { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; color: rgba(28,29,34,0.6); background: rgba(28,29,34,0.05); padding: 2px 8px; border-radius: 5px; }
+    .ae-flag { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 14px 0 0; }
+    .ae-flag.is-good { color: #2c7a4b; }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    if (!import.meta.env.DEV) { requireAdmin("/admin/login"); }
+
+    const items = [...document.querySelectorAll(".ae-item")];
+    const groups = [...document.querySelectorAll(".ae-group")];
+    const count = document.getElementById("ae-count");
+    const empty = document.getElementById("ae-empty");
+    const search = document.getElementById("ae-search");
+    const chips = [...document.querySelectorAll(".enquiry-chip")];
+    let filter = "all", q = "";
+
+    // Expand / collapse
+    items.forEach((it) => {
+      const head = it.querySelector(".ae-head"), body = it.querySelector(".ae-body");
+      head.addEventListener("click", () => {
+        const open = head.getAttribute("aria-expanded") === "true";
+        head.setAttribute("aria-expanded", open ? "false" : "true");
+        body.hidden = open;
+      });
+    });
+
+    function apply() {
+      let shown = 0;
+      items.forEach((it) => {
+        const okAud = filter === "all" || it.getAttribute("data-audience") === filter;
+        const okQ = !q || (it.getAttribute("data-text") || "").includes(q);
+        const vis = okAud && okQ;
+        it.hidden = !vis;
+        if (vis) shown++;
+      });
+      groups.forEach((g) => { g.hidden = ![...g.querySelectorAll(".ae-item")].some((i) => !i.hidden); });
+      empty.hidden = shown > 0;
+      count.textContent = shown === items.length ? `${items.length} emails` : `${shown} of ${items.length}`;
+    }
+    chips.forEach((c) => c.addEventListener("click", () => {
+      chips.forEach((b) => b.classList.remove("is-active"));
+      c.classList.add("is-active");
+      filter = c.getAttribute("data-filter"); apply();
+    }));
+    search.addEventListener("input", () => { q = (search.value || "").trim().toLowerCase(); apply(); });
+  </script>
+</AdminShell>
