@@ -2625,7 +2625,10 @@ export default {
         const id = (url.searchParams.get("booking_id") || "").trim();
         if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
         const messages = (await sbGet(env, "booking_messages", `booking_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.asc`)) || [];
-        const documents = (await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,invoice_date,paid_date,created_at&order=created_at.asc`)) || [];
+        // Full select includes the invoice date columns; fall back to the base
+        // columns if they haven't been added yet (so documents still load).
+        let documents = await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,invoice_date,paid_date,created_at&order=created_at.asc`);
+        if (documents == null) documents = (await sbGet(env, "booking_documents", `booking_id=eq.${encodeURIComponent(id)}&select=id,category,title,file_name,size_bytes,content_type,created_at&order=created_at.asc`)) || [];
         return json({ messages, documents }, 200, request, env);
       }
 
@@ -2648,16 +2651,26 @@ export default {
         const key = `booking-docs/${idSafe}/${Date.now()}-${fileName}`;
         const body = await request.arrayBuffer();
         await env.BUCKET.put(key, body, { httpMetadata: { contentType } });
-        let row = null;
+        // Only reference invoice_date when it's set, so ordinary uploads still
+        // work even if that column hasn't been added yet.
+        const docRow = {
+          booking_id: bookingId, booking_source: source, account_user_id: bk.account_user_id, client_email: bk.email,
+          category, title, file_name: fileName, r2_key: key, content_type: contentType, size_bytes: body.byteLength,
+          uploaded_by: user.email || "admin",
+        };
+        if (invoiceDate) docRow.invoice_date = invoiceDate;
+        let row = null, insErr = null;
         try {
-          const ins = await sbPost(env, "booking_documents", {
-            booking_id: bookingId, booking_source: source, account_user_id: bk.account_user_id, client_email: bk.email,
-            category, title, file_name: fileName, r2_key: key, content_type: contentType, size_bytes: body.byteLength,
-            invoice_date: invoiceDate, uploaded_by: user.email || "admin",
-          }, "return=representation");
-          const arr = await ins.json();
-          row = Array.isArray(arr) && arr[0] ? arr[0] : null;
-        } catch (_) {}
+          const ins = await sbPost(env, "booking_documents", docRow, "return=representation");
+          if (!ins.ok) insErr = (await ins.text().catch(() => "")) || `insert ${ins.status}`;
+          else { const arr = await ins.json(); row = Array.isArray(arr) && arr[0] ? arr[0] : null; }
+        } catch (e) { insErr = (e && e.message) || "insert failed"; }
+        if (!row) {
+          // Don't leave an orphaned R2 object when the DB row didn't save.
+          try { await env.BUCKET.delete(key); } catch (_) {}
+          console.error("booking_document insert failed", insErr);
+          return json({ error: "Couldn't save the record. If this is an invoice, re-run smm_crm.sql (adds invoice_date / paid_date).", detail: insErr }, 502, request, env);
+        }
         return json({ ok: true, document: row }, 200, request, env);
       }
 
