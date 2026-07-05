@@ -254,6 +254,7 @@ async function logBookingMessage(env, m) {
       body: m.body || null,
       is_automated: m.is_automated !== false,
       created_by: m.created_by || "system",
+      external_id: m.external_id || null,
     });
   } catch (_) {}
 }
@@ -830,6 +831,54 @@ async function runSetupReminders(env) {
   } catch (_) { /* best-effort; the next tick retries any newly-eligible orders */ }
 }
 
+// ---- Inbound email capture (Phase 4) -----------------------------------
+// Polls the SMM manager's mailbox on the frequent cron and logs client replies
+// into the correspondence thread as inbound emails, matched to the lead by
+// sender address. Best-effort: needs the Mail.Read application permission on the
+// Graph app (admin-consented); without it the Graph read 403s and we skip.
+async function pollSmmInbox(env) {
+  const mailbox = env.SMM_MAIL_SENDER || env.MAIL_SENDER;
+  if (!mailbox) return { ok: false, error: "No mailbox configured (SMM_MAIL_SENDER / MAIL_SENDER)." };
+  // Look back a generous window and dedup by the Graph message id, so a message
+  // is never logged twice however often the cron runs.
+  const sinceIso = new Date(Date.now() - 2 * 3600000).toISOString();
+  let messages = [];
+  try {
+    const q = `/users/${encodeURIComponent(mailbox)}/mailFolders/inbox/messages?$filter=receivedDateTime ge ${sinceIso}&$select=id,subject,bodyPreview,from,receivedDateTime&$orderby=receivedDateTime desc&$top=40`;
+    const data = await graph(env, "GET", q);
+    messages = (data && data.value) || [];
+  } catch (err) { return { ok: false, error: (err && err.message) || "Graph read failed (Mail.Read may be missing)." }; }
+  if (!messages.length) return { ok: true, read: 0, captured: 0 };
+
+  // Message ids we've already captured recently, to dedup.
+  const seen = new Set();
+  try {
+    const rows = await sbGet(env, "booking_messages", `booking_source=eq.smm&direction=eq.inbound&external_id=not.is.null&select=external_id&order=created_at.desc&limit=200`);
+    for (const r of (rows || [])) if (r.external_id) seen.add(r.external_id);
+  } catch (_) {}
+
+  let captured = 0;
+  for (const m of messages) {
+    if (!m.id || seen.has(m.id)) continue;
+    const from = m.from && m.from.emailAddress && m.from.emailAddress.address;
+    if (!from) continue;
+    // Match to the most recent SMM lead with this sender address.
+    let lead = null;
+    try {
+      const rows = await sbGet(env, "smm_leads", `email=ilike.${encodeURIComponent(String(from).toLowerCase())}&select=id,email,account_user_id&order=created_at.desc&limit=1`);
+      lead = rows && rows[0];
+    } catch (_) {}
+    if (!lead) continue;
+    await logBookingMessage(env, {
+      booking_id: lead.id, booking_source: "smm", account_user_id: lead.account_user_id, client_email: lead.email,
+      direction: "inbound", channel: "email", kind: "reply", subject: m.subject || null,
+      body: (m.bodyPreview || "").trim(), is_automated: false, created_by: from, external_id: m.id,
+    });
+    captured++;
+  }
+  return { ok: true, read: messages.length, captured };
+}
+
 export default {
   // Cron (see wrangler.toml [triggers]). The daily 07:00 run sends post
   // reminders; every other (frequent) run advances automations + chases any
@@ -839,6 +888,7 @@ export default {
     else {
       ctx.waitUntil(runAutomationsTick(env));
       ctx.waitUntil(runSetupReminders(env));
+      ctx.waitUntil(pollSmmInbox(env));
     }
   },
 
@@ -2507,6 +2557,14 @@ export default {
           body: `Meeting booked for ${dateNice} at ${start}.${invited ? " Diary invite sent to the client." : ""}`,
         });
         return json({ ok: true, invited }, 200, request, env);
+      }
+
+      // ---- Admin: manually run the inbound-email capture (also on the cron) ---
+      if (path.endsWith("/smm/inbox/poll") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const result = await pollSmmInbox(env);
+        return json(result || { ok: false }, 200, request, env);
       }
 
       // ---- Member: my whole correspondence + documents (service role) --------
