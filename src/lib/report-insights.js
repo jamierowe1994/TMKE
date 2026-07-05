@@ -119,6 +119,23 @@ export function renderActions(d, r) {
   return `<div class="ri-sec" style="margin-top:0;">${esc(nextM)} priorities</div><div class="ri-panel">${pRows || '<div style="font-size:12px;color:#8a8796;">No action items.</div>'}${pLeg}</div>${coming.length ? `<div class="ri-sec">Coming soon content</div><div class="ri-panel" style="border-left:3px solid #371e28;">${cRows}</div>` : ""}`;
 }
 
+// ---- Trends tab (month-on-month) — takes the account's reports, oldest→newest
+export function renderTrends(accR) {
+  if (!accR || accR.length < 2) return `<div class="ri-sec" style="margin-top:0;">Trends</div><div class="ri-panel" style="text-align:center;padding:22px;color:#8a8796;font-size:13px;">Upload at least 2 months to see month-on-month trends here.</div>`;
+  const labels = accR.map((r) => MONTHS[r.month].slice(0, 3));
+  const fol = accR.map((r) => Number((r.data || {}).profile?.followers) || 0);
+  const rea = accR.map((r) => Number((r.data || {}).profile?.reach) || 0);
+  const eng = accR.map((r) => parseFloat((r.data || {}).profile?.interactionRate) || 0);
+  const inter = accR.map((r) => Number((r.data || {}).profile?.interactions) || 0);
+  const spark = (vals, lbl, fmt) => {
+    const max = Math.max(...vals, 1), latest = vals[vals.length - 1], prev = vals[vals.length - 2];
+    const chg = prev ? ((latest - prev) / prev * 100).toFixed(1) : 0, up = Number(chg) >= 0;
+    return `<div class="ri-panel" style="flex:1;min-width:120px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="font-size:10px;color:#8a8796;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">${esc(lbl)}</div><div style="font-size:11px;font-weight:700;color:${up ? "#2c7a4b" : "#a05a3c"};">${up ? "+" : ""}${chg}%</div></div><div style="font-size:22px;font-weight:700;color:#1c1d22;margin-bottom:14px;">${fmt(latest)}</div><div style="display:flex;align-items:flex-end;gap:3px;height:52px;">${vals.map((v, i) => { const isL = i === vals.length - 1; return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;"><div style="width:100%;margin-top:auto;background:#371e28;border-radius:3px 3px 0 0;opacity:${isL ? 1 : 0.3 + i * 0.14};height:${Math.max(Math.round(v / max * 100), 4)}%;"></div><div style="font-size:9px;color:#8a8796;white-space:nowrap;">${esc(labels[i])}</div></div>`; }).join("")}</div></div>`;
+  };
+  const tRows = [["Followers", (r) => Number((r.data || {}).profile?.followers || 0).toLocaleString()], ["New follows", (r) => (r.data || {}).profile?.newFollowers || "—"], ["Reach", (r) => Number((r.data || {}).profile?.reach || 0).toLocaleString()], ["Interactions", (r) => (r.data || {}).profile?.interactions || "—"], ["Eng. rate", (r) => (r.data || {}).profile?.interactionRate ? (r.data || {}).profile.interactionRate + "%" : "—"], ["Link taps", (r) => (r.data || {}).profile?.linkTaps ?? "—"]];
+  return `<div class="ri-sec" style="margin-top:0;">Month-on-month trends</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">${spark(fol, "Followers", (v) => v.toLocaleString())}${spark(rea, "Reach", (v) => v.toLocaleString())}${spark(eng, "Eng. Rate", (v) => v + "%")}${spark(inter, "Interactions", (v) => v || "—")}</div><div class="ri-sec">Full comparison table</div><div class="ri-panel" style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:${100 + accR.length * 90}px;"><thead><tr><th style="text-align:left;color:#8a8796;font-weight:600;font-size:10px;padding:6px 0;border-bottom:1px solid #e5e1e2;"></th>${accR.map((r) => `<th style="text-align:center;color:#8a8796;font-weight:600;font-size:10px;padding:6px 8px;border-bottom:1px solid #e5e1e2;">${esc(MONTHS[r.month].slice(0, 3))} ${r.year}</th>`).join("")}</tr></thead><tbody>${tRows.map(([lbl, fn]) => `<tr><td style="color:#8a8796;padding:8px 0;border-bottom:.5px solid #e5e1e2;white-space:nowrap;">${esc(lbl)}</td>${accR.map((r) => `<td style="font-weight:600;color:#1c1d22;text-align:center;padding:8px;border-bottom:.5px solid #e5e1e2;">${fn(r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
 export function renderTab(tab, d, r) {
   if (tab === "content") return renderContent(d);
   if (tab === "audience") return renderAudience(d);

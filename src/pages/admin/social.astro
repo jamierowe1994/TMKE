@@ -19,7 +19,6 @@ import "../../styles/admin.css";
         </div>
         <div class="smm-bar-actions">
           <label class="smm-lost-toggle"><input type="checkbox" id="smm-show-lost" /> Show lost</label>
-          <a class="smm-add-btn smm-add-btn--ghost" href="/admin/social/insights"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>Insights</a>
           <button type="button" class="smm-add-btn" id="smm-add-lead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add</button>
         </div>
       </div>
@@ -81,8 +80,6 @@ import "../../styles/admin.css";
     .smm-add-btn { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; background: var(--english-violet); border: 1px solid var(--english-violet); border-radius: 999px; font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: #fff; cursor: pointer; transition: background .15s; white-space: nowrap; }
     .smm-add-btn:hover { background: var(--ink); border-color: var(--ink); }
     .smm-add-btn svg { width: 14px; height: 14px; }
-    .smm-add-btn--ghost { background: #fff; border-color: rgba(var(--violet-rgb),0.3); color: var(--english-violet); text-decoration: none; }
-    .smm-add-btn--ghost:hover { background: rgba(var(--violet-rgb),0.06); border-color: var(--english-violet); }
     .smm-card-when { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.42); }
     .smm-card-name { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--ink); }
     .smm-card-biz { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 2px; }
@@ -201,6 +198,23 @@ import "../../styles/admin.css";
     .smm-inv-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(28,29,34,0.07); }
     .smm-inv-paid { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); display: inline-flex; align-items: center; gap: 7px; }
     .smm-inv-paid input { padding: 5px 8px; border: 1px solid rgba(28,29,34,0.16); border-radius: 7px; font-family: var(--sans); font-size: 12px; color: var(--ink); }
+
+    /* Insights panel (per-client SocialPilot reports) */
+    .ri-months { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .ri-month { padding: 5px 13px; border-radius: 999px; border: 1px solid rgba(28,29,34,0.16); background: #fff; font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; }
+    .ri-month.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .ri-subtabs { display: inline-flex; gap: 2px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 9px; margin-bottom: 14px; flex-wrap: wrap; }
+    .ri-subtab { padding: 6px 14px; border: 0; background: none; border-radius: 6px; font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(28,29,34,0.55); cursor: pointer; }
+    .ri-subtab:hover { color: var(--ink); }
+    .ri-subtab.is-active { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(28,29,34,0.12); }
+    .smm-ri-json { font-family: ui-monospace, "SF Mono", Menlo, monospace !important; font-size: 12px !important; line-height: 1.5; resize: vertical; }
+    /* report render primitives (from report-insights.js) */
+    .ri-kpi { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 12px 13px; }
+    .ri-kpi-label { font-size: 10px; color: #8a8796; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+    .ri-kpi-val { font-size: 21px; font-weight: 600; line-height: 1; color: var(--ink); }
+    .ri-kpi-sub { font-size: 10px; margin-top: 4px; }
+    .ri-panel { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 15px 17px; margin-bottom: 14px; }
+    .ri-sec { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8a8796; margin: 20px 0 9px; }
     .smm-msg { background: rgba(var(--violet-rgb),0.04); border-left: 3px solid var(--english-violet); padding: 14px 16px; border-radius: 6px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; margin-bottom: 18px; }
     .smm-soon { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.45); line-height: 1.6; }
 
@@ -279,6 +293,8 @@ import "../../styles/admin.css";
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase } from "../../lib/supabase.js";
+    import { renderTab, renderTrends, MONTHS as RI_MONTHS } from "../../lib/report-insights.js";
+    import { DEMO_REPORTS } from "../../lib/report-insights-demo.js";
 
     const STAGES = [
       { key: "inquiry", label: "Inquiry" },
@@ -505,11 +521,13 @@ import "../../styles/admin.css";
               <button type="button" class="smm-tab ${activeTab === "emails" ? "is-active" : ""}" data-tab="emails">Emails</button>
               <button type="button" class="smm-tab ${activeTab === "files" ? "is-active" : ""}" data-tab="files">Files</button>
               ${isActive ? `<button type="button" class="smm-tab ${activeTab === "invoices" ? "is-active" : ""}" data-tab="invoices">Invoices</button>` : ""}
+              ${isActive ? `<button type="button" class="smm-tab ${activeTab === "insights" ? "is-active" : ""}" data-tab="insights">Insights</button>` : ""}
             </div>
             <div id="smm-panel-notes" class="smm-panel-body" ${activeTab === "notes" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>
             <div id="smm-panel-emails" class="smm-panel-body" ${activeTab === "emails" ? "" : "hidden"}></div>
             <div id="smm-panel-files" class="smm-panel-body" ${activeTab === "files" ? "" : "hidden"}></div>
             ${isActive ? `<div id="smm-panel-invoices" class="smm-panel-body" ${activeTab === "invoices" ? "" : "hidden"}></div>` : ""}
+            ${isActive ? `<div id="smm-panel-insights" class="smm-panel-body" ${activeTab === "insights" ? "" : "hidden"}></div>` : ""}
             <p class="smm-thread-status" id="smm-thread-status" hidden></p>
           </div>
         </div>`;
@@ -556,10 +574,12 @@ import "../../styles/admin.css";
       body.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
         activeTab = b.getAttribute("data-tab");
         body.querySelectorAll("[data-tab]").forEach((x) => x.classList.toggle("is-active", x === b));
-        ["notes", "emails", "files", "invoices"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
+        ["notes", "emails", "files", "invoices", "insights"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
+        if (activeTab === "insights") loadInsights(r);
       }));
       // Correspondence
       loadThread(r);
+      if (activeTab === "insights") loadInsights(r);
     }
 
     function startEditName(r) {
@@ -758,6 +778,81 @@ import "../../styles/admin.css";
     async function setInvoicePaid(r, id, date) {
       if (isDemo(r)) { const d = r._thread.documents.find((x) => x.id === id); if (d) d.paid_date = date || null; renderThread(r, r._thread); return; }
       try { const token = await authToken(); await fetch(`${WORKER}/booking/document/paid`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id, paid_date: date || null }) }); loadThread(r); } catch (_) {}
+    }
+
+    // ---------- Insights (per-client SocialPilot reports) ----------
+    let riReportId = null, riTab = "overview";
+    async function loadInsights(r) {
+      const panel = $("smm-panel-insights"); if (!panel) return;
+      if (!r._reports) {
+        if (isDemo(r)) { r._reports = []; }
+        else if (WORKER) {
+          panel.innerHTML = '<p class="smm-soon">Loading reports…</p>';
+          try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/reports?lead_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) { const j = await res.json(); r._reports = (j.reports || []).map((x) => ({ id: x.id, platform: x.platform, month: x.month, year: x.year, data: x.data || {} })); } else r._reports = []; } catch (_) { r._reports = []; }
+        } else r._reports = [];
+      }
+      renderInsights(r);
+    }
+    const riSorted = (r) => (r._reports || []).slice().sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
+    function renderInsights(r) {
+      const panel = $("smm-panel-insights"); if (!panel) return;
+      const reps = riSorted(r);
+      const head = `<div class="smm-panel-head"><h4>Insights</h4><button type="button" class="smm-btn smm-btn--sm" id="smm-ri-upload">${PLUS_SVG}Upload report</button></div>`;
+      if (!reps.length) { panel.innerHTML = head + '<p class="smm-doc-empty">No reports yet — upload this client\'s SocialPilot month to build their dashboard.</p>'; $("smm-ri-upload")?.addEventListener("click", () => openReportUpload(r)); return; }
+      if (!riReportId || !reps.find((x) => x.id === riReportId)) riReportId = reps[reps.length - 1].id;
+      const cur = reps.find((x) => x.id === riReportId) || reps[reps.length - 1];
+      const strip = `<div class="ri-months">${reps.map((x) => `<button type="button" class="ri-month ${x.id === riReportId ? "is-active" : ""}" data-rmonth="${esc(x.id)}">${esc(RI_MONTHS[x.month])} ${x.year}</button>`).join("")}</div>`;
+      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"], ["actions", "Actions"], ["trends", "Trends"]];
+      const subtabs = `<div class="ri-subtabs">${TABS.map(([k, l]) => `<button type="button" class="ri-subtab ${riTab === k ? "is-active" : ""}" data-rtab="${k}">${l}</button>`).join("")}</div>`;
+      const bodyHtml = riTab === "trends" ? renderTrends(reps) : renderTab(riTab, cur.data || {}, cur);
+      panel.innerHTML = head + strip + subtabs + `<div class="ri-body">${bodyHtml}</div>`;
+      $("smm-ri-upload")?.addEventListener("click", () => openReportUpload(r));
+      panel.querySelectorAll("[data-rmonth]").forEach((b) => b.addEventListener("click", () => { riReportId = b.getAttribute("data-rmonth"); renderInsights(r); }));
+      panel.querySelectorAll("[data-rtab]").forEach((b) => b.addEventListener("click", () => { riTab = b.getAttribute("data-rtab"); renderInsights(r); }));
+    }
+    function openReportUpload(r) {
+      const now = new Date();
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Upload report">
+            <h3>Upload a monthly report</h3>
+            <p class="smm-modal-sub">Paste the JSON Claude produced from ${esc(nameOf(r))}'s SocialPilot PDF.</p>
+            <div class="smm-modal-two">
+              <div class="smm-modal-field"><label>Month</label><select id="smm-rp-month">${RI_MONTHS.map((m, i) => `<option value="${i}" ${i === now.getMonth() ? "selected" : ""}>${m}</option>`).join("")}</select></div>
+              <div class="smm-modal-field"><label>Year</label><input type="number" id="smm-rp-year" value="${now.getFullYear()}"></div>
+            </div>
+            <div class="smm-modal-field"><label>Report JSON</label><textarea id="smm-rp-json" rows="8" class="smm-ri-json" placeholder='{ "summary": "…", "profile": { … }, … }'></textarea></div>
+            <p class="smm-modal-status" id="smm-rp-status" hidden></p>
+            <div class="smm-modal-actions">
+              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
+              <button type="button" class="smm-btn smm-btn--primary" id="smm-rp-save">Save report</button>
+            </div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("smm-rp-save").addEventListener("click", () => saveReport(r));
+    }
+    async function saveReport(r) {
+      const month = parseInt($("smm-rp-month").value, 10), year = parseInt($("smm-rp-year").value, 10);
+      const status = $("smm-rp-status");
+      let data;
+      try { const parsed = JSON.parse($("smm-rp-json").value); data = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed; }
+      catch (_) { status.hidden = false; status.textContent = "That doesn't look like valid JSON — paste the report Claude produced."; return; }
+      const btn = $("smm-rp-save"); btn.disabled = true; btn.textContent = "Saving…";
+      if (isDemo(r)) {
+        r._reports = (r._reports || []).filter((x) => !(x.month === month && x.year === year));
+        r._reports.push({ id: "d" + Date.now(), platform: "Instagram", month, year, data });
+        riReportId = null; closeModal(); activeTab = "insights"; renderInsights(r); return;
+      }
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/smm/report`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, platform: "Instagram", month, year, data }) });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.error || "Save failed");
+        r._reports = null; riReportId = null; closeModal(); await loadInsights(r);
+      } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't save — try again."; btn.disabled = false; btn.textContent = "Save report"; }
     }
 
     // ---------- Manual add ----------
@@ -1052,6 +1147,8 @@ import "../../styles/admin.css";
         { id: "doc3", file_name: "Invoice-1024.pdf", title: "Invoice #1024", category: "invoice", invoice_date: "2026-06-01", paid_date: "2026-06-09" },
         { id: "doc4", file_name: "Invoice-1041.pdf", title: "Invoice #1041", category: "invoice", invoice_date: "2026-07-01", paid_date: null },
       ] };
+      // Two months of demo reports on the active client so the Insights tab + Trends render in preview.
+      rows[6]._reports = DEMO_REPORTS.filter((x) => x.accountId === "tmke").map((x) => ({ id: x.id, platform: x.platform, month: x.month, year: x.year, data: x.data }));
       return rows;
     }
 
