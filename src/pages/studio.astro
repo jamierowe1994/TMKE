@@ -325,6 +325,8 @@ const inspo = [
   </style>
 
   <script>
+    import { supabase } from "../lib/supabase.js";
+
     // Mobile row arrows — nudge the scroller along.
     document.querySelectorAll('[data-rail-next]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -333,34 +335,30 @@ const inspo = [
       });
     });
 
-    // "Your designs": swap starter templates for the user's real saved drafts.
-    (function wireDesigns() {
-      const drafts = [];
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (!key || !key.startsWith('tmke.editor.')) continue;
-          const id = key.replace('tmke.editor.', '');
-          try {
-            const v = JSON.parse(localStorage.getItem(key) || 'null');
-            if (v) drafts.push({ id, filename: v.filename || id, savedAt: v.savedAt || 0, thumb: v.thumb || null });
-          } catch (_) {}
-        }
-      } catch (_) {}
-      if (!drafts.length) return; // no saved work yet → keep the starter templates
-      drafts.sort((a, b) => b.savedAt - a.savedAt);
-
+    // "Your designs": the member's own saved copies (user_designs), newest first.
+    (async function wireDesigns() {
       const row = document.querySelector('[data-designs]');
       if (!row) return;
-      const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-      const cards = drafts.slice(0, 4).map((d) => `
-        <a class="st-design" href="/editor?template=${encodeURIComponent(d.id)}">
-          <span class="st-design-img"${d.thumb ? ` style="background-image:url('${esc(d.thumb)}')"` : ''}><span class="st-design-tag">In progress</span></span>
-          <span class="st-design-name">${esc(d.filename)}</span>
-          <span class="st-design-type">Saved design</span>
-        </a>`).join('');
-      row.innerHTML = cards + `
-        <a class="st-design st-design--new" href="/editor"><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const newCard = `<a class="st-design st-design--new" href="/editor"><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return; // signed out (preview) → keep the SSR starter samples
+        const { data, error } = await supabase
+          .from('user_designs')
+          .select('id, name, thumb_url, updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(12);
+        if (error) return;
+        const designs = data || [];
+        if (!designs.length) { row.innerHTML = newCard; return; } // signed in, none yet → just "New design"
+        row.innerHTML = designs.map((d) => `
+          <a class="st-design" href="/editor?design=${encodeURIComponent(d.id)}">
+            <span class="st-design-img"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>
+            <span class="st-design-name">${esc(d.name || 'Untitled design')}</span>
+            <span class="st-design-type">Your design</span>
+          </a>`).join('') + newCard;
+      } catch (_) { /* keep the SSR sample designs on any error */ }
     })();
   </script>
 
