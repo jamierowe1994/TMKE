@@ -19,9 +19,9 @@ import "../../styles/account-sections.css";
       <div class="dash-hero-copy">
         <div class="dash-hero-top">
           <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
-          <h1 class="welcome-h">Your <em>content calendar.</em></h1>
+          <h1 class="welcome-h">Your <em>Content Calendar.</em></h1>
         </div>
-        <p class="welcome-sub">Your content calendar, all in one view. See what's scheduled, plan around key dates, and keep your social media moving consistently.</p>
+        <p class="welcome-sub">Your content calendar, all in one view. See what's planned, plan around key dates, and keep your social media moving consistently.</p>
       </div>
       <figure class="dash-hero-media">
         <img src="/assets/home%20chair.jpg" alt="" loading="eager" />
@@ -87,6 +87,56 @@ import "../../styles/account-sections.css";
       </div>
       <footer class="day-foot">
         <a href="#" id="day-new" class="day-new-btn">+ Plan a post for this day</a>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Planned-post detail: click a post in the day view to open it here.
+       Mirrors what was set in the editor's plan modal — title, date/time,
+       caption, reminder — so it can be reviewed and edited after planning,
+       or emailed over on demand. -->
+  <div class="day-backdrop" id="post-modal" hidden role="dialog" aria-modal="true" aria-labelledby="post-h">
+    <aside class="day-panel post-panel" aria-label="Planned post">
+      <header class="day-head">
+        <div>
+          <p class="day-eyebrow" id="post-eyebrow">Planned post</p>
+          <h2 id="post-h" class="day-h">Your post</h2>
+        </div>
+        <button type="button" class="day-close" id="post-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="day-body post-body">
+        <figure class="post-preview"><img id="post-img" alt="Your post design" /></figure>
+        <div class="post-fields">
+          <label class="post-field">
+            <span class="post-label">Title</span>
+            <input type="text" id="post-title" class="post-input" placeholder="Post title" />
+          </label>
+          <div class="post-row">
+            <label class="post-field">
+              <span class="post-label">Date</span>
+              <input type="date" id="post-date" class="post-input" />
+            </label>
+            <label class="post-field">
+              <span class="post-label">Time</span>
+              <input type="time" id="post-time" class="post-input" />
+            </label>
+          </div>
+          <p class="post-plat" id="post-plat">Instagram</p>
+          <label class="post-field">
+            <span class="post-label">Caption</span>
+            <textarea id="post-caption" class="post-textarea" rows="5" placeholder="Write your caption…"></textarea>
+          </label>
+          <label class="post-remind">
+            <input type="checkbox" id="post-remind" />
+            <span>Remind me on the day <span class="post-remind-note">— we'll email the caption &amp; image at 8am on the morning of this post</span></span>
+          </label>
+          <div class="post-error" id="post-error" hidden></div>
+        </div>
+      </div>
+      <footer class="day-foot post-foot">
+        <button type="button" class="post-btn post-btn--danger" id="post-delete">Remove</button>
+        <button type="button" class="post-btn post-btn--ghost" id="post-email">Email it to me now</button>
+        <button type="button" class="post-btn post-btn--primary" id="post-save">Save changes</button>
       </footer>
     </aside>
   </div>
@@ -622,6 +672,129 @@ import "../../styles/account-sections.css";
         0 16px 30px -10px rgba(var(--violet-rgb), 0.65),
         0 6px 12px -6px rgba(28, 29, 34, 0.3);
     }
+
+    /* Planned posts are clickable — nudge on hover to signal it. */
+    .day-item { cursor: pointer; transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s; }
+    .day-item:hover {
+      transform: translateY(-1px);
+      border-color: rgba(var(--violet-rgb), 0.3);
+      box-shadow: 0 8px 18px -8px rgba(var(--violet-rgb), 0.32);
+    }
+
+    /* ---- Planned-post detail modal ---- */
+    .post-body { display: flex; flex-direction: column; gap: 18px; }
+    .post-preview {
+      margin: 0;
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--platinum);
+      border: 1px solid rgba(28,29,34,0.08);
+      max-height: 340px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .post-preview img { max-width: 100%; max-height: 340px; width: auto; height: auto; display: block; object-fit: contain; }
+    .post-fields { display: flex; flex-direction: column; gap: 14px; }
+    .post-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .post-field { display: flex; flex-direction: column; gap: 6px; }
+    .post-label {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--violet-deep);
+    }
+    .post-input, .post-textarea {
+      appearance: none;
+      width: 100%;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .post-input:focus, .post-textarea:focus {
+      outline: none;
+      border-color: var(--violet-deep);
+      box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.12);
+    }
+    .post-textarea { resize: vertical; min-height: 96px; line-height: 1.55; }
+    .post-plat {
+      margin: -4px 0 0;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+    }
+    .post-remind {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px 14px;
+      background: rgba(var(--violet-rgb), 0.05);
+      border: 1px solid rgba(var(--violet-rgb), 0.16);
+      border-radius: 4px;
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .post-remind input { margin: 2px 0 0; width: 16px; height: 16px; flex: 0 0 auto; accent-color: var(--violet-deep); cursor: pointer; }
+    .post-remind-note { color: rgba(28,29,34,0.55); }
+    .post-error {
+      padding: 10px 14px;
+      background: rgba(195, 65, 50, 0.08);
+      color: #a23023;
+      border: 1px solid rgba(195, 65, 50, 0.25);
+      border-radius: 4px;
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .post-error[hidden] { display: none; }
+    .post-error.is-ok { background: rgba(46, 125, 80, 0.08); color: #2e7d50; border-color: rgba(46, 125, 80, 0.28); }
+    .post-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .post-btn {
+      appearance: none;
+      border-radius: 4px;
+      padding: 11px 18px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.2s, opacity 0.2s;
+    }
+    .post-btn:disabled { opacity: 0.6; cursor: progress; }
+    .post-btn--primary {
+      margin-left: auto;
+      background: var(--violet-deep);
+      color: var(--paper);
+      border: 0;
+      box-shadow: 0 10px 22px -10px rgba(var(--violet-rgb), 0.55);
+    }
+    .post-btn--primary:hover:not(:disabled) { transform: translateY(-1px); background: var(--ink); }
+    .post-btn--ghost {
+      background: transparent;
+      border: 1px solid rgba(var(--violet-rgb), 0.4);
+      color: var(--violet-deep);
+    }
+    .post-btn--ghost:hover:not(:disabled) { background: rgba(var(--violet-rgb), 0.08); border-color: var(--violet-deep); }
+    .post-btn--danger {
+      background: transparent;
+      border: 1px solid rgba(195, 65, 50, 0.3);
+      color: #a23023;
+    }
+    .post-btn--danger:hover:not(:disabled) { background: rgba(195, 65, 50, 0.08); border-color: #a23023; }
+    @media (max-width: 520px) {
+      .post-btn--primary { margin-left: 0; }
+      .post-foot .post-btn { flex: 1 1 auto; text-align: center; }
+    }
   </style>
 
   <script>
@@ -642,6 +815,26 @@ import "../../styles/account-sections.css";
     const $dayH        = document.getElementById('day-h');
     const $dayBody     = document.getElementById('day-body');
     const $dayNew      = document.getElementById('day-new');
+
+    // Planned-post detail modal
+    const $postModal   = document.getElementById('post-modal');
+    const $postClose   = document.getElementById('post-close');
+    const $postImg     = document.getElementById('post-img');
+    const $postTitle   = document.getElementById('post-title');
+    const $postDate    = document.getElementById('post-date');
+    const $postTime    = document.getElementById('post-time');
+    const $postPlat    = document.getElementById('post-plat');
+    const $postCaption = document.getElementById('post-caption');
+    const $postRemind  = document.getElementById('post-remind');
+    const $postError   = document.getElementById('post-error');
+    const $postSave    = document.getElementById('post-save');
+    const $postEmail   = document.getElementById('post-email');
+    const $postDelete  = document.getElementById('post-delete');
+
+    // Worker base for the "email it to me now" endpoint (same env the editor uses).
+    const API_BASE = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    let openPostId = null;  // id of the post currently in the detail modal
+    let openDayDate = null; // YMD of the day modal currently open (to refresh it)
 
     // ====== State ======
     // viewMonth always points at the 1st of the month being displayed,
@@ -782,6 +975,7 @@ import "../../styles/account-sections.css";
     // ====== Day drawer ======
     let dayCloseTimer = null;
     function openDay(dateStr) {
+      openDayDate = dateStr;
       const d = new Date(dateStr + 'T00:00:00');
       const dayItems = items.filter((i) => i.scheduled_date === dateStr)
         .sort((a, b) => (a.scheduled_time || '').localeCompare(b.scheduled_time || ''));
@@ -809,11 +1003,11 @@ import "../../styles/account-sections.css";
             const thumb = p.thumbnail_url || p.asset_url || '';
             const thumbStyle = thumb ? `style="background-image:url('${escapeHtml(thumb)}')"` : '';
             const statusLabel = ({
-              scheduled:     'Scheduled',
+              scheduled:     'Planned',
               reminder_sent: 'Reminder sent',
               done:          'Posted',
               cancelled:     'Cancelled',
-            })[p.status] || 'Scheduled';
+            })[p.status] || 'Planned';
             const statusClass = ({
               scheduled:     'is-scheduled',
               reminder_sent: 'is-sent',
@@ -821,7 +1015,7 @@ import "../../styles/account-sections.css";
               cancelled:     'is-cancelled',
             })[p.status] || 'is-scheduled';
             return `
-              <div class="day-item">
+              <div class="day-item" data-id="${escapeHtml(String(p.id))}" role="button" tabindex="0" title="Open this post">
                 <div class="day-item-thumb" ${thumbStyle}></div>
                 <div class="day-item-body">
                   <span class="day-item-time">${escapeHtml(fmtTime(p.scheduled_time))} · ${escapeHtml(p.platform_hint || 'instagram')}</span>
@@ -864,6 +1058,140 @@ import "../../styles/account-sections.css";
       }, 540);
     }
 
+    // ====== Planned-post detail ======
+    function platLabel(p) {
+      const m = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', tiktok: 'TikTok' };
+      return m[p] || (p ? p[0].toUpperCase() + p.slice(1) : 'Instagram');
+    }
+    function clearPostError() { $postError.hidden = true; $postError.textContent = ''; $postError.classList.remove('is-ok'); }
+    function showPostError(msg, ok) {
+      $postError.hidden = false;
+      $postError.textContent = msg;
+      $postError.classList.toggle('is-ok', !!ok);
+    }
+
+    function openPost(id) {
+      const p = items.find((i) => String(i.id) === String(id));
+      if (!p) return;
+      openPostId = p.id;
+      clearPostError();
+      const img = p.asset_url || p.thumbnail_url || '';
+      if (img) { $postImg.src = img; $postImg.style.display = ''; }
+      else { $postImg.removeAttribute('src'); $postImg.style.display = 'none'; }
+      $postTitle.value = p.title || '';
+      $postDate.value = p.scheduled_date || '';
+      $postTime.value = (p.scheduled_time || '09:00').slice(0, 5);
+      $postPlat.textContent = platLabel(p.platform_hint);
+      $postCaption.value = p.caption || '';
+      $postRemind.checked = p.reminder !== false; // default on (column may be absent)
+      $postSave.disabled = false;  $postSave.textContent = 'Save changes';
+      $postEmail.disabled = false; $postEmail.textContent = 'Email it to me now';
+      $postDelete.disabled = false; $postDelete.textContent = 'Remove';
+      $postModal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => requestAnimationFrame(() => $postModal.classList.add('is-open')));
+      setTimeout(() => $postTitle.focus(), 60);
+    }
+
+    let postCloseTimer;
+    function closePost() {
+      openPostId = null;
+      if (!$postModal.classList.contains('is-open')) { $postModal.hidden = true; return; }
+      $postModal.classList.remove('is-open');
+      clearTimeout(postCloseTimer);
+      postCloseTimer = setTimeout(() => {
+        $postModal.hidden = true;
+        // The day modal may still be open beneath — only release scroll if not.
+        if ($dayModal.hidden) document.body.style.overflow = '';
+      }, 540);
+    }
+
+    // Refresh the day modal beneath (it's static once rendered).
+    function refreshDayUnder() {
+      if (openDayDate && !$dayModal.hidden) openDay(openDayDate);
+    }
+
+    async function savePost() {
+      if (!openPostId) return;
+      clearPostError();
+      const title   = ($postTitle.value || '').trim();
+      const dateStr = $postDate.value;
+      const timeStr = $postTime.value || '09:00';
+      const caption = ($postCaption.value || '').trim();
+      const wantsReminder = !!$postRemind.checked;
+      if (!title)   return showPostError('Give the post a short title.');
+      if (!dateStr) return showPostError('Pick a date for the post.');
+
+      $postSave.disabled = true; $postSave.textContent = 'Saving…';
+      const patch = { title, scheduled_date: dateStr, scheduled_time: timeStr, caption: caption || null, reminder: wantsReminder };
+      let { error } = await supabase.from('calendar_items').update(patch).eq('id', openPostId);
+      if (error && /reminder/i.test(error.message || '') && /column/i.test(error.message || '')) {
+        // reminder column not migrated yet — persist everything else.
+        const { reminder, ...rest } = patch;
+        ({ error } = await supabase.from('calendar_items').update(rest).eq('id', openPostId));
+      }
+      if (error) {
+        $postSave.disabled = false; $postSave.textContent = 'Save changes';
+        return showPostError(error.message || "Couldn't save your changes.");
+      }
+      const p = items.find((i) => String(i.id) === String(openPostId));
+      if (p) Object.assign(p, patch);
+      renderCalendar();
+      $postSave.textContent = 'Saved ✓';
+      showPostError('Changes saved.', true);
+      setTimeout(() => { closePost(); refreshDayUnder(); }, 700);
+    }
+
+    async function emailPostNow() {
+      if (!openPostId) return;
+      clearPostError();
+      const p = items.find((i) => String(i.id) === String(openPostId));
+      if (!p) return;
+      const asset = p.asset_url || p.thumbnail_url || '';
+      if (!asset)    return showPostError('This post has no image to send.');
+      if (!API_BASE) return showPostError("Email isn't available here (PUBLIC_R2_WORKER_URL not set).");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session)  return showPostError("You're signed out — sign in again.");
+
+      $postEmail.disabled = true; $postEmail.textContent = 'Sending…';
+      try {
+        const res = await fetch(`${API_BASE}/calendar/send-now`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            asset_url: asset,
+            caption: ($postCaption.value || '').trim(),
+            title: ($postTitle.value || '').trim(),
+            platform: p.platform_hint || 'instagram',
+          }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || !out.ok) throw new Error(out.error || "Couldn't send the email.");
+        $postEmail.textContent = 'Sent ✓';
+        showPostError(`Sent to ${out.to || 'your inbox'} — check your phone.`, true);
+        setTimeout(() => { $postEmail.disabled = false; $postEmail.textContent = 'Email it to me now'; clearPostError(); }, 4000);
+      } catch (err) {
+        showPostError(err.message || "Couldn't email that post.");
+        $postEmail.disabled = false; $postEmail.textContent = 'Email it to me now';
+      }
+    }
+
+    async function removePost() {
+      if (!openPostId) return;
+      if (!confirm("Remove this planned post from your calendar? This can't be undone.")) return;
+      clearPostError();
+      $postDelete.disabled = true; $postDelete.textContent = 'Removing…';
+      const { error } = await supabase.from('calendar_items').delete().eq('id', openPostId);
+      if (error) {
+        $postDelete.disabled = false; $postDelete.textContent = 'Remove';
+        return showPostError(error.message || "Couldn't remove that post.");
+      }
+      items = items.filter((i) => String(i.id) !== String(openPostId));
+      renderCalendar();
+      closePost();
+      refreshDayUnder();
+    }
+
     // ====== Data loaders ======
     // Pull a 3-month window so prev/next feels instant. We re-fetch
     // whenever the user navigates outside the loaded window.
@@ -883,7 +1211,7 @@ import "../../styles/account-sections.css";
 
       const [itemsRes, holsRes] = await Promise.all([
         supabase.from('calendar_items')
-          .select('id, scheduled_date, scheduled_time, title, caption, asset_url, thumbnail_url, design_ref, platform_hint, status, reminder_sent_at')
+          .select('*')
           .gte('scheduled_date', fromYmd)
           .lte('scheduled_date', toYmd)
           .order('scheduled_date', { ascending: true })
@@ -957,8 +1285,29 @@ import "../../styles/account-sections.css";
     });
     $dayClose?.addEventListener('click', closeDay);
     $dayModal?.addEventListener('click', (e) => { if (e.target === $dayModal) closeDay(); });
+
+    // Click (or keyboard) a planned post in the day list to open its detail.
+    $dayBody?.addEventListener('click', (e) => {
+      const item = e.target.closest('.day-item');
+      if (item && item.dataset.id) openPost(item.dataset.id);
+    });
+    $dayBody?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const item = e.target.closest('.day-item');
+      if (item && item.dataset.id) { e.preventDefault(); openPost(item.dataset.id); }
+    });
+
+    // Post detail modal wiring.
+    $postClose?.addEventListener('click', closePost);
+    $postModal?.addEventListener('click', (e) => { if (e.target === $postModal) closePost(); });
+    $postSave?.addEventListener('click', savePost);
+    $postEmail?.addEventListener('click', emailPostNow);
+    $postDelete?.addEventListener('click', removePost);
+
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !$dayModal.hidden) closeDay();
+      if (e.key !== 'Escape') return;
+      if (!$postModal.hidden) { closePost(); return; }   // post modal is on top
+      if (!$dayModal.hidden) closeDay();
     });
 
     async function ensureWindow() {

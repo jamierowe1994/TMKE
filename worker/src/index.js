@@ -385,12 +385,13 @@ function bufToBase64(buf) {
 function reminderHtml(item, platform, caption) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const cap = esc(caption);
+  const asset = item && item.asset_url ? esc(item.asset_url) : "";
   return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-    <h1 style="font-size:22px;margin:0 0 6px">Your post is ready to go out today</h1>
-    <p style="color:#555;font-size:14px;margin:0 0 20px">Here's your scheduled <strong>${esc(platform)}</strong> post${item.title ? ` &mdash; &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached &mdash; copy your caption below and you're set.</p>
-    ${cap ? `<div style="background:#f2efe9;border-left:3px solid #474254;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${cap}</div>` : `<p style="color:#888;font-size:13px">No caption saved for this post.</p>`}
-    <p style="font-size:13px;color:#555;margin:18px 0 0">&#128206; Your post image is attached to this email.</p>
-    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#474254">View your calendar</a></p>
+    <h1 style="font-size:22px;margin:0 0 6px">Your post is ready to go out</h1>
+    <p style="color:#555;font-size:14px;margin:0 0 20px">Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` &mdash; &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below &mdash; copy your caption and you're set.</p>
+    ${cap ? `<div style="background:#f2efe9;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${cap}</div>` : `<p style="color:#888;font-size:13px">No caption saved for this post.</p>`}
+    ${asset ? `<p style="margin:20px 0 0"><a href="${asset}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 22px;border-radius:6px">Download the image &darr;</a></p><p style="font-size:12px;color:#999;margin:8px 0 0">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : `<p style="font-size:13px;color:#555;margin:18px 0 0">&#128206; Your post image is attached to this email.</p>`}
+    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#371e28">View your calendar</a></p>
   </div>`;
 }
 function waitlistHtml({ name, service, pkg, date, time }) {
@@ -588,39 +589,55 @@ async function verifyTurnstile(env, token, ip) {
 // SMM password policy — min 8 incl. a number and a special character. Mirrors
 // PASSWORD_RULE in src/lib/smm-config.js (keep the two in sync).
 const smmPasswordOk = (pw) => /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(String(pw || ""));
+// Email a planned post (caption + image attached + a download link) — used by
+// both the daily reminder and the "email it to me now" button.
+async function sendPostEmail(env, { email, item, subject }) {
+  if (!env.RESEND_API_KEY || !email) return false;
+  const platform = item.platform_hint || "instagram";
+  const attachments = [];
+  if (item.asset_url) {
+    try {
+      const aRes = await fetch(item.asset_url);
+      if (aRes.ok) {
+        const buf = await aRes.arrayBuffer();
+        const name = (item.asset_url.split("/").pop() || "post.png").split("?")[0] || "post.png";
+        attachments.push({ filename: name, content: bufToBase64(buf) });
+      }
+    } catch (_) { /* attach nothing if the asset can't be fetched */ }
+  }
+  try {
+    const sent = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>",
+        to: email,
+        subject: subject || `Your ${platform} post`,
+        html: reminderHtml(item, platform, item.caption || ""),
+        attachments: attachments.length ? attachments : undefined,
+      }),
+    });
+    return sent.ok;
+  } catch (_) { return false; }
+}
+
 async function runReminders(env) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
+  // Fired by both the 07:00 and 08:00 UTC crons; only actually send at 8am UK,
+  // so it stays 8am across BST/GMT.
+  const ukHour = parseInt(new Date().toLocaleString("en-GB", { timeZone: "Europe/London", hour: "2-digit", hour12: false }), 10);
+  if (ukHour !== 8) return;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
   const due = (await sbGet(env, "calendar_items",
     `status=eq.scheduled&scheduled_date=eq.${today}&select=*`)) || [];
   for (const item of due) {
     try {
+      if (item.reminder === false) continue; // they opted out of the reminder
       const email = await sbAdminUserEmail(env, item.user_id);
       if (!email) continue;
-      const attachments = [];
-      if (item.asset_url) {
-        try {
-          const aRes = await fetch(item.asset_url);
-          if (aRes.ok) {
-            const buf = await aRes.arrayBuffer();
-            const name = (item.asset_url.split("/").pop() || "post.png").split("?")[0] || "post.png";
-            attachments.push({ filename: name, content: bufToBase64(buf) });
-          }
-        } catch (_) { /* attach nothing if the asset can't be fetched */ }
-      }
       const platform = item.platform_hint || "instagram";
-      const sent = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>",
-          to: email,
-          subject: `Your ${platform} post is scheduled for today`,
-          html: reminderHtml(item, platform, item.caption || ""),
-          attachments: attachments.length ? attachments : undefined,
-        }),
-      });
-      if (sent.ok) {
+      const ok = await sendPostEmail(env, { email, item, subject: `Your ${platform} post is planned for today` });
+      if (ok) {
         await sbPatch(env, "calendar_items", `id=eq.${item.id}`,
           { status: "reminder_sent", reminder_sent_at: new Date().toISOString() });
       }
@@ -880,11 +897,11 @@ async function pollSmmInbox(env) {
 }
 
 export default {
-  // Cron (see wrangler.toml [triggers]). The daily 07:00 run sends post
-  // reminders; every other (frequent) run advances automations + chases any
-  // paid-but-no-password orders.
+  // Cron (see wrangler.toml [triggers]). The 07:00 & 08:00 daily runs send post
+  // reminders (runReminders self-gates to 8am UK); every other (frequent) run
+  // advances automations + chases any paid-but-no-password orders.
   async scheduled(event, env, ctx) {
-    if (event && event.cron === "0 7 * * *") ctx.waitUntil(runReminders(env));
+    if (event && (event.cron === "0 7 * * *" || event.cron === "0 8 * * *")) ctx.waitUntil(runReminders(env));
     else {
       ctx.waitUntil(runAutomationsTick(env));
       ctx.waitUntil(runSetupReminders(env));
@@ -1101,6 +1118,21 @@ export default {
             align: ["left", "center", "right"].includes(b.align) ? b.align : "left",
           }));
         return json({ blocks, usage: data.usage || null }, 200, request, env);
+      }
+
+      // ---- Email a planned post to the signed-in member now ------------------
+      // The "Email it to me now" button in the editor's plan modal — sends the
+      // caption + image to their own inbox straight away (grab it on your phone).
+      if (path.endsWith("/calendar/send-now") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !user.email) return json({ error: "Sign in first." }, 401, request, env);
+        if (!env.RESEND_API_KEY) return json({ error: "Email isn't configured on the Worker." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const item = { asset_url: String((b && b.asset_url) || ""), caption: (b && b.caption) || "", title: (b && b.title) || "", platform_hint: (b && b.platform) || "instagram" };
+        if (!item.asset_url) return json({ error: "Nothing to send." }, 400, request, env);
+        const ok = await sendPostEmail(env, { email: user.email, item, subject: `Your ${item.platform_hint} post — ready to go` });
+        if (!ok) return json({ error: "Couldn't send the email — try again." }, 502, request, env);
+        return json({ ok: true, to: user.email }, 200, request, env);
       }
 
     // ---- PUBLIC client gallery (token-gated, NO login required) ----
