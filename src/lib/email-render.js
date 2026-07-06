@@ -315,7 +315,15 @@ function dividerResponsiveCss(block) {
   return rules.join('\n    ');
 }
 function blockResponsiveCss(block) {
-  if (!block || !block.mobile) return '';
+  if (!block) return '';
+  // Columns: gather each child's mobile rules (children carry their own classes).
+  if (block.type === 'columns') {
+    const cols = Array.isArray(block.cols) ? block.cols : [];
+    const parts = [];
+    cols.forEach((col) => (col || []).forEach((cb) => { const c = blockResponsiveCss(cb); if (c) parts.push(c); }));
+    return parts.join('\n    ');
+  }
+  if (!block.mobile) return '';
   switch (block.type) {
     case 'heading': case 'text': { const d = responsiveDecls(block); return d.length ? `.eb-b-${block.id}{${d.join(';')};}` : ''; }
     case 'button': return buttonResponsiveCss(block);
@@ -348,10 +356,8 @@ export function makeBlock(type) {
     case 'button':
       return { type, id, text: 'View more', url: 'https://tmke.co.uk', color: '', align: 'center' };
     case 'columns':
-      return { type, id, layout: '50-50', cells: [
-        { title: 'Column one', text: 'Some copy here.' },
-        { title: 'Column two', text: 'Some copy here.' },
-      ] };
+      // Each column holds a list of child blocks you drag in (any type).
+      return { type, id, layout: '50-50', cols: [[], []] };
     case 'divider':
       return { type, id, color: '#E2E8F0' };
     case 'spacer':
@@ -682,10 +688,17 @@ function renderForm(block, brand, ctx) {
 function renderColumns(block, brand, ctx) {
   const layout = (COLUMN_LAYOUTS.find((l) => l.key === block.layout)) || COLUMN_LAYOUTS[1];
   const widths = layout.w;
-  const cells = Array.isArray(block.cells) ? block.cells : [];
+  const cols = Array.isArray(block.cols) ? block.cols : [];
   const tds = widths.map((w, i) => {
     const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 8px';
-    return `<td valign="top" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:top;font-family:Helvetica,Arial,sans-serif;">${renderCell(cells[i], brand, ctx)}</td>`;
+    const children = Array.isArray(cols[i]) ? cols[i] : [];
+    // Each child block is rendered with its own outer margin so column content
+    // stacks with consistent spacing.
+    const inner = children.map((cb) => {
+      const h = renderBlock(cb, brand, ctx);
+      return h ? wrapOuter(h, cb) : '';
+    }).filter(Boolean).join('\n') || '&nbsp;';
+    return `<td class="eb-col" valign="top" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:top;font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
   }).join('');
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
 }
@@ -774,6 +787,7 @@ function shell(brand, bodyHtml, preheader, responsiveCss) {
   @media only screen and (max-width:600px) {
     .eb-hide-mobile { display:none !important; max-height:0 !important; overflow:hidden !important; mso-hide:all; }
     .eb-mobile-only { display:block !important; max-height:none !important; overflow:visible !important; }
+    .eb-col { display:block !important; width:100% !important; padding:0 0 8px 0 !important; }
     ${responsiveCss || ''}
   }
 </style></head>

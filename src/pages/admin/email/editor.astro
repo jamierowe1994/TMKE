@@ -284,6 +284,14 @@ import "../../../styles/admin.css";
     .cv-social span { width:34px; height:34px; border-radius:17px; display:inline-flex; align-items:center; justify-content:center; color:#fff; }
     .cv-social svg { width:15px; height:15px; }
 
+    /* Columns: each column is a drop zone you drag blocks into */
+    .cv-cols { display:flex; gap:8px; align-items:stretch; width:100%; }
+    .cv-col { min-width:0; border:1px dashed rgba(28,29,34,0.22); border-radius:8px; padding:8px 6px; background:rgba(28,29,34,0.012); transition:border-color 0.15s, background 0.15s; }
+    .cv-col.cv-col-drop { border-color:var(--english-violet); background:rgba(55,30,40,0.07); }
+    .cv-col-empty { display:flex; align-items:center; justify-content:center; min-height:64px; font-family:var(--sans); font-size:11px; letter-spacing:0.04em; text-transform:uppercase; color:rgba(28,29,34,0.4); text-align:center; padding:8px; }
+    .cv-col .cv-block { padding:6px; margin:0; }
+    .cv-col .cv-block .cv-toolbar { top:-12px; }
+
     /* Canvas device toggle + responsive canvas width */
     .eb-canvas-devbar { display:flex; justify-content:center; margin:0 auto 20px; }
     .eb-canvas { transition:max-width 0.25s ease; }
@@ -460,6 +468,16 @@ import "../../../styles/admin.css";
           const w = (eb.width!=null&&eb.width!=="")?Math.max(1,Math.min(100,Number(eb.width))):100;
           return `<div style="text-align:${al};${cvPad(resolvePad(eb))}"><div style="display:inline-block;width:${w}%;border-top:${thick}px solid ${esc(eb.color||"#E2E8F0")};line-height:0;font-size:0;">&nbsp;</div></div>`;
         }
+        case "columns": {
+          const layout = COLUMN_LAYOUTS.find(l=>l.key===b.layout) || COLUMN_LAYOUTS[1];
+          const cols = Array.isArray(b.cols)?b.cols:[];
+          const colsHtml = layout.w.map((w,i)=>{
+            const children = Array.isArray(cols[i])?cols[i]:[];
+            const inner = children.length ? children.map(blockCard).join("") : `<div class="cv-col-empty">Drop a block here</div>`;
+            return `<div class="cv-col" data-colof="${b.id}" data-coli="${i}" style="flex:0 0 calc(${w}% - 6px);max-width:${w}%;">${inner}</div>`;
+          }).join("");
+          return `<div class="cv-cols">${colsHtml}</div>`;
+        }
         case "spacer":
           return `<div class="cv-spacer" style="height:${Math.max(4,Math.min(160,Number(b.height)||24))}px;">Spacer · ${Math.max(4,Math.min(160,Number(b.height)||24))}px</div>`;
         case "logo":
@@ -484,18 +502,16 @@ import "../../../styles/admin.css";
       }
     }
 
-    function renderCanvas() {
+    // One block's editor card (toolbar + visibility badge + rendered content).
+    // Reused at the top level AND inside columns, so children are fully editable.
+    function blockCard(b){
       const brand = { ...defaultBrand(), ...state.branding };
-      emailEl.style.background = state.branding.cardColor || "#ffffff";
-      $("#eb-canvas-pane").style.background = state.branding.bgColor || "#f1f0ef";
-      $("#eb-canvas-empty").hidden = state.blocks.length > 0;
-      blocksWrap.innerHTML = state.blocks.map((b) => {
-        const hide = b.hide || {};
-        const badge = (hide.mobile && hide.desktop) ? "Hidden" : hide.desktop ? "Mobile only" : hide.mobile ? "Desktop only" : "";
-        const hiddenHere = (hide.mobile && hide.desktop)
-          || (canvasDevice === "mobile" && hide.mobile)
-          || (canvasDevice === "desktop" && hide.desktop);
-        return `
+      const hide = b.hide || {};
+      const badge = (hide.mobile && hide.desktop) ? "Hidden" : hide.desktop ? "Mobile only" : hide.mobile ? "Desktop only" : "";
+      const hiddenHere = (hide.mobile && hide.desktop)
+        || (canvasDevice === "mobile" && hide.mobile)
+        || (canvasDevice === "desktop" && hide.desktop);
+      return `
         <div class="cv-block${b.id===selectedId?" is-selected":""}${badge?" has-vis":""}${hiddenHere?" cv-hidden-here":""}" data-id="${b.id}">
           ${badge?`<span class="cv-vis-badge">${badge}</span>`:""}
           <div class="cv-toolbar">
@@ -505,23 +521,35 @@ import "../../../styles/admin.css";
           </div>
           <div class="cv-inner" style="${cvPad(resolveMargin(b))}">${canvasInner(b, brand)}</div>
         </div>`;
-      }).join("");
+    }
+    function renderCanvas() {
+      emailEl.style.background = state.branding.cardColor || "#ffffff";
+      $("#eb-canvas-pane").style.background = state.branding.bgColor || "#f1f0ef";
+      $("#eb-canvas-empty").hidden = state.blocks.length > 0;
+      blocksWrap.innerHTML = state.blocks.map(blockCard).join("");
       wireCanvas();
       markDirty();
     }
 
+    function colArray(colEl){
+      const cb = findBlock(colEl.dataset.colof); const i = Number(colEl.dataset.coli);
+      if (!cb || !Array.isArray(cb.cols)) return null;
+      if (!Array.isArray(cb.cols[i])) cb.cols[i] = [];
+      return cb.cols[i];
+    }
     function wireCanvas() {
       blocksWrap.querySelectorAll(".cv-block").forEach((el) => {
         const bid = el.dataset.id;
-        el.addEventListener("mousedown", (e) => { if (!e.target.closest(".cv-tb")) select(bid); });
-        // inline editing
+        // stopPropagation → clicking a child inside a column selects the child,
+        // not the parent columns block.
+        el.addEventListener("mousedown", (e) => { if (e.target.closest(".cv-tb")) return; e.stopPropagation(); select(bid); });
+        // inline editing — only this block's own editables (not nested children's)
         el.querySelectorAll("[data-edit]").forEach((ed) => {
+          if (ed.closest(".cv-block") !== el) return;
           ed.addEventListener("focus", () => { lastEditable = ed; select(bid); });
           ed.addEventListener("input", () => {
-            const blk = state.blocks.find((x) => x.id === bid);
+            const blk = findBlock(bid);
             if (!blk) return;
-            // Rich text blocks store innerHTML (bold/italic/underline/bullets);
-            // everything else stores plain text.
             if (ed.hasAttribute("data-rich")) { blk.html = ed.innerHTML; blk.text = ed.innerText; }
             else blk.text = ed.innerText;
             markDirty();
@@ -530,30 +558,99 @@ import "../../../styles/admin.css";
         // toolbar
         el.querySelector("[data-dupe]")?.addEventListener("click", (e) => { e.stopPropagation(); dupe(bid); });
         el.querySelector("[data-del]")?.addEventListener("click", (e) => { e.stopPropagation(); del(bid); });
-        // drag reorder
+        // drag reorder — works across containers via findLoc
         const grip = el.querySelector("[data-grip]");
-        grip?.addEventListener("dragstart", (e) => { dragId = bid; e.dataTransfer.effectAllowed = "move"; });
+        grip?.addEventListener("dragstart", (e) => { e.stopPropagation(); dragId = bid; e.dataTransfer.effectAllowed = "move"; });
         el.addEventListener("dragover", (e) => {
-          // Either reordering an existing block, or dropping a NEW block from the palette.
-          if ((!dragId && !paletteDragType) || dragId === bid) return; e.preventDefault();
+          if ((!dragId && !paletteDragType) || dragId === bid) return;
+          e.preventDefault(); e.stopPropagation();
           const r = el.getBoundingClientRect(); const after = e.clientY > r.top + r.height/2;
           el.classList.toggle("cv-drop-after", after); el.classList.toggle("cv-drop-before", !after);
         });
         el.addEventListener("dragleave", () => el.classList.remove("cv-drop-after","cv-drop-before"));
         el.addEventListener("drop", (e) => {
-          e.preventDefault(); el.classList.remove("cv-drop-after","cv-drop-before");
+          e.preventDefault(); e.stopPropagation(); el.classList.remove("cv-drop-after","cv-drop-before");
           const r = el.getBoundingClientRect(); const after = e.clientY > r.top + r.height/2;
+          const tLoc = findLoc(bid); if (!tLoc) return;
           if (paletteDragType) {
+            // No columns-inside-columns.
+            if (paletteDragType === "columns" && tLoc.list !== state.blocks) { paletteDragType = null; return; }
             const nb = makeBlock(paletteDragType); paletteDragType = null;
-            let to = state.blocks.findIndex((x)=>x.id===bid); if (after) to += 1;
-            state.blocks.splice(to,0,nb); renderCanvas(); select(nb.id); return;
+            tLoc.list.splice(tLoc.index + (after?1:0), 0, nb); renderCanvas(); select(nb.id); return;
           }
           if (!dragId || dragId === bid) return;
-          const from = state.blocks.findIndex((x)=>x.id===dragId);
-          const moved = state.blocks.splice(from,1)[0];
-          let to = state.blocks.findIndex((x)=>x.id===bid); if (after) to += 1;
-          state.blocks.splice(to,0,moved); dragId=null; renderCanvas();
+          const sLoc = findLoc(dragId); if (!sLoc) return;
+          if (sLoc.block.type === "columns" && tLoc.list !== state.blocks) { dragId=null; return; }  // don't nest a columns block
+          const moved = sLoc.list.splice(sLoc.index, 1)[0];
+          const t2 = findLoc(bid);
+          if (!t2) { sLoc.list.splice(sLoc.index, 0, moved); dragId=null; renderCanvas(); return; }
+          t2.list.splice(t2.index + (after?1:0), 0, moved);
+          dragId = null; renderCanvas();
         });
+      });
+      // Column drop zones (drop onto a column's empty area / gaps)
+      blocksWrap.querySelectorAll(".cv-col").forEach((col) => {
+        // Only bail when the pointer is over a CHILD card inside THIS column — the
+        // column itself lives inside the columns .cv-block, so a plain closest()
+        // check would always match the parent.
+        const onChild = (e) => { const hb = e.target.closest(".cv-block"); return hb && col.contains(hb); };
+        col.addEventListener("dragover", (e) => {
+          if (!dragId && !paletteDragType) return;
+          if (onChild(e)) return;   // a child card handles it
+          e.preventDefault(); e.stopPropagation(); col.classList.add("cv-col-drop");
+        });
+        col.addEventListener("dragleave", () => col.classList.remove("cv-col-drop"));
+        col.addEventListener("drop", (e) => {
+          col.classList.remove("cv-col-drop");
+          if (onChild(e)) return;
+          e.preventDefault(); e.stopPropagation();
+          const arr = colArray(col); if (!arr) return;
+          if (paletteDragType) {
+            if (paletteDragType === "columns") { paletteDragType = null; return; }
+            const nb = makeBlock(paletteDragType); paletteDragType = null;
+            arr.push(nb); renderCanvas(); select(nb.id); return;
+          }
+          if (dragId) {
+            const sLoc = findLoc(dragId); if (!sLoc || sLoc.block.type === "columns") { dragId=null; return; }
+            const moved = sLoc.list.splice(sLoc.index, 1)[0];
+            arr.push(moved); dragId = null; renderCanvas();
+          }
+        });
+      });
+    }
+
+    // Find a block ANYWHERE — top level or inside a columns block — returning its
+    // containing array + index so edits/moves work uniformly across containers.
+    function findLoc(id){
+      let i = state.blocks.findIndex(b=>b.id===id);
+      if (i>=0) return { list: state.blocks, index: i, block: state.blocks[i] };
+      for (const b of state.blocks){
+        if (b.type==="columns" && Array.isArray(b.cols)){
+          for (const col of b.cols){
+            const j = (col||[]).findIndex(c=>c && c.id===id);
+            if (j>=0) return { list: col, index: j, block: col[j] };
+          }
+        }
+      }
+      return null;
+    }
+    function findBlock(id){ const l=findLoc(id); return l?l.block:null; }
+    const newId = ()=> "b_"+Math.random().toString(36).slice(2,10);
+    function reId(b){ b.id=newId(); if(b.type==="columns"&&Array.isArray(b.cols)) b.cols.forEach(col=>(col||[]).forEach(reId)); return b; }
+    // Convert any old fixed-cell columns (b.cells) into the new child-block model.
+    function migrateColumns(blocks){
+      (blocks||[]).forEach(b=>{
+        if (b && b.type==="columns" && Array.isArray(b.cells) && !Array.isArray(b.cols)){
+          b.cols = b.cells.map(c=>{
+            const arr=[];
+            if(c && c.image) arr.push({type:"image",id:newId(),url:c.image,align:"center"});
+            if(c && c.title) arr.push({type:"heading",id:newId(),text:c.title,align:"left",size:20});
+            if(c && c.text) arr.push({type:"text",id:newId(),text:c.text});
+            if(c && c.btnText) arr.push({type:"button",id:newId(),text:c.btnText,url:c.btnUrl||"#"});
+            return arr;
+          });
+          delete b.cells;
+        }
       });
     }
 
@@ -567,9 +664,9 @@ import "../../../styles/admin.css";
       blocksWrap.querySelectorAll(".cv-block").forEach((el)=>el.classList.remove("is-selected"));
       $("#eb-rail-inspector").hidden = true; $("#eb-rail-blocks").hidden = false;
     }
-    function dupe(bid){ const i=state.blocks.findIndex(x=>x.id===bid); if(i<0)return; const c=JSON.parse(JSON.stringify(state.blocks[i])); c.id=makeBlock(c.type).id; state.blocks.splice(i+1,0,c); renderCanvas(); }
-    function del(bid){ state.blocks=state.blocks.filter(x=>x.id!==bid); if(selectedId===bid) deselect(); renderCanvas(); }
-    function addBlock(type){ const b=makeBlock(type); const i=state.blocks.findIndex(x=>x.id===selectedId); if(i>=0) state.blocks.splice(i+1,0,b); else state.blocks.push(b); renderCanvas(); select(b.id); }
+    function dupe(bid){ const loc=findLoc(bid); if(!loc)return; const c=reId(JSON.parse(JSON.stringify(loc.block))); loc.list.splice(loc.index+1,0,c); renderCanvas(); select(c.id); }
+    function del(bid){ const loc=findLoc(bid); if(loc) loc.list.splice(loc.index,1); if(selectedId===bid) deselect(); renderCanvas(); }
+    function addBlock(type){ const b=makeBlock(type); const loc=findLoc(selectedId); if(loc) loc.list.splice(loc.index+1,0,b); else state.blocks.push(b); renderCanvas(); select(b.id); }
 
     /* ─────────── inspector ─────────── */
     const ALIGN = ["left","center","right"];
@@ -776,17 +873,9 @@ import "../../../styles/admin.css";
           <p class="eb-note">Email-safe HTML only (inline styles, tables). Merge tokens work here too.</p>`;
         case "columns": {
           const lay = b.layout || "50-50";
-          const cols = (COLUMN_LAYOUTS.find(l=>l.key===lay)||{cols:2}).cols;
-          if(!Array.isArray(b.cells)) b.cells=[];
-          while(b.cells.length<cols) b.cells.push({});
-          const sel = `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>`;
-          const cellForms = b.cells.slice(0,cols).map((c,i)=>`<div style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;"><strong style="font-size:12px;color:var(--english-violet);">Column ${i+1}</strong>
-            <label class="eb-f"><span>Image URL</span><input type="url" data-col="${i}.image" value="${esc(c.image||"")}" /></label>
-            <label class="eb-f"><span>Title</span><input type="text" data-col="${i}.title" value="${esc(c.title||"")}" /></label>
-            <label class="eb-f"><span>Text</span><textarea data-col="${i}.text" rows="2">${esc(c.text||"")}</textarea></label>
-            <label class="eb-f"><span>Button text</span><input type="text" data-col="${i}.btnText" value="${esc(c.btnText||"")}" /></label>
-            <label class="eb-f"><span>Button URL</span><input type="url" data-col="${i}.btnUrl" value="${esc(c.btnUrl||"")}" /></label></div>`).join("");
-          return sel + cellForms + `<p class="eb-note">Great for feature rows, product or service grids. Columns stack on very small screens.</p>`;
+          return `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>
+            <p class="eb-note">Drag any block from the left into a column. Click a block inside a column to edit it. Columns stack on mobile.</p>
+            ${marginFields(b)}`;
         }
         case "products": {
           if(!Array.isArray(b.items)) b.items=[];
@@ -845,7 +934,7 @@ import "../../../styles/admin.css";
         </div>${hint}</div>`;
     }
     function openInspector(bid) {
-      const b = state.blocks.find(x=>x.id===bid); if(!b) return;
+      const b = findBlock(bid); if(!b) return;
       const def = BLOCK_TYPES.find(d=>d.type===b.type);
       $("#eb-insp-title").textContent = def ? def.label : b.type;
       const wrap = $("#eb-insp-fields"); wrap.innerHTML = inspectorFields(b, canvasDevice) + visibilityControl(b);
@@ -878,16 +967,19 @@ import "../../../styles/admin.css";
         wrap.querySelectorAll("[data-faq-del]").forEach((btn)=>btn.addEventListener("click", ()=>{ b.items.splice(Number(btn.dataset.faqDel),1); renderCanvas(); openInspector(bid); }));
         wrap.querySelector("#eb-faq-add")?.addEventListener("click", ()=>{ b.items.push({q:"",a:""}); renderCanvas(); openInspector(bid); });
       }
-      // Columns block: per-cell content + layout switch (changing layout changes
-      // the column count, so re-open the inspector to show the right cells).
+      // Columns block: changing layout adds/removes columns; when shrinking,
+      // orphaned children fold into the last remaining column so nothing is lost.
       if (b.type === "columns") {
-        if (!Array.isArray(b.cells)) b.cells = [];
-        wrap.querySelector('[data-field="layout"]')?.addEventListener("change", ()=>{ renderCanvas(); openInspector(bid); });
-        wrap.querySelectorAll("[data-col]").forEach((inp)=>{
-          inp.addEventListener("input", ()=>{
-            const [i,k] = inp.dataset.col.split("."); const ix=Number(i);
-            b.cells[ix] = b.cells[ix] || {}; b.cells[ix][k] = inp.value; renderCanvas();
-          });
+        if (!Array.isArray(b.cols)) b.cols = [[], []];
+        wrap.querySelector('[data-field="layout"]')?.addEventListener("change", (e)=>{
+          const lay = COLUMN_LAYOUTS.find(l=>l.key===e.target.value) || COLUMN_LAYOUTS[1];
+          const need = lay.cols;
+          while (b.cols.length < need) b.cols.push([]);
+          if (b.cols.length > need){
+            const extra = b.cols.splice(need);
+            extra.forEach(col => (col||[]).forEach(cb => b.cols[need-1].push(cb)));
+          }
+          renderCanvas(); openInspector(bid);
         });
       }
       // Products / Services — repeatable items.
@@ -1195,6 +1287,7 @@ import "../../../styles/admin.css";
             trigger_key:data.trigger_key||"", status:data.status||"draft", mode:data.mode||"blocks",
             blocks:Array.isArray(data.blocks)?data.blocks:[], custom_html:data.custom_html||"",
             branding:{...defaultBrand(),...(data.branding||{})} });
+          migrateColumns(state.blocks);
         } else if (!DEV) { alert("Couldn't load template. Returning to the list."); location.replace("/admin/email"); return; }
         else { seedSample(); }
       } else { seedSample(); }
