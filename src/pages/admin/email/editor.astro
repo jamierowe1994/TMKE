@@ -718,10 +718,9 @@ import "../../../styles/admin.css";
             <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="${P("letterSpacing")}" value="${V("letterSpacing")}" placeholder="${PH("letterSpacing","0")}" /></label>
             <label class="eb-f"><span>Align</span><select data-field="${P("align")}">${alignOpts}</select></label>
           </div>
-          ${dPad(b, device)}
-          <p class="eb-note">${isM?"Editing <strong>mobile</strong> — blank = inherit desktop. Tap 🖥 for desktop.":"Editing <strong>desktop</strong> — tap 📱 to set smaller mobile values."}</p>
-        </div>
-        ${marginFields(b)}`;
+          ${spacingGrids(b, device)}
+          <p class="eb-note">${isM?"Padding is per-device (blank = inherit desktop). Margin is the same on all devices.":"Padding is per-device (tap 📱 for mobile). Margin is the same on all devices."}</p>
+        </div>`;
     }
     // ── Device-aware field builders (mobile writes to b.mobile.*; blank inherits) ──
     function dField(b, device, key, label, attrs, dflt){
@@ -754,18 +753,26 @@ import "../../../styles/admin.css";
       const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="margin.${k}" value="${mar[k]!=null?mar[k]:""}" placeholder="${dflt[k]!=null?dflt[k]:0}"/></label>`;
       return `<div class="eb-pad"><span class="eb-f-sub">Margin · outside</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
     }
+    // Padding + margin ALWAYS travel together (padding inside, margin outside),
+    // formatted identically on every block that has spacing.
+    function spacingGrids(b, device){ return `${dPad(b, device)}${marginFields(b)}`; }
+    // Standalone spacing box for blocks with no other per-device controls (e.g.
+    // columns) so their spacing looks the same as everywhere else.
+    function spacingBox(b, device){
+      return `<div class="eb-resp"><div class="eb-resp-head"><span class="eb-f-sub">Spacing</span>${deviceToggleMini(device)}</div>${spacingGrids(b, device)}</div>`;
+    }
     function respWrap(device, inner){
       return `<div class="eb-resp"><div class="eb-resp-head"><span class="eb-f-sub">Size &amp; spacing</span>${deviceToggleMini(device)}</div>${inner}
-        <p class="eb-note">${device==="mobile"?"Editing <strong>mobile</strong> — blank = inherit desktop.":"Editing <strong>desktop</strong> — tap 📱 for mobile."}</p></div>`;
+        <p class="eb-note">${device==="mobile"?"Size &amp; padding are per-device (blank = inherit desktop). Margin is the same on all devices.":"Size &amp; padding are per-device (tap 📱 for mobile). Margin is the same on all devices."}</p></div>`;
     }
     function buttonRespFields(b, device){
-      return respWrap(device, `<div class="eb-f2">${dField(b,device,"size","Text size (px)",'type="number" min="8" max="40"',14)}${dField(b,device,"letterSpacing","Letter spacing",'type="number" min="-3" max="14" step="0.5"',0)}</div>${dAlign(b,device)}${dPad(b,device)}`);
+      return respWrap(device, `<div class="eb-f2">${dField(b,device,"size","Text size (px)",'type="number" min="8" max="40"',14)}${dField(b,device,"letterSpacing","Letter spacing",'type="number" min="-3" max="14" step="0.5"',0)}</div>${dAlign(b,device)}${spacingGrids(b,device)}`);
     }
     function imageRespFields(b, device){
-      return respWrap(device, `<div class="eb-f2">${dField(b,device,"width","Width (px)",'type="number" min="20" max="1200"',"auto")}${dField(b,device,"height","Height (px)",'type="number" min="10" max="1200"',"auto")}</div>${dAlign(b,device)}${dPad(b,device)}`);
+      return respWrap(device, `<div class="eb-f2">${dField(b,device,"width","Width (px)",'type="number" min="20" max="1200"',"auto")}${dField(b,device,"height","Height (px)",'type="number" min="10" max="1200"',"auto")}</div>${dAlign(b,device)}${spacingGrids(b,device)}`);
     }
     function dividerRespFields(b, device){
-      return respWrap(device, `${dAlign(b,device)}${dPad(b,device)}`);
+      return respWrap(device, `${dAlign(b,device)}${spacingGrids(b,device)}`);
     }
 
     // Inline rich-text toolbar for the text block (execCommand — email-safe tags)
@@ -816,8 +823,7 @@ import "../../../styles/admin.css";
             <label class="eb-f"><span>Colour</span><input type="color" data-field="borderColor" value="${validHex(b.borderColor,'#1c1d22')}" /></label>
           </div>
           <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="borderRadius" value="${b.borderRadius!=null?b.borderRadius:""}" placeholder="8" /></label>
-          ${imageRespFields(b, device)}
-          ${marginFields(b)}`;
+          ${imageRespFields(b, device)}`;
         case "button": return `
           <label class="eb-f"><span>Button text</span><input type="text" data-field="text" value="${esc(b.text||"")}" /></label>
           <p class="eb-note" style="margin:-6px 0 10px;">…or edit it directly on the canvas.</p>
@@ -839,16 +845,14 @@ import "../../../styles/admin.css";
             <label class="eb-f"><span>Colour</span><input type="color" data-field="borderColor" value="${validHex(b.borderColor,'#371e28')}" /></label>
           </div>
           <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="borderRadius" value="${b.borderRadius!=null?b.borderRadius:""}" placeholder="8" /></label>
-          ${buttonRespFields(b, device)}
-          ${marginFields(b)}`;
+          ${buttonRespFields(b, device)}`;
         case "divider": return `
           <label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,'#E2E8F0')}" /></label>
           <div class="eb-f2">
             <label class="eb-f"><span>Thickness (px)</span><input type="number" min="1" max="12" data-field="thickness" value="${b.thickness!=null?b.thickness:""}" placeholder="1" /></label>
             <label class="eb-f"><span>Width (%)</span><input type="number" min="10" max="100" data-field="width" value="${b.width!=null?b.width:""}" placeholder="100" /></label>
           </div>
-          ${dividerRespFields(b, device)}
-          ${marginFields(b)}`;
+          ${dividerRespFields(b, device)}`;
         case "spacer": return `<label class="eb-f"><span>Height (px)</span><input type="number" min="4" max="160" data-field="height" value="${Number(b.height)||24}" /></label>`;
         case "logo": return `<label class="eb-f"><span>Size</span><select data-field="size">${opts(["sm","md","lg"],b.size||"md")}</select></label>${align}
           <label class="eb-f"><span>Link URL</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>
@@ -886,7 +890,7 @@ import "../../../styles/admin.css";
           const lay = b.layout || "50-50";
           return `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>
             <p class="eb-note">Drag any block from the left into a column. Click a block inside a column to edit it. Columns stack on mobile.</p>
-            ${marginFields(b)}`;
+            ${spacingBox(b, device)}`;
         }
         case "products": {
           if(!Array.isArray(b.items)) b.items=[];
