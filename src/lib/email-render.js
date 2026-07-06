@@ -689,15 +689,21 @@ function renderColumns(block, brand, ctx) {
   const layout = (COLUMN_LAYOUTS.find((l) => l.key === block.layout)) || COLUMN_LAYOUTS[1];
   const widths = layout.w;
   const cols = Array.isArray(block.cols) ? block.cols : [];
+  const colBg = Array.isArray(block.colBg) ? block.colBg : [];
   const tds = widths.map((w, i) => {
     const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 8px';
     const children = Array.isArray(cols[i]) ? cols[i] : [];
     // Each child block is rendered with its own outer margin so column content
     // stacks with consistent spacing.
-    const inner = children.map((cb) => {
+    const content = children.map((cb) => {
       const h = renderBlock(cb, brand, ctx);
       return h ? wrapOuter(h, cb) : '';
     }).filter(Boolean).join('\n') || '&nbsp;';
+    // Optional per-column background — wrap the cell's content in a padded,
+    // rounded panel so each column can be independently coloured with a gap.
+    const inner = colBg[i]
+      ? `<div style="background-color:${escapeHtml(colBg[i])};border-radius:6px;padding:14px;">${content}</div>`
+      : content;
     return `<td class="eb-col" valign="top" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:top;font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
   }).join('');
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
