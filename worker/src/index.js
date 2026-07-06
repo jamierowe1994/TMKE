@@ -2686,6 +2686,51 @@ export default {
         return json({ reports }, 200, request, env);
       }
 
+      // ---- Admin: ask Claude about an account's reports (admin-only) ----------
+      if (path.endsWith("/smm/report/ask") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const leadId = b && b.lead_id;
+        const question = String((b && b.question) || "").trim().slice(0, 500);
+        if (!leadId || !question) return json({ error: "Missing account or question." }, 400, request, env);
+        const leadRows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=full_name,business`);
+        const lead = (leadRows && leadRows[0]) || {};
+        const reps = (await sbGet(env, "smm_reports", `lead_id=eq.${encodeURIComponent(leadId)}&select=platform,month,year,data&order=year.asc,month.asc`)) || [];
+        if (!reps.length) return json({ error: "No reports for this account yet — upload one first." }, 400, request, env);
+        const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const accName = lead.business || lead.full_name || "this account";
+        const platform = reps[reps.length - 1].platform || "Instagram";
+        let dataText = "";
+        for (const r of reps) {
+          const d = r.data || {}, p = d.profile || {}, rc = d.reach || {};
+          dataText += `=== ${MN[r.month]} ${r.year} ===\n`;
+          dataText += `Followers: ${p.followers ?? "?"} | New followers: ${p.newFollowers ?? "?"} | Reach: ${p.reach ?? "?"} | Views: ${p.views ?? "?"}\n`;
+          dataText += `Interactions: ${p.interactions ?? "?"} | Engagement rate: ${p.interactionRate ?? "?"}% | Link taps: ${p.linkTaps ?? "?"}\n`;
+          if (rc.organicReach != null || rc.paidReach != null) dataText += `Organic reach: ${rc.organicReach ?? "?"} | Paid reach: ${rc.paidReach ?? "?"}\n`;
+          if (d.ads) dataText += `Paid ads — reach: ${d.ads.reach ?? "?"} | interactions: ${d.ads.interactions ?? "?"} | spend: £${d.ads.spend ?? "?"} | clicks: ${d.ads.clicks ?? "?"} | CPC: £${d.ads.cpc ?? "?"}\n`;
+          if (d.bestDays) dataText += `Best days: ${d.bestDays} | Morning window: ${d.morningWindow || "?"} | Evening window: ${d.eveningWindow || "?"}\n`;
+          if (d.hashtags && d.hashtags.length) dataText += `Hashtags: ${d.hashtags.map((h) => `${h.name} (reach:${h.reach}, inter:${h.interactions})`).join(", ")}\n`;
+          if (d.topContent && d.topContent.length) dataText += `Top content: ${d.topContent.map((t) => `${t.title} [${t.type}]`).join("; ")}\n`;
+          if (d.priorities && d.priorities.length) dataText += `Priorities: ${d.priorities.map((pr) => pr.text).join("; ")}\n`;
+          dataText += "\n";
+        }
+        const prompt = `You are a social media analyst reviewing ${reps.length} month(s) of data for ${accName} on ${platform}.\n\nData:\n${dataText}\nQuestion: ${question}\n\nAnswer directly and practically, referencing the actual figures above. Be concise (a few short sentences or bullet points). If the data doesn't cover it, say so.`;
+        let aiRes;
+        try {
+          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
+          });
+        } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env); }
+        const dataRes = await aiRes.json();
+        const answer = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
+        return json({ ok: true, answer: answer || "(no answer)" }, 200, request, env);
+      }
+
       // ---- Admin: delete a report --------------------------------------------
       if (path.endsWith("/smm/report") && request.method === "DELETE") {
         const user = await getUser(request, env);
