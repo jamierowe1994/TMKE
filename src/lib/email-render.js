@@ -208,6 +208,28 @@ export function textInlineStyle(block = {}) {
   return style;
 }
 
+/** Inline style for a button's <a> — shared by renderer + canvas. Background =
+ *  block.color (falls back to brand accent); text = block.textColor. */
+export function buttonInlineStyle(block = {}, brand = {}) {
+  const bg = block.color || brand.accentColor || ACCENT_DEFAULT;
+  const txt = block.textColor || '#ffffff';
+  const size = pxNum(block.size, 14);
+  const br = pxNum(block.borderRadius, 8);
+  const bw = pxNum(block.borderWidth, 0);
+  const bc = block.borderColor || bg;
+  const p = block.pad;
+  const pad = (p && (p.t || p.r || p.b || p.l))
+    ? `${pxNum(p.t, 11)}px ${pxNum(p.r, 24)}px ${pxNum(p.b, 11)}px ${pxNum(p.l, 24)}px`
+    : '11px 24px';
+  const parts = [
+    'display:inline-block', `padding:${pad}`, `background:${escapeHtml(bg)}`, `color:${escapeHtml(txt)}`,
+    'text-decoration:none', `border-radius:${br}px`, 'font-weight:600', `font-size:${size}px`,
+    `font-family:${fontStack(block.font)}`,
+  ];
+  if (bw > 0) parts.push(`border:${bw}px solid ${escapeHtml(bc)}`);
+  return parts.join(';') + ';';
+}
+
 /** The per-device responsive properties (block.mobile.* overrides the base,
  *  which is the desktop value). font family / colour / weight stay global. */
 function responsiveDecls(block) {
@@ -231,10 +253,58 @@ export function effectiveBlock(block, device) {
   if (device !== 'mobile' || !block || !block.mobile) return block;
   const m = block.mobile;
   const out = { ...block };
-  ['size', 'lineHeight', 'letterSpacing', 'align'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
+  ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
   if (m.pad) out.pad = { ...(block.pad || {}), ...m.pad };
   return out;
 }
+
+// Padding decl helper for a mobile override (returns '' or 'padding:… !important').
+function mobPad(pad) {
+  if (!pad) return '';
+  const t = pxNum(pad.t, 0), r = pxNum(pad.r, 0), b = pxNum(pad.b, 0), l = pxNum(pad.l, 0);
+  return (t || r || b || l) ? `padding:${t}px ${r}px ${b}px ${l}px !important` : '';
+}
+
+// Per-type mobile CSS. Buttons/images/dividers split across a wrapper class
+// (.eb-bw-<id>, for align/padding) and an inner class (.eb-b-<id>, for the
+// element's own size/width). Heading/text use just the inner class.
+function buttonResponsiveCss(block) {
+  const m = block.mobile || {}, rules = [], inner = [];
+  if (m.size != null && m.size !== '') inner.push(`font-size:${pxNum(m.size, 14)}px !important`);
+  const ip = mobPad(m.pad); if (ip) inner.push(ip);
+  if (inner.length) rules.push(`.eb-b-${block.id}{${inner.join(';')};}`);
+  if (['left', 'center', 'right'].includes(m.align)) rules.push(`.eb-bw-${block.id}{text-align:${m.align} !important;}`);
+  return rules.join('\n    ');
+}
+function imageResponsiveCss(block) {
+  const m = block.mobile || {}, rules = [], inner = [], wrap = [];
+  if (m.width != null && m.width !== '') inner.push(`width:${pxNum(m.width, 0)}px !important`, 'max-width:100% !important');
+  if (m.height != null && m.height !== '') inner.push(`height:${pxNum(m.height, 0)}px !important`);
+  if (inner.length) rules.push(`.eb-b-${block.id}{${inner.join(';')};}`);
+  if (['left', 'center', 'right'].includes(m.align)) wrap.push(`text-align:${m.align} !important`);
+  const wp = mobPad(m.pad); if (wp) wrap.push(wp);
+  if (wrap.length) rules.push(`.eb-bw-${block.id}{${wrap.join(';')};}`);
+  return rules.join('\n    ');
+}
+function dividerResponsiveCss(block) {
+  const m = block.mobile || {}, rules = [], wrap = [];
+  if (['left', 'center', 'right'].includes(m.align)) wrap.push(`text-align:${m.align} !important`);
+  const wp = mobPad(m.pad); if (wp) wrap.push(wp);
+  if (wrap.length) rules.push(`.eb-bw-${block.id}{${wrap.join(';')};}`);
+  if (m.width != null && m.width !== '') rules.push(`.eb-b-${block.id}{width:${Math.max(1, Math.min(100, Number(m.width)))}% !important;}`);
+  return rules.join('\n    ');
+}
+function blockResponsiveCss(block) {
+  if (!block || !block.mobile) return '';
+  switch (block.type) {
+    case 'heading': case 'text': { const d = responsiveDecls(block); return d.length ? `.eb-b-${block.id}{${d.join(';')};}` : ''; }
+    case 'button': return buttonResponsiveCss(block);
+    case 'image': return imageResponsiveCss(block);
+    case 'divider': return dividerResponsiveCss(block);
+    default: return '';
+  }
+}
+function blockHasMobile(block) { return blockResponsiveCss(block) !== ''; }
 
 let _uidCounter = 0;
 function uid() {
@@ -340,32 +410,59 @@ function renderText(block, ctx) {
   return `<div${cls} style="${textInlineStyle(block)}">${inner}</div>`;
 }
 
+/** Inline style for an image element — shared by renderer + canvas. */
+export function imageInlineStyle(block = {}) {
+  const parts = [];
+  if (block.width != null && block.width !== '') parts.push(`width:${pxNum(block.width, 0)}px`);
+  parts.push('max-width:100%');
+  parts.push(block.height != null && block.height !== '' ? `height:${pxNum(block.height, 0)}px` : 'height:auto');
+  const bw = pxNum(block.borderWidth, 0);
+  if (bw > 0) parts.push(`border:${bw}px solid ${escapeHtml(block.borderColor || '#1c1d22')}`);
+  else parts.push('border:0');
+  parts.push(`border-radius:${pxNum(block.borderRadius, 8)}px`);
+  parts.push('display:inline-block', 'outline:none', 'text-decoration:none');
+  return parts.join(';') + ';';
+}
+
 function renderImage(block) {
   const url = block.url;
   if (!url) return '';
   const alt = escapeHtml(block.alt || '');
   const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
-  const img = `<img src="${escapeHtml(url)}" alt="${alt}" style="max-width:100%;border-radius:8px;display:inline-block;border:0;outline:none;text-decoration:none;" />`;
+  const cls = blockHasMobile(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
+  const wCls = blockHasMobile(block) ? ` class="eb-bw-${escapeHtml(block.id)}"` : '';
+  const img = `<img${cls} src="${escapeHtml(url)}" alt="${alt}" style="${imageInlineStyle(block)}" />`;
   const wrapped = block.linkUrl
     ? `<a href="${escapeHtml(block.linkUrl)}" style="text-decoration:none;">${img}</a>`
     : img;
-  return `<div style="text-align:${align};">${wrapped}</div>`;
+  return `<div${wCls} style="text-align:${align};${padStyle(block.pad)}">${wrapped}</div>`;
 }
 
 function renderButton(block, brand, ctx) {
   const text = renderTokens(block.text || 'Click here', ctx);
   const url = renderTokens(block.url || '#', ctx);
-  const color = block.color || brand.accentColor || ACCENT_DEFAULT;
   const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
+  const hasM = blockHasMobile(block);
+  const wCls = hasM ? ` class="eb-bw-${escapeHtml(block.id)}"` : '';
+  const bCls = hasM ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
   return `
-    <div style="text-align:${align};margin:8px 0;">
-      <a href="${escapeHtml(url)}" style="display:inline-block;padding:11px 24px;background:${escapeHtml(color)};color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;font-family:Helvetica,Arial,sans-serif;">${escapeHtml(text)}</a>
+    <div${wCls} style="text-align:${align};margin:8px 0;">
+      <a${bCls} href="${escapeHtml(url)}" style="${buttonInlineStyle(block, brand)}">${escapeHtml(text)}</a>
     </div>`;
 }
 
+/** Email-safe divider: nested tables so width/alignment hold in Outlook too. */
 function renderDivider(block) {
   const color = block.color || '#E2E8F0';
-  return `<hr style="border:none;border-top:1px solid ${escapeHtml(color)};margin:8px 0;" />`;
+  const thick = pxNum(block.thickness, 1);
+  const width = (block.width != null && block.width !== '') ? Math.max(1, Math.min(100, Number(block.width))) : 100;
+  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
+  const wCls = blockHasMobile(block) ? ` class="eb-bw-${escapeHtml(block.id)}"` : '';
+  const lCls = blockHasMobile(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
+  const pad = padStyle(block.pad) || 'padding:8px 0;';
+  return `<div${wCls} style="text-align:${align};${pad}">`
+    + `<table${lCls} role="presentation" width="${width}%" cellpadding="0" cellspacing="0" border="0" style="width:${width}%;display:inline-table;">`
+    + `<tr><td style="border-top:${thick}px solid ${escapeHtml(color)};font-size:0;line-height:0;">&nbsp;</td></tr></table></div>`;
 }
 
 function renderSpacer(block) {
@@ -710,8 +807,8 @@ export function renderTemplate(template = {}, opts = {}) {
     const inner = renderBlock(b, brand, ctx);
     if (!inner) return;
     // Collect the mobile media-query rule for any block with device overrides.
-    const decls = responsiveDecls(b);
-    if (decls.length) responsive.push(`.eb-b-${b.id}{${decls.join(';')};}`);
+    const rcss = blockResponsiveCss(b);
+    if (rcss) responsive.push(rcss);
     const withSpacer = parts.length ? spacer + '\n' + inner : inner;
     const wrapped = wrapVisibility(withSpacer, b);
     if (wrapped) parts.push(wrapped);

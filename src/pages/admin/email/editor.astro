@@ -328,6 +328,8 @@ import "../../../styles/admin.css";
     .eb-resp-head .eb-f-sub { margin-bottom:0; }
     .eb-resp-dev { flex:0 0 auto; }
     .eb-resp-dev .eb-dev { padding:5px 10px; font-size:13px; letter-spacing:0; }
+    .eb-upl { display:flex; align-items:center; gap:10px; margin:-4px 0 12px; flex-wrap:wrap; }
+    .eb-upl .eb-note { margin:0; }
 
     /* HTML pane */
     .eb-html-pane { flex:1; padding:24px 32px 80px; }
@@ -361,7 +363,7 @@ import "../../../styles/admin.css";
     import {
       renderTemplate, renderBlock, mergeContextFor, defaultBrand,
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT, COLUMN_LAYOUTS,
-      FONT_STACKS, headingInlineStyle, textInlineStyle, effectiveBlock,
+      FONT_STACKS, headingInlineStyle, textInlineStyle, buttonInlineStyle, imageInlineStyle, effectiveBlock,
     } from "../../../lib/email-render.js";
 
     const DEV = import.meta.env.DEV;
@@ -414,6 +416,7 @@ import "../../../styles/admin.css";
     };
 
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+    const cvPad = (p) => (p && (p.t||p.r||p.b||p.l)) ? `padding:${+p.t||0}px ${+p.r||0}px ${+p.b||0}px ${+p.l||0}px;` : "";
     function toast(m){ const t=$("#eb-toast"); t.textContent=m; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2600); }
 
     /* ─────────── canvas ─────────── */
@@ -431,14 +434,25 @@ import "../../../styles/admin.css";
           const wsp = (b.html != null && b.html !== "") ? "" : "white-space:pre-wrap;";
           return `<div class="cv-edit" data-edit data-rich data-id="${b.id}" contenteditable="true" style="${textInlineStyle(effectiveBlock(b, canvasDevice))}${wsp}">${content}</div>`;
         }
-        case "image":
+        case "image": {
+          const eb = effectiveBlock(b, canvasDevice);
+          const al = ["left","center","right"].includes(eb.align)?eb.align:"center";
           return b.url
-            ? `<div style="text-align:${align};"><img src="${esc(b.url)}" alt="${esc(b.alt||"")}" style="max-width:100%;border-radius:8px;display:inline-block;" /></div>`
-            : `<div class="cv-ph">Click, then add an image URL in the panel →</div>`;
-        case "button":
-          return `<div style="text-align:${align};margin:4px 0;"><span class="cv-btn" style="background:${esc(b.color||brand.accentColor)};">${esc(b.text||"Button")}</span></div>`;
-        case "divider":
-          return `<hr style="border:none;border-top:1px solid ${esc(b.color||"#E2E8F0")};margin:6px 0;" />`;
+            ? `<div style="text-align:${al};${cvPad(eb.pad)}"><img src="${esc(b.url)}" alt="${esc(b.alt||"")}" style="${imageInlineStyle(eb)}" /></div>`
+            : `<div class="cv-ph">Click, then add an image URL or upload one in the panel →</div>`;
+        }
+        case "button": {
+          const eb = effectiveBlock(b, canvasDevice);
+          const al = ["left","center","right"].includes(eb.align)?eb.align:"center";
+          return `<div style="text-align:${al};margin:4px 0;"><span style="${buttonInlineStyle(eb, brand)}">${esc(eb.text||"Button")}</span></div>`;
+        }
+        case "divider": {
+          const eb = effectiveBlock(b, canvasDevice);
+          const al = ["left","center","right"].includes(eb.align)?eb.align:"center";
+          const thick = Number(eb.thickness)||1;
+          const w = (eb.width!=null&&eb.width!=="")?Math.max(1,Math.min(100,Number(eb.width))):100;
+          return `<div style="text-align:${al};${cvPad(eb.pad)||"padding:6px 0;"}"><div style="display:inline-block;width:${w}%;border-top:${thick}px solid ${esc(eb.color||"#E2E8F0")};line-height:0;font-size:0;">&nbsp;</div></div>`;
+        }
         case "spacer":
           return `<div class="cv-spacer" style="height:${Math.max(4,Math.min(160,Number(b.height)||24))}px;">Spacer · ${Math.max(4,Math.min(160,Number(b.height)||24))}px</div>`;
         case "logo":
@@ -591,6 +605,41 @@ import "../../../styles/admin.css";
           <p class="eb-note">${isM?"Editing <strong>mobile</strong> — blank = inherit desktop. Tap 🖥 for desktop.":"Editing <strong>desktop</strong> — tap 📱 to set smaller mobile values."}</p>
         </div>`;
     }
+    // ── Device-aware field builders (mobile writes to b.mobile.*; blank inherits) ──
+    function dField(b, device, key, label, attrs, dflt){
+      const isM = device==="mobile";
+      const path = isM ? `mobile.${key}` : key;
+      const val = isM ? ((b.mobile&&b.mobile[key]!=null)?b.mobile[key]:"") : (b[key]!=null?b[key]:"");
+      const ph = isM ? ((b[key]!=null&&b[key]!=="")?b[key]:dflt) : dflt;
+      return `<label class="eb-f"><span>${label}</span><input ${attrs} data-field="${path}" value="${val}" placeholder="${ph}"/></label>`;
+    }
+    function dAlign(b, device){
+      const isM = device==="mobile";
+      const cur = isM ? ((b.mobile&&b.mobile.align)||"") : (b.align||"center");
+      const path = isM ? "mobile.align" : "align";
+      const o = `${isM?`<option value=""${cur===""?" selected":""}>Inherit</option>`:""}${ALIGN.map(x=>`<option value="${x}"${x===cur?" selected":""}>${x}</option>`).join("")}`;
+      return `<label class="eb-f"><span>Align</span><select data-field="${path}">${o}</select></label>`;
+    }
+    function dPad(b, device){
+      const isM = device==="mobile";
+      const pad = isM ? ((b.mobile&&b.mobile.pad)||{}) : (b.pad||{});
+      const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="${isM?`mobile.pad.${k}`:`pad.${k}`}" value="${pad[k]!=null?pad[k]:""}" placeholder="0"/></label>`;
+      return `<div class="eb-pad"><span class="eb-f-sub">Padding (px)</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
+    }
+    function respWrap(device, inner){
+      return `<div class="eb-resp"><div class="eb-resp-head"><span class="eb-f-sub">Size &amp; spacing</span>${deviceToggleMini(device)}</div>${inner}
+        <p class="eb-note">${device==="mobile"?"Editing <strong>mobile</strong> — blank = inherit desktop.":"Editing <strong>desktop</strong> — tap 📱 for mobile."}</p></div>`;
+    }
+    function buttonRespFields(b, device){
+      return respWrap(device, `<div class="eb-f2">${dField(b,device,"size","Text size (px)",'type="number" min="8" max="40"',14)}${dAlign(b,device)}</div>${dPad(b,device)}`);
+    }
+    function imageRespFields(b, device){
+      return respWrap(device, `<div class="eb-f2">${dField(b,device,"width","Width (px)",'type="number" min="20" max="1200"',"auto")}${dField(b,device,"height","Height (px)",'type="number" min="10" max="1200"',"auto")}</div>${dAlign(b,device)}${dPad(b,device)}`);
+    }
+    function dividerRespFields(b, device){
+      return respWrap(device, `${dAlign(b,device)}${dPad(b,device)}`);
+    }
+
     // Inline rich-text toolbar for the text block (execCommand — email-safe tags).
     function fmtToolbar(){
       return `<div class="eb-fmt"><span class="eb-f-sub">Format</span>
@@ -617,13 +666,40 @@ import "../../../styles/admin.css";
           ${fmtToolbar(b)}
           <label class="eb-f"><span>Background tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>
           ${typoFields(b, device)}`;
-        case "image": return `<label class="eb-f"><span>Image URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…/image.jpg" /></label>
+        case "image": return `
+          <label class="eb-f"><span>Image URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…/image.jpg" /></label>
+          <div class="eb-upl"><button type="button" class="eb-mini-btn" id="eb-img-upl-btn">⬆ Upload from file</button><input type="file" id="eb-img-upl-input" accept="image/*" hidden /><span class="eb-note" id="eb-img-upl-status"></span></div>
           <label class="eb-f"><span>Alt text</span><input type="text" data-field="alt" value="${esc(b.alt||"")}" /></label>
-          <label class="eb-f"><span>Link URL (optional)</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>${align}`;
-        case "button": return `<label class="eb-f"><span>Button text</span><input type="text" data-field="text" value="${esc(b.text||"")}" /></label>
-          <label class="eb-f"><span>Link URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
-          <label class="eb-f"><span>Colour (blank = accent)</span><input type="text" data-field="color" value="${esc(b.color||"")}" placeholder="Brand accent" /></label>${align}`;
-        case "divider": return `<label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${esc(b.color||"#E2E8F0")}" /></label>`;
+          <label class="eb-f"><span>Link URL (optional)</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>
+          <span class="eb-f-sub">Border</span>
+          <div class="eb-f2">
+            <label class="eb-f"><span>Width (px)</span><input type="number" min="0" max="12" data-field="borderWidth" value="${b.borderWidth!=null?b.borderWidth:""}" placeholder="0" /></label>
+            <label class="eb-f"><span>Colour</span><input type="color" data-field="borderColor" value="${validHex(b.borderColor,'#1c1d22')}" /></label>
+          </div>
+          <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="borderRadius" value="${b.borderRadius!=null?b.borderRadius:""}" placeholder="8" /></label>
+          ${imageRespFields(b, device)}`;
+        case "button": return `
+          <label class="eb-f"><span>Button text</span><input type="text" data-field="text" value="${esc(b.text||"")}" /></label>
+          <label class="eb-f"><span>Link URL (action)</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…" /></label>
+          <label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
+          <div class="eb-f2">
+            <label class="eb-f"><span>Text colour</span><input type="color" data-field="textColor" value="${validHex(b.textColor,'#ffffff')}" /></label>
+            <label class="eb-f"><span>Background</span><input type="color" data-field="color" value="${validHex(b.color, state.branding.accentColor||'#371e28')}" /></label>
+          </div>
+          <span class="eb-f-sub">Border</span>
+          <div class="eb-f2">
+            <label class="eb-f"><span>Width (px)</span><input type="number" min="0" max="12" data-field="borderWidth" value="${b.borderWidth!=null?b.borderWidth:""}" placeholder="0" /></label>
+            <label class="eb-f"><span>Colour</span><input type="color" data-field="borderColor" value="${validHex(b.borderColor,'#371e28')}" /></label>
+          </div>
+          <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="borderRadius" value="${b.borderRadius!=null?b.borderRadius:""}" placeholder="8" /></label>
+          ${buttonRespFields(b, device)}`;
+        case "divider": return `
+          <label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,'#E2E8F0')}" /></label>
+          <div class="eb-f2">
+            <label class="eb-f"><span>Thickness (px)</span><input type="number" min="1" max="12" data-field="thickness" value="${b.thickness!=null?b.thickness:""}" placeholder="1" /></label>
+            <label class="eb-f"><span>Width (%)</span><input type="number" min="10" max="100" data-field="width" value="${b.width!=null?b.width:""}" placeholder="100" /></label>
+          </div>
+          ${dividerRespFields(b, device)}`;
         case "spacer": return `<label class="eb-f"><span>Height (px)</span><input type="number" min="4" max="160" data-field="height" value="${Number(b.height)||24}" /></label>`;
         case "logo": return `<label class="eb-f"><span>Size</span><select data-field="size">${opts(["sm","md","lg"],b.size||"md")}</select></label>${align}
           <label class="eb-f"><span>Link URL</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>
@@ -803,6 +879,26 @@ import "../../../styles/admin.css";
       // Form — fields textarea (one per line) → array.
       if (b.type === "form") {
         wrap.querySelector("[data-formfields]")?.addEventListener("input", (e)=>{ b.fields = e.target.value.split("\n").map(s=>s.trim()).filter(Boolean); renderCanvas(); });
+      }
+      // Image — upload from file to the public site-media bucket, set b.url.
+      if (b.type === "image") {
+        const inp = wrap.querySelector("#eb-img-upl-input");
+        const btn = wrap.querySelector("#eb-img-upl-btn");
+        const stat = wrap.querySelector("#eb-img-upl-status");
+        btn?.addEventListener("click", ()=>inp?.click());
+        inp?.addEventListener("change", async ()=>{
+          const file = inp.files && inp.files[0]; if(!file) return;
+          if(!isConfigured){ stat.textContent = "Connect Supabase to upload."; return; }
+          stat.textContent = "Uploading…";
+          try {
+            const ext = (file.name.split(".").pop()||"jpg").toLowerCase();
+            const key = `email/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+            const { error } = await supabase.storage.from("site-media").upload(key, file, { cacheControl:"31536000", upsert:false, contentType:file.type });
+            if (error) { stat.textContent = "Upload failed: "+error.message; return; }
+            const { data } = supabase.storage.from("site-media").getPublicUrl(key);
+            b.url = data.publicUrl; renderCanvas(); openInspector(bid);
+          } catch(e){ stat.textContent = "Upload failed: "+(e.message||e); }
+        });
       }
       // Text — inline rich-text toolbar (bold/italic/underline/bullets). Keep the
       // canvas selection by preventing the button from stealing focus, then apply.
