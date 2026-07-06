@@ -81,6 +81,12 @@ import "../../../styles/admin.css";
 
       <!-- visual canvas -->
       <div class="eb-canvas-pane" id="eb-canvas-pane">
+        <div class="eb-canvas-devbar">
+          <div class="eb-dev-toggle">
+            <button type="button" class="eb-dev is-active" data-canvasdev="desktop" title="Preview the desktop layout">🖥 Desktop</button>
+            <button type="button" class="eb-dev" data-canvasdev="mobile" title="Preview the mobile layout">📱 Mobile</button>
+          </div>
+        </div>
         <div class="eb-canvas" id="eb-canvas">
           <div class="eb-email" id="eb-email">
             <div class="eb-email-blocks" id="eb-blocks"></div>
@@ -275,6 +281,35 @@ import "../../../styles/admin.css";
     .cv-social span { width:34px; height:34px; border-radius:17px; display:inline-flex; align-items:center; justify-content:center; color:#fff; }
     .cv-social svg { width:15px; height:15px; }
 
+    /* Canvas device toggle + responsive canvas width */
+    .eb-canvas-devbar { display:flex; justify-content:center; margin:0 auto 20px; }
+    .eb-canvas { transition:max-width 0.25s ease; }
+    .eb-canvas.is-mobileview { max-width:390px; }
+    .eb-canvas.is-mobileview .eb-email { padding:22px; }
+
+    /* Per-block visibility on the canvas: a small badge when a block is
+       restricted to one device, and dimming when it's hidden in the CURRENT view. */
+    .cv-vis-badge { position:absolute; top:-11px; left:8px; z-index:6; display:none; align-items:center; gap:4px;
+      background:var(--english-violet); color:#fff; font-family:var(--sans); font-size:9px; font-weight:700;
+      letter-spacing:0.1em; text-transform:uppercase; padding:3px 7px; border-radius:5px; }
+    .cv-block.has-vis .cv-vis-badge { display:inline-flex; }
+    .cv-block.cv-hidden-here { opacity:0.34; }
+    .cv-block.cv-hidden-here::after { content:"Hidden in this view"; position:absolute; inset:0; display:flex;
+      align-items:center; justify-content:center; font-family:var(--sans); font-size:11px; font-weight:700;
+      letter-spacing:0.08em; text-transform:uppercase; color:var(--english-violet); background:rgba(255,255,255,0.55);
+      border-radius:8px; pointer-events:none; }
+
+    /* Inspector: shared "Visible on" device toggle (every block gets this) */
+    .eb-vis-sec { margin-top:18px; padding-top:16px; border-top:1px solid var(--eb-line); }
+    .eb-vis-label { display:block; font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:rgba(28,29,34,0.55); margin-bottom:9px; }
+    .eb-vis-toggles { display:flex; gap:8px; }
+    .eb-vis-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px 8px; border:1px solid var(--eb-line); border-radius:8px; background:#fff; cursor:pointer; font-family:var(--sans); font-size:12px; font-weight:600; color:rgba(28,29,34,0.45); transition:border-color 0.15s, background 0.15s, color 0.15s; }
+    .eb-vis-btn.is-on { border-color:var(--english-violet); background:rgba(55,30,40,0.05); color:var(--english-violet); }
+    .eb-vis-btn .eb-vis-tick { font-size:11px; opacity:0; }
+    .eb-vis-btn.is-on .eb-vis-tick { opacity:1; }
+    .eb-vis-hint { margin-top:9px; font-family:var(--sans); font-size:11.5px; line-height:1.5; color:rgba(28,29,34,0.55); }
+    .eb-vis-hint.is-warn { color:#a05a3c; }
+
     /* HTML pane */
     .eb-html-pane { flex:1; padding:24px 32px 80px; }
     .eb-html { width:100%; min-height:60vh; font-family:ui-monospace,Menlo,monospace; font-size:13px; line-height:1.6; padding:16px; border:1px solid var(--eb-line); border-radius:10px; background:#fff; color:var(--ink); }
@@ -351,6 +386,7 @@ import "../../../styles/admin.css";
     const params = new URLSearchParams(location.search);
     let id = params.get("id"); if (id === "new") id = null;
     let session = null, loaded = null, selectedId = null, dragId = null, paletteDragType = null;
+    let canvasDevice = "desktop";   // which device layout the canvas is previewing
 
     const state = {
       name: "", subject: "", preheader: "", trigger_key: "", status: "draft",
@@ -412,15 +448,23 @@ import "../../../styles/admin.css";
       emailEl.style.background = state.branding.cardColor || "#ffffff";
       $("#eb-canvas-pane").style.background = state.branding.bgColor || "#f1f0ef";
       $("#eb-canvas-empty").hidden = state.blocks.length > 0;
-      blocksWrap.innerHTML = state.blocks.map((b) => `
-        <div class="cv-block${b.id===selectedId?" is-selected":""}" data-id="${b.id}">
+      blocksWrap.innerHTML = state.blocks.map((b) => {
+        const hide = b.hide || {};
+        const badge = (hide.mobile && hide.desktop) ? "Hidden" : hide.desktop ? "Mobile only" : hide.mobile ? "Desktop only" : "";
+        const hiddenHere = (hide.mobile && hide.desktop)
+          || (canvasDevice === "mobile" && hide.mobile)
+          || (canvasDevice === "desktop" && hide.desktop);
+        return `
+        <div class="cv-block${b.id===selectedId?" is-selected":""}${badge?" has-vis":""}${hiddenHere?" cv-hidden-here":""}" data-id="${b.id}">
+          ${badge?`<span class="cv-vis-badge">${badge}</span>`:""}
           <div class="cv-toolbar">
             <button type="button" class="cv-tb cv-grip" draggable="true" data-grip="${b.id}" title="Drag to reorder">⠿</button>
             <button type="button" class="cv-tb" data-dupe="${b.id}" title="Duplicate">⧉</button>
             <button type="button" class="cv-tb danger" data-del="${b.id}" title="Delete">✕</button>
           </div>
           <div class="cv-inner">${canvasInner(b, brand)}</div>
-        </div>`).join("");
+        </div>`;
+      }).join("");
       wireCanvas();
     }
 
@@ -587,11 +631,30 @@ import "../../../styles/admin.css";
       }
     }
     function setPath(o,p,v){ const ks=p.split("."); let c=o; for(let i=0;i<ks.length-1;i++){ if(typeof c[ks[i]]!=="object"||c[ks[i]]==null) c[ks[i]]={}; c=c[ks[i]]; } c[ks[ks.length-1]]=v; }
+    // Shared "Visible on" control appended to EVERY block's inspector — sets
+    // b.hide.{desktop,mobile}. Uses the Outlook-safe hide technique in the renderer.
+    function visibilityControl(b){
+      const hide = b.hide || {}; const onD = !hide.desktop, onM = !hide.mobile;
+      const hint = (hide.desktop && hide.mobile) ? `<p class="eb-vis-hint is-warn">Hidden on all devices — this block won't appear in the email.</p>`
+        : hide.desktop ? `<p class="eb-vis-hint">Shows on mobile devices only — correctly hidden in Outlook &amp; other desktop clients.</p>`
+        : hide.mobile ? `<p class="eb-vis-hint">Shows on desktop only — hidden on phones.</p>`
+        : `<p class="eb-vis-hint">Shown on every device.</p>`;
+      return `<div class="eb-vis-sec"><span class="eb-vis-label">Visible on</span>
+        <div class="eb-vis-toggles">
+          <button type="button" class="eb-vis-btn${onD?" is-on":""}" data-vis="desktop"><span class="eb-vis-tick">✓</span>🖥 Desktop</button>
+          <button type="button" class="eb-vis-btn${onM?" is-on":""}" data-vis="mobile"><span class="eb-vis-tick">✓</span>📱 Mobile</button>
+        </div>${hint}</div>`;
+    }
     function openInspector(bid) {
       const b = state.blocks.find(x=>x.id===bid); if(!b) return;
       const def = BLOCK_TYPES.find(d=>d.type===b.type);
       $("#eb-insp-title").textContent = def ? def.label : b.type;
-      const wrap = $("#eb-insp-fields"); wrap.innerHTML = inspectorFields(b);
+      const wrap = $("#eb-insp-fields"); wrap.innerHTML = inspectorFields(b) + visibilityControl(b);
+      wrap.querySelectorAll("[data-vis]").forEach((btn)=>btn.addEventListener("click", ()=>{
+        if(!b.hide) b.hide = {};
+        const dev = btn.dataset.vis; b.hide[dev] = !b.hide[dev];
+        renderCanvas(); openInspector(bid);
+      }));
       wrap.querySelectorAll("[data-field]").forEach((inp)=>{
         const evt = inp.type==="checkbox"||inp.tagName==="SELECT" ? "change" : "input";
         inp.addEventListener(evt, ()=>{
@@ -726,6 +789,14 @@ import "../../../styles/admin.css";
         const blk = state.blocks.find(x=>x.id===el.dataset.id); if(blk) blk.text = el.innerText;
       }
     }
+
+    /* ─────────── canvas device toggle ─────────── */
+    document.querySelectorAll("[data-canvasdev]").forEach(btn=>btn.addEventListener("click", ()=>{
+      canvasDevice = btn.dataset.canvasdev;
+      document.querySelectorAll("[data-canvasdev]").forEach(x=>x.classList.toggle("is-active", x===btn));
+      $("#eb-canvas").classList.toggle("is-mobileview", canvasDevice==="mobile");
+      renderCanvas();
+    }));
 
     /* ─────────── mode toggle ─────────── */
     document.querySelectorAll(".eb-mode").forEach(m=>m.addEventListener("click", ()=>{

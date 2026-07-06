@@ -532,6 +532,26 @@ function brandFooter(brand) {
     : '';
 }
 
+// Per-block device visibility. Wraps a block's HTML so it can be hidden on
+// mobile, on desktop, or (edge case) skipped entirely.
+//   • hide on mobile  → `.eb-hide-mobile`, visible by default; the head media
+//     query hides it under 600px. Outlook desktop ignores media queries, so it
+//     stays visible there — correct for a desktop-only block.
+//   • hide on desktop → `.eb-mobile-only`, hidden by default via inline
+//     display:none + `mso-hide:all` (which the Outlook/Word engine DOES obey);
+//     the media query reveals it on mobile. So Outlook desktop keeps it hidden.
+function wrapVisibility(html, block) {
+  const hide = block && block.hide ? block.hide : {};
+  const hideMobile = hide.mobile === true;
+  const hideDesktop = hide.desktop === true;
+  if (hideMobile && hideDesktop) return '';   // hidden everywhere → skip
+  if (!hideMobile && !hideDesktop) return html;
+  if (hideDesktop) {
+    return `<div class="eb-mobile-only" style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${html}</div>`;
+  }
+  return `<div class="eb-hide-mobile">${html}</div>`;
+}
+
 function shell(brand, bodyHtml, preheader) {
   const pageBg = brand.bgColor || '#f4f2f1';
   const cardBg = brand.cardColor || '#ffffff';
@@ -539,7 +559,13 @@ function shell(brand, bodyHtml, preheader) {
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</div>`
     : '';
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
+<html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  @media only screen and (max-width:600px) {
+    .eb-hide-mobile { display:none !important; max-height:0 !important; overflow:hidden !important; mso-hide:all; }
+    .eb-mobile-only { display:block !important; max-height:none !important; overflow:visible !important; }
+  }
+</style></head>
 <body style="margin:0;padding:0;background:${escapeHtml(pageBg)};">
   ${pre}
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${escapeHtml(pageBg)};">
@@ -584,10 +610,19 @@ export function renderTemplate(template = {}, opts = {}) {
   }
 
   const blocks = Array.isArray(template.blocks) ? template.blocks : [];
-  const bodyHtml = blocks
-    .map((b) => renderBlock(b, brand, ctx))
-    .filter(Boolean)
-    .join('\n<div style="height:16px;line-height:16px;">&nbsp;</div>\n');
+  // Assemble the body. The 16px gap between blocks rides INSIDE the following
+  // block's wrapper, so when a block is hidden on a device its spacer hides with
+  // it (no orphaned gaps).
+  const spacer = '<div style="height:16px;line-height:16px;">&nbsp;</div>';
+  const parts = [];
+  blocks.forEach((b) => {
+    const inner = renderBlock(b, brand, ctx);
+    if (!inner) return;
+    const withSpacer = parts.length ? spacer + '\n' + inner : inner;
+    const wrapped = wrapVisibility(withSpacer, b);
+    if (wrapped) parts.push(wrapped);
+  });
+  const bodyHtml = parts.join('\n');
 
   return { subject, html: shell(brand, bodyHtml, template.preheader) };
 }
