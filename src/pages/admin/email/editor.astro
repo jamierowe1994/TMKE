@@ -1024,7 +1024,9 @@ import "../../../styles/admin.css";
       if (b.type === "form") {
         wrap.querySelector("[data-formfields]")?.addEventListener("input", (e)=>{ b.fields = e.target.value.split("\n").map(s=>s.trim()).filter(Boolean); renderCanvas(); });
       }
-      // Image — upload from file to the public site-media bucket, set b.url.
+      // Image — upload the file to R2 via the Worker (assets.tmke.co.uk), which
+      // returns a public URL we drop straight into the Image URL field. No
+      // Supabase bucket to create — it just works.
       if (b.type === "image") {
         const inp = wrap.querySelector("#eb-img-upl-input");
         const btn = wrap.querySelector("#eb-img-upl-btn");
@@ -1032,17 +1034,19 @@ import "../../../styles/admin.css";
         btn?.addEventListener("click", ()=>inp?.click());
         inp?.addEventListener("change", async ()=>{
           const file = inp.files && inp.files[0]; if(!file) return;
-          if(!isConfigured){ stat.textContent = "Connect Supabase to upload."; return; }
+          if(!WORKER_URL){ stat.textContent = "Set PUBLIC_R2_WORKER_URL to upload."; return; }
           stat.textContent = "Uploading…";
           try {
-            const ext = (file.name.split(".").pop()||"jpg").toLowerCase();
-            // Use the same uploads/ folder the site editor uses (its storage
-            // policy is proven) rather than a new top-level folder that RLS may block.
-            const key = `uploads/email-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
-            const { error } = await supabase.storage.from("site-media").upload(key, file, { cacheControl:"31536000", upsert:false, contentType:file.type });
-            if (error) { stat.textContent = "Upload failed: "+error.message; return; }
-            const { data } = supabase.storage.from("site-media").getPublicUrl(key);
-            b.url = data.publicUrl; renderCanvas(); openInspector(bid);
+            const { data:{ session:s } } = await supabase.auth.getSession();
+            const fd = new FormData(); fd.append("file", file);
+            const res = await fetch(`${WORKER_URL}/admin/upload`, {
+              method:"POST",
+              headers: s && s.access_token ? { Authorization:`Bearer ${s.access_token}` } : {},
+              body: fd,
+            });
+            const j = await res.json().catch(()=>({}));
+            if(!res.ok || !j.url){ stat.textContent = "Upload failed: "+(j.error||("HTTP "+res.status)); return; }
+            b.url = j.url; stat.textContent = "Uploaded ✓"; renderCanvas(); openInspector(bid);
           } catch(e){ stat.textContent = "Upload failed: "+(e.message||e); }
         });
       }

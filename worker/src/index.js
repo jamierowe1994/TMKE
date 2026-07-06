@@ -963,6 +963,34 @@ export default {
         return json({ ok: true, queued: true, message: "Site is updating — your post will be live in a minute or two." }, 200, request, env);
       }
 
+      // ---- Admin image upload → R2 (assets.tmke.co.uk), returns the URL -------
+      // The email builder (and any admin tool) POSTs a file here; we store it in
+      // the public ASSETS bucket and hand back its URL to drop into an image field.
+      if (path.endsWith("/admin/upload") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in to upload." }, 401, request, env);
+        if (!isAdminEmail(user)) return json({ error: "Not authorised." }, 403, request, env);
+        if (!env.ASSETS) return json({ error: "Asset storage isn't configured on the Worker." }, 503, request, env);
+        const form = await request.formData().catch(() => null);
+        const file = form && form.get("file");
+        if (!file || typeof file === "string") return json({ error: "No file uploaded." }, 400, request, env);
+        const type = file.type || "application/octet-stream";
+        if (!/^image\//.test(type)) return json({ error: "Images only." }, 415, request, env);
+        const buf = await file.arrayBuffer();
+        if (buf.byteLength > 12 * 1024 * 1024) return json({ error: "Image is too large (max 12MB)." }, 413, request, env);
+        const extFromType = (type.split("/")[1] || "jpg").replace("jpeg", "jpg").replace("svg+xml", "svg");
+        const nameExt = ((file.name || "").split(".").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const ext = nameExt || extFromType;
+        const key = `email-uploads/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        try {
+          await env.ASSETS.put(key, buf, { httpMetadata: { contentType: type, cacheControl: "public, max-age=31536000" } });
+        } catch (e) {
+          return json({ error: "Upload failed — try again." }, 502, request, env);
+        }
+        const fileUrl = "https://assets.tmke.co.uk/" + key.split("/").map(encodeURIComponent).join("/");
+        return json({ ok: true, url: fileUrl }, 200, request, env);
+      }
+
       // ---- Stripe: create a hosted Checkout Session ---------------------------
       // The browser posts the pack id + buyer details; we re-read the pack price
       // from Supabase (never trust the client), create a `pending` order with the
