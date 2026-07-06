@@ -341,6 +341,7 @@ import "../../../styles/admin.css";
     .eb-fmt-btn u { text-decoration:underline; } .eb-fmt-btn i { font-style:italic; } .eb-fmt-btn b { font-weight:800; }
     .eb-field-chip { padding:6px 11px; border:1px solid var(--eb-line); border-radius:999px; background:#fff; cursor:pointer; font-family:var(--sans); font-size:11.5px; font-weight:600; color:var(--english-violet); }
     .eb-field-chip:hover { border-color:var(--english-violet); background:rgba(55,30,40,0.05); }
+    .eb-sec { margin:4px 0 14px; }
     .eb-pad { margin-bottom:12px; }
     .eb-pad-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
     .eb-pad-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
@@ -692,36 +693,6 @@ import "../../../styles/admin.css";
         <button type="button" class="eb-dev${device==="mobile"?" is-active":""}" data-respdev="mobile" title="Edit mobile values">📱</button>
       </div>`;
     }
-    // Size / line-height / letter-spacing / align / padding are PER-DEVICE: on
-    // mobile they write to b.mobile.* (blank = inherit desktop). Font + colour
-    // stay global. `device` = the current canvas view (desktop|mobile).
-    function typoFields(b, device){
-      const isM = device==="mobile";
-      const dSize = b.type==="heading"?28:15, dLh = b.type==="heading"?"1.15":"1.6", dCol = b.type==="heading"?"#1c1d22":"#1f2937";
-      const P = (k)=> isM ? `mobile.${k}` : k;
-      const V = (k)=> isM ? ((b.mobile&&b.mobile[k]!=null)?b.mobile[k]:"") : (b[k]!=null?b[k]:"");
-      const PH = (k,d)=> isM ? ((b[k]!=null&&b[k]!=="")?b[k]:d) : d;
-      const alignCur = isM ? ((b.mobile&&b.mobile.align)||"") : (b.align||"left");
-      const pad = isM ? ((b.mobile&&b.mobile.pad)||{}) : (b.pad||{});
-      const padCell=(k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="${isM?`mobile.pad.${k}`:`pad.${k}`}" value="${pad[k]!=null?pad[k]:""}" placeholder="0" /></label>`;
-      const alignOpts = `${isM?`<option value=""${alignCur===""?" selected":""}>Inherit</option>`:""}${ALIGN.map(o=>`<option value="${o}"${o===alignCur?" selected":""}>${o}</option>`).join("")}`;
-      return `
-        <label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
-        <label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,dCol)}" /></label>
-        <div class="eb-resp">
-          <div class="eb-resp-head"><span class="eb-f-sub">Size &amp; spacing</span>${deviceToggleMini(device)}</div>
-          <div class="eb-f2">
-            <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="90" data-field="${P("size")}" value="${V("size")}" placeholder="${PH("size",dSize)}" /></label>
-            <label class="eb-f"><span>Line height</span><input type="number" min="0.8" max="3" step="0.05" data-field="${P("lineHeight")}" value="${V("lineHeight")}" placeholder="${PH("lineHeight",dLh)}" /></label>
-          </div>
-          <div class="eb-f2">
-            <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="${P("letterSpacing")}" value="${V("letterSpacing")}" placeholder="${PH("letterSpacing","0")}" /></label>
-            <label class="eb-f"><span>Align</span><select data-field="${P("align")}">${alignOpts}</select></label>
-          </div>
-          ${spacingGrids(b, device)}
-          <p class="eb-note">${isM?"Padding is per-device (blank = inherit desktop). Margin is the same on all devices.":"Padding is per-device (tap 📱 for mobile). Margin is the same on all devices."}</p>
-        </div>`;
-    }
     // ── Device-aware field builders (mobile writes to b.mobile.*; blank inherits) ──
     function dField(b, device, key, label, attrs, dflt){
       const isM = device==="mobile";
@@ -783,35 +754,65 @@ import "../../../styles/admin.css";
       { token: "{{location}}", label: "Location" },
       { token: "{{company}}", label: "Brand / business" },
     ];
-    function fmtToolbar(){
-      return `<div class="eb-fmt"><span class="eb-f-sub">Format</span>
+    // Format buttons only (bold/italic/underline/list/clear) — lives inside the Font card.
+    function formatButtons(){
+      return `<div class="eb-fmt" style="margin-bottom:0;"><span class="eb-f-sub">Format</span>
         <div class="eb-fmt-btns">
           <button type="button" class="eb-fmt-btn" data-fmt="bold" title="Bold"><b>B</b></button>
           <button type="button" class="eb-fmt-btn" data-fmt="italic" title="Italic"><i>I</i></button>
           <button type="button" class="eb-fmt-btn" data-fmt="underline" title="Underline"><u>U</u></button>
           <button type="button" class="eb-fmt-btn" data-fmt="insertUnorderedList" title="Bullet list">&bull; List</button>
           <button type="button" class="eb-fmt-btn" data-fmt="removeFormat" title="Clear formatting">&#10005;</button>
+        </div></div>`;
+    }
+    // Insert-field chips — its own section (not grey).
+    function insertFieldSection(){
+      return `<div class="eb-sec"><span class="eb-f-sub">Insert field</span>
+        <div class="eb-fmt-btns">${FIELD_CHIPS.map(f=>`<button type="button" class="eb-field-chip" data-token="${f.token}">${f.label}</button>`).join("")}</div>
+        <p class="eb-note" style="margin-top:6px;">Click into the text, place your cursor, then insert. Fields fill from each contact on send.</p></div>`;
+    }
+    // Grey "Font" card — font, size, line height, letter spacing, alignment,
+    // format, colour (size/lh/ls/align are per-device). Text + heading.
+    function fontCard(b, device){
+      const isM = device==="mobile";
+      const dSize = b.type==="heading"?28:15, dLh = b.type==="heading"?"1.15":"1.6", dCol = b.type==="heading"?"#1c1d22":"#1f2937";
+      const P=(k)=>isM?`mobile.${k}`:k;
+      const V=(k)=>isM?((b.mobile&&b.mobile[k]!=null)?b.mobile[k]:""):(b[k]!=null?b[k]:"");
+      const PH=(k,d)=>isM?((b[k]!=null&&b[k]!=="")?b[k]:d):d;
+      const alignCur = isM?((b.mobile&&b.mobile.align)||""):(b.align||"left");
+      const alignOpts = `${isM?`<option value=""${alignCur===""?" selected":""}>Inherit</option>`:""}${ALIGN.map(o=>`<option value="${o}"${o===alignCur?" selected":""}>${o}</option>`).join("")}`;
+      const format = b.type==="heading"
+        ? `<div class="eb-fmt" style="margin-bottom:0;"><span class="eb-f-sub">Format</span><div class="eb-checks" style="margin-bottom:0;">
+             <label class="eb-check"><input type="checkbox" data-field="bold"${b.bold!==false?" checked":""}/> Bold</label>
+             <label class="eb-check"><input type="checkbox" data-field="italic"${b.italic?" checked":""}/> Italic</label>
+             <label class="eb-check"><input type="checkbox" data-field="underline"${b.underline?" checked":""}/> Underline</label></div></div>`
+        : formatButtons();
+      return `<div class="eb-resp"><div class="eb-resp-head"><span class="eb-f-sub">Font</span>${deviceToggleMini(device)}</div>
+        <label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
+        <div class="eb-f2">
+          <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="90" data-field="${P("size")}" value="${V("size")}" placeholder="${PH("size",dSize)}" /></label>
+          <label class="eb-f"><span>Line height</span><input type="number" min="0.8" max="3" step="0.05" data-field="${P("lineHeight")}" value="${V("lineHeight")}" placeholder="${PH("lineHeight",dLh)}" /></label>
         </div>
-        <span class="eb-f-sub" style="margin-top:12px;">Insert field</span>
-        <div class="eb-fmt-btns">
-          ${FIELD_CHIPS.map(f=>`<button type="button" class="eb-field-chip" data-token="${f.token}">${f.label}</button>`).join("")}
+        <div class="eb-f2">
+          <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="${P("letterSpacing")}" value="${V("letterSpacing")}" placeholder="${PH("letterSpacing","0")}" /></label>
+          <label class="eb-f"><span>Alignment</span><select data-field="${P("align")}">${alignOpts}</select></label>
         </div>
-        <p class="eb-note" style="margin-top:6px;">Click into the text, place your cursor, then apply. Fields fill from each contact when the email sends.</p></div>`;
+        ${format}
+        <label class="eb-f" style="margin:12px 0 0;"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,dCol)}" /></label>
+        <p class="eb-note" style="margin-top:8px;">Size, line height, letter spacing &amp; alignment are per-device (tap 📱).</p>
+      </div>`;
     }
     function inspectorFields(b, device) {
       const align = `<label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"center")}</select></label>`;
       switch (b.type) {
         case "heading": return `<p class="eb-note" style="margin-bottom:12px;">Edit the text right on the canvas.</p>
-          <div class="eb-checks">
-            <label class="eb-check"><input type="checkbox" data-field="bold"${b.bold!==false?" checked":""}/> Bold</label>
-            <label class="eb-check"><input type="checkbox" data-field="italic"${b.italic?" checked":""}/> Italic</label>
-            <label class="eb-check"><input type="checkbox" data-field="underline"${b.underline?" checked":""}/> Underline</label>
-          </div>
-          ${typoFields(b, device)}`;
+          ${fontCard(b, device)}
+          ${spacingBox(b, device)}`;
         case "text": return `<p class="eb-note" style="margin-bottom:10px;">Edit the text right on the canvas. Blank line = new paragraph.</p>
-          ${fmtToolbar(b)}
-          <label class="eb-f"><span>Background tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>
-          ${typoFields(b, device)}`;
+          ${fontCard(b, device)}
+          ${insertFieldSection()}
+          <div class="eb-sec"><span class="eb-f-sub">Background</span><label class="eb-f" style="margin-bottom:0;"><span>Tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label></div>
+          ${spacingBox(b, device)}`;
         case "image": return `
           <label class="eb-f"><span>Image URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…/image.jpg" /></label>
           <div class="eb-upl"><button type="button" class="eb-mini-btn" id="eb-img-upl-btn">⬆ Upload from file</button><input type="file" id="eb-img-upl-input" accept="image/*" hidden /><span class="eb-note" id="eb-img-upl-status"></span></div>
