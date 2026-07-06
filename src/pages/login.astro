@@ -444,12 +444,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     // ---- Post-auth routing ----
     function routeAfterSignIn() {
       const nextParam = new URLSearchParams(location.search).get("next");
-      let firstTime = false;
-      try {
-        firstTime = !localStorage.getItem("tmke.brand") && !localStorage.getItem("tmke.brand.skipped");
-      } catch (_) { /* ignore */ }
-      const fallback = firstTime ? "/profile?next=/account" : "/account";
-      const dest = nextParam || fallback;
+      // Members land straight on the dashboard (not the brand kit).
+      const dest = nextParam || "/dashboard";
       if (typeof window.tmkeSplash === "function") {
         window.tmkeSplash(dest);
       } else {
