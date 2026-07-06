@@ -78,32 +78,27 @@ function gbp(pence) {
         </div>
 
         <div class="pack-info">
-          <div class="pack-info-top">
-            {pack.category && <div class="pack-cat">{pack.category}</div>}
-            <h1 class="pack-title">{pack.title}</h1>
+          {pack.category && <div class="pack-cat">{pack.category}</div>}
+          <h1 class="pack-title">{pack.title}</h1>
+          {pack.description && <p class="pack-stand">{pack.description}</p>}
+
+          <div class="pack-pricerow">
+            <span class="pack-price">{gbp(pack.price_pence)}</span>
+            <span class="pack-vat">+ VAT · one-time payment</span>
           </div>
 
-          <div class="pack-info-bottom">
-            {pack.description && <p class="pack-stand">{pack.description}</p>}
+          <button type="button" class="btn btn--solid pack-buy" data-buy={pack.id}>
+            Buy this pack <span class="btn-arrow">&rarr;</span>
+          </button>
 
-            <div class="pack-pricerow">
-              <span class="pack-price">{gbp(pack.price_pence)}</span>
-              <span class="pack-vat">+ VAT · one-time payment</span>
+          {contents.length > 0 && (
+            <div class="pack-contents">
+              <div class="eyebrow">What's inside</div>
+              <ul>
+                {contents.map((line) => <li>{line}</li>)}
+              </ul>
             </div>
-
-            <button type="button" class="btn btn--solid pack-buy" data-buy={pack.id}>
-              Buy this pack <span class="btn-arrow">&rarr;</span>
-            </button>
-
-            {contents.length > 0 && (
-              <div class="pack-contents">
-                <div class="eyebrow">What's inside</div>
-                <ul>
-                  {contents.map((line) => <li>{line}</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </header>
@@ -218,7 +213,7 @@ function gbp(pence) {
       display: grid;
       grid-template-columns: 5fr 4fr;
       gap: 56px;
-      align-items: stretch;   /* info column matches the cover height */
+      align-items: start;
     }
     @media (max-width: 980px) {
       .pack-hero-grid { grid-template-columns: 1fr; gap: 32px; }
@@ -239,16 +234,7 @@ function gbp(pence) {
       color: rgba(28,29,34,0.4);
     }
 
-    /* Split hero: pack name + title sit against the cover's top, the copy /
-       price / button / contents drop to align with the cover's base — mirrors
-       the workspace headers, opening up a gap under the title. */
-    .pack-info { display: flex; flex-direction: column; justify-content: space-between; gap: 24px; padding-top: 4px; }
-    .pack-info-top { display: flex; flex-direction: column; gap: 10px; }
-    .pack-info-bottom { display: flex; flex-direction: column; gap: 14px; }
-    @media (max-width: 980px) {
-      /* Stacked under the cover — no need to force the split. */
-      .pack-info { justify-content: flex-start; gap: 16px; padding-top: 0; }
-    }
+    .pack-info { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; }
     .pack-cat {
       font-family: var(--sans); font-size: 11px;
       font-weight: 700; letter-spacing: 0.22em;
