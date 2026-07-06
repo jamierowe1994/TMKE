@@ -60,6 +60,7 @@ export function mergeContextFor(recipient = {}, brand = {}) {
     fullName,
     email: recipient.email || '',
     company: recipient.company || '',
+    location: recipient.location || recipient.town || '',
     phone: recipient.phone || '',
     // Purchase context — populated from the contact's last order at send time
     // (the automations engine passes it in), so "Thank you for buying {{packName}}" works.
@@ -76,7 +77,8 @@ export const MERGE_FIELDS = [
   { token: 'lastName', label: 'Last name' },
   { token: 'fullName', label: 'Full name' },
   { token: 'email', label: 'Email address' },
-  { token: 'company', label: 'Company name' },
+  { token: 'company', label: 'Brand / business' },
+  { token: 'location', label: 'Location' },
   { token: 'phone', label: 'Mobile / phone' },
   { token: 'packName', label: 'Purchased pack' },
   { token: 'orderTotal', label: 'Order total' },
@@ -85,7 +87,7 @@ export const MERGE_FIELDS = [
 ];
 
 /** A dummy recipient so the live preview shows realistic merged values. */
-export const SAMPLE_RECIPIENT = { name: 'Alex Morgan', email: 'alex@example.com', company: 'Acme Estates', phone: '07700 900123', packName: 'The Spring Collection', orderTotal: '£149' };
+export const SAMPLE_RECIPIENT = { name: 'Alex Morgan', email: 'alex@example.com', company: 'Acme Estates', location: 'Kettering', phone: '07700 900123', packName: 'The Spring Collection', orderTotal: '£149' };
 
 /* ───────────────────────── branding ───────────────────────── */
 
@@ -168,6 +170,20 @@ function padStyle(pad) {
   return `padding:${t}px ${r}px ${b}px ${l}px;`;
 }
 
+/** Spacing model: `pad` = INSIDE padding (border→content); `margin` = OUTSIDE
+ *  spacing (element→neighbours, rendered as padding on an outer wrapper so it's
+ *  reliable in Outlook). Per-type defaults are surfaced in the inspector so a
+ *  marketer sees the current values before adjusting. */
+const SPACING_DEFAULTS = {
+  button: { pad: { t: 11, r: 24, b: 11, l: 24 }, margin: { t: 0, r: 0, b: 16, l: 0 } },
+  _default: { pad: { t: 0, r: 0, b: 0, l: 0 }, margin: { t: 0, r: 0, b: 16, l: 0 } },
+};
+export function spacingDefaults(type) { return SPACING_DEFAULTS[type] || SPACING_DEFAULTS._default; }
+function _pick(v, d) { return (v != null && v !== '') ? pxNum(v, d) : d; }
+export function resolvePad(block) { const d = spacingDefaults(block.type).pad, p = block.pad || {}; return { t: _pick(p.t, d.t), r: _pick(p.r, d.r), b: _pick(p.b, d.b), l: _pick(p.l, d.l) }; }
+export function resolveMargin(block) { const d = spacingDefaults(block.type).margin, m = block.margin || {}; return { t: _pick(m.t, d.t), r: _pick(m.r, d.r), b: _pick(m.b, d.b), l: _pick(m.l, d.l) }; }
+function padStyleResolved(block) { const p = resolvePad(block); return (p.t || p.r || p.b || p.l) ? `padding:${p.t}px ${p.r}px ${p.b}px ${p.l}px;` : ''; }
+
 /** Inline style for a heading block — shared by the renderer AND the editor's
  *  canvas so what you see is what sends. */
 export function headingInlineStyle(block = {}) {
@@ -184,7 +200,7 @@ export function headingInlineStyle(block = {}) {
   else parts.push('letter-spacing:-0.01em');
   if (block.italic) parts.push('font-style:italic');
   if (block.underline) parts.push('text-decoration:underline');
-  return parts.join(';') + ';' + padStyle(block.pad);
+  return parts.join(';') + ';' + padStyleResolved(block);
 }
 
 /** Inline style for a text block's wrapper (font/size/spacing/colour/align/
@@ -202,7 +218,7 @@ export function textInlineStyle(block = {}) {
   if (block.italic) parts.push('font-style:italic');
   if (block.underline) parts.push('text-decoration:underline');
   let style = parts.join(';') + ';';
-  const pad = padStyle(block.pad);
+  const pad = padStyleResolved(block);
   if (block.bg) style += `background:${escapeHtml(block.bg)};border-radius:8px;` + (pad || 'padding:14px 18px;');
   else style += pad;
   return style;
@@ -217,15 +233,18 @@ export function buttonInlineStyle(block = {}, brand = {}) {
   const br = pxNum(block.borderRadius, 8);
   const bw = pxNum(block.borderWidth, 0);
   const bc = block.borderColor || bg;
-  const p = block.pad;
-  const pad = (p && (p.t || p.r || p.b || p.l))
-    ? `${pxNum(p.t, 11)}px ${pxNum(p.r, 24)}px ${pxNum(p.b, 11)}px ${pxNum(p.l, 24)}px`
-    : '11px 24px';
+  const p = resolvePad(block);
+  const pad = `${p.t}px ${p.r}px ${p.b}px ${p.l}px`;
   const parts = [
-    'display:inline-block', `padding:${pad}`, `background:${escapeHtml(bg)}`, `color:${escapeHtml(txt)}`,
-    'text-decoration:none', `border-radius:${br}px`, 'font-weight:600', `font-size:${size}px`,
-    `font-family:${fontStack(block.font)}`,
+    block.fullWidth ? 'display:block' : 'display:inline-block',
+    `padding:${pad}`, `background:${escapeHtml(bg)}`, `color:${escapeHtml(txt)}`,
+    block.underline ? 'text-decoration:underline' : 'text-decoration:none',
+    `border-radius:${br}px`, `font-weight:${block.bold ? 700 : 600}`,
+    `font-size:${size}px`, `font-family:${fontStack(block.font)}`,
   ];
+  if (block.italic) parts.push('font-style:italic');
+  if (block.letterSpacing != null && block.letterSpacing !== '') parts.push(`letter-spacing:${Number(block.letterSpacing)}px`);
+  if (block.fullWidth) parts.push('width:100%', 'box-sizing:border-box', 'text-align:center');
   if (bw > 0) parts.push(`border:${bw}px solid ${escapeHtml(bc)}`);
   return parts.join(';') + ';';
 }
@@ -271,6 +290,7 @@ function mobPad(pad) {
 function buttonResponsiveCss(block) {
   const m = block.mobile || {}, rules = [], inner = [];
   if (m.size != null && m.size !== '') inner.push(`font-size:${pxNum(m.size, 14)}px !important`);
+  if (m.letterSpacing != null && m.letterSpacing !== '') inner.push(`letter-spacing:${Number(m.letterSpacing)}px !important`);
   const ip = mobPad(m.pad); if (ip) inner.push(ip);
   if (inner.length) rules.push(`.eb-b-${block.id}{${inner.join(';')};}`);
   if (['left', 'center', 'right'].includes(m.align)) rules.push(`.eb-bw-${block.id}{text-align:${m.align} !important;}`);
@@ -435,7 +455,7 @@ function renderImage(block) {
   const wrapped = block.linkUrl
     ? `<a href="${escapeHtml(block.linkUrl)}" style="text-decoration:none;">${img}</a>`
     : img;
-  return `<div${wCls} style="text-align:${align};${padStyle(block.pad)}">${wrapped}</div>`;
+  return `<div${wCls} style="text-align:${align};${padStyleResolved(block)}">${wrapped}</div>`;
 }
 
 function renderButton(block, brand, ctx) {
@@ -459,8 +479,7 @@ function renderDivider(block) {
   const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
   const wCls = blockHasMobile(block) ? ` class="eb-bw-${escapeHtml(block.id)}"` : '';
   const lCls = blockHasMobile(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
-  const pad = padStyle(block.pad) || 'padding:8px 0;';
-  return `<div${wCls} style="text-align:${align};${pad}">`
+  return `<div${wCls} style="text-align:${align};${padStyleResolved(block)}">`
     + `<table${lCls} role="presentation" width="${width}%" cellpadding="0" cellspacing="0" border="0" style="width:${width}%;display:inline-table;">`
     + `<tr><td style="border-top:${thick}px solid ${escapeHtml(color)};font-size:0;line-height:0;">&nbsp;</td></tr></table></div>`;
 }
@@ -726,16 +745,21 @@ function brandFooter(brand) {
 //   • hide on desktop → `.eb-mobile-only`, hidden by default via inline
 //     display:none + `mso-hide:all` (which the Outlook/Word engine DOES obey);
 //     the media query reveals it on mobile. So Outlook desktop keeps it hidden.
-function wrapVisibility(html, block) {
+// Outer wrapper for every block: carries the OUTSIDE margin (as padding, so it's
+// Outlook-reliable) AND the device-visibility classes. A block hidden on both
+// devices is skipped entirely (its margin goes with it, so no orphan gap).
+function wrapOuter(html, block) {
   const hide = block && block.hide ? block.hide : {};
   const hideMobile = hide.mobile === true;
   const hideDesktop = hide.desktop === true;
-  if (hideMobile && hideDesktop) return '';   // hidden everywhere → skip
-  if (!hideMobile && !hideDesktop) return html;
-  if (hideDesktop) {
-    return `<div class="eb-mobile-only" style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${html}</div>`;
-  }
-  return `<div class="eb-hide-mobile">${html}</div>`;
+  if (hideMobile && hideDesktop) return '';
+  const m = resolveMargin(block);
+  let style = `padding:${m.t}px ${m.r}px ${m.b}px ${m.l}px;`;
+  const classes = [];
+  if (hideMobile) classes.push('eb-hide-mobile');
+  if (hideDesktop) { classes.push('eb-mobile-only'); style += 'display:none;max-height:0;overflow:hidden;mso-hide:all;'; }
+  const clsAttr = classes.length ? ` class="${classes.join(' ')}"` : '';
+  return `<div${clsAttr} style="${style}">${html}</div>`;
 }
 
 function shell(brand, bodyHtml, preheader, responsiveCss) {
@@ -800,7 +824,6 @@ export function renderTemplate(template = {}, opts = {}) {
   // Assemble the body. The 16px gap between blocks rides INSIDE the following
   // block's wrapper, so when a block is hidden on a device its spacer hides with
   // it (no orphaned gaps).
-  const spacer = '<div style="height:16px;line-height:16px;">&nbsp;</div>';
   const parts = [];
   const responsive = [];
   blocks.forEach((b) => {
@@ -809,8 +832,9 @@ export function renderTemplate(template = {}, opts = {}) {
     // Collect the mobile media-query rule for any block with device overrides.
     const rcss = blockResponsiveCss(b);
     if (rcss) responsive.push(rcss);
-    const withSpacer = parts.length ? spacer + '\n' + inner : inner;
-    const wrapped = wrapVisibility(withSpacer, b);
+    // The 16px gap between blocks is each block's default bottom margin (see
+    // SPACING_DEFAULTS), applied by wrapOuter — so it hides with a hidden block.
+    const wrapped = wrapOuter(inner, b);
     if (wrapped) parts.push(wrapped);
   });
   const bodyHtml = parts.join('\n');

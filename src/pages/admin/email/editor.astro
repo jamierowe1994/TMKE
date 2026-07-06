@@ -15,6 +15,7 @@ import "../../../styles/admin.css";
       <a href="/admin/email" class="eb-back" aria-label="Back to email studio">&larr;</a>
       <input id="eb-name" class="eb-name" placeholder="Untitled template" />
       <span class="eb-status-pill" id="eb-status-pill" data-status="draft">Draft</span>
+      <span class="eb-saved" id="eb-saved"></span>
     </div>
     <div class="eb-top-r">
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-settings">Settings</button>
@@ -188,6 +189,8 @@ import "../../../styles/admin.css";
     .eb-status-pill[data-status="draft"] { background:rgba(55,30,40,0.1); color:var(--english-violet); }
     .eb-status-pill[data-status="active"] { background:rgba(60,130,80,0.14); color:#2d6a44; }
     .eb-status-pill[data-status="archived"] { background:rgba(28,29,34,0.08); color:rgba(28,29,34,0.55); }
+    .eb-saved { font-family:var(--sans); font-size:11px; color:rgba(28,29,34,0.42); white-space:nowrap; }
+    .eb-saved.is-dirty { color:#a05a3c; }
 
     /* Shell */
     .eb-shell { display:grid; grid-template-columns:288px 1fr; min-height:calc(100vh - 56px); align-items:stretch; }
@@ -317,6 +320,8 @@ import "../../../styles/admin.css";
     .eb-fmt-btn { min-width:34px; height:34px; padding:0 9px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--eb-line); border-radius:7px; background:#fff; cursor:pointer; font-family:var(--sans); font-size:13px; color:var(--ink); transition:border-color 0.15s, background 0.15s; }
     .eb-fmt-btn:hover { border-color:var(--english-violet); background:rgba(55,30,40,0.05); }
     .eb-fmt-btn u { text-decoration:underline; } .eb-fmt-btn i { font-style:italic; } .eb-fmt-btn b { font-weight:800; }
+    .eb-field-chip { padding:6px 11px; border:1px solid var(--eb-line); border-radius:999px; background:#fff; cursor:pointer; font-family:var(--sans); font-size:11.5px; font-weight:600; color:var(--english-violet); }
+    .eb-field-chip:hover { border-color:var(--english-violet); background:rgba(55,30,40,0.05); }
     .eb-pad { margin-bottom:12px; }
     .eb-pad-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
     .eb-pad-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
@@ -364,6 +369,7 @@ import "../../../styles/admin.css";
       renderTemplate, renderBlock, mergeContextFor, defaultBrand,
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT, COLUMN_LAYOUTS,
       FONT_STACKS, headingInlineStyle, textInlineStyle, buttonInlineStyle, imageInlineStyle, effectiveBlock,
+      spacingDefaults, resolvePad, resolveMargin,
     } from "../../../lib/email-render.js";
 
     const DEV = import.meta.env.DEV;
@@ -438,20 +444,21 @@ import "../../../styles/admin.css";
           const eb = effectiveBlock(b, canvasDevice);
           const al = ["left","center","right"].includes(eb.align)?eb.align:"center";
           return b.url
-            ? `<div style="text-align:${al};${cvPad(eb.pad)}"><img src="${esc(b.url)}" alt="${esc(b.alt||"")}" style="${imageInlineStyle(eb)}" /></div>`
+            ? `<div style="text-align:${al};${cvPad(resolvePad(eb))}"><img src="${esc(b.url)}" alt="${esc(b.alt||"")}" style="${imageInlineStyle(eb)}" /></div>`
             : `<div class="cv-ph">Click, then add an image URL or upload one in the panel →</div>`;
         }
         case "button": {
           const eb = effectiveBlock(b, canvasDevice);
           const al = ["left","center","right"].includes(eb.align)?eb.align:"center";
-          return `<div style="text-align:${al};margin:4px 0;"><span style="${buttonInlineStyle(eb, brand)}">${esc(eb.text||"Button")}</span></div>`;
+          // Edit the button label right on the canvas.
+          return `<div style="text-align:${al};"><span class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="${buttonInlineStyle(eb, brand)}">${esc(eb.text||"Button")}</span></div>`;
         }
         case "divider": {
           const eb = effectiveBlock(b, canvasDevice);
           const al = ["left","center","right"].includes(eb.align)?eb.align:"center";
           const thick = Number(eb.thickness)||1;
           const w = (eb.width!=null&&eb.width!=="")?Math.max(1,Math.min(100,Number(eb.width))):100;
-          return `<div style="text-align:${al};${cvPad(eb.pad)||"padding:6px 0;"}"><div style="display:inline-block;width:${w}%;border-top:${thick}px solid ${esc(eb.color||"#E2E8F0")};line-height:0;font-size:0;">&nbsp;</div></div>`;
+          return `<div style="text-align:${al};${cvPad(resolvePad(eb))}"><div style="display:inline-block;width:${w}%;border-top:${thick}px solid ${esc(eb.color||"#E2E8F0")};line-height:0;font-size:0;">&nbsp;</div></div>`;
         }
         case "spacer":
           return `<div class="cv-spacer" style="height:${Math.max(4,Math.min(160,Number(b.height)||24))}px;">Spacer · ${Math.max(4,Math.min(160,Number(b.height)||24))}px</div>`;
@@ -496,10 +503,11 @@ import "../../../styles/admin.css";
             <button type="button" class="cv-tb" data-dupe="${b.id}" title="Duplicate">⧉</button>
             <button type="button" class="cv-tb danger" data-del="${b.id}" title="Delete">✕</button>
           </div>
-          <div class="cv-inner">${canvasInner(b, brand)}</div>
+          <div class="cv-inner" style="${cvPad(resolveMargin(b))}">${canvasInner(b, brand)}</div>
         </div>`;
       }).join("");
       wireCanvas();
+      markDirty();
     }
 
     function wireCanvas() {
@@ -516,6 +524,7 @@ import "../../../styles/admin.css";
             // everything else stores plain text.
             if (ed.hasAttribute("data-rich")) { blk.html = ed.innerHTML; blk.text = ed.innerText; }
             else blk.text = ed.innerText;
+            markDirty();
           });
         });
         // toolbar
@@ -601,9 +610,10 @@ import "../../../styles/admin.css";
             <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="${P("letterSpacing")}" value="${V("letterSpacing")}" placeholder="${PH("letterSpacing","0")}" /></label>
             <label class="eb-f"><span>Align</span><select data-field="${P("align")}">${alignOpts}</select></label>
           </div>
-          <div class="eb-pad"><span class="eb-f-sub">Padding (px)</span><div class="eb-pad-row">${padCell("t","T")}${padCell("r","R")}${padCell("b","B")}${padCell("l","L")}</div></div>
+          ${dPad(b, device)}
           <p class="eb-note">${isM?"Editing <strong>mobile</strong> — blank = inherit desktop. Tap 🖥 for desktop.":"Editing <strong>desktop</strong> — tap 📱 to set smaller mobile values."}</p>
-        </div>`;
+        </div>
+        ${marginFields(b)}`;
     }
     // ── Device-aware field builders (mobile writes to b.mobile.*; blank inherits) ──
     function dField(b, device, key, label, attrs, dflt){
@@ -620,18 +630,28 @@ import "../../../styles/admin.css";
       const o = `${isM?`<option value=""${cur===""?" selected":""}>Inherit</option>`:""}${ALIGN.map(x=>`<option value="${x}"${x===cur?" selected":""}>${x}</option>`).join("")}`;
       return `<label class="eb-f"><span>Align</span><select data-field="${path}">${o}</select></label>`;
     }
+    // Padding = INSIDE spacing (per-device). Placeholders show the block's
+    // current default so you can see where it sits before adjusting.
     function dPad(b, device){
       const isM = device==="mobile";
+      const dflt = spacingDefaults(b.type).pad;
       const pad = isM ? ((b.mobile&&b.mobile.pad)||{}) : (b.pad||{});
-      const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="${isM?`mobile.pad.${k}`:`pad.${k}`}" value="${pad[k]!=null?pad[k]:""}" placeholder="0"/></label>`;
-      return `<div class="eb-pad"><span class="eb-f-sub">Padding (px)</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
+      const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="${isM?`mobile.pad.${k}`:`pad.${k}`}" value="${pad[k]!=null?pad[k]:""}" placeholder="${dflt[k]!=null?dflt[k]:0}"/></label>`;
+      return `<div class="eb-pad"><span class="eb-f-sub">Padding · inside</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
+    }
+    // Margin = OUTSIDE spacing (global). Placeholder shows the default gap.
+    function marginFields(b){
+      const dflt = spacingDefaults(b.type).margin;
+      const mar = b.margin||{};
+      const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="margin.${k}" value="${mar[k]!=null?mar[k]:""}" placeholder="${dflt[k]!=null?dflt[k]:0}"/></label>`;
+      return `<div class="eb-pad"><span class="eb-f-sub">Margin · outside</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
     }
     function respWrap(device, inner){
       return `<div class="eb-resp"><div class="eb-resp-head"><span class="eb-f-sub">Size &amp; spacing</span>${deviceToggleMini(device)}</div>${inner}
         <p class="eb-note">${device==="mobile"?"Editing <strong>mobile</strong> — blank = inherit desktop.":"Editing <strong>desktop</strong> — tap 📱 for mobile."}</p></div>`;
     }
     function buttonRespFields(b, device){
-      return respWrap(device, `<div class="eb-f2">${dField(b,device,"size","Text size (px)",'type="number" min="8" max="40"',14)}${dAlign(b,device)}</div>${dPad(b,device)}`);
+      return respWrap(device, `<div class="eb-f2">${dField(b,device,"size","Text size (px)",'type="number" min="8" max="40"',14)}${dField(b,device,"letterSpacing","Letter spacing",'type="number" min="-3" max="14" step="0.5"',0)}</div>${dAlign(b,device)}${dPad(b,device)}`);
     }
     function imageRespFields(b, device){
       return respWrap(device, `<div class="eb-f2">${dField(b,device,"width","Width (px)",'type="number" min="20" max="1200"',"auto")}${dField(b,device,"height","Height (px)",'type="number" min="10" max="1200"',"auto")}</div>${dAlign(b,device)}${dPad(b,device)}`);
@@ -640,7 +660,14 @@ import "../../../styles/admin.css";
       return respWrap(device, `${dAlign(b,device)}${dPad(b,device)}`);
     }
 
-    // Inline rich-text toolbar for the text block (execCommand — email-safe tags).
+    // Inline rich-text toolbar for the text block (execCommand — email-safe tags)
+    // + one-click merge-field inserter (pulls from contact data at send time).
+    const FIELD_CHIPS = [
+      { token: "{{firstName}}", label: "First name" },
+      { token: "{{fullName}}", label: "Full name" },
+      { token: "{{location}}", label: "Location" },
+      { token: "{{company}}", label: "Brand / business" },
+    ];
     function fmtToolbar(){
       return `<div class="eb-fmt"><span class="eb-f-sub">Format</span>
         <div class="eb-fmt-btns">
@@ -650,7 +677,11 @@ import "../../../styles/admin.css";
           <button type="button" class="eb-fmt-btn" data-fmt="insertUnorderedList" title="Bullet list">&bull; List</button>
           <button type="button" class="eb-fmt-btn" data-fmt="removeFormat" title="Clear formatting">&#10005;</button>
         </div>
-        <p class="eb-note" style="margin-top:6px;">Select text on the canvas, then apply. Renders safely in every client.</p></div>`;
+        <span class="eb-f-sub" style="margin-top:12px;">Insert field</span>
+        <div class="eb-fmt-btns">
+          ${FIELD_CHIPS.map(f=>`<button type="button" class="eb-field-chip" data-token="${f.token}">${f.label}</button>`).join("")}
+        </div>
+        <p class="eb-note" style="margin-top:6px;">Click into the text, place your cursor, then apply. Fields fill from each contact when the email sends.</p></div>`;
     }
     function inspectorFields(b, device) {
       const align = `<label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"center")}</select></label>`;
@@ -677,11 +708,19 @@ import "../../../styles/admin.css";
             <label class="eb-f"><span>Colour</span><input type="color" data-field="borderColor" value="${validHex(b.borderColor,'#1c1d22')}" /></label>
           </div>
           <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="borderRadius" value="${b.borderRadius!=null?b.borderRadius:""}" placeholder="8" /></label>
-          ${imageRespFields(b, device)}`;
+          ${imageRespFields(b, device)}
+          ${marginFields(b)}`;
         case "button": return `
           <label class="eb-f"><span>Button text</span><input type="text" data-field="text" value="${esc(b.text||"")}" /></label>
+          <p class="eb-note" style="margin:-6px 0 10px;">…or edit it directly on the canvas.</p>
           <label class="eb-f"><span>Link URL (action)</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…" /></label>
           <label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
+          <div class="eb-checks">
+            <label class="eb-check"><input type="checkbox" data-field="bold"${b.bold?" checked":""}/> Bold</label>
+            <label class="eb-check"><input type="checkbox" data-field="italic"${b.italic?" checked":""}/> Italic</label>
+            <label class="eb-check"><input type="checkbox" data-field="underline"${b.underline?" checked":""}/> Underline</label>
+          </div>
+          <label class="eb-check"><input type="checkbox" data-field="fullWidth"${b.fullWidth?" checked":""}/> Full width — fills the container (inset with Margin L/R)</label>
           <div class="eb-f2">
             <label class="eb-f"><span>Text colour</span><input type="color" data-field="textColor" value="${validHex(b.textColor,'#ffffff')}" /></label>
             <label class="eb-f"><span>Background</span><input type="color" data-field="color" value="${validHex(b.color, state.branding.accentColor||'#371e28')}" /></label>
@@ -692,14 +731,16 @@ import "../../../styles/admin.css";
             <label class="eb-f"><span>Colour</span><input type="color" data-field="borderColor" value="${validHex(b.borderColor,'#371e28')}" /></label>
           </div>
           <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="borderRadius" value="${b.borderRadius!=null?b.borderRadius:""}" placeholder="8" /></label>
-          ${buttonRespFields(b, device)}`;
+          ${buttonRespFields(b, device)}
+          ${marginFields(b)}`;
         case "divider": return `
           <label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,'#E2E8F0')}" /></label>
           <div class="eb-f2">
             <label class="eb-f"><span>Thickness (px)</span><input type="number" min="1" max="12" data-field="thickness" value="${b.thickness!=null?b.thickness:""}" placeholder="1" /></label>
             <label class="eb-f"><span>Width (%)</span><input type="number" min="10" max="100" data-field="width" value="${b.width!=null?b.width:""}" placeholder="100" /></label>
           </div>
-          ${dividerRespFields(b, device)}`;
+          ${dividerRespFields(b, device)}
+          ${marginFields(b)}`;
         case "spacer": return `<label class="eb-f"><span>Height (px)</span><input type="number" min="4" max="160" data-field="height" value="${Number(b.height)||24}" /></label>`;
         case "logo": return `<label class="eb-f"><span>Size</span><select data-field="size">${opts(["sm","md","lg"],b.size||"md")}</select></label>${align}
           <label class="eb-f"><span>Link URL</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>
@@ -892,7 +933,9 @@ import "../../../styles/admin.css";
           stat.textContent = "Uploading…";
           try {
             const ext = (file.name.split(".").pop()||"jpg").toLowerCase();
-            const key = `email/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+            // Use the same uploads/ folder the site editor uses (its storage
+            // policy is proven) rather than a new top-level folder that RLS may block.
+            const key = `uploads/email-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
             const { error } = await supabase.storage.from("site-media").upload(key, file, { cacheControl:"31536000", upsert:false, contentType:file.type });
             if (error) { stat.textContent = "Upload failed: "+error.message; return; }
             const { data } = supabase.storage.from("site-media").getPublicUrl(key);
@@ -911,6 +954,15 @@ import "../../../styles/admin.css";
             if (document.activeElement !== ed) ed.focus();
             document.execCommand(btn.dataset.fmt, false, null);
             b.html = ed.innerHTML; b.text = ed.innerText;
+          });
+        });
+        // Merge-field chips — insert a token at the cursor (keep canvas selection).
+        wrap.querySelectorAll("[data-token]").forEach((chip)=>{
+          chip.addEventListener("mousedown", (e)=>e.preventDefault());
+          chip.addEventListener("click", ()=>{
+            const ed = blocksWrap.querySelector(`[data-edit][data-id="${bid}"]`);
+            if (ed) { lastEditable = ed; if (document.activeElement !== ed) ed.focus(); }
+            insertToken(chip.dataset.token);
           });
         });
       }
@@ -966,7 +1018,7 @@ import "../../../styles/admin.css";
     let lastEditable = null;
     const subjectEl = $("#eb-subject");
     subjectEl.addEventListener("focus", ()=>{ lastEditable = subjectEl; });
-    subjectEl.addEventListener("input", ()=>{ state.subject = subjectEl.value; });
+    subjectEl.addEventListener("input", ()=>{ state.subject = subjectEl.value; markDirty(); });
     $("#eb-var-menu").innerHTML = MERGE_FIELDS.map(f=>`<button type="button" class="eb-var-item" data-tok="{{${f.token}}}"><span>${f.label}</span><code>{{${f.token}}}</code></button>`).join("");
     $("#eb-var-btn").addEventListener("click", (e)=>{ e.stopPropagation(); const m=$("#eb-var-menu"); m.hidden=!m.hidden; });
     document.addEventListener("click", ()=>{ $("#eb-var-menu").hidden = true; });
@@ -983,7 +1035,8 @@ import "../../../styles/admin.css";
         el.dispatchEvent(new Event("input"));
       } else if (el.hasAttribute && el.hasAttribute("contenteditable")) {
         el.focus(); document.execCommand("insertText", false, tok);
-        const blk = state.blocks.find(x=>x.id===el.dataset.id); if(blk) blk.text = el.innerText;
+        const blk = state.blocks.find(x=>x.id===el.dataset.id);
+        if (blk) { if (el.hasAttribute("data-rich")) { blk.html = el.innerHTML; blk.text = el.innerText; } else blk.text = el.innerText; }
       }
     }
 
@@ -1005,7 +1058,7 @@ import "../../../styles/admin.css";
       $("#eb-html-pane").hidden = state.mode!=="html";
     }));
     $("#eb-html").addEventListener("focus", ()=>{ lastEditable = $("#eb-html"); });
-    $("#eb-html").addEventListener("input", (e)=>{ state.custom_html = e.target.value; });
+    $("#eb-html").addEventListener("input", (e)=>{ state.custom_html = e.target.value; markDirty(); });
 
     /* ─────────── meta + modals ─────────── */
     function openModal(idSel){ $(idSel).hidden=false; } function closeModal(el){ el.hidden=true; }
@@ -1017,11 +1070,11 @@ import "../../../styles/admin.css";
     $("#eb-brand").addEventListener("click", ()=>openModal("#eb-modal-brand"));
 
     const nameEl=$("#eb-name");
-    nameEl.addEventListener("input", ()=>{ state.name=nameEl.value; $("#s-name").value=nameEl.value; });
-    $("#s-name").addEventListener("input", (e)=>{ state.name=e.target.value; nameEl.value=e.target.value; });
-    $("#s-preheader").addEventListener("input",(e)=>state.preheader=e.target.value);
-    $("#s-trigger").addEventListener("change",(e)=>state.trigger_key=e.target.value);
-    $("#s-status").addEventListener("change",(e)=>{ state.status=e.target.value; setStatusPill(); });
+    nameEl.addEventListener("input", ()=>{ state.name=nameEl.value; $("#s-name").value=nameEl.value; markDirty(); });
+    $("#s-name").addEventListener("input", (e)=>{ state.name=e.target.value; nameEl.value=e.target.value; markDirty(); });
+    $("#s-preheader").addEventListener("input",(e)=>{ state.preheader=e.target.value; markDirty(); });
+    $("#s-trigger").addEventListener("change",(e)=>{ state.trigger_key=e.target.value; markDirty(); });
+    $("#s-status").addEventListener("change",(e)=>{ state.status=e.target.value; setStatusPill(); markDirty(); });
     function setStatusPill(){ const p=$("#eb-status-pill"); p.dataset.status=state.status; p.textContent=state.status.charAt(0).toUpperCase()+state.status.slice(1); }
 
     document.querySelectorAll("[data-brand]").forEach(el=>el.addEventListener("input", ()=>{ state.branding[el.getAttribute("data-brand")]=el.value; renderCanvas(); }));
@@ -1054,11 +1107,48 @@ import "../../../styles/admin.css";
       if(error){ toast(`Save failed: ${error.message}`); return false; }
       id=data.id; loaded=data;
       if(!params.get("id")||params.get("id")==="new"){ const u=new URL(location.href); u.searchParams.set("id",id); history.replaceState({},"",u.toString()); }
+      dirty=false; setSaved("All changes saved");
       toast(opts.activate?"Activated ✓":"Saved ✓"); return true;
     }
     $("#eb-save").addEventListener("click", ()=>save());
     $("#eb-activate").addEventListener("click", ()=>save({activate:true}));
     document.addEventListener("keydown",(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){ e.preventDefault(); save(); } });
+
+    /* ─────────── autosave (don't lose drafts on Back) ─────────── */
+    let dirty=false, booted=false, autosaving=false;
+    function setSaved(txt, cls){ const el=$("#eb-saved"); if(!el) return; el.textContent=txt||""; el.className="eb-saved"+(cls?(" "+cls):""); }
+    function markDirty(){ if(booted){ dirty=true; setSaved("Unsaved changes","is-dirty"); } }
+    async function autosave(){
+      if(!dirty || autosaving || !isConfigured) return;
+      // Never autosave a still-empty brand-new template.
+      if(!id && state.blocks.length===0 && !(state.custom_html||"").trim()) return;
+      autosaving=true; const wasDirty=dirty; dirty=false; setSaved("Saving…");
+      const payload=gather();
+      try{
+        const q = id ? supabase.from("email_templates").update(payload).eq("id",id).select().single()
+                     : supabase.from("email_templates").insert(payload).select().single();
+        const {data,error}=await q;
+        if(error){ dirty=wasDirty; setSaved("Save pending…","is-dirty"); }
+        else{
+          id=data.id; loaded=data;
+          if(!params.get("id")||params.get("id")==="new"){ const u=new URL(location.href); u.searchParams.set("id",id); history.replaceState({},"",u.toString()); }
+          setSaved("All changes saved");
+        }
+      }catch(_){ dirty=wasDirty; setSaved("Save pending…","is-dirty"); }
+      autosaving=false;
+    }
+    // Save before navigating away via the Back arrow.
+    const backLink=$(".eb-back");
+    backLink?.addEventListener("click", async (e)=>{
+      if(!dirty || !isConfigured) return;   // nothing to save → normal nav
+      e.preventDefault();
+      const href=backLink.getAttribute("href")||"/admin/email";
+      setSaved("Saving…"); await autosave().catch(()=>{}); location.href=href;
+    });
+    // Periodic + tab-hidden + unload safety nets.
+    setInterval(autosave, 15000);
+    document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") autosave(); });
+    window.addEventListener("beforeunload", ()=>{ if(dirty) autosave(); });
 
     $("#eb-sendtest").addEventListener("click", async ()=>{
       if(!WORKER_URL){ toast("Set PUBLIC_R2_WORKER_URL to send."); return; }
@@ -1109,6 +1199,7 @@ import "../../../styles/admin.css";
         else { seedSample(); }
       } else { seedSample(); }
       fillMeta();
+      booted = true;   // now user edits count as dirty (enables autosave)
     })();
   </script>
 </BaseLayout>
