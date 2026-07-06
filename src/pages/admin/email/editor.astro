@@ -799,7 +799,7 @@ import "../../../styles/admin.css";
         </div>
         ${format}
         <label class="eb-f" style="margin:12px 0 0;"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,dCol)}" /></label>
-        <p class="eb-note" style="margin-top:8px;">Size, line height, letter spacing &amp; alignment are per-device (tap 📱).</p>
+        <p class="eb-note" style="margin-top:8px;"><strong>Tip:</strong> highlight text on the canvas first to change just that part (font, size, letter spacing &amp; colour) — otherwise it changes the whole block. Size, line height, letter spacing &amp; alignment are per-device (tap 📱).</p>
       </div>`;
     }
     function inspectorFields(b, device) {
@@ -949,6 +949,58 @@ import "../../../styles/admin.css";
           <button type="button" class="eb-vis-btn${onM?" is-on":""}" data-vis="mobile"><span class="eb-vis-tick">✓</span>📱 Mobile</button>
         </div>${hint}</div>`;
     }
+
+    /* ─────────── selection-aware typography ───────────
+       Highlight part of a text/heading block → a font / size / colour / letter-
+       spacing change styles JUST that selection (wrapped in a <span>). With no
+       highlight, the change applies to the whole block — and also strips that
+       property off any inner spans, so "change everything" really does. */
+    let savedSel = null; // { bid, range }
+    const fontStackOf = (key)=>{ const f = FONT_STACKS.find(x=>x.key===key); return f ? f.stack : FONT_STACKS[0].stack; };
+    const TYPO_CSS = { font:"font-family", size:"font-size", color:"color", letterSpacing:"letter-spacing" };
+    function editableOf(node){ const el = node && (node.nodeType===1 ? node : node.parentElement); return el ? el.closest("[data-edit]") : null; }
+    document.addEventListener("selectionchange", ()=>{
+      const sel = window.getSelection(); if(!sel || !sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      const ed = editableOf(range.commonAncestorContainer);
+      if(!ed || !ed.dataset.id) return;          // not inside a block → keep the last saved selection
+      savedSel = range.collapsed ? null : { bid: ed.dataset.id, range: range.cloneRange() };
+    });
+    function typoCssValue(field, v){ return field==="font" ? fontStackOf(v) : (field==="size"||field==="letterSpacing") ? (v+"px") : v; }
+    // Wrap the selection in a <span> carrying one property; clear the same
+    // property from descendants so the new value wins. Returns the new range.
+    function styleRange(range, prop, value){
+      const span = document.createElement("span");
+      span.style.setProperty(prop, value);
+      try { range.surroundContents(span); }
+      catch(_){ const frag = range.extractContents(); span.appendChild(frag); range.insertNode(span); }
+      span.querySelectorAll("[style]").forEach(el=>el.style.removeProperty(prop));
+      const sel = window.getSelection(); sel.removeAllRanges();
+      const r = document.createRange(); r.selectNodeContents(span); sel.addRange(r);
+      return r;
+    }
+    function applyToSelection(bid, field, v){
+      const ed = blocksWrap.querySelector(`[data-edit][data-id="${bid}"]`);
+      if(!ed || !savedSel || savedSel.bid!==bid) return false;
+      const range = savedSel.range;
+      if(range.collapsed || !ed.contains(range.commonAncestorContainer)) return false;
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      const newR = styleRange(range, TYPO_CSS[field], typoCssValue(field, v));
+      savedSel = { bid, range: newR.cloneRange() };
+      const blk = findBlock(bid);
+      if(blk){ blk.html = ed.innerHTML; blk.text = ed.innerText; }
+      markDirty();
+      return true;
+    }
+    // Strip a typography property from every inner span so a block-wide change
+    // isn't overridden by earlier per-selection spans.
+    function clearInlineProp(blk, field){
+      if(!blk || blk.html==null || blk.html==="") return;
+      const tmp = document.createElement("div"); tmp.innerHTML = blk.html;
+      tmp.querySelectorAll("[style]").forEach(el=>el.style.removeProperty(TYPO_CSS[field]));
+      blk.html = tmp.innerHTML;
+    }
+
     function openInspector(bid) {
       const b = findBlock(bid); if(!b) return;
       const def = BLOCK_TYPES.find(d=>d.type===b.type);
@@ -962,12 +1014,20 @@ import "../../../styles/admin.css";
       // Per-device size/spacing toggle → drives the shared canvas device state.
       wrap.querySelectorAll("[data-respdev]").forEach((btn)=>btn.addEventListener("click", ()=>setCanvasDevice(btn.dataset.respdev)));
       wrap.querySelectorAll("[data-field]").forEach((inp)=>{
-        const evt = inp.type==="checkbox"||inp.tagName==="SELECT" ? "change" : "input";
+        // font / size / colour / letter-spacing on a text/heading can target a
+        // highlight — commit those on "change" so we don't re-wrap per keystroke.
+        const baseField = inp.dataset.field.replace("mobile.","");
+        const isTypo = (b.type==="text"||b.type==="heading") && TYPO_CSS[baseField];
+        const evt = inp.type==="checkbox"||inp.tagName==="SELECT"||isTypo ? "change" : "input";
         inp.addEventListener(evt, ()=>{
           let v;
           if(inp.type==="checkbox") v=inp.checked;
           else if(inp.type==="number") v = inp.value==="" ? undefined : Number(inp.value);  // blank = unset (use default)
           else v=inp.value;
+          // Highlighted text → style just the selection, leave the block default alone.
+          if(isTypo && v!=null && v!=="" && applyToSelection(bid, baseField, v)) return;
+          // Block-wide → also clear the same prop off inner spans so it truly applies to all.
+          if(isTypo && v!=null && v!=="") clearInlineProp(b, baseField);
           setPath(b, inp.dataset.field, v); renderCanvas();
           blocksWrap.querySelectorAll(".cv-block").forEach((el)=>el.classList.toggle("is-selected", el.dataset.id===bid));
         });
