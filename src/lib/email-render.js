@@ -146,6 +146,68 @@ export const COLUMN_LAYOUTS = [
   { key: 'quarters', label: 'Four columns',          cols: 4, w: [25, 25, 25, 25] },
 ];
 
+/** Email-safe font stacks — only fonts pre-installed across Outlook (Windows +
+ *  Mac), Gmail, Apple Mail etc., so no web font is ever needed (they get
+ *  stripped). `key` is stored on the block; `stack` is emitted as font-family. */
+export const FONT_STACKS = [
+  { key: 'arial',     label: 'Arial',           stack: "Arial, Helvetica, sans-serif" },
+  { key: 'helvetica', label: 'Helvetica',       stack: "Helvetica, Arial, sans-serif" },
+  { key: 'verdana',   label: 'Verdana',         stack: "Verdana, Geneva, sans-serif" },
+  { key: 'tahoma',    label: 'Tahoma',          stack: "Tahoma, Segoe, sans-serif" },
+  { key: 'trebuchet', label: 'Trebuchet MS',    stack: "'Trebuchet MS', Helvetica, sans-serif" },
+  { key: 'georgia',   label: 'Georgia',         stack: "Georgia, 'Times New Roman', serif" },
+  { key: 'times',     label: 'Times New Roman', stack: "'Times New Roman', Georgia, serif" },
+  { key: 'courier',   label: 'Courier New',     stack: "'Courier New', Courier, monospace" },
+];
+function fontStack(key) { const f = FONT_STACKS.find((x) => x.key === key); return f ? f.stack : FONT_STACKS[0].stack; }
+function pxNum(v, fallback) { const n = Number(v); return isFinite(n) ? Math.round(n) : fallback; }
+function padStyle(pad) {
+  if (!pad) return '';
+  const t = pxNum(pad.t, 0), r = pxNum(pad.r, 0), b = pxNum(pad.b, 0), l = pxNum(pad.l, 0);
+  if (!(t || r || b || l)) return '';
+  return `padding:${t}px ${r}px ${b}px ${l}px;`;
+}
+
+/** Inline style for a heading block — shared by the renderer AND the editor's
+ *  canvas so what you see is what sends. */
+export function headingInlineStyle(block = {}) {
+  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'left';
+  const size = pxNum(block.size, 28);
+  const lh = Number(block.lineHeight) || 1.15;
+  const weight = block.bold === false ? 400 : 800;
+  const parts = [
+    'margin:0', `font-family:${fontStack(block.font)}`, `font-size:${size}px`,
+    `line-height:${lh}`, `font-weight:${weight}`, `color:${escapeHtml(block.color || '#1c1d22')}`,
+    `text-align:${align}`,
+  ];
+  if (block.letterSpacing != null && block.letterSpacing !== '') parts.push(`letter-spacing:${Number(block.letterSpacing)}px`);
+  else parts.push('letter-spacing:-0.01em');
+  if (block.italic) parts.push('font-style:italic');
+  if (block.underline) parts.push('text-decoration:underline');
+  return parts.join(';') + ';' + padStyle(block.pad);
+}
+
+/** Inline style for a text block's wrapper (font/size/spacing/colour/align/
+ *  padding + optional background tint). Shared by renderer + canvas. */
+export function textInlineStyle(block = {}) {
+  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'left';
+  const size = pxNum(block.size, 15);
+  const lh = Number(block.lineHeight) || 1.6;
+  const parts = [
+    `font-family:${fontStack(block.font)}`, `font-size:${size}px`, `line-height:${lh}`,
+    `color:${escapeHtml(block.color || '#1F2937')}`, `text-align:${align}`,
+  ];
+  if (block.letterSpacing != null && block.letterSpacing !== '') parts.push(`letter-spacing:${Number(block.letterSpacing)}px`);
+  if (block.bold) parts.push('font-weight:700');
+  if (block.italic) parts.push('font-style:italic');
+  if (block.underline) parts.push('text-decoration:underline');
+  let style = parts.join(';') + ';';
+  const pad = padStyle(block.pad);
+  if (block.bg) style += `background:${escapeHtml(block.bg)};border-radius:8px;` + (pad || 'padding:14px 18px;');
+  else style += pad;
+  return style;
+}
+
 let _uidCounter = 0;
 function uid() {
   try {
@@ -236,19 +298,16 @@ function plainToHtml(text) {
 function renderHeading(block, ctx) {
   const text = renderTokens(block.text || '', ctx);
   if (!text) return '';
-  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'left';
-  const color = block.color || '#1c1d22';
-  return `<h1 style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:28px;line-height:1.15;font-weight:800;letter-spacing:-0.01em;color:${escapeHtml(color)};text-align:${align};">${escapeHtml(text)}</h1>`;
+  return `<h1 style="${headingInlineStyle(block)}">${escapeHtml(text)}</h1>`;
 }
 
 function renderText(block, ctx) {
-  const src = block.html != null ? block.html : plainToHtml(block.text || '');
+  // block.html holds rich content (bold/italic/underline/bullets from the inline
+  // toolbar); plain text falls back to auto-paragraphing.
+  const src = block.html != null && block.html !== '' ? block.html : plainToHtml(block.text || '');
   const inner = renderTokens(src, ctx);
   if (!inner) return '';
-  if (!block.bg) {
-    return `<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1F2937;">${inner}</div>`;
-  }
-  return `<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1F2937;background:${escapeHtml(block.bg)};padding:14px 18px;border-radius:8px;">${inner}</div>`;
+  return `<div style="${textInlineStyle(block)}">${inner}</div>`;
 }
 
 function renderImage(block) {

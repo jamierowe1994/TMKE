@@ -310,6 +310,20 @@ import "../../../styles/admin.css";
     .eb-vis-hint { margin-top:9px; font-family:var(--sans); font-size:11.5px; line-height:1.5; color:rgba(28,29,34,0.55); }
     .eb-vis-hint.is-warn { color:#a05a3c; }
 
+    /* Typography inspector: sub-labels, rich-text toolbar, padding grid */
+    .eb-f-sub { display:block; font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:rgba(28,29,34,0.55); margin-bottom:7px; }
+    .eb-fmt { margin-bottom:12px; }
+    .eb-fmt-btns { display:flex; gap:6px; flex-wrap:wrap; }
+    .eb-fmt-btn { min-width:34px; height:34px; padding:0 9px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--eb-line); border-radius:7px; background:#fff; cursor:pointer; font-family:var(--sans); font-size:13px; color:var(--ink); transition:border-color 0.15s, background 0.15s; }
+    .eb-fmt-btn:hover { border-color:var(--english-violet); background:rgba(55,30,40,0.05); }
+    .eb-fmt-btn u { text-decoration:underline; } .eb-fmt-btn i { font-style:italic; } .eb-fmt-btn b { font-weight:800; }
+    .eb-pad { margin-bottom:12px; }
+    .eb-pad-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+    .eb-pad-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .eb-pad-cell span { font-family:var(--sans); font-size:10px; font-weight:700; color:rgba(28,29,34,0.5); }
+    .eb-pad-cell input { width:100%; text-align:center; font-family:var(--sans); font-size:13px; padding:7px 4px; border:1px solid var(--eb-line); border-radius:6px; }
+    .eb-pad-cell input:focus { outline:none; border-color:var(--english-violet); }
+
     /* HTML pane */
     .eb-html-pane { flex:1; padding:24px 32px 80px; }
     .eb-html { width:100%; min-height:60vh; font-family:ui-monospace,Menlo,monospace; font-size:13px; line-height:1.6; padding:16px; border:1px solid var(--eb-line); border-radius:10px; background:#fff; color:var(--ink); }
@@ -342,6 +356,7 @@ import "../../../styles/admin.css";
     import {
       renderTemplate, renderBlock, mergeContextFor, defaultBrand,
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT, COLUMN_LAYOUTS,
+      FONT_STACKS, headingInlineStyle, textInlineStyle,
     } from "../../../lib/email-render.js";
 
     const DEV = import.meta.env.DEV;
@@ -403,13 +418,13 @@ import "../../../styles/admin.css";
     function canvasInner(b, brand) {
       const align = ["left","center","right"].includes(b.align) ? b.align : "center";
       switch (b.type) {
-        case "heading": {
-          const a = ["left","center","right"].includes(b.align)?b.align:"left";
-          return `<h1 class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:28px;line-height:1.15;font-weight:800;letter-spacing:-0.01em;color:${esc(b.color||"#1c1d22")};text-align:${a};">${esc(b.text||"")}</h1>`;
-        }
+        case "heading":
+          return `<h1 class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="${headingInlineStyle(b)}">${esc(b.text||"")}</h1>`;
         case "text": {
-          const bg = b.bg ? `background:${esc(b.bg)};padding:14px 18px;border-radius:8px;` : "";
-          return `<div class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1f2937;white-space:pre-wrap;${bg}">${esc(b.text||"")}</div>`;
+          // Rich content (b.html) shows as-is; plain text keeps whitespace.
+          const content = (b.html != null && b.html !== "") ? b.html : esc(b.text||"");
+          const wsp = (b.html != null && b.html !== "") ? "" : "white-space:pre-wrap;";
+          return `<div class="cv-edit" data-edit data-rich data-id="${b.id}" contenteditable="true" style="${textInlineStyle(b)}${wsp}">${content}</div>`;
         }
         case "image":
           return b.url
@@ -477,7 +492,11 @@ import "../../../styles/admin.css";
           ed.addEventListener("focus", () => { lastEditable = ed; select(bid); });
           ed.addEventListener("input", () => {
             const blk = state.blocks.find((x) => x.id === bid);
-            if (blk) blk.text = ed.innerText;
+            if (!blk) return;
+            // Rich text blocks store innerHTML (bold/italic/underline/bullets);
+            // everything else stores plain text.
+            if (ed.hasAttribute("data-rich")) { blk.html = ed.innerHTML; blk.text = ed.innerText; }
+            else blk.text = ed.innerText;
           });
         });
         // toolbar
@@ -527,14 +546,57 @@ import "../../../styles/admin.css";
     /* ─────────── inspector ─────────── */
     const ALIGN = ["left","center","right"];
     const opts = (a,c)=>a.map(o=>`<option value="${o}"${o===c?" selected":""}>${o}</option>`).join("");
+
+    // ── Shared typography controls (heading + text) ──
+    const fontOpts = (cur)=>FONT_STACKS.map(f=>`<option value="${f.key}"${f.key===(cur||"arial")?" selected":""}>${esc(f.label)}</option>`).join("");
+    const validHex = (v,fb)=>/^#[0-9a-f]{6}$/i.test(v||"")?v:fb;
+    function typoFields(b){
+      const dSize = b.type==="heading"?28:15, dLh = b.type==="heading"?"1.15":"1.6", dCol = b.type==="heading"?"#1c1d22":"#1f2937";
+      return `<label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
+        <div class="eb-f2">
+          <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="90" data-field="size" value="${b.size!=null?b.size:""}" placeholder="${dSize}" /></label>
+          <label class="eb-f"><span>Line height</span><input type="number" min="0.8" max="3" step="0.05" data-field="lineHeight" value="${b.lineHeight!=null?b.lineHeight:""}" placeholder="${dLh}" /></label>
+        </div>
+        <div class="eb-f2">
+          <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="letterSpacing" value="${b.letterSpacing!=null?b.letterSpacing:""}" placeholder="0" /></label>
+          <label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,dCol)}" /></label>
+        </div>`;
+    }
+    function padField(b){
+      const p=b.pad||{};
+      const cell=(k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="pad.${k}" value="${p[k]!=null?p[k]:""}" placeholder="0" /></label>`;
+      return `<div class="eb-pad"><span class="eb-f-sub">Padding (px)</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
+    }
+    // Inline rich-text toolbar for the text block (execCommand — email-safe tags).
+    function fmtToolbar(){
+      return `<div class="eb-fmt"><span class="eb-f-sub">Format</span>
+        <div class="eb-fmt-btns">
+          <button type="button" class="eb-fmt-btn" data-fmt="bold" title="Bold"><b>B</b></button>
+          <button type="button" class="eb-fmt-btn" data-fmt="italic" title="Italic"><i>I</i></button>
+          <button type="button" class="eb-fmt-btn" data-fmt="underline" title="Underline"><u>U</u></button>
+          <button type="button" class="eb-fmt-btn" data-fmt="insertUnorderedList" title="Bullet list">&bull; List</button>
+          <button type="button" class="eb-fmt-btn" data-fmt="removeFormat" title="Clear formatting">&#10005;</button>
+        </div>
+        <p class="eb-note" style="margin-top:6px;">Select text on the canvas, then apply. Renders safely in every client.</p></div>`;
+    }
     function inspectorFields(b) {
       const align = `<label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"center")}</select></label>`;
       switch (b.type) {
         case "heading": return `<p class="eb-note" style="margin-bottom:12px;">Edit the text right on the canvas.</p>
+          ${typoFields(b)}
           <label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"left")}</select></label>
-          <label class="eb-f"><span>Colour (blank = ink)</span><input type="text" data-field="color" value="${esc(b.color||"")}" placeholder="#1c1d22" /></label>`;
-        case "text": return `<p class="eb-note" style="margin-bottom:12px;">Edit the text right on the canvas. Blank line = new paragraph.</p>
-          <label class="eb-f"><span>Background tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>`;
+          <div class="eb-checks">
+            <label class="eb-check"><input type="checkbox" data-field="bold"${b.bold!==false?" checked":""}/> Bold</label>
+            <label class="eb-check"><input type="checkbox" data-field="italic"${b.italic?" checked":""}/> Italic</label>
+            <label class="eb-check"><input type="checkbox" data-field="underline"${b.underline?" checked":""}/> Underline</label>
+          </div>
+          ${padField(b)}`;
+        case "text": return `<p class="eb-note" style="margin-bottom:10px;">Edit the text right on the canvas. Blank line = new paragraph.</p>
+          ${fmtToolbar(b)}
+          ${typoFields(b)}
+          <label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"left")}</select></label>
+          <label class="eb-f"><span>Background tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>
+          ${padField(b)}`;
         case "image": return `<label class="eb-f"><span>Image URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…/image.jpg" /></label>
           <label class="eb-f"><span>Alt text</span><input type="text" data-field="alt" value="${esc(b.alt||"")}" /></label>
           <label class="eb-f"><span>Link URL (optional)</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>${align}`;
@@ -658,7 +720,10 @@ import "../../../styles/admin.css";
       wrap.querySelectorAll("[data-field]").forEach((inp)=>{
         const evt = inp.type==="checkbox"||inp.tagName==="SELECT" ? "change" : "input";
         inp.addEventListener(evt, ()=>{
-          let v; if(inp.type==="checkbox") v=inp.checked; else if(inp.type==="number") v=Number(inp.value); else v=inp.value;
+          let v;
+          if(inp.type==="checkbox") v=inp.checked;
+          else if(inp.type==="number") v = inp.value==="" ? undefined : Number(inp.value);  // blank = unset (use default)
+          else v=inp.value;
           setPath(b, inp.dataset.field, v); renderCanvas();
           blocksWrap.querySelectorAll(".cv-block").forEach((el)=>el.classList.toggle("is-selected", el.dataset.id===bid));
         });
@@ -716,6 +781,20 @@ import "../../../styles/admin.css";
       // Form — fields textarea (one per line) → array.
       if (b.type === "form") {
         wrap.querySelector("[data-formfields]")?.addEventListener("input", (e)=>{ b.fields = e.target.value.split("\n").map(s=>s.trim()).filter(Boolean); renderCanvas(); });
+      }
+      // Text — inline rich-text toolbar (bold/italic/underline/bullets). Keep the
+      // canvas selection by preventing the button from stealing focus, then apply.
+      if (b.type === "text") {
+        wrap.querySelectorAll("[data-fmt]").forEach((btn)=>{
+          btn.addEventListener("mousedown", (e)=>e.preventDefault());
+          btn.addEventListener("click", ()=>{
+            const ed = blocksWrap.querySelector(`[data-edit][data-id="${bid}"]`);
+            if(!ed) return;
+            if (document.activeElement !== ed) ed.focus();
+            document.execCommand(btn.dataset.fmt, false, null);
+            b.html = ed.innerHTML; b.text = ed.innerText;
+          });
+        });
       }
       $("#eb-rail-blocks").hidden = true; $("#eb-rail-inspector").hidden = false;
     }
