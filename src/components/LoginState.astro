@@ -1,6 +1,6 @@
 ---
 // Reflects the signed-in state on every login control, site-wide. Any element
-// with the `js-nav-login` class swaps "Login" → "Members" (→ /account, via the
+// with the `js-nav-login` class swaps "Login" → "Members" (→ /dashboard, via the
 // members splash) when a Supabase session exists. Rendered by BaseLayout so it
 // runs on the chrome-less deck pages (/services, /videography) too — not just
 // where the global <Nav> is present.
@@ -19,18 +19,14 @@
       const label = btn.querySelector(".nav-drawer-login-label") || btn.querySelector("span");
       if (label) label.textContent = "Members";
       else btn.textContent = "Members";
-      btn.setAttribute("href", "/account");
+      btn.setAttribute("href", "/dashboard");
       btn.setAttribute("aria-label", "Open your TMKE members area");
 
       btn.addEventListener("click", function (e) {
-        let firstTime = false;
-        try {
-          firstTime = !localStorage.getItem("tmke.brand") && !localStorage.getItem("tmke.brand.skipped");
-        } catch (_) { /* ignore */ }
-        const dest = firstTime ? "/profile?next=/account" : "/account";
+        // Members always land on the dashboard — never the brand kit.
         if (typeof window.tmkeSplash === "function") {
           e.preventDefault();
-          window.tmkeSplash(dest);
+          window.tmkeSplash("/dashboard");
         }
       });
     });
