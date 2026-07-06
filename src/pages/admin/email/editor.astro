@@ -194,10 +194,16 @@ import "../../../styles/admin.css";
 
     /* Shell */
     .eb-shell { display:grid; grid-template-columns:288px 1fr; min-height:calc(100vh - 56px); align-items:stretch; }
-    @media (max-width:920px){ .eb-shell { grid-template-columns:1fr; } }
+    @media (max-width:920px){ .eb-shell { grid-template-columns:1fr; }
+      /* Stacked single column — let the rail flow with the page again. */
+      .eb-rail { position:static; height:auto; overflow:visible; } }
 
     /* Rail */
-    .eb-rail { background:#fff; border-right:1px solid var(--eb-line); padding:22px 18px 80px; }
+    /* Left rail pins under the sticky top bar and scrolls on its OWN scrollbar,
+       so page-scrolling the email preview never drags the toolbar with it. */
+    .eb-rail { background:#fff; border-right:1px solid var(--eb-line); padding:22px 18px 80px;
+      position:sticky; top:61px; align-self:start; height:calc(100vh - 61px);
+      overflow-y:auto; overscroll-behavior:contain; }
     .eb-rail-sec { margin-bottom:26px; }
     .eb-rail-h { font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:rgba(28,29,34,0.45); margin:0 0 12px; }
     .eb-palette { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
