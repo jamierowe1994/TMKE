@@ -187,7 +187,7 @@ function padStyleResolved(block) { const p = resolvePad(block); return (p.t || p
 /** Inline style for a heading block — shared by the renderer AND the editor's
  *  canvas so what you see is what sends. */
 export function headingInlineStyle(block = {}) {
-  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'left';
+  const align = ['left', 'center', 'right', 'justify'].includes(block.align) ? block.align : 'left';
   const size = pxNum(block.size, 28);
   const lh = Number(block.lineHeight) || 1.15;
   const weight = block.bold === false ? 400 : 800;
@@ -206,7 +206,7 @@ export function headingInlineStyle(block = {}) {
 /** Inline style for a text block's wrapper (font/size/spacing/colour/align/
  *  padding + optional background tint). Shared by renderer + canvas. */
 export function textInlineStyle(block = {}) {
-  const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'left';
+  const align = ['left', 'center', 'right', 'justify'].includes(block.align) ? block.align : 'left';
   const size = pxNum(block.size, 15);
   const lh = Number(block.lineHeight) || 1.6;
   const parts = [
@@ -239,7 +239,7 @@ export function buttonInlineStyle(block = {}, brand = {}) {
     block.fullWidth ? 'display:block' : 'display:inline-block',
     `padding:${pad}`, `background:${escapeHtml(bg)}`, `color:${escapeHtml(txt)}`,
     block.underline ? 'text-decoration:underline' : 'text-decoration:none',
-    `border-radius:${br}px`, `font-weight:${block.bold ? 700 : 600}`,
+    `border-radius:${br}px`, `font-weight:${block.bold ? 700 : 400}`,
     `font-size:${size}px`, `font-family:${fontStack(block.font)}`,
   ];
   if (block.italic) parts.push('font-style:italic');
