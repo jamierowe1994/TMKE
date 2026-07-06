@@ -18,6 +18,8 @@ import "../../../styles/admin.css";
       <span class="eb-saved" id="eb-saved"></span>
     </div>
     <div class="eb-top-r">
+      <button type="button" class="eb-btn eb-btn-ghost eb-icon-btn" id="eb-undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>&#8630;</button>
+      <button type="button" class="eb-btn eb-btn-ghost eb-icon-btn" id="eb-redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>&#8631;</button>
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-settings">Settings</button>
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-brand">Brand</button>
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-preview">Preview</button>
@@ -173,6 +175,9 @@ import "../../../styles/admin.css";
     .eb-btn { padding:8px 14px; font-family:var(--sans); font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; border:1px solid transparent; border-radius:6px; cursor:pointer; background:transparent; }
     .eb-btn-ghost { color:var(--english-violet); border-color:rgba(55,30,40,0.22); }
     .eb-btn-ghost:hover { background:rgba(55,30,40,0.06); }
+    .eb-icon-btn { padding:6px 10px; font-size:17px; line-height:1; letter-spacing:0; }
+    .eb-btn:disabled { opacity:0.35; cursor:default; }
+    .eb-btn:disabled:hover { background:transparent; }
     .eb-btn-solid { background:var(--english-violet); color:#fff; }
     .eb-btn-solid:hover { background:var(--ink); }
 
@@ -1210,12 +1215,63 @@ import "../../../styles/admin.css";
     }
     $("#eb-save").addEventListener("click", ()=>save());
     $("#eb-activate").addEventListener("click", ()=>save({activate:true}));
-    document.addEventListener("keydown",(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){ e.preventDefault(); save(); } });
+    $("#eb-undo").addEventListener("click", undo);
+    $("#eb-redo").addEventListener("click", redo);
+    document.addEventListener("keydown",(e)=>{
+      if(!(e.ctrlKey||e.metaKey) || e.altKey) return;
+      const k=e.key.toLowerCase();
+      if(k==="s"){ e.preventDefault(); save(); }
+      else if(k==="z" && !e.shiftKey){ e.preventDefault(); undo(); }
+      else if((k==="z" && e.shiftKey) || k==="y"){ e.preventDefault(); redo(); }
+    });
 
     /* ─────────── autosave (don't lose drafts on Back) ─────────── */
     let dirty=false, booted=false, autosaving=false;
     function setSaved(txt, cls){ const el=$("#eb-saved"); if(!el) return; el.textContent=txt||""; el.className="eb-saved"+(cls?(" "+cls):""); }
-    function markDirty(){ if(booted){ dirty=true; setSaved("Unsaved changes","is-dirty"); } }
+    function markDirty(){ if(booted){ dirty=true; setSaved("Unsaved changes","is-dirty"); scheduleHistory(); } }
+
+    /* ─────────── undo / redo (snapshot history) ─────────── */
+    let history=[], histIndex=-1, restoring=false, histTimer=null;
+    const HISTORY_CAP=150;
+    function snapshotState(){
+      return JSON.stringify({ name:state.name, subject:state.subject, preheader:state.preheader,
+        trigger_key:state.trigger_key, status:state.status, mode:state.mode,
+        blocks:state.blocks, custom_html:state.custom_html, branding:state.branding });
+    }
+    function pushHistory(){
+      const snap=snapshotState();
+      if(history[histIndex]===snap) return;                 // nothing actually changed
+      history=history.slice(0,histIndex+1);                 // drop any redo branch
+      history.push(snap);
+      if(history.length>HISTORY_CAP) history.shift();
+      histIndex=history.length-1;
+      updateUndoRedo();
+    }
+    function scheduleHistory(){
+      if(restoring||!booted) return;
+      clearTimeout(histTimer);
+      histTimer=setTimeout(()=>{ histTimer=null; pushHistory(); }, 350);  // coalesce typing bursts
+    }
+    function flushHistory(){ if(histTimer){ clearTimeout(histTimer); histTimer=null; pushHistory(); } }
+    function restoreSnapshot(str){
+      restoring=true;
+      const s=JSON.parse(str);
+      Object.assign(state,{ name:s.name, subject:s.subject, preheader:s.preheader,
+        trigger_key:s.trigger_key, status:s.status, mode:s.mode,
+        blocks:s.blocks, custom_html:s.custom_html, branding:s.branding });
+      fillMeta();          // re-hydrates every input + re-renders the canvas
+      deselect();
+      restoring=false;
+      dirty=true; setSaved("Unsaved changes","is-dirty");
+      updateUndoRedo();
+    }
+    function undo(){ flushHistory(); if(histIndex<=0) return; histIndex--; restoreSnapshot(history[histIndex]); }
+    function redo(){ if(histIndex>=history.length-1) return; histIndex++; restoreSnapshot(history[histIndex]); }
+    function updateUndoRedo(){
+      const u=$("#eb-undo"), r=$("#eb-redo");
+      if(u) u.disabled = histIndex<=0;
+      if(r) r.disabled = histIndex>=history.length-1;
+    }
     async function autosave(){
       if(!dirty || autosaving || !isConfigured) return;
       // Never autosave a still-empty brand-new template.
@@ -1299,6 +1355,7 @@ import "../../../styles/admin.css";
       } else { seedSample(); }
       fillMeta();
       booted = true;   // now user edits count as dirty (enables autosave)
+      history=[]; histIndex=-1; pushHistory();  // baseline = the loaded/seeded state
     })();
   </script>
 </BaseLayout>
