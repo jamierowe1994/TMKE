@@ -135,7 +135,6 @@ const heroFirst = heroTemplates[0];
           </div>
           <ul class="ws-brief">
             <li style="--d:1"><span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span><span><strong id="brief-sched">— posts</strong> planned this week</span></li>
-            <li style="--d:2"><span class="ws-brief-ic ws-brief-ic--time"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span>Best time to post <strong id="brief-time">6:30pm</strong></span></li>
             <li style="--d:3"><span class="ws-brief-ic ws-brief-ic--star"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.6l2.72 5.52 6.08.88-4.4 4.29 1.04 6.06L12 16.98l-5.44 2.85 1.04-6.06-4.4-4.29 6.08-.88z"/></svg></span><span><strong>Wimbledon</strong> pack unlocks tomorrow</span></li>
           </ul>
           <a class="ws-btn ws-btn--primary ws-hero-cta-btn" href="/editor">Continue designing
@@ -733,7 +732,7 @@ const heroFirst = heroTemplates[0];
     // Notifications — real booking correspondence, unread dot + deep links.
     initNotifications();
 
-    const titleCase = (s) => String(s || '').replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+    const titleCase = (s) => String(s || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
     const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     // Log out (top-bar icon + drawer): clear the Supabase session, then /login.
@@ -988,24 +987,6 @@ const heroFirst = heroTemplates[0];
         const schedCount = (data || []).length;
         const sb = document.getElementById('brief-sched');
         if (sb) sb.textContent = schedCount + (schedCount === 1 ? ' post' : ' posts');
-
-        // Best time to post: their most common scheduled hour if they have a
-        // pattern; otherwise the evening slot Instagram currently favours.
-        const tb = document.getElementById('brief-time');
-        if (tb) {
-          const hours = {};
-          (data || []).forEach((it) => {
-            const t = it.scheduled_time || it.scheduled_at || '';
-            const m = String(t).match(/(\d{1,2}):(\d{2})/);
-            if (m) { const h = m[1] + ':' + m[2]; hours[h] = (hours[h] || 0) + 1; }
-          });
-          const top = Object.keys(hours).sort((a, b) => hours[b] - hours[a])[0];
-          if (top) {
-            const [H, M] = top.split(':').map(Number);
-            const ap = H >= 12 ? 'pm' : 'am'; const h12 = ((H + 11) % 12) + 1;
-            tb.textContent = h12 + (M ? ':' + String(M).padStart(2, '0') : '') + ap;
-          }
-        }
       } catch (_) { /* keep the mock week */ }
     })();
 
