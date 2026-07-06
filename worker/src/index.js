@@ -615,7 +615,7 @@ async function runReminders(env) {
         body: JSON.stringify({
           from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>",
           to: email,
-          subject: `Your ${platform} post is scheduled for today`,
+          subject: `Your ${platform} post is planned for today`,
           html: reminderHtml(item, platform, item.caption || ""),
           attachments: attachments.length ? attachments : undefined,
         }),

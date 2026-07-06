@@ -263,7 +263,7 @@ export const EMAIL_CATALOG = [
     fires: "Cron — daily 07:00 (runReminders)",
     to: "The member",
     sender: "hello@tmke.co.uk",
-    subject: "Your {platform} post is scheduled for today",
+    subject: "Your {platform} post is planned for today",
     summary: "Reminds the member their post is due today, includes the saved caption, and attaches the post image.",
     attachments: "Post image",
     fields: ["platform", "title", "caption"],
