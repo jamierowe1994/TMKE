@@ -208,6 +208,34 @@ export function textInlineStyle(block = {}) {
   return style;
 }
 
+/** The per-device responsive properties (block.mobile.* overrides the base,
+ *  which is the desktop value). font family / colour / weight stay global. */
+function responsiveDecls(block) {
+  const m = (block && block.mobile) || {};
+  const d = [];
+  if (m.size != null && m.size !== '') d.push(`font-size:${pxNum(m.size, 15)}px !important`);
+  if (m.lineHeight != null && m.lineHeight !== '') d.push(`line-height:${Number(m.lineHeight)} !important`);
+  if (m.letterSpacing != null && m.letterSpacing !== '') d.push(`letter-spacing:${Number(m.letterSpacing)}px !important`);
+  if (['left', 'center', 'right'].includes(m.align)) d.push(`text-align:${m.align} !important`);
+  if (m.pad) {
+    const t = pxNum(m.pad.t, 0), r = pxNum(m.pad.r, 0), b = pxNum(m.pad.b, 0), l = pxNum(m.pad.l, 0);
+    if (t || r || b || l) d.push(`padding:${t}px ${r}px ${b}px ${l}px !important`);
+  }
+  return d;
+}
+function hasMobileOverrides(block) { return responsiveDecls(block).length > 0; }
+
+/** A view of a block with its mobile overrides folded in — used by the editor
+ *  canvas so the Mobile preview shows the mobile size/spacing/align/padding. */
+export function effectiveBlock(block, device) {
+  if (device !== 'mobile' || !block || !block.mobile) return block;
+  const m = block.mobile;
+  const out = { ...block };
+  ['size', 'lineHeight', 'letterSpacing', 'align'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
+  if (m.pad) out.pad = { ...(block.pad || {}), ...m.pad };
+  return out;
+}
+
 let _uidCounter = 0;
 function uid() {
   try {
@@ -298,7 +326,8 @@ function plainToHtml(text) {
 function renderHeading(block, ctx) {
   const text = renderTokens(block.text || '', ctx);
   if (!text) return '';
-  return `<h1 style="${headingInlineStyle(block)}">${escapeHtml(text)}</h1>`;
+  const cls = hasMobileOverrides(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
+  return `<h1${cls} style="${headingInlineStyle(block)}">${escapeHtml(text)}</h1>`;
 }
 
 function renderText(block, ctx) {
@@ -307,7 +336,8 @@ function renderText(block, ctx) {
   const src = block.html != null && block.html !== '' ? block.html : plainToHtml(block.text || '');
   const inner = renderTokens(src, ctx);
   if (!inner) return '';
-  return `<div style="${textInlineStyle(block)}">${inner}</div>`;
+  const cls = hasMobileOverrides(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
+  return `<div${cls} style="${textInlineStyle(block)}">${inner}</div>`;
 }
 
 function renderImage(block) {
@@ -611,7 +641,7 @@ function wrapVisibility(html, block) {
   return `<div class="eb-hide-mobile">${html}</div>`;
 }
 
-function shell(brand, bodyHtml, preheader) {
+function shell(brand, bodyHtml, preheader, responsiveCss) {
   const pageBg = brand.bgColor || '#f4f2f1';
   const cardBg = brand.cardColor || '#ffffff';
   const pre = preheader
@@ -623,6 +653,7 @@ function shell(brand, bodyHtml, preheader) {
   @media only screen and (max-width:600px) {
     .eb-hide-mobile { display:none !important; max-height:0 !important; overflow:hidden !important; mso-hide:all; }
     .eb-mobile-only { display:block !important; max-height:none !important; overflow:visible !important; }
+    ${responsiveCss || ''}
   }
 </style></head>
 <body style="margin:0;padding:0;background:${escapeHtml(pageBg)};">
@@ -674,14 +705,18 @@ export function renderTemplate(template = {}, opts = {}) {
   // it (no orphaned gaps).
   const spacer = '<div style="height:16px;line-height:16px;">&nbsp;</div>';
   const parts = [];
+  const responsive = [];
   blocks.forEach((b) => {
     const inner = renderBlock(b, brand, ctx);
     if (!inner) return;
+    // Collect the mobile media-query rule for any block with device overrides.
+    const decls = responsiveDecls(b);
+    if (decls.length) responsive.push(`.eb-b-${b.id}{${decls.join(';')};}`);
     const withSpacer = parts.length ? spacer + '\n' + inner : inner;
     const wrapped = wrapVisibility(withSpacer, b);
     if (wrapped) parts.push(wrapped);
   });
   const bodyHtml = parts.join('\n');
 
-  return { subject, html: shell(brand, bodyHtml, template.preheader) };
+  return { subject, html: shell(brand, bodyHtml, template.preheader, responsive.join('\n    ')) };
 }

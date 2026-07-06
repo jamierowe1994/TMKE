@@ -323,6 +323,11 @@ import "../../../styles/admin.css";
     .eb-pad-cell span { font-family:var(--sans); font-size:10px; font-weight:700; color:rgba(28,29,34,0.5); }
     .eb-pad-cell input { width:100%; text-align:center; font-family:var(--sans); font-size:13px; padding:7px 4px; border:1px solid var(--eb-line); border-radius:6px; }
     .eb-pad-cell input:focus { outline:none; border-color:var(--english-violet); }
+    .eb-resp { margin-top:4px; padding:13px 12px 4px; border:1px solid var(--eb-line); border-radius:10px; background:rgba(28,29,34,0.015); }
+    .eb-resp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
+    .eb-resp-head .eb-f-sub { margin-bottom:0; }
+    .eb-resp-dev { flex:0 0 auto; }
+    .eb-resp-dev .eb-dev { padding:5px 10px; font-size:13px; letter-spacing:0; }
 
     /* HTML pane */
     .eb-html-pane { flex:1; padding:24px 32px 80px; }
@@ -356,7 +361,7 @@ import "../../../styles/admin.css";
     import {
       renderTemplate, renderBlock, mergeContextFor, defaultBrand,
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT, COLUMN_LAYOUTS,
-      FONT_STACKS, headingInlineStyle, textInlineStyle,
+      FONT_STACKS, headingInlineStyle, textInlineStyle, effectiveBlock,
     } from "../../../lib/email-render.js";
 
     const DEV = import.meta.env.DEV;
@@ -419,12 +424,12 @@ import "../../../styles/admin.css";
       const align = ["left","center","right"].includes(b.align) ? b.align : "center";
       switch (b.type) {
         case "heading":
-          return `<h1 class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="${headingInlineStyle(b)}">${esc(b.text||"")}</h1>`;
+          return `<h1 class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="${headingInlineStyle(effectiveBlock(b, canvasDevice))}">${esc(b.text||"")}</h1>`;
         case "text": {
           // Rich content (b.html) shows as-is; plain text keeps whitespace.
           const content = (b.html != null && b.html !== "") ? b.html : esc(b.text||"");
           const wsp = (b.html != null && b.html !== "") ? "" : "white-space:pre-wrap;";
-          return `<div class="cv-edit" data-edit data-rich data-id="${b.id}" contenteditable="true" style="${textInlineStyle(b)}${wsp}">${content}</div>`;
+          return `<div class="cv-edit" data-edit data-rich data-id="${b.id}" contenteditable="true" style="${textInlineStyle(effectiveBlock(b, canvasDevice))}${wsp}">${content}</div>`;
         }
         case "image":
           return b.url
@@ -550,22 +555,41 @@ import "../../../styles/admin.css";
     // ── Shared typography controls (heading + text) ──
     const fontOpts = (cur)=>FONT_STACKS.map(f=>`<option value="${f.key}"${f.key===(cur||"arial")?" selected":""}>${esc(f.label)}</option>`).join("");
     const validHex = (v,fb)=>/^#[0-9a-f]{6}$/i.test(v||"")?v:fb;
-    function typoFields(b){
-      const dSize = b.type==="heading"?28:15, dLh = b.type==="heading"?"1.15":"1.6", dCol = b.type==="heading"?"#1c1d22":"#1f2937";
-      return `<label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
-        <div class="eb-f2">
-          <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="90" data-field="size" value="${b.size!=null?b.size:""}" placeholder="${dSize}" /></label>
-          <label class="eb-f"><span>Line height</span><input type="number" min="0.8" max="3" step="0.05" data-field="lineHeight" value="${b.lineHeight!=null?b.lineHeight:""}" placeholder="${dLh}" /></label>
-        </div>
-        <div class="eb-f2">
-          <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="letterSpacing" value="${b.letterSpacing!=null?b.letterSpacing:""}" placeholder="0" /></label>
-          <label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,dCol)}" /></label>
-        </div>`;
+    function deviceToggleMini(device){
+      return `<div class="eb-dev-toggle eb-resp-dev">
+        <button type="button" class="eb-dev${device!=="mobile"?" is-active":""}" data-respdev="desktop" title="Edit desktop values">🖥</button>
+        <button type="button" class="eb-dev${device==="mobile"?" is-active":""}" data-respdev="mobile" title="Edit mobile values">📱</button>
+      </div>`;
     }
-    function padField(b){
-      const p=b.pad||{};
-      const cell=(k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="pad.${k}" value="${p[k]!=null?p[k]:""}" placeholder="0" /></label>`;
-      return `<div class="eb-pad"><span class="eb-f-sub">Padding (px)</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
+    // Size / line-height / letter-spacing / align / padding are PER-DEVICE: on
+    // mobile they write to b.mobile.* (blank = inherit desktop). Font + colour
+    // stay global. `device` = the current canvas view (desktop|mobile).
+    function typoFields(b, device){
+      const isM = device==="mobile";
+      const dSize = b.type==="heading"?28:15, dLh = b.type==="heading"?"1.15":"1.6", dCol = b.type==="heading"?"#1c1d22":"#1f2937";
+      const P = (k)=> isM ? `mobile.${k}` : k;
+      const V = (k)=> isM ? ((b.mobile&&b.mobile[k]!=null)?b.mobile[k]:"") : (b[k]!=null?b[k]:"");
+      const PH = (k,d)=> isM ? ((b[k]!=null&&b[k]!=="")?b[k]:d) : d;
+      const alignCur = isM ? ((b.mobile&&b.mobile.align)||"") : (b.align||"left");
+      const pad = isM ? ((b.mobile&&b.mobile.pad)||{}) : (b.pad||{});
+      const padCell=(k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="${isM?`mobile.pad.${k}`:`pad.${k}`}" value="${pad[k]!=null?pad[k]:""}" placeholder="0" /></label>`;
+      const alignOpts = `${isM?`<option value=""${alignCur===""?" selected":""}>Inherit</option>`:""}${ALIGN.map(o=>`<option value="${o}"${o===alignCur?" selected":""}>${o}</option>`).join("")}`;
+      return `
+        <label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
+        <label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,dCol)}" /></label>
+        <div class="eb-resp">
+          <div class="eb-resp-head"><span class="eb-f-sub">Size &amp; spacing</span>${deviceToggleMini(device)}</div>
+          <div class="eb-f2">
+            <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="90" data-field="${P("size")}" value="${V("size")}" placeholder="${PH("size",dSize)}" /></label>
+            <label class="eb-f"><span>Line height</span><input type="number" min="0.8" max="3" step="0.05" data-field="${P("lineHeight")}" value="${V("lineHeight")}" placeholder="${PH("lineHeight",dLh)}" /></label>
+          </div>
+          <div class="eb-f2">
+            <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="${P("letterSpacing")}" value="${V("letterSpacing")}" placeholder="${PH("letterSpacing","0")}" /></label>
+            <label class="eb-f"><span>Align</span><select data-field="${P("align")}">${alignOpts}</select></label>
+          </div>
+          <div class="eb-pad"><span class="eb-f-sub">Padding (px)</span><div class="eb-pad-row">${padCell("t","T")}${padCell("r","R")}${padCell("b","B")}${padCell("l","L")}</div></div>
+          <p class="eb-note">${isM?"Editing <strong>mobile</strong> — blank = inherit desktop. Tap 🖥 for desktop.":"Editing <strong>desktop</strong> — tap 📱 to set smaller mobile values."}</p>
+        </div>`;
     }
     // Inline rich-text toolbar for the text block (execCommand — email-safe tags).
     function fmtToolbar(){
@@ -579,24 +603,20 @@ import "../../../styles/admin.css";
         </div>
         <p class="eb-note" style="margin-top:6px;">Select text on the canvas, then apply. Renders safely in every client.</p></div>`;
     }
-    function inspectorFields(b) {
+    function inspectorFields(b, device) {
       const align = `<label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"center")}</select></label>`;
       switch (b.type) {
         case "heading": return `<p class="eb-note" style="margin-bottom:12px;">Edit the text right on the canvas.</p>
-          ${typoFields(b)}
-          <label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"left")}</select></label>
           <div class="eb-checks">
             <label class="eb-check"><input type="checkbox" data-field="bold"${b.bold!==false?" checked":""}/> Bold</label>
             <label class="eb-check"><input type="checkbox" data-field="italic"${b.italic?" checked":""}/> Italic</label>
             <label class="eb-check"><input type="checkbox" data-field="underline"${b.underline?" checked":""}/> Underline</label>
           </div>
-          ${padField(b)}`;
+          ${typoFields(b, device)}`;
         case "text": return `<p class="eb-note" style="margin-bottom:10px;">Edit the text right on the canvas. Blank line = new paragraph.</p>
           ${fmtToolbar(b)}
-          ${typoFields(b)}
-          <label class="eb-f"><span>Align</span><select data-field="align">${opts(ALIGN,b.align||"left")}</select></label>
           <label class="eb-f"><span>Background tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>
-          ${padField(b)}`;
+          ${typoFields(b, device)}`;
         case "image": return `<label class="eb-f"><span>Image URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…/image.jpg" /></label>
           <label class="eb-f"><span>Alt text</span><input type="text" data-field="alt" value="${esc(b.alt||"")}" /></label>
           <label class="eb-f"><span>Link URL (optional)</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>${align}`;
@@ -711,12 +731,14 @@ import "../../../styles/admin.css";
       const b = state.blocks.find(x=>x.id===bid); if(!b) return;
       const def = BLOCK_TYPES.find(d=>d.type===b.type);
       $("#eb-insp-title").textContent = def ? def.label : b.type;
-      const wrap = $("#eb-insp-fields"); wrap.innerHTML = inspectorFields(b) + visibilityControl(b);
+      const wrap = $("#eb-insp-fields"); wrap.innerHTML = inspectorFields(b, canvasDevice) + visibilityControl(b);
       wrap.querySelectorAll("[data-vis]").forEach((btn)=>btn.addEventListener("click", ()=>{
         if(!b.hide) b.hide = {};
         const dev = btn.dataset.vis; b.hide[dev] = !b.hide[dev];
         renderCanvas(); openInspector(bid);
       }));
+      // Per-device size/spacing toggle → drives the shared canvas device state.
+      wrap.querySelectorAll("[data-respdev]").forEach((btn)=>btn.addEventListener("click", ()=>setCanvasDevice(btn.dataset.respdev)));
       wrap.querySelectorAll("[data-field]").forEach((inp)=>{
         const evt = inp.type==="checkbox"||inp.tagName==="SELECT" ? "change" : "input";
         inp.addEventListener(evt, ()=>{
@@ -870,12 +892,14 @@ import "../../../styles/admin.css";
     }
 
     /* ─────────── canvas device toggle ─────────── */
-    document.querySelectorAll("[data-canvasdev]").forEach(btn=>btn.addEventListener("click", ()=>{
-      canvasDevice = btn.dataset.canvasdev;
-      document.querySelectorAll("[data-canvasdev]").forEach(x=>x.classList.toggle("is-active", x===btn));
+    function setCanvasDevice(dev){
+      canvasDevice = dev;
+      document.querySelectorAll("[data-canvasdev]").forEach(x=>x.classList.toggle("is-active", x.dataset.canvasdev===dev));
       $("#eb-canvas").classList.toggle("is-mobileview", canvasDevice==="mobile");
       renderCanvas();
-    }));
+      if (selectedId) openInspector(selectedId);   // rebind responsive fields to this device
+    }
+    document.querySelectorAll("[data-canvasdev]").forEach(btn=>btn.addEventListener("click", ()=>setCanvasDevice(btn.dataset.canvasdev)));
 
     /* ─────────── mode toggle ─────────── */
     document.querySelectorAll(".eb-mode").forEach(m=>m.addEventListener("click", ()=>{
