@@ -18,7 +18,7 @@ export async function getStaticPaths() {
   const packIds = packs.map((p) => p.id);
   const { data: templates } = await supabase
     .from("templates")
-    .select("id, name, category, thumb_url, pack_id, sort_order")
+    .select("id, name, category, thumb_url, render_url, pack_id, sort_order")
     .in("pack_id", packIds)
     .eq("status", "active")
     .order("sort_order", { ascending: true });
@@ -47,7 +47,7 @@ const contents = Array.isArray(pack.contents) ? pack.contents : [];
 // The big cover: an explicit cover image if set, otherwise fall back to the
 // first template's (high-res) thumbnail so the hero is never a stale low-res
 // pick. Clearing a pack's cover therefore shows the crisp first preview.
-const coverSrc = pack.cover_image_url || (templates[0] && templates[0].thumb_url) || null;
+const coverSrc = pack.cover_image_url || (templates[0] && (templates[0].render_url || templates[0].thumb_url)) || null;
 
 function gbp(pence) {
   if (pence == null) return "";
@@ -121,15 +121,15 @@ function gbp(pence) {
         {previewTpls.map((t, i) => (
           <figure
             class="pack-tpl pack-tpl--open"
-            data-zoom={t.thumb_url ? "" : undefined}
-            data-full={t.thumb_url || undefined}
+            data-zoom={(t.render_url || t.thumb_url) ? "" : undefined}
+            data-full={t.render_url || t.thumb_url || undefined}
             data-name={t.name}
-            tabindex={t.thumb_url ? "0" : undefined}
-            role={t.thumb_url ? "button" : undefined}
-            aria-label={t.thumb_url ? `Enlarge ${t.name}` : undefined}
+            tabindex={(t.render_url || t.thumb_url) ? "0" : undefined}
+            role={(t.render_url || t.thumb_url) ? "button" : undefined}
+            aria-label={(t.render_url || t.thumb_url) ? `Enlarge ${t.name}` : undefined}
           >
-            {t.thumb_url
-              ? <img src={t.thumb_url} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
+            {(t.thumb_url || t.render_url)
+              ? <img src={t.thumb_url || t.render_url} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
               : <div class="pack-tpl-empty"></div>}
             <figcaption>
               {t.category && <span class="pack-tpl-cat">{t.category}</span>}
@@ -140,8 +140,8 @@ function gbp(pence) {
 
         {lockedTpls.map((t) => (
           <figure class="pack-tpl pack-tpl--locked" aria-label="Locked — buy the pack to unlock">
-            {t.thumb_url
-              ? <img src={t.thumb_url} alt="" loading="lazy" />
+            {(t.thumb_url || t.render_url)
+              ? <img src={t.thumb_url || t.render_url} alt="" loading="lazy" />
               : <div class="pack-tpl-empty"></div>}
             <div class="pack-tpl-lock-overlay">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">

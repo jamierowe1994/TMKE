@@ -1528,8 +1528,8 @@
     setSaveStatus("saving");
     let ok = false;
     try {
-      let thumb;
-      try { thumb = await _renderThumbDataUrl(); } catch (_) {}
+      let thumb, render;
+      try { ({ thumb, render } = await _renderPreviewPair()); } catch (_) {}
       const payload = {
         templateId: state.templateId,
         filename: filenameEl ? filenameEl.value : "",
@@ -1539,6 +1539,7 @@
         guides: deep(state.guides || []),
         savedAt: Date.now(),
         thumb,
+        render,
       };
       const res = await (adminHook ? window.__TMKE_ADMIN_SAVE__(payload) : window.__TMKE_DESIGN_SAVE__(payload));
       ok = res === true || (res && res.ok === true);
@@ -4057,9 +4058,45 @@
     }
   }
 
+  // Full-resolution, LOSSLESS render of the active page — a PNG at the design's
+  // native canvas size (1080×1440). Text and flat brand colours stay crisp (no
+  // JPEG ringing), so the pack catalogue / detail can show the real design at
+  // high quality without anyone hand-uploading a preview gallery.
+  async function _renderFullPngDataUrl() {
+    try {
+      const full = await _renderDesignToCanvas({ transparent: false });
+      return full.toDataURL("image/png");
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Render both preview assets from a SINGLE rasterization pass (so a save
+  // doesn't draw the whole design twice): the lossless full-res PNG (render_url,
+  // for the shop) and the lighter 1080 JPEG (thumb_url, for fast admin lists).
+  async function _renderPreviewPair() {
+    try {
+      const full = await _renderDesignToCanvas({ transparent: false });
+      const render = full.toDataURL("image/png");
+      const targetW = 1080;
+      const scale = Math.min(1, targetW / full.width);
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(full.width * scale));
+      c.height = Math.max(1, Math.round(full.height * scale));
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(full, 0, 0, c.width, c.height);
+      const thumb = c.toDataURL("image/jpeg", 0.9);
+      return { thumb, render };
+    } catch (_) {
+      return { thumb: null, render: null };
+    }
+  }
+
   async function save() {
     if (!state.templateId) { toast("Open a template to save into"); return false; }
-    const thumb = await _renderThumbDataUrl();
+    const { thumb, render } = await _renderPreviewPair();
     const payload = {
       templateId: state.templateId,
       filename: filenameEl.value,
@@ -4069,6 +4106,7 @@
       guides: deep(state.guides || []),
       savedAt: Date.now(),
       thumb,
+      render,
     };
     // ALWAYS write the local copy first — the dead-man's-lock. Even if the cloud
     // save fails, the design is recoverable from this browser via "Sync local
@@ -6937,11 +6975,11 @@
     const orig = state.currentPage;
     const pages = [];
     for (let i = 0; i < state.pages.length; i++) {
-      state.currentPage = i;             // _renderThumbDataUrl renders the active page
-      let thumb = "";
-      try { thumb = await _renderThumbDataUrl(); } catch (_) {}
+      state.currentPage = i;             // the pair renderer renders the active page
+      let thumb = "", render = "";
+      try { ({ thumb, render } = await _renderPreviewPair()); } catch (_) {}
       const p = state.pages[i];
-      pages.push({ canvas: deep(p.canvas), elements: deep(p.elements), thumb: thumb });
+      pages.push({ canvas: deep(p.canvas), elements: deep(p.elements), thumb: thumb, render: render });
     }
     state.currentPage = orig;
     return {
@@ -6963,6 +7001,23 @@
       return await _renderThumbDataUrl();
     } catch (_) {
       return null;
+    } finally {
+      state.pages = savePages; state.currentPage = saveCur;
+      fullRender();
+    }
+  };
+
+  // Same as above, but returns BOTH preview assets (full-res PNG + light JPEG)
+  // from a single pass — used by the admin "Regenerate previews" tool to backfill
+  // render_url + thumb_url across every template without re-opening each design.
+  window.__TMKE_RENDER_PAIR_FROM__ = async function (canvasObj, elementsArr) {
+    const savePages = state.pages, saveCur = state.currentPage;
+    try {
+      state.pages = [{ canvas: deep(canvasObj || {}), elements: deep(elementsArr || []) }];
+      state.currentPage = 0;
+      return await _renderPreviewPair();
+    } catch (_) {
+      return { thumb: null, render: null };
     } finally {
       state.pages = savePages; state.currentPage = saveCur;
       fullRender();

@@ -1327,16 +1327,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (needTpl.length) {
         const { data: tdata } = await supabase
           .from('templates')
-          .select('thumb_url, pack_id, sort_order')
+          .select('thumb_url, render_url, pack_id, sort_order')
           .in('pack_id', needTpl.map((p) => p.id))
           .eq('status', 'active')
           .order('sort_order', { ascending: true });
         const thumbs = new Map(), count = new Map();
         (tdata || []).forEach((t) => {
           count.set(t.pack_id, (count.get(t.pack_id) || 0) + 1);
-          if (t.thumb_url) {
+          // Prefer the full-resolution render; fall back to the lighter thumb.
+          const img = t.render_url || t.thumb_url;
+          if (img) {
             if (!thumbs.has(t.pack_id)) thumbs.set(t.pack_id, []);
-            thumbs.get(t.pack_id).push(t.thumb_url);
+            thumbs.get(t.pack_id).push(img);
           }
         });
         packs.forEach((p) => {

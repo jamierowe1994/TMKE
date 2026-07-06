@@ -3514,12 +3514,20 @@ const googleFonts = [
           if (typeof payload.thumb === 'string' && payload.thumb.startsWith('data:')) {
             try { thumbUrl = await externUploadDataUrl(payload.thumb); } catch (e) { console.error('[save: thumb]', e); }
           }
+          // Full-resolution lossless render (render_url) — the crisp image the
+          // pack catalogue / detail show, so a design never has to be shown from
+          // the lighter thumb or a hand-uploaded gallery.
+          let renderUrl;
+          if (typeof payload.render === 'string' && payload.render.startsWith('data:')) {
+            try { renderUrl = await externUploadDataUrl(payload.render); } catch (e) { console.error('[save: render]', e); }
+          }
           const patch = {
             name: payload.filename,
             canvas: payload.canvas,
             elements: payload.elements,
           };
           if (thumbUrl) patch.thumb_url = thumbUrl;
+          if (renderUrl) patch.render_url = renderUrl;
           const { error: saveErr } = await supabase
             .from('templates')
             .update(patch)
@@ -3546,11 +3554,11 @@ const googleFonts = [
           } catch (_) { return null; }
         };
 
-        // Bulk "Regenerate previews" — re-render every template's thumbnail from
-        // its stored design (text and all) at full resolution and update its
-        // thumb_url. Lets an admin refresh all packs in one click instead of
-        // re-opening each design by hand. Only touches thumb_url — never the
-        // design data or pack links.
+        // Bulk "Regenerate previews" — re-render every template from its stored
+        // design (text and all) and update BOTH its full-res render_url (for the
+        // shop) and its lighter thumb_url (for lists). Lets an admin refresh all
+        // packs in one click instead of re-opening each design by hand. Only
+        // touches the preview columns — never the design data or pack links.
         window.__TMKE_REGEN_ALL__ = async function (onProgress) {
           const { data: list, error } = await supabase
             .from('templates')
@@ -3559,12 +3567,18 @@ const googleFonts = [
           let done = 0, failed = 0;
           for (const t of list) {
             try {
-              const dataUrl = (typeof window.__TMKE_RENDER_THUMB_FROM__ === 'function')
-                ? await window.__TMKE_RENDER_THUMB_FROM__(t.canvas, t.elements)
-                : null;
-              if (dataUrl) {
-                const url = await externUploadDataUrl(dataUrl);
-                const { error: uErr } = await supabase.from('templates').update({ thumb_url: url }).eq('id', t.id);
+              const pair = (typeof window.__TMKE_RENDER_PAIR_FROM__ === 'function')
+                ? await window.__TMKE_RENDER_PAIR_FROM__(t.canvas, t.elements)
+                : { thumb: null, render: null };
+              const update = {};
+              if (pair && typeof pair.thumb === 'string' && pair.thumb.startsWith('data:')) {
+                try { update.thumb_url = await externUploadDataUrl(pair.thumb); } catch (e) { console.error('[regen thumb]', t.id, e); }
+              }
+              if (pair && typeof pair.render === 'string' && pair.render.startsWith('data:')) {
+                try { update.render_url = await externUploadDataUrl(pair.render); } catch (e) { console.error('[regen render]', t.id, e); }
+              }
+              if (update.thumb_url || update.render_url) {
+                const { error: uErr } = await supabase.from('templates').update(update).eq('id', t.id);
                 if (uErr) { failed++; console.error('[regen update]', t.id, uErr); }
               } else { failed++; }
             } catch (e) { failed++; console.error('[regen render]', t.id, e); }
@@ -4483,6 +4497,14 @@ const googleFonts = [
           }
           return pageThumb(pg);
         }
+        // Full-resolution lossless render for the shop (render_url). Falls back to
+        // the thumb, then the bare background, if the render is missing.
+        async function renderFor(pg) {
+          if (typeof pg.render === "string" && pg.render.startsWith("data:")) {
+            try { return await _pubUpload(pg.render); } catch (_) {}
+          }
+          return await thumbFor(pg);
+        }
 
         // A loaded, already-published design carries its real template id. Re-
         // publishing must UPDATE that same row (never duplicate) and re-assign it
@@ -4492,7 +4514,8 @@ const googleFonts = [
         if (existingId && data.pages.length === 1) {
           const pg = data.pages[0];
           const thumb_url = await thumbFor(pg);
-          const patch = { name: data.filename, canvas: pg.canvas, elements: pg.elements, thumb_url, status: "active" };
+          const render_url = await renderFor(pg);
+          const patch = { name: data.filename, canvas: pg.canvas, elements: pg.elements, thumb_url, render_url, status: "active" };
           if (choice.mode !== "none") patch.pack_id = packId;   // move into the chosen pack
           const { error: uErr } = await supabase.from("templates").update(patch).eq("id", existingId);
           if (uErr) throw uErr;
@@ -4514,6 +4537,7 @@ const googleFonts = [
             canvas: pg.canvas,
             elements: pg.elements,
             thumb_url: await thumbFor(pg),
+            render_url: await renderFor(pg),
             pack_id: packId,
             status: "active",
             sort_order: i,
