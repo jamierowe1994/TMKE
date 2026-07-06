@@ -82,11 +82,13 @@ JACK_NOTIFY = "jack@tmke.co.uk"
 AI_MODEL = "claude-sonnet-4-6"
 
 # Cron triggers (scheduled() branches on event.cron):
-#   "0 7 * * *"   — 07:00 UTC daily: post reminders (asset emails due that day).
+#   "0 7 * * *" & "0 8 * * *" — 07:00 & 08:00 UTC daily: post reminders.
+#                   runReminders self-gates to 8am UK, so it fires at 8am across
+#                   BST (=07:00 UTC) and GMT (=08:00 UTC).
 #   "*/5 * * * *" — every 5 min: advance due marketing-automation enrolments
 #                   (waits/drips, sends). Keeps automations responsive.
 [triggers]
-crons = ["0 7 * * *", "*/5 * * * *"]
+crons = ["0 7 * * *", "0 8 * * *", "*/5 * * * *"]
 
 # Secrets to set (not stored here):
 #   wrangler secret put MS_CLIENT_SECRET       # Entra app client secret

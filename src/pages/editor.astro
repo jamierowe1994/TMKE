@@ -806,14 +806,20 @@ const googleFonts = [
                 <span>TikTok · soon</span>
               </label>
             </div>
-            <span class="ed-sched-hint">We'll auto-post once Meta App Review lands. Until then you'll get a reminder email with the asset attached.</span>
+            <span class="ed-sched-hint">We'll auto-post once Meta App Review lands. Until then, use the options below.</span>
           </fieldset>
+
+          <label class="ed-sched-remind">
+            <input type="checkbox" id="ed-sched-remind" checked />
+            <span>Remind me on the day <span class="ed-sched-optional">— we'll email the caption &amp; image at 8am on the morning of this post</span></span>
+          </label>
 
           <div class="ed-sched-error" id="ed-schedule-error" hidden></div>
 
           <footer class="ed-sched-foot">
             <button type="button" class="ed-sched-cancel" id="ed-schedule-cancel">Cancel</button>
-            <button type="submit" class="ed-sched-submit" id="ed-schedule-submit">Schedule post</button>
+            <button type="button" class="ed-sched-emailnow" id="ed-schedule-emailnow">Email it to me now</button>
+            <button type="submit" class="ed-sched-submit" id="ed-schedule-submit">Plan post</button>
           </footer>
         </form>
       </div>
@@ -3039,6 +3045,32 @@ const googleFonts = [
     }
     .ed-sched-platform-opt.is-soon:hover { border-color: rgba(28,29,34,0.18); }
 
+    .ed-sched-remind {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      background: rgba(var(--violet-rgb), 0.05);
+      border: 1px solid rgba(var(--violet-rgb), 0.16);
+      border-radius: 3px;
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .ed-sched-remind input {
+      margin: 2px 0 0;
+      width: 16px; height: 16px;
+      flex: 0 0 auto;
+      accent-color: var(--english-violet, #2e1f54);
+      cursor: pointer;
+    }
+    .ed-sched-optional {
+      color: rgba(28,29,34,0.55);
+      font-weight: 400;
+    }
+
     .ed-sched-error {
       padding: 10px 14px;
       background: rgba(195, 65, 50, 0.08);
@@ -3050,9 +3082,16 @@ const googleFonts = [
       line-height: 1.5;
     }
     .ed-sched-error[hidden] { display: none; }
+    .ed-sched-error.is-ok {
+      background: rgba(46, 125, 80, 0.08);
+      color: #2e7d50;
+      border-color: rgba(46, 125, 80, 0.28);
+    }
 
     .ed-sched-foot {
       display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       justify-content: flex-end;
       gap: 10px;
       margin-top: 6px;
@@ -3075,6 +3114,25 @@ const googleFonts = [
       transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
     .ed-sched-cancel:hover { background: rgba(28,29,34,0.06); color: var(--ink); }
+    /* Email-now sits on the left; cancel + plan stay grouped on the right. */
+    .ed-sched-emailnow {
+      appearance: none;
+      margin-right: auto;
+      background: transparent;
+      border: 1px solid rgba(var(--violet-rgb), 0.4);
+      border-radius: 3px;
+      padding: 10px 18px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--english-violet, #2e1f54);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s, opacity 0.2s;
+    }
+    .ed-sched-emailnow:hover:not(:disabled) { background: rgba(var(--violet-rgb), 0.08); border-color: var(--english-violet, #2e1f54); }
+    .ed-sched-emailnow:disabled { opacity: 0.6; cursor: progress; }
     .ed-sched-submit {
       appearance: none;
       background: var(--english-violet, #2e1f54);
@@ -4116,7 +4174,13 @@ const googleFonts = [
     const $time     = document.getElementById("ed-sched-time");
     const $caption  = document.getElementById("ed-sched-caption");
     const $submit   = document.getElementById("ed-schedule-submit");
+    const $emailNow = document.getElementById("ed-schedule-emailnow");
+    const $remind   = document.getElementById("ed-sched-remind");
     const $error    = document.getElementById("ed-schedule-error");
+
+    // Where the Worker lives (send-now endpoint). Same env the rest of the
+    // editor uses for deliverables.
+    const API_BASE = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     // Bail quietly if the editor doesn't include the modal (e.g. an admin
     // build that strips it). Wrap the rest in an IIFE so we can short-
@@ -4177,7 +4241,32 @@ const googleFonts = [
     function closeModal() {
       $modal.hidden = true;
       $submit.disabled = false;
-      $submit.textContent = "Schedule post";
+      $submit.textContent = "Plan post";
+      if ($emailNow) { $emailNow.disabled = false; $emailNow.textContent = "Email it to me now"; }
+    }
+
+    // Rasterize the current design and push it to Storage. Shared by both the
+    // "Plan post" submit and the "Email it to me now" button so they never
+    // drift apart. Returns the public asset URL.
+    async function renderAndUpload(session) {
+      if (typeof window.__TMKE_RENDER_PNG_BLOB__ !== "function") {
+        throw new Error("Editor isn't ready yet. Give it a second and try again.");
+      }
+      const blob = await window.__TMKE_RENDER_PNG_BLOB__();
+      if (!blob || blob.size === 0) throw new Error("Couldn't render the canvas. Try again.");
+      const id = crypto.randomUUID();
+      const path = `${session.user.id}/${id}.png`;
+      const { error: upErr } = await supabase.storage
+        .from("calendar-assets")
+        .upload(path, blob, { contentType: "image/png", upsert: false });
+      if (upErr) {
+        if (/Bucket not found|404/i.test(upErr.message)) {
+          throw new Error('Storage bucket "calendar-assets" not found. Create it in Supabase (Storage → New bucket → public), then run supabase/calendar_storage.sql.');
+        }
+        throw new Error(upErr.message || "Upload failed.");
+      }
+      const { data: pub } = supabase.storage.from("calendar-assets").getPublicUrl(path);
+      return pub?.publicUrl || "";
     }
 
     // ----- open / close wiring -----
@@ -4232,34 +4321,16 @@ const googleFonts = [
       }
 
       $submit.disabled = true;
-      $submit.textContent = "Scheduling…";
+      if ($emailNow) $emailNow.disabled = true;
+      $submit.textContent = "Planning…";
 
       try {
-        // 1. Rasterize the current design via the editor's hook.
-        if (typeof window.__TMKE_RENDER_PNG_BLOB__ !== "function") {
-          throw new Error("Editor isn't ready yet. Give it a second and try again.");
-        }
-        const blob = await window.__TMKE_RENDER_PNG_BLOB__();
-        if (!blob || blob.size === 0) throw new Error("Couldn't render the canvas. Try again.");
+        // 1 & 2. Rasterize + upload to Storage (shared helper).
+        const assetUrl = await renderAndUpload(session);
 
-        // 2. Upload to Storage. Path layout: <user_id>/<random>.png so RLS
-        //    can scope by the leading path segment if we tighten later.
-        const id = crypto.randomUUID();
-        const path = `${session.user.id}/${id}.png`;
-        const { error: upErr } = await supabase.storage
-          .from("calendar-assets")
-          .upload(path, blob, { contentType: "image/png", upsert: false });
-        if (upErr) {
-          // The bucket may not exist yet. Give a precise hint.
-          if (/Bucket not found|404/i.test(upErr.message)) {
-            throw new Error('Storage bucket "calendar-assets" not found. Create it in Supabase (Storage → New bucket → public), then run supabase/calendar_storage.sql.');
-          }
-          throw new Error(upErr.message || "Upload failed.");
-        }
-        const { data: pub } = supabase.storage.from("calendar-assets").getPublicUrl(path);
-        const assetUrl = pub?.publicUrl || "";
-
-        // 3. Insert the calendar row.
+        // 3. Insert the calendar row. `reminder` opts them into the 8am
+        //    morning-of email (default on via the toggle).
+        const wantsReminder = $remind ? !!$remind.checked : true;
         const { error: insErr } = await supabase.from("calendar_items").insert({
           user_id: session.user.id,
           scheduled_date: dateStr,
@@ -4271,12 +4342,24 @@ const googleFonts = [
           design_ref: designRef,
           platform_hint: platform,
           status: "scheduled",
+          reminder: wantsReminder,
         });
         if (insErr) {
           if (/relation .* does not exist/i.test(insErr.message)) {
             throw new Error("calendar_items table is missing. Run supabase/calendar.sql in the SQL editor.");
           }
-          throw new Error(insErr.message || "Couldn't save to your calendar.");
+          // If the `reminder` column hasn't been migrated yet, retry without it
+          // rather than blocking the whole plan.
+          if (/reminder/i.test(insErr.message) && /column/i.test(insErr.message)) {
+            const { error: retryErr } = await supabase.from("calendar_items").insert({
+              user_id: session.user.id, scheduled_date: dateStr, scheduled_time: timeStr,
+              title, caption: caption || null, asset_url: assetUrl, thumbnail_url: assetUrl,
+              design_ref: designRef, platform_hint: platform, status: "scheduled",
+            });
+            if (retryErr) throw new Error(retryErr.message || "Couldn't save to your calendar.");
+          } else {
+            throw new Error(insErr.message || "Couldn't save to your calendar.");
+          }
         }
 
         // 4. Done — close modal and bounce to the calendar so the user
@@ -4285,9 +4368,72 @@ const googleFonts = [
         location.href = `/account/schedule?scheduled=${encodeURIComponent(dateStr)}`;
       } catch (err) {
         console.error("[schedule]", err);
-        showError(err.message || "Something went wrong scheduling that post.");
+        showError(err.message || "Something went wrong planning that post.");
         $submit.disabled = false;
-        $submit.textContent = "Schedule post";
+        if ($emailNow) $emailNow.disabled = false;
+        $submit.textContent = "Plan post";
+      }
+    });
+
+    // ----- "Email it to me now" -----
+    // Render + upload the current design, then ask the Worker to email it
+    // (caption + image) to the signed-in member's inbox straight away. Same
+    // content as the day-of reminder — for people who design on desktop but
+    // post from their phone.
+    if ($emailNow) $emailNow.addEventListener("click", async () => {
+      clearError();
+      const title    = ($title.value || "").trim() || "Your design";
+      const caption  = ($caption.value || "").trim();
+      const platform = $form.querySelector('input[name="ed-sched-platform"]:checked')?.value || "instagram";
+
+      if (!isConfigured) {
+        return showError("Supabase isn't configured in this environment.");
+      }
+      if (!API_BASE) {
+        return showError("Email isn't available here — set PUBLIC_R2_WORKER_URL.");
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        return showError("You're signed out. Sign in again, then re-open this.");
+      }
+
+      $emailNow.disabled = true;
+      $submit.disabled = true;
+      $emailNow.textContent = "Sending…";
+      try {
+        const assetUrl = await renderAndUpload(session);
+        const res = await fetch(`${API_BASE}/calendar/send-now`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ asset_url: assetUrl, caption, title, platform }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || !out.ok) {
+          throw new Error(out.error || "Couldn't send the email — try again.");
+        }
+        $emailNow.textContent = "Sent ✓";
+        showError("");
+        $error.hidden = false;
+        $error.style.color = "";
+        $error.textContent = `Sent to ${out.to || "your inbox"} — check your phone.`;
+        $error.classList.add("is-ok");
+        setTimeout(() => {
+          $emailNow.disabled = false;
+          $submit.disabled = false;
+          $emailNow.textContent = "Email it to me now";
+          $error.classList.remove("is-ok");
+          clearError();
+        }, 4000);
+      } catch (err) {
+        console.error("[email-now]", err);
+        $error.classList.remove("is-ok");
+        showError(err.message || "Couldn't email that post.");
+        $emailNow.disabled = false;
+        $submit.disabled = false;
+        $emailNow.textContent = "Email it to me now";
       }
     });
 
