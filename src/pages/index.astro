@@ -481,6 +481,8 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         <input type="email" placeholder="Email" required />
         <button type="submit">Subscribe</button>
       </form>
+      <!-- Mobile-only: opens the slide-in subscribe panel (the inline form is hidden ≤600px). -->
+      <button type="button" class="news-sub-btn" id="news-sub-btn">Subscribe <span aria-hidden="true">&rarr;</span></button>
     </div>
   </section>
   </div><!-- /.page-body -->
@@ -497,6 +499,20 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     <div class="msheet-actions"></div>
     <button type="button" class="msheet-close" data-msheet-close>Close</button>
   </aside>
+
+  <!-- MOBILE-ONLY: newsletter subscribe side panel (slides in from the right). -->
+  <div class="npanel-scrim" id="npanel-scrim" hidden></div>
+  <aside class="npanel" id="npanel" role="dialog" aria-modal="true" aria-label="Subscribe" hidden>
+    <button type="button" class="npanel-close" data-npanel-close aria-label="Close">&times;</button>
+    <p class="npanel-eyebrow">Newsletter</p>
+    <h3 class="npanel-title">Insights,<br />monthly.</h3>
+    <p class="npanel-copy">Clear, structured marketing tips for estate agents — straight to your inbox.</p>
+    <form class="npanel-form" id="npanel-form">
+      <input type="text" name="name" placeholder="First name" autocomplete="given-name" />
+      <input type="email" name="email" placeholder="Email address" autocomplete="email" required />
+      <button type="submit">Subscribe</button>
+    </form>
+  </aside>
   <div class="mtoast" id="mtoast" role="status" aria-live="polite" hidden></div>
 
   <!-- Global (not scoped): the sheet's CTAs are built in JS, so they don't get
@@ -504,6 +520,38 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
        global. The .msheet*/.mtoast classes exist only here, so it's safe. -->
   <style is:global>
     .msheet-scrim[hidden], .msheet[hidden], .mtoast[hidden] { display: none; }
+    .npanel-scrim[hidden], .npanel[hidden] { display: none; }
+    /* Mobile-only subscribe button (hidden on desktop, where the inline form shows). */
+    .news-sub-btn { display: none; align-items: center; gap: 9px; width: fit-content;
+      background: var(--english-violet); color: var(--paper);
+      border: 1.5px solid var(--english-violet); border-radius: 8px; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+      padding: 14px 24px; }
+    /* Slide-in subscribe panel (opened by the button; phones only). */
+    .npanel-scrim { position: fixed; inset: 0; z-index: 498; background: rgba(16,14,22,0.5);
+      backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); opacity: 0; transition: opacity 0.35s ease; }
+    .npanel-scrim.is-open { opacity: 1; }
+    .npanel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 499;
+      width: min(340px, 86vw);
+      background: var(--paper); color: var(--english-violet);
+      padding: calc(52px + env(safe-area-inset-top,0px)) 26px calc(28px + env(safe-area-inset-bottom,0px));
+      display: flex; flex-direction: column; gap: 12px;
+      transform: translateX(102%); transition: transform 0.45s cubic-bezier(.16,1,.3,1);
+      box-shadow: -24px 0 60px rgba(16,14,22,0.4); overflow-y: auto; }
+    .npanel.is-open { transform: none; }
+    .npanel-close { position: absolute; top: 14px; right: 16px; background: none; border: none;
+      font-size: 28px; line-height: 1; color: var(--english-violet); cursor: pointer; padding: 4px 8px; }
+    .npanel-eyebrow { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; margin: 0; }
+    .npanel-title { font-family: var(--serif); font-weight: 500; font-size: 32px; line-height: 1.04; letter-spacing: -0.01em; margin: 4px 0 2px; }
+    .npanel-copy { font-family: var(--sans); font-size: 14px; line-height: 1.55; opacity: 0.78; margin: 0 0 6px; }
+    .npanel-form { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+    .npanel-form input { padding: 14px 16px; border: 1.5px solid rgba(55,30,40,0.28); border-radius: 8px;
+      background: #fff; font-family: var(--sans); font-size: 15px; color: var(--english-violet); }
+    .npanel-form input:focus { outline: none; border-color: var(--english-violet); }
+    .npanel-form input::placeholder { color: rgba(55,30,40,0.5); }
+    .npanel-form button { padding: 15px 20px; background: var(--english-violet); color: var(--paper);
+      border: none; border-radius: 8px; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
     @media (max-width: 600px) {
       .msheet-scrim {
         position: fixed; inset: 0; z-index: 480;
@@ -693,6 +741,53 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         toast("You’re on the list — see you in your inbox ✓");
         newsForm.reset();
       });
+
+      // Mobile: the "Subscribe" button opens a slide-in panel (name + email).
+      const npanel = document.getElementById("npanel");
+      const npanelScrim = document.getElementById("npanel-scrim");
+      const npanelBtn = document.getElementById("news-sub-btn");
+      const npanelForm = document.getElementById("npanel-form");
+      if (npanel && npanelScrim) {
+        const openPanel = () => {
+          npanel.hidden = false; npanelScrim.hidden = false;
+          lockScroll();
+          setTimeout(() => { npanel.classList.add("is-open"); npanelScrim.classList.add("is-open"); }, 20);
+        };
+        const closePanel = () => {
+          npanel.classList.remove("is-open"); npanelScrim.classList.remove("is-open");
+          unlockScroll();
+          setTimeout(() => { npanel.hidden = true; npanelScrim.hidden = true; }, 400);
+        };
+        if (npanelBtn) npanelBtn.addEventListener("click", () => { if (phone()) openPanel(); });
+        npanelScrim.addEventListener("click", closePanel);
+        npanel.querySelector("[data-npanel-close]").addEventListener("click", closePanel);
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !npanel.hidden) closePanel(); });
+        if (npanelForm) npanelForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const email = (npanelForm.querySelector('input[name="email"]').value || "").trim();
+          const name = (npanelForm.querySelector('input[name="name"]').value || "").trim();
+          if (!email) return;
+          const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+          if (WORKER) { try { await fetch(`${WORKER}/newsletter`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, name }) }); } catch (_) {} }
+          npanelForm.reset();
+          closePanel();
+          toast("You’re on the list — see you in your inbox ✓");
+        });
+      }
+
+      // Block accidental pinch / double-tap zoom on phones — that zoom is what
+      // lets the page drift left↔right on iPhone. Homepage only; doesn't affect
+      // scrolling or taps. (iOS Safari fires gesture* for pinch.)
+      if (phone()) {
+        ["gesturestart", "gesturechange", "gestureend"].forEach((ev) =>
+          document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+        let lastTouch = 0;
+        document.addEventListener("touchend", (e) => {
+          const now = Date.now();
+          if (now - lastTouch <= 320) e.preventDefault();   // kill double-tap zoom
+          lastTouch = now;
+        }, { passive: false });
+      }
     })();
   </script>
 
