@@ -105,14 +105,11 @@ const services = [
     <div class="about-team-wrap">
       {team.map((member) => (
         <article class="about-team-card">
-          <div class="about-team-biopanel">
+          <div class="about-team-media" style={`background-image: url('${member.photo}')`}></div>
+          <div class="about-team-overlay">
+            <div class="about-team-name">{member.name}</div>
             <p class="about-team-bio">{member.bio}</p>
-          </div>
-          <div class="about-team-media" style={`background-image: url('${member.photo}')`}>
-            <div class="about-team-overlay">
-              <div class="about-team-name">{member.name}</div>
-              <div class="about-team-role">{member.role}</div>
-            </div>
+            <div class="about-team-role">{member.role}</div>
           </div>
         </article>
       ))}
@@ -412,64 +409,49 @@ const services = [
     grid-template-columns: 1fr 1fr 1fr;
     gap: 4px;
   }
-  /* Portrait card that squeezes to a square on hover, revealing the bio beneath.
-     The card is a fixed 3:4 box; the photo is 100% tall at rest and 75% on hover
-     (75% of a 3:4 box = a square), so the bottom quarter uncovers the bio. */
+  /* Portrait card: a fixed 3:4 box with the photo filling it and a text overlay
+     pinned to the bottom — name (always), description (revealed on hover, sits
+     between the name and the role), role (always). */
   .about-team-card {
     position: relative;
     aspect-ratio: 3 / 4;
     overflow: hidden;
-    background: var(--violet-deep);   /* deep brand purple revealed behind the bio */
+    background: var(--violet-deep);   /* deep brand purple behind the photo */
     color: var(--paper);
     isolation: isolate;
   }
-  /* Bio sits at the bottom, behind the photo; the photo uncovers it on hover. */
-  .about-team-biopanel {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    display: flex;
-    align-items: flex-end;
-    padding: 0 28px 30px;
-  }
-  .about-team-bio {
-    max-width: 36ch;
-    font-family: var(--sans);
-    font-size: clamp(13.5px, 1vw, 15px);
-    line-height: 1.5;
-    color: rgba(244, 242, 241, 0.9);
-    margin: 0;
-    opacity: 0;
-    transform: translateY(10px);
-    transition: opacity 0.6s ease 0.12s, transform 0.7s cubic-bezier(.45,0,.18,1) 0.12s;
-  }
-  .about-team-card:hover .about-team-bio,
-  .about-team-card:focus-within .about-team-bio { opacity: 1; transform: none; }
-
-  /* The photo — full height at rest, square (75% of the 3:4 card) on hover. */
+  /* The photo fills the whole card. */
   .about-team-media {
     position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 100%;
+    inset: 0;
     z-index: 1;
     background-size: cover;
     background-position: center top;
     background-color: var(--platinum);
-    transition: height 0.75s cubic-bezier(.45,0,.18,1);
+    transition: transform 0.9s cubic-bezier(.45,0,.18,1);
   }
   .about-team-card:hover .about-team-media,
-  .about-team-card:focus-within .about-team-media { height: 75%; }
+  .about-team-card:focus-within .about-team-media { transform: scale(1.04); }
+  /* Bottom scrim so the text stays legible; deepens on hover as the bio appears. */
   .about-team-media::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(20,18,26,0) 46%, rgba(20,18,26,0.6) 74%, rgba(20,18,26,0.9) 100%);
+    z-index: 1;
+    background: linear-gradient(180deg, rgba(20,18,26,0) 42%, rgba(20,18,26,0.55) 68%, rgba(20,18,26,0.9) 100%);
+    transition: background 0.6s ease;
   }
-  /* name + role pinned to the photo's bottom, so they ride up as it squeezes */
+  .about-team-card:hover .about-team-media::after,
+  .about-team-card:focus-within .about-team-media::after {
+    background: linear-gradient(180deg, rgba(20,18,26,0) 24%, rgba(20,18,26,0.6) 54%, rgba(20,18,26,0.94) 100%);
+  }
+  /* name → bio → role, stacked and pinned to the card's bottom. */
   .about-team-overlay {
     position: absolute;
     left: 0; right: 0; bottom: 0;
     z-index: 2;
+    display: flex;
+    flex-direction: column;
     padding: 28px 28px 22px;
     text-shadow: 0 1px 14px rgba(0, 0, 0, 0.45);
   }
@@ -478,8 +460,30 @@ const services = [
     font-weight: 500;
     font-size: clamp(22px, 2vw, 30px);
     line-height: 1;
-    margin-bottom: 8px;
     color: var(--paper);
+  }
+  /* Description — collapsed at rest, slides open between the name and role. */
+  .about-team-bio {
+    font-family: var(--sans);
+    font-size: clamp(13.5px, 1vw, 15px);
+    line-height: 1.5;
+    color: rgba(244, 242, 241, 0.9);
+    margin: 0;
+    max-width: 40ch;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transform: translateY(8px);
+    transition: opacity 0.5s ease, max-height 0.6s cubic-bezier(.45,0,.18,1),
+                transform 0.6s cubic-bezier(.45,0,.18,1), margin 0.6s ease;
+  }
+  .about-team-card:hover .about-team-bio,
+  .about-team-card:focus-within .about-team-bio,
+  .about-team-card.is-active .about-team-bio {
+    opacity: 1;
+    max-height: 16em;
+    transform: none;
+    margin: 10px 0 12px;
   }
   .about-team-role {
     font-family: var(--sans);
@@ -487,6 +491,7 @@ const services = [
     font-weight: 400;
     letter-spacing: 0.02em;
     color: rgba(244, 242, 241, 0.82);
+    margin-top: 8px;
   }
 
   /* ============ About — marketing (left copy, right image) ============ */
@@ -694,12 +699,11 @@ const services = [
     .about-lede { padding: 92px 22px var(--about-gap); }
     .about-intro { padding: var(--about-gap) 22px 0; }
     .about-team { padding: 0 22px 0; }
-    /* No hover on touch — stack each photo with its bio shown beneath. */
+    /* No hover on touch — single-column stack with each bio shown in the box. */
     .about-team-wrap { grid-template-columns: 1fr; gap: 30px; }
-    .about-team-card { aspect-ratio: auto; background: transparent; }
-    .about-team-media { position: relative; height: auto; aspect-ratio: 3 / 4; }
-    .about-team-biopanel { position: relative; inset: auto; padding: 14px 2px 0; }
-    .about-team-bio { opacity: 1; transform: none; max-width: none; color: rgba(28, 29, 34, 0.75); }
+    .about-team-card .about-team-bio {
+      opacity: 1; max-height: 16em; transform: none; margin: 10px 0 12px; max-width: none;
+    }
     .about-marketing { padding: calc(var(--about-gap) * 2) 22px 0; }
     .about-feature { padding: var(--about-gap) 22px 0; }
     .about-services { padding: calc(var(--about-gap) * 2) 22px 64px; }
@@ -707,30 +711,46 @@ const services = [
 
   /* ===== MOBILE-ONLY (phones ≤600px) ===== */
   @media (max-width: 600px) {
-    /* Hero fills the phone screen — copy up top, the studio photo grows to
-       take the rest of the height. */
+    /* Hero fills the phone screen as one full section — copy up top, the studio
+       photo runs edge-to-edge (full width, down to the bottom of the screen). */
     .about-lede {
       min-height: 100svh; box-sizing: border-box;
-      display: flex; padding-bottom: 22px;
+      display: flex; padding-bottom: 0;
     }
     .about-lede-wrap { display: flex; flex-direction: column; flex: 1; width: 100%; max-width: none; }
-    .about-lede-grid { flex: 1; grid-template-rows: auto 1fr; gap: 26px; }
-    .about-lede-media { display: flex; }
-    .about-lede-media img { flex: 1; width: 100%; height: auto; aspect-ratio: auto; object-fit: cover; min-height: 280px; }
+    .about-lede-grid { flex: 1; grid-template-rows: auto 1fr; gap: 22px; }
+    /* Subtext a couple of sizes bigger than the tiny clamp default. */
+    .about-lede-text { font-size: 16px; line-height: 1.62; max-width: none; }
+    .about-lede-media { display: flex; margin: 0 -22px; }   /* bleed past the 22px gutters */
+    .about-lede-media img { flex: 1; width: 100%; height: auto; aspect-ratio: auto; object-fit: cover; min-height: 46svh; }
 
-    /* Team — a flickable snap carousel instead of a flat stack: one card per
-       swipe with the neighbours peeking; a script scales the centred card up. */
+    /* Straight from Meet the Team → Marketing: hide the "Women Behind TMKE"
+       block, but keep the #about-intro section as a 0-height anchor so the
+       hero's "Discover" button still has somewhere to land. */
+    .about-intro { padding: 0; }
+    .about-intro-wrap { display: none; }
+
+    /* Team — a flat, flickable snap carousel: the first card starts near the
+       left edge so the next one clearly peeks (there's more to swipe). No tilt,
+       no scale — just a clean horizontal scroll. The active (left-aligned) card
+       reveals its description in the box; the others keep theirs hidden. */
     .about-team-wrap {
-      display: flex; grid-template-columns: none; gap: 16px;
+      display: flex; grid-template-columns: none; gap: 4vw;
       overflow-x: auto; scroll-snap-type: x mandatory;
-      padding: 8px 11vw 4px; margin: 0 -22px;
+      scroll-padding-left: 5vw;
+      padding: 8px 24vw 4px 5vw; margin: 0 -22px;
       -webkit-overflow-scrolling: touch; scrollbar-width: none;
     }
     .about-team-wrap::-webkit-scrollbar { display: none; }
     .about-team-card {
-      flex: 0 0 78vw; scroll-snap-align: center;
-      transition: box-shadow 0.3s ease;
-      will-change: transform;
+      flex: 0 0 76vw; scroll-snap-align: start;
+    }
+    /* Only the active card shows its bio; the rest stay collapsed. */
+    .about-team-card .about-team-bio {
+      opacity: 0; max-height: 0; transform: translateY(8px); margin: 0;
+    }
+    .about-team-card.is-active .about-team-bio {
+      opacity: 1; max-height: 16em; transform: none; margin: 10px 0 12px;
     }
     .about-team-hint {
       display: block; margin: 14px 0 0; text-align: center;
@@ -745,21 +765,22 @@ const services = [
 </style>
 
 <script>
-  // MOBILE team carousel: scale + tilt cards by their distance from centre so
-  // flicking between Sam / Danni / Abbie feels playful. Phones only.
+  // MOBILE team carousel: flat horizontal scroll (no tilt/scale). Flag the card
+  // that's aligned to the left rail as active, so only that person's description
+  // is shown in the box; swiping to the next reveals theirs. Phones only.
   (function () {
     if (window.innerWidth > 600) return;
     const wrap = document.querySelector(".about-team-wrap");
     if (!wrap) return;
     const cards = Array.prototype.slice.call(wrap.querySelectorAll(".about-team-card"));
     const update = () => {
-      const mid = wrap.scrollLeft + wrap.clientWidth / 2;
-      cards.forEach((c) => {
-        const centre = c.offsetLeft + c.offsetWidth / 2;
-        const t = (centre - mid) / wrap.clientWidth;          // -1..1
-        const d = Math.min(1, Math.abs(t));
-        c.style.transform = "scale(" + (1 - d * 0.09).toFixed(3) + ") rotate(" + (t * 2.4).toFixed(2) + "deg)";
+      const ref = wrap.scrollLeft + wrap.clientWidth * 0.05 + 1;   // the left snap rail
+      let best = 0, bestD = Infinity;
+      cards.forEach((c, i) => {
+        const d = Math.abs(c.offsetLeft - ref);
+        if (d < bestD) { bestD = d; best = i; }
       });
+      cards.forEach((c, i) => c.classList.toggle("is-active", i === best));
     };
     wrap.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update, { passive: true });
