@@ -392,7 +392,7 @@ import "../../../styles/admin.css";
       renderTemplate, renderBlock, mergeContextFor, defaultBrand,
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT, COLUMN_LAYOUTS,
       FONT_STACKS, headingInlineStyle, textInlineStyle, buttonInlineStyle, imageInlineStyle, effectiveBlock,
-      spacingDefaults, resolvePad, resolveMargin, normalizeRichHtml,
+      spacingDefaults, resolvePad, resolveMargin, normalizeRichHtml, resolveParaGap,
     } from "../../../lib/email-render.js";
 
     const DEV = import.meta.env.DEV;
@@ -460,7 +460,7 @@ import "../../../styles/admin.css";
         case "text": {
           // Rich content (b.html) — normalised so paragraph spacing + line
           // height match the sent email; plain text keeps whitespace.
-          const content = (b.html != null && b.html !== "") ? normalizeRichHtml(b.html) : esc(b.text||"");
+          const content = (b.html != null && b.html !== "") ? normalizeRichHtml(b.html, resolveParaGap(b)) : esc(b.text||"");
           const wsp = (b.html != null && b.html !== "") ? "" : "white-space:pre-wrap;";
           return `<div class="cv-edit" data-edit data-rich data-id="${b.id}" contenteditable="true" style="${textInlineStyle(effectiveBlock(b, canvasDevice))}${wsp}">${content}</div>`;
         }
@@ -814,8 +814,9 @@ import "../../../styles/admin.css";
         case "heading": return `<p class="eb-note" style="margin-bottom:12px;">Edit the text right on the canvas.</p>
           ${fontCard(b, device)}
           ${spacingBox(b, device)}`;
-        case "text": return `<p class="eb-note" style="margin-bottom:10px;">Edit the text right on the canvas. Blank line = new paragraph.</p>
+        case "text": return `<p class="eb-note" style="margin-bottom:10px;">Edit the text right on the canvas. Press Enter for a new paragraph; the gap between paragraphs is set below.</p>
           ${fontCard(b, device)}
+          <label class="eb-f"><span>Space between paragraphs (px)</span><input type="number" min="0" max="80" data-field="paraSpacing" value="${b.paraSpacing!=null?b.paraSpacing:""}" placeholder="12" /></label>
           ${insertFieldSection()}
           <div class="eb-sec"><span class="eb-f-sub">Background</span><label class="eb-f" style="margin-bottom:0;"><span>Tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label></div>
           ${spacingBox(b, device)}`;
