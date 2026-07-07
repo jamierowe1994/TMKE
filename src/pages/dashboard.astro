@@ -159,7 +159,7 @@ const heroFirst = heroTemplates[0];
         <!-- RECENT DESIGNS -->
         <section class="ws-block" aria-labelledby="recent-h">
           <header class="ws-block-head">
-            <h2 class="ws-block-h" id="recent-h">Continue working</h2>
+            <h2 class="ws-block-h" id="recent-h">Continue Working</h2>
           </header>
           <div class="ws-reel">
             {recentTemplates.map((t) => (
@@ -881,31 +881,42 @@ const heroFirst = heroTemplates[0];
       return drafts;
     }
     const fmtSaved = (ts) => ts ? new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Saved locally';
-    const editHref = (id) => '/editor?template=' + encodeURIComponent(id);
+    const editHref = (id) => '/editor?design=' + encodeURIComponent(id);
 
-    (function wireWork() {
-      const drafts = readLocalDrafts();
-      if (!drafts.length) return; // no saved work yet → keep the starter templates
+    // Recent designs = the member's saved copies (user_designs), newest first —
+    // the SAME source as the Studio's "Your designs", so the two line up.
+    (async function wireWork() {
+      let designs = [];
+      try {
+        const { data } = await supabase
+          .from('user_designs')
+          .select('id, name, thumb_url, updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(4);
+        designs = data || [];
+      } catch (_) {}
+      if (!designs.length) return; // no saved work yet → keep the starter templates
 
-      // Hero preview = the most recently edited draft.
-      const top = drafts[0];
+      // Hero preview = the most recently edited design.
+      const top = designs[0];
+      const name = top.name || 'Untitled design';
       const heroImg = document.querySelector('.ws-hero-preview img');
       const heroTitle = document.querySelector('.ws-hero-preview-foot h3');
       const heroLink = document.querySelector('.ws-hero-preview');
       const heroProg = document.querySelector('.ws-hero-progress');
       const heroCta = document.querySelector('.ws-hero-cta-btn');
-      if (top.thumb && heroImg) { heroImg.src = top.thumb; heroImg.alt = top.filename; }
-      if (heroTitle) heroTitle.textContent = top.filename;
+      if (top.thumb_url && heroImg) { heroImg.src = top.thumb_url; heroImg.alt = name; }
+      if (heroTitle) heroTitle.textContent = name;
       if (heroLink) heroLink.setAttribute('href', editHref(top.id));
       if (heroCta) heroCta.setAttribute('href', editHref(top.id));
-      if (heroProg) heroProg.innerHTML = `<span class="ws-hero-pct">Last edited ${escapeHtml(fmtSaved(top.savedAt))}</span>`;
+      if (heroProg) heroProg.innerHTML = `<span class="ws-hero-pct">Last edited ${escapeHtml(fmtSaved(top.updated_at))}</span>`;
 
-      // Recent designs reel = the latest drafts + a "New design" tile.
+      // Recent designs reel = the latest saved designs + a "New design" tile.
       const reel = document.querySelector('.ws-reel');
       if (reel) {
-        const cards = drafts.slice(0, 4).map((d) => `
-          <a class="ws-thumb" href="${editHref(d.id)}"${d.thumb ? ` style="background-image:url('${escapeHtml(d.thumb)}')"` : ''}>
-            <span class="ws-thumb-tag">Draft</span>
+        const cards = designs.map((d) => `
+          <a class="ws-thumb" href="${editHref(d.id)}"${d.thumb_url ? ` style="background-image:url('${escapeHtml(d.thumb_url)}')"` : ''}>
+            <span class="ws-thumb-tag">Saved</span>
           </a>`).join('');
         reel.innerHTML = cards + `
           <a class="ws-thumb ws-thumb--new" href="/editor"><span class="ws-thumb-new-msg">New design</span><span class="ws-thumb-plus" aria-hidden="true">+</span></a>`;
