@@ -2297,6 +2297,26 @@ export default {
         }
         return json({ ok: true }, 200, request, env);
       }
+      // ---- Public: newsletter / subscribe (NO auth — anonymous visitors) -----
+      // Must live in this pre-auth block: the homepage + videography subscribe
+      // boxes POST here with no session token, so it can't sit behind the login
+      // gate below (that silently 401'd every signup and dropped the contact).
+      if (path.endsWith("/newsletter") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        if (b && b.hp) return json({ ok: true }, 200, request, env); // honeypot
+        const email = String((b && b.email) || "").trim();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
+        const name = String((b && b.name) || "").trim();
+        const parts = name.split(/\s+/).filter(Boolean);
+        try {
+          await fireTrigger(env, "form_submitted", {
+            email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
+            source: "newsletter", lifecycle: "lead", marketing_opt_in: true,
+            tags: crmTags(email, [], { optIn: true }),
+          }, { form: "newsletter" });
+        } catch (_) {}
+        return json({ ok: true }, 200, request, env);
+      }
     } catch (err) {
       return json({ error: String(err && err.message ? err.message : err) }, 500, request, env);
     }
@@ -2915,24 +2935,6 @@ export default {
         headers.set("etag", obj.httpEtag);
         headers.set("Content-Disposition", `attachment; filename="${String(doc.file_name || "document").replace(/"/g, "")}"`);
         return new Response(obj.body, { headers });
-      }
-
-      // ---- Newsletter signup — opts the contact into marketing + tags them ----
-      if (path.endsWith("/newsletter") && request.method === "POST") {
-        const b = await request.json().catch(() => ({}));
-        if (b && b.hp) return json({ ok: true }, 200, request, env); // honeypot
-        const email = String((b && b.email) || "").trim();
-        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
-        const name = String((b && b.name) || "").trim();
-        const parts = name.split(/\s+/).filter(Boolean);
-        try {
-          await fireTrigger(env, "form_submitted", {
-            email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
-            source: "newsletter", lifecycle: "lead", marketing_opt_in: true,
-            tags: crmTags(email, [], { optIn: true }),
-          }, { form: "newsletter" });
-        } catch (_) {}
-        return json({ ok: true }, 200, request, env);
       }
 
       // ---- Admin: bulk-import contacts (one chunk of rows per request) --------
