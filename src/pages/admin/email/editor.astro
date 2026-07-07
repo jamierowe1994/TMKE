@@ -488,10 +488,13 @@ import "../../../styles/admin.css";
           const layout = COLUMN_LAYOUTS.find(l=>l.key===b.layout) || COLUMN_LAYOUTS[1];
           const cols = Array.isArray(b.cols)?b.cols:[];
           const colBg = Array.isArray(b.colBg)?b.colBg:[];
+          const colBgImage = Array.isArray(b.colBgImage)?b.colBgImage:[];
+          const radius = b.colRadius!=null && b.colRadius!=="" ? Math.max(0,Number(b.colRadius)) : 6;
           const colsHtml = layout.w.map((w,i)=>{
             const children = Array.isArray(cols[i])?cols[i]:[];
             const inner = children.length ? children.map(blockCard).join("") : `<div class="cv-col-empty">Drop a block here</div>`;
-            const bg = colBg[i] ? `background:${esc(colBg[i])};border-style:solid;border-color:transparent;` : "";
+            const hasBg = colBg[i] || colBgImage[i];
+            const bg = hasBg ? `${colBg[i]?`background-color:${esc(colBg[i])};`:""}${colBgImage[i]?`background-image:url('${esc(colBgImage[i])}');background-size:cover;background-position:center;`:""}border-radius:${radius}px;border-style:solid;border-color:transparent;` : `border-radius:${radius}px;`;
             return `<div class="cv-col" data-colof="${b.id}" data-coli="${i}" style="flex:0 0 calc(${w}% - 6px);max-width:${w}%;${bg}">${inner}</div>`;
           }).join("");
           return `<div class="cv-cols">${colsHtml}</div>`;
@@ -818,11 +821,14 @@ import "../../../styles/admin.css";
           ${fontCard(b, device)}
           <label class="eb-f"><span>Space between paragraphs (px)</span><input type="number" min="0" max="80" data-field="paraSpacing" value="${b.paraSpacing!=null?b.paraSpacing:""}" placeholder="12" /></label>
           ${insertFieldSection()}
-          <div class="eb-sec"><span class="eb-f-sub">Background</span><label class="eb-f" style="margin-bottom:0;"><span>Tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label></div>
+          <div class="eb-sec"><span class="eb-f-sub">Background</span>
+            <label class="eb-f"><span>Tint (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>
+            <label class="eb-f" style="margin-bottom:6px;"><span>Background image URL (blank = none)</span><input type="url" data-field="bgImage" value="${esc(b.bgImage||"")}" placeholder="https://…/image.jpg" /></label>
+            ${uploadControl("textbg")}</div>
           ${spacingBox(b, device)}`;
         case "image": return `
           <label class="eb-f"><span>Image URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…/image.jpg" /></label>
-          <div class="eb-upl"><button type="button" class="eb-mini-btn" id="eb-img-upl-btn">⬆ Upload from file</button><input type="file" id="eb-img-upl-input" accept="image/*" hidden /><span class="eb-note" id="eb-img-upl-status"></span></div>
+          ${uploadControl("image")}
           <label class="eb-f"><span>Alt text</span><input type="text" data-field="alt" value="${esc(b.alt||"")}" /></label>
           <label class="eb-f"><span>Link URL (optional)</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>
           <span class="eb-f-sub">Border</span>
@@ -898,10 +904,15 @@ import "../../../styles/admin.css";
           const lay = b.layout || "50-50";
           const layout = COLUMN_LAYOUTS.find(l=>l.key===lay) || COLUMN_LAYOUTS[1];
           const colBg = Array.isArray(b.colBg)?b.colBg:[];
-          const bgRows = layout.w.map((w,i)=>`<label class="eb-f" style="flex-direction:row;align-items:center;gap:8px;margin-bottom:8px;"><span style="flex:1;">Column ${i+1}</span><input type="color" data-colbg-sw="${i}" value="${validHex(colBg[i],'#f4f2f1')}" style="width:38px;height:32px;padding:2px;flex:0 0 auto;" /><input type="text" data-colbg="${i}" value="${esc(colBg[i]||"")}" placeholder="none" style="width:96px;flex:0 0 auto;" /></label>`).join("");
+          const colBgImage = Array.isArray(b.colBgImage)?b.colBgImage:[];
+          const bgRows = layout.w.map((w,i)=>`<div style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="flex:1;font-family:var(--sans);font-size:12px;font-weight:600;">Column ${i+1}</span><input type="color" data-colbg-sw="${i}" value="${validHex(colBg[i],'#f4f2f1')}" style="width:38px;height:32px;padding:2px;flex:0 0 auto;" /><input type="text" data-colbg="${i}" value="${esc(colBg[i]||"")}" placeholder="colour" style="width:88px;flex:0 0 auto;" /></div>
+            <input type="url" data-colbg-img="${i}" value="${esc(colBgImage[i]||"")}" placeholder="Background image URL (blank = none)" style="width:100%;margin-bottom:6px;" />
+            ${uploadControl("col"+i)}</div>`).join("");
           return `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>
             <p class="eb-note">Drag any block from the left into a column. Click a block inside a column to edit it. Columns stack on mobile.</p>
-            <div class="eb-sec"><span class="eb-f-sub">Column backgrounds</span>${bgRows}<p class="eb-note" style="margin-top:2px;">Blank = no fill. Each column can be a different colour.</p></div>
+            <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="colRadius" value="${b.colRadius!=null?b.colRadius:""}" placeholder="6" /></label>
+            <div class="eb-sec"><span class="eb-f-sub">Column backgrounds</span>${bgRows}<p class="eb-note" style="margin-top:2px;">Each column can have its own colour and/or background image. Blank = no fill.</p></div>
             ${spacingBox(b, device)}`;
         }
         case "products": {
@@ -1012,6 +1023,34 @@ import "../../../styles/admin.css";
       blk.html = tmp.innerHTML;
     }
 
+    // Reusable image-upload control (button + hidden file input + status) that
+    // POSTs to the Worker → R2 and hands back a URL. Same flow everywhere:
+    // image blocks, block backgrounds, column backgrounds.
+    function uploadControl(key, label){
+      return `<div class="eb-upl"><button type="button" class="eb-mini-btn" data-upload="${key}">⬆ ${esc(label||"Upload from file")}</button><input type="file" data-upload-input="${key}" accept="image/*" hidden /><span class="eb-note" data-upload-status="${key}"></span></div>`;
+    }
+    function wireUpload(scope, key, onDone){
+      const btn = scope.querySelector(`[data-upload="${key}"]`);
+      const inp = scope.querySelector(`[data-upload-input="${key}"]`);
+      const stat = scope.querySelector(`[data-upload-status="${key}"]`);
+      if(!btn || !inp) return;
+      btn.addEventListener("click", ()=>inp.click());
+      inp.addEventListener("change", async ()=>{
+        const file = inp.files && inp.files[0]; if(!file) return;
+        if(!WORKER_URL){ if(stat) stat.textContent = "Set PUBLIC_R2_WORKER_URL to upload."; return; }
+        if(stat) stat.textContent = "Uploading…";
+        try {
+          const { data:{ session:s } } = await supabase.auth.getSession();
+          const fd = new FormData(); fd.append("file", file);
+          const res = await fetch(`${WORKER_URL}/admin/upload`, { method:"POST", headers: s&&s.access_token?{Authorization:`Bearer ${s.access_token}`}:{}, body: fd });
+          const j = await res.json().catch(()=>({}));
+          if(!res.ok || !j.url){ if(stat) stat.textContent = "Upload failed: "+(j.error||("HTTP "+res.status)); return; }
+          if(stat) stat.textContent = "Uploaded ✓";
+          onDone(j.url);
+        } catch(e){ if(stat) stat.textContent = "Upload failed: "+(e.message||e); }
+      });
+    }
+
     function openInspector(bid) {
       const b = findBlock(bid); if(!b) return;
       const def = BLOCK_TYPES.find(d=>d.type===b.type);
@@ -1076,6 +1115,14 @@ import "../../../styles/admin.css";
         wrap.querySelectorAll("[data-colbg]").forEach((inp)=>{
           inp.addEventListener("input", ()=>{ const i=Number(inp.dataset.colbg); let v=inp.value.trim(); if(v && !v.startsWith("#") && /^[0-9a-f]{3,8}$/i.test(v)) v="#"+v; const sw=wrap.querySelector(`[data-colbg-sw="${i}"]`); if(sw && /^#[0-9a-f]{6}$/i.test(v)) sw.value=v; setColBg(i, v); });
         });
+        // Per-column background image — URL field + upload button (one per column).
+        const setColBgImage = (i, v)=>{ if(!Array.isArray(b.colBgImage)) b.colBgImage=[]; b.colBgImage[i]=v; renderCanvas(); };
+        wrap.querySelectorAll("[data-colbg-img]").forEach((inp)=>{
+          inp.addEventListener("input", ()=>setColBgImage(Number(inp.dataset.colbgImg), inp.value.trim()));
+        });
+        (COLUMN_LAYOUTS.find(l=>l.key===(b.layout||"50-50"))||{w:[0,0]}).w.forEach((w,i)=>{
+          wireUpload(wrap, "col"+i, (url)=>{ const f=wrap.querySelector(`[data-colbg-img="${i}"]`); if(f) f.value=url; setColBgImage(i, url); openInspector(bid); });
+        });
       }
       // Products / Services — repeatable items.
       if (b.type === "products" || b.type === "services") {
@@ -1108,31 +1155,13 @@ import "../../../styles/admin.css";
       if (b.type === "form") {
         wrap.querySelector("[data-formfields]")?.addEventListener("input", (e)=>{ b.fields = e.target.value.split("\n").map(s=>s.trim()).filter(Boolean); renderCanvas(); });
       }
-      // Image — upload the file to R2 via the Worker (assets.tmke.co.uk), which
-      // returns a public URL we drop straight into the Image URL field. No
-      // Supabase bucket to create — it just works.
+      // Image block — upload straight into the Image URL field.
       if (b.type === "image") {
-        const inp = wrap.querySelector("#eb-img-upl-input");
-        const btn = wrap.querySelector("#eb-img-upl-btn");
-        const stat = wrap.querySelector("#eb-img-upl-status");
-        btn?.addEventListener("click", ()=>inp?.click());
-        inp?.addEventListener("change", async ()=>{
-          const file = inp.files && inp.files[0]; if(!file) return;
-          if(!WORKER_URL){ stat.textContent = "Set PUBLIC_R2_WORKER_URL to upload."; return; }
-          stat.textContent = "Uploading…";
-          try {
-            const { data:{ session:s } } = await supabase.auth.getSession();
-            const fd = new FormData(); fd.append("file", file);
-            const res = await fetch(`${WORKER_URL}/admin/upload`, {
-              method:"POST",
-              headers: s && s.access_token ? { Authorization:`Bearer ${s.access_token}` } : {},
-              body: fd,
-            });
-            const j = await res.json().catch(()=>({}));
-            if(!res.ok || !j.url){ stat.textContent = "Upload failed: "+(j.error||("HTTP "+res.status)); return; }
-            b.url = j.url; stat.textContent = "Uploaded ✓"; renderCanvas(); openInspector(bid);
-          } catch(e){ stat.textContent = "Upload failed: "+(e.message||e); }
-        });
+        wireUpload(wrap, "image", (url)=>{ b.url = url; renderCanvas(); openInspector(bid); });
+      }
+      // Text block — background-image upload.
+      if (b.type === "text") {
+        wireUpload(wrap, "textbg", (url)=>{ b.bgImage = url; renderCanvas(); openInspector(bid); });
       }
       // Text — inline rich-text toolbar (bold/italic/underline/bullets). Keep the
       // canvas selection by preventing the button from stealing focus, then apply.
