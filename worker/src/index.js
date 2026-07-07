@@ -2961,6 +2961,23 @@ export default {
       }
 
       // ---- Admin: bulk-import contacts (one chunk of rows per request) --------
+      // ---- Admin: a member's last hub login (from Supabase Auth) -----------
+      // The contact record only tracks last_seen_at (any touchpoint); the real
+      // "last logged into the members hub" is auth.users.last_sign_in_at, which
+      // only the service role can read — so it comes through here.
+      if (path.endsWith("/contacts/member-login") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const uid = new URL(request.url).searchParams.get("user_id");
+        if (!uid) return json({ error: "Missing user_id." }, 400, request, env);
+        const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(uid)}`, {
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        if (!res.ok) return json({ last_sign_in_at: null }, 200, request, env);
+        const u = await res.json().catch(() => ({}));
+        return json({ last_sign_in_at: (u && u.last_sign_in_at) || null }, 200, request, env);
+      }
+
       if (path.endsWith("/contacts/import") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);

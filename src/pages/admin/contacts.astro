@@ -460,6 +460,10 @@ import "../../styles/admin.css";
         <div class="ct-tabpanel" data-panel="activity"${activeTab !== "activity" ? " hidden" : ""}>
           <div class="ct-sec">
             <h3>Activity</h3>
+            <dl class="ct-dl" style="margin-bottom:16px">
+              <div><dt>First interaction</dt><dd>${fmtDate(c.created_at)}</dd></div>
+              ${c.user_id ? `<div><dt>Last hub login</dt><dd id="ct-lastlogin">…</dd></div>` : ""}
+            </dl>
             <div class="ct-timeline">${activity && activity.length ? activity.map((a) => `<div class="ct-tl-item"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
           </div>
         </div>
@@ -481,6 +485,24 @@ import "../../styles/admin.css";
           </div>
         </div>`;
       wireDrawer(notes, tasks);
+      if (c.user_id) loadLastLogin(c);
+    }
+
+    // Members only — the last time they signed into the hub (auth.users via the
+    // Worker, service-role). Fills the placeholder in the Activity tab.
+    async function loadLastLogin(c) {
+      const el = document.getElementById("ct-lastlogin");
+      if (!el || !WORKER) return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        const res = await fetch(`${WORKER}/contacts/member-login?user_id=${encodeURIComponent(c.user_id)}`, {
+          headers: token ? { Authorization: "Bearer " + token } : {},
+        });
+        const j = await res.json().catch(() => ({}));
+        if (current !== c) return;   // drawer moved on to another contact
+        el.textContent = j.last_sign_in_at ? fmtDate(j.last_sign_in_at) : "Never logged in";
+      } catch (_) { if (current === c) el.textContent = "—"; }
     }
 
     function wireDrawer(notes, tasks) {
