@@ -187,6 +187,8 @@ import "../../styles/admin.css";
     .ct-tagfilter-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; width: 288px; max-height: 344px; overflow-y: auto; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.3); padding: 8px; }
     .ct-tagfilter-menu[hidden] { display: none; }
     .ct-tagfilter-empty { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); padding: 10px 8px; }
+    .ct-tagfilter-group + .ct-tagfilter-group { margin-top: 2px; }
+    .ct-tagfilter-group-h { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.45); padding: 10px 9px 4px; }
     .ct-tagfilter-opt { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
     .ct-tagfilter-opt:hover { background: rgba(55,30,40,0.05); }
     .ct-tagfilter-opt input { accent-color: var(--english-violet); width: 15px; height: 15px; flex: none; }
@@ -507,9 +509,14 @@ import "../../styles/admin.css";
     }
     function buildTagMenu() {
       const menu = $("ct-tagfilter-menu");
-      const tags = Array.from(new Set(ALL.flatMap((c) => c.tags || []))).sort((a, b) => a.localeCompare(b));
-      if (!tags.length) { menu.innerHTML = `<p class="ct-tagfilter-empty">No tags on any contacts yet.</p>`; return; }
-      menu.innerHTML = tags.map((t) => `<label class="ct-tagfilter-opt"><input type="checkbox" value="${esc(t)}" ${selectedTags.has(t) ? "checked" : ""}/> ${esc(t)}</label>`).join("")
+      // Show the full tag taxonomy (grouped, like the add-tag menu) so every tag
+      // is visible to pick from — plus any tags in use that aren't in the framework.
+      const inUse = Array.from(new Set(ALL.flatMap((c) => c.tags || [])));
+      const framework = new Set(TAG_GROUPS.flatMap(([, tags]) => tags));
+      const extra = inUse.filter((t) => !framework.has(t)).sort((a, b) => a.localeCompare(b));
+      const groups = extra.length ? [...TAG_GROUPS, ["Other", extra]] : TAG_GROUPS;
+      const opt = (t) => `<label class="ct-tagfilter-opt"><input type="checkbox" value="${esc(t)}" ${selectedTags.has(t) ? "checked" : ""}/> ${esc(t)}</label>`;
+      menu.innerHTML = groups.map(([g, tags]) => `<div class="ct-tagfilter-group"><div class="ct-tagfilter-group-h">${esc(g)}</div>${tags.map(opt).join("")}</div>`).join("")
         + `<div class="ct-tagfilter-foot"><button type="button" class="ct-tagfilter-clear" id="ct-tagfilter-clear">Clear tags</button></div>`;
       menu.querySelectorAll('input[type="checkbox"]').forEach((cb) => cb.addEventListener("change", () => {
         if (cb.checked) selectedTags.add(cb.value); else selectedTags.delete(cb.value);
