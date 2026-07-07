@@ -219,8 +219,11 @@ export function textInlineStyle(block = {}) {
   if (block.underline) parts.push('text-decoration:underline');
   let style = parts.join(';') + ';';
   const pad = padStyleResolved(block);
-  if (block.bg) style += `background:${escapeHtml(block.bg)};border-radius:8px;` + (pad || 'padding:14px 18px;');
-  else style += pad;
+  if (block.bg || block.bgImage) {
+    style += (block.bg ? `background-color:${escapeHtml(block.bg)};` : '')
+      + (block.bgImage ? `background-image:url('${escapeHtml(block.bgImage)}');background-size:cover;background-position:center;` : '')
+      + 'border-radius:8px;' + (pad || 'padding:14px 18px;');
+  } else style += pad;
   return style;
 }
 
@@ -731,6 +734,8 @@ function renderColumns(block, brand, ctx) {
   const widths = layout.w;
   const cols = Array.isArray(block.cols) ? block.cols : [];
   const colBg = Array.isArray(block.colBg) ? block.colBg : [];
+  const colBgImage = Array.isArray(block.colBgImage) ? block.colBgImage : [];
+  const radius = block.colRadius != null && block.colRadius !== '' ? Math.max(0, Number(block.colRadius)) : 6;
   const tds = widths.map((w, i) => {
     const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 8px';
     const children = Array.isArray(cols[i]) ? cols[i] : [];
@@ -740,11 +745,15 @@ function renderColumns(block, brand, ctx) {
       const h = renderBlock(cb, brand, ctx);
       return h ? wrapOuter(h, cb) : '';
     }).filter(Boolean).join('\n') || '&nbsp;';
-    // Optional per-column background — wrap the cell's content in a padded,
-    // rounded panel so each column can be independently coloured with a gap.
-    const inner = colBg[i]
-      ? `<div style="background-color:${escapeHtml(colBg[i])};border-radius:6px;padding:14px;">${content}</div>`
-      : content;
+    // Optional per-column background (colour and/or image) — wrap the cell's
+    // content in a padded panel with the chosen corner radius.
+    const hasBg = colBg[i] || colBgImage[i];
+    const bgCss = hasBg
+      ? (colBg[i] ? `background-color:${escapeHtml(colBg[i])};` : '')
+        + (colBgImage[i] ? `background-image:url('${escapeHtml(colBgImage[i])}');background-size:cover;background-position:center;` : '')
+        + `border-radius:${radius}px;padding:14px;`
+      : '';
+    const inner = hasBg ? `<div style="${bgCss}">${content}</div>` : content;
     return `<td class="eb-col" valign="top" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:top;font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
   }).join('');
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
