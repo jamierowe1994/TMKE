@@ -71,6 +71,7 @@ import "../../styles/admin.css";
     <nav class="ct-tabs" id="ct-tabs" role="tablist">
       <button type="button" class="ct-tab is-active" data-tab="info" role="tab">Information</button>
       <button type="button" class="ct-tab" data-tab="purchases" role="tab">Purchases</button>
+      <button type="button" class="ct-tab" data-tab="booked" role="tab">Booked</button>
       <button type="button" class="ct-tab" data-tab="activity" role="tab">Activity</button>
     </nav>
     <div class="ct-drawer-body" id="ct-drawer-body"><!-- filled by JS --></div>
@@ -212,6 +213,7 @@ import "../../styles/admin.css";
     .ct-tab:hover { color: var(--ink); }
     .ct-tab.is-active { color: var(--english-violet); }
     .ct-tab.is-active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--english-violet); }
+    .ct-tabpanel { display: flex; flex-direction: column; gap: 22px; }
     .ct-tabpanel[hidden] { display: none; }
   </style>
 
@@ -437,6 +439,8 @@ import "../../styles/admin.css";
             <h3>Purchased</h3>
             ${orders.length ? orders.map((o) => `<div class="ct-item">${esc(o.pack_title || "Pack")}<div class="ct-item-meta">${gbp(o.amount_pence)}${o.status && o.status !== "paid" ? " · " + esc(o.status) : ""} · ${fmtDate(o.created_at)}</div></div>`).join("") : '<p class="ct-meta">No purchases</p>'}
           </div>
+        </div>
+        <div class="ct-tabpanel" data-panel="booked"${activeTab !== "booked" ? " hidden" : ""}>
           <div class="ct-sec">
             <h3>Booked</h3>
             ${bookings.length ? bookings.map((b) => `<div class="ct-item">${esc(b.label)}<div class="ct-item-meta">${b.when ? fmtDate(b.when) : "—"}${b.stage ? " · " + esc(b.stage) : ""}</div></div>`).join("") : '<p class="ct-meta">No bookings</p>'}
