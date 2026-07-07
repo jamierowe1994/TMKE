@@ -27,17 +27,32 @@ import "../../styles/admin.css";
         <button type="button" class="ct-chip-f is-active" data-seg="all">All <b data-n="all">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="members">Members <b data-n="members">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="email">Marketing opt-in <b data-n="email">0</b></button>
-        <button type="button" class="ct-chip-f" data-seg="purchasers">Purchasers <b data-n="purchasers">0</b></button>
+        <button type="button" class="ct-chip-f" data-seg="purchasers">Customers <b data-n="purchasers">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="booked">Booked <b data-n="booked">0</b></button>
-        <button type="button" class="ct-chip-f" data-seg="contact">Contact-only <b data-n="contact">0</b></button>
+        <!-- Tag filter — multi-select dropdown, narrows by one or more tags. -->
+        <div class="ct-tagfilter" id="ct-tagfilter">
+          <button type="button" class="ct-chip-f ct-tagfilter-btn" id="ct-tagfilter-btn" aria-expanded="false" aria-haspopup="true">
+            Tags <b id="ct-tagfilter-n" hidden>0</b>
+            <svg class="ct-tagfilter-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="ct-tagfilter-menu" id="ct-tagfilter-menu" role="menu" hidden></div>
+        </div>
       </div>
     </section>
 
     <section class="ct-list" id="ct-list">
       <p class="ct-loading" id="ct-loading">Loading contacts…</p>
       <p class="ct-empty" id="ct-empty" hidden>No contacts yet — they appear here as people enquire, book, sign up or buy.</p>
+      <div class="ct-bulkbar" id="ct-bulkbar" hidden>
+        <span class="ct-bulk-count" id="ct-bulk-count">0 selected</span>
+        <button type="button" class="ct-bulk-del" id="ct-bulk-del">Delete selected</button>
+        <button type="button" class="ct-bulk-clear" id="ct-bulk-clear">Clear selection</button>
+      </div>
       <table class="ct-table" id="ct-table" hidden>
-        <thead><tr><th>Name</th><th>Email</th><th>Lifecycle</th><th>Tags</th><th>Last seen</th></tr></thead>
+        <thead><tr>
+          <th class="ct-check-col"><input type="checkbox" id="ct-check-all" aria-label="Select all" /></th>
+          <th>Name</th><th>Email</th><th>Lifecycle</th><th>Tags</th><th>Last seen</th>
+        </tr></thead>
         <tbody id="ct-rows"></tbody>
       </table>
     </section>
@@ -53,6 +68,11 @@ import "../../styles/admin.css";
       </div>
       <button type="button" class="ct-drawer-x" id="ct-close" aria-label="Close">&times;</button>
     </header>
+    <nav class="ct-tabs" id="ct-tabs" role="tablist">
+      <button type="button" class="ct-tab is-active" data-tab="info" role="tab">Information</button>
+      <button type="button" class="ct-tab" data-tab="purchases" role="tab">Purchases</button>
+      <button type="button" class="ct-tab" data-tab="activity" role="tab">Activity</button>
+    </nav>
     <div class="ct-drawer-body" id="ct-drawer-body"><!-- filled by JS --></div>
   </aside>
 
@@ -157,6 +177,40 @@ import "../../styles/admin.css";
     .ct-task { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .ct-task.done { opacity: 0.5; text-decoration: line-through; }
     .ct-toggle { font-family: var(--sans); font-size: 12px; color: var(--english-violet); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+
+    /* Tag filter dropdown */
+    .ct-tagfilter { position: relative; }
+    .ct-tagfilter-btn { gap: 6px; }
+    .ct-tagfilter-btn.is-on { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .ct-tagfilter-btn.is-on b { background: rgba(255,255,255,0.22); color: #fff; }
+    .ct-tagfilter-caret { width: 12px; height: 12px; flex: none; }
+    .ct-tagfilter-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; width: 288px; max-height: 344px; overflow-y: auto; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.3); padding: 8px; }
+    .ct-tagfilter-menu[hidden] { display: none; }
+    .ct-tagfilter-empty { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); padding: 10px 8px; }
+    .ct-tagfilter-opt { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
+    .ct-tagfilter-opt:hover { background: rgba(55,30,40,0.05); }
+    .ct-tagfilter-opt input { accent-color: var(--english-violet); width: 15px; height: 15px; flex: none; }
+    .ct-tagfilter-foot { display: flex; justify-content: flex-end; padding: 8px 6px 2px; margin-top: 4px; border-top: 1px solid rgba(28,29,34,0.08); }
+    .ct-tagfilter-clear { border: 0; background: none; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; cursor: pointer; }
+
+    /* Bulk select + delete */
+    .ct-bulkbar { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; padding: 10px 16px; background: rgba(55,30,40,0.06); border: 1px solid rgba(var(--violet-rgb),0.2); border-radius: 12px; }
+    .ct-bulkbar[hidden] { display: none; }
+    .ct-bulk-count { font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--english-violet); margin-right: auto; }
+    .ct-bulk-del { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; border: 1px solid #a5352f; background: #a5352f; color: #fff; border-radius: 8px; padding: 8px 15px; cursor: pointer; transition: background 0.15s; }
+    .ct-bulk-del:hover { background: #7f2a25; }
+    .ct-bulk-clear { font-family: var(--sans); font-size: 12px; font-weight: 600; border: 1px solid rgba(28,29,34,0.18); background: #fff; color: rgba(28,29,34,0.7); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+    .ct-check-col { width: 40px; }
+    .ct-table td.ct-check-cell { cursor: default; }
+    .ct-check-col input, .ct-check-cell input { accent-color: var(--english-violet); width: 15px; height: 15px; cursor: pointer; }
+
+    /* Drawer tabs */
+    .ct-tabs { display: flex; gap: 4px; padding: 4px 24px 0; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ct-tab { position: relative; appearance: none; background: none; border: 0; font-family: var(--sans); font-size: 13px; font-weight: 600; color: rgba(28,29,34,0.55); padding: 12px 6px 13px; cursor: pointer; transition: color 0.15s; }
+    .ct-tab:hover { color: var(--ink); }
+    .ct-tab.is-active { color: var(--english-violet); }
+    .ct-tab.is-active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--english-violet); }
+    .ct-tabpanel[hidden] { display: none; }
   </style>
 
   <script>
@@ -194,6 +248,9 @@ import "../../styles/admin.css";
     ];
 
     let ALL = [], q = "", seg = "all", current = null;
+    let selectedTags = new Set();   // tag-filter pill (multi-select)
+    let selectedIds = new Set();    // bulk-select for delete
+    let activeTab = "info";         // contact drawer tab
     // Who has actually purchased / booked — read live from orders + bookings by
     // email (not just the tag), so the chips are reliable even before a backfill.
     let PURCHASER_EMAILS = new Set(), SESSION_EMAILS = new Set(), CALL_EMAILS = new Set();
@@ -230,7 +287,8 @@ import "../../styles/admin.css";
     function getFiltered() {
       return ALL
         .filter(SEGMENTS[seg] || SEGMENTS.all)
-        .filter((c) => !q || (fullName(c) + " " + c.email + " " + (c.company || "")).toLowerCase().includes(q));
+        .filter((c) => !q || (fullName(c) + " " + c.email + " " + (c.company || "")).toLowerCase().includes(q))
+        .filter((c) => !selectedTags.size || (c.tags || []).some((t) => selectedTags.has(t)));
     }
     function updateCounts() {
       Object.keys(SEGMENTS).forEach((k) => { const el = document.querySelector(`[data-n="${k}"]`); if (el) el.textContent = ALL.filter(SEGMENTS[k]).length; });
@@ -241,15 +299,41 @@ import "../../styles/admin.css";
       $("ct-count").textContent = `${ALL.length} contact${ALL.length === 1 ? "" : "s"}`;
       $("ct-empty").hidden = ALL.length !== 0;
       $("ct-table").hidden = list.length === 0;
+      // Drop selections no longer visible so the bulk bar stays accurate.
+      const visibleIds = new Set(list.map((c) => c.id));
+      Array.from(selectedIds).forEach((id) => { if (!visibleIds.has(id)) selectedIds.delete(id); });
       $("ct-rows").innerHTML = list.map((c) => `
         <tr data-id="${esc(c.id)}">
+          <td class="ct-check-cell"><input type="checkbox" class="ct-row-check" data-check="${esc(c.id)}" ${selectedIds.has(c.id) ? "checked" : ""} aria-label="Select ${esc(fullName(c))}" /></td>
           <td>${esc(fullName(c))}</td>
           <td>${esc(c.email)}</td>
           <td><span class="ct-life ${c.dnd ? "dnd" : esc(deriveLifecycle(c))}">${c.dnd ? "DND" : esc(deriveLifecycle(c))}</span></td>
           <td>${(c.tags || []).slice(0, 4).map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") || "—"}</td>
           <td>${esc(fmtDate(c.last_seen_at))}</td>
         </tr>`).join("");
-      $("ct-rows").querySelectorAll("[data-id]").forEach((tr) => tr.addEventListener("click", () => openDrawer(tr.getAttribute("data-id"))));
+      $("ct-rows").querySelectorAll("[data-id]").forEach((tr) => tr.addEventListener("click", (e) => {
+        if (e.target.closest(".ct-check-cell")) return;   // selection handled on the checkbox
+        openDrawer(tr.getAttribute("data-id"));
+      }));
+      $("ct-rows").querySelectorAll(".ct-row-check").forEach((cb) => cb.addEventListener("change", () => {
+        const id = cb.getAttribute("data-check");
+        if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+        syncSelection(list);
+      }));
+      syncSelection(list);
+    }
+
+    // Keep the bulk bar + "select all" checkbox in step with the selection.
+    function syncSelection(list) {
+      const rows = list || getFiltered();
+      const n = selectedIds.size;
+      $("ct-bulkbar").hidden = n === 0;
+      $("ct-bulk-count").textContent = `${n} selected`;
+      const all = $("ct-check-all");
+      if (all) {
+        all.checked = rows.length > 0 && rows.every((c) => selectedIds.has(c.id));
+        all.indeterminate = n > 0 && !all.checked;
+      }
     }
 
     async function openDrawer(id) {
@@ -258,6 +342,7 @@ import "../../styles/admin.css";
       $("ct-d-name").textContent = fullName(current);
       $("ct-d-email").textContent = current.email;
       $("ct-scrim").hidden = false; $("ct-drawer").hidden = false;
+      activeTab = "info"; setTab("info");   // every contact opens on Information
       $("ct-drawer-body").innerHTML = `<p class="ct-meta">Loading…</p>`;
       const email = current.email;
       // Purchases, bookings + activity are derived live by email, always accurate.
@@ -289,63 +374,77 @@ import "../../styles/admin.css";
     $("ct-close").addEventListener("click", closeDrawer);
     $("ct-scrim").addEventListener("click", closeDrawer);
 
+    // Contact drawer tabs — Information / Purchases / Activity.
+    function setTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll("#ct-tabs .ct-tab").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-tab") === tab));
+      document.querySelectorAll("#ct-drawer-body .ct-tabpanel").forEach((p) => { p.hidden = p.getAttribute("data-panel") !== tab; });
+    }
+    $("ct-tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) setTab(b.getAttribute("data-tab")); });
+
     function drawNote(notes, tasks, orders, bookings, activity) {
       const c = current;
       $("ct-drawer-body").innerHTML = `
-        <div class="ct-sec">
-          <h3>Status</h3>
-          <div class="ct-badges">
-            <span class="ct-badge ${c.user_id ? "is-on" : ""}">${c.user_id ? "Member — Has account" : "No account"}</span>
-            <span class="ct-badge ${c.marketing_opt_in ? "is-on" : ""}">Marketing: ${c.marketing_opt_in ? "Yes" : "No"}</span>
+        <div class="ct-tabpanel" data-panel="info"${activeTab !== "info" ? " hidden" : ""}>
+          <div class="ct-sec">
+            <h3>Status</h3>
+            <div class="ct-badges">
+              <span class="ct-badge ${c.user_id ? "is-on" : ""}">${c.user_id ? "Member — Has account" : "No account"}</span>
+              <span class="ct-badge ${c.marketing_opt_in ? "is-on" : ""}">Marketing: ${c.marketing_opt_in ? "Yes" : "No"}</span>
+            </div>
+          </div>
+          <div class="ct-sec">
+            <h3>Details</h3>
+            <p class="ct-meta">
+              <span>Company:</span> ${esc(c.company || "—")}<br>
+              <span>Phone:</span> ${esc(c.phone || "—")}<br>
+              <span>Source:</span> ${esc(humanizeSource(c.source))}<br>
+              <span>Marketing opt-in:</span> ${c.marketing_opt_in ? "Yes" : "No"}
+            </p>
+            <div class="ct-row" style="margin-top:10px">
+              <select id="ct-life-sel">${["lead","customer","member","past"].map((l) => `<option value="${l}" ${c.lifecycle === l ? "selected" : ""}>${l}</option>`).join("")}</select>
+              <label class="ct-toggle"><input type="checkbox" id="ct-dnd" ${c.dnd ? "checked" : ""}/> Do-not-contact</label>
+            </div>
+          </div>
+          <div class="ct-sec">
+            <h3>Tags</h3>
+            <div class="ct-chips" id="ct-tags">${(c.tags || []).map((t) => `<span class="ct-chip">${esc(t)}<button data-untag="${esc(t)}" title="Remove">&times;</button></span>`).join("") || '<span class="ct-meta">No tags</span>'}</div>
+            <div class="ct-row" style="margin-top:10px">
+              <select id="ct-tag-input"><option value="">Add a tag…</option>${TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("")}</select>
+              <button class="ct-mini" id="ct-tag-add">Add</button>
+            </div>
+          </div>
+          <div class="ct-sec">
+            <h3>Tasks</h3>
+            <div id="ct-tasks">${tasks.length ? tasks.map((t) => `
+              <div class="ct-item ct-task ${t.status === "done" ? "done" : ""}">
+                <div>${esc(t.title)}<div class="ct-item-meta">${t.due_at ? "Due " + fmtDate(t.due_at) : ""}</div></div>
+                ${t.status === "done" ? "✓" : `<button class="ct-mini" data-done="${esc(t.id)}">Complete</button>`}
+              </div>`).join("") : '<p class="ct-meta">No tasks</p>'}</div>
+            <div class="ct-row" style="margin-top:10px"><input id="ct-task-input" placeholder="New task (e.g. Send LinkedIn message)" /><button class="ct-mini" id="ct-task-add">Add</button></div>
+          </div>
+          <div class="ct-sec">
+            <h3>Notes</h3>
+            <div id="ct-notes">${notes.length ? notes.map((n) => `<div class="ct-item">${esc(n.body)}<div class="ct-item-meta">${esc(n.author || "")} · ${fmtDate(n.created_at)}</div></div>`).join("") : '<p class="ct-meta">No notes</p>'}</div>
+            <div class="ct-row" style="margin-top:10px"><textarea id="ct-note-input" rows="2" placeholder="Add a note"></textarea></div>
+            <button class="ct-mini" id="ct-note-add" style="margin-top:8px">Add note</button>
           </div>
         </div>
-        <div class="ct-sec">
-          <h3>Purchased</h3>
-          ${orders.length ? orders.map((o) => `<div class="ct-item">${esc(o.pack_title || "Pack")}<div class="ct-item-meta">${gbp(o.amount_pence)}${o.status && o.status !== "paid" ? " · " + esc(o.status) : ""} · ${fmtDate(o.created_at)}</div></div>`).join("") : '<p class="ct-meta">No purchases</p>'}
-        </div>
-        <div class="ct-sec">
-          <h3>Booked</h3>
-          ${bookings.length ? bookings.map((b) => `<div class="ct-item">${esc(b.label)}<div class="ct-item-meta">${b.when ? fmtDate(b.when) : "—"}${b.stage ? " · " + esc(b.stage) : ""}</div></div>`).join("") : '<p class="ct-meta">No bookings</p>'}
-        </div>
-        <div class="ct-sec">
-          <h3>Details</h3>
-          <p class="ct-meta">
-            <span>Company:</span> ${esc(c.company || "—")}<br>
-            <span>Phone:</span> ${esc(c.phone || "—")}<br>
-            <span>Source:</span> ${esc(humanizeSource(c.source))}<br>
-            <span>Marketing opt-in:</span> ${c.marketing_opt_in ? "Yes" : "No"}
-          </p>
-          <div class="ct-row" style="margin-top:10px">
-            <select id="ct-life-sel">${["lead","customer","member","past"].map((l) => `<option value="${l}" ${c.lifecycle === l ? "selected" : ""}>${l}</option>`).join("")}</select>
-            <label class="ct-toggle"><input type="checkbox" id="ct-dnd" ${c.dnd ? "checked" : ""}/> Do-not-contact</label>
+        <div class="ct-tabpanel" data-panel="purchases"${activeTab !== "purchases" ? " hidden" : ""}>
+          <div class="ct-sec">
+            <h3>Purchased</h3>
+            ${orders.length ? orders.map((o) => `<div class="ct-item">${esc(o.pack_title || "Pack")}<div class="ct-item-meta">${gbp(o.amount_pence)}${o.status && o.status !== "paid" ? " · " + esc(o.status) : ""} · ${fmtDate(o.created_at)}</div></div>`).join("") : '<p class="ct-meta">No purchases</p>'}
+          </div>
+          <div class="ct-sec">
+            <h3>Booked</h3>
+            ${bookings.length ? bookings.map((b) => `<div class="ct-item">${esc(b.label)}<div class="ct-item-meta">${b.when ? fmtDate(b.when) : "—"}${b.stage ? " · " + esc(b.stage) : ""}</div></div>`).join("") : '<p class="ct-meta">No bookings</p>'}
           </div>
         </div>
-        <div class="ct-sec">
-          <h3>Tags</h3>
-          <div class="ct-chips" id="ct-tags">${(c.tags || []).map((t) => `<span class="ct-chip">${esc(t)}<button data-untag="${esc(t)}" title="Remove">&times;</button></span>`).join("") || '<span class="ct-meta">No tags</span>'}</div>
-          <div class="ct-row" style="margin-top:10px">
-            <select id="ct-tag-input"><option value="">Add a tag…</option>${TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("")}</select>
-            <button class="ct-mini" id="ct-tag-add">Add</button>
+        <div class="ct-tabpanel" data-panel="activity"${activeTab !== "activity" ? " hidden" : ""}>
+          <div class="ct-sec">
+            <h3>Activity</h3>
+            <div class="ct-timeline">${activity && activity.length ? activity.map((a) => `<div class="ct-tl-item"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
           </div>
-        </div>
-        <div class="ct-sec">
-          <h3>Tasks</h3>
-          <div id="ct-tasks">${tasks.length ? tasks.map((t) => `
-            <div class="ct-item ct-task ${t.status === "done" ? "done" : ""}">
-              <div>${esc(t.title)}<div class="ct-item-meta">${t.due_at ? "Due " + fmtDate(t.due_at) : ""}</div></div>
-              ${t.status === "done" ? "✓" : `<button class="ct-mini" data-done="${esc(t.id)}">Complete</button>`}
-            </div>`).join("") : '<p class="ct-meta">No tasks</p>'}</div>
-          <div class="ct-row" style="margin-top:10px"><input id="ct-task-input" placeholder="New task (e.g. Send LinkedIn message)" /><button class="ct-mini" id="ct-task-add">Add</button></div>
-        </div>
-        <div class="ct-sec">
-          <h3>Notes</h3>
-          <div id="ct-notes">${notes.length ? notes.map((n) => `<div class="ct-item">${esc(n.body)}<div class="ct-item-meta">${esc(n.author || "")} · ${fmtDate(n.created_at)}</div></div>`).join("") : '<p class="ct-meta">No notes</p>'}</div>
-          <div class="ct-row" style="margin-top:10px"><textarea id="ct-note-input" rows="2" placeholder="Add a note"></textarea></div>
-          <button class="ct-mini" id="ct-note-add" style="margin-top:8px">Add note</button>
-        </div>
-        <div class="ct-sec">
-          <h3>Activity</h3>
-          <div class="ct-timeline">${activity && activity.length ? activity.map((a) => `<div class="ct-tl-item"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
         </div>`;
       wireDrawer(notes, tasks);
     }
@@ -397,6 +496,61 @@ import "../../styles/admin.css";
       const b = e.target.closest("[data-seg]"); if (!b) return;
       seg = b.getAttribute("data-seg");
       $("ct-chips").querySelectorAll("[data-seg]").forEach((x) => x.classList.toggle("is-active", x === b));
+      render();
+    });
+
+    // ---- Tag filter (multi-select dropdown; matches any selected tag) ----
+    function syncTagPill() {
+      const n = selectedTags.size, nb = $("ct-tagfilter-n");
+      nb.hidden = n === 0; nb.textContent = n;
+      $("ct-tagfilter-btn").classList.toggle("is-on", n > 0);
+    }
+    function buildTagMenu() {
+      const menu = $("ct-tagfilter-menu");
+      const tags = Array.from(new Set(ALL.flatMap((c) => c.tags || []))).sort((a, b) => a.localeCompare(b));
+      if (!tags.length) { menu.innerHTML = `<p class="ct-tagfilter-empty">No tags on any contacts yet.</p>`; return; }
+      menu.innerHTML = tags.map((t) => `<label class="ct-tagfilter-opt"><input type="checkbox" value="${esc(t)}" ${selectedTags.has(t) ? "checked" : ""}/> ${esc(t)}</label>`).join("")
+        + `<div class="ct-tagfilter-foot"><button type="button" class="ct-tagfilter-clear" id="ct-tagfilter-clear">Clear tags</button></div>`;
+      menu.querySelectorAll('input[type="checkbox"]').forEach((cb) => cb.addEventListener("change", () => {
+        if (cb.checked) selectedTags.add(cb.value); else selectedTags.delete(cb.value);
+        syncTagPill(); render();
+      }));
+      const clr = document.getElementById("ct-tagfilter-clear");
+      if (clr) clr.addEventListener("click", () => { selectedTags.clear(); buildTagMenu(); syncTagPill(); render(); });
+    }
+    $("ct-tagfilter-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const menu = $("ct-tagfilter-menu"), willOpen = menu.hidden;
+      if (willOpen) buildTagMenu();
+      menu.hidden = !willOpen;
+      $("ct-tagfilter-btn").setAttribute("aria-expanded", String(willOpen));
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("#ct-tagfilter")) { $("ct-tagfilter-menu").hidden = true; $("ct-tagfilter-btn").setAttribute("aria-expanded", "false"); }
+    });
+
+    // ---- Bulk select + delete ----
+    $("ct-check-all").addEventListener("change", (e) => {
+      const on = e.target.checked, rows = getFiltered();
+      rows.forEach((c) => { if (on) selectedIds.add(c.id); else selectedIds.delete(c.id); });
+      $("ct-rows").querySelectorAll(".ct-row-check").forEach((cb) => { cb.checked = on; });
+      syncSelection(rows);
+    });
+    $("ct-bulk-clear").addEventListener("click", () => {
+      selectedIds.clear();
+      $("ct-rows").querySelectorAll(".ct-row-check").forEach((cb) => { cb.checked = false; });
+      syncSelection();
+    });
+    $("ct-bulk-del").addEventListener("click", async () => {
+      const ids = Array.from(selectedIds);
+      if (!ids.length) return;
+      if (!confirm(`Delete ${ids.length} contact${ids.length === 1 ? "" : "s"}? This can't be undone.`)) return;
+      const btn = $("ct-bulk-del"); btn.disabled = true; btn.textContent = "Deleting…";
+      const { error } = await supabase.from("contacts").delete().in("id", ids);
+      btn.disabled = false; btn.textContent = "Delete selected";
+      if (error) { alert("Couldn't delete those contacts: " + error.message); return; }
+      ALL = ALL.filter((c) => !selectedIds.has(c.id));
+      selectedIds.clear();
       render();
     });
 
