@@ -411,10 +411,12 @@ function escapeHtml(s) {
 // starts a new paragraph; a single newline is a line break. Inline HTML the user
 // writes (e.g. <strong>, <a>) is passed through — this is an admin-only tool used
 // by trusted staff, so we don't escape their copy (matches the source CRM).
-function plainToHtml(text) {
+function plainToHtml(text, gap = 12) {
   const paras = String(text || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   if (!paras.length) return '';
-  return paras.map((p) => `<p style="margin:0 0 12px;">${p.replace(/\n/g, '<br />')}</p>`).join('');
+  const g = Math.max(0, Math.round(Number(gap) || 0));
+  const mb = g > 0 ? `0 0 ${g}px` : '0';
+  return paras.map((p) => `<p style="margin:${mb};">${p.replace(/\n/g, '<br />')}</p>`).join('');
 }
 
 /* ───────────────────────── per-block renderers ───────────────────────── */
@@ -429,7 +431,8 @@ function renderHeading(block, ctx) {
 function renderText(block, ctx) {
   // block.html holds rich content (bold/italic/underline/bullets from the inline
   // toolbar); plain text falls back to auto-paragraphing.
-  const src = block.html != null && block.html !== '' ? normalizeRichHtml(block.html) : plainToHtml(block.text || '');
+  const gap = resolveParaGap(block);
+  const src = block.html != null && block.html !== '' ? normalizeRichHtml(block.html, gap) : plainToHtml(block.text || '', gap);
   const inner = renderTokens(src, ctx);
   if (!inner) return '';
   const cls = hasMobileOverrides(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
@@ -445,23 +448,33 @@ function renderText(block, ctx) {
  * line height. Blank lines the user typed still show as empty <p>/<div> gaps.
  * Shared by the renderer and the editor canvas so preview matches the send.
  */
-export function normalizeRichHtml(html) {
+export function normalizeRichHtml(html, gap = 0) {
   if (html == null) return '';
-  return String(html).replace(/<(p|div)((?:\s[^>]*)?)>/gi, (m, tag, attrs) => {
-    let a = attrs || '';
-    if (/style\s*=\s*"/i.test(a)) {
-      a = a.replace(/style\s*=\s*"([^"]*)"/i, (sm, css) => {
-        const cleaned = css
-          .replace(/(?:^|;)\s*margin(?:-top|-bottom|-left|-right)?\s*:[^;]*/gi, '')
-          .replace(/(?:^|;)\s*line-height\s*:[^;]*/gi, '')
-          .replace(/;+/g, ';').replace(/^;|;$/g, '').trim();
-        return `style="margin:0;${cleaned ? cleaned + ';' : ''}"`;
-      });
-    } else {
-      a = `${a} style="margin:0;"`;
-    }
-    return `<${tag}${a}>`;
-  });
+  const g = Math.max(0, Math.round(Number(gap) || 0));
+  const mb = g > 0 ? `0 0 ${g}px` : '0';
+  return String(html)
+    // Drop empty blank-line paragraphs — spacing comes from the gap, so a
+    // double-Enter doesn't stack an extra empty line on top of it.
+    .replace(/<(p|div)\b[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi, '')
+    .replace(/<(p|div)((?:\s[^>]*)?)>/gi, (m, tag, attrs) => {
+      let a = attrs || '';
+      if (/style\s*=\s*"/i.test(a)) {
+        a = a.replace(/style\s*=\s*"([^"]*)"/i, (sm, css) => {
+          const cleaned = css
+            .replace(/(?:^|;)\s*margin(?:-top|-bottom|-left|-right)?\s*:[^;]*/gi, '')
+            .replace(/(?:^|;)\s*line-height\s*:[^;]*/gi, '')
+            .replace(/;+/g, ';').replace(/^;|;$/g, '').trim();
+          return `style="margin:${mb};${cleaned ? cleaned + ';' : ''}"`;
+        });
+      } else {
+        a = `${a} style="margin:${mb};"`;
+      }
+      return `<${tag}${a}>`;
+    });
+}
+/** Space between paragraphs (px) for a text block. Default 12. */
+export function resolveParaGap(block) {
+  return (block && block.paraSpacing != null && block.paraSpacing !== '') ? Math.max(0, Number(block.paraSpacing)) : 12;
 }
 
 /** Inline style for an image element — shared by renderer + canvas. */
