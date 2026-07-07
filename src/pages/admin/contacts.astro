@@ -73,6 +73,7 @@ import "../../styles/admin.css";
       <button type="button" class="ct-tab" data-tab="purchases" role="tab">Purchases</button>
       <button type="button" class="ct-tab" data-tab="booked" role="tab">Booked</button>
       <button type="button" class="ct-tab" data-tab="activity" role="tab">Activity</button>
+      <button type="button" class="ct-tab" data-tab="notes" role="tab">Notes</button>
     </nav>
     <div class="ct-drawer-body" id="ct-drawer-body"><!-- filled by JS --></div>
   </aside>
@@ -164,7 +165,7 @@ import "../../styles/admin.css";
     .ct-drawer-x { border: 0; background: none; font-size: 24px; color: rgba(28,29,34,0.4); cursor: pointer; line-height: 1; }
     .ct-drawer-body { padding: 18px 24px 60px; display: flex; flex-direction: column; gap: 20px; }
     .ct-sec h3 { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 10px; }
-    .ct-meta { font-family: var(--sans); font-size: 13.5px; color: var(--ink); line-height: 1.7; }
+    .ct-meta { font-family: var(--sans); font-size: 13.5px; color: var(--ink); line-height: 1.55; }
     .ct-meta span { color: rgba(28,29,34,0.5); }
     .ct-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     .ct-chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--sans); font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
@@ -213,8 +214,16 @@ import "../../styles/admin.css";
     .ct-tab:hover { color: var(--ink); }
     .ct-tab.is-active { color: var(--english-violet); }
     .ct-tab.is-active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--english-violet); }
-    .ct-tabpanel { display: flex; flex-direction: column; gap: 22px; }
+    .ct-tabpanel { display: flex; flex-direction: column; gap: 0; }
     .ct-tabpanel[hidden] { display: none; }
+    /* Sections separated by a hairline rule for a clearer, scannable read. */
+    .ct-tabpanel .ct-sec { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(28,29,34,0.09); }
+    .ct-tabpanel .ct-sec:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+    /* Details as a tidy label/value list (consistent row spacing). */
+    .ct-dl { display: flex; flex-direction: column; gap: 9px; margin: 0; }
+    .ct-dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-family: var(--sans); font-size: 13.5px; line-height: 1.4; }
+    .ct-dl dt { color: rgba(28,29,34,0.5); flex: none; }
+    .ct-dl dd { color: var(--ink); margin: 0; text-align: right; min-width: 0; word-break: break-word; }
   </style>
 
   <script>
@@ -416,13 +425,13 @@ import "../../styles/admin.css";
           </div>
           <div class="ct-sec">
             <h3>Details</h3>
-            <p class="ct-meta">
-              <span>Company:</span> ${esc(c.company || "—")}<br>
-              <span>Phone:</span> ${esc(c.phone || "—")}<br>
-              <span>Source:</span> ${esc(humanizeSource(c.source))}<br>
-              <span>Marketing opt-in:</span> ${c.marketing_opt_in ? "Yes" : "No"}
-            </p>
-            <div class="ct-row" style="margin-top:10px">
+            <dl class="ct-dl">
+              <div><dt>Company</dt><dd>${esc(c.company || "—")}</dd></div>
+              <div><dt>Phone</dt><dd>${esc(c.phone || "—")}</dd></div>
+              <div><dt>Source</dt><dd>${esc(humanizeSource(c.source))}</dd></div>
+              <div><dt>Marketing opt-in</dt><dd>${c.marketing_opt_in ? "Yes" : "No"}</dd></div>
+            </dl>
+            <div class="ct-row" style="margin-top:14px">
               <select id="ct-life-sel">${["lead","customer","member","past"].map((l) => `<option value="${l}" ${c.lifecycle === l ? "selected" : ""}>${l}</option>`).join("")}</select>
               <label class="ct-toggle"><input type="checkbox" id="ct-dnd" ${c.dnd ? "checked" : ""}/> Do-not-contact</label>
             </div>
@@ -430,25 +439,10 @@ import "../../styles/admin.css";
           <div class="ct-sec">
             <h3>Tags</h3>
             <div class="ct-chips" id="ct-tags">${(c.tags || []).map((t) => `<span class="ct-chip">${esc(t)}<button data-untag="${esc(t)}" title="Remove">&times;</button></span>`).join("") || '<span class="ct-meta">No tags</span>'}</div>
-            <div class="ct-row" style="margin-top:10px">
+            <div class="ct-row" style="margin-top:12px">
               <select id="ct-tag-input"><option value="">Add a tag…</option>${TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("")}</select>
               <button class="ct-mini" id="ct-tag-add">Add</button>
             </div>
-          </div>
-          <div class="ct-sec">
-            <h3>Tasks</h3>
-            <div id="ct-tasks">${tasks.length ? tasks.map((t) => `
-              <div class="ct-item ct-task ${t.status === "done" ? "done" : ""}">
-                <div>${esc(t.title)}<div class="ct-item-meta">${t.due_at ? "Due " + fmtDate(t.due_at) : ""}</div></div>
-                ${t.status === "done" ? "✓" : `<button class="ct-mini" data-done="${esc(t.id)}">Complete</button>`}
-              </div>`).join("") : '<p class="ct-meta">No tasks</p>'}</div>
-            <div class="ct-row" style="margin-top:10px"><input id="ct-task-input" placeholder="New task (e.g. Send LinkedIn message)" /><button class="ct-mini" id="ct-task-add">Add</button></div>
-          </div>
-          <div class="ct-sec">
-            <h3>Notes</h3>
-            <div id="ct-notes">${notes.length ? notes.map((n) => `<div class="ct-item">${esc(n.body)}<div class="ct-item-meta">${esc(n.author || "")} · ${fmtDate(n.created_at)}</div></div>`).join("") : '<p class="ct-meta">No notes</p>'}</div>
-            <div class="ct-row" style="margin-top:10px"><textarea id="ct-note-input" rows="2" placeholder="Add a note"></textarea></div>
-            <button class="ct-mini" id="ct-note-add" style="margin-top:8px">Add note</button>
           </div>
         </div>
         <div class="ct-tabpanel" data-panel="purchases"${activeTab !== "purchases" ? " hidden" : ""}>
@@ -467,6 +461,23 @@ import "../../styles/admin.css";
           <div class="ct-sec">
             <h3>Activity</h3>
             <div class="ct-timeline">${activity && activity.length ? activity.map((a) => `<div class="ct-tl-item"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
+          </div>
+        </div>
+        <div class="ct-tabpanel" data-panel="notes"${activeTab !== "notes" ? " hidden" : ""}>
+          <div class="ct-sec">
+            <h3>Tasks</h3>
+            <div id="ct-tasks">${tasks.length ? tasks.map((t) => `
+              <div class="ct-item ct-task ${t.status === "done" ? "done" : ""}">
+                <div>${esc(t.title)}<div class="ct-item-meta">${t.due_at ? "Due " + fmtDate(t.due_at) : ""}</div></div>
+                ${t.status === "done" ? "✓" : `<button class="ct-mini" data-done="${esc(t.id)}">Complete</button>`}
+              </div>`).join("") : '<p class="ct-meta">No tasks</p>'}</div>
+            <div class="ct-row" style="margin-top:10px"><input id="ct-task-input" placeholder="New task (e.g. Send LinkedIn message)" /><button class="ct-mini" id="ct-task-add">Add</button></div>
+          </div>
+          <div class="ct-sec">
+            <h3>Notes</h3>
+            <div id="ct-notes">${notes.length ? notes.map((n) => `<div class="ct-item">${esc(n.body)}<div class="ct-item-meta">${esc(n.author || "")} · ${fmtDate(n.created_at)}</div></div>`).join("") : '<p class="ct-meta">No notes</p>'}</div>
+            <div class="ct-row" style="margin-top:10px"><textarea id="ct-note-input" rows="2" placeholder="Add a note"></textarea></div>
+            <button class="ct-mini" id="ct-note-add" style="margin-top:8px">Add note</button>
           </div>
         </div>`;
       wireDrawer(notes, tasks);
