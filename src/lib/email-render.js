@@ -429,11 +429,39 @@ function renderHeading(block, ctx) {
 function renderText(block, ctx) {
   // block.html holds rich content (bold/italic/underline/bullets from the inline
   // toolbar); plain text falls back to auto-paragraphing.
-  const src = block.html != null && block.html !== '' ? block.html : plainToHtml(block.text || '');
+  const src = block.html != null && block.html !== '' ? normalizeRichHtml(block.html) : plainToHtml(block.text || '');
   const inner = renderTokens(src, ctx);
   if (!inner) return '';
   const cls = hasMobileOverrides(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
   return `<div${cls} style="${textInlineStyle(block)}">${inner}</div>`;
+}
+
+/**
+ * A contenteditable bakes browser-default vertical margins (≈1em top+bottom)
+ * AND its own line-height into every <p>/<div> it emits. Passed through raw,
+ * that makes paragraph gaps look huge in email clients and stops the text
+ * block's own line-height taking effect. Strip inline margin + line-height off
+ * those wrappers (forcing margin:0) so the block's style controls spacing and
+ * line height. Blank lines the user typed still show as empty <p>/<div> gaps.
+ * Shared by the renderer and the editor canvas so preview matches the send.
+ */
+export function normalizeRichHtml(html) {
+  if (html == null) return '';
+  return String(html).replace(/<(p|div)((?:\s[^>]*)?)>/gi, (m, tag, attrs) => {
+    let a = attrs || '';
+    if (/style\s*=\s*"/i.test(a)) {
+      a = a.replace(/style\s*=\s*"([^"]*)"/i, (sm, css) => {
+        const cleaned = css
+          .replace(/(?:^|;)\s*margin(?:-top|-bottom|-left|-right)?\s*:[^;]*/gi, '')
+          .replace(/(?:^|;)\s*line-height\s*:[^;]*/gi, '')
+          .replace(/;+/g, ';').replace(/^;|;$/g, '').trim();
+        return `style="margin:0;${cleaned ? cleaned + ';' : ''}"`;
+      });
+    } else {
+      a = `${a} style="margin:0;"`;
+    }
+    return `<${tag}${a}>`;
+  });
 }
 
 /** Inline style for an image element — shared by renderer + canvas. */

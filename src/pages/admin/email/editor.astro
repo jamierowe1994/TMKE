@@ -288,6 +288,9 @@ import "../../../styles/admin.css";
     .cv-grip { cursor:grab; }
     .cv-edit { outline:none; }
     .cv-edit:focus { background:rgba(55,30,40,0.03); border-radius:4px; }
+    /* Kill the browser-default <p>/<div> margins so canvas spacing matches the
+       sent email (paragraph gaps come from blank lines, not 1em margins). */
+    .cv-edit p, .cv-edit div { margin-top:0; margin-bottom:0; }
     .cv-btn { display:inline-block; padding:11px 24px; color:#fff; border-radius:8px; font-family:Helvetica,Arial,sans-serif; font-size:14px; font-weight:600; }
     .cv-ph { display:flex; align-items:center; justify-content:center; min-height:120px; border:1.5px dashed rgba(28,29,34,0.2); border-radius:8px; color:rgba(28,29,34,0.45); font-family:var(--sans); font-size:13px; background:rgba(28,29,34,0.02); text-align:center; padding:12px; }
     .cv-spacer { border:1px dashed rgba(28,29,34,0.18); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:var(--sans); font-size:11px; color:rgba(28,29,34,0.4); letter-spacing:0.1em; text-transform:uppercase; }
@@ -389,7 +392,7 @@ import "../../../styles/admin.css";
       renderTemplate, renderBlock, mergeContextFor, defaultBrand,
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT, COLUMN_LAYOUTS,
       FONT_STACKS, headingInlineStyle, textInlineStyle, buttonInlineStyle, imageInlineStyle, effectiveBlock,
-      spacingDefaults, resolvePad, resolveMargin,
+      spacingDefaults, resolvePad, resolveMargin, normalizeRichHtml,
     } from "../../../lib/email-render.js";
 
     const DEV = import.meta.env.DEV;
@@ -455,8 +458,9 @@ import "../../../styles/admin.css";
         case "heading":
           return `<h1 class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="${headingInlineStyle(effectiveBlock(b, canvasDevice))}">${esc(b.text||"")}</h1>`;
         case "text": {
-          // Rich content (b.html) shows as-is; plain text keeps whitespace.
-          const content = (b.html != null && b.html !== "") ? b.html : esc(b.text||"");
+          // Rich content (b.html) — normalised so paragraph spacing + line
+          // height match the sent email; plain text keeps whitespace.
+          const content = (b.html != null && b.html !== "") ? normalizeRichHtml(b.html) : esc(b.text||"");
           const wsp = (b.html != null && b.html !== "") ? "" : "white-space:pre-wrap;";
           return `<div class="cv-edit" data-edit data-rich data-id="${b.id}" contenteditable="true" style="${textInlineStyle(effectiveBlock(b, canvasDevice))}${wsp}">${content}</div>`;
         }
