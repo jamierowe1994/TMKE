@@ -127,10 +127,41 @@ drop trigger if exists trg_touch_enrollments on public.automation_enrollments;
 create trigger trg_touch_enrollments before update on public.automation_enrollments
   for each row execute function public.touch_updated_at();
 
+-- ---- normalize_contact_tags: reconcile a contact's tags to the rules --------
+-- Consent is one state (Unsubscribed > Newsletter-Subscriber > Marketing-Not-Opted-In);
+-- SMM-Status is one value (Active > Paused > Ended); becoming a client supersedes
+-- that service's lead tags. Applied on every write (see also contact_tag_rules.sql,
+-- which carries the one-off backfill). The Worker + admin drawer mirror this in JS.
+create or replace function public.normalize_contact_tags(p_tags text[])
+returns text[] language plpgsql immutable as $$
+declare t text[];
+begin
+  t := array(select distinct x from unnest(coalesce(p_tags, '{}')) x where x is not null and btrim(x) <> '');
+  if 'Unsubscribed' = any(t) then
+    t := array(select x from unnest(t) x where x not in ('Newsletter-Subscriber', 'Marketing-Not-Opted-In'));
+  elsif 'Newsletter-Subscriber' = any(t) then
+    t := array(select x from unnest(t) x where x <> 'Marketing-Not-Opted-In');
+  end if;
+  if (select count(*) from unnest(t) x where x like 'SMM-Status:%') > 1 then
+    t := array(select x from unnest(t) x where x not like 'SMM-Status:%')
+         || (case when 'SMM-Status: Active' = any(t) then 'SMM-Status: Active'
+                  when 'SMM-Status: Paused' = any(t) then 'SMM-Status: Paused'
+                  else 'SMM-Status: Ended' end);
+  end if;
+  if exists (select 1 from unnest(t) x where x like 'SMM-Status:%') then
+    t := array(select x from unnest(t) x where x not in ('Interest: SMM', 'Discovery-Call-Booked: SMM'));
+  end if;
+  if 'Videography-Client' = any(t) then
+    t := array(select x from unnest(t) x where x not in ('Interest: Videography', 'Discovery-Call-Booked: Videography'));
+  end if;
+  return t;
+end $$;
+
 -- ---- upsert_contact: the single entry point every touchpoint calls ----------
 -- Inserts or updates a contact by email WITHOUT clobbering existing values with
--- nulls, merges in any new tags, bumps last_seen, and (optionally) promotes the
--- lifecycle. Returns the contact id. Called by the Worker with the service role.
+-- nulls, merges in any new tags (then reconciles them via normalize_contact_tags),
+-- bumps last_seen, and (optionally) promotes the lifecycle. Returns the contact
+-- id. Called by the Worker with the service role.
 create or replace function public.upsert_contact(
   p_email            text,
   p_first_name       text default null,
@@ -149,7 +180,8 @@ begin
   insert into public.contacts (email, first_name, last_name, phone, company, source, user_id,
     lifecycle, marketing_opt_in, tags, last_seen_at)
   values (lower(trim(p_email)), p_first_name, p_last_name, p_phone, p_company, p_source, p_user_id,
-    coalesce(p_lifecycle, 'lead'), coalesce(p_marketing_opt_in, false), coalesce(p_tags, '{}'), now())
+    coalesce(p_lifecycle, 'lead'), coalesce(p_marketing_opt_in, false),
+    public.normalize_contact_tags(coalesce(p_tags, '{}')), now())
   on conflict (email) do update set
     first_name       = coalesce(excluded.first_name, public.contacts.first_name),
     last_name        = coalesce(excluded.last_name,  public.contacts.last_name),
@@ -159,7 +191,7 @@ begin
     source           = coalesce(public.contacts.source, excluded.source),  -- keep the original source
     lifecycle        = coalesce(p_lifecycle, public.contacts.lifecycle),
     marketing_opt_in = public.contacts.marketing_opt_in or coalesce(p_marketing_opt_in, false),
-    tags             = (select array(select distinct unnest(public.contacts.tags || coalesce(p_tags, '{}')))),
+    tags             = public.normalize_contact_tags(public.contacts.tags || coalesce(p_tags, '{}')),
     last_seen_at     = now()
   returning id into v_id;
   return v_id;

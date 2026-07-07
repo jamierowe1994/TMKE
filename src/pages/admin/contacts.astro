@@ -251,6 +251,23 @@ import "../../styles/admin.css";
       ["Region", ["Region: Videography-Radius"]],
     ];
 
+    // Reconcile a contact's tags to the CRM rules (mirrors the Worker's
+    // normalizeTags + normalize_contact_tags in SQL — keep the three in sync).
+    function normalizeTags(tags) {
+      let t = Array.from(new Set((tags || []).map((x) => String(x || "").trim()).filter(Boolean)));
+      const has = (x) => t.includes(x);
+      const dropAll = (...xs) => { t = t.filter((v) => !xs.includes(v)); };
+      if (has("Unsubscribed")) dropAll("Newsletter-Subscriber", "Marketing-Not-Opted-In");
+      else if (has("Newsletter-Subscriber")) dropAll("Marketing-Not-Opted-In");
+      if (t.filter((v) => v.startsWith("SMM-Status:")).length > 1) {
+        const keep = has("SMM-Status: Active") ? "SMM-Status: Active" : has("SMM-Status: Paused") ? "SMM-Status: Paused" : "SMM-Status: Ended";
+        t = t.filter((v) => !v.startsWith("SMM-Status:")).concat(keep);
+      }
+      if (t.some((v) => v.startsWith("SMM-Status:"))) dropAll("Interest: SMM", "Discovery-Call-Booked: SMM");
+      if (has("Videography-Client")) dropAll("Interest: Videography", "Discovery-Call-Booked: Videography");
+      return t;
+    }
+
     let ALL = [], q = "", seg = "all", current = null;
     let selectedTags = new Set();   // tag-filter pill (multi-select)
     let selectedIds = new Set();    // bulk-select for delete
@@ -469,13 +486,13 @@ import "../../styles/admin.css";
       });
       $("ct-tag-add").addEventListener("click", async () => {
         const v = ($("ct-tag-input").value || "").trim(); if (!v) return;
-        c.tags = Array.from(new Set([...(c.tags || []), v]));
+        c.tags = normalizeTags([...(c.tags || []), v]);
         await supabase.from("contacts").update({ tags: c.tags }).eq("id", c.id);
         fire("tag_added", c, { tag: v }); openDrawer(c.id);
       });
       $("ct-tags").querySelectorAll("[data-untag]").forEach((b) => b.addEventListener("click", async () => {
         const v = b.getAttribute("data-untag");
-        c.tags = (c.tags || []).filter((t) => t !== v);
+        c.tags = normalizeTags((c.tags || []).filter((t) => t !== v));
         await supabase.from("contacts").update({ tags: c.tags }).eq("id", c.id);
         fire("tag_removed", c, { tag: v }); openDrawer(c.id);
       }));
