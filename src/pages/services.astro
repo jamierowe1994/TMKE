@@ -675,6 +675,23 @@ const total = 7;
       .sm-why-img { flex: 0 0 auto; min-height: 36vh; }
       .pf-top-links { display: none; }
     }
+
+    /* ===== MOBILE-ONLY (phones ≤600px) — slide 1 as one full section, matching
+       the About hero: dictionary copy up top, the hero photo edge-to-edge down
+       to the bottom of the screen. The separate long image that grows to full
+       screen on scroll is removed here (it looked poor on phones and forced a
+       double-scroll before the deck would advance). ===== */
+    @media (max-width: 600px) {
+      .sm-hero-pic { display: none; }
+      .sm-hero { height: 100%; display: flex; flex-direction: column; }
+      .sm-hero-header { flex: 1; display: flex; padding: 84px 22px 0; box-sizing: border-box; }
+      .sm-hero-wrap { display: flex; flex-direction: column; flex: 1; width: 100%; max-width: none; }
+      .sm-lede-grid { flex: 1; grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 20px; align-items: stretch; }
+      .sm-lede-copy { display: block; width: auto; max-width: none; }
+      .sm-lede-text { font-size: 15.5px; line-height: 1.6; max-width: none; }
+      .sm-lede-media { justify-self: stretch; display: flex; margin: 0 -22px; }
+      .sm-lede-media img { flex: 1; width: 100%; height: auto; aspect-ratio: auto; object-fit: cover; min-height: 42svh; }
+    }
   </style>
 
   <script>
@@ -725,6 +742,9 @@ const total = 7;
       const STEP = 0.5;      // extra scroll past a slide needed to advance (resistance)
       let acc = 0, display = 0, lastCur = -1, anchor = 0, lockUntil = 0;
       const clamp = (v) => Math.max(0, Math.min(last, v));
+      // Phones skip the slide-1 "grow the hero image to full screen" stage (that
+      // image is hidden on mobile), so a single swipe advances straight to slide 2.
+      const isPhone = () => window.innerWidth <= 600;
 
       // Slide-1 long image: heroP (target, 0→1) eases to heroDisp; the image's
       // inset grows from the rest box (inset like About's photos) to full-bleed,
@@ -819,8 +839,9 @@ const total = 7;
         if (portfolioOpen) return;
         const d = Math.abs(ev.deltaY) >= Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
         // Slide 1: scroll first raises the long image to a full-page image; only
-        // once it's full does a further scroll advance the deck across.
-        if (Math.round(anchor) === 0) {
+        // once it's full does a further scroll advance the deck across. (Skipped
+        // on phones — the long image is hidden, so scroll advances immediately.)
+        if (!isPhone() && Math.round(anchor) === 0) {
           if (d > 0 && heroP < 1) { ev.preventDefault(); heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
           if (d < 0 && heroP > 0) { ev.preventDefault(); heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
         }
@@ -850,7 +871,8 @@ const total = 7;
         const t = ev.touches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
         const dom = Math.abs(dx) > Math.abs(dy) ? dx : dy;
         // Slide 1: a drag raises the long image to full-page first (then advance).
-        if (Math.round(anchor) === 0) {
+        // Skipped on phones — one swipe advances straight to slide 2.
+        if (!isPhone() && Math.round(anchor) === 0) {
           const np = Math.max(0, Math.min(1, thp - dom * 0.0024));
           heroP = np;
           if (np >= 1 && dom < 0) acc = clamp(Math.round(anchor) + 1);
