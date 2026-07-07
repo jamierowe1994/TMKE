@@ -422,8 +422,26 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         });
       };
       update();
-      if (lenis && typeof lenis.on === "function") lenis.on("scroll", update);
-      else window.addEventListener("scroll", update, { passive: true });
+      // Drive the scrub from a rAF loop (sampling scroll position every frame)
+      // rather than from scroll events. On iOS, scroll events fire only sparsely
+      // during momentum scrolling, which made this reveal stutter and land "at
+      // bad times"; a per-frame loop keeps it as fluid as the rest of the page.
+      // An IntersectionObserver starts/stops the loop so it costs nothing when
+      // the gallery is off-screen.
+      let running = false, rafId = 0;
+      const tick = () => { update(); rafId = requestAnimationFrame(tick); };
+      const start = () => { if (running) return; running = true; tick(); };
+      const stop = () => { running = false; if (rafId) cancelAnimationFrame(rafId); };
+      if ("IntersectionObserver" in window) {
+        const io = new IntersectionObserver(function (entries) {
+          if (entries[0].isIntersecting) start(); else stop();
+        }, { rootMargin: "50% 0px 50% 0px" });
+        io.observe(section);
+      } else if (lenis && typeof lenis.on === "function") {
+        lenis.on("scroll", update);
+      } else {
+        window.addEventListener("scroll", update, { passive: true });
+      }
       window.addEventListener("resize", update, { passive: true });
     })();
   </script>
