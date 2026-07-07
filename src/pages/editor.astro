@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../components/account/WorkspaceHeader.astro";
 import AskExpert from "../components/AskExpert.astro";
 import ShopModal from "../components/ShopModal.astro";
 import "../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
@@ -127,21 +128,25 @@ const googleFonts = [
        start: a blank canvas (pick a size), a pack you own, or one of your saved
        designs — plus a footer CTA to browse more in The Edit. -->
   <div class="ed-onboard" id="ed-onboard">
-    <header class="ed-ob-top">
-      <a href="/" class="ed-ob-logo">TMKE <em>Studio</em></a>
-      <a href="/account" class="ed-ob-back" id="ed-onboard-back" aria-label="Back to your workspace">
-        <span aria-hidden="true">&larr;</span> Workspace
-      </a>
-    </header>
+    <WorkspaceHeader active="studio" />
 
     <div class="ed-ob-scroll" id="ed-ob-scroll">
       <div class="ed-onboard-inner">
 
         <!-- ===== HOME — choose how to start ===== -->
         <section class="ed-ob-view" id="ed-ob-home">
-          <div class="ed-onboard-eyebrow">Welcome to the Studio</div>
-          <h1 class="ed-onboard-title">Start a <em>design.</em></h1>
-          <p class="ed-onboard-sub">Pick up where you left off, open a template from a pack you own, or begin from a blank canvas.</p>
+          <!-- Hero mirrors the Orders / Bookings .dash-hero: eyebrow + title pin
+               to the image top, the sub pins to its base. -->
+          <section class="ed-ob-hero">
+            <div class="ed-ob-hero-copy">
+              <div class="ed-ob-hero-top">
+                <p class="ed-ob-hero-eyebrow"><a href="/account" class="ed-ob-backlink" id="ed-onboard-back"><span aria-hidden="true">&larr;</span> Workspace</a></p>
+                <h1 class="ed-ob-h">Start a <em>Design.</em></h1>
+              </div>
+              <p class="ed-ob-hero-sub">Pick up where you left off, open a template from a pack you own, or begin from a blank canvas.</p>
+            </div>
+            <figure class="ed-ob-hero-media"><img src="/assets/home%20kitchen.jpg" alt="" loading="eager" /></figure>
+          </section>
 
           <div class="ed-ob-choices">
             <button type="button" class="ed-ob-choice" data-go="fresh">
@@ -161,6 +166,14 @@ const googleFonts = [
             </button>
           </div>
 
+          <!-- Your packs (above your designs in the hierarchy) -->
+          <section class="ed-ob-sec" id="ed-ob-packs-sec">
+            <div class="ed-ob-sec-head"><h2 class="ed-ob-sec-h">Your packs</h2></div>
+            <div class="ed-onboard-loading" id="ed-onboard-loading">Loading your packs…</div>
+            <div class="ed-ob-grid ed-onboard-grid" id="ed-onboard-grid" hidden></div>
+            <div class="ed-onboard-error ed-ob-empty" id="ed-onboard-error" hidden></div>
+          </section>
+
           <!-- Your saved designs -->
           <section class="ed-ob-sec" id="ed-ob-designs-sec">
             <div class="ed-ob-sec-head"><h2 class="ed-ob-sec-h">Your designs</h2></div>
@@ -169,21 +182,13 @@ const googleFonts = [
             <div class="ed-ob-empty" id="ed-ob-designs-empty" hidden></div>
           </section>
 
-          <!-- Your packs -->
-          <section class="ed-ob-sec" id="ed-ob-packs-sec">
-            <div class="ed-ob-sec-head"><h2 class="ed-ob-sec-h">Your packs</h2></div>
-            <div class="ed-onboard-loading" id="ed-onboard-loading">Loading your packs…</div>
-            <div class="ed-ob-grid ed-onboard-grid" id="ed-onboard-grid" hidden></div>
-            <div class="ed-onboard-error ed-ob-empty" id="ed-onboard-error" hidden></div>
-          </section>
-
           <!-- Footer CTA -->
           <div class="ed-ob-cta">
             <div class="ed-ob-cta-tx">
               <strong>Need more to work with?</strong>
               <span>Browse The Edit for more design packs and ready-made templates.</span>
             </div>
-            <a class="ed-ob-cta-btn" href="/edit" data-shop>Browse The Edit <em>&rarr;</em></a>
+            <a class="ed-ob-cta-btn" href="/edit" data-shop>Browse The Edit <span class="btn-arrow" aria-hidden="true">&rarr;</span></a>
           </div>
         </section>
 
@@ -193,7 +198,7 @@ const googleFonts = [
             <span aria-hidden="true">&larr;</span> Back
           </button>
           <div class="ed-onboard-eyebrow">Blank canvas</div>
-          <h1 class="ed-onboard-title">Pick a <em>size.</em></h1>
+          <h1 class="ed-onboard-title">Pick a size</h1>
           <p class="ed-onboard-sub">Choose a format to start — you can resize any design later from the Resize panel.</p>
           <div class="ed-ob-sizes" id="ed-ob-sizes"></div>
         </section>
@@ -925,12 +930,7 @@ const googleFonts = [
        panels read as bright and airy. Scoped to .editor-light, so the admin
        authoring studio (?mode=admin, no class) keeps its current look. ===== */
     html.editor-light .editor { background: #f4f3f1; }
-    html.editor-light .ed-onboard {
-      background:
-        radial-gradient(70% 55% at 0% 0%, rgba(126,103,101,0.10), transparent 52%),
-        radial-gradient(75% 60% at 100% 0%, rgba(126,103,101,0.16), transparent 55%),
-        linear-gradient(150deg, #efeaf6 0%, #edeff8 46%, #f4f2f1 100%);
-    }
+    html.editor-light .ed-onboard { background: var(--paper); }
     /* A touch more lift on the canvas so it floats cleanly on the lighter desk. */
     html.editor-light .ed-canvas-shadow {
       box-shadow: 0 1px 2px rgba(28,29,34,0.06), 0 30px 60px -34px rgba(28,29,34,0.28), 0 12px 30px -24px rgba(28,29,34,0.18);
@@ -3237,144 +3237,62 @@ const googleFonts = [
     .editor.show-panel .ed-panel  { transform: none; opacity: 1; }
 
     /* ============ Studio start screen ============
-       Branded, single-scroll launcher (customer mode). A slim hub top bar and a
-       centered column that scrolls — this fixes the old collapsed / cut-off
-       layout. Uses the members-hub tokens (paper, brand purple, serif). */
+       Branded, single-scroll launcher (customer mode). The real members-area
+       header (WorkspaceHeader) sits flush on top; below it a centred column
+       scrolls. Matches the dashboard: warm paper ground, white cards, hairline
+       borders, 12px corners, wine accent used sparingly. */
     .ed-onboard {
       position: fixed; inset: 0;
       z-index: 200;
       display: flex; flex-direction: column;
-      background:
-        radial-gradient(70% 55% at 0% 0%, rgba(126,103,101,0.12), transparent 52%),
-        radial-gradient(75% 60% at 100% 0%, rgba(126,103,101,0.18), transparent 55%),
-        linear-gradient(150deg, #efeaf6 0%, #edeff8 46%, #f4f2f1 100%);
+      background: var(--paper);
       opacity: 1;
       transition: opacity 0.45s ease-out, transform 0.55s cubic-bezier(.7,0,.3,1);
     }
     .ed-onboard.is-leaving { opacity: 0; transform: translateY(-30px); pointer-events: none; }
     .ed-onboard.is-gone { display: none; }
+    /* The hub nav sits at the top of the flex column, on white. */
+    .ed-onboard > .ws-nav { flex: 0 0 auto; background: #fff; border-bottom: 1px solid rgba(28,29,34,0.13); }
 
-    /* Slim hub top bar */
-    .ed-ob-top {
-      flex: 0 0 auto;
-      display: flex; align-items: center; justify-content: space-between; gap: 18px;
-      padding: 16px clamp(20px, 4vw, 48px);
-      border-bottom: 1px solid rgba(var(--violet-rgb), 0.12);
-      background: rgba(255,255,255,0.5);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    }
-    .ed-ob-logo { font-family: var(--serif); font-size: 21px; letter-spacing: 0.04em; color: var(--ink); text-decoration: none; line-height: 1; }
-    .ed-ob-logo em { font-style: italic; color: var(--english-violet); }
-    .ed-ob-back {
-      display: inline-flex; align-items: center; gap: 7px;
-      font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.22em; text-transform: uppercase;
-      color: var(--english-violet); text-decoration: none;
-      padding: 9px 16px; border-radius: 12px;
-      border: 1px solid rgba(var(--violet-rgb), 0.22);
-      background: rgba(255,255,255,0.6);
-      transition: background 0.25s, color 0.25s, transform 0.25s;
-    }
-    .ed-ob-back:hover { background: var(--english-violet); color: var(--paper); transform: translateX(-2px); }
-
-    /* Scroll region — the fix for "won't scroll / bits cut off" */
-    .ed-ob-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: clamp(28px, 5vh, 60px) clamp(20px, 5vw, 72px) 96px; }
-    .ed-onboard-inner { width: 100%; max-width: 1120px; margin: 0 auto; animation: edOnboardIn 0.6s 0.04s cubic-bezier(.2,.75,.2,1) backwards; }
+    /* Scroll region — the fix for "won't scroll / bits cut off". */
+    .ed-ob-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: clamp(20px, 3vh, 40px) clamp(20px, 5vw, 60px) 88px; }
+    .ed-onboard-inner { width: 100%; max-width: 1180px; margin: 0 auto; animation: edOnboardIn 0.6s 0.04s cubic-bezier(.2,.75,.2,1) backwards; }
     @keyframes edOnboardIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     .ed-ob-view[hidden] { display: none; }
-    .ed-onboard-eyebrow {
-      display: inline-block;
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--violet-deep);
-      background: rgba(255, 255, 255, 0.55);
-      border: 1px solid rgba(var(--violet-rgb), 0.18);
-      padding: 6px 12px;
-      border-radius: 999px;
-      margin-bottom: 20px;
+
+    /* ---- Hero: mirrors the Orders / Bookings .dash-hero exactly ---- */
+    .ed-ob-hero { display: grid; grid-template-columns: 1fr auto; gap: clamp(28px,5vw,72px); align-items: stretch; margin: clamp(12px,2vh,20px) 0 clamp(26px,4vh,44px); }
+    .ed-ob-hero-copy { max-width: 540px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+    .ed-ob-hero-top { display: flex; flex-direction: column; gap: 6px; }
+    .ed-ob-hero-eyebrow { margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(28,29,34,0.64); }
+    .ed-ob-backlink { color: rgba(28,29,34,0.64); text-decoration: none; font-weight: 700; letter-spacing: 0.28em; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s, transform 0.2s; }
+    .ed-ob-backlink:hover { color: var(--english-violet); transform: translateX(-2px); }
+    .ed-ob-h { font-family: var(--serif); font-weight: 500; font-size: clamp(40px,5vw,66px); line-height: 1.02; letter-spacing: -0.02em; margin: 0; color: var(--english-violet); }
+    .ed-ob-h em { font-style: normal; color: var(--english-violet); }
+    .ed-ob-hero-sub { margin: 4px 0 0; font-family: var(--sans); font-size: 17px; line-height: 1.55; color: rgba(28,29,34,0.64); }
+    .ed-ob-hero-media { margin: 0; justify-self: end; }
+    .ed-ob-hero-media img { display: block; height: clamp(240px,30vh,320px); width: auto; aspect-ratio: 3/4; object-fit: cover; border-radius: 4px; background: var(--platinum); }
+    @media (max-width: 860px) {
+      .ed-ob-hero { grid-template-columns: 1fr; gap: 22px; }
+      .ed-ob-hero-media { justify-self: stretch; order: -1; }
+      .ed-ob-hero-media img { width: 100%; height: auto; aspect-ratio: 16/10; }
     }
-    .ed-onboard-title {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(40px, 5vw, 78px);
-      line-height: 1.02;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-      margin: 0 0 18px;
-      max-width: 16ch;
-    }
-    .ed-onboard-title em { font-style: italic; color: var(--english-violet); }
-    .ed-onboard-sub {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(18px, 1.4vw, 22px);
-      color: rgba(28,29,34,0.65);
-      max-width: 620px;
-      margin: 0 0 40px;
-      line-height: 1.5;
-    }
-    .ed-onboard-loading,
-    .ed-onboard-error {
-      font-family: var(--sans);
-      font-size: 14px;
-      color: rgba(28,29,34,0.55);
-      padding: 28px 0;
-    }
-    .ed-onboard-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 18px;
-      margin-bottom: 36px;
-    }
-    .ed-onboard-card {
-      appearance: none;
-      background: rgba(255,255,255,0.72);
-      backdrop-filter: blur(12px) saturate(1.2);
-      -webkit-backdrop-filter: blur(12px) saturate(1.2);
-      border: 1px solid rgba(var(--violet-rgb),0.16);
-      border-radius: 14px;
-      padding: 0;
-      cursor: pointer;
-      text-align: left;
-      overflow: hidden;
-      box-shadow: 0 14px 34px -22px rgba(var(--violet-rgb),0.4);
-      transition: transform 0.45s cubic-bezier(.2,.7,.2,1), border-color 0.3s, box-shadow 0.4s;
-      display: flex; flex-direction: column;
-    }
-    .ed-onboard-card:hover {
-      transform: translateY(-3px);
-      border-color: var(--english-violet);
-      box-shadow: 0 18px 40px -22px rgba(28,29,34,0.35);
-    }
-    .ed-onboard-card-cover {
-      aspect-ratio: 4 / 3;
-      background-color: var(--platinum);
-      background-size: cover;
-      background-position: center;
-    }
-    .ed-onboard-card-body {
-      padding: 14px 16px 16px;
-      display: flex; flex-direction: column; gap: 4px;
-    }
-    .ed-onboard-card-cat {
-      font-family: var(--sans);
-      font-size: 10px;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--english-violet);
-    }
-    .ed-onboard-card-title {
-      font-family: var(--serif);
-      font-size: 22px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      color: var(--ink);
-      margin: 0;
-    }
+    /* Compact headers for the size / pack sub-views (no pill, no italic). */
+    .ed-onboard-eyebrow { display: block; font-family: var(--sans); font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.5); margin-bottom: 8px; }
+    .ed-onboard-title { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 2.4vw, 36px); line-height: 1.05; letter-spacing: -0.02em; color: var(--english-violet); margin: 0 0 8px; }
+    .ed-onboard-title em { font-style: normal; color: var(--english-violet); }
+    .ed-onboard-sub { font-family: var(--sans); font-style: normal; font-size: 15px; color: rgba(28,29,34,0.64); max-width: 56ch; margin: 0 0 26px; line-height: 1.55; }
+    .ed-onboard-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.5); padding: 18px 0; }
+    .ed-ob-empty, .ed-onboard-error { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 6px 0 2px; }
+    .ed-ob-empty a, .ed-onboard-error a { color: var(--english-violet); text-decoration: underline; }
+
+    /* ---- Cards (dashboard style: bordered image, sans name + meta below) ---- */
+    .ed-onboard-card { appearance: none; cursor: pointer; text-align: left; text-decoration: none; background: none; border: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+    .ed-onboard-card-cover { aspect-ratio: 4 / 5; border-radius: 12px; background-color: var(--platinum); background-size: cover; background-position: center; border: 1px solid rgba(28,29,34,0.13); transition: transform 0.28s, box-shadow 0.28s; }
+    .ed-onboard-card:hover .ed-onboard-card-cover { transform: translateY(-3px); box-shadow: 0 22px 38px -24px rgba(28,29,34,0.42); }
+    .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; padding: 0; }
+    .ed-onboard-card-title { font-family: var(--sans); font-size: 13.5px; font-weight: 600; letter-spacing: 0; color: var(--ink); margin: 0; line-height: 1.2; }
+    .ed-onboard-card-cat { font-family: var(--sans); font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.46); }
     /* "Need more packs?" side cell — sits under the owned packs and teases a
        couple the user hasn't bought, linking through to the shop. */
     .ed-onboard-more {
@@ -3491,80 +3409,45 @@ const googleFonts = [
       color: var(--english-violet); cursor: pointer; text-decoration: underline;
     }
 
-    /* ===== Start-screen components (new launcher) ===== */
-    /* Trim the hero title a touch now it sits in a scrolling column. */
-    .ed-onboard-inner .ed-onboard-title { font-size: clamp(34px, 4.2vw, 58px); margin-bottom: 14px; max-width: 18ch; }
-    .ed-onboard-inner .ed-onboard-sub { font-size: clamp(17px, 1.3vw, 21px); margin-bottom: 30px; }
-    .ed-ob-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 6px 0 2px; }
-    .ed-ob-empty a, .ed-onboard-error a { color: var(--english-violet); text-decoration: underline; }
-
-    /* Three starting choices */
-    .ed-ob-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 4px 0 8px; }
-    .ed-ob-choice {
-      appearance: none; cursor: pointer; text-align: left;
-      display: flex; align-items: center; gap: 15px; padding: 18px 20px;
-      border-radius: 16px; border: 1px solid rgba(var(--violet-rgb),0.16);
-      background: rgba(255,255,255,0.74);
-      backdrop-filter: blur(12px) saturate(1.2); -webkit-backdrop-filter: blur(12px) saturate(1.2);
-      box-shadow: 0 14px 34px -24px rgba(var(--violet-rgb),0.4);
-      transition: transform 0.3s cubic-bezier(.2,.7,.2,1), border-color 0.25s, box-shadow 0.3s;
-    }
-    .ed-ob-choice:hover { transform: translateY(-3px); border-color: var(--english-violet); box-shadow: 0 22px 44px -24px rgba(var(--violet-rgb),0.5); }
-    .ed-ob-choice-ic { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--english-violet); background: color-mix(in srgb, var(--english-violet) 10%, #fff); }
-    .ed-ob-choice-ic svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-    .ed-ob-choice-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-    .ed-ob-choice-tx strong { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; }
-    .ed-ob-choice-tx span { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); line-height: 1.35; }
-    .ed-ob-choice-arrow { margin-left: auto; color: var(--english-violet); font-size: 18px; opacity: 0; transform: translateX(-4px); transition: opacity 0.25s, transform 0.25s; }
+    /* ---- Three starting choices ---- */
+    .ed-ob-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: clamp(30px,4vw,46px); }
+    .ed-ob-choice { appearance: none; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; border: 1px solid rgba(28,29,34,0.13); background: #fff; transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s; }
+    .ed-ob-choice:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.26); box-shadow: 0 22px 40px -28px rgba(28,29,34,0.4); }
+    .ed-ob-choice-ic { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; color: var(--english-violet); background: var(--lilac); }
+    .ed-ob-choice-ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .ed-ob-choice-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .ed-ob-choice-tx strong { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: 0; }
+    .ed-ob-choice-tx span { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.64); line-height: 1.35; }
+    .ed-ob-choice-arrow { margin-left: auto; color: var(--english-violet); font-size: 16px; opacity: 0; transform: translateX(-4px); transition: opacity 0.25s, transform 0.25s; }
     .ed-ob-choice:hover .ed-ob-choice-arrow { opacity: 1; transform: none; }
     @media (max-width: 720px) { .ed-ob-choices { grid-template-columns: 1fr; } }
 
-    /* Sections (your designs / your packs) */
-    .ed-ob-sec { margin-top: 38px; }
+    /* ---- Sections (your packs / your designs) ---- */
+    .ed-ob-sec { margin-top: clamp(26px,3vw,38px); }
     .ed-ob-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 15px; }
-    .ed-ob-sec-h { font-family: var(--serif); font-weight: 500; font-size: clamp(19px, 1.6vw, 24px); letter-spacing: -0.02em; color: var(--ink); margin: 0; }
+    .ed-ob-sec-h { font-family: var(--serif); font-weight: 600; font-size: clamp(18px,1.5vw,22px); letter-spacing: -0.02em; color: var(--ink); margin: 0; }
 
-    /* Grids + card overrides (portrait covers, tighter min) */
-    .ed-ob-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 0; }
-    .ed-ob-grid--sm { grid-template-columns: repeat(auto-fill, minmax(166px, 1fr)); }
-    .ed-onboard-inner .ed-onboard-card-cover { aspect-ratio: 4 / 5; }
-    .ed-onboard-inner .ed-onboard-card-title { font-size: 18px; line-height: 1.15; }
+    /* ---- Grids ---- */
+    .ed-ob-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 16px; }
+    .ed-ob-grid--sm { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 
-    /* Size chooser */
-    .ed-ob-sizes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; max-width: 760px; }
-    .ed-ob-size {
-      appearance: none; cursor: pointer;
-      display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 10px;
-      min-height: 158px; padding: 18px 16px;
-      border-radius: 14px; border: 1px solid rgba(var(--violet-rgb),0.16); background: rgba(255,255,255,0.74);
-      transition: transform 0.28s cubic-bezier(.2,.7,.2,1), border-color 0.25s, box-shadow 0.3s;
-    }
-    .ed-ob-size:hover { transform: translateY(-3px); border-color: var(--english-violet); box-shadow: 0 18px 40px -24px rgba(var(--violet-rgb),0.45); }
-    .ed-ob-size-shape { width: var(--sw, 60px); height: var(--sh, 74px); border-radius: 5px; background: color-mix(in srgb, var(--english-violet) 12%, #fff); border: 1px solid rgba(var(--violet-rgb),0.3); }
-    .ed-ob-size-name { font-family: var(--serif); font-size: 16px; font-weight: 500; color: var(--ink); }
-    .ed-ob-size-dim { font-family: var(--sans); font-size: 11px; letter-spacing: 0.04em; color: rgba(28,29,34,0.5); margin-top: -4px; }
+    /* ---- Size chooser ---- */
+    .ed-ob-sizes { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 14px; max-width: 800px; }
+    .ed-ob-size { appearance: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; min-height: 150px; padding: 18px 16px; border-radius: 16px; border: 1px solid rgba(28,29,34,0.13); background: #fff; transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s; }
+    .ed-ob-size:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.26); box-shadow: 0 20px 38px -26px rgba(28,29,34,0.4); }
+    .ed-ob-size-shape { width: var(--sw, 55px); height: var(--sh, 72px); border-radius: 4px; background: var(--lilac); border: 1px solid rgba(28,29,34,0.16); }
+    .ed-ob-size-name { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); }
+    .ed-ob-size-dim { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.46); margin-top: -6px; font-variant-numeric: tabular-nums; }
 
-    /* Footer CTA */
-    .ed-ob-cta {
-      display: flex; align-items: center; gap: 24px; flex-wrap: wrap; margin-top: 44px;
-      padding: 22px 26px; border-radius: 16px; border: 1px solid rgba(var(--violet-rgb),0.18);
-      background: rgba(255,255,255,0.6);
-      backdrop-filter: blur(12px) saturate(1.2); -webkit-backdrop-filter: blur(12px) saturate(1.2);
-      box-shadow: 0 14px 34px -26px rgba(var(--violet-rgb),0.4);
-    }
-    .ed-ob-cta-tx { display: flex; flex-direction: column; gap: 4px; margin-right: auto; }
-    .ed-ob-cta-tx strong { font-family: var(--serif); font-size: 21px; font-weight: 500; color: var(--ink); }
-    .ed-ob-cta-tx span { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
-    .ed-ob-cta-btn {
-      display: inline-flex; align-items: center; gap: 10px; padding: 13px 24px; border-radius: 12px;
-      background: var(--english-violet); color: var(--paper);
-      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
-      text-decoration: none; box-shadow: 0 12px 24px -12px rgba(var(--violet-rgb),0.6);
-      transition: transform 0.22s, box-shadow 0.22s;
-    }
-    .ed-ob-cta-btn em { font-style: normal; transition: transform 0.2s; }
-    .ed-ob-cta-btn:hover { transform: translateY(-2px); }
-    .ed-ob-cta-btn:hover em { transform: translateX(3px); }
+    /* ---- Footer CTA (home-page button: wine → black, sliding arrow) ---- */
+    .ed-ob-cta { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin-top: clamp(30px,4vw,46px); padding: 22px 26px; border-radius: 16px; border: 1px solid rgba(28,29,34,0.13); background: #fff; }
+    .ed-ob-cta-tx { display: flex; flex-direction: column; gap: 3px; margin-right: auto; }
+    .ed-ob-cta-tx strong { font-family: var(--serif); font-weight: 600; font-size: 18px; color: var(--ink); }
+    .ed-ob-cta-tx span { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.64); }
+    .ed-ob-cta-btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 26px; border: 1px solid var(--english-violet); border-radius: 2px; background: var(--english-violet); color: var(--paper); font-family: var(--sans); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; text-transform: none; text-decoration: none; transition: background 0.3s, border-color 0.3s, transform 0.3s; }
+    .ed-ob-cta-btn:hover { background: var(--ink); border-color: var(--ink); transform: translateY(-2px); }
+    .ed-ob-cta-btn .btn-arrow { display: inline-block; transition: transform 0.3s cubic-bezier(.2,.7,.2,1); }
+    .ed-ob-cta-btn:hover .btn-arrow { transform: translateX(4px); }
   </style>
 
   <!--
@@ -5321,12 +5204,11 @@ const googleFonts = [
 
     // Blank-canvas size chooser → open a fresh canvas at that size, then reveal.
     const SIZES = [
-      { name: "Instagram Post", w: 1080, h: 1350, sw: 58, sh: 72 },
-      { name: "Square Post",    w: 1080, h: 1080, sw: 68, sh: 68 },
-      { name: "Story / Reel",   w: 1080, h: 1920, sw: 42, sh: 74 },
+      { name: "Instagram Post", w: 1080, h: 1440, sw: 54, sh: 72 },
+      { name: "Story",          w: 1080, h: 1920, sw: 41, sh: 72 },
+      { name: "Reel",           w: 1080, h: 1920, sw: 41, sh: 72 },
+      { name: "Square Post",    w: 1080, h: 1080, sw: 66, sh: 66 },
       { name: "Landscape",      w: 1200, h: 628,  sw: 74, sh: 39 },
-      { name: "Portrait A4",    w: 2480, h: 3508, sw: 52, sh: 74 },
-      { name: "House standard", w: 1080, h: 1440, sw: 55, sh: 74 },
     ];
     if (sizesEl) {
       sizesEl.innerHTML = SIZES.map((s) => `
@@ -5352,8 +5234,8 @@ const googleFonts = [
         <a class="ed-onboard-card" href="/editor?design=${encodeURIComponent(d.id)}">
           <span class="ed-onboard-card-cover"${d.thumb_url ? ` style="background-image:url('${escapeHtml(d.thumb_url)}')"` : ""}></span>
           <span class="ed-onboard-card-body">
-            <span class="ed-onboard-card-cat">Saved</span>
             <span class="ed-onboard-card-title">${escapeHtml(d.name || "Untitled design")}</span>
+            <span class="ed-onboard-card-cat">Your design</span>
           </span>
         </a>`;
     }
@@ -5386,11 +5268,11 @@ const googleFonts = [
     function designCard(d) {
       return `
         <button type="button" class="ed-onboard-card ed-onboard-design" data-template-id="${escapeHtml(d.id)}">
-          <div class="ed-onboard-card-cover"${d.thumb ? ` style="background-image:url('${escapeHtml(d.thumb)}')"` : ""}></div>
-          <div class="ed-onboard-card-body">
-            ${d.category ? `<span class="ed-onboard-card-cat">${escapeHtml(d.category)}</span>` : ""}
-            <h3 class="ed-onboard-card-title">${escapeHtml(d.name || "Design")}</h3>
-          </div>
+          <span class="ed-onboard-card-cover"${d.thumb ? ` style="background-image:url('${escapeHtml(d.thumb)}')"` : ""}></span>
+          <span class="ed-onboard-card-body">
+            <span class="ed-onboard-card-title">${escapeHtml(d.name || "Design")}</span>
+            <span class="ed-onboard-card-cat">${escapeHtml(d.category || "Template")}</span>
+          </span>
         </button>`;
     }
 
@@ -5455,11 +5337,11 @@ const googleFonts = [
     function packCard(p) {
       return `
         <button type="button" class="ed-onboard-card" data-pack-id="${p.id}">
-          <div class="ed-onboard-card-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></div>
-          <div class="ed-onboard-card-body">
-            ${p.category ? `<span class="ed-onboard-card-cat">${escapeHtml(p.category)}</span>` : ""}
-            <h3 class="ed-onboard-card-title">${escapeHtml(p.title)}</h3>
-          </div>
+          <span class="ed-onboard-card-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
+          <span class="ed-onboard-card-body">
+            <span class="ed-onboard-card-title">${escapeHtml(p.title)}</span>
+            <span class="ed-onboard-card-cat">${escapeHtml(p.category || "Pack")}</span>
+          </span>
         </button>`;
     }
 
