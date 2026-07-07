@@ -1,8 +1,8 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../components/account/WorkspaceHeader.astro";
 import AskExpert from "../components/AskExpert.astro";
 import ShopModal from "../components/ShopModal.astro";
-import DashSidebar from "../components/account/DashSidebar.astro";
 import "../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
 import { templates, packages } from "../data/library.js";
 
@@ -122,42 +122,101 @@ const googleFonts = [
     if (!location.search.includes('mode=admin')) document.documentElement.classList.add('editor-light');
   </script>
 
-  <div class="ed-onboard dash-shell" id="ed-onboard">
-    <DashSidebar active="studio" />
-    <div class="ed-onboard-col">
-    <a href="/account" class="ed-onboard-back" id="ed-onboard-back" aria-label="Back to your workspace">
-      <span aria-hidden="true">&larr;</span> Back
-    </a>
-    <div class="ed-onboard-inner">
-      <!-- Step 1 — pick a pack -->
-      <div id="ed-onboard-step1">
-        <div class="ed-onboard-eyebrow">Welcome to the Studio</div>
-        <h1 class="ed-onboard-title">Pick a pack <em>to open.</em></h1>
-        <p class="ed-onboard-sub">Choose one of your design packs — then pick which design inside it you'd like to work on. Prefer to start clean? Skip below.</p>
+  <!-- ============ Studio start screen ============
+       A branded, single-scroll launcher shown when you open the Studio to make
+       something new (customer mode only — admin skips it). Three clear ways to
+       start: a blank canvas (pick a size), a pack you own, or one of your saved
+       designs — plus a footer CTA to browse more in The Edit. -->
+  <div class="ed-onboard" id="ed-onboard">
+    <WorkspaceHeader active="studio" />
 
-        <div class="ed-onboard-loading" id="ed-onboard-loading">Loading your packs…</div>
-        <div class="ed-onboard-grid" id="ed-onboard-grid" hidden></div>
-        <div class="ed-onboard-error" id="ed-onboard-error" hidden></div>
+    <div class="ed-ob-scroll" id="ed-ob-scroll">
+      <div class="ed-onboard-inner">
 
-        <button type="button" class="ed-onboard-skip" id="ed-onboard-skip">
-          Start with a blank canvas <em>&rarr;</em>
-        </button>
+        <!-- ===== HOME — choose how to start ===== -->
+        <section class="ed-ob-view" id="ed-ob-home">
+          <!-- Hero mirrors the Orders / Bookings .dash-hero: eyebrow + title pin
+               to the image top, the sub pins to its base. -->
+          <section class="ed-ob-hero">
+            <div class="ed-ob-hero-copy">
+              <div class="ed-ob-hero-top">
+                <p class="ed-ob-hero-eyebrow"><a href="/account" class="ed-ob-backlink" id="ed-onboard-back"><span aria-hidden="true">&larr;</span> Workspace</a></p>
+                <h1 class="ed-ob-h">Start a <em>Design.</em></h1>
+              </div>
+              <p class="ed-ob-hero-sub">Pick up where you left off, open a template from a pack you own, or begin from a blank canvas.</p>
+            </div>
+            <figure class="ed-ob-hero-media"><img src="/assets/home%20kitchen.jpg" alt="" loading="eager" /></figure>
+          </section>
+
+          <div class="ed-ob-choices">
+            <button type="button" class="ed-ob-choice" data-go="fresh">
+              <span class="ed-ob-choice-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 9v6M9 12h6"/></svg></span>
+              <span class="ed-ob-choice-tx"><strong>Blank canvas</strong><span>Start fresh — pick your size.</span></span>
+              <span class="ed-ob-choice-arrow" aria-hidden="true">&rarr;</span>
+            </button>
+            <button type="button" class="ed-ob-choice" data-go="packs">
+              <span class="ed-ob-choice-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+              <span class="ed-ob-choice-tx"><strong>From a pack</strong><span>Open a template you own.</span></span>
+              <span class="ed-ob-choice-arrow" aria-hidden="true">&rarr;</span>
+            </button>
+            <button type="button" class="ed-ob-choice" data-go="designs">
+              <span class="ed-ob-choice-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></span>
+              <span class="ed-ob-choice-tx"><strong>Your designs</strong><span>Reopen something you saved.</span></span>
+              <span class="ed-ob-choice-arrow" aria-hidden="true">&rarr;</span>
+            </button>
+          </div>
+
+          <!-- Your packs (above your designs in the hierarchy) -->
+          <section class="ed-ob-sec" id="ed-ob-packs-sec">
+            <div class="ed-ob-sec-head"><h2 class="ed-ob-sec-h">Your packs</h2></div>
+            <div class="ed-onboard-loading" id="ed-onboard-loading">Loading your packs…</div>
+            <div class="ed-ob-grid ed-onboard-grid" id="ed-onboard-grid" hidden></div>
+            <div class="ed-onboard-error ed-ob-empty" id="ed-onboard-error" hidden></div>
+          </section>
+
+          <!-- Your saved designs -->
+          <section class="ed-ob-sec" id="ed-ob-designs-sec">
+            <div class="ed-ob-sec-head"><h2 class="ed-ob-sec-h">Your designs</h2></div>
+            <div class="ed-onboard-loading" id="ed-ob-designs-loading">Loading your designs…</div>
+            <div class="ed-ob-grid ed-ob-grid--sm" id="ed-ob-designs-grid" hidden></div>
+            <div class="ed-ob-empty" id="ed-ob-designs-empty" hidden></div>
+          </section>
+
+          <!-- Footer CTA -->
+          <div class="ed-ob-cta">
+            <div class="ed-ob-cta-tx">
+              <strong>Need more to work with?</strong>
+              <span>Browse The Edit for more design packs and ready-made templates.</span>
+            </div>
+            <a class="ed-ob-cta-btn" href="/edit" data-shop>Browse The Edit <span class="btn-arrow" aria-hidden="true">&rarr;</span></a>
+          </div>
+        </section>
+
+        <!-- ===== SIZE — blank canvas format ===== -->
+        <section class="ed-ob-view" id="ed-ob-size" hidden>
+          <button type="button" class="ed-onboard-back2" data-back-home>
+            <span aria-hidden="true">&larr;</span> Back
+          </button>
+          <div class="ed-onboard-eyebrow">Blank canvas</div>
+          <h1 class="ed-onboard-title">Pick a size</h1>
+          <p class="ed-onboard-sub">Choose a format to start — you can resize any design later from the Resize panel.</p>
+          <div class="ed-ob-sizes" id="ed-ob-sizes"></div>
+        </section>
+
+        <!-- ===== PACK DESIGNS (step 2) ===== -->
+        <section class="ed-ob-view" id="ed-onboard-step2" hidden>
+          <button type="button" class="ed-onboard-back2" id="ed-onboard-back2">
+            <span aria-hidden="true">&larr;</span> All packs
+          </button>
+          <div class="ed-onboard-eyebrow" id="ed-onboard-pack-cat">The pack</div>
+          <h1 class="ed-onboard-title" id="ed-onboard-pack-title">Pick a <em>design.</em></h1>
+          <p class="ed-onboard-sub" id="ed-onboard-pack-sub">Choose a design from this pack to open in the studio — you can switch to any of the others at any time.</p>
+          <div class="ed-onboard-loading" id="ed-onboard-designs-loading" hidden>Loading this pack's designs…</div>
+          <div class="ed-ob-grid ed-onboard-grid" id="ed-onboard-design-grid"></div>
+          <div class="ed-onboard-error ed-ob-empty" id="ed-onboard-designs-empty" hidden></div>
+        </section>
+
       </div>
-
-      <!-- Step 2 — pick a design from the opened pack -->
-      <div id="ed-onboard-step2" hidden>
-        <button type="button" class="ed-onboard-back2" id="ed-onboard-back2">
-          <span aria-hidden="true">&larr;</span> All packs
-        </button>
-        <div class="ed-onboard-eyebrow" id="ed-onboard-pack-cat">The pack</div>
-        <h1 class="ed-onboard-title" id="ed-onboard-pack-title">Pick a <em>design.</em></h1>
-        <p class="ed-onboard-sub" id="ed-onboard-pack-sub">Choose a design from this pack to open in the studio — you can switch to any of the others at any time.</p>
-
-        <div class="ed-onboard-loading" id="ed-onboard-designs-loading" hidden>Loading this pack's designs…</div>
-        <div class="ed-onboard-grid" id="ed-onboard-design-grid"></div>
-        <div class="ed-onboard-error" id="ed-onboard-designs-empty" hidden></div>
-      </div>
-    </div>
     </div>
   </div>
 
@@ -871,7 +930,7 @@ const googleFonts = [
        panels read as bright and airy. Scoped to .editor-light, so the admin
        authoring studio (?mode=admin, no class) keeps its current look. ===== */
     html.editor-light .editor { background: #f4f3f1; }
-    html.editor-light .ed-onboard { background: #f4f3f1; }
+    html.editor-light .ed-onboard { background: var(--paper); }
     /* A touch more lift on the canvas so it floats cleanly on the lighter desk. */
     html.editor-light .ed-canvas-shadow {
       box-shadow: 0 1px 2px rgba(28,29,34,0.06), 0 30px 60px -34px rgba(28,29,34,0.28), 0 12px 30px -24px rgba(28,29,34,0.18);
@@ -3177,176 +3236,63 @@ const googleFonts = [
     .editor.show-props .ed-props  { transform: none; opacity: 1; }
     .editor.show-panel .ed-panel  { transform: none; opacity: 1; }
 
-    /* ============ Onboarding overlay ============ */
+    /* ============ Studio start screen ============
+       Branded, single-scroll launcher (customer mode). The real members-area
+       header (WorkspaceHeader) sits flush on top; below it a centred column
+       scrolls. Matches the dashboard: warm paper ground, white cards, hairline
+       borders, 12px corners, wine accent used sparingly. */
     .ed-onboard {
       position: fixed; inset: 0;
       z-index: 200;
-      /* Same light-purple iridescent wash as the rest of the hub. */
-      background:
-        radial-gradient(70% 55% at 0% 0%, rgba(126, 103, 101, 0.18), transparent 50%),
-        radial-gradient(75% 65% at 100% 0%, rgba(126, 103, 101, 0.26), transparent 55%),
-        radial-gradient(85% 75% at 60% 115%, rgba(126, 103, 101, 0.15), transparent 55%),
-        linear-gradient(150deg, #eee9f6 0%, #ebeef8 50%, #f4f2f1 100%);
-      display: flex; align-items: center; justify-content: center;
-      padding: 60px 36px;
-      overflow-y: auto;
+      display: flex; flex-direction: column;
+      background: var(--paper);
       opacity: 1;
       transition: opacity 0.45s ease-out, transform 0.55s cubic-bezier(.7,0,.3,1);
     }
-    /* Studio entry keeps the dashboard sidebar on the left + dashboard theming,
-       so picking a pack reads as part of the account (not a full-screen takeover).
-       The whole overlay still slides away (.is-gone) once a design opens. */
-    .ed-onboard.dash-shell {
-      display: grid;
-      grid-template-columns: 264px minmax(0, 1fr);
-      align-items: stretch;
-      padding: 0;
-      background:
-        radial-gradient(80% 70% at 100% 0%, rgba(255, 255, 255, 0.5), transparent 58%),
-        var(--dash-bg, #f4f2f1);
-    }
-    .ed-onboard-col {
-      min-width: 0;
-      overflow-y: auto;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 60px clamp(28px, 5vw, 72px);
-    }
-    /* The sidebar's Workspace link replaces the standalone Back link. */
-    .ed-onboard.dash-shell .ed-onboard-back { display: none; }
-    @media (max-width: 760px) {
-      .ed-onboard.dash-shell { grid-template-columns: 1fr; }
-      .ed-onboard-col { padding: 40px 24px; }
-    }
-    .ed-onboard.is-leaving {
-      opacity: 0;
-      transform: translateY(-30px);
-      pointer-events: none;
-    }
+    .ed-onboard.is-leaving { opacity: 0; transform: translateY(-30px); pointer-events: none; }
     .ed-onboard.is-gone { display: none; }
-    /* Back button — exits the Studio to the workspace. */
-    .ed-onboard-back {
-      position: absolute;
-      top: 28px; left: 32px;
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 9px 16px;
-      font-family: var(--sans);
-      font-size: 11px; font-weight: 700;
-      letter-spacing: 0.22em; text-transform: uppercase;
-      color: var(--english-violet);
-      background: rgba(255, 255, 255, 0.7);
-      border: 1px solid rgba(var(--violet-rgb), 0.22);
-      border-radius: 14px;
-      text-decoration: none;
-      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.25s;
-      z-index: 2;
+    /* The hub nav sits at the top of the flex column, on white. */
+    .ed-onboard > .ws-nav { flex: 0 0 auto; background: #fff; border-bottom: 1px solid rgba(28,29,34,0.13); }
+
+    /* Scroll region — the fix for "won't scroll / bits cut off". */
+    .ed-ob-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: clamp(20px, 3vh, 40px) clamp(20px, 5vw, 60px) 88px; }
+    .ed-onboard-inner { width: 100%; max-width: 1180px; margin: 0 auto; animation: edOnboardIn 0.6s 0.04s cubic-bezier(.2,.75,.2,1) backwards; }
+    @keyframes edOnboardIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .ed-ob-view[hidden] { display: none; }
+
+    /* ---- Hero: mirrors the Orders / Bookings .dash-hero exactly ---- */
+    .ed-ob-hero { display: grid; grid-template-columns: 1fr auto; gap: clamp(28px,5vw,72px); align-items: stretch; margin: clamp(12px,2vh,20px) 0 clamp(26px,4vh,44px); }
+    .ed-ob-hero-copy { max-width: 540px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+    .ed-ob-hero-top { display: flex; flex-direction: column; gap: 6px; }
+    .ed-ob-hero-eyebrow { margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(28,29,34,0.64); }
+    .ed-ob-backlink { color: rgba(28,29,34,0.64); text-decoration: none; font-weight: 700; letter-spacing: 0.28em; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s, transform 0.2s; }
+    .ed-ob-backlink:hover { color: var(--english-violet); transform: translateX(-2px); }
+    .ed-ob-h { font-family: var(--serif); font-weight: 500; font-size: clamp(40px,5vw,66px); line-height: 1.02; letter-spacing: -0.02em; margin: 0; color: var(--english-violet); }
+    .ed-ob-h em { font-style: normal; color: var(--english-violet); }
+    .ed-ob-hero-sub { margin: 4px 0 0; font-family: var(--sans); font-size: 17px; line-height: 1.55; color: rgba(28,29,34,0.64); }
+    .ed-ob-hero-media { margin: 0; justify-self: end; }
+    .ed-ob-hero-media img { display: block; height: clamp(240px,30vh,320px); width: auto; aspect-ratio: 3/4; object-fit: cover; border-radius: 4px; background: var(--platinum); }
+    @media (max-width: 860px) {
+      .ed-ob-hero { grid-template-columns: 1fr; gap: 22px; }
+      .ed-ob-hero-media { justify-self: stretch; order: -1; }
+      .ed-ob-hero-media img { width: 100%; height: auto; aspect-ratio: 16/10; }
     }
-    .ed-onboard-back:hover {
-      background: var(--english-violet); color: var(--paper);
-      border-color: var(--english-violet); transform: translateX(-2px);
-    }
-    @media (max-width: 600px) { .ed-onboard-back { top: 16px; left: 16px; } }
-    .ed-onboard-inner {
-      width: 100%;
-      max-width: 1100px;
-      animation: edOnboardIn 0.7s 0.05s cubic-bezier(.2,.75,.2,1) backwards;
-    }
-    @keyframes edOnboardIn {
-      from { opacity: 0; transform: translateY(28px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .ed-onboard-eyebrow {
-      display: inline-block;
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--violet-deep);
-      background: rgba(255, 255, 255, 0.55);
-      border: 1px solid rgba(var(--violet-rgb), 0.18);
-      padding: 6px 12px;
-      border-radius: 999px;
-      margin-bottom: 20px;
-    }
-    .ed-onboard-title {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(40px, 5vw, 78px);
-      line-height: 1.02;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-      margin: 0 0 18px;
-      max-width: 16ch;
-    }
-    .ed-onboard-title em { font-style: italic; color: var(--english-violet); }
-    .ed-onboard-sub {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(18px, 1.4vw, 22px);
-      color: rgba(28,29,34,0.65);
-      max-width: 620px;
-      margin: 0 0 40px;
-      line-height: 1.5;
-    }
-    .ed-onboard-loading,
-    .ed-onboard-error {
-      font-family: var(--sans);
-      font-size: 14px;
-      color: rgba(28,29,34,0.55);
-      padding: 28px 0;
-    }
-    .ed-onboard-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 18px;
-      margin-bottom: 36px;
-    }
-    .ed-onboard-card {
-      appearance: none;
-      background: rgba(255,255,255,0.72);
-      backdrop-filter: blur(12px) saturate(1.2);
-      -webkit-backdrop-filter: blur(12px) saturate(1.2);
-      border: 1px solid rgba(var(--violet-rgb),0.16);
-      border-radius: 14px;
-      padding: 0;
-      cursor: pointer;
-      text-align: left;
-      overflow: hidden;
-      box-shadow: 0 14px 34px -22px rgba(var(--violet-rgb),0.4);
-      transition: transform 0.45s cubic-bezier(.2,.7,.2,1), border-color 0.3s, box-shadow 0.4s;
-      display: flex; flex-direction: column;
-    }
-    .ed-onboard-card:hover {
-      transform: translateY(-3px);
-      border-color: var(--english-violet);
-      box-shadow: 0 18px 40px -22px rgba(28,29,34,0.35);
-    }
-    .ed-onboard-card-cover {
-      aspect-ratio: 4 / 3;
-      background-color: var(--platinum);
-      background-size: cover;
-      background-position: center;
-    }
-    .ed-onboard-card-body {
-      padding: 14px 16px 16px;
-      display: flex; flex-direction: column; gap: 4px;
-    }
-    .ed-onboard-card-cat {
-      font-family: var(--sans);
-      font-size: 10px;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--english-violet);
-    }
-    .ed-onboard-card-title {
-      font-family: var(--serif);
-      font-size: 22px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      color: var(--ink);
-      margin: 0;
-    }
+    /* Compact headers for the size / pack sub-views (no pill, no italic). */
+    .ed-onboard-eyebrow { display: block; font-family: var(--sans); font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.5); margin-bottom: 8px; }
+    .ed-onboard-title { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 2.4vw, 36px); line-height: 1.05; letter-spacing: -0.02em; color: var(--english-violet); margin: 0 0 8px; }
+    .ed-onboard-title em { font-style: normal; color: var(--english-violet); }
+    .ed-onboard-sub { font-family: var(--sans); font-style: normal; font-size: 15px; color: rgba(28,29,34,0.64); max-width: 56ch; margin: 0 0 26px; line-height: 1.55; }
+    .ed-onboard-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.5); padding: 18px 0; }
+    .ed-ob-empty, .ed-onboard-error { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 6px 0 2px; }
+    .ed-ob-empty a, .ed-onboard-error a { color: var(--english-violet); text-decoration: underline; }
+
+    /* ---- Cards (dashboard style: bordered image, sans name + meta below) ---- */
+    .ed-onboard-card { appearance: none; cursor: pointer; text-align: left; text-decoration: none; background: none; border: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+    .ed-onboard-card-cover { aspect-ratio: 4 / 5; border-radius: 12px; background-color: var(--platinum); background-size: cover; background-position: center; border: 1px solid rgba(28,29,34,0.13); transition: transform 0.28s, box-shadow 0.28s; }
+    .ed-onboard-card:hover .ed-onboard-card-cover { transform: translateY(-3px); box-shadow: 0 22px 38px -24px rgba(28,29,34,0.42); }
+    .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; padding: 0; }
+    .ed-onboard-card-title { font-family: var(--sans); font-size: 13.5px; font-weight: 600; letter-spacing: 0; color: var(--ink); margin: 0; line-height: 1.2; }
+    .ed-onboard-card-cat { font-family: var(--sans); font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.46); }
     /* "Need more packs?" side cell — sits under the owned packs and teases a
        couple the user hasn't bought, linking through to the shop. */
     .ed-onboard-more {
@@ -3462,6 +3408,46 @@ const googleFonts = [
       font-family: var(--sans); font-size: inherit; font-weight: 700;
       color: var(--english-violet); cursor: pointer; text-decoration: underline;
     }
+
+    /* ---- Three starting choices ---- */
+    .ed-ob-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: clamp(30px,4vw,46px); }
+    .ed-ob-choice { appearance: none; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; border: 1px solid rgba(28,29,34,0.13); background: #fff; transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s; }
+    .ed-ob-choice:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.26); box-shadow: 0 22px 40px -28px rgba(28,29,34,0.4); }
+    .ed-ob-choice-ic { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; color: var(--english-violet); background: var(--lilac); }
+    .ed-ob-choice-ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .ed-ob-choice-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .ed-ob-choice-tx strong { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: 0; }
+    .ed-ob-choice-tx span { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.64); line-height: 1.35; }
+    .ed-ob-choice-arrow { margin-left: auto; color: var(--english-violet); font-size: 16px; opacity: 0; transform: translateX(-4px); transition: opacity 0.25s, transform 0.25s; }
+    .ed-ob-choice:hover .ed-ob-choice-arrow { opacity: 1; transform: none; }
+    @media (max-width: 720px) { .ed-ob-choices { grid-template-columns: 1fr; } }
+
+    /* ---- Sections (your packs / your designs) ---- */
+    .ed-ob-sec { margin-top: clamp(26px,3vw,38px); }
+    .ed-ob-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 15px; }
+    .ed-ob-sec-h { font-family: var(--serif); font-weight: 600; font-size: clamp(18px,1.5vw,22px); letter-spacing: -0.02em; color: var(--ink); margin: 0; }
+
+    /* ---- Grids ---- */
+    .ed-ob-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 16px; }
+    .ed-ob-grid--sm { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+
+    /* ---- Size chooser ---- */
+    .ed-ob-sizes { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 14px; max-width: 800px; }
+    .ed-ob-size { appearance: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; min-height: 150px; padding: 18px 16px; border-radius: 16px; border: 1px solid rgba(28,29,34,0.13); background: #fff; transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s; }
+    .ed-ob-size:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.26); box-shadow: 0 20px 38px -26px rgba(28,29,34,0.4); }
+    .ed-ob-size-shape { width: var(--sw, 55px); height: var(--sh, 72px); border-radius: 4px; background: var(--lilac); border: 1px solid rgba(28,29,34,0.16); }
+    .ed-ob-size-name { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); }
+    .ed-ob-size-dim { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.46); margin-top: -6px; font-variant-numeric: tabular-nums; }
+
+    /* ---- Footer CTA (home-page button: wine → black, sliding arrow) ---- */
+    .ed-ob-cta { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin-top: clamp(30px,4vw,46px); padding: 22px 26px; border-radius: 16px; border: 1px solid rgba(28,29,34,0.13); background: #fff; }
+    .ed-ob-cta-tx { display: flex; flex-direction: column; gap: 3px; margin-right: auto; }
+    .ed-ob-cta-tx strong { font-family: var(--serif); font-weight: 600; font-size: 18px; color: var(--ink); }
+    .ed-ob-cta-tx span { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.64); }
+    .ed-ob-cta-btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 26px; border: 1px solid var(--english-violet); border-radius: 2px; background: var(--english-violet); color: var(--paper); font-family: var(--sans); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; text-transform: none; text-decoration: none; transition: background 0.3s, border-color 0.3s, transform 0.3s; }
+    .ed-ob-cta-btn:hover { background: var(--ink); border-color: var(--ink); transform: translateY(-2px); }
+    .ed-ob-cta-btn .btn-arrow { display: inline-block; transition: transform 0.3s cubic-bezier(.2,.7,.2,1); }
+    .ed-ob-cta-btn:hover .btn-arrow { transform: translateX(4px); }
   </style>
 
   <!--
@@ -5139,14 +5125,23 @@ const googleFonts = [
     import { supabase } from "../lib/supabase.js";
 
     const overlay = document.getElementById("ed-onboard");
+    const scroller = document.getElementById("ed-ob-scroll");
+    const editor = document.getElementById("editor");
+    // Views.
+    const homeView = document.getElementById("ed-ob-home");
+    const sizeView = document.getElementById("ed-ob-size");
+    const packView = document.getElementById("ed-onboard-step2");
+    // Home — your packs.
     const grid = document.getElementById("ed-onboard-grid");
     const loading = document.getElementById("ed-onboard-loading");
     const error = document.getElementById("ed-onboard-error");
-    const skipBtn = document.getElementById("ed-onboard-skip");
-    const editor = document.getElementById("editor");
-    // Step 2 (design chooser) elements.
-    const step1El = document.getElementById("ed-onboard-step1");
-    const step2El = document.getElementById("ed-onboard-step2");
+    // Home — your saved designs.
+    const savedGrid = document.getElementById("ed-ob-designs-grid");
+    const savedLoading = document.getElementById("ed-ob-designs-loading");
+    const savedEmpty = document.getElementById("ed-ob-designs-empty");
+    // Size chooser.
+    const sizesEl = document.getElementById("ed-ob-sizes");
+    // Pack design chooser (step 2).
     const designGrid = document.getElementById("ed-onboard-design-grid");
     const designsLoading = document.getElementById("ed-onboard-designs-loading");
     const designsEmpty = document.getElementById("ed-onboard-designs-empty");
@@ -5184,22 +5179,100 @@ const googleFonts = [
         playBuildIn();
       }, 420);
     }
-    // "Start with a blank canvas" — no pack, just reveal.
-    skipBtn.addEventListener("click", () => revealStudio());
+    // Switch between the launcher's views (home / size chooser / pack designs).
+    function showView(name) {
+      if (homeView) homeView.hidden = name !== "home";
+      if (sizeView) sizeView.hidden = name !== "size";
+      if (packView) packView.hidden = name !== "pack";
+      if (scroller) scroller.scrollTop = 0;
+    }
+    function showStep2() { showView("pack"); }
+    function showHome() { showView("home"); }
+    if (back2Btn) back2Btn.addEventListener("click", showHome);
+    document.querySelectorAll("[data-back-home]").forEach((b) => b.addEventListener("click", showHome));
 
-    function showStep2() { if (step1El) step1El.hidden = true; if (step2El) step2El.hidden = false; }
-    function showStep1() { if (step2El) step2El.hidden = true; if (step1El) step1El.hidden = false; }
-    if (back2Btn) back2Btn.addEventListener("click", showStep1);
+    // The three starting choices: blank → size chooser; the other two scroll to
+    // their section (both are shown on the home view so they're browsable too).
+    document.querySelectorAll(".ed-ob-choice").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const go = btn.getAttribute("data-go");
+        if (go === "fresh") showView("size");
+        else if (go === "packs") document.getElementById("ed-ob-packs-sec")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        else if (go === "designs") document.getElementById("ed-ob-designs-sec")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    // Blank-canvas size chooser → open a fresh canvas at that size, then reveal.
+    const SIZES = [
+      { name: "Instagram Post", w: 1080, h: 1440, sw: 54, sh: 72 },
+      { name: "Story",          w: 1080, h: 1920, sw: 41, sh: 72 },
+      { name: "Reel",           w: 1080, h: 1920, sw: 41, sh: 72 },
+      { name: "Square Post",    w: 1080, h: 1080, sw: 66, sh: 66 },
+      { name: "Landscape",      w: 1200, h: 628,  sw: 74, sh: 39 },
+    ];
+    if (sizesEl) {
+      sizesEl.innerHTML = SIZES.map((s) => `
+        <button type="button" class="ed-ob-size" data-w="${s.w}" data-h="${s.h}">
+          <span class="ed-ob-size-shape" style="--sw:${s.sw}px;--sh:${s.sh}px"></span>
+          <span class="ed-ob-size-name">${escapeHtml(s.name)}</span>
+          <span class="ed-ob-size-dim">${s.w} × ${s.h}</span>
+        </button>`).join("");
+      sizesEl.addEventListener("click", (e) => {
+        const btn = e.target instanceof Element ? e.target.closest("[data-w]") : null;
+        if (!btn) return;
+        const w = parseInt(btn.getAttribute("data-w"), 10);
+        const h = parseInt(btn.getAttribute("data-h"), 10);
+        if (typeof window.__TMKE_LOAD_BLANK__ === "function") window.__TMKE_LOAD_BLANK__(w, h);
+        revealStudio();
+      });
+    }
+
+    // "Your designs" — the member's saved copies (user_designs), newest first.
+    // Clicking one re-opens it via the ?design= path.
+    function savedCard(d) {
+      return `
+        <a class="ed-onboard-card" href="/editor?design=${encodeURIComponent(d.id)}">
+          <span class="ed-onboard-card-cover"${d.thumb_url ? ` style="background-image:url('${escapeHtml(d.thumb_url)}')"` : ""}></span>
+          <span class="ed-onboard-card-body">
+            <span class="ed-onboard-card-title">${escapeHtml(d.name || "Untitled design")}</span>
+            <span class="ed-onboard-card-cat">Your design</span>
+          </span>
+        </a>`;
+    }
+    async function loadSavedDesigns(session) {
+      if (!savedGrid) return;
+      if (!session) {
+        if (savedLoading) savedLoading.hidden = true;
+        if (savedEmpty) { savedEmpty.textContent = "Sign in to see designs you've saved."; savedEmpty.hidden = false; }
+        return;
+      }
+      try {
+        const { data, error: e } = await supabase
+          .from("user_designs")
+          .select("id, name, thumb_url, updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(12);
+        if (savedLoading) savedLoading.hidden = true;
+        if (e || !data || !data.length) {
+          if (savedEmpty) { savedEmpty.textContent = "No saved designs yet — start one above and it'll show up here."; savedEmpty.hidden = false; }
+          return;
+        }
+        savedGrid.innerHTML = data.map(savedCard).join("");
+        savedGrid.hidden = false;
+      } catch (_) {
+        if (savedLoading) savedLoading.hidden = true;
+      }
+    }
 
     // A design card in the step-2 chooser (mirrors packCard).
     function designCard(d) {
       return `
         <button type="button" class="ed-onboard-card ed-onboard-design" data-template-id="${escapeHtml(d.id)}">
-          <div class="ed-onboard-card-cover"${d.thumb ? ` style="background-image:url('${escapeHtml(d.thumb)}')"` : ""}></div>
-          <div class="ed-onboard-card-body">
-            ${d.category ? `<span class="ed-onboard-card-cat">${escapeHtml(d.category)}</span>` : ""}
-            <h3 class="ed-onboard-card-title">${escapeHtml(d.name || "Design")}</h3>
-          </div>
+          <span class="ed-onboard-card-cover"${d.thumb ? ` style="background-image:url('${escapeHtml(d.thumb)}')"` : ""}></span>
+          <span class="ed-onboard-card-body">
+            <span class="ed-onboard-card-title">${escapeHtml(d.name || "Design")}</span>
+            <span class="ed-onboard-card-cat">${escapeHtml(d.category || "Template")}</span>
+          </span>
         </button>`;
     }
 
@@ -5264,11 +5337,11 @@ const googleFonts = [
     function packCard(p) {
       return `
         <button type="button" class="ed-onboard-card" data-pack-id="${p.id}">
-          <div class="ed-onboard-card-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></div>
-          <div class="ed-onboard-card-body">
-            ${p.category ? `<span class="ed-onboard-card-cat">${escapeHtml(p.category)}</span>` : ""}
-            <h3 class="ed-onboard-card-title">${escapeHtml(p.title)}</h3>
-          </div>
+          <span class="ed-onboard-card-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
+          <span class="ed-onboard-card-body">
+            <span class="ed-onboard-card-title">${escapeHtml(p.title)}</span>
+            <span class="ed-onboard-card-cat">${escapeHtml(p.category || "Pack")}</span>
+          </span>
         </button>`;
     }
 
@@ -5320,10 +5393,10 @@ const googleFonts = [
     }
 
     (async () => {
-      // Admin mode is not the customer pack-picker flow — admins design fresh.
-      // Skip the onboarding overlay entirely and reveal the studio straight away
-      // (editor.js loads the requested template, blank for a new one).
-      if (new URLSearchParams(location.search).get("mode") === "admin") {
+      const params = new URLSearchParams(location.search);
+
+      // Admin authors fresh (no pack-picker) — reveal the studio straight away.
+      if (params.get("mode") === "admin") {
         overlay.classList.add("is-gone");
         editor.classList.remove("is-onboarding");
         editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
@@ -5331,28 +5404,33 @@ const googleFonts = [
       }
 
       // Opening a specific design (?template=… a pack template, or ?design=… a
-      // member's saved copy) — e.g. clicking one of "Your designs" — skips the
-      // pack-picker onboarding and lands straight on the canvas with it loaded.
-      if (new URLSearchParams(location.search).has("template") || new URLSearchParams(location.search).has("design")) {
+      // saved copy) skips the launcher and lands straight on the canvas.
+      if (params.has("template") || params.has("design")) {
         overlay.classList.add("is-gone");
         editor.classList.remove("is-onboarding");
         editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
         return;
       }
 
-      const isDemo = import.meta.env.DEV && new URLSearchParams(location.search).has("demo");
+      showView("home");
+
+      // Dev-only preview: /editor?demo=1 fills the packs with example packs.
+      const isDemo = import.meta.env.DEV && params.has("demo");
       if (isDemo) {
+        loadSavedDesigns(null);
         loading.hidden = true;
         grid.innerHTML = DEMO_PACKS.map(packCard).join("");
         grid.hidden = false;
-        renderMoreCell(DEMO_UNOWNED);
         wirePackGrid(DEMO_PACKS);
         return;
       }
 
-      // Who's signed in — drives which packs they already own.
+      // Who's signed in — drives their saved designs + owned packs.
       const { data: { session } } = await supabase.auth.getSession();
       const email = session?.user?.email || "";
+
+      // Saved designs load independently (don't block the packs fetch).
+      loadSavedDesigns(session);
 
       // All active packs + the user's paid orders, in parallel.
       const [packsRes, ordersRes] = await Promise.all([
@@ -5372,7 +5450,7 @@ const googleFonts = [
       loading.hidden = true;
 
       if (packsRes.error) {
-        error.textContent = "Couldn't load your packs — start blank or refresh to retry.";
+        error.textContent = "Couldn't load your packs — start from a blank canvas above, or refresh to retry.";
         error.hidden = false;
         return;
       }
@@ -5383,37 +5461,29 @@ const googleFonts = [
           .filter((o) => o.status === "paid" && o.pack_id)
           .map((o) => o.pack_id)
       );
-
       const owned = allPacks.filter((p) => ownedIds.has(p.id));
-      const unowned = allPacks.filter((p) => !ownedIds.has(p.id));
 
-      // Deep-link from the Studio "Pick from your packs": /editor?pack=<id>
-      // jumps straight to that pack's design chooser (onboarding step 2).
-      const _packParam = new URLSearchParams(location.search).get("pack");
-      if (_packParam) {
-        const _p = owned.find((p) => p.id === _packParam) || allPacks.find((p) => p.id === _packParam);
-        if (_p) {
+      // Deep-link /editor?pack=<id> jumps straight to that pack's designs.
+      const packParam = params.get("pack");
+      if (packParam) {
+        const p = owned.find((x) => x.id === packParam) || allPacks.find((x) => x.id === packParam);
+        if (p) {
           grid.innerHTML = owned.map(packCard).join("");
           grid.hidden = false;
-          renderMoreCell(unowned);
           wirePackGrid(owned);
-          showPackDesigns(_p);
+          showPackDesigns(p);
           return;
         }
       }
 
       if (owned.length === 0) {
-        // Nothing purchased yet — nudge toward the shop, but the blank-canvas
-        // skip button below still lets them explore the studio.
-        error.innerHTML = "You haven't added any packs yet — start with a blank canvas below, or pick some up in <a href=\"#\" data-shop>The Edit</a>.";
+        error.innerHTML = "You haven't added any packs yet — start from a blank canvas above, or browse <a href=\"/edit\" data-shop>The Edit</a>.";
         error.hidden = false;
-        renderMoreCell(unowned);
         return;
       }
 
       grid.innerHTML = owned.map(packCard).join("");
       grid.hidden = false;
-      renderMoreCell(unowned);
       wirePackGrid(owned);
     })();
   </script>
