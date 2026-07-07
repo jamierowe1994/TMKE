@@ -313,6 +313,29 @@ function crmTags(email, service, { optIn, member } = {}) {
   return t;
 }
 
+// Reconcile a contact's tags to the rules (mirrors normalize_contact_tags in
+// SQL — keep the two in sync). Consent is one state; SMM-Status is one value;
+// becoming a client supersedes that service's Interest / Discovery-call tags.
+function normalizeTags(tags) {
+  let t = Array.from(new Set((tags || []).map((x) => String(x || "").trim()).filter(Boolean)));
+  const has = (x) => t.includes(x);
+  const dropAll = (...xs) => { t = t.filter((v) => !xs.includes(v)); };
+
+  if (has("Unsubscribed")) dropAll("Newsletter-Subscriber", "Marketing-Not-Opted-In");
+  else if (has("Newsletter-Subscriber")) dropAll("Marketing-Not-Opted-In");
+
+  if (t.filter((v) => v.startsWith("SMM-Status:")).length > 1) {
+    const keep = has("SMM-Status: Active") ? "SMM-Status: Active"
+      : has("SMM-Status: Paused") ? "SMM-Status: Paused" : "SMM-Status: Ended";
+    t = t.filter((v) => !v.startsWith("SMM-Status:")).concat(keep);
+  }
+
+  if (t.some((v) => v.startsWith("SMM-Status:"))) dropAll("Interest: SMM", "Discovery-Call-Booked: SMM");
+  if (has("Videography-Client")) dropAll("Interest: Videography", "Discovery-Call-Booked: Videography");
+
+  return t;
+}
+
 // Upsert a CRM contact from a paid order, so pack purchasers become contacts.
 // No marketing_opt_in (buying ≠ consent). Tags: Pack-Purchased + Pack Name.
 async function contactFromOrder(env, order) {
@@ -2565,7 +2588,7 @@ export default {
           const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lead.email)}&select=id,tags,lifecycle`);
           const c = cRows && cRows[0];
           if (c) {
-            const tags = Array.from(new Set([...(c.tags || []).filter((t) => !/^SMM-Status:/.test(t)), statusTag, "Interest: SMM"]));
+            const tags = normalizeTags([...(c.tags || []).filter((t) => !/^SMM-Status:/.test(t)), statusTag]);
             const patch = { tags };
             if (status === "active") patch.lifecycle = "customer";
             await fetch(`${env.SUPABASE_URL}/rest/v1/contacts?id=eq.${c.id}`, {
@@ -2576,7 +2599,7 @@ export default {
             await sbRpc(env, "upsert_contact", {
               p_email: lead.email, p_first_name: lead.first_name || lead.full_name || null, p_last_name: lead.last_name || null,
               p_company: lead.business || null, p_source: "smm", p_lifecycle: status === "active" ? "customer" : "lead",
-              p_tags: [statusTag, "Interest: SMM", networkTag(lead.email)].filter(Boolean), p_user_id: lead.account_user_id || null,
+              p_tags: normalizeTags([statusTag, networkTag(lead.email)].filter(Boolean)), p_user_id: lead.account_user_id || null,
             });
           }
         }
