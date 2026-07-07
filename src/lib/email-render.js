@@ -221,7 +221,7 @@ export function textInlineStyle(block = {}) {
   const pad = padStyleResolved(block);
   if (block.bg || block.bgImage) {
     style += (block.bg ? `background-color:${escapeHtml(block.bg)};` : '')
-      + (block.bgImage ? `background-image:url('${escapeHtml(block.bgImage)}');background-size:cover;background-position:center;` : '')
+      + (block.bgImage ? `background-image:url('${escapeHtml(block.bgImage)}');background-size:cover;background-position:center center;background-repeat:no-repeat;` : '')
       + 'border-radius:8px;' + (pad || 'padding:14px 18px;');
   } else style += pad;
   return style;
@@ -750,7 +750,7 @@ function renderColumns(block, brand, ctx) {
     const hasBg = colBg[i] || colBgImage[i];
     const bgCss = hasBg
       ? (colBg[i] ? `background-color:${escapeHtml(colBg[i])};` : '')
-        + (colBgImage[i] ? `background-image:url('${escapeHtml(colBgImage[i])}');background-size:cover;background-position:center;` : '')
+        + (colBgImage[i] ? `background-image:url('${escapeHtml(colBgImage[i])}');background-size:cover;background-position:center center;background-repeat:no-repeat;` : '')
         + `border-radius:${radius}px;padding:14px;`
       : '';
     const inner = hasBg ? `<div style="${bgCss}">${content}</div>` : content;

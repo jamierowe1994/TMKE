@@ -494,7 +494,7 @@ import "../../../styles/admin.css";
             const children = Array.isArray(cols[i])?cols[i]:[];
             const inner = children.length ? children.map(blockCard).join("") : `<div class="cv-col-empty">Drop a block here</div>`;
             const hasBg = colBg[i] || colBgImage[i];
-            const bg = hasBg ? `${colBg[i]?`background-color:${esc(colBg[i])};`:""}${colBgImage[i]?`background-image:url('${esc(colBgImage[i])}');background-size:cover;background-position:center;`:""}border-radius:${radius}px;border-style:solid;border-color:transparent;` : `border-radius:${radius}px;`;
+            const bg = hasBg ? `${colBg[i]?`background-color:${esc(colBg[i])};`:""}${colBgImage[i]?`background-image:url('${esc(colBgImage[i])}');background-size:cover;background-position:center center;background-repeat:no-repeat;`:""}border-radius:${radius}px;border-style:solid;border-color:transparent;` : `border-radius:${radius}px;`;
             return `<div class="cv-col" data-colof="${b.id}" data-coli="${i}" style="flex:0 0 calc(${w}% - 6px);max-width:${w}%;${bg}">${inner}</div>`;
           }).join("");
           return `<div class="cv-cols">${colsHtml}</div>`;
@@ -1303,7 +1303,15 @@ import "../../../styles/admin.css";
     $("#eb-preview").addEventListener("click", ()=>{
       const brand={...defaultBrand(),...state.branding};
       const {subject,html}=renderTemplate(state,{brand,mergeCtx:mergeContextFor(SAMPLE_RECIPIENT,brand)});
-      $("#eb-pv-subject").textContent=subject||"—"; $("#eb-pv-frame").srcdoc=html; openModal("#eb-modal-preview");
+      $("#eb-pv-subject").textContent=subject||"—";
+      // Swap in a FRESH iframe each time — re-setting srcdoc on an already-loaded
+      // (and currently hidden) iframe renders blank on the 2nd+ open.
+      const old=$("#eb-pv-frame");
+      const f=document.createElement("iframe");
+      f.id="eb-pv-frame"; f.className=old.className; f.title="Email preview"; f.setAttribute("sandbox","");
+      f.srcdoc=html;
+      old.replaceWith(f);
+      openModal("#eb-modal-preview");
     });
     document.querySelectorAll(".eb-dev").forEach(b=>b.addEventListener("click", ()=>{
       document.querySelectorAll(".eb-dev").forEach(x=>x.classList.toggle("is-active",x===b));
