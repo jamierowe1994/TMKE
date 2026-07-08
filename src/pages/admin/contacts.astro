@@ -70,6 +70,7 @@ import "../../styles/admin.css";
     </header>
     <nav class="ct-tabs" id="ct-tabs" role="tablist">
       <button type="button" class="ct-tab is-active" data-tab="info" role="tab">Information</button>
+      <button type="button" class="ct-tab" data-tab="teg" role="tab">TEG</button>
       <button type="button" class="ct-tab" data-tab="purchases" role="tab">Purchases</button>
       <button type="button" class="ct-tab" data-tab="booked" role="tab">Booked</button>
       <button type="button" class="ct-tab" data-tab="activity" role="tab">Activity</button>
@@ -172,6 +173,14 @@ import "../../styles/admin.css";
     .ct-chip button { border: 0; background: none; cursor: pointer; color: inherit; font-size: 13px; line-height: 1; }
     .ct-row { display: flex; gap: 8px; }
     .ct-row input, .ct-row select, .ct-drawer textarea { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); flex: 1; }
+    .ct-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .ct-field > label { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .ct-field input, .ct-field select { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); }
+    .ct-field input:focus, .ct-field select:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
+    .teg-code code { font-family: ui-monospace, Menlo, monospace; font-size: 14px; font-weight: 700; color: var(--english-violet); background: var(--paper); border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; padding: 4px 10px; display: inline-block; letter-spacing: 0.03em; }
+    .ct-teg-msg { font-family: var(--sans); font-size: 13px; border-radius: 8px; padding: 9px 12px; margin: 12px 0 0; }
+    .ct-teg-msg.is-ok { background: rgba(60,150,90,0.1); color: #2e6b40; }
+    .ct-teg-msg.is-err { background: rgba(200,70,50,0.1); color: #a3372b; }
     .ct-mini { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--english-violet); background: transparent; color: var(--english-violet); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
     .ct-mini:hover { background: var(--english-violet); color: #fff; }
     .ct-item { padding: 10px 0; border-bottom: 1px solid rgba(28,29,34,0.06); font-family: var(--sans); font-size: 13px; color: var(--ink); }
@@ -376,13 +385,15 @@ import "../../styles/admin.css";
       $("ct-drawer-body").innerHTML = `<p class="ct-meta">Loading…</p>`;
       const email = current.email;
       // Purchases, bookings + activity are derived live by email, always accurate.
-      const [{ data: notes }, { data: tasks }, ord, vidb, smmb] = await Promise.all([
+      const [{ data: notes }, { data: tasks }, ord, vidb, smmb, agentProfile] = await Promise.all([
         supabase.from("contact_notes").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("contact_tasks").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("orders").select("pack_title, amount_pence, status, created_at").ilike("buyer_email", email).order("created_at", { ascending: false }),
         supabase.from("videography_bookings").select("service, service_type, kind, shoot_date, stage, created_at").ilike("client_email", email).order("created_at", { ascending: false }),
         supabase.from("smm_leads").select("kind, call_at, stage, created_at").ilike("email", email).order("created_at", { ascending: false }),
+        fetchAgentProfile(id),
       ]);
+      current.agentProfile = agentProfile;
       const orders = (ord && ord.data) || [], vrows = (vidb && vidb.data) || [], srows = (smmb && smmb.data) || [];
       // Booked = actual sessions + discovery calls (not enquiries/brochures).
       const bookings = [
@@ -411,6 +422,92 @@ import "../../styles/admin.css";
       document.querySelectorAll("#ct-drawer-body .ct-tabpanel").forEach((p) => { p.hidden = p.getAttribute("data-panel") !== tab; });
     }
     $("ct-tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) setTab(b.getAttribute("data-tab")); });
+
+    // ---- TEG (internal agent) tab -------------------------------------------
+    // Read the agent profile through the Worker (domain-aware admin check +
+    // service role) rather than the client — avoids the agent_profiles is_admin()
+    // RLS denying a @tmke.co.uk admin who isn't in the admins table.
+    async function fetchAgentProfile(id) {
+      if (!WORKER) return null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        const r = await fetch(`${WORKER}/agent/profile?contact_id=${encodeURIComponent(id)}`, { headers: token ? { Authorization: "Bearer " + token } : {} });
+        const j = await r.json().catch(() => ({}));
+        return j.profile || null;
+      } catch (_) { return null; }
+    }
+    function tegPanelHtml(p) {
+      const isAgent = !!p;
+      const val = (x) => esc(x == null ? "" : x);
+      return `
+        <div class="ct-sec">
+          <label class="ct-toggle"><input type="checkbox" id="teg-is-agent" ${isAgent ? "checked" : ""}/> Internal agent — TEG (The Experts Group)</label>
+          <p class="ct-meta" id="teg-empty" ${isAgent ? "hidden" : ""} style="margin-top:8px">Turn this on to record their agent details and (for new starters) generate their free videography code.</p>
+        </div>
+        <div id="teg-fields" ${isAgent ? "" : "hidden"}>
+          <div class="ct-sec">
+            <h3>Agent details</h3>
+            <div class="ct-field"><label>Brand</label><input id="teg-brand" value="${val(p && p.brand)}" placeholder="e.g. The Property Experts" /></div>
+            <div class="ct-field"><label>Date joined</label><input type="date" id="teg-joined" value="${val(p && p.date_joined)}" /></div>
+            <div class="ct-field"><label>Postcode</label><input id="teg-postcode" value="${val(p && p.postcode)}" placeholder="e.g. NN14 1AA" /></div>
+            <div class="ct-field"><label>Trainer name</label><input id="teg-trainer-name" value="${val((p && p.trainer_name) || "Kelly Bailey")}" /></div>
+            <div class="ct-field"><label>Trainer email</label><input id="teg-trainer-email" type="email" value="${val((p && p.trainer_email) || "kelly@theexpertsgroup.co.uk")}" /></div>
+          </div>
+          <div class="ct-sec">
+            <h3>New starter</h3>
+            <label class="ct-toggle"><input type="checkbox" id="teg-newstarter" ${p && p.is_new_starter ? "checked" : ""}/> New-starter onboarding (free videography shoot)</label>
+            <div id="teg-ns-fields" ${p && p.is_new_starter ? "" : "hidden"} style="margin-top:12px">
+              <div class="ct-field"><label>Induction month</label><input type="month" id="teg-month" value="${val(p && p.induction_month)}" /></div>
+              <div class="ct-field"><label>Package</label><select id="teg-package"><option value="">—</option><option value="academy" ${p && p.package === "academy" ? "selected" : ""}>Academy</option><option value="pro" ${p && p.package === "pro" ? "selected" : ""}>Pro</option></select></div>
+              <div class="ct-field"><label>Free videography code</label><div class="teg-code">${p && p.promo_code ? `<code>${esc(p.promo_code)}</code>` : '<span class="ct-meta">Generated on save — Academy/Pro only</span>'}</div></div>
+            </div>
+          </div>
+          <button type="button" class="ct-mini" id="teg-save">Save agent details</button>
+          <p class="ct-teg-msg" id="teg-msg" hidden></p>
+        </div>`;
+    }
+    const tegVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+    function tegMsg(t, ok) { const m = document.getElementById("teg-msg"); if (!m) return; m.textContent = t; m.className = "ct-teg-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
+    function wireTeg() {
+      const c = current;
+      const isAgentCb = document.getElementById("teg-is-agent");
+      if (!isAgentCb) return;
+      isAgentCb.addEventListener("change", () => {
+        document.getElementById("teg-fields").hidden = !isAgentCb.checked;
+        const em = document.getElementById("teg-empty"); if (em) em.hidden = isAgentCb.checked;
+      });
+      const nsCb = document.getElementById("teg-newstarter");
+      nsCb?.addEventListener("change", () => { document.getElementById("teg-ns-fields").hidden = !nsCb.checked; });
+      document.getElementById("teg-save")?.addEventListener("click", async () => {
+        if (!WORKER) { tegMsg("Connect the Worker to save agent details.", false); return; }
+        const btn = document.getElementById("teg-save");
+        const body = {
+          contact_id: c.id,
+          brand: tegVal("teg-brand"),
+          date_joined: tegVal("teg-joined") || null,
+          postcode: tegVal("teg-postcode"),
+          is_new_starter: !!document.getElementById("teg-newstarter")?.checked,
+          induction_month: tegVal("teg-month") || null,
+          package: tegVal("teg-package") || null,
+          trainer_name: tegVal("teg-trainer-name"),
+          trainer_email: tegVal("teg-trainer-email"),
+        };
+        btn.disabled = true; btn.textContent = "Saving…";
+        try {
+          const { data } = await supabase.auth.getSession();
+          const token = data?.session?.access_token;
+          const res = await fetch(`${WORKER}/agent/profile`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(j.error || "Couldn't save agent details.");
+          c.agentProfile = j.profile || null;
+          document.getElementById("ct-teg-panel").innerHTML = tegPanelHtml(c.agentProfile);
+          wireTeg();
+          tegMsg(c.agentProfile && c.agentProfile.promo_code ? `Saved. Their free code is ${c.agentProfile.promo_code}.` : "Saved.", true);
+        } catch (err) { tegMsg(err.message || "Couldn't save agent details.", false); }
+        finally { btn.disabled = false; btn.textContent = "Save agent details"; }
+      });
+    }
 
     function drawNote(notes, tasks, orders, bookings, activity) {
       const c = current;
@@ -444,6 +541,9 @@ import "../../styles/admin.css";
               <button class="ct-mini" id="ct-tag-add">Add</button>
             </div>
           </div>
+        </div>
+        <div class="ct-tabpanel" data-panel="teg"${activeTab !== "teg" ? " hidden" : ""}>
+          <div id="ct-teg-panel">${tegPanelHtml(c.agentProfile)}</div>
         </div>
         <div class="ct-tabpanel" data-panel="purchases"${activeTab !== "purchases" ? " hidden" : ""}>
           <div class="ct-sec">
@@ -507,6 +607,7 @@ import "../../styles/admin.css";
 
     function wireDrawer(notes, tasks) {
       const c = current;
+      wireTeg();
       $("ct-life-sel").addEventListener("change", async (e) => {
         c.lifecycle = e.target.value;
         await supabase.from("contacts").update({ lifecycle: c.lifecycle }).eq("id", c.id);
