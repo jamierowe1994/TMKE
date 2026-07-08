@@ -116,6 +116,37 @@ function genTempPassword() {
   return "Tmke-" + s + "!";
 }
 
+// ---- Internal-agent (TEG) free-videography codes ------------------------
+const MONTH_ABBR = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const PACKAGE_PREFIX = { academy: "ACAD", pro: "PRO" };
+
+// Build a personalised free-videography code + create the single-use 100% promo
+// row (restricted to the agent service). Format: PACKAGE-INITIALS-MMMYY
+// (e.g. PRO-JB-AUG26); a numeric suffix is appended if that already exists so
+// codes stay unique. Returns { code, id } or null if the package is ineligible.
+async function generateAgentCode(env, { pkg, firstName, lastName, inductionMonth, label }) {
+  const prefix = PACKAGE_PREFIX[String(pkg || "").toLowerCase()];
+  if (!prefix) return null;
+  const initials = ((String(firstName || "")[0] || "") + (String(lastName || "")[0] || "")).toUpperCase().replace(/[^A-Z]/g, "") || "XX";
+  let mmmyy = "";
+  const m = String(inductionMonth || "").match(/^(\d{4})-(\d{2})$/);
+  if (m) mmmyy = MONTH_ABBR[Math.max(0, Math.min(11, parseInt(m[2], 10) - 1))] + m[1].slice(2);
+  const base = [prefix, initials, mmmyy].filter(Boolean).join("-");
+  let code = base, n = 1;
+  for (let i = 0; i < 30; i++) {
+    const existing = await sbGet(env, "videography_promo_codes", `code=eq.${encodeURIComponent(code)}&select=id`);
+    if (!existing || !existing.length) break;
+    n += 1; code = `${base}-${n}`;
+  }
+  const res = await sbPost(env, "videography_promo_codes", {
+    code, label: label || "New-starter free videography", kind: "percent", value: 100,
+    services: ["agent"], active: true, max_redemptions: 1, redemptions: 0,
+  }, "return=representation");
+  let id = null;
+  try { const j = await res.json(); const rec = Array.isArray(j) ? j[0] : j; id = (rec && rec.id) || null; } catch (_) {}
+  return { code, id };
+}
+
 // Admin gate for staff-only endpoints (e.g. sending email). Mirrors the client
 // allowlist in src/lib/admin-gate.js: a TMKE-domain email, or the named extra.
 const ADMIN_EMAIL_DOMAINS = ["tmke.co.uk"];
@@ -2726,6 +2757,68 @@ export default {
         try { await sendEmail(env, { to: email, subject: "Your TMKE admin password has been reset", html }); } catch (_) {}
 
         return json({ ok: true, temp_password: tempPassword, email }, 200, request, env);
+      }
+
+      // ---- Admin: internal-agent (TEG) profile on a contact -------------------
+      // Reads/writes the agent_profiles row for a contact. On save, when the
+      // contact is a new starter on Academy/Pro and has no code yet, generates
+      // their personalised 100% single-use free-videography code.
+      if (path.endsWith("/agent/profile") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const cid = (url.searchParams.get("contact_id") || "").trim();
+        if (!cid) return json({ error: "Missing contact_id" }, 400, request, env);
+        const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(cid)}&select=*`);
+        return json({ ok: true, profile: (rows && rows[0]) || null }, 200, request, env);
+      }
+
+      if (path.endsWith("/agent/profile") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const contactId = String((b && b.contact_id) || "").trim();
+        if (!contactId) return json({ error: "Missing contact_id" }, 400, request, env);
+
+        const cRows = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(contactId)}&select=id,first_name,last_name,email`);
+        const contact = cRows && cRows[0];
+        if (!contact) return json({ error: "Contact not found." }, 404, request, env);
+        const existingRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`);
+        const existing = existingRows && existingRows[0];
+
+        const pkg = ["academy", "pro"].includes(String((b && b.package) || "").toLowerCase()) ? String(b.package).toLowerCase() : null;
+        const isNewStarter = !!(b && b.is_new_starter);
+        const inductionMonth = (b && typeof b.induction_month === "string" && /^\d{4}-\d{2}$/.test(b.induction_month)) ? b.induction_month : null;
+
+        // Generate the personalised code once — when they're an eligible new
+        // starter and don't already have one. Existing codes are preserved.
+        let promoCode = (existing && existing.promo_code) || null;
+        let promoCodeId = (existing && existing.promo_code_id) || null;
+        if (isNewStarter && pkg && inductionMonth && !promoCode) {
+          const label = `New-starter free videography — ${[contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email}`;
+          const gen = await generateAgentCode(env, { pkg, firstName: contact.first_name, lastName: contact.last_name, inductionMonth, label });
+          if (gen) { promoCode = gen.code; promoCodeId = gen.id; }
+        }
+
+        const row = {
+          contact_id: contactId,
+          brand: (b && b.brand) || null,
+          date_joined: (b && b.date_joined) || null,
+          postcode: (b && b.postcode) || null,
+          is_new_starter: isNewStarter,
+          induction_month: inductionMonth,
+          package: pkg,
+          promo_code: promoCode,
+          promo_code_id: promoCodeId,
+          trainer_name: (b && b.trainer_name) || "Kelly Bailey",
+          trainer_email: (b && b.trainer_email) || "kelly@theexpertsgroup.co.uk",
+        };
+        await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?on_conflict=contact_id`, {
+          method: "POST",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(row),
+        });
+        const saved = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`);
+        return json({ ok: true, profile: (saved && saved[0]) || row }, 200, request, env);
       }
 
       // ---- Admin: set an SMM client's status (active / paused / ended) --------
