@@ -38,35 +38,79 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         <p class="set-hint" style="margin-top:14px">More workspace preferences will live here as we flesh out the CRM.</p>
       </div>
     </div>
+
+    <div class="ash-card set-card set-team">
+      <div class="ash-card-head"><div class="ash-card-title">Admin access</div></div>
+      <div class="ash-card-body">
+        <p class="set-team-intro">Anyone with an <strong>@tmke.co.uk</strong> email can sign in automatically. Grant access below to anyone else who needs the admin centre — they'll get their own login, emailed to them. Removing someone revokes their admin access straight away.</p>
+
+        <form id="team-form" class="set-team-form">
+          <label class="set-field"><span>Full name</span><input name="full_name" placeholder="e.g. Abby Taylor" autocomplete="off" /></label>
+          <label class="set-field"><span>Email</span><input name="email" type="email" placeholder="name@example.com" autocomplete="off" /></label>
+          <button type="submit" class="set-save" id="team-add">Grant access</button>
+        </form>
+        <p class="set-msg" id="team-msg" hidden></p>
+
+        <div class="set-team-list" id="team-list">
+          <p class="set-team-empty" id="team-empty">Loading team…</p>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <style>
+  <style is:global>
     .set-wrap { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: start; max-width: 1000px; }
     @media (max-width: 900px) { .set-wrap { grid-template-columns: 1fr; } }
 
     .set-avatar-row { display: flex; align-items: center; gap: 18px; margin-bottom: 24px; }
-    .set-avatar { width: 84px; height: 84px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--violet-soft), #8c607a); display: inline-flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #2a1822; text-transform: uppercase; background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.2); }
-    .set-upload { display: inline-block; cursor: pointer; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 9px; padding: 10px 16px; font-family: var(--sans); font-size: 13px; font-weight: 700; color: #fff; transition: background 0.2s; }
-    .set-upload:hover { background: rgba(255,255,255,0.2); }
-    .set-hint { font-family: var(--sans); font-size: 12.5px; color: rgba(244,242,241,0.5); margin: 8px 0 0; }
+    .set-avatar { width: 84px; height: 84px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--english-violet), #7e6765); display: inline-flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #fff; text-transform: uppercase; background-size: cover; background-position: center; border: 1px solid rgba(28,29,34,0.08); }
+    .set-upload { display: inline-block; cursor: pointer; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 9px; padding: 10px 16px; font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink); transition: background 0.2s, border-color 0.2s; }
+    .set-upload:hover { background: var(--paper); border-color: rgba(28,29,34,0.24); }
+    .set-hint { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); margin: 8px 0 0; }
 
     .set-form { display: flex; flex-direction: column; gap: 16px; }
     .set-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 560px) { .set-row { grid-template-columns: 1fr; } }
     .set-field { display: flex; flex-direction: column; gap: 7px; }
-    .set-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(244,242,241,0.6); }
-    .set-field input { font-family: var(--sans); font-size: 15px; padding: 12px 14px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.07); color: #fff; transition: border-color 0.2s, background 0.2s; }
-    .set-field input::placeholder { color: rgba(244,242,241,0.4); }
-    .set-field input:focus { outline: none; border-color: var(--violet-soft); background: rgba(255,255,255,0.12); }
-    .set-field input[readonly] { opacity: 0.6; cursor: not-allowed; }
-    .set-save { align-self: flex-start; margin-top: 6px; appearance: none; cursor: pointer; background: var(--paper); color: var(--ink); border: 0; border-radius: 9px; padding: 13px 26px; font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; transition: opacity 0.2s, transform 0.2s; }
+    .set-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .set-field input { font-family: var(--sans); font-size: 15px; padding: 12px 14px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s; }
+    .set-field input::placeholder { color: rgba(28,29,34,0.4); }
+    .set-field input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.1); }
+    .set-field input[readonly] { background: var(--paper); color: rgba(28,29,34,0.6); cursor: not-allowed; }
+    .set-save { align-self: flex-start; margin-top: 6px; appearance: none; cursor: pointer; background: var(--english-violet); color: #fff; border: 0; border-radius: 9px; padding: 13px 26px; font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; transition: opacity 0.2s, transform 0.2s; }
     .set-save:hover { opacity: 0.9; }
     .set-save:disabled { opacity: 0.5; cursor: not-allowed; }
     .set-msg { font-family: var(--sans); font-size: 13.5px; border-radius: 9px; padding: 11px 14px; margin: 0; }
-    .set-msg.is-ok { background: rgba(120,200,140,0.18); color: #cdebcf; border: 1px solid rgba(120,200,140,0.4); }
-    .set-msg.is-err { background: rgba(220,120,100,0.18); color: #f3ccc4; border: 1px solid rgba(220,120,100,0.4); }
-    .set-toggle { display: flex; align-items: center; gap: 11px; font-family: var(--sans); font-size: 14px; color: rgba(244,242,241,0.82); cursor: pointer; }
-    .set-toggle input { width: 18px; height: 18px; accent-color: var(--violet-soft); }
+    .set-msg.is-ok { background: rgba(60,150,90,0.1); color: #2e6b40; border: 1px solid rgba(60,150,90,0.3); }
+    .set-msg.is-err { background: rgba(200,70,50,0.1); color: #a3372b; border: 1px solid rgba(200,70,50,0.3); }
+    .set-toggle { display: flex; align-items: center; gap: 11px; font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer; }
+    .set-toggle input { width: 18px; height: 18px; accent-color: var(--english-violet); }
+
+    /* ---- Admin access (team) ---- */
+    .set-team { grid-column: 1 / -1; }
+    .set-team-intro { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.72); margin: 0 0 18px; max-width: 660px; }
+    .set-team-intro strong { color: var(--ink); }
+    .set-team-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 14px; align-items: end; }
+    @media (max-width: 620px) { .set-team-form { grid-template-columns: 1fr; } }
+    .set-team-form .set-save { margin-top: 0; align-self: end; height: 46px; padding: 0 24px; }
+    @media (max-width: 620px) { .set-team-form .set-save { align-self: stretch; } }
+    #team-msg { margin-top: 14px; }
+    #team-msg code { font-family: ui-monospace, Menlo, monospace; font-weight: 700; background: rgba(255,255,255,0.6); border: 1px solid rgba(28,29,34,0.14); border-radius: 6px; padding: 1px 7px; }
+    .set-team-list { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; }
+    .set-team-empty { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.5); margin: 0; }
+    .team-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--paper); border: 1px solid rgba(28,29,34,0.09); border-radius: 12px; }
+    .team-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .team-name { font-family: var(--sans); font-size: 14.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .team-sub { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .team-edit-input { font-family: var(--sans); font-size: 14.5px; font-weight: 700; color: var(--ink); padding: 8px 11px; border-radius: 8px; border: 1px solid var(--english-violet); background: #fff; width: 100%; max-width: 320px; }
+    .team-edit-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(55,30,40,0.1); }
+    .team-btn, .team-remove { appearance: none; cursor: pointer; background: none; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; padding: 8px 14px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.7); transition: background 0.2s, border-color 0.2s, color 0.2s; flex: none; }
+    .team-btn:hover { background: rgba(28,29,34,0.05); border-color: rgba(28,29,34,0.28); color: var(--ink); }
+    .team-btn.team-save-name { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .team-btn.team-save-name:hover { opacity: 0.9; }
+    .team-remove:hover { background: rgba(200,70,50,0.08); border-color: rgba(200,70,50,0.4); color: #a3372b; }
+    .team-remove:disabled, .team-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .team-you { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.4); flex: none; padding-right: 4px; }
   </style>
 
   <script>
@@ -97,6 +141,159 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       }
       paintAvatar(currentAvatar, (profile && profile.full_name) || (session.user.email || ""));
       $("pref-collapsed").checked = localStorage.getItem("tmke-admin-collapsed") === "1";
+      loadTeam();
+    });
+
+    // ---------- Admin access (team) ----------
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    let selfId = null;
+    const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    function teamMsg(text, ok) { const m = $("team-msg"); m.innerHTML = text; m.className = "set-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
+    async function authToken() {
+      try {
+        let s = (await supabase.auth.getSession()).data.session;
+        if (!s || (s.expires_at && s.expires_at * 1000 < Date.now() + 60000)) {
+          try { const r = await supabase.auth.refreshSession(); if (r.data && r.data.session) s = r.data.session; } catch (_) {}
+        }
+        return (s && s.access_token) || "";
+      } catch (_) { return ""; }
+    }
+
+    let teamAdmins = [], editingId = null;
+
+    function renderTeam() {
+      const wrap = $("team-list");
+      if (!teamAdmins.length) { wrap.innerHTML = '<p class="set-team-empty">No one else has been granted access yet. Add someone above.</p>'; return; }
+      wrap.innerHTML = teamAdmins.map((a) => {
+        const name = a.full_name || (a.email || "").split("@")[0];
+        const isSelf = a.user_id === selfId;
+        if (a.user_id === editingId) {
+          return `<div class="team-row">
+            <div class="team-meta">
+              <input class="team-edit-input" id="team-edit-input" value="${esc(a.full_name || "")}" placeholder="Full name" />
+              <div class="team-sub">${esc(a.email)}</div>
+            </div>
+            <button type="button" class="team-btn team-save-name" data-uid="${esc(a.user_id)}">Save</button>
+            <button type="button" class="team-btn team-cancel-name">Cancel</button>
+          </div>`;
+        }
+        const when = a.created_at ? new Date(a.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+        const right = isSelf
+          ? '<span class="team-you">You</span>'
+          : `<button type="button" class="team-remove" data-uid="${esc(a.user_id)}" data-name="${esc(name)}">Remove</button>`;
+        return `<div class="team-row">
+          <div class="team-meta">
+            <div class="team-name">${esc(name)}${a.role ? ` · ${esc(a.role)}` : ""}</div>
+            <div class="team-sub">${esc(a.email)}${when ? ` — added ${when}` : ""}</div>
+          </div>
+          <button type="button" class="team-btn team-edit" data-uid="${esc(a.user_id)}">Edit name</button>
+          ${right}
+        </div>`;
+      }).join("");
+      if (editingId) { const i = $("team-edit-input"); if (i) { i.focus(); i.select(); } }
+    }
+
+    async function loadTeam() {
+      const wrap = $("team-list");
+      if (!WORKER) { wrap.innerHTML = '<p class="set-team-empty">Connect the Worker (PUBLIC_R2_WORKER_URL) to manage admin access.</p>'; $("team-add").disabled = true; return; }
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/admin/team`, { headers: { Authorization: `Bearer ${token}` } });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't load the team.");
+        selfId = d.self || null;
+        teamAdmins = d.admins || [];
+        editingId = null;
+        renderTeam();
+      } catch (err) { wrap.innerHTML = `<p class="set-team-empty">${esc(err.message || "Couldn't load the team.")}</p>`; }
+    }
+
+    async function saveTeamName(userId, newName) {
+      const token = await authToken();
+      const res = await fetch(`${WORKER}/admin/team`, {
+        method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, full_name: newName }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Couldn't save the name.");
+      const row = teamAdmins.find((a) => a.user_id === userId);
+      if (row) row.full_name = newName;
+    }
+
+    $("team-form")?.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      if (!WORKER) return;
+      const f = ev.target; const btn = $("team-add");
+      const email = f.email.value.trim(); const full_name = f.full_name.value.trim();
+      if (!email) { teamMsg("Enter an email address to grant access.", false); return; }
+      btn.disabled = true; btn.textContent = "Granting…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/admin/team`, {
+          method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ email, full_name }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't grant access.");
+        if (d.temp_password) {
+          teamMsg(`Access granted for <strong>${esc(email)}</strong>. We've emailed them how to sign in. Temporary password (share if the email doesn't arrive): <code>${esc(d.temp_password)}</code>`, true);
+        } else {
+          teamMsg(`Access granted for <strong>${esc(email)}</strong>. They can sign in with their existing password.`, true);
+        }
+        f.reset();
+        loadTeam();
+      } catch (err) { teamMsg(err.message || "Couldn't grant access.", false); }
+      finally { btn.disabled = false; btn.textContent = "Grant access"; }
+    });
+
+    $("team-list")?.addEventListener("click", async (ev) => {
+      // Edit a name (inline).
+      const editBtn = ev.target.closest(".team-edit");
+      if (editBtn) { editingId = editBtn.getAttribute("data-uid"); renderTeam(); return; }
+      const cancelBtn = ev.target.closest(".team-cancel-name");
+      if (cancelBtn) { editingId = null; renderTeam(); return; }
+      const saveBtn = ev.target.closest(".team-save-name");
+      if (saveBtn) {
+        const uid3 = saveBtn.getAttribute("data-uid");
+        const input = $("team-edit-input");
+        const newName = (input && input.value.trim()) || "";
+        if (!newName) { teamMsg("Enter a name.", false); return; }
+        saveBtn.disabled = true; saveBtn.textContent = "Saving…";
+        try {
+          await saveTeamName(uid3, newName);
+          editingId = null; renderTeam();
+          teamMsg(`Name updated to <strong>${esc(newName)}</strong>.`, true);
+        } catch (err) { teamMsg(err.message || "Couldn't save the name.", false); saveBtn.disabled = false; saveBtn.textContent = "Save"; }
+        return;
+      }
+
+      // Remove (revoke) access.
+      const btn = ev.target.closest(".team-remove");
+      if (!btn) return;
+      const uid2 = btn.getAttribute("data-uid"); const name = btn.getAttribute("data-name") || "this person";
+      if (!confirm(`Remove admin access for ${name}? They'll no longer be able to open the admin centre.`)) return;
+      btn.disabled = true; btn.textContent = "Removing…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/admin/team?user_id=${encodeURIComponent(uid2)}`, {
+          method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't remove access.");
+        teamMsg(`Access removed for ${esc(name)}.`, true);
+        loadTeam();
+      } catch (err) { teamMsg(err.message || "Couldn't remove access.", false); btn.disabled = false; btn.textContent = "Remove"; }
+    });
+
+    // Save the inline name edit on Enter.
+    $("team-list")?.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && ev.target.classList.contains("team-edit-input")) {
+        ev.preventDefault();
+        const sb = ev.target.closest(".team-row")?.querySelector(".team-save-name");
+        if (sb) sb.click();
+      } else if (ev.key === "Escape" && ev.target.classList.contains("team-edit-input")) {
+        editingId = null; renderTeam();
+      }
     });
 
     // Sidebar-collapsed preference (stored locally — the shell reads this key).

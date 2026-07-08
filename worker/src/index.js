@@ -105,6 +105,17 @@ async function findUserByEmail(env, email) {
   }
 }
 
+// A strong random temporary password (upper + lower + digit + symbol) for a
+// freshly-created admin login. The person is emailed it and asked to change it.
+function genTempPassword() {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ", lower = "abcdefghijkmnpqrstuvwxyz", digits = "23456789";
+  const pool = upper + lower + digits;
+  const a = new Uint32Array(9); crypto.getRandomValues(a);
+  let s = upper[a[0] % upper.length] + lower[a[1] % lower.length] + digits[a[2] % digits.length];
+  for (let i = 3; i < 9; i++) s += pool[a[i] % pool.length];
+  return "Tmke-" + s + "!";
+}
+
 // Admin gate for staff-only endpoints (e.g. sending email). Mirrors the client
 // allowlist in src/lib/admin-gate.js: a TMKE-domain email, or the named extra.
 const ADMIN_EMAIL_DOMAINS = ["tmke.co.uk"];
@@ -2560,6 +2571,123 @@ export default {
         if (!id) return json({ error: "Missing id" }, 400, request, env);
         await fetch(`${env.SUPABASE_URL}/rest/v1/booking_messages?id=eq.${encodeURIComponent(id)}`, {
           method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: team access (who can use the admin centre) -----------------
+      // Anyone on the @tmke.co.uk domain (or the named allowlist) is an admin via
+      // SSO and never appears here. This manages the `admins` table — the way to
+      // grant admin access to anyone OUTSIDE the domain, and to revoke it.
+
+      // List everyone who's been granted admin access via the table.
+      if (path.endsWith("/admin/team") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const rows = (await sbGet(env, "admins", "select=user_id,email,created_at&order=created_at.asc")) || [];
+        const profs = (await sbGet(env, "admin_profiles", "select=user_id,full_name,role")) || [];
+        const pm = {}; for (const p of profs) pm[p.user_id] = p;
+        const admins = rows.map((r) => ({
+          user_id: r.user_id, email: r.email, created_at: r.created_at,
+          full_name: (pm[r.user_id] || {}).full_name || null, role: (pm[r.user_id] || {}).role || null,
+        }));
+        return json({ ok: true, admins, self: user.id }, 200, request, env);
+      }
+
+      // Grant admin access: create their login if new, add them to `admins`,
+      // and email them how to sign in.
+      if (path.endsWith("/admin/team") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const email = String((b && b.email) || "").trim().toLowerCase();
+        const fullName = String((b && b.full_name) || "").trim();
+        const role = String((b && b.role) || "").trim() || "Admin";
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Enter a valid email address." }, 400, request, env);
+
+        // Find or create the auth user.
+        let u = await findUserByEmail(env, email);
+        let tempPassword = null, created = false;
+        if (!u) {
+          tempPassword = genTempPassword();
+          const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password: tempPassword, email_confirm: true, user_metadata: { full_name: fullName || null } }),
+          });
+          if (cr.ok) { u = await cr.json(); created = true; }
+          else {
+            u = await findUserByEmail(env, email);
+            if (!u) { const t = await cr.text().catch(() => ""); return json({ error: "Couldn't create that login. " + t.slice(0, 160) }, 502, request, env); }
+            tempPassword = null; // it existed after all — don't claim a new password
+          }
+        }
+        if (!u || !u.id) return json({ error: "Couldn't resolve that account." }, 502, request, env);
+
+        // Grant admin (idempotent upsert on the primary key).
+        await fetch(`${env.SUPABASE_URL}/rest/v1/admins?on_conflict=user_id`, {
+          method: "POST",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify({ user_id: u.id, email }),
+        });
+        // Seed their admin profile name/role for a brand-new login (don't clobber existing).
+        if (created && fullName) {
+          await fetch(`${env.SUPABASE_URL}/rest/v1/admin_profiles?on_conflict=user_id`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+            body: JSON.stringify({ user_id: u.id, full_name: fullName, role }),
+          });
+        }
+
+        // Email them how to get in (best-effort — never fail the grant on send).
+        const loginUrl = "https://tmke.co.uk/admin/login";
+        const who = fullName ? fullName.split(" ")[0] : "there";
+        const credLine = tempPassword
+          ? `<p style="margin:0 0 6px;font-size:15px;color:#1c1d22;">Sign in with your email and this temporary password:</p>
+             <p style="margin:0 0 18px;"><span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:16px;font-weight:700;letter-spacing:0.04em;background:#f4f2f1;border:1px solid #e4ded9;border-radius:8px;padding:9px 14px;color:#371e28;">${tempPassword}</span></p>
+             <p style="margin:0 0 18px;font-size:13.5px;color:#6b6b70;">Please change it once you're in (Forgot password on the sign-in screen).</p>`
+          : `<p style="margin:0 0 18px;font-size:15px;color:#1c1d22;">Sign in with your existing email and password.</p>`;
+        const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;">
+          <div style="font-size:20px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
+          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Hi ${who},</p>
+          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">You've been given access to the <strong>TMKE admin centre</strong>.</p>
+          ${credLine}
+          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:9px;padding:12px 22px;">Open the admin centre</a></p>
+          <p style="margin:0;font-size:12.5px;color:#9a9aa0;">If you weren't expecting this, you can ignore this email.</p>
+        </div>`;
+        try { await sendEmail(env, { to: email, subject: "Your TMKE admin access", html }); } catch (_) {}
+
+        return json({ ok: true, created, temp_password: tempPassword, admin: { user_id: u.id, email, full_name: fullName || null, role } }, 200, request, env);
+      }
+
+      // Revoke admin access (removes their `admins` row; the login itself stays).
+      if (path.endsWith("/admin/team") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const userId = (url.searchParams.get("user_id") || "").trim();
+        if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
+        if (userId === user.id) return json({ error: "You can't remove your own access." }, 400, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/admins?user_id=eq.${encodeURIComponent(userId)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // Rename an admin (their display name across the admin). Upserts admin_profiles.
+      if (path.endsWith("/admin/team") && request.method === "PATCH") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const userId = String((b && b.user_id) || "").trim();
+        const fullName = String((b && b.full_name) || "").trim();
+        if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
+        if (!fullName) return json({ error: "Enter a name." }, 400, request, env);
+        const row = { user_id: userId, full_name: fullName };
+        if (b && typeof b.role === "string" && b.role.trim()) row.role = b.role.trim();
+        await fetch(`${env.SUPABASE_URL}/rest/v1/admin_profiles?on_conflict=user_id`, {
+          method: "POST",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(row),
         });
         return json({ ok: true }, 200, request, env);
       }
