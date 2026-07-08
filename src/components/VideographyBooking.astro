@@ -626,12 +626,15 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
           <span class="dc-choice-name">${chosen.name}</span>
           <span class="dc-choice-price">${priceLabel}</span>
           <span class="dc-choice-incl">${incl}</span></div>`;
-        const addons = addOnList.length ? `<p class="dc-step-sub" style="margin:22px 0 10px">Optional add-ons</p><div class="dc-choices dc-choices--multi">` +
+        // One add-on (e.g. Agent's B-roll) spans the full width instead of sitting
+        // in a half-width column with an empty gap beside it.
+        const addonsCols = addOnList.length === 1 ? ' style="grid-template-columns:1fr"' : '';
+        const addons = addOnList.length ? `<p class="dc-step-sub" style="margin:22px 0 10px">Optional add-ons</p><div class="dc-choices dc-choices--multi"${addonsCols}>` +
           addOnList.map((a, i) => `<button type="button" class="dc-choice" data-addon="${i}">
             <span class="dc-choice-check">✓</span>
             <span style="display:flex;flex-direction:column;gap:3px">
               <span class="dc-choice-name" style="font-size:15px">${a.name}</span>
-              <span class="dc-choice-meta">${gbp(a.price_pence)}${a.perImage ? " / image" : ""} +VAT</span></span>
+              <span class="dc-choice-price">${gbp(a.price_pence)}${a.perImage ? " / image" : ""} +VAT</span></span>
           </button>`).join("") + `</div>` : "";
         wrap.innerHTML = pkg + addons + `<div class="vb-running" id="vb-running"></div>`;
         wrap.querySelectorAll("[data-addon]").forEach((b) => b.addEventListener("click", () => {
