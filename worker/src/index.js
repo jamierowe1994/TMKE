@@ -2673,6 +2673,25 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // Rename an admin (their display name across the admin). Upserts admin_profiles.
+      if (path.endsWith("/admin/team") && request.method === "PATCH") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const userId = String((b && b.user_id) || "").trim();
+        const fullName = String((b && b.full_name) || "").trim();
+        if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
+        if (!fullName) return json({ error: "Enter a name." }, 400, request, env);
+        const row = { user_id: userId, full_name: fullName };
+        if (b && typeof b.role === "string" && b.role.trim()) row.role = b.role.trim();
+        await fetch(`${env.SUPABASE_URL}/rest/v1/admin_profiles?on_conflict=user_id`, {
+          method: "POST",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(row),
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: set an SMM client's status (active / paused / ended) --------
       // Persists on the lead and swaps the SMM-Status tag on their CRM contact.
       // Active also lifts their lifecycle to Customer (per the tagging framework).
