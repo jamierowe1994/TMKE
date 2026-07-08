@@ -461,6 +461,8 @@ import "../../styles/admin.css";
     $("ct-tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) setTab(b.getAttribute("data-tab")); });
 
     // ---- TEG (internal agent) tab -------------------------------------------
+    // The Experts Group brands — anyone working within one of these is TEG.
+    const TEG_BRANDS = ["The Property Experts", "Prestige Property Experts", "The Lettings Experts", "The Recruitment Experts", "The Marketing Experts", "Fine & Country", "The Mortgage Experts"];
     // Read the agent profile through the Worker (domain-aware admin check +
     // service role) rather than the client — avoids the agent_profiles is_admin()
     // RLS denying a @tmke.co.uk admin who isn't in the admins table.
@@ -485,7 +487,7 @@ import "../../styles/admin.css";
         <div id="teg-fields" ${isAgent ? "" : "hidden"}>
           <div class="ct-sec">
             <h3>Agent details</h3>
-            <div class="ct-field"><label>Brand</label><input id="teg-brand" value="${val(p && p.brand)}" placeholder="e.g. The Property Experts" /></div>
+            <div class="ct-field"><label>Brand</label><input id="teg-brand" list="teg-brand-list" value="${val(p && p.brand)}" placeholder="Select or type…" /><datalist id="teg-brand-list">${TEG_BRANDS.map((b) => `<option value="${esc(b)}"></option>`).join("")}</datalist></div>
             <div class="ct-field"><label>Date joined</label><input type="date" id="teg-joined" value="${val(p && p.date_joined)}" /></div>
             <div class="ct-field"><label>Postcode</label><input id="teg-postcode" value="${val(p && p.postcode)}" placeholder="e.g. NN14 1AA" /></div>
             <div class="ct-field"><label>Trainer name</label><input id="teg-trainer-name" value="${val((p && p.trainer_name) || "Kelly Bailey")}" /></div>
