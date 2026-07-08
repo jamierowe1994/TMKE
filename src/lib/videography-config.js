@@ -15,8 +15,10 @@ export const VAT_RATE = 0.20;
 export const MEMBER_DOMAINS = {
   "thepropertyexperts.co.uk":       { brand: "tpe",      label: "The Property Experts" },
   "prestigepropertyexperts.co.uk":  { brand: "prestige", label: "Prestige Property Experts" },
+  "thelettingexperts.co.uk":        { brand: "tle",      label: "The Lettings Experts" },
   "thelettingsexperts.co.uk":       { brand: "tle",      label: "The Lettings Experts" },
   "themortgageexperts.co.uk":       { brand: "tme",      label: "The Mortgage Experts" },
+  "therecruitmentexperts.co.uk":    { brand: "tre",      label: "The Recruitment Experts" },
   "fineandcountry.co.uk":           { brand: "fc",       label: "Fine & Country" },
   // TMKE staff — treated as members so the team can test every booking flow
   // end-to-end (Content Studio, Property, Agent). Remove or restrict before
@@ -115,7 +117,6 @@ export const SERVICES = {
     packages: [
       { key: "launch", name: "Launch Package",              price_pence: 29500, desc: "Landscape + portrait elevator pitch video, 5 professional headshots, and 10 lifestyle photographs." },
       { key: "broll",  name: "10 × 60-second B-roll scenes", price_pence: 15500, desc: "10 × 60-second short-form clips, filmed and edited." },
-      { key: "twilight", name: "Twilight Shoot",            price_pence: 20000, desc: "Twilight exterior shoot." },
     ],
     nonMemberFrom_pence: 29500,  // indicative only
   },

@@ -201,7 +201,6 @@ export const PRODUCTS = [
     extrasHeading: "Optional Add-Ons",
     extras: [
       { label: "10 × 60-second B-roll scenes", price: "£155 +VAT" },
-      { label: "Twilight shoot", price: "£200 +VAT" },
     ],
     pricingMode: "prose",
     pricingHeading: "Booking & Pricing",
