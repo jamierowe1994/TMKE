@@ -300,7 +300,35 @@ export const EMAIL_CATALOG = [
     external: true,
     fields: ["confirmation_url", "reset_url"],
   },
+
+  // ─────────────────────────── Admin & team ───────────────────────────
+  {
+    id: "admin_access_invite",
+    group: "Admin & team",
+    name: "Admin access — invitation",
+    audience: "internal",
+    trigger: "An admin grants someone admin-centre access (Settings → Admin access)",
+    fires: "POST /admin/team",
+    to: "The person being granted access",
+    sender: "hello@tmke.co.uk",
+    subject: "Your TMKE admin access",
+    summary: "Tells a newly-granted admin how to sign in — with a temporary password if a login was just created for them, or a note to use their existing password if they already had an account.",
+    fields: ["full_name", "temp_password", "login_url"],
+  },
+  {
+    id: "admin_access_reset",
+    group: "Admin & team",
+    name: "Admin access — password reset",
+    audience: "internal",
+    trigger: "An admin resets someone's password (Settings → Admin access → Reset password)",
+    fires: "POST /admin/team/reset",
+    to: "The admin whose password was reset",
+    sender: "hello@tmke.co.uk",
+    subject: "Your TMKE admin password has been reset",
+    summary: "Sends a fresh temporary password to an existing admin who needs one, with a prompt to change it after signing in.",
+    fields: ["full_name", "temp_password", "login_url"],
+  },
 ];
 
 // Groups in display order.
-export const EMAIL_GROUPS = ["Social media", "Videography", "Studio & packs", "Automations", "Account & auth"];
+export const EMAIL_GROUPS = ["Social media", "Videography", "Studio & packs", "Automations", "Account & auth", "Admin & team"];

@@ -2692,6 +2692,42 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // Reset an admin's password: set a fresh temporary password and email it.
+      if (path.endsWith("/admin/team/reset") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const userId = String((b && b.user_id) || "").trim();
+        if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
+        const email = await sbAdminUserEmail(env, userId);
+        if (!email) return json({ error: "Couldn't find that account." }, 404, request, env);
+        const tempPassword = genTempPassword();
+        const up = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+          method: "PUT",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ password: tempPassword }),
+        });
+        if (!up.ok) { const t = await up.text().catch(() => ""); return json({ error: "Couldn't reset the password. " + t.slice(0, 160) }, 502, request, env); }
+
+        let fullName = "";
+        try { const p = await sbGet(env, "admin_profiles", `user_id=eq.${encodeURIComponent(userId)}&select=full_name`); fullName = (p && p[0] && p[0].full_name) || ""; } catch (_) {}
+        const who = fullName ? fullName.split(" ")[0] : "there";
+        const loginUrl = "https://tmke.co.uk/admin/login";
+        const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;">
+          <div style="font-size:20px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
+          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Hi ${who},</p>
+          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Your <strong>TMKE admin</strong> password has been reset. Your previous password no longer works.</p>
+          <p style="margin:0 0 6px;font-size:15px;color:#1c1d22;">Sign in with your email and this temporary password:</p>
+          <p style="margin:0 0 18px;"><span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:16px;font-weight:700;letter-spacing:0.04em;background:#f4f2f1;border:1px solid #e4ded9;border-radius:8px;padding:9px 14px;color:#371e28;">${tempPassword}</span></p>
+          <p style="margin:0 0 18px;font-size:13.5px;color:#6b6b70;">Please change it once you're in (Forgot password on the sign-in screen).</p>
+          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:9px;padding:12px 22px;">Open the admin centre</a></p>
+          <p style="margin:0;font-size:12.5px;color:#9a9aa0;">If you didn't expect this, contact hello@tmke.co.uk.</p>
+        </div>`;
+        try { await sendEmail(env, { to: email, subject: "Your TMKE admin password has been reset", html }); } catch (_) {}
+
+        return json({ ok: true, temp_password: tempPassword, email }, 200, request, env);
+      }
+
       // ---- Admin: set an SMM client's status (active / paused / ended) --------
       // Persists on the lead and swaps the SMM-Status tag on their CRM contact.
       // Active also lifts their lifecycle to Customer (per the tagging framework).
