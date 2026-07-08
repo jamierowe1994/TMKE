@@ -3242,6 +3242,7 @@ export default {
         const rows = Array.isArray(b.rows) ? b.rows : [];
         const batchTags = Array.isArray(b.batch_tags) ? b.batch_tags : [];
         const optIn = b.marketing_opt_in === true;
+        const source = (typeof b.source === "string" && b.source.trim()) ? b.source.trim() : "import";
         if (!rows.length) return json({ error: "No rows." }, 400, request, env);
         if (rows.length > 500) return json({ error: "Send at most 500 rows per request." }, 400, request, env);
         let imported = 0, skipped = 0;
@@ -3257,7 +3258,7 @@ export default {
               p_last_name: r.last_name || null,
               p_phone: r.phone || null,
               p_company: r.company || null,
-              p_source: "import",
+              p_source: source,
               p_lifecycle: "lead",
               p_marketing_opt_in: optIn ? true : null,
               p_tags: tags,
