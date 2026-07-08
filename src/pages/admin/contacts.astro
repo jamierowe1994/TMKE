@@ -215,6 +215,7 @@ import "../../styles/admin.css";
     .ct-field input, .ct-field select { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); }
     .ct-field input:focus, .ct-field select:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
     .teg-code code { font-family: ui-monospace, Menlo, monospace; font-size: 14px; font-weight: 700; color: var(--english-violet); background: var(--paper); border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; padding: 4px 10px; display: inline-block; letter-spacing: 0.03em; }
+    .ct-teg-detect { font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: var(--english-violet); background: rgba(55,30,40,0.06); border-radius: 8px; padding: 9px 12px; margin: 10px 0 0; }
     .ct-teg-msg { font-family: var(--sans); font-size: 13px; border-radius: 8px; padding: 9px 12px; margin: 12px 0 0; }
     .ct-teg-msg.is-ok { background: rgba(60,150,90,0.1); color: #2e6b40; }
     .ct-teg-msg.is-err { background: rgba(200,70,50,0.1); color: #a3372b; }
@@ -463,6 +464,22 @@ import "../../styles/admin.css";
     // ---- TEG (internal agent) tab -------------------------------------------
     // The Experts Group brands — anyone working within one of these is TEG.
     const TEG_BRANDS = ["The Property Experts", "Prestige Property Experts", "The Lettings Experts", "The Recruitment Experts", "The Marketing Experts", "Fine & Country", "The Mortgage Experts"];
+    // Identify a TEG brand from a work email domain. Returns the brand name, ""
+    // for a generic *experts.co.uk we can't pin to one brand, or null if not TEG.
+    // (New starters often use personal emails — those are caught via the import's
+    // Brand column instead.)
+    function tegBrandFromEmail(email) {
+      const dom = String(email || "").toLowerCase().split("@")[1] || "";
+      if (!dom) return null;
+      if (dom === "fineandcountry.com" || dom.endsWith(".fineandcountry.com")) return "Fine & Country";
+      if (dom.endsWith("thepropertyexperts.co.uk")) return "The Property Experts";
+      if (dom.endsWith("thelettingsexperts.co.uk")) return "The Lettings Experts";
+      if (dom.endsWith("therecruitmentexperts.co.uk")) return "The Recruitment Experts";
+      if (dom.endsWith("themarketingexperts.co.uk")) return "The Marketing Experts";
+      if (dom.endsWith("themortgageexperts.co.uk")) return "The Mortgage Experts";
+      if (dom.endsWith("experts.co.uk")) return "";
+      return null;
+    }
     // Read the agent profile through the Worker (domain-aware admin check +
     // service role) rather than the client — avoids the agent_profiles is_admin()
     // RLS denying a @tmke.co.uk admin who isn't in the admins table.
@@ -476,18 +493,24 @@ import "../../styles/admin.css";
         return j.profile || null;
       } catch (_) { return null; }
     }
-    function tegPanelHtml(p) {
-      const isAgent = !!p;
+    function tegPanelHtml(p, detect) {
+      // Auto-detect from the email domain when there's no saved profile yet, so
+      // the TEG card appears for anyone in a TEG brand (incl. Fine & Country).
+      const detectedBrand = detect ? detect.brand : null;      // brand name | "" (generic TEG) | null (not TEG)
+      const isTegDetected = detectedBrand !== null && detectedBrand !== undefined;
+      const isAgent = !!p || isTegDetected;
       const val = (x) => esc(x == null ? "" : x);
+      const brandVal = (p && p.brand) || (detectedBrand || "");
       return `
         <div class="ct-sec">
           <label class="ct-toggle"><input type="checkbox" id="teg-is-agent" ${isAgent ? "checked" : ""}/> Internal agent — TEG (The Experts Group)</label>
+          ${!p && isTegDetected ? `<p class="ct-teg-detect">Auto-detected as TEG from their email${detectedBrand ? ` (${esc(detectedBrand)})` : ""} — add any details and Save to confirm.</p>` : ""}
           <p class="ct-meta" id="teg-empty" ${isAgent ? "hidden" : ""} style="margin-top:8px">Turn this on to record their agent details and (for new starters) generate their free videography code.</p>
         </div>
         <div id="teg-fields" ${isAgent ? "" : "hidden"}>
           <div class="ct-sec">
             <h3>Agent details</h3>
-            <div class="ct-field"><label>Brand</label><input id="teg-brand" list="teg-brand-list" value="${val(p && p.brand)}" placeholder="Select or type…" /><datalist id="teg-brand-list">${TEG_BRANDS.map((b) => `<option value="${esc(b)}"></option>`).join("")}</datalist></div>
+            <div class="ct-field"><label>Brand</label><input id="teg-brand" list="teg-brand-list" value="${val(brandVal)}" placeholder="Select or type…" /><datalist id="teg-brand-list">${TEG_BRANDS.map((b) => `<option value="${esc(b)}"></option>`).join("")}</datalist></div>
             <div class="ct-field"><label>Date joined</label><input type="date" id="teg-joined" value="${val(p && p.date_joined)}" /></div>
             <div class="ct-field"><label>Postcode</label><input id="teg-postcode" value="${val(p && p.postcode)}" placeholder="e.g. NN14 1AA" /></div>
             <div class="ct-field"><label>Trainer name</label><input id="teg-trainer-name" value="${val((p && p.trainer_name) || "Kelly Bailey")}" /></div>
@@ -540,7 +563,7 @@ import "../../styles/admin.css";
           const j = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(j.error || "Couldn't save agent details.");
           c.agentProfile = j.profile || null;
-          document.getElementById("ct-teg-panel").innerHTML = tegPanelHtml(c.agentProfile);
+          document.getElementById("ct-teg-panel").innerHTML = tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) });
           wireTeg();
           tegMsg(c.agentProfile && c.agentProfile.promo_code ? `Saved. Their free code is ${c.agentProfile.promo_code}.` : "Saved.", true);
         } catch (err) { tegMsg(err.message || "Couldn't save agent details.", false); }
@@ -582,7 +605,7 @@ import "../../styles/admin.css";
           </div>
         </div>
         <div class="ct-tabpanel" data-panel="teg"${activeTab !== "teg" ? " hidden" : ""}>
-          <div id="ct-teg-panel">${tegPanelHtml(c.agentProfile)}</div>
+          <div id="ct-teg-panel">${tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) })}</div>
         </div>
         <div class="ct-tabpanel" data-panel="purchases"${activeTab !== "purchases" ? " hidden" : ""}>
           <div class="ct-sec">
