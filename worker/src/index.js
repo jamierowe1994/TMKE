@@ -313,6 +313,29 @@ function crmTags(email, service, { optIn, member } = {}) {
   return t;
 }
 
+// Reconcile a contact's tags to the rules (mirrors normalize_contact_tags in
+// SQL — keep the two in sync). Consent is one state; SMM-Status is one value;
+// becoming a client supersedes that service's Interest / Discovery-call tags.
+function normalizeTags(tags) {
+  let t = Array.from(new Set((tags || []).map((x) => String(x || "").trim()).filter(Boolean)));
+  const has = (x) => t.includes(x);
+  const dropAll = (...xs) => { t = t.filter((v) => !xs.includes(v)); };
+
+  if (has("Unsubscribed")) dropAll("Newsletter-Subscriber", "Marketing-Not-Opted-In");
+  else if (has("Newsletter-Subscriber")) dropAll("Marketing-Not-Opted-In");
+
+  if (t.filter((v) => v.startsWith("SMM-Status:")).length > 1) {
+    const keep = has("SMM-Status: Active") ? "SMM-Status: Active"
+      : has("SMM-Status: Paused") ? "SMM-Status: Paused" : "SMM-Status: Ended";
+    t = t.filter((v) => !v.startsWith("SMM-Status:")).concat(keep);
+  }
+
+  if (t.some((v) => v.startsWith("SMM-Status:"))) dropAll("Interest: SMM", "Discovery-Call-Booked: SMM");
+  if (has("Videography-Client")) dropAll("Interest: Videography", "Discovery-Call-Booked: Videography");
+
+  return t;
+}
+
 // Upsert a CRM contact from a paid order, so pack purchasers become contacts.
 // No marketing_opt_in (buying ≠ consent). Tags: Pack-Purchased + Pack Name.
 async function contactFromOrder(env, order) {
@@ -2297,6 +2320,26 @@ export default {
         }
         return json({ ok: true }, 200, request, env);
       }
+      // ---- Public: newsletter / subscribe (NO auth — anonymous visitors) -----
+      // Must live in this pre-auth block: the homepage + videography subscribe
+      // boxes POST here with no session token, so it can't sit behind the login
+      // gate below (that silently 401'd every signup and dropped the contact).
+      if (path.endsWith("/newsletter") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        if (b && b.hp) return json({ ok: true }, 200, request, env); // honeypot
+        const email = String((b && b.email) || "").trim();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
+        const name = String((b && b.name) || "").trim();
+        const parts = name.split(/\s+/).filter(Boolean);
+        try {
+          await fireTrigger(env, "form_submitted", {
+            email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
+            source: "newsletter", lifecycle: "lead", marketing_opt_in: true,
+            tags: crmTags(email, [], { optIn: true }),
+          }, { form: "newsletter" });
+        } catch (_) {}
+        return json({ ok: true }, 200, request, env);
+      }
     } catch (err) {
       return json({ error: String(err && err.message ? err.message : err) }, 500, request, env);
     }
@@ -2545,7 +2588,7 @@ export default {
           const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lead.email)}&select=id,tags,lifecycle`);
           const c = cRows && cRows[0];
           if (c) {
-            const tags = Array.from(new Set([...(c.tags || []).filter((t) => !/^SMM-Status:/.test(t)), statusTag, "Interest: SMM"]));
+            const tags = normalizeTags([...(c.tags || []).filter((t) => !/^SMM-Status:/.test(t)), statusTag]);
             const patch = { tags };
             if (status === "active") patch.lifecycle = "customer";
             await fetch(`${env.SUPABASE_URL}/rest/v1/contacts?id=eq.${c.id}`, {
@@ -2556,7 +2599,7 @@ export default {
             await sbRpc(env, "upsert_contact", {
               p_email: lead.email, p_first_name: lead.first_name || lead.full_name || null, p_last_name: lead.last_name || null,
               p_company: lead.business || null, p_source: "smm", p_lifecycle: status === "active" ? "customer" : "lead",
-              p_tags: [statusTag, "Interest: SMM", networkTag(lead.email)].filter(Boolean), p_user_id: lead.account_user_id || null,
+              p_tags: normalizeTags([statusTag, networkTag(lead.email)].filter(Boolean)), p_user_id: lead.account_user_id || null,
             });
           }
         }
@@ -2917,25 +2960,24 @@ export default {
         return new Response(obj.body, { headers });
       }
 
-      // ---- Newsletter signup — opts the contact into marketing + tags them ----
-      if (path.endsWith("/newsletter") && request.method === "POST") {
-        const b = await request.json().catch(() => ({}));
-        if (b && b.hp) return json({ ok: true }, 200, request, env); // honeypot
-        const email = String((b && b.email) || "").trim();
-        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
-        const name = String((b && b.name) || "").trim();
-        const parts = name.split(/\s+/).filter(Boolean);
-        try {
-          await fireTrigger(env, "form_submitted", {
-            email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
-            source: "newsletter", lifecycle: "lead", marketing_opt_in: true,
-            tags: crmTags(email, [], { optIn: true }),
-          }, { form: "newsletter" });
-        } catch (_) {}
-        return json({ ok: true }, 200, request, env);
+      // ---- Admin: bulk-import contacts (one chunk of rows per request) --------
+      // ---- Admin: a member's last hub login (from Supabase Auth) -----------
+      // The contact record only tracks last_seen_at (any touchpoint); the real
+      // "last logged into the members hub" is auth.users.last_sign_in_at, which
+      // only the service role can read — so it comes through here.
+      if (path.endsWith("/contacts/member-login") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const uid = new URL(request.url).searchParams.get("user_id");
+        if (!uid) return json({ error: "Missing user_id." }, 400, request, env);
+        const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(uid)}`, {
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        if (!res.ok) return json({ last_sign_in_at: null }, 200, request, env);
+        const u = await res.json().catch(() => ({}));
+        return json({ last_sign_in_at: (u && u.last_sign_in_at) || null }, 200, request, env);
       }
 
-      // ---- Admin: bulk-import contacts (one chunk of rows per request) --------
       if (path.endsWith("/contacts/import") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);

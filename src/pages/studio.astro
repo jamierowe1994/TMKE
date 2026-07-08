@@ -84,7 +84,7 @@ const inspo = [
       <!-- ============ PICK FROM YOUR PACKS ============ -->
       <section class="st-sec ws-rise" style="--i:1" aria-labelledby="packs-h">
         <header class="st-sec-head">
-          <h2 class="st-sec-h" id="packs-h">Pick from your packs</h2>
+          <h2 class="st-sec-h" id="packs-h">Pick From Your Packs</h2>
           <a class="ws-textlink" href="/edit">View all templates <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-rail" data-rail>
@@ -98,6 +98,11 @@ const inspo = [
                 <span class="st-pack-count">{p.count} templates</span>
               </a>
             ))}
+            <a class="st-pack st-pack--shop" href="/edit">
+              <span class="st-pack-img"><span class="st-pack-shop-ic">+</span></span>
+              <span class="st-pack-name">Shop more packs</span>
+              <span class="st-pack-count">Visit The Edit &rarr;</span>
+            </a>
           </div>
           <button type="button" class="st-arrow" data-rail-next aria-label="Scroll packs">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -108,7 +113,7 @@ const inspo = [
       <!-- ============ YOUR DESIGNS ============ -->
       <section class="st-sec ws-rise" style="--i:2" aria-labelledby="designs-h">
         <header class="st-sec-head">
-          <h2 class="st-sec-h" id="designs-h">Your designs</h2>
+          <h2 class="st-sec-h" id="designs-h">Your Designs</h2>
           <a class="ws-textlink" href="/editor">View all designs <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-row st-row--designs" data-designs>
@@ -130,7 +135,7 @@ const inspo = [
       <!-- ============ DESIGN TOOLS ============ -->
       <section class="st-sec ws-rise" style="--i:3" aria-labelledby="tools-h">
         <header class="st-sec-head">
-          <h2 class="st-sec-h" id="tools-h">Design tools</h2>
+          <h2 class="st-sec-h" id="tools-h">Design Tools</h2>
         </header>
         <div class="st-row st-row--tools">
           {tools.map((t) => (
@@ -151,7 +156,7 @@ const inspo = [
       <!-- ============ NEED INSPIRATION ============ -->
       <section class="st-sec ws-rise" style="--i:4" aria-labelledby="inspo-h">
         <header class="st-sec-head">
-          <h2 class="st-sec-h" id="inspo-h">Need inspiration?</h2>
+          <h2 class="st-sec-h" id="inspo-h">Need Inspiration?</h2>
           <a class="ws-textlink" href="/account/guides">Explore more <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-row st-row--inspo">
@@ -250,6 +255,8 @@ const inspo = [
 
     /* ---- Sections ---- */
     .st-sec { display: flex; flex-direction: column; gap: 18px; }
+    /* A little more breathing room between the hero and the first section. */
+    .st-hero + .st-sec { margin-top: 20px; }
     .st-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; }
     .st-sec-h { font-family: var(--serif); font-weight: 600; font-size: clamp(19px, 1.6vw, 24px); letter-spacing: -0.03em; color: var(--ws-ink); margin: 0; }
     .st-rail { position: relative; }
@@ -257,12 +264,12 @@ const inspo = [
     .st-row { display: grid; grid-auto-flow: column; gap: clamp(14px, 1.4vw, 20px); overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; scrollbar-width: thin; }
     .st-row::-webkit-scrollbar { height: 6px; }
     .st-row::-webkit-scrollbar-thumb { background: var(--ws-line); border-radius: 99px; }
-    .st-row--packs { grid-auto-columns: minmax(150px, 1fr); }
+    .st-row--packs { grid-auto-columns: minmax(184px, 1fr); }
     .st-row--designs { grid-auto-columns: minmax(184px, 1fr); }
     .st-row--tools { grid-auto-columns: minmax(230px, 1fr); }
     .st-row--inspo { grid-auto-columns: minmax(230px, 1fr); }
     @media (min-width: 1100px) {
-      .st-row--packs { grid-template-columns: repeat(6, 1fr); grid-auto-flow: row; overflow: visible; }
+      .st-row--packs { grid-template-columns: repeat(5, 1fr); grid-auto-flow: row; overflow: visible; }
       .st-row--designs { grid-template-columns: repeat(5, 1fr); grid-auto-flow: row; overflow: visible; }
       .st-row--tools, .st-row--inspo { grid-template-columns: repeat(4, 1fr); grid-auto-flow: row; overflow: visible; }
     }
@@ -377,11 +384,11 @@ const inspo = [
       const row = document.querySelector('[data-packs]');
       if (!row) return;
       const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-      const shopCard = `
+      const shopTile = `
         <a class="st-pack st-pack--shop" href="/edit">
           <span class="st-pack-img"><span class="st-pack-shop-ic">+</span></span>
-          <span class="st-pack-name">Shop packs</span>
-          <span class="st-pack-count">Browse The Edit &rarr;</span>
+          <span class="st-pack-name">Shop more packs</span>
+          <span class="st-pack-count">Visit The Edit &rarr;</span>
         </a>`;
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -394,13 +401,13 @@ const inspo = [
         const allPacks = packsRes.data || [];
         const ownedIds = new Set((ordersRes.data || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
         const owned = allPacks.filter((p) => ownedIds.has(p.id));
-        if (!owned.length) { row.innerHTML = shopCard; return; } // no packs → Shop card
+        if (!owned.length) { row.innerHTML = shopTile; return; } // no packs → just the shop tile
         row.innerHTML = owned.map((p) => `
           <a class="st-pack" href="/editor?pack=${encodeURIComponent(p.id)}">
             <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}><span class="st-pack-label">${esc(p.title)}</span></span>
             <span class="st-pack-name">${esc(p.title)}</span>
             <span class="st-pack-count">Open pack &rarr;</span>
-          </a>`).join('');
+          </a>`).join('') + shopTile;   // + a "Shop more packs" tile at the end
       } catch (_) { /* keep the SSR sample packs on any error */ }
     })();
   </script>

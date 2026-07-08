@@ -1718,8 +1718,8 @@
   // A truly-empty starting point (the onboarding "Start with a blank canvas"
   // choice). A violet page with a "Start building here" hint — the hint is
   // DOM-only (see fullRender), so it never lands in an export.
-  function loadBlank() {
-    resetToSinglePage("#7B5BCF");
+  function loadBlank(w, h) {
+    resetToSinglePage("#7B5BCF", w, h);
     state.templateId = null;
     state.elements = [];
     state.selectedIds = [];
@@ -1734,12 +1734,15 @@
   // ---------- Pages ----------
   // Collapse back to a single page (used whenever a whole template/blank is
   // loaded — that's a one-page design until the user adds more).
-  function resetToSinglePage(bg) {
+  function resetToSinglePage(bg, w, h) {
+    // 1080×1440 is the house standard (Instagram portrait). The onboarding size
+    // chooser can pass an explicit w/h; anyone can also resize later from the
+    // Resize panel. This is just where a blank starts.
+    const cw = Math.round(w) > 0 ? Math.round(w) : 1080;
+    const ch = Math.round(h) > 0 ? Math.round(h) : 1440;
     state.pages = [{
       id: uid("page"), name: "Page 1",
-      // 1080×1440 is the house standard (Instagram portrait). Anyone can resize
-      // a specific design from the Resize panel; this is just where blanks start.
-      canvas: { width: 1080, height: 1440, background: bg || "#F2EFE9" },
+      canvas: { width: cw, height: ch, background: bg || "#F2EFE9" },
       elements: [],
     }];
     state.currentPage = 0;
@@ -7142,6 +7145,12 @@
   // picks a design in the onboarding chooser).
   window.__TMKE_LOAD_TEMPLATE__ = function (id) {
     if (id) loadTemplate(id, false);
+  };
+
+  // Onboarding "start fresh" → open a blank canvas at the chosen size (falls
+  // back to the 1080×1440 house standard when no size is given).
+  window.__TMKE_LOAD_BLANK__ = function (w, h) {
+    loadBlank(w, h);
   };
 
   // If a stock-photo search panel is taking over the Photos tab, skip

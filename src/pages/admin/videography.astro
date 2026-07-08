@@ -42,10 +42,11 @@ const DELIVER_CATEGORIES = [
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Clients</h2>
-        <p class="vid-panel-sub">Everyone Jack's working with right now, soonest first. Click a name to open their file.</p>
+        <p class="vid-panel-sub">Everyone Jack's working with, by production stage. Drag a card to move it along; click to open the client's file.</p>
       </div>
       <input type="search" id="vid-client-search" class="admin-search" placeholder="Search client, company…" />
     </div>
+    <div class="vid-scrolltop" id="vid-scrolltop" hidden><div id="vid-scrolltop-inner"></div></div>
     <p class="vid-loading" id="vid-clients-loading">Loading clients…</p>
     <div class="vid-clients" id="vid-clients" hidden></div>
     <p class="vid-loading" id="vid-clients-empty" hidden>No clients yet — add a booking to get started.</p>
@@ -341,9 +342,9 @@ const DELIVER_CATEGORIES = [
     }
     .vid-cog:hover { background: rgba(var(--violet-rgb), 0.06); }
     .vid-cog-menu {
-      position: absolute; right: 0; top: calc(100% + 8px); z-index: 30;
-      background: var(--paper); border: 1px solid rgba(var(--violet-rgb), 0.2); border-radius: 8px;
-      box-shadow: 0 18px 50px rgba(20, 18, 26, 0.18); padding: 6px; min-width: 220px;
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 120;
+      background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.2); border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(20, 18, 26, 0.22); padding: 6px; min-width: 220px;
       display: flex; flex-direction: column;
     }
     .vid-cog-menu[hidden] { display: none; }
@@ -481,40 +482,36 @@ const DELIVER_CATEGORIES = [
     .vid-settings .vid-field input { width: 100%; }
     .vid-set-status { font-family: var(--sans); font-size: 13px; color: #2c7a4b; margin-left: 12px; }
 
-    /* ---- Pipeline — full-width stages stacked vertically ---- */
-    .vid-board { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
-    .vid-col {
-      background: rgba(var(--violet-rgb), 0.04); border: 1px solid rgba(var(--violet-rgb), 0.15);
-      border-radius: 4px; display: flex; flex-direction: column;
-    }
-    .vid-col.is-drop { border-color: var(--english-violet); background: rgba(var(--violet-rgb), 0.1); }
+    /* ---- Pipeline board — stage columns (mirrors the SMM board) ---- */
+    /* Synced scrollbar ABOVE the board (like SMM) so you don't have to reach the
+       bottom of a laptop screen to pan across the stages. */
+    .vid-scrolltop { margin: 14px 0 6px; overflow-x: auto; overflow-y: hidden; }
+    .vid-scrolltop[hidden] { display: none; }
+    #vid-scrolltop-inner { height: 1px; }
+    .vid-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 1fr); gap: 14px; align-items: start; overflow-x: auto; padding: 6px 0 8px; }
+    .vid-col { background: transparent; border: 0; min-width: 0; display: flex; flex-direction: column; }
     .vid-col-head {
-      display: flex; justify-content: flex-start; align-items: center; gap: 10px;
-      padding: 12px 18px; border-bottom: 1px solid rgba(var(--violet-rgb), 0.12);
-      font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em;
-      text-transform: uppercase; font-weight: 700; color: var(--english-violet);
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 12px; border: 0;
+      font-family: var(--sans); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55);
     }
     .vid-col-count {
-      min-width: 18px; text-align: center; padding: 1px 7px; border-radius: 999px;
-      background: rgba(var(--violet-rgb), 0.12); font-size: 10px; color: rgba(28,29,34,0.7);
+      min-width: 18px; text-align: center; padding: 1px 8px; border-radius: 999px;
+      background: rgba(28,29,34,0.06); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.5);
     }
-    /* Cards flow left-to-right and wrap, so a busy stage fills the width */
-    .vid-col-list { padding: 12px; display: flex; flex-wrap: wrap; gap: 10px; min-height: 56px; align-content: flex-start; }
-    .vid-col-list:empty::after,
-    .vid-col-list.is-empty::after { content: "Drop a job here"; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.35); padding: 8px 6px; }
+    .vid-col-list { display: flex; flex-direction: column; gap: 10px; min-height: 120px; padding: 4px; border-radius: 12px; transition: background 0.15s, box-shadow 0.15s; }
+    .vid-col.is-drop .vid-col-list { background: rgba(var(--violet-rgb), 0.07); box-shadow: inset 0 0 0 2px rgba(var(--violet-rgb), 0.35); }
+    .vid-col-list:empty::after { content: "Drop a job here"; display: block; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.3); padding: 14px 6px; }
     .vid-card {
-      flex: 0 0 clamp(220px, 24%, 280px); background: var(--paper);
-      border: 1px solid rgba(var(--violet-rgb), 0.2); border-radius: 3px;
-      padding: 12px 13px; cursor: grab; box-shadow: 0 1px 2px rgba(20, 18, 26, 0.04);
-      transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+      background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px;
+      padding: 15px 16px; cursor: pointer; box-shadow: 0 1px 2px rgba(20, 18, 26, 0.04);
+      transition: box-shadow 0.16s, transform 0.16s, border-color 0.16s;
     }
-    @media (max-width: 640px) { .vid-card { flex-basis: 100%; } }
-    .vid-card:hover { border-color: var(--english-violet); box-shadow: 0 4px 14px rgba(20, 18, 26, 0.1); }
+    .vid-card:hover { border-color: rgba(var(--violet-rgb), 0.45); box-shadow: 0 10px 24px -18px rgba(28, 29, 34, 0.4); transform: translateY(-1px); }
     .vid-card.is-dragging { opacity: 0.5; }
     .vid-card-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
     .vid-card-meta { font-family: var(--sans); font-size: 12px; color: rgba(28, 29, 34, 0.6); margin-top: 3px; }
     .vid-card-foot {
-      display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
+      display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px;
       font-family: var(--sans); font-size: 11px; color: rgba(28, 29, 34, 0.55);
     }
     .vid-card-brand {
@@ -822,6 +819,15 @@ const DELIVER_CATEGORIES = [
         renderClients(document.getElementById("vid-client-search")?.value || "");
       });
       document.getElementById("vid-client-search")?.addEventListener("input", (e) => renderClients(e.target.value || ""));
+      // Keep the top scrollbar and the board panning in step.
+      const vst = document.getElementById("vid-scrolltop");
+      const vbd = document.getElementById("vid-clients");
+      if (vst && vbd) {
+        let lock = false;
+        vst.addEventListener("scroll", () => { if (lock) return; lock = true; vbd.scrollLeft = vst.scrollLeft; lock = false; });
+        vbd.addEventListener("scroll", () => { if (lock) return; lock = true; vst.scrollLeft = vbd.scrollLeft; lock = false; });
+      }
+      window.addEventListener("resize", syncVidTopScroll);
     }
 
     /* ---------- Pipeline (kanban) ---------- */
@@ -887,9 +893,10 @@ const DELIVER_CATEGORIES = [
       if (!b || b.stage === newStage) return;
       const prev = b.stage;
       b.stage = newStage;        // optimistic
-      renderBoard();
+      const refresh = () => renderClients(document.getElementById("vid-client-search")?.value || "");
+      refresh();
       const { error } = await supabase.from("videography_bookings").update({ stage: newStage }).eq("id", dragId);
-      if (error) { b.stage = prev; renderBoard(); alert("Couldn't move card: " + error.message); }
+      if (error) { b.stage = prev; refresh(); alert("Couldn't move card: " + error.message); }
     }
 
     /* ---------- Bookings list ---------- */
@@ -970,33 +977,52 @@ const DELIVER_CATEGORIES = [
       if (ad !== bd) return ad - bd;
       return order.indexOf(a.stage) - order.indexOf(b.stage);
     }
+    // The Clients home is a stage-column board (mirrors the SMM pipeline): each
+    // booking sits in its production stage, drag between columns to move it, and
+    // clicking a card opens that client's file. Search filters across columns.
     function renderClients(filter = "") {
       const wrap = document.getElementById("vid-clients");
       const loading = document.getElementById("vid-clients-loading");
       const empty = document.getElementById("vid-clients-empty");
       if (!wrap) return;
       if (loading) loading.hidden = true;
-      const q = filter.trim().toLowerCase();
-      const rows = bookings
-        .filter((b) => !q || [b.client_name, b.client_company, b.service, b.client_email].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)))
-        .sort(clientSort);
-      if (!rows.length) { wrap.hidden = true; if (empty) empty.hidden = false; return; }
+      if (!bookings.length) { wrap.hidden = true; if (empty) empty.hidden = false; return; }
       if (empty) empty.hidden = true;
       wrap.hidden = false;
-      const stageLabel = (k) => (STAGES.find((s) => s.key === k) || {}).label || k;
-      wrap.innerHTML = rows.map((b) => `
-        <div class="vid-client ${b.stage === "complete" ? "is-complete" : ""}" data-id="${b.id}">
-          <div>
-            <div class="vid-client-name">${escapeHtml(b.client_name)}</div>
-            <div class="vid-client-co">${escapeHtml(b.client_company || b.service || "—")}</div>
-          </div>
-          <div>
-            <div class="vid-client-next">${escapeHtml(nextActionHint(b))}</div>
-            ${b.shoot_date ? `<div class="vid-client-when">${escapeHtml(fmtWhen(b.shoot_date))}</div>` : ""}
-          </div>
-          <div class="vid-client-stage">${escapeHtml(stageLabel(b.stage))}</div>
-        </div>`).join("");
-      wrap.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => openCandidate(el.getAttribute("data-id"))));
+      wrap.className = "vid-board";
+      const q = filter.trim().toLowerCase();
+      const rows = bookings.filter((b) => !q || [b.client_name, b.client_company, b.service, b.client_email].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)));
+      const stageKey = (b) => (STAGES.some((s) => s.key === b.stage) ? b.stage : STAGES[0].key);
+      wrap.innerHTML = STAGES.map((s) => {
+        const cards = rows.filter((b) => stageKey(b) === s.key).sort(clientSort);
+        return `
+          <div class="vid-col" data-stage="${s.key}">
+            <div class="vid-col-head"><span>${s.label}</span><span class="vid-col-count">${cards.length}</span></div>
+            <div class="vid-col-list" data-stage="${s.key}">${cards.map(cardHtml).join("")}</div>
+          </div>`;
+      }).join("");
+      wrap.querySelectorAll(".vid-card").forEach((el) => {
+        el.addEventListener("click", () => openCandidate(el.getAttribute("data-id")));
+        el.addEventListener("dragstart", onDragStart);
+        el.addEventListener("dragend", onDragEnd);
+      });
+      wrap.querySelectorAll(".vid-col-list").forEach((col) => {
+        col.addEventListener("dragover", onDragOver);
+        col.addEventListener("dragleave", onDragLeave);
+        col.addEventListener("drop", onDrop);
+      });
+      syncVidTopScroll();
+    }
+
+    // Size + show the synced scrollbar above the board (mirrors SMM's syncTopScroll).
+    function syncVidTopScroll() {
+      const board = document.getElementById("vid-clients");
+      const top = document.getElementById("vid-scrolltop");
+      const inner = document.getElementById("vid-scrolltop-inner");
+      if (!board || !top || !inner) return;
+      const over = board.scrollWidth > board.clientWidth + 1;
+      top.hidden = !over;
+      if (over) inner.style.width = board.scrollWidth + "px";
     }
 
     let candId = null;
@@ -1845,8 +1871,9 @@ const DELIVER_CATEGORIES = [
 
     /* ---------- Boot ---------- */
     (async () => {
-      const session = await requireAdmin();
-      if (!session) return;
+      // In local dev the admin area is previewable without a login (matches the
+      // other admin pages); production stays gated by requireAdmin.
+      if (!import.meta.env.DEV) { const session = await requireAdmin(); if (!session) return; }
       initNav();
 
       const [bRes, aRes] = await Promise.all([
