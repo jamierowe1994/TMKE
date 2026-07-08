@@ -1,6 +1,16 @@
 // Catalog of every automated email the platform sends — the single reference for
 // the admin "Automated emails" oversight page (Admin → Email → Automated).
 //
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ RULE: whenever you CREATE a new automated/transactional email anywhere    │
+// │ (a Worker sendEmail() call, a confirmation/template fn, an automation or  │
+// │ cron email), add an entry for it HERE in the SAME change — this catalog   │
+// │ is maintained by hand and is the only source the oversight page reads.    │
+// │ Add a new group to EMAIL_GROUPS below if the email doesn't fit an         │
+// │ existing one, or it won't render. (This is a registry of email TYPES, not │
+// │ a log of individual sends.)                                               │
+// └─────────────────────────────────────────────────────────────────────────┘
+//
 // Phase 1 (now): read-only oversight — what each email is, what triggers it, who
 // it goes to, the sender, subject, and what it contains.
 // Phase 2 (next): each of these gets an `id`-keyed editable override stored in
