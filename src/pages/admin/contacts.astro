@@ -13,6 +13,10 @@ import "../../styles/admin.css";
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input type="search" id="ct-search" placeholder="Search name, email, company…" aria-label="Search contacts" />
           </label>
+          <button type="button" class="ct-tool-btn ct-tool-primary" id="ct-add-btn" title="Add a single contact">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add contact
+          </button>
           <button type="button" class="ct-tool-btn" id="ct-import-btn" title="Import contacts from a CSV">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
             Import CSV
@@ -100,6 +104,32 @@ import "../../styles/admin.css";
     </div>
   </div>
 
+  <!-- Add contact modal -->
+  <div class="ct-import-scrim" id="ct-add" hidden>
+    <div class="ct-import-card" role="dialog" aria-modal="true" aria-label="Add a contact">
+      <button type="button" class="ct-drawer-x ct-import-x" id="ct-add-close" aria-label="Close">&times;</button>
+      <h2 class="ct-import-title">Add a contact</h2>
+      <p class="ct-import-sub">We match on email, so adding someone who already exists just updates their record.</p>
+      <form id="ct-add-form" class="ct-add-form" autocomplete="off">
+        <div class="ct-add-grid">
+          <div class="ct-field"><label>First name</label><input name="first_name" /></div>
+          <div class="ct-field"><label>Last name</label><input name="last_name" /></div>
+        </div>
+        <div class="ct-field"><label>Email *</label><input name="email" type="email" required placeholder="name@example.com" /></div>
+        <div class="ct-add-grid">
+          <div class="ct-field"><label>Phone</label><input name="phone" type="tel" /></div>
+          <div class="ct-field"><label>Company</label><input name="company" /></div>
+        </div>
+        <label class="ct-toggle"><input type="checkbox" name="optin" /> They've opted into marketing</label>
+        <p class="ct-teg-msg" id="ct-add-msg" hidden></p>
+        <div class="ct-add-actions">
+          <button type="button" class="ct-mini" id="ct-add-cancel">Cancel</button>
+          <button type="submit" class="admin-btn admin-btn-primary" id="ct-add-save">Add contact</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <style is:global>
     .admin-bar { display: flex; flex-direction: column; align-items: stretch; gap: 16px; max-width: 1360px; margin: 0 auto; padding: 40px 0 22px; border-bottom: 1px solid rgba(55,30,40,0.14); }
     .admin-bar-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
@@ -112,6 +142,13 @@ import "../../styles/admin.css";
     .ct-tool-btn { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid rgba(var(--violet-rgb),0.4); border-radius: 999px; padding: 9px 16px; cursor: pointer; font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); transition: background 0.15s, color 0.15s; }
     .ct-tool-btn:hover { background: var(--english-violet); color: #fff; }
     .ct-tool-btn svg { width: 14px; height: 14px; }
+    .ct-tool-btn.ct-tool-primary { background: var(--english-violet); color: #fff; }
+    .ct-tool-btn.ct-tool-primary:hover { opacity: 0.9; }
+    .ct-add-form { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+    .ct-add-form .ct-field { margin-bottom: 0; }
+    .ct-add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 460px) { .ct-add-grid { grid-template-columns: 1fr; } }
+    .ct-add-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
     .ct-chips-bar { display: flex; flex-wrap: wrap; gap: 8px; }
     .ct-chip-f { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); transition: background 0.15s, border-color 0.15s, color 0.15s; }
     .ct-chip-f:hover { border-color: rgba(var(--violet-rgb),0.4); }
@@ -769,6 +806,36 @@ import "../../styles/admin.css";
       return rows.filter((r) => r.some((c) => String(c).trim() !== ""));
     }
     $("ct-import-tag").innerHTML = `<option value="">— none —</option>` + TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("");
+    // ---- Add a single contact (reuses the /contacts/import path) ----
+    function closeAdd() { $("ct-add").hidden = true; }
+    function addMsg(t, ok) { const m = $("ct-add-msg"); m.textContent = t; m.className = "ct-teg-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
+    $("ct-add-btn").addEventListener("click", () => { $("ct-add-msg").hidden = true; $("ct-add-form").reset(); $("ct-add").hidden = false; setTimeout(() => $("ct-add-form").first_name.focus(), 30); });
+    $("ct-add-close").addEventListener("click", closeAdd);
+    $("ct-add-cancel").addEventListener("click", closeAdd);
+    $("ct-add").addEventListener("click", (e) => { if (e.target === $("ct-add")) closeAdd(); });
+    $("ct-add-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const email = f.email.value.trim();
+      if (!email) { addMsg("Enter an email address.", false); return; }
+      if (!WORKER) { addMsg("The contacts backend isn't connected.", false); return; }
+      const row = { email, first_name: f.first_name.value.trim() || null, last_name: f.last_name.value.trim() || null, phone: f.phone.value.trim() || null, company: f.company.value.trim() || null };
+      const btn = $("ct-add-save"); btn.disabled = true; btn.textContent = "Adding…";
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session && session.access_token;
+        const res = await fetch(`${WORKER}/contacts/import`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" }, body: JSON.stringify({ rows: [row], batch_tags: [], marketing_opt_in: f.optin.checked, source: "manual" }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't add the contact.");
+        if (!d.imported) throw new Error("That email address looks invalid.");
+        closeAdd();
+        await load();
+        const created = ALL.find((c) => (c.email || "").toLowerCase() === email.toLowerCase());
+        if (created) openDrawer(created.id);
+      } catch (err) { addMsg(err.message || "Couldn't add the contact.", false); }
+      finally { btn.disabled = false; btn.textContent = "Add contact"; }
+    });
+
     $("ct-import-btn").addEventListener("click", () => { $("ct-import").hidden = false; });
     $("ct-import-close").addEventListener("click", () => { $("ct-import").hidden = true; });
     $("ct-import").addEventListener("click", (e) => { if (e.target === $("ct-import")) $("ct-import").hidden = true; });
