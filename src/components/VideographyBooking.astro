@@ -589,7 +589,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
             <span class="dc-choice-name">${s.name}</span>
             <span class="dc-choice-output">${s.output}</span>
             <span class="dc-choice-meta">${s.desc}</span>
-            <span class="dc-choice-price">${gbp(s.price_pence)} + VAT</span>
+            <span class="dc-choice-price">${gbp(s.price_pence)} +VAT</span>
           </button>`).join("") + `</div>`;
         wrap.querySelectorAll(".dc-choice").forEach((b) => b.addEventListener("click", () => {
           chosen = svc.sessions[+b.dataset.i];
@@ -614,13 +614,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
           duration = 240; // property shoot block (interim — refined in scheduling phase)
           incl = chosen.inclusions.map((x) => "· " + x).join("<br>");
           addOnList = svc.addOns;
-          priceLabel = `from ${gbp(chosen.from_pence)} + VAT`;
+          priceLabel = `from ${gbp(chosen.from_pence)} +VAT`;
         } else {
           chosen = svc.packages.find((p) => p.key === "launch") || svc.packages[0];
           duration = 120;
           incl = "· " + chosen.desc;
           addOnList = svc.packages.filter((p) => p.key !== chosen.key);
-          priceLabel = `${gbp(chosen.price_pence)} + VAT`;
+          priceLabel = `${gbp(chosen.price_pence)} +VAT`;
         }
         const pkg = `<div class="dc-choice" style="cursor:default">
           <span class="dc-choice-name">${chosen.name}</span>
@@ -630,8 +630,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
           addOnList.map((a, i) => `<button type="button" class="dc-choice" data-addon="${i}">
             <span class="dc-choice-check">✓</span>
             <span style="display:flex;flex-direction:column;gap:3px">
-              <span class="dc-choice-name" style="font-size:18px">${a.name}</span>
-              <span class="dc-choice-meta">${gbp(a.price_pence)}${a.perImage ? " / image" : ""} + VAT</span></span>
+              <span class="dc-choice-name" style="font-size:15px">${a.name}</span>
+              <span class="dc-choice-meta">${gbp(a.price_pence)}${a.perImage ? " / image" : ""} +VAT</span></span>
           </button>`).join("") + `</div>` : "";
         wrap.innerHTML = pkg + addons + `<div class="vb-running" id="vb-running"></div>`;
         wrap.querySelectorAll("[data-addon]").forEach((b) => b.addEventListener("click", () => {
@@ -731,7 +731,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const approx = r.source === "estimate" ? "approx " : "";
       note.hidden = false;
       note.innerHTML = surchargeP > 0
-        ? `This property is ${approx}<strong>${Math.round(r.miles)} miles</strong> from TMKE's studio. A travel surcharge of <strong>${gbp(surchargeP)} + VAT</strong> applies.`
+        ? `This property is ${approx}<strong>${Math.round(r.miles)} miles</strong> from TMKE's studio. A travel surcharge of <strong>${gbp(surchargeP)} +VAT</strong> applies.`
         : `This property is ${approx}<strong>${Math.round(r.miles)} miles</strong> from TMKE's studio — <strong>within the free 40-mile radius</strong>, so there's no travel charge.`;
       pcResolvedFor = postcode;
       resetCta(btn, "Continue");   // a second press now proceeds (no auto-advance)
@@ -1015,7 +1015,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         summaryLine,
         selectedAddOns.length ? `Add-ons: ${selectedAddOns.map((a) => a.name).join(", ")}` : "",
         postcode ? `Shoot postcode: ${postcode}` : "",
-        svc.surcharge ? `Travel: ${distanceMiles != null ? Math.round(distanceMiles) + " mi, " : ""}${surchargeP > 0 ? gbp(surchargeP) + " + VAT" : "no charge"}` : "",
+        svc.surcharge ? `Travel: ${distanceMiles != null ? Math.round(distanceMiles) + " mi, " : ""}${surchargeP > 0 ? gbp(surchargeP) + " +VAT" : "no charge"}` : "",
         fd.get("company") ? `Company: ${fd.get("company")}` : "",
         fd.get("phone") ? `Phone: ${fd.get("phone")}` : "",
         fd.get("notes") ? String(fd.get("notes")) : "",
