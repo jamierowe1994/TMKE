@@ -46,6 +46,7 @@ const DELIVER_CATEGORIES = [
       </div>
       <input type="search" id="vid-client-search" class="admin-search" placeholder="Search client, company…" />
     </div>
+    <div class="vid-scrolltop" id="vid-scrolltop" hidden><div id="vid-scrolltop-inner"></div></div>
     <p class="vid-loading" id="vid-clients-loading">Loading clients…</p>
     <div class="vid-clients" id="vid-clients" hidden></div>
     <p class="vid-loading" id="vid-clients-empty" hidden>No clients yet — add a booking to get started.</p>
@@ -482,11 +483,16 @@ const DELIVER_CATEGORIES = [
     .vid-set-status { font-family: var(--sans); font-size: 13px; color: #2c7a4b; margin-left: 12px; }
 
     /* ---- Pipeline board — stage columns (mirrors the SMM board) ---- */
-    .vid-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 1fr); gap: 14px; align-items: start; overflow-x: auto; padding: 4px 0 20px; }
+    /* Synced scrollbar ABOVE the board (like SMM) so you don't have to reach the
+       bottom of a laptop screen to pan across the stages. */
+    .vid-scrolltop { margin: 14px 0 6px; overflow-x: auto; overflow-y: hidden; }
+    .vid-scrolltop[hidden] { display: none; }
+    #vid-scrolltop-inner { height: 1px; }
+    .vid-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 1fr); gap: 14px; align-items: start; overflow-x: auto; padding: 6px 0 8px; }
     .vid-col { background: transparent; border: 0; min-width: 0; display: flex; flex-direction: column; }
     .vid-col-head {
       display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 12px; border: 0;
-      font-family: var(--sans); font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55);
+      font-family: var(--sans); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55);
     }
     .vid-col-count {
       min-width: 18px; text-align: center; padding: 1px 8px; border-radius: 999px;
@@ -496,11 +502,11 @@ const DELIVER_CATEGORIES = [
     .vid-col.is-drop .vid-col-list { background: rgba(var(--violet-rgb), 0.07); box-shadow: inset 0 0 0 2px rgba(var(--violet-rgb), 0.35); }
     .vid-col-list:empty::after { content: "Drop a job here"; display: block; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.3); padding: 14px 6px; }
     .vid-card {
-      background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.16); border-radius: 10px;
-      padding: 13px 14px; cursor: pointer; box-shadow: 0 1px 2px rgba(20, 18, 26, 0.04);
-      transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+      background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px;
+      padding: 15px 16px; cursor: pointer; box-shadow: 0 1px 2px rgba(20, 18, 26, 0.04);
+      transition: box-shadow 0.16s, transform 0.16s, border-color 0.16s;
     }
-    .vid-card:hover { border-color: var(--english-violet); box-shadow: 0 8px 22px -12px rgba(20, 18, 26, 0.28); transform: translateY(-1px); }
+    .vid-card:hover { border-color: rgba(var(--violet-rgb), 0.45); box-shadow: 0 10px 24px -18px rgba(28, 29, 34, 0.4); transform: translateY(-1px); }
     .vid-card.is-dragging { opacity: 0.5; }
     .vid-card-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
     .vid-card-meta { font-family: var(--sans); font-size: 12px; color: rgba(28, 29, 34, 0.6); margin-top: 3px; }
@@ -813,6 +819,15 @@ const DELIVER_CATEGORIES = [
         renderClients(document.getElementById("vid-client-search")?.value || "");
       });
       document.getElementById("vid-client-search")?.addEventListener("input", (e) => renderClients(e.target.value || ""));
+      // Keep the top scrollbar and the board panning in step.
+      const vst = document.getElementById("vid-scrolltop");
+      const vbd = document.getElementById("vid-clients");
+      if (vst && vbd) {
+        let lock = false;
+        vst.addEventListener("scroll", () => { if (lock) return; lock = true; vbd.scrollLeft = vst.scrollLeft; lock = false; });
+        vbd.addEventListener("scroll", () => { if (lock) return; lock = true; vst.scrollLeft = vbd.scrollLeft; lock = false; });
+      }
+      window.addEventListener("resize", syncVidTopScroll);
     }
 
     /* ---------- Pipeline (kanban) ---------- */
@@ -996,6 +1011,18 @@ const DELIVER_CATEGORIES = [
         col.addEventListener("dragleave", onDragLeave);
         col.addEventListener("drop", onDrop);
       });
+      syncVidTopScroll();
+    }
+
+    // Size + show the synced scrollbar above the board (mirrors SMM's syncTopScroll).
+    function syncVidTopScroll() {
+      const board = document.getElementById("vid-clients");
+      const top = document.getElementById("vid-scrolltop");
+      const inner = document.getElementById("vid-scrolltop-inner");
+      if (!board || !top || !inner) return;
+      const over = board.scrollWidth > board.clientWidth + 1;
+      top.hidden = !over;
+      if (over) inner.style.width = board.scrollWidth + "px";
     }
 
     let candId = null;
