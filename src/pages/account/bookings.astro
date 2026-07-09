@@ -42,7 +42,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
     <section class="orders-section bk-past-sec" id="bk-past-sec">
       <header class="section-head">
-        <h2 class="section-h">Previous bookings</h2>
+        <h2 class="section-h">Previous Bookings</h2>
         <p class="section-sub">Shoots, studio sessions and calls you've completed or cancelled. Your history lives here.</p>
       </header>
       <div id="bk-past" class="bk-list"></div>
@@ -136,6 +136,14 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-pill.is-cancelled { background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.55); }
     .bk-pill.is-complete { background: rgba(46,106,74,0.14); color: #2e6a4a; }
     .bk-view-cue { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--english-violet); opacity: 0.9; }
+
+    /* Clear breathing room + hairline divider between Upcoming and Previous. */
+    .bk-past-sec { margin-top: 46px; padding-top: 40px; border-top: 1px solid rgba(28,29,34,0.1); }
+    /* Empty states sit in an outline card so they match the booking cards. */
+    .bk-empty { background: #fff; border: 1px solid rgba(28,29,34,0.13); border-radius: 12px; padding: 32px; }
+    .bk-empty strong { display: block; font-family: var(--serif); font-weight: 500; font-size: 24px; color: var(--ink); margin-bottom: 6px; }
+    .bk-empty p { margin: 0; line-height: 1.6; color: rgba(28,29,34,0.6); }
+    .bk-empty a { color: var(--english-violet); font-weight: 700; }
     @media (max-width: 680px) {
       .bk-card { grid-template-columns: 1fr; }
       .bk-card-side { align-items: flex-start; text-align: left; }
@@ -345,14 +353,14 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
       const $up = $('bk-upcoming');
       if (!up.length) {
-        $up.innerHTML = `<div class="lib-state" style="padding:32px;"><strong style="display:block;font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:6px;">Nothing upcoming.</strong><p style="margin:0;line-height:1.6;">When you book a shoot or a call, it'll appear here. <a href="/videography">Browse videography &rarr;</a></p></div>`;
+        $up.innerHTML = `<div class="bk-empty"><strong>Nothing upcoming.</strong><p>When you book a shoot or a call, it'll appear here. <a href="/videography">Browse videography &rarr;</a></p></div>`;
       } else {
         $up.innerHTML = up.map(cardHtml).join('');
       }
       // Previous bookings always show — with an empty state until a booking is done.
       $('bk-past').innerHTML = past.length
         ? past.map(cardHtml).join('')
-        : `<div class="lib-state" style="padding:32px;"><strong style="display:block;font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:6px;">No previous bookings yet.</strong><p style="margin:0;line-height:1.6;">Once a shoot, session or call is done, it'll move here — so you've always got your history to hand.</p></div>`;
+        : `<div class="bk-empty"><strong>No previous bookings yet.</strong><p>Once a shoot, session or call is done, it'll move here — so you've always got your history to hand.</p></div>`;
     }
 
     function cardHtml(r) {
