@@ -217,6 +217,26 @@ import "../../styles/admin.css";
     .smm-inv-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(28,29,34,0.07); }
     .smm-inv-paid { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); display: inline-flex; align-items: center; gap: 7px; }
     .smm-inv-paid input { padding: 5px 8px; border: 1px solid rgba(28,29,34,0.16); border-radius: 7px; font-family: var(--sans); font-size: 12px; color: var(--ink); }
+    /* Invoicing builder (per-client) */
+    .siv-build { border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 16px; margin-bottom: 18px; background: rgba(28,29,34,0.015); }
+    .siv-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .siv-f { display: block; margin-bottom: 12px; }
+    .siv-f > span { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 6px; }
+    .siv-f input, .siv-f textarea { width: 100%; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 13.5px; color: var(--ink); background: #fff; }
+    .siv-f input:focus, .siv-f textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
+    .siv-item { display: grid; grid-template-columns: 1fr 120px 32px; gap: 8px; margin-bottom: 8px; }
+    .siv-item input { padding: 8px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; }
+    .siv-del { cursor: pointer; border: 1px solid rgba(28,29,34,0.14); background: #fff; border-radius: 8px; font-size: 17px; line-height: 1; color: rgba(28,29,34,0.5); }
+    .siv-del:hover { background: rgba(200,70,50,0.08); border-color: rgba(200,70,50,0.4); color: #a3372b; }
+    .siv-totals { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(28,29,34,0.1); font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); }
+    .siv-totals strong { font-size: 15px; color: var(--ink); }
+    .siv-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+    .siv-list-head { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin: 6px 0 10px; }
+    .siv-row { display: grid; grid-template-columns: 90px 1fr auto auto auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 9px; margin-bottom: 8px; font-family: var(--sans); font-size: 13px; }
+    .siv-row .siv-num { font-weight: 700; color: var(--ink); }
+    .siv-row .siv-due { color: rgba(28,29,34,0.5); font-size: 12px; }
+    .siv-row .siv-amt2 { font-weight: 700; text-align: right; }
+    .siv-row .smm-inv-status { text-transform: uppercase; }
 
     /* Insights panel (per-client SocialPilot reports) */
     .ri-months { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -327,6 +347,7 @@ import "../../styles/admin.css";
     import { supabase } from "../../lib/supabase.js";
     import { renderTab, renderTrends, MONTHS as RI_MONTHS } from "../../lib/report-insights.js";
     import { DEMO_REPORTS } from "../../lib/report-insights-demo.js";
+    import { renderInvoiceHtml } from "../../lib/invoice-render.js";
 
     const STAGES = [
       { key: "inquiry", label: "Inquiry" },
@@ -599,7 +620,7 @@ import "../../styles/admin.css";
               <button type="button" class="smm-tab ${activeTab === "notes" ? "is-active" : ""}" data-tab="notes">Notes</button>
               <button type="button" class="smm-tab ${activeTab === "emails" ? "is-active" : ""}" data-tab="emails">Emails</button>
               <button type="button" class="smm-tab ${activeTab === "files" ? "is-active" : ""}" data-tab="files">Files</button>
-              ${isActive ? `<button type="button" class="smm-tab ${activeTab === "invoices" ? "is-active" : ""}" data-tab="invoices">Invoices</button>` : ""}
+              ${isActive ? `<button type="button" class="smm-tab ${activeTab === "invoices" ? "is-active" : ""}" data-tab="invoices">Invoicing</button>` : ""}
               ${isActive ? `<button type="button" class="smm-tab ${activeTab === "insights" ? "is-active" : ""}" data-tab="insights">Insights</button>` : ""}
             </div>
             <div id="smm-panel-notes" class="smm-panel-body" ${activeTab === "notes" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>
@@ -813,50 +834,130 @@ import "../../styles/admin.css";
       } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add file"; }
     }
 
-    // ---------- Invoices ----------
-    function openAddInvoice(r) {
-      const today = new Date().toISOString().slice(0, 10);
-      $("smm-modal-host").innerHTML = `
-        <div class="smm-modal-scrim" id="smm-modal">
-          <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Add an invoice">
-            <h3>Add an invoice</h3>
-            <p class="smm-modal-sub">A record for ${esc(nameOf(r))}.</p>
-            <div class="smm-modal-field"><label>File</label><input type="file" id="smm-iv-file" class="smm-file-input"></div>
-            <div class="smm-modal-field"><label>Title</label><input type="text" id="smm-iv-name" placeholder="e.g. Invoice #1024"></div>
-            <div class="smm-modal-field"><label>Date sent</label><input type="date" id="smm-iv-date" value="${today}"></div>
-            <p class="smm-modal-status" id="smm-iv-status" hidden></p>
-            <div class="smm-modal-actions">
-              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
-              <button type="button" class="smm-btn smm-btn--primary" id="smm-iv-add">Add invoice</button>
-            </div>
-          </div>
-        </div>`;
-      const scrim = $("smm-modal");
-      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
-      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
-      $("smm-iv-add").addEventListener("click", () => uploadInvoice(r));
-    }
-    async function uploadInvoice(r) {
-      const fileEl = $("smm-iv-file"); const file = fileEl && fileEl.files && fileEl.files[0];
-      const title = $("smm-iv-name").value.trim(); const date = $("smm-iv-date").value;
-      const status = $("smm-iv-status");
-      if (!file) { status.hidden = false; status.textContent = "Choose a file first."; return; }
-      if (isDemo(r)) { r._thread.documents.push({ id: "d" + Date.now(), file_name: file.name, title: title || null, category: "invoice", invoice_date: date || null, paid_date: null }); closeModal(); activeTab = "invoices"; renderThread(r, r._thread); return; }
-      const btn = $("smm-iv-add"); btn.disabled = true; btn.textContent = "Uploading…";
-      try {
-        const token = await authToken();
-        const qs = new URLSearchParams({ booking_id: r.id, source: "smm", category: "invoice", file_name: file.name, content_type: file.type || "application/octet-stream" });
-        if (title) qs.set("title", title);
-        if (date) qs.set("invoice_date", date);
-        const res = await fetch(`${WORKER}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
-        const j = await res.json().catch(() => ({}));
-        if (!res.ok || !j.document) throw new Error(j.error || "Upload failed");
-        closeModal(); activeTab = "invoices"; loadThread(r);
-      } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add invoice"; }
-    }
+    // ---------- Invoicing ----------
     async function setInvoicePaid(r, id, date) {
       if (isDemo(r)) { const d = r._thread.documents.find((x) => x.id === id); if (d) d.paid_date = date || null; renderThread(r, r._thread); return; }
       try { const token = await authToken(); await fetch(`${WORKER}/booking/document/paid`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id, paid_date: date || null }) }); loadThread(r); } catch (_) {}
+    }
+
+    // ---------- Invoicing (the full builder, per client) ----------
+    // Reuses the standalone engine: POST /invoicing/invoices creates a numbered
+    // draft (number + VAT server-side), booking_id links it to this SMM client.
+    let sivItems = [];       // [{ description, amount }] for the client being viewed
+    let invSettings = null;  // cached company/VAT settings for preview + totals
+    const gbp = (p) => "£" + ((p || 0) / 100).toFixed(2);
+    const parseMoney = (s) => { const m = String(s || "").match(/[\d,]+(\.\d+)?/); return m ? Math.round(parseFloat(m[0].replace(/,/g, "")) * 100) : 0; };
+    async function ensureInvSettings() {
+      if (invSettings) return invSettings;
+      if (!WORKER) { invSettings = {}; return invSettings; }
+      try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/settings`, { headers: { Authorization: "Bearer " + token } }); const j = await res.json().catch(() => ({})); invSettings = (j && j.settings) || {}; } catch (_) { invSettings = {}; }
+      return invSettings;
+    }
+    function sivTotals() {
+      const vatRate = Number(invSettings && invSettings.vat_rate != null ? invSettings.vat_rate : 20);
+      const subtotal = sivItems.reduce((s, it) => s + Math.round((parseFloat(it.amount) || 0) * 100), 0);
+      const vat = Math.round(subtotal * vatRate / 100);
+      return { subtotal, vat, total: subtotal + vat, vatRate };
+    }
+    function sivBuildInvoice(r) {
+      const t = sivTotals();
+      return {
+        number: (invSettings.invoice_prefix || "TMKE") + (invSettings.next_number || 1001),
+        issued_date: $("siv-issued").value || null, due_date: $("siv-due").value || null,
+        bill_to_name: $("siv-name").value.trim(), bill_to_email: $("siv-email").value.trim(), bill_to_address: $("siv-address").value.trim(),
+        line_items: sivItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
+        subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
+      };
+    }
+    function sivRenderItems() {
+      $("siv-items").innerHTML = sivItems.map((it, i) => `<div class="siv-item"><input class="siv-desc" data-i="${i}" placeholder="Description of the service" value="${esc(it.description)}"><input class="siv-amt" data-i="${i}" type="number" step="0.01" placeholder="0.00" value="${esc(it.amount)}"><button type="button" class="siv-del" data-i="${i}" title="Remove">&times;</button></div>`).join("");
+    }
+    function sivRenderTotals() {
+      const t = sivTotals();
+      $("siv-totals").innerHTML = `<span>Sub-total ${gbp(t.subtotal)} · VAT (${t.vatRate}%) ${gbp(t.vat)}</span><strong>Total ${gbp(t.total)}</strong>`;
+    }
+    function sivRefreshItems() { sivRenderItems(); sivRenderTotals(); wireSivItems(); }
+    function wireSivItems() {
+      $("siv-items").querySelectorAll(".siv-desc").forEach((el) => el.addEventListener("input", (e) => { sivItems[+e.target.getAttribute("data-i")].description = e.target.value; }));
+      $("siv-items").querySelectorAll(".siv-amt").forEach((el) => el.addEventListener("input", (e) => { sivItems[+e.target.getAttribute("data-i")].amount = e.target.value; sivRenderTotals(); }));
+      $("siv-items").querySelectorAll(".siv-del").forEach((el) => el.addEventListener("click", (e) => { sivItems.splice(+e.currentTarget.getAttribute("data-i"), 1); if (!sivItems.length) sivItems.push({ description: "", amount: "" }); sivRefreshItems(); }));
+    }
+    async function renderInvoicing(r, panel, docs, loading, warn) {
+      await ensureInvSettings();
+      // Seed one line item from the agreed monthly price (editable; add more rows).
+      sivItems = [{ description: "Social media management" + (r.package_name ? " — " + r.package_name : "") + " (monthly)", amount: parseMoney(r.price) ? (parseMoney(r.price) / 100).toFixed(2) : "" }];
+      const today = new Date().toISOString().slice(0, 10);
+      const due = new Date(); due.setDate(due.getDate() + Number((invSettings && invSettings.payment_terms_days) || 7)); const dueISO = due.toISOString().slice(0, 10);
+      const uploaded = docs.filter((d) => d.category === "invoice");
+      const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
+      const billName = r.business || (nameOf(r) === "—" ? "" : nameOf(r));
+      panel.innerHTML = `
+        <div class="smm-panel-head"><h4>Invoicing</h4></div>
+        ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
+        <div class="siv-build">
+          <div class="siv-grid2">
+            <label class="siv-f"><span>Bill to</span><input id="siv-name" value="${esc(billName)}"></label>
+            <label class="siv-f"><span>Email</span><input id="siv-email" type="email" value="${esc(r.email || "")}"></label>
+          </div>
+          <label class="siv-f"><span>Billing address</span><textarea id="siv-address" rows="2" placeholder="Optional">${esc(r.business_address || "")}</textarea></label>
+          <div class="siv-grid2">
+            <label class="siv-f"><span>Issued</span><input id="siv-issued" type="date" value="${today}"></label>
+            <label class="siv-f"><span>Due</span><input id="siv-due" type="date" value="${dueISO}"></label>
+          </div>
+          <div class="siv-f"><span>Line items</span><div id="siv-items"></div><button type="button" class="smm-btn smm-btn--sm" id="siv-add">${PLUS_SVG}Add line</button></div>
+          <div class="siv-totals" id="siv-totals"></div>
+          <p class="smm-modal-status" id="siv-msg" hidden></p>
+          <div class="siv-actions">
+            <button type="button" class="smm-btn" id="siv-pdf">Preview / PDF</button>
+            <button type="button" class="smm-btn smm-btn--primary" id="siv-create">Create invoice</button>
+          </div>
+        </div>
+        <div class="siv-list-head">Raised invoices</div>
+        <div id="siv-list"><p class="smm-soon">Loading…</p></div>
+        ${uploaded.length ? `<div class="siv-list-head">Uploaded PDFs</div>${uploaded.map((d) => `<div class="smm-inv"><div class="smm-inv-top"><span class="smm-doc-ico">${DOC_SVG}</span><span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span><span class="smm-doc-cat">Sent ${fmtDate(d.invoice_date)}</span></span><span class="smm-inv-status ${d.paid_date ? "is-paid" : "is-due"}">${d.paid_date ? "Paid" : "Outstanding"}</span></div><div class="smm-inv-foot"><label class="smm-inv-paid">Paid <input type="date" data-invpaid="${esc(d.id)}" value="${esc(d.paid_date || "")}"></label><span class="smm-doc-tools"><button type="button" class="smm-mini" data-docdl="${esc(d.id)}" data-docname="${esc(d.file_name || "invoice")}">Download</button><button type="button" class="smm-mini is-danger" data-docdel="${esc(d.id)}">Remove</button></span></div></div>`).join("")}` : ""}`;
+      sivRefreshItems();
+      $("siv-add").addEventListener("click", () => { sivItems.push({ description: "", amount: "" }); sivRefreshItems(); });
+      $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: invSettings, invoice: sivBuildInvoice(r) })); w.document.close(); });
+      $("siv-create").addEventListener("click", () => createSmmInvoice(r));
+      panel.querySelectorAll("[data-invpaid]").forEach((el) => el.addEventListener("change", () => setInvoicePaid(r, el.getAttribute("data-invpaid"), el.value)));
+      panel.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
+      panel.querySelectorAll("[data-docdel]").forEach((b) => b.addEventListener("click", () => deleteDoc(r, b.getAttribute("data-docdel"))));
+      loadSmmInvoices(r);
+    }
+    async function loadSmmInvoices(r) {
+      const wrap = $("siv-list"); if (!wrap) return;
+      const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
+      const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span>${v.status !== "paid" && v.status !== "void" ? `<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}</div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
+      if (isDemo(r)) { wrap.innerHTML = rowsHtml(r._invoices || []); }
+      else if (!WORKER) { wrap.innerHTML = '<p class="smm-doc-empty">Connect the Worker to raise invoices.</p>'; return; }
+      else {
+        try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); const j = await res.json().catch(() => ({})); wrap.innerHTML = rowsHtml((j && j.invoices) || []); }
+        catch (_) { wrap.innerHTML = '<p class="smm-doc-empty">Couldn\'t load invoices.</p>'; }
+      }
+      wrap.querySelectorAll("[data-sivpaid]").forEach((b) => b.addEventListener("click", async () => {
+        b.disabled = true;
+        if (isDemo(r)) { const v = (r._invoices || []).find((x) => x.id === b.getAttribute("data-sivpaid")); if (v) v.status = "paid"; loadSmmInvoices(r); return; }
+        try { const token = await authToken(); await fetch(`${WORKER}/invoicing/invoices`, { method: "PATCH", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-sivpaid"), status: "paid" }) }); loadSmmInvoices(r); } catch (_) { b.disabled = false; }
+      }));
+    }
+    async function createSmmInvoice(r) {
+      const inv = sivBuildInvoice(r);
+      const msgEl = $("siv-msg");
+      const show = (t, ok) => { msgEl.hidden = false; msgEl.textContent = t; msgEl.style.color = ok ? "#2e6b40" : "#a3372b"; };
+      if (!inv.bill_to_name) { show("Add a recipient name.", false); return; }
+      if (!inv.line_items.some((it) => it.description || it.unit_pence)) { show("Add at least one line item.", false); return; }
+      const btn = $("siv-create"); btn.disabled = true; btn.textContent = "Creating…";
+      if (isDemo(r)) { r._invoices = r._invoices || []; r._invoices.unshift({ id: "iv" + Date.now(), number: inv.number, due_date: inv.due_date, total_pence: inv.total_pence, status: "draft" }); show(`Invoice ${inv.number} created (draft).`, true); loadSmmInvoices(r); btn.disabled = false; btn.textContent = "Create invoice"; return; }
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, issued_date: inv.issued_date, due_date: inv.due_date, line_items: inv.line_items }) });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.invoice) throw new Error(j.error || "Couldn't create the invoice.");
+        show(`Invoice ${j.invoice.number} created (draft).`, true);
+        invSettings.next_number = (invSettings.next_number || 1001) + 1;
+        loadSmmInvoices(r);
+      } catch (e) { show(e.message, false); }
+      finally { btn.disabled = false; btn.textContent = "Create invoice"; }
     }
 
     // ---------- Insights (per-client SocialPilot reports) ----------
@@ -1171,35 +1272,9 @@ import "../../styles/admin.css";
         ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
         ${docHtml}`;
 
-      // INVOICES (active clients only)
+      // INVOICING (active clients only) — the full builder + raised list.
       const pInv = $("smm-panel-invoices");
-      if (pInv) {
-        const invoices = docs.filter((d) => d.category === "invoice")
-          .sort((a, b) => new Date(b.invoice_date || b.created_at) - new Date(a.invoice_date || a.created_at));
-        const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
-        const invHtml = loading ? '<p class="smm-soon">Loading…</p>' : (invoices.map((d) => `<div class="smm-inv">
-          <div class="smm-inv-top">
-            <span class="smm-doc-ico">${DOC_SVG}</span>
-            <span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span><span class="smm-doc-cat">Sent ${fmtDate(d.invoice_date)}</span></span>
-            <span class="smm-inv-status ${d.paid_date ? "is-paid" : "is-due"}">${d.paid_date ? "Paid" : "Outstanding"}</span>
-          </div>
-          <div class="smm-inv-foot">
-            <label class="smm-inv-paid">Paid <input type="date" data-invpaid="${esc(d.id)}" value="${esc(d.paid_date || "")}"></label>
-            <span class="smm-doc-tools">
-              <button type="button" class="smm-mini" data-docdl="${esc(d.id)}" data-docname="${esc(d.file_name || "invoice")}">Download</button>
-              <button type="button" class="smm-mini is-danger" data-docdel="${esc(d.id)}">Remove</button>
-            </span>
-          </div>
-        </div>`).join("") || `<p class="smm-doc-empty">No invoices yet.</p>`);
-        pInv.innerHTML = `
-          <div class="smm-panel-head"><h4>Invoices</h4><button type="button" class="smm-btn smm-btn--sm" id="smm-inv-add">${PLUS_SVG}Add invoice</button></div>
-          ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
-          ${invHtml}`;
-        $("smm-inv-add")?.addEventListener("click", () => openAddInvoice(r));
-        pInv.querySelectorAll("[data-invpaid]").forEach((el) => el.addEventListener("change", () => setInvoicePaid(r, el.getAttribute("data-invpaid"), el.value)));
-        pInv.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
-        pInv.querySelectorAll("[data-docdel]").forEach((b) => b.addEventListener("click", () => deleteDoc(r, b.getAttribute("data-docdel"))));
-      }
+      if (pInv) renderInvoicing(r, pInv, docs, loading, warn);
 
       // Wire
       $("smm-note-add")?.addEventListener("click", () => addNote(r));
