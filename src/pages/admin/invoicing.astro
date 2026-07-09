@@ -6,6 +6,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
   <div class="inv-wrap">
     <nav class="inv-tabs" id="inv-tabs">
       <button type="button" class="inv-tab is-active" data-tab="settings">Settings</button>
+      <button type="button" class="inv-tab" data-tab="template">Template</button>
       <button type="button" class="inv-tab" data-tab="book">Address book</button>
     </nav>
 
@@ -44,6 +45,34 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             <p class="inv-msg" id="inv-msg" hidden></p>
             <button type="submit" class="inv-save" id="inv-save">Save details</button>
           </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Template -->
+    <section class="inv-panel" data-panel="template" hidden>
+      <div class="inv-tpl-grid">
+        <div class="ash-card">
+          <div class="ash-card-head"><div class="ash-card-title">Design</div></div>
+          <div class="ash-card-body">
+            <p class="inv-intro">Pick a starting style, then tweak the colour and logo. The preview updates live.</p>
+            <h3 class="inv-h">Style</h3>
+            <div class="inv-styles" id="inv-styles">
+              <button type="button" class="inv-style" data-style="classic"><span class="inv-style-name">Classic</span><span class="inv-style-sub">Traditional, formal</span></button>
+              <button type="button" class="inv-style" data-style="modern"><span class="inv-style-name">Modern</span><span class="inv-style-sub">Colour header band</span></button>
+              <button type="button" class="inv-style" data-style="minimal"><span class="inv-style-name">Minimal</span><span class="inv-style-sub">Clean &amp; sparse</span></button>
+            </div>
+            <h3 class="inv-h">Brand</h3>
+            <label class="inv-field"><span>Accent colour</span><span class="inv-colour"><input type="color" id="tpl-accent-c" /><input type="text" id="tpl-accent-h" placeholder="#371e28" /></span></label>
+            <label class="inv-field"><span>Logo image URL</span><input id="tpl-logo" placeholder="https://…/logo.png (leave blank for a text wordmark)" /></label>
+            <label class="inv-toggle"><input type="checkbox" id="tpl-bank" /><span>Show bank details on the invoice</span></label>
+            <p class="inv-msg" id="tpl-msg" hidden></p>
+            <button type="button" class="inv-save" id="tpl-save">Save template</button>
+          </div>
+        </div>
+        <div class="inv-preview-wrap">
+          <div class="inv-preview-lbl">Preview</div>
+          <iframe id="inv-preview" title="Invoice preview"></iframe>
         </div>
       </div>
     </section>
@@ -104,11 +133,33 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .rec-sub { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .rec-remove { appearance: none; cursor: pointer; background: none; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; padding: 7px 13px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.7); flex: none; transition: background 0.2s, border-color 0.2s, color 0.2s; }
     .rec-remove:hover { background: rgba(200,70,50,0.08); border-color: rgba(200,70,50,0.4); color: #a3372b; }
+
+    /* Template tab */
+    .inv-panel[data-panel="template"] { max-width: 1180px; }
+    .inv-tpl-grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 900px) { .inv-tpl-grid { grid-template-columns: 1fr; } }
+    .inv-styles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+    @media (max-width: 460px) { .inv-styles { grid-template-columns: 1fr; } }
+    .inv-style { text-align: left; cursor: pointer; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 10px; padding: 12px 13px; display: flex; flex-direction: column; gap: 3px; transition: border-color 0.15s, box-shadow 0.15s; }
+    .inv-style:hover { border-color: rgba(55,30,40,0.4); }
+    .inv-style.is-active { border-color: var(--english-violet); box-shadow: 0 0 0 2px var(--english-violet); }
+    .inv-style-name { font-family: var(--sans); font-size: 13.5px; font-weight: 700; color: var(--ink); }
+    .inv-style-sub { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.5); }
+    .inv-colour { display: flex; gap: 8px; align-items: center; }
+    .inv-colour input[type="color"] { width: 42px; height: 40px; padding: 2px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; background: #fff; cursor: pointer; }
+    .inv-colour input[type="text"] { flex: 1; font-family: ui-monospace, Menlo, monospace; }
+    .inv-toggle { display: flex; align-items: center; gap: 10px; font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer; margin-top: 4px; }
+    .inv-toggle input { width: 17px; height: 17px; accent-color: var(--english-violet); }
+    .inv-preview-wrap { position: sticky; top: 16px; }
+    .inv-preview-lbl { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 8px; }
+    #inv-preview { width: 100%; height: 760px; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px; background: #eceae7; }
   </style>
 
   <script>
     import { supabase } from "../../lib/supabase.js";
+    import { renderInvoiceHtml, sampleInvoice } from "../../lib/invoice-render.js";
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    let currentSettings = {};
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -144,9 +195,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!WORKER) { msg("inv-msg", "Connect the Worker (PUBLIC_R2_WORKER_URL) to manage invoicing.", false); return; }
       try {
         const { settings } = await api("/invoicing/settings");
-        if (!settings) return;
+        currentSettings = settings || {};
         const f = $("inv-form");
-        for (const k of FIELDS) { const el = f.elements[k]; if (el && settings[k] != null) el.value = settings[k]; }
+        for (const k of FIELDS) { const el = f.elements[k]; if (el && currentSettings[k] != null) el.value = currentSettings[k]; }
+        initTemplate();
       } catch (err) { msg("inv-msg", err.message, false); }
     }
     $("inv-form").addEventListener("submit", async (e) => {
@@ -194,6 +246,40 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       catch (err) { alert(err.message); }
     });
 
-    document.addEventListener("ash:ready", () => { loadSettings(); loadRecipients(); });
+    // ---- Template ----
+    const tplState = { template: "classic", accent_color: "#371e28", logo_url: "", show_bank: true };
+    function renderPreview() {
+      const settings = { ...currentSettings, ...tplState };
+      $("inv-preview").srcdoc = renderInvoiceHtml({ settings, invoice: sampleInvoice(settings) });
+    }
+    function syncStyleButtons() { document.querySelectorAll(".inv-style").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-style") === tplState.template)); }
+    function initTemplate() {
+      tplState.template = ["classic", "modern", "minimal"].includes(currentSettings.template) ? currentSettings.template : "classic";
+      tplState.accent_color = currentSettings.accent_color || "#371e28";
+      tplState.logo_url = currentSettings.logo_url || "";
+      tplState.show_bank = currentSettings.show_bank !== false;
+      $("tpl-accent-c").value = /^#[0-9a-fA-F]{6}$/.test(tplState.accent_color) ? tplState.accent_color : "#371e28";
+      $("tpl-accent-h").value = tplState.accent_color;
+      $("tpl-logo").value = tplState.logo_url;
+      $("tpl-bank").checked = tplState.show_bank;
+      syncStyleButtons();
+      renderPreview();
+    }
+    $("inv-styles").addEventListener("click", (e) => { const b = e.target.closest(".inv-style"); if (!b) return; tplState.template = b.getAttribute("data-style"); syncStyleButtons(); renderPreview(); });
+    $("tpl-accent-c").addEventListener("input", (e) => { tplState.accent_color = e.target.value; $("tpl-accent-h").value = e.target.value; renderPreview(); });
+    $("tpl-accent-h").addEventListener("input", (e) => { const v = e.target.value.trim(); tplState.accent_color = v; if (/^#[0-9a-fA-F]{6}$/.test(v)) $("tpl-accent-c").value = v; renderPreview(); });
+    $("tpl-logo").addEventListener("input", (e) => { tplState.logo_url = e.target.value.trim(); renderPreview(); });
+    $("tpl-bank").addEventListener("change", (e) => { tplState.show_bank = e.target.checked; renderPreview(); });
+    $("tpl-save").addEventListener("click", async () => {
+      const btn = $("tpl-save"); btn.disabled = true; btn.textContent = "Saving…";
+      try {
+        await api("/invoicing/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ template: tplState.template, accent_color: tplState.accent_color, logo_url: tplState.logo_url || null, show_bank: tplState.show_bank }) });
+        Object.assign(currentSettings, tplState);
+        msg("tpl-msg", "Template saved.", true);
+      } catch (err) { msg("tpl-msg", err.message, false); }
+      finally { btn.disabled = false; btn.textContent = "Save template"; }
+    });
+
+    document.addEventListener("ash:ready", () => { initTemplate(); loadSettings(); loadRecipients(); });
   </script>
 </AdminShell>
