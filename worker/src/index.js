@@ -3000,6 +3000,67 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // ---- Admin: invoices (create draft / list / mark paid) -----------------
+      if (path.endsWith("/invoicing/invoices") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const extra = url.searchParams.get("booking_id") ? `&booking_id=eq.${encodeURIComponent(url.searchParams.get("booking_id"))}` : "";
+        const rows = (await sbGet(env, "invoices", `select=id,number,bill_to_name,bill_to_email,total_pence,status,issued_date,due_date,paid_date,created_at${extra}&order=created_at.desc&limit=300`)) || [];
+        return json({ ok: true, invoices: rows }, 200, request, env);
+      }
+      if (path.endsWith("/invoicing/invoices") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const items = (Array.isArray(b.line_items) ? b.line_items : [])
+          .map((it) => ({ description: String((it && it.description) || "").trim(), qty: it && it.qty != null ? Number(it.qty) : 1, unit_pence: Math.round(Number((it && it.unit_pence) || 0)) }))
+          .filter((it) => it.description || it.unit_pence);
+        if (!items.length) return json({ error: "Add at least one line item." }, 400, request, env);
+        const billName = String((b && b.bill_to_name) || "").trim();
+        if (!billName) return json({ error: "A recipient name is required." }, 400, request, env);
+
+        const srows = await sbGet(env, "invoice_settings", "id=eq.1&select=*");
+        const st = (srows && srows[0]) || {};
+        const vatRate = st.vat_rate != null ? Number(st.vat_rate) : 20;
+        const nextNum = st.next_number || 1001;
+        const number = `${st.invoice_prefix || "TMKE"}${nextNum}`;
+        const subtotal = items.reduce((sum, it) => sum + it.unit_pence * (it.qty || 1), 0);
+        const vat = Math.round(subtotal * vatRate / 100);
+        const total = subtotal + vat;
+
+        const row = {
+          number, booking_id: (b && b.booking_id) || null, booking_source: (b && b.booking_source) || "videography",
+          recipient_id: (b && b.recipient_id) || null,
+          bill_to_name: billName, bill_to_email: (b && b.bill_to_email) || null, bill_to_address: (b && b.bill_to_address) || null,
+          line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
+          status: "draft", issued_date: (b && b.issued_date) || null, due_date: (b && b.due_date) || null,
+          notes: (b && b.notes) || null, cc_email: st.accounts_cc_email || null, created_by: user.email || null,
+        };
+        const res = await sbPost(env, "invoices", row, "return=representation");
+        let inv = null; try { const j = await res.json(); inv = Array.isArray(j) ? j[0] : j; } catch (_) {}
+        if (!inv) return json({ error: "Couldn't save the invoice." }, 502, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?id=eq.1`, {
+          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ next_number: nextNum + 1 }),
+        });
+        return json({ ok: true, invoice: inv }, 200, request, env);
+      }
+      if (path.endsWith("/invoicing/invoices") && request.method === "PATCH") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.id) || "").trim();
+        const status = ["draft", "sent", "paid", "void"].includes(b && b.status) ? b.status : null;
+        if (!id || !status) return json({ error: "Missing id or status." }, 400, request, env);
+        const patch = { status };
+        if (status === "paid") patch.paid_date = (b && b.paid_date) || new Date().toISOString().slice(0, 10);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify(patch),
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: set an SMM client's status (active / paused / ended) --------
       // Persists on the lead and swaps the SMM-Status tag on their CRM contact.
       // Active also lifts their lifecycle to Customer (per the tagging framework).
