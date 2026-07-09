@@ -88,8 +88,11 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           </div>
         </div>
         <div class="inv-preview-wrap">
-          <div class="inv-preview-lbl">Preview</div>
-          <iframe id="inv-preview" title="Invoice preview"></iframe>
+          <div class="inv-preview-head">
+            <span class="inv-preview-lbl">Preview — to-scale A4</span>
+            <button type="button" class="inv-pdf-btn" id="inv-open-pdf">Open full size / save as PDF ↗</button>
+          </div>
+          <div class="inv-preview-box" id="inv-preview-box"><iframe id="inv-preview" title="Invoice preview" scrolling="no"></iframe></div>
         </div>
       </div>
     </section>
@@ -168,8 +171,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-toggle { display: flex; align-items: center; gap: 10px; font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer; margin-top: 4px; }
     .inv-toggle input { width: 17px; height: 17px; accent-color: var(--english-violet); }
     .inv-preview-wrap { position: sticky; top: 16px; }
-    .inv-preview-lbl { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 8px; }
-    #inv-preview { width: 100%; height: 820px; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px; background: #d9d7d4; }
+    .inv-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .inv-preview-lbl { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .inv-pdf-btn { appearance: none; cursor: pointer; background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; padding: 7px 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); transition: background 0.15s, border-color 0.15s; }
+    .inv-pdf-btn:hover { background: var(--paper); border-color: var(--english-violet); }
+    /* True-size A4 iframe (794x1123 @96dpi) scaled uniformly to fit the column,
+       so the on-screen proportions exactly match a printed A4 sheet. */
+    .inv-preview-box { width: 100%; overflow: hidden; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px; background: #cfccc8; }
+    #inv-preview { width: 794px; height: 1123px; border: 0; display: block; transform-origin: top left; }
     .inv-h-note { font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); margin-left: 8px; font-size: 11px; }
     .inv-row2 { display: grid; grid-template-columns: 1fr 120px; gap: 12px; }
     .inv-field select { font-family: var(--sans); font-size: 14.5px; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: var(--ink); }
@@ -207,6 +216,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       const b = e.target.closest("[data-tab]"); if (!b) return;
       document.querySelectorAll(".inv-tab").forEach((t) => t.classList.toggle("is-active", t === b));
       document.querySelectorAll(".inv-panel").forEach((p) => { p.hidden = p.getAttribute("data-panel") !== b.getAttribute("data-tab"); });
+      if (b.getAttribute("data-tab") === "template") scaleFit();
     });
 
     function msg(id, text, ok) { const m = $(id); m.textContent = text; m.className = "inv-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
@@ -273,10 +283,24 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     // ---- Template ----
     const tplState = { template: "editorial", accent_color: "#371e28", logo_url: "", show_bank: true, font_family: "Arial, Helvetica, sans-serif", font_size: 13 };
     const LEGACY_STYLE = { classic: "editorial", modern: "banded" };
-    function renderPreview() {
+    function currentInvoiceHtml() {
       const settings = { ...currentSettings, ...tplState };
-      $("inv-preview").srcdoc = renderInvoiceHtml({ settings, invoice: sampleInvoice(settings) });
+      return renderInvoiceHtml({ settings, invoice: sampleInvoice(settings) });
     }
+    // Scale the true-size (794px) A4 iframe down to fit the column so the preview
+    // is exactly proportional to a printed sheet.
+    function scaleFit() {
+      const box = $("inv-preview-box"); if (!box || !box.clientWidth) return;
+      const k = Math.min(1, box.clientWidth / 794);
+      $("inv-preview").style.transform = `scale(${k})`;
+      box.style.height = Math.round(1123 * k) + "px";
+    }
+    function renderPreview() { $("inv-preview").srcdoc = currentInvoiceHtml(); scaleFit(); }
+    window.addEventListener("resize", scaleFit);
+    $("inv-open-pdf").addEventListener("click", () => {
+      const w = window.open("", "_blank"); if (!w) return;
+      w.document.open(); w.document.write(currentInvoiceHtml()); w.document.close();
+    });
     function syncStyleButtons() { document.querySelectorAll(".inv-style").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-style") === tplState.template)); }
     function initTemplate() {
       const t = LEGACY_STYLE[currentSettings.template] || currentSettings.template;
