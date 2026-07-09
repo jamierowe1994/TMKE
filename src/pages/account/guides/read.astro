@@ -200,6 +200,16 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
 
     const $ = (s) => document.querySelector(s);
     const DEV = import.meta.env.DEV;
+    let USER_ID = null;
+
+    // Persist how far the member has got. One row per (member, guide); we only
+    // ever push the furthest point forward, and flip completed once at the end.
+    async function saveProgress(slug, { furthest, total, completed }) {
+      if (!USER_ID || !slug) return;
+      const row = { user_id: USER_ID, guide_slug: slug, furthest, total, completed };
+      if (completed) row.completed_at = new Date().toISOString();
+      try { await supabase.from("guide_progress").upsert(row, { onConflict: "user_id,guide_slug" }); } catch (_) {}
+    }
 
     // Dev-only samples so both templates are viewable without a DB/session.
     //   ?g=sample         → article
@@ -253,6 +263,9 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
         ? (lessons[0]?.body_html || "<p>This article has no content yet.</p>")
         : lessons.map((l)=> (l.title ? `<h2>${esc(l.title)}</h2>` : "") + (l.body_html || "")).join("");
       $("#ar-body").innerHTML = html;
+
+      // An article is a single short read — opening it counts as done.
+      saveProgress(guide.slug, { furthest: 1, total: 0, completed: true });
     }
 
     // ---------------- COURSE ----------------
@@ -306,6 +319,7 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
       </div>`;
 
       let pos = 0; // 0 = intro, 1..N = parts, N+1 = done
+      let maxReached = 0, doneFlag = false;
 
       function show(next){
         pos = Math.max(0, Math.min(LAST, next));
@@ -344,11 +358,19 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
         });
 
         if (pos !== 0) window.scrollTo({ top: 0, behavior: "smooth" });
+
+        // Save progress once they've actually started (past the overview).
+        maxReached = Math.max(maxReached, pos);
+        if (pos === LAST) doneFlag = true;
+        if (maxReached >= 1) saveProgress(guide.slug, { furthest: maxReached, total: N, completed: doneFlag });
       }
 
       prevBtn.addEventListener("click", ()=> show(pos - 1));
       nextBtn.addEventListener("click", ()=> show(pos + 1));
-      show(0);
+
+      // Resume from the Learn card (?p=<part>) when asked; otherwise the overview.
+      const jump = parseInt(new URLSearchParams(location.search).get("p"), 10);
+      show(Number.isFinite(jump) && jump >= 1 ? Math.min(jump, N) : 0);
     }
 
     function render(guide){
@@ -366,6 +388,7 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
       let session = null;
       try { const { data } = await supabase.auth.getSession(); session = data.session; } catch (_) {}
       if (!session && !DEV) { location.replace("/login?next=" + encodeURIComponent(location.pathname + location.search)); return; }
+      USER_ID = session?.user?.id || null;
 
       // Fill the header identity (mirrors the Learn page).
       if (session) {

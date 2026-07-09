@@ -244,6 +244,12 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .lrn-gcard-title { font-family: var(--serif); font-weight: 500; font-size: 18px; line-height: 1.2; color: var(--ws-ink); }
     .lrn-gcard-sum { font-size: 13px; line-height: 1.5; color: var(--ws-tx); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .lrn-gcard-meta { margin-top: auto; padding-top: 4px; font-size: 12px; color: var(--ws-faint); }
+    .lrn-gcard-meta.lrn-done { display: inline-flex; align-items: center; gap: 5px; color: var(--ws-success); font-weight: 700; }
+    .lrn-gcard-meta.lrn-done svg { width: 13px; height: 13px; }
+    .lrn-gcard-prog { margin-top: auto; padding-top: 9px; display: flex; flex-direction: column; gap: 6px; }
+    .lrn-gcard-prog-bar { height: 3px; border-radius: 999px; background: var(--ws-line); overflow: hidden; }
+    .lrn-gcard-prog-bar i { display: block; height: 100%; background: var(--ws-accent); border-radius: 999px; }
+    .lrn-gcard-prog-t { font-size: 11.5px; font-weight: 700; letter-spacing: 0.01em; color: var(--ws-accent); }
     .lrn-topic.is-active { border-color: var(--ws-accent); box-shadow: inset 0 0 0 1px var(--ws-accent); }
     .lrn-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 0 2px; }
 
@@ -375,12 +381,17 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       { slug:'getting-around-your-hub', title:'Getting around your hub', topic:'getting-started', kind:'guide', summary:'A quick tour of your members hub — what each area does, and where to find it.', cover_url:'', lessons:[{}], est_minutes:4 },
       { slug:'setting-up-your-brand-kit', title:'Setting up your brand kit', topic:'getting-started', kind:'guide', summary:'Colours, fonts and logo — set them once and every design looks unmistakably yours.', cover_url:'', lessons:[{},{},{}], est_minutes:6 },
       { slug:'creating-your-first-post', title:'Creating your first post in the Studio', topic:'getting-started', kind:'guide', summary:'From blank canvas to finished post — design something on-brand in minutes.', cover_url:'', lessons:[{},{},{}], est_minutes:7 },
+      { slug:'your-first-week-on-social', title:'Your first week on social', topic:'social-intro', kind:'course', summary:'A short, guided walk-through to get you posting with confidence — five quick parts.', cover_url:'', lessons:[{},{},{},{},{}], est_minutes:8 },
     ];
+
+    // svg tick for the "Completed" state
+    const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 
     const grid = document.getElementById('lrn-guides');
     const emptyEl = document.getElementById('lrn-guides-empty');
     const clearBtn = document.getElementById('lrn-clear');
     let ALL = [];
+    let PROGRESS = {};   // guide_slug -> { furthest, total, completed }
     let activeTopic = new URLSearchParams(location.search).get('topic') || '';
 
     function cardHtml(g) {
@@ -388,13 +399,29 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
       const meta = g.kind === 'course' ? `${lessons} lesson${lessons===1?'':'s'}` : (g.est_minutes ? `~${g.est_minutes} min read` : 'Guide');
       const art = g.cover_url ? `style="background-image:url('${esc(g.cover_url)}')"` : '';
-      return `<a class="lrn-gcard" href="/account/guides/read?g=${encodeURIComponent(g.slug)}">
+
+      // Completion state (signed-in members only; empty otherwise).
+      const p = PROGRESS[g.slug];
+      let href = `/account/guides/read?g=${encodeURIComponent(g.slug)}`;
+      let footer;
+      if (p && p.completed) {
+        footer = `<span class="lrn-gcard-meta lrn-done">${TICK} Completed</span>`;
+      } else if (p && g.kind === 'course' && p.total > 0 && p.furthest >= 1) {
+        const at = Math.min(p.furthest, p.total);
+        const pct = Math.round((at / p.total) * 100);
+        href += `&p=${p.furthest}`;
+        footer = `<span class="lrn-gcard-prog"><span class="lrn-gcard-prog-bar"><i style="width:${pct}%"></i></span><span class="lrn-gcard-prog-t">Resume · Part ${at} of ${p.total}</span></span>`;
+      } else {
+        footer = `<span class="lrn-gcard-meta">${meta}</span>`;
+      }
+
+      return `<a class="lrn-gcard" href="${href}">
         <span class="lrn-gcard-art" ${art}></span>
         <span class="lrn-gcard-body">
           <span class="lrn-gcard-kind">${g.kind === 'course' ? 'Course' : 'Guide'}${topic ? ' · ' + esc(topic.label) : ''}</span>
           <span class="lrn-gcard-title">${esc(g.title || 'Untitled')}</span>
           ${g.summary ? `<span class="lrn-gcard-sum">${esc(g.summary)}</span>` : ''}
-          <span class="lrn-gcard-meta">${meta}</span>
+          ${footer}
         </span></a>`;
     }
 
@@ -451,6 +478,19 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         if (error) throw error;
         ALL = (data && data.length) ? data : (DEV ? SAMPLE : []);
       } catch (_) { ALL = DEV ? SAMPLE : []; }
+
+      // Completion state for the signed-in member (RLS returns only their rows).
+      if (session) {
+        try {
+          const { data: pr } = await supabase.from('guide_progress').select('guide_slug,furthest,total,completed');
+          (pr || []).forEach((p) => { PROGRESS[p.guide_slug] = p; });
+        } catch (_) {}
+      } else if (DEV) {
+        // Preview both states without a session.
+        PROGRESS['getting-around-your-hub'] = { guide_slug:'getting-around-your-hub', completed:true, furthest:1, total:0 };
+        PROGRESS['your-first-week-on-social'] = { guide_slug:'your-first-week-on-social', completed:false, furthest:2, total:5 };
+      }
+
       hydrateCounts(); renderGrid('');
     })();
   </script>
