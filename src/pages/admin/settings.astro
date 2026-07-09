@@ -39,23 +39,21 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       </div>
     </div>
 
-    <div class="ash-card set-card set-team">
-      <div class="ash-card-head"><div class="ash-card-title">Admin access</div></div>
-      <div class="ash-card-body">
-        <p class="set-team-intro">Anyone with an <strong>@tmke.co.uk</strong> email can sign in automatically. Grant access below to anyone else who needs the admin centre — they'll get their own login, emailed to them. Removing someone revokes their admin access straight away.</p>
+    <section class="set-team">
+      <h2 class="set-team-h">Admin access</h2>
+      <p class="set-team-intro">Anyone with an <strong>@tmke.co.uk</strong> email can sign in automatically. Grant access below to anyone else who needs the admin centre — they'll get their own login, emailed to them. Removing someone revokes their admin access straight away.</p>
 
-        <form id="team-form" class="set-team-form">
-          <label class="set-field"><span>Full name</span><input name="full_name" placeholder="e.g. Abby Taylor" autocomplete="off" /></label>
-          <label class="set-field"><span>Email</span><input name="email" type="email" placeholder="name@example.com" autocomplete="off" /></label>
-          <button type="submit" class="set-save" id="team-add">Grant access</button>
-        </form>
-        <p class="set-msg" id="team-msg" hidden></p>
+      <form id="team-form" class="set-team-form">
+        <label class="set-field"><span>Full name</span><input name="full_name" placeholder="e.g. Abby Taylor" autocomplete="off" /></label>
+        <label class="set-field"><span>Email</span><input name="email" type="email" placeholder="name@example.com" autocomplete="off" /></label>
+        <button type="submit" class="set-save" id="team-add">Grant access</button>
+      </form>
+      <p class="set-msg" id="team-msg" hidden></p>
 
-        <div class="set-team-list" id="team-list">
-          <p class="set-team-empty" id="team-empty">Loading team…</p>
-        </div>
+      <div class="set-team-list" id="team-list">
+        <p class="set-team-empty" id="team-empty">Loading team…</p>
       </div>
-    </div>
+    </section>
   </div>
 
   <style is:global>
@@ -86,8 +84,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .set-toggle { display: flex; align-items: center; gap: 11px; font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer; }
     .set-toggle input { width: 18px; height: 18px; accent-color: var(--english-violet); }
 
-    /* ---- Admin access (team) ---- */
-    .set-team { grid-column: 1 / -1; }
+    /* ---- Admin access (team) — a card-less section so the member cards sit
+       on the paper ground and read as individual wide cards, like the SMM list. ---- */
+    .set-team { grid-column: 1 / -1; margin-top: 6px; }
+    .set-team-h { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--ink); margin: 0 0 8px; }
     .set-team-intro { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.72); margin: 0 0 18px; max-width: 660px; }
     .set-team-intro strong { color: var(--ink); }
     .set-team-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 14px; align-items: end; }
@@ -98,7 +98,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     #team-msg code { font-family: ui-monospace, Menlo, monospace; font-weight: 700; background: rgba(255,255,255,0.6); border: 1px solid rgba(28,29,34,0.14); border-radius: 6px; padding: 1px 7px; }
     .set-team-list { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; }
     .set-team-empty { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.5); margin: 0; }
-    .team-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--paper); border: 1px solid rgba(28,29,34,0.09); border-radius: 12px; }
+    .team-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; }
     .team-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
     .team-name { font-family: var(--sans); font-size: 14.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .team-sub { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -180,7 +180,8 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         const when = a.created_at ? new Date(a.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
         const right = isSelf
           ? '<span class="team-you">You</span>'
-          : `<button type="button" class="team-remove" data-uid="${esc(a.user_id)}" data-name="${esc(name)}">Remove</button>`;
+          : `<button type="button" class="team-btn team-reset" data-uid="${esc(a.user_id)}" data-name="${esc(name)}">Reset password</button>
+             <button type="button" class="team-remove" data-uid="${esc(a.user_id)}" data-name="${esc(name)}">Remove</button>`;
         return `<div class="team-row">
           <div class="team-meta">
             <div class="team-name">${esc(name)}${a.role ? ` · ${esc(a.role)}` : ""}</div>
@@ -264,6 +265,26 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           editingId = null; renderTeam();
           teamMsg(`Name updated to <strong>${esc(newName)}</strong>.`, true);
         } catch (err) { teamMsg(err.message || "Couldn't save the name.", false); saveBtn.disabled = false; saveBtn.textContent = "Save"; }
+        return;
+      }
+
+      // Reset password — set a fresh temporary password and email it to them.
+      const resetBtn = ev.target.closest(".team-reset");
+      if (resetBtn) {
+        const uidR = resetBtn.getAttribute("data-uid"); const nameR = resetBtn.getAttribute("data-name") || "this person";
+        if (!confirm(`Send ${nameR} a new temporary password? Their current password will stop working.`)) return;
+        resetBtn.disabled = true; resetBtn.textContent = "Resetting…";
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER}/admin/team/reset`, {
+            method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: uidR }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || "Couldn't reset the password.");
+          teamMsg(`New password set for <strong>${esc(nameR)}</strong> and emailed to them. Temporary password (share if the email doesn't arrive): <code>${esc(d.temp_password)}</code>`, true);
+        } catch (err) { teamMsg(err.message || "Couldn't reset the password.", false); }
+        finally { resetBtn.disabled = false; resetBtn.textContent = "Reset password"; }
         return;
       }
 

@@ -162,6 +162,7 @@ const CLAUSE_RESCHEDULING = { h: "Rescheduling", p: "You may rearrange your book
 const CLAUSE_LICENCE = { h: "Use of content & licence", p: "On full payment you receive a licence to use the delivered content for your own marketing. TMKE retains the right to use the content as showcase and portfolio material across our website, social media and marketing, and retains ownership of all raw footage and project files." };
 const CLAUSE_LIABILITY = { h: "Liability & circumstances beyond our control", p: "TMKE is not liable for delays, rescheduling or cancellation caused by circumstances beyond our reasonable control (including weather, illness, or equipment failure); in such cases we will reschedule at the earliest mutually convenient opportunity. Our total liability is limited to the fees paid for the affected booking." };
 const CLAUSE_DATA = { h: "Data & governing law", p: "We handle your details in line with our privacy policy and only to deliver and support your booking. This agreement is governed by the laws of <strong>England &amp; Wales</strong>." };
+const CLAUSE_STUDIO_ON_THE_DAY = { h: "On the day", p: "Please arrive on time and prepared for your session. This includes any outfits, props, scripts, or materials you plan to use on the day. Late arrivals may result in reduced filming time and your session will still end at the scheduled time. TMKE is not responsible for content that cannot be captured due to insufficient preparation or late arrival." };
 
 // Numbers (`n`) are assigned at render time from array order, so reordering a
 // clause never leaves a gap.
@@ -174,7 +175,7 @@ export const TERMS_BY_SERVICE = {
       CLAUSE_CANCELLATIONS,
       CLAUSE_RESCHEDULING,
       { h: "Pre-shoot preparation", p: "At least <strong>three (3) days</strong> before your shoot, TMKE will send you a prompt pack containing conversational prompts and guidance tailored to your session, audience, and area. This is designed to help you make the most of your time in the studio. We ask that you review this before your shoot day so you arrive prepared and ready to film." },
-      { h: "On the day", p: "Please arrive on time and prepared for your session. This includes any outfits, props, scripts, or materials you plan to use on the day. Late arrivals may result in reduced filming time and your session will still end at the scheduled time. TMKE is not responsible for content that cannot be captured due to insufficient preparation or late arrival." },
+      CLAUSE_STUDIO_ON_THE_DAY,
       { h: "Delivery", p: "Edited content is typically delivered within a few working days of the shoot unless otherwise agreed. Reasonable revision requests are welcome; substantial re-edits may be quoted separately." },
       CLAUSE_LICENCE,
       CLAUSE_LIABILITY,
@@ -221,6 +222,22 @@ export const TERMS_BY_SERVICE = {
 export function termsForService(serviceKey) {
   return TERMS_BY_SERVICE[serviceKey] || TERMS_BY_SERVICE.property;
 }
+
+// TEG new-starter "Studio Day" terms — a trimmed set of the Content Studio
+// clauses (reused verbatim so wording never drifts), with an induction-specific
+// intro and no payment/rescheduling/delivery clauses. Working draft.
+export const NEW_STARTER_TERMS = {
+  title: "TMKE — Studio Day",
+  intro: "This videography session is provided as part of your induction package with The Experts Group. There is nothing for you to pay.",
+  clauses: [
+    CLAUSE_BOOKING,
+    CLAUSE_CANCELLATIONS,
+    CLAUSE_STUDIO_ON_THE_DAY,
+    CLAUSE_LICENCE,
+    CLAUSE_LIABILITY,
+    CLAUSE_DATA,
+  ],
+};
 
 // ---- Booking location label -------------------------------------------------
 // A friendly "where" line so a member can tell multiple bookings apart at a

@@ -1,6 +1,16 @@
 // Catalog of every automated email the platform sends — the single reference for
 // the admin "Automated emails" oversight page (Admin → Email → Automated).
 //
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ RULE: whenever you CREATE a new automated/transactional email anywhere    │
+// │ (a Worker sendEmail() call, a confirmation/template fn, an automation or  │
+// │ cron email), add an entry for it HERE in the SAME change — this catalog   │
+// │ is maintained by hand and is the only source the oversight page reads.    │
+// │ Add a new group to EMAIL_GROUPS below if the email doesn't fit an         │
+// │ existing one, or it won't render. (This is a registry of email TYPES, not │
+// │ a log of individual sends.)                                               │
+// └─────────────────────────────────────────────────────────────────────────┘
+//
 // Phase 1 (now): read-only oversight — what each email is, what triggers it, who
 // it goes to, the sender, subject, and what it contains.
 // Phase 2 (next): each of these gets an `id`-keyed editable override stored in
@@ -226,6 +236,19 @@ export const EMAIL_CATALOG = [
     summary: "Confirms the new date/time to the client; a matching internal alert goes to Jack.",
     fields: ["name", "service", "date", "time"],
   },
+  {
+    id: "new_starter_booking_confirm",
+    group: "Videography",
+    name: "New-starter Studio Day — confirmation",
+    audience: "client",
+    trigger: "A TEG new starter books their free Studio Day",
+    fires: "POST /new-starter/book",
+    to: "The new starter (+ heads-up to Jack)",
+    sender: "hello@tmke.co.uk",
+    subject: "Your Studio Day is booked — TMKE",
+    summary: "Confirms the booked date/time at the Content Studio, notes there's nothing to pay (part of their induction package), and that the address/prep will follow in a reminder. A matching internal booking alert goes to Jack (marked bill-to-TPE).",
+    fields: ["name", "date", "time"],
+  },
 
   // ─────────────────────────── Studio & packs ───────────────────────────
   {
@@ -300,7 +323,35 @@ export const EMAIL_CATALOG = [
     external: true,
     fields: ["confirmation_url", "reset_url"],
   },
+
+  // ─────────────────────────── Admin & team ───────────────────────────
+  {
+    id: "admin_access_invite",
+    group: "Admin & team",
+    name: "Admin access — invitation",
+    audience: "internal",
+    trigger: "An admin grants someone admin-centre access (Settings → Admin access)",
+    fires: "POST /admin/team",
+    to: "The person being granted access",
+    sender: "hello@tmke.co.uk",
+    subject: "Your TMKE admin access",
+    summary: "Tells a newly-granted admin how to sign in — with a temporary password if a login was just created for them, or a note to use their existing password if they already had an account.",
+    fields: ["full_name", "temp_password", "login_url"],
+  },
+  {
+    id: "admin_access_reset",
+    group: "Admin & team",
+    name: "Admin access — password reset",
+    audience: "internal",
+    trigger: "An admin resets someone's password (Settings → Admin access → Reset password)",
+    fires: "POST /admin/team/reset",
+    to: "The admin whose password was reset",
+    sender: "hello@tmke.co.uk",
+    subject: "Your TMKE admin password has been reset",
+    summary: "Sends a fresh temporary password to an existing admin who needs one, with a prompt to change it after signing in.",
+    fields: ["full_name", "temp_password", "login_url"],
+  },
 ];
 
 // Groups in display order.
-export const EMAIL_GROUPS = ["Social media", "Videography", "Studio & packs", "Automations", "Account & auth"];
+export const EMAIL_GROUPS = ["Social media", "Videography", "Studio & packs", "Automations", "Account & auth", "Admin & team"];

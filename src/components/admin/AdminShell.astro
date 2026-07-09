@@ -123,6 +123,24 @@ const NAV = [
     document.getElementById("ash-scrim")?.addEventListener("click", () => ash?.classList.remove("is-mobile-open"));
     document.getElementById("ash-signout")?.addEventListener("click", () => signOut());
 
+    // Keep the sidebar's scroll position across page loads — navigating from a
+    // link you had to scroll down to should not jump the nav back to the top.
+    const ashNav = document.querySelector(".ash-nav");
+    if (ashNav) {
+      const NAV_SCROLL_KEY = "tmke-admin-nav-scroll";
+      const saved = parseInt(sessionStorage.getItem(NAV_SCROLL_KEY) || "0", 10);
+      if (saved) ashNav.scrollTop = saved;
+      let raf = 0;
+      ashNav.addEventListener("scroll", () => {
+        if (raf) return;
+        raf = requestAnimationFrame(() => { raf = 0; sessionStorage.setItem(NAV_SCROLL_KEY, String(ashNav.scrollTop)); });
+      }, { passive: true });
+      // Belt-and-braces: capture the position the instant a link is clicked.
+      ashNav.addEventListener("click", (e) => {
+        if (e.target.closest("a")) sessionStorage.setItem(NAV_SCROLL_KEY, String(ashNav.scrollTop));
+      });
+    }
+
     (async () => {
       // In local dev the admin area renders without a login so it's previewable;
       // production stays gated by requireAdmin (which redirects when signed out).

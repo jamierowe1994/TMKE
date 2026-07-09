@@ -1,0 +1,321 @@
+---
+// Standalone booking page for TEG new-starter "Studio Day" shoots.
+// Unlisted (not in nav) — reached only via the personalised link emailed to a
+// new starter (carries their ?code=, which pre-fills their details and marks the
+// booking as bill-to-TPE, skipping payment).
+//
+// Home screen mirrors the videography site's product-slide layout (wording left,
+// image right), personalised, with a "Book now" button that opens the SAME
+// slide-in pop-out the website uses (shared booking-wizard.css) and clicks
+// through step by step (day → time → details → terms → success).
+//
+// ⚠️ EXAMPLE / WIP placeholders (marked below): the two bookable dates, the
+// session length, the studio image, and the Confirm step is stubbed to success.
+// Terms reuse the real Content Studio clauses via NEW_STARTER_TERMS.
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { NEW_STARTER_TERMS } from "../../lib/videography-config.js";
+import "../../styles/booking-wizard.css";
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+
+// Placeholder studio still (client to replace) — same R2 assets the site uses.
+const STUDIO_IMG = "https://assets.tmke.co.uk/white-1.webp";
+
+// Build the terms HTML from the shared clause set (numbered by order).
+const termsHtml =
+  `<h4>${NEW_STARTER_TERMS.title}</h4><p class="ns-terms-intro">${NEW_STARTER_TERMS.intro}</p>` +
+  NEW_STARTER_TERMS.clauses.map((c, i) => {
+    const paras = Array.isArray(c.p) ? c.p : [c.p];
+    return `<h5>${i + 1}. ${c.h}</h5>` + paras.map((p) => `<p>${p}</p>`).join("");
+  }).join("") +
+  `<p class="dc-terms-note">Working draft — the final wording will be confirmed before this goes live.</p>`;
+---
+
+<BaseLayout title="Book your Studio Day — TMKE" description="Book your Studio Day." hideNav hideFooter>
+  <div class="ns" data-worker={WORKER}>
+    <header class="ns-top">
+      <span class="ns-logo">TMKE</span>
+      <span class="ns-top-tag">Videography</span>
+    </header>
+
+    <!-- Home: wording left, image right (mirrors the site's product slides) -->
+    <main class="ns-split">
+      <div class="ns-split-text">
+        <span class="ns-cat" id="ns-cat">The Experts Group — Induction</span>
+        <h1 class="ns-h">Book your <em>Studio&nbsp;shoot.</em></h1>
+        <p class="ns-copy">As part of your induction with The Experts Group, spend a session in our Content Studio with Jack — filming your first piece of content, ready to launch you. It takes two minutes to book.</p>
+        <div class="ns-codepill" id="ns-codepill" hidden>Your booking code: <code id="ns-code">—</code></div>
+        <div class="ns-actions">
+          <button type="button" class="ns-btn" id="ns-open">Book now <span class="btn-arrow">&rarr;</span></button>
+        </div>
+      </div>
+      <div class="ns-split-img" style={`background-image:url('${STUDIO_IMG}')`}></div>
+    </main>
+  </div>
+
+  <!-- Slide-in booking pop-out (same chrome as the website booking) -->
+  <aside class="dc-panel" id="ns-panel" aria-hidden="true">
+    <div class="dc-panel-scrim" data-ns-close></div>
+    <div class="dc-panel-stage">
+      <header class="dc-panel-head">
+        <div class="dc-head-left">
+          <button type="button" class="dc-panel-close" data-ns-close aria-label="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            <span>Close</span>
+          </button>
+          <button type="button" class="dc-panel-back" id="ns-back" hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            <span>Back</span>
+          </button>
+        </div>
+        <div class="dc-panel-eyebrow" id="ns-eyebrow">TMKE — Studio Day</div>
+      </header>
+
+      <div class="dc-panel-body">
+        <!-- 1. Day -->
+        <section class="dc-step" id="ns-step-day" hidden>
+          <h2 class="dc-step-title">Choose your <em>day.</em></h2>
+          <p class="dc-step-sub">These are your two studio days — the last Tuesday and Wednesday of the month.</p>
+          <div class="dc-choices" id="ns-days"></div>
+        </section>
+
+        <!-- 2. Time -->
+        <section class="dc-step" id="ns-step-time" hidden>
+          <h2 class="dc-step-title">Pick a <em>time.</em></h2>
+          <p class="dc-step-sub">Each session is a half day — choose a morning or an afternoon.</p>
+          <div class="dc-slots-grid" id="ns-slots"></div>
+        </section>
+
+        <!-- 3. Details + account -->
+        <section class="dc-step" id="ns-step-details" hidden>
+          <h2 class="dc-step-title">Your <em>details.</em></h2>
+          <p class="dc-step-sub">Pre-filled from your booking link — just check they're right.</p>
+          <form class="dc-panel-form" id="ns-details-form">
+            <label class="dc-field"><span>Full name *</span><input name="name" autocomplete="name" required /></label>
+            <div class="dc-field-row">
+              <label class="dc-field"><span>Email *</span><input name="email" type="email" autocomplete="email" required /></label>
+              <label class="dc-field"><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" required /></label>
+            </div>
+            <!-- New account (default): create a password. Existing account: sign in. -->
+            <div id="ns-acct-create">
+              <p class="ns-signin-note">We'll set up your TMKE account as part of the booking, so you can manage your booking and downloads in one place.</p>
+              <div class="dc-field-row">
+                <label class="dc-field"><span>Create a password *</span><input name="password" type="password" autocomplete="new-password" minlength="8" /></label>
+                <label class="dc-field"><span>Confirm password *</span><input name="password2" type="password" autocomplete="new-password" minlength="8" /></label>
+              </div>
+            </div>
+            <div id="ns-acct-signin" hidden>
+              <p class="ns-signin-note">You already have a TMKE account — enter your password to sign in and we'll attach this booking to it. <a href="/forgot-password" target="_blank" rel="noopener">Forgotten it?</a></p>
+              <label class="dc-field"><span>Your password *</span><input name="signin_password" type="password" autocomplete="current-password" /></label>
+            </div>
+            <label class="dc-field"><span>Anything Jack should know? (optional)</span><textarea name="notes" rows="2"></textarea></label>
+            <p class="dc-privacy">We use your details to manage your booking. See our <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+            <p class="dc-gate-error" id="ns-details-error" hidden></p>
+            <button type="submit" class="dc-form-cta" id="ns-details-cta">Continue <em>&rarr;</em></button>
+          </form>
+        </section>
+
+        <!-- 4. Terms -->
+        <section class="dc-step" id="ns-step-terms" hidden>
+          <h2 class="dc-step-title">A few <em>terms.</em></h2>
+          <p class="dc-step-sub">Please have a read — there's nothing to sign.</p>
+          <div class="dc-terms" id="ns-terms" tabindex="0" set:html={termsHtml}></div>
+          <label class="dc-agree-row">
+            <input type="checkbox" id="ns-agree" disabled />
+            <span>I've read and understood the terms above.</span>
+          </label>
+          <p class="dc-gate-error" id="ns-book-error" hidden></p>
+          <div class="dc-step-actions"><button type="button" class="dc-next" id="ns-confirm" disabled>Confirm my booking <em>&rarr;</em></button></div>
+        </section>
+
+        <!-- success -->
+        <section class="dc-step dc-success" id="ns-step-success" hidden>
+          <div class="dc-tick" aria-hidden="true">
+            <svg viewBox="0 0 52 52"><circle class="dc-tick-circle" cx="26" cy="26" r="24"/><path class="dc-tick-path" fill="none" d="M14 27l8 8 16-18"/></svg>
+          </div>
+          <h3>You're booked in</h3>
+          <p id="ns-success-msg">—</p>
+          <p class="ns-success-sub">We've sent a confirmation to your email. Jack will see you then!</p>
+          <button type="button" class="dc-form-cta dc-success-done" data-ns-close>Done <em>&rarr;</em></button>
+        </section>
+      </div>
+    </div>
+  </aside>
+
+  <style is:global>
+    .ns { min-height: 100vh; background: var(--paper); color: var(--ink); font-family: var(--sans); display: flex; flex-direction: column; }
+    .ns-top { display: flex; align-items: center; justify-content: space-between; padding: 20px clamp(18px, 5vw, 48px); border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ns-logo { font-weight: 800; letter-spacing: 0.22em; color: var(--english-violet); font-size: 18px; }
+    .ns-top-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+
+    /* Wording (left) + image (right) — mirrors the site's product slides. */
+    .ns-split { flex: 1; display: flex; min-height: 0; }
+    .ns-split-text { width: 44%; min-width: 340px; padding: clamp(40px, 6vw, 80px) clamp(40px, 5vw, 64px); display: flex; flex-direction: column; justify-content: center; }
+    .ns-split-img { flex: 1; align-self: stretch; background-size: cover; background-position: center; background-color: #e9e4da; }
+    @media (max-width: 860px) {
+      .ns-split { flex-direction: column; }
+      .ns-split-text { width: 100%; min-width: 0; padding: 40px 24px 48px; justify-content: flex-start; }
+      .ns-split-img { order: -1; min-height: 240px; }
+    }
+
+    .ns-cat { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 18px; }
+    .ns-h { font-family: var(--serif); font-weight: 400; font-size: clamp(38px, 3.8vw, 54px); line-height: 1.04; letter-spacing: -0.02em; margin: 0 0 20px; color: var(--english-violet); }
+    .ns-h em { font-style: italic; }
+    .ns-copy { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 17px); line-height: 1.55; color: var(--ink); max-width: 48ch; margin: 0 0 24px; }
+    .ns-codepill { display: inline-block; align-self: flex-start; font-size: 13px; color: rgba(28,29,34,0.7); background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 999px; padding: 7px 15px; margin-bottom: 28px; }
+    .ns-codepill code { font-family: ui-monospace, Menlo, monospace; font-weight: 700; color: var(--english-violet); }
+    .ns-actions { display: flex; }
+    .ns-btn { align-self: flex-start; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; padding: 12px 26px; border-radius: 2px; border: 1px solid var(--english-violet); background: var(--english-violet); color: var(--paper); display: inline-flex; align-items: center; transition: background .25s, border-color .25s; }
+    .ns-btn:hover { background: var(--ink); border-color: var(--ink); }
+    .ns-btn .btn-arrow { margin-left: 10px; transition: margin .25s; }
+    .ns-btn:hover .btn-arrow { margin-left: 16px; }
+
+    .ns-ph { color: rgba(126,103,101,0.8); font-style: italic; font-size: 0.85em; }
+    .ns-signin-note, .ns-success-sub { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 4px; }
+    .ns-terms-intro { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.8); margin: 0 0 8px; }
+    #ns-days .dc-choice-title { font-family: var(--serif); font-size: 22px; color: var(--ink); }
+  </style>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const state = { date: null, time: null };
+    const panel = $("ns-panel");
+    const WORKER = (document.querySelector(".ns")?.getAttribute("data-worker") || "").replace(/\/+$/, "");
+
+    // Pre-fill from the personalised link (?code=, ?name=, ?email=, ?phone=).
+    const params = new URLSearchParams(location.search);
+    const code = params.get("code");
+    if (code) { $("ns-codepill").hidden = false; $("ns-code").textContent = code; }
+    const f = $("ns-details-form");
+    if (params.get("name")) f.name.value = params.get("name");
+    if (params.get("email")) f.email.value = params.get("email");
+    if (params.get("phone")) f.phone.value = params.get("phone");
+    if (f.name.value) { const first = f.name.value.trim().split(/\s+/)[0]; $("ns-cat").textContent = `Hi ${first} — welcome to The Experts Group`; }
+
+    // Shoot days = the last Tuesday & Wednesday of the shoot month (a consecutive
+    // pair, anchored on the last Wednesday). The month comes from the personalised
+    // link (?month=YYYY-MM, the agent's preferred shoot month); defaults to now.
+    function lastTueWed(y, m0) {
+      // Anchor on the LAST TUESDAY of the month; the Wednesday is simply the next
+      // day. When the last Tuesday is the month's final day, the Wednesday rolls
+      // over to the 1st of the next month — the two shoot days stay adjacent, and
+      // that's fine because inductions always start on the first Tuesday, so a
+      // Wed-on-the-1st shoot never clashes with the induction week.
+      const d = new Date(y, m0 + 1, 0);                    // last day of that month
+      while (d.getDay() !== 2) d.setDate(d.getDate() - 1); // walk back to Tuesday (2)
+      const tue = new Date(d);
+      const wed = new Date(d); wed.setDate(wed.getDate() + 1); // next day = Wednesday
+      const iso = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+      return [iso(tue), iso(wed)];
+    }
+    const mMatch = (params.get("month") || "").match(/^(\d{4})-(\d{2})$/);
+    const shootMonth = mMatch ? new Date(+mMatch[1], +mMatch[2] - 1, 1) : new Date();
+    const NEW_STARTER_DATES = lastTueWed(shootMonth.getFullYear(), shootMonth.getMonth());
+    // Half-day sessions — a morning and an afternoon slot on each day.
+    const SLOTS = [["10:00", "Morning · 10:00am"], ["14:00", "Afternoon · 2:00pm"]];
+
+    const fmtDay = (iso) => { const d = new Date(iso + "T00:00:00"); return { dow: d.toLocaleDateString("en-GB", { weekday: "long" }), day: d.toLocaleDateString("en-GB", { day: "numeric", month: "long" }), full: d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) }; };
+    const hm = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+    // ---- Panel open/close ----
+    function openPanel() { panel.setAttribute("aria-hidden", "false"); panel.classList.add("is-open"); document.body.style.overflow = "hidden"; history.length = 0; showStep("day", false); }
+    function closePanel() { panel.setAttribute("aria-hidden", "true"); panel.classList.remove("is-open"); document.body.style.overflow = ""; }
+    $("ns-open").addEventListener("click", openPanel);
+    document.querySelectorAll("[data-ns-close]").forEach((el) => el.addEventListener("click", closePanel));
+
+    // ---- Step navigation (one-at-a-time transitions like the website) ----
+    let activeStep = null; const history = [];
+    const stepEl = (n) => $("ns-step-" + n);
+    function showStep(name, push) {
+      const next = stepEl(name); if (!next) return;
+      const cur = activeStep ? stepEl(activeStep) : null;
+      if (push && activeStep) history.push(activeStep);
+      const enter = () => { next.hidden = false; next.classList.remove("dc-anim-out", "dc-anim-in"); void next.offsetWidth; next.classList.add("dc-anim-in"); activeStep = name; updateBack(); if (name === "details") checkAccount(); if (name === "terms") checkRead(); };
+      if (cur && cur !== next) { cur.classList.remove("dc-anim-in"); cur.classList.add("dc-anim-out"); setTimeout(() => { cur.hidden = true; cur.classList.remove("dc-anim-out"); enter(); }, 230); }
+      else enter();
+    }
+    function updateBack() { $("ns-back").hidden = history.length === 0 || activeStep === "success"; }
+    $("ns-back").addEventListener("click", () => { const p = history.pop(); if (p) showStep(p, false); });
+
+    // ---- Step 1: days ----
+    $("ns-days").innerHTML = NEW_STARTER_DATES.map((iso) => { const d = fmtDay(iso); return `<button type="button" class="dc-choice" data-date="${iso}"><span class="dc-choice-meta">${d.dow}</span><span class="dc-choice-title">${d.day}</span></button>`; }).join("");
+    $("ns-days").addEventListener("click", (e) => {
+      const b = e.target.closest(".dc-choice"); if (!b) return;
+      state.date = b.getAttribute("data-date"); state.time = null;
+      document.querySelectorAll("#ns-days .dc-choice").forEach((x) => x.classList.toggle("is-active", x === b));
+      renderSlots(); showStep("time", true);
+    });
+
+    // ---- Step 2: times (half-day sessions) ----
+    function renderSlots() {
+      $("ns-slots").innerHTML = SLOTS.map(([t, label]) => `<button type="button" class="dc-slot" data-time="${t}">${label}</button>`).join("");
+    }
+    $("ns-slots").addEventListener("click", (e) => {
+      const b = e.target.closest(".dc-slot"); if (!b) return;
+      state.time = b.getAttribute("data-time");
+      document.querySelectorAll("#ns-slots .dc-slot").forEach((x) => x.classList.toggle("is-active", x === b));
+      showStep("details", true);
+    });
+
+    // ---- Step 3: details — same account logic as every booking ----
+    // Check whether this email already has a TMKE account; if so show sign-in
+    // instead of create-a-password. Best-effort (assumes new on any failure).
+    let acctExists = false, acctCheckedFor = null;
+    async function checkAccount() {
+      const email = (f.email.value || "").trim().toLowerCase();
+      if (!email || email === acctCheckedFor) return;
+      acctCheckedFor = email; acctExists = false;
+      if (WORKER) {
+        try { const r = await fetch(`${WORKER}/videography/account-exists?email=${encodeURIComponent(email)}`); if (r.ok) { const d = await r.json(); acctExists = !!(d && d.exists); } } catch (_) {}
+      }
+      $("ns-acct-create").hidden = acctExists;
+      $("ns-acct-signin").hidden = !acctExists;
+    }
+    f.email.addEventListener("change", () => { acctCheckedFor = null; checkAccount(); });
+
+    $("ns-details-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const err = $("ns-details-error"); err.hidden = true;
+      const fail = (m) => { err.textContent = m; err.hidden = false; };
+      if (!f.name.value.trim() || !f.email.value.trim() || !f.phone.value.trim()) return fail("Please fill in your name, email and phone.");
+      if (acctExists) {
+        if (!(f.signin_password.value || "").length) return fail("Please enter your password to sign in.");
+      } else {
+        if ((f.password.value || "").length < 8) return fail("Please choose a password of at least 8 characters.");
+        if (f.password.value !== f.password2.value) return fail("Those passwords don't match.");
+      }
+      showStep("terms", true);
+    });
+
+    // ---- Step 4: terms (read-gate) ----
+    const termsBox = $("ns-terms");
+    function checkRead() { const box = termsBox; if (box.scrollHeight - box.scrollTop - box.clientHeight < 24) { box.classList.add("is-read"); $("ns-agree").disabled = false; } }
+    termsBox.addEventListener("scroll", checkRead);
+    $("ns-agree").addEventListener("change", (e) => { $("ns-confirm").disabled = !e.target.checked; });
+
+    $("ns-confirm").addEventListener("click", async () => {
+      if ($("ns-confirm").disabled) return;
+      const btn = $("ns-confirm"), err = $("ns-book-error");
+      if (err) err.hidden = true;
+      if (!WORKER) { if (err) { err.textContent = "Booking isn't connected yet — please try again shortly."; err.hidden = false; } return; }
+      const prev = btn.innerHTML; btn.disabled = true; btn.textContent = "Booking…";
+      try {
+        const res = await fetch(`${WORKER}/new-starter/book`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: state.date, start: state.time, code,
+            name: f.name.value.trim(), email: f.email.value.trim(), phone: f.phone.value.trim(),
+            notes: f.notes.value.trim(), password: acctExists ? f.signin_password.value : f.password.value,
+          }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Sorry — we couldn't complete your booking just then. Please try again.");
+        const dd = fmtDay(state.date);
+        $("ns-success-msg").innerHTML = `<strong>${dd.full}, ${state.time}</strong>`;
+        showStep("success", true);
+      } catch (e2) {
+        if (err) { err.textContent = e2.message; err.hidden = false; }
+        btn.disabled = false; btn.innerHTML = prev;
+      }
+    });
+  </script>
+</BaseLayout>

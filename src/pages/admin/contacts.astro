@@ -13,6 +13,10 @@ import "../../styles/admin.css";
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input type="search" id="ct-search" placeholder="Search name, email, company…" aria-label="Search contacts" />
           </label>
+          <button type="button" class="ct-tool-btn ct-tool-primary" id="ct-add-btn" title="Add a single contact">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add contact
+          </button>
           <button type="button" class="ct-tool-btn" id="ct-import-btn" title="Import contacts from a CSV">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
             Import CSV
@@ -70,6 +74,7 @@ import "../../styles/admin.css";
     </header>
     <nav class="ct-tabs" id="ct-tabs" role="tablist">
       <button type="button" class="ct-tab is-active" data-tab="info" role="tab">Information</button>
+      <button type="button" class="ct-tab" data-tab="teg" role="tab">TEG</button>
       <button type="button" class="ct-tab" data-tab="purchases" role="tab">Purchases</button>
       <button type="button" class="ct-tab" data-tab="booked" role="tab">Booked</button>
       <button type="button" class="ct-tab" data-tab="activity" role="tab">Activity</button>
@@ -99,6 +104,32 @@ import "../../styles/admin.css";
     </div>
   </div>
 
+  <!-- Add contact modal -->
+  <div class="ct-import-scrim" id="ct-add" hidden>
+    <div class="ct-import-card" role="dialog" aria-modal="true" aria-label="Add a contact">
+      <button type="button" class="ct-drawer-x ct-import-x" id="ct-add-close" aria-label="Close">&times;</button>
+      <h2 class="ct-import-title">Add a contact</h2>
+      <p class="ct-import-sub">We match on email, so adding someone who already exists just updates their record.</p>
+      <form id="ct-add-form" class="ct-add-form" autocomplete="off">
+        <div class="ct-add-grid">
+          <div class="ct-field"><label>First name</label><input name="first_name" /></div>
+          <div class="ct-field"><label>Last name</label><input name="last_name" /></div>
+        </div>
+        <div class="ct-field"><label>Email *</label><input name="email" type="email" required placeholder="name@example.com" /></div>
+        <div class="ct-add-grid">
+          <div class="ct-field"><label>Phone</label><input name="phone" type="tel" /></div>
+          <div class="ct-field"><label>Company</label><input name="company" /></div>
+        </div>
+        <label class="ct-toggle"><input type="checkbox" name="optin" /> They've opted into marketing</label>
+        <p class="ct-teg-msg" id="ct-add-msg" hidden></p>
+        <div class="ct-add-actions">
+          <button type="button" class="ct-mini" id="ct-add-cancel">Cancel</button>
+          <button type="submit" class="admin-btn admin-btn-primary" id="ct-add-save">Add contact</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <style is:global>
     .admin-bar { display: flex; flex-direction: column; align-items: stretch; gap: 16px; max-width: 1360px; margin: 0 auto; padding: 40px 0 22px; border-bottom: 1px solid rgba(55,30,40,0.14); }
     .admin-bar-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
@@ -111,6 +142,13 @@ import "../../styles/admin.css";
     .ct-tool-btn { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid rgba(var(--violet-rgb),0.4); border-radius: 999px; padding: 9px 16px; cursor: pointer; font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); transition: background 0.15s, color 0.15s; }
     .ct-tool-btn:hover { background: var(--english-violet); color: #fff; }
     .ct-tool-btn svg { width: 14px; height: 14px; }
+    .ct-tool-btn.ct-tool-primary { background: var(--english-violet); color: #fff; }
+    .ct-tool-btn.ct-tool-primary:hover { opacity: 0.9; }
+    .ct-add-form { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+    .ct-add-form .ct-field { margin-bottom: 0; }
+    .ct-add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 460px) { .ct-add-grid { grid-template-columns: 1fr; } }
+    .ct-add-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
     .ct-chips-bar { display: flex; flex-wrap: wrap; gap: 8px; }
     .ct-chip-f { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); transition: background 0.15s, border-color 0.15s, color 0.15s; }
     .ct-chip-f:hover { border-color: rgba(var(--violet-rgb),0.4); }
@@ -172,6 +210,15 @@ import "../../styles/admin.css";
     .ct-chip button { border: 0; background: none; cursor: pointer; color: inherit; font-size: 13px; line-height: 1; }
     .ct-row { display: flex; gap: 8px; }
     .ct-row input, .ct-row select, .ct-drawer textarea { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); flex: 1; }
+    .ct-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .ct-field > label { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .ct-field input, .ct-field select { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); }
+    .ct-field input:focus, .ct-field select:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
+    .teg-code code { font-family: ui-monospace, Menlo, monospace; font-size: 14px; font-weight: 700; color: var(--english-violet); background: var(--paper); border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; padding: 4px 10px; display: inline-block; letter-spacing: 0.03em; }
+    .ct-teg-detect { font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: var(--english-violet); background: rgba(55,30,40,0.06); border-radius: 8px; padding: 9px 12px; margin: 10px 0 0; }
+    .ct-teg-msg { font-family: var(--sans); font-size: 13px; border-radius: 8px; padding: 9px 12px; margin: 12px 0 0; }
+    .ct-teg-msg.is-ok { background: rgba(60,150,90,0.1); color: #2e6b40; }
+    .ct-teg-msg.is-err { background: rgba(200,70,50,0.1); color: #a3372b; }
     .ct-mini { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--english-violet); background: transparent; color: var(--english-violet); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
     .ct-mini:hover { background: var(--english-violet); color: #fff; }
     .ct-item { padding: 10px 0; border-bottom: 1px solid rgba(28,29,34,0.06); font-family: var(--sans); font-size: 13px; color: var(--ink); }
@@ -186,7 +233,11 @@ import "../../styles/admin.css";
     .ct-tagfilter-btn.is-on { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     .ct-tagfilter-btn.is-on b { background: rgba(255,255,255,0.22); color: #fff; }
     .ct-tagfilter-caret { width: 12px; height: 12px; flex: none; }
-    .ct-tagfilter-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 120; width: 288px; max-height: 344px; overflow-y: auto; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.35); padding: 8px; }
+    /* Fixed (not absolute) so it escapes the .ash-content / .ash overflow
+       clipping — otherwise its lower half is cut off (looks see-through) and the
+       scrollbar can't be reached. top/left/max-height are set in JS from the
+       button's position so it always sits below the button and fits the viewport. */
+    .ct-tagfilter-menu { position: fixed; z-index: 400; width: 288px; overflow-y: auto; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.35); padding: 8px; }
     .ct-tagfilter-menu[hidden] { display: none; }
     .ct-tagfilter-empty { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); padding: 10px 8px; }
     .ct-tagfilter-group + .ct-tagfilter-group { margin-top: 2px; }
@@ -376,13 +427,15 @@ import "../../styles/admin.css";
       $("ct-drawer-body").innerHTML = `<p class="ct-meta">Loading…</p>`;
       const email = current.email;
       // Purchases, bookings + activity are derived live by email, always accurate.
-      const [{ data: notes }, { data: tasks }, ord, vidb, smmb] = await Promise.all([
+      const [{ data: notes }, { data: tasks }, ord, vidb, smmb, agentProfile] = await Promise.all([
         supabase.from("contact_notes").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("contact_tasks").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("orders").select("pack_title, amount_pence, status, created_at").ilike("buyer_email", email).order("created_at", { ascending: false }),
         supabase.from("videography_bookings").select("service, service_type, kind, shoot_date, stage, created_at").ilike("client_email", email).order("created_at", { ascending: false }),
         supabase.from("smm_leads").select("kind, call_at, stage, created_at").ilike("email", email).order("created_at", { ascending: false }),
+        fetchAgentProfile(id),
       ]);
+      current.agentProfile = agentProfile;
       const orders = (ord && ord.data) || [], vrows = (vidb && vidb.data) || [], srows = (smmb && smmb.data) || [];
       // Booked = actual sessions + discovery calls (not enquiries/brochures).
       const bookings = [
@@ -411,6 +464,117 @@ import "../../styles/admin.css";
       document.querySelectorAll("#ct-drawer-body .ct-tabpanel").forEach((p) => { p.hidden = p.getAttribute("data-panel") !== tab; });
     }
     $("ct-tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) setTab(b.getAttribute("data-tab")); });
+
+    // ---- TEG (internal agent) tab -------------------------------------------
+    // The Experts Group brands — anyone working within one of these is TEG.
+    const TEG_BRANDS = ["The Property Experts", "Prestige Property Experts", "The Lettings Experts", "The Recruitment Experts", "The Marketing Experts", "Fine & Country", "The Mortgage Experts"];
+    // Identify a TEG brand from a work email domain. Returns the brand name, ""
+    // for a generic *experts.co.uk we can't pin to one brand, or null if not TEG.
+    // (New starters often use personal emails — those are caught via the import's
+    // Brand column instead.)
+    function tegBrandFromEmail(email) {
+      const dom = String(email || "").toLowerCase().split("@")[1] || "";
+      if (!dom) return null;
+      if (dom === "fineandcountry.com" || dom.endsWith(".fineandcountry.com")) return "Fine & Country";
+      if (dom.endsWith("prestigepropertyexperts.co.uk")) return "Prestige Property Experts";
+      if (dom.endsWith("thepropertyexperts.co.uk")) return "The Property Experts";
+      if (dom.endsWith("thelettingsexperts.co.uk")) return "The Lettings Experts";
+      if (dom.endsWith("therecruitmentexperts.co.uk")) return "The Recruitment Experts";
+      if (dom.endsWith("themarketingexperts.co.uk")) return "The Marketing Experts";
+      if (dom.endsWith("themortgageexperts.co.uk")) return "The Mortgage Experts";
+      if (dom.endsWith("experts.co.uk")) return "";
+      return null;
+    }
+    // Read the agent profile through the Worker (domain-aware admin check +
+    // service role) rather than the client — avoids the agent_profiles is_admin()
+    // RLS denying a @tmke.co.uk admin who isn't in the admins table.
+    async function fetchAgentProfile(id) {
+      if (!WORKER) return null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        const r = await fetch(`${WORKER}/agent/profile?contact_id=${encodeURIComponent(id)}`, { headers: token ? { Authorization: "Bearer " + token } : {} });
+        const j = await r.json().catch(() => ({}));
+        return j.profile || null;
+      } catch (_) { return null; }
+    }
+    function tegPanelHtml(p, detect) {
+      // Auto-detect from the email domain when there's no saved profile yet, so
+      // the TEG card appears for anyone in a TEG brand (incl. Fine & Country).
+      const detectedBrand = detect ? detect.brand : null;      // brand name | "" (generic TEG) | null (not TEG)
+      const isTegDetected = detectedBrand !== null && detectedBrand !== undefined;
+      const isAgent = !!p || isTegDetected;
+      const val = (x) => esc(x == null ? "" : x);
+      const brandVal = (p && p.brand) || (detectedBrand || "");
+      return `
+        <div class="ct-sec">
+          <label class="ct-toggle"><input type="checkbox" id="teg-is-agent" ${isAgent ? "checked" : ""}/> Internal agent — TEG (The Experts Group)</label>
+          ${!p && isTegDetected ? `<p class="ct-teg-detect">Auto-detected as TEG from their email${detectedBrand ? ` (${esc(detectedBrand)})` : ""} — add any details and Save to confirm.</p>` : ""}
+          <p class="ct-meta" id="teg-empty" ${isAgent ? "hidden" : ""} style="margin-top:8px">Turn this on to record their agent details and (for new starters) generate their free videography code.</p>
+        </div>
+        <div id="teg-fields" ${isAgent ? "" : "hidden"}>
+          <div class="ct-sec">
+            <h3>Agent details</h3>
+            <div class="ct-field"><label>Brand</label><input id="teg-brand" list="teg-brand-list" value="${val(brandVal)}" placeholder="Select or type…" /><datalist id="teg-brand-list">${TEG_BRANDS.map((b) => `<option value="${esc(b)}"></option>`).join("")}</datalist></div>
+            <div class="ct-field"><label>Date joined</label><input type="date" id="teg-joined" value="${val(p && p.date_joined)}" /></div>
+            <div class="ct-field"><label>Postcode</label><input id="teg-postcode" value="${val(p && p.postcode)}" placeholder="e.g. NN14 1AA" /></div>
+            <div class="ct-field"><label>Trainer name</label><input id="teg-trainer-name" value="${val((p && p.trainer_name) || "Kelly Bailey")}" /></div>
+            <div class="ct-field"><label>Trainer email</label><input id="teg-trainer-email" type="email" value="${val((p && p.trainer_email) || "kelly@theexpertsgroup.co.uk")}" /></div>
+          </div>
+          <div class="ct-sec">
+            <h3>New starter</h3>
+            <label class="ct-toggle"><input type="checkbox" id="teg-newstarter" ${p && p.is_new_starter ? "checked" : ""}/> New-starter onboarding (free videography shoot)</label>
+            <div id="teg-ns-fields" ${p && p.is_new_starter ? "" : "hidden"} style="margin-top:12px">
+              <div class="ct-field"><label>Induction month</label><input type="month" id="teg-month" value="${val(p && p.induction_month)}" /></div>
+              <div class="ct-field"><label>Package</label><select id="teg-package"><option value="">—</option><option value="academy" ${p && p.package === "academy" ? "selected" : ""}>Academy</option><option value="pro" ${p && p.package === "pro" ? "selected" : ""}>Pro</option></select></div>
+              <div class="ct-field"><label>Free videography code</label><div class="teg-code">${p && p.promo_code ? `<code>${esc(p.promo_code)}</code>` : '<span class="ct-meta">Generated on save — Academy/Pro only</span>'}</div></div>
+            </div>
+          </div>
+          <button type="button" class="ct-mini" id="teg-save">Save agent details</button>
+          <p class="ct-teg-msg" id="teg-msg" hidden></p>
+        </div>`;
+    }
+    const tegVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+    function tegMsg(t, ok) { const m = document.getElementById("teg-msg"); if (!m) return; m.textContent = t; m.className = "ct-teg-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
+    function wireTeg() {
+      const c = current;
+      const isAgentCb = document.getElementById("teg-is-agent");
+      if (!isAgentCb) return;
+      isAgentCb.addEventListener("change", () => {
+        document.getElementById("teg-fields").hidden = !isAgentCb.checked;
+        const em = document.getElementById("teg-empty"); if (em) em.hidden = isAgentCb.checked;
+      });
+      const nsCb = document.getElementById("teg-newstarter");
+      nsCb?.addEventListener("change", () => { document.getElementById("teg-ns-fields").hidden = !nsCb.checked; });
+      document.getElementById("teg-save")?.addEventListener("click", async () => {
+        if (!WORKER) { tegMsg("Connect the Worker to save agent details.", false); return; }
+        const btn = document.getElementById("teg-save");
+        const body = {
+          contact_id: c.id,
+          brand: tegVal("teg-brand"),
+          date_joined: tegVal("teg-joined") || null,
+          postcode: tegVal("teg-postcode"),
+          is_new_starter: !!document.getElementById("teg-newstarter")?.checked,
+          induction_month: tegVal("teg-month") || null,
+          package: tegVal("teg-package") || null,
+          trainer_name: tegVal("teg-trainer-name"),
+          trainer_email: tegVal("teg-trainer-email"),
+        };
+        btn.disabled = true; btn.textContent = "Saving…";
+        try {
+          const { data } = await supabase.auth.getSession();
+          const token = data?.session?.access_token;
+          const res = await fetch(`${WORKER}/agent/profile`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(j.error || "Couldn't save agent details.");
+          c.agentProfile = j.profile || null;
+          document.getElementById("ct-teg-panel").innerHTML = tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) });
+          wireTeg();
+          tegMsg(c.agentProfile && c.agentProfile.promo_code ? `Saved. Their free code is ${c.agentProfile.promo_code}.` : "Saved.", true);
+        } catch (err) { tegMsg(err.message || "Couldn't save agent details.", false); }
+        finally { btn.disabled = false; btn.textContent = "Save agent details"; }
+      });
+    }
 
     function drawNote(notes, tasks, orders, bookings, activity) {
       const c = current;
@@ -444,6 +608,9 @@ import "../../styles/admin.css";
               <button class="ct-mini" id="ct-tag-add">Add</button>
             </div>
           </div>
+        </div>
+        <div class="ct-tabpanel" data-panel="teg"${activeTab !== "teg" ? " hidden" : ""}>
+          <div id="ct-teg-panel">${tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) })}</div>
         </div>
         <div class="ct-tabpanel" data-panel="purchases"${activeTab !== "purchases" ? " hidden" : ""}>
           <div class="ct-sec">
@@ -507,6 +674,7 @@ import "../../styles/admin.css";
 
     function wireDrawer(notes, tasks) {
       const c = current;
+      wireTeg();
       $("ct-life-sel").addEventListener("change", async (e) => {
         c.lifecycle = e.target.value;
         await supabase.from("contacts").update({ lifecycle: c.lifecycle }).eq("id", c.id);
@@ -579,16 +747,29 @@ import "../../styles/admin.css";
       const clr = document.getElementById("ct-tagfilter-clear");
       if (clr) clr.addEventListener("click", () => { selectedTags.clear(); buildTagMenu(); syncTagPill(); render(); });
     }
+    // Position the fixed menu just below the button, capped to the viewport so
+    // it's always fully visible and scrolls inside itself.
+    function positionTagMenu() {
+      const menu = $("ct-tagfilter-menu"), r = $("ct-tagfilter-btn").getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+      menu.style.left = Math.round(r.left) + "px";
+      menu.style.top = Math.round(r.bottom + 8) + "px";
+      menu.style.maxHeight = Math.min(360, Math.max(180, vh - r.bottom - 24)) + "px";
+    }
     $("ct-tagfilter-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       const menu = $("ct-tagfilter-menu"), willOpen = menu.hidden;
-      if (willOpen) buildTagMenu();
-      menu.hidden = !willOpen;
+      if (willOpen) { buildTagMenu(); menu.hidden = false; positionTagMenu(); }
+      else menu.hidden = true;
       $("ct-tagfilter-btn").setAttribute("aria-expanded", String(willOpen));
     });
     document.addEventListener("click", (e) => {
       if (!e.target.closest("#ct-tagfilter")) { $("ct-tagfilter-menu").hidden = true; $("ct-tagfilter-btn").setAttribute("aria-expanded", "false"); }
     });
+    // Keep it aligned to the button if the page scrolls or the window resizes.
+    const repositionIfOpen = () => { if (!$("ct-tagfilter-menu").hidden) positionTagMenu(); };
+    window.addEventListener("resize", repositionIfOpen);
+    document.querySelector(".ash-content")?.addEventListener("scroll", repositionIfOpen, { passive: true });
 
     // ---- Bulk select + delete ----
     $("ct-check-all").addEventListener("change", (e) => {
@@ -668,6 +849,36 @@ import "../../styles/admin.css";
       return rows.filter((r) => r.some((c) => String(c).trim() !== ""));
     }
     $("ct-import-tag").innerHTML = `<option value="">— none —</option>` + TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("");
+    // ---- Add a single contact (reuses the /contacts/import path) ----
+    function closeAdd() { $("ct-add").hidden = true; }
+    function addMsg(t, ok) { const m = $("ct-add-msg"); m.textContent = t; m.className = "ct-teg-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
+    $("ct-add-btn").addEventListener("click", () => { $("ct-add-msg").hidden = true; $("ct-add-form").reset(); $("ct-add").hidden = false; setTimeout(() => $("ct-add-form").first_name.focus(), 30); });
+    $("ct-add-close").addEventListener("click", closeAdd);
+    $("ct-add-cancel").addEventListener("click", closeAdd);
+    $("ct-add").addEventListener("click", (e) => { if (e.target === $("ct-add")) closeAdd(); });
+    $("ct-add-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const email = f.email.value.trim();
+      if (!email) { addMsg("Enter an email address.", false); return; }
+      if (!WORKER) { addMsg("The contacts backend isn't connected.", false); return; }
+      const row = { email, first_name: f.first_name.value.trim() || null, last_name: f.last_name.value.trim() || null, phone: f.phone.value.trim() || null, company: f.company.value.trim() || null };
+      const btn = $("ct-add-save"); btn.disabled = true; btn.textContent = "Adding…";
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session && session.access_token;
+        const res = await fetch(`${WORKER}/contacts/import`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" }, body: JSON.stringify({ rows: [row], batch_tags: [], marketing_opt_in: f.optin.checked, source: "manual" }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't add the contact.");
+        if (!d.imported) throw new Error("That email address looks invalid.");
+        closeAdd();
+        await load();
+        const created = ALL.find((c) => (c.email || "").toLowerCase() === email.toLowerCase());
+        if (created) openDrawer(created.id);
+      } catch (err) { addMsg(err.message || "Couldn't add the contact.", false); }
+      finally { btn.disabled = false; btn.textContent = "Add contact"; }
+    });
+
     $("ct-import-btn").addEventListener("click", () => { $("ct-import").hidden = false; });
     $("ct-import-close").addEventListener("click", () => { $("ct-import").hidden = true; });
     $("ct-import").addEventListener("click", (e) => { if (e.target === $("ct-import")) $("ct-import").hidden = true; });
