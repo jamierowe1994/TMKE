@@ -40,10 +40,10 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       </div>
     </section>
 
-    <section class="orders-section" id="bk-past-sec" hidden>
+    <section class="orders-section bk-past-sec" id="bk-past-sec">
       <header class="section-head">
-        <h2 class="section-h">Past &amp; cancelled</h2>
-        <p class="section-sub">Everything you've booked with us before.</p>
+        <h2 class="section-h">Previous bookings</h2>
+        <p class="section-sub">Shoots, studio sessions and calls you've completed or cancelled. Your history lives here.</p>
       </header>
       <div id="bk-past" class="bk-list"></div>
     </section>
@@ -116,24 +116,26 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
   <style is:global>
     .bk-list { display: flex; flex-direction: column; gap: 14px; }
+    /* Outline boxes to match the dashboard — white fill, light-grey outline, no
+       solid purple fill or heavy glow. */
     .bk-card {
       display: grid; grid-template-columns: 1fr auto; gap: 10px 24px; align-items: center;
-      padding: 18px 22px; border-radius: 10px; cursor: pointer;
-      background: var(--dash-accent); border: 1px solid rgba(255,255,255,0.16); border-left: 3px solid rgba(255,255,255,0.5);
-      box-shadow: 0 10px 24px -16px rgba(var(--violet-rgb),0.22); transition: transform .18s ease, box-shadow .18s ease;
+      padding: 18px 22px; border-radius: 12px; cursor: pointer;
+      background: #fff; border: 1px solid rgba(28,29,34,0.13);
+      transition: transform .18s ease, border-color .18s ease;
     }
-    .bk-card:hover { transform: translateY(-2px); box-shadow: 0 16px 30px -18px rgba(var(--violet-rgb),0.4); }
-    .bk-card:focus-visible { outline: 2px solid var(--dash-accent-ink); outline-offset: 2px; }
-    .bk-card.is-cancelled { border-left-color: rgba(255,255,255,0.25); opacity: 0.66; }
+    .bk-card:hover { transform: translateY(-2px); border-color: rgba(28,29,34,0.28); }
+    .bk-card:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .bk-card.is-cancelled { opacity: 0.6; }
     .bk-card-main { min-width: 0; }
-    .bk-card-title { font-family: var(--serif); font-size: 21px; color: var(--dash-accent-ink); margin: 0 0 3px; }
-    .bk-card-when { font-family: var(--sans); font-size: 14px; color: var(--dash-accent-ink); }
-    .bk-card-meta { font-family: var(--sans); font-size: 12.5px; color: var(--dash-accent-ink-soft); margin-top: 3px; }
+    .bk-card-title { font-family: var(--serif); font-size: 21px; color: var(--ink); margin: 0 0 3px; }
+    .bk-card-when { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.7); }
+    .bk-card-meta { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); margin-top: 3px; }
     .bk-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
-    .bk-pill { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; background: rgba(255,255,255,0.18); color: var(--dash-accent-ink); white-space: nowrap; }
-    .bk-pill.is-cancelled { background: rgba(255,255,255,0.14); color: var(--dash-accent-ink-soft); }
-    .bk-pill.is-complete { background: rgba(46,106,74,0.2); color: #d8f0e2; }
-    .bk-view-cue { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--dash-accent-ink); opacity: 0.8; }
+    .bk-pill { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); white-space: nowrap; }
+    .bk-pill.is-cancelled { background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.55); }
+    .bk-pill.is-complete { background: rgba(46,106,74,0.14); color: #2e6a4a; }
+    .bk-view-cue { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--english-violet); opacity: 0.9; }
     @media (max-width: 680px) {
       .bk-card { grid-template-columns: 1fr; }
       .bk-card-side { align-items: flex-start; text-align: left; }
@@ -347,9 +349,10 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       } else {
         $up.innerHTML = up.map(cardHtml).join('');
       }
-      const $pastSec = $('bk-past-sec');
-      if (past.length) { $pastSec.hidden = false; $('bk-past').innerHTML = past.map(cardHtml).join(''); }
-      else { $pastSec.hidden = true; }
+      // Previous bookings always show — with an empty state until a booking is done.
+      $('bk-past').innerHTML = past.length
+        ? past.map(cardHtml).join('')
+        : `<div class="lib-state" style="padding:32px;"><strong style="display:block;font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:6px;">No previous bookings yet.</strong><p style="margin:0;line-height:1.6;">Once a shoot, session or call is done, it'll move here — so you've always got your history to hand.</p></div>`;
     }
 
     function cardHtml(r) {
