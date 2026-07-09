@@ -62,9 +62,26 @@ import AdminShell from "../../components/admin/AdminShell.astro";
               <button type="button" class="inv-style" data-style="modern"><span class="inv-style-name">Modern</span><span class="inv-style-sub">Colour header band</span></button>
               <button type="button" class="inv-style" data-style="minimal"><span class="inv-style-name">Minimal</span><span class="inv-style-sub">Clean &amp; sparse</span></button>
             </div>
+            <h3 class="inv-h">Typeface <span class="inv-h-note">Outlook-safe fonts only</span></h3>
+            <div class="inv-row2">
+              <label class="inv-field"><span>Font</span><select id="tpl-font">
+                <option value="Arial, Helvetica, sans-serif">Arial</option>
+                <option value="Calibri, Candara, Segoe, 'Segoe UI', Optima, Arial, sans-serif">Calibri</option>
+                <option value="'Trebuchet MS', Tahoma, sans-serif">Trebuchet MS</option>
+                <option value="Verdana, Geneva, sans-serif">Verdana</option>
+                <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
+                <option value="Georgia, 'Times New Roman', serif">Georgia</option>
+                <option value="'Times New Roman', Times, serif">Times New Roman</option>
+              </select></label>
+              <label class="inv-field"><span>Base size (px)</span><input id="tpl-fs" type="number" min="10" max="18" step="1" /></label>
+            </div>
+
             <h3 class="inv-h">Brand</h3>
             <label class="inv-field"><span>Accent colour</span><span class="inv-colour"><input type="color" id="tpl-accent-c" /><input type="text" id="tpl-accent-h" placeholder="#371e28" /></span></label>
-            <label class="inv-field"><span>Logo image URL</span><input id="tpl-logo" placeholder="https://…/logo.png (leave blank for a text wordmark)" /></label>
+            <label class="inv-field"><span>Logo</span><span class="inv-logo-row">
+              <input id="tpl-logo" placeholder="Paste an image URL, or upload →" />
+              <label class="inv-upload"><input type="file" id="tpl-logo-file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden /><span id="tpl-upload-lbl">Upload</span></label>
+            </span></label>
             <label class="inv-toggle"><input type="checkbox" id="tpl-bank" /><span>Show bank details on the invoice</span></label>
             <p class="inv-msg" id="tpl-msg" hidden></p>
             <button type="button" class="inv-save" id="tpl-save">Save template</button>
@@ -152,7 +169,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-toggle input { width: 17px; height: 17px; accent-color: var(--english-violet); }
     .inv-preview-wrap { position: sticky; top: 16px; }
     .inv-preview-lbl { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 8px; }
-    #inv-preview { width: 100%; height: 760px; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px; background: #eceae7; }
+    #inv-preview { width: 100%; height: 820px; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px; background: #d9d7d4; }
+    .inv-h-note { font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); margin-left: 8px; font-size: 11px; }
+    .inv-row2 { display: grid; grid-template-columns: 1fr 120px; gap: 12px; }
+    .inv-field select { font-family: var(--sans); font-size: 14.5px; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: var(--ink); }
+    .inv-logo-row { display: flex; gap: 8px; align-items: stretch; }
+    .inv-logo-row input { flex: 1; }
+    .inv-upload { display: inline-flex; align-items: center; padding: 0 16px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.14); background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ink); cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+    .inv-upload:hover { background: var(--paper); }
   </style>
 
   <script>
@@ -247,7 +271,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     });
 
     // ---- Template ----
-    const tplState = { template: "classic", accent_color: "#371e28", logo_url: "", show_bank: true };
+    const tplState = { template: "classic", accent_color: "#371e28", logo_url: "", show_bank: true, font_family: "Arial, Helvetica, sans-serif", font_size: 13 };
     function renderPreview() {
       const settings = { ...currentSettings, ...tplState };
       $("inv-preview").srcdoc = renderInvoiceHtml({ settings, invoice: sampleInvoice(settings) });
@@ -258,10 +282,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       tplState.accent_color = currentSettings.accent_color || "#371e28";
       tplState.logo_url = currentSettings.logo_url || "";
       tplState.show_bank = currentSettings.show_bank !== false;
+      tplState.font_family = currentSettings.font_family || "Arial, Helvetica, sans-serif";
+      tplState.font_size = currentSettings.font_size || 13;
       $("tpl-accent-c").value = /^#[0-9a-fA-F]{6}$/.test(tplState.accent_color) ? tplState.accent_color : "#371e28";
       $("tpl-accent-h").value = tplState.accent_color;
       $("tpl-logo").value = tplState.logo_url;
       $("tpl-bank").checked = tplState.show_bank;
+      $("tpl-font").value = tplState.font_family;
+      $("tpl-fs").value = tplState.font_size;
       syncStyleButtons();
       renderPreview();
     }
@@ -270,10 +298,28 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     $("tpl-accent-h").addEventListener("input", (e) => { const v = e.target.value.trim(); tplState.accent_color = v; if (/^#[0-9a-fA-F]{6}$/.test(v)) $("tpl-accent-c").value = v; renderPreview(); });
     $("tpl-logo").addEventListener("input", (e) => { tplState.logo_url = e.target.value.trim(); renderPreview(); });
     $("tpl-bank").addEventListener("change", (e) => { tplState.show_bank = e.target.checked; renderPreview(); });
+    $("tpl-font").addEventListener("change", (e) => { tplState.font_family = e.target.value; renderPreview(); });
+    $("tpl-fs").addEventListener("input", (e) => { const n = parseInt(e.target.value, 10); tplState.font_size = (n >= 10 && n <= 18) ? n : 13; renderPreview(); });
+    // Logo upload → Supabase storage (public), sets the URL.
+    $("tpl-logo-file").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      if (file.size > 3 * 1024 * 1024) { msg("tpl-msg", "That image is a bit large — keep it under ~3 MB.", false); return; }
+      const lbl = $("tpl-upload-lbl"), prev = lbl.textContent; lbl.textContent = "Uploading…";
+      try {
+        const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `invoice-logo/logo-${Date.now()}.${ext}`;
+        const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true, cacheControl: "3600", contentType: file.type });
+        if (error) throw error;
+        const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+        tplState.logo_url = data.publicUrl; $("tpl-logo").value = data.publicUrl; renderPreview();
+        msg("tpl-msg", "Logo uploaded — don't forget to Save template.", true);
+      } catch (err) { msg("tpl-msg", err.message || "Couldn't upload that image.", false); }
+      finally { lbl.textContent = prev; }
+    });
     $("tpl-save").addEventListener("click", async () => {
       const btn = $("tpl-save"); btn.disabled = true; btn.textContent = "Saving…";
       try {
-        await api("/invoicing/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ template: tplState.template, accent_color: tplState.accent_color, logo_url: tplState.logo_url || null, show_bank: tplState.show_bank }) });
+        await api("/invoicing/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ template: tplState.template, accent_color: tplState.accent_color, logo_url: tplState.logo_url || null, show_bank: tplState.show_bank, font_family: tplState.font_family, font_size: tplState.font_size }) });
         Object.assign(currentSettings, tplState);
         msg("tpl-msg", "Template saved.", true);
       } catch (err) { msg("tpl-msg", err.message, false); }
