@@ -35,11 +35,8 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
     return `<tr><td class="desc">${nl2br(it.description)}</td><td class="num">${money((it.unit_pence || 0) * qty)}</td></tr>`;
   }).join("") : `<tr><td class="desc" style="color:#a99">Description</td><td class="num">£0.00</td></tr>`;
 
-  const dateBlock = `
-    <div class="d"><span class="k">Invoice date</span><b>${fmtDate(inv.issued_date) || "—"}</b></div>
-    <div class="d"><span class="k">Due date</span><b>${fmtDate(inv.due_date) || "—"}</b></div>`;
-
-  // Header — banded is a wine block; editorial/minimal are on the paper.
+  // Header — banded is a wine block (dates in the band); editorial/minimal put the
+  // dates just above Bill to (see datesRow in the body).
   const header = style === "banded" ? `
     <header class="inv-head band">
       <div class="brand">${wordmark}<div class="company">${esc(company)}</div></div>
@@ -52,10 +49,11 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
     <header class="inv-head plain">
       <div class="brand">${wordmark}</div>
       <div class="headrow">
-        <div class="hl"><span class="company">${esc(company)}</span><span class="no">INVOICE NO. <b>${esc(inv.number || "")}</b></span></div>
-        <div class="dates">${dateBlock}</div>
+        <span class="company">${esc(company)}</span>
+        <span class="no">INVOICE NO. <b>${esc(inv.number || "")}</b></span>
       </div>
     </header>`;
+  const datesRow = style === "banded" ? "" : `<div class="dates-row"><span class="k">Invoice date</span> <b>${fmtDate(inv.issued_date) || "—"}</b> &nbsp;&nbsp;&nbsp; <span class="k">Due date</span> <b>${fmtDate(inv.due_date) || "—"}</b></div>`;
 
   const billto = inv.bill_to_name ? `
     <div class="billto"><span class="lbl">Bill to</span> <span class="who">${esc(inv.bill_to_name)}${inv.bill_to_email ? ` · ${esc(inv.bill_to_email)}` : ""}</span></div>` : "";
@@ -90,36 +88,38 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   .logo { max-height:70px; max-width:280px; display:block; }
   .lbl { font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
 
-  /* Line-item table */
-  table.tbl { width:100%; border-collapse:collapse; margin-top:8px; }
-  .tbl thead th { text-align:left; font-size:14px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; padding:0 0 10px; border-bottom:2.5px solid var(--accent); }
-  .tbl thead th.num { text-align:right; }
-  .tbl td { padding:12px 0; font-size:15px; }
-  .tbl td.num { text-align:right; white-space:nowrap; }
+  /* Dates row — sits between the invoice number and Bill to (editorial/minimal). */
+  .dates-row { margin:0 0 30px; font-size:11.5px; }
+  .dates-row .k { font-weight:700; letter-spacing:0.06em; text-transform:uppercase; }
+  .dates-row b { font-weight:400; }
 
-  /* Totals */
-  .totals { margin-top:40px; }
-  .totals .r { display:flex; justify-content:space-between; font-size:18px; padding:6px 0; }
-  .totals .grand { margin-top:6px; display:flex; justify-content:space-between; align-items:baseline; font-size:40px; font-weight:800; letter-spacing:-0.01em; }
-
-  .pay { margin-top:46px; font-size:14px; line-height:1.7; }
-  .pay .lbl { font-size:13px; margin-bottom:8px; }
-  .pay .bank { margin-top:10px; }
-  .note { margin-top:16px; font-style:italic; opacity:0.7; font-size:13px; }
-  .billto { margin:34px 0 4px; font-size:13px; }
+  .billto { margin:0; font-size:13px; }
   .billto .lbl { color:var(--accent); }
 
-  .smallprint { margin-top:auto; font-size:11px; letter-spacing:0.02em; opacity:0.75; text-align:center; padding:40px 64px 40px; }
+  /* Line-item table — descriptions at the Bill-to size (13px). Big gap above. */
+  table.tbl { width:100%; border-collapse:collapse; margin-top:46px; }
+  .tbl thead th { text-align:left; font-size:14px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; padding:0 0 10px; border-bottom:2.5px solid var(--accent); }
+  .tbl thead th.num { text-align:right; }
+  .tbl td { padding:11px 0; font-size:13px; }
+  .tbl td.num { text-align:right; white-space:nowrap; }
+
+  /* Totals — sub-total/VAT at body size (13px, unbold); total smaller but still big. */
+  .totals { margin-top:34px; }
+  .totals .r { display:flex; justify-content:space-between; font-size:13px; padding:5px 0; }
+  .totals .grand { margin-top:8px; display:flex; justify-content:space-between; align-items:baseline; font-size:30px; font-weight:800; letter-spacing:-0.01em; }
+
+  .pay { margin-top:56px; font-size:13px; line-height:1.7; }
+  .pay .lbl { font-size:13px; margin-bottom:8px; }
+  .pay .bank { margin-top:14px; padding-top:14px; border-top:1px solid rgba(55,30,40,0.18); }
+  .note { margin-top:16px; font-style:italic; opacity:0.7; font-size:12px; }
+
+  .smallprint { margin-top:auto; font-size:9.5px; letter-spacing:0.02em; opacity:0.8; text-align:center; padding:40px 64px 40px; }
 
   /* ---- EDITORIAL (temp1): paper, big bold wordmark, oversized total ---- */
   .plain { padding:64px 64px 0; }
   .wordmark { font-weight:800; font-size:64px; letter-spacing:-0.01em; line-height:0.9; color:var(--accent); }
-  .plain .headrow { display:flex; justify-content:space-between; align-items:flex-start; margin-top:26px; }
-  .plain .hl { display:flex; gap:48px; align-items:baseline; }
+  .plain .headrow { display:flex; justify-content:space-between; align-items:baseline; margin-top:26px; }
   .plain .company, .plain .no { font-size:14px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; }
-  .plain .dates { text-align:right; display:flex; flex-direction:column; gap:12px; }
-  .plain .dates .k { display:block; font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; }
-  .plain .dates b { font-size:14px; }
   .plain + .body { padding-top:64px; }
 
   /* ---- BANDED (temp2): wine header band + beige footer band ---- */
@@ -142,6 +142,7 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   <div class="inv tpl-${style}">
     ${header}
     <div class="body">
+      ${datesRow}
       ${billto}
       <table class="tbl">
         <thead><tr><th class="desc">Description</th><th class="num">Price</th></tr></thead>
