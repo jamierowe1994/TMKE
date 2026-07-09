@@ -2960,7 +2960,7 @@ export default {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
-        const allowed = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "bank_name", "account_name", "sort_code", "account_number", "payment_terms_days", "invoice_prefix", "next_number", "accounts_cc_email", "footer_note"];
+        const allowed = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "bank_name", "account_name", "sort_code", "account_number", "payment_terms_days", "invoice_prefix", "next_number", "accounts_cc_email", "footer_note", "template", "accent_color", "logo_url", "show_bank"];
         const row = { id: 1 };
         for (const k of allowed) if (b && k in b) row[k] = b[k];
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?on_conflict=id`, {
