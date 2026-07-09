@@ -58,9 +58,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             <p class="inv-intro">Pick a starting style, then tweak the colour and logo. The preview updates live.</p>
             <h3 class="inv-h">Style</h3>
             <div class="inv-styles" id="inv-styles">
-              <button type="button" class="inv-style" data-style="classic"><span class="inv-style-name">Classic</span><span class="inv-style-sub">Traditional, formal</span></button>
-              <button type="button" class="inv-style" data-style="modern"><span class="inv-style-name">Modern</span><span class="inv-style-sub">Colour header band</span></button>
-              <button type="button" class="inv-style" data-style="minimal"><span class="inv-style-name">Minimal</span><span class="inv-style-sub">Clean &amp; sparse</span></button>
+              <button type="button" class="inv-style" data-style="editorial"><span class="inv-style-name">Editorial</span><span class="inv-style-sub">Big type, paper</span></button>
+              <button type="button" class="inv-style" data-style="banded"><span class="inv-style-name">Banded</span><span class="inv-style-sub">Wine header + beige footer</span></button>
+              <button type="button" class="inv-style" data-style="minimal"><span class="inv-style-name">Minimal</span><span class="inv-style-sub">Airy, hairlines</span></button>
             </div>
             <h3 class="inv-h">Typeface <span class="inv-h-note">Outlook-safe fonts only</span></h3>
             <div class="inv-row2">
@@ -271,14 +271,16 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     });
 
     // ---- Template ----
-    const tplState = { template: "classic", accent_color: "#371e28", logo_url: "", show_bank: true, font_family: "Arial, Helvetica, sans-serif", font_size: 13 };
+    const tplState = { template: "editorial", accent_color: "#371e28", logo_url: "", show_bank: true, font_family: "Arial, Helvetica, sans-serif", font_size: 13 };
+    const LEGACY_STYLE = { classic: "editorial", modern: "banded" };
     function renderPreview() {
       const settings = { ...currentSettings, ...tplState };
       $("inv-preview").srcdoc = renderInvoiceHtml({ settings, invoice: sampleInvoice(settings) });
     }
     function syncStyleButtons() { document.querySelectorAll(".inv-style").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-style") === tplState.template)); }
     function initTemplate() {
-      tplState.template = ["classic", "modern", "minimal"].includes(currentSettings.template) ? currentSettings.template : "classic";
+      const t = LEGACY_STYLE[currentSettings.template] || currentSettings.template;
+      tplState.template = ["editorial", "banded", "minimal"].includes(t) ? t : "editorial";
       tplState.accent_color = currentSettings.accent_color || "#371e28";
       tplState.logo_url = currentSettings.logo_url || "";
       tplState.show_bank = currentSettings.show_bank !== false;
