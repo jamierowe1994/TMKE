@@ -1,0 +1,218 @@
+---
+// Standalone booking page for TEG new-starter FREE videography shoots.
+// Unlisted (not in nav) — reached only via the personalised link emailed to a
+// new starter (carries their ?code=, which pre-fills their details and marks the
+// booking as free / bill-to-TPE, skipping payment entirely).
+//
+// ⚠️ EXAMPLE / WORK-IN-PROGRESS. Placeholders are clearly marked:
+//   • the two bookable dates per month (NEW_STARTER_DATES) — will be admin-set;
+//   • the session length (SLOT_MINUTES) — client confirming;
+//   • the confirm step is stubbed to a success screen — wiring it to the Worker
+//     (create videography_booking, bill_to=TPE, block Jack's Outlook, redeem the
+//     code) is the next step once the real dates + slot length land.
+//
+// Deliberately its OWN page, not a pop-out like the main videography booking, so
+// the copy/flow can be tailored and there's no visible pricing.
+import BaseLayout from "../../layouts/BaseLayout.astro";
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+---
+
+<BaseLayout title="Book your videography shoot — TMKE" description="Book your complimentary videography shoot." hideNav hideFooter>
+  <div class="ns" data-worker={WORKER}>
+    <header class="ns-top">
+      <span class="ns-logo">TMKE</span>
+      <span class="ns-top-tag">Videography</span>
+    </header>
+
+    <main class="ns-wrap">
+      <!-- Intro -->
+      <section class="ns-hero">
+        <p class="ns-eyebrow"><span class="ns-eyebrow-line"></span> Your welcome gift</p>
+        <h1 class="ns-title">Your complimentary <em>videography shoot</em></h1>
+        <p class="ns-lead" id="ns-lead">As part of your induction, Jack will film your first piece of content in our Content Studio — on us. Pick a date and time below and you're all set. <span class="ns-placeholder">(placeholder copy)</span></p>
+        <div class="ns-codepill" id="ns-codepill" hidden>Your free booking code: <code id="ns-code">—</code></div>
+      </section>
+
+      <!-- Step 1 — date -->
+      <section class="ns-step" id="ns-step-date">
+        <div class="ns-step-h"><span class="ns-num">1</span><h2>Choose your day</h2></div>
+        <p class="ns-step-sub">Two studio days are available this month. <span class="ns-placeholder">(placeholder dates — these will be set each month in the admin)</span></p>
+        <div class="ns-dates" id="ns-dates"></div>
+      </section>
+
+      <!-- Step 2 — time -->
+      <section class="ns-step is-locked" id="ns-step-time">
+        <div class="ns-step-h"><span class="ns-num">2</span><h2>Choose a time</h2></div>
+        <p class="ns-step-sub">Sessions run 9:00–5:00. <span class="ns-placeholder">(placeholder length — final session length TBC)</span></p>
+        <div class="ns-slots" id="ns-slots"></div>
+      </section>
+
+      <!-- Step 3 — details -->
+      <section class="ns-step is-locked" id="ns-step-details">
+        <div class="ns-step-h"><span class="ns-num">3</span><h2>Your details</h2></div>
+        <p class="ns-step-sub">Pre-filled from your booking link — just check they're right.</p>
+        <form class="ns-form" id="ns-form" autocomplete="off">
+          <div class="ns-grid">
+            <label class="ns-field"><span>Full name</span><input name="name" placeholder="Your name" /></label>
+            <label class="ns-field"><span>Phone</span><input name="phone" type="tel" placeholder="Mobile number" /></label>
+          </div>
+          <label class="ns-field"><span>Email</span><input name="email" type="email" placeholder="you@example.com" /></label>
+          <label class="ns-field"><span>Anything Jack should know? (optional)</span><textarea name="notes" rows="2" placeholder="e.g. what you'd like to film"></textarea></label>
+        </form>
+      </section>
+
+      <!-- Confirm -->
+      <section class="ns-confirm" id="ns-confirm">
+        <div class="ns-summary" id="ns-summary">
+          <div class="ns-summary-row"><span>Session</span><b>New-starter videography shoot</b></div>
+          <div class="ns-summary-row"><span>When</span><b id="ns-sum-when">Pick a date &amp; time</b></div>
+          <div class="ns-summary-row ns-summary-free"><span>To pay</span><b>Nothing — billed to The Property Experts</b></div>
+        </div>
+        <button type="button" class="ns-cta" id="ns-cta" disabled>Confirm my booking</button>
+        <p class="ns-fineprint">A more lenient cancellation policy applies to complimentary shoots. <span class="ns-placeholder">(terms to follow)</span></p>
+      </section>
+
+      <!-- Success -->
+      <section class="ns-done" id="ns-done" hidden>
+        <div class="ns-done-tick">✓</div>
+        <h2>You're booked in</h2>
+        <p id="ns-done-when">—</p>
+        <p class="ns-done-sub">We've sent a confirmation to your email. Jack will see you then!</p>
+      </section>
+    </main>
+  </div>
+
+  <style>
+    .ns { min-height: 100vh; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    .ns-top { display: flex; align-items: center; justify-content: space-between; padding: 20px clamp(18px, 5vw, 48px); border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ns-logo { font-family: var(--sans); font-weight: 800; letter-spacing: 0.22em; color: var(--english-violet); font-size: 18px; }
+    .ns-top-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .ns-wrap { max-width: 680px; margin: 0 auto; padding: clamp(28px, 5vw, 52px) clamp(18px, 5vw, 24px) 80px; }
+
+    .ns-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 14px; }
+    .ns-eyebrow-line { width: 26px; height: 1px; background: var(--english-violet); display: inline-block; }
+    .ns-title { font-family: var(--serif); font-weight: 500; font-size: clamp(28px, 6vw, 40px); line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 14px; }
+    .ns-title em { font-style: italic; color: var(--english-violet); }
+    .ns-lead { font-size: 15.5px; line-height: 1.6; color: rgba(28,29,34,0.72); margin: 0 0 16px; }
+    .ns-placeholder { color: rgba(126,103,101,0.75); font-size: 12.5px; font-style: italic; }
+    .ns-codepill { display: inline-block; font-size: 13px; color: rgba(28,29,34,0.7); background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 999px; padding: 7px 14px; }
+    .ns-codepill code { font-family: ui-monospace, Menlo, monospace; font-weight: 700; color: var(--english-violet); }
+
+    .ns-step, .ns-confirm { margin-top: 30px; padding-top: 26px; border-top: 1px solid rgba(28,29,34,0.08); transition: opacity 0.25s; }
+    .ns-step.is-locked { opacity: 0.4; pointer-events: none; }
+    .ns-step-h { display: flex; align-items: center; gap: 12px; margin: 0 0 4px; }
+    .ns-num { width: 26px; height: 26px; flex: none; border-radius: 50%; background: var(--english-violet); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; }
+    .ns-step-h h2 { font-family: var(--serif); font-weight: 500; font-size: 21px; margin: 0; }
+    .ns-step-sub { font-size: 13.5px; color: rgba(28,29,34,0.6); margin: 0 0 16px; padding-left: 38px; }
+
+    .ns-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-left: 38px; }
+    @media (max-width: 480px) { .ns-dates { grid-template-columns: 1fr; padding-left: 0; } .ns-step-sub { padding-left: 0; } }
+    .ns-date { text-align: left; background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px; padding: 16px 18px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; font-family: var(--sans); }
+    .ns-date:hover { border-color: rgba(55,30,40,0.4); }
+    .ns-date.is-active { border-color: var(--english-violet); box-shadow: 0 0 0 2px var(--english-violet); }
+    .ns-date-dow { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--english-violet); }
+    .ns-date-day { font-family: var(--serif); font-size: 22px; color: var(--ink); margin-top: 3px; }
+
+    .ns-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; padding-left: 38px; }
+    @media (max-width: 480px) { .ns-slots { padding-left: 0; } }
+    .ns-slot { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 11px 0; cursor: pointer; font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); transition: border-color 0.15s, background 0.15s; }
+    .ns-slot:hover { border-color: rgba(55,30,40,0.4); }
+    .ns-slot.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+
+    .ns-form { padding-left: 38px; display: flex; flex-direction: column; gap: 14px; }
+    @media (max-width: 480px) { .ns-form { padding-left: 0; } }
+    .ns-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 480px) { .ns-grid { grid-template-columns: 1fr; } }
+    .ns-field { display: flex; flex-direction: column; gap: 6px; }
+    .ns-field > span { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .ns-field input, .ns-field textarea { font-family: var(--sans); font-size: 15px; padding: 11px 13px; border: 1px solid rgba(28,29,34,0.14); border-radius: 9px; background: #fff; color: var(--ink); resize: vertical; }
+    .ns-field input:focus, .ns-field textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
+
+    .ns-summary { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 14px; padding: 6px 18px; margin-bottom: 18px; }
+    .ns-summary-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(28,29,34,0.07); font-size: 14px; }
+    .ns-summary-row:last-child { border-bottom: 0; }
+    .ns-summary-row span { color: rgba(28,29,34,0.55); }
+    .ns-summary-row b { font-weight: 700; text-align: right; }
+    .ns-summary-free b { color: var(--english-violet); }
+    .ns-cta { width: 100%; appearance: none; cursor: pointer; background: var(--english-violet); color: #fff; border: 0; border-radius: 11px; padding: 16px; font-family: var(--sans); font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; transition: opacity 0.2s; }
+    .ns-cta:hover { opacity: 0.92; }
+    .ns-cta:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ns-fineprint { font-size: 12px; color: rgba(28,29,34,0.5); text-align: center; margin: 14px 0 0; }
+
+    .ns-done { text-align: center; padding: 40px 0; }
+    .ns-done-tick { width: 60px; height: 60px; margin: 0 auto 18px; border-radius: 50%; background: var(--english-violet); color: #fff; font-size: 30px; display: flex; align-items: center; justify-content: center; }
+    .ns-done h2 { font-family: var(--serif); font-weight: 500; font-size: 26px; margin: 0 0 8px; }
+    .ns-done p { font-size: 15px; color: rgba(28,29,34,0.7); margin: 4px 0; }
+    .ns-done #ns-done-when { font-weight: 700; color: var(--ink); }
+    [hidden] { display: none !important; }
+  </style>
+
+  <script>
+    // ---- Placeholders (to be replaced when the real values land) ----
+    // The two bookable studio days this month. Will be admin-configured per month.
+    const NEW_STARTER_DATES = ["2026-08-13", "2026-08-27"]; // PLACEHOLDER
+    const DAY_START = 9 * 60;   // 09:00
+    const DAY_END = 17 * 60;    // 17:00
+    const SLOT_MINUTES = 60;    // PLACEHOLDER — final session length TBC
+
+    const $ = (id) => document.getElementById(id);
+    const state = { date: null, time: null };
+
+    // Pre-fill from the personalised link (?code=, ?name=, ?email=, ?phone=).
+    const params = new URLSearchParams(location.search);
+    const code = params.get("code");
+    if (code) { $("ns-codepill").hidden = false; $("ns-code").textContent = code; }
+    const form = $("ns-form");
+    if (params.get("name")) form.name.value = params.get("name");
+    if (params.get("email")) form.email.value = params.get("email");
+    if (params.get("phone")) form.phone.value = params.get("phone");
+    if (form.name.value) $("ns-lead").innerHTML = `Hi ${form.name.value.split(" ")[0]}, as part of your induction Jack will film your first piece of content in our Content Studio — on us. Pick a date and time below and you're all set.`;
+
+    const fmtDay = (iso) => { const d = new Date(iso + "T00:00:00"); return { dow: d.toLocaleDateString("en-GB", { weekday: "short" }), day: d.toLocaleDateString("en-GB", { day: "numeric", month: "long" }), full: d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) }; };
+    const hm = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+    // ---- Step 1: dates ----
+    $("ns-dates").innerHTML = NEW_STARTER_DATES.map((iso) => { const f = fmtDay(iso); return `<button type="button" class="ns-date" data-date="${iso}"><span class="ns-date-dow">${f.dow}</span><div class="ns-date-day">${f.day}</div></button>`; }).join("");
+    $("ns-dates").addEventListener("click", (e) => {
+      const b = e.target.closest(".ns-date"); if (!b) return;
+      state.date = b.getAttribute("data-date"); state.time = null;
+      document.querySelectorAll(".ns-date").forEach((x) => x.classList.toggle("is-active", x === b));
+      renderSlots();
+      $("ns-step-time").classList.remove("is-locked");
+      $("ns-step-time").scrollIntoView({ behavior: "smooth", block: "center" });
+      updateSummary();
+    });
+
+    // ---- Step 2: times ----
+    function renderSlots() {
+      const out = [];
+      for (let m = DAY_START; m + SLOT_MINUTES <= DAY_END; m += SLOT_MINUTES) out.push(hm(m));
+      $("ns-slots").innerHTML = out.map((t) => `<button type="button" class="ns-slot" data-time="${t}">${t}</button>`).join("");
+    }
+    $("ns-slots").addEventListener("click", (e) => {
+      const b = e.target.closest(".ns-slot"); if (!b) return;
+      state.time = b.getAttribute("data-time");
+      document.querySelectorAll(".ns-slot").forEach((x) => x.classList.toggle("is-active", x === b));
+      $("ns-step-details").classList.remove("is-locked");
+      updateSummary();
+    });
+
+    // ---- Summary + confirm ----
+    function updateSummary() {
+      if (state.date && state.time) { const f = fmtDay(state.date); $("ns-sum-when").textContent = `${f.full}, ${state.time}`; $("ns-cta").disabled = false; }
+      else { $("ns-sum-when").textContent = "Pick a date & time"; $("ns-cta").disabled = true; }
+    }
+
+    $("ns-cta").addEventListener("click", () => {
+      if (!state.date || !state.time) return;
+      // TODO(stage ②): POST to the Worker to create the videography_booking
+      // (bill_to = "TPE", £295+VAT recorded, no Stripe), block Jack's Outlook,
+      // redeem the code, and send the confirmation email. Stubbed for now.
+      const f = fmtDay(state.date);
+      $("ns-done-when").textContent = `${f.full}, ${state.time}`;
+      document.querySelectorAll(".ns-step, .ns-confirm, .ns-hero").forEach((el) => el.hidden = true);
+      $("ns-done").hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  </script>
+</BaseLayout>
