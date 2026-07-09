@@ -114,10 +114,10 @@ const inspo = [
       <section class="st-sec ws-rise" style="--i:2" aria-labelledby="designs-h">
         <header class="st-sec-head">
           <h2 class="st-sec-h" id="designs-h">Your Designs</h2>
-          <a class="ws-textlink" href="/editor">View all designs <span aria-hidden="true">→</span></a>
+          <a class="ws-textlink" href="/editor" data-seeall hidden>See all designs <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-row st-row--designs" data-designs>
-          {starters.map((t, i) => (
+          {starters.slice(0, 4).map((t, i) => (
             <a class="st-design" href={`/editor?template=${encodeURIComponent(t.id)}`}>
               <span class="st-design-img" style={`background-image:url('${t.thumb}')`}>
                 <span class="st-design-tag">{i === 0 ? "In progress" : "Template"}</span>
@@ -354,20 +354,23 @@ const inspo = [
     (async function wireDesigns() {
       const row = document.querySelector('[data-designs]');
       if (!row) return;
+      const seeall = document.querySelector('[data-seeall]');
       const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const newCard = `<a class="st-design st-design--new" href="/editor"><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return; // signed out (preview) → keep the SSR starter samples
+        // Fetch 5: enough to show the 4 most recent AND detect a 5th (→ "See all").
         const { data, error } = await supabase
           .from('user_designs')
           .select('id, name, thumb_url, updated_at')
           .order('updated_at', { ascending: false })
-          .limit(12);
+          .limit(5);
         if (error) return;
         const designs = data || [];
+        if (seeall) seeall.hidden = designs.length <= 4;   // only show "See all" when they have more than four
         if (!designs.length) { row.innerHTML = newCard; return; } // signed in, none yet → just "New design"
-        row.innerHTML = designs.map((d) => `
+        row.innerHTML = designs.slice(0, 4).map((d) => `
           <a class="st-design" href="/editor?design=${encodeURIComponent(d.id)}">
             <span class="st-design-img"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>
             <span class="st-design-name">${esc(d.name || 'Untitled design')}</span>
