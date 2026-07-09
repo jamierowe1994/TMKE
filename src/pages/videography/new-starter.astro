@@ -123,6 +123,7 @@ const termsHtml =
             <input type="checkbox" id="ns-agree" disabled />
             <span>I've read and understood the terms above.</span>
           </label>
+          <p class="dc-gate-error" id="ns-book-error" hidden></p>
           <div class="dc-step-actions"><button type="button" class="dc-next" id="ns-confirm" disabled>Confirm my booking <em>&rarr;</em></button></div>
         </section>
 
@@ -291,14 +292,30 @@ const termsHtml =
     termsBox.addEventListener("scroll", checkRead);
     $("ns-agree").addEventListener("change", (e) => { $("ns-confirm").disabled = !e.target.checked; });
 
-    $("ns-confirm").addEventListener("click", () => {
+    $("ns-confirm").addEventListener("click", async () => {
       if ($("ns-confirm").disabled) return;
-      // TODO(stage ②): POST to the Worker — create/sign-in the account +
-      // videography_booking (bill_to = TPE, £295+VAT, no Stripe), block Jack's
-      // Outlook, redeem the code, send the confirmation email. Stubbed for now.
-      const d = fmtDay(state.date);
-      $("ns-success-msg").innerHTML = `<strong>${d.full}, ${state.time}</strong>`;
-      showStep("success", true);
+      const btn = $("ns-confirm"), err = $("ns-book-error");
+      if (err) err.hidden = true;
+      if (!WORKER) { if (err) { err.textContent = "Booking isn't connected yet — please try again shortly."; err.hidden = false; } return; }
+      const prev = btn.innerHTML; btn.disabled = true; btn.textContent = "Booking…";
+      try {
+        const res = await fetch(`${WORKER}/new-starter/book`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: state.date, start: state.time, code,
+            name: f.name.value.trim(), email: f.email.value.trim(), phone: f.phone.value.trim(),
+            notes: f.notes.value.trim(), password: acctExists ? f.signin_password.value : f.password.value,
+          }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Sorry — we couldn't complete your booking just then. Please try again.");
+        const dd = fmtDay(state.date);
+        $("ns-success-msg").innerHTML = `<strong>${dd.full}, ${state.time}</strong>`;
+        showStep("success", true);
+      } catch (e2) {
+        if (err) { err.textContent = e2.message; err.hidden = false; }
+        btn.disabled = false; btn.innerHTML = prev;
+      }
     });
   </script>
 </BaseLayout>

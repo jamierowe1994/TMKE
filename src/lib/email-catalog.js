@@ -236,6 +236,19 @@ export const EMAIL_CATALOG = [
     summary: "Confirms the new date/time to the client; a matching internal alert goes to Jack.",
     fields: ["name", "service", "date", "time"],
   },
+  {
+    id: "new_starter_booking_confirm",
+    group: "Videography",
+    name: "New-starter Studio Day — confirmation",
+    audience: "client",
+    trigger: "A TEG new starter books their free Studio Day",
+    fires: "POST /new-starter/book",
+    to: "The new starter (+ heads-up to Jack)",
+    sender: "hello@tmke.co.uk",
+    subject: "Your Studio Day is booked — TMKE",
+    summary: "Confirms the booked date/time at the Content Studio, notes there's nothing to pay (part of their induction package), and that the address/prep will follow in a reminder. A matching internal booking alert goes to Jack (marked bill-to-TPE).",
+    fields: ["name", "date", "time"],
+  },
 
   // ─────────────────────────── Studio & packs ───────────────────────────
   {

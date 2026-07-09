@@ -1573,6 +1573,134 @@ export default {
         return json({ ok: true, eventId: ev.id, account_created: accountCreated }, 200, request, env);
       }
 
+      // ---- TEG new-starter "Studio Day" booking (free to them; bill-to-TPE) ----
+      // Reuses the normal booking machinery (account, Jack's calendar, code
+      // redemption, confirmation email) but takes no payment and marks the row
+      // bill_to='TPE'. Also flips the agent's TEG record to 'booked'.
+      if (path.endsWith("/new-starter/book") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const { date, start, name, phone, notes, password, code } = b || {};
+        const em = String((b && b.email) || "").trim().toLowerCase();
+        if (!date || !start || !name || !em) return json({ error: "Missing booking details." }, 400, request, env);
+        if (!password || String(password).length < 8) return json({ error: "A password of at least 8 characters is required." }, 400, request, env);
+        const dur = 180; // half-day = 3 hours
+        const endHm = minToHm(hmToMin(start) + dur);
+
+        // 1) Re-check Jack's calendar is free for the slot.
+        try {
+          const check = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
+            schedules: [env.JACK_UPN],
+            startTime: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+            endTime: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+            availabilityViewInterval: 30,
+          });
+          const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
+          if (view && /[^0]/.test(view)) return json({ error: "That slot was just taken — please choose another." }, 409, request, env);
+        } catch (_) {}
+
+        // 2) Account: existing → verify their password and link; new → create.
+        let accountUserId = null, accountCreated = false;
+        const existing = await findUserByEmail(env, em);
+        if (existing) {
+          let ok = false;
+          try {
+            const tr = await fetch(`${env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+              method: "POST", headers: { apikey: env.SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+              body: JSON.stringify({ email: em, password }),
+            });
+            ok = tr.ok;
+          } catch (_) {}
+          if (!ok) return json({ error: "That email already has a TMKE account — the password didn't match. Use your existing password, or reset it on the sign-in page." }, 401, request, env);
+          accountUserId = existing.id;
+        } else {
+          try {
+            const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+              method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ email: em, password, email_confirm: true, user_metadata: { full_name: name, phone: phone || null } }),
+            });
+            if (cr.ok) { const u = await cr.json(); accountUserId = (u && u.id) || null; accountCreated = true; }
+            else { const u = await findUserByEmail(env, em); if (u) accountUserId = u.id; }
+          } catch (_) {}
+        }
+
+        // 3) Redeem their single-use code (best-effort).
+        if (code) {
+          try {
+            await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/redeem_promo_code`, {
+              method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ p_code: String(code).toUpperCase() }),
+            });
+          } catch (_) {}
+        }
+
+        // 4) Block Jack's calendar (studio session).
+        let ev = {};
+        try {
+          ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
+            subject: `Studio Day (new starter) — ${name}`,
+            body: { contentType: "text", content: [`New-starter Studio Day.`, phone && `Phone: ${phone}`, `Email: ${em}`, notes && `Notes: ${notes}`].filter(Boolean).join("\n") },
+            start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
+            end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+            location: { displayName: "TMKE Content Studio" },
+            attendees: [{ emailAddress: { address: em, name }, type: "required" }],
+          });
+        } catch (_) {}
+
+        // 5) Insert the booking row — bill-to-TPE, £295 + VAT (£354 inc).
+        const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}-${ev.id || ""}`;
+        let newBookingId = null;
+        try {
+          const insRes = await sbPost(env, "videography_bookings", {
+            kind: "booking", service_type: "content-studio", service: "New-Starter Studio Day",
+            client_name: name, client_email: em, client_phone: phone || null,
+            shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
+            promo_code: code || null, discount_pence: 0, bill_to: "TPE", total_pence: 35400,
+            account_user_id: accountUserId, reschedule_token: rescheduleToken,
+            ms_event_id: ev.id || null, duration_min: dur, marketing_opt_in: false,
+          }, "return=representation");
+          const arr = await insRes.json();
+          newBookingId = Array.isArray(arr) && arr[0] ? arr[0].id : null;
+        } catch (_) {}
+
+        // 6) CRM: tag like a normal videography booking + flip the TEG record to booked.
+        try {
+          const fn = String(name || "").trim().split(/\s+/);
+          const tags = crmTags(em, ["Videography-Client", videographyProductTag("content-studio")], { member: true });
+          await sbRpc(env, "upsert_contact", { p_email: em, p_first_name: fn.shift() || name, p_last_name: fn.join(" ") || null, p_phone: phone || null, p_source: "new_starter_booking", p_lifecycle: "customer", p_tags: tags, p_user_id: accountUserId });
+          const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(em)}&select=id`);
+          const cid = cRows && cRows[0] && cRows[0].id;
+          if (cid) {
+            await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?contact_id=eq.${encodeURIComponent(cid)}`, {
+              method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+              body: JSON.stringify({ status: "booked", shoot_booked_at: `${date}T${start}:00` }),
+            });
+          }
+        } catch (_) {}
+
+        // 7) Confirmation email to the starter + heads-up to Jack (best-effort).
+        const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
+        const first = String(name || "there").trim().split(/\s+/)[0];
+        const cHtml = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;">
+          <div style="font-size:20px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
+          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Hi ${first},</p>
+          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Your <strong>Studio Day</strong> is booked. Here are the details:</p>
+          <p style="margin:0 0 6px;font-size:15px;color:#1c1d22;"><strong>${dateNice}</strong> at <strong>${start}</strong> (about 3 hours)</p>
+          <p style="margin:0 0 18px;font-size:15px;color:#1c1d22;">at the <strong>TMKE Content Studio</strong>. We'll confirm the full address and how to prepare in a reminder before the day.</p>
+          <p style="margin:0 0 18px;font-size:14px;color:#6b6b70;">There's nothing for you to pay — your session is part of your induction package.</p>
+          <p style="margin:0;font-size:12.5px;color:#9a9aa0;">Need to change it? Just reply to this email.</p>
+        </div>`;
+        try { await sendEmail(env, { to: em, subject: "Your Studio Day is booked — TMKE", html: cHtml }); } catch (_) {}
+        try { await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New Studio Day booking — ${name}`, html: `<p>New-starter Studio Day booked.</p><p><strong>${name}</strong> — ${dateNice} at ${start} (3 hrs), TMKE Content Studio.</p><p>${em}${phone ? " · " + phone : ""}</p><p>Bill to <strong>TPE</strong> — £295 + VAT.</p>` }); } catch (_) {}
+
+        await logBookingMessage(env, {
+          booking_id: newBookingId, booking_source: "videography", account_user_id: accountUserId, client_email: em,
+          kind: "confirmation", subject: "Studio Day booked",
+          body: `New-starter Studio Day booked for ${dateNice} at ${start}. Billed to TPE.`,
+        });
+
+        return json({ ok: true, account_created: accountCreated }, 200, request, env);
+      }
+
       // ---- Non-member enquiry (Property / Agent) — lands in the Enquiries inbox
       // (/admin/enquiries), tagged with a videography source, plus an FYI email
       // to Jack. It is NOT added to Jack's videography pipeline (that's bookings).
