@@ -233,7 +233,11 @@ import "../../styles/admin.css";
     .ct-tagfilter-btn.is-on { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     .ct-tagfilter-btn.is-on b { background: rgba(255,255,255,0.22); color: #fff; }
     .ct-tagfilter-caret { width: 12px; height: 12px; flex: none; }
-    .ct-tagfilter-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 120; width: 288px; max-height: 344px; overflow-y: auto; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.35); padding: 8px; }
+    /* Fixed (not absolute) so it escapes the .ash-content / .ash overflow
+       clipping — otherwise its lower half is cut off (looks see-through) and the
+       scrollbar can't be reached. top/left/max-height are set in JS from the
+       button's position so it always sits below the button and fits the viewport. */
+    .ct-tagfilter-menu { position: fixed; z-index: 400; width: 288px; overflow-y: auto; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.35); padding: 8px; }
     .ct-tagfilter-menu[hidden] { display: none; }
     .ct-tagfilter-empty { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); padding: 10px 8px; }
     .ct-tagfilter-group + .ct-tagfilter-group { margin-top: 2px; }
@@ -742,16 +746,29 @@ import "../../styles/admin.css";
       const clr = document.getElementById("ct-tagfilter-clear");
       if (clr) clr.addEventListener("click", () => { selectedTags.clear(); buildTagMenu(); syncTagPill(); render(); });
     }
+    // Position the fixed menu just below the button, capped to the viewport so
+    // it's always fully visible and scrolls inside itself.
+    function positionTagMenu() {
+      const menu = $("ct-tagfilter-menu"), r = $("ct-tagfilter-btn").getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+      menu.style.left = Math.round(r.left) + "px";
+      menu.style.top = Math.round(r.bottom + 8) + "px";
+      menu.style.maxHeight = Math.min(360, Math.max(180, vh - r.bottom - 24)) + "px";
+    }
     $("ct-tagfilter-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       const menu = $("ct-tagfilter-menu"), willOpen = menu.hidden;
-      if (willOpen) buildTagMenu();
-      menu.hidden = !willOpen;
+      if (willOpen) { buildTagMenu(); menu.hidden = false; positionTagMenu(); }
+      else menu.hidden = true;
       $("ct-tagfilter-btn").setAttribute("aria-expanded", String(willOpen));
     });
     document.addEventListener("click", (e) => {
       if (!e.target.closest("#ct-tagfilter")) { $("ct-tagfilter-menu").hidden = true; $("ct-tagfilter-btn").setAttribute("aria-expanded", "false"); }
     });
+    // Keep it aligned to the button if the page scrolls or the window resizes.
+    const repositionIfOpen = () => { if (!$("ct-tagfilter-menu").hidden) positionTagMenu(); };
+    window.addEventListener("resize", repositionIfOpen);
+    document.querySelector(".ash-content")?.addEventListener("scroll", repositionIfOpen, { passive: true });
 
     // ---- Bulk select + delete ----
     $("ct-check-all").addEventListener("change", (e) => {
