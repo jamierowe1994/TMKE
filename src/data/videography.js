@@ -59,7 +59,7 @@ export const PRODUCTS = [
     num: "01",
     name: "The Studio",
     // ---- Slide (deck) ----
-    slideCopy: "Short-form video content, filmed in our Rugby Studio",
+    slideCopy: "Short-form video content, professionally filmed in our Rugby Studio for your socials",
     slideBlurb:
       "A professional filming space in Rugby where you come in, film a batch of content, and leave with weeks of social media sorted. Sessions are available to members.",
     ctaLabel: "Discover the Studio",
