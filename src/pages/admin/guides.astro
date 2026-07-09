@@ -1,0 +1,251 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+import { GUIDE_TOPICS } from "../../data/guide-topics.js";
+---
+
+<AdminShell active="guides" title="Guides">
+  <div class="gadm">
+    <!-- ───────── list ───────── -->
+    <aside class="gadm-list">
+      <div class="gadm-list-head">
+        <h2>Guides</h2>
+        <button type="button" class="gadm-new" id="g-new">+ New</button>
+      </div>
+      <div class="gadm-items" id="g-items"><p class="gadm-muted">Loading…</p></div>
+    </aside>
+
+    <!-- ───────── editor ───────── -->
+    <section class="gadm-edit" id="g-edit" hidden>
+      <div class="gadm-bar">
+        <span class="gadm-status-pill" id="g-status-pill" data-status="draft">Draft</span>
+        <span class="gadm-saved" id="g-saved"></span>
+        <div class="gadm-bar-r">
+          <button type="button" class="gadm-btn gadm-btn--danger" id="g-delete">Delete</button>
+          <button type="button" class="gadm-btn" id="g-save">Save draft</button>
+          <button type="button" class="gadm-btn gadm-btn--solid" id="g-publish">Publish</button>
+        </div>
+      </div>
+
+      <label class="gadm-f"><span>Title</span><input id="g-title" placeholder="e.g. Setting up your brand kit" /></label>
+      <label class="gadm-f"><span>URL slug</span><input id="g-slug" placeholder="setting-up-your-brand-kit" /></label>
+
+      <div class="gadm-f4">
+        <label class="gadm-f"><span>Topic</span><select id="g-topic">{GUIDE_TOPICS.map((t) => (<option value={t.slug}>{t.label}</option>))}</select></label>
+        <label class="gadm-f"><span>Type</span><select id="g-kind"><option value="guide">Guide</option><option value="course">Mini-course</option></select></label>
+        <label class="gadm-f"><span>Audience</span><select id="g-audience"><option value="members">Members</option><option value="public">Public</option></select></label>
+        <label class="gadm-f"><span>Est. minutes</span><input id="g-mins" type="number" min="1" max="240" placeholder="6" /></label>
+      </div>
+
+      <label class="gadm-f"><span>Summary (shown on cards)</span><textarea id="g-summary" rows="2" placeholder="One line that sells the guide."></textarea></label>
+      <label class="gadm-f"><span>Cover image URL (optional)</span><input id="g-cover" type="url" placeholder="https://…" /></label>
+
+      <div class="gadm-lessons-head">
+        <span class="gadm-sub">Lessons</span>
+        <span class="gadm-muted" id="g-lessons-hint">A Guide is usually one lesson; a Mini-course has several.</span>
+      </div>
+      <div id="g-lessons"></div>
+      <button type="button" class="gadm-addlesson" id="g-add-lesson">+ Add lesson</button>
+    </section>
+
+    <section class="gadm-empty" id="g-empty">
+      <h2>Guides</h2>
+      <p>Pick a guide on the left to edit it, or start a new one.</p>
+      <button type="button" class="gadm-btn gadm-btn--solid" id="g-new-2">+ New guide</button>
+    </section>
+  </div>
+
+  <style is:global>
+    .gadm { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 900px) { .gadm { grid-template-columns: 1fr; } }
+    .gadm-muted { color: rgba(28,29,34,0.5); font-size: 13px; }
+    .gadm-sub { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+
+    /* list */
+    .gadm-list { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 16px; position: sticky; top: 16px; }
+    .gadm-list-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .gadm-list-head h2 { font-family: var(--serif); font-weight: 400; font-size: 20px; margin: 0; }
+    .gadm-new, .gadm-addlesson { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); background: #fff; border: 1px solid var(--english-violet); border-radius: 7px; padding: 7px 12px; cursor: pointer; }
+    .gadm-new:hover, .gadm-addlesson:hover { background: rgba(55,30,40,0.06); }
+    .gadm-items { display: flex; flex-direction: column; gap: 6px; max-height: 70vh; overflow: auto; }
+    .gadm-item { text-align: left; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 9px; padding: 11px 13px; cursor: pointer; }
+    .gadm-item:hover { border-color: var(--english-violet); }
+    .gadm-item.is-active { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
+    .gadm-item-t { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); display: block; }
+    .gadm-item-m { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.5); margin-top: 3px; display: flex; gap: 8px; align-items: center; }
+    .gadm-dot { width: 7px; height: 7px; border-radius: 50%; background: #c9c3bf; }
+    .gadm-dot.is-published { background: #3f9468; }
+    .gadm-dot.is-draft { background: #caa63c; }
+
+    /* editor */
+    .gadm-edit { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+    .gadm-empty { background: #fff; border: 1px dashed rgba(28,29,34,0.2); border-radius: 12px; padding: 60px 22px; text-align: center; color: rgba(28,29,34,0.55); }
+    .gadm-empty h2 { font-family: var(--serif); font-weight: 400; color: var(--ink); margin: 0 0 6px; }
+    .gadm-empty p { margin: 0 0 16px; font-size: 14px; }
+    .gadm-bar { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .gadm-bar-r { margin-left: auto; display: flex; gap: 8px; }
+    .gadm-btn { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; padding: 9px 15px; border-radius: 8px; border: 1px solid rgba(55,30,40,0.25); background: #fff; color: var(--english-violet); cursor: pointer; }
+    .gadm-btn:hover { background: rgba(55,30,40,0.05); }
+    .gadm-btn--solid { background: var(--english-violet); color: #fff; border-color: var(--english-violet); }
+    .gadm-btn--solid:hover { background: var(--ink); }
+    .gadm-btn--danger { color: #a05a3c; border-color: rgba(160,90,60,0.4); }
+    .gadm-btn--danger:hover { background: rgba(160,90,60,0.08); }
+    .gadm-status-pill { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; }
+    .gadm-status-pill[data-status="draft"] { background: rgba(202,166,60,0.16); color: #8a6d1e; }
+    .gadm-status-pill[data-status="published"] { background: rgba(63,148,104,0.16); color: #2d6a44; }
+    .gadm-status-pill[data-status="archived"] { background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.55); }
+    .gadm-saved { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
+    .gadm-f { display: flex; flex-direction: column; gap: 6px; }
+    .gadm-f > span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .gadm-f input, .gadm-f select, .gadm-f textarea { font-family: var(--sans); font-size: 14px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; background: #fff; color: var(--ink); width: 100%; }
+    .gadm-f input:focus, .gadm-f select:focus, .gadm-f textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
+    .gadm-f4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    @media (max-width: 640px) { .gadm-f4 { grid-template-columns: 1fr 1fr; } }
+    .gadm-lessons-head { display: flex; align-items: baseline; gap: 12px; margin-top: 6px; }
+    .gadm-lesson { border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #fbfaf8; }
+    .gadm-lesson-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .gadm-lesson-no { font-family: var(--sans); font-size: 11px; font-weight: 700; color: var(--english-violet); }
+    .gadm-lesson-bar .gadm-mini { margin-left: auto; }
+    .gadm-mini { font-family: var(--sans); font-size: 12px; border: 1px solid rgba(28,29,34,0.16); background: #fff; border-radius: 6px; padding: 4px 8px; cursor: pointer; color: rgba(28,29,34,0.6); }
+    .gadm-mini:hover { border-color: var(--english-violet); color: var(--english-violet); }
+    .gadm-lesson textarea { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.5; }
+    .gadm-lesson-hint { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); margin: 6px 0 0; }
+    .gadm-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; font-family: var(--sans); font-size: 13px; z-index: 100; }
+  </style>
+
+  <p class="gadm-toast" id="g-toast" hidden></p>
+
+  <script>
+    import { supabase, isConfigured } from "../../lib/supabase.js";
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { GUIDE_TOPIC_LABEL } from "../../data/guide-topics.js";
+
+    const $ = (s) => document.querySelector(s);
+    const DEV = import.meta.env.DEV;
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+    const slugify = (s) => String(s || "").toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80);
+    function toast(m){ const t=$("#g-toast"); t.textContent=m; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2400); }
+
+    let list = [];
+    let cur = null;            // current guide id (null = new/unsaved)
+    let lessons = [];          // [{ title, body_html }]
+
+    /* ---------- lessons editor ---------- */
+    function renderLessons() {
+      const wrap = $("#g-lessons");
+      wrap.innerHTML = lessons.map((l, i) => `
+        <div class="gadm-lesson" data-i="${i}">
+          <div class="gadm-lesson-bar">
+            <span class="gadm-lesson-no">Lesson ${i + 1}</span>
+            <button type="button" class="gadm-mini" data-up="${i}" ${i===0?"disabled":""}>↑</button>
+            <button type="button" class="gadm-mini" data-down="${i}" ${i===lessons.length-1?"disabled":""}>↓</button>
+            <button type="button" class="gadm-mini" data-del="${i}">Remove</button>
+          </div>
+          <input class="gadm-l-title" data-i="${i}" placeholder="Lesson title" value="${esc(l.title || "")}" />
+          <textarea class="gadm-l-body" data-i="${i}" rows="8" placeholder="Lesson content — HTML: <p>…</p>, <h3>…</h3>, <ul><li>…</li></ul>, <strong>…</strong>">${esc(l.body_html || "")}</textarea>
+          <p class="gadm-lesson-hint">Write in simple HTML: paragraphs &lt;p&gt;, sub-heads &lt;h3&gt;, lists &lt;ul&gt;&lt;li&gt;, bold &lt;strong&gt;, links &lt;a href&gt;.</p>
+        </div>`).join("");
+      wrap.querySelectorAll(".gadm-l-title").forEach((el) => el.addEventListener("input", () => { lessons[+el.dataset.i].title = el.value; markDirty(); }));
+      wrap.querySelectorAll(".gadm-l-body").forEach((el) => el.addEventListener("input", () => { lessons[+el.dataset.i].body_html = el.value; markDirty(); }));
+      wrap.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => { lessons.splice(+b.dataset.del, 1); renderLessons(); markDirty(); }));
+      wrap.querySelectorAll("[data-up]").forEach((b) => b.addEventListener("click", () => { const i=+b.dataset.up; [lessons[i-1],lessons[i]]=[lessons[i],lessons[i-1]]; renderLessons(); markDirty(); }));
+      wrap.querySelectorAll("[data-down]").forEach((b) => b.addEventListener("click", () => { const i=+b.dataset.down; [lessons[i+1],lessons[i]]=[lessons[i],lessons[i+1]]; renderLessons(); markDirty(); }));
+    }
+    $("#g-add-lesson").addEventListener("click", () => { lessons.push({ title: "", body_html: "" }); renderLessons(); markDirty(); });
+
+    /* ---------- form <-> state ---------- */
+    function setStatusPill(s){ const p=$("#g-status-pill"); p.dataset.status=s; p.textContent=s.charAt(0).toUpperCase()+s.slice(1); }
+    let curStatus = "draft", dirty = false, booted = false;
+    function markDirty(){ if(booted){ dirty=true; $("#g-saved").textContent="Unsaved changes"; } }
+
+    function showEditor(guide) {
+      $("#g-empty").hidden = true; $("#g-edit").hidden = false;
+      cur = guide ? guide.id : null;
+      curStatus = guide?.status || "draft";
+      $("#g-title").value = guide?.title || "";
+      $("#g-slug").value = guide?.slug || "";
+      $("#g-topic").value = guide?.topic || "getting-started";
+      $("#g-kind").value = guide?.kind || "guide";
+      $("#g-audience").value = guide?.audience || "members";
+      $("#g-mins").value = guide?.est_minutes ?? "";
+      $("#g-summary").value = guide?.summary || "";
+      $("#g-cover").value = guide?.cover_url || "";
+      lessons = Array.isArray(guide?.lessons) && guide.lessons.length ? JSON.parse(JSON.stringify(guide.lessons)) : [{ title: "", body_html: "" }];
+      renderLessons(); setStatusPill(curStatus);
+      $("#g-saved").textContent = guide?.updated_at ? "Saved " + new Date(guide.updated_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "";
+      dirty = false;
+      document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.id === (cur||"")));
+    }
+    ["g-title","g-slug","g-topic","g-kind","g-audience","g-mins","g-summary","g-cover"].forEach((id) => {
+      const el = $("#"+id); const ev = el.tagName === "SELECT" ? "change" : "input";
+      el.addEventListener(ev, () => { if(id==="g-title" && !$("#g-slug").value) $("#g-slug").value = slugify($("#g-title").value); markDirty(); });
+    });
+
+    function gather() {
+      const cleanLessons = lessons.map((l) => ({ title: (l.title||"").trim(), body_html: (l.body_html||"").trim() })).filter((l) => l.title || l.body_html);
+      return {
+        title: ($("#g-title").value || "").trim() || "Untitled guide",
+        slug: slugify($("#g-slug").value || $("#g-title").value || "guide-" + Date.now()),
+        topic: $("#g-topic").value, kind: $("#g-kind").value, audience: $("#g-audience").value,
+        est_minutes: $("#g-mins").value ? Number($("#g-mins").value) : null,
+        summary: ($("#g-summary").value || "").trim() || null,
+        cover_url: ($("#g-cover").value || "").trim() || null,
+        lessons: cleanLessons, status: curStatus,
+      };
+    }
+
+    async function save(newStatus) {
+      if (!isConfigured) { toast("Connect Supabase to save."); return; }
+      if (newStatus) { curStatus = newStatus; setStatusPill(curStatus); }
+      const payload = gather();
+      toast("Saving…");
+      const q = cur
+        ? supabase.from("guides").update(payload).eq("id", cur).select().maybeSingle()
+        : supabase.from("guides").insert(payload).select().maybeSingle();
+      const { data, error } = await q;
+      if (error) { toast("Save failed: " + error.message); return; }
+      cur = data.id; dirty = false; $("#g-saved").textContent = "All changes saved";
+      toast(newStatus === "published" ? "Published ✓" : "Saved ✓");
+      await loadList();
+      document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.id === cur));
+    }
+    $("#g-save").addEventListener("click", () => save());
+    $("#g-publish").addEventListener("click", () => save("published"));
+    $("#g-delete").addEventListener("click", async () => {
+      if (!cur) { $("#g-edit").hidden = true; $("#g-empty").hidden = false; return; }
+      if (!confirm("Delete this guide? This can't be undone.")) return;
+      const { error } = await supabase.from("guides").delete().eq("id", cur);
+      if (error) { toast("Delete failed: " + error.message); return; }
+      toast("Deleted"); cur = null; $("#g-edit").hidden = true; $("#g-empty").hidden = false; await loadList();
+    });
+    $("#g-new").addEventListener("click", () => showEditor(null));
+    $("#g-new-2").addEventListener("click", () => showEditor(null));
+
+    /* ---------- list ---------- */
+    async function loadList() {
+      if (!isConfigured) { $("#g-items").innerHTML = '<p class="gadm-muted">Connect Supabase to manage guides.</p>'; return; }
+      const { data, error } = await supabase.from("guides")
+        .select("id,slug,title,topic,kind,status,updated_at,sort_order")
+        .order("sort_order", { ascending: true }).order("updated_at", { ascending: false });
+      if (error) { $("#g-items").innerHTML = '<p class="gadm-muted">Could not load guides.</p>'; return; }
+      list = data || [];
+      $("#g-items").innerHTML = list.length ? list.map((g) => `
+        <button type="button" class="gadm-item${g.id===cur?" is-active":""}" data-id="${g.id}">
+          <span class="gadm-item-t">${esc(g.title || "Untitled")}</span>
+          <span class="gadm-item-m"><span class="gadm-dot is-${g.status}"></span>${g.status} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Guide"}</span>
+        </button>`).join("") : '<p class="gadm-muted">No guides yet. Click “+ New”.</p>';
+      $("#g-items").querySelectorAll(".gadm-item").forEach((el) => el.addEventListener("click", async () => {
+        const { data } = await supabase.from("guides").select("*").eq("id", el.dataset.id).maybeSingle();
+        if (data) showEditor(data);
+      }));
+    }
+
+    (async () => {
+      let session;
+      if (DEV) session = (await supabase.auth.getSession()).data.session || { user: { id: "dev", email: "dev@tmke.co.uk" } };
+      else { session = await requireAdmin("/admin/login"); if (!session) return; }
+      await loadList();
+      booted = true;
+    })();
+  </script>
+</AdminShell>
