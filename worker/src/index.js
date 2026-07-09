@@ -2949,6 +2949,57 @@ export default {
         return json({ ok: true, profile: (saved && saved[0]) || row }, 200, request, env);
       }
 
+      // ---- Admin: invoicing settings (company/finance details) ---------------
+      if (path.endsWith("/invoicing/settings") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const rows = await sbGet(env, "invoice_settings", "id=eq.1&select=*");
+        return json({ ok: true, settings: (rows && rows[0]) || null }, 200, request, env);
+      }
+      if (path.endsWith("/invoicing/settings") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const allowed = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "bank_name", "account_name", "sort_code", "account_number", "payment_terms_days", "invoice_prefix", "next_number", "accounts_cc_email", "footer_note"];
+        const row = { id: 1 };
+        for (const k of allowed) if (b && k in b) row[k] = b[k];
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?on_conflict=id`, {
+          method: "POST",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(row),
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: invoice recipients (address book) --------------------------
+      if (path.endsWith("/invoicing/recipients") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const rows = (await sbGet(env, "invoice_recipients", "select=*&order=name.asc")) || [];
+        return json({ ok: true, recipients: rows }, 200, request, env);
+      }
+      if (path.endsWith("/invoicing/recipients") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const name = String((b && b.name) || "").trim();
+        const email = String((b && b.email) || "").trim();
+        if (!name || !email) return json({ error: "A name and email are required." }, 400, request, env);
+        const res = await sbPost(env, "invoice_recipients", { name, email, contact_name: (b && b.contact_name) || null, address: (b && b.address) || null, notes: (b && b.notes) || null }, "return=representation");
+        let rec = null; try { const j = await res.json(); rec = Array.isArray(j) ? j[0] : j; } catch (_) {}
+        return json({ ok: true, recipient: rec }, 200, request, env);
+      }
+      if (path.endsWith("/invoicing/recipients") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_recipients?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: set an SMM client's status (active / paused / ended) --------
       // Persists on the lead and swaps the SMM-Status tag on their CRM contact.
       // Active also lifts their lifecycle to Customer (per the tagging framework).
