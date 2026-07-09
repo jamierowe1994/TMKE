@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 ---
 
 <!--
@@ -40,98 +41,31 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
           <h2 class="ws-eyebrow" id="topics-h">Explore by topic</h2>
         </header>
         <div class="lrn-rail">
-          <div class="lrn-row" data-rail>
-            <a class="lrn-topic" href="#">
-              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5c-.7.7-1 1.2-1 2.5H9c0-1.3-.3-1.8-1-2.5A6 6 0 0 1 12 3z"/></svg></span>
-              <span class="lrn-topic-name">Getting started</span>
-              <span class="lrn-topic-count">8 guides</span>
-            </a>
-            <a class="lrn-topic" href="#">
-              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h7"/></svg></span>
-              <span class="lrn-topic-name">Content strategy</span>
-              <span class="lrn-topic-count">12 guides</span>
-            </a>
-            <a class="lrn-topic" href="#">
-              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2s-.6-2-1-2.5.4-1.5 1.5-1.5H17a4 4 0 0 0 4-4c0-3.9-4-6-9-6z"/><circle cx="7.5" cy="11" r="1"/><circle cx="11" cy="7.5" r="1"/><circle cx="15.5" cy="8.5" r="1"/></svg></span>
-              <span class="lrn-topic-name">Design &amp; branding</span>
-              <span class="lrn-topic-count">14 guides</span>
-            </a>
-            <a class="lrn-topic" href="#">
-              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9l5 3-5 3z"/></svg></span>
-              <span class="lrn-topic-name">Reels &amp; video</span>
-              <span class="lrn-topic-count">10 guides</span>
-            </a>
-            <a class="lrn-topic" href="#">
-              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M7 11V6a2 2 0 0 1 4 0v5M11 11l1-7a1.5 1.5 0 0 1 3 .3L14.5 11M4 13a8 8 0 0 0 8 8 8 8 0 0 0 8-8c0-1-.7-2-2-2H6c-1.3 0-2 1-2 2z"/></svg></span>
-              <span class="lrn-topic-name">Posting &amp; growth</span>
-              <span class="lrn-topic-count">10 guides</span>
-            </a>
-            <a class="lrn-topic" href="#">
-              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></span>
-              <span class="lrn-topic-name">Analytics</span>
-              <span class="lrn-topic-count">8 guides</span>
-            </a>
-            <a class="lrn-topic" href="#">
-              <span class="lrn-topic-ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 6.5a3 3 0 0 1 0 5.6M18 14c2.3.7 4 2.8 4 5.3"/></svg></span>
-              <span class="lrn-topic-name">Client attraction</span>
-              <span class="lrn-topic-count">7 guides</span>
-            </a>
+          <div class="lrn-row" data-rail id="lrn-topics">
+            {GUIDE_TOPICS.map((t) => (
+              <a class="lrn-topic" href={`?topic=${t.slug}`} data-topic={t.slug}>
+                <span class="lrn-topic-ic"><svg viewBox="0 0 24 24" set:html={t.icon}></svg></span>
+                <span class="lrn-topic-name" set:html={t.label}></span>
+                <span class="lrn-topic-count" data-count={t.slug}>—</span>
+              </a>
+            ))}
           </div>
           <button type="button" class="lrn-arrow" data-rail-next aria-label="Show more topics"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
         </div>
       </section>
 
-      <!-- ============ Continue learning ============ -->
+      <!-- ============ Guides (real — hydrated from the guides table) ============ -->
       <section class="lrn-sec ws-rise" style="--i:2" aria-labelledby="cont-h">
         <header class="lrn-sec-head">
-          <h2 class="ws-eyebrow" id="cont-h">Continue learning</h2>
-          <a class="ws-textlink" href="#">See all →</a>
+          <h2 class="ws-eyebrow" id="cont-h">Guides</h2>
+          <button type="button" class="ws-textlink" id="lrn-clear" hidden>Clear filter ✕</button>
         </header>
-        <div class="lrn-rail">
-          <div class="lrn-row" data-rail>
-            <a class="lrn-course" href="#">
-              <span class="lrn-course-art" style="background-image:url('/assets/cosy%20home.jpg')"><span class="lrn-ring" style="--p:60"><span>60%</span></span></span>
-              <span class="lrn-course-body">
-                <span class="lrn-kind">Guide</span>
-                <span class="lrn-course-title">Setting up your brand kit</span>
-                <span class="lrn-course-meta">5 steps left</span>
-                <span class="lrn-bar"><span class="lrn-bar-fill" style="width:60%"></span></span>
-              </span>
-            </a>
-            <a class="lrn-course" href="#">
-              <span class="lrn-course-art" style="background-image:url('/assets/home%20kitchen.jpg')"><span class="lrn-ring" style="--p:30"><span>30%</span></span></span>
-              <span class="lrn-course-body">
-                <span class="lrn-kind">Course</span>
-                <span class="lrn-course-title">Content that converts</span>
-                <span class="lrn-course-meta">3 of 10 lessons</span>
-                <span class="lrn-bar"><span class="lrn-bar-fill" style="width:30%"></span></span>
-              </span>
-            </a>
-            <a class="lrn-course" href="#">
-              <span class="lrn-course-art" style="background-image:url('/assets/sitting%20chair.jpg')"><span class="lrn-ring" style="--p:75"><span>75%</span></span></span>
-              <span class="lrn-course-body">
-                <span class="lrn-kind">Course</span>
-                <span class="lrn-course-title">Instagram growth playbook</span>
-                <span class="lrn-course-meta">6 of 8 lessons</span>
-                <span class="lrn-bar"><span class="lrn-bar-fill" style="width:75%"></span></span>
-              </span>
-            </a>
-            <a class="lrn-course" href="#">
-              <span class="lrn-course-art" style="background-image:url('/assets/tea.jpg')"><span class="lrn-ring" style="--p:20"><span>20%</span></span></span>
-              <span class="lrn-course-body">
-                <span class="lrn-kind">Guide</span>
-                <span class="lrn-course-title">Captions that connect</span>
-                <span class="lrn-course-meta">2 steps left</span>
-                <span class="lrn-bar"><span class="lrn-bar-fill" style="width:20%"></span></span>
-              </span>
-            </a>
-          </div>
-          <button type="button" class="lrn-arrow" data-rail-next aria-label="Show more"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-        </div>
+        <div class="lrn-guides-grid" id="lrn-guides" aria-busy="true"></div>
+        <p class="lrn-guides-empty" id="lrn-guides-empty" hidden>No guides here yet — they'll appear as they're published.</p>
       </section>
 
-      <!-- ============ Featured learning paths ============ -->
-      <section class="lrn-sec ws-rise" style="--i:3" aria-labelledby="paths-h">
+      <!-- ============ Featured learning paths (hidden until real paths exist) ============ -->
+      <section class="lrn-sec ws-rise lrn-soon" style="--i:3" aria-labelledby="paths-h">
         <header class="lrn-sec-head">
           <h2 class="ws-eyebrow" id="paths-h">Featured learning paths</h2>
         </header>
@@ -158,8 +92,8 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
         <div class="lrn-dots" aria-hidden="true"><span class="is-on"></span><span></span><span></span></div>
       </section>
 
-      <!-- ============ Quick lessons ============ -->
-      <section class="lrn-sec ws-rise" style="--i:4" aria-labelledby="quick-h">
+      <!-- ============ Quick lessons (hidden until real video lessons exist) ============ -->
+      <section class="lrn-sec ws-rise lrn-soon" style="--i:4" aria-labelledby="quick-h">
         <header class="lrn-sec-head">
           <h2 class="ws-eyebrow" id="quick-h">Quick lessons</h2>
           <a class="ws-textlink" href="#">Browse all →</a>
@@ -297,6 +231,20 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 
     /* ---------- Section scaffolding ---------- */
     .lrn-sec { display: flex; flex-direction: column; gap: 16px; }
+    .lrn-soon { display: none; }   /* mock sections parked until real content exists */
+
+    /* ---------- Real guides grid ---------- */
+    .lrn-guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: clamp(14px, 1.4vw, 20px); }
+    .lrn-guides-empty { font-size: 14px; color: var(--ws-faint); padding: 6px 0; }
+    .lrn-gcard { display: flex; flex-direction: column; background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); overflow: hidden; text-decoration: none; color: inherit; box-shadow: var(--ws-sh); transition: transform 0.22s var(--ws-ease), box-shadow 0.22s; }
+    .lrn-gcard:hover { transform: translateY(-3px); box-shadow: 0 1px 2px rgba(28,29,34,0.02), 0 24px 48px -30px rgba(28,29,34,0.24); }
+    .lrn-gcard-art { aspect-ratio: 16 / 10; background-size: cover; background-position: center; background-color: color-mix(in srgb, var(--ws-accent) 14%, #efece9); }
+    .lrn-gcard-body { padding: 15px 16px 17px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .lrn-gcard-kind { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent); }
+    .lrn-gcard-title { font-family: var(--serif); font-weight: 500; font-size: 18px; line-height: 1.2; color: var(--ws-ink); }
+    .lrn-gcard-sum { font-size: 13px; line-height: 1.5; color: var(--ws-tx); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .lrn-gcard-meta { margin-top: auto; padding-top: 4px; font-size: 12px; color: var(--ws-faint); }
+    .lrn-topic.is-active { border-color: var(--ws-accent); box-shadow: inset 0 0 0 1px var(--ws-accent); }
     .lrn-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 0 2px; }
 
     /* Horizontal rails (topics / courses / clips) */
@@ -413,30 +361,97 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
     });
   </script>
 
-  <!-- Auth gate + identity. Customers must be signed in to reach Guides (mirrors
-       the old page); local dev keeps the mock preview so the design stays viewable. -->
+  <!-- Auth gate + identity + real guides. Customers must be signed in to reach
+       Guides; local dev keeps a small sample so the design stays viewable. -->
   <script>
     import { supabase } from "../../lib/supabase.js";
+    import { GUIDE_TOPIC_MAP } from "../../data/guide-topics.js";
+    const DEV = import.meta.env.DEV;
     const titleCase = (s) => String(s || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+    // Dev-only sample so the grid + counts render without a DB/session.
+    const SAMPLE = [
+      { slug:'getting-around', title:'Getting around your hub', topic:'getting-started', kind:'guide', summary:'A quick tour of everything in your members hub, and where to find it.', cover_url:'', lessons:[{}], est_minutes:5 },
+      { slug:'brand-kit', title:'Setting up your brand kit', topic:'getting-started', kind:'guide', summary:'Colours, fonts and logo — set once, applied to every design.', cover_url:'', lessons:[{},{}], est_minutes:6 },
+      { slug:'content-pillars', title:'Content pillars & the value mix', topic:'content-strategy', kind:'course', summary:'Plan content that attracts, builds trust and converts.', cover_url:'', lessons:[{},{},{}], est_minutes:20 },
+    ];
+
+    const grid = document.getElementById('lrn-guides');
+    const emptyEl = document.getElementById('lrn-guides-empty');
+    const clearBtn = document.getElementById('lrn-clear');
+    let ALL = [];
+    let activeTopic = new URLSearchParams(location.search).get('topic') || '';
+
+    function cardHtml(g) {
+      const topic = GUIDE_TOPIC_MAP[g.topic];
+      const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
+      const meta = g.kind === 'course' ? `${lessons} lesson${lessons===1?'':'s'}` : (g.est_minutes ? `~${g.est_minutes} min read` : 'Guide');
+      const art = g.cover_url ? `style="background-image:url('${esc(g.cover_url)}')"` : '';
+      return `<a class="lrn-gcard" href="/account/guides/read?g=${encodeURIComponent(g.slug)}">
+        <span class="lrn-gcard-art" ${art}></span>
+        <span class="lrn-gcard-body">
+          <span class="lrn-gcard-kind">${g.kind === 'course' ? 'Course' : 'Guide'}${topic ? ' · ' + esc(topic.label) : ''}</span>
+          <span class="lrn-gcard-title">${esc(g.title || 'Untitled')}</span>
+          ${g.summary ? `<span class="lrn-gcard-sum">${esc(g.summary)}</span>` : ''}
+          <span class="lrn-gcard-meta">${meta}</span>
+        </span></a>`;
+    }
+
+    function renderGrid(query) {
+      let list = ALL.slice();
+      if (activeTopic) list = list.filter((g) => g.topic === activeTopic);
+      if (query) { const q = query.toLowerCase(); list = list.filter((g) => (g.title||'').toLowerCase().includes(q) || (g.summary||'').toLowerCase().includes(q)); }
+      grid.innerHTML = list.map(cardHtml).join('');
+      grid.setAttribute('aria-busy', 'false');
+      emptyEl.hidden = list.length > 0;
+      // topic tile active state + clear button
+      document.querySelectorAll('.lrn-topic[data-topic]').forEach((t) => t.classList.toggle('is-active', t.dataset.topic === activeTopic));
+      clearBtn.hidden = !activeTopic;
+    }
+
+    function hydrateCounts() {
+      const counts = {};
+      ALL.forEach((g) => { counts[g.topic] = (counts[g.topic] || 0) + 1; });
+      document.querySelectorAll('.lrn-topic-count[data-count]').forEach((el) => {
+        const n = counts[el.dataset.count] || 0;
+        el.textContent = n === 1 ? '1 guide' : `${n} guides`;
+      });
+    }
+
+    // Topic tiles filter the grid in place (no reload).
+    document.querySelectorAll('.lrn-topic[data-topic]').forEach((t) => t.addEventListener('click', (e) => {
+      e.preventDefault(); activeTopic = (activeTopic === t.dataset.topic) ? '' : t.dataset.topic;
+      const u = new URL(location.href); if (activeTopic) u.searchParams.set('topic', activeTopic); else u.searchParams.delete('topic');
+      history.replaceState({}, '', u); renderGrid(document.querySelector('.lrn-search input')?.value || '');
+    }));
+    clearBtn?.addEventListener('click', () => { activeTopic = ''; const u = new URL(location.href); u.searchParams.delete('topic'); history.replaceState({}, '', u); renderGrid(document.querySelector('.lrn-search input')?.value || ''); });
+    document.querySelector('.lrn-search input')?.addEventListener('input', (e) => renderGrid(e.target.value));
+
     (async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          // Production: require sign-in. Local dev: keep the mock preview visible.
-          if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/guides'));
-          return;
-        }
+      let session = null;
+      try { const { data } = await supabase.auth.getSession(); session = data.session; } catch (_) {}
+      if (!session && !DEV) { location.replace('/login?next=' + encodeURIComponent('/account/guides')); return; }
+
+      if (session) {
         const email = session.user.email ?? '';
         const meta = session.user.user_metadata ?? {};
         const fullName = titleCase(meta.name || email.split('@')[0].replace(/[._]/g, ' '));
         const initials = fullName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'T';
         document.querySelectorAll('.ws-whoav').forEach((e) => { e.textContent = initials; });
         const setText = (sel, val) => { const el = document.querySelector(sel); if (el && val) el.textContent = val; };
-        setText('.ws-whotext strong', fullName);
-        setText('.ws-whotext span', email);
-        setText('.ws-dropdown-head strong', fullName);
-        setText('.ws-dropdown-head span', email);
-      } catch (_) { /* keep the mock preview on any error */ }
+        setText('.ws-whotext strong', fullName); setText('.ws-whotext span', email);
+        setText('.ws-dropdown-head strong', fullName); setText('.ws-dropdown-head span', email);
+      }
+
+      try {
+        const { data, error } = await supabase.from('guides')
+          .select('slug,title,topic,kind,summary,cover_url,lessons,est_minutes')
+          .eq('status', 'published').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+        if (error) throw error;
+        ALL = (data && data.length) ? data : (DEV ? SAMPLE : []);
+      } catch (_) { ALL = DEV ? SAMPLE : []; }
+      hydrateCounts(); renderGrid('');
     })();
   </script>
 </BaseLayout>
