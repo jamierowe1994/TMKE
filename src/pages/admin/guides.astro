@@ -32,17 +32,18 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 
       <div class="gadm-f4">
         <label class="gadm-f"><span>Topic</span><select id="g-topic">{GUIDE_TOPICS.map((t) => (<option value={t.slug}>{t.label}</option>))}</select></label>
-        <label class="gadm-f"><span>Type</span><select id="g-kind"><option value="guide">Guide</option><option value="course">Mini-course</option></select></label>
+        <label class="gadm-f"><span>Type</span><select id="g-kind"><option value="guide">Article</option><option value="course">Course</option></select></label>
         <label class="gadm-f"><span>Audience</span><select id="g-audience"><option value="members">Members</option><option value="public">Public</option></select></label>
         <label class="gadm-f"><span>Est. minutes</span><input id="g-mins" type="number" min="1" max="240" placeholder="6" /></label>
       </div>
+      <p class="gadm-muted gadm-typehint" id="g-type-hint"></p>
 
       <label class="gadm-f"><span>Summary (shown on cards)</span><textarea id="g-summary" rows="2" placeholder="One line that sells the guide."></textarea></label>
       <label class="gadm-f"><span>Cover image URL (optional)</span><input id="g-cover" type="url" placeholder="https://…" /></label>
 
       <div class="gadm-lessons-head">
         <span class="gadm-sub">Lessons</span>
-        <span class="gadm-muted" id="g-lessons-hint">A Guide is usually one lesson; a Mini-course has several.</span>
+        <span class="gadm-muted" id="g-lessons-hint">An Article is usually one lesson; a Course has one lesson per slide.</span>
       </div>
       <div id="g-lessons"></div>
       <button type="button" class="gadm-addlesson" id="g-add-lesson">+ Add lesson</button>
@@ -100,6 +101,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gadm-f input, .gadm-f select, .gadm-f textarea { font-family: var(--sans); font-size: 14px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; background: #fff; color: var(--ink); width: 100%; }
     .gadm-f input:focus, .gadm-f select:focus, .gadm-f textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
     .gadm-f4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .gadm-typehint { margin: 8px 0 0; }
     @media (max-width: 640px) { .gadm-f4 { grid-template-columns: 1fr 1fr; } }
     .gadm-lessons-head { display: flex; align-items: baseline; gap: 12px; margin-top: 6px; }
     .gadm-lesson { border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #fbfaf8; }
@@ -171,15 +173,23 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       $("#g-summary").value = guide?.summary || "";
       $("#g-cover").value = guide?.cover_url || "";
       lessons = Array.isArray(guide?.lessons) && guide.lessons.length ? JSON.parse(JSON.stringify(guide.lessons)) : [{ title: "", body_html: "" }];
-      renderLessons(); setStatusPill(curStatus);
+      renderLessons(); setStatusPill(curStatus); updateTypeHint();
       $("#g-saved").textContent = guide?.updated_at ? "Saved " + new Date(guide.updated_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "";
       dirty = false;
       document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.id === (cur||"")));
     }
     ["g-title","g-slug","g-topic","g-kind","g-audience","g-mins","g-summary","g-cover"].forEach((id) => {
       const el = $("#"+id); const ev = el.tagName === "SELECT" ? "change" : "input";
-      el.addEventListener(ev, () => { if(id==="g-title" && !$("#g-slug").value) $("#g-slug").value = slugify($("#g-title").value); markDirty(); });
+      el.addEventListener(ev, () => { if(id==="g-title" && !$("#g-slug").value) $("#g-slug").value = slugify($("#g-title").value); if(id==="g-kind") updateTypeHint(); markDirty(); });
     });
+
+    // One-line reminder of what the chosen Type gives you in the hub.
+    function updateTypeHint() {
+      const isCourse = $("#g-kind").value === "course";
+      $("#g-type-hint").textContent = isCourse
+        ? "Course — plays as a click-through mini-deck: one lesson per slide, with a progress bar members can resume."
+        : "Article — one flowing page, like a quick how-to read.";
+    }
 
     function gather() {
       const cleanLessons = lessons.map((l) => ({ title: (l.title||"").trim(), body_html: (l.body_html||"").trim() })).filter((l) => l.title || l.body_html);
@@ -232,7 +242,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       $("#g-items").innerHTML = list.length ? list.map((g) => `
         <button type="button" class="gadm-item${g.id===cur?" is-active":""}" data-id="${g.id}">
           <span class="gadm-item-t">${esc(g.title || "Untitled")}</span>
-          <span class="gadm-item-m"><span class="gadm-dot is-${g.status}"></span>${g.status} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Guide"}</span>
+          <span class="gadm-item-m"><span class="gadm-dot is-${g.status}"></span>${g.status} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Article"}</span>
         </button>`).join("") : '<p class="gadm-muted">No guides yet. Click “+ New”.</p>';
       $("#g-items").querySelectorAll(".gadm-item").forEach((el) => el.addEventListener("click", async () => {
         const { data } = await supabase.from("guides").select("*").eq("id", el.dataset.id).maybeSingle();
