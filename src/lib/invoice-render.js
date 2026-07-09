@@ -98,7 +98,7 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
 
   /* Line-item table — descriptions at the Bill-to size (13px). Big gap above. */
   table.tbl { width:100%; border-collapse:collapse; margin-top:46px; }
-  .tbl thead th { text-align:left; font-size:14px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; padding:0 0 10px; border-bottom:2.5px solid var(--accent); }
+  .tbl thead th { text-align:left; font-size:14px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; padding:0 0 10px; border-bottom:2px solid var(--accent); }
   .tbl thead th.num { text-align:right; }
   .tbl td { padding:11px 0; font-size:13px; }
   .tbl td.num { text-align:right; white-space:nowrap; }
@@ -123,15 +123,17 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   .plain + .body { padding-top:64px; }
 
   /* ---- BANDED (temp2): wine header band + beige footer band ---- */
-  .band { background:var(--accent); color:var(--paper); padding:48px 64px 44px; display:flex; justify-content:space-between; align-items:flex-start; gap:24px; }
+  /* ~1cm of page (paper) colour above the band, then a taller band. */
+  .band { margin-top:10mm; background:var(--accent); color:var(--paper); padding:56px 64px 52px; display:flex; justify-content:space-between; align-items:flex-start; gap:24px; }
   .band .wordmark { font-family:Georgia,'Times New Roman',serif; font-weight:500; letter-spacing:0.1em; color:var(--paper); }
   .band .company { margin-top:12px; font-size:14px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; }
   .band .meta-r { text-align:right; align-self:center; line-height:1.9; }
   .band .meta-r .no { font-size:16px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; margin-bottom:4px; }
   .band .meta-r .d { font-size:13.5px; }
   .band .meta-r .k { text-transform:uppercase; letter-spacing:0.04em; }
-  .band + .body { padding-top:52px; }
-  .smallprint.band { margin-top:auto; text-align:left; opacity:1; background:var(--beige); color:var(--accent); font-weight:700; font-size:11.5px; line-height:1.7; padding:26px 64px; }
+  .band + .body { padding-top:56px; }
+  .tpl-banded .tbl { margin-top:58px; }
+  .smallprint.band { margin-top:auto; text-align:left; opacity:1; background:var(--beige); color:var(--accent); font-weight:400; font-size:10.5px; line-height:1.2; padding:22px 64px; }
 
   /* ---- MINIMAL: airier, hairlines ---- */
   .tpl-minimal .plain .wordmark, .tpl-minimal .wordmark { font-weight:500; letter-spacing:0.2em; font-size:40px; }
