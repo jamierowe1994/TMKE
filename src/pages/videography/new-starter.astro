@@ -74,14 +74,14 @@ const termsHtml =
         <!-- 1. Day -->
         <section class="dc-step" id="ns-step-day" hidden>
           <h2 class="dc-step-title">Choose your <em>day.</em></h2>
-          <p class="dc-step-sub">Two studio days are available this month. <span class="ns-ph">(placeholder dates — set per month in admin)</span></p>
+          <p class="dc-step-sub">These are your two studio days — the last Tuesday and Wednesday of the month.</p>
           <div class="dc-choices" id="ns-days"></div>
         </section>
 
         <!-- 2. Time -->
         <section class="dc-step" id="ns-step-time" hidden>
           <h2 class="dc-step-title">Pick a <em>time.</em></h2>
-          <p class="dc-step-sub">Sessions run 9:00–5:00. <span class="ns-ph">(placeholder length — session length TBC)</span></p>
+          <p class="dc-step-sub">Each session is a half day — choose a morning or an afternoon.</p>
           <div class="dc-slots-grid" id="ns-slots"></div>
         </section>
 
@@ -175,10 +175,6 @@ const termsHtml =
   </style>
 
   <script>
-    // ---- Placeholders (to be replaced when the real values land) ----
-    const NEW_STARTER_DATES = ["2026-08-13", "2026-08-27"]; // PLACEHOLDER — admin-set per month
-    const DAY_START = 9 * 60, DAY_END = 17 * 60, SLOT_MINUTES = 60; // PLACEHOLDER length
-
     const $ = (id) => document.getElementById(id);
     const state = { date: null, time: null };
     const panel = $("ns-panel");
@@ -193,6 +189,23 @@ const termsHtml =
     if (params.get("email")) f.email.value = params.get("email");
     if (params.get("phone")) f.phone.value = params.get("phone");
     if (f.name.value) { const first = f.name.value.trim().split(/\s+/)[0]; $("ns-cat").textContent = `Hi ${first} — welcome to The Experts Group`; }
+
+    // Shoot days = the last Tuesday & Wednesday of the shoot month (a consecutive
+    // pair, anchored on the last Wednesday). The month comes from the personalised
+    // link (?month=YYYY-MM, the agent's preferred shoot month); defaults to now.
+    function lastTueWed(y, m0) {
+      const d = new Date(y, m0 + 1, 0);                    // last day of that month
+      while (d.getDay() !== 3) d.setDate(d.getDate() - 1); // walk back to Wednesday (3)
+      const wed = new Date(d);
+      const tue = new Date(d); tue.setDate(tue.getDate() - 1);
+      const iso = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+      return [iso(tue), iso(wed)];
+    }
+    const mMatch = (params.get("month") || "").match(/^(\d{4})-(\d{2})$/);
+    const shootMonth = mMatch ? new Date(+mMatch[1], +mMatch[2] - 1, 1) : new Date();
+    const NEW_STARTER_DATES = lastTueWed(shootMonth.getFullYear(), shootMonth.getMonth());
+    // Half-day sessions — a morning and an afternoon slot on each day.
+    const SLOTS = [["10:00", "Morning · 10:00am"], ["14:00", "Afternoon · 2:00pm"]];
 
     const fmtDay = (iso) => { const d = new Date(iso + "T00:00:00"); return { dow: d.toLocaleDateString("en-GB", { weekday: "long" }), day: d.toLocaleDateString("en-GB", { day: "numeric", month: "long" }), full: d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) }; };
     const hm = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
@@ -226,11 +239,9 @@ const termsHtml =
       renderSlots(); showStep("time", true);
     });
 
-    // ---- Step 2: times ----
+    // ---- Step 2: times (half-day sessions) ----
     function renderSlots() {
-      const out = [];
-      for (let m = DAY_START; m + SLOT_MINUTES <= DAY_END; m += SLOT_MINUTES) out.push(hm(m));
-      $("ns-slots").innerHTML = out.map((t) => `<button type="button" class="dc-slot" data-time="${t}">${t}</button>`).join("");
+      $("ns-slots").innerHTML = SLOTS.map(([t, label]) => `<button type="button" class="dc-slot" data-time="${t}">${label}</button>`).join("");
     }
     $("ns-slots").addEventListener("click", (e) => {
       const b = e.target.closest(".dc-slot"); if (!b) return;
