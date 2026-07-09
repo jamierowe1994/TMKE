@@ -55,13 +55,18 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
     </header>`;
   const datesRow = style === "banded" ? "" : `<div class="dates-row"><span class="k">Invoice date</span> <b>${fmtDate(inv.issued_date) || "—"}</b> &nbsp;&nbsp;&nbsp; <span class="k">Due date</span> <b>${fmtDate(inv.due_date) || "—"}</b></div>`;
 
+  // Banded keeps the recipient on one line; editorial drops the email to line 2.
+  const billtoInner = style === "banded"
+    ? `<strong>${esc(inv.bill_to_name)}</strong>${inv.bill_to_email ? ` · ${esc(inv.bill_to_email)}` : ""}`
+    : `<strong>${esc(inv.bill_to_name)}</strong>${inv.bill_to_email ? `<br>${esc(inv.bill_to_email)}` : ""}`;
   const billto = inv.bill_to_name ? `
-    <div class="billto"><span class="lbl">Bill to</span> <span class="who">${esc(inv.bill_to_name)}${inv.bill_to_email ? ` · ${esc(inv.bill_to_email)}` : ""}</span></div>` : "";
+    <div class="billto"><span class="lbl">Bill to</span> <span class="who">${billtoInner}</span></div>` : "";
 
   const bank = showBank && (s.account_name || s.account_number) ? `
     <div class="pay">
       <div class="lbl">How to pay</div>
       <div class="pl">By bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>
+      <div class="payrule"></div>
       <div class="bank">${[s.account_name && `Account: ${esc(s.account_name)}`, s.sort_code && `Sort code: ${esc(s.sort_code)}`, s.account_number && `Account no: ${esc(s.account_number)}`].filter(Boolean).join("<br>")}</div>
     </div>` : "";
 
@@ -84,23 +89,27 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   body { background: #cfccc8; font-family: ${font}; color: #2a1b22; -webkit-font-smoothing: antialiased; }
   .inv { --accent:${esc(accent)}; --paper:#f1efec; --beige:#d6cdc7; width:210mm; min-height:297mm; margin:0 auto; background:var(--paper); box-shadow:0 10px 34px rgba(20,18,26,0.18); display:flex; flex-direction:column; font-size:${fs}px; color:var(--accent); }
   @media print { body { background:#fff; } .inv { box-shadow:none; margin:0; } }
-  .body { padding:0 64px; flex:1; display:flex; flex-direction:column; }
+  .body { padding:0 64px 56px; flex:1; display:flex; flex-direction:column; }
+  .pay-block { margin-top:auto; }   /* pushes How to pay into the bottom quarter */
   .logo { max-height:70px; max-width:280px; display:block; }
   .lbl { font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
 
-  /* Dates row — sits between the invoice number and Bill to (editorial/minimal). */
-  .dates-row { margin:0 0 30px; font-size:11.5px; }
+  /* Dates row — sits just above Bill to (editorial/minimal), same size. */
+  .dates-row { margin:0 0 12px; font-size:11.5px; }
   .dates-row .k { font-weight:700; letter-spacing:0.06em; text-transform:uppercase; }
   .dates-row b { font-weight:400; }
 
-  .billto { margin:0; font-size:13px; }
+  .billto { margin:0; font-size:11.5px; }
   .billto .lbl { color:var(--accent); }
+  .billto .who { line-height:1.55; }
 
-  /* Line-item table — descriptions at the Bill-to size (13px). Big gap above. */
+  /* Line-item table — descriptions at the Bill-to size. Bigger gap under the
+     header rule; tighter spacing between items. */
   table.tbl { width:100%; border-collapse:collapse; margin-top:46px; }
-  .tbl thead th { text-align:left; font-size:14px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; padding:0 0 10px; border-bottom:2px solid var(--accent); }
+  .tbl thead th { text-align:left; font-size:14px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; padding:0 0 10px; border-bottom:1.5px solid var(--accent); }
   .tbl thead th.num { text-align:right; }
-  .tbl td { padding:11px 0; font-size:13px; }
+  .tbl td { padding:9px 0; font-size:13px; }
+  .tbl tbody tr:first-child td { padding-top:16px; }
   .tbl td.num { text-align:right; white-space:nowrap; }
 
   /* Totals — sub-total/VAT at body size (13px, unbold); total smaller but still big. */
@@ -108,12 +117,13 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   .totals .r { display:flex; justify-content:space-between; font-size:13px; padding:5px 0; }
   .totals .grand { margin-top:8px; display:flex; justify-content:space-between; align-items:baseline; font-size:30px; font-weight:800; letter-spacing:-0.01em; }
 
-  .pay { margin-top:56px; font-size:13px; line-height:1.7; }
+  .pay { font-size:13px; line-height:1.4; }
   .pay .lbl { font-size:13px; margin-bottom:8px; }
-  .pay .bank { margin-top:14px; padding-top:14px; border-top:1px solid rgba(55,30,40,0.18); }
+  .payrule { width:33%; height:1px; background:rgba(55,30,40,0.22); margin:12px 0; }
+  .pay .bank { line-height:1.5; }
   .note { margin-top:16px; font-style:italic; opacity:0.7; font-size:12px; }
 
-  .smallprint { margin-top:auto; font-size:9.5px; letter-spacing:0.02em; opacity:0.8; text-align:center; padding:40px 64px 40px; }
+  .smallprint { font-size:9.5px; letter-spacing:0.02em; opacity:0.8; text-align:center; padding:0 64px 40px; }
 
   /* ---- EDITORIAL (temp1): paper, big bold wordmark, oversized total ---- */
   .plain { padding:64px 64px 0; }
@@ -127,7 +137,7 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   .band { margin-top:10mm; background:var(--accent); color:var(--paper); padding:56px 64px 52px; display:flex; justify-content:space-between; align-items:flex-start; gap:24px; }
   .band .wordmark { font-family:Georgia,'Times New Roman',serif; font-weight:500; letter-spacing:0.1em; color:var(--paper); }
   .band .company { margin-top:12px; font-size:14px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; }
-  .band .meta-r { text-align:right; align-self:center; line-height:1.9; }
+  .band .meta-r { text-align:right; align-self:flex-start; line-height:1.5; }
   .band .meta-r .no { font-size:16px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; margin-bottom:4px; }
   .band .meta-r .d { font-size:13.5px; }
   .band .meta-r .k { text-transform:uppercase; letter-spacing:0.04em; }
@@ -155,8 +165,10 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
         <div class="r"><span>VAT (${esc(vatRate)}%)</span><span>${money(inv.vat_pence)}</span></div>
         <div class="grand"><span>TOTAL</span><span>${money(inv.total_pence)}</span></div>
       </div>
-      ${bank}
-      ${s.footer_note ? `<div class="note">${nl2br(s.footer_note)}</div>` : ""}
+      <div class="pay-block">
+        ${bank}
+        ${s.footer_note ? `<div class="note">${nl2br(s.footer_note)}</div>` : ""}
+      </div>
     </div>
     ${foot}
   </div>
