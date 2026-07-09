@@ -4,12 +4,17 @@ import WorkspaceHeader from "../../../components/account/WorkspaceHeader.astro";
 import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
 // Single reader page (query param ?g=<slug>) so newly-published guides work
 // instantly — no site rebuild needed (unlike the getStaticPaths blog pattern).
+//
+// Two templates, chosen by guide.kind:
+//   • 'guide'  → Article  : a clean, spacious long-form read (quick how-to).
+//   • 'course' → Course   : one lesson per slide, progress bar, prev/next,
+//                           an intro slide + a completion slide. Click-through.
 ---
 <BaseLayout
   dashboard
   hideNav
   hideFooter
-  title="Guide — TMKE workspace"
+  title="Learn — TMKE workspace"
   description="A TMKE Learn guide."
 >
   <div class="ws lrn">
@@ -23,30 +28,49 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
       <article class="gr" id="gr" aria-busy="true">
         <div class="gr-loading" id="gr-loading">Loading…</div>
 
-        <div class="gr-shell" id="gr-shell" hidden>
+        <!-- ============ ARTICLE (kind='guide') ============ -->
+        <div class="gr-article" id="gr-article" hidden>
           <header class="gr-head">
-            <a class="gr-topic" id="gr-topic" href="#"></a>
-            <h1 class="gr-title" id="gr-title"></h1>
-            <p class="gr-summary" id="gr-summary"></p>
-            <div class="gr-meta" id="gr-meta"></div>
+            <a class="gr-topic" id="ar-topic" href="#"></a>
+            <h1 class="gr-title" id="ar-title"></h1>
+            <p class="gr-summary" id="ar-summary"></p>
+            <div class="gr-meta" id="ar-meta"></div>
           </header>
+          <figure class="gr-cover" id="ar-cover" hidden><img id="ar-cover-img" alt="" /></figure>
+          <div class="gr-body" id="ar-body"></div>
+          <footer class="gr-artfoot">
+            <a class="ws-btn ws-btn--ghost ws-btn--sm" href="/account/guides">← Back to Learn</a>
+          </footer>
+        </div>
 
-          <figure class="gr-cover" id="gr-cover" hidden><img id="gr-cover-img" alt="" /></figure>
+        <!-- ============ COURSE (kind='course') ============ -->
+        <div class="gc" id="gr-course" hidden>
+          <div class="gc-progress" id="gc-progress">
+            <div class="gc-bar"><span class="gc-fill" id="gc-fill"></span></div>
+            <div class="gc-progress-meta">
+              <span id="gc-step">Overview</span>
+              <span id="gc-pct">0%</span>
+            </div>
+          </div>
 
-          <!-- Lesson chips (only shown for multi-lesson courses) -->
-          <nav class="gr-lessons" id="gr-lessons" hidden aria-label="Lessons"></nav>
+          <div class="gc-stage" id="gc-stage" aria-live="polite"></div>
 
-          <div class="gr-body" id="gr-body"></div>
-
-          <footer class="gr-foot" id="gr-foot" hidden>
-            <button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" id="gr-prev" hidden><svg viewBox="0 0 16 16"><path d="M10 4L6 8l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Previous</button>
-            <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" id="gr-next">Next <svg viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <footer class="gc-nav" id="gc-nav" hidden>
+            <button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" id="gc-prev">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 4L6 8l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span id="gc-prev-label">Previous</span>
+            </button>
+            <div class="gc-rail" id="gc-rail" aria-hidden="true"></div>
+            <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" id="gc-next">
+              <span id="gc-next-label">Next</span>
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
           </footer>
         </div>
 
         <div class="gr-empty" id="gr-empty" hidden>
-          <h1>Guide not found</h1>
-          <p>This guide may have moved or isn't published yet.</p>
+          <h1>Not found</h1>
+          <p>This may have moved or isn't published yet.</p>
           <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/guides">Back to Learn</a>
         </div>
       </article>
@@ -62,20 +86,14 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
     .gr-empty h1 { font-family: var(--serif); font-weight: 500; color: var(--ws-ink); font-size: 28px; margin: 0 0 8px; }
     .gr-empty p { margin: 0 0 18px; }
 
+    /* ---- Shared long-form typography (used by both templates) ---- */
     .gr-topic { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent); text-decoration: none; margin-bottom: 12px; }
     .gr-title { font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 4vw, 46px); line-height: 1.06; letter-spacing: -0.02em; color: var(--ws-ink); margin: 0; }
-    .gr-summary { font-size: clamp(15px, 1.3vw, 18px); line-height: 1.6; color: var(--ws-tx); margin: 14px 0 0; }
+    .gr-summary { font-size: clamp(15px, 1.3vw, 18px); line-height: 1.6; color: var(--ws-tx); margin: 14px 0 0; max-width: 64ch; }
     .gr-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 18px 0 0; font-size: 12.5px; color: var(--ws-faint); }
     .gr-meta span { display: inline-flex; align-items: center; gap: 6px; }
-
     .gr-cover { margin: 26px 0 0; border-radius: var(--ws-r-lg); overflow: hidden; box-shadow: var(--ws-sh); }
     .gr-cover img { display: block; width: 100%; height: auto; }
-
-    .gr-lessons { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 0; }
-    .gr-lesson-chip { padding: 8px 14px; border: 1px solid var(--ws-line); border-radius: 999px; background: var(--ws-card); cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ws-tx); transition: border-color .15s, color .15s, background .15s; }
-    .gr-lesson-chip:hover { border-color: var(--ws-accent); color: var(--ws-ink); }
-    .gr-lesson-chip.is-active { border-color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 8%, #fff); color: var(--ws-accent); }
-    .gr-lesson-chip b { display: inline-block; width: 18px; opacity: 0.6; }
 
     .gr-body { margin: 30px 0 0; font-size: 16px; line-height: 1.72; color: var(--ws-ink); }
     .gr-body h2 { font-family: var(--serif); font-weight: 500; font-size: 26px; line-height: 1.15; margin: 34px 0 12px; }
@@ -88,9 +106,61 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
     .gr-body strong { font-weight: 700; }
     .gr-body blockquote { margin: 0 0 16px; padding: 4px 0 4px 18px; border-left: 3px solid var(--ws-accent); color: var(--ws-tx); font-style: italic; }
 
-    .gr-foot { display: flex; justify-content: space-between; gap: 12px; margin: 40px 0 0; padding-top: 22px; border-top: 1px solid var(--ws-line); }
+    /* ---- Article footer ---- */
+    .gr-artfoot { margin: 46px 0 0; padding-top: 24px; border-top: 1px solid var(--ws-line); }
     .ws-btn--ghost { background: var(--ws-card); border-color: var(--ws-line); color: var(--ws-ink); }
     .ws-btn--ghost:hover { border-color: var(--ws-accent); }
+
+    /* ======================================================
+       COURSE — click-through, one lesson per slide
+       ====================================================== */
+    .gc-progress { position: sticky; top: 0; z-index: 6; margin: 2px 0 4px; padding: 12px 0 14px; background: color-mix(in srgb, var(--ws-bg, #f6f4f2) 90%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+    .gc-bar { height: 4px; border-radius: 999px; background: var(--ws-line); overflow: hidden; }
+    .gc-fill { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--ws-accent); transition: width .55s cubic-bezier(.2,.7,.3,1); }
+    .gc-progress-meta { display: flex; justify-content: space-between; margin-top: 9px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--ws-faint); }
+    #gc-step { color: var(--ws-tx); }
+
+    .gc-stage { position: relative; min-height: 320px; }
+    .gc-slide { animation: gcIn .42s cubic-bezier(.2,.7,.3,1); }
+    @keyframes gcIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+    /* Content slide */
+    .gc-part { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent); margin: 10px 0 14px; }
+    .gc-slide-title { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.4vw, 40px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink); margin: 0 0 6px; }
+    .gc-slide-body { margin-top: 20px; }
+
+    /* Intro slide */
+    .gc-slide--intro { padding-top: 6px; }
+    .gc-intro-title { font-family: var(--serif); font-weight: 500; font-size: clamp(32px, 4.4vw, 52px); line-height: 1.04; letter-spacing: -0.02em; color: var(--ws-ink); margin: 8px 0 0; }
+    .gc-intro-sum { font-size: clamp(15px, 1.4vw, 19px); line-height: 1.6; color: var(--ws-tx); margin: 16px 0 0; max-width: 62ch; }
+    .gc-intro-meta { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0 0; }
+    .gc-intro-meta span { font-size: 12.5px; font-weight: 600; color: var(--ws-tx); background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: 999px; padding: 6px 14px; }
+    .gc-intro-cover { margin: 28px 0 0; border-radius: var(--ws-r-lg); overflow: hidden; box-shadow: var(--ws-sh); }
+    .gc-intro-cover img { display: block; width: 100%; height: auto; }
+    .gc-intro-start { margin-top: 30px; }
+
+    /* Completion slide */
+    .gc-slide--done { text-align: center; padding: 34px 0 8px; }
+    .gc-done-badge { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 22px; display: grid; place-items: center; background: color-mix(in srgb, var(--ws-accent) 12%, #fff); color: var(--ws-accent); }
+    .gc-done-badge svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .gc-slide--done h2 { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); line-height: 1.12; color: var(--ws-ink); margin: 0 0 10px; }
+    .gc-slide--done p { color: var(--ws-tx); font-size: 15px; line-height: 1.6; margin: 0 auto 24px; max-width: 46ch; }
+    .gc-done-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+    /* Nav row */
+    .gc-nav { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 42px 0 0; padding-top: 22px; border-top: 1px solid var(--ws-line); }
+    .gc-nav[hidden] { display: none; }
+    .gc-rail { display: flex; gap: 8px; }
+    .gc-dot { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--ws-line); cursor: pointer; transition: background .2s, transform .2s; }
+    .gc-dot:hover { transform: scale(1.25); }
+    .gc-dot.is-done { background: color-mix(in srgb, var(--ws-accent) 42%, var(--ws-line)); }
+    .gc-dot.is-active { background: var(--ws-accent); transform: scale(1.3); }
+    .gc-prev-hidden { visibility: hidden; }
+
+    @media (max-width: 560px) {
+      .gc-rail { display: none; }
+      .gc-nav { justify-content: space-between; }
+    }
   </style>
 
   <script>
@@ -100,64 +170,160 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
     const $ = (s) => document.querySelector(s);
     const DEV = import.meta.env.DEV;
 
-    // A dev-only sample so the reader is viewable without a DB/session.
-    const SAMPLE = {
+    // Dev-only samples so both templates are viewable without a DB/session.
+    //   ?g=sample         → article
+    //   ?g=sample-course  → mini course
+    const SAMPLE_ARTICLE = {
       slug: "sample", title: "Setting up your brand kit", topic: "getting-started",
-      kind: "guide", summary: "Build a recognisable brand in minutes — colours, fonts and logo, ready to drop into every design.",
-      est_minutes: 6, cover_url: "",
+      kind: "guide", summary: "Build a recognisable brand in minutes — colours, fonts and your logo, ready to drop into every design.",
+      est_minutes: 5, cover_url: "",
       lessons: [
-        { title: "Why a brand kit", body_html: "<p>Your brand kit is the set of colours, fonts and logos that make every post <strong>unmistakably yours</strong>. Set it once and the Studio applies it everywhere.</p><h3>What you'll set</h3><ul><li>Brand colours</li><li>Fonts</li><li>Your logo</li></ul>" },
-        { title: "Add your colours", body_html: "<p>Head to your profile and add your primary and secondary colours. These become one-tap swatches across the editor.</p>" },
+        { title: "", body_html: "<p>Your brand kit is the set of colours, fonts and logos that make every post <strong>unmistakably yours</strong>. Set it once and the Studio applies it everywhere.</p><h3>What you'll set</h3><ul><li>Your brand colours</li><li>Your fonts</li><li>Your logo</li></ul><p>Head to your profile and add your primary and secondary colours. These become one-tap swatches across the editor, so you never have to hunt for a hex code again.</p><blockquote>Tip: stick to two or three colours. Restraint reads as premium.</blockquote>" },
+      ],
+    };
+    const SAMPLE_COURSE = {
+      slug: "sample-course", title: "Your first week on social", topic: "social-intro",
+      kind: "course", summary: "A short, guided walk-through to get you posting with confidence — five quick parts, done in a coffee break.",
+      est_minutes: 8, cover_url: "",
+      lessons: [
+        { title: "Set your foundations", body_html: "<p>Before you post anything, get the basics right: a clear profile photo, a one-line bio that says what you do, and a link that goes somewhere useful.</p><ul><li>Square logo or clean headshot</li><li>Bio: who you help + how</li><li>One call-to-action link</li></ul>" },
+        { title: "Find your three pillars", body_html: "<p>Pick three themes you'll post about. This keeps you consistent and stops the blank-page panic.</p><p>For most agents that's <strong>listings</strong>, <strong>local area</strong>, and <strong>behind the scenes</strong>.</p>" },
+        { title: "Plan a week of posts", body_html: "<p>Batch it. Sit down once and rough out five posts against your pillars. You'll thank yourself on the busy days.</p>" },
+        { title: "Write captions that land", body_html: "<p>Open with a hook, keep it human, end with one clear ask. Short sentences win.</p><blockquote>People scroll fast — earn the second line.</blockquote>" },
+        { title: "Post, then review", body_html: "<p>Consistency beats perfection. Post your week, then check which one got the most saves and do more of that.</p>" },
       ],
     };
 
     function esc(s){ return String(s ?? "").replace(/[&<>\"]/g, (c)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+    function topicLabel(slug){ const t = GUIDE_TOPIC_MAP[slug]; return t ? t.label : "Learn"; }
 
-    function render(guide) {
-      $("#gr-loading").hidden = true;
-      if (!guide) { $("#gr-empty").hidden = false; $("#gr").setAttribute("aria-busy","false"); return; }
-      $("#gr-shell").hidden = false;
-      $("#gr").setAttribute("aria-busy","false");
+    function cleanLessons(guide){
+      return Array.isArray(guide.lessons) ? guide.lessons.filter((l)=> l && (l.title || l.body_html)) : [];
+    }
 
-      const topic = GUIDE_TOPIC_MAP[guide.topic];
-      const t = $("#gr-topic");
-      t.textContent = topic ? topic.label : "Guides";
+    // ---------------- ARTICLE ----------------
+    function renderArticle(guide, lessons){
+      $("#gr-article").hidden = false;
+      const t = $("#ar-topic");
+      t.textContent = topicLabel(guide.topic);
       t.href = "/account/guides#" + (guide.topic || "");
-      $("#gr-title").textContent = guide.title || "Untitled";
-      const sum = $("#gr-summary"); if (guide.summary) sum.textContent = guide.summary; else sum.hidden = true;
+      $("#ar-title").textContent = guide.title || "Untitled";
+      const sum = $("#ar-summary"); if (guide.summary) sum.textContent = guide.summary; else sum.hidden = true;
 
       const meta = [];
-      if (guide.kind === "course") meta.push(`<span>${(guide.lessons||[]).length} lessons</span>`);
-      if (guide.est_minutes) meta.push(`<span>~${guide.est_minutes} min</span>`);
-      $("#gr-meta").innerHTML = meta.join("");
+      if (guide.est_minutes) meta.push(`<span>${guide.est_minutes} min read</span>`);
+      $("#ar-meta").innerHTML = meta.join("");
 
-      if (guide.cover_url) { $("#gr-cover").hidden = false; const im = $("#gr-cover-img"); im.src = guide.cover_url; im.alt = guide.cover_alt || guide.title || ""; }
+      if (guide.cover_url) { $("#ar-cover").hidden = false; const im = $("#ar-cover-img"); im.src = guide.cover_url; im.alt = guide.cover_alt || guide.title || ""; }
 
-      const lessons = Array.isArray(guide.lessons) ? guide.lessons.filter((l)=>l && (l.title || l.body_html)) : [];
-      if (!lessons.length) { $("#gr-body").innerHTML = "<p>This guide has no content yet.</p>"; return; }
+      // One flowing read. If an article somehow has several lessons, join them
+      // with each lesson title as an <h2>.
+      const html = lessons.length <= 1
+        ? (lessons[0]?.body_html || "<p>This article has no content yet.</p>")
+        : lessons.map((l)=> (l.title ? `<h2>${esc(l.title)}</h2>` : "") + (l.body_html || "")).join("");
+      $("#ar-body").innerHTML = html;
+    }
 
-      // Multi-lesson courses get chips + prev/next; single guides just render inline.
-      let idx = 0;
-      const multi = lessons.length > 1;
-      const nav = $("#gr-lessons"), foot = $("#gr-foot");
-      const show = (i) => {
-        idx = Math.max(0, Math.min(lessons.length - 1, i));
-        $("#gr-body").innerHTML = lessons[idx].body_html || "";
-        if (multi) {
-          [...nav.children].forEach((c, n) => c.classList.toggle("is-active", n === idx));
-          $("#gr-prev").hidden = idx === 0;
-          $("#gr-next").textContent = idx === lessons.length - 1 ? "Finish" : "Next";
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
+    // ---------------- COURSE ----------------
+    function renderCourse(guide, lessons){
+      $("#gr-course").hidden = false;
+      $("#gc-progress").hidden = false;
+      const N = lessons.length;                 // content slides
+      const LAST = N + 1;                        // done slide index
+      const stage = $("#gc-stage"), nav = $("#gc-nav");
+      const fill = $("#gc-fill"), stepEl = $("#gc-step"), pctEl = $("#gc-pct");
+      const prevBtn = $("#gc-prev"), nextBtn = $("#gc-next");
+      const prevLabel = $("#gc-prev-label"), nextLabel = $("#gc-next-label");
+      const rail = $("#gc-rail");
+
+      // Rail = one dot per content part.
+      rail.innerHTML = lessons.map((_, i)=> `<button type="button" class="gc-dot" data-go="${i+1}" title="Part ${i+1}"></button>`).join("");
+      rail.querySelectorAll("[data-go]").forEach((b)=> b.addEventListener("click", ()=> show(+b.dataset.go)));
+
+      const introHtml = () => {
+        const chips = [];
+        chips.push(`<span>${N} part${N===1?"":"s"}</span>`);
+        if (guide.est_minutes) chips.push(`<span>~${guide.est_minutes} min</span>`);
+        const cover = guide.cover_url ? `<figure class="gc-intro-cover"><img src="${esc(guide.cover_url)}" alt="${esc(guide.cover_alt || guide.title || "")}"></figure>` : "";
+        return `<div class="gc-slide gc-slide--intro">
+          <a class="gr-topic" href="/account/guides#${esc(guide.topic||"")}">${esc(topicLabel(guide.topic))}</a>
+          <h1 class="gc-intro-title">${esc(guide.title || "Untitled")}</h1>
+          ${guide.summary ? `<p class="gc-intro-sum">${esc(guide.summary)}</p>` : ""}
+          <div class="gc-intro-meta">${chips.join("")}</div>
+          ${cover}
+          <div class="gc-intro-start"><button type="button" class="ws-btn ws-btn--primary" data-next>Start course
+            <svg viewBox="0 0 16 16" aria-hidden="true" style="width:15px;height:15px;margin-left:2px"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button></div>
+        </div>`;
       };
-      if (multi) {
-        nav.hidden = false; foot.hidden = false;
-        nav.innerHTML = lessons.map((l, i) => `<button type="button" class="gr-lesson-chip" data-i="${i}"><b>${i+1}</b>${esc(l.title || ("Lesson " + (i+1)))}</button>`).join("");
-        nav.querySelectorAll("[data-i]").forEach((b) => b.addEventListener("click", () => show(+b.dataset.i)));
-        $("#gr-next").addEventListener("click", () => { if (idx < lessons.length - 1) show(idx + 1); else location.href = "/account/guides"; });
-        $("#gr-prev").addEventListener("click", () => show(idx - 1));
+      const partHtml = (i) => {
+        const l = lessons[i-1];
+        return `<div class="gc-slide">
+          <span class="gc-part">Part ${i} of ${N}</span>
+          ${l.title ? `<h2 class="gc-slide-title">${esc(l.title)}</h2>` : ""}
+          <div class="gc-slide-body gr-body">${l.body_html || ""}</div>
+        </div>`;
+      };
+      const doneHtml = () => `<div class="gc-slide gc-slide--done">
+        <div class="gc-done-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></div>
+        <h2>That's a wrap</h2>
+        <p>You've finished <strong>${esc(guide.title || "this course")}</strong>. Nice work — put it into practice, then come back for the next one.</p>
+        <div class="gc-done-actions">
+          <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/guides">Back to Learn</a>
+          <button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" data-restart>Start over</button>
+        </div>
+      </div>`;
+
+      let pos = 0; // 0 = intro, 1..N = parts, N+1 = done
+
+      function show(next){
+        pos = Math.max(0, Math.min(LAST, next));
+        if (pos === 0)      stage.innerHTML = introHtml();
+        else if (pos === LAST) stage.innerHTML = doneHtml();
+        else                stage.innerHTML = partHtml(pos);
+
+        // Wire the per-slide buttons that just rendered.
+        stage.querySelector("[data-next]")?.addEventListener("click", ()=> show(pos + 1));
+        stage.querySelector("[data-restart]")?.addEventListener("click", ()=> show(1));
+
+        // Progress bar: intro 0%, part k = k/N, done 100%.
+        const pct = pos === 0 ? 0 : Math.round((Math.min(pos, N) / N) * 100);
+        fill.style.width = pct + "%";
+        pctEl.textContent = pct + "%";
+        stepEl.textContent = pos === 0 ? "Overview" : pos === LAST ? "Complete" : `Part ${pos} of ${N}`;
+
+        // Bottom nav shows on content parts only; intro/done have their own buttons.
+        const onPart = pos >= 1 && pos <= N;
+        nav.hidden = !onPart;
+        if (onPart){
+          prevBtn.classList.toggle("gc-prev-hidden", false);
+          prevLabel.textContent = pos === 1 ? "Overview" : "Previous";
+          nextLabel.textContent = pos === N ? "Finish" : "Next";
+        }
+
+        // Rail state.
+        rail.querySelectorAll(".gc-dot").forEach((d, i)=>{
+          const part = i + 1;
+          d.classList.toggle("is-active", part === pos);
+          d.classList.toggle("is-done", part < pos || pos === LAST);
+        });
+
+        if (pos !== 0) window.scrollTo({ top: 0, behavior: "smooth" });
       }
+
+      prevBtn.addEventListener("click", ()=> show(pos - 1));
+      nextBtn.addEventListener("click", ()=> show(pos + 1));
       show(0);
+    }
+
+    function render(guide){
+      $("#gr-loading").hidden = true;
+      if (!guide) { $("#gr-empty").hidden = false; $("#gr").setAttribute("aria-busy","false"); return; }
+      $("#gr").setAttribute("aria-busy","false");
+      const lessons = cleanLessons(guide);
+      const isCourse = guide.kind === "course" && lessons.length > 0;
+      if (isCourse) renderCourse(guide, lessons);
+      else renderArticle(guide, lessons);
     }
 
     (async () => {
@@ -177,12 +343,13 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
         set(".ws-whotext strong", fullName); set(".ws-whotext span", email);
       }
 
-      if (!slug) { render(DEV ? SAMPLE : null); return; }
+      const devSample = slug === "sample-course" ? SAMPLE_COURSE : SAMPLE_ARTICLE;
+      if (!slug) { render(DEV ? SAMPLE_ARTICLE : null); return; }
       try {
         const { data, error } = await supabase.from("guides").select("*").eq("slug", slug).eq("status","published").maybeSingle();
         if (error) throw error;
-        render(data || (DEV ? SAMPLE : null));
-      } catch (_) { render(DEV ? SAMPLE : null); }
+        render(data || (DEV ? devSample : null));
+      } catch (_) { render(DEV ? devSample : null); }
     })();
   </script>
 </BaseLayout>
