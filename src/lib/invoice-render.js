@@ -79,8 +79,13 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   * { box-sizing: border-box; }
-  body { margin: 0; background: #cfccc8; font-family: ${font}; color: #2a1b22; -webkit-font-smoothing: antialiased; }
-  .inv { --accent:${esc(accent)}; --paper:#f1efec; --beige:#d6cdc7; width:794px; min-height:1123px; max-width:100%; margin:24px auto; background:var(--paper); box-shadow:0 10px 34px rgba(20,18,26,0.18); display:flex; flex-direction:column; font-size:${fs}px; color:var(--accent); }
+  /* A4 = 210×297mm. Sizing the page in mm keeps the on-screen scale and the
+     printed/PDF output identical, so 13px really is 13px on the sheet. */
+  @page { size: A4; margin: 0; }
+  html, body { margin: 0; }
+  body { background: #cfccc8; font-family: ${font}; color: #2a1b22; -webkit-font-smoothing: antialiased; }
+  .inv { --accent:${esc(accent)}; --paper:#f1efec; --beige:#d6cdc7; width:210mm; min-height:297mm; margin:0 auto; background:var(--paper); box-shadow:0 10px 34px rgba(20,18,26,0.18); display:flex; flex-direction:column; font-size:${fs}px; color:var(--accent); }
+  @media print { body { background:#fff; } .inv { box-shadow:none; margin:0; } }
   .body { padding:0 64px; flex:1; display:flex; flex-direction:column; }
   .logo { max-height:70px; max-width:280px; display:block; }
   .lbl { font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
