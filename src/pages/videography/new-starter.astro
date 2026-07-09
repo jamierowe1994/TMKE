@@ -194,10 +194,15 @@ const termsHtml =
     // pair, anchored on the last Wednesday). The month comes from the personalised
     // link (?month=YYYY-MM, the agent's preferred shoot month); defaults to now.
     function lastTueWed(y, m0) {
+      // Anchor on the LAST TUESDAY of the month; the Wednesday is simply the next
+      // day. When the last Tuesday is the month's final day, the Wednesday rolls
+      // over to the 1st of the next month — the two shoot days stay adjacent, and
+      // that's fine because inductions always start on the first Tuesday, so a
+      // Wed-on-the-1st shoot never clashes with the induction week.
       const d = new Date(y, m0 + 1, 0);                    // last day of that month
-      while (d.getDay() !== 3) d.setDate(d.getDate() - 1); // walk back to Wednesday (3)
-      const wed = new Date(d);
-      const tue = new Date(d); tue.setDate(tue.getDate() - 1);
+      while (d.getDay() !== 2) d.setDate(d.getDate() - 1); // walk back to Tuesday (2)
+      const tue = new Date(d);
+      const wed = new Date(d); wed.setDate(wed.getDate() + 1); // next day = Wednesday
       const iso = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
       return [iso(tue), iso(wed)];
     }
