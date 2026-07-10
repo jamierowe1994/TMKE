@@ -750,6 +750,8 @@ import "../../styles/admin.css";
       const row = $("dd-date-row"); if (row) row.hidden = !on;
       const st = $("smm-eng-status"); if (st) st.textContent = "Saving…";
       if (!r.direct_debit_day) r.direct_debit_day = Number($("dd-date")?.value) || 1;
+      // Re-render the Invoicing panel so it switches to/from the DD view immediately.
+      const pInv = $("smm-panel-invoices"); if (pInv) renderInvoicing(r, pInv, r._lastDocs || [], false, r._lastWarn || null);
       if (isDemo(r)) { if (st) st.textContent = "Saved (demo)."; return; }
       try { await supabase.from("smm_leads").update({ direct_debit: on, direct_debit_day: r.direct_debit_day }).eq("id", r.id); if (st) st.textContent = "Saved."; }
       catch (_) { if (st) st.textContent = "Couldn't save."; }
@@ -948,6 +950,12 @@ import "../../styles/admin.css";
         <div class="smm-panel-head"><h4>Invoicing</h4></div>
         ${r.direct_debit ? `<div class="siv-dd-banner">💳 <span><strong>Direct Debit client${r.direct_debit_day ? ` — collected on the ${r.direct_debit_day}${ordinal(r.direct_debit_day)}` : ""}.</strong> Invoices are raised to your accounts team as reminders (not emailed to the customer), then you mark them paid.</span></div>` : ""}
         ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
+        ${r.direct_debit ? `
+        <div class="siv-dd-recip">
+          <label class="siv-f"><span>Ghost invoices sent to</span><input id="dd-recip" value="${esc(r.dd_invoice_email || "danielle@tmke.co.uk")}" placeholder="accounts@…"></label>
+          <p class="smm-hint" id="dd-recip-status" style="min-height:15px"></p>
+          <p class="smm-hint">Invoices auto-raise on the <strong>1st of each month</strong> — line "Social media management (month)", amount from <strong>Pricing</strong>, due on their DD date — and are emailed here as a reminder. Mark each paid once the Direct Debit clears.</p>
+        </div>` : `
         <div class="siv-build">
           <div class="siv-tpl">
             <span class="siv-tpl-lbl">Template</span>
@@ -975,19 +983,40 @@ import "../../styles/admin.css";
             <button type="button" class="smm-btn" id="siv-create">Save draft</button>
             <button type="button" class="smm-btn smm-btn--primary" id="siv-send">Create &amp; send</button>
           </div>
-        </div>
+        </div>`}
         <div class="siv-list-head">Raised invoices</div>
         <div id="siv-list"><p class="smm-soon">Loading…</p></div>
         ${uploaded.length ? `<div class="siv-list-head">Uploaded PDFs</div>${uploaded.map((d) => `<div class="smm-inv"><div class="smm-inv-top"><span class="smm-doc-ico">${DOC_SVG}</span><span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span><span class="smm-doc-cat">Sent ${fmtDate(d.invoice_date)}</span></span><span class="smm-inv-status ${d.paid_date ? "is-paid" : "is-due"}">${d.paid_date ? "Paid" : "Outstanding"}</span></div><div class="smm-inv-foot"><label class="smm-inv-paid">Paid <input type="date" data-invpaid="${esc(d.id)}" value="${esc(d.paid_date || "")}"></label><span class="smm-doc-tools"><button type="button" class="smm-mini" data-docdl="${esc(d.id)}" data-docname="${esc(d.file_name || "invoice")}">Download</button><button type="button" class="smm-mini is-danger" data-docdel="${esc(d.id)}">Remove</button></span></div></div>`).join("")}` : ""}`;
-      sivRefreshItems(); syncSivTpl();
-      $("siv-tpl").addEventListener("click", (e) => { const b = e.target.closest(".siv-tpl-opt"); if (!b) return; sivTemplate = b.getAttribute("data-tpl"); syncSivTpl(); });
-      $("siv-add").addEventListener("click", () => { sivItems.push({ description: "", amount: "" }); sivRefreshItems(); });
-      $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: sivSettings(), invoice: sivBuildInvoice(r) })); w.document.close(); });
-      $("siv-create").addEventListener("click", () => createSmmInvoice(r, false));
-      $("siv-send").addEventListener("click", () => createSmmInvoice(r, true));
+      if (r.direct_debit) {
+        // DD client — no manual builder. Save the ghost-invoice recipient, and
+        // ask the Worker to ensure this month's invoice exists before listing.
+        $("dd-recip")?.addEventListener("change", (e) => saveDdRecipient(r, e.target.value));
+        ensureDdThenLoad(r);
+      } else {
+        sivRefreshItems(); syncSivTpl();
+        $("siv-tpl").addEventListener("click", (e) => { const b = e.target.closest(".siv-tpl-opt"); if (!b) return; sivTemplate = b.getAttribute("data-tpl"); syncSivTpl(); });
+        $("siv-add").addEventListener("click", () => { sivItems.push({ description: "", amount: "" }); sivRefreshItems(); });
+        $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: sivSettings(), invoice: sivBuildInvoice(r) })); w.document.close(); });
+        $("siv-create").addEventListener("click", () => createSmmInvoice(r, false));
+        $("siv-send").addEventListener("click", () => createSmmInvoice(r, true));
+        loadSmmInvoices(r);
+      }
       panel.querySelectorAll("[data-invpaid]").forEach((el) => el.addEventListener("change", () => setInvoicePaid(r, el.getAttribute("data-invpaid"), el.value)));
       panel.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
       panel.querySelectorAll("[data-docdel]").forEach((b) => b.addEventListener("click", () => deleteDoc(r, b.getAttribute("data-docdel"))));
+    }
+    async function saveDdRecipient(r, value) {
+      r.dd_invoice_email = value.trim() || null;
+      const st = $("dd-recip-status"); if (st) st.textContent = "Saving…";
+      if (isDemo(r)) { if (st) st.textContent = "Saved (demo)."; return; }
+      try { await supabase.from("smm_leads").update({ dd_invoice_email: r.dd_invoice_email }).eq("id", r.id); if (st) st.textContent = "Saved."; }
+      catch (_) { if (st) st.textContent = "Couldn't save."; }
+    }
+    async function ensureDdThenLoad(r) {
+      const wrap = $("siv-list"); if (wrap) wrap.innerHTML = `<p class="smm-soon">Raising this month's invoice…</p>`;
+      if (!isDemo(r) && WORKER) {
+        try { const token = await authToken(); await fetch(`${WORKER}/invoicing/dd/ensure`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id }) }); } catch (_) {}
+      }
       loadSmmInvoices(r);
     }
     async function loadSmmInvoices(r) {
@@ -1391,6 +1420,7 @@ import "../../styles/admin.css";
 
       // INVOICING (active clients only) — the full builder + raised list.
       const pInv = $("smm-panel-invoices");
+      r._lastDocs = docs; r._lastWarn = warn;   // cached so a DD toggle can re-render this panel
       if (pInv) renderInvoicing(r, pInv, docs, loading, warn);
 
       // Wire
