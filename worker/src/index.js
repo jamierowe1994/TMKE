@@ -3240,6 +3240,18 @@ export default {
           method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify(patch),
         });
+        // When marked paid, re-render the saved PDF so the stored copy (and the
+        // client's future hub view) shows the "Paid · <date>" stamp.
+        if (status === "paid") {
+          try {
+            const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`))?.[0];
+            if (inv) {
+              const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+              const pdf = await renderInvoicePdf(env, { ...st, template: inv.template || st.template }, inv);
+              await env.BUCKET.put(`invoices/${inv.number || inv.id}.pdf`, pdf, { httpMetadata: { contentType: "application/pdf" } });
+            }
+          } catch (_) { /* stamp refresh is best-effort */ }
+        }
         return json({ ok: true }, 200, request, env);
       }
 
