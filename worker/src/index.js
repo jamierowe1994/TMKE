@@ -3067,6 +3067,28 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // ---- Brand kit (shared, admin-centre-wide: colours, fonts, logos) -------
+      if (path.endsWith("/brand") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const rows = await sbGet(env, "brand_settings", "id=eq.1&select=*");
+        return json({ ok: true, brand: (rows && rows[0]) || null }, 200, request, env);
+      }
+      if (path.endsWith("/brand") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const row = { id: 1 };
+        for (const k of ["colors", "heading_font", "subheading_font", "body_font", "logo_url", "footer_image_url"]) if (b && k in b) row[k] = b[k];
+        if (row.colors && !Array.isArray(row.colors)) delete row.colors;
+        await fetch(`${env.SUPABASE_URL}/rest/v1/brand_settings?on_conflict=id`, {
+          method: "POST",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(row),
+        });
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: invoice recipients (address book) --------------------------
       if (path.endsWith("/invoicing/recipients") && request.method === "GET") {
         const user = await getUser(request, env);
