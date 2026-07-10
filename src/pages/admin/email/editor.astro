@@ -431,7 +431,25 @@ import "../../../styles/admin.css";
       youtube:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 17a24 24 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49 49 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24 24 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49 49 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg>',
     };
 
-    const SWATCHES = ["", "#ffffff", "#f4f2f1", "#f8fafc", "#fef9ef", "#eef2ff", "#ecfdf5", "#fdf2f8", "#371e28", "#1c1d22"];
+    // Preset swatches. The TMKE Brand kit colours are prepended at boot (loadBrandKit).
+    let SWATCHES = ["", "#ffffff", "#f4f2f1", "#f8fafc", "#fef9ef", "#eef2ff", "#ecfdf5", "#fdf2f8", "#371e28", "#1c1d22"];
+    let brandKitLogo = "";
+    async function loadBrandKit() {
+      if (!WORKER_URL) return;
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!s || !s.access_token) return;
+        const res = await fetch(`${WORKER_URL}/brand`, { headers: { Authorization: `Bearer ${s.access_token}` } });
+        const j = await res.json().catch(() => ({}));
+        const b = (j && j.brand) || {};
+        if (Array.isArray(b.colors) && b.colors.length) {
+          const brandHexes = b.colors.map((c) => String(c).toLowerCase()).filter((c) => /^#[0-9a-f]{3,6}$/.test(c));
+          const rest = SWATCHES.filter((c) => c !== "" && !brandHexes.includes(c.toLowerCase()));
+          SWATCHES = ["", ...brandHexes, ...rest];
+        }
+        if (b.logo_url) brandKitLogo = b.logo_url;
+      } catch (_) {}
+    }
 
     // ── State ──
     const params = new URLSearchParams(location.search);
@@ -1456,7 +1474,9 @@ import "../../../styles/admin.css";
       subjectEl.value=state.subject||""; $("#s-preheader").value=state.preheader||"";
       $("#s-trigger").value=state.trigger_key||""; $("#s-status").value=state.status||"draft"; setStatusPill();
       $("#eb-html").value=state.custom_html||"";
-      const brand={...defaultBrand(),...state.branding}; state.branding=brand;
+      const brand={...defaultBrand(),...state.branding};
+      if(!brand.logo && brandKitLogo) brand.logo=brandKitLogo;   // default to the brand-kit logo
+      state.branding=brand;
       document.querySelectorAll("[data-brand]").forEach(el=>{ const k=el.getAttribute("data-brand"); let v=brand[k]||""; if(el.type==="color"&&!/^#[0-9a-f]{6}$/i.test(v)) v="#371e28"; el.value=v; });
       document.querySelectorAll(".eb-mode").forEach(x=>x.classList.toggle("is-active",x.dataset.mode===state.mode));
       $("#eb-canvas-pane").hidden=state.mode!=="blocks"; $("#eb-html-pane").hidden=state.mode!=="html";
@@ -1482,6 +1502,7 @@ import "../../../styles/admin.css";
         } else if (!DEV) { alert("Couldn't load template. Returning to the list."); location.replace("/admin/email"); return; }
         else { seedSample(); }
       } else { seedSample(); }
+      await loadBrandKit();   // pull the shared brand colours (→ swatches) + logo
       fillMeta();
       booted = true;   // now user edits count as dirty (enables autosave)
       history=[]; histIndex=-1; pushHistory();  // baseline = the loaded/seeded state
