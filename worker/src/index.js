@@ -262,6 +262,44 @@ async function graph(env, method, path, body) {
   if (!res.ok) throw new Error("Graph " + res.status + ": " + (data && data.error ? data.error.message : text));
   return data;
 }
+
+// ---- Google Sheets (service account, read-only) -------------------------
+// Signs a JWT with the service-account private key (RS256) and exchanges it
+// for an access token. Used to poll the TEG new-starter sheet.
+const _b64url = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+const _b64urlStr = (str) => btoa(str).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+let _gsToken = null; // { token, exp } cached per isolate
+async function googleAccessToken(env, scope) {
+  if (_gsToken && _gsToken.exp > Date.now() + 60000 && _gsToken.scope === scope) return _gsToken.token;
+  const sa = JSON.parse(env.GOOGLE_SHEETS_SA_JSON);
+  const now = Math.floor(Date.now() / 1000);
+  const unsigned = `${_b64urlStr(JSON.stringify({ alg: "RS256", typ: "JWT" }))}.${_b64urlStr(JSON.stringify({ iss: sa.client_email, scope, aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 }))}`;
+  const pem = sa.private_key.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\s+/g, "");
+  const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der.buffer, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
+  const jwt = `${unsigned}.${_b64url(sig)}`;
+  const res = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }) });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error("Google token: " + (j.error_description || j.error || res.status));
+  _gsToken = { token: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000, scope };
+  return j.access_token;
+}
+async function googleSheetMeta(env, sheetId) {
+  const token = await googleAccessToken(env, "https://www.googleapis.com/auth/spreadsheets.readonly");
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=properties.title,sheets.properties.title`, { headers: { Authorization: "Bearer " + token } });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error("Sheets meta: " + (j.error && j.error.message ? j.error.message : res.status));
+  return j;
+}
+async function googleSheetRows(env, sheetId, range) {
+  const token = await googleAccessToken(env, "https://www.googleapis.com/auth/spreadsheets.readonly");
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`, { headers: { Authorization: "Bearer " + token } });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error("Sheets read: " + (j.error && j.error.message ? j.error.message : res.status));
+  return j.values || [];
+}
+
 // Insert a row into Supabase with the service role.
 async function sbPost(env, table, row, prefer) {
   return fetch(`${env.SUPABASE_URL}/rest/v1/${table}`, {
