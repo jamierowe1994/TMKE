@@ -68,6 +68,11 @@ export function mergeContextFor(recipient = {}, brand = {}) {
     orderTotal: recipient.orderTotal || '',
     senderName: brand.signatureName || '',
     senderCompany: brand.companyName || '',
+    // Videography new-starter funnel context (populated by the funnel send).
+    bookingLink: recipient.bookingLink || '',
+    code: recipient.code || '',
+    shootMonth: recipient.shootMonth || '',
+    trainerName: recipient.trainerName || '',
   };
 }
 
@@ -84,10 +89,15 @@ export const MERGE_FIELDS = [
   { token: 'orderTotal', label: 'Order total' },
   { token: 'senderName', label: 'Sender name' },
   { token: 'senderCompany', label: 'Sender company' },
+  // Videography new-starter funnel
+  { token: 'bookingLink', label: 'Booking link' },
+  { token: 'code', label: 'Unique code' },
+  { token: 'shootMonth', label: 'Shoot month' },
+  { token: 'trainerName', label: 'Trainer name' },
 ];
 
 /** A dummy recipient so the live preview shows realistic merged values. */
-export const SAMPLE_RECIPIENT = { name: 'Alex Morgan', email: 'alex@example.com', company: 'Acme Estates', location: 'Kettering', phone: '07700 900123', packName: 'The Spring Collection', orderTotal: '£149' };
+export const SAMPLE_RECIPIENT = { name: 'Alex Morgan', email: 'alex@example.com', company: 'Acme Estates', location: 'Kettering', phone: '07700 900123', packName: 'The Spring Collection', orderTotal: '£149', bookingLink: 'https://tmke.co.uk/videography/new-starter?code=PRO-AM-AUG26', code: 'PRO-AM-AUG26', shootMonth: 'August 2026', trainerName: 'Kelly Bailey' };
 
 /* ───────────────────────── branding ───────────────────────── */
 
