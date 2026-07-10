@@ -18,8 +18,44 @@
 // automation emails look identical to Email Studio previews. (No deps — safe to
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
+// Invoice PDF: reuse the same pure renderer the admin preview uses, then print
+// it to a real A4 PDF with Browser Rendering (headless Chrome).
+import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
+import puppeteer from "@cloudflare/puppeteer";
 
 const PART_PREFIX = "deliverables";
+
+// Render invoice HTML to an A4 PDF (Uint8Array). The template is already sized
+// in millimetres for A4, so Chrome prints it 1:1 with no extra layout work.
+async function renderInvoicePdf(env, settings, invoice) {
+  const html = renderInvoiceHtml({ settings, invoice });
+  const browser = await puppeteer.launch(env.BROWSER);
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+    return await page.pdf({ printBackground: true, preferCSSPageSize: true });
+  } finally {
+    await browser.close();
+  }
+}
+
+// A short, plain covering email that carries the invoice PDF.
+function invoiceCoverHtml(settings, inv) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const company = settings.company_name || "The Marketing Experts (Nationwide) Ltd";
+  const due = inv.due_date ? new Date(inv.due_date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
+  const terms = settings.payment_terms_days != null ? settings.payment_terms_days : 7;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6;max-width:560px">
+    <p style="margin:0 0 14px">Dear ${esc(inv.bill_to_name || "Sir or Madam")},</p>
+    <p style="margin:0 0 14px">Please find attached invoice <strong>${esc(inv.number)}</strong> from ${esc(company)}.</p>
+    <table style="border-collapse:collapse;margin:0 0 14px;font-size:15px">
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Amount due</td><td style="padding:2px 0"><strong>${money(inv.total_pence)}</strong></td></tr>
+      ${due ? `<tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Due date</td><td style="padding:2px 0">${esc(due)}</td></tr>` : ""}
+    </table>
+    <p style="margin:0 0 14px">Payment is due within ${esc(terms)} days by bank transfer — the account details are on the invoice, and please quote <strong>${esc(inv.number)}</strong> as the reference. If you have any questions, just reply to this email.</p>
+    <p style="margin:0">Kind regards,<br>${esc(company)}</p>
+  </div>`;
+}
 
 function corsHeaders(request, env) {
   const origin = request.headers.get("Origin") || "";
@@ -603,20 +639,23 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
 // real inbox, and a copy sits in Sent Items. Reuses the same app-only token as
 // the calendar integration (needs the `Mail.Send` application permission).
 // Best-effort: never throws — the caller's record is already saved.
-async function sendEmail(env, { to, subject, html, attachments, from, fromName }) {
+async function sendEmail(env, { to, cc, subject, html, attachments, from, fromName }) {
   if (!to) return;
   const sender = from || env.MAIL_SENDER || env.JACK_UPN;
   if (!sender) return;
-  const recipients = (Array.isArray(to) ? to : [to])
+  const toAddr = (list) => (Array.isArray(list) ? list : [list])
     .map((a) => String(a || "").trim())
     .filter(Boolean)
     .map((address) => ({ emailAddress: { address } }));
+  const recipients = toAddr(to);
   if (!recipients.length) return;
   const message = {
     subject,
     body: { contentType: "HTML", content: html },
     toRecipients: recipients,
   };
+  const ccList = cc ? toAddr(cc) : [];
+  if (ccList.length) message.ccRecipients = ccList;
   const dispName = fromName || env.MAIL_FROM_NAME;
   if (dispName) message.from = { emailAddress: { address: sender, name: dispName } };
   if (attachments && attachments.length) {
@@ -2998,6 +3037,45 @@ export default {
           method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
         });
         return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Admin: send an invoice (render PDF → email + CC accounts → sent) ---
+      if (path.endsWith("/invoicing/invoices/send") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.id) || "").trim();
+        if (!id) return json({ error: "Missing invoice id." }, 400, request, env);
+        const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`);
+        const inv = rows && rows[0];
+        if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
+        if (!inv.bill_to_email) return json({ error: "This invoice has no recipient email — add one first." }, 400, request, env);
+        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+
+        let pdf;
+        try { pdf = await renderInvoicePdf(env, st, inv); }
+        catch (err) { return json({ error: "Couldn't render the PDF: " + (err && err.message ? err.message : err) }, 502, request, env); }
+
+        // Keep a copy in R2 (deterministic key by number).
+        const pdfKey = `invoices/${(inv.number || inv.id)}.pdf`;
+        try { await env.BUCKET.put(pdfKey, pdf, { httpMetadata: { contentType: "application/pdf" } }); } catch (_) {}
+
+        // Covering email with the PDF attached; accounts dept CC'd.
+        await sendEmail(env, {
+          to: inv.bill_to_email,
+          cc: st.accounts_cc_email || inv.cc_email || null,
+          subject: `Invoice ${inv.number} from ${st.company_name || "The Marketing Experts (Nationwide) Ltd"}`,
+          html: invoiceCoverHtml(st, inv),
+          attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
+        });
+
+        // Mark sent (don't downgrade an already-paid invoice).
+        const newStatus = inv.status === "paid" ? "paid" : "sent";
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ status: newStatus, sent_to: inv.bill_to_email }),
+        });
+        return json({ ok: true, status: newStatus, sent_to: inv.bill_to_email }, 200, request, env);
       }
 
       // ---- Admin: invoices (create draft / list / mark paid) -----------------

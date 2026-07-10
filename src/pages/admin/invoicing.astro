@@ -37,7 +37,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             <div class="ci-totals" id="ci-totals"></div>
             <label class="inv-field" style="margin-top:16px"><span>Notes (optional)</span><textarea id="ci-notes" rows="2" placeholder="e.g. Thank you for your business."></textarea></label>
             <p class="inv-msg" id="ci-msg" hidden></p>
-            <button type="button" class="inv-save" id="ci-create">Create invoice</button>
+            <div class="ci-actions">
+              <button type="button" class="inv-ghost" id="ci-create">Save draft</button>
+              <button type="button" class="inv-save" id="ci-send">Create &amp; send</button>
+            </div>
           </div>
         </div>
         <div class="inv-preview-wrap">
@@ -189,6 +192,13 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-save { align-self: flex-start; margin-top: 8px; appearance: none; cursor: pointer; background: var(--english-violet); color: #fff; border: 0; border-radius: 9px; padding: 12px 24px; font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; transition: opacity 0.2s; }
     .inv-save:hover { opacity: 0.9; }
     .inv-save:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ci-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+    .inv-ghost { appearance: none; cursor: pointer; background: #fff; color: var(--english-violet); border: 1px solid rgba(55,30,40,0.25); border-radius: 9px; padding: 12px 20px; font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; transition: background 0.15s; }
+    .inv-ghost:hover { background: rgba(55,30,40,0.05); }
+    .inv-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+    .invrow .invsend { appearance: none; cursor: pointer; border: 1px solid var(--english-violet); background: var(--english-violet); color: #fff; border-radius: 8px; padding: 6px 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; }
+    .invrow .invsend:hover { opacity: 0.9; }
+    .invrow .invsend:disabled { opacity: 0.5; cursor: not-allowed; }
     .inv-msg { font-family: var(--sans); font-size: 13px; border-radius: 8px; padding: 9px 12px; margin: 4px 0 0; }
     .inv-msg.is-ok { background: rgba(60,150,90,0.1); color: #2e6b40; }
     .inv-msg.is-err { background: rgba(200,70,50,0.1); color: #a3372b; }
@@ -246,6 +256,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-badge.sent { background: rgba(55,30,40,0.1); color: var(--english-violet); }
     .inv-badge.paid { background: rgba(60,150,90,0.14); color: #2e6b40; }
     .inv-badge.void { background: rgba(200,70,50,0.1); color: #a3372b; }
+    .invrow-tools { display: inline-flex; align-items: center; gap: 8px; justify-self: end; }
     .invrow .markpaid { appearance: none; cursor: pointer; border: 1px solid rgba(28,29,34,0.16); background: none; border-radius: 8px; padding: 6px 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.7); }
     .invrow .markpaid:hover { background: rgba(60,150,90,0.1); border-color: rgba(60,150,90,0.4); color: #2e6b40; }
     .inv-h-note { font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); margin-left: 8px; font-size: 11px; }
@@ -298,15 +309,16 @@ import AdminShell from "../../components/admin/AdminShell.astro";
 
     // ---- Settings ----
     async function loadSettings() {
-      if (!WORKER) { msg("inv-msg", "Connect the Worker (PUBLIC_R2_WORKER_URL) to manage invoicing.", false); return; }
+      if (!WORKER) { msg("inv-msg", "Connect the Worker (PUBLIC_R2_WORKER_URL) to manage invoicing.", false); initTemplate(); initCreate(); return; }
       try {
         const { settings } = await api("/invoicing/settings");
         currentSettings = settings || {};
         const f = $("inv-form");
         for (const k of FIELDS) { const el = f.elements[k]; if (el && currentSettings[k] != null) el.value = currentSettings[k]; }
-        initTemplate();
-        initCreate();
       } catch (err) { msg("inv-msg", err.message, false); }
+      // Always initialise the preview + builder, even if settings failed to load.
+      initTemplate();
+      initCreate();
     }
     $("inv-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -471,19 +483,33 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     ["ci-name", "ci-email", "ci-address", "ci-issued", "ci-due"].forEach((id) => $(id).addEventListener("input", ciPreview));
     $("ci-recip").addEventListener("change", (e) => { const r = ciRecipients.find((x) => x.id === e.target.value); if (r) { $("ci-name").value = r.name; $("ci-email").value = r.email || ""; $("ci-address").value = r.address || ""; ciPreview(); } });
     $("ci-open-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: currentSettings, invoice: ciBuildInvoice() })); w.document.close(); });
-    $("ci-create").addEventListener("click", async () => {
+    // Create a draft; returns the saved invoice (or null on validation/error).
+    async function ciCreate(requireEmail) {
       const inv = ciBuildInvoice();
-      if (!inv.bill_to_name) { msg("ci-msg", "Enter a recipient name.", false); return; }
-      if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return; }
-      const btn = $("ci-create"); btn.disabled = true; btn.textContent = "Creating…";
+      if (!inv.bill_to_name) { msg("ci-msg", "Enter a recipient name.", false); return null; }
+      if (requireEmail && !inv.bill_to_email) { msg("ci-msg", "Enter a recipient email to send to.", false); return null; }
+      if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return null; }
+      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: $("ci-notes").value.trim() || null, line_items: inv.line_items }) });
+      currentSettings.next_number = (currentSettings.next_number || 1001) + 1;
+      return invoice;
+    }
+    function ciReset() { ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address", "ci-notes"].forEach((id) => { $(id).value = ""; }); $("ci-recip").value = ""; ciRefresh(); }
+    $("ci-create").addEventListener("click", async () => {
+      const btn = $("ci-create"); btn.disabled = true; btn.textContent = "Saving…";
+      try { const invoice = await ciCreate(false); if (invoice) { msg("ci-msg", `Draft ${invoice.number} saved — see the Invoices tab.`, true); ciReset(); } }
+      catch (err) { msg("ci-msg", err.message, false); }
+      finally { btn.disabled = false; btn.textContent = "Save draft"; }
+    });
+    $("ci-send").addEventListener("click", async () => {
+      const btn = $("ci-send"); btn.disabled = true; btn.textContent = "Sending…";
       try {
-        const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: $("ci-notes").value.trim() || null, line_items: inv.line_items }) });
-        msg("ci-msg", `Invoice ${invoice.number} created (draft) — see the Invoices tab.`, true);
-        ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address", "ci-notes"].forEach((id) => { $(id).value = ""; }); $("ci-recip").value = "";
-        currentSettings.next_number = (currentSettings.next_number || 1001) + 1;
-        ciRefresh();
+        const invoice = await ciCreate(true);
+        if (invoice) {
+          await api("/invoicing/invoices/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: invoice.id }) });
+          msg("ci-msg", `Invoice ${invoice.number} sent to the recipient (accounts CC'd).`, true); ciReset();
+        }
       } catch (err) { msg("ci-msg", err.message, false); }
-      finally { btn.disabled = false; btn.textContent = "Create invoice"; }
+      finally { btn.disabled = false; btn.textContent = "Create & send"; }
     });
     window.addEventListener("resize", ciScaleFit);
 
@@ -495,10 +521,15 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         const { invoices } = await api("/invoicing/invoices");
         if (!invoices.length) { wrap.innerHTML = '<p class="inv-empty">No invoices yet — create one.</p>'; return; }
         const d = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
-        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span>${v.status !== "paid" && v.status !== "void" ? `<button type="button" class="markpaid" data-id="${esc(v.id)}">Mark paid</button>` : `<span style="font-size:11.5px;color:rgba(28,29,34,0.45)">${v.paid_date ? "Paid " + d(v.paid_date) : ""}</span>`}</div>`).join("");
+        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="invrow-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="markpaid" data-id="${esc(v.id)}">Mark paid</button>` : `<span style="font-size:11.5px;color:rgba(28,29,34,0.45)">${v.paid_date ? "Paid " + d(v.paid_date) : ""}</span>`}</span></div>`).join("");
       } catch (err) { wrap.innerHTML = `<p class="inv-empty">${esc(err.message)}</p>`; }
     }
-    $("inv-list").addEventListener("click", async (e) => { const b = e.target.closest(".markpaid"); if (!b) return; b.disabled = true; try { await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-id"), status: "paid" }) }); loadInvoices(); } catch (err) { alert(err.message); b.disabled = false; } });
+    $("inv-list").addEventListener("click", async (e) => {
+      const paid = e.target.closest(".markpaid");
+      if (paid) { paid.disabled = true; try { await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: paid.getAttribute("data-id"), status: "paid" }) }); loadInvoices(); } catch (err) { alert(err.message); paid.disabled = false; } return; }
+      const send = e.target.closest(".invsend");
+      if (send) { send.disabled = true; send.textContent = "Sending…"; try { await api("/invoicing/invoices/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: send.getAttribute("data-sendid") }) }); loadInvoices(); } catch (err) { alert(err.message); send.disabled = false; send.textContent = "Send"; } return; }
+    });
 
     document.addEventListener("ash:ready", () => { initTemplate(); loadSettings(); loadRecipients(); });
   </script>
