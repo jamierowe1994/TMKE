@@ -39,6 +39,51 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       </div>
     </div>
 
+    <div class="ash-card set-card set-card--brand">
+      <div class="ash-card-head"><div class="ash-card-title">TMKE Brand kit</div></div>
+      <div class="ash-card-body">
+        <p class="set-hint" style="margin-bottom:18px">Shared across the whole admin centre — the one place for TMKE's colours, fonts and logos. The Email Studio pulls these colours and the logo automatically.</p>
+
+        <h3 class="set-h">Colours</h3>
+        <p class="set-hint" style="margin:-4px 0 12px">These become preset swatches in the Email Studio colour picker.</p>
+        <div class="brand-colors" id="brand-colors"></div>
+        <div class="brand-add">
+          <input type="color" id="brand-color-pick" value="#371E28" />
+          <input type="text" id="brand-color-hex" class="brand-hex" placeholder="#371E28" />
+          <button type="button" class="set-mini" id="brand-color-add">Add colour</button>
+        </div>
+
+        <h3 class="set-h">Fonts</h3>
+        <p class="set-hint" style="margin:-4px 0 12px">Stored for reference and on-site use. Emails keep their Outlook-safe fonts, so these don't affect email designs.</p>
+        <label class="set-field"><span>Heading font</span><input id="brand-heading-font" placeholder="Helios, Helvetica, Arial, sans-serif" /></label>
+        <label class="set-field"><span>Sub-heading font</span><input id="brand-subheading-font" /></label>
+        <label class="set-field"><span>Body font</span><input id="brand-body-font" /></label>
+
+        <h3 class="set-h">Logos</h3>
+        <div class="brand-logos">
+          <div class="brand-logo">
+            <span class="set-field-lbl">Primary logo</span>
+            <div class="brand-logo-box"><img id="brand-logo-preview" alt="" hidden /></div>
+            <div class="brand-logo-row">
+              <input id="brand-logo-url" class="brand-url" placeholder="Paste a URL, or upload →" />
+              <label class="set-upload"><input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden /><span id="brand-logo-lbl">Upload</span></label>
+            </div>
+          </div>
+          <div class="brand-logo">
+            <span class="set-field-lbl">Footer / banner</span>
+            <div class="brand-logo-box"><img id="brand-footer-preview" alt="" hidden /></div>
+            <div class="brand-logo-row">
+              <input id="brand-footer-url" class="brand-url" placeholder="Paste a URL, or upload →" />
+              <label class="set-upload"><input type="file" id="brand-footer-file" accept="image/png,image/jpeg,image/webp" hidden /><span id="brand-footer-lbl">Upload</span></label>
+            </div>
+          </div>
+        </div>
+
+        <p class="set-msg" id="brand-msg" hidden></p>
+        <button type="button" class="set-save" id="brand-save">Save brand kit</button>
+      </div>
+    </div>
+
     <section class="set-team">
       <h2 class="set-team-h">Admin access</h2>
       <p class="set-team-intro">Anyone with an <strong>@tmke.co.uk</strong> email can sign in automatically. Grant access below to anyone else who needs the admin centre — they'll get their own login, emailed to them. Removing someone revokes their admin access straight away.</p>
@@ -83,6 +128,31 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .set-msg.is-err { background: rgba(200,70,50,0.1); color: #a3372b; border: 1px solid rgba(200,70,50,0.3); }
     .set-toggle { display: flex; align-items: center; gap: 11px; font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer; }
     .set-toggle input { width: 18px; height: 18px; accent-color: var(--english-violet); }
+
+    /* ---- Brand kit ---- */
+    .set-card--brand { grid-column: 1 / -1; }
+    .set-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 24px 0 10px; }
+    .set-card--brand .ash-card-body > .set-h:first-of-type { margin-top: 0; }
+    .set-field-lbl { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin-bottom: 8px; }
+    .set-card--brand .set-field { margin-bottom: 12px; }
+    .brand-colors { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-bottom: 16px; }
+    .brand-colors:empty { display: none; }
+    .brand-swatch { position: relative; width: 46px; height: 46px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.16); }
+    .brand-swatch .hex { position: absolute; bottom: -16px; left: 0; font-family: var(--sans); font-size: 9px; color: rgba(28,29,34,0.5); white-space: nowrap; }
+    .brand-swatch button { position: absolute; top: -7px; right: -7px; width: 19px; height: 19px; border-radius: 50%; border: 0; background: #fff; box-shadow: 0 1px 5px rgba(0,0,0,0.28); color: #a3372b; font-size: 13px; line-height: 1; cursor: pointer; opacity: 0; transition: opacity 0.12s; }
+    .brand-swatch:hover button { opacity: 1; }
+    .brand-add { display: flex; align-items: center; gap: 8px; }
+    .brand-add input[type=color] { width: 44px; height: 40px; padding: 2px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; background: #fff; cursor: pointer; }
+    .brand-hex { width: 130px; font-family: var(--sans); font-size: 14px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; color: var(--ink); }
+    .set-mini { appearance: none; cursor: pointer; background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; padding: 10px 15px; font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: var(--english-violet); }
+    .set-mini:hover { background: var(--paper); }
+    .brand-logos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 560px) { .brand-logos { grid-template-columns: 1fr; } }
+    .brand-logo-box { background: var(--paper); border: 1px solid rgba(28,29,34,0.1); border-radius: 9px; min-height: 84px; display: flex; align-items: center; justify-content: center; padding: 10px; overflow: hidden; }
+    .brand-logo-box img { max-width: 100%; max-height: 90px; display: block; }
+    .brand-logo-box:has(img[hidden]) { color: rgba(28,29,34,0.3); }
+    .brand-logo-row { display: flex; gap: 8px; margin-top: 8px; }
+    .brand-url { flex: 1; min-width: 0; font-family: var(--sans); font-size: 13px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; color: var(--ink); }
 
     /* ---- Admin access (team) — a card-less section so the member cards sit
        on the paper ground and read as individual wide cards, like the SMM list. ---- */
@@ -142,6 +212,78 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       paintAvatar(currentAvatar, (profile && profile.full_name) || (session.user.email || ""));
       $("pref-collapsed").checked = localStorage.getItem("tmke-admin-collapsed") === "1";
       loadTeam();
+      loadBrand();
+    });
+
+    // ---- Brand kit (shared across the admin centre) ----
+    let brandColors = [];
+    const brandMsg = (t, ok) => { const m = $("brand-msg"); m.hidden = false; m.textContent = t; m.className = "set-msg " + (ok ? "is-ok" : "is-err"); };
+    function renderBrandColors() {
+      $("brand-colors").innerHTML = brandColors.map((c, i) => `<span class="brand-swatch" style="background:${c}"><button type="button" data-rmc="${i}" title="Remove">&times;</button><span class="hex">${c}</span></span>`).join("");
+    }
+    function setLogoPreview(imgId, url) { const img = $(imgId); if (url) { img.src = url; img.hidden = false; } else { img.hidden = true; img.removeAttribute("src"); } }
+    async function loadBrand() {
+      if (!WORKER) return;
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/brand`, { headers: { Authorization: `Bearer ${token}` } });
+        const j = await res.json().catch(() => ({}));
+        const b = (j && j.brand) || {};
+        brandColors = Array.isArray(b.colors) ? b.colors.slice() : [];
+        renderBrandColors();
+        $("brand-heading-font").value = b.heading_font || "";
+        $("brand-subheading-font").value = b.subheading_font || "";
+        $("brand-body-font").value = b.body_font || "";
+        $("brand-logo-url").value = b.logo_url || "";
+        $("brand-footer-url").value = b.footer_image_url || "";
+        setLogoPreview("brand-logo-preview", b.logo_url);
+        setLogoPreview("brand-footer-preview", b.footer_image_url);
+      } catch (_) {}
+    }
+    $("brand-color-pick").addEventListener("input", (e) => { $("brand-color-hex").value = e.target.value.toUpperCase(); });
+    $("brand-color-add").addEventListener("click", () => {
+      let hex = ($("brand-color-hex").value || $("brand-color-pick").value).trim();
+      if (hex && !hex.startsWith("#")) hex = "#" + hex;
+      if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) { brandMsg("That doesn't look like a hex colour.", false); return; }
+      hex = hex.toUpperCase();
+      if (!brandColors.includes(hex)) brandColors.push(hex);
+      $("brand-color-hex").value = "";
+      renderBrandColors();
+    });
+    $("brand-colors").addEventListener("click", (e) => { const b = e.target.closest("[data-rmc]"); if (!b) return; brandColors.splice(+b.getAttribute("data-rmc"), 1); renderBrandColors(); });
+    $("brand-logo-url").addEventListener("input", (e) => setLogoPreview("brand-logo-preview", e.target.value.trim()));
+    $("brand-footer-url").addEventListener("input", (e) => setLogoPreview("brand-footer-preview", e.target.value.trim()));
+    async function uploadBrandImage(file, folder) {
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `${folder}/${folder}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true, cacheControl: "3600", contentType: file.type });
+      if (error) throw error;
+      return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+    }
+    $("brand-logo-file").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      const lbl = $("brand-logo-lbl"), prev = lbl.textContent; lbl.textContent = "Uploading…";
+      try { const url = await uploadBrandImage(file, "brand-logo"); $("brand-logo-url").value = url; setLogoPreview("brand-logo-preview", url); brandMsg("Logo uploaded — Save the brand kit to keep it.", true); }
+      catch (err) { brandMsg(err.message || "Couldn't upload that image.", false); }
+      finally { lbl.textContent = prev; e.target.value = ""; }
+    });
+    $("brand-footer-file").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      const lbl = $("brand-footer-lbl"), prev = lbl.textContent; lbl.textContent = "Uploading…";
+      try { const url = await uploadBrandImage(file, "brand-footer"); $("brand-footer-url").value = url; setLogoPreview("brand-footer-preview", url); brandMsg("Footer image uploaded — Save the brand kit to keep it.", true); }
+      catch (err) { brandMsg(err.message || "Couldn't upload that image.", false); }
+      finally { lbl.textContent = prev; e.target.value = ""; }
+    });
+    $("brand-save").addEventListener("click", async () => {
+      if (!WORKER) { brandMsg("Connect the Worker to save the brand kit.", false); return; }
+      const btn = $("brand-save"); btn.disabled = true; btn.textContent = "Saving…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/brand`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ colors: brandColors, heading_font: $("brand-heading-font").value.trim() || null, subheading_font: $("brand-subheading-font").value.trim() || null, body_font: $("brand-body-font").value.trim() || null, logo_url: $("brand-logo-url").value.trim() || null, footer_image_url: $("brand-footer-url").value.trim() || null }) });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "Couldn't save."); }
+        brandMsg("Brand kit saved.", true);
+      } catch (err) { brandMsg(err.message, false); }
+      finally { btn.disabled = false; btn.textContent = "Save brand kit"; }
     });
 
     // ---------- Admin access (team) ----------
