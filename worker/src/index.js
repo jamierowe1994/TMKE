@@ -640,15 +640,18 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
 // the calendar integration (needs the `Mail.Send` application permission).
 // Best-effort: never throws — the caller's record is already saved.
 async function sendEmail(env, { to, cc, subject, html, attachments, from, fromName }) {
-  if (!to) return;
+  if (!to) return false;
   const sender = from || env.MAIL_SENDER || env.JACK_UPN;
-  if (!sender) return;
+  if (!sender) return false;
+  // Split comma/semicolon-separated strings so a single field can hold several
+  // addresses (e.g. the accounts-dept CC "a@x.com, b@y.com").
   const toAddr = (list) => (Array.isArray(list) ? list : [list])
-    .map((a) => String(a || "").trim())
+    .flatMap((a) => String(a || "").split(/[;,]/))
+    .map((a) => a.trim())
     .filter(Boolean)
     .map((address) => ({ emailAddress: { address } }));
   const recipients = toAddr(to);
-  if (!recipients.length) return;
+  if (!recipients.length) return false;
   const message = {
     subject,
     body: { contentType: "HTML", content: html },
@@ -668,8 +671,10 @@ async function sendEmail(env, { to, cc, subject, html, attachments, from, fromNa
   }
   try {
     await graph(env, "POST", `/users/${encodeURIComponent(sender)}/sendMail`, { message, saveToSentItems: true });
+    return true;
   } catch (err) {
     console.error("sendEmail (Graph) failed:", err && err.message ? err.message : err);
+    return false;
   }
 }
 
@@ -3062,14 +3067,16 @@ export default {
         const pdfKey = `invoices/${(inv.number || inv.id)}.pdf`;
         try { await env.BUCKET.put(pdfKey, pdf, { httpMetadata: { contentType: "application/pdf" } }); } catch (_) {}
 
-        // Covering email with the PDF attached; accounts dept CC'd.
-        await sendEmail(env, {
+        // Covering email with the PDF attached; accounts dept CC'd. If the email
+        // doesn't actually go, don't mark it sent — tell the caller so they retry.
+        const emailed = await sendEmail(env, {
           to: inv.bill_to_email,
           cc: st.accounts_cc_email || inv.cc_email || null,
           subject: `Invoice ${inv.number} from ${st.company_name || "The Marketing Experts (Nationwide) Ltd"}`,
           html: invoiceCoverHtml(st, inv),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
         });
+        if (!emailed) return json({ error: "The invoice was saved but the email didn't send — check the recipient and accounts-CC addresses, then try again." }, 502, request, env);
 
         // Mark sent (don't downgrade an already-paid invoice).
         const newStatus = inv.status === "paid" ? "paid" : "sent";
