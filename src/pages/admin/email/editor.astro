@@ -230,6 +230,10 @@ import "../../../styles/admin.css";
     .eb-sw[data-none="1"] { display:flex; align-items:center; justify-content:center; color:rgba(28,29,34,0.4); font-size:12px; background:#fff; }
     .eb-hex { width:100%; font-family:ui-monospace,Menlo,monospace; font-size:12px; padding:7px 10px; border:1px solid var(--eb-line); border-radius:6px; text-transform:uppercase; }
     .eb-hex:focus { outline:none; border-color:var(--english-violet); }
+    /* Brand-colour presets shown under a native colour picker */
+    .eb-bsw-row { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+    .eb-bsw { width:22px; height:22px; border-radius:5px; border:1px solid rgba(28,29,34,0.2); cursor:pointer; padding:0; transition:transform 0.1s; }
+    .eb-bsw:hover { transform:scale(1.12); }
 
     /* Inspector */
     .eb-insp-back { background:none; border:0; cursor:pointer; font-family:var(--sans); font-size:11px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--english-violet); padding:0 0 14px; }
@@ -434,6 +438,7 @@ import "../../../styles/admin.css";
     // Preset swatches. The TMKE Brand kit colours are prepended at boot (loadBrandKit).
     let SWATCHES = ["", "#ffffff", "#f4f2f1", "#f8fafc", "#fef9ef", "#eef2ff", "#ecfdf5", "#fdf2f8", "#371e28", "#1c1d22"];
     let brandKitLogo = "";
+    let brandKitColors = [];   // the raw brand hexes — shown under every colour picker
     async function loadBrandKit() {
       if (!WORKER_URL) return;
       try {
@@ -443,12 +448,25 @@ import "../../../styles/admin.css";
         const j = await res.json().catch(() => ({}));
         const b = (j && j.brand) || {};
         if (Array.isArray(b.colors) && b.colors.length) {
-          const brandHexes = b.colors.map((c) => String(c).toLowerCase()).filter((c) => /^#[0-9a-f]{3,6}$/.test(c));
+          brandKitColors = b.colors.map((c) => String(c)).filter((c) => /^#[0-9a-f]{3,6}$/i.test(c));
+          const brandHexes = brandKitColors.map((c) => c.toLowerCase());
           const rest = SWATCHES.filter((c) => c !== "" && !brandHexes.includes(c.toLowerCase()));
           SWATCHES = ["", ...brandHexes, ...rest];
         }
         if (b.logo_url) brandKitLogo = b.logo_url;
       } catch (_) {}
+    }
+    // Add a row of clickable brand-colour swatches under every colour picker in a
+    // container (the native <input type=color> can't show presets itself).
+    function injectBrandSwatches(wrap) {
+      if (!brandKitColors.length || !wrap) return;
+      wrap.querySelectorAll('input[type="color"]').forEach((inp) => {
+        if (inp.dataset.bsw) return; inp.dataset.bsw = "1";
+        const row = document.createElement("div"); row.className = "eb-bsw-row";
+        row.innerHTML = brandKitColors.map((c) => `<button type="button" class="eb-bsw" data-c="${c}" style="background:${c}" title="${c}"></button>`).join("");
+        (inp.closest(".eb-f") || inp.parentElement).appendChild(row);
+        row.querySelectorAll(".eb-bsw").forEach((sw) => sw.addEventListener("click", () => { inp.value = sw.dataset.c; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true })); }));
+      });
     }
 
     // ── State ──
@@ -775,12 +793,9 @@ import "../../../styles/admin.css";
 
     // Inline rich-text toolbar for the text block (execCommand — email-safe tags)
     // + one-click merge-field inserter (pulls from contact data at send time).
-    const FIELD_CHIPS = [
-      { token: "{{firstName}}", label: "First name" },
-      { token: "{{fullName}}", label: "Full name" },
-      { token: "{{location}}", label: "Location" },
-      { token: "{{company}}", label: "Brand / business" },
-    ];
+    // Every merge field (kept in sync with the shared MERGE_FIELDS list) so new
+    // ones — e.g. the videography funnel's Booking link — show up automatically.
+    const FIELD_CHIPS = MERGE_FIELDS.map((f) => ({ token: `{{${f.token}}}`, label: f.label }));
     // Format buttons only (bold/italic/underline/list/clear) — lives inside the Font card.
     function formatButtons(){
       return `<div class="eb-fmt" style="margin-bottom:0;"><span class="eb-f-sub">Format</span>
@@ -1078,6 +1093,7 @@ import "../../../styles/admin.css";
       const def = BLOCK_TYPES.find(d=>d.type===b.type);
       $("#eb-insp-title").textContent = def ? def.label : b.type;
       const wrap = $("#eb-insp-fields"); wrap.innerHTML = inspectorFields(b, canvasDevice) + visibilityControl(b);
+      injectBrandSwatches(wrap);   // brand-colour presets under every colour picker
       wrap.querySelectorAll("[data-vis]").forEach((btn)=>btn.addEventListener("click", ()=>{
         if(!b.hide) b.hide = {};
         const dev = btn.dataset.vis; b.hide[dev] = !b.hide[dev];
