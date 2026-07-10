@@ -39,22 +39,35 @@ async function renderInvoicePdf(env, settings, invoice) {
   }
 }
 
-// A short, plain covering email that carries the invoice PDF.
-function invoiceCoverHtml(settings, inv) {
-  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Format an invoice due date the way the covering email says it.
+function invoiceDueNice(inv) {
+  return inv.due_date ? new Date(inv.due_date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
+}
+// The default covering-email text (plain, with line breaks). Mirrored on the
+// client so the sender can edit it before sending; kept here as the fallback.
+// Keys off the invoice's actual due date rather than a fixed "within N days".
+function defaultInvoiceEmailText(settings, inv) {
   const company = settings.company_name || "The Marketing Experts (Nationwide) Ltd";
-  const due = inv.due_date ? new Date(inv.due_date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
-  const terms = settings.payment_terms_days != null ? settings.payment_terms_days : 7;
-  return `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6;max-width:560px">
-    <p style="margin:0 0 14px">Dear ${esc(inv.bill_to_name || "Sir or Madam")},</p>
-    <p style="margin:0 0 14px">Please find attached invoice <strong>${esc(inv.number)}</strong> from ${esc(company)}.</p>
-    <table style="border-collapse:collapse;margin:0 0 14px;font-size:15px">
-      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Amount due</td><td style="padding:2px 0"><strong>${money(inv.total_pence)}</strong></td></tr>
-      ${due ? `<tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Due date</td><td style="padding:2px 0">${esc(due)}</td></tr>` : ""}
-    </table>
-    <p style="margin:0 0 14px">Payment is due within ${esc(terms)} days by bank transfer — the account details are on the invoice, and please quote <strong>${esc(inv.number)}</strong> as the reference. If you have any questions, just reply to this email.</p>
-    <p style="margin:0">Kind regards,<br>${esc(company)}</p>
-  </div>`;
+  const due = invoiceDueNice(inv);
+  const lines = [
+    `Dear ${inv.bill_to_name || "Sir or Madam"},`, "",
+    `Please find attached invoice ${inv.number} from ${company}.`, "",
+    `Amount due: ${money(inv.total_pence)}`,
+  ];
+  if (due) lines.push(`Due date: ${due}`);
+  lines.push("", `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+  return lines.join("\n");
+}
+// The invoice covering email: a body (the sender's edited text if provided, else
+// the default) followed by the optional footer image. PDF attached separately.
+function invoiceEmailHtml(settings, inv, customBodyText) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const br = (s) => esc(s).replace(/\n/g, "<br>");
+  const bodyText = (customBodyText != null && String(customBodyText).trim()) ? customBodyText : defaultInvoiceEmailText(settings, inv);
+  const footer = settings.email_footer_image_url
+    ? `<div style="margin-top:26px"><img src="${esc(settings.email_footer_image_url)}" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0" /></div>`
+    : "";
+  return `<div style="max-width:600px"><div style="font-family:Arial,Helvetica,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6">${br(bodyText)}</div>${footer}</div>`;
 }
 
 function corsHeaders(request, env) {
@@ -3005,7 +3018,7 @@ export default {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
-        const allowed = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "bank_name", "account_name", "sort_code", "account_number", "payment_terms_days", "invoice_prefix", "next_number", "accounts_cc_email", "footer_note", "template", "accent_color", "logo_url", "show_bank", "font_family", "font_size"];
+        const allowed = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "bank_name", "account_name", "sort_code", "account_number", "payment_terms_days", "invoice_prefix", "next_number", "accounts_cc_email", "footer_note", "template", "accent_color", "logo_url", "show_bank", "font_family", "font_size", "email_footer_image_url"];
         const row = { id: 1 };
         for (const k of allowed) if (b && k in b) row[k] = b[k];
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?on_conflict=id`, {
@@ -3068,22 +3081,27 @@ export default {
         const pdfKey = `invoices/${(inv.number || inv.id)}.pdf`;
         try { await env.BUCKET.put(pdfKey, pdf, { httpMetadata: { contentType: "application/pdf" } }); } catch (_) {}
 
+        // The sender can edit the subject, body and CC on the review step before
+        // sending; fall back to the invoice's stored values / defaults otherwise.
+        const subject = (b && typeof b.email_subject === "string" && b.email_subject.trim()) ? b.email_subject.trim() : `Invoice ${inv.number} from ${st.company_name || "The Marketing Experts (Nationwide) Ltd"}`;
+        const cc = (b && b.cc !== undefined) ? (String(b.cc || "").trim() || null) : (inv.cc_email || null);
+
         // Covering email with the PDF attached; accounts dept CC'd. If the email
         // doesn't actually go, don't mark it sent — tell the caller so they retry.
         const emailed = await sendEmail(env, {
           to: inv.bill_to_email,
-          cc: inv.cc_email || null,
-          subject: `Invoice ${inv.number} from ${st.company_name || "The Marketing Experts (Nationwide) Ltd"}`,
-          html: invoiceCoverHtml(st, inv),
+          cc,
+          subject,
+          html: invoiceEmailHtml(st, inv, b && b.email_body),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
         });
-        if (!emailed.ok) return json({ error: "The invoice was saved but the email didn't send: " + (emailed.error || "unknown error") + " (recipient: " + inv.bill_to_email + (inv.cc_email ? ", cc: " + inv.cc_email : "") + ")" }, 502, request, env);
+        if (!emailed.ok) return json({ error: "The invoice was saved but the email didn't send: " + (emailed.error || "unknown error") + " (recipient: " + inv.bill_to_email + (cc ? ", cc: " + cc : "") + ")" }, 502, request, env);
 
-        // Mark sent (don't downgrade an already-paid invoice).
+        // Mark sent (don't downgrade an already-paid invoice). Persist any edited CC.
         const newStatus = inv.status === "paid" ? "paid" : "sent";
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
           method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ status: newStatus, sent_to: inv.bill_to_email }),
+          body: JSON.stringify({ status: newStatus, sent_to: inv.bill_to_email, cc_email: cc }),
         });
         return json({ ok: true, status: newStatus, sent_to: inv.bill_to_email }, 200, request, env);
       }
@@ -3093,7 +3111,7 @@ export default {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const extra = url.searchParams.get("booking_id") ? `&booking_id=eq.${encodeURIComponent(url.searchParams.get("booking_id"))}` : "";
-        const rows = (await sbGet(env, "invoices", `select=id,number,bill_to_name,bill_to_email,total_pence,status,issued_date,due_date,paid_date,created_at${extra}&order=created_at.desc&limit=300`)) || [];
+        const rows = (await sbGet(env, "invoices", `select=id,number,bill_to_name,bill_to_email,cc_email,total_pence,status,issued_date,due_date,paid_date,created_at${extra}&order=created_at.desc&limit=300`)) || [];
         return json({ ok: true, invoices: rows }, 200, request, env);
       }
       if (path.endsWith("/invoicing/invoices") && request.method === "POST") {

@@ -362,8 +362,8 @@ export const EMAIL_CATALOG = [
     fires: "POST /invoicing/invoices/send",
     to: "The invoice recipient (bill-to email); accounts dept CC'd (invoice_settings.accounts_cc_email — Paula & Danielle)",
     sender: "hello@tmke.co.uk",
-    subject: "Invoice {number} from The Marketing Experts (Nationwide) Ltd",
-    summary: "A short covering email with the invoice number, total and due date, and the invoice itself attached as a PDF. The accounts department is CC'd on every send. Marks the invoice as ‘sent’.",
+    subject: "Invoice {number} from The Marketing Experts (Nationwide) Ltd (editable per send)",
+    summary: "A covering email with the invoice number, total and due date, and the invoice attached as a PDF. The sender reviews it on a QuickBooks-style step and can edit the subject, body and CC before sending; a brand footer image (set in Invoicing Settings) is appended. Accounts is CC'd by default. Marks the invoice ‘sent’.",
     fields: ["number", "bill_to_name", "total", "due_date"],
   },
 ];
