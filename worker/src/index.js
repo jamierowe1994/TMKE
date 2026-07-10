@@ -3071,7 +3071,7 @@ export default {
         // doesn't actually go, don't mark it sent — tell the caller so they retry.
         const emailed = await sendEmail(env, {
           to: inv.bill_to_email,
-          cc: st.accounts_cc_email || inv.cc_email || null,
+          cc: inv.cc_email || null,
           subject: `Invoice ${inv.number} from ${st.company_name || "The Marketing Experts (Nationwide) Ltd"}`,
           html: invoiceCoverHtml(st, inv),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
@@ -3122,7 +3122,12 @@ export default {
           bill_to_name: billName, bill_to_email: (b && b.bill_to_email) || null, bill_to_address: (b && b.bill_to_address) || null,
           line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
           status: "draft", issued_date: (b && b.issued_date) || null, due_date: (b && b.due_date) || null,
-          notes: (b && b.notes) || null, template, cc_email: st.accounts_cc_email || null, created_by: user.email || null,
+          notes: (b && b.notes) || null, template,
+          // Per-invoice CC — the builder pre-fills the accounts default but the
+          // sender can edit/clear it. Only fall back to the default if the field
+          // wasn't sent at all (so a deliberate clear = no CC).
+          cc_email: (b && b.cc_email !== undefined) ? (String(b.cc_email || "").trim() || null) : (st.accounts_cc_email || null),
+          created_by: user.email || null,
         };
         let res = await sbPost(env, "invoices", row, "return=representation");
         if (!res.ok) {

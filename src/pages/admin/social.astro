@@ -922,6 +922,7 @@ import "../../styles/admin.css";
             <label class="siv-f"><span>Email</span><input id="siv-email" type="email" value="${esc(r.email || "")}"></label>
           </div>
           <label class="siv-f"><span>Billing address</span><textarea id="siv-address" rows="2" placeholder="Optional">${esc(r.business_address || "")}</textarea></label>
+          <label class="siv-f"><span>CC</span><input id="siv-cc" value="${esc(invSettings.accounts_cc_email || "")}" placeholder="Accounts, comma-separated"></label>
           <div class="siv-grid2">
             <label class="siv-f"><span>Issued</span><input id="siv-issued" type="date" value="${today}"></label>
             <label class="siv-f"><span>Due</span><input id="siv-due" type="date" value="${dueISO}"></label>
@@ -983,7 +984,7 @@ import "../../styles/admin.css";
       if (isDemo(r)) { r._invoices = r._invoices || []; r._invoices.unshift({ id: "iv" + Date.now(), number: inv.number, due_date: inv.due_date, total_pence: inv.total_pence, status: send ? "sent" : "draft", bill_to_email: inv.bill_to_email }); show(`Invoice ${inv.number} ${send ? "sent" : "saved as draft"}.`, true); loadSmmInvoices(r); btn.disabled = false; btn.textContent = label; return; }
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: sivTemplate, line_items: inv.line_items }) });
+        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: ($("siv-cc")?.value || "").trim(), issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: sivTemplate, line_items: inv.line_items }) });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.invoice) throw new Error(j.error || "Couldn't create the invoice.");
         invSettings.next_number = (invSettings.next_number || 1001) + 1;
