@@ -3051,9 +3051,11 @@ export default {
         if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
         if (!inv.bill_to_email) return json({ error: "This invoice has no recipient email — add one first." }, 400, request, env);
         const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+        // The person raising the invoice can pick the style; fall back to the saved default.
+        const stForPdf = { ...st, template: inv.template || st.template };
 
         let pdf;
-        try { pdf = await renderInvoicePdf(env, st, inv); }
+        try { pdf = await renderInvoicePdf(env, stForPdf, inv); }
         catch (err) { return json({ error: "Couldn't render the PDF: " + (err && err.message ? err.message : err) }, 502, request, env); }
 
         // Keep a copy in R2 (deterministic key by number).
@@ -3106,17 +3108,28 @@ export default {
         const vat = Math.round(subtotal * vatRate / 100);
         const total = subtotal + vat;
 
+        const template = (b && (b.template === "banded" || b.template === "minimal")) ? b.template : null;
         const row = {
           number, booking_id: (b && b.booking_id) || null, booking_source: (b && b.booking_source) || "videography",
           recipient_id: (b && b.recipient_id) || null,
           bill_to_name: billName, bill_to_email: (b && b.bill_to_email) || null, bill_to_address: (b && b.bill_to_address) || null,
           line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
           status: "draft", issued_date: (b && b.issued_date) || null, due_date: (b && b.due_date) || null,
-          notes: (b && b.notes) || null, cc_email: st.accounts_cc_email || null, created_by: user.email || null,
+          notes: (b && b.notes) || null, template, cc_email: st.accounts_cc_email || null, created_by: user.email || null,
         };
-        const res = await sbPost(env, "invoices", row, "return=representation");
+        let res = await sbPost(env, "invoices", row, "return=representation");
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          // The per-invoice template column is optional (supabase/invoicing_template_choice.sql).
+          // If it isn't there yet, save without it rather than failing the whole invoice.
+          if (/template/.test(errText) && row.template != null) {
+            const { template: _t, ...rowNoTpl } = row;
+            res = await sbPost(env, "invoices", rowNoTpl, "return=representation");
+          }
+          if (!res.ok) return json({ error: "Couldn't save the invoice." + (errText ? " " + errText.slice(0, 180) : "") }, 502, request, env);
+        }
         let inv = null; try { const j = await res.json(); inv = Array.isArray(j) ? j[0] : j; } catch (_) {}
-        if (!inv) return json({ error: "Couldn't save the invoice." }, 502, request, env);
+        if (!inv || !inv.id) return json({ error: "Couldn't save the invoice." }, 502, request, env);
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?id=eq.1`, {
           method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify({ next_number: nextNum + 1 }),
