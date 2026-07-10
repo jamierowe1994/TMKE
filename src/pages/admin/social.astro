@@ -305,6 +305,10 @@ import "../../styles/admin.css";
     .smm-mini { background: none; border: 0; padding: 3px 7px; border-radius: 6px; font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: rgba(28,29,34,0.5); cursor: pointer; transition: background .15s, color .15s; }
     .smm-mini:hover { background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
     .smm-mini.is-danger:hover { background: rgba(160,90,60,0.12); color: #a05a3c; }
+    .smm-mini.is-primary { background: var(--english-violet); color: #fff; padding: 4px 11px; }
+    .smm-mini.is-primary:hover { background: var(--english-violet); opacity: 0.9; color: #fff; }
+    .smm-mini:disabled { opacity: 0.5; cursor: not-allowed; }
+    .siv-row-tools { display: inline-flex; align-items: center; gap: 6px; justify-self: end; }
     .smm-mail { max-width: 88%; margin-bottom: 10px; padding: 11px 14px; border-radius: 12px; font-family: var(--sans); }
     .smm-mail.is-in { background: rgba(28,29,34,0.045); border: 1px solid rgba(28,29,34,0.08); border-top-left-radius: 4px; margin-right: auto; }
     .smm-mail.is-out { background: rgba(var(--violet-rgb),0.07); border: 1px solid rgba(var(--violet-rgb),0.16); border-top-right-radius: 4px; margin-left: auto; }
@@ -909,7 +913,8 @@ import "../../styles/admin.css";
           <p class="smm-modal-status" id="siv-msg" hidden></p>
           <div class="siv-actions">
             <button type="button" class="smm-btn" id="siv-pdf">Preview / PDF</button>
-            <button type="button" class="smm-btn smm-btn--primary" id="siv-create">Create invoice</button>
+            <button type="button" class="smm-btn" id="siv-create">Save draft</button>
+            <button type="button" class="smm-btn smm-btn--primary" id="siv-send">Create &amp; send</button>
           </div>
         </div>
         <div class="siv-list-head">Raised invoices</div>
@@ -918,7 +923,8 @@ import "../../styles/admin.css";
       sivRefreshItems();
       $("siv-add").addEventListener("click", () => { sivItems.push({ description: "", amount: "" }); sivRefreshItems(); });
       $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: invSettings, invoice: sivBuildInvoice(r) })); w.document.close(); });
-      $("siv-create").addEventListener("click", () => createSmmInvoice(r));
+      $("siv-create").addEventListener("click", () => createSmmInvoice(r, false));
+      $("siv-send").addEventListener("click", () => createSmmInvoice(r, true));
       panel.querySelectorAll("[data-invpaid]").forEach((el) => el.addEventListener("change", () => setInvoicePaid(r, el.getAttribute("data-invpaid"), el.value)));
       panel.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
       panel.querySelectorAll("[data-docdel]").forEach((b) => b.addEventListener("click", () => deleteDoc(r, b.getAttribute("data-docdel"))));
@@ -927,7 +933,7 @@ import "../../styles/admin.css";
     async function loadSmmInvoices(r) {
       const wrap = $("siv-list"); if (!wrap) return;
       const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
-      const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span>${v.status !== "paid" && v.status !== "void" ? `<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}</div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
+      const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span><span class="siv-row-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="smm-mini is-primary" data-sivsend="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}</span></div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
       if (isDemo(r)) { wrap.innerHTML = rowsHtml(r._invoices || []); }
       else if (!WORKER) { wrap.innerHTML = '<p class="smm-doc-empty">Connect the Worker to raise invoices.</p>'; return; }
       else {
@@ -939,25 +945,37 @@ import "../../styles/admin.css";
         if (isDemo(r)) { const v = (r._invoices || []).find((x) => x.id === b.getAttribute("data-sivpaid")); if (v) v.status = "paid"; loadSmmInvoices(r); return; }
         try { const token = await authToken(); await fetch(`${WORKER}/invoicing/invoices`, { method: "PATCH", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-sivpaid"), status: "paid" }) }); loadSmmInvoices(r); } catch (_) { b.disabled = false; }
       }));
+      wrap.querySelectorAll("[data-sivsend]").forEach((b) => b.addEventListener("click", async () => {
+        b.disabled = true; b.textContent = "Sending…";
+        if (isDemo(r)) { const v = (r._invoices || []).find((x) => x.id === b.getAttribute("data-sivsend")); if (v) v.status = "sent"; loadSmmInvoices(r); return; }
+        try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices/send`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-sivsend") }) }); const j = await res.json().catch(() => ({})); if (!res.ok) throw new Error(j.error || "Send failed."); loadSmmInvoices(r); } catch (e) { alert(e.message); b.disabled = false; b.textContent = "Send"; }
+      }));
     }
-    async function createSmmInvoice(r) {
+    // Create a draft (and optionally send it). send=true also emails the recipient.
+    async function createSmmInvoice(r, send) {
       const inv = sivBuildInvoice(r);
       const msgEl = $("siv-msg");
       const show = (t, ok) => { msgEl.hidden = false; msgEl.textContent = t; msgEl.style.color = ok ? "#2e6b40" : "#a3372b"; };
       if (!inv.bill_to_name) { show("Add a recipient name.", false); return; }
+      if (send && !inv.bill_to_email) { show("Add a recipient email to send to.", false); return; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { show("Add at least one line item.", false); return; }
-      const btn = $("siv-create"); btn.disabled = true; btn.textContent = "Creating…";
-      if (isDemo(r)) { r._invoices = r._invoices || []; r._invoices.unshift({ id: "iv" + Date.now(), number: inv.number, due_date: inv.due_date, total_pence: inv.total_pence, status: "draft" }); show(`Invoice ${inv.number} created (draft).`, true); loadSmmInvoices(r); btn.disabled = false; btn.textContent = "Create invoice"; return; }
+      const btn = send ? $("siv-send") : $("siv-create"); const label = btn.textContent; btn.disabled = true; btn.textContent = send ? "Sending…" : "Saving…";
+      if (isDemo(r)) { r._invoices = r._invoices || []; r._invoices.unshift({ id: "iv" + Date.now(), number: inv.number, due_date: inv.due_date, total_pence: inv.total_pence, status: send ? "sent" : "draft", bill_to_email: inv.bill_to_email }); show(`Invoice ${inv.number} ${send ? "sent" : "saved as draft"}.`, true); loadSmmInvoices(r); btn.disabled = false; btn.textContent = label; return; }
       try {
         const token = await authToken();
         const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, issued_date: inv.issued_date, due_date: inv.due_date, line_items: inv.line_items }) });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.invoice) throw new Error(j.error || "Couldn't create the invoice.");
-        show(`Invoice ${j.invoice.number} created (draft).`, true);
         invSettings.next_number = (invSettings.next_number || 1001) + 1;
+        if (send) {
+          const sr = await fetch(`${WORKER}/invoicing/invoices/send`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: j.invoice.id }) });
+          const sj = await sr.json().catch(() => ({}));
+          if (!sr.ok) throw new Error(sj.error || "Created the draft, but sending failed.");
+          show(`Invoice ${j.invoice.number} sent to ${inv.bill_to_email} (accounts CC'd).`, true);
+        } else { show(`Invoice ${j.invoice.number} saved as a draft.`, true); }
         loadSmmInvoices(r);
       } catch (e) { show(e.message, false); }
-      finally { btn.disabled = false; btn.textContent = "Create invoice"; }
+      finally { btn.disabled = false; btn.textContent = label; }
     }
 
     // ---------- Insights (per-client SocialPilot reports) ----------
