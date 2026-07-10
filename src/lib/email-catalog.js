@@ -351,7 +351,22 @@ export const EMAIL_CATALOG = [
     summary: "Sends a fresh temporary password to an existing admin who needs one, with a prompt to change it after signing in.",
     fields: ["full_name", "temp_password", "login_url"],
   },
+
+  // ─────────────────────────── Invoicing ───────────────────────────
+  {
+    id: "invoice_sent",
+    group: "Invoicing",
+    name: "Invoice — sent to recipient",
+    audience: "client",
+    trigger: "An admin clicks Send on an invoice (standalone builder or an SMM client's Invoicing tab)",
+    fires: "POST /invoicing/invoices/send",
+    to: "The invoice recipient (bill-to email); accounts dept CC'd (invoice_settings.accounts_cc_email — Paula & Danielle)",
+    sender: "hello@tmke.co.uk",
+    subject: "Invoice {number} from The Marketing Experts (Nationwide) Ltd",
+    summary: "A short covering email with the invoice number, total and due date, and the invoice itself attached as a PDF. The accounts department is CC'd on every send. Marks the invoice as ‘sent’.",
+    fields: ["number", "bill_to_name", "total", "due_date"],
+  },
 ];
 
 // Groups in display order.
-export const EMAIL_GROUPS = ["Social media", "Videography", "Studio & packs", "Automations", "Account & auth", "Admin & team"];
+export const EMAIL_GROUPS = ["Social media", "Videography", "Studio & packs", "Automations", "Account & auth", "Admin & team", "Invoicing"];
