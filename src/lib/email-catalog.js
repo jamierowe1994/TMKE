@@ -366,6 +366,19 @@ export const EMAIL_CATALOG = [
     summary: "A covering email with the invoice number, total and due date, and the invoice attached as a PDF. The sender reviews it on a QuickBooks-style step and can edit the subject, body and CC before sending; a brand footer image (set in Invoicing Settings) is appended. Accounts is CC'd by default. Marks the invoice ‘sent’.",
     fields: ["number", "bill_to_name", "total", "due_date"],
   },
+  {
+    id: "invoice_dd_reminder",
+    group: "Invoicing",
+    name: "Direct Debit invoice — accounts reminder",
+    audience: "internal",
+    trigger: "A Direct Debit client's monthly ghost invoice is auto-raised (1st of the month, or when their Invoicing tab is opened)",
+    fires: "cron runDdMonthly / POST /invoicing/dd/ensure → ensureDdInvoice",
+    to: "The client's ghost-invoice recipient (smm_leads.dd_invoice_email; default danielle@tmke.co.uk). Never the customer.",
+    sender: "hello@tmke.co.uk",
+    subject: "Direct Debit invoice {number} — {client} ({month})",
+    summary: "Internal reminder that a DD client's monthly invoice has been raised for the books (they pay by Direct Debit via QuickBooks, so the customer is never emailed). Shows client, period, amount, invoice number and DD collection date, with the full invoice PDF attached. Marked paid manually once the DD clears.",
+    fields: ["number", "client", "month", "total", "due_date"],
+  },
 ];
 
 // Groups in display order.
