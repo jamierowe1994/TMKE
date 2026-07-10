@@ -33,6 +33,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
               <label class="inv-field"><span>Email</span><input id="ci-email" type="email" /></label>
               <label class="inv-field"><span>Address</span><input id="ci-address" /></label>
             </div>
+            <label class="inv-field"><span>CC</span><input id="ci-cc" placeholder="Accounts, comma-separated" /></label>
             <h3 class="inv-h">Dates</h3>
             <div class="inv-row2b">
               <label class="inv-field"><span>Issued</span><input id="ci-issued" type="date" /></label>
@@ -495,6 +496,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!$("ci-issued").value) $("ci-issued").value = isoToday();
       if (!$("ci-due").value) { const d = new Date(); d.setDate(d.getDate() + Number(currentSettings.payment_terms_days || 7)); $("ci-due").value = d.toISOString().slice(0, 10); }
       if (!$("ci-notes").value) $("ci-notes").value = NOTES_DEFAULT;
+      if (!$("ci-cc").value) $("ci-cc").value = currentSettings.accounts_cc_email || "";
       ciRefresh();
     }
     $("ci-tpl").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciTemplate = b.getAttribute("data-tpl"); syncCiTpl(); ciPreview(); });
@@ -510,11 +512,11 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!inv.bill_to_name) { msg("ci-msg", "Enter a recipient name.", false); return null; }
       if (requireEmail && !inv.bill_to_email) { msg("ci-msg", "Enter a recipient email to send to.", false); return null; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return null; }
-      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, line_items: inv.line_items }) });
+      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, line_items: inv.line_items }) });
       currentSettings.next_number = (currentSettings.next_number || 1001) + 1;
       return invoice;
     }
-    function ciReset() { ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-recip").value = ""; ciRefresh(); }
+    function ciReset() { ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-cc").value = currentSettings.accounts_cc_email || ""; $("ci-recip").value = ""; ciRefresh(); }
     $("ci-create").addEventListener("click", async () => {
       const btn = $("ci-create"); btn.disabled = true; btn.textContent = "Saving…";
       try { const invoice = await ciCreate(false); if (invoice) { msg("ci-msg", `Draft ${invoice.number} saved — see the Invoices tab.`, true); ciReset(); } }
