@@ -787,6 +787,10 @@ import "../../../styles/admin.css";
       const dSize = b.type==="heading"?28:15, dLh = b.type==="heading"?"1.15":"1.6", dCol = b.type==="heading"?"#1c1d22":"#1f2937";
       const P=(k)=>isM?`mobile.${k}`:k;
       const V=(k)=>isM?((b.mobile&&b.mobile[k]!=null)?b.mobile[k]:""):(b[k]!=null?b[k]:"");
+      // Desktop shows the effective value (the block's own, else the default) so the
+      // field reflects the real size instead of a greyed placeholder. Mobile keeps
+      // blank = "inherit desktop".
+      const VE=(k,d)=>isM?V(k):((b[k]!=null&&b[k]!=="")?b[k]:d);
       const PH=(k,d)=>isM?((b[k]!=null&&b[k]!=="")?b[k]:d):d;
       const alignCur = isM?((b.mobile&&b.mobile.align)||""):(b.align||"left");
       const alignOpts = `${isM?`<option value=""${alignCur===""?" selected":""}>Inherit</option>`:""}${ALIGN.map(o=>`<option value="${o}"${o===alignCur?" selected":""}>${o}</option>`).join("")}`;
@@ -799,11 +803,11 @@ import "../../../styles/admin.css";
       return `<div class="eb-resp"><div class="eb-resp-head"><span class="eb-f-sub">Font</span>${deviceToggleMini(device)}</div>
         <label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
         <div class="eb-f2">
-          <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="90" data-field="${P("size")}" value="${V("size")}" placeholder="${PH("size",dSize)}" /></label>
-          <label class="eb-f"><span>Line height</span><input type="number" min="0.8" max="3" step="0.05" data-field="${P("lineHeight")}" value="${V("lineHeight")}" placeholder="${PH("lineHeight",dLh)}" /></label>
+          <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="90" data-field="${P("size")}" value="${VE("size",dSize)}" placeholder="${PH("size",dSize)}" /></label>
+          <label class="eb-f"><span>Line height</span><input type="number" min="0.8" max="3" step="0.05" data-field="${P("lineHeight")}" value="${VE("lineHeight",dLh)}" placeholder="${PH("lineHeight",dLh)}" /></label>
         </div>
         <div class="eb-f2">
-          <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="${P("letterSpacing")}" value="${V("letterSpacing")}" placeholder="${PH("letterSpacing","0")}" /></label>
+          <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="${P("letterSpacing")}" value="${VE("letterSpacing","0")}" placeholder="${PH("letterSpacing","0")}" /></label>
           <label class="eb-f"><span>Alignment</span><select data-field="${P("align")}">${alignOpts}</select></label>
         </div>
         ${format}
