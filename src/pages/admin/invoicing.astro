@@ -454,6 +454,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     });
 
     // ---- Create invoice ----
+    const NOTES_DEFAULT = "Thank you for your business - TMKE";
     let ciRecipients = [];
     let ciItems = [{ description: "", amount: "" }];
     let ciTemplate = "minimal";
@@ -493,6 +494,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       ciTemplate = ["minimal", "banded"].includes(t) ? t : "minimal"; syncCiTpl();
       if (!$("ci-issued").value) $("ci-issued").value = isoToday();
       if (!$("ci-due").value) { const d = new Date(); d.setDate(d.getDate() + Number(currentSettings.payment_terms_days || 7)); $("ci-due").value = d.toISOString().slice(0, 10); }
+      if (!$("ci-notes").value) $("ci-notes").value = NOTES_DEFAULT;
       ciRefresh();
     }
     $("ci-tpl").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciTemplate = b.getAttribute("data-tpl"); syncCiTpl(); ciPreview(); });
@@ -512,7 +514,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       currentSettings.next_number = (currentSettings.next_number || 1001) + 1;
       return invoice;
     }
-    function ciReset() { ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address", "ci-notes"].forEach((id) => { $(id).value = ""; }); $("ci-recip").value = ""; ciRefresh(); }
+    function ciReset() { ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-recip").value = ""; ciRefresh(); }
     $("ci-create").addEventListener("click", async () => {
       const btn = $("ci-create"); btn.disabled = true; btn.textContent = "Saving…";
       try { const invoice = await ciCreate(false); if (invoice) { msg("ci-msg", `Draft ${invoice.number} saved — see the Invoices tab.`, true); ciReset(); } }
