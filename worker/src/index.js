@@ -640,9 +640,9 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
 // the calendar integration (needs the `Mail.Send` application permission).
 // Best-effort: never throws — the caller's record is already saved.
 async function sendEmail(env, { to, cc, subject, html, attachments, from, fromName }) {
-  if (!to) return false;
+  if (!to) return { ok: false, error: "No recipient." };
   const sender = from || env.MAIL_SENDER || env.JACK_UPN;
-  if (!sender) return false;
+  if (!sender) return { ok: false, error: "No sender mailbox configured." };
   // Split comma/semicolon-separated strings so a single field can hold several
   // addresses (e.g. the accounts-dept CC "a@x.com, b@y.com").
   const toAddr = (list) => (Array.isArray(list) ? list : [list])
@@ -651,7 +651,7 @@ async function sendEmail(env, { to, cc, subject, html, attachments, from, fromNa
     .filter(Boolean)
     .map((address) => ({ emailAddress: { address } }));
   const recipients = toAddr(to);
-  if (!recipients.length) return false;
+  if (!recipients.length) return { ok: false, error: "No valid recipient address." };
   const message = {
     subject,
     body: { contentType: "HTML", content: html },
@@ -671,10 +671,11 @@ async function sendEmail(env, { to, cc, subject, html, attachments, from, fromNa
   }
   try {
     await graph(env, "POST", `/users/${encodeURIComponent(sender)}/sendMail`, { message, saveToSentItems: true });
-    return true;
+    return { ok: true };
   } catch (err) {
-    console.error("sendEmail (Graph) failed:", err && err.message ? err.message : err);
-    return false;
+    const msg = err && err.message ? err.message : String(err);
+    console.error("sendEmail (Graph) failed:", msg);
+    return { ok: false, error: msg };
   }
 }
 
@@ -3076,7 +3077,7 @@ export default {
           html: invoiceCoverHtml(st, inv),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
         });
-        if (!emailed) return json({ error: "The invoice was saved but the email didn't send — check the recipient and accounts-CC addresses, then try again." }, 502, request, env);
+        if (!emailed.ok) return json({ error: "The invoice was saved but the email didn't send: " + (emailed.error || "unknown error") + " (recipient: " + inv.bill_to_email + (inv.cc_email ? ", cc: " + inv.cc_email : "") + ")" }, 502, request, env);
 
         // Mark sent (don't downgrade an already-paid invoice).
         const newStatus = inv.status === "paid" ? "paid" : "sent";
