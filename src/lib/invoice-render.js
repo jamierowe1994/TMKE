@@ -25,6 +25,7 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   const items = Array.isArray(inv.line_items) ? inv.line_items : [];
   const vatRate = s.vat_rate != null ? s.vat_rate : 20;
   const company = (s.company_name || "The Marketing Experts").toUpperCase();
+  const paidDate = (String(inv.status) === "paid" && inv.paid_date) ? fmtDate(inv.paid_date) : null;
 
   const wordmark = s.logo_url
     ? `<img class="logo" src="${esc(s.logo_url)}" alt="${esc(s.company_name || "")}" />`
@@ -128,6 +129,8 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   .totals { margin-top:34px; }
   .totals .r { display:flex; justify-content:space-between; font-size:11.5px; padding:5px 0; }
   .totals .grand { margin-top:8px; display:flex; justify-content:space-between; align-items:baseline; font-size:30px; font-weight:800; letter-spacing:-0.01em; }
+  /* Paid stamp — shown once the invoice is marked paid. */
+  .paid-stamp { margin-top:14px; display:inline-block; padding:6px 16px; border:1.5px solid #2e6b40; color:#2e6b40; border-radius:6px; font-size:13px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; }
 
   .pay { font-size:11.5px; line-height:1.4; }
   .pay .lbl { font-size:11.5px; margin-bottom:8px; }
@@ -175,6 +178,7 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
         <div class="r"><span>Sub-total</span><span>${money(inv.subtotal_pence)}</span></div>
         <div class="r"><span>VAT (${esc(vatRate)}%)</span><span>${money(inv.vat_pence)}</span></div>
         <div class="grand"><span>TOTAL</span><span>${money(inv.total_pence)}</span></div>
+        ${paidDate ? `<div class="paid-stamp">Paid · ${esc(paidDate)}</div>` : ""}
       </div>
       <div class="pay-block">
         ${bank}
