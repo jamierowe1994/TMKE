@@ -18,7 +18,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         <div class="ash-card">
           <div class="ash-card-head"><div class="ash-card-title">Create an invoice</div></div>
           <div class="ash-card-body">
-            <p class="inv-intro">Build it, preview it, then save. It's numbered automatically and uses your saved template.</p>
+            <p class="inv-intro">Build it, preview it, then save or send. It's numbered automatically.</p>
+            <div class="ci-tpl">
+              <span class="ci-tpl-lbl">Template</span>
+              <div class="ci-tpl-opts" id="ci-tpl">
+                <button type="button" class="ci-tpl-opt" data-tpl="minimal">Minimal</button>
+                <button type="button" class="ci-tpl-opt" data-tpl="banded">Banded</button>
+              </div>
+            </div>
             <h3 class="inv-h">Bill to</h3>
             <label class="inv-field"><span>From the address book</span><select id="ci-recip"><option value="">— Choose a partner, or type below —</option></select></label>
             <label class="inv-field"><span>Name *</span><input id="ci-name" placeholder="e.g. Fine &amp; Country — Rugby" /></label>
@@ -108,9 +115,8 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             <p class="inv-intro">Pick a starting style, then tweak the colour and logo. The preview updates live.</p>
             <h3 class="inv-h">Style</h3>
             <div class="inv-styles" id="inv-styles">
-              <button type="button" class="inv-style" data-style="editorial"><span class="inv-style-name">Editorial</span><span class="inv-style-sub">Big type, paper</span></button>
+              <button type="button" class="inv-style" data-style="minimal"><span class="inv-style-name">Minimal</span><span class="inv-style-sub">Big type on paper</span></button>
               <button type="button" class="inv-style" data-style="banded"><span class="inv-style-name">Banded</span><span class="inv-style-sub">Wine header + beige footer</span></button>
-              <button type="button" class="inv-style" data-style="minimal"><span class="inv-style-name">Minimal</span><span class="inv-style-sub">Airy, hairlines</span></button>
             </div>
             <h3 class="inv-h">Typeface <span class="inv-h-note">Outlook-safe fonts only</span></h3>
             <div class="inv-row2">
@@ -215,7 +221,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-panel[data-panel="template"] { max-width: 1180px; }
     .inv-tpl-grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
     @media (max-width: 900px) { .inv-tpl-grid { grid-template-columns: 1fr; } }
-    .inv-styles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+    .inv-styles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
     @media (max-width: 460px) { .inv-styles { grid-template-columns: 1fr; } }
     .inv-style { text-align: left; cursor: pointer; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 10px; padding: 12px 13px; display: flex; flex-direction: column; gap: 3px; transition: border-color 0.15s, box-shadow 0.15s; }
     .inv-style:hover { border-color: rgba(55,30,40,0.4); }
@@ -239,6 +245,11 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-panel[data-panel="create"] { max-width: 1180px; }
     .inv-row2b { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 640px) { .inv-row2b { grid-template-columns: 1fr; } }
+    .ci-tpl { display: flex; align-items: center; gap: 12px; margin: 0 0 20px; }
+    .ci-tpl-lbl { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .ci-tpl-opts { display: inline-flex; gap: 4px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 9px; }
+    .ci-tpl-opt { appearance: none; cursor: pointer; background: none; border: 0; border-radius: 7px; padding: 7px 16px; font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: rgba(28,29,34,0.55); transition: background 0.15s, color 0.15s; }
+    .ci-tpl-opt.is-active { background: var(--english-violet); color: #fff; }
     .ci-item { display: grid; grid-template-columns: 1fr 130px 34px; gap: 8px; align-items: center; margin-bottom: 8px; }
     .ci-item input { font-family: var(--sans); font-size: 14px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; background: #fff; color: var(--ink); }
     .ci-item input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
@@ -370,8 +381,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     });
 
     // ---- Template ----
-    const tplState = { template: "editorial", accent_color: "#371e28", logo_url: "", show_bank: true, font_family: "Arial, Helvetica, sans-serif", font_size: 13 };
-    const LEGACY_STYLE = { classic: "editorial", modern: "banded" };
+    const tplState = { template: "minimal", accent_color: "#371e28", logo_url: "", show_bank: true, font_family: "Arial, Helvetica, sans-serif", font_size: 13 };
+    // Only two styles now; every legacy/aliased key maps onto one of them.
+    const LEGACY_STYLE = { classic: "minimal", editorial: "minimal", modern: "banded" };
     function currentInvoiceHtml() {
       const settings = { ...currentSettings, ...tplState };
       return renderInvoiceHtml({ settings, invoice: sampleInvoice(settings) });
@@ -393,7 +405,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     function syncStyleButtons() { document.querySelectorAll(".inv-style").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-style") === tplState.template)); }
     function initTemplate() {
       const t = LEGACY_STYLE[currentSettings.template] || currentSettings.template;
-      tplState.template = ["editorial", "banded", "minimal"].includes(t) ? t : "editorial";
+      tplState.template = ["minimal", "banded"].includes(t) ? t : "minimal";
       tplState.accent_color = currentSettings.accent_color || "#371e28";
       tplState.logo_url = currentSettings.logo_url || "";
       tplState.show_bank = currentSettings.show_bank !== false;
@@ -444,6 +456,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     // ---- Create invoice ----
     let ciRecipients = [];
     let ciItems = [{ description: "", amount: "" }];
+    let ciTemplate = "minimal";
     const gbp = (p) => "£" + ((p || 0) / 100).toFixed(2);
     const isoToday = () => new Date().toISOString().slice(0, 10);
     function ciTotals() {
@@ -458,10 +471,13 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         number: (currentSettings.invoice_prefix || "TMKE") + (currentSettings.next_number || 1001),
         issued_date: $("ci-issued").value || null, due_date: $("ci-due").value || null,
         bill_to_name: $("ci-name").value.trim(), bill_to_email: $("ci-email").value.trim(), bill_to_address: $("ci-address").value.trim(),
+        notes: $("ci-notes").value.trim() || null,
         line_items: ciItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
         subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
       };
     }
+    const ciSettings = () => ({ ...currentSettings, template: ciTemplate });
+    function syncCiTpl() { document.querySelectorAll("#ci-tpl .ci-tpl-opt").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-tpl") === ciTemplate)); }
     function ciRenderItems() {
       $("ci-items").innerHTML = ciItems.map((it, i) => `<div class="ci-item"><input class="ci-desc" data-i="${i}" placeholder="Description of the service" value="${esc(it.description)}"/><input class="ci-amt" data-i="${i}" type="number" step="0.01" placeholder="0.00" value="${esc(it.amount)}"/><button type="button" class="ci-del" data-i="${i}" title="Remove">&times;</button></div>`).join("");
     }
@@ -470,26 +486,29 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       $("ci-totals").innerHTML = `<div class="r"><span>Sub-total</span><span>${gbp(t.subtotal)}</span></div><div class="r"><span>VAT (${t.vatRate}%)</span><span>${gbp(t.vat)}</span></div><div class="r grand"><span>Total</span><span>${gbp(t.total)}</span></div>`;
     }
     function ciScaleFit() { const box = $("ci-preview-box"); if (!box || !box.clientWidth) return; const k = Math.min(1, box.clientWidth / 794); $("ci-preview").style.transform = `scale(${k})`; box.style.height = Math.round(1123 * k) + "px"; }
-    function ciPreview() { $("ci-preview").srcdoc = renderInvoiceHtml({ settings: currentSettings, invoice: ciBuildInvoice() }); ciScaleFit(); }
+    function ciPreview() { $("ci-preview").srcdoc = renderInvoiceHtml({ settings: ciSettings(), invoice: ciBuildInvoice() }); ciScaleFit(); }
     function ciRefresh() { ciRenderItems(); ciRenderTotals(); ciPreview(); }
     function initCreate() {
+      const t = { classic: "minimal", editorial: "minimal", modern: "banded" }[currentSettings.template] || currentSettings.template;
+      ciTemplate = ["minimal", "banded"].includes(t) ? t : "minimal"; syncCiTpl();
       if (!$("ci-issued").value) $("ci-issued").value = isoToday();
       if (!$("ci-due").value) { const d = new Date(); d.setDate(d.getDate() + Number(currentSettings.payment_terms_days || 7)); $("ci-due").value = d.toISOString().slice(0, 10); }
       ciRefresh();
     }
+    $("ci-tpl").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciTemplate = b.getAttribute("data-tpl"); syncCiTpl(); ciPreview(); });
     $("ci-items").addEventListener("input", (e) => { const i = +e.target.getAttribute("data-i"); if (e.target.classList.contains("ci-desc")) ciItems[i].description = e.target.value; else if (e.target.classList.contains("ci-amt")) ciItems[i].amount = e.target.value; ciRenderTotals(); ciPreview(); });
     $("ci-items").addEventListener("click", (e) => { const b = e.target.closest(".ci-del"); if (!b) return; ciItems.splice(+b.getAttribute("data-i"), 1); if (!ciItems.length) ciItems.push({ description: "", amount: "" }); ciRefresh(); });
     $("ci-add-item").addEventListener("click", () => { ciItems.push({ description: "", amount: "" }); ciRefresh(); });
-    ["ci-name", "ci-email", "ci-address", "ci-issued", "ci-due"].forEach((id) => $(id).addEventListener("input", ciPreview));
+    ["ci-name", "ci-email", "ci-address", "ci-issued", "ci-due", "ci-notes"].forEach((id) => $(id).addEventListener("input", ciPreview));
     $("ci-recip").addEventListener("change", (e) => { const r = ciRecipients.find((x) => x.id === e.target.value); if (r) { $("ci-name").value = r.name; $("ci-email").value = r.email || ""; $("ci-address").value = r.address || ""; ciPreview(); } });
-    $("ci-open-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: currentSettings, invoice: ciBuildInvoice() })); w.document.close(); });
+    $("ci-open-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: ciSettings(), invoice: ciBuildInvoice() })); w.document.close(); });
     // Create a draft; returns the saved invoice (or null on validation/error).
     async function ciCreate(requireEmail) {
       const inv = ciBuildInvoice();
       if (!inv.bill_to_name) { msg("ci-msg", "Enter a recipient name.", false); return null; }
       if (requireEmail && !inv.bill_to_email) { msg("ci-msg", "Enter a recipient email to send to.", false); return null; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return null; }
-      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: $("ci-notes").value.trim() || null, line_items: inv.line_items }) });
+      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, line_items: inv.line_items }) });
       currentSettings.next_number = (currentSettings.next_number || 1001) + 1;
       return invoice;
     }

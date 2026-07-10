@@ -1,8 +1,8 @@
 // Renders a TMKE invoice to a standalone HTML document from (settings + invoice).
 // Two brand-led styles matched to the client's Canva mockups:
-//   • editorial — warm paper, big bold wordmark, oversized TOTAL, thick rule (temp1)
-//   • banded    — wine header band + paper body + beige footer band (temp2)
-//   • minimal   — an extra airy/hairline variant
+//   • minimal — warm paper, big bold wordmark, oversized TOTAL, thick rule (style 1)
+//   • banded  — wine header band + paper body + beige footer band (style 2)
+// (Legacy keys map on: editorial/classic → minimal, modern → banded.)
 // Colour (accent), logo image and Outlook-safe font stay editable. Shared by the
 // admin Template preview now and the Worker's invoice-send later.
 
@@ -16,9 +16,9 @@ function fmtDate(d) { if (!d) return ""; try { return new Date(d + "T12:00:00").
 export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   const s = settings, inv = invoice;
   const accent = s.accent_color || "#371e28";
-  const tpl = ["editorial", "banded", "minimal", "classic", "modern"].includes(s.template) ? s.template : "editorial";
-  // Back-compat with the old keys.
-  const style = tpl === "classic" ? "editorial" : tpl === "modern" ? "banded" : tpl;
+  // Two styles only: "minimal" (the clean wordmark layout, formerly "editorial")
+  // and "banded". Every legacy/aliased key maps onto one of the two.
+  const style = (s.template === "banded" || s.template === "modern") ? "banded" : "minimal";
   const font = s.font_family || "Arial, Helvetica, sans-serif";
   const fs = Number(s.font_size) || 13;
   const showBank = s.show_bank !== false;
@@ -35,8 +35,8 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
     return `<tr><td class="desc">${nl2br(it.description)}</td><td class="num">${money((it.unit_pence || 0) * qty)}</td></tr>`;
   }).join("") : `<tr><td class="desc" style="color:#a99">Description</td><td class="num">£0.00</td></tr>`;
 
-  // Header — banded is a wine block (dates in the band); editorial/minimal put the
-  // dates just above Bill to (see datesRow in the body).
+  // Header — banded is a wine block (dates in the band); minimal puts the dates
+  // just above Bill to (see datesRow in the body).
   const header = style === "banded" ? `
     <header class="inv-head band">
       <div class="brand">${wordmark}<div class="company">${esc(company)}</div></div>
@@ -55,16 +55,30 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
     </header>`;
   const datesRow = style === "banded" ? "" : `<div class="dates-row"><span class="k">Invoice date</span> <b>${fmtDate(inv.issued_date) || "—"}</b> &nbsp;&nbsp;&nbsp; <span class="k">Due date</span> <b>${fmtDate(inv.due_date) || "—"}</b></div>`;
 
-  // Only "Bill to" is bold; the recipient sits inline next to it, name then email.
+  // Only "Bill to" is bold. The name sits next to it; the email and/or the
+  // address then follow underneath — either one, or both, one after the other.
+  const billExtra = [
+    inv.bill_to_email ? esc(inv.bill_to_email) : "",
+    inv.bill_to_address ? nl2br(inv.bill_to_address) : "",
+  ].filter(Boolean).join("<br>");
   const billto = inv.bill_to_name ? `
-    <div class="billto"><span class="lbl">Bill to</span> <span class="who">${esc(inv.bill_to_name)}${inv.bill_to_email ? ` · ${esc(inv.bill_to_email)}` : ""}</span></div>` : "";
+    <div class="billto"><span class="lbl">Bill to</span> <span class="who">${esc(inv.bill_to_name)}</span>${billExtra ? `<div class="bill-extra">${billExtra}</div>` : ""}</div>` : "";
 
-  const bank = showBank && (s.account_name || s.account_number) ? `
+  // How to pay: a full-width rule (same weight as the Description rule) sits
+  // directly under the label; the bank-transfer line and details follow. Any
+  // per-invoice note sits beneath the account details, under its own line.
+  const showBankBlock = showBank && (s.account_name || s.account_number);
+  const payInner = [];
+  if (showBankBlock) {
+    payInner.push(`<div class="pl">By bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>`);
+    payInner.push(`<div class="bank">${[s.account_name && `Account: ${esc(s.account_name)}`, s.sort_code && `Sort code: ${esc(s.sort_code)}`, s.account_number && `Account no: ${esc(s.account_number)}`].filter(Boolean).join("<br>")}</div>`);
+  }
+  if (inv.notes) payInner.push(`<div class="paynote-rule"></div><div class="paynote">${nl2br(inv.notes)}</div>`);
+  const bank = payInner.length ? `
     <div class="pay">
       <div class="lbl">How to pay</div>
-      <div class="pl">By bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>
       <div class="payrule"></div>
-      <div class="bank">${[s.account_name && `Account: ${esc(s.account_name)}`, s.sort_code && `Sort code: ${esc(s.sort_code)}`, s.account_number && `Account no: ${esc(s.account_number)}`].filter(Boolean).join("<br>")}</div>
+      ${payInner.join("\n      ")}
     </div>` : "";
 
   const smallprint = [
@@ -86,8 +100,8 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   body { background: #cfccc8; font-family: ${font}; color: #2a1b22; -webkit-font-smoothing: antialiased; }
   .inv { --accent:${esc(accent)}; --paper:#f1efec; --beige:#d6cdc7; width:210mm; min-height:297mm; margin:0 auto; background:var(--paper); box-shadow:0 10px 34px rgba(20,18,26,0.18); display:flex; flex-direction:column; font-size:${fs}px; color:var(--accent); }
   @media print { body { background:#fff; } .inv { box-shadow:none; margin:0; } }
-  .body { padding:0 64px 96px; flex:1; display:flex; flex-direction:column; }
-  .pay-block { margin-top:auto; }   /* pushes How to pay into the bottom quarter */
+  .body { padding:0 64px 121px; flex:1; display:flex; flex-direction:column; }
+  .pay-block { margin-top:auto; }   /* pushes How to pay towards the lower third */
   .logo { max-height:70px; max-width:280px; display:block; }
   .lbl { font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
 
@@ -99,6 +113,7 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   .billto { margin:0; font-size:11.5px; }
   .billto .lbl { color:var(--accent); }
   .billto .who { line-height:1.55; }
+  .bill-extra { margin-top:4px; font-size:11.5px; line-height:1.5; }
 
   /* Line-item table — descriptions at the Bill-to size. Bigger gap under the
      header rule; tighter spacing between items. */
@@ -116,13 +131,17 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
 
   .pay { font-size:11.5px; line-height:1.4; }
   .pay .lbl { font-size:11.5px; margin-bottom:8px; }
-  .payrule { width:33%; height:1px; background:rgba(55,30,40,0.22); margin:12px 0; }
+  /* Full-width rule under the label — same weight as the Description rule. */
+  .payrule { width:100%; height:1.5px; background:var(--accent); margin:0 0 12px; }
+  .pay .pl { margin-bottom:10px; }
   .pay .bank { line-height:1.5; }
+  .paynote-rule { width:100%; height:1px; background:rgba(55,30,40,0.2); margin:14px 0 10px; }
+  .paynote { font-size:11.5px; line-height:1.5; opacity:0.85; }
   .note { margin-top:16px; font-style:italic; opacity:0.7; font-size:12px; }
 
   .smallprint { font-size:9.5px; letter-spacing:0.02em; opacity:0.8; text-align:center; padding:0 64px 40px; }
 
-  /* ---- EDITORIAL (temp1): paper, big bold wordmark, oversized total ---- */
+  /* ---- MINIMAL (style 1): paper, big bold wordmark, oversized total ---- */
   .plain { padding:64px 64px 0; }
   .wordmark { font-weight:800; font-size:64px; letter-spacing:-0.01em; line-height:0.9; color:var(--accent); }
   .plain .headrow { display:flex; justify-content:space-between; align-items:baseline; margin-top:26px; }
@@ -141,11 +160,6 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   .band + .body { padding-top:56px; }
   .tpl-banded .tbl { margin-top:58px; }
   .smallprint.band { margin-top:auto; text-align:left; opacity:1; background:var(--beige); color:var(--accent); font-weight:400; font-size:10.5px; line-height:1.2; padding:22px 64px; }
-
-  /* ---- MINIMAL: airier, hairlines ---- */
-  .tpl-minimal .plain .wordmark, .tpl-minimal .wordmark { font-weight:500; letter-spacing:0.2em; font-size:40px; }
-  .tpl-minimal .tbl thead th { border-bottom:1px solid var(--accent); }
-  .tpl-minimal .totals .grand { font-weight:600; }
 </style></head>
 <body>
   <div class="inv tpl-${style}">
@@ -180,6 +194,8 @@ export function sampleInvoice(settings = {}) {
     issued_date: "2026-08-03", due_date: "2026-08-10",
     bill_to_name: "Fine & Country — Rugby",
     bill_to_email: "accounts@fineandcountry-example.com",
+    bill_to_address: "12 High Street, Rugby, CV21 3BZ",
+    notes: "Thank you for your business.",
     line_items: [
       { description: "Property Videography — Half Day", qty: 1, unit_pence: 32500 },
       { description: "Local area video tour", qty: 1, unit_pence: 10000 },

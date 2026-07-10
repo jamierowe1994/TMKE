@@ -230,6 +230,11 @@ import "../../styles/admin.css";
     .siv-del:hover { background: rgba(200,70,50,0.08); border-color: rgba(200,70,50,0.4); color: #a3372b; }
     .siv-totals { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(28,29,34,0.1); font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); }
     .siv-totals strong { font-size: 15px; color: var(--ink); }
+    .siv-tpl { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .siv-tpl-lbl { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .siv-tpl-opts { display: inline-flex; gap: 4px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 8px; }
+    .siv-tpl-opt { appearance: none; cursor: pointer; background: none; border: 0; border-radius: 6px; padding: 6px 14px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.55); transition: background .15s, color .15s; }
+    .siv-tpl-opt.is-active { background: var(--english-violet); color: #fff; }
     .siv-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
     .siv-list-head { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin: 6px 0 10px; }
     .siv-row { display: grid; grid-template-columns: 90px 1fr auto auto auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 9px; margin-bottom: 8px; font-family: var(--sans); font-size: 13px; }
@@ -848,8 +853,11 @@ import "../../styles/admin.css";
     // Reuses the standalone engine: POST /invoicing/invoices creates a numbered
     // draft (number + VAT server-side), booking_id links it to this SMM client.
     let sivItems = [];       // [{ description, amount }] for the client being viewed
+    let sivTemplate = "minimal"; // which style this invoice uses
     let invSettings = null;  // cached company/VAT settings for preview + totals
     const gbp = (p) => "£" + ((p || 0) / 100).toFixed(2);
+    const sivSettings = () => ({ ...invSettings, template: sivTemplate });
+    function syncSivTpl() { document.querySelectorAll("#siv-tpl .siv-tpl-opt").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-tpl") === sivTemplate)); }
     const parseMoney = (s) => { const m = String(s || "").match(/[\d,]+(\.\d+)?/); return m ? Math.round(parseFloat(m[0].replace(/,/g, "")) * 100) : 0; };
     async function ensureInvSettings() {
       if (invSettings) return invSettings;
@@ -869,6 +877,7 @@ import "../../styles/admin.css";
         number: (invSettings.invoice_prefix || "TMKE") + (invSettings.next_number || 1001),
         issued_date: $("siv-issued").value || null, due_date: $("siv-due").value || null,
         bill_to_name: $("siv-name").value.trim(), bill_to_email: $("siv-email").value.trim(), bill_to_address: $("siv-address").value.trim(),
+        notes: ($("siv-notes")?.value || "").trim() || null,
         line_items: sivItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
         subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
       };
@@ -888,6 +897,8 @@ import "../../styles/admin.css";
     }
     async function renderInvoicing(r, panel, docs, loading, warn) {
       await ensureInvSettings();
+      const dt = { classic: "minimal", editorial: "minimal", modern: "banded" }[invSettings.template] || invSettings.template;
+      sivTemplate = ["minimal", "banded"].includes(dt) ? dt : "minimal";
       // Seed one line item from the agreed monthly price (editable; add more rows).
       sivItems = [{ description: "Social media management" + (r.package_name ? " — " + r.package_name : "") + " (monthly)", amount: parseMoney(r.price) ? (parseMoney(r.price) / 100).toFixed(2) : "" }];
       const today = new Date().toISOString().slice(0, 10);
@@ -899,6 +910,13 @@ import "../../styles/admin.css";
         <div class="smm-panel-head"><h4>Invoicing</h4></div>
         ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
         <div class="siv-build">
+          <div class="siv-tpl">
+            <span class="siv-tpl-lbl">Template</span>
+            <div class="siv-tpl-opts" id="siv-tpl">
+              <button type="button" class="siv-tpl-opt" data-tpl="minimal">Minimal</button>
+              <button type="button" class="siv-tpl-opt" data-tpl="banded">Banded</button>
+            </div>
+          </div>
           <div class="siv-grid2">
             <label class="siv-f"><span>Bill to</span><input id="siv-name" value="${esc(billName)}"></label>
             <label class="siv-f"><span>Email</span><input id="siv-email" type="email" value="${esc(r.email || "")}"></label>
@@ -910,6 +928,7 @@ import "../../styles/admin.css";
           </div>
           <div class="siv-f"><span>Line items</span><div id="siv-items"></div><button type="button" class="smm-btn smm-btn--sm" id="siv-add">${PLUS_SVG}Add line</button></div>
           <div class="siv-totals" id="siv-totals"></div>
+          <label class="siv-f"><span>Notes (optional)</span><textarea id="siv-notes" rows="2" placeholder="e.g. Thank you for your business."></textarea></label>
           <p class="smm-modal-status" id="siv-msg" hidden></p>
           <div class="siv-actions">
             <button type="button" class="smm-btn" id="siv-pdf">Preview / PDF</button>
@@ -920,9 +939,10 @@ import "../../styles/admin.css";
         <div class="siv-list-head">Raised invoices</div>
         <div id="siv-list"><p class="smm-soon">Loading…</p></div>
         ${uploaded.length ? `<div class="siv-list-head">Uploaded PDFs</div>${uploaded.map((d) => `<div class="smm-inv"><div class="smm-inv-top"><span class="smm-doc-ico">${DOC_SVG}</span><span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span><span class="smm-doc-cat">Sent ${fmtDate(d.invoice_date)}</span></span><span class="smm-inv-status ${d.paid_date ? "is-paid" : "is-due"}">${d.paid_date ? "Paid" : "Outstanding"}</span></div><div class="smm-inv-foot"><label class="smm-inv-paid">Paid <input type="date" data-invpaid="${esc(d.id)}" value="${esc(d.paid_date || "")}"></label><span class="smm-doc-tools"><button type="button" class="smm-mini" data-docdl="${esc(d.id)}" data-docname="${esc(d.file_name || "invoice")}">Download</button><button type="button" class="smm-mini is-danger" data-docdel="${esc(d.id)}">Remove</button></span></div></div>`).join("")}` : ""}`;
-      sivRefreshItems();
+      sivRefreshItems(); syncSivTpl();
+      $("siv-tpl").addEventListener("click", (e) => { const b = e.target.closest(".siv-tpl-opt"); if (!b) return; sivTemplate = b.getAttribute("data-tpl"); syncSivTpl(); });
       $("siv-add").addEventListener("click", () => { sivItems.push({ description: "", amount: "" }); sivRefreshItems(); });
-      $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: invSettings, invoice: sivBuildInvoice(r) })); w.document.close(); });
+      $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: sivSettings(), invoice: sivBuildInvoice(r) })); w.document.close(); });
       $("siv-create").addEventListener("click", () => createSmmInvoice(r, false));
       $("siv-send").addEventListener("click", () => createSmmInvoice(r, true));
       panel.querySelectorAll("[data-invpaid]").forEach((el) => el.addEventListener("change", () => setInvoicePaid(r, el.getAttribute("data-invpaid"), el.value)));
@@ -963,7 +983,7 @@ import "../../styles/admin.css";
       if (isDemo(r)) { r._invoices = r._invoices || []; r._invoices.unshift({ id: "iv" + Date.now(), number: inv.number, due_date: inv.due_date, total_pence: inv.total_pence, status: send ? "sent" : "draft", bill_to_email: inv.bill_to_email }); show(`Invoice ${inv.number} ${send ? "sent" : "saved as draft"}.`, true); loadSmmInvoices(r); btn.disabled = false; btn.textContent = label; return; }
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, issued_date: inv.issued_date, due_date: inv.due_date, line_items: inv.line_items }) });
+        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: sivTemplate, line_items: inv.line_items }) });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.invoice) throw new Error(j.error || "Couldn't create the invoice.");
         invSettings.next_number = (invSettings.next_number || 1001) + 1;
