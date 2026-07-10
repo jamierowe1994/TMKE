@@ -98,7 +98,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
               <label class="inv-field"><span>Payment terms (days)</span><input name="payment_terms_days" type="number" /></label>
             </div>
             <label class="inv-field"><span>Accounts team — CC on every invoice</span><input name="accounts_cc_email" placeholder="accounts@…, another@…" /></label>
-            <label class="inv-field"><span>Footer note (optional)</span><textarea name="footer_note" rows="2" placeholder="e.g. Thank you for your business."></textarea></label>
+            <label class="inv-field"><span>Invoice footer note (on the PDF)</span><textarea name="footer_note" rows="2" placeholder="e.g. Thank you for your business."></textarea></label>
+
+            <h3 class="inv-h">Invoice email</h3>
+            <label class="inv-field"><span>Footer image (appears at the bottom of every invoice email)</span><span class="inv-logo-row">
+              <input name="email_footer_image_url" id="set-footer-img" placeholder="Paste an image URL, or upload →" />
+              <label class="inv-upload"><input type="file" id="set-footer-file" accept="image/png,image/jpeg,image/webp" hidden /><span id="set-footer-lbl">Upload</span></label>
+            </span></label>
+            <img id="set-footer-preview" class="inv-footer-preview" alt="" hidden />
 
             <p class="inv-msg" id="inv-msg" hidden></p>
             <button type="submit" class="inv-save" id="inv-save">Save details</button>
@@ -176,6 +183,23 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         </div>
       </div>
     </section>
+
+    <!-- Email review (QuickBooks-style edit-before-send) -->
+    <div class="cim-scrim" id="ci-email-modal" hidden>
+      <div class="cim" role="dialog" aria-modal="true" aria-label="Send invoice">
+        <h3>Send invoice <span id="cim-num"></span></h3>
+        <p class="cim-sub">Review the email — edit anything before it goes. The invoice PDF and your footer image are added automatically.</p>
+        <label class="cim-f"><span>To</span><input id="cim-to" readonly /></label>
+        <label class="cim-f"><span>CC</span><input id="cim-cc" placeholder="Comma-separated" /></label>
+        <label class="cim-f"><span>Subject</span><input id="cim-subject" /></label>
+        <label class="cim-f"><span>Message</span><textarea id="cim-body" rows="11"></textarea></label>
+        <p class="inv-msg" id="cim-msg" hidden></p>
+        <div class="cim-actions">
+          <button type="button" class="inv-ghost" id="cim-cancel">Cancel</button>
+          <button type="button" class="inv-save" id="cim-send">Send invoice</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <style is:global>
@@ -274,6 +298,20 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-h-note { font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); margin-left: 8px; font-size: 11px; }
     .inv-row2 { display: grid; grid-template-columns: 1fr 120px; gap: 12px; }
     .inv-field select { font-family: var(--sans); font-size: 14.5px; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: var(--ink); }
+    .inv-footer-preview { display: block; max-width: 100%; margin-top: 10px; border-radius: 8px; border: 1px solid rgba(28,29,34,0.1); }
+    /* Email review modal */
+    .cim-scrim { position: fixed; inset: 0; background: rgba(20,18,26,0.5); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 200; overflow-y: auto; }
+    .cim-scrim[hidden] { display: none; }
+    .cim { width: 100%; max-width: 620px; background: #fff; border-radius: 14px; padding: 24px 26px; box-shadow: 0 20px 60px rgba(20,18,26,0.3); }
+    .cim h3 { font-family: var(--serif, var(--sans)); font-size: 19px; margin: 0 0 4px; color: var(--ink); }
+    .cim-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0 0 18px; }
+    .cim-f { display: block; margin-bottom: 14px; }
+    .cim-f > span { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 6px; }
+    .cim-f input, .cim-f textarea { width: 100%; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; }
+    .cim-f input:read-only { background: rgba(28,29,34,0.04); color: rgba(28,29,34,0.6); }
+    .cim-f textarea { line-height: 1.55; resize: vertical; }
+    .cim-note { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 0 0 16px; }
+    .cim-actions { display: flex; justify-content: flex-end; gap: 10px; }
     .inv-logo-row { display: flex; gap: 8px; align-items: stretch; }
     .inv-logo-row input { flex: 1; }
     .inv-upload { display: inline-flex; align-items: center; padding: 0 16px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.14); background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ink); cursor: pointer; white-space: nowrap; transition: background 0.15s; }
@@ -317,7 +355,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     function msg(id, text, ok) { const m = $(id); m.textContent = text; m.className = "inv-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
 
     // The editable settings fields (must match the <input name="…"> set below).
-    const FIELDS = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "account_name", "sort_code", "account_number", "invoice_prefix", "next_number", "payment_terms_days", "accounts_cc_email", "footer_note"];
+    const FIELDS = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "account_name", "sort_code", "account_number", "invoice_prefix", "next_number", "payment_terms_days", "accounts_cc_email", "footer_note", "email_footer_image_url"];
 
     // ---- Settings ----
     async function loadSettings() {
@@ -327,11 +365,29 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         currentSettings = settings || {};
         const f = $("inv-form");
         for (const k of FIELDS) { const el = f.elements[k]; if (el && currentSettings[k] != null) el.value = currentSettings[k]; }
+        syncFooterPreview();
       } catch (err) { msg("inv-msg", err.message, false); }
       // Always initialise the preview + builder, even if settings failed to load.
       initTemplate();
       initCreate();
     }
+    // Email footer image — live preview + upload to Supabase storage (public).
+    function syncFooterPreview() { const url = $("set-footer-img").value.trim(); const img = $("set-footer-preview"); if (url) { img.src = url; img.hidden = false; } else { img.hidden = true; } }
+    $("set-footer-img").addEventListener("input", syncFooterPreview);
+    $("set-footer-file").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      const lbl = $("set-footer-lbl"), prev = lbl.textContent; lbl.textContent = "Uploading…";
+      try {
+        const ext = (file.name.split(".").pop() || "png").toLowerCase();
+        const path = `invoice-footer/footer-${Date.now()}.${ext}`;
+        const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true, cacheControl: "3600", contentType: file.type });
+        if (error) throw error;
+        const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+        $("set-footer-img").value = data.publicUrl; syncFooterPreview();
+        msg("inv-msg", "Footer image uploaded — don't forget to Save details.", true);
+      } catch (err) { msg("inv-msg", err.message || "Couldn't upload that image.", false); }
+      finally { lbl.textContent = prev; e.target.value = ""; }
+    });
     $("inv-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const f = e.target, btn = $("inv-save");
@@ -524,24 +580,58 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       finally { btn.disabled = false; btn.textContent = "Save draft"; }
     });
     $("ci-send").addEventListener("click", async () => {
-      const btn = $("ci-send"); btn.disabled = true; btn.textContent = "Sending…";
-      try {
-        const invoice = await ciCreate(true);
-        if (invoice) {
-          await api("/invoicing/invoices/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: invoice.id }) });
-          msg("ci-msg", `Invoice ${invoice.number} sent to the recipient (accounts CC'd).`, true); ciReset();
-        }
-      } catch (err) { msg("ci-msg", err.message, false); }
+      const btn = $("ci-send"); btn.disabled = true; btn.textContent = "Creating…";
+      try { const invoice = await ciCreate(true); if (invoice) openEmailModal(invoice, true); }
+      catch (err) { msg("ci-msg", err.message, false); }
       finally { btn.disabled = false; btn.textContent = "Create & send"; }
     });
     window.addEventListener("resize", ciScaleFit);
 
+    // ---- Email review modal (edit before send) ----
+    let cimInvoiceId = null, cimResetOnSend = false;
+    const dLong = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
+    function defaultEmailSubject(inv) { return `Invoice ${inv.number} from ${currentSettings.company_name || "The Marketing Experts (Nationwide) Ltd"}`; }
+    function defaultEmailBody(inv) {
+      const company = currentSettings.company_name || "The Marketing Experts (Nationwide) Ltd";
+      const due = dLong(inv.due_date);
+      const lines = [`Dear ${inv.bill_to_name || "Sir or Madam"},`, "", `Please find attached invoice ${inv.number} from ${company}.`, "", `Amount due: ${gbp(inv.total_pence || 0)}`];
+      if (due) lines.push(`Due date: ${due}`);
+      lines.push("", `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+      return lines.join("\n");
+    }
+    function openEmailModal(inv, resetOnSend) {
+      cimInvoiceId = inv.id; cimResetOnSend = !!resetOnSend;
+      $("cim-num").textContent = inv.number || "";
+      $("cim-to").value = inv.bill_to_email || "";
+      $("cim-cc").value = inv.cc_email || "";
+      $("cim-subject").value = defaultEmailSubject(inv);
+      $("cim-body").value = defaultEmailBody(inv);
+      $("cim-msg").hidden = true;
+      $("ci-email-modal").hidden = false;
+    }
+    function closeEmailModal() { $("ci-email-modal").hidden = true; cimInvoiceId = null; }
+    $("cim-cancel").addEventListener("click", closeEmailModal);
+    $("ci-email-modal").addEventListener("click", (e) => { if (e.target === $("ci-email-modal")) closeEmailModal(); });
+    $("cim-send").addEventListener("click", async () => {
+      if (!cimInvoiceId) return;
+      const btn = $("cim-send"); btn.disabled = true; btn.textContent = "Sending…";
+      try {
+        await api("/invoicing/invoices/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: cimInvoiceId, email_subject: $("cim-subject").value.trim(), email_body: $("cim-body").value, cc: $("cim-cc").value.trim() }) });
+        const reset = cimResetOnSend; closeEmailModal();
+        if (reset) { msg("ci-msg", "Invoice sent.", true); ciReset(); }
+        loadInvoices();
+      } catch (err) { msg("cim-msg", err.message, false); }
+      finally { btn.disabled = false; btn.textContent = "Send invoice"; }
+    });
+
     // ---- Invoices list ----
+    let invList = [];
     async function loadInvoices() {
       const wrap = $("inv-list");
       if (!WORKER) { wrap.innerHTML = '<p class="inv-empty">Connect the Worker to view invoices.</p>'; return; }
       try {
         const { invoices } = await api("/invoicing/invoices");
+        invList = invoices || [];
         if (!invoices.length) { wrap.innerHTML = '<p class="inv-empty">No invoices yet — create one.</p>'; return; }
         const d = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
         wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="invrow-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="markpaid" data-id="${esc(v.id)}">Mark paid</button>` : `<span style="font-size:11.5px;color:rgba(28,29,34,0.45)">${v.paid_date ? "Paid " + d(v.paid_date) : ""}</span>`}</span></div>`).join("");
@@ -551,7 +641,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       const paid = e.target.closest(".markpaid");
       if (paid) { paid.disabled = true; try { await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: paid.getAttribute("data-id"), status: "paid" }) }); loadInvoices(); } catch (err) { alert(err.message); paid.disabled = false; } return; }
       const send = e.target.closest(".invsend");
-      if (send) { send.disabled = true; send.textContent = "Sending…"; try { await api("/invoicing/invoices/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: send.getAttribute("data-sendid") }) }); loadInvoices(); } catch (err) { alert(err.message); send.disabled = false; send.textContent = "Send"; } return; }
+      if (send) { const inv = invList.find((x) => x.id === send.getAttribute("data-sendid")); if (inv) openEmailModal(inv, false); return; }
     });
 
     document.addEventListener("ash:ready", () => { initTemplate(); loadSettings(); loadRecipients(); });

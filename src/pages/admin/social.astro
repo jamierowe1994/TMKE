@@ -338,6 +338,10 @@ import "../../styles/admin.css";
     /* Modals (meeting / add file) */
     .smm-modal-scrim { position: fixed; top: 0; right: 0; bottom: 0; left: var(--ash-side-w, 0); z-index: 220; background: rgba(20,18,26,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
     .smm-modal { background: #fff; border-radius: 14px; width: min(440px, 100%); padding: 26px 28px 24px; box-shadow: 0 40px 100px rgba(20,18,26,0.45); }
+    .smm-modal.smm-modal--email { width: min(620px, 100%); max-height: 88vh; overflow-y: auto; }
+    .smm-modal-field textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink); background: #fff; resize: vertical; }
+    .smm-modal-field textarea:focus { outline: none; border-color: var(--english-violet); }
+    .smm-modal-field input[readonly] { background: rgba(28,29,34,0.04); color: rgba(28,29,34,0.6); }
     .smm-modal h3 { font-family: var(--serif); font-weight: 500; font-size: 21px; color: var(--ink); margin: 0 0 4px; }
     .smm-modal p.smm-modal-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0 0 18px; }
     .smm-modal-field { margin-bottom: 14px; }
@@ -853,6 +857,7 @@ import "../../styles/admin.css";
     // Reuses the standalone engine: POST /invoicing/invoices creates a numbered
     // draft (number + VAT server-side), booking_id links it to this SMM client.
     let sivItems = [];       // [{ description, amount }] for the client being viewed
+    let sivInvoices = [];    // the raised-invoice list (for the send modal lookup)
     let sivTemplate = "minimal"; // which style this invoice uses
     let invSettings = null;  // cached company/VAT settings for preview + totals
     const gbp = (p) => "£" + ((p || 0) / 100).toFixed(2);
@@ -955,10 +960,10 @@ import "../../styles/admin.css";
       const wrap = $("siv-list"); if (!wrap) return;
       const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
       const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span><span class="siv-row-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="smm-mini is-primary" data-sivsend="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}</span></div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
-      if (isDemo(r)) { wrap.innerHTML = rowsHtml(r._invoices || []); }
+      if (isDemo(r)) { sivInvoices = r._invoices || []; wrap.innerHTML = rowsHtml(sivInvoices); }
       else if (!WORKER) { wrap.innerHTML = '<p class="smm-doc-empty">Connect the Worker to raise invoices.</p>'; return; }
       else {
-        try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); const j = await res.json().catch(() => ({})); wrap.innerHTML = rowsHtml((j && j.invoices) || []); }
+        try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); const j = await res.json().catch(() => ({})); sivInvoices = (j && j.invoices) || []; wrap.innerHTML = rowsHtml(sivInvoices); }
         catch (_) { wrap.innerHTML = '<p class="smm-doc-empty">Couldn\'t load invoices.</p>'; }
       }
       wrap.querySelectorAll("[data-sivpaid]").forEach((b) => b.addEventListener("click", async () => {
@@ -966,11 +971,53 @@ import "../../styles/admin.css";
         if (isDemo(r)) { const v = (r._invoices || []).find((x) => x.id === b.getAttribute("data-sivpaid")); if (v) v.status = "paid"; loadSmmInvoices(r); return; }
         try { const token = await authToken(); await fetch(`${WORKER}/invoicing/invoices`, { method: "PATCH", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-sivpaid"), status: "paid" }) }); loadSmmInvoices(r); } catch (_) { b.disabled = false; }
       }));
-      wrap.querySelectorAll("[data-sivsend]").forEach((b) => b.addEventListener("click", async () => {
-        b.disabled = true; b.textContent = "Sending…";
-        if (isDemo(r)) { const v = (r._invoices || []).find((x) => x.id === b.getAttribute("data-sivsend")); if (v) v.status = "sent"; loadSmmInvoices(r); return; }
-        try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices/send`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-sivsend") }) }); const j = await res.json().catch(() => ({})); if (!res.ok) throw new Error(j.error || "Send failed."); loadSmmInvoices(r); } catch (e) { alert(e.message); b.disabled = false; b.textContent = "Send"; }
+      wrap.querySelectorAll("[data-sivsend]").forEach((b) => b.addEventListener("click", () => {
+        const inv = (sivInvoices || []).find((x) => x.id === b.getAttribute("data-sivsend"));
+        if (inv) openSmmEmailModal(inv, r);
       }));
+    }
+    // Default covering-email text (mirrors the Worker default; keys off due date).
+    function smmDefaultEmailBody(inv) {
+      const company = invSettings.company_name || "The Marketing Experts (Nationwide) Ltd";
+      const due = inv.due_date ? new Date(inv.due_date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
+      const lines = [`Dear ${inv.bill_to_name || "Sir or Madam"},`, "", `Please find attached invoice ${inv.number} from ${company}.`, "", `Amount due: ${gbp(inv.total_pence || 0)}`];
+      if (due) lines.push(`Due date: ${due}`);
+      lines.push("", `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+      return lines.join("\n");
+    }
+    // QuickBooks-style edit-before-send review modal.
+    function openSmmEmailModal(inv, r) {
+      const subject = `Invoice ${inv.number} from ${invSettings.company_name || "The Marketing Experts (Nationwide) Ltd"}`;
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal smm-modal--email" role="dialog" aria-modal="true" aria-label="Send invoice">
+            <h3>Send invoice ${esc(inv.number)}</h3>
+            <p class="smm-modal-sub">Review the email — edit anything before it goes. The PDF and your footer image are added automatically.</p>
+            <div class="smm-modal-field"><label>To</label><input type="text" id="sem-to" value="${esc(inv.bill_to_email || "")}" readonly></div>
+            <div class="smm-modal-field"><label>CC</label><input type="text" id="sem-cc" value="${esc(inv.cc_email || "")}"></div>
+            <div class="smm-modal-field"><label>Subject</label><input type="text" id="sem-subject" value="${esc(subject)}"></div>
+            <div class="smm-modal-field"><label>Message</label><textarea id="sem-body" rows="10">${esc(smmDefaultEmailBody(inv))}</textarea></div>
+            <p class="smm-modal-status" id="sem-status" hidden></p>
+            <div class="smm-modal-actions">
+              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
+              <button type="button" class="smm-btn smm-btn--primary" id="sem-send">Send invoice</button>
+            </div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("sem-send").addEventListener("click", async () => {
+        const btn = $("sem-send"), status = $("sem-status"); btn.disabled = true; btn.textContent = "Sending…";
+        if (isDemo(r)) { const v = (r._invoices || []).find((x) => x.id === inv.id); if (v) v.status = "sent"; closeModal(); loadSmmInvoices(r); return; }
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER}/invoicing/invoices/send`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: inv.id, email_subject: $("sem-subject").value.trim(), email_body: $("sem-body").value, cc: $("sem-cc").value.trim() }) });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(j.error || "Send failed.");
+          closeModal(); loadSmmInvoices(r);
+        } catch (e) { status.hidden = false; status.textContent = e.message; btn.disabled = false; btn.textContent = "Send invoice"; }
+      });
     }
     // Create a draft (and optionally send it). send=true also emails the recipient.
     async function createSmmInvoice(r, send) {
@@ -980,21 +1027,18 @@ import "../../styles/admin.css";
       if (!inv.bill_to_name) { show("Add a recipient name.", false); return; }
       if (send && !inv.bill_to_email) { show("Add a recipient email to send to.", false); return; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { show("Add at least one line item.", false); return; }
-      const btn = send ? $("siv-send") : $("siv-create"); const label = btn.textContent; btn.disabled = true; btn.textContent = send ? "Sending…" : "Saving…";
-      if (isDemo(r)) { r._invoices = r._invoices || []; r._invoices.unshift({ id: "iv" + Date.now(), number: inv.number, due_date: inv.due_date, total_pence: inv.total_pence, status: send ? "sent" : "draft", bill_to_email: inv.bill_to_email }); show(`Invoice ${inv.number} ${send ? "sent" : "saved as draft"}.`, true); loadSmmInvoices(r); btn.disabled = false; btn.textContent = label; return; }
+      const btn = send ? $("siv-send") : $("siv-create"); const label = btn.textContent; btn.disabled = true; btn.textContent = send ? "Preparing…" : "Saving…";
+      const ccVal = ($("siv-cc")?.value || "").trim();
+      if (isDemo(r)) { r._invoices = r._invoices || []; const demoInv = { id: "iv" + Date.now(), number: inv.number, due_date: inv.due_date, total_pence: inv.total_pence, status: "draft", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email, cc_email: ccVal }; r._invoices.unshift(demoInv); loadSmmInvoices(r); btn.disabled = false; btn.textContent = label; if (send) openSmmEmailModal(demoInv, r); else show(`Invoice ${inv.number} saved as a draft.`, true); return; }
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: ($("siv-cc")?.value || "").trim(), issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: sivTemplate, line_items: inv.line_items }) });
+        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: ccVal, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: sivTemplate, line_items: inv.line_items }) });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.invoice) throw new Error(j.error || "Couldn't create the invoice.");
         invSettings.next_number = (invSettings.next_number || 1001) + 1;
-        if (send) {
-          const sr = await fetch(`${WORKER}/invoicing/invoices/send`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: j.invoice.id }) });
-          const sj = await sr.json().catch(() => ({}));
-          if (!sr.ok) throw new Error(sj.error || "Created the draft, but sending failed.");
-          show(`Invoice ${j.invoice.number} sent to ${inv.bill_to_email} (accounts CC'd).`, true);
-        } else { show(`Invoice ${j.invoice.number} saved as a draft.`, true); }
         loadSmmInvoices(r);
+        if (send) openSmmEmailModal(j.invoice, r);
+        else show(`Invoice ${j.invoice.number} saved as a draft.`, true);
       } catch (e) { show(e.message, false); }
       finally { btn.disabled = false; btn.textContent = label; }
     }
