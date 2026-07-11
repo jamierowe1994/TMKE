@@ -475,6 +475,44 @@ async function logBookingMessage(env, m) {
   } catch (_) {}
 }
 
+// Create or merge an SMM lead by email — so repeat actions from the same person
+// (brochure, enquiry, discovery call…) land on ONE card showing the most recent
+// action, instead of spawning a duplicate each time. Returns { id, existed }.
+async function upsertSmmLead(env, email, fields) {
+  const existing = email ? (await sbGet(env, "smm_leads", `email=ilike.${encodeURIComponent(String(email))}&select=*&order=created_at.desc&limit=1`))?.[0] : null;
+  if (existing) {
+    const patch = {};
+    // Only refresh the "most recent action" type if they haven't progressed in
+    // the pipeline yet — never downgrade a client back to "brochure".
+    const early = !existing.pipeline_stage || existing.pipeline_stage === "inquiry";
+    if (early) { for (const k of ["kind", "tag", "stage"]) if (fields[k] != null) patch[k] = fields[k]; }
+    // Fill in any contact details we didn't already have (don't clobber).
+    for (const k of ["first_name", "last_name", "full_name", "phone", "business", "message", "account_user_id"]) {
+      if (fields[k] != null && fields[k] !== "" && !existing[k]) patch[k] = fields[k];
+    }
+    // Booking-specific fields always reflect the latest action (e.g. a new call).
+    for (const k of ["call_at", "duration_min", "reschedule_token", "ms_event_id"]) {
+      if (fields[k] != null) patch[k] = fields[k];
+    }
+    if (fields.marketing_opt_in) patch.marketing_opt_in = true;
+    if (fields.brochure_sent) patch.brochure_sent = true;
+    if (fields.account_created && !existing.account_created) patch.account_created = true;
+    if (Object.keys(patch).length) {
+      try {
+        await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(existing.id)}`, {
+          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify(patch),
+        });
+      } catch (_) {}
+    }
+    return { id: existing.id, existed: true };
+  }
+  const saved = await sbPost(env, "smm_leads", fields, "return=representation");
+  if (!saved.ok) return { id: null, existed: false, error: await saved.text().catch(() => "") };
+  let id = null; try { const a = await saved.json(); id = Array.isArray(a) && a[0] ? a[0].id : null; } catch (_) {}
+  return { id, existed: false };
+}
+
 // Resolve a booking's owner (email + account) + a label across the two source
 // tables, so a message/document can be attributed to the right member.
 async function lookupBooking(env, source, id) {
@@ -1985,21 +2023,20 @@ export default {
           } catch (_) { /* account is best-effort; the enquiry still saves */ }
         }
 
-        // Persist the lead — must save (don't fake success).
-        const saved = await sbPost(env, "smm_leads", {
+        // Persist the lead — merged onto the existing card if this email is known.
+        const up = await upsertSmmLead(env, email, {
           kind: "enquiry", tag: "General Enquiry", stage: "general_enquiry",
           first_name, last_name, full_name: fullName, email, phone: phone || null,
           business: business || null, message: message || null,
           marketing_opt_in: !!marketing_opt_in,
           account_user_id: accountUserId, account_created: accountCreated,
-        }, "return=representation");
-        if (!saved.ok) {
-          const detail = await saved.text().catch(() => "");
-          console.error("smm enquiry insert failed", saved.status, detail);
+        });
+        if (!up.id) {
+          console.error("smm enquiry upsert failed", up.error || "");
           return json({ error: "We couldn't save your message just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
-        let smmEnquiryId = null;
-        try { const arr = await saved.json(); smmEnquiryId = Array.isArray(arr) && arr[0] ? arr[0].id : null; } catch (_) {}
+        const smmEnquiryId = up.id;
+        await logBookingMessage(env, { booking_id: smmEnquiryId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", body: `Submitted a general enquiry${message ? `: ${message}` : "."}` });
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -2078,18 +2115,17 @@ export default {
           } catch (_) { /* account is best-effort; the brochure still sends */ }
         }
 
-        const saved = await sbPost(env, "smm_leads", {
+        const up = await upsertSmmLead(env, email, {
           kind: "brochure", tag: "Brochure Download", stage: "brochure_downloaded", brochure_sent: true,
           full_name, email, marketing_opt_in: !!marketing_opt_in,
           account_user_id: accountUserId, account_created: accountCreated,
-        }, "return=representation");
-        if (!saved.ok) {
-          const detail = await saved.text().catch(() => "");
-          console.error("smm brochure insert failed", saved.status, detail);
+        });
+        if (!up.id) {
+          console.error("smm brochure upsert failed", up.error || "");
           return json({ error: "We couldn't process that just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
-        let smmBrochureId = null;
-        try { const arr = await saved.json(); smmBrochureId = Array.isArray(arr) && arr[0] ? arr[0].id : null; } catch (_) {}
+        const smmBrochureId = up.id;
+        await logBookingMessage(env, { booking_id: smmBrochureId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", body: "Downloaded the social media brochure." });
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const brochureUrl = env.SMM_BROCHURE_URL || "https://assets.tmke.co.uk/tmke-smm-brochure.pdf";
@@ -2229,20 +2265,14 @@ export default {
         });
         const token = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}`;
 
-        const saved = await sbPost(env, "smm_leads", {
+        const up = await upsertSmmLead(env, email, {
           kind: "discovery", tag: "Discovery Call", stage: "discovery_call_booked",
           first_name, last_name, full_name: fullName, email, phone: phone || null, business: business || null,
           call_at: `${date}T${start}:00`, duration_min: dur, reschedule_token: token, ms_event_id: ev.id || null,
           marketing_opt_in: !!marketing_opt_in, account_user_id: accountUserId, account_created: accountCreated,
-        }, "return=representation");
-        let smmDiscoveryId = null;
-        if (!saved.ok) {
-          const detail = await saved.text().catch(() => "");
-          console.error("smm discovery insert failed", saved.status, detail);
-          // The calendar event was created — don't fake failure to the user, but log it.
-        } else {
-          try { const arr = await saved.json(); smmDiscoveryId = Array.isArray(arr) && arr[0] ? arr[0].id : null; } catch (_) {}
-        }
+        });
+        const smmDiscoveryId = up.id;
+        if (!smmDiscoveryId) console.error("smm discovery upsert failed", up.error || "");  // calendar event still created — don't fake failure
 
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
         const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call — TMKE Social Media", description: "A call with TMKE to talk through your social media.", location: "Online / phone", organizer: cal, attendeeEmail: email, attendeeName: fullName });
