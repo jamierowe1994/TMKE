@@ -379,6 +379,19 @@ export const EMAIL_CATALOG = [
     summary: "Internal reminder that a DD client's monthly invoice has been raised for the books (they pay by Direct Debit via QuickBooks, so the customer is never emailed). Shows client, period, amount, invoice number and DD collection date, with the full invoice PDF attached. Marked paid manually once the DD clears.",
     fields: ["number", "client", "month", "total", "due_date"],
   },
+  {
+    id: "invoice_voided",
+    group: "Invoicing",
+    name: "Invoice voided — accounts + admin",
+    audience: "internal",
+    trigger: "An admin voids an invoice (Void button on any invoice)",
+    fires: "POST /invoicing/invoices/void",
+    to: "Accounts (invoice_settings.accounts_cc_email) + CC the admin who voided it",
+    sender: "hello@tmke.co.uk",
+    subject: "Invoice {number} voided — {client}",
+    summary: "Tells accounts (and the admin who did it) that an invoice has been voided and removed from the system, with the client, amount, who voided it and the reason given. The invoice itself is then deleted.",
+    fields: ["number", "client", "total", "reason", "voided_by"],
+  },
 ];
 
 // Groups in display order.
