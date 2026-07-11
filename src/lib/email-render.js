@@ -578,18 +578,37 @@ const SOCIAL_ICON_SVG = {
 };
 const SOCIAL_ORDER = ['linkedin', 'instagram', 'facebook', 'twitter', 'youtube', 'website'];
 
+// Resize a social icon's inline SVG (base markup is 14×14).
+function sizedSocialIcon(k, px) {
+  return (SOCIAL_ICON_SVG[k] || '').replace('width="14" height="14"', `width="${px}" height="${px}"`);
+}
+
 function renderSocial(block, brand) {
   const show = block.show || {};
   const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  // "bare" = standalone icons (no chip); "circle" (default) = icon on a chip.
+  const bare = block.iconStyle === 'bare';
+  const iconColor = block.iconColor || (bare ? accent : '#ffffff');
+  const chipBg = block.iconBg || accent;
+  let size = Number(block.iconSize);
+  if (!Number.isFinite(size) || size <= 0) size = bare ? 24 : 34;
+  size = Math.max(14, Math.min(72, size));
+  const glyph = bare ? Math.round(size) : Math.max(10, Math.round(size * 0.46));
   const items = SOCIAL_ORDER
     .filter((k) => show[k] !== false && brand[k])
     .map((k) => {
-      const url = brand[k];
-      return `<a href="${escapeHtml(url)}" style="display:inline-block;width:32px;height:32px;line-height:32px;text-align:center;border-radius:16px;background:${escapeHtml(brand.accentColor || ACCENT_DEFAULT)};color:#fff;text-decoration:none;margin:0 6px;">${SOCIAL_ICON_SVG[k]}</a>`;
+      const svg = sizedSocialIcon(k, glyph);
+      const box = bare
+        ? `margin:0 7px;line-height:1;vertical-align:middle;`
+        : `width:${size}px;height:${size}px;line-height:${size}px;text-align:center;border-radius:${Math.round(size / 2)}px;background:${escapeHtml(chipBg)};margin:0 6px;`;
+      return `<a href="${escapeHtml(brand[k])}" style="display:inline-block;text-decoration:none;color:${escapeHtml(iconColor)};${box}">${svg}</a>`;
     })
     .join('');
   if (!items) return '';
-  return `<div style="text-align:${align};margin:8px 0;">${items}</div>`;
+  // Optional block fill (background colour) with breathing room inside it.
+  const fill = block.bg ? `background:${escapeHtml(block.bg)};padding:16px;border-radius:8px;` : '';
+  return `<div style="text-align:${align};margin:8px 0;${fill}">${items}</div>`;
 }
 
 function renderVideo(block) {
