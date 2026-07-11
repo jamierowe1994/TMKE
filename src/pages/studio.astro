@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { templates } from "../data/library.js";
 import WorkspaceHeader from "../components/account/WorkspaceHeader.astro";
+import CaptionGenerator from "../components/CaptionGenerator.astro";
 
 // ---------------------------------------------------------------------------
 // Studio launcher — the page you land on from the "Studio" tab. Top nav only
@@ -33,7 +34,7 @@ const starters = templates.slice(0, 4);
 const heroPhoto = templates[0]?.thumb;
 
 const tools = [
-  { name: "Magic Resize", desc: "Resize your design for any platform.", href: "/editor", ic: "resize" },
+  { name: "Caption Generator", desc: "Write on-brand captions & hashtags with AI.", action: "caption", ic: "caption" },
   { name: "Background Remover", desc: "Remove backgrounds in one click.", href: "/editor", ic: "scissors" },
   { name: "Brand Kit", desc: "Apply your brand colours and fonts instantly.", href: "/profile", ic: "brand" },
   { name: "Templates", desc: "Browse beautiful on-brand templates.", href: "/edit", ic: "grid" },
@@ -139,13 +140,23 @@ const inspo = [
         </header>
         <div class="st-row st-row--tools">
           {tools.map((t) => (
-            <a class="st-tool" href={t.href}>
-              <div class="st-tool-tx">
-                <strong>{t.name}</strong>
-                <span>{t.desc}</span>
-              </div>
-              <span class={`st-tool-art st-tool-art--${t.ic}`}><span class="st-tool-aa">Aa</span></span>
-            </a>
+            t.action ? (
+              <button type="button" class="st-tool" data-tool={t.action}>
+                <div class="st-tool-tx">
+                  <strong>{t.name}</strong>
+                  <span>{t.desc}</span>
+                </div>
+                <span class={`st-tool-art st-tool-art--${t.ic}`}><span class="st-tool-aa">Aa</span></span>
+              </button>
+            ) : (
+              <a class="st-tool" href={t.href}>
+                <div class="st-tool-tx">
+                  <strong>{t.name}</strong>
+                  <span>{t.desc}</span>
+                </div>
+                <span class={`st-tool-art st-tool-art--${t.ic}`}><span class="st-tool-aa">Aa</span></span>
+              </a>
+            )
           ))}
           <button type="button" class="st-arrow st-arrow--tools" aria-label="More tools">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -172,6 +183,8 @@ const inspo = [
       </section>
     </main>
   </div>
+
+  <CaptionGenerator />
 
   <style is:global>
     /* ===== Shared workspace shell (matches /dashboard) ===== */
@@ -312,6 +325,9 @@ const inspo = [
     .st-tool-aa { font-family: var(--subhead); font-size: 30px; color: var(--ws-ink); opacity: 0; }
     .st-tool-art--brand .st-tool-aa { opacity: 1; }
     .st-tool-art--resize { background: linear-gradient(150deg, #e7ddcf, #b79b78); }
+    button.st-tool { appearance: none; font: inherit; text-align: left; cursor: pointer; width: 100%; }
+    .st-tool-art--caption { background: linear-gradient(150deg, #ece0e2, #9c7080); }
+    .st-tool-art--caption::after { content: "✨"; font-size: 30px; }
     .st-tool-art--scissors { background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
     .st-tool-art--grid { background: linear-gradient(150deg, #efe7da, #cdbfa9); }
 
@@ -348,6 +364,11 @@ const inspo = [
         const row = btn.closest('[data-rail]')?.querySelector('.st-row');
         if (row) row.scrollBy({ left: row.clientWidth * 0.8, behavior: 'smooth' });
       });
+    });
+
+    // Caption Generator tool → open the standalone generator (copy output).
+    document.querySelector('[data-tool="caption"]')?.addEventListener('click', () => {
+      window.tmkeCaption?.open({ output: 'copy' });
     });
 
     // "Your designs": the member's own saved copies (user_designs), newest first.

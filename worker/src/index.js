@@ -1327,6 +1327,70 @@ export default {
         return json({ received: true }, 200, request, env);
       }
 
+      // ---- AI: generate a social caption (+ hashtags) for a member's post ----
+      // Two routes: a structured PROPERTY post, or a free-form "what's it about".
+      // The voice rules live in CAPTION_RULES so the client's own captioning
+      // guidelines can be dropped in later without touching the wiring.
+      if (path.endsWith("/ai/caption") && request.method === "POST") {
+        if (!cheapValid(request)) return json({ error: "Sign in to use AI." }, 401, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        let body; try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        const mode = body.mode === "property" ? "property" : "general";
+        const clean = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n || 200);
+
+        // House style for every generated caption. Add the client's own rules to
+        // this list when they're ready — nothing else needs to change.
+        const CAPTION_RULES = [
+          "You write social-media captions for a UK estate agency's clients (mainly Instagram and Facebook).",
+          "Voice: warm, professional and genuine — sell the lifestyle and the feeling, not just a list of features. A little descriptive, never salesy, never clickbait, never ALL CAPS.",
+          "Length: 2–4 short lines (a short paragraph), easy to read on a phone.",
+          "Emoji: use AT MOST ONE emoji in the whole caption. Zero is completely fine. Never use more than one.",
+          "End with a clear, natural call to action (e.g. arrange a viewing, get in touch, send us a message) — but never invent phone numbers, prices, names or any detail you weren't given.",
+          "British spelling throughout. Only use facts that were provided; do not make anything up.",
+          "Provide 8–12 relevant hashtags SEPARATELY (not inside the caption) — a mix of local, property/marketing and a few niche tags.",
+          // --- Client's own captioning rules go here when supplied ---
+        ].join("\n- ");
+
+        let brief;
+        if (mode === "property") {
+          const p = body.property || {};
+          const angleMap = { "coming-soon": "Coming soon", "new-to-market": "New to market", "open-house": "Open house / viewing day", "price-adjustment": "Price adjustment", "just-sold": "Just sold / let" };
+          const fields = [
+            p.location ? `Location: ${clean(p.location, 120)}` : "",
+            p.propertyType ? `Property type: ${clean(p.propertyType, 80)}` : "",
+            p.beds ? `Bedrooms: ${clean(p.beds, 20)}` : "",
+            p.price ? `Price: ${clean(p.price, 40)}` : "",
+            (p.angle && angleMap[p.angle]) ? `Post angle: ${angleMap[p.angle]}` : "",
+            p.features ? `Standout features: ${clean(p.features, 600)}` : "",
+          ].filter(Boolean).join("\n");
+          if (!fields) return json({ error: "Add at least a location or a couple of details." }, 400, request, env);
+          brief = `Write a caption for a PROPERTY post using only these details:\n${fields}`;
+        } else {
+          const topic = clean(body.topic, 900);
+          if (!topic) return json({ error: "Tell us what the post is about." }, 400, request, env);
+          brief = `Write a caption for a social post about:\n${topic}`;
+        }
+
+        const prompt = `- ${CAPTION_RULES}\n\n${brief}\n\nReturn ONLY minified JSON, no markdown fences, exactly: {"caption": "caption text with line breaks as \\n", "hashtags": ["#tag1", "#tag2"]}.`;
+        let aiRes;
+        try {
+          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
+          });
+        } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env); }
+        const dataRes = await aiRes.json();
+        const text = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
+        let out;
+        try { const s = text.indexOf("{"), e = text.lastIndexOf("}"); out = JSON.parse(text.slice(s, e + 1)); } catch (_) { out = { caption: text, hashtags: [] }; }
+        const caption = String(out.caption || "").trim();
+        let hashtags = Array.isArray(out.hashtags) ? out.hashtags.map((h) => String(h).trim()).filter(Boolean).map((h) => (h[0] === "#" ? h : "#" + h.replace(/^#+/, ""))).slice(0, 15) : [];
+        if (!caption) return json({ error: "Couldn't generate a caption — please try again." }, 502, request, env);
+        return json({ ok: true, caption, hashtags }, 200, request, env);
+      }
+
       // ---- AI: read text + positions from a finished design image ----
       // Powers the studio's "Read text with AI" (Canva import). Holds the
       // Anthropic key as a Worker secret so it never reaches the browser.

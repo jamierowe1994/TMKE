@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
 ---
@@ -123,8 +124,10 @@ import "../../styles/account-sections.css";
           </div>
           <p class="post-plat" id="post-plat">Instagram</p>
           <label class="post-field">
-            <span class="post-label">Caption</span>
-            <textarea id="post-caption" class="post-textarea" rows="5" placeholder="Write your caption…"></textarea>
+            <span class="post-label post-label--row">Caption
+              <button type="button" class="post-ai" id="post-ai-caption"><span aria-hidden="true">✨</span> Generate with AI</button>
+            </span>
+            <textarea id="post-caption" class="post-textarea" rows="5" placeholder="Write your caption… or generate one with AI"></textarea>
           </label>
           <label class="post-remind">
             <input type="checkbox" id="post-remind" />
@@ -704,6 +707,13 @@ import "../../styles/account-sections.css";
       text-transform: uppercase;
       color: var(--violet-deep);
     }
+    .post-label--row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .post-ai {
+      appearance: none; border: 1px solid rgba(var(--violet-rgb), 0.3); background: rgba(var(--violet-rgb), 0.06);
+      color: var(--violet-deep); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: none; padding: 5px 11px; border-radius: 999px; cursor: pointer; transition: background 0.18s, border-color 0.18s;
+    }
+    .post-ai:hover { background: rgba(var(--violet-rgb), 0.12); border-color: var(--english-violet); }
     .post-input, .post-textarea {
       appearance: none;
       width: 100%;
@@ -1328,6 +1338,17 @@ import "../../styles/account-sections.css";
     document.getElementById('app-signout')?.addEventListener('click', signOut);
     document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
 
+    // AI caption → drop the result straight into the post's caption box.
+    document.getElementById('post-ai-caption')?.addEventListener('click', () => {
+      window.tmkeCaption?.open({
+        output: 'use',
+        onUse: (text) => {
+          $postCaption.value = text;
+          $postCaption.dispatchEvent(new Event('input', { bubbles: true }));
+        },
+      });
+    });
+
     // ====== Bootstrap ======
     (async () => {
       await loadWindow();
@@ -1335,4 +1356,6 @@ import "../../styles/account-sections.css";
       requestAnimationFrame(() => document.body.classList.add('is-loaded'));
     })();
   </script>
+
+  <CaptionGenerator />
 </BaseLayout>

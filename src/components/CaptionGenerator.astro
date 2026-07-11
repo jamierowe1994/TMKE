@@ -1,0 +1,282 @@
+---
+// Reusable AI caption generator — one component, used in two places:
+//   • Studio (standalone tool)      → output "copy"  (Copy buttons)
+//   • Planner post panel            → output "use"   (drops caption into the post)
+// Open it from anywhere with:
+//   window.tmkeCaption.open({ output: "copy" | "use", onUse: (text) => {...} })
+// It talks to the Worker's /ai/caption endpoint (key stays server-side).
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+---
+
+<div class="cg-scrim" id="cg-scrim" data-worker={WORKER} hidden>
+  <div class="cg-modal" role="dialog" aria-modal="true" aria-label="Caption generator">
+    <button type="button" class="cg-x" data-cg-close aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+
+    <header class="cg-head">
+      <span class="cg-eyebrow">Caption generator</span>
+      <h2 class="cg-title">Write a caption that sells.</h2>
+      <p class="cg-sub">Tell us about the post and we'll draft a caption and hashtags — or write your own.</p>
+    </header>
+
+    <div class="cg-tabs" role="tablist">
+      <button type="button" class="cg-tab is-active" data-cg-tab="property" role="tab">Property post</button>
+      <button type="button" class="cg-tab" data-cg-tab="general" role="tab">Something else</button>
+      <button type="button" class="cg-tab" data-cg-tab="own" role="tab">Write my own</button>
+    </div>
+
+    <!-- PROPERTY -->
+    <div class="cg-pane" data-cg-pane="property">
+      <div class="cg-grid">
+        <label class="cg-field cg-col2"><span>Location</span><input type="text" data-cg="location" placeholder="e.g. Bilton, Rugby" /></label>
+        <label class="cg-field"><span>Post angle</span>
+          <select data-cg="angle">
+            <option value="new-to-market">New to market</option>
+            <option value="coming-soon">Coming soon</option>
+            <option value="open-house">Open house</option>
+            <option value="price-adjustment">Price adjustment</option>
+            <option value="just-sold">Just sold</option>
+          </select>
+        </label>
+        <label class="cg-field"><span>Property type</span>
+          <select data-cg="propertyType">
+            <option value="">Select…</option>
+            <option>Detached house</option>
+            <option>Semi-detached house</option>
+            <option>Terraced house</option>
+            <option>Flat / apartment</option>
+            <option>Bungalow</option>
+            <option>Cottage</option>
+            <option>New build</option>
+            <option>Land / plot</option>
+            <option>Commercial</option>
+          </select>
+        </label>
+        <label class="cg-field"><span>Bedrooms</span><input type="text" data-cg="beds" inputmode="numeric" placeholder="e.g. 3" /></label>
+        <label class="cg-field"><span>Price / rent</span><input type="text" data-cg="price" placeholder="e.g. £325,000" /></label>
+        <label class="cg-field cg-col2"><span>Standout features <em>— optional</em></span><textarea data-cg="features" rows="3" placeholder="e.g. south-facing garden, new kitchen, off-road parking, walk to the station"></textarea></label>
+      </div>
+      <button type="button" class="cg-gen" data-cg-generate="property"><span class="cg-gen-l">Generate caption</span></button>
+    </div>
+
+    <!-- GENERAL -->
+    <div class="cg-pane" data-cg-pane="general" hidden>
+      <label class="cg-field"><span>What's your post about?</span><textarea data-cg="topic" rows="5" placeholder="e.g. 5 tips for first-time buyers / our team volunteering at the local food bank / why spring is a great time to sell"></textarea></label>
+      <button type="button" class="cg-gen" data-cg-generate="general"><span class="cg-gen-l">Generate caption</span></button>
+    </div>
+
+    <!-- WRITE MY OWN -->
+    <div class="cg-pane" data-cg-pane="own" hidden>
+      <label class="cg-field"><span>Your caption</span><textarea data-cg="own" rows="7" placeholder="Write your caption here…"></textarea></label>
+      <div class="cg-actions">
+        <button type="button" class="cg-act cg-act--primary" data-cg-useown><span>Use this caption</span></button>
+      </div>
+    </div>
+
+    <!-- RESULT (shared by property + general) -->
+    <div class="cg-result" hidden>
+      <div class="cg-result-head"><span class="cg-result-label">Your caption</span><button type="button" class="cg-regen" data-cg-regen>↻ Regenerate</button></div>
+      <textarea class="cg-out" data-cg-out rows="6"></textarea>
+      <div class="cg-tags" data-cg-tags></div>
+      <div class="cg-actions" data-cg-result-actions></div>
+    </div>
+
+    <p class="cg-error" data-cg-error hidden></p>
+  </div>
+</div>
+
+<style is:global>
+  .cg-scrim { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 22px; background: rgba(20,16,22,0.5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .cg-scrim[hidden] { display: none; }
+  .cg-modal { position: relative; width: min(560px, 100%); max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 16px; box-shadow: 0 40px 90px -40px rgba(20,16,22,0.6); padding: 30px clamp(22px, 3vw, 34px) 28px; font-family: var(--sans); animation: cgIn .3s cubic-bezier(.2,.7,.3,1); }
+  @keyframes cgIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .cg-modal { animation: none; } }
+  .cg-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(28,29,34,0.05); cursor: pointer; display: grid; place-items: center; color: rgba(28,29,34,0.6); }
+  .cg-x:hover { background: rgba(28,29,34,0.1); color: var(--ink); }
+  .cg-x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+
+  .cg-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); }
+  .cg-title { font-family: var(--serif); font-weight: 400; font-size: clamp(24px, 3vw, 30px); line-height: 1.1; color: var(--ink); margin: 10px 0 0; }
+  .cg-sub { font-size: 13.5px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 8px 0 0; }
+
+  .cg-tabs { display: flex; gap: 6px; margin: 20px 0 18px; background: rgba(28,29,34,0.05); border-radius: 10px; padding: 4px; }
+  .cg-tab { flex: 1; appearance: none; border: 0; background: transparent; border-radius: 7px; padding: 9px 8px; font-family: inherit; font-size: 13px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; transition: background .18s, color .18s; }
+  .cg-tab:hover { color: var(--ink); }
+  .cg-tab.is-active { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(28,29,34,0.12); }
+
+  .cg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .cg-col2 { grid-column: 1 / -1; }
+  .cg-field { display: flex; flex-direction: column; gap: 6px; }
+  .cg-field > span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+  .cg-field > span em { font-style: normal; font-weight: 500; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); }
+  .cg-field input, .cg-field select, .cg-field textarea { font-family: inherit; font-size: 14.5px; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; padding: 10px 12px; transition: border-color .2s, box-shadow .2s; }
+  .cg-field textarea { resize: vertical; line-height: 1.5; }
+  .cg-field input:focus, .cg-field select:focus, .cg-field textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+
+  .cg-gen, .cg-act { margin-top: 18px; width: 100%; appearance: none; border: 0; border-radius: 9px; padding: 13px 18px; font-family: inherit; font-size: 14px; font-weight: 700; letter-spacing: 0.01em; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: background .2s, opacity .2s; }
+  .cg-gen, .cg-act--primary { background: var(--english-violet); color: #fff; }
+  .cg-gen::before { content: "✨"; font-size: 15px; }
+  .cg-gen:hover, .cg-act--primary:hover { background: var(--violet-deep, #43303c); }
+  .cg-gen[disabled] { opacity: 0.6; cursor: progress; }
+  .cg-act--ghost { background: #fff; border: 1px solid rgba(28,29,34,0.18); color: var(--ink); }
+  .cg-act--ghost:hover { border-color: var(--english-violet); color: var(--english-violet); }
+
+  .cg-result { margin-top: 22px; padding-top: 20px; border-top: 1px solid rgba(28,29,34,0.1); }
+  .cg-result[hidden] { display: none; }
+  .cg-result-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .cg-result-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+  .cg-regen { appearance: none; border: 0; background: transparent; font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--english-violet); cursor: pointer; }
+  .cg-regen:hover { text-decoration: underline; }
+  .cg-out { width: 100%; font-family: inherit; font-size: 14.5px; line-height: 1.6; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; padding: 12px 14px; resize: vertical; }
+  .cg-out:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+  .cg-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .cg-tag { font-size: 12.5px; font-weight: 600; color: var(--english-violet); background: rgba(var(--violet-rgb),0.08); border-radius: 999px; padding: 5px 11px; }
+  .cg-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .cg-actions .cg-act { margin-top: 0; flex: 1; }
+
+  .cg-error { margin: 14px 0 0; font-size: 13px; color: #a05a3c; background: rgba(160,90,60,0.08); padding: 10px 14px; border-radius: 8px; }
+  .cg-error[hidden] { display: none; }
+
+  @media (max-width: 480px) { .cg-grid { grid-template-columns: 1fr; } .cg-col2 { grid-column: auto; } }
+</style>
+
+<script>
+  import { supabase } from "../lib/supabase.js";
+
+  (function () {
+    const scrim = document.getElementById("cg-scrim");
+    if (!scrim) return;
+    const WORKER = (scrim.dataset.worker || "").replace(/\/+$/, "");
+    const $ = (s, r) => (r || scrim).querySelector(s);
+    const modal = $(".cg-modal");
+    const errEl = $("[data-cg-error]");
+    const resultEl = $(".cg-result");
+    const outEl = $("[data-cg-out]");
+    const tagsEl = $("[data-cg-tags]");
+    const resultActions = $("[data-cg-result-actions]");
+
+    let opts = { output: "copy", onUse: null };
+    let lastRequest = null; // for Regenerate
+
+    function open(o) {
+      opts = Object.assign({ output: "copy", onUse: null }, o || {});
+      errEl.hidden = true; resultEl.hidden = true; lastRequest = null;
+      // The "Write my own" button copies (standalone) or uses (in the Planner).
+      const ownLbl = scrim.querySelector("[data-cg-useown] span");
+      if (ownLbl) ownLbl.textContent = opts.output === "use" ? "Use this caption" : "Copy caption";
+      switchTab("property");
+      scrim.hidden = false;
+      document.body.style.overflow = "hidden";
+    }
+    function close() { scrim.hidden = true; document.body.style.overflow = ""; }
+    window.tmkeCaption = { open, close };
+
+    // ---- tabs ----
+    function switchTab(name) {
+      scrim.querySelectorAll(".cg-tab").forEach((t) => t.classList.toggle("is-active", t.dataset.cgTab === name));
+      scrim.querySelectorAll(".cg-pane").forEach((p) => { p.hidden = p.dataset.cgPane !== name; });
+      resultEl.hidden = true; errEl.hidden = true;
+    }
+    scrim.querySelectorAll(".cg-tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.cgTab)));
+
+    // ---- close ----
+    scrim.querySelectorAll("[data-cg-close]").forEach((b) => b.addEventListener("click", close));
+    scrim.addEventListener("click", (e) => { if (e.target === scrim) close(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !scrim.hidden) close(); });
+
+    function showError(msg) { errEl.textContent = msg; errEl.hidden = false; }
+    const val = (k) => { const el = scrim.querySelector(`[data-cg="${k}"]`); return el ? String(el.value || "").trim() : ""; };
+
+    async function token() {
+      try { const { data: { session } } = await supabase.auth.getSession(); return session ? session.access_token : null; }
+      catch (_) { return null; }
+    }
+
+    async function generate(mode) {
+      errEl.hidden = true;
+      let payload;
+      if (mode === "property") {
+        const p = { location: val("location"), propertyType: val("propertyType"), beds: val("beds"), price: val("price"), angle: val("angle"), features: val("features") };
+        if (!p.location && !p.propertyType && !p.features) { showError("Add at least a location or a couple of details."); return; }
+        payload = { mode: "property", property: p };
+      } else {
+        const topic = val("topic");
+        if (!topic) { showError("Tell us what the post is about."); return; }
+        payload = { mode: "general", topic };
+      }
+      lastRequest = payload;
+
+      if (!WORKER) { showError("The AI service isn't available here (no Worker URL configured)."); return; }
+      const tok = await token();
+      if (!tok) { showError("Please sign in to generate captions."); return; }
+
+      const btn = scrim.querySelector(`[data-cg-generate="${mode}"]`);
+      const label = btn ? btn.querySelector(".cg-gen-l") : null;
+      const orig = label ? label.textContent : "";
+      if (btn) btn.setAttribute("disabled", "true");
+      if (label) label.textContent = "Writing…";
+
+      try {
+        const res = await fetch(`${WORKER}/ai/caption`, {
+          method: "POST",
+          headers: { "content-type": "application/json", Authorization: `Bearer ${tok}` },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Couldn't generate a caption.");
+        showResult(data.caption || "", data.hashtags || []);
+      } catch (e) {
+        showError((e && e.message) || "Something went wrong — please try again.");
+      } finally {
+        if (btn) btn.removeAttribute("disabled");
+        if (label) label.textContent = orig;
+      }
+    }
+
+    scrim.querySelectorAll("[data-cg-generate]").forEach((b) => b.addEventListener("click", () => generate(b.dataset.cgGenerate)));
+    $("[data-cg-regen]").addEventListener("click", () => { if (lastRequest) generate(lastRequest.mode); });
+
+    function fullText() {
+      const cap = (outEl.value || "").trim();
+      const tags = [...tagsEl.querySelectorAll(".cg-tag")].map((t) => t.textContent).join(" ");
+      return tags ? `${cap}\n\n${tags}` : cap;
+    }
+
+    function showResult(caption, hashtags) {
+      outEl.value = caption;
+      tagsEl.innerHTML = (hashtags || []).map((h) => `<span class="cg-tag">${h}</span>`).join("");
+      resultActions.innerHTML = "";
+      if (opts.output === "use") {
+        const use = document.createElement("button");
+        use.type = "button"; use.className = "cg-act cg-act--primary"; use.textContent = "Use this caption";
+        use.addEventListener("click", () => { if (typeof opts.onUse === "function") opts.onUse(fullText()); close(); });
+        resultActions.appendChild(use);
+      } else {
+        const copy = document.createElement("button");
+        copy.type = "button"; copy.className = "cg-act cg-act--primary"; copy.textContent = "Copy caption + hashtags";
+        copy.addEventListener("click", () => doCopy(fullText(), copy));
+        const copyC = document.createElement("button");
+        copyC.type = "button"; copyC.className = "cg-act cg-act--ghost"; copyC.textContent = "Caption only";
+        copyC.addEventListener("click", () => doCopy((outEl.value || "").trim(), copyC));
+        resultActions.appendChild(copy); resultActions.appendChild(copyC);
+      }
+      resultEl.hidden = false;
+      resultEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    async function doCopy(text, btn) {
+      try { await navigator.clipboard.writeText(text); } catch (_) {}
+      const orig = btn.textContent; btn.textContent = "Copied ✓";
+      setTimeout(() => { btn.textContent = orig; }, 1600);
+    }
+
+    // ---- write my own ----
+    $("[data-cg-useown]").addEventListener("click", () => {
+      const text = (scrim.querySelector('[data-cg="own"]').value || "").trim();
+      if (!text) { showError("Write your caption first."); return; }
+      if (opts.output === "use") { if (typeof opts.onUse === "function") opts.onUse(text); close(); }
+      else { const b = $("[data-cg-useown]"); doCopy(text, b); }
+    });
+  })();
+</script>
