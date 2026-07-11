@@ -751,7 +751,11 @@ function renderColumns(block, brand, ctx) {
   const colBgImage = Array.isArray(block.colBgImage) ? block.colBgImage : [];
   const radius = block.colRadius != null && block.colRadius !== '' ? Math.max(0, Number(block.colRadius)) : 6;
   const tds = widths.map((w, i) => {
-    const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 8px';
+    // Equal-width columns must lose an EQUAL amount of horizontal padding, or
+    // the cell's content (e.g. a full-width image) renders narrower. Outer
+    // columns stay flush to the edges with a single full gutter (8px); middle
+    // columns split the gutter (4px each side) so every cell loses 8px total.
+    const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 4px';
     const children = Array.isArray(cols[i]) ? cols[i] : [];
     // Each child block is rendered with its own outer margin so column content
     // stacks with consistent spacing.
