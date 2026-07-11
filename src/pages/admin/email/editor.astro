@@ -557,10 +557,11 @@ import "../../../styles/admin.css";
           const accent = brand.accentColor || "#371e28";
           const iconColor = b.iconColor || (bare ? accent : "#ffffff");
           const chipBg = b.iconBg || accent;
-          let size = Number(effectiveBlock(b, canvasDevice).iconSize); if(!isFinite(size)||size<=0) size = bare?24:34; size=Math.max(14,Math.min(72,size));
+          const eb = effectiveBlock(b, canvasDevice);
+          let size = Number(eb.iconSize); if(!isFinite(size)||size<=0) size = bare?24:34; size=Math.max(14,Math.min(72,size));
           const glyph = bare ? size : Math.max(10, Math.round(size*0.46));
           let stroke = Number(b.iconStroke); if(!isFinite(stroke)||stroke<=0) stroke=1.5; stroke=Math.max(0.5,Math.min(3,stroke));
-          let gap = Number(b.iconGap); if(!isFinite(gap)||gap<0) gap=12; gap=Math.min(60,gap);
+          let gap = Number(eb.iconGap); if(!isFinite(gap)||gap<0) gap=12; gap=Math.min(60,gap);
           const items=nets.filter(n=>show[n]!==false).map(n=>{
             const svg=(SOCIAL_SVG[n]||"").replace("<svg ",`<svg style="width:${glyph}px;height:${glyph}px" `).replace('stroke-width="2"',`stroke-width="${stroke}"`);
             const box = bare
@@ -948,16 +949,13 @@ import "../../../styles/admin.css";
             <label class="eb-f"><span>Icon colour</span><input type="color" data-field="iconColor" value="${validHex(b.iconColor, bare ? (state.branding.accentColor||'#371e28') : '#ffffff')}" /></label>
             <label class="eb-f"${bare?' style="opacity:.45;pointer-events:none;"':''}><span>Circle colour</span><input type="color" data-field="iconBg" value="${validHex(b.iconBg, state.branding.accentColor||'#371e28')}" /></label>
           </div>
-          <div class="eb-f2">
-            <label class="eb-f"><span>Line thickness</span><input type="number" min="0.5" max="3" step="0.25" data-field="iconStroke" value="${b.iconStroke!=null?b.iconStroke:""}" placeholder="1.5" /></label>
-            <label class="eb-f"><span>Space between (px)</span><input type="number" min="0" max="60" data-field="iconGap" value="${b.iconGap!=null?b.iconGap:""}" placeholder="12" /></label>
-          </div>
+          <label class="eb-f"><span>Line thickness</span><input type="number" min="0.5" max="3" step="0.25" data-field="iconStroke" value="${b.iconStroke!=null?b.iconStroke:""}" placeholder="1.5" /></label>
           <div class="eb-sec"><span class="eb-f-sub">Block background</span>
             <div class="eb-f2">
               <label class="eb-f"><span>Fill (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>
               <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="60" data-field="radius" value="${b.radius!=null?b.radius:""}" placeholder="8" /></label>
             </div></div>
-          ${respWrap(device, `${dField(b,device,"iconSize","Icon size (px)",'type="number" min="14" max="72"', bare?24:34)}${spacingGrids(b,device)}`)}
+          ${respWrap(device, `<div class="eb-f2">${dField(b,device,"iconSize","Icon size (px)",'type="number" min="14" max="72"', bare?24:34)}${dField(b,device,"iconGap","Space between (px)",'type="number" min="0" max="60"', 12)}</div>${spacingGrids(b,device)}`)}
           <p class="eb-note">Only networks with a URL in <strong>Brand</strong> show.</p>`;
         }
         case "video": return `<label class="eb-f"><span>Video link</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
