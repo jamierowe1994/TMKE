@@ -3,6 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../components/account/WorkspaceHeader.astro";
 import AskExpert from "../components/AskExpert.astro";
 import ShopModal from "../components/ShopModal.astro";
+import CaptionGenerator from "../components/CaptionGenerator.astro";
 import "../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
 import { templates, packages } from "../data/library.js";
 
@@ -841,8 +842,11 @@ const googleFonts = [
           </div>
 
           <label class="ed-sched-field">
-            <span class="ed-sched-label">Caption <span class="ed-sched-optional">— optional</span></span>
-            <textarea id="ed-sched-caption" rows="4" maxlength="2200" placeholder="The copy you'll post alongside the image. Hashtags, mentions, calls to action — we'll bundle it into the reminder email."></textarea>
+            <span class="ed-sched-label ed-sched-label--row">
+              <span>Caption <span class="ed-sched-optional">— optional</span></span>
+              <button type="button" class="ed-sched-ai" id="ed-sched-ai"><span aria-hidden="true">✨</span> Generate with AI</button>
+            </span>
+            <textarea id="ed-sched-caption" rows="4" maxlength="2200" placeholder="The copy you'll post alongside the image. Or generate one with AI — hashtags, mentions and calls to action, ready to go."></textarea>
           </label>
 
           <fieldset class="ed-sched-field ed-sched-platform" hidden>
@@ -3038,6 +3042,13 @@ const googleFonts = [
       text-transform: uppercase;
       color: rgba(28,29,34,0.65);
     }
+    .ed-sched-label--row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .ed-sched-ai {
+      appearance: none; border: 1px solid rgba(var(--violet-rgb), 0.3); background: rgba(var(--violet-rgb), 0.06);
+      color: var(--english-violet); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: none; padding: 5px 11px; border-radius: 999px; cursor: pointer; transition: background 0.18s, border-color 0.18s;
+    }
+    .ed-sched-ai:hover { background: rgba(var(--violet-rgb), 0.12); border-color: var(--english-violet); }
     .ed-sched-optional {
       font-weight: 500;
       letter-spacing: 0.04em;
@@ -4176,6 +4187,14 @@ const googleFonts = [
     // circuit without a top-level `return` (which is a SyntaxError in
     // ES modules).
     if ($btn && $modal && $form) wireSchedule();
+
+    // AI caption → drop the generated copy straight into the caption box.
+    document.getElementById("ed-sched-ai")?.addEventListener("click", () => {
+      window.tmkeCaption?.open({
+        output: "use",
+        onUse: (text) => { if ($caption) { $caption.value = text; $caption.dispatchEvent(new Event("input", { bubbles: true })); } },
+      });
+    });
 
     function wireSchedule() {
 
@@ -5500,6 +5519,9 @@ const googleFonts = [
   <!-- Browse-packs shop modal — opened from the onboarding "Need more
        packs?" cell so users can buy without leaving the Studio. -->
   <ShopModal />
+
+  <!-- AI caption generator — opened from the Schedule modal's caption field. -->
+  <CaptionGenerator />
 
   <!-- First-time login tour — resumes here only if a tour is in progress. -->
   <script>
