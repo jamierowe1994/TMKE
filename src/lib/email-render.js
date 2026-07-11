@@ -607,8 +607,11 @@ function renderSocial(block, brand) {
     .join('');
   if (!items) return '';
   // Optional block fill (background colour) with breathing room inside it.
-  const fill = block.bg ? `background:${escapeHtml(block.bg)};padding:16px;border-radius:8px;` : '';
-  return `<div style="text-align:${align};margin:8px 0;${fill}">${items}</div>`;
+  const radius = block.radius != null && block.radius !== '' ? Math.max(0, Number(block.radius)) : 8;
+  const fill = block.bg ? `background:${escapeHtml(block.bg)};padding:16px;border-radius:${radius}px;` : '';
+  // No baked-in margin — spacing is governed entirely by the block's Spacing
+  // controls (wrapOuter), so "everything zero" really means zero.
+  return `<div style="text-align:${align};${fill}">${items}</div>`;
 }
 
 function renderVideo(block) {
