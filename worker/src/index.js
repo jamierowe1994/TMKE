@@ -1006,6 +1006,20 @@ async function autoEvalCondition(env, cfg, contact) {
   return op === "is_not" ? actual !== v : actual === v;
 }
 
+// Master social links from the shared Brand kit (Settings → Brand kit). Set
+// once, they flow into every email's social + footer blocks. Only non-empty
+// values are returned so they overlay cleanly (and win over any stale per-
+// template value).
+async function brandMasterSocials(env) {
+  try {
+    const rows = await sbGet(env, "brand_settings", "id=eq.1&select=website,linkedin,instagram,facebook,twitter,youtube");
+    const b = (rows && rows[0]) || {};
+    const out = {};
+    for (const k of ["website", "linkedin", "instagram", "facebook", "twitter", "youtube"]) if (b[k]) out[k] = b[k];
+    return out;
+  } catch (_) { return {}; }
+}
+
 async function autoExecAction(env, node, contact) {
   const c = node.config || {};
   try {
@@ -1013,7 +1027,7 @@ async function autoExecAction(env, node, contact) {
       if (contact.dnd || contact.dnd_email || !c.template_id) return;
       const tRows = await sbGet(env, "email_templates", `id=eq.${c.template_id}&select=*`);
       const t = tRows && tRows[0]; if (!t) return;
-      const brand = { ...defaultBrand(), ...(t.branding || {}) };
+      const brand = { ...defaultBrand(), ...(t.branding || {}), ...(await brandMasterSocials(env)) };
       const recipient = { name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email, first_name: contact.first_name || "", email: contact.email, company: contact.company || "" };
       const { subject, html } = renderTemplate(
         { subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
@@ -3279,14 +3293,23 @@ export default {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
+        const SOCIAL_KEYS = ["website", "linkedin", "instagram", "facebook", "twitter", "youtube"];
         const row = { id: 1 };
-        for (const k of ["colors", "heading_font", "subheading_font", "body_font", "logo_url", "footer_image_url"]) if (b && k in b) row[k] = b[k];
+        for (const k of ["colors", "heading_font", "subheading_font", "body_font", "logo_url", "footer_image_url", ...SOCIAL_KEYS]) if (b && k in b) row[k] = b[k];
         if (row.colors && !Array.isArray(row.colors)) delete row.colors;
-        await fetch(`${env.SUPABASE_URL}/rest/v1/brand_settings?on_conflict=id`, {
+        const upsert = (payload) => fetch(`${env.SUPABASE_URL}/rest/v1/brand_settings?on_conflict=id`, {
           method: "POST",
           headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
-          body: JSON.stringify(row),
+          body: JSON.stringify(payload),
         });
+        let res = await upsert(row);
+        // If the social columns don't exist yet (migration not run), save the
+        // rest so the brand kit still works — the socials land once brand_social.sql runs.
+        if (!res.ok) {
+          const base = { ...row }; SOCIAL_KEYS.forEach((k) => delete base[k]);
+          res = await upsert(base);
+        }
+        if (!res.ok) { const t = await res.text().catch(() => ""); return json({ error: "Couldn't save the brand kit. " + t.slice(0, 200) }, 502, request, env); }
         return json({ ok: true }, 200, request, env);
       }
 

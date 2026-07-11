@@ -79,6 +79,17 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           </div>
         </div>
 
+        <h3 class="set-h">Social links</h3>
+        <p class="set-hint" style="margin:-4px 0 12px">The master social URLs. Every email's social icons &amp; footer pull from here — set once, they flow everywhere. Leave a field blank to hide that network.</p>
+        <div class="brand-socials">
+          <label class="set-field"><span>Website</span><input id="brand-social-website" class="brand-url" type="url" placeholder="https://tmke.co.uk" /></label>
+          <label class="set-field"><span>LinkedIn</span><input id="brand-social-linkedin" class="brand-url" type="url" placeholder="https://linkedin.com/company/…" /></label>
+          <label class="set-field"><span>Instagram</span><input id="brand-social-instagram" class="brand-url" type="url" placeholder="https://instagram.com/…" /></label>
+          <label class="set-field"><span>Facebook</span><input id="brand-social-facebook" class="brand-url" type="url" placeholder="https://facebook.com/…" /></label>
+          <label class="set-field"><span>X / Twitter</span><input id="brand-social-twitter" class="brand-url" type="url" placeholder="https://x.com/…" /></label>
+          <label class="set-field"><span>YouTube</span><input id="brand-social-youtube" class="brand-url" type="url" placeholder="https://youtube.com/@…" /></label>
+        </div>
+
         <p class="set-msg" id="brand-msg" hidden></p>
         <button type="button" class="set-save" id="brand-save">Save brand kit</button>
       </div>
@@ -148,6 +159,8 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .set-mini:hover { background: var(--paper); }
     .brand-logos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 560px) { .brand-logos { grid-template-columns: 1fr; } }
+    .brand-socials { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+    @media (max-width: 560px) { .brand-socials { grid-template-columns: 1fr; } }
     .brand-logo-box { background: var(--paper); border: 1px solid rgba(28,29,34,0.1); border-radius: 9px; min-height: 84px; display: flex; align-items: center; justify-content: center; padding: 10px; overflow: hidden; }
     .brand-logo-box img { max-width: 100%; max-height: 90px; display: block; }
     .brand-logo-box:has(img[hidden]) { color: rgba(28,29,34,0.3); }
@@ -238,6 +251,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         $("brand-footer-url").value = b.footer_image_url || "";
         setLogoPreview("brand-logo-preview", b.logo_url);
         setLogoPreview("brand-footer-preview", b.footer_image_url);
+        ["website","linkedin","instagram","facebook","twitter","youtube"].forEach((k) => { const el = $("brand-social-" + k); if (el) el.value = b[k] || ""; });
       } catch (_) {}
     }
     $("brand-color-pick").addEventListener("input", (e) => { $("brand-color-hex").value = e.target.value.toUpperCase(); });
@@ -281,7 +295,8 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       const btn = $("brand-save"); btn.disabled = true; btn.textContent = "Saving…";
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER}/brand`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ colors: brandColors, heading_font: $("brand-heading-font").value.trim() || null, subheading_font: $("brand-subheading-font").value.trim() || null, body_font: $("brand-body-font").value.trim() || null, logo_url: $("brand-logo-url").value.trim() || null, footer_image_url: $("brand-footer-url").value.trim() || null }) });
+        const social = {}; ["website","linkedin","instagram","facebook","twitter","youtube"].forEach((k) => { social[k] = ($("brand-social-" + k).value || "").trim() || null; });
+        const res = await fetch(`${WORKER}/brand`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ colors: brandColors, heading_font: $("brand-heading-font").value.trim() || null, subheading_font: $("brand-subheading-font").value.trim() || null, body_font: $("brand-body-font").value.trim() || null, logo_url: $("brand-logo-url").value.trim() || null, footer_image_url: $("brand-footer-url").value.trim() || null, ...social }) });
         if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "Couldn't save."); }
         brandMsg("Brand kit saved.", true);
       } catch (err) { brandMsg(err.message, false); }
