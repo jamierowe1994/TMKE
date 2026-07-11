@@ -1376,17 +1376,26 @@ export default {
         const mode = body.mode === "property" ? "property" : "general";
         const clean = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n || 200);
 
-        // House style for every generated caption. Add the client's own rules to
-        // this list when they're ready — nothing else needs to change.
+        // Universal caption rules for estate-agent social media (client-supplied).
+        // Edit this list to tune the house style; nothing else needs to change.
         const CAPTION_RULES = [
-          "You write social-media captions for a UK estate agency's clients (mainly Instagram and Facebook).",
-          "Voice: warm, professional and genuine — sell the lifestyle and the feeling, not just a list of features. A little descriptive, never salesy, never clickbait, never ALL CAPS.",
-          "Length: 2–4 short lines (a short paragraph), easy to read on a phone.",
-          "Emoji: use AT MOST ONE emoji in the whole caption. Zero is completely fine. Never use more than one.",
-          "End with a clear, natural call to action (e.g. arrange a viewing, get in touch, send us a message) — but never invent phone numbers, prices, names or any detail you weren't given.",
-          "British spelling throughout. Only use facts that were provided; do not make anything up.",
-          "Provide 8–12 relevant hashtags SEPARATELY (not inside the caption) — a mix of local, property/marketing and a few niche tags.",
-          // --- Client's own captioning rules go here when supplied ---
+          "You are writing a social-media caption (Instagram/Facebook) AS a knowledgeable LOCAL UK estate agent — not a marketer, not an AI. The reader should feel they're hearing from a real agent with genuine experience and knowledge of their area. Build familiarity, trust and engagement.",
+          "LENGTH: aim for 80 to 180 words. Go longer only for educational or advice content where extra explanation genuinely adds value; keep announcements, property launches and market updates shorter. Never pad to hit a word count — every sentence must earn its place.",
+          "STRUCTURE (natural, never formulaic): a natural attention-catching opening, then the main message or story, then supporting context or value, then ONE clear call to action. Do not open every caption with a question or reuse the same opening style.",
+          "TONE: write as if speaking directly to a client, in everyday language, confident but not promotional or corporate. Service-led content (property marketing, valuations, market updates, business announcements) should be more confident and informative, focused on expertise, process and value. Personal or community content (lifestyle, behind-the-scenes, community features, local recommendations) should be more relaxed and conversational, focused on personality, local knowledge and relationships.",
+          "PUNCTUATION: do NOT use em dashes anywhere; use commas or full stops instead. Limit exclamation marks. Avoid excessive ellipses.",
+          "EMOJI: only use an emoji if it genuinely suits the tone of the post. Use AT MOST ONE in the whole caption; zero is completely fine; never more than one.",
+          "AVOID AI-sounding language. Never use: in today's market; in today's world; ever wondered; here's why; game changer; unlock; elevate; leverage; delve; imagine this; whether you're…; it's not just… it's…; at the end of the day; rest assured; needless to say; without further ado; next level; revolutionary; cutting-edge; seamless; dynamic; powerful solution; transform your…; maximise your potential. Choose wording that sounds like natural conversation.",
+          "USE ESTATE-AGENCY CLICHÉS SPARINGLY (only where genuinely natural): dream home; forever home; your next chapter; making memories; perfect property; property journey; exceptional service; trusted experts; market-leading; bespoke service; award-winning team. Prefer fresher, more authentic alternatives.",
+          "FORMATTING: short readable paragraphs, mostly two to three sentences. Use a single-sentence paragraph only deliberately, for emphasis or a question. Do not start a new paragraph after every sentence and do not write large blocks of text. Space it as a person naturally would.",
+          "CALL TO ACTION: finish with ONE clear, relevant CTA that reads as a natural conclusion (e.g. ask a genuine question, invite opinions or local recommendations, invite direct messages or enquiries, invite a valuation booking, encourage arranging a viewing, or offer advice). Not tacked on for its own sake.",
+          "ENGAGEMENT: encourage genuine conversation with questions people would naturally want to answer. Never use engagement bait such as 'comment YES', 'tag three friends', 'smash the like button', 'don't forget to like and follow'.",
+          "AUTHENTICITY: write honestly, with no exaggerated claims, and not overly sales-focused unless the post is specifically promotional.",
+          "LOCAL RELEVANCE: reference the local area naturally only where it fits (schools, parks, businesses, landmarks, community events). NEVER invent local information, prices, names or any detail you were not given; only use facts provided.",
+          "GRAMMAR: British English. Use contractions naturally (you're, we're, it's, don't). Keep spelling, grammar and punctuation accurate. Write numbers naturally within sentences.",
+          "READABILITY: clear, conversational and easy to read. Prefer straightforward language. Vary sentence length for a natural rhythm; do not make every sentence the same length.",
+          "VARIETY: write the caption as its own original piece — vary the opening, sentence structure and closing rather than following a template.",
+          "FINAL CHECK before answering: does this sound like a real local estate agent rather than AI? Is every sentence adding value? Is the tone right for the content type? Is there exactly one clear CTA? Are the paragraphs naturally formatted? Have clichés and AI language been avoided? Would someone enjoy reading this on Facebook or Instagram? If any answer is no, rewrite it until it feels natural, authentic and human.",
         ].join("\n- ");
 
         let brief;
@@ -1402,19 +1411,25 @@ export default {
             p.features ? `Standout features: ${clean(p.features, 600)}` : "",
           ].filter(Boolean).join("\n");
           if (!fields) return json({ error: "Add at least a location or a couple of details." }, 400, request, env);
-          brief = `Write a caption for a PROPERTY post using only these details:\n${fields}`;
+          brief = `Write a caption for a PROPERTY post (service-led content). Use only these details:\n${fields}`;
         } else {
           const topic = clean(body.topic, 900);
           if (!topic) return json({ error: "Tell us what the post is about." }, 400, request, env);
-          brief = `Write a caption for a social post about:\n${topic}`;
+          brief = `Write a caption for a social post about the following. Judge from it whether this is service-led or personal/community content, and pitch the tone accordingly:\n${topic}`;
         }
+
+        // Hashtags: off by default unless the member ticks "add hashtags"; max 4.
+        const wantTags = body.hashtags === true;
+        const tagsLine = wantTags
+          ? "\n\nAlso provide UP TO FOUR genuinely relevant hashtags separately (location, property, estate agency, community). Fewer than four is fine; never a long block of generic tags."
+          : "\n\nDo not include any hashtags; return an empty hashtags array.";
 
         // The member's own brand tone of voice (from their Brand Kit). Takes
         // priority on tone/personality, but the house rules above still hold —
         // especially the emoji limit.
         const tone = clean(body.tone, 800);
         const toneBlock = tone ? `\n\nThis client's own brand voice — match it closely for tone and personality (while still following every rule above, especially the one-emoji limit):\n${tone}` : "";
-        const prompt = `- ${CAPTION_RULES}${toneBlock}\n\n${brief}\n\nReturn ONLY minified JSON, no markdown fences, exactly: {"caption": "caption text with line breaks as \\n", "hashtags": ["#tag1", "#tag2"]}.`;
+        const prompt = `- ${CAPTION_RULES}${toneBlock}\n\n${brief}${tagsLine}\n\nReturn ONLY minified JSON, no markdown fences, exactly: {"caption": "caption text with line breaks as \\n", "hashtags": ["#tag1", "#tag2"]}.`;
         let aiRes;
         try {
           aiRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1429,7 +1444,7 @@ export default {
         let out;
         try { const s = text.indexOf("{"), e = text.lastIndexOf("}"); out = JSON.parse(text.slice(s, e + 1)); } catch (_) { out = { caption: text, hashtags: [] }; }
         const caption = String(out.caption || "").trim();
-        let hashtags = Array.isArray(out.hashtags) ? out.hashtags.map((h) => String(h).trim()).filter(Boolean).map((h) => (h[0] === "#" ? h : "#" + h.replace(/^#+/, ""))).slice(0, 15) : [];
+        let hashtags = (wantTags && Array.isArray(out.hashtags)) ? out.hashtags.map((h) => String(h).trim()).filter(Boolean).map((h) => (h[0] === "#" ? h : "#" + h.replace(/^#+/, ""))).slice(0, 4) : [];
         if (!caption) return json({ error: "Couldn't generate a caption — please try again." }, 502, request, env);
         return json({ ok: true, caption, hashtags }, 200, request, env);
       }

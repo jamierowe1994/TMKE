@@ -58,12 +58,14 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         <label class="cg-field"><span>Price / rent</span><input type="text" data-cg="price" placeholder="e.g. £325,000" /></label>
         <label class="cg-field cg-col2"><span>Standout features <em>— optional</em></span><textarea data-cg="features" rows="3" placeholder="e.g. south-facing garden, new kitchen, off-road parking, walk to the station"></textarea></label>
       </div>
+      <label class="cg-check"><input type="checkbox" data-cg-tags checked /> <span>Add up to 4 hashtags</span></label>
       <button type="button" class="cg-gen" data-cg-generate="property"><span class="cg-gen-l">Generate caption</span></button>
     </div>
 
     <!-- GENERAL -->
     <div class="cg-pane" data-cg-pane="general" hidden>
       <label class="cg-field"><span>What's your post about?</span><textarea data-cg="topic" rows="5" placeholder="e.g. 5 tips for first-time buyers / our team volunteering at the local food bank / why spring is a great time to sell"></textarea></label>
+      <label class="cg-check"><input type="checkbox" data-cg-tags checked /> <span>Add up to 4 hashtags</span></label>
       <button type="button" class="cg-gen" data-cg-generate="general"><span class="cg-gen-l">Generate caption</span></button>
     </div>
 
@@ -117,6 +119,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .cg-field textarea { resize: vertical; line-height: 1.5; }
   .cg-field input:focus, .cg-field select:focus, .cg-field textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
 
+  .cg-check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: rgba(28,29,34,0.7); cursor: pointer; }
+  .cg-check input { width: 16px; height: 16px; accent-color: var(--english-violet); cursor: pointer; }
   .cg-gen, .cg-act { margin-top: 18px; width: 100%; appearance: none; border: 0; border-radius: 9px; padding: 13px 18px; font-family: inherit; font-size: 14px; font-weight: 700; letter-spacing: 0.01em; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: background .2s, opacity .2s; }
   .cg-gen, .cg-act--primary { background: var(--english-violet); color: #fff; }
   .cg-gen::before { content: "✨"; font-size: 15px; }
@@ -217,6 +221,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         if (!topic) { showError("Tell us what the post is about."); return; }
         payload = { mode: "general", topic };
       }
+      const pane = scrim.querySelector(`[data-cg-pane="${mode}"]`);
+      payload.hashtags = !!(pane && pane.querySelector("[data-cg-tags]") && pane.querySelector("[data-cg-tags]").checked);
       const tone = brandTone();
       if (tone) payload.tone = tone;
       lastRequest = payload;
