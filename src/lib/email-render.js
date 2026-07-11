@@ -289,7 +289,7 @@ export function effectiveBlock(block, device) {
   if (device !== 'mobile' || !block || !block.mobile) return block;
   const m = block.mobile;
   const out = { ...block };
-  ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
+  ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness', 'iconSize'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
   if (m.pad) out.pad = { ...(block.pad || {}), ...m.pad };
   return out;
 }
@@ -331,6 +331,22 @@ function dividerResponsiveCss(block) {
   if (m.width != null && m.width !== '') rules.push(`.eb-b-${block.id}{width:${Math.max(1, Math.min(100, Number(m.width)))}% !important;}`);
   return rules.join('\n    ');
 }
+// Social: the icon size can differ per device. Resize the chip (circle style)
+// and the glyph via the block's container class.
+function socialResponsiveCss(block) {
+  const m = block.mobile || {};
+  if (m.iconSize == null || m.iconSize === '') return '';
+  let size = Number(m.iconSize);
+  if (!Number.isFinite(size) || size <= 0) return '';
+  size = Math.max(14, Math.min(72, size));
+  const bare = block.iconStyle === 'bare';
+  const glyph = bare ? Math.round(size) : Math.max(10, Math.round(size * 0.46));
+  const sel = `.eb-social-${block.id}`;
+  const rules = [];
+  if (!bare) rules.push(`${sel} a{width:${size}px !important;height:${size}px !important;line-height:${size}px !important;border-radius:${Math.round(size / 2)}px !important;}`);
+  rules.push(`${sel} svg{width:${glyph}px !important;height:${glyph}px !important;}`);
+  return rules.join('\n    ');
+}
 function blockResponsiveCss(block) {
   if (!block) return '';
   // Columns: gather each child's mobile rules (children carry their own classes).
@@ -346,6 +362,7 @@ function blockResponsiveCss(block) {
     case 'button': return buttonResponsiveCss(block);
     case 'image': return imageResponsiveCss(block);
     case 'divider': return dividerResponsiveCss(block);
+    case 'social': return socialResponsiveCss(block);
     default: return '';
   }
 }
@@ -623,7 +640,9 @@ function renderSocial(block, brand) {
   const fill = block.bg ? `background:${escapeHtml(block.bg)};padding:16px;border-radius:${radius}px;` : '';
   // No baked-in margin — spacing is governed entirely by the block's Spacing
   // controls (wrapOuter), so "everything zero" really means zero.
-  return `<div style="text-align:${align};${fill}">${items}</div>`;
+  // The class lets the mobile media query resize the icons per-device.
+  const cls = block.id ? ` class="eb-social-${block.id}"` : '';
+  return `<div${cls} style="text-align:${align};${fill}">${items}</div>`;
 }
 
 function renderVideo(block) {
