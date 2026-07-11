@@ -3346,6 +3346,54 @@ export default {
         }
         return json({ ok: true }, 200, request, env);
       }
+      // ---- Admin: delete an invoice (hard delete + its PDF) ------------------
+      if (path.endsWith("/invoicing/invoices") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = String(url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id." }, 400, request, env);
+        const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=id,number`))?.[0];
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        if (inv && inv.number) { try { await env.BUCKET.delete(`invoices/${inv.number}.pdf`); } catch (_) {} }
+        return json({ ok: true }, 200, request, env);
+      }
+      // ---- Admin: void an invoice (email accounts + admin, then delete) ------
+      if (path.endsWith("/invoicing/invoices/void") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.id) || "").trim();
+        const reason = String((b && b.reason) || "").trim();
+        if (!id) return json({ error: "Missing id." }, 400, request, env);
+        const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`))?.[0];
+        if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
+        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+        const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6;max-width:560px">
+          <p style="margin:0 0 14px"><strong>Invoice ${esc(inv.number)} has been voided</strong> and removed from the system — please disregard it.</p>
+          <table style="border-collapse:collapse;margin:0 0 14px;font-size:15px">
+            <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(inv.bill_to_name || "")}</strong></td></tr>
+            <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Amount</td><td style="padding:2px 0">${money(inv.total_pence)}</td></tr>
+            ${inv.billing_month ? `<tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Period</td><td style="padding:2px 0">${esc(inv.billing_month)}</td></tr>` : ""}
+            <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Voided by</td><td style="padding:2px 0">${esc(user.email || "an admin")}</td></tr>
+          </table>
+          <p style="margin:0 0 6px;color:#7a6b70">Reason</p>
+          <p style="margin:0;padding:11px 14px;background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px">${esc(reason || "—")}</p>
+        </div>`;
+        await sendEmail(env, {
+          to: st.accounts_cc_email || DD_DEFAULT_RECIPIENT,
+          cc: user.email || null,
+          subject: `Invoice ${inv.number} voided — ${inv.bill_to_name || ""}`,
+          html,
+        });
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        if (inv.number) { try { await env.BUCKET.delete(`invoices/${inv.number}.pdf`); } catch (_) {} }
+        return json({ ok: true }, 200, request, env);
+      }
 
       // ---- Admin: set an SMM client's status (active / paused / ended) --------
       // Persists on the lead and swaps the SMM-Status tag on their CRM contact.

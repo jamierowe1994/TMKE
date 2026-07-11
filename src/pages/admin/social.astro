@@ -1022,7 +1022,7 @@ import "../../styles/admin.css";
     async function loadSmmInvoices(r) {
       const wrap = $("siv-list"); if (!wrap) return;
       const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
-      const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span><span class="siv-row-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="smm-mini is-primary" data-sivsend="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}</span></div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
+      const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span><span class="siv-row-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="smm-mini is-primary" data-sivsend="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}<button type="button" class="smm-mini" data-sivvoid="${esc(v.id)}">Void</button><button type="button" class="smm-mini is-danger" data-sivdel="${esc(v.id)}">Delete</button></span></div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
       if (isDemo(r)) { sivInvoices = r._invoices || []; wrap.innerHTML = rowsHtml(sivInvoices); }
       else if (!WORKER) { wrap.innerHTML = '<p class="smm-doc-empty">Connect the Worker to raise invoices.</p>'; return; }
       else {
@@ -1037,6 +1037,19 @@ import "../../styles/admin.css";
       wrap.querySelectorAll("[data-sivsend]").forEach((b) => b.addEventListener("click", () => {
         const inv = (sivInvoices || []).find((x) => x.id === b.getAttribute("data-sivsend"));
         if (inv) openSmmEmailModal(inv, r);
+      }));
+      wrap.querySelectorAll("[data-sivdel]").forEach((b) => b.addEventListener("click", async () => {
+        if (!confirm("Delete this invoice? This permanently removes it and its PDF — it can't be undone.")) return;
+        b.disabled = true;
+        if (isDemo(r)) { r._invoices = (r._invoices || []).filter((x) => x.id !== b.getAttribute("data-sivdel")); loadSmmInvoices(r); return; }
+        try { const token = await authToken(); await fetch(`${WORKER}/invoicing/invoices?id=${encodeURIComponent(b.getAttribute("data-sivdel"))}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } }); loadSmmInvoices(r); } catch (e) { alert(e.message); b.disabled = false; }
+      }));
+      wrap.querySelectorAll("[data-sivvoid]").forEach((b) => b.addEventListener("click", async () => {
+        const reason = prompt("Void this invoice? It'll be removed and accounts + you will be emailed.\n\nReason for voiding:");
+        if (reason === null) return;
+        b.disabled = true;
+        if (isDemo(r)) { r._invoices = (r._invoices || []).filter((x) => x.id !== b.getAttribute("data-sivvoid")); loadSmmInvoices(r); return; }
+        try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices/void`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-sivvoid"), reason }) }); if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "Void failed."); } loadSmmInvoices(r); } catch (e) { alert(e.message); b.disabled = false; }
       }));
     }
     // Default covering-email text (mirrors the Worker default; keys off due date).
