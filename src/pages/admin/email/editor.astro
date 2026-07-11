@@ -142,6 +142,12 @@ import "../../../styles/admin.css";
         <label class="eb-check"><input type="checkbox" data-brand="showSignoff" /> Show sign-off at the bottom</label>
       </div>
       <label class="eb-f"><span>Accent colour</span><input data-brand="accentColor" type="color" /></label>
+      <h4 class="eb-rail-h" style="margin-top:6px;">Layout &amp; spacing</h4>
+      <div class="eb-f2">
+        <label class="eb-f"><span>Content padding (px)</span><input data-brand="contentPad" type="number" min="0" max="80" step="1" placeholder="24" /></label>
+        <label class="eb-f"><span>Outer margin (px)</span><input data-brand="outerPad" type="number" min="0" max="80" step="1" placeholder="24" /></label>
+      </div>
+      <p class="eb-hint" style="margin:-2px 0 6px;color:#8a8796;font-size:11.5px;">Set content padding to <strong>0</strong> for full-width blocks (e.g. an edge-to-edge footer). Then add each block's own padding under its “Spacing” controls.</p>
       <h4 class="eb-rail-h" style="margin-top:6px;">Social links</h4>
       <div class="eb-f2">
         <label class="eb-f"><span>Website</span><input data-brand="website" type="url" /></label>
@@ -585,6 +591,8 @@ import "../../../styles/admin.css";
     }
     function renderCanvas() {
       emailEl.style.background = state.branding.cardColor || "#ffffff";
+      const cp = state.branding.contentPad;
+      emailEl.style.padding = (cp === 0 || (cp != null && cp !== "")) ? Number(cp) + "px" : "";
       $("#eb-canvas-pane").style.background = state.branding.bgColor || "#f1f0ef";
       $("#eb-canvas-empty").hidden = state.blocks.length > 0;
       blocksWrap.innerHTML = state.blocks.map(blockCard).join("");
@@ -1498,7 +1506,7 @@ import "../../../styles/admin.css";
       const brand={...defaultBrand(),...state.branding};
       if(!brand.logo && brandKitLogo) brand.logo=brandKitLogo;   // default to the brand-kit logo
       state.branding=brand;
-      document.querySelectorAll("[data-brand]").forEach(el=>{ const k=el.getAttribute("data-brand"); if(el.type==="checkbox"){ el.checked = brand[k]!==false; return; } let v=brand[k]||""; if(el.type==="color"&&!/^#[0-9a-f]{6}$/i.test(v)) v="#371e28"; el.value=v; });
+      document.querySelectorAll("[data-brand]").forEach(el=>{ const k=el.getAttribute("data-brand"); if(el.type==="checkbox"){ el.checked = brand[k]!==false; return; } if(el.type==="number"){ el.value = (brand[k]===0||brand[k]) ? brand[k] : ""; return; } let v=brand[k]||""; if(el.type==="color"&&!/^#[0-9a-f]{6}$/i.test(v)) v="#371e28"; el.value=v; });
       document.querySelectorAll(".eb-mode").forEach(x=>x.classList.toggle("is-active",x.dataset.mode===state.mode));
       $("#eb-canvas-pane").hidden=state.mode!=="blocks"; $("#eb-html-pane").hidden=state.mode!=="html";
       renderSwatches(); syncHex(); renderCanvas();
