@@ -572,7 +572,8 @@ import "../../../styles/admin.css";
             return `<span style="${box}">${svg}</span>`;
           }).join("");
           const radius = b.radius!=null && b.radius!=="" ? Math.max(0,Number(b.radius)) : 8;
-          const fill = b.bg ? `background:${esc(b.bg)};padding:16px;border-radius:${radius}px;` : "";
+          const pad = cvPad(resolvePad(b));
+          const fill = b.bg ? `background:${esc(b.bg)};border-radius:${radius}px;` : "";
           const justify = align==="left"?"flex-start":align==="right"?"flex-end":"center";
           let cap = "";
           if (b.caption) {
@@ -582,7 +583,7 @@ import "../../../styles/admin.css";
             cap = `<div style="font-size:${cs}px;line-height:1.4;color:${esc(cc)};margin:0 0 ${cg}px;">${esc(b.caption)}</div>`;
           }
           const icons = `<div class="cv-social" style="justify-content:${justify};gap:${gap}px;">${items||'<span style="background:#ccc;"></span>'}</div>`;
-          return `<div style="text-align:${align};${fill}">${cap}${icons}</div>`;
+          return `<div style="text-align:${align};${pad}${fill}">${cap}${icons}</div>`;
         }
         case "video":
           return b.thumbnail
@@ -972,7 +973,8 @@ import "../../../styles/admin.css";
             <div class="eb-f2">
               <label class="eb-f"><span>Fill (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>
               <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="60" data-field="radius" value="${b.radius!=null?b.radius:""}" placeholder="8" /></label>
-            </div></div>
+            </div>
+            <p class="eb-note" style="margin:2px 0 0;">Space around the icons is set by <strong>Padding · inside</strong> below (nothing is hard-coded).</p></div>
           ${respWrap(device, `<div class="eb-f2">${dField(b,device,"iconSize","Icon size (px)",'type="number" min="14" max="72"', bare?24:34)}${dField(b,device,"iconGap","Space between (px)",'type="number" min="0" max="60"', 12)}</div>${spacingGrids(b,device)}`)}
           <p class="eb-note">Only networks with a URL in <strong>Brand</strong> show.</p>`;
         }
