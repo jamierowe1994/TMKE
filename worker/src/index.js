@@ -72,6 +72,14 @@ function invoiceEmailHtml(settings, inv, customBodyText) {
 
 // ---- Direct Debit "ghost" invoices --------------------------------------
 const DD_DEFAULT_RECIPIENT = "danielle@tmke.co.uk";
+// TESTING SWITCH: while true, EVERY invoice email (client send, DD ghost, void)
+// is redirected to Danielle only — no real clients, no Paula. Set to false to
+// go fully live.
+const INVOICE_TEST_MODE = true;
+const INVOICE_TEST_RECIPIENT = "danielle@tmke.co.uk";
+function invoiceMailTo(to, cc) {
+  return INVOICE_TEST_MODE ? { to: INVOICE_TEST_RECIPIENT, cc: null } : { to, cc };
+}
 // Parse a free-text price like "£750 / month" → pence.
 function parsePricePence(s) {
   const m = String(s || "").match(/[\d,]+(\.\d+)?/);
@@ -128,7 +136,7 @@ async function ensureDdInvoice(env, lead, ym) {
     const pdf = await renderInvoicePdf(env, { ...st, template: inv.template || st.template }, inv);
     await env.BUCKET.put(`invoices/${inv.number || inv.id}.pdf`, pdf, { httpMetadata: { contentType: "application/pdf" } });
     await sendEmail(env, {
-      to: recipient,
+      to: invoiceMailTo(recipient, null).to,
       subject: `Direct Debit invoice ${inv.number} — ${billName} (${monthLabel})`,
       html: ddReminderHtml(billName, monthLabel, inv),
       attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
@@ -3227,9 +3235,10 @@ export default {
 
         // Covering email with the PDF attached; accounts dept CC'd. If the email
         // doesn't actually go, don't mark it sent — tell the caller so they retry.
+        const mail = invoiceMailTo(inv.bill_to_email, cc);
         const emailed = await sendEmail(env, {
-          to: inv.bill_to_email,
-          cc,
+          to: mail.to,
+          cc: mail.cc,
           subject,
           html: invoiceEmailHtml(st, inv, b && b.email_body),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
@@ -3382,9 +3391,10 @@ export default {
           <p style="margin:0 0 6px;color:#7a6b70">Reason</p>
           <p style="margin:0;padding:11px 14px;background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px">${esc(reason || "—")}</p>
         </div>`;
+        const voidMail = invoiceMailTo(st.accounts_cc_email || DD_DEFAULT_RECIPIENT, user.email || null);
         await sendEmail(env, {
-          to: st.accounts_cc_email || DD_DEFAULT_RECIPIENT,
-          cc: user.email || null,
+          to: voidMail.to,
+          cc: voidMail.cc,
           subject: `Invoice ${inv.number} voided — ${inv.bill_to_name || ""}`,
           html,
         });
