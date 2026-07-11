@@ -108,6 +108,8 @@ export function defaultBrand() {
     logo: '',
     accentColor: ACCENT_DEFAULT,
     signatureName: 'The TMKE Team',
+    showHeader: true,    // the auto logo header at the top of the card
+    showSignoff: true,   // the auto "— The TMKE Team" sign-off at the bottom
     bgColor: '#f4f2f1',
     cardColor: '#ffffff',
     website: 'https://tmke.co.uk',
@@ -797,6 +799,7 @@ export function renderBlock(block, brand, ctx) {
 /* ───────────────────────── document shell ───────────────────────── */
 
 function brandHeader(brand) {
+  if (brand.showHeader === false) return '';
   const accent = brand.accentColor || ACCENT_DEFAULT;
   const headerLogo = brand.logo
     ? `<img src="${escapeHtml(brand.logo)}" alt="${escapeHtml(brand.companyName || '')}" style="max-height:42px;width:auto;display:block;border:0;outline:none;" />`
@@ -810,6 +813,7 @@ function brandHeader(brand) {
 }
 
 function brandFooter(brand) {
+  if (brand.showSignoff === false) return '';
   const sigName = brand.signatureName;
   return sigName
     ? `<div style="padding:8px 24px 24px;font-family:Helvetica,Arial,sans-serif;color:#475569;font-size:14px;">— ${escapeHtml(sigName)}</div>`

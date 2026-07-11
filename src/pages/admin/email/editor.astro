@@ -137,6 +137,10 @@ import "../../../styles/admin.css";
         <label class="eb-f"><span>Sign-off</span><input data-brand="signatureName" placeholder="The TMKE Team" /></label>
       </div>
       <label class="eb-f"><span>Logo URL</span><input data-brand="logo" type="url" placeholder="https://…/logo.png" /></label>
+      <div class="eb-checks" style="margin:2px 0 4px;">
+        <label class="eb-check"><input type="checkbox" data-brand="showHeader" /> Show logo header at the top</label>
+        <label class="eb-check"><input type="checkbox" data-brand="showSignoff" /> Show sign-off at the bottom</label>
+      </div>
       <label class="eb-f"><span>Accent colour</span><input data-brand="accentColor" type="color" /></label>
       <h4 class="eb-rail-h" style="margin-top:6px;">Social links</h4>
       <div class="eb-f2">
@@ -1336,7 +1340,7 @@ import "../../../styles/admin.css";
     $("#s-status").addEventListener("change",(e)=>{ state.status=e.target.value; setStatusPill(); markDirty(); });
     function setStatusPill(){ const p=$("#eb-status-pill"); p.dataset.status=state.status; p.textContent=state.status.charAt(0).toUpperCase()+state.status.slice(1); }
 
-    document.querySelectorAll("[data-brand]").forEach(el=>el.addEventListener("input", ()=>{ state.branding[el.getAttribute("data-brand")]=el.value; renderCanvas(); }));
+    document.querySelectorAll("[data-brand]").forEach(el=>el.addEventListener(el.type==="checkbox"?"change":"input", ()=>{ state.branding[el.getAttribute("data-brand")] = el.type==="checkbox" ? el.checked : el.value; renderCanvas(); }));
 
     /* ─────────── preview modal ─────────── */
     $("#eb-preview").addEventListener("click", ()=>{
@@ -1494,7 +1498,7 @@ import "../../../styles/admin.css";
       const brand={...defaultBrand(),...state.branding};
       if(!brand.logo && brandKitLogo) brand.logo=brandKitLogo;   // default to the brand-kit logo
       state.branding=brand;
-      document.querySelectorAll("[data-brand]").forEach(el=>{ const k=el.getAttribute("data-brand"); let v=brand[k]||""; if(el.type==="color"&&!/^#[0-9a-f]{6}$/i.test(v)) v="#371e28"; el.value=v; });
+      document.querySelectorAll("[data-brand]").forEach(el=>{ const k=el.getAttribute("data-brand"); if(el.type==="checkbox"){ el.checked = brand[k]!==false; return; } let v=brand[k]||""; if(el.type==="color"&&!/^#[0-9a-f]{6}$/i.test(v)) v="#371e28"; el.value=v; });
       document.querySelectorAll(".eb-mode").forEach(x=>x.classList.toggle("is-active",x.dataset.mode===state.mode));
       $("#eb-canvas-pane").hidden=state.mode!=="blocks"; $("#eb-html-pane").hidden=state.mode!=="html";
       renderSwatches(); syncHex(); renderCanvas();
