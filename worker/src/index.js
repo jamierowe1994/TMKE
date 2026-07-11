@@ -3408,6 +3408,25 @@ export default {
       // ---- Admin: set an SMM client's status (active / paused / ended) --------
       // Persists on the lead and swaps the SMM-Status tag on their CRM contact.
       // Active also lifts their lifecycle to Customer (per the tagging framework).
+      // ---- Admin: delete an SMM lead/card (cascade: invoices, thread, docs) --
+      // Mostly for clearing test cards before go-live.
+      if (path.endsWith("/smm/lead") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = String(url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id." }, 400, request, env);
+        const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` };
+        // Delete any invoices + their PDFs first.
+        try {
+          const invs = (await sbGet(env, "invoices", `booking_id=eq.${encodeURIComponent(id)}&select=number`)) || [];
+          for (const iv of invs) { if (iv.number) { try { await env.BUCKET.delete(`invoices/${iv.number}.pdf`); } catch (_) {} } }
+        } catch (_) {}
+        for (const t of ["invoices", "booking_documents", "booking_messages"]) {
+          try { await fetch(`${env.SUPABASE_URL}/rest/v1/${t}?booking_id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: hdr }); } catch (_) {}
+        }
+        await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: hdr });
+        return json({ ok: true }, 200, request, env);
+      }
       if (path.endsWith("/smm/status") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
