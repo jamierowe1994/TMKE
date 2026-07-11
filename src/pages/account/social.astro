@@ -1,0 +1,154 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import "../../styles/workspace.css";
+import "../../styles/account-sections.css";
+---
+
+<BaseLayout title="Social Media — TMKE" description="Your managed social media service, plan and monthly performance." dashboard hideNav hideFooter>
+  <WorkspaceHeader active="social" />
+  <div class="dash-shell dash-shell--top">
+    <main class="app-main dash-main">
+      <div class="dash-hero">
+        <a class="welcome-eyebrow" href="/account">← Workspace</a>
+        <h1 class="welcome-h">Social Media</h1>
+        <p class="welcome-sub">Your managed social service — your plan and your monthly performance, all in one place.</p>
+      </div>
+
+      <p id="soc-loading" class="smm-soon" style="padding:16px 0">Loading your social media…</p>
+
+      <!-- Not a managed-social client -->
+      <section id="soc-noclient" hidden>
+        <div class="soc-card soc-empty">
+          <h2 class="soc-empty-h">You're not on a managed social plan yet</h2>
+          <p class="soc-empty-p">TMKE can run your social media end to end — content, scheduling and clear monthly reporting. Take a look at what's included, or drop us a line.</p>
+          <div class="soc-actions">
+            <a class="soc-btn soc-btn--primary" href="/account/services">See the plans</a>
+            <a class="soc-btn" href="/account/contact">Get in touch</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Managed-social client -->
+      <section id="soc-client" hidden>
+        <div class="soc-card" id="soc-plan"></div>
+
+        <h2 class="soc-h">Your monthly performance</h2>
+        <div id="soc-insights"><p class="smm-soon">Your first monthly report will appear here once we've published it.</p></div>
+
+        <div class="soc-card soc-contact">
+          <div>
+            <h3 class="soc-contact-h">Questions about your social?</h3>
+            <p class="soc-contact-p">Your TMKE social team is here to help — from content ideas to the numbers below.</p>
+          </div>
+          <a class="soc-btn soc-btn--primary" href="/account/contact">Contact your team</a>
+        </div>
+      </section>
+    </main>
+    <footer class="app-foot dash-foot"><span id="footer-email"></span></footer>
+  </div>
+
+  <style is:global>
+    #soc-client, #soc-noclient { --violet-rgb: 55,30,40; }
+    .soc-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 14px; padding: 20px 22px; margin-bottom: 22px; }
+    .soc-h { font-family: var(--serif, Georgia, serif); font-size: 19px; color: var(--ink, #1c1d22); margin: 26px 0 12px; }
+    .soc-plan-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .soc-plan-head h2 { font-family: var(--serif, Georgia, serif); font-size: 18px; color: var(--ink, #1c1d22); margin: 0; }
+    .soc-status { font-family: var(--sans, sans-serif); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 11px; border-radius: 999px; background: rgba(60,150,90,0.14); color: #2e6b40; }
+    .soc-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+    .soc-plan-grid dt { font-family: var(--sans, sans-serif); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 6px; }
+    .soc-plan-grid dd { font-family: var(--sans, sans-serif); font-size: 15px; color: var(--ink, #1c1d22); margin: 0; }
+    .soc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .soc-chip { font-family: var(--sans, sans-serif); font-size: 12.5px; font-weight: 600; padding: 4px 11px; border-radius: 999px; background: rgba(55,30,40,0.08); color: var(--english-violet, #371e28); }
+    .soc-empty { text-align: center; padding: 34px 24px; }
+    .soc-empty-h { font-family: var(--serif, Georgia, serif); font-size: 21px; color: var(--ink, #1c1d22); margin: 0 0 10px; }
+    .soc-empty-p { font-family: var(--sans, sans-serif); font-size: 14.5px; line-height: 1.6; color: rgba(28,29,34,0.65); max-width: 460px; margin: 0 auto 20px; }
+    .soc-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .soc-contact { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .soc-contact-h { font-family: var(--serif, Georgia, serif); font-size: 17px; color: var(--ink, #1c1d22); margin: 0 0 4px; }
+    .soc-contact-p { font-family: var(--sans, sans-serif); font-size: 13.5px; color: rgba(28,29,34,0.6); margin: 0; }
+    .soc-btn { appearance: none; cursor: pointer; display: inline-block; text-decoration: none; border: 1px solid rgba(28,29,34,0.16); border-radius: 10px; padding: 11px 20px; font-family: var(--sans, sans-serif); font-size: 13.5px; font-weight: 700; color: var(--ink, #1c1d22); background: #fff; }
+    .soc-btn:hover { background: rgba(28,29,34,0.03); }
+    .soc-btn--primary { background: var(--english-violet, #371e28); border-color: var(--english-violet, #371e28); color: #fff; }
+    .soc-btn--primary:hover { opacity: 0.92; background: var(--english-violet, #371e28); }
+    .smm-soon { font-family: var(--sans, sans-serif); font-size: 13.5px; color: rgba(28,29,34,0.5); line-height: 1.6; }
+
+    /* Insights render primitives (shared with the admin Insights view) */
+    .ri-months { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .ri-month { padding: 5px 13px; border-radius: 999px; border: 1px solid rgba(28,29,34,0.16); background: #fff; font-family: var(--sans, sans-serif); font-size: 11.5px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; }
+    .ri-month.is-active { background: var(--english-violet, #371e28); border-color: var(--english-violet, #371e28); color: #fff; }
+    .ri-subtabs { display: inline-flex; gap: 2px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 9px; margin-bottom: 14px; flex-wrap: wrap; }
+    .ri-subtab { padding: 6px 14px; border: 0; background: none; border-radius: 6px; font-family: var(--sans, sans-serif); font-size: 12.5px; font-weight: 600; color: rgba(28,29,34,0.55); cursor: pointer; }
+    .ri-subtab:hover { color: var(--ink, #1c1d22); }
+    .ri-subtab.is-active { background: #fff; color: var(--ink, #1c1d22); box-shadow: 0 1px 3px rgba(28,29,34,0.12); }
+    .ri-kpi { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 12px 13px; }
+    .ri-kpi-label { font-size: 10px; color: #8a8796; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+    .ri-kpi-val { font-size: 21px; font-weight: 600; line-height: 1; color: var(--ink, #1c1d22); }
+    .ri-kpi-sub { font-size: 10px; margin-top: 4px; }
+    .ri-panel { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 15px 17px; margin-bottom: 14px; }
+    .ri-sec { font-family: var(--sans, sans-serif); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8a8796; margin: 20px 0 9px; }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    import { renderTab, renderTrends, MONTHS } from "../../lib/report-insights.js";
+    import { DEMO_REPORTS } from "../../lib/report-insights-demo.js";
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const DEV = import.meta.env.DEV;
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    let reports = [], curIdx = 0, tab = "overview";
+
+    function renderPlan(c) {
+      const platforms = Array.isArray(c.platforms) && c.platforms.length ? c.platforms.map((p) => `<span class="soc-chip">${esc(p)}</span>`).join("") : "—";
+      const since = c.start_date ? (() => { try { return new Date(c.start_date + "T12:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" }); } catch (_) { return null; } })() : null;
+      $("soc-plan").innerHTML = `
+        <div class="soc-plan-head"><h2>Your plan</h2><span class="soc-status">Active</span></div>
+        <dl class="soc-plan-grid">
+          ${c.package_name ? `<div><dt>Package</dt><dd>${esc(c.package_name)}</dd></div>` : ""}
+          <div><dt>Platforms</dt><dd class="soc-chips">${platforms}</dd></div>
+          ${since ? `<div><dt>Managed since</dt><dd>${esc(since)}</dd></div>` : ""}
+        </dl>`;
+    }
+
+    function renderInsights() {
+      const wrap = $("soc-insights");
+      if (!reports.length) { wrap.innerHTML = `<p class="smm-soon">Your first monthly report will appear here once we've published it.</p>`; return; }
+      const cur = reports[curIdx];
+      const months = reports.map((r, i) => `<button type="button" class="ri-month ${i === curIdx ? "is-active" : ""}" data-mi="${i}">${MONTHS[r.month]} ${r.year}</button>`).join("");
+      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"], ["trends", "Trends"]];
+      const tabs = TABS.map(([t, label]) => `<button type="button" class="ri-subtab ${tab === t ? "is-active" : ""}" data-tab="${t}">${label}</button>`).join("");
+      const body = tab === "trends" ? renderTrends(reports.slice().reverse()) : renderTab(tab, cur.data, cur);
+      wrap.innerHTML = `<div class="ri-months">${months}</div><div class="ri-subtabs">${tabs}</div><div>${body}</div>`;
+      wrap.querySelectorAll("[data-mi]").forEach((b) => b.addEventListener("click", () => { curIdx = +b.getAttribute("data-mi"); renderInsights(); }));
+      wrap.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.getAttribute("data-tab"); renderInsights(); }));
+    }
+
+    function show(data) {
+      $("soc-loading").hidden = true;
+      if (!data || !data.client) { $("soc-noclient").hidden = false; return; }
+      $("soc-client").hidden = false;
+      renderPlan(data.client);
+      reports = (data.reports || []).map((r) => ({ id: r.id, platform: r.platform, month: r.month, year: r.year, data: r.data }));
+      curIdx = 0; renderInsights();
+    }
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user) $("footer-email").textContent = session.user.email || "";
+      if (!session) {
+        if (DEV) { show({ client: { package_name: "Growth", platforms: ["Instagram", "Facebook", "LinkedIn"], start_date: "2026-02-01" }, reports: DEMO_REPORTS }); return; }
+        location.replace("/login?next=" + encodeURIComponent("/account/social"));
+        return;
+      }
+      if (!WORKER) { show({ client: null }); return; }
+      try {
+        const res = await fetch(`${WORKER}/smm/mine`, { headers: { Authorization: "Bearer " + session.access_token } });
+        const j = await res.json().catch(() => ({}));
+        show(j);
+      } catch (_) { show({ client: null }); }
+    })();
+  </script>
+</BaseLayout>

@@ -3842,6 +3842,19 @@ export default {
         return json({ messages, documents }, 200, request, env);
       }
 
+      // ---- Member: my managed-social service (client record + monthly insights)
+      if (path.endsWith("/smm/mine") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in." }, 401, request, env);
+        const email = String(user.email || "").toLowerCase();
+        const leads = (await sbGet(env, "smm_leads", `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,kind,pipeline_stage,client_status,package_name,price,platforms,start_date,instagram_url,facebook_url,linkedin_url,youtube_url,tiktok_url,full_name,business&order=created_at.desc`)) || [];
+        const lead = leads.find((l) => l.pipeline_stage === "active_client") || leads[0] || null;
+        const isClient = !!lead && lead.pipeline_stage === "active_client";
+        let reports = [];
+        if (lead) reports = (await sbGet(env, "smm_reports", `lead_id=eq.${encodeURIComponent(lead.id)}&select=id,platform,month,year,data&order=year.desc,month.desc&limit=48`)) || [];
+        return json({ ok: true, isClient, client: lead, reports }, 200, request, env);
+      }
+
       // ---- Admin: list a booking's messages + documents ----
       if (path.endsWith("/booking/thread") && request.method === "GET") {
         const user = await getUser(request, env);
