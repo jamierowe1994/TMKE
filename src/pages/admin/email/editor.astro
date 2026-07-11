@@ -553,8 +553,22 @@ import "../../../styles/admin.css";
             : `<div class="cv-ph" style="min-height:60px;">Logo — set a logo URL in Brand</div>`;
         case "social": {
           const show=b.show||{}; const nets=["website","linkedin","instagram","facebook","twitter","youtube"];
-          const items=nets.filter(n=>show[n]!==false).map(n=>`<span style="background:${esc(brand.accentColor)};">${SOCIAL_SVG[n]||""}</span>`).join("");
-          return `<div class="cv-social" style="justify-content:${align==="left"?"flex-start":align==="right"?"flex-end":"center"};">${items||'<span style="background:#ccc;"></span>'}</div>`;
+          const bare = b.iconStyle==="bare";
+          const accent = brand.accentColor || "#371e28";
+          const iconColor = b.iconColor || (bare ? accent : "#ffffff");
+          const chipBg = b.iconBg || accent;
+          let size = Number(b.iconSize); if(!isFinite(size)||size<=0) size = bare?24:34; size=Math.max(14,Math.min(72,size));
+          const glyph = bare ? size : Math.max(10, Math.round(size*0.46));
+          const items=nets.filter(n=>show[n]!==false).map(n=>{
+            const svg=(SOCIAL_SVG[n]||"").replace("<svg ",`<svg style="width:${glyph}px;height:${glyph}px" `);
+            const box = bare
+              ? `width:auto;height:auto;border-radius:0;background:none;color:${esc(iconColor)};`
+              : `width:${size}px;height:${size}px;border-radius:${Math.round(size/2)}px;background:${esc(chipBg)};color:${esc(iconColor)};`;
+            return `<span style="${box}">${svg}</span>`;
+          }).join("");
+          const fill = b.bg ? `background:${esc(b.bg)};padding:16px;border-radius:8px;` : "";
+          const justify = align==="left"?"flex-start":align==="right"?"flex-end":"center";
+          return `<div class="cv-social" style="justify-content:${justify};${fill}">${items||'<span style="background:#ccc;"></span>'}</div>`;
         }
         case "video":
           return b.thumbnail
@@ -923,7 +937,20 @@ import "../../../styles/admin.css";
           <p class="eb-note">Uses the logo from <strong>Brand</strong>.</p>`;
         case "social": {
           const show=b.show||{}; const nets=["website","linkedin","instagram","facebook","twitter","youtube"];
+          const bare = b.iconStyle==="bare";
           return `<div class="eb-checks">${nets.map(n=>`<label class="eb-check"><input type="checkbox" data-field="show.${n}"${show[n]!==false?" checked":""}/> ${n}</label>`).join("")}</div>${align}
+          <span class="eb-f-sub">Icon style</span>
+          <div class="eb-f2">
+            <label class="eb-f"><span>Style</span><select data-field="iconStyle"><option value="circle"${(b.iconStyle||"circle")==="circle"?" selected":""}>In circles</option><option value="bare"${b.iconStyle==="bare"?" selected":""}>Standalone</option></select></label>
+            <label class="eb-f"><span>Icon size (px)</span><input type="number" min="14" max="72" data-field="iconSize" value="${b.iconSize!=null?b.iconSize:""}" placeholder="${bare?"24":"34"}" /></label>
+          </div>
+          <div class="eb-f2">
+            <label class="eb-f"><span>Icon colour</span><input type="color" data-field="iconColor" value="${validHex(b.iconColor, bare ? (state.branding.accentColor||'#371e28') : '#ffffff')}" /></label>
+            <label class="eb-f"${bare?' style="opacity:.45;pointer-events:none;"':''}><span>Circle colour</span><input type="color" data-field="iconBg" value="${validHex(b.iconBg, state.branding.accentColor||'#371e28')}" /></label>
+          </div>
+          <div class="eb-sec"><span class="eb-f-sub">Block background</span>
+            <label class="eb-f"><span>Fill (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label></div>
+          ${spacingBox(b, device)}
           <p class="eb-note">Only networks with a URL in <strong>Brand</strong> show.</p>`;
         }
         case "video": return `<label class="eb-f"><span>Video link</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
