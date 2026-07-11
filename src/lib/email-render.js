@@ -654,14 +654,17 @@ function renderSocial(block, brand) {
     const capGap = block.captionGap != null && block.captionGap !== '' ? Math.max(0, Number(block.captionGap)) : 8;
     caption = `<div style="font-family:Helvetica,Arial,sans-serif;font-size:${capSize}px;line-height:1.4;color:${escapeHtml(capColor)};margin:0 0 ${capGap}px;">${escapeHtml(block.caption)}</div>`;
   }
-  // Optional block fill (background colour) with breathing room inside it.
+  // Optional block fill (background colour). Padding around the icons is the
+  // block's own "Padding · inside" controls — no hard-coded inset — so with a
+  // fill you set exactly the breathing room you want (default 0).
   const radius = block.radius != null && block.radius !== '' ? Math.max(0, Number(block.radius)) : 8;
-  const fill = block.bg ? `background:${escapeHtml(block.bg)};padding:16px;border-radius:${radius}px;` : '';
-  // No baked-in margin — spacing is governed entirely by the block's Spacing
-  // controls (wrapOuter), so "everything zero" really means zero.
+  const pad = padStyleResolved(block);
+  const fill = block.bg ? `background:${escapeHtml(block.bg)};border-radius:${radius}px;` : '';
+  // No baked-in margin OR padding — spacing is governed entirely by the block's
+  // Margin (outside) + Padding (inside) controls, so "everything zero" is zero.
   // The class lets the mobile media query resize the icons per-device.
   const cls = block.id ? ` class="eb-social-${block.id}"` : '';
-  return `<div${cls} style="text-align:${align};${fill}">${caption}${items}</div>`;
+  return `<div${cls} style="text-align:${align};${pad}${fill}">${caption}${items}</div>`;
 }
 
 function renderVideo(block) {
