@@ -645,6 +645,15 @@ function renderSocial(block, brand) {
     })
     .join('');
   if (!items) return '';
+  // Optional caption line ABOVE the icons, inside the same block — so a bit of
+  // text (e.g. "Follow us") sits tight over the icons without a second block.
+  let caption = '';
+  if (block.caption) {
+    const capSize = block.captionSize != null && block.captionSize !== '' ? Math.max(8, Number(block.captionSize)) : 14;
+    const capColor = block.captionColor || '#1c1d22';
+    const capGap = block.captionGap != null && block.captionGap !== '' ? Math.max(0, Number(block.captionGap)) : 8;
+    caption = `<div style="font-family:Helvetica,Arial,sans-serif;font-size:${capSize}px;line-height:1.4;color:${escapeHtml(capColor)};margin:0 0 ${capGap}px;">${escapeHtml(block.caption)}</div>`;
+  }
   // Optional block fill (background colour) with breathing room inside it.
   const radius = block.radius != null && block.radius !== '' ? Math.max(0, Number(block.radius)) : 8;
   const fill = block.bg ? `background:${escapeHtml(block.bg)};padding:16px;border-radius:${radius}px;` : '';
@@ -652,7 +661,7 @@ function renderSocial(block, brand) {
   // controls (wrapOuter), so "everything zero" really means zero.
   // The class lets the mobile media query resize the icons per-device.
   const cls = block.id ? ` class="eb-social-${block.id}"` : '';
-  return `<div${cls} style="text-align:${align};${fill}">${items}</div>`;
+  return `<div${cls} style="text-align:${align};${fill}">${caption}${items}</div>`;
 }
 
 function renderVideo(block) {
