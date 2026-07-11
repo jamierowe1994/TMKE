@@ -574,7 +574,15 @@ import "../../../styles/admin.css";
           const radius = b.radius!=null && b.radius!=="" ? Math.max(0,Number(b.radius)) : 8;
           const fill = b.bg ? `background:${esc(b.bg)};padding:16px;border-radius:${radius}px;` : "";
           const justify = align==="left"?"flex-start":align==="right"?"flex-end":"center";
-          return `<div class="cv-social" style="justify-content:${justify};gap:${gap}px;${fill}">${items||'<span style="background:#ccc;"></span>'}</div>`;
+          let cap = "";
+          if (b.caption) {
+            const cs = b.captionSize!=null&&b.captionSize!=="" ? Math.max(8,Number(b.captionSize)) : 14;
+            const cc = b.captionColor || "#1c1d22";
+            const cg = b.captionGap!=null&&b.captionGap!=="" ? Math.max(0,Number(b.captionGap)) : 8;
+            cap = `<div style="font-size:${cs}px;line-height:1.4;color:${esc(cc)};margin:0 0 ${cg}px;">${esc(b.caption)}</div>`;
+          }
+          const icons = `<div class="cv-social" style="justify-content:${justify};gap:${gap}px;">${items||'<span style="background:#ccc;"></span>'}</div>`;
+          return `<div style="text-align:${align};${fill}">${cap}${icons}</div>`;
         }
         case "video":
           return b.thumbnail
@@ -945,6 +953,14 @@ import "../../../styles/admin.css";
           const show=b.show||{}; const nets=["website","linkedin","instagram","facebook","twitter","youtube"];
           const bare = b.iconStyle==="bare";
           return `<div class="eb-checks">${nets.map(n=>`<label class="eb-check"><input type="checkbox" data-field="show.${n}"${show[n]!==false?" checked":""}/> ${n}</label>`).join("")}</div>${align}
+          <div class="eb-sec"><span class="eb-f-sub">Caption above icons (optional)</span>
+            <label class="eb-f"><span>Text</span><input type="text" data-field="caption" value="${esc(b.caption||"")}" placeholder="e.g. Follow us" /></label>
+            <div class="eb-f2">
+              <label class="eb-f"><span>Text colour</span><input type="color" data-field="captionColor" value="${validHex(b.captionColor,'#1c1d22')}" /></label>
+              <label class="eb-f"><span>Text size (px)</span><input type="number" min="8" max="40" data-field="captionSize" value="${b.captionSize!=null?b.captionSize:""}" placeholder="14" /></label>
+            </div>
+            <label class="eb-f"><span>Gap to icons (px)</span><input type="number" min="0" max="60" data-field="captionGap" value="${b.captionGap!=null?b.captionGap:""}" placeholder="8" /></label>
+          </div>
           <span class="eb-f-sub">Icon style</span>
           <label class="eb-f"><span>Style</span><select data-field="iconStyle"><option value="circle"${(b.iconStyle||"circle")==="circle"?" selected":""}>In circles</option><option value="bare"${b.iconStyle==="bare"?" selected":""}>Standalone</option></select></label>
           <div class="eb-f2">
