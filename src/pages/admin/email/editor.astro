@@ -566,7 +566,8 @@ import "../../../styles/admin.css";
               : `width:${size}px;height:${size}px;border-radius:${Math.round(size/2)}px;background:${esc(chipBg)};color:${esc(iconColor)};`;
             return `<span style="${box}">${svg}</span>`;
           }).join("");
-          const fill = b.bg ? `background:${esc(b.bg)};padding:16px;border-radius:8px;` : "";
+          const radius = b.radius!=null && b.radius!=="" ? Math.max(0,Number(b.radius)) : 8;
+          const fill = b.bg ? `background:${esc(b.bg)};padding:16px;border-radius:${radius}px;` : "";
           const justify = align==="left"?"flex-start":align==="right"?"flex-end":"center";
           return `<div class="cv-social" style="justify-content:${justify};${fill}">${items||'<span style="background:#ccc;"></span>'}</div>`;
         }
@@ -949,7 +950,10 @@ import "../../../styles/admin.css";
             <label class="eb-f"${bare?' style="opacity:.45;pointer-events:none;"':''}><span>Circle colour</span><input type="color" data-field="iconBg" value="${validHex(b.iconBg, state.branding.accentColor||'#371e28')}" /></label>
           </div>
           <div class="eb-sec"><span class="eb-f-sub">Block background</span>
-            <label class="eb-f"><span>Fill (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label></div>
+            <div class="eb-f2">
+              <label class="eb-f"><span>Fill (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>
+              <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="60" data-field="radius" value="${b.radius!=null?b.radius:""}" placeholder="8" /></label>
+            </div></div>
           ${spacingBox(b, device)}
           <p class="eb-note">Only networks with a URL in <strong>Brand</strong> show.</p>`;
         }
