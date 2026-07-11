@@ -194,6 +194,8 @@ import "../../styles/admin.css";
     .smm-btn--block { width: 100%; justify-content: center; }
     .smm-btn--danger { border-color: #a05a3c; color: #a05a3c; }
     .smm-btn--danger:hover { background: #a05a3c; color: #fff; }
+    .smm-btn--del { border-color: rgba(28,29,34,0.2); color: rgba(28,29,34,0.55); }
+    .smm-btn--del:hover { background: #a05a3c; border-color: #a05a3c; color: #fff; }
     .smm-btn--sm { padding: 6px 12px; font-size: 12px; }
     .smm-status-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
     .smm-hint { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 8px 0 0; }
@@ -635,6 +637,7 @@ import "../../styles/admin.css";
               </div>` : `<button type="button" class="smm-btn smm-btn--primary smm-btn--block" data-move="${next}">${esc(NEXT_LABEL[next])}</button>`}
               <div class="smm-file-actions" style="margin-top:10px">
                 <button type="button" class="smm-btn smm-btn--danger smm-btn--block" data-lost>Mark lost</button>
+                <button type="button" class="smm-btn smm-btn--block smm-btn--del" data-delcard>Delete</button>
               </div>
               ${isActive ? `<p class="smm-hint">Status sets the CRM tag <strong>SMM-Status: ${esc(CLIENT_STATUS[cs])}</strong>${cs === "active" ? " and marks them a Customer" : ""}.</p>` : ""}
             </div>
@@ -690,6 +693,8 @@ import "../../styles/admin.css";
       body.querySelector("[data-move]")?.addEventListener("click", (e) => moveToStage(r, e.currentTarget.getAttribute("data-move")));
       // Mark lost
       body.querySelector("[data-lost]")?.addEventListener("click", () => setStage(r, "lost"));
+      // Delete card (test cleanup)
+      body.querySelector("[data-delcard]")?.addEventListener("click", () => deleteCard(r));
       // Client status
       body.querySelectorAll("[data-cstatus]").forEach((b) => b.addEventListener("click", () => setClientStatus(r, b.getAttribute("data-cstatus"))));
       // Engagement, channels & platforms (autosave)
@@ -778,6 +783,20 @@ import "../../styles/admin.css";
       if (stageKey === "meeting_set") { openMeeting(r); return; }
       if (stageKey === stageOf(r)) return;
       setStage(r, stageKey);
+    }
+    async function deleteCard(r) {
+      if (!confirm(`Delete "${nameOf(r)}" entirely? This permanently removes the card and its notes, files and invoices. It can't be undone.`)) return;
+      if (!isDemo(r)) {
+        if (!WORKER) { alert("Connect the Worker to delete."); return; }
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER}/smm/lead?id=${encodeURIComponent(r.id)}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+          if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "Delete failed."); }
+        } catch (e) { alert(e.message || "Couldn't delete."); return; }
+      }
+      all = all.filter((x) => x.id !== r.id);
+      closeFile();
+      renderBoard();
     }
     async function setStage(r, stage) {
       r.pipeline_stage = stage;
