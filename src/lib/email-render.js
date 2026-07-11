@@ -110,6 +110,8 @@ export function defaultBrand() {
     signatureName: 'The TMKE Team',
     showHeader: true,    // the auto logo header at the top of the card
     showSignoff: true,   // the auto "— The TMKE Team" sign-off at the bottom
+    contentPad: 24,      // inset around the email content (0 = blocks go edge-to-edge)
+    outerPad: 24,        // grey margin around the white card
     bgColor: '#f4f2f1',
     cardColor: '#ffffff',
     website: 'https://tmke.co.uk',
@@ -798,25 +800,38 @@ export function renderBlock(block, brand, ctx) {
 
 /* ───────────────────────── document shell ───────────────────────── */
 
+// Coerce an editable padding value (may arrive as a string from a number
+// input, or be missing) to a number, falling back to the default.
+function padPx(v, dflt) {
+  if (v === '' || v == null) return dflt;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : dflt;
+}
+function contentPadOf(brand) { return padPx(brand && brand.contentPad, 24); }
+function outerPadOf(brand) { return padPx(brand && brand.outerPad, 24); }
+
 function brandHeader(brand) {
   if (brand.showHeader === false) return '';
   const accent = brand.accentColor || ACCENT_DEFAULT;
+  const cp = contentPadOf(brand);
   const headerLogo = brand.logo
-    ? `<img src="${escapeHtml(brand.logo)}" alt="${escapeHtml(brand.companyName || '')}" style="max-height:42px;width:auto;display:block;border:0;outline:none;" />`
+    ? `<img src="${escapeHtml(brand.logo)}" alt="${escapeHtml(brand.companyName || '')}" style="max-height:42px;max-width:100%;width:auto;display:block;border:0;outline:none;" />`
     : brand.companyName
       // Editorial serif wordmark — the closest email-safe nod to The Seasons
       // (custom webfonts get stripped by most email clients, so we use a Didone
       // serif stack rather than ship a font that won't load).
       ? `<span style="font-family:'Didot','Bodoni MT',Georgia,'Times New Roman',serif;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;color:${escapeHtml(accent)};font-size:22px;">${escapeHtml(brand.companyName)}</span>`
       : '';
-  return headerLogo ? `<div style="padding:24px 24px 0;">${headerLogo}</div>` : '';
+  // With content padding 0, the header (e.g. a banner logo) goes edge-to-edge.
+  return headerLogo ? `<div style="padding:${cp}px ${cp}px 0;">${headerLogo}</div>` : '';
 }
 
 function brandFooter(brand) {
   if (brand.showSignoff === false) return '';
   const sigName = brand.signatureName;
+  const cp = contentPadOf(brand);
   return sigName
-    ? `<div style="padding:8px 24px 24px;font-family:Helvetica,Arial,sans-serif;color:#475569;font-size:14px;">— ${escapeHtml(sigName)}</div>`
+    ? `<div style="padding:8px ${cp}px ${cp}px;font-family:Helvetica,Arial,sans-serif;color:#475569;font-size:14px;">— ${escapeHtml(sigName)}</div>`
     : '';
 }
 
@@ -848,6 +863,8 @@ function wrapOuter(html, block) {
 function shell(brand, bodyHtml, preheader, responsiveCss) {
   const pageBg = brand.bgColor || '#f4f2f1';
   const cardBg = brand.cardColor || '#ffffff';
+  const outerPad = outerPadOf(brand);    // grey margin around the card
+  const contentPad = contentPadOf(brand); // inset around the content (0 = full-width blocks)
   const pre = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</div>`
     : '';
@@ -864,11 +881,11 @@ function shell(brand, bodyHtml, preheader, responsiveCss) {
 <body style="margin:0;padding:0;background:${escapeHtml(pageBg)};">
   ${pre}
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${escapeHtml(pageBg)};">
-    <tr><td align="center" style="padding:24px;">
+    <tr><td align="center" style="padding:${outerPad}px;">
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%;background:${escapeHtml(cardBg)};border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;">
         <tr><td>
           ${brandHeader(brand)}
-          <div style="padding:24px;">
+          <div style="padding:${contentPad}px;">
             ${bodyHtml}
           </div>
           ${brandFooter(brand)}
