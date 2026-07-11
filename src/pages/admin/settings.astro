@@ -255,7 +255,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     $("brand-footer-url").addEventListener("input", (e) => setLogoPreview("brand-footer-preview", e.target.value.trim()));
     async function uploadBrandImage(file, folder) {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
-      const path = `${folder}/${folder}-${Date.now()}.${ext}`;
+      // The avatars bucket's RLS requires the object path to start with the
+      // uploader's user id (same as the headshot upload) — otherwise it's denied.
+      const path = `${uid}/${folder}-${Date.now()}.${ext}`;
       const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true, cacheControl: "3600", contentType: file.type });
       if (error) throw error;
       return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;

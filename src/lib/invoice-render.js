@@ -25,6 +25,7 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   const items = Array.isArray(inv.line_items) ? inv.line_items : [];
   const vatRate = s.vat_rate != null ? s.vat_rate : 20;
   const company = (s.company_name || "The Marketing Experts").toUpperCase();
+  const paidDate = (String(inv.status) === "paid" && inv.paid_date) ? fmtDate(inv.paid_date) : null;
 
   const wordmark = s.logo_url
     ? `<img class="logo" src="${esc(s.logo_url)}" alt="${esc(s.company_name || "")}" />`
@@ -64,19 +65,23 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   const billto = inv.bill_to_name ? `
     <div class="billto"><span class="lbl">Bill to</span> <span class="who">${esc(inv.bill_to_name)}</span>${billExtra ? `<div class="bill-extra">${billExtra}</div>` : ""}</div>` : "";
 
-  // How to pay: a full-width rule (same weight as the Description rule) sits
-  // directly under the label; the bank-transfer line and details follow. Any
-  // per-invoice note sits beneath the account details, under its own line.
-  const showBankBlock = showBank && (s.account_name || s.account_number);
+  // Payment block. Direct Debit invoices show a "collected by Direct Debit" flag
+  // (no bank details — nothing to pay); everyone else gets the bank-transfer
+  // "How to pay". A full-width rule (Description weight) sits under the label; any
+  // per-invoice note sits beneath, under its own line.
+  const isDD = inv.payment_method === "direct_debit";
+  const showBankBlock = !isDD && showBank && (s.account_name || s.account_number);
   const payInner = [];
-  if (showBankBlock) {
+  if (isDD) {
+    payInner.push(`<div class="pl">To be collected by Direct Debit${inv.due_date ? ` on <strong>${fmtDate(inv.due_date)}</strong>` : ""} — nothing to pay.</div>`);
+  } else if (showBankBlock) {
     payInner.push(`<div class="pl">By bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>`);
     payInner.push(`<div class="bank">${[s.account_name && `Account: ${esc(s.account_name)}`, s.sort_code && `Sort code: ${esc(s.sort_code)}`, s.account_number && `Account no: ${esc(s.account_number)}`].filter(Boolean).join("<br>")}</div>`);
   }
   if (inv.notes) payInner.push(`<div class="paynote-rule"></div><div class="paynote">${nl2br(inv.notes)}</div>`);
   const bank = payInner.length ? `
     <div class="pay">
-      <div class="lbl">How to pay</div>
+      <div class="lbl">${isDD ? "Payment" : "How to pay"}</div>
       <div class="payrule"></div>
       ${payInner.join("\n      ")}
     </div>` : "";
@@ -128,6 +133,8 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   .totals { margin-top:34px; }
   .totals .r { display:flex; justify-content:space-between; font-size:11.5px; padding:5px 0; }
   .totals .grand { margin-top:8px; display:flex; justify-content:space-between; align-items:baseline; font-size:30px; font-weight:800; letter-spacing:-0.01em; }
+  /* Paid stamp — shown once the invoice is marked paid. */
+  .paid-stamp { margin-top:14px; display:inline-block; padding:6px 16px; border:1.5px solid #2e6b40; color:#2e6b40; border-radius:6px; font-size:13px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; }
 
   .pay { font-size:11.5px; line-height:1.4; }
   .pay .lbl { font-size:11.5px; margin-bottom:8px; }
@@ -175,6 +182,7 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
         <div class="r"><span>Sub-total</span><span>${money(inv.subtotal_pence)}</span></div>
         <div class="r"><span>VAT (${esc(vatRate)}%)</span><span>${money(inv.vat_pence)}</span></div>
         <div class="grand"><span>TOTAL</span><span>${money(inv.total_pence)}</span></div>
+        ${paidDate ? `<div class="paid-stamp">Paid · ${esc(paidDate)}</div>` : ""}
       </div>
       <div class="pay-block">
         ${bank}

@@ -201,8 +201,8 @@ import "../../styles/admin.css";
     .smm-eng-row { display: flex; flex-direction: column; gap: 4px; }
     .smm-eng-row--full { grid-column: 1 / -1; }
     .smm-eng-row > span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
-    .smm-eng-row input, .smm-eng-row textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; resize: vertical; }
-    .smm-eng-row input:focus, .smm-eng-row textarea:focus { outline: none; border-color: var(--english-violet); }
+    .smm-eng-row input, .smm-eng-row textarea, .smm-eng-row select { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; resize: vertical; }
+    .smm-eng-row input:focus, .smm-eng-row textarea:focus, .smm-eng-row select:focus { outline: none; border-color: var(--english-violet); }
     .smm-eng-status { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 8px 0 0; min-height: 14px; }
     .smm-platforms { margin-top: 12px; }
     .smm-plat-label { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 8px; }
@@ -235,6 +235,11 @@ import "../../styles/admin.css";
     .siv-tpl-opts { display: inline-flex; gap: 4px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 8px; }
     .siv-tpl-opt { appearance: none; cursor: pointer; background: none; border: 0; border-radius: 6px; padding: 6px 14px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.55); transition: background .15s, color .15s; }
     .siv-tpl-opt.is-active { background: var(--english-violet); color: #fff; }
+    .pay-toggle { display: inline-flex; gap: 4px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 9px; }
+    .pay-opt { appearance: none; cursor: pointer; background: none; border: 0; border-radius: 7px; padding: 8px 22px; font-family: var(--sans); font-size: 13.5px; font-weight: 700; color: rgba(28,29,34,0.55); transition: background .15s, color .15s; }
+    .pay-opt.is-active { background: var(--english-violet); color: #fff; }
+    .siv-dd-banner { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-bottom: 16px; background: rgba(55,30,40,0.06); border: 1px solid rgba(55,30,40,0.15); border-radius: 10px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink); }
+    .siv-dd-banner strong { color: var(--english-violet); }
     .siv-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
     .siv-list-head { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin: 6px 0 10px; }
     .siv-row { display: grid; grid-template-columns: 90px 1fr auto auto auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 9px; margin-bottom: 8px; font-family: var(--sans); font-size: 13px; }
@@ -554,7 +559,7 @@ import "../../styles/admin.css";
       const isActive = st === "active_client";
       const cs = r.client_status || "active";
       const next = idx < n - 1 ? STAGES[idx + 1].key : null;
-      const showProp = idx >= STAGE_INDEX["proposal_sent"]; // social channels + engagement from Proposal sent on
+      const showProp = idx >= STAGE_INDEX["proposal_sent"]; // social channels + engagement (+ Direct Debit) from Proposal sent on
       const plats = Array.isArray(r.platforms) ? r.platforms : [];
       const pipe = `<div class="smm-pipe"><div class="smm-pipe-track"><div class="smm-pipe-fill" style="width:${(idx / (n - 1)) * 100}%"></div></div>${STAGES.map((s, i) => {
         const cls = (i <= idx ? " is-done" : "") + (i === idx ? " is-current" : "") + (i === 0 ? " smm-pipe-step--first" : "") + (i === n - 1 ? " smm-pipe-step--last" : "");
@@ -595,6 +600,13 @@ import "../../styles/admin.css";
                 <label class="smm-eng-row"><span>Pricing</span><input type="text" data-ef="price" value="${esc(r.price || "")}" placeholder="e.g. £750 / month"></label>
                 <label class="smm-eng-row"><span>Start date</span><input type="date" data-ef="start_date" value="${esc(r.start_date || "")}"></label>
                 <label class="smm-eng-row"><span>End date</span><input type="date" data-ef="end_date" value="${esc(r.end_date || "")}"></label>
+                <div class="smm-eng-row"><span>Direct debit customer?</span>
+                  <div class="pay-toggle" id="dd-toggle">
+                    <button type="button" class="pay-opt ${r.direct_debit ? "is-active" : ""}" data-dd="yes">Yes</button>
+                    <button type="button" class="pay-opt ${!r.direct_debit ? "is-active" : ""}" data-dd="no">No</button>
+                  </div>
+                </div>
+                <label class="smm-eng-row" id="dd-date-row" ${r.direct_debit ? "" : "hidden"}><span>Direct debit date</span><select id="dd-date">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${Number(r.direct_debit_day) === i + 1 ? " selected" : ""}>${i + 1}${ordinal(i + 1)}</option>`).join("")}</select></label>
                 <label class="smm-eng-row smm-eng-row--full"><span>Business address</span><textarea data-ef="business_address" rows="2" placeholder="For invoicing">${esc(r.business_address || "")}</textarea></label>
               </div>
               <div class="smm-platforms" data-platforms>
@@ -683,6 +695,9 @@ import "../../styles/admin.css";
       // Engagement, channels & platforms (autosave)
       body.querySelectorAll("[data-ef]").forEach((el) => el.addEventListener("change", () => saveEngagement(r, el.getAttribute("data-ef"), el.value)));
       body.querySelectorAll("[data-plat]").forEach((el) => el.addEventListener("change", () => savePlatforms(r)));
+      // Payments — Direct Debit toggle + date
+      body.querySelectorAll("#dd-toggle [data-dd]").forEach((b) => b.addEventListener("click", () => setDirectDebit(r, b.getAttribute("data-dd") === "yes")));
+      body.querySelector("#dd-date")?.addEventListener("change", (e) => saveDdDay(r, Number(e.target.value)));
       // Tabs
       body.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
         activeTab = b.getAttribute("data-tab");
@@ -728,6 +743,25 @@ import "../../styles/admin.css";
       if (isDemo(r)) { if (s) s.textContent = "Saved (demo)."; return; }
       try { await supabase.from("smm_leads").update({ [field]: v || null }).eq("id", r.id); if (s) s.textContent = "Saved."; }
       catch (_) { if (s) s.textContent = "Couldn't save."; }
+    }
+    async function setDirectDebit(r, on) {
+      r.direct_debit = on;
+      document.querySelectorAll("#dd-toggle [data-dd]").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-dd") === "yes") === on));
+      const row = $("dd-date-row"); if (row) row.hidden = !on;
+      const st = $("smm-eng-status"); if (st) st.textContent = "Saving…";
+      if (!r.direct_debit_day) r.direct_debit_day = Number($("dd-date")?.value) || 1;
+      // Re-render the Invoicing panel so it switches to/from the DD view immediately.
+      const pInv = $("smm-panel-invoices"); if (pInv) renderInvoicing(r, pInv, r._lastDocs || [], false, r._lastWarn || null);
+      if (isDemo(r)) { if (st) st.textContent = "Saved (demo)."; return; }
+      try { await supabase.from("smm_leads").update({ direct_debit: on, direct_debit_day: r.direct_debit_day }).eq("id", r.id); if (st) st.textContent = "Saved."; }
+      catch (_) { if (st) st.textContent = "Couldn't save."; }
+    }
+    async function saveDdDay(r, day) {
+      r.direct_debit_day = day;
+      const st = $("smm-eng-status"); if (st) st.textContent = "Saving…";
+      if (isDemo(r)) { if (st) st.textContent = "Saved (demo)."; return; }
+      try { await supabase.from("smm_leads").update({ direct_debit_day: day }).eq("id", r.id); if (st) st.textContent = "Saved."; }
+      catch (_) { if (st) st.textContent = "Couldn't save."; }
     }
     async function savePlatforms(r) {
       const arr = [...document.querySelectorAll("[data-plat]")].filter((c) => c.checked).map((c) => c.getAttribute("data-plat"));
@@ -861,6 +895,7 @@ import "../../styles/admin.css";
     let sivTemplate = "minimal"; // which style this invoice uses
     let invSettings = null;  // cached company/VAT settings for preview + totals
     const gbp = (p) => "£" + ((p || 0) / 100).toFixed(2);
+    const ordinal = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; };
     const sivSettings = () => ({ ...invSettings, template: sivTemplate });
     function syncSivTpl() { document.querySelectorAll("#siv-tpl .siv-tpl-opt").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-tpl") === sivTemplate)); }
     const parseMoney = (s) => { const m = String(s || "").match(/[\d,]+(\.\d+)?/); return m ? Math.round(parseFloat(m[0].replace(/,/g, "")) * 100) : 0; };
@@ -913,7 +948,14 @@ import "../../styles/admin.css";
       const billName = r.business || (nameOf(r) === "—" ? "" : nameOf(r));
       panel.innerHTML = `
         <div class="smm-panel-head"><h4>Invoicing</h4></div>
+        ${r.direct_debit ? `<div class="siv-dd-banner">💳 <span><strong>Direct Debit client${r.direct_debit_day ? ` — collected on the ${r.direct_debit_day}${ordinal(r.direct_debit_day)}` : ""}.</strong> Invoices are raised to your accounts team as reminders (not emailed to the customer), then you mark them paid.</span></div>` : ""}
         ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
+        ${r.direct_debit ? `
+        <div class="siv-dd-recip">
+          <label class="siv-f"><span>Ghost invoices sent to</span><input id="dd-recip" value="${esc(r.dd_invoice_email || "danielle@tmke.co.uk")}" placeholder="accounts@…"></label>
+          <p class="smm-hint" id="dd-recip-status" style="min-height:15px"></p>
+          <p class="smm-hint">Invoices auto-raise on the <strong>1st of each month</strong> — line "Social media management (month)", amount from <strong>Pricing</strong>, due on their DD date — and are emailed here as a reminder. Mark each paid once the Direct Debit clears.</p>
+        </div>` : `
         <div class="siv-build">
           <div class="siv-tpl">
             <span class="siv-tpl-lbl">Template</span>
@@ -941,25 +983,46 @@ import "../../styles/admin.css";
             <button type="button" class="smm-btn" id="siv-create">Save draft</button>
             <button type="button" class="smm-btn smm-btn--primary" id="siv-send">Create &amp; send</button>
           </div>
-        </div>
+        </div>`}
         <div class="siv-list-head">Raised invoices</div>
         <div id="siv-list"><p class="smm-soon">Loading…</p></div>
         ${uploaded.length ? `<div class="siv-list-head">Uploaded PDFs</div>${uploaded.map((d) => `<div class="smm-inv"><div class="smm-inv-top"><span class="smm-doc-ico">${DOC_SVG}</span><span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span><span class="smm-doc-cat">Sent ${fmtDate(d.invoice_date)}</span></span><span class="smm-inv-status ${d.paid_date ? "is-paid" : "is-due"}">${d.paid_date ? "Paid" : "Outstanding"}</span></div><div class="smm-inv-foot"><label class="smm-inv-paid">Paid <input type="date" data-invpaid="${esc(d.id)}" value="${esc(d.paid_date || "")}"></label><span class="smm-doc-tools"><button type="button" class="smm-mini" data-docdl="${esc(d.id)}" data-docname="${esc(d.file_name || "invoice")}">Download</button><button type="button" class="smm-mini is-danger" data-docdel="${esc(d.id)}">Remove</button></span></div></div>`).join("")}` : ""}`;
-      sivRefreshItems(); syncSivTpl();
-      $("siv-tpl").addEventListener("click", (e) => { const b = e.target.closest(".siv-tpl-opt"); if (!b) return; sivTemplate = b.getAttribute("data-tpl"); syncSivTpl(); });
-      $("siv-add").addEventListener("click", () => { sivItems.push({ description: "", amount: "" }); sivRefreshItems(); });
-      $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: sivSettings(), invoice: sivBuildInvoice(r) })); w.document.close(); });
-      $("siv-create").addEventListener("click", () => createSmmInvoice(r, false));
-      $("siv-send").addEventListener("click", () => createSmmInvoice(r, true));
+      if (r.direct_debit) {
+        // DD client — no manual builder. Save the ghost-invoice recipient, and
+        // ask the Worker to ensure this month's invoice exists before listing.
+        $("dd-recip")?.addEventListener("change", (e) => saveDdRecipient(r, e.target.value));
+        ensureDdThenLoad(r);
+      } else {
+        sivRefreshItems(); syncSivTpl();
+        $("siv-tpl").addEventListener("click", (e) => { const b = e.target.closest(".siv-tpl-opt"); if (!b) return; sivTemplate = b.getAttribute("data-tpl"); syncSivTpl(); });
+        $("siv-add").addEventListener("click", () => { sivItems.push({ description: "", amount: "" }); sivRefreshItems(); });
+        $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: sivSettings(), invoice: sivBuildInvoice(r) })); w.document.close(); });
+        $("siv-create").addEventListener("click", () => createSmmInvoice(r, false));
+        $("siv-send").addEventListener("click", () => createSmmInvoice(r, true));
+        loadSmmInvoices(r);
+      }
       panel.querySelectorAll("[data-invpaid]").forEach((el) => el.addEventListener("change", () => setInvoicePaid(r, el.getAttribute("data-invpaid"), el.value)));
       panel.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
       panel.querySelectorAll("[data-docdel]").forEach((b) => b.addEventListener("click", () => deleteDoc(r, b.getAttribute("data-docdel"))));
+    }
+    async function saveDdRecipient(r, value) {
+      r.dd_invoice_email = value.trim() || null;
+      const st = $("dd-recip-status"); if (st) st.textContent = "Saving…";
+      if (isDemo(r)) { if (st) st.textContent = "Saved (demo)."; return; }
+      try { await supabase.from("smm_leads").update({ dd_invoice_email: r.dd_invoice_email }).eq("id", r.id); if (st) st.textContent = "Saved."; }
+      catch (_) { if (st) st.textContent = "Couldn't save."; }
+    }
+    async function ensureDdThenLoad(r) {
+      const wrap = $("siv-list"); if (wrap) wrap.innerHTML = `<p class="smm-soon">Raising this month's invoice…</p>`;
+      if (!isDemo(r) && WORKER) {
+        try { const token = await authToken(); await fetch(`${WORKER}/invoicing/dd/ensure`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id }) }); } catch (_) {}
+      }
       loadSmmInvoices(r);
     }
     async function loadSmmInvoices(r) {
       const wrap = $("siv-list"); if (!wrap) return;
       const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
-      const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span><span class="siv-row-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="smm-mini is-primary" data-sivsend="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}</span></div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
+      const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span><span class="siv-row-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="smm-mini is-primary" data-sivsend="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}<button type="button" class="smm-mini" data-sivvoid="${esc(v.id)}">Void</button><button type="button" class="smm-mini is-danger" data-sivdel="${esc(v.id)}">Delete</button></span></div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
       if (isDemo(r)) { sivInvoices = r._invoices || []; wrap.innerHTML = rowsHtml(sivInvoices); }
       else if (!WORKER) { wrap.innerHTML = '<p class="smm-doc-empty">Connect the Worker to raise invoices.</p>'; return; }
       else {
@@ -974,6 +1037,19 @@ import "../../styles/admin.css";
       wrap.querySelectorAll("[data-sivsend]").forEach((b) => b.addEventListener("click", () => {
         const inv = (sivInvoices || []).find((x) => x.id === b.getAttribute("data-sivsend"));
         if (inv) openSmmEmailModal(inv, r);
+      }));
+      wrap.querySelectorAll("[data-sivdel]").forEach((b) => b.addEventListener("click", async () => {
+        if (!confirm("Delete this invoice? This permanently removes it and its PDF — it can't be undone.")) return;
+        b.disabled = true;
+        if (isDemo(r)) { r._invoices = (r._invoices || []).filter((x) => x.id !== b.getAttribute("data-sivdel")); loadSmmInvoices(r); return; }
+        try { const token = await authToken(); await fetch(`${WORKER}/invoicing/invoices?id=${encodeURIComponent(b.getAttribute("data-sivdel"))}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } }); loadSmmInvoices(r); } catch (e) { alert(e.message); b.disabled = false; }
+      }));
+      wrap.querySelectorAll("[data-sivvoid]").forEach((b) => b.addEventListener("click", async () => {
+        const reason = prompt("Void this invoice? It'll be removed and accounts + you will be emailed.\n\nReason for voiding:");
+        if (reason === null) return;
+        b.disabled = true;
+        if (isDemo(r)) { r._invoices = (r._invoices || []).filter((x) => x.id !== b.getAttribute("data-sivvoid")); loadSmmInvoices(r); return; }
+        try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices/void`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-sivvoid"), reason }) }); if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "Void failed."); } loadSmmInvoices(r); } catch (e) { alert(e.message); b.disabled = false; }
       }));
     }
     // Default covering-email text (mirrors the Worker default; keys off due date).
@@ -1357,6 +1433,7 @@ import "../../styles/admin.css";
 
       // INVOICING (active clients only) — the full builder + raised list.
       const pInv = $("smm-panel-invoices");
+      r._lastDocs = docs; r._lastWarn = warn;   // cached so a DD toggle can re-render this panel
       if (pInv) renderInvoicing(r, pInv, docs, loading, warn);
 
       // Wire

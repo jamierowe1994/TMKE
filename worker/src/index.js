@@ -70,6 +70,93 @@ function invoiceEmailHtml(settings, inv, customBodyText) {
   return `<div style="max-width:600px"><div style="font-family:Arial,Helvetica,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6">${br(bodyText)}</div>${footer}</div>`;
 }
 
+// ---- Direct Debit "ghost" invoices --------------------------------------
+const DD_DEFAULT_RECIPIENT = "danielle@tmke.co.uk";
+// TESTING SWITCH: while true, EVERY invoice email (client send, DD ghost, void)
+// is redirected to Danielle only — no real clients, no Paula. Set to false to
+// go fully live.
+const INVOICE_TEST_MODE = true;
+const INVOICE_TEST_RECIPIENT = "danielle@tmke.co.uk";
+function invoiceMailTo(to, cc) {
+  return INVOICE_TEST_MODE ? { to: INVOICE_TEST_RECIPIENT, cc: null } : { to, cc };
+}
+// Parse a free-text price like "£750 / month" → pence.
+function parsePricePence(s) {
+  const m = String(s || "").match(/[\d,]+(\.\d+)?/);
+  return m ? Math.round(parseFloat(m[0].replace(/,/g, "")) * 100) : 0;
+}
+// The accounts reminder body for a DD ghost invoice.
+function ddReminderHtml(client, monthLabel, inv) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6;max-width:560px">
+    <p style="margin:0 0 14px">This is an automated reminder for the books — <strong>no action needed with the client</strong> (they pay by Direct Debit through QuickBooks).</p>
+    <table style="border-collapse:collapse;margin:0 0 14px;font-size:15px">
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(client)}</strong></td></tr>
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Period</td><td style="padding:2px 0">${esc(monthLabel)}</td></tr>
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Amount</td><td style="padding:2px 0"><strong>${money(inv.total_pence)}</strong></td></tr>
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Invoice</td><td style="padding:2px 0">${esc(inv.number)}</td></tr>
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">DD collection</td><td style="padding:2px 0">${esc(inv.due_date || "")}</td></tr>
+    </table>
+    <p style="margin:0">The full invoice PDF is attached. It'll be marked paid once the Direct Debit is confirmed.</p>
+  </div>`;
+}
+// Raise (or return the existing) DD ghost invoice for a client + month (YYYY-MM).
+// Creates the invoice, saves the PDF, emails the ghost recipient. Idempotent.
+async function ensureDdInvoice(env, lead, ym) {
+  const existing = await sbGet(env, "invoices", `booking_id=eq.${encodeURIComponent(lead.id)}&billing_month=eq.${ym}&payment_method=eq.direct_debit&select=id,number&limit=1`);
+  if (existing && existing[0]) return { invoice: existing[0], created: false };
+
+  const amount = parsePricePence(lead.price);
+  const [y, mo] = ym.split("-").map(Number);
+  const monthLabel = new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+  const ddDay = Math.min(28, Math.max(1, Number(lead.direct_debit_day) || 1));
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+  const vatRate = st.vat_rate != null ? Number(st.vat_rate) : 20;
+  const nextNum = st.next_number || 1001;
+  const number = `${st.invoice_prefix || "TMKE"}${nextNum}`;
+  const subtotal = amount, vat = Math.round(subtotal * vatRate / 100), total = subtotal + vat;
+  const billName = lead.business || [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || lead.full_name || lead.email || "Client";
+  const items = [{ description: `Social media management (${monthLabel})`, qty: 1, unit_pence: amount }];
+  const row = {
+    number, booking_id: lead.id, booking_source: "smm",
+    bill_to_name: billName, bill_to_email: lead.email || null, bill_to_address: lead.business_address || null,
+    line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
+    status: "sent", issued_date: `${ym}-01`, due_date: `${ym}-${String(ddDay).padStart(2, "0")}`,
+    payment_method: "direct_debit", billing_month: ym, cc_email: null, created_by: "auto (direct debit)",
+  };
+  const res = await sbPost(env, "invoices", row, "return=representation");
+  let inv = null; try { const j = await res.json(); inv = Array.isArray(j) ? j[0] : j; } catch (_) {}
+  if (!inv || !inv.id) return { invoice: null, created: false };
+  await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?id=eq.1`, {
+    method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ next_number: nextNum + 1 }),
+  });
+  const recipient = (lead.dd_invoice_email && lead.dd_invoice_email.trim()) || DD_DEFAULT_RECIPIENT;
+  try {
+    const pdf = await renderInvoicePdf(env, { ...st, template: inv.template || st.template }, inv);
+    await env.BUCKET.put(`invoices/${inv.number || inv.id}.pdf`, pdf, { httpMetadata: { contentType: "application/pdf" } });
+    await sendEmail(env, {
+      to: invoiceMailTo(recipient, null).to,
+      subject: `Direct Debit invoice ${inv.number} — ${billName} (${monthLabel})`,
+      html: ddReminderHtml(billName, monthLabel, inv),
+      attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
+    });
+    await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${inv.id}`, {
+      method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ sent_to: recipient }),
+    });
+  } catch (_) { /* PDF/email best-effort */ }
+  return { invoice: inv, created: true };
+}
+const ymNow = () => { const d = new Date(); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
+// On the 1st of the month, raise this month's ghost invoice for every DD client.
+async function runDdMonthly(env) {
+  if (new Date().getUTCDate() !== 1) return;   // only fires on the 1st
+  const ym = ymNow();
+  const leads = (await sbGet(env, "smm_leads", "direct_debit=eq.true&select=*&limit=500")) || [];
+  for (const lead of leads) { try { await ensureDdInvoice(env, lead, ym); } catch (_) {} }
+}
+
 function corsHeaders(request, env) {
   const origin = request.headers.get("Origin") || "";
   const allowed = (env.ALLOWED_ORIGINS || "*")
@@ -1062,7 +1149,7 @@ export default {
   // reminders (runReminders self-gates to 8am UK); every other (frequent) run
   // advances automations + chases any paid-but-no-password orders.
   async scheduled(event, env, ctx) {
-    if (event && (event.cron === "0 7 * * *" || event.cron === "0 8 * * *")) ctx.waitUntil(runReminders(env));
+    if (event && (event.cron === "0 7 * * *" || event.cron === "0 8 * * *")) { ctx.waitUntil(runReminders(env)); ctx.waitUntil(runDdMonthly(env)); }
     else {
       ctx.waitUntil(runAutomationsTick(env));
       ctx.waitUntil(runSetupReminders(env));
@@ -3148,9 +3235,10 @@ export default {
 
         // Covering email with the PDF attached; accounts dept CC'd. If the email
         // doesn't actually go, don't mark it sent — tell the caller so they retry.
+        const mail = invoiceMailTo(inv.bill_to_email, cc);
         const emailed = await sendEmail(env, {
-          to: inv.bill_to_email,
-          cc,
+          to: mail.to,
+          cc: mail.cc,
           subject,
           html: invoiceEmailHtml(st, inv, b && b.email_body),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
@@ -3171,7 +3259,20 @@ export default {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const extra = url.searchParams.get("booking_id") ? `&booking_id=eq.${encodeURIComponent(url.searchParams.get("booking_id"))}` : "";
-        const rows = (await sbGet(env, "invoices", `select=id,number,bill_to_name,bill_to_email,cc_email,total_pence,status,issued_date,due_date,paid_date,created_at${extra}&order=created_at.desc&limit=300`)) || [];
+        const rows = (await sbGet(env, "invoices", `select=id,number,bill_to_name,bill_to_email,cc_email,total_pence,status,issued_date,due_date,paid_date,payment_method,billing_month,created_at${extra}&order=created_at.desc&limit=300`)) || [];
+        return json({ ok: true, invoices: rows }, 200, request, env);
+      }
+      // Ensure a Direct Debit client's ghost invoice exists for the current month
+      // (called when their Invoicing tab opens), then return their invoice list.
+      if (path.endsWith("/invoicing/dd/ensure") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const bookingId = String((b && b.booking_id) || "").trim();
+        if (!bookingId) return json({ error: "Missing booking_id." }, 400, request, env);
+        const lead = (await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(bookingId)}&select=*`))?.[0];
+        if (lead && lead.direct_debit) { try { await ensureDdInvoice(env, lead, ymNow()); } catch (_) {} }
+        const rows = (await sbGet(env, "invoices", `booking_id=eq.${encodeURIComponent(bookingId)}&select=id,number,bill_to_name,bill_to_email,total_pence,status,issued_date,due_date,paid_date,payment_method,billing_month,created_at&order=created_at.desc&limit=300`)) || [];
         return json({ ok: true, invoices: rows }, 200, request, env);
       }
       if (path.endsWith("/invoicing/invoices") && request.method === "POST") {
@@ -3240,6 +3341,67 @@ export default {
           method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify(patch),
         });
+        // When marked paid, re-render the saved PDF so the stored copy (and the
+        // client's future hub view) shows the "Paid · <date>" stamp.
+        if (status === "paid") {
+          try {
+            const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`))?.[0];
+            if (inv) {
+              const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+              const pdf = await renderInvoicePdf(env, { ...st, template: inv.template || st.template }, inv);
+              await env.BUCKET.put(`invoices/${inv.number || inv.id}.pdf`, pdf, { httpMetadata: { contentType: "application/pdf" } });
+            }
+          } catch (_) { /* stamp refresh is best-effort */ }
+        }
+        return json({ ok: true }, 200, request, env);
+      }
+      // ---- Admin: delete an invoice (hard delete + its PDF) ------------------
+      if (path.endsWith("/invoicing/invoices") && request.method === "DELETE") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = String(url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id." }, 400, request, env);
+        const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=id,number`))?.[0];
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        if (inv && inv.number) { try { await env.BUCKET.delete(`invoices/${inv.number}.pdf`); } catch (_) {} }
+        return json({ ok: true }, 200, request, env);
+      }
+      // ---- Admin: void an invoice (email accounts + admin, then delete) ------
+      if (path.endsWith("/invoicing/invoices/void") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.id) || "").trim();
+        const reason = String((b && b.reason) || "").trim();
+        if (!id) return json({ error: "Missing id." }, 400, request, env);
+        const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`))?.[0];
+        if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
+        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+        const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6;max-width:560px">
+          <p style="margin:0 0 14px"><strong>Invoice ${esc(inv.number)} has been voided</strong> and removed from the system — please disregard it.</p>
+          <table style="border-collapse:collapse;margin:0 0 14px;font-size:15px">
+            <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(inv.bill_to_name || "")}</strong></td></tr>
+            <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Amount</td><td style="padding:2px 0">${money(inv.total_pence)}</td></tr>
+            ${inv.billing_month ? `<tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Period</td><td style="padding:2px 0">${esc(inv.billing_month)}</td></tr>` : ""}
+            <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Voided by</td><td style="padding:2px 0">${esc(user.email || "an admin")}</td></tr>
+          </table>
+          <p style="margin:0 0 6px;color:#7a6b70">Reason</p>
+          <p style="margin:0;padding:11px 14px;background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px">${esc(reason || "—")}</p>
+        </div>`;
+        const voidMail = invoiceMailTo(st.accounts_cc_email || DD_DEFAULT_RECIPIENT, user.email || null);
+        await sendEmail(env, {
+          to: voidMail.to,
+          cc: voidMail.cc,
+          subject: `Invoice ${inv.number} voided — ${inv.bill_to_name || ""}`,
+          html,
+        });
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        if (inv.number) { try { await env.BUCKET.delete(`invoices/${inv.number}.pdf`); } catch (_) {} }
         return json({ ok: true }, 200, request, env);
       }
 

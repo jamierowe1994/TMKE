@@ -230,6 +230,10 @@ import "../../../styles/admin.css";
     .eb-sw[data-none="1"] { display:flex; align-items:center; justify-content:center; color:rgba(28,29,34,0.4); font-size:12px; background:#fff; }
     .eb-hex { width:100%; font-family:ui-monospace,Menlo,monospace; font-size:12px; padding:7px 10px; border:1px solid var(--eb-line); border-radius:6px; text-transform:uppercase; }
     .eb-hex:focus { outline:none; border-color:var(--english-violet); }
+    /* Brand-colour presets shown under a native colour picker */
+    .eb-bsw-row { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+    .eb-bsw { width:22px; height:22px; border-radius:5px; border:1px solid rgba(28,29,34,0.2); cursor:pointer; padding:0; transition:transform 0.1s; }
+    .eb-bsw:hover { transform:scale(1.12); }
 
     /* Inspector */
     .eb-insp-back { background:none; border:0; cursor:pointer; font-family:var(--sans); font-size:11px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--english-violet); padding:0 0 14px; }
@@ -431,7 +435,39 @@ import "../../../styles/admin.css";
       youtube:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 17a24 24 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49 49 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24 24 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49 49 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg>',
     };
 
-    const SWATCHES = ["", "#ffffff", "#f4f2f1", "#f8fafc", "#fef9ef", "#eef2ff", "#ecfdf5", "#fdf2f8", "#371e28", "#1c1d22"];
+    // Preset swatches. The TMKE Brand kit colours are prepended at boot (loadBrandKit).
+    let SWATCHES = ["", "#ffffff", "#f4f2f1", "#f8fafc", "#fef9ef", "#eef2ff", "#ecfdf5", "#fdf2f8", "#371e28", "#1c1d22"];
+    let brandKitLogo = "";
+    let brandKitColors = [];   // the raw brand hexes — shown under every colour picker
+    async function loadBrandKit() {
+      if (!WORKER_URL) return;
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!s || !s.access_token) return;
+        const res = await fetch(`${WORKER_URL}/brand`, { headers: { Authorization: `Bearer ${s.access_token}` } });
+        const j = await res.json().catch(() => ({}));
+        const b = (j && j.brand) || {};
+        if (Array.isArray(b.colors) && b.colors.length) {
+          brandKitColors = b.colors.map((c) => String(c)).filter((c) => /^#[0-9a-f]{3,6}$/i.test(c));
+          const brandHexes = brandKitColors.map((c) => c.toLowerCase());
+          const rest = SWATCHES.filter((c) => c !== "" && !brandHexes.includes(c.toLowerCase()));
+          SWATCHES = ["", ...brandHexes, ...rest];
+        }
+        if (b.logo_url) brandKitLogo = b.logo_url;
+      } catch (_) {}
+    }
+    // Add a row of clickable brand-colour swatches under every colour picker in a
+    // container (the native <input type=color> can't show presets itself).
+    function injectBrandSwatches(wrap) {
+      if (!brandKitColors.length || !wrap) return;
+      wrap.querySelectorAll('input[type="color"]').forEach((inp) => {
+        if (inp.dataset.bsw) return; inp.dataset.bsw = "1";
+        const row = document.createElement("div"); row.className = "eb-bsw-row";
+        row.innerHTML = brandKitColors.map((c) => `<button type="button" class="eb-bsw" data-c="${c}" style="background:${c}" title="${c}"></button>`).join("");
+        (inp.closest(".eb-f") || inp.parentElement).appendChild(row);
+        row.querySelectorAll(".eb-bsw").forEach((sw) => sw.addEventListener("click", () => { inp.value = sw.dataset.c; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true })); }));
+      });
+    }
 
     // ── State ──
     const params = new URLSearchParams(location.search);
@@ -757,12 +793,9 @@ import "../../../styles/admin.css";
 
     // Inline rich-text toolbar for the text block (execCommand — email-safe tags)
     // + one-click merge-field inserter (pulls from contact data at send time).
-    const FIELD_CHIPS = [
-      { token: "{{firstName}}", label: "First name" },
-      { token: "{{fullName}}", label: "Full name" },
-      { token: "{{location}}", label: "Location" },
-      { token: "{{company}}", label: "Brand / business" },
-    ];
+    // Every merge field (kept in sync with the shared MERGE_FIELDS list) so new
+    // ones — e.g. the videography funnel's Booking link — show up automatically.
+    const FIELD_CHIPS = MERGE_FIELDS.map((f) => ({ token: `{{${f.token}}}`, label: f.label }));
     // Format buttons only (bold/italic/underline/list/clear) — lives inside the Font card.
     function formatButtons(){
       return `<div class="eb-fmt" style="margin-bottom:0;"><span class="eb-f-sub">Format</span>
@@ -787,6 +820,10 @@ import "../../../styles/admin.css";
       const dSize = b.type==="heading"?28:15, dLh = b.type==="heading"?"1.15":"1.6", dCol = b.type==="heading"?"#1c1d22":"#1f2937";
       const P=(k)=>isM?`mobile.${k}`:k;
       const V=(k)=>isM?((b.mobile&&b.mobile[k]!=null)?b.mobile[k]:""):(b[k]!=null?b[k]:"");
+      // Desktop shows the effective value (the block's own, else the default) so the
+      // field reflects the real size instead of a greyed placeholder. Mobile keeps
+      // blank = "inherit desktop".
+      const VE=(k,d)=>isM?V(k):((b[k]!=null&&b[k]!=="")?b[k]:d);
       const PH=(k,d)=>isM?((b[k]!=null&&b[k]!=="")?b[k]:d):d;
       const alignCur = isM?((b.mobile&&b.mobile.align)||""):(b.align||"left");
       const alignOpts = `${isM?`<option value=""${alignCur===""?" selected":""}>Inherit</option>`:""}${ALIGN.map(o=>`<option value="${o}"${o===alignCur?" selected":""}>${o}</option>`).join("")}`;
@@ -799,11 +836,11 @@ import "../../../styles/admin.css";
       return `<div class="eb-resp"><div class="eb-resp-head"><span class="eb-f-sub">Font</span>${deviceToggleMini(device)}</div>
         <label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
         <div class="eb-f2">
-          <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="90" data-field="${P("size")}" value="${V("size")}" placeholder="${PH("size",dSize)}" /></label>
-          <label class="eb-f"><span>Line height</span><input type="number" min="0.8" max="3" step="0.05" data-field="${P("lineHeight")}" value="${V("lineHeight")}" placeholder="${PH("lineHeight",dLh)}" /></label>
+          <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="90" data-field="${P("size")}" value="${VE("size",dSize)}" placeholder="${PH("size",dSize)}" /></label>
+          <label class="eb-f"><span>Line height</span><input type="number" min="0.8" max="3" step="0.05" data-field="${P("lineHeight")}" value="${VE("lineHeight",dLh)}" placeholder="${PH("lineHeight",dLh)}" /></label>
         </div>
         <div class="eb-f2">
-          <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="${P("letterSpacing")}" value="${V("letterSpacing")}" placeholder="${PH("letterSpacing","0")}" /></label>
+          <label class="eb-f"><span>Letter spacing</span><input type="number" min="-3" max="14" step="0.5" data-field="${P("letterSpacing")}" value="${VE("letterSpacing","0")}" placeholder="${PH("letterSpacing","0")}" /></label>
           <label class="eb-f"><span>Alignment</span><select data-field="${P("align")}">${alignOpts}</select></label>
         </div>
         ${format}
@@ -841,7 +878,8 @@ import "../../../styles/admin.css";
         case "button": return `
           <label class="eb-f"><span>Button text</span><input type="text" data-field="text" value="${esc(b.text||"")}" /></label>
           <p class="eb-note" style="margin:-6px 0 10px;">…or edit it directly on the canvas.</p>
-          <label class="eb-f"><span>Link URL (action)</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…" /></label>
+          <label class="eb-f"><span>Link URL (action)</span><input type="text" data-field="url" value="${esc(b.url||"")}" placeholder="https://… or {{bookingLink}}" /></label>
+          <p class="eb-note" style="margin:-6px 0 10px;">Tip: type <code style="font-family:ui-monospace,Menlo,monospace;color:var(--english-violet);">{{bookingLink}}</code> here to send each person their own personalised booking link.</p>
           <label class="eb-f"><span>Font</span><select data-field="font">${fontOpts(b.font)}</select></label>
           <div class="eb-checks">
             <label class="eb-check"><input type="checkbox" data-field="bold"${b.bold?" checked":""}/> Bold</label>
@@ -1056,6 +1094,7 @@ import "../../../styles/admin.css";
       const def = BLOCK_TYPES.find(d=>d.type===b.type);
       $("#eb-insp-title").textContent = def ? def.label : b.type;
       const wrap = $("#eb-insp-fields"); wrap.innerHTML = inspectorFields(b, canvasDevice) + visibilityControl(b);
+      injectBrandSwatches(wrap);   // brand-colour presets under every colour picker
       wrap.querySelectorAll("[data-vis]").forEach((btn)=>btn.addEventListener("click", ()=>{
         if(!b.hide) b.hide = {};
         const dev = btn.dataset.vis; b.hide[dev] = !b.hide[dev];
@@ -1452,7 +1491,9 @@ import "../../../styles/admin.css";
       subjectEl.value=state.subject||""; $("#s-preheader").value=state.preheader||"";
       $("#s-trigger").value=state.trigger_key||""; $("#s-status").value=state.status||"draft"; setStatusPill();
       $("#eb-html").value=state.custom_html||"";
-      const brand={...defaultBrand(),...state.branding}; state.branding=brand;
+      const brand={...defaultBrand(),...state.branding};
+      if(!brand.logo && brandKitLogo) brand.logo=brandKitLogo;   // default to the brand-kit logo
+      state.branding=brand;
       document.querySelectorAll("[data-brand]").forEach(el=>{ const k=el.getAttribute("data-brand"); let v=brand[k]||""; if(el.type==="color"&&!/^#[0-9a-f]{6}$/i.test(v)) v="#371e28"; el.value=v; });
       document.querySelectorAll(".eb-mode").forEach(x=>x.classList.toggle("is-active",x.dataset.mode===state.mode));
       $("#eb-canvas-pane").hidden=state.mode!=="blocks"; $("#eb-html-pane").hidden=state.mode!=="html";
@@ -1478,6 +1519,7 @@ import "../../../styles/admin.css";
         } else if (!DEV) { alert("Couldn't load template. Returning to the list."); location.replace("/admin/email"); return; }
         else { seedSample(); }
       } else { seedSample(); }
+      await loadBrandKit();   // pull the shared brand colours (→ swatches) + logo
       fillMeta();
       booted = true;   // now user edits count as dirty (enables autosave)
       history=[]; histIndex=-1; pushHistory();  // baseline = the loaded/seeded state
