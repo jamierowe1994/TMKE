@@ -289,7 +289,7 @@ export function effectiveBlock(block, device) {
   if (device !== 'mobile' || !block || !block.mobile) return block;
   const m = block.mobile;
   const out = { ...block };
-  ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness', 'iconSize'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
+  ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness', 'iconSize', 'iconGap'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
   if (m.pad) out.pad = { ...(block.pad || {}), ...m.pad };
   return out;
 }
@@ -331,20 +331,30 @@ function dividerResponsiveCss(block) {
   if (m.width != null && m.width !== '') rules.push(`.eb-b-${block.id}{width:${Math.max(1, Math.min(100, Number(m.width)))}% !important;}`);
   return rules.join('\n    ');
 }
-// Social: the icon size can differ per device. Resize the chip (circle style)
-// and the glyph via the block's container class.
+// Social: icon size AND the space between icons can differ per device. Resize
+// the chip (circle style) and the glyph, and adjust the per-icon margin, via
+// the block's container class.
 function socialResponsiveCss(block) {
   const m = block.mobile || {};
-  if (m.iconSize == null || m.iconSize === '') return '';
-  let size = Number(m.iconSize);
-  if (!Number.isFinite(size) || size <= 0) return '';
-  size = Math.max(14, Math.min(72, size));
   const bare = block.iconStyle === 'bare';
-  const glyph = bare ? Math.round(size) : Math.max(10, Math.round(size * 0.46));
   const sel = `.eb-social-${block.id}`;
+  const aDecls = [], svgDecls = [];
+  if (m.iconSize != null && m.iconSize !== '') {
+    let size = Number(m.iconSize);
+    if (Number.isFinite(size) && size > 0) {
+      size = Math.max(14, Math.min(72, size));
+      const glyph = bare ? Math.round(size) : Math.max(10, Math.round(size * 0.46));
+      if (!bare) aDecls.push(`width:${size}px !important`, `height:${size}px !important`, `line-height:${size}px !important`, `border-radius:${Math.round(size / 2)}px !important`);
+      svgDecls.push(`width:${glyph}px !important`, `height:${glyph}px !important`);
+    }
+  }
+  if (m.iconGap != null && m.iconGap !== '') {
+    let gap = Number(m.iconGap);
+    if (Number.isFinite(gap) && gap >= 0) aDecls.push(`margin:0 ${Math.min(60, gap) / 2}px !important`);
+  }
   const rules = [];
-  if (!bare) rules.push(`${sel} a{width:${size}px !important;height:${size}px !important;line-height:${size}px !important;border-radius:${Math.round(size / 2)}px !important;}`);
-  rules.push(`${sel} svg{width:${glyph}px !important;height:${glyph}px !important;}`);
+  if (aDecls.length) rules.push(`${sel} a{${aDecls.join(';')};}`);
+  if (svgDecls.length) rules.push(`${sel} svg{${svgDecls.join(';')};}`);
   return rules.join('\n    ');
 }
 function blockResponsiveCss(block) {
