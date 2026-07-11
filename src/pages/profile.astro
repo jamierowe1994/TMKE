@@ -169,6 +169,21 @@ import "../styles/account-sections.css";
             <div class="type-preview-b">A short paragraph in your body face — used for captions, CTAs and the readable bits.</div>
           </div>
         </section>
+
+        <!-- Tone of voice -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">05</div>
+              <h2>Tone of voice</h2>
+            </div>
+            <p>How your brand sounds. The AI caption generator blends this with our house rules, so captions come out in your voice.</p>
+          </header>
+          <label class="profile-field profile-field--full">
+            <span>Describe your tone <span class="profile-opt">· optional</span></span>
+            <textarea name="tone" class="profile-textarea" rows="5" placeholder="e.g. Friendly and approachable, professional but never stuffy. We speak plainly, avoid jargon, and sound warm and local. Confident, never pushy or salesy. We like a bit of personality."></textarea>
+          </label>
+        </section>
       </div>
     </div>
 
@@ -291,6 +306,21 @@ import "../styles/account-sections.css";
       border-color: var(--english-violet);
       box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.12);
     }
+    .profile-textarea {
+      width: 100%;
+      padding: 13px 16px;
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.55;
+      border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 2px;
+      background: #fff;
+      color: var(--ink);
+      resize: vertical;
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .profile-textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.12); }
+    .profile-opt { font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); }
 
     /* Headings + labels use the dark brand ink on the white cards. */
     .profile-section-head h2 { color: var(--ink); }
@@ -609,6 +639,7 @@ import "../styles/account-sections.css";
       const previewH = preview.querySelector(".type-preview-h");
       const previewB = preview.querySelector(".type-preview-b");
       const companyInput = form.elements["company"];
+      const toneInput = form.elements["tone"];
       const companyOk = document.getElementById("company-ok");
       const saveEl = document.getElementById("brand-save");
       const saveText = saveEl.querySelector(".brand-save-text");
@@ -639,6 +670,7 @@ import "../styles/account-sections.css";
       const initialHeading = (brand && brand.fonts && brand.fonts.heading) || "Cormorant Garamond";
       const initialBody = (brand && brand.fonts && brand.fonts.body) || "Darker Grotesque";
       if (brand) companyInput.value = brand.company || "";
+      if (brand && toneInput) toneInput.value = brand.tone || "";
 
       // ---- Autosave ----
       let saveTimer = null, okTimer = null, ready = false;
@@ -811,6 +843,7 @@ import "../styles/account-sections.css";
 
       // ---- Company ----
       companyInput.addEventListener("input", function () { scheduleSave({ company: true }); });
+      if (toneInput) toneInput.addEventListener("input", function () { scheduleSave(); });
 
       // ---- Logos ----
       let logos = (brand && Array.isArray(brand.logos)) ? brand.logos.slice() : [];
@@ -926,6 +959,7 @@ import "../styles/account-sections.css";
         }
         return {
           company: companyInput.value.trim(),
+          tone: toneInput ? toneInput.value.trim() : "",
           colors: colours,
           fonts: { heading: headingPicker.value(), body: bodyPicker.value() },
           logos: logos,

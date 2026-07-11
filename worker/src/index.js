@@ -1409,7 +1409,12 @@ export default {
           brief = `Write a caption for a social post about:\n${topic}`;
         }
 
-        const prompt = `- ${CAPTION_RULES}\n\n${brief}\n\nReturn ONLY minified JSON, no markdown fences, exactly: {"caption": "caption text with line breaks as \\n", "hashtags": ["#tag1", "#tag2"]}.`;
+        // The member's own brand tone of voice (from their Brand Kit). Takes
+        // priority on tone/personality, but the house rules above still hold —
+        // especially the emoji limit.
+        const tone = clean(body.tone, 800);
+        const toneBlock = tone ? `\n\nThis client's own brand voice — match it closely for tone and personality (while still following every rule above, especially the one-emoji limit):\n${tone}` : "";
+        const prompt = `- ${CAPTION_RULES}${toneBlock}\n\n${brief}\n\nReturn ONLY minified JSON, no markdown fences, exactly: {"caption": "caption text with line breaks as \\n", "hashtags": ["#tag1", "#tag2"]}.`;
         let aiRes;
         try {
           aiRes = await fetch("https://api.anthropic.com/v1/messages", {

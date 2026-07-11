@@ -18,6 +18,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       <span class="cg-eyebrow">Caption generator</span>
       <h2 class="cg-title">Write a caption that sells.</h2>
       <p class="cg-sub">Tell us about the post and we'll draft a caption and hashtags — or write your own.</p>
+      <p class="cg-tone-note" data-cg-tone hidden><span aria-hidden="true">✓</span> Tailored to your brand tone of voice</p>
     </header>
 
     <div class="cg-tabs" role="tablist">
@@ -99,6 +100,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .cg-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); }
   .cg-title { font-family: var(--serif); font-weight: 400; font-size: clamp(24px, 3vw, 30px); line-height: 1.1; color: var(--ink); margin: 10px 0 0; }
   .cg-sub { font-size: 13.5px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 8px 0 0; }
+  .cg-tone-note { display: inline-flex; align-items: center; gap: 6px; margin: 10px 0 0; font-size: 12px; font-weight: 600; color: var(--english-violet); background: rgba(var(--violet-rgb),0.08); border-radius: 999px; padding: 4px 11px; }
+  .cg-tone-note[hidden] { display: none; }
 
   .cg-tabs { display: flex; gap: 6px; margin: 20px 0 18px; background: rgba(28,29,34,0.05); border-radius: 10px; padding: 4px; }
   .cg-tab { flex: 1; appearance: none; border: 0; background: transparent; border-radius: 7px; padding: 9px 8px; font-family: inherit; font-size: 13px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; transition: background .18s, color .18s; }
@@ -165,6 +168,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       // The "Write my own" button copies (standalone) or uses (in the Planner).
       const ownLbl = scrim.querySelector("[data-cg-useown] span");
       if (ownLbl) ownLbl.textContent = opts.output === "use" ? "Use this caption" : "Copy caption";
+      const toneNote = scrim.querySelector("[data-cg-tone]");
+      if (toneNote) toneNote.hidden = !brandTone();
       switchTab("property");
       scrim.hidden = false;
       document.body.style.overflow = "hidden";
@@ -188,6 +193,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     function showError(msg) { errEl.textContent = msg; errEl.hidden = false; }
     const val = (k) => { const el = scrim.querySelector(`[data-cg="${k}"]`); return el ? String(el.value || "").trim() : ""; };
 
+    // The member's own tone of voice, set in their Brand Kit (localStorage,
+    // same origin). Layered on top of the house rules in the Worker.
+    function brandTone() {
+      try { const b = JSON.parse(localStorage.getItem("tmke.brand") || "null"); return b && typeof b.tone === "string" ? b.tone.trim().slice(0, 800) : ""; }
+      catch (_) { return ""; }
+    }
+
     async function token() {
       try { const { data: { session } } = await supabase.auth.getSession(); return session ? session.access_token : null; }
       catch (_) { return null; }
@@ -205,6 +217,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         if (!topic) { showError("Tell us what the post is about."); return; }
         payload = { mode: "general", topic };
       }
+      const tone = brandTone();
+      if (tone) payload.tone = tone;
       lastRequest = payload;
 
       if (!WORKER) { showError("The AI service isn't available here (no Worker URL configured)."); return; }
