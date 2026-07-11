@@ -578,9 +578,12 @@ const SOCIAL_ICON_SVG = {
 };
 const SOCIAL_ORDER = ['linkedin', 'instagram', 'facebook', 'twitter', 'youtube', 'website'];
 
-// Resize a social icon's inline SVG (base markup is 14×14).
-function sizedSocialIcon(k, px) {
-  return (SOCIAL_ICON_SVG[k] || '').replace('width="14" height="14"', `width="${px}" height="${px}"`);
+// Resize a social icon's inline SVG (base markup is 14×14, stroke-width 2) and
+// set its line thickness.
+function sizedSocialIcon(k, px, stroke) {
+  return (SOCIAL_ICON_SVG[k] || '')
+    .replace('width="14" height="14"', `width="${px}" height="${px}"`)
+    .replace('stroke-width="2"', `stroke-width="${stroke}"`);
 }
 
 function renderSocial(block, brand) {
@@ -595,13 +598,22 @@ function renderSocial(block, brand) {
   if (!Number.isFinite(size) || size <= 0) size = bare ? 24 : 34;
   size = Math.max(14, Math.min(72, size));
   const glyph = bare ? Math.round(size) : Math.max(10, Math.round(size * 0.46));
+  // Line thickness (default 1.5 — thinner than the old fixed 2).
+  let stroke = Number(block.iconStroke);
+  if (!Number.isFinite(stroke) || stroke <= 0) stroke = 1.5;
+  stroke = Math.max(0.5, Math.min(3, stroke));
+  // Gap between adjacent icons (applied as half on each side).
+  let gap = Number(block.iconGap);
+  if (!Number.isFinite(gap) || gap < 0) gap = 12;
+  gap = Math.min(60, gap);
+  const side = gap / 2;
   const items = SOCIAL_ORDER
     .filter((k) => show[k] !== false && brand[k])
     .map((k) => {
-      const svg = sizedSocialIcon(k, glyph);
+      const svg = sizedSocialIcon(k, glyph, stroke);
       const box = bare
-        ? `margin:0 7px;line-height:1;vertical-align:middle;`
-        : `width:${size}px;height:${size}px;line-height:${size}px;text-align:center;border-radius:${Math.round(size / 2)}px;background:${escapeHtml(chipBg)};margin:0 6px;`;
+        ? `margin:0 ${side}px;line-height:1;vertical-align:middle;`
+        : `width:${size}px;height:${size}px;line-height:${size}px;text-align:center;border-radius:${Math.round(size / 2)}px;background:${escapeHtml(chipBg)};margin:0 ${side}px;`;
       return `<a href="${escapeHtml(brand[k])}" style="display:inline-block;text-decoration:none;color:${escapeHtml(iconColor)};${box}">${svg}</a>`;
     })
     .join('');

@@ -559,8 +559,10 @@ import "../../../styles/admin.css";
           const chipBg = b.iconBg || accent;
           let size = Number(b.iconSize); if(!isFinite(size)||size<=0) size = bare?24:34; size=Math.max(14,Math.min(72,size));
           const glyph = bare ? size : Math.max(10, Math.round(size*0.46));
+          let stroke = Number(b.iconStroke); if(!isFinite(stroke)||stroke<=0) stroke=1.5; stroke=Math.max(0.5,Math.min(3,stroke));
+          let gap = Number(b.iconGap); if(!isFinite(gap)||gap<0) gap=12; gap=Math.min(60,gap);
           const items=nets.filter(n=>show[n]!==false).map(n=>{
-            const svg=(SOCIAL_SVG[n]||"").replace("<svg ",`<svg style="width:${glyph}px;height:${glyph}px" `);
+            const svg=(SOCIAL_SVG[n]||"").replace("<svg ",`<svg style="width:${glyph}px;height:${glyph}px" `).replace('stroke-width="2"',`stroke-width="${stroke}"`);
             const box = bare
               ? `width:auto;height:auto;border-radius:0;background:none;color:${esc(iconColor)};`
               : `width:${size}px;height:${size}px;border-radius:${Math.round(size/2)}px;background:${esc(chipBg)};color:${esc(iconColor)};`;
@@ -569,7 +571,7 @@ import "../../../styles/admin.css";
           const radius = b.radius!=null && b.radius!=="" ? Math.max(0,Number(b.radius)) : 8;
           const fill = b.bg ? `background:${esc(b.bg)};padding:16px;border-radius:${radius}px;` : "";
           const justify = align==="left"?"flex-start":align==="right"?"flex-end":"center";
-          return `<div class="cv-social" style="justify-content:${justify};${fill}">${items||'<span style="background:#ccc;"></span>'}</div>`;
+          return `<div class="cv-social" style="justify-content:${justify};gap:${gap}px;${fill}">${items||'<span style="background:#ccc;"></span>'}</div>`;
         }
         case "video":
           return b.thumbnail
@@ -948,6 +950,10 @@ import "../../../styles/admin.css";
           <div class="eb-f2">
             <label class="eb-f"><span>Icon colour</span><input type="color" data-field="iconColor" value="${validHex(b.iconColor, bare ? (state.branding.accentColor||'#371e28') : '#ffffff')}" /></label>
             <label class="eb-f"${bare?' style="opacity:.45;pointer-events:none;"':''}><span>Circle colour</span><input type="color" data-field="iconBg" value="${validHex(b.iconBg, state.branding.accentColor||'#371e28')}" /></label>
+          </div>
+          <div class="eb-f2">
+            <label class="eb-f"><span>Line thickness</span><input type="number" min="0.5" max="3" step="0.25" data-field="iconStroke" value="${b.iconStroke!=null?b.iconStroke:""}" placeholder="1.5" /></label>
+            <label class="eb-f"><span>Space between (px)</span><input type="number" min="0" max="60" data-field="iconGap" value="${b.iconGap!=null?b.iconGap:""}" placeholder="12" /></label>
           </div>
           <div class="eb-sec"><span class="eb-f-sub">Block background</span>
             <div class="eb-f2">
