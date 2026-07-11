@@ -65,19 +65,23 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   const billto = inv.bill_to_name ? `
     <div class="billto"><span class="lbl">Bill to</span> <span class="who">${esc(inv.bill_to_name)}</span>${billExtra ? `<div class="bill-extra">${billExtra}</div>` : ""}</div>` : "";
 
-  // How to pay: a full-width rule (same weight as the Description rule) sits
-  // directly under the label; the bank-transfer line and details follow. Any
-  // per-invoice note sits beneath the account details, under its own line.
-  const showBankBlock = showBank && (s.account_name || s.account_number);
+  // Payment block. Direct Debit invoices show a "collected by Direct Debit" flag
+  // (no bank details — nothing to pay); everyone else gets the bank-transfer
+  // "How to pay". A full-width rule (Description weight) sits under the label; any
+  // per-invoice note sits beneath, under its own line.
+  const isDD = inv.payment_method === "direct_debit";
+  const showBankBlock = !isDD && showBank && (s.account_name || s.account_number);
   const payInner = [];
-  if (showBankBlock) {
+  if (isDD) {
+    payInner.push(`<div class="pl">To be collected by Direct Debit${inv.due_date ? ` on <strong>${fmtDate(inv.due_date)}</strong>` : ""} — nothing to pay.</div>`);
+  } else if (showBankBlock) {
     payInner.push(`<div class="pl">By bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>`);
     payInner.push(`<div class="bank">${[s.account_name && `Account: ${esc(s.account_name)}`, s.sort_code && `Sort code: ${esc(s.sort_code)}`, s.account_number && `Account no: ${esc(s.account_number)}`].filter(Boolean).join("<br>")}</div>`);
   }
   if (inv.notes) payInner.push(`<div class="paynote-rule"></div><div class="paynote">${nl2br(inv.notes)}</div>`);
   const bank = payInner.length ? `
     <div class="pay">
-      <div class="lbl">How to pay</div>
+      <div class="lbl">${isDD ? "Payment" : "How to pay"}</div>
       <div class="payrule"></div>
       ${payInner.join("\n      ")}
     </div>` : "";
