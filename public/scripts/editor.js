@@ -6181,26 +6181,19 @@
     var _photosLbl = document.querySelector('.ed-rail-btn[data-tool="photos"] span');
     if (_photosLbl) _photosLbl.textContent = "Images";
 
-    // Merge Brand + Elements into a single "Assets" tab (the brief's defining
-    // rail simplification). Shape buttons are wired per-button (querySelectorAll
-    // later), so they keep working when moved into the Brand pane.
-    var _brandPane = document.querySelector('.ed-panel-pane[data-pane="brand"]');
-    var _elemsPane = document.querySelector('.ed-panel-pane[data-pane="elements"]');
-    if (_brandPane && _elemsPane) {
-      var _divider = document.createElement("div");
-      _divider.className = "ed-section-title";
-      _divider.textContent = "Shapes & elements";
-      _brandPane.appendChild(_divider);
-      Array.prototype.slice.call(_elemsPane.children).forEach(function (n) {
-        if (!(n.classList && n.classList.contains("ed-pane-header"))) _brandPane.appendChild(n);
-      });
-      var _assetsHdr = _brandPane.querySelector(".ed-pane-header h3");
-      if (_assetsHdr) _assetsHdr.textContent = "Assets";
-      var _brandRailLbl = document.querySelector('.ed-rail-btn[data-tool="brand"] span');
-      if (_brandRailLbl) _brandRailLbl.textContent = "Assets";
-      var _elemsRailBtn = document.querySelector('.ed-rail-btn[data-tool="elements"]');
-      if (_elemsRailBtn) _elemsRailBtn.style.display = "none";
+    // Brand Kit gets its own tab with its own space, moved to sit just after
+    // Layers (rather than sitting on top of the shapes/elements). Elements stays
+    // a standalone "Elements" tab. Shape buttons are wired per-button, so they
+    // keep working wherever the pane sits.
+    var _brandBtn = document.querySelector('.ed-rail-btn[data-tool="brand"]');
+    var _layersBtn = document.querySelector('.ed-rail-btn[data-tool="layers"]');
+    if (_brandBtn && _layersBtn && _layersBtn.parentNode) {
+      _layersBtn.parentNode.insertBefore(_brandBtn, _layersBtn.nextSibling);
+      var _brandLbl = _brandBtn.querySelector("span");
+      if (_brandLbl) _brandLbl.textContent = "Brand kit";
     }
+    var _elemsLbl = document.querySelector('.ed-rail-btn[data-tool="elements"] span');
+    if (_elemsLbl) _elemsLbl.textContent = "Elements";
   }
 
   // Open a tool pane programmatically (clears any selection so the pane shows).
