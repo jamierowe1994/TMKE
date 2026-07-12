@@ -688,6 +688,7 @@ import "../../styles/account-sections.css";
     .post-body { display: flex; flex-direction: column; gap: 18px; }
     .post-preview {
       margin: 0;
+      flex: 0 0 auto;   /* never let the scrolling column shrink the thumbnail */
       border-radius: 6px;
       overflow: hidden;
       background: var(--platinum);
@@ -696,7 +697,7 @@ import "../../styles/account-sections.css";
       display: flex; align-items: center; justify-content: center;
     }
     .post-preview img { max-width: 100%; max-height: 340px; width: auto; height: auto; display: block; object-fit: contain; }
-    .post-fields { display: flex; flex-direction: column; gap: 14px; }
+    .post-fields { display: flex; flex-direction: column; gap: 14px; flex: 0 0 auto; }
     .post-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .post-field { display: flex; flex-direction: column; gap: 6px; }
     .post-label {
@@ -1086,8 +1087,9 @@ import "../../styles/account-sections.css";
       openPostId = p.id;
       clearPostError();
       const img = p.asset_url || p.thumbnail_url || '';
-      if (img) { $postImg.src = img; $postImg.style.display = ''; }
-      else { $postImg.removeAttribute('src'); $postImg.style.display = 'none'; }
+      const $preview = $postImg.closest('.post-preview');
+      if (img) { $postImg.src = img; $postImg.style.display = ''; if ($preview) $preview.style.display = ''; }
+      else { $postImg.removeAttribute('src'); if ($preview) $preview.style.display = 'none'; }
       $postTitle.value = p.title || '';
       $postDate.value = p.scheduled_date || '';
       $postTime.value = (p.scheduled_time || '09:00').slice(0, 5);
