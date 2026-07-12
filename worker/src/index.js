@@ -3304,13 +3304,17 @@ export default {
         });
         let res = await upsert(row);
         // If the social columns don't exist yet (migration not run), save the
-        // rest so the brand kit still works — the socials land once brand_social.sql runs.
-        if (!res.ok) {
+        // rest so the brand kit still works — but flag it so the UI can tell the
+        // user the socials didn't persist (run brand_social.sql).
+        let socialsSkipped = false;
+        const hadSocial = SOCIAL_KEYS.some((k) => k in row);
+        if (!res.ok && hadSocial) {
           const base = { ...row }; SOCIAL_KEYS.forEach((k) => delete base[k]);
           res = await upsert(base);
+          if (res.ok) socialsSkipped = true;
         }
         if (!res.ok) { const t = await res.text().catch(() => ""); return json({ error: "Couldn't save the brand kit. " + t.slice(0, 200) }, 502, request, env); }
-        return json({ ok: true }, 200, request, env);
+        return json({ ok: true, socialsSkipped }, 200, request, env);
       }
 
       // ---- Admin: invoice recipients (address book) --------------------------

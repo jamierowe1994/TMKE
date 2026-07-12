@@ -297,8 +297,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         const token = await authToken();
         const social = {}; ["website","linkedin","instagram","facebook","twitter","youtube"].forEach((k) => { social[k] = ($("brand-social-" + k).value || "").trim() || null; });
         const res = await fetch(`${WORKER}/brand`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ colors: brandColors, heading_font: $("brand-heading-font").value.trim() || null, subheading_font: $("brand-subheading-font").value.trim() || null, body_font: $("brand-body-font").value.trim() || null, logo_url: $("brand-logo-url").value.trim() || null, footer_image_url: $("brand-footer-url").value.trim() || null, ...social }) });
-        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "Couldn't save."); }
-        brandMsg("Brand kit saved.", true);
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) { throw new Error(j.error || "Couldn't save."); }
+        if (j.socialsSkipped) brandMsg("Colours, fonts & logos saved — but the social links didn't. The database needs the migration supabase/brand_social.sql run once; then re-save and they'll stick.", false);
+        else brandMsg("Brand kit saved.", true);
       } catch (err) { brandMsg(err.message, false); }
       finally { btn.disabled = false; btn.textContent = "Save brand kit"; }
     });
