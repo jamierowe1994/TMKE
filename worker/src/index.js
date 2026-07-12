@@ -322,6 +322,17 @@ async function ensureAgentProfile(env, contactId, contact, input) {
     headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify(row),
   });
+  // Identifying CRM tag for visibility/filtering (the funnel is trigger-driven,
+  // NOT tag-driven). One package tag; the opposite is cleared so it never doubles.
+  if (isNewStarter && pkg) {
+    const nsTag = pkg === "pro" ? "Videography-New-Starter: Pro" : "Videography-New-Starter: Academy";
+    try {
+      const crow = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(contactId)}&select=tags`);
+      const cur = (crow && crow[0] && crow[0].tags) || [];
+      const next = normalizeTags([...cur.filter((t) => !/^Videography-New-Starter:/i.test(t)), nsTag]);
+      await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contactId)}`, { tags: next });
+    } catch (_) {}
+  }
   const enrol = !!(isNewStarter && pkg && promoCode);
   if (enrol) {
     try { await fireTrigger(env, "new_starter_videography", { email: contact.email, first_name: contact.first_name, last_name: contact.last_name }, { package: pkg, code: promoCode }); } catch (_) {}
