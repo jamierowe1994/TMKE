@@ -110,6 +110,8 @@ export function defaultBrand() {
     signatureName: 'The TMKE Team',
     showHeader: true,    // the auto logo header at the top of the card
     showSignoff: true,   // the auto "— The TMKE Team" sign-off at the bottom
+    contentPad: 24,      // inset around the email content (0 = blocks go edge-to-edge)
+    outerPad: 24,        // grey margin around the white card
     bgColor: '#f4f2f1',
     cardColor: '#ffffff',
     website: 'https://tmke.co.uk',
@@ -287,7 +289,7 @@ export function effectiveBlock(block, device) {
   if (device !== 'mobile' || !block || !block.mobile) return block;
   const m = block.mobile;
   const out = { ...block };
-  ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
+  ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness', 'iconSize', 'iconGap'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
   if (m.pad) out.pad = { ...(block.pad || {}), ...m.pad };
   return out;
 }
@@ -329,6 +331,32 @@ function dividerResponsiveCss(block) {
   if (m.width != null && m.width !== '') rules.push(`.eb-b-${block.id}{width:${Math.max(1, Math.min(100, Number(m.width)))}% !important;}`);
   return rules.join('\n    ');
 }
+// Social: icon size AND the space between icons can differ per device. Resize
+// the chip (circle style) and the glyph, and adjust the per-icon margin, via
+// the block's container class.
+function socialResponsiveCss(block) {
+  const m = block.mobile || {};
+  const bare = block.iconStyle === 'bare';
+  const sel = `.eb-social-${block.id}`;
+  const aDecls = [], svgDecls = [];
+  if (m.iconSize != null && m.iconSize !== '') {
+    let size = Number(m.iconSize);
+    if (Number.isFinite(size) && size > 0) {
+      size = Math.max(14, Math.min(72, size));
+      const glyph = bare ? Math.round(size) : Math.max(10, Math.round(size * 0.46));
+      if (!bare) aDecls.push(`width:${size}px !important`, `height:${size}px !important`, `line-height:${size}px !important`, `border-radius:${Math.round(size / 2)}px !important`);
+      svgDecls.push(`width:${glyph}px !important`, `height:${glyph}px !important`);
+    }
+  }
+  if (m.iconGap != null && m.iconGap !== '') {
+    let gap = Number(m.iconGap);
+    if (Number.isFinite(gap) && gap >= 0) aDecls.push(`margin:0 ${Math.min(60, gap) / 2}px !important`);
+  }
+  const rules = [];
+  if (aDecls.length) rules.push(`${sel} a{${aDecls.join(';')};}`);
+  if (svgDecls.length) rules.push(`${sel} svg{${svgDecls.join(';')};}`);
+  return rules.join('\n    ');
+}
 function blockResponsiveCss(block) {
   if (!block) return '';
   // Columns: gather each child's mobile rules (children carry their own classes).
@@ -344,6 +372,7 @@ function blockResponsiveCss(block) {
     case 'button': return buttonResponsiveCss(block);
     case 'image': return imageResponsiveCss(block);
     case 'divider': return dividerResponsiveCss(block);
+    case 'social': return socialResponsiveCss(block);
     default: return '';
   }
 }
@@ -576,18 +605,66 @@ const SOCIAL_ICON_SVG = {
 };
 const SOCIAL_ORDER = ['linkedin', 'instagram', 'facebook', 'twitter', 'youtube', 'website'];
 
+// Resize a social icon's inline SVG (base markup is 14×14, stroke-width 2) and
+// set its line thickness.
+function sizedSocialIcon(k, px, stroke) {
+  return (SOCIAL_ICON_SVG[k] || '')
+    .replace('width="14" height="14"', `width="${px}" height="${px}"`)
+    .replace('stroke-width="2"', `stroke-width="${stroke}"`);
+}
+
 function renderSocial(block, brand) {
   const show = block.show || {};
   const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
+  const accent = brand.accentColor || ACCENT_DEFAULT;
+  // "bare" = standalone icons (no chip); "circle" (default) = icon on a chip.
+  const bare = block.iconStyle === 'bare';
+  const iconColor = block.iconColor || (bare ? accent : '#ffffff');
+  const chipBg = block.iconBg || accent;
+  let size = Number(block.iconSize);
+  if (!Number.isFinite(size) || size <= 0) size = bare ? 24 : 34;
+  size = Math.max(14, Math.min(72, size));
+  const glyph = bare ? Math.round(size) : Math.max(10, Math.round(size * 0.46));
+  // Line thickness (default 1.5 — thinner than the old fixed 2).
+  let stroke = Number(block.iconStroke);
+  if (!Number.isFinite(stroke) || stroke <= 0) stroke = 1.5;
+  stroke = Math.max(0.5, Math.min(3, stroke));
+  // Gap between adjacent icons (applied as half on each side).
+  let gap = Number(block.iconGap);
+  if (!Number.isFinite(gap) || gap < 0) gap = 12;
+  gap = Math.min(60, gap);
+  const side = gap / 2;
   const items = SOCIAL_ORDER
     .filter((k) => show[k] !== false && brand[k])
     .map((k) => {
-      const url = brand[k];
-      return `<a href="${escapeHtml(url)}" style="display:inline-block;width:32px;height:32px;line-height:32px;text-align:center;border-radius:16px;background:${escapeHtml(brand.accentColor || ACCENT_DEFAULT)};color:#fff;text-decoration:none;margin:0 6px;">${SOCIAL_ICON_SVG[k]}</a>`;
+      const svg = sizedSocialIcon(k, glyph, stroke);
+      const box = bare
+        ? `margin:0 ${side}px;line-height:1;vertical-align:middle;`
+        : `width:${size}px;height:${size}px;line-height:${size}px;text-align:center;border-radius:${Math.round(size / 2)}px;background:${escapeHtml(chipBg)};margin:0 ${side}px;`;
+      return `<a href="${escapeHtml(brand[k])}" style="display:inline-block;text-decoration:none;color:${escapeHtml(iconColor)};${box}">${svg}</a>`;
     })
     .join('');
   if (!items) return '';
-  return `<div style="text-align:${align};margin:8px 0;">${items}</div>`;
+  // Optional caption line ABOVE the icons, inside the same block — so a bit of
+  // text (e.g. "Follow us") sits tight over the icons without a second block.
+  let caption = '';
+  if (block.caption) {
+    const capSize = block.captionSize != null && block.captionSize !== '' ? Math.max(8, Number(block.captionSize)) : 14;
+    const capColor = block.captionColor || '#1c1d22';
+    const capGap = block.captionGap != null && block.captionGap !== '' ? Math.max(0, Number(block.captionGap)) : 8;
+    caption = `<div style="font-family:Helvetica,Arial,sans-serif;font-size:${capSize}px;line-height:1.4;color:${escapeHtml(capColor)};margin:0 0 ${capGap}px;">${escapeHtml(block.caption)}</div>`;
+  }
+  // Optional block fill (background colour). Padding around the icons is the
+  // block's own "Padding · inside" controls — no hard-coded inset — so with a
+  // fill you set exactly the breathing room you want (default 0).
+  const radius = block.radius != null && block.radius !== '' ? Math.max(0, Number(block.radius)) : 8;
+  const pad = padStyleResolved(block);
+  const fill = block.bg ? `background:${escapeHtml(block.bg)};border-radius:${radius}px;` : '';
+  // No baked-in margin OR padding — spacing is governed entirely by the block's
+  // Margin (outside) + Padding (inside) controls, so "everything zero" is zero.
+  // The class lets the mobile media query resize the icons per-device.
+  const cls = block.id ? ` class="eb-social-${block.id}"` : '';
+  return `<div${cls} style="text-align:${align};${pad}${fill}">${caption}${items}</div>`;
 }
 
 function renderVideo(block) {
@@ -749,7 +826,11 @@ function renderColumns(block, brand, ctx) {
   const colBgImage = Array.isArray(block.colBgImage) ? block.colBgImage : [];
   const radius = block.colRadius != null && block.colRadius !== '' ? Math.max(0, Number(block.colRadius)) : 6;
   const tds = widths.map((w, i) => {
-    const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 8px';
+    // Equal-width columns must lose an EQUAL amount of horizontal padding, or
+    // the cell's content (e.g. a full-width image) renders narrower. Outer
+    // columns stay flush to the edges with a single full gutter (8px); middle
+    // columns split the gutter (4px each side) so every cell loses 8px total.
+    const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 4px';
     const children = Array.isArray(cols[i]) ? cols[i] : [];
     // Each child block is rendered with its own outer margin so column content
     // stacks with consistent spacing.
@@ -798,25 +879,38 @@ export function renderBlock(block, brand, ctx) {
 
 /* ───────────────────────── document shell ───────────────────────── */
 
+// Coerce an editable padding value (may arrive as a string from a number
+// input, or be missing) to a number, falling back to the default.
+function padPx(v, dflt) {
+  if (v === '' || v == null) return dflt;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : dflt;
+}
+function contentPadOf(brand) { return padPx(brand && brand.contentPad, 24); }
+function outerPadOf(brand) { return padPx(brand && brand.outerPad, 24); }
+
 function brandHeader(brand) {
   if (brand.showHeader === false) return '';
   const accent = brand.accentColor || ACCENT_DEFAULT;
+  const cp = contentPadOf(brand);
   const headerLogo = brand.logo
-    ? `<img src="${escapeHtml(brand.logo)}" alt="${escapeHtml(brand.companyName || '')}" style="max-height:42px;width:auto;display:block;border:0;outline:none;" />`
+    ? `<img src="${escapeHtml(brand.logo)}" alt="${escapeHtml(brand.companyName || '')}" style="max-height:42px;max-width:100%;width:auto;display:block;border:0;outline:none;" />`
     : brand.companyName
       // Editorial serif wordmark — the closest email-safe nod to The Seasons
       // (custom webfonts get stripped by most email clients, so we use a Didone
       // serif stack rather than ship a font that won't load).
       ? `<span style="font-family:'Didot','Bodoni MT',Georgia,'Times New Roman',serif;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;color:${escapeHtml(accent)};font-size:22px;">${escapeHtml(brand.companyName)}</span>`
       : '';
-  return headerLogo ? `<div style="padding:24px 24px 0;">${headerLogo}</div>` : '';
+  // With content padding 0, the header (e.g. a banner logo) goes edge-to-edge.
+  return headerLogo ? `<div style="padding:${cp}px ${cp}px 0;">${headerLogo}</div>` : '';
 }
 
 function brandFooter(brand) {
   if (brand.showSignoff === false) return '';
   const sigName = brand.signatureName;
+  const cp = contentPadOf(brand);
   return sigName
-    ? `<div style="padding:8px 24px 24px;font-family:Helvetica,Arial,sans-serif;color:#475569;font-size:14px;">— ${escapeHtml(sigName)}</div>`
+    ? `<div style="padding:8px ${cp}px ${cp}px;font-family:Helvetica,Arial,sans-serif;color:#475569;font-size:14px;">— ${escapeHtml(sigName)}</div>`
     : '';
 }
 
@@ -848,6 +942,8 @@ function wrapOuter(html, block) {
 function shell(brand, bodyHtml, preheader, responsiveCss) {
   const pageBg = brand.bgColor || '#f4f2f1';
   const cardBg = brand.cardColor || '#ffffff';
+  const outerPad = outerPadOf(brand);    // grey margin around the card
+  const contentPad = contentPadOf(brand); // inset around the content (0 = full-width blocks)
   const pre = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</div>`
     : '';
@@ -864,11 +960,11 @@ function shell(brand, bodyHtml, preheader, responsiveCss) {
 <body style="margin:0;padding:0;background:${escapeHtml(pageBg)};">
   ${pre}
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${escapeHtml(pageBg)};">
-    <tr><td align="center" style="padding:24px;">
+    <tr><td align="center" style="padding:${outerPad}px;">
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%;background:${escapeHtml(cardBg)};border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;">
         <tr><td>
           ${brandHeader(brand)}
-          <div style="padding:24px;">
+          <div style="padding:${contentPad}px;">
             ${bodyHtml}
           </div>
           ${brandFooter(brand)}
