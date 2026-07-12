@@ -283,6 +283,109 @@ async function generateAgentCode(env, { pkg, firstName, lastName, inductionMonth
   return { code, id };
 }
 
+// Create/update a contact's agent_profiles row: generate the free-videography
+// code once (if an eligible new starter without one), upsert the profile, and
+// enrol them into the videography onboarding funnel. Shared by POST /agent/profile
+// (the contact-drawer TEG tab) and the Google-Sheet sync so the two never drift.
+// `contact` needs { first_name, last_name, email }. Returns the row + _enrolled.
+async function ensureAgentProfile(env, contactId, contact, input) {
+  const existingRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`);
+  const existing = (existingRows && existingRows[0]) || null;
+  const pkg = ["academy", "pro"].includes(String(input.package || "").toLowerCase()) ? String(input.package).toLowerCase() : null;
+  const isNewStarter = !!input.is_new_starter;
+  const inductionMonth = (typeof input.induction_month === "string" && /^\d{4}-\d{2}$/.test(input.induction_month)) ? input.induction_month : null;
+
+  let promoCode = (existing && existing.promo_code) || null;
+  let promoCodeId = (existing && existing.promo_code_id) || null;
+  if (isNewStarter && pkg && inductionMonth && !promoCode) {
+    const label = `New-starter free videography — ${[contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email}`;
+    const gen = await generateAgentCode(env, { pkg, firstName: contact.first_name, lastName: contact.last_name, inductionMonth, label });
+    if (gen) { promoCode = gen.code; promoCodeId = gen.id; }
+  }
+
+  const coalesce = (a, b) => (a != null && a !== "" ? a : (b != null ? b : null));
+  const row = {
+    contact_id: contactId,
+    brand: coalesce(input.brand, existing && existing.brand),
+    date_joined: coalesce(input.date_joined, existing && existing.date_joined),
+    postcode: coalesce(input.postcode, existing && existing.postcode),
+    is_new_starter: isNewStarter,
+    induction_month: inductionMonth,
+    package: pkg,
+    promo_code: promoCode,
+    promo_code_id: promoCodeId,
+    trainer_name: coalesce(input.trainer_name, (existing && existing.trainer_name)) || "Kelly Bailey",
+    trainer_email: coalesce(input.trainer_email, (existing && existing.trainer_email)) || "kelly@theexpertsgroup.co.uk",
+  };
+  await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?on_conflict=contact_id`, {
+    method: "POST",
+    headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(row),
+  });
+  const enrol = !!(isNewStarter && pkg && promoCode);
+  if (enrol) {
+    try { await fireTrigger(env, "new_starter_videography", { email: contact.email, first_name: contact.first_name, last_name: contact.last_name }, { package: pkg, code: promoCode }); } catch (_) {}
+  }
+  return { ...row, _enrolled: enrol };
+}
+
+// ── TEG new-starter Google Sheet → CRM sync ────────────────────────────────
+// The TEG-owned sheet is the single entry point: adding a Pro/Academy row auto-
+// creates the contact + agent_profile + code and enrols them into the funnel.
+// Header row is ROW 2 (row 1 is blank); some headers carry a trailing space.
+const AGENT_SHEET_ID = "1_LiFsbrPiaNIuOdvIkn8Teo_D8_8sCDACU5ZHgXazb0";
+const AGENT_SHEET_TAB = "New Starters";
+
+// "August 2026" / "Aug-26" / "2026-08" / "12/08/2026" → "2026-08" (or null).
+function parseShootMonth(s) {
+  s = String(s || "").trim(); if (!s) return null;
+  let m = s.match(/^(\d{4})[-/](\d{1,2})/); if (m) return `${m[1]}-${String(m[2]).padStart(2, "0")}`;
+  const mn = s.match(/([A-Za-z]{3,})[\s\-/]*(\d{2,4})/);
+  if (mn) { const mi = MONTHS_FULL.findIndex((x) => x.toLowerCase().startsWith(mn[1].slice(0, 3).toLowerCase())); if (mi >= 0) { let y = mn[2]; if (y.length === 2) y = "20" + y; return `${y}-${String(mi + 1).padStart(2, "0")}`; } }
+  const d = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/); if (d) { let y = d[3]; if (y.length === 2) y = "20" + y; return `${y}-${String(d[2]).padStart(2, "0")}`; }
+  return null;
+}
+// "2026-08-12" / "12/08/2026" (UK DD/MM/YYYY) → "2026-08-12" (or null).
+function parseISODate(s) {
+  s = String(s || "").trim(); if (!s) return null;
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${String(m[2]).padStart(2, "0")}-${String(m[3]).padStart(2, "0")}`;
+  m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/); if (m) { let y = m[3]; if (y.length === 2) y = "20" + y; return `${y}-${String(m[2]).padStart(2, "0")}-${String(m[1]).padStart(2, "0")}`; }
+  return null;
+}
+
+async function syncAgentSheet(env) {
+  if (!env.GOOGLE_SHEETS_SA_JSON || !env.SUPABASE_SERVICE_ROLE) return { ok: false, error: "Sheet sync not configured." };
+  let rows;
+  try { rows = await googleSheetRows(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!A2:Z`); }
+  catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+  if (!rows || !rows.length) return { ok: true, rows: 0, processed: 0, enrolled: 0, skipped: 0 };
+  const headers = (rows[0] || []).map((h) => String(h || "").trim().toLowerCase());
+  const col = (name) => headers.indexOf(name.toLowerCase());
+  const idx = { name: col("Agent Name"), brand: col("Brand"), phone: col("Phone Number"), email: col("Email"), postcode: col("Post Code"), package: col("Package"), induction: col("Induction Date"), month: col("Preferred Shoot Month") };
+  let processed = 0, enrolled = 0, skipped = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const cell = (c) => (c >= 0 ? String(r[c] || "").trim() : "");
+    const email = cell(idx.email).toLowerCase();
+    const pkg = cell(idx.package).toLowerCase();
+    if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email) || !["pro", "academy"].includes(pkg)) { skipped++; continue; }
+    const parts = cell(idx.name).split(/\s+/).filter(Boolean);
+    const first = parts.shift() || null, last = parts.join(" ") || null;
+    const brand = cell(idx.brand) || null;
+    try {
+      const cid = await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: first, p_last_name: last, p_phone: cell(idx.phone) || null, p_company: brand, p_source: "agent_sheet_sync", p_tags: crmTags(email, [], {}) });
+      const contactId = Array.isArray(cid) ? cid[0] : cid;
+      if (!contactId) { skipped++; continue; }
+      const res = await ensureAgentProfile(env, contactId, { first_name: first, last_name: last, email }, {
+        brand, date_joined: parseISODate(cell(idx.induction)), postcode: cell(idx.postcode) || null,
+        is_new_starter: true, induction_month: parseShootMonth(cell(idx.month)), package: pkg,
+      });
+      processed++; if (res._enrolled) enrolled++;
+    } catch (_) { skipped++; }
+  }
+  return { ok: true, rows: rows.length - 1, processed, enrolled, skipped };
+}
+
 // Admin gate for staff-only endpoints (e.g. sending email). Mirrors the client
 // allowlist in src/lib/admin-gate.js: a TMKE-domain email, or the named extra.
 const ADMIN_EMAIL_DOMAINS = ["tmke.co.uk"];
@@ -1239,6 +1342,10 @@ export default {
       ctx.waitUntil(runAutomationsTick(env));
       ctx.waitUntil(runSetupReminders(env));
       ctx.waitUntil(pollSmmInbox(env));
+      // Poll the TEG new-starter sheet ~every 15 min (the 5-min tick, gated to
+      // :00/:15/:30/:45) so new Pro/Academy rows enrol into the funnel.
+      let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
+      if (mins % 15 === 0) ctx.waitUntil(syncAgentSheet(env));
     }
   },
 
@@ -3263,53 +3370,27 @@ export default {
         const cRows = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(contactId)}&select=id,first_name,last_name,email`);
         const contact = cRows && cRows[0];
         if (!contact) return json({ error: "Contact not found." }, 404, request, env);
-        const existingRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`);
-        const existing = existingRows && existingRows[0];
 
-        const pkg = ["academy", "pro"].includes(String((b && b.package) || "").toLowerCase()) ? String(b.package).toLowerCase() : null;
-        const isNewStarter = !!(b && b.is_new_starter);
-        const inductionMonth = (b && typeof b.induction_month === "string" && /^\d{4}-\d{2}$/.test(b.induction_month)) ? b.induction_month : null;
-
-        // Generate the personalised code once — when they're an eligible new
-        // starter and don't already have one. Existing codes are preserved.
-        let promoCode = (existing && existing.promo_code) || null;
-        let promoCodeId = (existing && existing.promo_code_id) || null;
-        if (isNewStarter && pkg && inductionMonth && !promoCode) {
-          const label = `New-starter free videography — ${[contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email}`;
-          const gen = await generateAgentCode(env, { pkg, firstName: contact.first_name, lastName: contact.last_name, inductionMonth, label });
-          if (gen) { promoCode = gen.code; promoCodeId = gen.id; }
-        }
-
-        const row = {
-          contact_id: contactId,
+        await ensureAgentProfile(env, contactId, contact, {
           brand: (b && b.brand) || null,
           date_joined: (b && b.date_joined) || null,
           postcode: (b && b.postcode) || null,
-          is_new_starter: isNewStarter,
-          induction_month: inductionMonth,
-          package: pkg,
-          promo_code: promoCode,
-          promo_code_id: promoCodeId,
-          trainer_name: (b && b.trainer_name) || "Kelly Bailey",
-          trainer_email: (b && b.trainer_email) || "kelly@theexpertsgroup.co.uk",
-        };
-        await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?on_conflict=contact_id`, {
-          method: "POST",
-          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
-          body: JSON.stringify(row),
+          is_new_starter: !!(b && b.is_new_starter),
+          induction_month: (b && b.induction_month) || null,
+          package: (b && b.package) || null,
+          trainer_name: (b && b.trainer_name) || null,
+          trainer_email: (b && b.trainer_email) || null,
         });
-        // Enrol them into the videography onboarding funnel (any active automation
-        // on the "new starter — Academy/Pro" trigger). The unique-live enrolment
-        // index makes a re-save a no-op, so this won't double-enrol.
-        if (isNewStarter && pkg && promoCode) {
-          try {
-            await fireTrigger(env, "new_starter_videography",
-              { email: contact.email, first_name: contact.first_name, last_name: contact.last_name },
-              { package: pkg, code: promoCode });
-          } catch (_) {}
-        }
         const saved = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`);
-        return json({ ok: true, profile: (saved && saved[0]) || row }, 200, request, env);
+        return json({ ok: true, profile: (saved && saved[0]) || null }, 200, request, env);
+      }
+
+      // ---- TEG new-starter sheet sync (manual "sync now" for testing) ---------
+      if (path.endsWith("/agent/sync") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const summary = await syncAgentSheet(env);
+        return json(summary, summary.ok ? 200 : 502, request, env);
       }
 
       // ---- Admin: invoicing settings (company/finance details) ---------------
