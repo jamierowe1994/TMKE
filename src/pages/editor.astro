@@ -7,6 +7,11 @@ import CaptionGenerator from "../components/CaptionGenerator.astro";
 import "../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
 import { templates, packages } from "../data/library.js";
 
+// Cache-buster for the static editor script. Files in public/ keep the same URL
+// forever (unlike Astro's content-hashed bundles), so browsers/CDN serve a stale
+// editor.js after a deploy. A fresh build stamp forces the new file each deploy.
+const scriptV = Date.now();
+
 const photoLibrary = templates.map((t) => {
   const photo = t.elements.find((e) => e.id === "bg-photo");
   return { id: t.id, name: t.name, src: photo ? photo.src : t.thumb };
@@ -4179,7 +4184,7 @@ const googleFonts = [
     }
   </script>
 
-  <script src="/scripts/editor.js" is:inline type="module"></script>
+  <script src={`/scripts/editor.js?v=${scriptV}`} is:inline type="module"></script>
 
   <!-- Pages toggle: the page strip is hidden by default (so the canvas gets
        the full height); this pops it up from the bottom on demand. Standalone
