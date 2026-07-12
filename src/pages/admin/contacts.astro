@@ -280,6 +280,7 @@ import "../../styles/admin.css";
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase } from "../../lib/supabase.js";
+    import { TAG_GROUPS } from "../../lib/contact-tags.js";
 
     const DEV = import.meta.env.DEV;
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -297,19 +298,7 @@ import "../../styles/admin.css";
       if (c.user_id) return "member";
       return "lead";
     }
-    // Framework tags for the manual "add tag" dropdown — no free-text.
-    const TAG_GROUPS = [
-      ["Consent", ["Newsletter-Subscriber", "Marketing-Not-Opted-In", "Unsubscribed"]],
-      ["Interest", ["Interest: SMM", "Interest: Videography"]],
-      ["Discovery calls", ["Discovery-Call-Booked: SMM", "Discovery-Call-Booked: Videography"]],
-      ["Purchases", ["Pack-Purchased"]],
-      ["Videography", ["Videography-Client", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography"]],
-      ["SMM client", ["SMM-Status: Active", "SMM-Status: Paused", "SMM-Status: Ended"]],
-      ["Account", ["TMKE-Account-Member", "Portal-User"]],
-      ["Network", ["Network: TEG", "Network: Fine-and-Country", "Network: External"]],
-      ["Type", ["Type: Estate-Agent", "Type: Lettings", "Type: Financial-Services"]],
-      ["Region", ["Region: Videography-Radius"]],
-    ];
+    // Framework tags (the manual "add tag" dropdown) — shared catalogue, no free-text.
 
     // Reconcile a contact's tags to the CRM rules (mirrors the Worker's
     // normalizeTags + normalize_contact_tags in SQL — keep the three in sync).

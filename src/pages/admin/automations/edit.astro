@@ -86,12 +86,19 @@ import "../../../styles/admin.css";
     .af-pick-btn small { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
     .af-pick-group { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.4); margin: 8px 0 2px; }
     .af-hint { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); }
+    .af-tags { border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; max-height: 260px; overflow-y: auto; padding: 6px 8px; background: #fff; }
+    .af-tags-group { font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.4); margin: 10px 0 4px; }
+    .af-tags-group:first-child { margin-top: 2px; }
+    .af-tag { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-radius: 6px; cursor: pointer; font-family: var(--sans); font-size: 12.5px; color: var(--ink); }
+    .af-tag:hover { background: rgba(55,30,40,0.05); }
+    .af-tag input { width: 15px; height: 15px; flex: none; accent-color: var(--english-violet); cursor: pointer; }
   </style>
 
   <script>
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase } from "../../../lib/supabase.js";
     import { TRIGGERS, NODE_TYPES, NODE_LABELS, emptyGraph } from "../../../lib/automations.js";
+    import { TAG_GROUPS } from "../../../lib/contact-tags.js";
 
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
@@ -125,7 +132,15 @@ import "../../../styles/admin.css";
       if (n.type === "add_tag" || n.type === "remove_tag") return c.tag || "Set a tag";
       if (n.type === "add_note") return c.body ? String(c.body).slice(0, 40) : "Write a note";
       if (n.type === "create_task") return c.title || "Task for the team";
-      if (n.type === "if_else") return c.field ? `${c.field} ${c.op || "is"} ${c.value || ""}` : "Set a condition";
+      if (n.type === "if_else") {
+        const f = c.field || "has_tag";
+        if (f === "has_tag" || f === "tag") {
+          const tags = Array.isArray(c.values) ? c.values : (c.value ? [c.value] : []);
+          if (!tags.length) return "Pick tag(s)";
+          return `has ${(c.op || "is") === "is_not" ? "none" : "any"}: ${tags.join(", ")}`;
+        }
+        return c.field ? `${c.field} ${c.op || "is"} ${c.value || ""}` : "Set a condition";
+      }
       if (n.type === "set_field") return c.field ? `${c.field} → ${c.value || ""}` : "Set a field";
       if (n.type === "notify_team") return c.to || "Notify the team";
       return "";
@@ -292,11 +307,22 @@ import "../../../styles/admin.css";
           + field("Value", `<input data-c="value" value="${esc(c.value || "")}" />`);
       } else if (n.type === "if_else") {
         const fields = [["has_tag", "has tag"], ["has_purchased", "has purchased"], ["lifecycle", "lifecycle"], ["marketing_opt_in", "marketing opt-in"]];
-        const ops = [["is", "is"], ["is_not", "is not"], ["contains", "contains"]];
-        body = field("Field", `<select data-c="field">${fields.map(([val, lab]) => `<option value="${val}" ${c.field === val ? "selected" : ""}>${lab}</option>`).join("")}</select>`)
-          + field("Condition", `<select data-c="op">${ops.map(([val, lab]) => `<option value="${val}" ${(c.op || "is") === val ? "selected" : ""}>${lab}</option>`).join("")}</select>`)
-          + field("Value", `<input data-c="value" value="${esc(c.value || "")}" placeholder="e.g. customer, or a tag" />`)
-          + `<p class="af-hint">The <strong>Yes</strong> branch runs when it matches, <strong>No</strong> otherwise. For <em>has purchased</em>, leave Value blank; for <em>has tag</em>, put the tag in Value.</p>`;
+        const curField = c.field || "has_tag";
+        const isTag = curField === "has_tag" || curField === "tag";
+        const ops = isTag ? [["is", "has any of these"], ["is_not", "has none of these"]] : [["is", "is"], ["is_not", "is not"], ["contains", "contains"]];
+        body = field("Field", `<select data-c="field" data-rerender="1">${fields.map(([val, lab]) => `<option value="${val}" ${curField === val ? "selected" : ""}>${lab}</option>`).join("")}</select>`)
+          + field("Condition", `<select data-c="op">${ops.map(([val, lab]) => `<option value="${val}" ${(c.op || "is") === val ? "selected" : ""}>${lab}</option>`).join("")}</select>`);
+        if (isTag) {
+          const selected = new Set(Array.isArray(c.values) ? c.values : (c.value ? [c.value] : []));
+          const list = TAG_GROUPS.map(([g, tags]) =>
+            `<div class="af-tags-group">${esc(g)}</div>` + tags.map((t) =>
+              `<label class="af-tag"><input type="checkbox" data-tag="${esc(t)}" ${selected.has(t) ? "checked" : ""}/> <span>${esc(t)}</span></label>`).join("")).join("");
+          body += `<div class="af-field"><span>Tags (${selected.size} selected)</span><div class="af-tags">${list}</div></div>`
+            + `<p class="af-hint"><strong>Yes</strong> runs when the contact has ${(c.op || "is") === "is_not" ? "<em>none</em>" : "<em>any</em>"} of the ticked tags, <strong>No</strong> otherwise.</p>`;
+        } else {
+          body += field("Value", `<input data-c="value" value="${esc(c.value || "")}" placeholder="e.g. customer" />`)
+            + `<p class="af-hint">The <strong>Yes</strong> branch runs when it matches. For <em>has purchased</em>, leave Value blank.</p>`;
+        }
       } else if (n.type === "notify_team") {
         body = field("Notify (email)", `<input data-c="to" value="${esc(c.to || "")}" placeholder="jack@tmke.co.uk" />`)
           + field("Note", `<input data-c="note" value="${esc(c.note || "")}" placeholder="What happened" />`);
@@ -306,7 +332,26 @@ import "../../../styles/admin.css";
       $("af-panel-body").innerHTML = body;
       $("af-panel-body").querySelectorAll("[data-c]").forEach((inp) => {
         inp.addEventListener("input", () => { n.config[inp.getAttribute("data-c")] = inp.type === "number" ? Number(inp.value) : inp.value; render(); });
-        inp.addEventListener("change", () => { n.config[inp.getAttribute("data-c")] = inp.type === "number" ? Number(inp.value) : inp.value; render(); });
+        inp.addEventListener("change", () => {
+          n.config[inp.getAttribute("data-c")] = inp.type === "number" ? Number(inp.value) : inp.value;
+          render();
+          // Switching the If/else field (tag ↔ other) swaps the value control.
+          if (inp.getAttribute("data-rerender")) selectNode(n.id);
+        });
+      });
+      // If/else tag multi-select → config.values (array). Also drops the legacy
+      // single `value` so the two never conflict.
+      $("af-panel-body").querySelectorAll("[data-tag]").forEach((cb) => {
+        cb.addEventListener("change", () => {
+          const sel = new Set(Array.isArray(n.config.values) ? n.config.values : (n.config.value ? [n.config.value] : []));
+          if (cb.checked) sel.add(cb.dataset.tag); else sel.delete(cb.dataset.tag);
+          n.config.values = [...sel];
+          delete n.config.value;
+          render();
+          const lbl = $("af-panel-body").querySelector(".af-field span");
+          // refresh the "(N selected)" label without a full rebuild
+          $("af-panel-body").querySelectorAll(".af-field > span").forEach((s) => { if (/selected\)/.test(s.textContent)) s.textContent = `Tags (${sel.size} selected)`; });
+        });
       });
       $("af-panel").hidden = false;
       render();

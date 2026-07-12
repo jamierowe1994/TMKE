@@ -1094,9 +1094,12 @@ async function autoEvalCondition(env, cfg, contact) {
   const v = String(cfg.value ?? "").trim().toLowerCase();
   const flip = (b) => (op === "is_not" ? !b : b);
 
-  // Boolean-ish fields ignore the value (the branch IS the yes/no).
+  // Tag match — one OR many tags. "is" = has ANY of them; "is_not" = has none.
   if (cfg.field === "tag" || cfg.field === "has_tag") {
-    return flip((contact.tags || []).map((t) => String(t).toLowerCase()).includes(v));
+    const want = (Array.isArray(cfg.values) && cfg.values.length ? cfg.values : (cfg.value ? [cfg.value] : []))
+      .map((x) => String(x).trim().toLowerCase()).filter(Boolean);
+    const have = (contact.tags || []).map((t) => String(t).toLowerCase());
+    return flip(want.some((w) => have.includes(w)));
   }
   if (cfg.field === "has_purchased") {
     const rows = await sbGet(env, "orders", `buyer_email=eq.${encodeURIComponent(contact.email)}&status=eq.paid&select=id&limit=1`);
