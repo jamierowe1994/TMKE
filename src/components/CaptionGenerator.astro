@@ -81,7 +81,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     <div class="cg-result" hidden>
       <div class="cg-result-head"><span class="cg-result-label">Your caption</span><button type="button" class="cg-regen" data-cg-regen>↻ Regenerate</button></div>
       <textarea class="cg-out" data-cg-out rows="6"></textarea>
-      <div class="cg-tags" data-cg-tags></div>
+      <div class="cg-tags-block" data-cg-tags-block hidden>
+        <span class="cg-result-label cg-tags-label">Hashtags</span>
+        <textarea class="cg-out cg-tags-out" data-cg-tags-box rows="2"></textarea>
+      </div>
       <div class="cg-actions" data-cg-result-actions></div>
     </div>
 
@@ -137,8 +140,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .cg-regen:hover { text-decoration: underline; }
   .cg-out { width: 100%; font-family: inherit; font-size: 14.5px; line-height: 1.6; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; padding: 12px 14px; resize: vertical; }
   .cg-out:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
-  .cg-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .cg-tag { font-size: 12.5px; font-weight: 600; color: var(--english-violet); background: rgba(var(--violet-rgb),0.08); border-radius: 999px; padding: 5px 11px; }
+  .cg-tags-block { margin-top: 16px; }
+  .cg-tags-block[hidden] { display: none; }
+  .cg-tags-label { display: block; margin-bottom: 8px; }
+  .cg-tags-out { font-weight: 600; color: var(--english-violet); }
   .cg-actions { display: flex; gap: 10px; margin-top: 16px; }
   .cg-actions .cg-act { margin-top: 0; flex: 1; }
 
@@ -160,7 +165,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const errEl = $("[data-cg-error]");
     const resultEl = $(".cg-result");
     const outEl = $("[data-cg-out]");
-    const tagsEl = $("[data-cg-tags]");
+    const tagsBlock = $("[data-cg-tags-block]");
+    const tagsBox = $("[data-cg-tags-box]");
     const resultActions = $("[data-cg-result-actions]");
 
     let opts = { output: "copy", onUse: null };
@@ -257,29 +263,39 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     scrim.querySelectorAll("[data-cg-generate]").forEach((b) => b.addEventListener("click", () => generate(b.dataset.cgGenerate)));
     $("[data-cg-regen]").addEventListener("click", () => { if (lastRequest) generate(lastRequest.mode); });
 
+    // Caption + (if present, and shown in its own box) hashtags — reads live so
+    // edits in either box carry through to copy / use.
     function fullText() {
       const cap = (outEl.value || "").trim();
-      const tags = [...tagsEl.querySelectorAll(".cg-tag")].map((t) => t.textContent).join(" ");
+      const tags = (tagsBlock && !tagsBlock.hidden) ? (tagsBox.value || "").trim() : "";
       return tags ? `${cap}\n\n${tags}` : cap;
     }
 
     function showResult(caption, hashtags) {
       outEl.value = caption;
-      tagsEl.innerHTML = (hashtags || []).map((h) => `<span class="cg-tag">${h}</span>`).join("");
+      const tags = (hashtags || []).join(" ").trim();
+      const hasTags = !!tags;
+      tagsBox.value = tags;
+      tagsBlock.hidden = !hasTags;
       resultActions.innerHTML = "";
       if (opts.output === "use") {
         const use = document.createElement("button");
-        use.type = "button"; use.className = "cg-act cg-act--primary"; use.textContent = "Use this caption";
+        use.type = "button"; use.className = "cg-act cg-act--primary";
+        use.textContent = hasTags ? "Use caption + hashtags" : "Use this caption";
         use.addEventListener("click", () => { if (typeof opts.onUse === "function") opts.onUse(fullText()); close(); });
         resultActions.appendChild(use);
       } else {
         const copy = document.createElement("button");
-        copy.type = "button"; copy.className = "cg-act cg-act--primary"; copy.textContent = "Copy caption + hashtags";
+        copy.type = "button"; copy.className = "cg-act cg-act--primary";
+        copy.textContent = hasTags ? "Copy caption + hashtags" : "Copy caption";
         copy.addEventListener("click", () => doCopy(fullText(), copy));
-        const copyC = document.createElement("button");
-        copyC.type = "button"; copyC.className = "cg-act cg-act--ghost"; copyC.textContent = "Caption only";
-        copyC.addEventListener("click", () => doCopy((outEl.value || "").trim(), copyC));
-        resultActions.appendChild(copy); resultActions.appendChild(copyC);
+        resultActions.appendChild(copy);
+        if (hasTags) {
+          const copyC = document.createElement("button");
+          copyC.type = "button"; copyC.className = "cg-act cg-act--ghost"; copyC.textContent = "Caption only";
+          copyC.addEventListener("click", () => doCopy((outEl.value || "").trim(), copyC));
+          resultActions.appendChild(copyC);
+        }
       }
       resultEl.hidden = false;
       resultEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
