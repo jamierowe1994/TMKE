@@ -8,7 +8,7 @@ export const TAG_GROUPS = [
   ["Interest", ["Interest: SMM", "Interest: Videography"]],
   ["Discovery calls", ["Discovery-Call-Booked: SMM", "Discovery-Call-Booked: Videography"]],
   ["Purchases", ["Pack-Purchased"]],
-  ["Videography", ["Videography-Client", "Videography-Booked", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography"]],
+  ["Videography", ["Videography-Client", "Videography-Booked", "Videography-New-Starter: Pro", "Videography-New-Starter: Academy", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography"]],
   ["SMM client", ["SMM-Status: Active", "SMM-Status: Paused", "SMM-Status: Ended"]],
   ["Account", ["TMKE-Account-Member", "Portal-User"]],
   ["Network", ["Network: TEG", "Network: Fine-and-Country", "Network: External"]],
