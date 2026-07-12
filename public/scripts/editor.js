@@ -3439,6 +3439,16 @@
     selectGuide(g.id);
   }
 
+  // Remove every guide line at once (from the Guides pane).
+  function clearAllGuides() {
+    if (!state.guides || !state.guides.length) { toast("No guides to remove", 1800); return; }
+    state.guides = [];
+    state.selectedGuideId = null;
+    pushHistory();
+    fullRender();
+    toast("Guides removed", 1600);
+  }
+
   // Selection-pane controls for the active guide (position, weight, colour,
   // delete). Rendered by renderProps when a guide is selected.
   function renderGuideProps(body) {
@@ -6715,10 +6725,11 @@
       renderMargins();
     });
   })();
-  // "+ Guide" — drop a new horizontal or vertical guide line.
+  // Guides pane — add a vertical / horizontal guide, or clear them all.
   (function () {
-    const gb = $("ed-add-guide");
-    if (gb) gb.addEventListener("click", function (e) { e.stopPropagation(); showGuideMenu(gb); });
+    const av = $("ed-guide-add-v"); if (av) av.addEventListener("click", function () { addGuide("v"); });
+    const ah = $("ed-guide-add-h"); if (ah) ah.addEventListener("click", function () { addGuide("h"); });
+    const clr = $("ed-guides-clear"); if (clr) clr.addEventListener("click", clearAllGuides);
   })();
   $("ed-save").addEventListener("click", async function () {
     const btn = $("ed-save");

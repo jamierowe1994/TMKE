@@ -252,10 +252,6 @@ const googleFonts = [
         <button class="ed-zoom-display" id="ed-zoom-display">100%</button>
         <button class="ed-icon-btn" id="ed-zoom-in" title="Zoom in (+)">+</button>
         <button class="ed-icon-btn ed-fit" id="ed-zoom-fit" title="Fit to screen (0)">Fit</button>
-        <span class="ed-divider"></span>
-        <button class="ed-icon-btn ed-fit" id="ed-margins-toggle" title="Toggle safe-area / margin guides" aria-pressed="false">Margins</button>
-        <input class="ed-margins-size" id="ed-margins-size" type="number" min="0" max="500" value="60" title="Margin size (px)" />
-        <button class="ed-icon-btn ed-fit" id="ed-add-guide" title="Add a guide line — drag to position, click to select and adjust">+ Guide</button>
       </div>
 
       <div class="ed-topbar-right">
@@ -357,6 +353,10 @@ const googleFonts = [
       <button class="ed-rail-btn" data-tool="resize" title="Resize">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 3h-7M21 3v7M3 21h7M3 21v-7"/><path d="M3 3l7 7M21 21l-7-7"/></svg>
         <span>Resize</span>
+      </button>
+      <button class="ed-rail-btn" data-tool="guides" title="Guides & margins">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+        <span>Guides</span>
       </button>
     </aside>
 
@@ -737,6 +737,43 @@ const googleFonts = [
           <label>Width<input type="number" id="ed-resize-w" value="1080" min="100" max="6000" /></label>
           <label>Height<input type="number" id="ed-resize-h" value="1440" min="100" max="6000" /></label>
           <button class="ed-btn-solid" id="ed-resize-apply">Apply</button>
+        </div>
+      </section>
+
+      <!-- Guides & margins — safe-area margin + alignment guide lines, all in
+           one pane (moved out of the top bar). -->
+      <section class="ed-panel-pane" data-pane="guides">
+        <div class="ed-pane-header"><h3>Guides &amp; margins</h3><p>Line things up with a safe-area margin and guide lines. They show while you design and never appear on the export.</p></div>
+
+        <div class="ed-guide-block">
+          <div class="ed-guide-row">
+            <div>
+              <strong>Safe-area margin</strong>
+              <span>Keeps key content clear of the edges.</span>
+            </div>
+            <button type="button" class="ed-switch" id="ed-margins-toggle" aria-pressed="false" title="Show / hide the safe-area margin"><span class="ed-switch-dot"></span></button>
+          </div>
+          <label class="ed-guide-size">
+            <span>Margin size</span>
+            <span class="ed-guide-size-input"><input id="ed-margins-size" type="number" min="0" max="500" value="60" /> px</span>
+          </label>
+        </div>
+
+        <div class="ed-guide-block">
+          <div class="ed-guide-blocktitle">Guides</div>
+          <button type="button" class="ed-guide-btn" id="ed-guide-add-v">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="12" y1="3" x2="12" y2="21"/></svg>
+            Add vertical guide
+          </button>
+          <button type="button" class="ed-guide-btn" id="ed-guide-add-h">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/></svg>
+            Add horizontal guide
+          </button>
+          <button type="button" class="ed-guide-btn ed-guide-btn--danger" id="ed-guides-clear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+            Remove all guides
+          </button>
+          <p class="ed-guide-hint">Tip: drag a guide on the canvas to reposition it, or click it to fine-tune.</p>
         </div>
       </section>
     </aside>
@@ -1250,6 +1287,29 @@ const googleFonts = [
     }
     .ed-panel-pane { display: none; }
     .ed-panel-pane.is-active { display: block; }
+
+    /* Guides & margins pane */
+    .ed-guide-block { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ed-guide-block:last-child { border-bottom: 0; margin-bottom: 0; }
+    .ed-guide-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .ed-guide-row strong { display: block; font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--ink); }
+    .ed-guide-row > div > span { display: block; font-family: var(--sans); font-size: 12px; line-height: 1.4; color: rgba(28,29,34,0.55); margin-top: 2px; }
+    .ed-switch { flex: 0 0 auto; width: 42px; height: 24px; border: 0; border-radius: 999px; background: rgba(28,29,34,0.2); cursor: pointer; position: relative; transition: background 0.2s; }
+    .ed-switch-dot { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25); transition: transform 0.2s; }
+    .ed-switch[aria-pressed="true"] { background: var(--english-violet); }
+    .ed-switch[aria-pressed="true"] .ed-switch-dot { transform: translateX(18px); }
+    .ed-guide-size { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); }
+    .ed-guide-size-input { display: inline-flex; align-items: center; gap: 6px; color: rgba(28,29,34,0.5); }
+    .ed-guide-size input { width: 62px; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; }
+    .ed-guide-size input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+    .ed-guide-blocktitle { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin-bottom: 11px; }
+    .ed-guide-btn { display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px 12px; margin-bottom: 8px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; background: #fff; cursor: pointer; font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--ink); transition: border-color 0.18s, background 0.18s; }
+    .ed-guide-btn:hover { border-color: var(--english-violet); background: rgba(var(--violet-rgb),0.04); }
+    .ed-guide-btn svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--english-violet); }
+    .ed-guide-btn--danger { color: #a2472f; }
+    .ed-guide-btn--danger svg { color: #a2472f; }
+    .ed-guide-btn--danger:hover { border-color: #a2472f; background: rgba(162,71,47,0.05); }
+    .ed-guide-hint { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.5); margin: 12px 0 0; }
 
     /* Selection pane = the property editor that used to live on the right.
        Re-uses the .ed-props-* class names so the existing CSS still applies
