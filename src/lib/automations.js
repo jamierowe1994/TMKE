@@ -21,6 +21,9 @@ export const TRIGGERS = [
   { key: "link_clicked",    label: "Trigger link clicked", group: "Engagement" },
   { key: "page_visited",    label: "Visited a page", group: "Engagement" },
   { key: "inbound_email",   label: "Inbound email received", group: "Engagement" },
+  // Videography onboarding — fires when a new starter on an Academy/Pro package is
+  // flagged (their free-videography code is generated). Enrols them into the funnel.
+  { key: "new_starter_videography", label: "New starter — Academy/Pro (free videography)", group: "Videography" },
 ];
 
 export const TRIGGER_LABELS = Object.fromEntries(TRIGGERS.map((t) => [t.key, t.label]));

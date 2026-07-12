@@ -1020,6 +1020,36 @@ async function brandMasterSocials(env) {
   } catch (_) { return {}; }
 }
 
+const MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function monthLabel(ym) {
+  const m = String(ym || "").match(/^(\d{4})-(\d{2})$/);
+  if (!m) return "";
+  return `${MONTHS_FULL[Math.max(0, Math.min(11, parseInt(m[2], 10) - 1))]} ${m[1]}`;
+}
+
+// Videography new-starter funnel merge context. Pulls the contact's agent_profiles
+// row and builds the personalised booking link + {{code}}/{{shootMonth}}/{{trainerName}}
+// so the funnel emails resolve those tokens. Returns {} for non-funnel contacts.
+async function agentFunnelContext(env, contact) {
+  try {
+    const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contact.id)}&select=promo_code,induction_month,trainer_name`);
+    const p = rows && rows[0];
+    if (!p || !p.promo_code) return {};
+    const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+    const params = new URLSearchParams({ code: p.promo_code });
+    const nm = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
+    if (nm) params.set("name", nm);
+    if (contact.email) params.set("email", contact.email);
+    if (p.induction_month) params.set("month", p.induction_month);
+    return {
+      bookingLink: `${site}/videography/new-starter?${params.toString()}`,
+      code: p.promo_code,
+      shootMonth: monthLabel(p.induction_month),
+      trainerName: p.trainer_name || "Kelly Bailey",
+    };
+  } catch (_) { return {}; }
+}
+
 async function autoExecAction(env, node, contact) {
   const c = node.config || {};
   try {
@@ -1029,6 +1059,9 @@ async function autoExecAction(env, node, contact) {
       const t = tRows && tRows[0]; if (!t) return;
       const brand = { ...defaultBrand(), ...(t.branding || {}), ...(await brandMasterSocials(env)) };
       const recipient = { name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email, first_name: contact.first_name || "", email: contact.email, company: contact.company || "" };
+      // Hydrate the videography funnel tokens ({{bookingLink}}, {{code}}, …) when
+      // this contact is a new starter with a generated code.
+      Object.assign(recipient, await agentFunnelContext(env, contact));
       const { subject, html } = renderTemplate(
         { subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
         { brand, mergeCtx: mergeContextFor(recipient, brand) }
@@ -1982,9 +2015,11 @@ export default {
         } catch (_) {}
 
         // 6) CRM: tag like a normal videography booking + flip the TEG record to booked.
+        // The "Videography-Booked" tag is the funnel's exit signal — an If/else on
+        // it drops them out of the email sequence once they've booked.
         try {
           const fn = String(name || "").trim().split(/\s+/);
-          const tags = crmTags(em, ["Videography-Client", videographyProductTag("content-studio")], { member: true });
+          const tags = crmTags(em, ["Videography-Client", videographyProductTag("content-studio"), "Videography-Booked"], { member: true });
           await sbRpc(env, "upsert_contact", { p_email: em, p_first_name: fn.shift() || name, p_last_name: fn.join(" ") || null, p_phone: phone || null, p_source: "new_starter_booking", p_lifecycle: "customer", p_tags: tags, p_user_id: accountUserId });
           const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(em)}&select=id`);
           const cid = cRows && cRows[0] && cRows[0].id;
@@ -1993,6 +2028,13 @@ export default {
               method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
               body: JSON.stringify({ status: "booked", shoot_booked_at: `${date}T${start}:00` }),
             });
+            // Belt-and-braces: pull them out of any running videography funnel now,
+            // so no email fires between booking and the next If/else check.
+            try {
+              const funnels = await sbGet(env, "automations", `trigger_type=eq.new_starter_videography&select=id`);
+              const fids = (funnels || []).map((a) => a.id);
+              if (fids.length) await sbPatch(env, "automation_enrollments", `contact_id=eq.${cid}&status=eq.active&automation_id=in.(${fids.join(",")})`, { status: "stopped" });
+            } catch (_) {}
           }
         } catch (_) {}
 
@@ -3256,6 +3298,16 @@ export default {
           headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
           body: JSON.stringify(row),
         });
+        // Enrol them into the videography onboarding funnel (any active automation
+        // on the "new starter — Academy/Pro" trigger). The unique-live enrolment
+        // index makes a re-save a no-op, so this won't double-enrol.
+        if (isNewStarter && pkg && promoCode) {
+          try {
+            await fireTrigger(env, "new_starter_videography",
+              { email: contact.email, first_name: contact.first_name, last_name: contact.last_name },
+              { package: pkg, code: promoCode });
+          } catch (_) {}
+        }
         const saved = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`);
         return json({ ok: true, profile: (saved && saved[0]) || row }, 200, request, env);
       }
