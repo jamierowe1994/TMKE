@@ -142,7 +142,11 @@ import "../../../styles/admin.css";
         return c.field ? `${c.field} ${c.op || "is"} ${c.value || ""}` : "Set a condition";
       }
       if (n.type === "set_field") return c.field ? `${c.field} → ${c.value || ""}` : "Set a field";
-      if (n.type === "notify_team") return c.to || "Notify the team";
+      if (n.type === "notify_team") {
+        const who = c.to_mode === "trainer" ? "the trainer" : (c.to || "an address");
+        const what = c.body_mode === "template" ? (templates.find((t) => t.id === c.template_id)?.name || "a template") : (c.note ? String(c.note).slice(0, 26) : "a note");
+        return `${who} · ${what}`;
+      }
       return "";
     }
 
@@ -324,8 +328,18 @@ import "../../../styles/admin.css";
             + `<p class="af-hint">The <strong>Yes</strong> branch runs when it matches. For <em>has purchased</em>, leave Value blank.</p>`;
         }
       } else if (n.type === "notify_team") {
-        body = field("Notify (email)", `<input data-c="to" value="${esc(c.to || "")}" placeholder="jack@tmke.co.uk" />`)
-          + field("Note", `<input data-c="note" value="${esc(c.note || "")}" placeholder="What happened" />`);
+        const toMode = c.to_mode === "trainer" ? "trainer" : "email";
+        const bodyMode = c.body_mode === "template" ? "template" : "note";
+        body = field("Send to", `<select data-c="to_mode" data-rerender="1"><option value="email"${toMode === "email" ? " selected" : ""}>A specific email address</option><option value="trainer"${toMode === "trainer" ? " selected" : ""}>The trainer (from the contact)</option></select>`);
+        if (toMode === "trainer") body += `<p class="af-hint">Sends to the new starter's trainer — their <strong>trainer email</strong> on the contact's TEG tab (e.g. Kelly). Skipped if the contact has no trainer set.</p>`;
+        else body += field("Email address", `<input data-c="to" value="${esc(c.to || "")}" placeholder="kelly@theexpertsgroup.co.uk" />`);
+        body += field("Content", `<select data-c="body_mode" data-rerender="1"><option value="note"${bodyMode === "note" ? " selected" : ""}>A short note</option><option value="template"${bodyMode === "template" ? " selected" : ""}>An email template</option></select>`);
+        if (bodyMode === "template") {
+          body += field("Email (from Email Studio)", `<select data-c="template_id">${templates.length ? "" : '<option value="">No active templates — create one in Email Studio</option>'}<option value="">Choose a template…</option>${templates.map((t) => `<option value="${t.id}" ${c.template_id === t.id ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select>`)
+            + `<p class="af-hint">The template's merge fields fill from the <strong>new starter</strong> (e.g. <code>{{bookingLink}}</code>, <code>{{firstName}}</code>), so the trainer gets their details — but the email is delivered to the recipient above.</p>`;
+        } else {
+          body += field("Note", `<input data-c="note" value="${esc(c.note || "")}" placeholder="e.g. This starter hasn't booked their studio session" />`);
+        }
       } else if (n.type === "goal") {
         body = `<p class="af-hint">Ends the contact's journey here.</p>`;
       }
