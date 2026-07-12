@@ -1200,8 +1200,33 @@ async function autoExecAction(env, node, contact) {
     } else if (node.type === "set_field" && c.field) {
       const patch = {}; patch[c.field] = c.value; contact[c.field] = c.value;
       await sbPatch(env, "contacts", `id=eq.${contact.id}`, patch);
-    } else if (node.type === "notify_team" && c.to) {
-      await sendEmail(env, { to: c.to, subject: `Automation — ${c.note || "update"}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="color:#888;font-size:12px">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
+    } else if (node.type === "notify_team") {
+      // Recipient: a fixed address, or the contact's trainer (agent_profiles).
+      let to = "";
+      if (c.to_mode === "trainer") {
+        const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contact.id)}&select=trainer_email`);
+        to = (rows && rows[0] && rows[0].trainer_email) || "";
+      } else {
+        to = c.to || "";
+      }
+      if (!to) return;
+      // Content: a saved Email Studio template (merged from the enrolled contact),
+      // or a short note. Either way it's delivered to `to` (the team/trainer), so
+      // the contact's do-not-contact does NOT apply.
+      if (c.body_mode === "template" && c.template_id) {
+        const tRows = await sbGet(env, "email_templates", `id=eq.${c.template_id}&select=*`);
+        const t = tRows && tRows[0]; if (!t) return;
+        const brand = { ...defaultBrand(), ...(t.branding || {}), ...(await brandMasterSocials(env)) };
+        const recipient = { name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email, first_name: contact.first_name || "", email: contact.email, company: contact.company || "" };
+        Object.assign(recipient, await agentFunnelContext(env, contact));
+        const { subject, html } = renderTemplate(
+          { subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
+          { brand, mergeCtx: mergeContextFor(recipient, brand) }
+        );
+        await sendEmail(env, { to, subject, html });
+      } else {
+        await sendEmail(env, { to, subject: `Automation — ${c.note || "update"}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="color:#888;font-size:12px">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
+      }
     }
   } catch (_) { /* one failed action shouldn't wedge the tick */ }
 }
