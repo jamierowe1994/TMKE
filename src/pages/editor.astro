@@ -228,7 +228,7 @@ const googleFonts = [
         <a href="/account" class="ed-back" title="Back to library">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
         </a>
-        <a href="/" class="ed-logo">TMKE <em>Studio</em></a>
+        <a href="/" class="ed-logo">TMKE<em>Studio</em></a>
         <span class="ed-divider"></span>
         <input id="ed-filename" class="ed-filename" value="Untitled design" />
       </div>
@@ -273,29 +273,16 @@ const googleFonts = [
           </svg>
           Add to Planner
         </button>
-        <div class="ed-share" id="ed-share-wrap">
-          <button class="ed-btn-ghost" id="ed-share-trigger" aria-haspopup="menu" aria-expanded="false" title="Share">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="18" cy="5" r="3"/>
-              <circle cx="6" cy="12" r="3"/>
-              <circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-            Share
-            <span class="ed-share-caret" aria-hidden="true">▾</span>
-          </button>
-          <div class="ed-share-menu" id="ed-share-menu" role="menu" hidden>
-            <button class="ed-share-item" id="ed-share-review" role="menuitem">
-              <strong>Send for review…</strong>
-              <span>Ask a teammate to check &amp; approve before publishing</span>
-            </button>
-            <button class="ed-share-item" id="ed-share-image" role="menuitem">
-              <strong>Share / save image</strong>
-              <span>Web share, or download a PNG of this page</span>
-            </button>
-          </div>
-        </div>
+        <button class="ed-btn-ghost" id="ed-review-btn" title="Send for review — ask a teammate to check & approve">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Review
+        </button>
         <!-- Publish — admin only; shown via JS when ?mode=admin. -->
         <button class="ed-btn-ghost" id="ed-regen" hidden title="Re-render every template's preview at full resolution (updates all packs)">Regenerate previews</button>
         <button class="ed-btn-solid" id="ed-publish" hidden>Send to catalogue</button>
@@ -1008,7 +995,7 @@ const googleFonts = [
       font-family: var(--serif); font-size: 17px; font-weight: 500;
       letter-spacing: 0.02em; color: var(--ink); white-space: nowrap;
     }
-    .ed-logo em { font-style: normal; color: var(--english-violet); font-size: 13px; margin-left: 4px; }
+    .ed-logo em { font-style: normal; color: var(--english-violet); font-size: 13px; margin-left: 5px; }
 
     .ed-divider { width: 1px; height: 22px; background: rgba(28,29,34,0.12); }
 
@@ -2451,8 +2438,7 @@ const googleFonts = [
     }
     .ed-rev-scrim.is-open .ed-rev { transform: none; }
     .ed-rev-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 10px; }
-    .ed-rev-title { font-family: var(--serif); font-weight: 400; font-size: 30px; letter-spacing: -0.015em; margin: 0 0 8px; }
-    .ed-rev-title em { font-style: italic; color: var(--english-violet); }
+    .ed-rev-title { font-family: var(--serif); font-weight: 400; font-size: 27px; line-height: 1.15; letter-spacing: -0.015em; margin: 0 0 10px; text-wrap: balance; }
     .ed-rev-sub { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.65); margin: 0 0 20px; }
     .ed-rev-label { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 14px 0 7px; }
     .ed-rev-label span { font-weight: 500; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); }
@@ -5063,22 +5049,7 @@ const googleFonts = [
   <script>
     import { supabase } from "../lib/supabase.js";
 
-    const shareWrap = document.getElementById("ed-share-wrap");
-    const shareTrigger = document.getElementById("ed-share-trigger");
-    const shareMenu = document.getElementById("ed-share-menu");
-    const reviewItem = document.getElementById("ed-share-review");
-
-    function closeShareMenu() { if (shareMenu) shareMenu.hidden = true; if (shareTrigger) shareTrigger.setAttribute("aria-expanded", "false"); }
-    if (shareTrigger) {
-      shareTrigger.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const open = shareMenu.hidden;
-        shareMenu.hidden = !open;
-        shareTrigger.setAttribute("aria-expanded", String(open));
-      });
-      document.addEventListener("click", (e) => { if (!shareWrap.contains(e.target)) closeShareMenu(); });
-      shareMenu.querySelectorAll(".ed-share-item").forEach((b) => b.addEventListener("click", closeShareMenu));
-    }
+    const reviewBtn = document.getElementById("ed-review-btn");
 
     function openReviewModal() {
       const scrim = document.createElement("div");
@@ -5086,7 +5057,7 @@ const googleFonts = [
       scrim.innerHTML = `
         <div class="ed-rev" role="dialog" aria-modal="true">
           <div class="ed-rev-eyebrow">Send for review</div>
-          <h2 class="ed-rev-title">Ask a teammate <em>to take a look.</em></h2>
+          <h2 class="ed-rev-title">Ask a teammate to review</h2>
           <p class="ed-rev-sub">They'll be able to open this design, leave comments, then approve it or send it back with changes.</p>
           <label class="ed-rev-label">Teammate's email</label>
           <input type="email" class="ed-rev-email" placeholder="name@agency.co.uk" autocomplete="email" />
@@ -5139,7 +5110,7 @@ const googleFonts = [
       });
       requestAnimationFrame(() => { scrim.classList.add("is-open"); scrim.querySelector(".ed-rev-email").focus(); });
     }
-    if (reviewItem) reviewItem.addEventListener("click", openReviewModal);
+    if (reviewBtn) reviewBtn.addEventListener("click", openReviewModal);
   </script>
 
   <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
