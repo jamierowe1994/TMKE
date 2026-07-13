@@ -6,13 +6,34 @@ import { supabase, isConfigured } from "../../lib/supabase.js";
 // to land on production; the catalogue at /edit also hydrates from
 // Supabase client-side so freshly-created packs still appear there.
 export async function getStaticPaths() {
-  if (!isConfigured) return [];
+  // DEV-only sample so the detail page renders locally when the dev database has
+  // no live packs (mirrors the SAMPLE_PACKS fallback in edit.astro). Never used
+  // in production — import.meta.env.DEV is false in the build. Defined inside
+  // getStaticPaths because Astro runs it in an isolated scope.
+  const devSamplePaths = () => {
+    const TPL = (n) => `https://assets.tmke.co.uk/TMKE%20Home%20Page/Templates/${n}.png`;
+    const templates = Array.from({ length: 15 }, (_, i) => ({
+      id: `s${i}`, name: `Template ${i + 1}`, category: "On the Market",
+      thumb_url: TPL((i % 13) + 1), render_url: TPL((i % 13) + 1), pack_id: "sample", sort_order: i,
+    }));
+    const pack = {
+      id: "sample", slug: "property-portfolio", status: "active", category: "On the Market",
+      title: "Property Portfolio", price_pence: 29900, preview_reveal_count: 3,
+      description: "Show the homes, not just the headlines. A polished set of listing layouts that make every property on your books look the part across the feed.",
+      contents: ["New instruction & coming-soon layouts", "Open-house and viewing announcements", "Price change & just-sold posts"],
+      cover_image_url: TPL(13), preview_images: [TPL(13), TPL(1), TPL(5), TPL(8), TPL(2)],
+    };
+    return [{ params: { slug: pack.slug }, props: { pack, templates } }];
+  };
+
+  if (!isConfigured) return import.meta.env.DEV ? devSamplePaths() : [];
 
   const { data: packs, error } = await supabase
     .from("packs")
     .select("*")
     .in("status", ["active", "draft"]);
-  if (error || !packs) return [];
+  if (error || !packs) return import.meta.env.DEV ? devSamplePaths() : [];
+  if (!packs.length && import.meta.env.DEV) return devSamplePaths();
 
   // Fetch templates per-pack in a single round-trip.
   const packIds = packs.map((p) => p.id);
@@ -42,7 +63,11 @@ export async function getStaticPaths() {
 const { pack, templates } = Astro.props;
 const reveal = Math.max(0, Math.min(24, pack.preview_reveal_count ?? 3));
 const previewTpls = templates.slice(0, reveal);
-const lockedTpls = templates.slice(reveal);
+const lockedAll = templates.slice(reveal);
+// Show at most one extra row of locked teasers (6 across) — the count hint
+// still reports the true number that unlock on purchase.
+const lockedTpls = lockedAll.slice(0, 6);
+const lockedCount = lockedAll.length;
 const contents = Array.isArray(pack.contents) ? pack.contents : [];
 // The big cover: an explicit cover image if set, otherwise fall back to the
 // first template's (high-res) thumbnail so the hero is never a stale low-res
@@ -135,8 +160,8 @@ function gbp(pence) {
           <h2>{templates.length} editable templates</h2>
         </div>
         <p class="pack-previews-hint">
-          {lockedTpls.length > 0
-            ? `Showing ${previewTpls.length} previews · ${lockedTpls.length} more unlock when you buy.`
+          {lockedCount > 0
+            ? `Showing ${previewTpls.length} previews · ${lockedCount} more unlock when you buy.`
             : `All ${templates.length} templates included.`}
         </p>
       </header>
@@ -181,7 +206,7 @@ function gbp(pence) {
         ))}
       </div>
 
-      {lockedTpls.length > 0 && (
+      {lockedCount > 0 && (
         <div class="pack-unlock-cta">
           <div>
             <h3>Unlock the full pack.</h3>
@@ -235,37 +260,45 @@ function gbp(pence) {
 
     .pack-hero-grid {
       display: grid;
-      grid-template-columns: minmax(0, 400px) 1fr;
-      gap: 56px;
+      grid-template-columns: 1fr 1fr;
+      gap: 52px;
       align-items: start;
     }
     @media (max-width: 980px) {
-      .pack-hero-grid { grid-template-columns: 1fr; gap: 32px; }
+      .pack-hero-grid { grid-template-columns: 1fr; gap: 28px; }
     }
 
-    .pack-cover { max-width: 400px; }
+    .pack-cover { max-width: 100%; }
     .pack-cover-frame {
       aspect-ratio: 4 / 5;
       background: rgba(var(--violet-rgb), 0.08);
       overflow: hidden;
       border-radius: 2px;
+      border: 1px solid #fff;
+      box-shadow: 0 2px 14px -6px rgba(28,29,34,0.22);
     }
     .pack-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    /* Scroll-through strip of the pack's other gallery images. */
+    /* Scroll-through strip — spans the full width of the main image, thumbs
+       stretched evenly so they line up edge-to-edge with the hero. */
     .pack-hero-thumbs {
-      display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      gap: 12px;
+      margin-top: 22px;
     }
     .pack-hero-thumb {
-      width: 62px; height: 78px; padding: 0; flex: none;
-      border: 1px solid rgba(28,29,34,0.14); border-radius: 2px;
+      aspect-ratio: 4 / 5; padding: 0;
+      border: 1px solid #fff; border-radius: 2px;
+      box-shadow: 0 1px 8px -4px rgba(28,29,34,0.2);
       overflow: hidden; background: none; cursor: pointer;
-      opacity: 0.62; transition: opacity 0.2s, border-color 0.2s;
+      opacity: 0.66; transition: opacity 0.2s, box-shadow 0.2s;
     }
     .pack-hero-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pack-hero-thumb:hover { opacity: 1; }
-    .pack-hero-thumb.is-active { opacity: 1; border-color: var(--english-violet); }
-    @media (max-width: 980px) {
-      .pack-cover { max-width: 100%; }
+    .pack-hero-thumb.is-active {
+      opacity: 1;
+      box-shadow: 0 0 0 2px var(--english-violet), 0 1px 8px -4px rgba(28,29,34,0.2);
     }
     .pack-cover-empty {
       width: 100%; height: 100%;
@@ -275,47 +308,49 @@ function gbp(pence) {
       color: rgba(28,29,34,0.4);
     }
 
-    .pack-info { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; }
+    .pack-info { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
     .pack-cat {
       font-family: var(--sans); font-size: 11px;
-      font-weight: 700; letter-spacing: 0.22em;
+      font-weight: 700; letter-spacing: 0.24em;
       text-transform: uppercase;
       color: var(--english-violet);
     }
     .pack-title {
       font-family: var(--serif); font-weight: 400;
-      font-size: clamp(40px, 5vw, 64px);
-      line-height: 1.02; letter-spacing: -0.018em;
+      font-size: clamp(30px, 3.4vw, 44px);
+      line-height: 1.06; letter-spacing: -0.02em;
       color: var(--ink); margin: 0;
     }
     .pack-stand {
-      font-family: var(--serif); font-style: italic;
-      font-size: clamp(14px, 1.2vw, 16.5px);
-      line-height: 1.35;
-      color: rgba(28,29,34,0.7);
-      margin: 6px 0 12px;
+      font-family: var(--sans); font-style: normal;
+      font-size: 15px;
+      line-height: 1.6;
+      color: rgba(28,29,34,0.65);
+      margin: 4px 0 10px; max-width: 52ch;
     }
 
     .pack-pricerow {
-      display: flex; align-items: baseline; gap: 14px;
-      padding: 18px 0;
+      display: flex; align-items: baseline; gap: 12px;
+      padding: 16px 0;
       border-top: 1px solid rgba(28,29,34,0.12);
       border-bottom: 1px solid rgba(28,29,34,0.12);
-      margin: 12px 0;
+      margin: 10px 0;
     }
     .pack-price {
       font-family: var(--serif); font-weight: 500;
-      font-size: 40px;
+      font-size: 30px;
       color: var(--ink);
     }
     .pack-vat {
-      font-family: var(--sans); font-size: 12px;
-      letter-spacing: 0.16em; text-transform: uppercase;
+      font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
       color: rgba(28,29,34,0.5);
     }
     .pack-buy {
       align-self: flex-start;
-      padding: 16px 28px;
+      padding: 15px 26px;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
     }
 
     .pack-contents {
@@ -329,7 +364,7 @@ function gbp(pence) {
       display: flex; flex-direction: column; gap: 8px;
     }
     .pack-contents li {
-      font-family: var(--sans); font-size: 14px;
+      font-family: var(--sans); font-size: 13.5px;
       line-height: 1.55;
       color: rgba(28,29,34,0.78);
       padding-left: 22px;
@@ -354,26 +389,34 @@ function gbp(pence) {
     .pack-previews-head .eyebrow { margin-bottom: 8px; }
     .pack-previews-head h2 {
       font-family: var(--serif); font-weight: 400;
-      font-size: clamp(28px, 3vw, 40px);
-      letter-spacing: -0.012em;
+      font-size: clamp(22px, 2.4vw, 30px);
+      letter-spacing: -0.018em;
       margin: 0; color: var(--ink);
     }
     .pack-previews-hint {
-      font-family: var(--serif); font-style: italic;
-      font-size: 17px; color: rgba(28,29,34,0.6);
-      margin: 0; max-width: 36ch; text-align: right;
+      font-family: var(--sans); font-style: normal;
+      font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.6);
+      margin: 0; white-space: nowrap; text-align: right;
+    }
+    @media (max-width: 720px) {
+      .pack-previews-hint { white-space: normal; text-align: left; }
     }
 
     .pack-tpl-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 14px;
     }
+    @media (max-width: 1100px) { .pack-tpl-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 720px)  { .pack-tpl-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 460px)  { .pack-tpl-grid { grid-template-columns: repeat(2, 1fr); } }
     .pack-tpl {
       position: relative;
       margin: 0;
       background: rgba(var(--violet-rgb),0.06);
       border-radius: 2px;
+      border: 1px solid #fff;
+      box-shadow: 0 1px 8px -5px rgba(28,29,34,0.2);
       overflow: hidden;
       transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
     }
@@ -440,20 +483,20 @@ function gbp(pence) {
     }
     .pack-tpl-empty { width: 100%; aspect-ratio: 3/4; background: rgba(28,29,34,0.06); }
     .pack-tpl figcaption {
-      padding: 10px 12px 12px;
+      padding: 8px 10px 10px;
       background: var(--paper);
-      display: flex; flex-direction: column; gap: 3px;
+      display: flex; flex-direction: column; gap: 2px;
     }
     .pack-tpl-cat {
-      font-family: var(--sans); font-size: 10px;
-      font-weight: 700; letter-spacing: 0.22em;
+      font-family: var(--sans); font-size: 9.5px;
+      font-weight: 700; letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--english-violet);
     }
     /* Standard-copy title in Darker Grotesque, bold — keeps the caption compact
        so the template thumbnail is the star (was an oversized serif). */
     .pack-tpl-name {
-      font-family: var(--sans); font-weight: 700; font-size: 14px;
+      font-family: var(--sans); font-weight: 700; font-size: 13px;
       line-height: 1.3; color: var(--ink);
     }
 
@@ -485,26 +528,26 @@ function gbp(pence) {
     .pack-unlock-cta {
       display: grid;
       grid-template-columns: 1fr auto;
-      align-items: center;
+      align-items: end;
       gap: 32px;
       margin-top: 48px;
-      padding: 36px 40px;
+      padding: 26px 40px;
       background: var(--ink);
       color: var(--paper);
       border-radius: 3px;
     }
     @media (max-width: 720px) {
-      .pack-unlock-cta { grid-template-columns: 1fr; padding: 28px 24px; }
+      .pack-unlock-cta { grid-template-columns: 1fr; align-items: start; padding: 24px; }
     }
     .pack-unlock-cta h3 {
-      font-family: var(--serif); font-weight: 400;
+      font-family: var(--subhead); font-style: italic; font-weight: 400;
       font-size: clamp(24px, 2.6vw, 32px);
       letter-spacing: -0.01em;
       color: var(--paper); margin: 0 0 6px;
     }
     .pack-unlock-cta p {
-      font-family: var(--serif); font-style: italic;
-      font-size: 16px; color: rgba(240,238,235,0.7);
+      font-family: var(--subhead); font-style: italic;
+      font-size: 17px; line-height: 1.4; color: rgba(240,238,235,0.72);
       margin: 0;
     }
     .pack-unlock-cta .btn {
@@ -512,8 +555,8 @@ function gbp(pence) {
       border-color: var(--paper);
     }
     .pack-unlock-cta .btn:hover {
-      background: var(--accent); color: var(--paper);
-      border-color: var(--accent);
+      background: #c9bcb7; color: var(--ink);
+      border-color: #c9bcb7;
     }
   </style>
 
