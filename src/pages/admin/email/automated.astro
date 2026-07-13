@@ -7,6 +7,9 @@ const clientCount = EMAIL_CATALOG.filter((e) => e.audience === "client").length;
 const internalCount = EMAIL_CATALOG.filter((e) => e.audience === "internal").length;
 const searchText = (e) => [e.name, e.subject, e.trigger, e.summary, e.group, e.fires, e.to].filter(Boolean).join(" ").toLowerCase();
 const AUD_LABEL = { client: "To client", internal: "Internal" };
+// Emails the Worker can render a live preview for (its real builder + sample data).
+// More are being added; the rest just show their catalogue details for now.
+const PREVIEWABLE = new Set(["post_reminder", "setup_reminder", "waitlist_register", "vid_booking_client", "vid_booking_team", "invoice_sent", "invoice_dd_reminder"]);
 ---
 
 <AdminShell active="email" title="Automated emails">
@@ -62,6 +65,9 @@ const AUD_LABEL = { client: "To client", internal: "Internal" };
                 )}
                 {e.editableToday && <p class="ae-flag is-good">✓ Already editable today — this one is an Email Studio template.</p>}
                 {e.external && <p class="ae-flag">↗ Managed outside the Worker (Supabase dashboard).</p>}
+                {PREVIEWABLE.has(e.id)
+                  ? <button type="button" class="ae-preview-btn" data-preview={e.id} data-name={e.name}>Preview email →</button>
+                  : (!e.editableToday && !e.external && <p class="ae-flag">👁 Live preview being added for this one.</p>)}
               </div>
             </div>
           ))}
@@ -69,6 +75,18 @@ const AUD_LABEL = { client: "To client", internal: "Internal" };
       );
     })}
   </section>
+  </div>
+
+  <div class="ae-modal" id="ae-modal" hidden>
+    <div class="ae-modal-scrim" id="ae-modal-scrim"></div>
+    <div class="ae-modal-card">
+      <div class="ae-modal-head">
+        <div class="ae-modal-hed"><div class="ae-modal-title" id="ae-modal-title">Preview</div><div class="ae-modal-subj" id="ae-modal-subj"></div></div>
+        <button type="button" class="ae-modal-x" id="ae-modal-x" aria-label="Close">&times;</button>
+      </div>
+      <div class="ae-modal-body"><p class="ae-modal-loading" id="ae-modal-loading">Rendering…</p><iframe id="ae-modal-frame" title="Email preview" hidden></iframe></div>
+      <div class="ae-modal-foot">Rendered with sample data — this is exactly what the system builds and sends.</div>
+    </div>
   </div>
 
   <style is:global>
@@ -116,6 +134,21 @@ const AUD_LABEL = { client: "To client", internal: "Internal" };
     .ae-tag { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; color: rgba(28,29,34,0.6); background: rgba(28,29,34,0.05); padding: 2px 8px; border-radius: 5px; }
     .ae-flag { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 14px 0 0; }
     .ae-flag.is-good { color: #2c7a4b; }
+    .ae-preview-btn { margin-top: 16px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--english-violet); background: transparent; color: var(--english-violet); border-radius: 6px; padding: 9px 15px; cursor: pointer; }
+    .ae-preview-btn:hover { background: var(--english-violet); color: #fff; }
+
+    .ae-modal { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .ae-modal[hidden] { display: none; }
+    .ae-modal-scrim { position: absolute; inset: 0; background: rgba(20,18,26,0.45); }
+    .ae-modal-card { position: relative; width: 680px; max-width: 96vw; max-height: 90vh; background: #fff; border-radius: 14px; box-shadow: 0 30px 80px -30px rgba(20,18,26,0.6); display: flex; flex-direction: column; overflow: hidden; }
+    .ae-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ae-modal-title { font-family: var(--sans); font-size: 15px; font-weight: 700; color: var(--ink); }
+    .ae-modal-subj { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 3px; }
+    .ae-modal-x { border: 0; background: none; font-size: 24px; line-height: 1; color: rgba(28,29,34,0.4); cursor: pointer; }
+    .ae-modal-body { flex: 1; min-height: 0; overflow: auto; background: #f4f2f1; padding: 18px; }
+    .ae-modal-loading { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); text-align: center; padding: 40px 0; }
+    #ae-modal-frame { width: 100%; height: 60vh; border: 0; background: #fff; border-radius: 8px; box-shadow: 0 1px 6px rgba(20,18,26,0.12); }
+    .ae-modal-foot { padding: 11px 20px; border-top: 1px solid rgba(28,29,34,0.08); font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.5); }
   </style>
 
   <script>
@@ -159,5 +192,35 @@ const AUD_LABEL = { client: "To client", internal: "Internal" };
       filter = c.getAttribute("data-filter"); apply();
     }));
     search.addEventListener("input", () => { q = (search.value || "").trim().toLowerCase(); apply(); });
+
+    // ---- Live preview (renders the real email via the Worker, sample data) ----
+    import { supabase } from "../../../lib/supabase.js";
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const modal = document.getElementById("ae-modal");
+    const frame = document.getElementById("ae-modal-frame");
+    const mLoading = document.getElementById("ae-modal-loading");
+    const mTitle = document.getElementById("ae-modal-title");
+    const mSubj = document.getElementById("ae-modal-subj");
+    function closeModal() { modal.hidden = true; frame.hidden = true; frame.srcdoc = ""; }
+    document.getElementById("ae-modal-x").addEventListener("click", closeModal);
+    document.getElementById("ae-modal-scrim").addEventListener("click", closeModal);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
+    document.querySelectorAll("[data-preview]").forEach((btn) => btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-preview");
+      mTitle.textContent = btn.getAttribute("data-name") || "Preview";
+      mSubj.textContent = ""; frame.hidden = true; mLoading.hidden = false; mLoading.textContent = "Rendering…";
+      modal.hidden = false;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data && data.session && data.session.access_token;
+        if (!WORKER || !token) { mLoading.textContent = "Please sign in (or set the Worker URL)."; return; }
+        const res = await fetch(`${WORKER}/email/preview?id=${encodeURIComponent(id)}`, { headers: { Authorization: "Bearer " + token } });
+        const j = await res.json().catch(() => ({}));
+        if (!j.ok || !j.supported) { mLoading.textContent = j.error || "No live preview for this one yet."; return; }
+        mSubj.textContent = "Subject: " + (j.subject || "");
+        frame.srcdoc = j.html || "";
+        mLoading.hidden = true; frame.hidden = false;
+      } catch (_) { mLoading.textContent = "Couldn't load the preview."; }
+    }));
   </script>
 </AdminShell>
