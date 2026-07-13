@@ -1,525 +1,252 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+
+// Same nine "what you can do in the hub" tiles as /join — brand placeholder
+// imagery; swap `img` for the final shots when ready.
+const TILES = [
+  { key: "Design",   a: "Create scroll-stopping content in the Studio.", b: "Templates, tools and your brand kit, ready to go.", img: "/assets/personal-brand.jpg" },
+  { key: "Plan",     a: "Map out your month in one view.",                 b: "Schedule posts and never scramble for content.",     img: "/assets/home%20kitchen.jpg" },
+  { key: "Shop",     a: "Browse The Edit.",                                b: "Ready-made template packs for every moment.",         img: "/assets/bag.jpg" },
+  { key: "Learn",    a: "Guides and mini-courses.",                        b: "Sharpen your marketing, one lesson at a time.",       img: "/assets/shelve.png" },
+  { key: "Book",     a: "Discover our videography packages.",              b: "Book a shoot or discovery call.",                     img: "/assets/phone%20me.jpg" },
+  { key: "Track",    a: "See exactly what's working.",                     b: "Clear monthly SMM reports.",                          img: "/assets/social%20media.jpg" },
+  { key: "Manage",   a: "Everything in one place.",                        b: "Your orders, services and bookings at a glance.",     img: "/assets/home%20chair.jpg" },
+  { key: "Discover", a: "Explore what's possible.",                        b: "Fresh ideas and resources to keep you moving.",       img: "/assets/home%20forest.jpg" },
+];
 ---
 
 <BaseLayout
   dashboard
   title="Sign in — TMKE"
-  description="Sign in to access your purchased template packs and downloads."
+  description="Sign in to your TMKE Studio account — your all-in-one workspace for designing content, planning marketing and managing bookings."
   hideNav={true}
   hideFooter={true}
 >
-  <!-- Slide-up curtain that animates the user from /login to /edit -->
-  <div class="login-curtain" id="login-curtain" aria-hidden="true">
-    <div class="login-curtain-inner">
-      <div class="login-curtain-eyebrow">Now opening</div>
-      <div class="login-curtain-title">The Edit<span>.</span></div>
+  <main class="jn">
+    <header class="jn-top">
+      <a href="/" class="jn-top-back" aria-label="Back to site"><span aria-hidden="true">&larr;</span> Back</a>
+      <a href="/" class="jn-top-mark" aria-label="TMKE — home">TMKE</a>
+    </header>
+
+    <div class="jn-grid">
+      <!-- First cell: image + the chapter line + "Sign in", like the rest -->
+      <button type="button" class="jn-cell jn-cell--tile jn-cell--join" data-open aria-label="Sign in to your account">
+        <span class="jn-tile-inner">
+          <span class="jn-thumb">
+            <img class="jn-thumb-img" src="/assets/door-closed.png" alt="" loading="lazy" />
+          </span>
+          <span class="jn-cap">
+            <span class="jn-cap-key chapter">Sign in</span>
+            <span class="jn-cap-lines">
+              <span class="jn-cap-line">Sign in to your TMKE Studio account.</span>
+              <span class="jn-cap-line">All-in-one space to design and plan.</span>
+            </span>
+          </span>
+        </span>
+      </button>
+
+      {TILES.map((t) => (
+        <button type="button" class:list={["jn-cell", "jn-cell--tile", `jn-t-${t.key.toLowerCase()}`]} data-open aria-label={`${t.key} — sign in`}>
+          <span class="jn-tile-inner">
+            <span class="jn-thumb">
+              <img class="jn-thumb-img" src={t.img} alt="" loading="lazy" />
+            </span>
+            <span class="jn-cap">
+              <span class="jn-cap-key chapter">{t.key}</span>
+              <span class="jn-cap-lines">
+                <span class="jn-cap-line">{t.a}</span>
+                <span class="jn-cap-line">{t.b}</span>
+              </span>
+            </span>
+          </span>
+        </button>
+      ))}
     </div>
-  </div>
 
-  <main class="login-shell">
-    <div class="login-art" aria-hidden="true">
-      <div class="login-art-overlay"></div>
-      <div class="login-art-quote">
-        <div class="chapter chapter--light">Members &middot; Sign in</div>
-        <p class="login-art-line">
-          Your library, <em>your studio,</em><br />always to hand.
-        </p>
-        <p class="login-art-sub">
-          Every pack you've purchased — ready to open, edit and post.
-        </p>
-      </div>
-    </div>
+    <!-- Custom "Click to sign in" cursor (hover devices only) -->
+    <div class="jn-cursor" id="jn-cursor" aria-hidden="true"><span>[ Click to sign in ]</span></div>
 
-    <section class="login-panel">
-      <a href="/" class="login-mark">TMKE</a>
-      <a href="/" id="login-back" class="login-back" aria-label="Go back">
-        <span aria-hidden="true">&larr;</span> Back
-      </a>
+    <!-- Slide-out: the sign-in box -->
+    <div class="jn-drawer" id="jn-drawer" hidden aria-hidden="true">
+      <div class="jn-drawer-scrim" data-close></div>
+      <div class="jn-drawer-panel" role="dialog" aria-modal="true" aria-label="Sign in">
+        <button type="button" class="jn-drawer-x" data-close aria-label="Close">&times;</button>
+        <div class="chapter">Welcome back</div>
+        <h2 class="jn-form-title">Built for Better Marketing</h2>
+        <p class="jn-form-sub">Sign in to your account to access the Studio, your all-in-one workspace for designing content, planning your marketing, managing bookings, accessing resources, and getting more from your TMKE membership.</p>
 
-      <div class="login-card">
-        <div class="eyebrow">Welcome back</div>
-        <h1 class="login-title">Sign in to your library</h1>
-        <p class="login-sub">
-          Enter your details below. Don't have an account?
-          <a href="/edit" class="login-inline-anchor">Browse The Edit</a>.
-        </p>
-
-        <form id="login-form" class="login-form" novalidate>
-          <label class="login-field">
-            <span>Email</span>
-            <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" />
-          </label>
-
-          <label class="login-field">
-            <span>Password</span>
-            <input type="password" name="password" autocomplete="current-password" required placeholder="••••••••" />
-          </label>
-
-          <div class="login-row">
-            <label class="login-check">
-              <input type="checkbox" name="remember" checked />
-              <span>Keep me signed in</span>
-            </label>
-            <a href="/forgot-password" class="login-forgot">Forgot password?</a>
+        <form id="signin-form" class="jn-form" novalidate>
+          <label class="jn-field"><span>Email</span>
+            <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" /></label>
+          <label class="jn-field"><span>Password</span>
+            <input type="password" name="password" autocomplete="current-password" required placeholder="••••••••" /></label>
+          <div class="jn-row">
+            <label class="jn-check jn-check--inline"><input type="checkbox" name="remember" checked /><span>Keep me signed in</span></label>
+            <a href="/forgot-password" class="jn-forgot">Forgot password?</a>
           </div>
-
-          <button type="submit" class="btn btn--solid login-submit">
-            <span data-label>Sign in</span> <span class="btn-arrow">&rarr;</span>
-          </button>
-
-          <p id="login-error" class="login-error" hidden></p>
+          <button type="submit" class="btn btn--solid jn-submit"><span data-label>Sign in</span> <span class="btn-arrow">&rarr;</span></button>
+          <p id="signin-error" class="jn-error" hidden></p>
         </form>
 
-        <p class="login-hint">
-          New here? <a href="/join" class="login-inline-anchor js-nav-signup">Create a free account</a>
-          — or one's made for you automatically when you purchase a pack on
-          <a href="/edit" class="login-inline-anchor">The Edit</a>.
-        </p>
+        <p class="jn-alt">New here? <a href="/join" class="jn-link">Create a free account</a></p>
+        <p class="jn-alt jn-alt--shop">Visit <a href="/edit" class="jn-link">The Edit</a>, our social media template shop.</p>
       </div>
-
-      <p class="login-meta">© 2026 TMKE — The Marketing Experts</p>
-    </section>
+    </div>
   </main>
 
   <style>
-    main.login-shell {
-      display: grid;
-      grid-template-columns: 1.05fr 1fr;
-      min-height: 100vh;
-      background: #ffffff;
-    }
+    main.jn { --jn-line: rgba(28,29,34,0.12); background: var(--paper); min-height: 100vh; display: flex; flex-direction: column; }
 
-    .login-art {
-      position: relative;
-      overflow: hidden;
-      background:
-        linear-gradient(180deg, rgba(28,29,34,0.2), rgba(28,29,34,0.7)),
-        url("/assets/Home-window.jpg") center/cover no-repeat;
-      color: var(--paper);
-    }
-    .login-art-overlay {
-      position: absolute; inset: 0;
-      background:
-        radial-gradient(80% 60% at 50% 40%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.35) 100%);
-      pointer-events: none;
-    }
-    .login-art-quote {
-      position: absolute;
-      inset: auto 40px 44px 40px;
-      padding: 40px 44px 44px;
-      background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.55);
-      border-radius: 18px;
-    }
-    .login-art-quote .chapter { margin-bottom: 48px; }
-    .login-art-line {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(40px, 4.4vw, 68px);
-      line-height: 1.05;
-      letter-spacing: -0.015em;
-      margin: 0 0 18px;
-      color: var(--paper);
-      max-width: 12ch;
-    }
-    .login-art-line em { font-style: italic; color: var(--french-grey); }
-    .login-art-sub {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 20px;
-      line-height: 1.45;
-      color: rgba(240, 238, 235, 0.72);
-      max-width: 38ch;
-    }
+    /* ---- Top bar (minimal, mukko-style) ---- */
+    .jn-top { display: flex; align-items: center; justify-content: space-between; padding: 16px clamp(18px, 2.4vw, 34px); flex: none; }
+    .jn-top-back { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .jn-top-back:hover { color: var(--ink); }
+    .jn-top-mark { font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em; color: var(--ink); }
 
-    .login-panel {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 36px;
-      background: #ffffff;
-    }
-    .login-mark {
-      position: absolute;
-      top: 32px;
-      left: 36px;
-      font-family: var(--serif);
-      font-size: 24px;
-      letter-spacing: 0.06em;
-      color: var(--ink);
-    }
+    /* ---- The full-page grid ---- */
+    .jn-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--jn-line); border-left: 1px solid var(--jn-line); }
+    .jn-cell { border-right: 1px solid var(--jn-line); border-bottom: 1px solid var(--jn-line); min-height: clamp(320px, 36vh, 440px); position: relative; }
 
-    /* Back link — mirrors the wordmark in the opposite corner. */
-    .login-back {
-      position: absolute;
-      top: 32px;
-      right: 36px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 16px;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--ink);
-      background: #ffffff;
-      border: 1px solid rgba(28, 29, 34, 0.16);
-      border-radius: 999px;
-      text-decoration: none;
-      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.25s;
-    }
-    .login-back:hover {
-      background: var(--english-violet);
-      color: var(--paper);
-      border-color: var(--english-violet);
-      transform: translateX(-2px);
-    }
+    /* Custom "Click to sign in" cursor that follows the mouse over the grid */
+    .jn-cursor { position: fixed; top: 0; left: 0; z-index: 2500; pointer-events: none; opacity: 0; transition: opacity 0.18s ease; }
+    .jn-cursor.is-on { opacity: 1; }
+    .jn-cursor span { position: absolute; transform: translate(-50%, -50%); color: var(--english-violet); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; }
+    .jn.jn-has-cursor .jn-grid, .jn.jn-has-cursor .jn-cell--tile { cursor: none; }
+    @media (hover: none) { .jn-cursor { display: none; } }
 
-    .login-card {
-      position: relative;
-      width: 100%;
-      max-width: 460px;
-      padding: 44px 44px 40px;
-      /* Clean welcome-back card — white, one hairline, a soft lift. */
-      background: #ffffff;
-      border: 1px solid rgba(28, 29, 34, 0.12);
-      border-radius: 16px;
-      box-shadow: 0 24px 60px -38px rgba(28, 29, 34, 0.3);
-    }
-    .login-card .eyebrow {
-      margin-bottom: 14px;
-      color: var(--english-violet);
-    }
-    .login-inline-anchor {
-      color: var(--english-violet);
-      border-bottom: 1px solid color-mix(in srgb, var(--english-violet) 45%, transparent);
-      transition: color 0.2s, border-color 0.2s;
-    }
-    .login-inline-anchor:hover { color: var(--ink); border-bottom-color: var(--ink); }
-    .login-title {
-      font-family: var(--serif);
-      font-weight: 400;
-      font-size: clamp(36px, 3.6vw, 52px);
-      line-height: 1.05;
-      letter-spacing: -0.015em;
-      color: var(--ink);
-      margin: 0 0 18px;
-    }
-    .login-title::after {
-      /* A tiny plum full-stop after the title. */
-      content: ".";
-      color: var(--english-violet);
-    }
-    .login-sub {
-      font-size: 15px;
-      color: rgba(28, 29, 34, 0.62);
-      margin: 0 0 36px;
-    }
-    .login-inline-link {
-      color: var(--english-violet);
-      border-bottom: 1px solid currentColor;
-    }
+    /* Image tile — image sits SMALL and centred; caption left-aligned to it. */
+    .jn-cell--tile { display: flex; align-items: center; justify-content: center; padding: 30px 24px; cursor: pointer; background: none; }
+    .jn-tile-inner { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; width: min(66%, 210px); }
+    .jn-thumb { position: relative; width: 85%; aspect-ratio: 1080 / 1440; overflow: visible; }
+    .jn-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; will-change: filter; transition: filter 0.5s ease, opacity 0.5s ease; }
+    .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: blur(11px); opacity: 0.5; }
+    .jn-cap { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; width: 100%; }
+    .jn-cap-key { margin: 0; color: var(--english-violet); }
+    .jn-cap-lines { display: flex; flex-direction: column; gap: 2px; opacity: 0; transition: opacity 0.35s ease; }
+    .jn-cell--tile:hover .jn-cap-lines, .jn-cell--tile:focus-visible .jn-cap-lines { opacity: 1; }
+    .jn-cap-line { font-family: var(--sans); font-size: 12px; line-height: 1.2; color: rgba(28,29,34,0.6); }
+    .jn-cell--tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: -2px; }
 
-    .login-form { display: flex; flex-direction: column; gap: 18px; }
-    .login-field { display: flex; flex-direction: column; gap: 8px; }
-    .login-field > span {
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: rgba(28, 29, 34, 0.55);
-    }
-    .login-field input {
-      font-family: var(--sans);
-      font-size: 16px;
-      padding: 14px 16px;
-      border: 1px solid rgba(28, 29, 34, 0.14);
-      border-radius: 8px;
-      background: #fff;
-      color: var(--ink);
-      transition: border-color 0.25s, box-shadow 0.2s;
-    }
-    .login-field input:hover { border-color: rgba(28, 29, 34, 0.28); }
-    .login-field input:focus {
-      outline: none;
-      border-color: var(--english-violet);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--english-violet) 14%, transparent);
-    }
+    /* ---- Slide-out sign-in ---- */
+    .jn-drawer { position: fixed; inset: 0; z-index: 3000; }
+    .jn-drawer[hidden] { display: none; }
+    .jn-drawer-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.5); opacity: 0; transition: opacity 0.28s ease; }
+    .jn-drawer.is-open .jn-drawer-scrim { opacity: 1; }
+    .jn-drawer-panel { position: absolute; top: 0; right: 0; height: 100%; width: clamp(400px, 50vw, 720px); background: var(--paper); box-shadow: -18px 0 60px rgba(28,29,34,0.3); padding: 84px clamp(30px, 3.2vw, 52px) 48px; overflow-y: auto; transform: translateX(100%); transition: transform 0.34s cubic-bezier(0.22,0.61,0.36,1); }
+    .jn-drawer.is-open .jn-drawer-panel { transform: translateX(0); }
+    .jn-drawer-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: rgba(28,29,34,0.55); font-size: 22px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .jn-drawer-x:hover { color: var(--ink); }
+    .jn-drawer-panel .chapter { margin-bottom: 36px; }
+    .jn-form-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 36px); line-height: 1.05; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 12px; }
+    .jn-form-sub { font-family: var(--sans); font-size: 14px; font-weight: 500; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 44px; }
+    .jn-form { display: flex; flex-direction: column; gap: 14px; }
+    .jn-field { display: flex; flex-direction: column; gap: 7px; }
+    .jn-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .jn-field input { font-family: var(--sans); font-size: 16px; padding: 13px 15px; border: 1px solid rgba(28,29,34,0.18); border-radius: 3px; background: #fff; color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s; }
+    .jn-field input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.12); }
+    .jn-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+    .jn-check { display: flex; align-items: flex-start; gap: 10px; font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: rgba(28,29,34,0.62); cursor: pointer; }
+    .jn-check--inline { align-items: center; margin-top: 0; }
+    .jn-check input { width: 17px; height: 17px; flex: none; accent-color: var(--english-violet); }
+    .jn-forgot { font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: rgba(28,29,34,0.55); white-space: nowrap; }
+    .jn-forgot:hover { color: var(--english-violet); }
+    .jn-submit { width: 100%; justify-content: center; padding: 15px; margin-top: 10px; }
+    .jn-error { font-family: var(--sans); font-size: 13px; color: #a05a3c; background: rgba(160,90,60,0.08); padding: 10px 13px; border-radius: 3px; margin: 2px 0 0; }
+    .jn-alt { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); text-align: center; margin: 22px 0 0; }
+    .jn-alt--shop { margin-top: 6px; }
+    .jn-link { color: var(--english-violet); font-weight: 700; border-bottom: 1px solid currentColor; }
 
-    .login-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
-      color: rgba(28, 29, 34, 0.7);
+    /* ---- Responsive ---- */
+    @media (max-width: 860px) {
+      .jn-grid { grid-template-columns: repeat(2, 1fr); }
     }
-    .login-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
-    .login-check input { accent-color: var(--english-violet); }
-    .login-forgot {
-      color: var(--english-violet);
-      font-weight: 600;
-      transition: color 0.2s;
-    }
-    .login-forgot:hover { color: var(--ink); text-decoration: underline; }
-
-    /* Submit — solid violet button, no halo. */
-    .login-submit {
-      width: 100%;
-      justify-content: center;
-      padding: 16px;
-      margin-top: 8px;
-      background: var(--english-violet);
-      color: var(--paper);
-      border: 1px solid var(--english-violet);
-      border-radius: 8px;
-      letter-spacing: 0.12em;
-      box-shadow: 0 12px 26px -14px color-mix(in srgb, var(--english-violet) 70%, transparent);
-      transition: transform 0.25s, box-shadow 0.25s, background 0.25s, border-color 0.25s;
-      position: relative;
-      overflow: hidden;
-    }
-    .login-submit, .login-submit:hover { color: var(--paper); }
-    .login-submit:hover {
-      transform: translateY(-1px);
-      background: color-mix(in srgb, var(--english-violet) 82%, #000);
-      border-color: color-mix(in srgb, var(--english-violet) 82%, #000);
-      box-shadow: 0 16px 32px -14px color-mix(in srgb, var(--english-violet) 70%, transparent);
-    }
-    .login-submit[disabled] {
-      filter: grayscale(0.2);
-      opacity: 0.8;
-      transform: none;
-      cursor: wait;
-      box-shadow: 0 6px 16px -10px rgba(var(--violet-rgb), 0.35);
-    }
-
-    .login-divider {
-      display: flex; align-items: center;
-      gap: 16px;
-      color: rgba(28, 29, 34, 0.4);
-      font-size: 12px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      margin: 8px 0;
-    }
-    .login-divider::before, .login-divider::after {
-      content: ""; flex: 1; height: 1px;
-      background: rgba(28, 29, 34, 0.12);
-    }
-
-    .login-sso {
-      width: 100%;
-      padding: 14px;
-      font-family: var(--sans);
-      font-weight: 600;
-      font-size: 14px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      background: transparent;
-      border: 1px solid rgba(28, 29, 34, 0.25);
-      border-radius: 1px;
-      cursor: pointer;
-      color: var(--ink);
-      transition: background 0.3s, border-color 0.3s;
-    }
-    .login-sso:hover {
-      background: rgba(var(--violet-rgb), 0.06);
-      border-color: var(--english-violet);
-    }
-
-    .login-error {
-      font-size: 13px;
-      color: #a05a3c;
-      background: linear-gradient(135deg, rgba(232,155,123,0.18), rgba(232,155,123,0.08));
-      border: 1px solid rgba(232,155,123,0.35);
-      padding: 10px 14px;
-      border-radius: 10px;
-      margin: 0;
-    }
-
-    .login-hint {
-      font-size: 12px;
-      color: rgba(28, 29, 34, 0.62);
-      line-height: 1.55;
-      margin: 24px 0 0;
-      padding: 18px 18px 16px;
-      /* A whisper of warm grey with a hairline, just enough to set it apart. */
-      background: #faf9f8;
-      border: 1px solid rgba(28, 29, 34, 0.10);
-      border-radius: 10px;
-    }
-    .login-hint strong { color: var(--english-violet); font-weight: 700; }
-    .login-hint em { font-style: italic; color: rgba(28, 29, 34, 0.72); }
-
-    .login-meta {
-      position: absolute;
-      bottom: 32px;
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: rgba(28, 29, 34, 0.35);
-    }
-
-    @media (max-width: 900px) {
-      main.login-shell { grid-template-columns: 1fr; }
-      .login-art { display: none; }
-    }
-
-    /* ============ Browse-packs slide-up curtain ============ */
-    .login-curtain {
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: var(--paper);
-      transform: translateY(100%);
-      transition: transform 0.85s cubic-bezier(.7,0,.2,1);
-      pointer-events: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .login-curtain::before {
-      content: "";
-      position: absolute; inset: 0;
-      background:
-        linear-gradient(180deg, rgba(28,29,34,0.18), rgba(28,29,34,0.55)),
-        url("https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=2000&q=80") center/cover;
-      opacity: 0;
-      transition: opacity 0.6s 0.2s ease-out;
-    }
-    .login-curtain.is-up {
-      transform: translateY(0);
-      pointer-events: auto;
-    }
-    .login-curtain.is-up::before { opacity: 1; }
-    .login-curtain-inner {
-      position: relative;
-      z-index: 1;
-      text-align: center;
-      color: var(--paper);
-      opacity: 0;
-      transform: translateY(28px);
-      transition: opacity 0.6s 0.45s ease-out, transform 0.6s 0.45s cubic-bezier(.2,.7,.2,1);
-    }
-    .login-curtain.is-up .login-curtain-inner {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .login-curtain-eyebrow {
-      font-family: var(--sans);
-      font-size: 12px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      font-weight: 700;
-      margin-bottom: 24px;
-      opacity: 0.7;
-    }
-    .login-curtain-title {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(56px, 9vw, 132px);
-      letter-spacing: -0.02em;
-      line-height: 1;
-    }
-    .login-curtain-title span {
-      background: var(--gradient-violet);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+    @media (max-width: 640px) {
+      /* Mobile: clean 2-column grid — image + title only, no body text, no blur;
+         drop Discover so it's an even 8. */
+      .jn-grid { grid-template-columns: repeat(2, 1fr); }
+      .jn-t-discover { display: none; }
+      .jn-cell { min-height: clamp(200px, 44vw, 280px); }
+      .jn-cell--tile { padding: 24px 16px; }
+      .jn-tile-inner { width: min(82%, 150px); gap: 12px; }
+      .jn-cap-lines { display: none; }
+      .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: none; opacity: 1; }
+      .jn-drawer-panel { width: 100vw; }
     }
   </style>
 
   <script>
     import { supabase } from "../lib/supabase.js";
 
-    const form = document.getElementById("login-form");
-    const errorEl = document.getElementById("login-error");
+    const drawer = document.getElementById("jn-drawer");
+    const form = document.getElementById("signin-form");
+    const errEl = document.getElementById("signin-error");
+    let lastFocus = null;
 
-    // ---- Post-auth routing ----
+    // ---- Post-auth routing (next param, else the dashboard via the splash) ----
     function routeAfterSignIn() {
       const nextParam = new URLSearchParams(location.search).get("next");
-      // Members land straight on the dashboard (not the brand kit).
       const dest = nextParam || "/dashboard";
-      if (typeof window.tmkeSplash === "function") {
-        window.tmkeSplash(dest);
-      } else {
-        window.location.href = dest;
-      }
+      if (typeof window.tmkeSplash === "function") window.tmkeSplash(dest);
+      else window.location.href = dest;
     }
 
-    // If already signed in, skip the form.
+    // Already signed in? Skip straight through.
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) routeAfterSignIn();
     })();
 
-    function showError(msg) {
-      errorEl.textContent = msg;
-      errorEl.hidden = false;
+    function openDrawer() {
+      document.getElementById("jn-cursor")?.classList.remove("is-on");
+      lastFocus = document.activeElement;
+      errEl.hidden = true;
+      drawer.hidden = false; drawer.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => drawer.classList.add("is-open"));
+      document.body.style.overflow = "hidden";
+      setTimeout(() => { const f = form.querySelector('input[name="email"]'); if (f) f.focus(); }, 80);
     }
-    function setBtnLoading(btn, isLoading, loadingText) {
-      const label = btn.querySelector("[data-label]");
-      if (!btn._origText) btn._origText = label ? label.textContent : btn.textContent;
-      if (isLoading) {
-        btn.setAttribute("disabled", "true");
-        if (label) label.textContent = loadingText;
-      } else {
-        btn.removeAttribute("disabled");
-        if (label) label.textContent = btn._origText;
-      }
+    function closeDrawer() {
+      drawer.classList.remove("is-open"); drawer.setAttribute("aria-hidden", "true");
+      setTimeout(() => { drawer.hidden = true; }, 320);
+      document.body.style.overflow = "";
+      if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (_) {} }
+    }
+
+    document.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", openDrawer));
+    document.addEventListener("click", (e) => { if (e.target.closest("[data-close]")) closeDrawer(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer.classList.contains("is-open")) closeDrawer(); });
+
+    // Custom "Click to sign in" cursor over the grid (fine-pointer devices only).
+    const jnMain = document.querySelector(".jn");
+    const jnGrid = document.querySelector(".jn-grid");
+    const jnCursor = document.getElementById("jn-cursor");
+    if (jnMain && jnGrid && jnCursor && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      jnMain.classList.add("jn-has-cursor");
+      jnGrid.addEventListener("mousemove", (e) => {
+        jnCursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+        if (!drawer.classList.contains("is-open")) jnCursor.classList.add("is-on");
+      });
+      jnGrid.addEventListener("mouseleave", () => jnCursor.classList.remove("is-on"));
     }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      errorEl.hidden = true;
+      errEl.hidden = true;
       const data = new FormData(form);
       const email = String(data.get("email") || "").trim();
       const password = String(data.get("password") || "").trim();
-      if (!email || !password) {
-        showError("Enter an email and password to sign in.");
-        return;
-      }
+      if (!email || !password) { errEl.textContent = "Enter an email and password to sign in."; errEl.hidden = false; return; }
       const btn = form.querySelector('button[type="submit"]');
-      setBtnLoading(btn, true, "Signing in…");
+      const label = btn.querySelector("[data-label]");
+      const orig = label.textContent;
+      btn.setAttribute("disabled", "true"); label.textContent = "Signing in…";
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setBtnLoading(btn, false);
-        showError(error.message);
+        btn.removeAttribute("disabled"); label.textContent = orig;
+        errEl.textContent = error.message; errEl.hidden = false;
         return;
       }
       routeAfterSignIn();
-    });
-
-    // Back button — return to previous page if we have history,
-    // otherwise fall back to home. Avoids dead-ending on a fresh tab.
-    const backLink = document.getElementById("login-back");
-    if (backLink) {
-      backLink.addEventListener("click", (e) => {
-        if (history.length > 1 && document.referrer && new URL(document.referrer).origin === location.origin) {
-          e.preventDefault();
-          history.back();
-        }
-        // else: anchor's href="/" handles it
-      });
-    }
-
-    // Slide-up curtain when the user taps a "Browse The Edit" inline link.
-    // Gives the hand-off from sign-in to shop a deliberate theatrical feel.
-    const curtain = document.getElementById("login-curtain");
-    document.querySelectorAll('a[href="/edit"].login-inline-anchor').forEach((a) => {
-      a.addEventListener("click", (e) => {
-        if (!curtain) return; // graceful fallback to normal navigation
-        e.preventDefault();
-        curtain.classList.add("is-up");
-        document.documentElement.style.overflow = "hidden";
-        setTimeout(() => { window.location.href = "/edit"; }, 1100);
-      });
     });
   </script>
 </BaseLayout>
