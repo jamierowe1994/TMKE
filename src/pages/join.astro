@@ -30,9 +30,12 @@ const TILES = [
     </header>
 
     <div class="jn-grid">
-      <!-- First cell: just the chapter line + "Join", in the tile style -->
+      <!-- First cell: image + the chapter line + "Join", like the rest -->
       <button type="button" class="jn-cell jn-cell--tile jn-cell--join" data-signup-open aria-label="Create your account">
         <span class="jn-tile-inner">
+          <span class="jn-thumb">
+            <img class="jn-thumb-img" src="/assets/doors-open.png" alt="" loading="lazy" />
+          </span>
           <span class="jn-cap"><span class="jn-cap-key chapter">Join</span></span>
         </span>
       </button>
@@ -113,9 +116,11 @@ const TILES = [
        hovering never nudges the layout. */
     .jn-cell--tile { display: flex; align-items: center; justify-content: center; padding: 30px 24px; cursor: pointer; background: none; }
     .jn-tile-inner { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; width: min(66%, 210px); }
-    .jn-thumb { position: relative; width: 100%; aspect-ratio: 1080 / 1440; overflow: hidden; }
+    /* overflow visible so the hover blur feathers softly past the edges (a
+       natural, shadow-like fuzz) rather than clipping to a hard rectangle. */
+    .jn-thumb { position: relative; width: 100%; aspect-ratio: 1080 / 1440; overflow: visible; }
     .jn-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 0.5s ease, opacity 0.5s ease; }
-    .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: blur(7px); opacity: 0.42; }
+    .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: blur(11px); opacity: 0.5; }
     .jn-cap { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; width: 100%; }
     .jn-cap-key { margin: 0; color: var(--english-violet); }
     .jn-cap-lines { display: flex; flex-direction: column; gap: 4px; opacity: 0; transition: opacity 0.35s ease; }
@@ -123,22 +128,19 @@ const TILES = [
     .jn-cap-line { font-family: var(--sans); font-size: 12px; line-height: 1.45; color: rgba(28,29,34,0.6); }
     .jn-cell--tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: -2px; }
 
-    /* First "Join" cell — just the chapter line + word, no image */
-    .jn-cell--join .jn-tile-inner { justify-content: center; }
-    .jn-cell--join .jn-cap-key { font-size: 13px; }
 
     /* ---- Slide-out sign-up ---- */
     .jn-drawer { position: fixed; inset: 0; z-index: 3000; }
     .jn-drawer[hidden] { display: none; }
     .jn-drawer-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.5); opacity: 0; transition: opacity 0.28s ease; }
     .jn-drawer.is-open .jn-drawer-scrim { opacity: 1; }
-    .jn-drawer-panel { position: absolute; top: 0; right: 0; height: 100%; width: clamp(400px, 50vw, 720px); background: var(--paper); box-shadow: -18px 0 60px rgba(28,29,34,0.3); padding: 44px clamp(30px, 3.2vw, 52px); overflow-y: auto; transform: translateX(100%); transition: transform 0.34s cubic-bezier(0.22,0.61,0.36,1); }
+    .jn-drawer-panel { position: absolute; top: 0; right: 0; height: 100%; width: clamp(400px, 50vw, 720px); background: var(--paper); box-shadow: -18px 0 60px rgba(28,29,34,0.3); padding: 84px clamp(30px, 3.2vw, 52px) 48px; overflow-y: auto; transform: translateX(100%); transition: transform 0.34s cubic-bezier(0.22,0.61,0.36,1); }
     .jn-drawer.is-open .jn-drawer-panel { transform: translateX(0); }
     .jn-drawer-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: rgba(28,29,34,0.55); font-size: 22px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
     .jn-drawer-x:hover { color: var(--ink); }
-    .jn-drawer-panel .chapter { margin-bottom: 16px; }
-    .jn-form-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 36px); line-height: 1.05; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 8px; }
-    .jn-form-sub { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 0 0 24px; }
+    .jn-drawer-panel .chapter { margin-bottom: 36px; }
+    .jn-form-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 36px); line-height: 1.05; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 12px; }
+    .jn-form-sub { font-family: var(--sans); font-size: 14px; font-weight: 500; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 44px; }
     .jn-form { display: flex; flex-direction: column; gap: 14px; }
     .jn-field { display: flex; flex-direction: column; gap: 7px; }
     .jn-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
