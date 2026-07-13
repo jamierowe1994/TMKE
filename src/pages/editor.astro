@@ -3848,6 +3848,35 @@ const googleFonts = [
         window.__TMKE_BRAND_FONTS__ = bf;
       }
     } catch (_) { /* fonts are optional — keep editor usable if fetch fails */ }
+
+    // ---- Member brand kit — the logged-in person's own colours / fonts / logos.
+    // Stored per user in member_brand_kits (RLS: own row only) so the Studio
+    // opens with THEIR kit on any device, not a stale browser-local one. This
+    // module runs before editor.js (top-level await blocks later modules), so
+    // writing the cache here means editor.js's loadBrand() reads the live kit.
+    // Applies to both member and admin logins — whoever is signed in gets their
+    // own kit. (Admin authoring mode still leaves {brand …} tokens unfilled.)
+    try {
+      const { data: { session: bkSession } } = await supabase.auth.getSession();
+      if (bkSession) {
+        const { data: bk } = await supabase
+          .from('member_brand_kits')
+          .select('kit')
+          .eq('user_id', bkSession.user.id)
+          .maybeSingle();
+        if (bk && bk.kit && typeof bk.kit === 'object' && Object.keys(bk.kit).length) {
+          let local = null;
+          try { local = JSON.parse(localStorage.getItem('tmke.brand') || 'null'); } catch (_) {}
+          const serverT = Number(bk.kit.updatedAt || 0);
+          const localT = Number((local && local.updatedAt) || 0);
+          // Server wins unless the browser cache is genuinely newer (edited on
+          // this device and not yet synced up).
+          if (!local || serverT >= localT) {
+            try { localStorage.setItem('tmke.brand', JSON.stringify(bk.kit)); } catch (_) {}
+          }
+        }
+      }
+    } catch (_) { /* brand kit is optional — keep the editor usable */ }
   </script>
 
   <!--
