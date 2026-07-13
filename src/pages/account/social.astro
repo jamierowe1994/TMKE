@@ -59,6 +59,7 @@ import "../../styles/account-sections.css";
     #soc-client, #soc-noclient { --violet-rgb: 55,30,40; }
     .soc-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 14px; padding: 20px 22px; margin-bottom: 22px; }
     .soc-h { font-family: var(--serif, Georgia, serif); font-size: 19px; color: var(--ink, #1c1d22); margin: 26px 0 12px; }
+    .soc-summary { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-left: 3px solid var(--english-violet, #371e28); border-radius: 12px; padding: 15px 18px; margin-bottom: 14px; font-family: var(--sans, sans-serif); font-size: 14px; line-height: 1.65; color: rgba(28,29,34,0.78); }
     .soc-plan-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
     .soc-plan-head h2 { font-family: var(--serif, Georgia, serif); font-size: 18px; color: var(--ink, #1c1d22); margin: 0; }
     .soc-status { font-family: var(--sans, sans-serif); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 11px; border-radius: 999px; background: rgba(60,150,90,0.14); color: #2e6b40; }
@@ -99,6 +100,7 @@ import "../../styles/account-sections.css";
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { renderTab, renderTrends, MONTHS } from "../../lib/report-insights.js";
+    import { resolveVisibility } from "../../lib/report-fields.js";
     import { DEMO_REPORTS } from "../../lib/report-insights-demo.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -106,7 +108,7 @@ import "../../styles/account-sections.css";
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-    let reports = [], curIdx = 0, tab = "overview";
+    let reports = [], curIdx = 0, tab = "overview", vis = resolveVisibility(null);
 
     function renderPlan(c) {
       const platforms = Array.isArray(c.platforms) && c.platforms.length ? c.platforms.map((p) => `<span class="soc-chip">${esc(p)}</span>`).join("") : "—";
@@ -125,10 +127,15 @@ import "../../styles/account-sections.css";
       if (!reports.length) { wrap.innerHTML = `<p class="smm-soon">Your first monthly report will appear here once we've published it.</p>`; return; }
       const cur = reports[curIdx];
       const months = reports.map((r, i) => `<button type="button" class="ri-month ${i === curIdx ? "is-active" : ""}" data-mi="${i}">${MONTHS[r.month]} ${r.year}</button>`).join("");
-      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"], ["trends", "Trends"]];
+      // Tabs the super-admin has chosen to evidence to clients.
+      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"]];
+      if (vis.priorities || vis.comingSoon) TABS.push(["actions", "Recommendations"]);
+      if (vis.trends) TABS.push(["trends", "Trends"]);
+      if (!TABS.some(([t]) => t === tab)) tab = "overview";
       const tabs = TABS.map(([t, label]) => `<button type="button" class="ri-subtab ${tab === t ? "is-active" : ""}" data-tab="${t}">${label}</button>`).join("");
-      const body = tab === "trends" ? renderTrends(reports.slice().reverse()) : renderTab(tab, cur.data, cur);
-      wrap.innerHTML = `<div class="ri-months">${months}</div><div class="ri-subtabs">${tabs}</div><div>${body}</div>`;
+      const summary = (vis.summary && cur.data && cur.data.summary) ? `<div class="soc-summary">${esc(cur.data.summary)}</div>` : "";
+      const body = tab === "trends" ? renderTrends(reports.slice().reverse()) : renderTab(tab, cur.data, cur, vis);
+      wrap.innerHTML = `<div class="ri-months">${months}</div>${summary}<div class="ri-subtabs">${tabs}</div><div>${body}</div>`;
       wrap.querySelectorAll("[data-mi]").forEach((b) => b.addEventListener("click", () => { curIdx = +b.getAttribute("data-mi"); renderInsights(); }));
       wrap.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.getAttribute("data-tab"); renderInsights(); }));
     }
@@ -137,6 +144,7 @@ import "../../styles/account-sections.css";
       $("soc-loading").hidden = true;
       if (!data || !data.client) { $("soc-noclient").hidden = false; return; }
       $("soc-client").hidden = false;
+      vis = resolveVisibility(data.visibility);
       renderPlan(data.client);
       reports = (data.reports || []).map((r) => ({ id: r.id, platform: r.platform, month: r.month, year: r.year, data: r.data }));
       curIdx = 0; renderInsights();

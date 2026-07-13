@@ -44,35 +44,46 @@ export function renderCard(r) {
 }
 
 // ---- Overview tab ----------------------------------------------------------
-export function renderOverview(d, r) {
+// `vis` (optional) = a { [fieldKey]: boolean } map from report-fields.js. When
+// present, any field set to false is omitted (used for the client-facing view);
+// when absent every field shows (admin view). Same pattern across the tabs.
+export function renderOverview(d, r, vis) {
+  const show = (k) => !vis || vis[k] !== false;
   const p = d.profile || {}, rc = d.reach || {};
-  const kpis = [
-    kpi("Total followers", p.followers != null ? Number(p.followers).toLocaleString() : "—", p.newFollowers ? "+" + p.newFollowers + " this month" : "", "#8a8796"),
-    kpi("Total reach", p.reach != null ? Number(p.reach).toLocaleString() : "—", p.reachChange ? "↑ " + Number(p.reachChange) + "%" : "", p.reachChange > 0 ? "#2c7a4b" : "#a05a3c"),
-    kpi("Total views", p.views != null ? Number(p.views).toLocaleString() : "—", "", "#8a8796"),
-    kpi("Interactions", p.interactions != null ? p.interactions : "—", "", "#8a8796"),
-    kpi("Interaction rate", p.interactionRate ? p.interactionRate + "%" : "—", p.interactionRate > 10 ? "Excellent ✓" : "Needs work", p.interactionRate > 10 ? "#2c7a4b" : "#9a6a04"),
-    kpi("Link taps", p.linkTaps != null ? p.linkTaps : "—", p.linkTaps === 0 ? "Needs attention" : "", p.linkTaps === 0 ? "#a05a3c" : "#8a8796"),
-  ].join("");
+  const kpiDefs = [
+    ["followers", () => kpi("Total followers", p.followers != null ? Number(p.followers).toLocaleString() : "—", show("newFollowers") && p.newFollowers ? "+" + p.newFollowers + " this month" : "", "#8a8796")],
+    ["reach", () => kpi("Total reach", p.reach != null ? Number(p.reach).toLocaleString() : "—", p.reachChange ? "↑ " + Number(p.reachChange) + "%" : "", p.reachChange > 0 ? "#2c7a4b" : "#a05a3c")],
+    ["views", () => kpi("Total views", p.views != null ? Number(p.views).toLocaleString() : "—", "", "#8a8796")],
+    ["interactions", () => kpi("Interactions", p.interactions != null ? p.interactions : "—", "", "#8a8796")],
+    ["interactionRate", () => kpi("Interaction rate", p.interactionRate ? p.interactionRate + "%" : "—", p.interactionRate > 10 ? "Excellent ✓" : "Needs work", p.interactionRate > 10 ? "#2c7a4b" : "#9a6a04")],
+    ["linkTaps", () => kpi("Link taps", p.linkTaps != null ? p.linkTaps : "—", p.linkTaps === 0 ? "Needs attention" : "", p.linkTaps === 0 ? "#a05a3c" : "#8a8796")],
+  ];
+  const kpis = kpiDefs.filter(([k]) => show(k)).map(([, f]) => f()).join("");
+  const overviewSec = kpis ? `<div class="ri-sec" style="margin-top:0;">Profile overview</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${kpis}</div>` : "";
+
   const maxR = Math.max(rc.reels || 0, rc.posts || 0, rc.stories || 0, rc.ads || 0, 1);
   const tot = (rc.nonFollower || 0) + (rc.follower || 0); const nfPct = tot ? Math.round((rc.nonFollower || 0) / tot * 100) : 0;
-  const split = (rc.organicReach != null || rc.paidReach != null)
+  const barsHtml = show("reachByFormat")
+    ? `<div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:12px;">Reach by format</div>${bar("Reels", rc.reels || 0, maxR, "#371e28")}${bar("Posts", rc.posts || 0, maxR, "#8a8796")}${bar("Stories", rc.stories || 0, maxR, "#c9c3c6")}${rc.ads ? bar("Ads (Paid)", rc.ads, maxR, "#b9826a") : ""}`
+    : "";
+  const tiles = [];
+  if (show("followerSplit")) {
+    tiles.push(`<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:18px;font-weight:700;color:#1c1d22;">${num(rc.nonFollower)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Non-follower reach</div><div style="font-size:10px;color:#b3adb0;">${nfPct}% of total</div></div>`);
+    tiles.push(`<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:18px;font-weight:700;color:#1c1d22;">${num(rc.follower)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Follower reach</div><div style="font-size:10px;color:#b3adb0;">${100 - nfPct}% of total</div></div>`);
+  }
+  if (show("ukFollowers") && p.ukFollowers) tiles.push(`<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:18px;font-weight:700;color:#1c1d22;">${num(p.ukFollowers)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">UK followers</div></div>`);
+  const tilesHtml = tiles.length ? `<div style="display:grid;grid-template-columns:repeat(${tiles.length},1fr);gap:8px;margin-top:${barsHtml ? "16px" : "0"};">${tiles.join("")}</div>` : "";
+  const split = (show("organicPaidReach") && (rc.organicReach != null || rc.paidReach != null))
     ? `<div style="margin-top:12px;padding-top:12px;border-top:.5px solid #e5e1e2;"><div style="font-size:11px;font-weight:700;color:#1c1d22;margin-bottom:8px;letter-spacing:.04em;">ORGANIC vs PAID SPLIT</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${rc.organicReach != null ? `<div style="background:#eef1f4;border-radius:8px;padding:10px 12px;border-left:3px solid #5b7a9a;"><div style="font-size:18px;font-weight:700;color:#3f5a75;">${num(rc.organicReach)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Organic reach</div>${rc.organicReach && rc.paidReach ? `<div style="font-size:10px;color:#b3adb0;">${Math.round(rc.organicReach / (rc.organicReach + rc.paidReach) * 100)}% of total</div>` : ""}</div>` : ""}${rc.paidReach != null ? `<div style="background:#f6efe9;border-radius:8px;padding:10px 12px;border-left:3px solid #b9826a;"><div style="font-size:18px;font-weight:700;color:#a56a4e;">${num(rc.paidReach)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Paid reach (Ads)</div>${rc.paidReach && rc.organicReach ? `<div style="font-size:10px;color:#b3adb0;">${Math.round(rc.paidReach / (rc.organicReach + rc.paidReach) * 100)}% of total</div>` : ""}</div>` : ""}</div></div>`
     : "";
-  return `<div class="ri-sec" style="margin-top:0;">Profile overview</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${kpis}</div>
-    <div class="ri-sec">Reach breakdown</div>
-    <div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:12px;">Reach by format</div>
-      ${bar("Reels", rc.reels || 0, maxR, "#371e28")}${bar("Posts", rc.posts || 0, maxR, "#8a8796")}${bar("Stories", rc.stories || 0, maxR, "#c9c3c6")}${rc.ads ? bar("Ads (Paid)", rc.ads, maxR, "#b9826a") : ""}
-      <div style="display:grid;grid-template-columns:1fr 1fr${p.ukFollowers ? " 1fr" : ""};gap:8px;margin-top:16px;">
-        <div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:18px;font-weight:700;color:#1c1d22;">${num(rc.nonFollower)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Non-follower reach</div><div style="font-size:10px;color:#b3adb0;">${nfPct}% of total</div></div>
-        <div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:18px;font-weight:700;color:#1c1d22;">${num(rc.follower)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Follower reach</div><div style="font-size:10px;color:#b3adb0;">${100 - nfPct}% of total</div></div>
-        ${p.ukFollowers ? `<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:18px;font-weight:700;color:#1c1d22;">${num(p.ukFollowers)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">UK followers</div></div>` : ""}
-      </div>${split}
-    </div>`;
+  const reachInner = barsHtml + tilesHtml + split;
+  const reachSec = reachInner ? `<div class="ri-sec"${overviewSec ? "" : ' style="margin-top:0;"'}>Reach breakdown</div><div class="ri-panel">${reachInner}</div>` : "";
+  return overviewSec + reachSec;
 }
 
 // ---- Content tab -----------------------------------------------------------
-export function renderContent(d) {
+export function renderContent(d, vis) {
+  const show = (k) => !vis || vis[k] !== false;
   const reels = d.reels || {}, posts = d.posts || {}, ads = d.ads || {};
   const hasAds = d.ads && (d.ads.reach || d.ads.interactions || d.ads.spend != null);
   const tc = d.topContent || [], hts = d.hashtags || [], maxH = hts.length ? Math.max(...hts.map((h) => h.reach || 0), 1) : 1;
@@ -85,11 +96,19 @@ export function renderContent(d) {
   const splitHtml = hasAds && totI ? `<div class="ri-panel"><div style="font-size:11px;font-weight:700;color:#1c1d22;margin-bottom:12px;letter-spacing:.04em;">ORGANIC vs PAID — INTERACTIONS</div><div style="display:flex;gap:8px;margin-bottom:10px;"><div style="flex:1;background:#eef1f4;border-radius:8px;padding:10px 12px;border-left:3px solid #5b7a9a;"><div style="font-size:20px;font-weight:700;color:#3f5a75;">${orgI}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Organic</div><div style="font-size:10px;color:#b3adb0;">${Math.round(orgI / totI * 100)}% of total</div></div><div style="flex:1;background:#f6efe9;border-radius:8px;padding:10px 12px;border-left:3px solid #b9826a;"><div style="font-size:20px;font-weight:700;color:#a56a4e;">${paidI}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Paid (Ads)</div><div style="font-size:10px;color:#b3adb0;">${Math.round(paidI / totI * 100)}% of total</div></div></div><div style="background:#f4f2f1;border-radius:4px;height:6px;overflow:hidden;"><div style="width:${Math.round(orgI / totI * 100)}%;height:100%;background:#371e28;border-radius:4px;"></div></div></div>` : "";
   const tcRows = tc.length ? `<div class="ri-panel"><div style="display:grid;grid-template-columns:1fr 56px 56px 52px;gap:8px;padding:4px 0 8px;border-bottom:.5px solid #e5e1e2;margin-bottom:4px;">${["CONTENT", "REACH", "INTER.", "TYPE"].map((h, i) => `<div style="font-size:10px;color:#8a8796;letter-spacing:.06em;text-align:${i === 0 ? "left" : "center"};">${h}</div>`).join("")}</div>${tc.map((p, i) => { const c = typeColors[p.type] || typeColors.Post; return `<div style="display:grid;grid-template-columns:1fr 56px 56px 52px;gap:8px;padding:9px 0;border-bottom:${i < tc.length - 1 ? ".5px solid #e5e1e2" : "none"};align-items:center;"><div style="font-size:12px;color:#1c1d22;">${esc(p.title || p.content || "")}</div><div style="font-size:13px;font-weight:600;text-align:center;color:#1c1d22;">${p.reach || "—"}</div><div style="font-size:13px;font-weight:600;text-align:center;color:#1c1d22;">${p.interactions || "—"}</div><div style="text-align:center;"><span style="font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;background:${c[0]};color:${c[1]};">${esc(p.type || "Post")}</span></div></div>`; }).join("")}</div>` : "";
   const htRows = hts.length ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Avg reach & interactions by hashtag</div>${hts.map((h) => `<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;"><span style="font-weight:700;color:#371e28;">${esc(h.name)}</span><span style="color:#8a8796;">reach <strong style="color:#1c1d22;">${h.reach || 0}</strong> · inter. <strong style="color:#1c1d22;">${h.interactions || 0}</strong></span></div><div style="background:#f4f2f1;border-radius:3px;height:5px;overflow:hidden;"><div style="width:${Math.round((h.reach || 0) / maxH * 100)}%;height:100%;background:#371e28;border-radius:3px;opacity:.7;"></div></div></div>`).join("")}</div>` : "";
-  return `<div class="ri-sec" style="margin-top:0;">Organic content</div><div style="display:flex;gap:12px;">${mkCard("Reels", reels, "#371e28", false)}${mkCard("Posts", posts, "#8a8796", false)}</div>${hasAds ? `<div class="ri-sec">Paid advertising</div>${mkCard("Ads", ads, "#b9826a", true)}` : ""}${hasAds ? `<div class="ri-sec">Organic vs paid</div>${splitHtml}` : ""}${tc.length ? `<div class="ri-sec">Top performing content</div>${tcRows}` : ""}${hts.length ? `<div class="ri-sec">Hashtag performance</div>${htRows}` : ""}`;
+  const secs = [];
+  if (show("organicContent")) secs.push(`<div class="ri-sec">Organic content</div><div style="display:flex;gap:12px;">${mkCard("Reels", reels, "#371e28", false)}${mkCard("Posts", posts, "#8a8796", false)}</div>`);
+  if (show("paidContent") && hasAds) secs.push(`<div class="ri-sec">Paid advertising</div>${mkCard("Ads", ads, "#b9826a", true)}`);
+  if (show("organicPaidInteractions") && hasAds) secs.push(`<div class="ri-sec">Organic vs paid</div>${splitHtml}`);
+  if (show("topContent") && tc.length) secs.push(`<div class="ri-sec">Top performing content</div>${tcRows}`);
+  if (show("hashtags") && hts.length) secs.push(`<div class="ri-sec">Hashtag performance</div>${htRows}`);
+  // First visible section loses its top margin so the tab body sits flush.
+  return secs.join("").replace(/^<div class="ri-sec"/, '<div class="ri-sec" style="margin-top:0;"');
 }
 
 // ---- Audience tab ----------------------------------------------------------
-export function renderAudience(d) {
+export function renderAudience(d, vis) {
+  const show = (k) => !vis || vis[k] !== false;
   const pt = d.peakTimes || {}, slots = pt.slots || [], grid = pt.grid || [], timing = d.timing || "";
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const hmColors = ["#f4f2f1", "#d8d2d5", "#9a8f94", "#371e28"], hmLabels = ["Low", "Moderate", "Good", "Peak"];
@@ -102,21 +121,30 @@ export function renderAudience(d) {
   const dem = d.demographics || {}, genders = dem.gender || [], cities = dem.topCities || [], countries = dem.topCountries || [];
   const maxCity = cities.length ? Math.max(...cities.map((c) => c.count || 0), 1) : 1, maxCountry = countries.length ? Math.max(...countries.map((c) => c.count || 0), 1) : 1;
   const gColors = ["#371e28", "#8a8796", "#c9c3c6"];
-  const gHtml = genders.length ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Gender split</div>${genders.map((g, i) => `<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:#8a8796;">${esc(g.label)}</span><span style="font-weight:600;color:#1c1d22;">${g.pct}% <span style="color:#8a8796;font-weight:400;">(${g.count})</span></span></div><div style="background:#f4f2f1;border-radius:3px;height:6px;"><div style="width:${g.pct}%;height:100%;background:${gColors[i] || "#c9c3c6"};border-radius:3px;"></div></div></div>`).join("")}</div>` : "";
-  const cHtml = cities.length ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Top cities</div>${cities.map((c, i) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:${i < cities.length - 1 ? ".5px solid #e5e1e2" : "none"};align-items:center;"><span style="color:#8a8796;">${esc(c.city)}</span><div style="display:flex;align-items:center;gap:8px;"><div style="width:60px;background:#f4f2f1;border-radius:3px;height:5px;"><div style="width:${Math.round(c.count / maxCity * 100)}%;height:100%;background:#371e28;border-radius:3px;opacity:.6;"></div></div><span style="font-weight:600;color:#1c1d22;width:26px;text-align:right;">${c.count}</span></div></div>`).join("")}</div>` : "";
-  const coHtml = countries.length ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Followers by country</div>${countries.map((c) => `<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="color:#8a8796;">${esc(c.country)}</span><span style="font-weight:600;color:#1c1d22;">${c.count}</span></div><div style="background:#f4f2f1;border-radius:3px;height:5px;"><div style="width:${Math.round(c.count / maxCountry * 100)}%;height:100%;background:#371e28;border-radius:3px;opacity:.6;"></div></div></div>`).join("")}</div>` : "";
+  const gHtml = (show("gender") && genders.length) ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Gender split</div>${genders.map((g, i) => `<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:#8a8796;">${esc(g.label)}</span><span style="font-weight:600;color:#1c1d22;">${g.pct}% <span style="color:#8a8796;font-weight:400;">(${g.count})</span></span></div><div style="background:#f4f2f1;border-radius:3px;height:6px;"><div style="width:${g.pct}%;height:100%;background:${gColors[i] || "#c9c3c6"};border-radius:3px;"></div></div></div>`).join("")}</div>` : "";
+  const cHtml = (show("cities") && cities.length) ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Top cities</div>${cities.map((c, i) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:${i < cities.length - 1 ? ".5px solid #e5e1e2" : "none"};align-items:center;"><span style="color:#8a8796;">${esc(c.city)}</span><div style="display:flex;align-items:center;gap:8px;"><div style="width:60px;background:#f4f2f1;border-radius:3px;height:5px;"><div style="width:${Math.round(c.count / maxCity * 100)}%;height:100%;background:#371e28;border-radius:3px;opacity:.6;"></div></div><span style="font-weight:600;color:#1c1d22;width:26px;text-align:right;">${c.count}</span></div></div>`).join("")}</div>` : "";
+  const coHtml = (show("countries") && countries.length) ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Followers by country</div>${countries.map((c) => `<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="color:#8a8796;">${esc(c.country)}</span><span style="font-weight:600;color:#1c1d22;">${c.count}</span></div><div style="background:#f4f2f1;border-radius:3px;height:5px;"><div style="width:${Math.round(c.count / maxCountry * 100)}%;height:100%;background:#371e28;border-radius:3px;opacity:.6;"></div></div></div>`).join("")}</div>` : "";
   const demHtml = (gHtml || cHtml || coHtml) ? `<div class="ri-sec">Audience demographics</div><div style="display:grid;grid-template-columns:${gHtml && cHtml ? "1fr 1fr" : "1fr"};gap:12px;margin-bottom:12px;">${gHtml}${cHtml}</div>${coHtml}` : "";
-  return `<div class="ri-sec" style="margin-top:0;">Follower activity — best posting times</div>${timing ? `<div style="font-size:12px;color:#8a8796;margin-bottom:12px;line-height:1.6;">${esc(timing)}</div>` : ""}<div class="ri-panel">${hm}${wCards}</div>${demHtml}`;
+  const showPeak = show("peakTimes"), showWin = show("postingWindows");
+  const topPanel = (showPeak || showWin)
+    ? `<div class="ri-sec" style="margin-top:0;">Follower activity — best posting times</div>${showPeak && timing ? `<div style="font-size:12px;color:#8a8796;margin-bottom:12px;line-height:1.6;">${esc(timing)}</div>` : ""}<div class="ri-panel">${showPeak ? hm : ""}${showWin ? wCards : ""}</div>`
+    : "";
+  // If the peak-times panel is hidden, let the demographics section sit flush.
+  const demSec = topPanel ? demHtml : demHtml.replace(/^<div class="ri-sec"/, '<div class="ri-sec" style="margin-top:0;"');
+  return topPanel + demSec;
 }
 
 // ---- Actions tab -----------------------------------------------------------
-export function renderActions(d, r) {
+export function renderActions(d, r, vis) {
+  const show = (k) => !vis || vis[k] !== false;
   const prios = d.priorities || [], coming = d.comingSoon || [], nextM = MONTHS[((r && r.month) + 1) % 12] || "Next month";
   const dc = { go: "#2c7a4b", caution: "#9a6a04", action: "#a05a3c" };
   const pRows = prios.map((p, i) => `<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:${i < prios.length - 1 ? ".5px solid #e5e1e2" : "none"};"><div style="width:8px;height:8px;border-radius:50%;background:${dc[p.type] || "#8a8796"};flex-shrink:0;margin-top:4px;"></div><div style="font-size:13px;color:#1c1d22;line-height:1.55;">${esc(p.text)}</div></div>`).join("");
   const pLeg = prios.length ? `<div style="display:flex;gap:20px;margin-top:14px;padding-top:12px;border-top:.5px solid #e5e1e2;">${[["#2c7a4b", "Do more"], ["#9a6a04", "Improve"], ["#a05a3c", "Fix now"]].map(([c, l]) => `<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8a8796;"><div style="width:7px;height:7px;border-radius:50%;background:${c};"></div>${l}</div>`).join("")}</div>` : "";
   const cRows = coming.map((item, i) => `<div style="display:flex;gap:12px;padding:7px 0;border-bottom:${i < coming.length - 1 ? ".5px solid #e5e1e2" : "none"};align-items:flex-start;"><div style="width:20px;height:20px;border-radius:50%;background:#efedf0;color:#371e28;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">${i + 1}</div><div style="font-size:12px;color:#1c1d22;line-height:1.55;">${esc(item)}</div></div>`).join("");
-  return `<div class="ri-sec" style="margin-top:0;">${esc(nextM)} priorities</div><div class="ri-panel">${pRows || '<div style="font-size:12px;color:#8a8796;">No action items.</div>'}${pLeg}</div>${coming.length ? `<div class="ri-sec">Coming soon content</div><div class="ri-panel" style="border-left:3px solid #371e28;">${cRows}</div>` : ""}`;
+  const prioSec = show("priorities") ? `<div class="ri-sec" style="margin-top:0;">${esc(nextM)} priorities</div><div class="ri-panel">${pRows || '<div style="font-size:12px;color:#8a8796;">No action items.</div>'}${pLeg}</div>` : "";
+  const comeSec = (show("comingSoon") && coming.length) ? `<div class="ri-sec">Coming soon content</div><div class="ri-panel" style="border-left:3px solid #371e28;">${cRows}</div>` : "";
+  return (prioSec + comeSec).replace(/^<div class="ri-sec"(?! style)/, '<div class="ri-sec" style="margin-top:0;"');
 }
 
 // ---- Trends tab (month-on-month) — takes the account's reports, oldest→newest
@@ -136,9 +164,9 @@ export function renderTrends(accR) {
   return `<div class="ri-sec" style="margin-top:0;">Month-on-month trends</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">${spark(fol, "Followers", (v) => v.toLocaleString())}${spark(rea, "Reach", (v) => v.toLocaleString())}${spark(eng, "Eng. Rate", (v) => v + "%")}${spark(inter, "Interactions", (v) => v || "—")}</div><div class="ri-sec">Full comparison table</div><div class="ri-panel" style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:${100 + accR.length * 90}px;"><thead><tr><th style="text-align:left;color:#8a8796;font-weight:600;font-size:10px;padding:6px 0;border-bottom:1px solid #e5e1e2;"></th>${accR.map((r) => `<th style="text-align:center;color:#8a8796;font-weight:600;font-size:10px;padding:6px 8px;border-bottom:1px solid #e5e1e2;">${esc(MONTHS[r.month].slice(0, 3))} ${r.year}</th>`).join("")}</tr></thead><tbody>${tRows.map(([lbl, fn]) => `<tr><td style="color:#8a8796;padding:8px 0;border-bottom:.5px solid #e5e1e2;white-space:nowrap;">${esc(lbl)}</td>${accR.map((r) => `<td style="font-weight:600;color:#1c1d22;text-align:center;padding:8px;border-bottom:.5px solid #e5e1e2;">${fn(r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
-export function renderTab(tab, d, r) {
-  if (tab === "content") return renderContent(d);
-  if (tab === "audience") return renderAudience(d);
-  if (tab === "actions") return renderActions(d, r);
-  return renderOverview(d, r);
+export function renderTab(tab, d, r, vis) {
+  if (tab === "content") return renderContent(d, vis);
+  if (tab === "audience") return renderAudience(d, vis);
+  if (tab === "actions") return renderActions(d, r, vis);
+  return renderOverview(d, r, vis);
 }
