@@ -42,6 +42,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </div>
   </header>
 
+  <!-- EXPERIMENTAL alternative hero — a full-screen archive grid lifted from the
+       Insights page (light theme, 6-col off-white tiles that reveal an image on
+       hover), fed with pack content. Hidden by default; only shown with
+       ?hero=grid so the live hero above is never touched. JS (setupGridHero)
+       builds the tiles and hides #edit-hero2 when this one is active. -->
+  <section class="egh" id="edit-hero-grid" aria-label="The Edit — template packs" hidden>
+    <div class="egh-inner">
+      <span class="egh-label">Template Packs</span>
+      <div class="egh-scroll">
+        <div class="egh-grid" id="egh-grid"></div>
+      </div>
+    </div>
+  </section>
+
   <section class="edit-wrap" id="edit-catalogue" aria-busy="true">
     <div class="edit-loading" id="edit-loading">Loading the catalogue…</div>
     <div class="edit-empty" id="edit-empty" hidden>
@@ -354,6 +368,84 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     @media (prefers-reduced-motion: reduce) {
       .eh2-tile, .eh2-feature { transition: opacity 0.2s ease; }
     }
+
+    /* ====== EXPERIMENTAL grid hero (?hero=grid) — the Insights archive grid
+       framework, lifted wholesale (light theme, 6-col off-white tiles that reveal
+       an image on hover) and fed with pack content. Full-screen "enter" section.
+       Prefix `egh` so it never collides with the live `eh2` hero. ====== */
+    .egh {
+      --hairline: rgba(28,29,34,0.16);
+      position: relative; z-index: 1;
+      height: 100svh; overflow: hidden; box-sizing: border-box;
+      background: var(--paper); color: var(--ink); font-family: var(--sans);
+    }
+    .egh[hidden] { display: none; }
+    .egh-inner {
+      max-width: 1360px; margin: 0 auto; box-sizing: border-box;
+      height: 100svh; display: flex; flex-direction: column; gap: 14px;
+      padding: clamp(68px, 9vh, 100px) 76px clamp(36px, 5.5vh, 80px);
+    }
+    .egh-label {
+      flex: 0 0 auto;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
+    }
+    /* Internal scroll — the grid scrolls inside the fixed full-screen panel,
+       exactly like the Insights archive (.arc-scroll). */
+    .egh-scroll {
+      flex: 1 1 auto; min-height: 0;
+      overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+      scrollbar-width: none; -ms-overflow-style: none;
+      border-top: 1px solid var(--hairline); padding-top: clamp(14px, 1.8vh, 22px);
+    }
+    .egh-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    .egh-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+      grid-auto-flow: row dense; align-content: start;
+      transition: transform 0.4s cubic-bezier(.2,.7,.2,1), opacity 0.4s ease;
+    }
+    @media (max-width: 1200px) { .egh-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 640px)  { .egh-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .egh-tile { position: relative; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; }
+    /* Pack tiles — off-white box, pack name bottom-left; hover reveals the cover. */
+    .egh-tile--pack {
+      -webkit-appearance: none; appearance: none; box-sizing: border-box;
+      border: 1px solid var(--hairline); text-align: left; text-decoration: none;
+      cursor: pointer; display: block;
+      background: var(--paper); color: var(--english-violet);
+    }
+    .egh-tile-img { position: absolute; inset: 0; opacity: 0; background-size: cover; background-position: center; transition: opacity 0.5s ease; }
+    .egh-tile--pack:hover .egh-tile-img { opacity: 1; }
+    /* Hover a pack tile → clear the text so only the (high-res) design shows. */
+    .egh-tile-cap { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 2; display: flex; flex-direction: column; gap: 4px; transition: opacity 0.35s ease; }
+    .egh-tile--pack:hover .egh-tile-cap { opacity: 0; }
+    .egh-tile-num { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+    .egh-tile-name {
+      font-family: var(--sans); font-weight: 600; font-size: clamp(15px, 1.1vw, 19px);
+      line-height: 1.12; letter-spacing: -0.005em; color: var(--english-violet);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    /* Image tiles — static high-res design from the pack. */
+    .egh-tile--image { background-size: cover; background-position: center; background-color: rgba(28,29,34,0.06); }
+    /* Next tile (bottom-right) — slides the grid to the next set of designs. */
+    .egh-tile--next {
+      -webkit-appearance: none; appearance: none; border: 0; cursor: pointer;
+      display: grid; place-items: center; text-align: center;
+      background: var(--english-violet); color: var(--paper);
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      transition: background 0.25s ease;
+    }
+    .egh-tile--next:hover { background: #4a2836; }
+    .egh-tile--next .egh-next-arrow { display: block; margin-top: 6px; font-size: 18px; transition: transform 0.3s; }
+    .egh-tile--next:hover .egh-next-arrow { transform: translateX(5px); }
+
+    @media (max-width: 980px) { .egh-inner { padding-left: 36px; padding-right: 36px; } }
+    @media (max-width: 640px) {
+      .egh-inner { padding-top: clamp(96px, 14vh, 130px); padding-bottom: 48px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .egh-tile-img { transition: opacity 0.2s ease; } }
     /* ====== STRIPPED — studio demo moved to the homepage Chapter 5 ====== */
 
     /* Global so the JS-injected catalogue cards inherit the styles —
@@ -1273,6 +1365,90 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       window.addEventListener('resize', () => { clearTimeout(lockT); lockT = setTimeout(relayout, 180); });
     }
 
+    // ===== EXPERIMENTAL grid hero (opt-in via ?hero=grid) ====================
+    // The Insights archive grid framework lifted onto The Edit: a full-screen,
+    // 6-column grid where each row = 2 off-white PACK tiles (name + hover reveals
+    // the cover, click opens the pack) + 4 static template-image tiles, packs
+    // scattered row to row. Only runs with ?hero=grid — it then hides the live
+    // hero (#edit-hero2) so the default page is never affected.
+    function setupGridHero(packs) {
+      const params = new URLSearchParams(location.search);
+      if (params.get('hero') !== 'grid') return;
+      const gridHero = document.getElementById('edit-hero-grid');
+      const eh2 = document.getElementById('edit-hero2');
+      const gridEl = document.getElementById('egh-grid');
+      if (!gridHero || !gridEl) return;
+
+      // Images come from the ACTUAL pack designs — p.templates prefers each
+      // design's render_url (the high-res lossless render), NOT the low-res
+      // hover gallery (preview_images).
+      const designsOf = (p) => (Array.isArray(p.templates) ? p.templates : []).filter((u) => typeof u === 'string' && u.trim());
+      const heroOf = (p) => designsOf(p)[0] || p.cover_image_url || '';
+      const list = (packs || []).filter((p) => p && heroOf(p));
+      if (!list.length) return;   // nothing to show → leave the live hero alone
+
+      if (eh2) eh2.hidden = true;
+      gridHero.hidden = false;
+      document.body.classList.remove('edit-page');   // light grid → normal dark nav
+
+      // Pool of high-res design images for the decorative tiles.
+      const pool = [];
+      list.forEach((p) => designsOf(p).forEach((u) => pool.push(u)));
+      if (!pool.length) list.forEach((p) => { const h = heroOf(p); if (h) pool.push(h); });
+
+      // 6-col grid: ONE pack tile per pack (hover reveals its design, click opens
+      // it), scattered among high-res design tiles; the last cell is Next.
+      const COLS = 6;
+      const ROW_PACK_COLS = [[0, 3], [2, 5], [1, 4], [0, 4], [2, 3], [1, 5]];
+      const cells = [];
+      let pi = 0;
+      for (let r = 0; pi < list.length; r++) {
+        const cols = ROW_PACK_COLS[r % ROW_PACK_COLS.length];
+        for (let c = 0; c < COLS; c++) {
+          if (cols.includes(c) && pi < list.length) { cells.push({ type: 'pack', pack: list[pi], num: pi + 1 }); pi++; }
+          else cells.push({ type: 'image' });
+        }
+      }
+      // Fill to whole rows so the last cell can host Next in the bottom-right.
+      while (cells.length % COLS !== 0 || cells.length < list.length + 1) cells.push({ type: 'image' });
+      cells[cells.length - 1] = { type: 'next' };
+
+      let html = '';
+      cells.forEach((cell) => {
+        if (cell.type === 'pack') {
+          const p = cell.pack;
+          const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
+          html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
+            + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
+            + `<span class="egh-tile-cap"><span class="egh-tile-num">Pack ${String(cell.num).padStart(2, '0')}</span>`
+            + `<span class="egh-tile-name">${escapeHtml(p.title || '')}</span></span></a>`;
+        } else if (cell.type === 'next') {
+          html += `<button type="button" class="egh-tile egh-tile--next">Next set<span class="egh-next-arrow" aria-hidden="true">&rarr;</span></button>`;
+        } else {
+          html += `<div class="egh-tile egh-tile--image"></div>`;
+        }
+      });
+      gridEl.innerHTML = html;
+
+      // Fill the image tiles from the design pool; Next pages through them.
+      const imgTiles = Array.from(gridEl.querySelectorAll('.egh-tile--image'));
+      let offset = 0;
+      function fillImages() {
+        imgTiles.forEach((el, i) => { el.style.backgroundImage = pool.length ? `url('${pool[(offset + i) % pool.length]}')` : ''; });
+      }
+      fillImages();
+
+      // Next → slide the grid across and show the next set of designs.
+      gridEl.addEventListener('click', (e) => {
+        if (!e.target.closest('.egh-tile--next')) return;
+        offset = (offset + imgTiles.length) % (pool.length || 1);
+        gridEl.style.transform = 'translateX(-30px)'; gridEl.style.opacity = '0.3';
+        setTimeout(() => { fillImages(); gridEl.style.transform = 'translateX(0)'; gridEl.style.opacity = '1'; }, 360);
+      });
+
+      pool.slice(0, 20).forEach((u) => { const im = new Image(); im.src = u; });
+    }
+
     let packsById = new Map();
 
     // Dev/preview-only sample packs so the showcase is visible before any packs
@@ -1367,6 +1543,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       // Rotate the hero one pack at a time (copy + that pack's flashing grid).
       setupHero(packs);
+      setupGridHero(packs);   // experimental alternative — only if ?hero=grid
     })();
 
     // ============== Modal helpers ==============
