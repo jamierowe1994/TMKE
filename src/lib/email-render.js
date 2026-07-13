@@ -824,8 +824,11 @@ function renderColumns(block, brand, ctx) {
   const cols = Array.isArray(block.cols) ? block.cols : [];
   const colBg = Array.isArray(block.colBg) ? block.colBg : [];
   const colBgImage = Array.isArray(block.colBgImage) ? block.colBgImage : [];
+  const colVAlign = Array.isArray(block.colVAlign) ? block.colVAlign : [];
   const radius = block.colRadius != null && block.colRadius !== '' ? Math.max(0, Number(block.colRadius)) : 6;
   const tds = widths.map((w, i) => {
+    // Vertical alignment of the column's content within the (image-sized) row.
+    const va = ['middle', 'bottom'].includes(colVAlign[i]) ? colVAlign[i] : 'top';
     // Equal-width columns must lose an EQUAL amount of horizontal padding, or
     // the cell's content (e.g. a full-width image) renders narrower. Outer
     // columns stay flush to the edges with a single full gutter (8px); middle
@@ -847,7 +850,7 @@ function renderColumns(block, brand, ctx) {
         + `border-radius:${radius}px;padding:14px;`
       : '';
     const inner = hasBg ? `<div style="${bgCss}">${content}</div>` : content;
-    return `<td class="eb-col" valign="top" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:top;font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
+    return `<td class="eb-col" valign="${va}" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:${va};font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
   }).join('');
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
 }
