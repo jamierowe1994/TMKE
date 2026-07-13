@@ -65,6 +65,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <div class="egh-scroll">
         <div class="egh-grid" id="egh-grid"></div>
       </div>
+      <div class="egh-dots" id="egh-dots" role="tablist" aria-label="Choose a set"></div>
     </div>
   </section>
 
@@ -457,16 +458,31 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .egh-tile-shop { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); margin-top: 2px; }
     /* Image tiles — static high-res design from the pack. */
     .egh-tile--image { background-size: cover; background-position: center; background-color: rgba(28,29,34,0.06); }
-    /* Next tile (bottom-right) — slides the grid to the next set; heading style. */
+    /* Next tile (bottom-right) — slides the grid to the next set; heading style.
+       Solid wine with light text at rest; on hover it flips to see-through with a
+       wine outline and grey text. */
     .egh-tile--next {
-      -webkit-appearance: none; appearance: none; border: 0; cursor: pointer;
+      -webkit-appearance: none; appearance: none; cursor: pointer; box-sizing: border-box;
       display: grid; place-items: center; text-align: center; padding: 16px;
       background: var(--english-violet); color: var(--paper);
+      border: 1px solid var(--english-violet);
       font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.22em; text-transform: uppercase; line-height: 1.5;
-      transition: background 0.25s ease;
+      transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
     }
-    .egh-tile--next:hover { background: #4a2836; }
+    .egh-tile--next:hover {
+      background: transparent; color: rgba(28,29,34,0.55);
+      border-color: var(--english-violet);
+    }
+    /* Dot pager — jump between sets, alongside the Next tile. */
+    .egh-dots { display: flex; justify-content: center; gap: 11px; padding-top: clamp(18px, 2.4vh, 30px); }
+    .egh-dot {
+      width: 9px; height: 9px; border-radius: 50%; padding: 0; cursor: pointer;
+      border: 1px solid rgba(55,30,40,0.5); background: transparent;
+      transition: background 0.3s, border-color 0.3s, transform 0.3s;
+    }
+    .egh-dot:hover { background: rgba(55,30,40,0.35); }
+    .egh-dot.is-active { background: var(--english-violet); border-color: var(--english-violet); transform: scale(1.2); }
 
     @media (max-width: 980px) { .egh-inner { padding-left: 36px; padding-right: 36px; } }
     @media (max-width: 640px) {
@@ -1433,19 +1449,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       const COLS = 6;
       // Pack-tile positions vary per set → a different-looking grid each time you
-      // advance (one scatter per set, cycled).
+      // advance (one scatter per set). Each set is deterministic from its index,
+      // so the dot pager can jump straight to a set.
       const SCATTERS = [
         [[0, 3], [2, 5], [1, 4]],
         [[1, 4], [0, 4], [2, 3]],
         [[2, 5], [1, 3], [0, 5]],
       ];
-      let setIdx = 0, imgOffset = 0, imgCount = 0;
+      const SETS = SCATTERS.length;
+      const dotsEl = document.getElementById('egh-dots');
+      const norm = (i) => ((i % SETS) + SETS) % SETS;
+      let setIdx = 0, imgCount = 0;
 
       // Build the grid for the current set: one PACK tile per pack (Pack N,
       // 2-line title, type + pillar, Shop now; hover clears the text to show the
       // high-res design), scattered among design tiles, Next in the last cell.
       function build() {
-        const scatter = SCATTERS[setIdx % SCATTERS.length];
+        const s = norm(setIdx);
+        const scatter = SCATTERS[s];
+        const imgOffset = imgCount ? (s * imgCount) % (pool.length || 1) : 0;
         const cells = [];
         let pi = 0;
         for (let r = 0; pi < list.length; r++) {
@@ -1458,7 +1480,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         while (cells.length % COLS !== 0 || cells.length < list.length + 1) cells.push({ type: 'image' });
         cells[cells.length - 1] = { type: 'next' };
 
-        let html = '', gi = 0; imgCount = 0;
+        let html = '', gi = 0, count = 0;
         cells.forEach((cell) => {
           if (cell.type === 'pack') {
             const p = cell.pack;
@@ -1476,25 +1498,36 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             html += `<button type="button" class="egh-tile egh-tile--next">Scroll Next Set</button>`;
           } else {
             const img = pool.length ? pool[(imgOffset + gi) % pool.length] : '';
-            gi++; imgCount++;
+            gi++; count++;
             html += `<div class="egh-tile egh-tile--image" style="background-image:url('${img}')"></div>`;
           }
         });
         gridEl.innerHTML = html;
+        imgCount = count;
       }
-      build();
 
-      // Next → slide the whole grid out to the left, rebuild the next set (new
-      // pack positions + next designs), then slide in from the right so it's
-      // clearly a move to a new set.
-      gridEl.addEventListener('click', (e) => {
-        if (!e.target.closest('.egh-tile--next')) return;
+      function updateDots() {
+        if (!dotsEl) return;
+        Array.from(dotsEl.children).forEach((d, i) => d.classList.toggle('is-active', i === norm(setIdx)));
+      }
+
+      // Dot pager — one dot per set, an alternative to the Next tile.
+      if (dotsEl) {
+        dotsEl.innerHTML = Array.from({ length: SETS }, (_, i) =>
+          `<button type="button" class="egh-dot${i === 0 ? ' is-active' : ''}" data-set="${i}" aria-label="Set ${i + 1}"></button>`).join('');
+        dotsEl.addEventListener('click', (e) => { const b = e.target.closest('.egh-dot'); if (b) goToSet(+b.dataset.set); });
+      }
+
+      // Slide the whole grid out to the left, rebuild the target set (new pack
+      // positions + next designs), then slide in from the right.
+      function goToSet(i) {
+        if (norm(i) === norm(setIdx)) return;
+        setIdx = norm(i);
         gridEl.style.transition = 'transform 0.30s cubic-bezier(.4,0,1,1), opacity 0.30s ease';
         gridEl.style.transform = 'translateX(-9%)';
         gridEl.style.opacity = '0';
         setTimeout(() => {
-          setIdx++; imgOffset += imgCount;
-          build();
+          build(); updateDots();
           gridEl.style.transition = 'none';
           gridEl.style.transform = 'translateX(9%)';
           requestAnimationFrame(() => {
@@ -1503,6 +1536,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             gridEl.style.opacity = '1';
           });
         }, 300);
+      }
+
+      build(); updateDots();
+
+      // Next tile → advance one set (loops).
+      gridEl.addEventListener('click', (e) => {
+        if (e.target.closest('.egh-tile--next')) goToSet(setIdx + 1);
       });
 
       pool.slice(0, 24).forEach((u) => { const im = new Image(); im.src = u; });
