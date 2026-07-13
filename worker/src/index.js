@@ -3210,7 +3210,6 @@ export default {
       if (path.endsWith("/email/send") && request.method === "POST") {
         const sender = await getUser(request, env);
         if (!isAdminEmail(sender)) return json({ error: "Admins only." }, 403, request, env);
-        if (!env.RESEND_API_KEY) return json({ error: "Email isn't configured — set the RESEND_API_KEY secret on the Worker (wrangler secret put RESEND_API_KEY)." }, 503, request, env);
         let body;
         try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
         const toRaw = body && body.to;
@@ -3220,20 +3219,14 @@ export default {
         const html = String((body && body.html) || "");
         if (!to.length) return json({ error: "No recipient address." }, 400, request, env);
         if (!html) return json({ error: "Nothing to send." }, 400, request, env);
-        let from = env.MAIL_FROM || "TMKE <onboarding@resend.dev>";
         const fromName = body && body.fromName ? String(body.fromName).replace(/[<>\r\n]/g, "").trim().slice(0, 80) : "";
-        if (fromName) {
-          const m = /<([^>]+)>/.exec(from);
-          from = `${fromName} <${m ? m[1] : from}>`;
-        }
-        const sent = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ from, to, subject, html }),
-        });
-        const data = await sent.json().catch(() => ({}));
-        if (!sent.ok) return json({ error: (data && (data.message || data.error)) || `Send failed (${sent.status}).` }, 502, request, env);
-        return json({ ok: true, id: data && data.id }, 200, request, env);
+        // Send via Microsoft 365 (MAIL_SENDER = hello@tmke.co.uk) — the SAME pipeline
+        // the automated/transactional emails use, so a Studio test matches the real
+        // send and isn't limited to your own address (as the Resend sandbox is until
+        // its domain is verified).
+        const result = await sendEmail(env, { to, subject, html, fromName: fromName || undefined });
+        if (!result.ok) return json({ error: result.error || "Send failed." }, 502, request, env);
+        return json({ ok: true }, 200, request, env);
       }
 
       // ---- Microsoft 365 connection health (admin) ----
