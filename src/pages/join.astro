@@ -46,7 +46,7 @@ const TILES = [
       </button>
 
       {TILES.map((t) => (
-        <button type="button" class="jn-cell jn-cell--tile" data-signup-open aria-label={`${t.key} — create your free account`}>
+        <button type="button" class:list={["jn-cell", "jn-cell--tile", `jn-t-${t.key.toLowerCase()}`]} data-signup-open aria-label={`${t.key} — create your free account`}>
           <span class="jn-tile-inner">
             <span class="jn-thumb">
               <img class="jn-thumb-img" src={t.img} alt="" loading="lazy" />
@@ -176,14 +176,16 @@ const TILES = [
     @media (max-width: 860px) {
       .jn-grid { grid-template-columns: repeat(2, 1fr); }
     }
-    @media (max-width: 520px) {
-      .jn-grid { grid-template-columns: 1fr; }
-      .jn-cell { min-height: 0; }
-      .jn-cell--tile { flex-direction: row; justify-content: flex-start; gap: 16px; padding: 18px 22px; text-align: left; }
-      .jn-thumb { width: 84px; }
-      .jn-cap { align-items: flex-start; }
-      .jn-cap-lines { max-height: none; opacity: 1; }
-      .jn-cap-line:nth-child(2) { display: none; }
+    @media (max-width: 640px) {
+      /* Mobile: clean 2-column grid — image + title only. No body text, no blur
+         (there's no pointer to hover), and drop Discover so it's an even 8. */
+      .jn-grid { grid-template-columns: repeat(2, 1fr); }
+      .jn-t-discover { display: none; }
+      .jn-cell { min-height: clamp(200px, 44vw, 280px); }
+      .jn-cell--tile { padding: 24px 16px; }
+      .jn-tile-inner { width: min(82%, 150px); gap: 12px; }
+      .jn-cap-lines { display: none; }
+      .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: none; opacity: 1; }
       .jn-drawer-panel { width: 100vw; }
     }
   </style>
