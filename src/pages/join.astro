@@ -63,6 +63,9 @@ const TILES = [
       ))}
     </div>
 
+    <!-- Custom "Click to join" cursor (hover devices only) -->
+    <div class="jn-cursor" id="jn-cursor" aria-hidden="true"><span>Click to join</span></div>
+
     <!-- Slide-out: the sign-up box -->
     <div class="jn-drawer" id="jn-drawer" hidden aria-hidden="true">
       <div class="jn-drawer-scrim" data-signup-close></div>
@@ -111,6 +114,14 @@ const TILES = [
     /* ---- The full-page grid ---- */
     .jn-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--jn-line); border-left: 1px solid var(--jn-line); }
     .jn-cell { border-right: 1px solid var(--jn-line); border-bottom: 1px solid var(--jn-line); min-height: clamp(320px, 36vh, 440px); position: relative; }
+
+    /* Custom "Click to join" cursor that follows the mouse over the grid */
+    .jn-cursor { position: fixed; top: 0; left: 0; z-index: 2500; pointer-events: none; opacity: 0; transition: opacity 0.18s ease; }
+    .jn-cursor.is-on { opacity: 1; }
+    .jn-cursor span { position: absolute; transform: translate(-50%, -50%); background: var(--english-violet); color: var(--paper); font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; padding: 9px 15px; border-radius: 999px; white-space: nowrap; box-shadow: 0 8px 24px rgba(28,29,34,0.28); }
+    /* Hide the native cursor over the grid so the pill stands in for it. */
+    .jn.jn-has-cursor .jn-grid, .jn.jn-has-cursor .jn-cell--tile { cursor: none; }
+    @media (hover: none) { .jn-cursor { display: none; } }
 
     /* Image tile — image sits SMALL and centred; caption left-aligned to it.
        The cell is roomy and the phrases are always in flow (just fade in), so
@@ -194,6 +205,7 @@ const TILES = [
     let lastFocus = null;
 
     function openDrawer() {
+      document.getElementById("jn-cursor")?.classList.remove("is-on");
       lastFocus = document.activeElement;
       form.hidden = false; doneEl.hidden = true; altEl.hidden = false; errEl.hidden = true;
       drawer.hidden = false; drawer.setAttribute("aria-hidden", "false");
@@ -211,6 +223,19 @@ const TILES = [
     document.querySelectorAll("[data-signup-open]").forEach((el) => el.addEventListener("click", openDrawer));
     document.addEventListener("click", (e) => { if (e.target.closest("[data-signup-close]")) closeDrawer(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer.classList.contains("is-open")) closeDrawer(); });
+
+    // Custom "Click to join" cursor over the grid (fine-pointer devices only).
+    const jnMain = document.querySelector(".jn");
+    const jnGrid = document.querySelector(".jn-grid");
+    const jnCursor = document.getElementById("jn-cursor");
+    if (jnMain && jnGrid && jnCursor && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      jnMain.classList.add("jn-has-cursor");
+      jnGrid.addEventListener("mousemove", (e) => {
+        jnCursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+        if (!drawer.classList.contains("is-open")) jnCursor.classList.add("is-on");
+      });
+      jnGrid.addEventListener("mouseleave", () => jnCursor.classList.remove("is-on"));
+    }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
