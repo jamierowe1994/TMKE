@@ -42,6 +42,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </div>
   </header>
 
+  <!-- EXPERIMENTAL alternative hero — a 12-box grid (mirrors the Insights
+       archive grid) showing a pack's templates. Hidden by default; only shown
+       with ?hero=grid so the live hero above is never touched. JS (setupGridHero)
+       builds the tiles and hides #edit-hero2 when this one is active. -->
+  <header class="egh" id="edit-hero-grid" aria-label="The Edit — featured pack" hidden>
+    <div class="egh-grid" id="egh-grid"></div>
+  </header>
+
   <section class="edit-wrap" id="edit-catalogue" aria-busy="true">
     <div class="edit-loading" id="edit-loading">Loading the catalogue…</div>
     <div class="edit-empty" id="edit-empty" hidden>
@@ -353,6 +361,97 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
     @media (prefers-reduced-motion: reduce) {
       .eh2-tile, .eh2-feature { transition: opacity 0.2s ease; }
+    }
+
+    /* ====== EXPERIMENTAL grid hero (?hero=grid) — a 12-box grid mirroring the
+       Insights archive grid, filled with a pack's templates. Prefix `egh` so it
+       never collides with the live `eh2` hero. ====== */
+    .egh {
+      position: relative; z-index: 1; overflow: hidden; isolation: isolate;
+      height: 100svh; min-height: 640px;
+      box-sizing: border-box;
+      padding: clamp(92px, 12vh, 122px) 76px clamp(40px, 6vh, 64px);
+      background: #17151b url("https://assets.tmke.co.uk/Untitled%20design%20-%202026-07-05T133629.509.png") center / cover no-repeat;
+      color: var(--paper); font-family: var(--sans);
+    }
+    .egh[hidden] { display: none; }
+    .egh::after {
+      content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(0deg, rgba(15,13,18,0.5) 0%, rgba(15,13,18,0.12) 30%, rgba(15,13,18,0) 55%);
+    }
+    .egh-grid {
+      position: relative; z-index: 2;
+      height: 100%; max-width: 1360px; margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: clamp(8px, 0.9vw, 14px);
+    }
+    .egh-tile {
+      position: relative; overflow: hidden; border-radius: 8px;
+      background: #241f2a; box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+    /* Title tile (top-left) — off-white, pack category + name + subheading. */
+    .egh-tile--text {
+      background: var(--paper); color: var(--english-violet);
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: clamp(16px, 1.4vw, 24px);
+      transition: opacity 0.45s ease;
+    }
+    .egh-cat {
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.5);
+    }
+    .egh-title {
+      font-family: var(--serif); font-weight: 500;
+      font-size: clamp(22px, 1.8vw, 32px); line-height: 1.02; letter-spacing: -0.01em;
+      color: var(--english-violet); margin: 10px 0 0;
+    }
+    .egh-sub {
+      font-family: var(--sans); font-size: clamp(12px, 0.85vw, 13.5px);
+      line-height: 1.5; color: rgba(28,29,34,0.62); margin: 8px 0 0;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+    }
+    /* Image tiles (static + flashing) — a template fills the tile. */
+    .egh-imglayer {
+      position: absolute; inset: 0; background-size: cover; background-position: center;
+      transition: opacity 0.7s ease;
+    }
+    /* Hover-reveal tiles — off-white box; hover fades the template photo in. */
+    .egh-tile--reveal { background: var(--paper); border: 1px solid rgba(28,29,34,0.16); cursor: default; }
+    .egh-reveal-img { position: absolute; inset: 0; opacity: 0; background-size: cover; background-position: center; transition: opacity 0.5s ease; }
+    .egh-reveal-img::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,22,0) 40%, rgba(20,18,22,0.66) 100%); }
+    .egh-tile--reveal:hover .egh-reveal-img { opacity: 1; }
+    .egh-reveal-cap {
+      position: absolute; left: 14px; right: 14px; bottom: 13px; z-index: 2;
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5); transition: color 0.4s ease;
+    }
+    .egh-tile--reveal:hover .egh-reveal-cap { color: rgba(244,242,240,0.85); }
+    /* Link + Next tiles — off-white actions. Next is the accent so it stands out. */
+    .egh-tile--link, .egh-tile--next {
+      display: grid; place-items: center; text-align: center; cursor: pointer;
+      text-decoration: none; padding: 16px;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+    .egh-tile--link { background: var(--paper); color: var(--english-violet); }
+    .egh-tile--link:hover { background: #fff; }
+    .egh-tile--next { background: var(--english-violet); color: var(--paper); border: 0; }
+    .egh-tile--next:hover { background: #4a2836; }
+    .egh-tile--link .egh-act-arrow, .egh-tile--next .egh-act-arrow { display: block; margin-top: 8px; font-size: 15px; transition: transform 0.3s; }
+    .egh-tile--link:hover .egh-act-arrow, .egh-tile--next:hover .egh-act-arrow { transform: translateX(4px); }
+
+    @media (max-width: 980px) { .egh { padding-left: 36px; padding-right: 36px; } }
+    @media (max-width: 760px) {
+      .egh { height: auto; min-height: 0; padding-top: clamp(104px, 15vh, 140px); padding-bottom: 48px; }
+      .egh-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr; grid-template-rows: none; }
+      .egh-tile { aspect-ratio: 3 / 4; }
+      .egh-tile--text, .egh-tile--link, .egh-tile--next { aspect-ratio: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .egh-imglayer, .egh-reveal-img { transition: opacity 0.2s ease; }
     }
     /* ====== STRIPPED — studio demo moved to the homepage Chapter 5 ====== */
 
@@ -1273,6 +1372,94 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       window.addEventListener('resize', () => { clearTimeout(lockT); lockT = setTimeout(relayout, 180); });
     }
 
+    // ===== EXPERIMENTAL grid hero (opt-in via ?hero=grid) ====================
+    // A 12-box grid (mirrors the Insights archive) showing ONE pack at a time:
+    // [0] title+subheading, [1] a static template, four "flashing" template
+    // tiles that cross-fade, four off-white hover-reveal tiles, [10] a "See
+    // more" link and [11] a "Next" tile that advances to the next pack. Only
+    // runs when ?hero=grid is present — it then hides the live hero (#edit-hero2)
+    // so the default page is never affected.
+    function setupGridHero(packs) {
+      const params = new URLSearchParams(location.search);
+      if (params.get('hero') !== 'grid') return;
+      const gridHero = document.getElementById('edit-hero-grid');
+      const eh2 = document.getElementById('edit-hero2');
+      const gridEl = document.getElementById('egh-grid');
+      if (!gridHero || !gridEl) return;
+
+      const templatesOf = (p) => {
+        const out = [];
+        if (Array.isArray(p.preview_images)) out.push(...p.preview_images);
+        if (Array.isArray(p.templates)) out.push(...p.templates);
+        if (p.cover_image_url) out.push(p.cover_image_url);
+        return out.filter((u) => typeof u === 'string' && u.trim());
+      };
+      const list = (packs || []).filter((p) => p && templatesOf(p).length);
+      if (!list.length) return;   // nothing to show → leave the live hero alone
+
+      if (eh2) eh2.hidden = true;
+      gridHero.hidden = false;
+
+      const ROLE = { 0: 'text', 1: 'static', 10: 'link', 11: 'next' };
+      [2, 4, 6, 8].forEach((i) => { ROLE[i] = 'flash'; });
+      [3, 5, 7, 9].forEach((i) => { ROLE[i] = 'reveal'; });
+
+      const tiles = [];
+      for (let i = 0; i < 12; i++) {
+        const role = ROLE[i] || 'flash';
+        const cls = (role === 'static' || role === 'flash') ? 'img' : role;
+        const el = document.createElement(role === 'link' ? 'a' : role === 'next' ? 'button' : 'div');
+        el.className = 'egh-tile egh-tile--' + cls;
+        if (role === 'next') el.type = 'button';
+        tiles.push({ el, role });
+        gridEl.appendChild(el);
+      }
+
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      let idx = 0, flashTimers = [];
+
+      function render(i) {
+        idx = ((i % list.length) + list.length) % list.length;
+        const p = list[idx];
+        const tpls = templatesOf(p);
+        flashTimers.forEach(clearInterval); flashTimers = [];
+
+        tiles.forEach((t, n) => {
+          const el = t.el;
+          if (t.role === 'text') {
+            el.innerHTML =
+              `<div class="egh-cat">${escapeHtml(p.category || 'The Edit')}</div>` +
+              `<div><div class="egh-title">${escapeHtml(p.title || '')}</div>` +
+              `<p class="egh-sub">${escapeHtml(p.description || '')}</p></div>`;
+          } else if (t.role === 'static') {
+            el.innerHTML = `<div class="egh-imglayer" style="opacity:1;background-image:url('${tpls[0]}')"></div>`;
+          } else if (t.role === 'flash') {
+            el.innerHTML = `<div class="egh-imglayer" style="opacity:1;background-image:url('${pick(tpls)}')"></div>`;
+            const layer = el.firstChild;
+            const timer = setInterval(() => {
+              layer.style.opacity = '0';
+              setTimeout(() => { layer.style.backgroundImage = `url('${pick(tpls)}')`; layer.style.opacity = '1'; }, 380);
+            }, 2600 + n * 300);
+            flashTimers.push(timer);
+          } else if (t.role === 'reveal') {
+            el.innerHTML = `<div class="egh-reveal-img" style="background-image:url('${pick(tpls)}')"></div><span class="egh-reveal-cap">Template</span>`;
+          } else if (t.role === 'link') {
+            el.href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
+            el.innerHTML = 'See more<span class="egh-act-arrow" aria-hidden="true">&rarr;</span>';
+          } else if (t.role === 'next') {
+            el.innerHTML = 'Next<span class="egh-act-arrow" aria-hidden="true">&rarr;</span>';
+          }
+        });
+      }
+
+      gridEl.addEventListener('click', (e) => {
+        if (e.target.closest('.egh-tile--next')) render(idx + 1);
+      });
+
+      render(0);
+      list.forEach((p) => templatesOf(p).slice(0, 6).forEach((u) => { const im = new Image(); im.src = u; }));
+    }
+
     let packsById = new Map();
 
     // Dev/preview-only sample packs so the showcase is visible before any packs
@@ -1367,6 +1554,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       // Rotate the hero one pack at a time (copy + that pack's flashing grid).
       setupHero(packs);
+      setupGridHero(packs);   // experimental alternative — only if ?hero=grid
     })();
 
     // ============== Modal helpers ==============
