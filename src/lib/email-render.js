@@ -265,6 +265,7 @@ export function buttonInlineStyle(block = {}, brand = {}) {
   const pad = `${p.t}px ${p.r}px ${p.b}px ${p.l}px`;
   const parts = [
     block.fullWidth ? 'display:block' : 'display:inline-block',
+    'vertical-align:top',
     `padding:${pad}`, `background:${escapeHtml(bg)}`, `color:${escapeHtml(txt)}`,
     block.underline ? 'text-decoration:underline' : 'text-decoration:none',
     `border-radius:${br}px`, `font-weight:${block.bold ? 700 : 400}`,
@@ -488,8 +489,11 @@ function renderText(block, ctx) {
   // toolbar); plain text falls back to auto-paragraphing.
   const gap = resolveParaGap(block);
   const src = block.html != null && block.html !== '' ? normalizeRichHtml(block.html, gap) : plainToHtml(block.text || '', gap);
-  const inner = renderTokens(src, ctx);
+  let inner = renderTokens(src, ctx);
   if (!inner) return '';
+  // Drop the trailing paragraph gap so the block ends exactly at the last line —
+  // no hidden margin below (spacing is the block's own Margin control).
+  inner = inner.replace(/margin:0 0 \d+px(?![\s\S]*margin:0 0 \d+px)/, 'margin:0');
   const cls = hasMobileOverrides(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
   return `<div${cls} style="${textInlineStyle(block)}">${inner}</div>`;
 }
@@ -571,8 +575,10 @@ function renderButton(block, brand, ctx) {
   const hasM = blockHasMobile(block);
   const wCls = hasM ? ` class="eb-bw-${escapeHtml(block.id)}"` : '';
   const bCls = hasM ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
+  // No baked margin (spacing is the block's own Spacing controls) and line-height:0
+  // so the inline-block button leaves no descender gap underneath.
   return `
-    <div${wCls} style="text-align:${align};margin:8px 0;">
+    <div${wCls} style="text-align:${align};line-height:0;">
       <a${bCls} href="${escapeHtml(url)}" style="${buttonInlineStyle(block, brand)}">${escapeHtml(text)}</a>
     </div>`;
 }
@@ -841,6 +847,10 @@ function renderColumns(block, brand, ctx) {
   const colBgImage = Array.isArray(block.colBgImage) ? block.colBgImage : [];
   const colVAlign = Array.isArray(block.colVAlign) ? block.colVAlign : [];
   const radius = block.colRadius != null && block.colRadius !== '' ? Math.max(0, Number(block.colRadius)) : 6;
+  // Mobile behaviour: stack (default) → cells carry the .eb-col class the media
+  // query collapses to full width; "keep side by side" → no class, so they stay
+  // as table cells even on a phone.
+  const stack = block.stackMobile !== false;
   const tds = widths.map((w, i) => {
     // Vertical alignment of the column's content within the (image-sized) row.
     const va = ['middle', 'bottom'].includes(colVAlign[i]) ? colVAlign[i] : 'top';
@@ -865,7 +875,7 @@ function renderColumns(block, brand, ctx) {
         + `border-radius:${radius}px;padding:14px;`
       : '';
     const inner = hasBg ? `<div style="${bgCss}">${content}</div>` : content;
-    return `<td class="eb-col" valign="${va}" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:${va};font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
+    return `<td${stack ? ' class="eb-col"' : ''} valign="${va}" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:${va};font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
   }).join('');
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
 }

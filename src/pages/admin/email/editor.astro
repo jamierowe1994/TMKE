@@ -314,6 +314,10 @@ import "../../../styles/admin.css";
     .eb-canvas { transition:max-width 0.25s ease; }
     .eb-canvas.is-mobileview { max-width:390px; }
     .eb-canvas.is-mobileview .eb-email { padding:22px; }
+    /* Mobile preview: columns marked to stack collapse to one-per-row (matching
+       the sent email); "keep side by side" columns stay in a row. */
+    .eb-canvas.is-mobileview .cv-cols-stack { flex-direction:column; }
+    .eb-canvas.is-mobileview .cv-cols-stack .cv-col { flex:1 1 auto !important; max-width:100% !important; }
 
     /* Per-block visibility on the canvas: a small badge when a block is
        restricted to one device, and dimming when it's hidden in the CURRENT view. */
@@ -523,7 +527,7 @@ import "../../../styles/admin.css";
           const eb = effectiveBlock(b, canvasDevice);
           const al = ["left","center","right"].includes(eb.align)?eb.align:"center";
           // Edit the button label right on the canvas.
-          return `<div style="text-align:${al};"><span class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="${buttonInlineStyle(eb, brand)}">${esc(eb.text||"Button")}</span></div>`;
+          return `<div style="text-align:${al};line-height:0;"><span class="cv-edit" data-edit data-id="${b.id}" contenteditable="true" style="${buttonInlineStyle(eb, brand)}">${esc(eb.text||"Button")}</span></div>`;
         }
         case "divider": {
           const eb = effectiveBlock(b, canvasDevice);
@@ -548,7 +552,7 @@ import "../../../styles/admin.css";
             const vaCss = va==="top" ? "" : `display:flex;flex-direction:column;justify-content:${va==="middle"?"center":"flex-end"};`;
             return `<div class="cv-col" data-colof="${b.id}" data-coli="${i}" style="flex:0 0 calc(${w}% - 6px);max-width:${w}%;${vaCss}${bg}">${inner}</div>`;
           }).join("");
-          return `<div class="cv-cols">${colsHtml}</div>`;
+          return `<div class="cv-cols${b.stackMobile!==false?" cv-cols-stack":""}">${colsHtml}</div>`;
         }
         case "spacer":
           return `<div class="cv-spacer" style="height:${Math.max(4,Math.min(160,Number(b.height)||24))}px;">Spacer · ${Math.max(4,Math.min(160,Number(b.height)||24))}px</div>`;
@@ -1017,7 +1021,8 @@ import "../../../styles/admin.css";
             <input type="url" data-colbg-img="${i}" value="${esc(colBgImage[i]||"")}" placeholder="Background image URL (blank = none)" style="width:100%;margin-bottom:6px;" />
             ${uploadControl("col"+i)}</div>`).join("");
           return `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>
-            <p class="eb-note">Drag any block from the left into a column. Click a block inside a column to edit it. Columns stack on mobile.</p>
+            <p class="eb-note">Drag any block from the left into a column. Click a block inside a column to edit it.</p>
+            <label class="eb-check" style="margin:2px 0 10px;"><input type="checkbox" data-field="stackMobile"${b.stackMobile!==false?" checked":""}/> Stack columns on mobile (uncheck to keep them side by side)</label>
             <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="colRadius" value="${b.colRadius!=null?b.colRadius:""}" placeholder="6" /></label>
             <div class="eb-sec"><span class="eb-f-sub">Per-column settings</span>${bgRows}<p class="eb-note" style="margin-top:2px;"><strong>Align</strong> sets whether the column's content sits at the top, middle or bottom (handy when one column is a tall image). Each column can also have its own background colour and/or image.</p></div>
             ${spacingBox(b, device)}`;
