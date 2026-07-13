@@ -30,25 +30,25 @@ const TILES = [
     </header>
 
     <div class="jn-grid">
-      <!-- Brand cell (its "one third") -->
-      <div class="jn-cell jn-cell--brand">
-        <div class="chapter">Join the Studio</div>
-        <h1 class="jn-brand-title">Built For Better Marketing</h1>
-        <p class="jn-brand-desc">Create your account to access the Studio, your all-in-one workspace for designing content, planning your marketing, managing bookings, accessing resources, and getting more from your TMKE membership.</p>
-        <button type="button" class="jn-brand-cta" data-signup-open>Create your account &rarr;</button>
-      </div>
+      <!-- First cell: just the chapter line + "Join", in the tile style -->
+      <button type="button" class="jn-cell jn-cell--tile jn-cell--join" data-signup-open aria-label="Create your account">
+        <span class="jn-tile-inner">
+          <span class="jn-cap"><span class="jn-cap-key chapter">Join</span></span>
+        </span>
+      </button>
 
       {TILES.map((t) => (
         <button type="button" class="jn-cell jn-cell--tile" data-signup-open aria-label={`${t.key} — create your free account`}>
-          <span class="jn-thumb">
-            <img class="jn-thumb-img" src={t.img} alt="" loading="lazy" />
-            <span class="jn-thumb-veil" aria-hidden="true"></span>
-          </span>
-          <span class="jn-cap">
-            <span class="jn-cap-key chapter">{t.key}</span>
-            <span class="jn-cap-lines">
-              <span class="jn-cap-line">{t.a}</span>
-              <span class="jn-cap-line">{t.b}</span>
+          <span class="jn-tile-inner">
+            <span class="jn-thumb">
+              <img class="jn-thumb-img" src={t.img} alt="" loading="lazy" />
+            </span>
+            <span class="jn-cap">
+              <span class="jn-cap-key chapter">{t.key}</span>
+              <span class="jn-cap-lines">
+                <span class="jn-cap-line">{t.a}</span>
+                <span class="jn-cap-line">{t.b}</span>
+              </span>
             </span>
           </span>
         </button>
@@ -64,9 +64,9 @@ const TILES = [
       <div class="jn-drawer-scrim" data-signup-close></div>
       <div class="jn-drawer-panel" role="dialog" aria-modal="true" aria-label="Create your account">
         <button type="button" class="jn-drawer-x" data-signup-close aria-label="Close">&times;</button>
-        <div class="chapter">Members &middot; Free</div>
-        <h2 class="jn-form-title">Create your account</h2>
-        <p class="jn-form-sub">One login for the whole Studio — no purchase needed.</p>
+        <div class="chapter">Join the Studio</div>
+        <h2 class="jn-form-title">Built for Better Marketing</h2>
+        <p class="jn-form-sub">Create your account to access the Studio, your all-in-one workspace for designing content, planning your marketing, managing bookings, accessing resources, and getting more from your TMKE membership.</p>
 
         <form id="jn-form" class="jn-form" novalidate>
           <label class="jn-field"><span>Full name</span>
@@ -106,36 +106,33 @@ const TILES = [
 
     /* ---- The full-page grid ---- */
     .jn-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--jn-line); border-left: 1px solid var(--jn-line); }
-    .jn-cell { border-right: 1px solid var(--jn-line); border-bottom: 1px solid var(--jn-line); min-height: clamp(240px, 31vh, 380px); position: relative; }
+    .jn-cell { border-right: 1px solid var(--jn-line); border-bottom: 1px solid var(--jn-line); min-height: clamp(320px, 36vh, 440px); position: relative; }
 
-    /* Brand cell (its "one third") */
-    .jn-cell--brand { display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: clamp(26px, 2.6vw, 44px); }
-    .jn-cell--brand .chapter { margin: 0; }
-    .jn-brand-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 2.4vw, 40px); line-height: 1.06; letter-spacing: -0.015em; color: var(--ink); margin: 0; }
-    .jn-brand-desc { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.64); margin: 0; max-width: 40ch; }
-    .jn-brand-cta { align-self: flex-start; margin-top: 4px; appearance: none; cursor: pointer; background: none; border: 0; padding: 0 0 3px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); border-bottom: 1px solid currentColor; }
-    .jn-brand-cta:hover { opacity: 0.7; }
-
-    /* Image tile — image sits SMALL and centred inside the cell */
-    .jn-cell--tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px 20px; cursor: pointer; background: none; text-align: center; }
-    .jn-thumb { position: relative; width: min(64%, 200px); aspect-ratio: 1080 / 1440; overflow: hidden; flex: none; }
-    .jn-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.7s cubic-bezier(0.22,0.61,0.36,1); }
-    .jn-thumb-veil { position: absolute; inset: 0; background: rgba(55,30,40,0); transition: background 0.4s ease; }
-    .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { transform: scale(1.05); }
-    .jn-cell--tile:hover .jn-thumb-veil, .jn-cell--tile:focus-visible .jn-thumb-veil { background: rgba(55,30,40,0.14); }
-    .jn-cap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    /* Image tile — image sits SMALL and centred; caption left-aligned to it.
+       The cell is roomy and the phrases are always in flow (just fade in), so
+       hovering never nudges the layout. */
+    .jn-cell--tile { display: flex; align-items: center; justify-content: center; padding: 30px 24px; cursor: pointer; background: none; }
+    .jn-tile-inner { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; width: min(66%, 210px); }
+    .jn-thumb { position: relative; width: 100%; aspect-ratio: 1080 / 1440; overflow: hidden; }
+    .jn-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 0.5s ease, opacity 0.5s ease; }
+    .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: blur(7px); opacity: 0.42; }
+    .jn-cap { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; width: 100%; }
     .jn-cap-key { margin: 0; color: var(--english-violet); }
-    .jn-cap-lines { display: flex; flex-direction: column; gap: 3px; max-width: 30ch; max-height: 0; opacity: 0; overflow: hidden; transition: max-height 0.4s ease, opacity 0.35s ease; }
-    .jn-cell--tile:hover .jn-cap-lines, .jn-cell--tile:focus-visible .jn-cap-lines { max-height: 70px; opacity: 1; }
+    .jn-cap-lines { display: flex; flex-direction: column; gap: 4px; opacity: 0; transition: opacity 0.35s ease; }
+    .jn-cell--tile:hover .jn-cap-lines, .jn-cell--tile:focus-visible .jn-cap-lines { opacity: 1; }
     .jn-cap-line { font-family: var(--sans); font-size: 12px; line-height: 1.45; color: rgba(28,29,34,0.6); }
     .jn-cell--tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: -2px; }
+
+    /* First "Join" cell — just the chapter line + word, no image */
+    .jn-cell--join .jn-tile-inner { justify-content: center; }
+    .jn-cell--join .jn-cap-key { font-size: 13px; }
 
     /* ---- Slide-out sign-up ---- */
     .jn-drawer { position: fixed; inset: 0; z-index: 3000; }
     .jn-drawer[hidden] { display: none; }
     .jn-drawer-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.5); opacity: 0; transition: opacity 0.28s ease; }
     .jn-drawer.is-open .jn-drawer-scrim { opacity: 1; }
-    .jn-drawer-panel { position: absolute; top: 0; right: 0; height: 100%; width: min(460px, 94vw); background: var(--paper); box-shadow: -18px 0 60px rgba(28,29,34,0.3); padding: 40px clamp(28px, 3vw, 40px); overflow-y: auto; transform: translateX(100%); transition: transform 0.34s cubic-bezier(0.22,0.61,0.36,1); }
+    .jn-drawer-panel { position: absolute; top: 0; right: 0; height: 100%; width: clamp(400px, 50vw, 720px); background: var(--paper); box-shadow: -18px 0 60px rgba(28,29,34,0.3); padding: 44px clamp(30px, 3.2vw, 52px); overflow-y: auto; transform: translateX(100%); transition: transform 0.34s cubic-bezier(0.22,0.61,0.36,1); }
     .jn-drawer.is-open .jn-drawer-panel { transform: translateX(0); }
     .jn-drawer-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: rgba(28,29,34,0.55); font-size: 22px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
     .jn-drawer-x:hover { color: var(--ink); }
@@ -161,7 +158,6 @@ const TILES = [
     /* ---- Responsive ---- */
     @media (max-width: 860px) {
       .jn-grid { grid-template-columns: repeat(2, 1fr); }
-      .jn-cell--brand { grid-column: 1 / -1; min-height: 0; }
       .jn-cell--empty { display: none; }
     }
     @media (max-width: 520px) {
