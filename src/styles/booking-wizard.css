@@ -6,7 +6,9 @@
    ============================================================================ */
 .dc-panel { position: fixed; inset: 0; z-index: 400; pointer-events: none; }
 .dc-panel.is-open { pointer-events: auto; }
-.dc-panel[aria-hidden="true"] .dc-panel-stage { transform: translateX(-100%); }
+/* When closed, the stage is parked off-screen — kill its drawer shadow so it
+   doesn't bleed a grey band onto the visible page edge. */
+.dc-panel[aria-hidden="true"] .dc-panel-stage { transform: translateX(-100%); box-shadow: none; }
 .dc-panel[aria-hidden="true"] .dc-panel-scrim { opacity: 0; }
 
 .dc-panel-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.5); opacity: 1; transition: opacity 0.55s ease-out; }
@@ -14,7 +16,7 @@
 .dc-panel-stage {
   position: absolute; top: 0; bottom: 0; left: 0;
   width: min(640px, 94vw); background: var(--paper);
-  transform: translateX(0); transition: transform 0.7s cubic-bezier(.2,.75,.2,1);
+  transform: translateX(0); transition: transform 0.7s cubic-bezier(.2,.75,.2,1), box-shadow 0.4s ease;
   overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none;
   box-shadow: 30px 0 80px rgba(0,0,0,0.28);
 }
