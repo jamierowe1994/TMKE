@@ -537,13 +537,16 @@ import "../../../styles/admin.css";
           const cols = Array.isArray(b.cols)?b.cols:[];
           const colBg = Array.isArray(b.colBg)?b.colBg:[];
           const colBgImage = Array.isArray(b.colBgImage)?b.colBgImage:[];
+          const colVAlign = Array.isArray(b.colVAlign)?b.colVAlign:[];
           const radius = b.colRadius!=null && b.colRadius!=="" ? Math.max(0,Number(b.colRadius)) : 6;
           const colsHtml = layout.w.map((w,i)=>{
             const children = Array.isArray(cols[i])?cols[i]:[];
             const inner = children.length ? children.map(blockCard).join("") : `<div class="cv-col-empty">Drop a block here</div>`;
             const hasBg = colBg[i] || colBgImage[i];
             const bg = hasBg ? `${colBg[i]?`background-color:${esc(colBg[i])};`:""}${colBgImage[i]?`background-image:url('${esc(colBgImage[i])}');background-size:cover;background-position:center center;background-repeat:no-repeat;`:""}border-radius:${radius}px;border-style:solid;border-color:transparent;` : `border-radius:${radius}px;`;
-            return `<div class="cv-col" data-colof="${b.id}" data-coli="${i}" style="flex:0 0 calc(${w}% - 6px);max-width:${w}%;${bg}">${inner}</div>`;
+            const va = ["middle","bottom"].includes(colVAlign[i]) ? colVAlign[i] : "top";
+            const vaCss = va==="top" ? "" : `display:flex;flex-direction:column;justify-content:${va==="middle"?"center":"flex-end"};`;
+            return `<div class="cv-col" data-colof="${b.id}" data-coli="${i}" style="flex:0 0 calc(${w}% - 6px);max-width:${w}%;${vaCss}${bg}">${inner}</div>`;
           }).join("");
           return `<div class="cv-cols">${colsHtml}</div>`;
         }
@@ -1007,14 +1010,16 @@ import "../../../styles/admin.css";
           const layout = COLUMN_LAYOUTS.find(l=>l.key===lay) || COLUMN_LAYOUTS[1];
           const colBg = Array.isArray(b.colBg)?b.colBg:[];
           const colBgImage = Array.isArray(b.colBgImage)?b.colBgImage:[];
+          const colVAlign = Array.isArray(b.colVAlign)?b.colVAlign:[];
           const bgRows = layout.w.map((w,i)=>`<div style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="flex:1;font-family:var(--sans);font-size:12px;font-weight:600;">Column ${i+1}</span><input type="color" data-colbg-sw="${i}" value="${validHex(colBg[i],'#f4f2f1')}" style="width:38px;height:32px;padding:2px;flex:0 0 auto;" /><input type="text" data-colbg="${i}" value="${esc(colBg[i]||"")}" placeholder="colour" style="width:88px;flex:0 0 auto;" /></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="flex:1;font-family:var(--sans);font-size:12px;font-weight:600;">Column ${i+1}</span><span style="font-family:var(--sans);font-size:10px;color:rgba(28,29,34,0.45);">Align</span><select data-colva="${i}" style="flex:0 0 auto;font-size:12px;padding:5px 7px;">${[["top","Top"],["middle","Middle"],["bottom","Bottom"]].map(([v,l])=>`<option value="${v}"${(colVAlign[i]||"top")===v?" selected":""}>${l}</option>`).join("")}</select></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><input type="color" data-colbg-sw="${i}" value="${validHex(colBg[i],'#f4f2f1')}" style="width:38px;height:32px;padding:2px;flex:0 0 auto;" /><input type="text" data-colbg="${i}" value="${esc(colBg[i]||"")}" placeholder="background colour (blank = none)" style="flex:1;" /></div>
             <input type="url" data-colbg-img="${i}" value="${esc(colBgImage[i]||"")}" placeholder="Background image URL (blank = none)" style="width:100%;margin-bottom:6px;" />
             ${uploadControl("col"+i)}</div>`).join("");
           return `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>
             <p class="eb-note">Drag any block from the left into a column. Click a block inside a column to edit it. Columns stack on mobile.</p>
             <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="colRadius" value="${b.colRadius!=null?b.colRadius:""}" placeholder="6" /></label>
-            <div class="eb-sec"><span class="eb-f-sub">Column backgrounds</span>${bgRows}<p class="eb-note" style="margin-top:2px;">Each column can have its own colour and/or background image. Blank = no fill.</p></div>
+            <div class="eb-sec"><span class="eb-f-sub">Per-column settings</span>${bgRows}<p class="eb-note" style="margin-top:2px;"><strong>Align</strong> sets whether the column's content sits at the top, middle or bottom (handy when one column is a tall image). Each column can also have its own background colour and/or image.</p></div>
             ${spacingBox(b, device)}`;
         }
         case "products": {
@@ -1209,6 +1214,10 @@ import "../../../styles/admin.css";
             extra.forEach(col => (col||[]).forEach(cb => b.cols[need-1].push(cb)));
           }
           renderCanvas(); openInspector(bid);
+        });
+        // Per-column vertical alignment (top / middle / bottom).
+        wrap.querySelectorAll("[data-colva]").forEach((sel)=>{
+          sel.addEventListener("change", ()=>{ const i=Number(sel.dataset.colva); if(!Array.isArray(b.colVAlign)) b.colVAlign=[]; b.colVAlign[i]=sel.value; renderCanvas(); });
         });
         // Per-column background — colour swatch + hex field stay in sync.
         const setColBg = (i, v)=>{ if(!Array.isArray(b.colBg)) b.colBg=[]; b.colBg[i]=v; renderCanvas(); };
