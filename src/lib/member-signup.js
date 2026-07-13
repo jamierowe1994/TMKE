@@ -1,5 +1,4 @@
-// Shared self-serve member sign-up. Used by the global Create-account pop-out
-// (SignupModal.astro) and the standalone /signup page. Creates a Supabase auth
+// Shared self-serve member sign-up, used by the /join page. Creates a Supabase auth
 // account (client-side, so the confirmation email still gates it) and — if the
 // person ticks marketing consent — brings them into the CRM via the existing
 // public /newsletter path.
