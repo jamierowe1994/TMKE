@@ -212,7 +212,18 @@ async function getUser(request, env) {
     });
     if (!res.ok) return null;
     const user = await res.json();
-    return user && user.id ? user : null;
+    if (!user || !user.id) return null;
+    // Resolve admin status ONCE per request so every gated endpoint agrees with
+    // the client gate: the staff domain/allowlist, OR a row in the admins table
+    // (how team-added admins like non-tmke.co.uk staff are granted access).
+    user._isAdmin = emailLooksAdmin(user);
+    if (!user._isAdmin) {
+      try {
+        const rows = await sbGet(env, "admins", `user_id=eq.${encodeURIComponent(user.id)}&select=user_id`);
+        user._isAdmin = !!(rows && rows.length);
+      } catch (_) {}
+    }
+    return user;
   } catch (_) {
     return null;
   }
@@ -455,11 +466,26 @@ async function syncAgentSheet(env) {
 // allowlist in src/lib/admin-gate.js: a TMKE-domain email, or the named extra.
 const ADMIN_EMAIL_DOMAINS = ["tmke.co.uk"];
 const ADMIN_EMAILS = ["james@therecruitmentexperts.co.uk"];
-function isAdminEmail(user) {
+// Owners can additionally manage the Brand kit + who has admin access. Everyone
+// else with admin access can fully operate the site but not those two things.
+const OWNER_EMAILS = ["james@therecruitmentexperts.co.uk", "danielle@tmke.co.uk"];
+// Fast, offline check: the staff domain or the explicit allowlist.
+function emailLooksAdmin(user) {
   const e = String((user && user.email) || "").toLowerCase().trim();
   if (!e) return false;
   if (ADMIN_EMAILS.includes(e)) return true;
   return ADMIN_EMAIL_DOMAINS.includes(e.split("@")[1] || "");
+}
+// Any admin: the allowlist OR a row in the admins table (getUser resolves the
+// table lookup and stamps user._isAdmin). Falls back to the email check if the
+// user object didn't come through getUser.
+function isAdminEmail(user) {
+  if (user && user._isAdmin !== undefined) return user._isAdmin;
+  return emailLooksAdmin(user);
+}
+function isOwner(user) {
+  const e = String((user && user.email) || "").toLowerCase().trim();
+  return !!e && OWNER_EMAILS.includes(e);
 }
 
 // Read from Supabase with the service role (server-side only, never exposed).
@@ -3328,7 +3354,7 @@ export default {
       // List everyone who's been granted admin access via the table.
       if (path.endsWith("/admin/team") && request.method === "GET") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const rows = (await sbGet(env, "admins", "select=user_id,email,created_at&order=created_at.asc")) || [];
         const profs = (await sbGet(env, "admin_profiles", "select=user_id,full_name,role")) || [];
         const pm = {}; for (const p of profs) pm[p.user_id] = p;
@@ -3343,7 +3369,7 @@ export default {
       // and email them how to sign in.
       if (path.endsWith("/admin/team") && request.method === "POST") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const email = String((b && b.email) || "").trim().toLowerCase();
         const fullName = String((b && b.full_name) || "").trim();
@@ -3408,7 +3434,7 @@ export default {
       // Revoke admin access (removes their `admins` row; the login itself stays).
       if (path.endsWith("/admin/team") && request.method === "DELETE") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const userId = (url.searchParams.get("user_id") || "").trim();
         if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
         if (userId === user.id) return json({ error: "You can't remove your own access." }, 400, request, env);
@@ -3421,7 +3447,7 @@ export default {
       // Rename an admin (their display name across the admin). Upserts admin_profiles.
       if (path.endsWith("/admin/team") && request.method === "PATCH") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const userId = String((b && b.user_id) || "").trim();
         const fullName = String((b && b.full_name) || "").trim();
@@ -3440,7 +3466,7 @@ export default {
       // Reset an admin's password: set a fresh temporary password and email it.
       if (path.endsWith("/admin/team/reset") && request.method === "POST") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const userId = String((b && b.user_id) || "").trim();
         if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
@@ -3550,7 +3576,7 @@ export default {
       }
       if (path.endsWith("/brand") && request.method === "POST") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can change the brand kit." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const SOCIAL_KEYS = ["website", "linkedin", "instagram", "facebook", "twitter", "youtube"];
         const row = { id: 1 };
