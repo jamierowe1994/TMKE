@@ -82,6 +82,10 @@ const PREVIEWABLE = new Set(["post_reminder", "setup_reminder", "waitlist_regist
     <div class="ae-modal-card">
       <div class="ae-modal-head">
         <div class="ae-modal-hed"><div class="ae-modal-title" id="ae-modal-title">Preview</div><div class="ae-modal-subj" id="ae-modal-subj"></div></div>
+        <div class="ae-modal-toggle" role="group" aria-label="Preview style">
+          <button type="button" class="ae-tog is-active" id="ae-tog-current" data-branded="0">Current</button>
+          <button type="button" class="ae-tog" id="ae-tog-branded" data-branded="1">Branded base</button>
+        </div>
         <button type="button" class="ae-modal-x" id="ae-modal-x" aria-label="Close">&times;</button>
       </div>
       <div class="ae-modal-body"><p class="ae-modal-loading" id="ae-modal-loading">Rendering…</p><iframe id="ae-modal-frame" title="Email preview" hidden></iframe></div>
@@ -144,6 +148,9 @@ const PREVIEWABLE = new Set(["post_reminder", "setup_reminder", "waitlist_regist
     .ae-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid rgba(28,29,34,0.08); }
     .ae-modal-title { font-family: var(--sans); font-size: 15px; font-weight: 700; color: var(--ink); }
     .ae-modal-subj { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 3px; }
+    .ae-modal-toggle { display: inline-flex; background: rgba(28,29,34,0.06); border-radius: 8px; padding: 3px; flex: none; }
+    .ae-tog { border: 0; background: none; border-radius: 6px; padding: 6px 12px; font-family: var(--sans); font-size: 11.5px; font-weight: 700; color: rgba(28,29,34,0.55); cursor: pointer; }
+    .ae-tog.is-active { background: #fff; color: var(--english-violet); box-shadow: 0 1px 3px rgba(28,29,34,0.14); }
     .ae-modal-x { border: 0; background: none; font-size: 24px; line-height: 1; color: rgba(28,29,34,0.4); cursor: pointer; }
     .ae-modal-body { flex: 1; min-height: 0; overflow: auto; background: #f4f2f1; padding: 18px; }
     .ae-modal-loading { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); text-align: center; padding: 40px 0; }
@@ -201,26 +208,38 @@ const PREVIEWABLE = new Set(["post_reminder", "setup_reminder", "waitlist_regist
     const mLoading = document.getElementById("ae-modal-loading");
     const mTitle = document.getElementById("ae-modal-title");
     const mSubj = document.getElementById("ae-modal-subj");
+    const togCurrent = document.getElementById("ae-tog-current");
+    const togBranded = document.getElementById("ae-tog-branded");
+    let curId = null, curName = "", branded = false;
     function closeModal() { modal.hidden = true; frame.hidden = true; frame.srcdoc = ""; }
     document.getElementById("ae-modal-x").addEventListener("click", closeModal);
     document.getElementById("ae-modal-scrim").addEventListener("click", closeModal);
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
-    document.querySelectorAll("[data-preview]").forEach((btn) => btn.addEventListener("click", async () => {
-      const id = btn.getAttribute("data-preview");
-      mTitle.textContent = btn.getAttribute("data-name") || "Preview";
-      mSubj.textContent = ""; frame.hidden = true; mLoading.hidden = false; mLoading.textContent = "Rendering…";
-      modal.hidden = false;
+
+    async function loadPreview() {
+      togCurrent.classList.toggle("is-active", !branded);
+      togBranded.classList.toggle("is-active", branded);
+      frame.hidden = true; mLoading.hidden = false; mLoading.textContent = branded ? "Wrapping in your branded base…" : "Rendering…";
       try {
         const { data } = await supabase.auth.getSession();
         const token = data && data.session && data.session.access_token;
         if (!WORKER || !token) { mLoading.textContent = "Please sign in (or set the Worker URL)."; return; }
-        const res = await fetch(`${WORKER}/email/preview?id=${encodeURIComponent(id)}`, { headers: { Authorization: "Bearer " + token } });
+        const res = await fetch(`${WORKER}/email/preview?id=${encodeURIComponent(curId)}${branded ? "&branded=1" : ""}`, { headers: { Authorization: "Bearer " + token } });
         const j = await res.json().catch(() => ({}));
         if (!j.ok || !j.supported) { mLoading.textContent = j.error || "No live preview for this one yet."; return; }
         mSubj.textContent = "Subject: " + (j.subject || "");
         frame.srcdoc = j.html || "";
         mLoading.hidden = true; frame.hidden = false;
       } catch (_) { mLoading.textContent = "Couldn't load the preview."; }
+    }
+    togCurrent.addEventListener("click", () => { if (branded) { branded = false; loadPreview(); } });
+    togBranded.addEventListener("click", () => { if (!branded) { branded = true; loadPreview(); } });
+
+    document.querySelectorAll("[data-preview]").forEach((btn) => btn.addEventListener("click", () => {
+      curId = btn.getAttribute("data-preview"); curName = btn.getAttribute("data-name") || "Preview"; branded = false;
+      mTitle.textContent = curName; mSubj.textContent = "";
+      modal.hidden = false;
+      loadPreview();
     }));
   </script>
 </AdminShell>
