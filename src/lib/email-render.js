@@ -542,7 +542,9 @@ export function imageInlineStyle(block = {}) {
   if (bw > 0) parts.push(`border:${bw}px solid ${escapeHtml(block.borderColor || '#1c1d22')}`);
   else parts.push('border:0');
   parts.push(`border-radius:${pxNum(block.borderRadius, 8)}px`);
-  parts.push('display:inline-block', 'outline:none', 'text-decoration:none');
+  // vertical-align:top takes the image off the text baseline, killing the ~4px
+  // "descender gap" inline images otherwise leave underneath them.
+  parts.push('display:inline-block', 'vertical-align:top', 'outline:none', 'text-decoration:none');
   return parts.join(';') + ';';
 }
 
@@ -557,7 +559,9 @@ function renderImage(block) {
   const wrapped = block.linkUrl
     ? `<a href="${escapeHtml(block.linkUrl)}" style="text-decoration:none;">${img}</a>`
     : img;
-  return `<div${wCls} style="text-align:${align};${padStyleResolved(block)}">${wrapped}</div>`;
+  // line-height:0 collapses the wrapper's line box so there's no stray gap under
+  // the image (belt-and-braces with the image's vertical-align:top).
+  return `<div${wCls} style="text-align:${align};line-height:0;${padStyleResolved(block)}">${wrapped}</div>`;
 }
 
 function renderButton(block, brand, ctx) {
@@ -581,8 +585,8 @@ function renderDivider(block) {
   const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
   const wCls = blockHasMobile(block) ? ` class="eb-bw-${escapeHtml(block.id)}"` : '';
   const lCls = blockHasMobile(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
-  return `<div${wCls} style="text-align:${align};${padStyleResolved(block)}">`
-    + `<table${lCls} role="presentation" width="${width}%" cellpadding="0" cellspacing="0" border="0" style="width:${width}%;display:inline-table;">`
+  return `<div${wCls} style="text-align:${align};line-height:0;${padStyleResolved(block)}">`
+    + `<table${lCls} role="presentation" width="${width}%" cellpadding="0" cellspacing="0" border="0" style="width:${width}%;display:inline-table;vertical-align:top;">`
     + `<tr><td style="border-top:${thick}px solid ${escapeHtml(color)};font-size:0;line-height:0;">&nbsp;</td></tr></table></div>`;
 }
 
