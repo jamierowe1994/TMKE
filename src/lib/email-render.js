@@ -847,6 +847,10 @@ function renderColumns(block, brand, ctx) {
   const colBgImage = Array.isArray(block.colBgImage) ? block.colBgImage : [];
   const colVAlign = Array.isArray(block.colVAlign) ? block.colVAlign : [];
   const radius = block.colRadius != null && block.colRadius !== '' ? Math.max(0, Number(block.colRadius)) : 6;
+  // Mobile behaviour: stack (default) → cells carry the .eb-col class the media
+  // query collapses to full width; "keep side by side" → no class, so they stay
+  // as table cells even on a phone.
+  const stack = block.stackMobile !== false;
   const tds = widths.map((w, i) => {
     // Vertical alignment of the column's content within the (image-sized) row.
     const va = ['middle', 'bottom'].includes(colVAlign[i]) ? colVAlign[i] : 'top';
@@ -871,7 +875,7 @@ function renderColumns(block, brand, ctx) {
         + `border-radius:${radius}px;padding:14px;`
       : '';
     const inner = hasBg ? `<div style="${bgCss}">${content}</div>` : content;
-    return `<td class="eb-col" valign="${va}" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:${va};font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
+    return `<td${stack ? ' class="eb-col"' : ''} valign="${va}" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:${va};font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
   }).join('');
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
 }
