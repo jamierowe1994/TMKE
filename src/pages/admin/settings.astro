@@ -224,8 +224,12 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       }
       paintAvatar(currentAvatar, (profile && profile.full_name) || (session.user.email || ""));
       $("pref-collapsed").checked = localStorage.getItem("tmke-admin-collapsed") === "1";
-      loadTeam();
-      loadBrand();
+      // The Brand kit + Admin access are owner-only (server-enforced too). Other
+      // admins can fully operate the site but don't see or manage these two.
+      const OWNER_EMAILS = ["james@therecruitmentexperts.co.uk", "danielle@tmke.co.uk"];
+      const isOwner = OWNER_EMAILS.includes(String(session.user.email || "").toLowerCase().trim());
+      if (isOwner) { loadTeam(); loadBrand(); }
+      else { document.querySelector(".set-card--brand")?.setAttribute("hidden", ""); document.querySelector(".set-team")?.setAttribute("hidden", ""); }
     });
 
     // ---- Brand kit (shared across the admin centre) ----
