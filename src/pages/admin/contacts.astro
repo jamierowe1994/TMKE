@@ -613,6 +613,11 @@ import "../../styles/admin.css";
               <span class="ct-badge ${c.user_id ? "is-on" : ""}">${c.user_id ? "Member — Has account" : "No account"}</span>
               <span class="ct-badge ${c.marketing_opt_in ? "is-on" : ""}">Marketing: ${c.marketing_opt_in ? "Yes" : "No"}</span>
             </div>
+            ${c.user_id ? "" : `
+            <div class="ct-acct" id="ct-acct">
+              <p class="ct-meta" style="margin:12px 0 8px">Not linked to a member account yet.</p>
+              <button class="ct-mini" id="ct-acct-check">Check for a member account</button>
+            </div>`}
           </div>
           <div class="ct-sec">
             <h3>Details</h3>
@@ -699,9 +704,64 @@ import "../../styles/admin.css";
       } catch (_) { if (current === c) el.textContent = "—"; }
     }
 
+    // Member-account linking — POST to the Worker with the admin's token.
+    async function acctApi(path, body) {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      const res = await fetch(`${WORKER}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" },
+        body: JSON.stringify(body),
+      });
+      return res.json().catch(() => ({}));
+    }
+
+    // "Check for a member account": looks up an auth user for this email. On a
+    // name-matched hit it links the card (→ reload as a member); on a name
+    // mismatch it offers "Link anyway"; on no account it offers an invite.
+    async function checkAccount(c, force) {
+      if (!WORKER) return;
+      const box = document.getElementById("ct-acct"); if (!box) return;
+      box.innerHTML = `<p class="ct-meta" style="margin:12px 0">Checking…</p>`;
+      const r = await acctApi("/contacts/link", { contact_id: c.id, force: !!force });
+      if (r.ok && r.linked) { await load(); openDrawer(c.id); return; }
+      if (r.nameMismatch) {
+        box.innerHTML = `
+          <p class="ct-meta" style="margin:12px 0 8px">An account exists for <b>${esc(r.email)}</b>, but its name (<b>${esc(r.account_name || "unknown")}</b>) doesn't match this contact (<b>${esc(r.card_name || "")}</b>). Link them anyway?</p>
+          <button class="ct-mini" id="ct-acct-force">Link anyway</button>
+          <button class="ct-mini" id="ct-acct-cancel">Cancel</button>`;
+        document.getElementById("ct-acct-force").addEventListener("click", () => checkAccount(c, true));
+        document.getElementById("ct-acct-cancel").addEventListener("click", () => openDrawer(c.id));
+        return;
+      }
+      if (r.noAccount) {
+        box.innerHTML = `
+          <p class="ct-meta" style="margin:12px 0 8px">No member account found for <b>${esc(c.email)}</b>.</p>
+          <button class="ct-mini" id="ct-acct-invite">Invite them to create an account</button>`;
+        document.getElementById("ct-acct-invite").addEventListener("click", () => inviteAccount(c));
+        return;
+      }
+      box.innerHTML = `<p class="ct-meta" style="margin:12px 0 8px">${esc(r.error || "Couldn't check right now.")}</p><button class="ct-mini" id="ct-acct-retry">Try again</button>`;
+      document.getElementById("ct-acct-retry").addEventListener("click", () => checkAccount(c));
+    }
+
+    // Send the branded "create your account" invite (links to the join page).
+    async function inviteAccount(c) {
+      const btn = document.getElementById("ct-acct-invite");
+      if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+      const r = await acctApi("/contacts/invite", { contact_id: c.id });
+      const box = document.getElementById("ct-acct"); if (!box) return;
+      if (r.ok && r.invited) { box.innerHTML = `<p class="ct-meta" style="margin:12px 0;color:#2f7a3f">✓ Invitation sent to ${esc(r.invited)}.</p>`; return; }
+      if (r.alreadyHasAccount) { box.innerHTML = `<p class="ct-meta" style="margin:12px 0 8px">They already have an account — linking it now…</p>`; checkAccount(c); return; }
+      box.innerHTML = `<p class="ct-meta" style="margin:12px 0 8px">${esc(r.error || "Couldn't send the invite.")}</p><button class="ct-mini" id="ct-acct-invite">Try again</button>`;
+      document.getElementById("ct-acct-invite").addEventListener("click", () => inviteAccount(c));
+    }
+
     function wireDrawer(notes, tasks) {
       const c = current;
       wireTeg();
+      const acctChk = document.getElementById("ct-acct-check");
+      if (acctChk) acctChk.addEventListener("click", () => checkAccount(c));
       // Possible-duplicate review: merge a sibling in, or clear the flag.
       $("ct-drawer-body").querySelectorAll("[data-merge]").forEach((b) => b.addEventListener("click", async () => {
         const dropId = b.getAttribute("data-merge");

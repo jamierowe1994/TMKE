@@ -323,6 +323,20 @@ export const EMAIL_CATALOG = [
     external: true,
     fields: ["confirmation_url", "reset_url"],
   },
+  {
+    id: "contact_account_invite",
+    group: "Account & auth",
+    name: "Contact — invite to create an account",
+    audience: "client",
+    trigger: "An admin clicks \"Invite them to create an account\" on a contact card that has no member hub account",
+    fires: "POST /contacts/invite",
+    to: "The contact",
+    sender: "hello@tmke.co.uk",
+    subject: "Create your TMKE account",
+    summary: "Branded invite sent to a contact who doesn't yet have a member hub account, with a button that opens the join page (email pre-filled) so they can create one. The Worker double-checks no account exists before sending, and logs the invite as a note on the contact card.",
+    fields: ["first_name", "join_url"],
+    editableToday: false,
+  },
 
   // ─────────────────────────── Admin & team ───────────────────────────
   {

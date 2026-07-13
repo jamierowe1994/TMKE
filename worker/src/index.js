@@ -4474,6 +4474,86 @@ export default {
         return json({ last_sign_in_at: (u && u.last_sign_in_at) || null }, 200, request, env);
       }
 
+      // ---- Admin: link a contact card to a member's hub account --------------
+      // Given a contact, look up the auth user for its email. If one exists and
+      // its name shares the contact's first OR last name, bind contacts.user_id
+      // to it (so the card shows as a member). Returns { noAccount } when no hub
+      // account exists (UI then offers an invite), or { nameMismatch } when an
+      // account exists under a different name (admin can force with { force }).
+      // Mirrors the SMM /smm/link flow.
+      if (path.endsWith("/contacts/link") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const cid = String((b && b.contact_id) || "").trim();
+        if (!cid) return json({ error: "Missing contact id." }, 400, request, env);
+        const rows = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(cid)}&select=id,email,first_name,last_name,user_id`);
+        const contact = rows && rows[0];
+        if (!contact) return json({ error: "That contact no longer exists." }, 404, request, env);
+        const email = String(contact.email || "").trim();
+        if (!email) return json({ error: "This contact has no email — add one first." }, 400, request, env);
+        const u = await findUserByEmail(env, email);
+        if (!u) return json({ ok: false, noAccount: true, email }, 200, request, env);
+        // Identity check — does the account's name share a name with the card?
+        const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z\s-]/g, "").split(/[\s-]+/).filter(Boolean);
+        const cardTokens = new Set([...norm(contact.first_name), ...norm(contact.last_name)]);
+        const acctName = (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || "";
+        const acctTokens = norm(acctName);
+        const nameKnown = cardTokens.size > 0 && acctTokens.length > 0;
+        const matches = !nameKnown || acctTokens.some((t) => cardTokens.has(t));
+        if (!matches && !(b && b.force === true)) {
+          return json({ ok: false, nameMismatch: true, email,
+            account_name: acctName, card_name: `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "(no name on card)" }, 200, request, env);
+        }
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/contacts?id=eq.${encodeURIComponent(cid)}`, {
+          method: "PATCH",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ user_id: u.id }),
+        });
+        if (!res.ok) { const t = await res.text().catch(() => ""); return json({ error: "Couldn't link the account. " + t.slice(0, 200) }, 502, request, env); }
+        return json({ ok: true, linked: true, user_id: u.id, account_name: acctName }, 200, request, env);
+      }
+
+      // ---- Admin: invite a contact to create their member hub account ---------
+      // For a contact with no hub account yet: send a branded invite whose button
+      // opens the join page (email pre-filled) so they self-serve their account.
+      // Double-checks no account already exists before sending, and logs the
+      // invite as a note on the card. Unlike /smm/invite this does NOT create the
+      // auth user — the join page owns sign-up.
+      if (path.endsWith("/contacts/invite") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const b = await request.json().catch(() => ({}));
+        const cid = String((b && b.contact_id) || "").trim();
+        if (!cid) return json({ error: "Missing contact id." }, 400, request, env);
+        const rows = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(cid)}&select=id,email,first_name,last_name,user_id`);
+        const contact = rows && rows[0];
+        if (!contact) return json({ error: "That contact no longer exists." }, 404, request, env);
+        const email = String(contact.email || "").trim();
+        if (!email) return json({ error: "This contact has no email — add one first." }, 400, request, env);
+        // Guard: never invite someone who already has an account.
+        const existing = await findUserByEmail(env, email);
+        if (existing) return json({ ok: false, alreadyHasAccount: true, email }, 200, request, env);
+        const first = String(contact.first_name || "there").trim();
+        const fullName = `${contact.first_name || ""} ${contact.last_name || ""}`.trim();
+        const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        const joinLink = `${site}/join?email=${encodeURIComponent(email)}${fullName ? `&name=${encodeURIComponent(fullName)}` : ""}`;
+        const content = `
+          <h1 style="font-family:Georgia,serif;font-size:24px;color:#371e28;margin:0 0 14px;">Create your TMKE account</h1>
+          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;">Hi ${esc(first)},</p>
+          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;">We'd love to set you up with a TMKE member account — your own space to design content, plan your marketing, browse The Edit, book shoots and keep everything in one place.</p>
+          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 22px;">It only takes a minute. Click below to get started.</p>
+          <p style="margin:0 0 24px;"><a href="${esc(joinLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
+          <p style="font-size:13px;line-height:1.6;color:#8a8796;margin:0;">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(joinLink)}</span></p>`;
+        const html = await wrapInBrandedBase(env, content);
+        const sent = await sendEmail(env, { to: email, subject: "Create your TMKE account", html });
+        if (!sent.ok) return json({ ok: false, emailFailed: true, error: sent.error || "The invite email didn't send." }, 200, request, env);
+        // Log the invite on the contact card so it shows in Notes/Activity.
+        try { await sbPost(env, "contact_notes", { contact_id: cid, body: `Invitation to create a member account sent to ${email}.`, author: "System" }); } catch (_) {}
+        return json({ ok: true, invited: email }, 200, request, env);
+      }
+
       if (path.endsWith("/contacts/import") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
