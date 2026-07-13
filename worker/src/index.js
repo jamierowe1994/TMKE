@@ -1248,7 +1248,19 @@ async function wrapInBrandedBase(env, contentHtml) {
     const out = []; let injected = false;
     for (const blk of base.blocks) {
       if (blk.type === "text" || blk.type === "button") {
-        if (!injected) { out.push({ type: "code", id: "txc", html: contentHtml }); injected = true; }
+        // Inject the email content where the base's sample message sits, and
+        // carry that block's own spacing so the message keeps the base's margins
+        // (vertical) + padding (horizontal inset) — otherwise tuned spacing is lost.
+        if (!injected) {
+          const p = blk.pad || {};
+          const inner = (p.t || p.r || p.b || p.l)
+            ? `<div style="padding:${p.t || 0}px ${p.r || 0}px ${p.b || 0}px ${p.l || 0}px;">${contentHtml}</div>`
+            : contentHtml;
+          const slot = { type: "code", id: "txc", html: inner };
+          if (blk.margin) slot.margin = blk.margin;
+          out.push(slot);
+          injected = true;
+        }
         continue; // drop the base's sample message + CTA
       }
       out.push(blk);
