@@ -1,131 +1,202 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+
+// The nine "what you can do in the hub" tiles. Portrait (1080×1440) imagery —
+// these are brand placeholders; swap `img` for the final shots when ready.
+const TILES = [
+  { key: "Design",   a: "Create scroll-stopping content in the Studio.", b: "Templates, tools and your brand kit, ready to go.", img: "/assets/personal-brand.jpg" },
+  { key: "Plan",     a: "Map out your month in one view.",                 b: "Schedule posts and never scramble for content.",     img: "/assets/home%20kitchen.jpg" },
+  { key: "Shop",     a: "Browse The Edit.",                                b: "Ready-made template packs for every moment.",         img: "/assets/bag.jpg" },
+  { key: "Learn",    a: "Guides and mini-courses.",                        b: "Sharpen your marketing, one lesson at a time.",       img: "/assets/shelve.png" },
+  { key: "Book",     a: "Videography and discovery calls.",                b: "Arrange shoots and calls in a couple of clicks.",     img: "/assets/phone%20me.jpg" },
+  { key: "Track",    a: "See exactly what's working.",                     b: "Clear monthly reports on your social performance.",   img: "/assets/social%20media.jpg" },
+  { key: "Manage",   a: "Everything in one place.",                        b: "Your orders, services and bookings at a glance.",     img: "/assets/home%20chair.jpg" },
+  { key: "Discover", a: "Explore what's possible.",                        b: "Fresh ideas and resources to keep you moving.",       img: "/assets/home%20forest.jpg" },
+  { key: "Grow",     a: "Get more from your TMKE membership.",             b: "One login, your whole marketing toolkit.",            img: "/assets/cosy%20home.jpg" },
+];
 ---
 
 <BaseLayout
   dashboard
   title="Create your account — TMKE"
-  description="Join the TMKE member hub — free. Manage your services, guides and the studio in one place."
+  description="Join the Studio — your all-in-one TMKE workspace for designing content, planning marketing, managing bookings and more."
   hideNav={true}
   hideFooter={true}
 >
-  <main class="login-shell">
-    <div class="login-art" aria-hidden="true">
-      <div class="login-art-overlay"></div>
-      <div class="login-art-quote">
-        <div class="chapter chapter--light">Members &middot; Free</div>
-        <p class="login-art-line">
-          A home for <em>everything</em><br />you make with us.
-        </p>
-        <p class="login-art-sub">
-          Your services, your reports, guides and the studio — one login, no purchase needed.
-        </p>
+  <main class="jn">
+    <!-- Left: brand panel -->
+    <aside class="jn-art" aria-hidden="true">
+      <div class="jn-art-overlay"></div>
+      <div class="jn-art-copy">
+        <div class="chapter chapter--light">Join the Studio</div>
+        <h1 class="jn-art-title">Built For Better<br />Marketing</h1>
+        <p class="jn-art-desc">Create your account to access the Studio, your all-in-one workspace for designing content, planning your marketing, managing bookings, accessing resources, and getting more from your TMKE membership.</p>
       </div>
-    </div>
+    </aside>
 
-    <section class="login-panel">
-      <a href="/" class="login-mark">TMKE</a>
-      <a href="/" class="login-back" aria-label="Go back"><span aria-hidden="true">&larr;</span> Back</a>
+    <!-- Right: the grid of nine -->
+    <section class="jn-main">
+      <a href="/" class="jn-mark" aria-label="TMKE — home">TMKE</a>
+      <a href="/" class="jn-back" aria-label="Go back"><span aria-hidden="true">&larr;</span> Back</a>
 
-      <div class="login-card">
-        <div class="eyebrow">Create account</div>
-        <h1 class="login-title">Join the TMKE hub.</h1>
-        <p class="login-sub">
-          Already a member?
-          <a href="/login" class="login-inline-anchor">Sign in</a>.
-        </p>
-
-        <form id="signup-page-form" class="login-form" novalidate>
-          <label class="login-field">
-            <span>Full name</span>
-            <input type="text" name="full_name" autocomplete="name" required placeholder="Jane Smith" />
-          </label>
-          <label class="login-field">
-            <span>Email</span>
-            <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" />
-          </label>
-          <label class="login-field">
-            <span>Password</span>
-            <input type="password" name="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" />
-          </label>
-          <label class="signup-check">
-            <input type="checkbox" name="marketing" />
-            <span>Keep me updated with tips, guides and offers. You can unsubscribe anytime.</span>
-          </label>
-
-          <button type="submit" class="btn btn--solid login-submit">
-            <span data-label>Create account</span> <span class="btn-arrow">&rarr;</span>
+      <div class="jn-grid">
+        {TILES.map((t) => (
+          <button type="button" class="jn-tile" data-signup-open aria-label={`${t.key} — create your free account`}>
+            <img class="jn-tile-img" src={t.img} alt="" loading="lazy" />
+            <span class="jn-tile-veil" aria-hidden="true"></span>
+            <span class="jn-tile-key chapter chapter--light">{t.key}</span>
+            <span class="jn-tile-copy">
+              <span class="jn-tile-line">{t.a}</span>
+              <span class="jn-tile-line">{t.b}</span>
+            </span>
           </button>
+        ))}
+      </div>
+      <p class="jn-hint">Pick anything to begin — it all starts with your free account.</p>
+    </section>
 
-          <p id="signup-page-error" class="login-error" hidden></p>
+    <!-- Slide-out: the sign-up box -->
+    <div class="jn-drawer" id="jn-drawer" hidden aria-hidden="true">
+      <div class="jn-drawer-scrim" data-signup-close></div>
+      <div class="jn-drawer-panel" role="dialog" aria-modal="true" aria-label="Create your account">
+        <button type="button" class="jn-drawer-x" data-signup-close aria-label="Close">&times;</button>
+        <div class="chapter">Members &middot; Free</div>
+        <h2 class="jn-form-title">Create your account</h2>
+        <p class="jn-form-sub">One login for the whole Studio — no purchase needed.</p>
+
+        <form id="jn-form" class="jn-form" novalidate>
+          <label class="jn-field"><span>Full name</span>
+            <input type="text" name="full_name" autocomplete="name" required placeholder="Jane Smith" /></label>
+          <label class="jn-field"><span>Email</span>
+            <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" /></label>
+          <label class="jn-field"><span>Password</span>
+            <input type="password" name="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" /></label>
+          <label class="jn-check">
+            <input type="checkbox" name="marketing" />
+            <span>Keep me updated with tips, guides and offers. Unsubscribe anytime.</span>
+          </label>
+          <button type="submit" class="btn btn--solid jn-submit"><span data-label>Create account</span> <span class="btn-arrow">&rarr;</span></button>
+          <p id="jn-error" class="jn-error" hidden></p>
         </form>
 
-        <div id="signup-page-done" class="signup-done" hidden>
-          <div class="signup-done-mark" aria-hidden="true">&#10003;</div>
-          <h2 class="signup-done-h">Check your inbox</h2>
-          <p class="signup-done-p">We've sent a confirmation link to your email. Click it to activate your account, then sign in.</p>
-          <a href="/login" class="btn btn--solid login-submit" style="text-decoration:none;justify-content:center;display:inline-flex"><span>Go to sign in</span></a>
+        <div id="jn-done" class="jn-done" hidden>
+          <div class="jn-done-mark" aria-hidden="true">&#10003;</div>
+          <h3 class="jn-done-h">Check your inbox</h3>
+          <p class="jn-done-p">We've sent a confirmation link to your email. Click it to activate your account, then sign in.</p>
+          <a href="/login" class="btn btn--solid jn-submit" style="text-decoration:none;justify-content:center;display:inline-flex"><span>Go to sign in</span></a>
         </div>
-      </div>
 
-      <p class="login-meta">© 2026 TMKE — The Marketing Experts</p>
-    </section>
+        <p class="jn-alt" id="jn-alt">Already a member? <a href="/login" class="jn-link">Sign in</a></p>
+      </div>
+    </div>
   </main>
 
   <style>
-    main.login-shell { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; background: var(--paper); }
-    .login-art {
-      position: relative; overflow: hidden;
-      background:
-        linear-gradient(180deg, rgba(28,29,34,0.2), rgba(28,29,34,0.7)),
-        url("/assets/door-closed.png") center/cover no-repeat;
-      color: var(--paper);
+    main.jn { display: grid; grid-template-columns: minmax(300px, 0.82fr) 1.18fr; min-height: 100vh; background: var(--paper); }
+
+    /* ---- Left brand panel ---- */
+    .jn-art { position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(28,29,34,0.28), rgba(28,29,34,0.72)), url("/assets/door-closed.png") center/cover no-repeat; color: var(--paper); }
+    .jn-art-overlay { position: absolute; inset: 0; background: radial-gradient(80% 60% at 50% 40%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.35) 100%); pointer-events: none; }
+    .jn-art-copy { position: absolute; inset: auto 0 0 0; padding: 0 clamp(32px, 4vw, 60px) clamp(48px, 7vh, 84px); }
+    .jn-art-copy .chapter { margin-bottom: 34px; }
+    .jn-art-title { font-family: var(--serif); font-weight: 400; font-size: clamp(38px, 4vw, 60px); line-height: 1.04; letter-spacing: -0.015em; margin: 0 0 20px; color: var(--paper); }
+    .jn-art-desc { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(244,242,241,0.76); margin: 0; max-width: 42ch; }
+
+    /* ---- Right: header bits + grid ---- */
+    .jn-main { position: relative; padding: clamp(64px, 8vh, 92px) clamp(24px, 3.4vw, 56px) clamp(40px, 6vh, 64px); display: flex; flex-direction: column; justify-content: center; }
+    .jn-mark { position: absolute; top: 30px; left: clamp(24px, 3.4vw, 56px); font-family: var(--serif); font-size: 23px; letter-spacing: 0.06em; color: var(--ink); }
+    .jn-back { position: absolute; top: 32px; right: clamp(24px, 3.4vw, 56px); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .jn-back:hover { color: var(--ink); }
+
+    .jn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(8px, 0.9vw, 14px); width: 100%; max-width: 760px; margin: 0 auto; }
+    .jn-tile { position: relative; aspect-ratio: 1080 / 1440; overflow: hidden; border: 0; padding: 0; margin: 0; cursor: pointer; border-radius: 4px; background: var(--english-violet); display: block; }
+    .jn-tile-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s cubic-bezier(0.22,0.61,0.36,1), filter 0.4s ease; }
+    .jn-tile-veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(55,30,40,0) 34%, rgba(55,30,40,0.82) 100%); transition: background 0.4s ease; }
+    .jn-tile-key { position: absolute; left: 12px; bottom: 12px; margin: 0; color: var(--paper); z-index: 2; transition: transform 0.4s ease; }
+    .jn-tile-copy { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 2; display: flex; flex-direction: column; gap: 4px; opacity: 0; transform: translateY(10px); transition: opacity 0.35s ease, transform 0.4s ease; pointer-events: none; }
+    .jn-tile-line { font-family: var(--sans); font-size: 11.5px; line-height: 1.4; color: rgba(244,242,241,0.92); }
+    .jn-tile:hover .jn-tile-img, .jn-tile:focus-visible .jn-tile-img { transform: scale(1.06); }
+    .jn-tile:hover .jn-tile-veil, .jn-tile:focus-visible .jn-tile-veil { background: linear-gradient(180deg, rgba(55,30,40,0.25) 0%, rgba(55,30,40,0.9) 100%); }
+    .jn-tile:hover .jn-tile-key, .jn-tile:focus-visible .jn-tile-key { transform: translateY(-46px); }
+    .jn-tile:hover .jn-tile-copy, .jn-tile:focus-visible .jn-tile-copy { opacity: 1; transform: translateY(0); }
+    .jn-tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .jn-hint { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); text-align: center; margin: 20px auto 0; }
+
+    /* ---- Slide-out sign-up ---- */
+    .jn-drawer { position: fixed; inset: 0; z-index: 3000; }
+    .jn-drawer[hidden] { display: none; }
+    .jn-drawer-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.5); opacity: 0; transition: opacity 0.28s ease; }
+    .jn-drawer.is-open .jn-drawer-scrim { opacity: 1; }
+    .jn-drawer-panel { position: absolute; top: 0; right: 0; height: 100%; width: min(460px, 94vw); background: var(--paper); box-shadow: -18px 0 60px rgba(28,29,34,0.3); padding: 40px clamp(28px, 3vw, 40px); overflow-y: auto; transform: translateX(100%); transition: transform 0.34s cubic-bezier(0.22,0.61,0.36,1); }
+    .jn-drawer.is-open .jn-drawer-panel { transform: translateX(0); }
+    .jn-drawer-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: rgba(28,29,34,0.55); font-size: 22px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .jn-drawer-x:hover { background: #fff; color: var(--ink); }
+    .jn-drawer-panel .chapter { margin-bottom: 16px; }
+    .jn-form-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 36px); line-height: 1.05; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 8px; }
+    .jn-form-sub { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 0 0 24px; }
+    .jn-form { display: flex; flex-direction: column; gap: 14px; }
+    .jn-field { display: flex; flex-direction: column; gap: 7px; }
+    .jn-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .jn-field input { font-family: var(--sans); font-size: 16px; padding: 13px 15px; border: 1px solid rgba(28,29,34,0.18); border-radius: 3px; background: #fff; color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s; }
+    .jn-field input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.12); }
+    .jn-check { display: flex; align-items: flex-start; gap: 10px; font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: rgba(28,29,34,0.62); cursor: pointer; margin-top: 2px; }
+    .jn-check input { width: 17px; height: 17px; flex: none; margin-top: 1px; accent-color: var(--english-violet); }
+    .jn-submit { width: 100%; justify-content: center; padding: 15px; margin-top: 6px; }
+    .jn-error { font-family: var(--sans); font-size: 13px; color: #a05a3c; background: rgba(160,90,60,0.08); padding: 10px 13px; border-radius: 3px; margin: 2px 0 0; }
+    .jn-alt { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); text-align: center; margin: 18px 0 0; }
+    .jn-link { color: var(--english-violet); font-weight: 700; border-bottom: 1px solid currentColor; }
+    .jn-done { text-align: center; padding: 8px 0; }
+    .jn-done-mark { width: 52px; height: 52px; margin: 0 auto 14px; border-radius: 50%; background: rgba(60,150,90,0.14); color: #2e6b40; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+    .jn-done-h { font-family: var(--serif); font-weight: 400; font-size: 26px; color: var(--ink); margin: 0 0 8px; }
+    .jn-done-p { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 20px; }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 1040px) { main.jn { grid-template-columns: 1fr; } .jn-art { min-height: 34vh; } .jn-art-copy { padding-bottom: 40px; } }
+    @media (max-width: 560px) {
+      .jn-grid { grid-template-columns: repeat(2, 1fr); }
+      /* No hover on touch — surface each tile's lead phrase permanently. */
+      .jn-tile-copy { opacity: 1; transform: none; }
+      .jn-tile-line:nth-child(2) { display: none; }
+      .jn-tile-key { transform: translateY(-38px); }
+      .jn-drawer-panel { width: 100vw; }
     }
-    .login-art-overlay { position: absolute; inset: 0; background: radial-gradient(80% 60% at 50% 40%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.35) 100%); pointer-events: none; }
-    .login-art-quote { position: absolute; inset: auto 0 0 0; padding: 0 56px 80px; }
-    .login-art-quote .chapter { margin-bottom: 48px; }
-    .login-art-line { font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 4.4vw, 64px); line-height: 1.05; letter-spacing: -0.015em; margin: 0 0 18px; color: var(--paper); max-width: 15ch; }
-    .login-art-line em { font-style: italic; color: var(--french-grey); }
-    .login-art-sub { font-family: var(--sans); font-size: 15px; line-height: 1.55; color: rgba(244,242,241,0.72); margin: 0; max-width: 34ch; }
-    .login-panel { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 36px; }
-    .login-mark { position: absolute; top: 32px; left: 36px; font-family: var(--serif); font-size: 24px; letter-spacing: 0.06em; color: var(--ink); }
-    .login-back { position: absolute; top: 34px; right: 36px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
-    .login-back:hover { color: var(--ink); }
-    .login-card { width: 100%; max-width: 440px; }
-    .login-card .eyebrow { margin-bottom: 14px; }
-    .login-title { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 3.6vw, 50px); line-height: 1.05; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 16px; }
-    .login-sub { font-size: 15px; color: rgba(28, 29, 34, 0.62); margin: 0 0 32px; }
-    .login-inline-anchor { color: var(--english-violet); border-bottom: 1px solid currentColor; font-weight: 600; }
-    .login-form { display: flex; flex-direction: column; gap: 16px; }
-    .login-field { display: flex; flex-direction: column; gap: 8px; }
-    .login-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28, 29, 34, 0.55); }
-    .login-field input { font-family: var(--sans); font-size: 16px; padding: 14px 16px; border: 1px solid rgba(28, 29, 34, 0.18); border-radius: 2px; background: #fff; color: var(--ink); transition: border-color 0.25s, box-shadow 0.25s; }
-    .login-field input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.12); }
-    .signup-check { display: flex; align-items: flex-start; gap: 10px; font-family: var(--sans); font-size: 13px; line-height: 1.45; color: rgba(28,29,34,0.62); cursor: pointer; }
-    .signup-check input { width: 17px; height: 17px; flex: none; margin-top: 1px; accent-color: var(--english-violet); }
-    .login-submit { width: 100%; justify-content: center; padding: 16px; margin-top: 8px; }
-    .login-error { font-size: 13px; color: #a05a3c; background: rgba(160, 90, 60, 0.08); padding: 10px 14px; border-radius: 2px; margin: 0; }
-    .login-meta { position: absolute; bottom: 32px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28, 29, 34, 0.35); }
-    .signup-done { text-align: center; padding: 8px 0; }
-    .signup-done-mark { width: 54px; height: 54px; margin: 0 auto 16px; border-radius: 50%; background: rgba(60,150,90,0.14); color: #2e6b40; font-size: 27px; display: flex; align-items: center; justify-content: center; }
-    .signup-done-h { font-family: var(--serif); font-weight: 400; font-size: 30px; color: var(--ink); margin: 0 0 10px; }
-    .signup-done-p { font-size: 15px; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 24px; }
-    @media (max-width: 900px) { main.login-shell { grid-template-columns: 1fr; } .login-art { display: none; } }
   </style>
 
   <script>
     import { supabase } from "../lib/supabase.js";
     import { signUpMember } from "../lib/member-signup.js";
 
-    // Already signed in? Send them to the hub.
+    // Already signed in? Straight to the hub.
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) location.replace("/account");
     })();
 
-    const form = document.getElementById("signup-page-form");
-    const errEl = document.getElementById("signup-page-error");
-    const doneEl = document.getElementById("signup-page-done");
+    const drawer = document.getElementById("jn-drawer");
+    const form = document.getElementById("jn-form");
+    const errEl = document.getElementById("jn-error");
+    const doneEl = document.getElementById("jn-done");
+    const altEl = document.getElementById("jn-alt");
+    let lastFocus = null;
+
+    function openDrawer() {
+      lastFocus = document.activeElement;
+      form.hidden = false; doneEl.hidden = true; altEl.hidden = false; errEl.hidden = true;
+      drawer.hidden = false; drawer.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => drawer.classList.add("is-open"));
+      document.body.style.overflow = "hidden";
+      setTimeout(() => { const f = form.querySelector('input[name="full_name"]'); if (f) f.focus(); }, 80);
+    }
+    function closeDrawer() {
+      drawer.classList.remove("is-open"); drawer.setAttribute("aria-hidden", "true");
+      setTimeout(() => { drawer.hidden = true; }, 320);
+      document.body.style.overflow = "";
+      if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (_) {} }
+    }
+
+    document.querySelectorAll("[data-signup-open]").forEach((el) => el.addEventListener("click", openDrawer));
+    document.addEventListener("click", (e) => { if (e.target.closest("[data-signup-close]")) closeDrawer(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer.classList.contains("is-open")) closeDrawer(); });
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -143,13 +214,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       btn.removeAttribute("disabled"); label.textContent = orig;
       if (res.error) { errEl.textContent = res.error; errEl.hidden = false; return; }
-      if (res.needsConfirm) {
-        form.hidden = true; doneEl.hidden = false;
-      } else if (typeof window.tmkeSplash === "function") {
-        window.tmkeSplash("/account");
-      } else {
-        location.href = "/account";
-      }
+      if (res.needsConfirm) { form.hidden = true; altEl.hidden = true; doneEl.hidden = false; }
+      else if (typeof window.tmkeSplash === "function") window.tmkeSplash("/account");
+      else location.href = "/account";
     });
   </script>
 </BaseLayout>
