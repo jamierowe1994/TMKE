@@ -54,6 +54,12 @@ function lookup(obj, path) {
 export function mergeContextFor(recipient = {}, brand = {}) {
   const fullName = recipient.name || '';
   const [firstName, ...rest] = fullName.trim().split(/\s+/);
+  const email = recipient.email || '';
+  // Unsubscribe: a real URL if the caller supplies one, else a mailto opt-out
+  // (works with no backend). {{unsubscribe}} is a ready-made link; {{unsubscribe_url}}
+  // is the raw URL for a button/href.
+  const unsubUrl = recipient.unsubscribeUrl || recipient.unsubscribe_url
+    || `mailto:hello@tmke.co.uk?subject=${encodeURIComponent('Unsubscribe')}${email ? '&body=' + encodeURIComponent('Please unsubscribe: ' + email) : ''}`;
   return {
     firstName: recipient.firstName || firstName || '',
     lastName: recipient.lastName || rest.join(' ') || '',
@@ -73,6 +79,10 @@ export function mergeContextFor(recipient = {}, brand = {}) {
     code: recipient.code || '',
     shootMonth: recipient.shootMonth || '',
     trainerName: recipient.trainerName || '',
+    // Unsubscribe: {{unsubscribe}} = a ready-made link; {{unsubscribe_url}} = the URL.
+    unsubscribe: `<a href="${unsubUrl}" style="color:inherit;text-decoration:underline;">Unsubscribe</a>`,
+    unsubscribeUrl: unsubUrl,
+    unsubscribe_url: unsubUrl,
   };
 }
 
@@ -94,6 +104,7 @@ export const MERGE_FIELDS = [
   { token: 'code', label: 'Unique code' },
   { token: 'shootMonth', label: 'Shoot month' },
   { token: 'trainerName', label: 'Trainer name' },
+  { token: 'unsubscribe', label: 'Unsubscribe link' },
 ];
 
 /** A dummy recipient so the live preview shows realistic merged values. */
@@ -690,7 +701,7 @@ function renderFooter(block, brand) {
   const address = block.address ? `<p style="margin:0 0 8px;">${escapeHtml(block.address)}</p>` : '';
   const web = brand.website ? `<a href="${escapeHtml(brand.website)}" style="color:${escapeHtml(accent)};text-decoration:none;">${escapeHtml(String(brand.website).replace(/^https?:\/\//, ''))}</a>` : '';
   const unsub = block.unsubscribe !== false
-    ? `<p style="margin:8px 0 0;">{{unsubscribe}}<a href="{{unsubscribe_url}}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a></p>`
+    ? `<p style="margin:8px 0 0;"><a href="{{unsubscribe_url}}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a></p>`
     : '';
   return `
     <div style="border-top:1px solid #E2E8F0;margin-top:8px;padding-top:18px;text-align:center;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#94a3b8;">

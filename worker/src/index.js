@@ -1235,6 +1235,31 @@ async function brandMasterSocials(env) {
   } catch (_) { return {}; }
 }
 
+// Wrap a transactional email's HTML in the admin-designed "Branded base" template
+// (Email Studio, status=active) so every automated email shares one chrome. The
+// base's own sample message/CTA blocks are swapped for `contentHtml`; its logo,
+// divider, footer + branding are kept. Falls back to the raw content if there's
+// no base template (never breaks a send).
+async function wrapInBrandedBase(env, contentHtml) {
+  try {
+    const rows = await sbGet(env, "email_templates", "name=ilike.*base*&status=eq.active&select=branding,blocks&order=updated_at.desc&limit=1");
+    const base = rows && rows[0];
+    if (!base || !Array.isArray(base.blocks) || !base.blocks.length) return contentHtml;
+    const out = []; let injected = false;
+    for (const blk of base.blocks) {
+      if (blk.type === "text" || blk.type === "button") {
+        if (!injected) { out.push({ type: "code", id: "txc", html: contentHtml }); injected = true; }
+        continue; // drop the base's sample message + CTA
+      }
+      out.push(blk);
+    }
+    if (!injected) out.push({ type: "code", id: "txc", html: contentHtml });
+    const brand = { ...defaultBrand(), ...(base.branding || {}), ...(await brandMasterSocials(env)) };
+    const { html } = renderTemplate({ mode: "blocks", blocks: out, branding: base.branding }, { brand });
+    return html || contentHtml;
+  } catch (_) { return contentHtml; }
+}
+
 const MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 function monthLabel(ym) {
   const m = String(ym || "").match(/^(\d{4})-(\d{2})$/);
@@ -3157,8 +3182,13 @@ export default {
         };
         const fn = SAMPLES[id];
         if (!fn) return json({ ok: true, supported: false }, 200, request, env);
-        try { const out = fn(); return json({ ok: true, supported: true, subject: out.subject, html: out.html }, 200, request, env); }
-        catch (e) { return json({ ok: false, error: String((e && e.message) || e) }, 200, request, env); }
+        try {
+          const out = fn();
+          let html = out.html;
+          // ?branded=1 → wrap the email in the active "Branded base" template.
+          if (url.searchParams.get("branded") === "1") html = await wrapInBrandedBase(env, html);
+          return json({ ok: true, supported: true, subject: out.subject, html }, 200, request, env);
+        } catch (e) { return json({ ok: false, error: String((e && e.message) || e) }, 200, request, env); }
       }
 
       // for marketing/transactional sends generally. The caller is already a
