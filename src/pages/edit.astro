@@ -9,7 +9,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <!-- Hero — a fixed brand backdrop with the featured pack's copy inset on the
        left and the pack covers as a clickable reel on the right. No autoplay;
        click a cover (or a dot) to feature it. JS fills every slot (setupHero). -->
-  <script is:inline>document.body.classList.add("edit-page");</script>
+  <script is:inline>
+    // The grid hero is the default. ?hero=classic restores the original cover-reel
+    // hero (which needs the light-on-dark nav treatment). Setting the class here
+    // (before paint) pre-hides the other hero so there's no flash on load.
+    (function () {
+      var classic = new URLSearchParams(location.search).get("hero") === "classic";
+      document.body.classList.add(classic ? "edit-page" : "egh-default");
+    })();
+  </script>
   <style is:global>
     /* Keep the fixed nav legible where it floats over the dark hero (top only —
        once scrolled it takes its usual light bar back). */
@@ -380,6 +388,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       background: var(--paper); color: var(--ink); font-family: var(--sans);
     }
     .egh[hidden] { display: none; }
+    /* Default (grid hero): hide the original reel, show the grid — set on <body>
+       before paint so neither hero flashes. ?hero=classic omits egh-default. */
+    body.egh-default #edit-hero2 { display: none; }
+    body.egh-default #edit-hero-grid { display: block; }
     .egh-inner {
       max-width: 1360px; margin: 0 auto; box-sizing: border-box;
       height: 100svh; display: flex; flex-direction: column; gap: 14px;
@@ -1365,15 +1377,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       window.addEventListener('resize', () => { clearTimeout(lockT); lockT = setTimeout(relayout, 180); });
     }
 
-    // ===== EXPERIMENTAL grid hero (opt-in via ?hero=grid) ====================
+    // ===== Grid hero (the default; ?hero=classic restores the reel hero) ======
     // The Insights archive grid framework lifted onto The Edit: a full-screen,
-    // 6-column grid where each row = 2 off-white PACK tiles (name + hover reveals
-    // the cover, click opens the pack) + 4 static template-image tiles, packs
-    // scattered row to row. Only runs with ?hero=grid — it then hides the live
-    // hero (#edit-hero2) so the default page is never affected.
+    // 6-column grid where each row = pack tiles (name + hover reveals the design,
+    // click opens the pack) + high-res design tiles, packs scattered row to row,
+    // with a "Next set" tile bottom-right. Set ?hero=classic to bring back the
+    // original cover-reel hero (#edit-hero2).
     function setupGridHero(packs) {
       const params = new URLSearchParams(location.search);
-      if (params.get('hero') !== 'grid') return;
+      if (params.get('hero') === 'classic') return;   // opt back into the reel hero
       const gridHero = document.getElementById('edit-hero-grid');
       const eh2 = document.getElementById('edit-hero2');
       const gridEl = document.getElementById('egh-grid');
@@ -1385,7 +1397,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const designsOf = (p) => (Array.isArray(p.templates) ? p.templates : []).filter((u) => typeof u === 'string' && u.trim());
       const heroOf = (p) => designsOf(p)[0] || p.cover_image_url || '';
       const list = (packs || []).filter((p) => p && heroOf(p));
-      if (!list.length) return;   // nothing to show → leave the live hero alone
+      if (!list.length) {
+        // Data didn't load — fall back to the original reel hero so the page is
+        // never heroless.
+        document.body.classList.remove('egh-default');
+        document.body.classList.add('edit-page');
+        gridHero.hidden = true;
+        if (eh2) eh2.hidden = false;
+        return;
+      }
 
       if (eh2) eh2.hidden = true;
       gridHero.hidden = false;
