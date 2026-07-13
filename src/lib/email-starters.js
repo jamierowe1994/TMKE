@@ -36,7 +36,29 @@ const DIV = () => ({ type: 'divider', id: id(), color: '#E2E8F0' });
 const COLS = (layout, cells) => ({ type: 'columns', id: id(), layout, cells });
 const FOOT = (note) => ({ type: 'footer', id: id(), note, address: 'Kettering, Northants', showSocial: true, unsubscribe: true });
 
+// Centred variants for the "base" reference template.
+const HC = (text) => ({ type: 'heading', id: id(), text, align: 'center', color: '' });
+const TC = (text) => ({ type: 'text', id: id(), text, align: 'center', bg: '' });
+const BTNC = (text, url) => ({ type: 'button', id: id(), text, url, color: '', align: 'center' });
+
 export const STARTER_TEMPLATES = [
+  // The house style for our AUTOMATED (transactional) emails — the recommended
+  // base to brand every code-generated email against: the logo up top, a line,
+  // the message centred on the brand background, and the standard footer. Open
+  // it, tweak to taste, and it becomes the reference for the automated emails.
+  {
+    name: 'Branded base (for automated emails)',
+    subject: 'A message from TMKE',
+    preheader: 'The house style for our automated emails.',
+    blocks: [
+      DIV(),
+      HC('A short, friendly headline'),
+      TC("This is the house style for our automated emails: the logo and a line at the top, the message centred on the brand background, and the standard footer below. Swap this copy for the real message — everything else stays consistent."),
+      SP(8),
+      BTNC('A call to action', SITE),
+      FOOT('This is the standard TMKE footer.'),
+    ],
+  },
   {
     name: 'Thank you for your purchase',
     subject: 'Thank you for your purchase, {{firstName}}',
