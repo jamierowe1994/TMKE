@@ -4053,19 +4053,34 @@ export default {
       // Binds smm_leads.account_user_id to the auth user of the given email (the
       // card's own email by default), so their reports pull through on
       // /account/social even if the card was created before they signed up.
+      // Safety: the account's name must share the card's first OR last name, so
+      // we don't attach the wrong person on a shared/typo'd email. Pass
+      // { force: true } to override after the admin confirms. Returns
+      // { noAccount } when no hub account exists (so the UI can offer an invite).
       if (path.endsWith("/smm/link") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const leadId = String((b && b.lead_id) || "").trim();
         if (!leadId) return json({ error: "Missing lead id." }, 400, request, env);
-        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email`);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,first_name,last_name,full_name`);
         const lead = rows && rows[0];
         if (!lead) return json({ error: "That card no longer exists." }, 404, request, env);
         const targetEmail = String((b && b.email) || lead.email || "").trim();
         if (!targetEmail) return json({ error: "This card has no email — add one first, then link." }, 400, request, env);
         const u = await findUserByEmail(env, targetEmail);
-        if (!u) return json({ error: `No member hub account exists for ${targetEmail} yet. They need to sign up to the hub with that email first.` }, 404, request, env);
+        if (!u) return json({ ok: false, noAccount: true, email: targetEmail }, 200, request, env);
+        // Identity check — does the account's name share a name with the card?
+        const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z\s-]/g, "").split(/[\s-]+/).filter(Boolean);
+        const cardTokens = new Set([...norm(lead.first_name), ...norm(lead.last_name), ...norm(lead.full_name)]);
+        const acctName = (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || "";
+        const acctTokens = norm(acctName);
+        const nameKnown = cardTokens.size > 0 && acctTokens.length > 0;
+        const matches = !nameKnown || acctTokens.some((t) => cardTokens.has(t));
+        if (!matches && !(b && b.force === true)) {
+          return json({ ok: false, nameMismatch: true, email: targetEmail,
+            account_name: acctName, card_name: lead.full_name || `${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "(no name on card)" }, 200, request, env);
+        }
         const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, {
           method: "PATCH",
           headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
@@ -4073,6 +4088,67 @@ export default {
         });
         if (!res.ok) { const t = await res.text().catch(() => ""); return json({ error: "Couldn't link the account. " + t.slice(0, 200) }, 502, request, env); }
         return json({ ok: true, linked_email: targetEmail, user_id: u.id }, 200, request, env);
+      }
+
+      // ---- Admin: invite an SMM client to create their member hub account -----
+      // For a manually-added client with no hub account yet: create the account,
+      // link the card to it, and email a branded invite with a "set your
+      // password" link (→ /reset-password) so they can finish creating it.
+      if (path.endsWith("/smm/invite") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const b = await request.json().catch(() => ({}));
+        const leadId = String((b && b.lead_id) || "").trim();
+        if (!leadId) return json({ error: "Missing lead id." }, 400, request, env);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,first_name,last_name,full_name,business`);
+        const lead = rows && rows[0];
+        if (!lead) return json({ error: "That card no longer exists." }, 404, request, env);
+        const email = String(lead.email || "").trim();
+        if (!email) return json({ error: "This card has no email — add one first." }, 400, request, env);
+        const fullName = String(lead.full_name || `${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "").trim();
+        const first = String(lead.first_name || fullName.split(/\s+/)[0] || "there").trim();
+        // If they already have an account, just link it — no duplicate.
+        let u = await findUserByEmail(env, email);
+        let created = false;
+        if (!u) {
+          const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password: genTempPassword(), email_confirm: true, user_metadata: { full_name: fullName || null } }),
+          });
+          if (cr.ok) { try { u = await cr.json(); } catch (_) {} created = true; }
+          if (!u || !u.id) u = await findUserByEmail(env, email);
+          if (!u || !u.id) { const t = await cr.text().catch(() => ""); return json({ error: "Couldn't create their account. " + t.slice(0, 160) }, 502, request, env); }
+        }
+        // Link the card to the account.
+        await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, {
+          method: "PATCH",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ account_user_id: u.id, account_created: created || undefined }),
+        });
+        // Generate a "set your password" link → /reset-password.
+        const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        let actionLink = `${site}/forgot-password`;
+        try {
+          const gl = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "recovery", email, options: { redirect_to: `${site}/reset-password` } }),
+          });
+          if (gl.ok) { const gj = await gl.json().catch(() => ({})); actionLink = (gj && (gj.action_link || (gj.properties && gj.properties.action_link))) || actionLink; }
+        } catch (_) {}
+        const content = `
+          <h1 style="font-family:Georgia,serif;font-size:24px;color:#371e28;margin:0 0 14px;">Welcome to your TMKE member hub</h1>
+          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;">Hi ${esc(first)},</p>
+          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;">As one of our social media management clients, you can manage and oversee your account through our member hub — your plan, your monthly performance reports and everything in one place.</p>
+          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 22px;">Click below to set your password and open your account.</p>
+          <p style="margin:0 0 24px;"><a href="${esc(actionLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
+          <p style="font-size:13px;line-height:1.6;color:#8a8796;margin:0;">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(actionLink)}</span></p>`;
+        const html = await wrapInBrandedBase(env, content);
+        const sent = await sendEmail(env, { to: email, subject: "Create your TMKE member hub account", html });
+        if (!sent.ok) return json({ ok: false, linked: true, emailFailed: true, error: sent.error || "The account is linked, but the invite email didn't send." }, 200, request, env);
+        return json({ ok: true, invited: email, user_id: u.id }, 200, request, env);
       }
 
       // ---- Admin: set an invoice document's paid date -------------------------

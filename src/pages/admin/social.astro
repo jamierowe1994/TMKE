@@ -723,23 +723,63 @@ import "../../styles/admin.css";
       if (activeTab === "insights") loadInsights(r);
     }
 
-    async function linkAccount(r) {
-      const status = $("smm-cd-status");
+    function smmStatus(msg, ok) { const s = $("smm-cd-status"); if (s) { s.textContent = msg; s.style.color = ok ? "#2e6b40" : "#a3372b"; } }
+
+    async function linkAccount(r, force) {
       const btn = $("smm-file-body").querySelector("[data-linkacct]");
       if (isDemo(r)) { r.account_user_id = "demo"; openFile(r.id); return; }
-      if (!WORKER) { if (status) { status.textContent = "Connect the Worker to link accounts."; status.style.color = "#a3372b"; } return; }
+      if (!WORKER) { smmStatus("Connect the Worker to link accounts.", false); return; }
       if (btn) { btn.disabled = true; btn.textContent = "Linking…"; }
+      const reset = () => { if (btn) { btn.disabled = false; btn.textContent = "Link to hub account"; } };
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER}/smm/link`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id }) });
+        const res = await fetch(`${WORKER}/smm/link`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, force: !!force }) });
         const j = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(j.error || "Couldn't link the account.");
+        if (!res.ok && !j.noAccount && !j.nameMismatch) throw new Error(j.error || "Couldn't link the account.");
+        // No hub account yet → offer to invite them to create one.
+        if (j.noAccount) {
+          reset();
+          if (confirm(`No member hub account exists for ${j.email} yet.\n\nSend them an invite to create one? They'll get a branded email with a link to set their password and open their account.`)) {
+            inviteAccount(r);
+          } else {
+            smmStatus(`No hub account for ${j.email} yet — invite not sent.`, false);
+          }
+          return;
+        }
+        // The email's account is under a different name → confirm it's them.
+        if (j.nameMismatch) {
+          reset();
+          if (confirm(`Careful — the member hub account for ${j.email} is under "${j.account_name || "(no name)"}", but this card is "${j.card_name}".\n\nAre you sure this is the same person? Click OK to link anyway.`)) {
+            linkAccount(r, true);
+          } else {
+            smmStatus("Link cancelled — the names didn't match.", false);
+          }
+          return;
+        }
         r.account_user_id = j.user_id;
-        if (status) { status.textContent = `Linked to ${j.linked_email} — their reports will now show on the member hub.`; status.style.color = "#2e6b40"; }
+        smmStatus(`Linked to ${j.linked_email} — their reports will now show on the member hub.`, true);
         openFile(r.id);
       } catch (e) {
-        if (btn) { btn.disabled = false; btn.textContent = "Link to hub account"; }
-        if (status) { status.textContent = e.message || "Couldn't link the account."; status.style.color = "#a3372b"; }
+        reset();
+        smmStatus(e.message || "Couldn't link the account.", false);
+      }
+    }
+
+    async function inviteAccount(r) {
+      if (isDemo(r)) { r.account_user_id = "demo"; smmStatus("Invite sent (demo).", true); openFile(r.id); return; }
+      if (!WORKER) { smmStatus("Connect the Worker to send invites.", false); return; }
+      smmStatus("Sending invite…", true);
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/smm/invite`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id }) });
+        const j = await res.json().catch(() => ({}));
+        if (j.user_id) r.account_user_id = j.user_id;
+        if (j.emailFailed) { smmStatus("Account linked, but the invite email didn't send — try again shortly.", false); openFile(r.id); return; }
+        if (!res.ok || !j.ok) throw new Error(j.error || "Couldn't send the invite.");
+        smmStatus(`Invite sent to ${j.invited} — they'll set a password and their account will be linked.`, true);
+        openFile(r.id);
+      } catch (e) {
+        smmStatus(e.message || "Couldn't send the invite.", false);
       }
     }
 
