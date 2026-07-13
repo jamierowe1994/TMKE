@@ -585,8 +585,8 @@ function renderDivider(block) {
   const align = ['left', 'center', 'right'].includes(block.align) ? block.align : 'center';
   const wCls = blockHasMobile(block) ? ` class="eb-bw-${escapeHtml(block.id)}"` : '';
   const lCls = blockHasMobile(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
-  return `<div${wCls} style="text-align:${align};${padStyleResolved(block)}">`
-    + `<table${lCls} role="presentation" width="${width}%" cellpadding="0" cellspacing="0" border="0" style="width:${width}%;display:inline-table;">`
+  return `<div${wCls} style="text-align:${align};line-height:0;${padStyleResolved(block)}">`
+    + `<table${lCls} role="presentation" width="${width}%" cellpadding="0" cellspacing="0" border="0" style="width:${width}%;display:inline-table;vertical-align:top;">`
     + `<tr><td style="border-top:${thick}px solid ${escapeHtml(color)};font-size:0;line-height:0;">&nbsp;</td></tr></table></div>`;
 }
 
