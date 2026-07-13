@@ -57,7 +57,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        builds the tiles and hides #edit-hero2 when this one is active. -->
   <section class="egh" id="edit-hero-grid" aria-label="The Edit — template packs" hidden>
     <div class="egh-inner">
-      <span class="egh-label">Template Packs</span>
+      <span class="egh-label">Shop the Edit</span>
+      <div class="egh-intro">
+        <span class="egh-intro-eyebrow">The Edit &middot; Our template shop</span>
+        <p class="egh-intro-copy">Scroll-stopping content for every moment &mdash; ready-made, editable templates you open in the Studio and make your own in minutes.</p>
+      </div>
       <div class="egh-scroll">
         <div class="egh-grid" id="egh-grid"></div>
       </div>
@@ -383,8 +387,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        Prefix `egh` so it never collides with the live `eh2` hero. ====== */
     .egh {
       --hairline: rgba(28,29,34,0.16);
-      position: relative; z-index: 1;
-      height: 100svh; overflow: hidden; box-sizing: border-box;
+      position: relative; z-index: 1; box-sizing: border-box;
       background: var(--paper); color: var(--ink); font-family: var(--sans);
     }
     .egh[hidden] { display: none; }
@@ -392,29 +395,40 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        before paint so neither hero flashes. ?hero=classic omits egh-default. */
     body.egh-default #edit-hero2 { display: none; }
     body.egh-default #edit-hero-grid { display: block; }
+    /* In-flow (not a fixed full-screen) — sits above and flows into the
+       catalogue below, dropped well clear of the nav. */
     .egh-inner {
       max-width: 1360px; margin: 0 auto; box-sizing: border-box;
-      height: 100svh; display: flex; flex-direction: column; gap: 14px;
-      padding: clamp(68px, 9vh, 100px) 76px clamp(36px, 5.5vh, 80px);
+      display: flex; flex-direction: column; gap: 20px;
+      padding: clamp(128px, 17vh, 176px) 76px clamp(48px, 7vh, 88px);
     }
     .egh-label {
-      flex: 0 0 auto;
       font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
     }
-    /* Internal scroll — the grid scrolls inside the fixed full-screen panel,
-       exactly like the Insights archive (.arc-scroll). */
-    .egh-scroll {
-      flex: 1 1 auto; min-height: 0;
-      overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
-      scrollbar-width: none; -ms-overflow-style: none;
-      border-top: 1px solid var(--hairline); padding-top: clamp(14px, 1.8vh, 22px);
+    /* Wine explainer band — breaks up the beige between the heading and the grid
+       and says plainly this is the template shop. */
+    .egh-intro {
+      background: var(--english-violet); color: var(--paper);
+      border-radius: 4px; padding: clamp(24px, 3.2vw, 44px);
+      display: flex; flex-direction: column; gap: 14px;
     }
-    .egh-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    .egh-intro-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; color: rgba(244,242,241,0.72);
+    }
+    .egh-intro-copy {
+      margin: 0; max-width: 62ch;
+      font-family: var(--subhead); font-style: italic; font-weight: 400;
+      font-size: clamp(20px, 2.3vw, 32px); line-height: 1.26; color: var(--paper);
+    }
+    .egh-scroll {
+      overflow: hidden;   /* clips the Next-set slide, no page scroll */
+      border-top: 1px solid var(--hairline); padding-top: clamp(16px, 2vh, 26px);
+    }
     .egh-grid {
       display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
       grid-auto-flow: row dense; align-content: start;
-      transition: transform 0.4s cubic-bezier(.2,.7,.2,1), opacity 0.4s ease;
     }
     @media (max-width: 1200px) { .egh-grid { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 640px)  { .egh-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -437,21 +451,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       font-family: var(--sans); font-weight: 600; font-size: clamp(15px, 1.1vw, 19px);
       line-height: 1.12; letter-spacing: -0.005em; color: var(--english-violet);
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      min-height: calc(1.12em * 2);   /* every title reserves two lines — even grid */
     }
+    .egh-tile-type { font-family: var(--sans); font-size: 10px; letter-spacing: 0.04em; color: rgba(28,29,34,0.55); }
+    .egh-tile-shop { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); margin-top: 2px; }
     /* Image tiles — static high-res design from the pack. */
     .egh-tile--image { background-size: cover; background-position: center; background-color: rgba(28,29,34,0.06); }
-    /* Next tile (bottom-right) — slides the grid to the next set of designs. */
+    /* Next tile (bottom-right) — slides the grid to the next set; heading style. */
     .egh-tile--next {
       -webkit-appearance: none; appearance: none; border: 0; cursor: pointer;
-      display: grid; place-items: center; text-align: center;
+      display: grid; place-items: center; text-align: center; padding: 16px;
       background: var(--english-violet); color: var(--paper);
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.18em; text-transform: uppercase;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; line-height: 1.5;
       transition: background 0.25s ease;
     }
     .egh-tile--next:hover { background: #4a2836; }
-    .egh-tile--next .egh-next-arrow { display: block; margin-top: 6px; font-size: 18px; transition: transform 0.3s; }
-    .egh-tile--next:hover .egh-next-arrow { transform: translateX(5px); }
 
     @media (max-width: 980px) { .egh-inner { padding-left: 36px; padding-right: 36px; } }
     @media (max-width: 640px) {
@@ -1416,57 +1431,81 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       list.forEach((p) => designsOf(p).forEach((u) => pool.push(u)));
       if (!pool.length) list.forEach((p) => { const h = heroOf(p); if (h) pool.push(h); });
 
-      // 6-col grid: ONE pack tile per pack (hover reveals its design, click opens
-      // it), scattered among high-res design tiles; the last cell is Next.
       const COLS = 6;
-      const ROW_PACK_COLS = [[0, 3], [2, 5], [1, 4], [0, 4], [2, 3], [1, 5]];
-      const cells = [];
-      let pi = 0;
-      for (let r = 0; pi < list.length; r++) {
-        const cols = ROW_PACK_COLS[r % ROW_PACK_COLS.length];
-        for (let c = 0; c < COLS; c++) {
-          if (cols.includes(c) && pi < list.length) { cells.push({ type: 'pack', pack: list[pi], num: pi + 1 }); pi++; }
-          else cells.push({ type: 'image' });
+      // Pack-tile positions vary per set → a different-looking grid each time you
+      // advance (one scatter per set, cycled).
+      const SCATTERS = [
+        [[0, 3], [2, 5], [1, 4]],
+        [[1, 4], [0, 4], [2, 3]],
+        [[2, 5], [1, 3], [0, 5]],
+      ];
+      let setIdx = 0, imgOffset = 0, imgCount = 0;
+
+      // Build the grid for the current set: one PACK tile per pack (Pack N,
+      // 2-line title, type + pillar, Shop now; hover clears the text to show the
+      // high-res design), scattered among design tiles, Next in the last cell.
+      function build() {
+        const scatter = SCATTERS[setIdx % SCATTERS.length];
+        const cells = [];
+        let pi = 0;
+        for (let r = 0; pi < list.length; r++) {
+          const cols = scatter[r % scatter.length];
+          for (let c = 0; c < COLS; c++) {
+            if (cols.includes(c) && pi < list.length) { cells.push({ type: 'pack', pack: list[pi], num: pi + 1 }); pi++; }
+            else cells.push({ type: 'image' });
+          }
         }
+        while (cells.length % COLS !== 0 || cells.length < list.length + 1) cells.push({ type: 'image' });
+        cells[cells.length - 1] = { type: 'next' };
+
+        let html = '', gi = 0; imgCount = 0;
+        cells.forEach((cell) => {
+          if (cell.type === 'pack') {
+            const p = cell.pack;
+            const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
+            const pillar = p.category || 'Template Pack';
+            html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
+              + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
+              + `<span class="egh-tile-cap">`
+              + `<span class="egh-tile-num">Pack ${cell.num}</span>`
+              + `<span class="egh-tile-name">${escapeHtml(p.title || '')}</span>`
+              + `<span class="egh-tile-type">${escapeHtml(pillar)} &middot; Template Pack</span>`
+              + `<span class="egh-tile-shop">Shop now &rarr;</span>`
+              + `</span></a>`;
+          } else if (cell.type === 'next') {
+            html += `<button type="button" class="egh-tile egh-tile--next">Scroll Next Set</button>`;
+          } else {
+            const img = pool.length ? pool[(imgOffset + gi) % pool.length] : '';
+            gi++; imgCount++;
+            html += `<div class="egh-tile egh-tile--image" style="background-image:url('${img}')"></div>`;
+          }
+        });
+        gridEl.innerHTML = html;
       }
-      // Fill to whole rows so the last cell can host Next in the bottom-right.
-      while (cells.length % COLS !== 0 || cells.length < list.length + 1) cells.push({ type: 'image' });
-      cells[cells.length - 1] = { type: 'next' };
+      build();
 
-      let html = '';
-      cells.forEach((cell) => {
-        if (cell.type === 'pack') {
-          const p = cell.pack;
-          const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
-          html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
-            + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
-            + `<span class="egh-tile-cap"><span class="egh-tile-num">Pack ${String(cell.num).padStart(2, '0')}</span>`
-            + `<span class="egh-tile-name">${escapeHtml(p.title || '')}</span></span></a>`;
-        } else if (cell.type === 'next') {
-          html += `<button type="button" class="egh-tile egh-tile--next">Next set<span class="egh-next-arrow" aria-hidden="true">&rarr;</span></button>`;
-        } else {
-          html += `<div class="egh-tile egh-tile--image"></div>`;
-        }
-      });
-      gridEl.innerHTML = html;
-
-      // Fill the image tiles from the design pool; Next pages through them.
-      const imgTiles = Array.from(gridEl.querySelectorAll('.egh-tile--image'));
-      let offset = 0;
-      function fillImages() {
-        imgTiles.forEach((el, i) => { el.style.backgroundImage = pool.length ? `url('${pool[(offset + i) % pool.length]}')` : ''; });
-      }
-      fillImages();
-
-      // Next → slide the grid across and show the next set of designs.
+      // Next → slide the whole grid out to the left, rebuild the next set (new
+      // pack positions + next designs), then slide in from the right so it's
+      // clearly a move to a new set.
       gridEl.addEventListener('click', (e) => {
         if (!e.target.closest('.egh-tile--next')) return;
-        offset = (offset + imgTiles.length) % (pool.length || 1);
-        gridEl.style.transform = 'translateX(-30px)'; gridEl.style.opacity = '0.3';
-        setTimeout(() => { fillImages(); gridEl.style.transform = 'translateX(0)'; gridEl.style.opacity = '1'; }, 360);
+        gridEl.style.transition = 'transform 0.30s cubic-bezier(.4,0,1,1), opacity 0.30s ease';
+        gridEl.style.transform = 'translateX(-9%)';
+        gridEl.style.opacity = '0';
+        setTimeout(() => {
+          setIdx++; imgOffset += imgCount;
+          build();
+          gridEl.style.transition = 'none';
+          gridEl.style.transform = 'translateX(9%)';
+          requestAnimationFrame(() => {
+            gridEl.style.transition = 'transform 0.5s cubic-bezier(.2,.8,.2,1), opacity 0.45s ease';
+            gridEl.style.transform = 'translateX(0)';
+            gridEl.style.opacity = '1';
+          });
+        }, 300);
       });
 
-      pool.slice(0, 20).forEach((u) => { const im = new Image(); im.src = u; });
+      pool.slice(0, 24).forEach((u) => { const im = new Image(); im.src = u; });
     }
 
     let packsById = new Map();
