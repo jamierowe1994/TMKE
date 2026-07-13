@@ -3623,6 +3623,30 @@ export default {
         return json({ ok: true, socialsSkipped }, 200, request, env);
       }
 
+      // ---- Client report settings (super-admin: what clients see in reports) --
+      if (path.endsWith("/report-settings") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const rows = await sbGet(env, "report_settings", "id=eq.1&select=visibility");
+        return json({ ok: true, visibility: (rows && rows[0] && rows[0].visibility) || {} }, 200, request, env);
+      }
+      if (path.endsWith("/report-settings") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only a super-admin can change what clients see." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const vis = (b && b.visibility && typeof b.visibility === "object" && !Array.isArray(b.visibility)) ? b.visibility : {};
+        // Keep only boolean values (defence against junk keys).
+        const clean = {};
+        for (const k of Object.keys(vis)) if (typeof vis[k] === "boolean") clean[k] = vis[k];
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/report_settings?on_conflict=id`, {
+          method: "POST",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify({ id: 1, visibility: clean }),
+        });
+        if (!res.ok) { const t = await res.text().catch(() => ""); return json({ error: "Couldn't save report settings. " + t.slice(0, 200) }, 502, request, env); }
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: invoice recipients (address book) --------------------------
       if (path.endsWith("/invoicing/recipients") && request.method === "GET") {
         const user = await getUser(request, env);
@@ -4185,7 +4209,11 @@ export default {
         const isClient = !!lead && lead.pipeline_stage === "active_client";
         let reports = [];
         if (lead) reports = (await sbGet(env, "smm_reports", `lead_id=eq.${encodeURIComponent(lead.id)}&select=id,platform,month,year,data&order=year.desc,month.desc&limit=48`)) || [];
-        return json({ ok: true, isClient, client: lead, reports }, 200, request, env);
+        // Super-admin visibility map (what fields clients may see). The page
+        // merges this over the code defaults (report-fields.js) before rendering.
+        const vrows = await sbGet(env, "report_settings", "id=eq.1&select=visibility");
+        const visibility = (vrows && vrows[0] && vrows[0].visibility) || {};
+        return json({ ok: true, isClient, client: lead, reports, visibility }, 200, request, env);
       }
 
       // ---- Admin: list a booking's messages + documents ----
