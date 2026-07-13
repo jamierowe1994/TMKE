@@ -585,6 +585,12 @@ import "../../styles/admin.css";
                 ${cdEdit(BIZ_SVG, "Business", "business", r.business)}
               </div>
               <p class="smm-cd-status" id="smm-cd-status"></p>
+              <div class="smm-linkrow" style="display:flex;align-items:center;gap:10px;margin:6px 0 2px;font-family:var(--sans);font-size:12.5px;flex-wrap:wrap;">
+                <span style="color:rgba(28,29,34,0.5);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:10.5px;">Member hub</span>
+                ${r.account_user_id
+                  ? `<span style="color:#2e6b40;font-weight:700;">Linked ✓</span>`
+                  : `<span style="color:rgba(28,29,34,0.55);">Not linked</span>${r.email ? `<button type="button" data-linkacct style="appearance:none;cursor:pointer;background:var(--english-violet);color:#fff;border:0;border-radius:7px;padding:6px 12px;font-family:var(--sans);font-size:11.5px;font-weight:700;">Link to hub account</button>` : `<span style="color:rgba(28,29,34,0.4);">add an email first</span>`}`}
+              </div>
               <button type="button" class="smm-more-toggle" data-more>See more info ${CHEV_SVG}</button>
               <div class="smm-more" hidden>
                 <div class="smm-field"><span class="smm-field-k">Type</span><span class="smm-field-v">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span></div>
@@ -679,6 +685,8 @@ import "../../styles/admin.css";
       body.querySelectorAll("[data-cf]").forEach((el) => el.addEventListener("change", () => saveContact(r, el.getAttribute("data-cf"), el.value)));
       // Edit name
       body.querySelector("[data-editname]")?.addEventListener("click", () => startEditName(r));
+      // Link this card to the member's hub account
+      body.querySelector("[data-linkacct]")?.addEventListener("click", () => linkAccount(r));
       // See more
       body.querySelector("[data-more]")?.addEventListener("click", (e) => {
         const btn = e.currentTarget, more = body.querySelector(".smm-more");
@@ -713,6 +721,26 @@ import "../../styles/admin.css";
       // Correspondence
       loadThread(r);
       if (activeTab === "insights") loadInsights(r);
+    }
+
+    async function linkAccount(r) {
+      const status = $("smm-cd-status");
+      const btn = $("smm-file-body").querySelector("[data-linkacct]");
+      if (isDemo(r)) { r.account_user_id = "demo"; openFile(r.id); return; }
+      if (!WORKER) { if (status) { status.textContent = "Connect the Worker to link accounts."; status.style.color = "#a3372b"; } return; }
+      if (btn) { btn.disabled = true; btn.textContent = "Linking…"; }
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/smm/link`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id }) });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.error || "Couldn't link the account.");
+        r.account_user_id = j.user_id;
+        if (status) { status.textContent = `Linked to ${j.linked_email} — their reports will now show on the member hub.`; status.style.color = "#2e6b40"; }
+        openFile(r.id);
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = "Link to hub account"; }
+        if (status) { status.textContent = e.message || "Couldn't link the account."; status.style.color = "#a3372b"; }
+      }
     }
 
     function startEditName(r) {

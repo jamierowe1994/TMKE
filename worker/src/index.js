@@ -4019,6 +4019,32 @@ export default {
         return json({ ok: true, lead: row }, 200, request, env);
       }
 
+      // ---- Admin: link an SMM card to a member's hub account ------------------
+      // Binds smm_leads.account_user_id to the auth user of the given email (the
+      // card's own email by default), so their reports pull through on
+      // /account/social even if the card was created before they signed up.
+      if (path.endsWith("/smm/link") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const leadId = String((b && b.lead_id) || "").trim();
+        if (!leadId) return json({ error: "Missing lead id." }, 400, request, env);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email`);
+        const lead = rows && rows[0];
+        if (!lead) return json({ error: "That card no longer exists." }, 404, request, env);
+        const targetEmail = String((b && b.email) || lead.email || "").trim();
+        if (!targetEmail) return json({ error: "This card has no email — add one first, then link." }, 400, request, env);
+        const u = await findUserByEmail(env, targetEmail);
+        if (!u) return json({ error: `No member hub account exists for ${targetEmail} yet. They need to sign up to the hub with that email first.` }, 404, request, env);
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, {
+          method: "PATCH",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ account_user_id: u.id }),
+        });
+        if (!res.ok) { const t = await res.text().catch(() => ""); return json({ error: "Couldn't link the account. " + t.slice(0, 200) }, 502, request, env); }
+        return json({ ok: true, linked_email: targetEmail, user_id: u.id }, 200, request, env);
+      }
+
       // ---- Admin: set an invoice document's paid date -------------------------
       if (path.endsWith("/booking/document/paid") && request.method === "POST") {
         const user = await getUser(request, env);
@@ -4205,10 +4231,21 @@ export default {
         if (!user) return json({ error: "Sign in." }, 401, request, env);
         const email = String(user.email || "").toLowerCase();
         const leads = (await sbGet(env, "smm_leads", `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,kind,pipeline_stage,client_status,package_name,price,platforms,start_date,instagram_url,facebook_url,linkedin_url,youtube_url,tiktok_url,full_name,business&order=created_at.desc`)) || [];
-        const lead = leads.find((l) => l.pipeline_stage === "active_client") || leads[0] || null;
+        // A member may match more than one card (a manual "test client" card that
+        // holds the reports, plus a stray enquiry/brochure card from the same
+        // email). Fetch reports across ALL matched cards, then pick the primary:
+        // an active client first, else whichever card actually owns reports (so a
+        // newer empty card can't hide them), else the most recent.
+        let allReports = [];
+        if (leads.length) {
+          const ids = leads.map((l) => l.id).join(",");
+          allReports = (await sbGet(env, "smm_reports", `lead_id=in.(${ids})&select=id,platform,month,year,data,lead_id&order=year.desc,month.desc&limit=96`)) || [];
+        }
+        const lead = leads.find((l) => l.pipeline_stage === "active_client")
+          || (allReports.length ? leads.find((l) => l.id === allReports[0].lead_id) : null)
+          || leads[0] || null;
         const isClient = !!lead && lead.pipeline_stage === "active_client";
-        let reports = [];
-        if (lead) reports = (await sbGet(env, "smm_reports", `lead_id=eq.${encodeURIComponent(lead.id)}&select=id,platform,month,year,data&order=year.desc,month.desc&limit=48`)) || [];
+        const reports = lead ? allReports.filter((r) => r.lead_id === lead.id).map(({ lead_id, ...r }) => r) : [];
         // Super-admin visibility map (what fields clients may see). The page
         // merges this over the code defaults (report-fields.js) before rendering.
         const vrows = await sbGet(env, "report_settings", "id=eq.1&select=visibility");
