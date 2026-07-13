@@ -1,0 +1,145 @@
+---
+// Global "Create account" pop-out. Rendered site-wide by BaseLayout so any
+// `.js-nav-signup` control (nav + drawer) can open it. Creates a free member
+// account via the shared signUpMember() helper.
+---
+<div class="su-modal" id="signup-modal" hidden aria-hidden="true">
+  <div class="su-scrim" data-su-close></div>
+  <div class="su-card" role="dialog" aria-modal="true" aria-label="Create your TMKE account">
+    <button type="button" class="su-x" data-su-close aria-label="Close">&times;</button>
+    <div class="su-eyebrow">Members &middot; Free</div>
+    <h2 class="su-title">Create your account</h2>
+    <p class="su-sub">Join the TMKE hub — no purchase needed. Keep your services, guides and the studio all in one place.</p>
+
+    <form id="signup-form" class="su-form" novalidate>
+      <label class="su-field"><span>Full name</span>
+        <input type="text" name="full_name" autocomplete="name" required placeholder="Jane Smith" /></label>
+      <label class="su-field"><span>Email</span>
+        <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" /></label>
+      <label class="su-field"><span>Password</span>
+        <input type="password" name="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" /></label>
+      <label class="su-check">
+        <input type="checkbox" name="marketing" />
+        <span>Keep me updated with tips, guides and offers. You can unsubscribe anytime.</span>
+      </label>
+      <button type="submit" class="btn btn--solid su-submit"><span data-label>Create account</span> <span class="btn-arrow">&rarr;</span></button>
+      <p class="su-error" id="signup-error" hidden></p>
+    </form>
+
+    <div class="su-done" id="signup-done" hidden>
+      <div class="su-done-mark" aria-hidden="true">&#10003;</div>
+      <h3 class="su-done-h" id="signup-done-h">Check your inbox</h3>
+      <p class="su-done-p" id="signup-done-p">We've sent a confirmation link to your email. Click it to activate your account, then you're in.</p>
+      <a href="/login" class="btn btn--solid su-submit" style="text-decoration:none;justify-content:center"><span>Go to sign in</span></a>
+    </div>
+
+    <p class="su-alt" id="signup-alt">Already a member? <a href="/login" class="su-link">Sign in</a></p>
+  </div>
+</div>
+
+<style is:global>
+  .su-modal { position: fixed; inset: 0; z-index: 3000; }
+  .su-modal[hidden] { display: none; }
+  .su-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.5); opacity: 0; transition: opacity 0.25s ease; }
+  .su-modal.is-open .su-scrim { opacity: 1; }
+  .su-card {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -46%);
+    width: min(440px, 92vw); max-height: 92vh; overflow-y: auto;
+    background: var(--paper, #f4f2f1); border-radius: 6px; padding: 34px 32px 26px;
+    box-shadow: 0 30px 90px rgba(28,29,34,0.34); opacity: 0;
+    transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22,0.61,0.36,1);
+  }
+  .su-modal.is-open .su-card { opacity: 1; transform: translate(-50%, -50%); }
+  .su-x {
+    position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid rgba(28,29,34,0.14); background: #fff; color: rgba(28,29,34,0.55);
+    font-size: 22px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.18s, color 0.18s;
+  }
+  .su-x:hover { background: var(--paper); color: var(--ink); }
+  .su-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(55,30,40,0.55); margin-bottom: 12px; }
+  .su-title { font-family: var(--serif, Georgia, serif); font-weight: 400; font-size: clamp(28px, 4vw, 36px); line-height: 1.05; letter-spacing: -0.015em; color: var(--ink, #1c1d22); margin: 0 0 10px; }
+  .su-sub { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 22px; }
+  .su-form { display: flex; flex-direction: column; gap: 14px; }
+  .su-field { display: flex; flex-direction: column; gap: 7px; }
+  .su-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+  .su-field input { font-family: var(--sans); font-size: 16px; padding: 13px 15px; border: 1px solid rgba(28,29,34,0.18); border-radius: 3px; background: #fff; color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s; }
+  .su-field input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.12); }
+  .su-check { display: flex; align-items: flex-start; gap: 10px; font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: rgba(28,29,34,0.62); cursor: pointer; margin-top: 2px; }
+  .su-check input { width: 17px; height: 17px; flex: none; margin-top: 1px; accent-color: var(--english-violet); }
+  .su-submit { width: 100%; justify-content: center; padding: 15px; margin-top: 6px; }
+  .su-error { font-family: var(--sans); font-size: 13px; color: #a05a3c; background: rgba(160,90,60,0.08); padding: 10px 13px; border-radius: 3px; margin: 2px 0 0; }
+  .su-alt { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); text-align: center; margin: 18px 0 0; }
+  .su-link { color: var(--english-violet); font-weight: 700; border-bottom: 1px solid currentColor; }
+  .su-done { text-align: center; padding: 8px 0 4px; }
+  .su-done-mark { width: 52px; height: 52px; margin: 0 auto 14px; border-radius: 50%; background: rgba(60,150,90,0.14); color: #2e6b40; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+  .su-done-h { font-family: var(--serif, Georgia, serif); font-weight: 400; font-size: 26px; color: var(--ink); margin: 0 0 8px; }
+  .su-done-p { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 20px; }
+</style>
+
+<script>
+  import { signUpMember } from "../lib/member-signup.js";
+
+  const modal = document.getElementById("signup-modal");
+  if (modal) {
+    const form = document.getElementById("signup-form");
+    const errEl = document.getElementById("signup-error");
+    const doneEl = document.getElementById("signup-done");
+    const altEl = document.getElementById("signup-alt");
+    let lastFocus = null;
+
+    function open() {
+      lastFocus = document.activeElement;
+      // Reset to the form each time it opens.
+      form.hidden = false; doneEl.hidden = true; altEl.hidden = false; errEl.hidden = true;
+      modal.hidden = false; modal.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => modal.classList.add("is-open"));
+      document.body.style.overflow = "hidden";
+      setTimeout(() => { const f = form.querySelector('input[name="full_name"]'); if (f) f.focus(); }, 60);
+    }
+    function close() {
+      modal.classList.remove("is-open"); modal.setAttribute("aria-hidden", "true");
+      setTimeout(() => { modal.hidden = true; }, 260);
+      document.body.style.overflow = "";
+      if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (_) {} }
+    }
+    window.tmkeSignup = { open, close };
+
+    // Any Create-account control opens the pop-out (falls back to /signup if JS
+    // somehow hasn't run — the links keep their href).
+    document.addEventListener("click", (e) => {
+      const t = e.target.closest(".js-nav-signup");
+      if (t) { e.preventDefault(); open(); return; }
+      if (e.target.closest("[data-su-close]")) close();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && modal.classList.contains("is-open")) close(); });
+
+    function showErr(msg) { errEl.textContent = msg; errEl.hidden = false; }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errEl.hidden = true;
+      const data = new FormData(form);
+      const btn = form.querySelector('button[type="submit"]');
+      const label = btn.querySelector("[data-label]");
+      const orig = label.textContent;
+      btn.setAttribute("disabled", "true"); label.textContent = "Creating…";
+
+      const res = await signUpMember({
+        fullName: data.get("full_name"), email: data.get("email"),
+        password: data.get("password"), marketing: !!data.get("marketing"),
+      });
+
+      btn.removeAttribute("disabled"); label.textContent = orig;
+      if (res.error) { showErr(res.error); return; }
+      if (res.needsConfirm) {
+        // Awaiting email confirmation.
+        form.hidden = true; altEl.hidden = true; doneEl.hidden = false;
+      } else {
+        // Auto-confirmed → already signed in. Take them into the hub.
+        if (typeof window.tmkeSplash === "function") window.tmkeSplash("/account");
+        else location.href = "/account";
+      }
+    });
+  }
+</script>

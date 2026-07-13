@@ -9,9 +9,12 @@
   import { supabase } from "../lib/supabase.js";
   (async () => {
     const btns = Array.from(document.querySelectorAll(".js-nav-login"));
-    if (!btns.length) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+
+    // Members are already in — hide the "Create account" controls entirely.
+    document.querySelectorAll(".js-nav-signup").forEach((el) => { el.hidden = true; el.style.display = "none"; });
+    if (!btns.length) return;
 
     btns.forEach((btn) => {
       // Desktop CTA / deck link wrap the label in a <span>; the drawer link uses
