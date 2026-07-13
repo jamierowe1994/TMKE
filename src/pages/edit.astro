@@ -1062,17 +1062,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const coverHi = (typeof p.cover_image_url === 'string' && p.cover_image_url.trim()) ? p.cover_image_url.trim() : '';
       const gallery = (Array.isArray(p.preview_images) ? p.preview_images : []).filter((u) => typeof u === 'string' && u.trim());
       const tpl = (Array.isArray(p.templates) ? p.templates : []).filter(Boolean);
-      // Lead the flick-through with the HIGH-RES cover, then the pack's templates
-      // (which prefer the full-res render_url — see loader). The flagged
-      // preview_images are frequently low-res thumbnails, so they're only a
-      // last-resort fallback — that's what had made the cards look soft.
+      // The uploaded hover gallery (preview_images) is the pack's curated imagery:
+      // when it's populated, the card flicks through EXACTLY those images (no
+      // separate cover in front, so 5 uploads show as 5 frames, not 6). Older
+      // packs with no gallery fall back to the high-res cover, then the pack's
+      // templates (which prefer the full-res render_url — see loader).
       let previews = [];
       const pushU = (u) => { if (u && !previews.includes(u)) previews.push(u); };
-      pushU(coverHi);
-      tpl.forEach(pushU);
-      if (previews.length < 2) gallery.forEach(pushU);   // pad only if we've got almost nothing crisp
-      if (!previews.length) previews = gallery.slice(0, 6);
-      previews = previews.slice(0, 6);
+      if (gallery.length) {
+        gallery.forEach(pushU);
+      } else {
+        pushU(coverHi);
+        tpl.forEach(pushU);
+      }
+      previews = previews.slice(0, 8);
       const n = (p.packSize != null) ? p.packSize
         : (p.templateCount != null ? p.templateCount
         : ((p.templates && p.templates.length) || (p.contents && p.contents.length) || 0));
