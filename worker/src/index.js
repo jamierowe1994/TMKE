@@ -3140,6 +3140,27 @@ export default {
     try {
       // ---- Send an email via Resend (admin only) ----
       // Powers the admin email-template builder's "Send test", and is the relay
+      // ---- Admin: preview an automated email (renders the REAL builder with
+      // sample data — read-only, changes nothing that sends). ------------------
+      if (path.endsWith("/email/preview") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = url.searchParams.get("id") || "";
+        const SAMPLES = {
+          post_reminder: () => ({ subject: "Your Instagram post is planned for today", html: reminderHtml({ title: "Spring launch teaser", asset_url: "https://assets.tmke.co.uk/white-1.webp" }, "Instagram", "New season, new listings ✨\n\nSwipe to see what's just come to market — book a viewing before they're gone.") }),
+          setup_reminder: () => ({ subject: "Set your password to unlock your TMKE pack", html: setupReminderHtml({ name: "Alex Morgan", pack: "The Spring Collection", link: "https://tmke.co.uk/set-password?token=sample" }) }),
+          waitlist_register: () => ({ subject: "You're on the cancellation list — The Studio", html: waitlistHtml({ name: "Alex Morgan", service: "The Studio", pkg: "Half day", date: "2026-08-25", time: "10:00" }) }),
+          vid_booking_client: () => ({ subject: "Booking confirmed — Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
+          vid_booking_team: () => ({ subject: "New booking — Property Videography — Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
+          invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
+          invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 — Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
+        };
+        const fn = SAMPLES[id];
+        if (!fn) return json({ ok: true, supported: false }, 200, request, env);
+        try { const out = fn(); return json({ ok: true, supported: true, subject: out.subject, html: out.html }, 200, request, env); }
+        catch (e) { return json({ ok: false, error: String((e && e.message) || e) }, 200, request, env); }
+      }
+
       // for marketing/transactional sends generally. The caller is already a
       // valid Supabase user (gated below); we additionally require a TMKE admin
       // email so a signed-in customer can't drive the mailer. The verified
