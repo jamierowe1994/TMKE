@@ -542,7 +542,9 @@ export function imageInlineStyle(block = {}) {
   if (bw > 0) parts.push(`border:${bw}px solid ${escapeHtml(block.borderColor || '#1c1d22')}`);
   else parts.push('border:0');
   parts.push(`border-radius:${pxNum(block.borderRadius, 8)}px`);
-  parts.push('display:inline-block', 'outline:none', 'text-decoration:none');
+  // vertical-align:top takes the image off the text baseline, killing the ~4px
+  // "descender gap" inline images otherwise leave underneath them.
+  parts.push('display:inline-block', 'vertical-align:top', 'outline:none', 'text-decoration:none');
   return parts.join(';') + ';';
 }
 
@@ -557,7 +559,9 @@ function renderImage(block) {
   const wrapped = block.linkUrl
     ? `<a href="${escapeHtml(block.linkUrl)}" style="text-decoration:none;">${img}</a>`
     : img;
-  return `<div${wCls} style="text-align:${align};${padStyleResolved(block)}">${wrapped}</div>`;
+  // line-height:0 collapses the wrapper's line box so there's no stray gap under
+  // the image (belt-and-braces with the image's vertical-align:top).
+  return `<div${wCls} style="text-align:${align};line-height:0;${padStyleResolved(block)}">${wrapped}</div>`;
 }
 
 function renderButton(block, brand, ctx) {
