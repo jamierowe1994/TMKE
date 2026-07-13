@@ -48,6 +48,14 @@ const contents = Array.isArray(pack.contents) ? pack.contents : [];
 // first template's (high-res) thumbnail so the hero is never a stale low-res
 // pick. Clearing a pack's cover therefore shows the crisp first preview.
 const coverSrc = pack.cover_image_url || (templates[0] && (templates[0].render_url || templates[0].thumb_url)) || null;
+// The hero gallery: when an admin has uploaded a hover gallery (preview_images),
+// those images ARE the pack's imagery — the first is the big hero and the rest
+// sit underneath as a scroll-through strip. Older packs with no gallery fall
+// back to the single cover image.
+const galleryImgs = (Array.isArray(pack.preview_images) ? pack.preview_images : [])
+  .filter((u) => typeof u === "string" && u.trim());
+const heroImages = galleryImgs.length ? galleryImgs : (coverSrc ? [coverSrc] : []);
+const heroMain = heroImages[0] || null;
 
 function gbp(pence) {
   if (pence == null) return "";
@@ -69,11 +77,27 @@ function gbp(pence) {
       <a href="/edit" class="pack-back">&larr; The Edit</a>
 
       <div class="pack-hero-grid">
-        <div class="pack-cover-frame">
-          {coverSrc ? (
-            <img class="pack-cover-img" src={coverSrc} alt={pack.title} />
-          ) : (
-            <div class="pack-cover-empty">No cover image yet.</div>
+        <div class="pack-cover">
+          <div class="pack-cover-frame">
+            {heroMain ? (
+              <img class="pack-cover-img" id="pack-hero-img" src={heroMain} alt={pack.title} />
+            ) : (
+              <div class="pack-cover-empty">No cover image yet.</div>
+            )}
+          </div>
+          {heroImages.length > 1 && (
+            <div class="pack-hero-thumbs" aria-label="Pack images">
+              {heroImages.map((src, i) => (
+                <button
+                  type="button"
+                  class={`pack-hero-thumb${i === 0 ? " is-active" : ""}`}
+                  data-hero-src={src}
+                  aria-label={`Show image ${i + 1} of ${heroImages.length}`}
+                >
+                  <img src={src} alt="" loading={i < 4 ? "eager" : "lazy"} />
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
@@ -211,7 +235,7 @@ function gbp(pence) {
 
     .pack-hero-grid {
       display: grid;
-      grid-template-columns: 5fr 4fr;
+      grid-template-columns: minmax(0, 400px) 1fr;
       gap: 56px;
       align-items: start;
     }
@@ -219,6 +243,7 @@ function gbp(pence) {
       .pack-hero-grid { grid-template-columns: 1fr; gap: 32px; }
     }
 
+    .pack-cover { max-width: 400px; }
     .pack-cover-frame {
       aspect-ratio: 4 / 5;
       background: rgba(var(--violet-rgb), 0.08);
@@ -226,6 +251,22 @@ function gbp(pence) {
       border-radius: 2px;
     }
     .pack-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* Scroll-through strip of the pack's other gallery images. */
+    .pack-hero-thumbs {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px;
+    }
+    .pack-hero-thumb {
+      width: 62px; height: 78px; padding: 0; flex: none;
+      border: 1px solid rgba(28,29,34,0.14); border-radius: 2px;
+      overflow: hidden; background: none; cursor: pointer;
+      opacity: 0.62; transition: opacity 0.2s, border-color 0.2s;
+    }
+    .pack-hero-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pack-hero-thumb:hover { opacity: 1; }
+    .pack-hero-thumb.is-active { opacity: 1; border-color: var(--english-violet); }
+    @media (max-width: 980px) {
+      .pack-cover { max-width: 100%; }
+    }
     .pack-cover-empty {
       width: 100%; height: 100%;
       display: flex; align-items: center; justify-content: center;
@@ -485,6 +526,22 @@ function gbp(pence) {
         if (id) window.location.href = '/edit?buy=' + encodeURIComponent(id);
       });
     });
+
+    // Hero gallery — click a thumbnail to swap it into the big frame above.
+    (function () {
+      var main = document.getElementById('pack-hero-img');
+      var thumbs = document.querySelectorAll('.pack-hero-thumb');
+      if (!main || !thumbs.length) return;
+      thumbs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var src = btn.getAttribute('data-hero-src');
+          if (!src) return;
+          main.src = src;
+          thumbs.forEach(function (b) { b.classList.remove('is-active'); });
+          btn.classList.add('is-active');
+        });
+      });
+    })();
 
     // Click a preview to open it large, then flip through the rest with the
     // arrows (or ← →) — no need to close and re-open each one.
