@@ -212,7 +212,18 @@ async function getUser(request, env) {
     });
     if (!res.ok) return null;
     const user = await res.json();
-    return user && user.id ? user : null;
+    if (!user || !user.id) return null;
+    // Resolve admin status ONCE per request so every gated endpoint agrees with
+    // the client gate: the staff domain/allowlist, OR a row in the admins table
+    // (how team-added admins like non-tmke.co.uk staff are granted access).
+    user._isAdmin = emailLooksAdmin(user);
+    if (!user._isAdmin) {
+      try {
+        const rows = await sbGet(env, "admins", `user_id=eq.${encodeURIComponent(user.id)}&select=user_id`);
+        user._isAdmin = !!(rows && rows.length);
+      } catch (_) {}
+    }
+    return user;
   } catch (_) {
     return null;
   }
@@ -364,16 +375,64 @@ function parseISODate(s) {
   return null;
 }
 
+// Induction cancelled (sheet "Cancelled" = yes): void the single-use code so it
+// can't be booked/redeemed, mark do-not-contact, log a note, and pull them out of
+// the funnel. Idempotent (skips if already cancelled). Returns true if it acted.
+async function cancelAgentStarter(env, contactId) {
+  const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=status,promo_code,promo_code_id`);
+  const p = rows && rows[0];
+  if (p && p.status === "cancelled") return false; // already handled
+  if (p && (p.promo_code_id || p.promo_code)) {
+    const filter = p.promo_code_id ? `id=eq.${encodeURIComponent(p.promo_code_id)}` : `code=ilike.${encodeURIComponent(p.promo_code)}`;
+    try { await sbPatch(env, "videography_promo_codes", filter, { active: false }); } catch (_) {}
+  }
+  try { await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contactId)}`, { dnd: true }); } catch (_) {}
+  try { await sbPost(env, "contact_notes", { contact_id: contactId, body: "Induction cancelled (TEG sheet) — free-videography code voided and marked do-not-contact.", author: "Sheet sync" }); } catch (_) {}
+  try {
+    const funnels = await sbGet(env, "automations", `trigger_type=eq.new_starter_videography&select=id`);
+    const fids = (funnels || []).map((a) => a.id);
+    if (fids.length) await sbPatch(env, "automation_enrollments", `contact_id=eq.${encodeURIComponent(contactId)}&status=eq.active&automation_id=in.(${fids.join(",")})`, { status: "stopped" });
+  } catch (_) {}
+  try {
+    await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?on_conflict=contact_id`, {
+      method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ contact_id: contactId, status: "cancelled" }),
+    });
+  } catch (_) {}
+  return true;
+}
+
+// Write the booked shoot date/time back to the TEG sheet's "Shoot Booked" column
+// for the row matching this email. Best-effort — needs the sheet shared with EDIT
+// access to the service account.
+async function agentSheetWriteBooked(env, email, whenText) {
+  if (!env.GOOGLE_SHEETS_SA_JSON) return;
+  const rows = await googleSheetRows(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!A2:Z`);
+  if (!rows || !rows.length) return;
+  const headers = (rows[0] || []).map((h) => String(h || "").trim().toLowerCase());
+  const emailCol = headers.indexOf("email");
+  const bookedCol = headers.indexOf("shoot booked");
+  if (emailCol < 0 || bookedCol < 0) return;
+  const want = String(email || "").toLowerCase();
+  for (let i = 1; i < rows.length; i++) {
+    const val = (rows[i] && rows[i][emailCol]) ? String(rows[i][emailCol]).trim().toLowerCase() : "";
+    if (val === want) {
+      await googleSheetUpdate(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!${colLetter(bookedCol)}${2 + i}`, [[whenText]]);
+      return;
+    }
+  }
+}
+
 async function syncAgentSheet(env) {
   if (!env.GOOGLE_SHEETS_SA_JSON || !env.SUPABASE_SERVICE_ROLE) return { ok: false, error: "Sheet sync not configured." };
   let rows;
   try { rows = await googleSheetRows(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!A2:Z`); }
   catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
-  if (!rows || !rows.length) return { ok: true, rows: 0, processed: 0, enrolled: 0, skipped: 0 };
+  if (!rows || !rows.length) return { ok: true, rows: 0, processed: 0, enrolled: 0, cancelled: 0, skipped: 0 };
   const headers = (rows[0] || []).map((h) => String(h || "").trim().toLowerCase());
   const col = (name) => headers.indexOf(name.toLowerCase());
-  const idx = { name: col("Agent Name"), brand: col("Brand"), phone: col("Phone Number"), email: col("Email"), postcode: col("Post Code"), package: col("Package"), induction: col("Induction Date"), month: col("Preferred Shoot Month") };
-  let processed = 0, enrolled = 0, skipped = 0;
+  const idx = { name: col("Agent Name"), brand: col("Brand"), phone: col("Phone Number"), email: col("Email"), postcode: col("Post Code"), package: col("Package"), induction: col("Induction Date"), month: col("Preferred Shoot Month"), cancelled: col("Cancelled") };
+  let processed = 0, enrolled = 0, cancelled = 0, skipped = 0;
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i] || [];
     const cell = (c) => (c >= 0 ? String(r[c] || "").trim() : "");
@@ -383,10 +442,16 @@ async function syncAgentSheet(env) {
     const parts = cell(idx.name).split(/\s+/).filter(Boolean);
     const first = parts.shift() || null, last = parts.join(" ") || null;
     const brand = cell(idx.brand) || null;
+    const isCancelled = /^(y|yes|true|1|cancelled)$/i.test(cell(idx.cancelled));
     try {
       const cid = await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: first, p_last_name: last, p_phone: cell(idx.phone) || null, p_company: brand, p_source: "agent_sheet_sync", p_tags: crmTags(email, [], {}) });
       const contactId = Array.isArray(cid) ? cid[0] : cid;
       if (!contactId) { skipped++; continue; }
+      if (isCancelled) {
+        const acted = await cancelAgentStarter(env, contactId);
+        if (acted) cancelled++; else skipped++;
+        continue;
+      }
       const res = await ensureAgentProfile(env, contactId, { first_name: first, last_name: last, email }, {
         brand, date_joined: parseISODate(cell(idx.induction)), postcode: cell(idx.postcode) || null,
         is_new_starter: true, induction_month: parseShootMonth(cell(idx.month)), package: pkg,
@@ -394,18 +459,33 @@ async function syncAgentSheet(env) {
       processed++; if (res._enrolled) enrolled++;
     } catch (_) { skipped++; }
   }
-  return { ok: true, rows: rows.length - 1, processed, enrolled, skipped };
+  return { ok: true, rows: rows.length - 1, processed, enrolled, cancelled, skipped };
 }
 
 // Admin gate for staff-only endpoints (e.g. sending email). Mirrors the client
 // allowlist in src/lib/admin-gate.js: a TMKE-domain email, or the named extra.
 const ADMIN_EMAIL_DOMAINS = ["tmke.co.uk"];
 const ADMIN_EMAILS = ["james@therecruitmentexperts.co.uk"];
-function isAdminEmail(user) {
+// Owners can additionally manage the Brand kit + who has admin access. Everyone
+// else with admin access can fully operate the site but not those two things.
+const OWNER_EMAILS = ["james@therecruitmentexperts.co.uk", "danielle@tmke.co.uk"];
+// Fast, offline check: the staff domain or the explicit allowlist.
+function emailLooksAdmin(user) {
   const e = String((user && user.email) || "").toLowerCase().trim();
   if (!e) return false;
   if (ADMIN_EMAILS.includes(e)) return true;
   return ADMIN_EMAIL_DOMAINS.includes(e.split("@")[1] || "");
+}
+// Any admin: the allowlist OR a row in the admins table (getUser resolves the
+// table lookup and stamps user._isAdmin). Falls back to the email check if the
+// user object didn't come through getUser.
+function isAdminEmail(user) {
+  if (user && user._isAdmin !== undefined) return user._isAdmin;
+  return emailLooksAdmin(user);
+}
+function isOwner(user) {
+  const e = String((user && user.email) || "").toLowerCase().trim();
+  return !!e && OWNER_EMAILS.includes(e);
 }
 
 // Read from Supabase with the service role (server-side only, never exposed).
@@ -499,6 +579,24 @@ async function googleSheetRows(env, sheetId, range) {
   const j = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error("Sheets read: " + (j.error && j.error.message ? j.error.message : res.status));
   return j.values || [];
+}
+// Write values back into a sheet (needs the sheet shared with EDIT access to the
+// service account + the read/write scope). Used for the shoot-booked write-back.
+async function googleSheetUpdate(env, sheetId, range, values) {
+  const token = await googleAccessToken(env, "https://www.googleapis.com/auth/spreadsheets");
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, {
+    method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ values }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error("Sheets write: " + (j.error && j.error.message ? j.error.message : res.status));
+  return j;
+}
+// 0-based column index → A1 letter (0→A … 25→Z, 26→AA …).
+function colLetter(n) {
+  let s = ""; n = Math.max(0, n | 0);
+  do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
+  return s;
 }
 
 // Insert a row into Supabase with the service role.
@@ -1200,8 +1298,33 @@ async function autoExecAction(env, node, contact) {
     } else if (node.type === "set_field" && c.field) {
       const patch = {}; patch[c.field] = c.value; contact[c.field] = c.value;
       await sbPatch(env, "contacts", `id=eq.${contact.id}`, patch);
-    } else if (node.type === "notify_team" && c.to) {
-      await sendEmail(env, { to: c.to, subject: `Automation — ${c.note || "update"}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="color:#888;font-size:12px">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
+    } else if (node.type === "notify_team") {
+      // Recipient: a fixed address, or the contact's trainer (agent_profiles).
+      let to = "";
+      if (c.to_mode === "trainer") {
+        const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contact.id)}&select=trainer_email`);
+        to = (rows && rows[0] && rows[0].trainer_email) || "";
+      } else {
+        to = c.to || "";
+      }
+      if (!to) return;
+      // Content: a saved Email Studio template (merged from the enrolled contact),
+      // or a short note. Either way it's delivered to `to` (the team/trainer), so
+      // the contact's do-not-contact does NOT apply.
+      if (c.body_mode === "template" && c.template_id) {
+        const tRows = await sbGet(env, "email_templates", `id=eq.${c.template_id}&select=*`);
+        const t = tRows && tRows[0]; if (!t) return;
+        const brand = { ...defaultBrand(), ...(t.branding || {}), ...(await brandMasterSocials(env)) };
+        const recipient = { name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email, first_name: contact.first_name || "", email: contact.email, company: contact.company || "" };
+        Object.assign(recipient, await agentFunnelContext(env, contact));
+        const { subject, html } = renderTemplate(
+          { subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
+          { brand, mergeCtx: mergeContextFor(recipient, brand) }
+        );
+        await sendEmail(env, { to, subject, html });
+      } else {
+        await sendEmail(env, { to, subject: `Automation — ${c.note || "update"}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="color:#888;font-size:12px">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
+      }
     }
   } catch (_) { /* one failed action shouldn't wedge the tick */ }
 }
@@ -2059,6 +2182,17 @@ export default {
         const dur = 180; // half-day = 3 hours
         const endHm = minToHm(hmToMin(start) + dur);
 
+        // 0) The single-use code must exist and still be live. It's voided when an
+        // induction is cancelled, so this blocks a cancelled starter from booking.
+        if (!code) return json({ error: "A booking code is required — please use the personalised link from your email." }, 400, request, env);
+        {
+          const pcRows = await sbGet(env, "videography_promo_codes", `code=ilike.${encodeURIComponent(String(code))}&select=active,redemptions,max_redemptions`);
+          const pc = pcRows && pcRows[0];
+          if (!pc || pc.active !== true || (pc.max_redemptions != null && (pc.redemptions || 0) >= pc.max_redemptions)) {
+            return json({ error: "This booking code is no longer valid. If you think this is a mistake, please contact us." }, 403, request, env);
+          }
+        }
+
         // 1) Re-check Jack's calendar is free for the slot.
         try {
           const check = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
@@ -2179,6 +2313,10 @@ export default {
           kind: "confirmation", subject: "Studio Day booked",
           body: `New-starter Studio Day booked for ${dateNice} at ${start}. Billed to TPE.`,
         });
+
+        // Write the booked slot back to the TEG sheet's "Shoot Booked" column
+        // (best-effort — needs the sheet shared with EDIT access to the service account).
+        try { await agentSheetWriteBooked(env, em, `${dateNice}, ${start}`); } catch (_) {}
 
         return json({ ok: true, account_created: accountCreated }, 200, request, env);
       }
@@ -3216,7 +3354,7 @@ export default {
       // List everyone who's been granted admin access via the table.
       if (path.endsWith("/admin/team") && request.method === "GET") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const rows = (await sbGet(env, "admins", "select=user_id,email,created_at&order=created_at.asc")) || [];
         const profs = (await sbGet(env, "admin_profiles", "select=user_id,full_name,role")) || [];
         const pm = {}; for (const p of profs) pm[p.user_id] = p;
@@ -3231,7 +3369,7 @@ export default {
       // and email them how to sign in.
       if (path.endsWith("/admin/team") && request.method === "POST") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const email = String((b && b.email) || "").trim().toLowerCase();
         const fullName = String((b && b.full_name) || "").trim();
@@ -3296,7 +3434,7 @@ export default {
       // Revoke admin access (removes their `admins` row; the login itself stays).
       if (path.endsWith("/admin/team") && request.method === "DELETE") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const userId = (url.searchParams.get("user_id") || "").trim();
         if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
         if (userId === user.id) return json({ error: "You can't remove your own access." }, 400, request, env);
@@ -3309,7 +3447,7 @@ export default {
       // Rename an admin (their display name across the admin). Upserts admin_profiles.
       if (path.endsWith("/admin/team") && request.method === "PATCH") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const userId = String((b && b.user_id) || "").trim();
         const fullName = String((b && b.full_name) || "").trim();
@@ -3328,7 +3466,7 @@ export default {
       // Reset an admin's password: set a fresh temporary password and email it.
       if (path.endsWith("/admin/team/reset") && request.method === "POST") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const userId = String((b && b.user_id) || "").trim();
         if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
@@ -3438,7 +3576,7 @@ export default {
       }
       if (path.endsWith("/brand") && request.method === "POST") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!user || !isOwner(user)) return json({ error: "Only the account owner can change the brand kit." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const SOCIAL_KEYS = ["website", "linkedin", "instagram", "facebook", "twitter", "youtube"];
         const row = { id: 1 };

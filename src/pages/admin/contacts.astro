@@ -33,6 +33,7 @@ import "../../styles/admin.css";
         <button type="button" class="ct-chip-f" data-seg="email">Marketing opt-in <b data-n="email">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="purchasers">Customers <b data-n="purchasers">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="booked">Booked <b data-n="booked">0</b></button>
+        <button type="button" class="ct-chip-f ct-chip-review" data-seg="review">Review <b data-n="review">0</b></button>
         <!-- Tag filter — multi-select dropdown, narrows by one or more tags. -->
         <div class="ct-tagfilter" id="ct-tagfilter">
           <button type="button" class="ct-chip-f ct-tagfilter-btn" id="ct-tagfilter-btn" aria-expanded="false" aria-haspopup="true">
@@ -223,6 +224,15 @@ import "../../styles/admin.css";
     .ct-mini:hover { background: var(--english-violet); color: #fff; }
     .ct-item { padding: 10px 0; border-bottom: 1px solid rgba(28,29,34,0.06); font-family: var(--sans); font-size: 13px; color: var(--ink); }
     .ct-item-meta { font-size: 11px; color: rgba(28,29,34,0.45); margin-top: 2px; }
+    .ct-mini-ghost { border-color: rgba(28,29,34,0.2); color: rgba(28,29,34,0.6); }
+    .ct-flag { color: #b0592e; font-size: 13px; cursor: help; }
+    .ct-chip-review.is-active { background: #b0592e; border-color: #b0592e; color: #fff; }
+    .ct-dup { border: 1px solid rgba(176,89,46,0.35); background: rgba(176,89,46,0.06); border-radius: 10px; padding: 14px 16px; }
+    .ct-dup-head { font-family: var(--sans); font-size: 13px; font-weight: 700; color: #8f4522; margin-bottom: 6px; }
+    .ct-dup-p { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: rgba(28,29,34,0.7); margin: 0 0 12px; }
+    .ct-dup-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid rgba(176,89,46,0.2); }
+    .ct-dup-row strong { font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
+    .ct-dup-acts { margin-top: 10px; }
     .ct-task { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .ct-task.done { opacity: 0.5; text-decoration: line-through; }
     .ct-toggle { font-family: var(--sans); font-size: 12px; color: var(--english-violet); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
@@ -338,6 +348,7 @@ import "../../styles/admin.css";
       booked: isBooked,
       // Just a contact: no account, no marketing consent, and not a customer.
       contact: (c) => !c.user_id && c.marketing_opt_in !== true && !isPurchaser(c) && !isBooked(c),
+      review: (c) => !!c.needs_review,
     };
 
     // Fire a contact-action trigger into the automations engine (admin authed).
@@ -375,7 +386,7 @@ import "../../styles/admin.css";
       $("ct-rows").innerHTML = list.map((c) => `
         <tr data-id="${esc(c.id)}">
           <td class="ct-check-cell"><input type="checkbox" class="ct-row-check" data-check="${esc(c.id)}" ${selectedIds.has(c.id) ? "checked" : ""} aria-label="Select ${esc(fullName(c))}" /></td>
-          <td>${esc(fullName(c))}</td>
+          <td>${esc(fullName(c))}${c.needs_review ? ' <span class="ct-flag" title="Possible duplicate — needs review">⚠</span>' : ""}</td>
           <td>${esc(c.email)}</td>
           <td><span class="ct-life ${c.dnd ? "dnd" : esc(deriveLifecycle(c))}">${c.dnd ? "DND" : esc(deriveLifecycle(c))}</span></td>
           <td>${(c.tags || []).slice(0, 4).map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") || "—"}</td>
@@ -565,10 +576,37 @@ import "../../styles/admin.css";
       });
     }
 
+    // Other contacts that share this email (the split precaution can create these).
+    function sameEmailOthers(c) {
+      const e = String(c.email || "").toLowerCase();
+      return ALL.filter((x) => x.id !== c.id && String(x.email || "").toLowerCase() === e);
+    }
+    function dupPanelHtml(c) {
+      const others = sameEmailOthers(c);
+      if (!others.length && !c.needs_review) return "";
+      if (!others.length) {
+        return `<div class="ct-dup"><div class="ct-dup-head">⚠ Flagged for review</div>
+          <p class="ct-dup-p">Flagged as a possible duplicate, but no other contact with this email is loaded — it may already have been merged.</p>
+          <div class="ct-dup-acts"><button class="ct-mini ct-mini-ghost" data-dup-dismiss>Clear flag</button></div></div>`;
+      }
+      const rows = others.map((o) => `
+        <div class="ct-dup-row">
+          <div><strong>${esc(fullName(o) || "(no name)")}</strong><div class="ct-item-meta">${esc(o.email)} · last seen ${esc(fmtDate(o.last_seen_at))}</div></div>
+          <button class="ct-mini" data-merge="${esc(o.id)}" title="Fold that contact into this one">Merge in</button>
+        </div>`).join("");
+      return `<div class="ct-dup">
+        <div class="ct-dup-head">⚠ Possible duplicate — same email, different name</div>
+        <p class="ct-dup-p">If it's the same person, <strong>Merge in</strong> folds their notes, tasks, tags and history onto this card (nothing lost). If they're genuinely different people sharing an inbox, clear the flag.</p>
+        ${rows}
+        <div class="ct-dup-acts"><button class="ct-mini ct-mini-ghost" data-dup-dismiss>Not duplicates — clear flag</button></div>
+      </div>`;
+    }
+
     function drawNote(notes, tasks, orders, bookings, activity) {
       const c = current;
       $("ct-drawer-body").innerHTML = `
         <div class="ct-tabpanel" data-panel="info"${activeTab !== "info" ? " hidden" : ""}>
+          ${dupPanelHtml(c)}
           <div class="ct-sec">
             <h3>Status</h3>
             <div class="ct-badges">
@@ -664,6 +702,22 @@ import "../../styles/admin.css";
     function wireDrawer(notes, tasks) {
       const c = current;
       wireTeg();
+      // Possible-duplicate review: merge a sibling in, or clear the flag.
+      $("ct-drawer-body").querySelectorAll("[data-merge]").forEach((b) => b.addEventListener("click", async () => {
+        const dropId = b.getAttribute("data-merge");
+        const other = ALL.find((x) => x.id === dropId);
+        if (!confirm(`Merge "${fullName(other) || "that contact"}" into "${fullName(c) || "this contact"}"?\n\nTheir notes, tasks, tags and history move onto this card, and the other card is removed. This can't be undone.`)) return;
+        b.disabled = true; b.textContent = "Merging…";
+        const { error } = await supabase.rpc("merge_contacts", { p_keep: c.id, p_drop: dropId });
+        if (error) { alert("Couldn't merge: " + error.message); b.disabled = false; b.textContent = "Merge in"; return; }
+        await load(); openDrawer(c.id);
+      }));
+      const dismissBtn = $("ct-drawer-body").querySelector("[data-dup-dismiss]");
+      if (dismissBtn) dismissBtn.addEventListener("click", async () => {
+        const em = String(c.email || "").toLowerCase();
+        await supabase.from("contacts").update({ needs_review: false, review_reason: null }).ilike("email", em);
+        await load(); openDrawer(c.id);
+      });
       $("ct-life-sel").addEventListener("change", async (e) => {
         c.lifecycle = e.target.value;
         await supabase.from("contacts").update({ lifecycle: c.lifecycle }).eq("id", c.id);
