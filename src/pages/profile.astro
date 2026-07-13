@@ -691,6 +691,9 @@ import "../styles/account-sections.css";
       function doSave(flashCompany) {
         const kit = collect();
         try { localStorage.setItem("tmke.brand", JSON.stringify(kit)); } catch (_) {}
+        // Persist to the member's account too (server sync module listens for
+        // this), so the kit follows their login into the Studio on any device.
+        try { window.dispatchEvent(new CustomEvent("tmke:brand-changed", { detail: kit })); } catch (_) {}
         firstrun.hidden = true;
         setStatus("saved");
         if (flashCompany && companyInput.value.trim()) {
@@ -1004,6 +1007,52 @@ import "../styles/account-sections.css";
       await supabase.auth.signOut();
       location.replace('/login');
     });
+  </script>
+
+  <!-- Brand-kit server sync — saves the kit to the member's account (so it
+       follows their login into the Studio on any device) and, on load, adopts
+       a newer server copy if they edited it on another device. -->
+  <script>
+    import { supabase } from "../lib/supabase.js";
+    (async () => {
+      let uid = null;
+      try { const { data } = await supabase.auth.getSession(); uid = data?.session?.user?.id || null; } catch (_) {}
+      if (!uid) return;   // signed out — localStorage-only, nothing to sync
+
+      // Push local edits up to the member's row (debounced), on change.
+      let t = null;
+      window.addEventListener("tmke:brand-changed", (e) => {
+        const kit = e.detail;
+        if (!kit) return;
+        clearTimeout(t);
+        t = setTimeout(async () => {
+          try {
+            await supabase.from("member_brand_kits").upsert(
+              { user_id: uid, kit, updated_at: new Date().toISOString() },
+              { onConflict: "user_id" }
+            );
+          } catch (_) { /* keep working from localStorage if the sync fails */ }
+        }, 700);
+      });
+
+      // On load, adopt a newer server kit (edited on another device). Reload
+      // once so the form re-initialises from the fresh cache — guarded against
+      // any loop. If local is same-or-newer, the local copy stands.
+      try {
+        const { data: bk } = await supabase
+          .from("member_brand_kits").select("kit").eq("user_id", uid).maybeSingle();
+        if (bk && bk.kit && typeof bk.kit === "object" && Object.keys(bk.kit).length) {
+          let local = null;
+          try { local = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+          const serverT = Number(bk.kit.updatedAt || 0), localT = Number((local && local.updatedAt) || 0);
+          if ((!local || serverT > localT) && !sessionStorage.getItem("tmke.brand.synced")) {
+            try { localStorage.setItem("tmke.brand", JSON.stringify(bk.kit)); } catch (_) {}
+            sessionStorage.setItem("tmke.brand.synced", "1");
+            location.reload();
+          }
+        }
+      } catch (_) { /* server kit is optional */ }
+    })();
   </script>
 
   <!-- First-time login tour — resumes here (the final leg) only if in progress. -->
