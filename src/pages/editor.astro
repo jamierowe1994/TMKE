@@ -331,13 +331,11 @@ const googleFonts = [
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6V4h16v2"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
         <span>Text</span>
       </button>
-      <button class="ed-rail-btn" data-tool="photos" title="Photos">
+      <!-- Images = stock search + your uploads (merged; Uploads no longer has
+           its own rail tab — the rail was getting full). -->
+      <button class="ed-rail-btn" data-tool="photos" title="Images">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        <span>Photos</span>
-      </button>
-      <button class="ed-rail-btn" data-tool="uploads" title="Uploads">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <span>Uploads</span>
+        <span>Images</span>
       </button>
       <button class="ed-rail-btn" data-tool="background" title="Background">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 16l5-5 4 4 5-5 4 4"/></svg>
@@ -498,7 +496,14 @@ const googleFonts = [
 
       <!-- Text -->
       <section class="ed-panel-pane" data-pane="text">
-        <div class="ed-pane-header"><h3>Text</h3><p>Click to add a text block to your design.</p></div>
+        <div class="ed-pane-header"><h3>Text</h3><p>Overwrite the wording on this page, or add a new text block.</p></div>
+
+        <!-- Every text box on this page, editable in one place — type over the
+             wording without touching the design. Built by editor.js. -->
+        <div class="ed-section-title">Text on this page</div>
+        <div class="ed-textlist" id="ed-textlist"></div>
+
+        <div class="ed-section-title">Add text</div>
         <button class="ed-text-add" data-text="heading">
           <div class="ed-text-preview ed-text-h">Add a heading</div>
         </button>
@@ -521,11 +526,12 @@ const googleFonts = [
         <div class="ed-font-browser" id="ed-font-browser"></div>
       </section>
 
-      <!-- Photos — Pexels + Unsplash search -->
+      <!-- Images — stock search (Pexels + Unsplash) with your uploads underneath.
+           Merged from the old separate Photos + Uploads panes. -->
       <section class="ed-panel-pane" data-pane="photos">
         <div class="ed-pane-header">
-          <h3>Photos</h3>
-          <p>Search royalty-free imagery from Pexels &amp; Unsplash.</p>
+          <h3>Images</h3>
+          <p>Search royalty-free imagery, or upload your own below.</p>
         </div>
         <div class="ed-stock-search">
           <input type="search" id="ed-stock-input" placeholder='Try "kitchen", "garden", "interior"…' autocomplete="off" />
@@ -551,11 +557,10 @@ const googleFonts = [
         <p class="ed-stock-status" id="ed-stock-status">Type to search — results from both sources appear here.</p>
         <div class="ed-photo-grid" id="ed-photo-grid"></div>
         <p class="ed-stock-credit">Photos via <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> &amp; <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>. Hover an image to credit the photographer.</p>
-      </section>
 
-      <!-- Uploads -->
-      <section class="ed-panel-pane" data-pane="uploads">
-        <div class="ed-pane-header"><h3>Uploads</h3><p>Drop in your own logos and imagery.</p></div>
+        <!-- Your uploads — merged in beneath the search (no separate rail tab). -->
+        <div class="ed-section-title">Your uploads</div>
+        <p class="ed-brand-hint">Drop in your own logos and imagery.</p>
         <label class="ed-upload-drop">
           <input type="file" id="ed-upload-input" accept="image/*" multiple hidden />
           <strong>Click to upload</strong>
@@ -1357,6 +1362,35 @@ const googleFonts = [
       margin: 0 0 10px;
       line-height: 1.5;
     }
+    /* Text list — every text box on the page, editable in one place. */
+    .ed-textlist { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+    .ed-tl-row {
+      display: flex; flex-direction: column; gap: 5px;
+      border: 1px solid rgba(28,29,34,0.14); border-radius: 7px;
+      padding: 8px 9px; background: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .ed-tl-row:focus-within { border-color: var(--english-violet); box-shadow: 0 0 0 2px rgba(55,30,40,0.08); }
+    .ed-tl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .ed-tl-num {
+      font-family: var(--sans); font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.45);
+    }
+    .ed-tl-find {
+      border: 0; background: none; cursor: pointer; padding: 0;
+      font-family: var(--sans); font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet);
+    }
+    .ed-tl-find:hover { text-decoration: underline; }
+    .ed-tl-input, .ed-props-text {
+      width: 100%; box-sizing: border-box; resize: vertical;
+      font-family: var(--sans); font-size: 13px; line-height: 1.4;
+      color: var(--ink); background: #fff;
+      border: 1px solid rgba(28,29,34,0.16); border-radius: 5px; padding: 6px 8px;
+    }
+    .ed-tl-input { border: 0; padding: 0; border-radius: 0; }
+    .ed-tl-input:focus, .ed-props-text:focus { outline: none; }
+    .ed-textlist-empty { font-size: 11px; color: rgba(28,29,34,0.5); margin: 0 0 10px; line-height: 1.5; }
     .ed-brand-empty {
       padding: 24px;
       background: rgba(var(--violet-rgb),0.06);

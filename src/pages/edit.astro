@@ -9,7 +9,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <!-- Hero — a fixed brand backdrop with the featured pack's copy inset on the
        left and the pack covers as a clickable reel on the right. No autoplay;
        click a cover (or a dot) to feature it. JS fills every slot (setupHero). -->
-  <script is:inline>document.body.classList.add("edit-page");</script>
+  <script is:inline>
+    // The stacked-panel layout is the DEFAULT. ?layout=classic drops back to the
+    // previous page (grid hero + catalogue below); within that, ?hero=classic
+    // restores the original cover-reel hero (which needs the light-on-dark nav).
+    // Classes are set here — before paint — so the unused layout never flashes.
+    (function () {
+      var q = new URLSearchParams(location.search);
+      if (q.get("layout") !== "classic") { document.body.classList.add("stk-on"); return; }
+      document.body.classList.add(q.get("hero") === "classic" ? "edit-page" : "egh-default");
+    })();
+  </script>
   <style is:global>
     /* Keep the fixed nav legible where it floats over the dark hero (top only —
        once scrolled it takes its usual light bar back). */
@@ -49,12 +59,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        builds the tiles and hides #edit-hero2 when this one is active. -->
   <section class="egh" id="edit-hero-grid" aria-label="The Edit — template packs" hidden>
     <div class="egh-inner">
-      <span class="egh-label">Template Packs</span>
+      <span class="egh-label">Shop the Edit</span>
       <div class="egh-scroll">
         <div class="egh-grid" id="egh-grid"></div>
       </div>
+      <div class="egh-dots" id="egh-dots" role="tablist" aria-label="Choose a set"></div>
+      <div class="egh-intro">
+        <span class="egh-intro-eyebrow">The Edit &middot; Our template shop</span>
+        <p class="egh-intro-copy">Scroll-stopping content for every moment &mdash; ready-made, editable templates you open in the Studio and make your own in minutes.</p>
+      </div>
     </div>
   </section>
+
+  <!-- EXPERIMENTAL stacked-panel layout (?layout=stack) — four full-screen
+       panels. Collapsed panels sit as bars (above/below), the active one expands
+       to fill the screen, and scrolling slides the next panel up. Hidden unless
+       ?layout=stack, so the normal page is untouched. -->
+  <div class="stk-wrap" id="edit-stack" hidden>
+    <div class="stk" id="stk"><!-- panels built by setupStack: one per pack, then Why / Shop / Studio --></div>
+  </div>
 
   <section class="edit-wrap" id="edit-catalogue" aria-busy="true">
     <div class="edit-loading" id="edit-loading">Loading the catalogue…</div>
@@ -375,36 +398,50 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        Prefix `egh` so it never collides with the live `eh2` hero. ====== */
     .egh {
       --hairline: rgba(28,29,34,0.16);
-      position: relative; z-index: 1;
-      height: 100svh; overflow: hidden; box-sizing: border-box;
+      position: relative; z-index: 1; box-sizing: border-box;
       background: var(--paper); color: var(--ink); font-family: var(--sans);
     }
     .egh[hidden] { display: none; }
-    /* Full-bleed: no max-width cap, only a hair of side gutter so the grid runs
-       edge to edge of the screen. */
+    /* Default (grid hero): hide the original reel, show the grid — set on <body>
+       before paint so neither hero flashes. ?hero=classic omits egh-default. */
+    body.egh-default #edit-hero2 { display: none; }
+    body.egh-default #edit-hero-grid { display: block; }
+    /* In-flow (not a fixed full-screen) — sits above and flows into the
+       catalogue below, dropped well clear of the nav. */
     .egh-inner {
-      max-width: none; margin: 0; box-sizing: border-box;
-      height: 100svh; display: flex; flex-direction: column; gap: 14px;
-      padding: clamp(68px, 9vh, 100px) 14px clamp(28px, 4vh, 56px);
+      max-width: 1360px; margin: 0 auto; box-sizing: border-box;
+      display: flex; flex-direction: column; gap: 20px;
+      padding: clamp(128px, 17vh, 176px) 76px clamp(48px, 7vh, 88px);
     }
     .egh-label {
-      flex: 0 0 auto;
       font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
     }
-    /* Internal scroll — the grid scrolls inside the fixed full-screen panel,
-       exactly like the Insights archive (.arc-scroll). */
-    .egh-scroll {
-      flex: 1 1 auto; min-height: 0;
-      overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
-      scrollbar-width: none; -ms-overflow-style: none;
-      border-top: 1px solid var(--hairline); padding-top: clamp(14px, 1.8vh, 22px);
+    /* Wine explainer band — breaks up the beige between the heading and the grid
+       and says plainly this is the template shop. */
+    .egh-intro {
+      background: var(--english-violet); color: var(--paper);
+      border-radius: 4px; padding: clamp(20px, 2.4vw, 34px);
+      display: flex; flex-direction: column; gap: 10px;
     }
-    .egh-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    .egh-intro-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; color: rgba(244,242,241,0.72);
+    }
+    /* Body copy — upright (no italic) and sized like the rest of the section copy. */
+    .egh-intro-copy {
+      margin: 0; max-width: 62ch;
+      font-family: var(--sans); font-style: normal; font-weight: 400;
+      font-size: clamp(14px, 1.15vw, 16.5px); line-height: 1.6;
+      color: rgba(244,242,241,0.86);
+    }
+    .egh-scroll {
+      overflow: hidden;   /* clips the Next-set slide, no page scroll */
+      border-top: 1px solid var(--hairline); padding-top: clamp(16px, 2vh, 26px);
+    }
     .egh-grid {
       display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
       grid-auto-flow: row dense; align-content: start;
-      transition: transform 0.4s cubic-bezier(.2,.7,.2,1), opacity 0.4s ease;
     }
     @media (max-width: 1200px) { .egh-grid { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 640px)  { .egh-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -427,27 +464,143 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       font-family: var(--sans); font-weight: 600; font-size: clamp(15px, 1.1vw, 19px);
       line-height: 1.12; letter-spacing: -0.005em; color: var(--english-violet);
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      min-height: calc(1.12em * 2);   /* every title reserves two lines — even grid */
     }
     /* Image tiles — static high-res design from the pack. */
     .egh-tile--image { background-size: cover; background-position: center; background-color: rgba(28,29,34,0.06); }
-    /* Next tile (bottom-right) — slides the grid to the next set of designs. */
+    /* Next tile (bottom-right) — slides the grid to the next set; heading style.
+       Solid wine with light text at rest; on hover it flips to see-through with a
+       wine outline and grey text. */
     .egh-tile--next {
-      -webkit-appearance: none; appearance: none; border: 0; cursor: pointer;
-      display: grid; place-items: center; text-align: center;
+      -webkit-appearance: none; appearance: none; cursor: pointer; box-sizing: border-box;
+      display: grid; place-items: center; text-align: center; padding: 16px;
       background: var(--english-violet); color: var(--paper);
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.18em; text-transform: uppercase;
-      transition: background 0.25s ease;
+      border: 1px solid var(--english-violet);
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; line-height: 1.5;
+      transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
     }
-    .egh-tile--next:hover { background: #4a2836; }
-    .egh-tile--next .egh-next-arrow { display: block; margin-top: 6px; font-size: 18px; transition: transform 0.3s; }
-    .egh-tile--next:hover .egh-next-arrow { transform: translateX(5px); }
+    .egh-tile--next:hover {
+      background: transparent; color: rgba(28,29,34,0.55);
+      border-color: var(--english-violet);
+    }
+    /* Dot pager — jump between sets, alongside the Next tile. */
+    .egh-dots { display: flex; justify-content: center; gap: 11px; padding-top: clamp(18px, 2.4vh, 30px); }
+    .egh-dot {
+      width: 9px; height: 9px; border-radius: 50%; padding: 0; cursor: pointer;
+      border: 1px solid rgba(55,30,40,0.5); background: transparent;
+      transition: background 0.3s, border-color 0.3s, transform 0.3s;
+    }
+    .egh-dot:hover { background: rgba(55,30,40,0.35); }
+    .egh-dot.is-active { background: var(--english-violet); border-color: var(--english-violet); transform: scale(1.2); }
 
-    @media (max-width: 980px) { .egh-inner { padding-left: 12px; padding-right: 12px; } }
+    @media (max-width: 980px) { .egh-inner { padding-left: 36px; padding-right: 36px; } }
     @media (max-width: 640px) {
       .egh-inner { padding-top: clamp(96px, 14vh, 130px); padding-bottom: 48px; }
     }
     @media (prefers-reduced-motion: reduce) { .egh-tile-img { transition: opacity 0.2s ease; } }
+    /* ====== EXPERIMENTAL stacked-panel layout (?layout=stack) ==============
+       Four panels inside a sticky 100svh viewport. Collapsed panels are just
+       their bar; the active one flex-grows to fill. A tall runway above drives
+       which one is open, so the page scrolls normally (no scroll hijacking). */
+    body.stk-on #edit-hero2,
+    body.stk-on #edit-hero-grid,
+    body.stk-on #edit-catalogue { display: none; }
+    .stk-wrap { position: relative; }
+    .stk-wrap[hidden] { display: none; }
+    /* Default layout: reveal the stack from first paint (body.stk-on is set by
+       the inline script) so there's no blank/flash while the panels build. */
+    body.stk-on .stk-wrap { display: block; }
+    /* Invisible markers down the runway — one per panel (see setupStack). */
+    .stk-sents { position: absolute; inset: 0; pointer-events: none; }
+    .stk-sent { position: absolute; left: 0; width: 1px; height: 100svh; }
+    .stk {
+      --bar: 46px;
+      --hairline: rgba(28,29,34,0.16);
+      position: sticky; top: 0; height: 100svh; overflow: hidden;
+      display: flex; flex-direction: column;
+      background: var(--paper); color: var(--ink); font-family: var(--sans);
+    }
+    /* Collapsed = exactly the bar height (basis), body clipped. Open = grows to
+       fill. Animating flex-grow gives the slide. */
+    .stk-p {
+      display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+      flex: 0 1 var(--bar);
+      transition: flex-grow 0.7s cubic-bezier(.2,.8,.2,1);
+    }
+    .stk-p.is-open { flex-grow: 1; }
+    .stk-bar {
+      flex: none; height: var(--bar); box-sizing: border-box;
+      display: grid; grid-template-columns: 30px 1.1fr 1.1fr 1.6fr 24px;
+      align-items: center; gap: 12px; padding: 0 clamp(14px, 2vw, 26px);
+      background: var(--paper); color: var(--ink);
+      border: 0; border-top: 1px solid var(--hairline);
+      cursor: pointer; text-align: left;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      transition: background 0.25s ease;
+    }
+    .stk-bar:hover { background: #fff; }
+    .stk-dot { width: 7px; height: 7px; background: var(--ink); display: inline-block; }
+    .stk-tag { color: rgba(28,29,34,0.55); }
+    .stk-chev { justify-self: end; font-size: 10px; color: rgba(28,29,34,0.5); transition: transform 0.4s ease; }
+    .stk-p.is-open .stk-chev { transform: rotate(180deg); }
+    .stk-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    .stk-body--pad { overflow-y: auto; padding: clamp(14px, 1.8vw, 26px); }
+    /* Pack panel — exactly TWO rows that fill the open panel (no scroll), with
+       margins around so the designs sit at a reasonable size. */
+    .stk-body--pack {
+      display: flex; justify-content: center; min-height: 0;
+      padding: clamp(16px, 2.4vw, 44px);
+    }
+    .stk-pgrid {
+      flex: 1 1 auto; min-height: 0; width: 100%; max-width: 1200px;
+      display: grid; grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: repeat(2, 1fr); gap: 6px;
+    }
+    /* The grid rows size the tiles here — drop the 3:4 aspect so two rows fit. */
+    .stk-pgrid .egh-tile { aspect-ratio: auto; min-height: 0; }
+    @media (max-width: 900px) {
+      .stk-pgrid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); }
+    }
+    /* Panel 2 — the wine quote. */
+    .stk-body--wine {
+      background: var(--english-violet); color: var(--paper);
+      display: grid; place-items: center; padding: clamp(24px, 5vw, 80px);
+    }
+    .stk-quote-wrap { max-width: 900px; display: flex; flex-direction: column; gap: 16px; }
+    .stk-quote-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; color: rgba(244,242,241,0.7);
+    }
+    .stk-quote {
+      margin: 0; font-family: var(--sans); font-style: normal; font-weight: 400;
+      font-size: clamp(18px, 2.1vw, 30px); line-height: 1.4; color: var(--paper);
+    }
+    /* Panel 4 — Studio features: text tiles that reveal an image on hover. */
+    .stk-feat {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      height: 100%; box-sizing: border-box; padding: clamp(14px, 1.6vw, 24px);
+    }
+    @media (max-width: 900px) { .stk-feat { grid-template-columns: repeat(2, 1fr); } }
+    .stk-feat-tile {
+      position: relative; overflow: hidden; border-radius: 2px;
+      border: 1px solid var(--hairline); background: var(--paper);
+      display: flex; align-items: flex-end; padding: 16px;
+    }
+    .stk-feat-img {
+      position: absolute; inset: 0; opacity: 0;
+      background-size: cover; background-position: center;
+      transition: opacity 0.5s ease;
+    }
+    .stk-feat-tile:hover .stk-feat-img { opacity: 1; }
+    .stk-feat-name {
+      position: relative; z-index: 2;
+      font-family: var(--sans); font-weight: 600; font-size: clamp(14px, 1.1vw, 19px);
+      line-height: 1.14; color: var(--english-violet);
+      transition: opacity 0.35s ease;
+    }
+    .stk-feat-tile:hover .stk-feat-name { opacity: 0; }
     /* ====== STRIPPED — studio demo moved to the homepage Chapter 5 ====== */
 
     /* Global so the JS-injected catalogue cards inherit the styles —
@@ -1367,15 +1520,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       window.addEventListener('resize', () => { clearTimeout(lockT); lockT = setTimeout(relayout, 180); });
     }
 
-    // ===== EXPERIMENTAL grid hero (opt-in via ?hero=grid) ====================
+    // ===== Grid hero (the default; ?hero=classic restores the reel hero) ======
     // The Insights archive grid framework lifted onto The Edit: a full-screen,
-    // 6-column grid where each row = 2 off-white PACK tiles (name + hover reveals
-    // the cover, click opens the pack) + 4 static template-image tiles, packs
-    // scattered row to row. Only runs with ?hero=grid — it then hides the live
-    // hero (#edit-hero2) so the default page is never affected.
+    // 6-column grid where each row = pack tiles (name + hover reveals the design,
+    // click opens the pack) + high-res design tiles, packs scattered row to row,
+    // with a "Next set" tile bottom-right. Set ?hero=classic to bring back the
+    // original cover-reel hero (#edit-hero2).
     function setupGridHero(packs) {
       const params = new URLSearchParams(location.search);
-      if (params.get('hero') !== 'grid') return;
+      if (params.get('hero') === 'classic') return;   // opt back into the reel hero
       const gridHero = document.getElementById('edit-hero-grid');
       const eh2 = document.getElementById('edit-hero2');
       const gridEl = document.getElementById('egh-grid');
@@ -1387,7 +1540,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const designsOf = (p) => (Array.isArray(p.templates) ? p.templates : []).filter((u) => typeof u === 'string' && u.trim());
       const heroOf = (p) => designsOf(p)[0] || p.cover_image_url || '';
       const list = (packs || []).filter((p) => p && heroOf(p));
-      if (!list.length) return;   // nothing to show → leave the live hero alone
+      if (!list.length) {
+        // Data didn't load — fall back to the original reel hero so the page is
+        // never heroless.
+        document.body.classList.remove('egh-default');
+        document.body.classList.add('edit-page');
+        gridHero.hidden = true;
+        if (eh2) eh2.hidden = false;
+        return;
+      }
 
       if (eh2) eh2.hidden = true;
       gridHero.hidden = false;
@@ -1398,57 +1559,116 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       list.forEach((p) => designsOf(p).forEach((u) => pool.push(u)));
       if (!pool.length) list.forEach((p) => { const h = heroOf(p); if (h) pool.push(h); });
 
-      // 6-col grid: ONE pack tile per pack (hover reveals its design, click opens
-      // it), scattered among high-res design tiles; the last cell is Next.
-      const COLS = 6;
-      const ROW_PACK_COLS = [[0, 3], [2, 5], [1, 4], [0, 4], [2, 3], [1, 5]];
-      const cells = [];
-      let pi = 0;
-      for (let r = 0; pi < list.length; r++) {
-        const cols = ROW_PACK_COLS[r % ROW_PACK_COLS.length];
-        for (let c = 0; c < COLS; c++) {
-          if (cols.includes(c) && pi < list.length) { cells.push({ type: 'pack', pack: list[pi], num: pi + 1 }); pi++; }
-          else cells.push({ type: 'image' });
+      // A "set" is a page of packs. Each pack gets THREE white boxes — all
+      // labelled "Pack One", with a different second line: the title, the type
+      // ("On the Market Template Pack"), and "Shop the Pack".
+      const CELLS = 24, PACKS_PER_SET = 3;
+      const WORDS = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
+      // Hand-scattered layouts — which of the 24 cells hold the white boxes.
+      // Deliberately irregular (not a shift-by-one) so each set reads differently.
+      // Cell 23 (bottom-right) is reserved for the Next tile.
+      const LAYOUTS = [
+        [0, 4, 7, 9, 11, 13, 16, 18, 21],
+        [2, 3, 6, 10, 12, 15, 17, 20, 22],
+        [1, 5, 8, 10, 14, 17, 19, 22, 3],
+      ];
+      const SETS = Math.max(1, Math.ceil(list.length / PACKS_PER_SET));
+      const dotsEl = document.getElementById('egh-dots');
+      const norm = (i) => ((i % SETS) + SETS) % SETS;
+      let setIdx = 0, imgCount = 0;
+
+      // Build the grid for the current set: this page's packs as three white
+      // boxes each (hover clears the text to show the high-res design), scattered
+      // among design tiles, with Next in the bottom-right cell.
+      function build() {
+        const s = norm(setIdx);
+        const layout = LAYOUTS[s % LAYOUTS.length];
+        const setPacks = list.slice(s * PACKS_PER_SET, s * PACKS_PER_SET + PACKS_PER_SET);
+
+        const boxes = [];
+        setPacks.forEach((p, n) => {
+          const idx = s * PACKS_PER_SET + n;
+          const num = 'Pack ' + (WORDS[idx] || String(idx + 1));
+          const pillar = p.category ? p.category + ' Template Pack' : 'Template Pack';
+          boxes.push({ pack: p, num, main: p.title || '' });
+          boxes.push({ pack: p, num, main: pillar });
+          boxes.push({ pack: p, num, main: 'Shop the Pack' });
+        });
+        const boxAt = new Map();
+        boxes.forEach((b, i) => { if (layout[i] != null) boxAt.set(layout[i], b); });
+
+        const hasNext = SETS > 1;
+        const imgOffset = imgCount ? (s * imgCount) % (pool.length || 1) : 0;
+        let html = '', gi = 0, count = 0;
+        for (let c = 0; c < CELLS; c++) {
+          if (hasNext && c === CELLS - 1) {
+            html += `<button type="button" class="egh-tile egh-tile--next">Scroll Next Set</button>`;
+            continue;
+          }
+          const b = boxAt.get(c);
+          if (b) {
+            const p = b.pack;
+            const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
+            html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
+              + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
+              + `<span class="egh-tile-cap">`
+              + `<span class="egh-tile-num">${escapeHtml(b.num)}</span>`
+              + `<span class="egh-tile-name">${escapeHtml(b.main)}</span>`
+              + `</span></a>`;
+          } else {
+            const img = pool.length ? pool[(imgOffset + gi) % pool.length] : '';
+            gi++; count++;
+            html += `<div class="egh-tile egh-tile--image" style="background-image:url('${img}')"></div>`;
+          }
+        }
+        gridEl.innerHTML = html;
+        imgCount = count;
+      }
+
+      function updateDots() {
+        if (!dotsEl) return;
+        Array.from(dotsEl.children).forEach((d, i) => d.classList.toggle('is-active', i === norm(setIdx)));
+      }
+
+      // Dot pager — one dot per set of packs, an alternative to the Next tile.
+      // Only meaningful when there's more than one set.
+      if (dotsEl) {
+        if (SETS <= 1) dotsEl.hidden = true;
+        else {
+          dotsEl.innerHTML = Array.from({ length: SETS }, (_, i) =>
+            `<button type="button" class="egh-dot${i === 0 ? ' is-active' : ''}" data-set="${i}" aria-label="Set ${i + 1}"></button>`).join('');
+          dotsEl.addEventListener('click', (e) => { const b = e.target.closest('.egh-dot'); if (b) goToSet(+b.dataset.set); });
         }
       }
-      // Fill to whole rows so the last cell can host Next in the bottom-right.
-      while (cells.length % COLS !== 0 || cells.length < list.length + 1) cells.push({ type: 'image' });
-      cells[cells.length - 1] = { type: 'next' };
 
-      let html = '';
-      cells.forEach((cell) => {
-        if (cell.type === 'pack') {
-          const p = cell.pack;
-          const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
-          html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
-            + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
-            + `<span class="egh-tile-cap"><span class="egh-tile-num">Pack ${String(cell.num).padStart(2, '0')}</span>`
-            + `<span class="egh-tile-name">${escapeHtml(p.title || '')}</span></span></a>`;
-        } else if (cell.type === 'next') {
-          html += `<button type="button" class="egh-tile egh-tile--next">Next set<span class="egh-next-arrow" aria-hidden="true">&rarr;</span></button>`;
-        } else {
-          html += `<div class="egh-tile egh-tile--image"></div>`;
-        }
-      });
-      gridEl.innerHTML = html;
-
-      // Fill the image tiles from the design pool; Next pages through them.
-      const imgTiles = Array.from(gridEl.querySelectorAll('.egh-tile--image'));
-      let offset = 0;
-      function fillImages() {
-        imgTiles.forEach((el, i) => { el.style.backgroundImage = pool.length ? `url('${pool[(offset + i) % pool.length]}')` : ''; });
+      // Slide the whole grid out to the left, rebuild the target set (new pack
+      // positions + next designs), then slide in from the right.
+      function goToSet(i) {
+        if (norm(i) === norm(setIdx)) return;
+        setIdx = norm(i);
+        gridEl.style.transition = 'transform 0.30s cubic-bezier(.4,0,1,1), opacity 0.30s ease';
+        gridEl.style.transform = 'translateX(-9%)';
+        gridEl.style.opacity = '0';
+        setTimeout(() => {
+          build(); updateDots();
+          gridEl.style.transition = 'none';
+          gridEl.style.transform = 'translateX(9%)';
+          requestAnimationFrame(() => {
+            gridEl.style.transition = 'transform 0.5s cubic-bezier(.2,.8,.2,1), opacity 0.45s ease';
+            gridEl.style.transform = 'translateX(0)';
+            gridEl.style.opacity = '1';
+          });
+        }, 300);
       }
-      fillImages();
 
-      // Next → slide the grid across and show the next set of designs.
+      build(); updateDots();
+
+      // Next tile → advance one set (loops).
       gridEl.addEventListener('click', (e) => {
-        if (!e.target.closest('.egh-tile--next')) return;
-        offset = (offset + imgTiles.length) % (pool.length || 1);
-        gridEl.style.transform = 'translateX(-30px)'; gridEl.style.opacity = '0.3';
-        setTimeout(() => { fillImages(); gridEl.style.transform = 'translateX(0)'; gridEl.style.opacity = '1'; }, 360);
+        if (e.target.closest('.egh-tile--next')) goToSet(setIdx + 1);
       });
 
-      pool.slice(0, 20).forEach((u) => { const im = new Image(); im.src = u; });
+      pool.slice(0, 24).forEach((u) => { const im = new Image(); im.src = u; });
     }
 
     let packsById = new Map();
@@ -1545,8 +1765,154 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       // Rotate the hero one pack at a time (copy + that pack's flashing grid).
       setupHero(packs);
-      setupGridHero(packs);   // experimental alternative — only if ?hero=grid
+      setupGridHero(packs);   // the grid hero (default; ?hero=classic → reel)
+      setupStack(packs);      // experimental stacked panels — only if ?layout=stack
     })();
+
+    // ===== EXPERIMENTAL stacked-panel layout (?layout=stack) =================
+    // Four full-screen panels. Collapsed panels show only their bar; the active
+    // one expands. A runway (N x 100svh) above a sticky viewport drives which is
+    // open, so scrolling stays native. Reuses the already-rendered grid and
+    // catalogue by moving them into their panels.
+    function setupStack(packs) {
+      const params = new URLSearchParams(location.search);
+      if (params.get('layout') === 'classic') return;   // opt back to the old page
+      const wrap = document.getElementById('edit-stack');
+      const stk = document.getElementById('stk');
+      if (!wrap || !stk) return;
+
+      const designsOf = (p) => (Array.isArray(p.templates) ? p.templates : []).filter((u) => typeof u === 'string' && u.trim());
+      const heroOf = (p) => designsOf(p)[0] || p.cover_image_url || '';
+      const list = (packs || []).filter((p) => p && heroOf(p));
+      if (!list.length) {
+        // No pack data — drop back to the normal page (whichever hero
+        // setupGridHero settled on) rather than showing an empty stack.
+        document.body.classList.remove('stk-on');
+        wrap.hidden = true;
+        return;
+      }
+
+      document.body.classList.add('stk-on');
+      document.body.classList.remove('edit-page');
+      wrap.hidden = false;
+
+      const WORDS = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
+      const bar = (name, meta, tag) =>
+        `<button type="button" class="stk-bar"><span class="stk-dot"></span>`
+        + `<span class="stk-name">${escapeHtml(name)}</span>`
+        + `<span class="stk-meta">${escapeHtml(meta)}</span>`
+        + `<span class="stk-tag">${escapeHtml(tag)}</span>`
+        + `<span class="stk-chev" aria-hidden="true">&#9662;</span></button>`;
+
+      // A pack panel: two rows of that pack's designs, with its three white
+      // boxes (Pack N + title / type / shop) scattered among them.
+      const BOX_CELLS = [[0, 5, 8], [2, 6, 11], [1, 7, 9], [3, 4, 10]];
+      function packGrid(p, n) {
+        const designs = designsOf(p);
+        const cells = BOX_CELLS[n % BOX_CELLS.length];
+        const pillar = p.category ? p.category + ' Template Pack' : 'Template Pack';
+        const mains = [p.title || '', pillar, 'Shop the Pack'];
+        const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
+        const numTxt = 'Pack ' + (WORDS[n] || String(n + 1));
+        let html = '', gi = 0;
+        for (let c = 0; c < 12; c++) {
+          const bi = cells.indexOf(c);
+          if (bi > -1) {
+            html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
+              + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
+              + `<span class="egh-tile-cap"><span class="egh-tile-num">${numTxt}</span>`
+              + `<span class="egh-tile-name">${escapeHtml(mains[bi])}</span></span></a>`;
+          } else {
+            const img = designs.length ? designs[gi++ % designs.length] : '';
+            html += `<div class="egh-tile egh-tile--image" style="background-image:url('${img}')"></div>`;
+          }
+        }
+        return html;
+      }
+
+      // One panel per pack, then Why / Shop / Studio.
+      let html = '';
+      list.forEach((p, n) => {
+        html += `<section class="stk-p" data-i="${n}">`
+          + bar(p.title || ('Pack ' + (n + 1)), p.category || 'Template Pack', 'Shop the pack')
+          + `<div class="stk-body stk-body--pack"><div class="stk-pgrid">${packGrid(p, n)}</div></div></section>`;
+      });
+      html += `<section class="stk-p" data-i="${list.length}">`
+        + bar('Why The Edit', 'Our Template Shop', 'The Idea')
+        + `<div class="stk-body stk-body--wine"><div class="stk-quote-wrap">`
+        + `<span class="stk-quote-eyebrow">The Edit &middot; Our template shop</span>`
+        + `<p class="stk-quote">Great marketing shouldn&rsquo;t need a design degree. Every pack in The Edit is built by our studio and ready to go &mdash; open it, make it yours, post it. Looking the part in minutes, not hours.</p>`
+        + `</div></div></section>`;
+      html += `<section class="stk-p" data-i="${list.length + 1}">`
+        + bar('Shop the Packs', 'Every Pack', 'Browse, Buy')
+        + `<div class="stk-body stk-body--pad" id="stk-body-shop"></div></section>`;
+      html += `<section class="stk-p" data-i="${list.length + 2}">`
+        + bar('The Studio', 'Design Studio', 'What You Can Do')
+        + `<div class="stk-body"><div class="stk-feat" id="stk-feat"></div></div></section>`;
+      stk.innerHTML = html;
+
+      // Shop panel — reuse the rendered catalogue cards.
+      const shopBody = document.getElementById('stk-body-shop');
+      const cat = document.getElementById('edit-grid');
+      if (shopBody && cat) shopBody.appendChild(cat);
+
+      // Studio panel — text tiles, image on hover.
+      // (Images are pack designs for now — swap for real feature shots / video.)
+      const FEATURES = [
+        'Build your brand kit', 'Plan your content', 'Pick a template', 'Make it yours',
+        'Design in the Studio', 'Save your designs', 'Download your design', 'Post it',
+      ];
+      const pool = [];
+      list.forEach((p) => designsOf(p).forEach((u) => pool.push(u)));
+      const feat = document.getElementById('stk-feat');
+      if (feat) {
+        feat.innerHTML = FEATURES.map((f, i) => {
+          const img = pool.length ? pool[(i * 3) % pool.length] : '';
+          return `<div class="stk-feat-tile">`
+            + `<span class="stk-feat-img" style="background-image:url('${img}')"></span>`
+            + `<span class="stk-feat-name">${escapeHtml(f)}</span></div>`;
+        }).join('');
+      }
+
+      // Scroll → which panel is open.
+      const panels = Array.from(stk.querySelectorAll('.stk-p'));
+      const N = panels.length;
+      wrap.style.height = (N * 100) + 'svh';
+      let open = -1;
+      function setOpen(i) {
+        if (i === open) return;
+        open = i;
+        panels.forEach((p, n) => p.classList.toggle('is-open', n === i));
+      }
+      // One sentinel per panel down the runway; whichever crosses the viewport's
+      // centre line is the open panel. NB: the site runs Lenis smooth-scroll, so
+      // native scroll events never fire — an IntersectionObserver is driven by
+      // layout instead, and needs no scroll/rAF plumbing.
+      const sents = document.createElement('div');
+      sents.className = 'stk-sents';
+      sents.setAttribute('aria-hidden', 'true');
+      for (let i = 0; i < N; i++) {
+        const s = document.createElement('span');
+        s.className = 'stk-sent';
+        s.dataset.i = String(i);
+        s.style.top = (i * 100) + 'svh';
+        sents.appendChild(s);
+      }
+      wrap.appendChild(sents);
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) setOpen(+e.target.dataset.i); });
+      }, { rootMargin: '-50% 0px -50% 0px', threshold: 0 });
+      sents.querySelectorAll('.stk-sent').forEach((s) => io.observe(s));
+      setOpen(0);
+
+      // Clicking a bar scrolls to that panel.
+      panels.forEach((p, i) => {
+        const bar = p.querySelector('.stk-bar');
+        if (bar) bar.addEventListener('click', () => {
+          window.scrollTo({ top: wrap.offsetTop + i * window.innerHeight, behavior: 'smooth' });
+        });
+      });
+    }
 
     // ============== Modal helpers ==============
     function showStep(step) {
