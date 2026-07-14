@@ -523,6 +523,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       position: sticky; top: 0; height: 100svh; overflow: hidden;
       display: flex; flex-direction: column;
       background: var(--paper); color: var(--ink); font-family: var(--sans);
+      /* Clear the fixed site nav — otherwise the top panel (grid or bar) runs
+         underneath it. */
+      box-sizing: border-box; padding-top: 68px;
     }
     /* Collapsed = exactly the bar height (basis), body clipped. Open = grows to
        fill. Animating flex-grow gives the slide. */
@@ -586,6 +589,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
     /* True 3:4 — the design ratio. Height follows the column width. */
     .stk-pgrid .egh-tile { aspect-ratio: 3 / 4; min-height: 0; }
+    /* Next tile (bottom-left of each pack) — "Next Pack" over the pack it goes to. */
+    .stk-pgrid .egh-tile--next {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 7px; padding: 12px;
+    }
+    .stk-pgrid .egh-next-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.72; }
+    .stk-pgrid .egh-next-name {
+      font-family: var(--sans); font-size: clamp(13px, 0.9vw, 16px); font-weight: 500;
+      letter-spacing: 0; text-transform: none; line-height: 1.2; text-wrap: balance;
+    }
+
     /* Dots — slide between packs within the one frame. */
     .stk-dots { flex: none; display: flex; justify-content: center; align-items: center; gap: 9px; height: 14px; }
     .stk-dot-btn {
@@ -1845,24 +1859,34 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
 
       // A pack's grid: its three white boxes (Pack N + title / type / shop)
-      // scattered among that pack's designs.
-      function boxCells(total, cols, n) {
-        const picks = [1 + (n % 3), cols - 2 - (n % 2), cols + 3 + (n % 4)];
-        return [...new Set(picks.map((x) => Math.max(0, Math.min(total - 1, x))))];
+      // spread through that pack's designs, never landing on the Next cell.
+      function boxCells(total, n, skip) {
+        const avail = [];
+        for (let i = 0; i < total; i++) if (i !== skip) avail.push(i);
+        const step = Math.max(1, Math.floor(avail.length / 3));
+        const out = [];
+        for (let k = 0; k < 3; k++) out.push(avail[(k * step + n) % avail.length]);
+        return [...new Set(out)];
       }
       function packGrid(p, n, cols) {
         const designs = designsOf(p);
         const total = ROWS * cols;
-        // The last cell is always the wine Next tile → boxes avoid it.
-        const cells = boxCells(total - 1, cols, n).sort((a, b) => a - b);
+        // Wine Next tile sits BOTTOM-LEFT (first cell of the last row); it names
+        // the pack it takes you to. Boxes never land on it.
+        const nextAt = cols;
+        const cells = boxCells(total, n, nextAt).sort((a, b) => a - b);
+        const nextPack = list[(n + 1) % list.length];
+        const nextName = (nextPack && nextPack.title) || 'The next pack';
         const pillar = p.category ? p.category + ' Template Pack' : 'Template Pack';
         const mains = [p.title || '', pillar, 'Shop the Pack'];
         const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
         const numTxt = 'Pack ' + (WORDS[n] || String(n + 1));
         let html = '', gi = 0;
         for (let c = 0; c < total; c++) {
-          if (c === total - 1) {
-            html += `<button type="button" class="egh-tile egh-tile--next" data-nextpack>Next Pack</button>`;
+          if (c === nextAt) {
+            html += `<button type="button" class="egh-tile egh-tile--next" data-nextpack>`
+              + `<span class="egh-next-lbl">Next Pack</span>`
+              + `<span class="egh-next-name">${escapeHtml(nextName)}</span></button>`;
             continue;
           }
           const bi = cells.indexOf(c);
