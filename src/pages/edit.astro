@@ -74,45 +74,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        to fill the screen, and scrolling slides the next panel up. Hidden unless
        ?layout=stack, so the normal page is untouched. -->
   <div class="stk-wrap" id="edit-stack" hidden>
-    <div class="stk" id="stk">
-      <section class="stk-p is-open" data-i="0">
-        <button type="button" class="stk-bar">
-          <span class="stk-dot"></span><span class="stk-name">The Edit</span>
-          <span class="stk-meta">Template Shop</span><span class="stk-tag">Packs, Templates</span>
-          <span class="stk-chev" aria-hidden="true">&#9662;</span>
-        </button>
-        <div class="stk-body stk-body--pad" id="stk-body-0"></div>
-      </section>
-      <section class="stk-p" data-i="1">
-        <button type="button" class="stk-bar">
-          <span class="stk-dot"></span><span class="stk-name">Why The Edit</span>
-          <span class="stk-meta">Our Template Shop</span><span class="stk-tag">The Idea</span>
-          <span class="stk-chev" aria-hidden="true">&#9662;</span>
-        </button>
-        <div class="stk-body stk-body--wine">
-          <div class="stk-quote-wrap">
-            <span class="stk-quote-eyebrow">The Edit &middot; Our template shop</span>
-            <p class="stk-quote">Great marketing shouldn&rsquo;t need a design degree. Every pack in The Edit is built by our studio and ready to go &mdash; open it, make it yours, post it. Looking the part in minutes, not hours.</p>
-          </div>
-        </div>
-      </section>
-      <section class="stk-p" data-i="2">
-        <button type="button" class="stk-bar">
-          <span class="stk-dot"></span><span class="stk-name">Shop the Packs</span>
-          <span class="stk-meta">Every Pack</span><span class="stk-tag">Browse, Buy</span>
-          <span class="stk-chev" aria-hidden="true">&#9662;</span>
-        </button>
-        <div class="stk-body stk-body--pad" id="stk-body-2"></div>
-      </section>
-      <section class="stk-p" data-i="3">
-        <button type="button" class="stk-bar">
-          <span class="stk-dot"></span><span class="stk-name">The Studio</span>
-          <span class="stk-meta">Design Studio</span><span class="stk-tag">What You Can Do</span>
-          <span class="stk-chev" aria-hidden="true">&#9662;</span>
-        </button>
-        <div class="stk-body"><div class="stk-feat" id="stk-feat"></div></div>
-      </section>
-    </div>
+    <div class="stk" id="stk"><!-- panels built by setupStack: one per pack, then Why / Shop / Studio --></div>
   </div>
 
   <section class="edit-wrap" id="edit-catalogue" aria-busy="true">
@@ -580,6 +542,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .stk-p.is-open .stk-chev { transform: rotate(180deg); }
     .stk-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
     .stk-body--pad { overflow-y: auto; padding: clamp(14px, 1.8vw, 26px); }
+    /* Pack panel — exactly TWO rows that fill the open panel (no scroll), with
+       margins around so the designs sit at a reasonable size. */
+    .stk-body--pack {
+      display: flex; justify-content: center; min-height: 0;
+      padding: clamp(16px, 2.4vw, 44px);
+    }
+    .stk-pgrid {
+      flex: 1 1 auto; min-height: 0; width: 100%; max-width: 1200px;
+      display: grid; grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: repeat(2, 1fr); gap: 6px;
+    }
+    /* The grid rows size the tiles here — drop the 3:4 aspect so two rows fit. */
+    .stk-pgrid .egh-tile { aspect-ratio: auto; min-height: 0; }
+    @media (max-width: 900px) {
+      .stk-pgrid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); }
+    }
     /* Panel 2 — the wine quote. */
     .stk-body--wine {
       background: var(--english-violet); color: var(--paper);
@@ -1721,25 +1699,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         cover_image_url: TPL(10), preview_images: [TPL(10), TPL(6), TPL(3), TPL(12), TPL(7), TPL(9)],
         contents: [], templates: rot(TPL_ALL, 9),
       },
-      // Extra samples so local dev exercises more than one "set" (live has ~8 packs).
-      {
-        id: 'sample-sold', slug: 'sold-and-celebrated', category: 'On the Market',
-        title: 'Sold and Celebrated', price_pence: 0, packSize: 20,
-        description: 'Make every completion count. Just-sold, under-offer and celebration layouts that turn results into proof.',
-        cover_image_url: TPL(4), preview_images: [], contents: [], templates: rot(TPL_ALL, 2),
-      },
-      {
-        id: 'sample-valuation', slug: 'valuation-season', category: 'Service and Standards',
-        title: 'Valuation Season', price_pence: 0, packSize: 18,
-        description: 'Fill the diary. Valuation prompts, market-appraisal offers and the posts that turn browsers into bookings.',
-        cover_image_url: TPL(7), preview_images: [], contents: [], templates: rot(TPL_ALL, 11),
-      },
-      {
-        id: 'sample-lettings', slug: 'lettings-edit', category: 'Local Life',
-        title: 'The Lettings Edit', price_pence: 0, packSize: 22,
-        description: 'For landlords and tenants alike. Availability, compliance and community posts built for the lettings side of the business.',
-        cover_image_url: TPL(12), preview_images: [], contents: [], templates: rot(TPL_ALL, 4),
-      },
     ];
 
     (async () => {
@@ -1817,32 +1776,83 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const stk = document.getElementById('stk');
       if (!wrap || !stk) return;
 
+      const designsOf = (p) => (Array.isArray(p.templates) ? p.templates : []).filter((u) => typeof u === 'string' && u.trim());
+      const heroOf = (p) => designsOf(p)[0] || p.cover_image_url || '';
+      const list = (packs || []).filter((p) => p && heroOf(p));
+      if (!list.length) return;
+
       document.body.classList.add('stk-on');
       document.body.classList.remove('edit-page');
       wrap.hidden = false;
 
-      // Panel 1 — the grid hero's grid + its dot pager.
-      const body0 = document.getElementById('stk-body-0');
-      const gridScroll = document.querySelector('#edit-hero-grid .egh-scroll');
-      const gridDots = document.getElementById('egh-dots');
-      if (body0 && gridScroll) body0.appendChild(gridScroll);
-      if (body0 && gridDots) body0.appendChild(gridDots);
+      const WORDS = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
+      const bar = (name, meta, tag) =>
+        `<button type="button" class="stk-bar"><span class="stk-dot"></span>`
+        + `<span class="stk-name">${escapeHtml(name)}</span>`
+        + `<span class="stk-meta">${escapeHtml(meta)}</span>`
+        + `<span class="stk-tag">${escapeHtml(tag)}</span>`
+        + `<span class="stk-chev" aria-hidden="true">&#9662;</span></button>`;
 
-      // Panel 3 — the rendered catalogue cards.
-      const body2 = document.getElementById('stk-body-2');
+      // A pack panel: two rows of that pack's designs, with its three white
+      // boxes (Pack N + title / type / shop) scattered among them.
+      const BOX_CELLS = [[0, 5, 8], [2, 6, 11], [1, 7, 9], [3, 4, 10]];
+      function packGrid(p, n) {
+        const designs = designsOf(p);
+        const cells = BOX_CELLS[n % BOX_CELLS.length];
+        const pillar = p.category ? p.category + ' Template Pack' : 'Template Pack';
+        const mains = [p.title || '', pillar, 'Shop the Pack'];
+        const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
+        const numTxt = 'Pack ' + (WORDS[n] || String(n + 1));
+        let html = '', gi = 0;
+        for (let c = 0; c < 12; c++) {
+          const bi = cells.indexOf(c);
+          if (bi > -1) {
+            html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
+              + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
+              + `<span class="egh-tile-cap"><span class="egh-tile-num">${numTxt}</span>`
+              + `<span class="egh-tile-name">${escapeHtml(mains[bi])}</span></span></a>`;
+          } else {
+            const img = designs.length ? designs[gi++ % designs.length] : '';
+            html += `<div class="egh-tile egh-tile--image" style="background-image:url('${img}')"></div>`;
+          }
+        }
+        return html;
+      }
+
+      // One panel per pack, then Why / Shop / Studio.
+      let html = '';
+      list.forEach((p, n) => {
+        html += `<section class="stk-p" data-i="${n}">`
+          + bar(p.title || ('Pack ' + (n + 1)), p.category || 'Template Pack', 'Shop the pack')
+          + `<div class="stk-body stk-body--pack"><div class="stk-pgrid">${packGrid(p, n)}</div></div></section>`;
+      });
+      html += `<section class="stk-p" data-i="${list.length}">`
+        + bar('Why The Edit', 'Our Template Shop', 'The Idea')
+        + `<div class="stk-body stk-body--wine"><div class="stk-quote-wrap">`
+        + `<span class="stk-quote-eyebrow">The Edit &middot; Our template shop</span>`
+        + `<p class="stk-quote">Great marketing shouldn&rsquo;t need a design degree. Every pack in The Edit is built by our studio and ready to go &mdash; open it, make it yours, post it. Looking the part in minutes, not hours.</p>`
+        + `</div></div></section>`;
+      html += `<section class="stk-p" data-i="${list.length + 1}">`
+        + bar('Shop the Packs', 'Every Pack', 'Browse, Buy')
+        + `<div class="stk-body stk-body--pad" id="stk-body-shop"></div></section>`;
+      html += `<section class="stk-p" data-i="${list.length + 2}">`
+        + bar('The Studio', 'Design Studio', 'What You Can Do')
+        + `<div class="stk-body"><div class="stk-feat" id="stk-feat"></div></div></section>`;
+      stk.innerHTML = html;
+
+      // Shop panel — reuse the rendered catalogue cards.
+      const shopBody = document.getElementById('stk-body-shop');
       const cat = document.getElementById('edit-grid');
-      if (body2 && cat) body2.appendChild(cat);
+      if (shopBody && cat) shopBody.appendChild(cat);
 
-      // Panel 4 — what you can do in the Studio: text tiles, image on hover.
-      // (Images are pack designs for now — swap for real feature shots//video.)
+      // Studio panel — text tiles, image on hover.
+      // (Images are pack designs for now — swap for real feature shots / video.)
       const FEATURES = [
         'Build your brand kit', 'Plan your content', 'Pick a template', 'Make it yours',
         'Design in the Studio', 'Save your designs', 'Download your design', 'Post it',
       ];
       const pool = [];
-      (packs || []).forEach((p) => (Array.isArray(p.templates) ? p.templates : []).forEach((u) => {
-        if (typeof u === 'string' && u.trim()) pool.push(u);
-      }));
+      list.forEach((p) => designsOf(p).forEach((u) => pool.push(u)));
       const feat = document.getElementById('stk-feat');
       if (feat) {
         feat.innerHTML = FEATURES.map((f, i) => {
