@@ -766,24 +766,27 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       opacity: 0; transition: opacity 0.5s ease;
     }
     .pcard-frame.is-active { opacity: 1; }
-    /* Faint bottom vignette so the dots read on any template. */
-    .pcard-media::after {
-      content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 68px;
-      background: linear-gradient(0deg, rgba(15,13,18,0.32), rgba(15,13,18,0));
-      pointer-events: none; z-index: 1;
-    }
+    /* 1px wine outline on the cover. `outline` (not border) so it adds no size
+       and can't nudge the 3:4. */
+    .pcard-media { outline: 1px solid var(--english-violet); outline-offset: -1px; }
+    /* The bottom vignette is gone — it dulled the designs. It only existed so the
+       white dots would read, and the dots now carry their own contrast (below). */
     .pcard-dots {
       position: absolute; left: 0; right: 0; bottom: 12px; z-index: 2;
       display: flex; justify-content: center; align-items: center; gap: 7px;
     }
+    /* Every dot is the same two-tone — a paper fill ringed in wine — so it reads
+       on ANY template: the ring carries light covers, the fill carries dark ones.
+       Active is signalled by SIZE + opacity, not colour, because any colour that
+       pops on a dark cover disappears on a light one (and vice versa). */
     .pcard-dot {
       width: 7px; height: 7px; border-radius: 50%; padding: 0; cursor: pointer;
-      border: 1px solid rgba(244,242,241,0.9); background: rgba(28,29,34,0.28);
-      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-      transition: background 0.3s, transform 0.3s, border-color 0.3s;
+      border: 1px solid var(--english-violet); background: rgba(244,242,241,0.94);
+      box-shadow: none; opacity: 0.5;
+      transition: opacity 0.3s, transform 0.3s;
     }
-    .pcard-dot:hover { background: rgba(244,242,241,0.55); }
-    .pcard-dot.is-active { background: var(--paper); border-color: var(--paper); transform: scale(1.28); }
+    .pcard-dot:hover { opacity: 0.85; transform: scale(1.15); }
+    .pcard-dot.is-active { opacity: 1; transform: scale(1.35); }
     .pcard-title {
       font-family: var(--sans); font-weight: 700; font-size: clamp(16px, 1.25vw, 21px);
       line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); margin: 20px 0 0;
