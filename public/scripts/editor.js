@@ -6427,17 +6427,25 @@
 
   // Open the Text panel focused on a text element's font (from the toolbar).
   // Keeps the element selected so the context bar + canvas highlight stay put.
+  // Text pane tabs — On this page / Add text / Brand kit / Fonts. Keeps the
+  // pane short instead of stacking every section into one long scroll.
+  function setTextTab(name) {
+    document.querySelectorAll(".ed-ttab").forEach((t) => t.classList.toggle("is-active", t.dataset.ttab === name));
+    document.querySelectorAll(".ed-ttab-pane").forEach((p) => p.classList.toggle("is-active", p.dataset.ttabPane === name));
+    if (name === "page") renderTextList();
+    if (name === "fonts") renderFontBrowser();
+  }
+  document.querySelectorAll(".ed-ttab").forEach((t) => {
+    t.addEventListener("click", () => setTextTab(t.dataset.ttab));
+  });
+
   function openFontPanel(el) {
     _fontTargetId = el ? el.id : null;
     activeToolPane = "text";
     document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "text"));
     showPane("text");
-    renderFontBrowser();
-    // Bring the Fonts section to the top of the panel so it reads like a page
-    // that scrolls to fonts (not a dropdown buried below the add-text buttons).
-    const m = document.getElementById("ed-font-browser");
-    const anchor = (m && m.previousElementSibling) || m;
-    if (anchor && anchor.scrollIntoView) anchor.scrollIntoView({ block: "start" });
+    // The browser lives behind the Fonts tab now — no scrolling-to-it needed.
+    setTextTab("fonts");
   }
 
   // ---------- Shapes / text / bg / swatches bindings ----------
@@ -6712,29 +6720,79 @@
     handleFiles(e.dataTransfer.files);
   });
 
+  // One tile in the uploads grid. `b.dataset.src` is the live source: it starts
+  // as the data URL and is swapped to the stored URL once the upload lands, so
+  // click/drag always use whatever is current.
+  function addUploadTile(src) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ed-upload-tile";
+    b.dataset.src = src;
+    const img = document.createElement("img");
+    img.src = src;
+    b.appendChild(img);
+    b.addEventListener("click", () => addImage(b.dataset.src));
+    // Make uploaded photos draggable too so they can be dropped on frames
+    b.draggable = true;
+    b.addEventListener("dragstart", (e) => {
+      if (!e.dataTransfer) return;
+      e.dataTransfer.setData("text/uri-list", b.dataset.src);
+      e.dataTransfer.setData("text/plain", b.dataset.src);
+      e.dataTransfer.effectAllowed = "copy";
+    });
+    // Remove from the library (storage + grid). Designs already using the image
+    // keep working — they reference the URL directly.
+    const x = document.createElement("span");
+    x.className = "ed-upload-x";
+    x.title = "Remove from your uploads";
+    x.setAttribute("aria-hidden", "true");
+    x.textContent = "×";
+    x.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const url = b.dataset.src;
+      b.remove();
+      state.uploads = state.uploads.filter((u) => u !== url);
+      if (typeof window.__TMKE_UPLOAD_DELETE__ === "function") {
+        try { await window.__TMKE_UPLOAD_DELETE__(url); } catch (_) {}
+      }
+    });
+    b.appendChild(x);
+    uploadGridEl.appendChild(b);
+    return b;
+  }
+
   function handleFiles(files) {
     Array.from(files || []).forEach((f) => {
       if (!f.type.startsWith("image/")) return;
-      fileToWebImage(f).then((src) => {
+      fileToWebImage(f).then(async (src) => {
         if (!src) return;
         state.uploads.push(src);
-        const b = document.createElement("button");
-        const img = document.createElement("img");
-        img.src = src;
-        b.appendChild(img);
-        b.addEventListener("click", () => addImage(src));
-        // Make uploaded photos draggable too so they can be dropped on frames
-        b.draggable = true;
-        b.addEventListener("dragstart", (e) => {
-          if (!e.dataTransfer) return;
-          e.dataTransfer.setData("text/uri-list", src);
-          e.dataTransfer.setData("text/plain", src);
-          e.dataTransfer.effectAllowed = "copy";
-        });
-        uploadGridEl.appendChild(b);
+        const tile = addUploadTile(src);
+        // Persist it so it's still here next time (signed-in members only).
+        if (typeof window.__TMKE_UPLOAD_SAVE__ !== "function") return;
+        let url = null;
+        try { url = await window.__TMKE_UPLOAD_SAVE__(src); } catch (_) {}
+        if (!url) return;   // signed out / upload failed → stays in-memory
+        tile.dataset.src = url;
+        const i = state.uploads.indexOf(src);
+        if (i > -1) state.uploads[i] = url;
       });
     });
   }
+
+  // Rehydrate the member's saved uploads on open, so they don't have to keep
+  // re-uploading the same logos and imagery.
+  (async function loadUploadLibrary() {
+    if (typeof window.__TMKE_UPLOADS_LIST__ !== "function") return;
+    let urls = [];
+    try { urls = await window.__TMKE_UPLOADS_LIST__(); } catch (_) {}
+    urls.forEach((u) => {
+      if (state.uploads.includes(u)) return;
+      state.uploads.push(u);
+      addUploadTile(u);
+    });
+  })();
 
   // ---------- Drop a photo/upload anywhere on the canvas ----------
   // Frames have their own drop handlers (they stopPropagation), so a drop that

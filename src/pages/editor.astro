@@ -498,32 +498,46 @@ const googleFonts = [
       <section class="ed-panel-pane" data-pane="text">
         <div class="ed-pane-header"><h3>Text</h3><p>Overwrite the wording on this page, or add a new text block.</p></div>
 
+        <!-- Tabbed so the pane stays short instead of one long scroll. -->
+        <div class="ed-ttabs" role="tablist">
+          <button type="button" class="ed-ttab is-active" data-ttab="page" role="tab">On this page</button>
+          <button type="button" class="ed-ttab" data-ttab="add" role="tab">Add text</button>
+          <button type="button" class="ed-ttab" data-ttab="brand" role="tab">Brand kit</button>
+          <button type="button" class="ed-ttab" data-ttab="fonts" role="tab">Fonts</button>
+        </div>
+
         <!-- Every text box on this page, editable in one place — type over the
              wording without touching the design. Built by editor.js. -->
-        <div class="ed-section-title">Text on this page</div>
-        <div class="ed-textlist" id="ed-textlist"></div>
+        <div class="ed-ttab-pane is-active" data-ttab-pane="page">
+          <div class="ed-textlist" id="ed-textlist"></div>
+        </div>
 
-        <div class="ed-section-title">Add text</div>
-        <button class="ed-text-add" data-text="heading">
-          <div class="ed-text-preview ed-text-h">Add a heading</div>
-        </button>
-        <button class="ed-text-add" data-text="subheading">
-          <div class="ed-text-preview ed-text-sh">Add a subheading</div>
-        </button>
-        <button class="ed-text-add" data-text="body">
-          <div class="ed-text-preview ed-text-b">Add body text</div>
-        </button>
-        <div class="ed-section-title">Brand kit</div>
-        <button class="ed-text-add" data-text="brand-eyebrow">
-          <div class="ed-text-preview ed-text-eyebrow">CHAPTER MARKER</div>
-        </button>
-        <button class="ed-text-add" data-text="brand-quote">
-          <div class="ed-text-preview ed-text-quote">"A pulled quote — italic Cormorant."</div>
-        </button>
-        <div class="ed-section-title">Fonts</div>
+        <div class="ed-ttab-pane" data-ttab-pane="add">
+          <button class="ed-text-add" data-text="heading">
+            <div class="ed-text-preview ed-text-h">Add a heading</div>
+          </button>
+          <button class="ed-text-add" data-text="subheading">
+            <div class="ed-text-preview ed-text-sh">Add a subheading</div>
+          </button>
+          <button class="ed-text-add" data-text="body">
+            <div class="ed-text-preview ed-text-b">Add body text</div>
+          </button>
+        </div>
+
+        <div class="ed-ttab-pane" data-ttab-pane="brand">
+          <button class="ed-text-add" data-text="brand-eyebrow">
+            <div class="ed-text-preview ed-text-eyebrow">CHAPTER MARKER</div>
+          </button>
+          <button class="ed-text-add" data-text="brand-quote">
+            <div class="ed-text-preview ed-text-quote">"A pulled quote — italic Cormorant."</div>
+          </button>
+        </div>
+
         <!-- Full font browser (search · brand fonts · all fonts · weight),
-             populated by editor.js. Opened from the toolbar's font name. -->
-        <div class="ed-font-browser" id="ed-font-browser"></div>
+             populated by editor.js. Also opened from the toolbar's font name. -->
+        <div class="ed-ttab-pane" data-ttab-pane="fonts">
+          <div class="ed-font-browser" id="ed-font-browser"></div>
+        </div>
       </section>
 
       <!-- Images — stock search (Pexels + Unsplash) with your uploads underneath.
@@ -1362,6 +1376,24 @@ const googleFonts = [
       margin: 0 0 10px;
       line-height: 1.5;
     }
+    /* Text pane tabs — keeps the pane short rather than one long scroll. */
+    .ed-ttabs {
+      display: flex; gap: 2px; margin: 0 0 12px;
+      border-bottom: 1px solid rgba(28,29,34,0.12);
+    }
+    .ed-ttab {
+      flex: 1 1 auto; border: 0; background: none; cursor: pointer;
+      padding: 7px 3px 8px; margin-bottom: -1px; white-space: nowrap;
+      font-family: var(--sans); font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5); border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .ed-ttab:hover { color: var(--ink); }
+    .ed-ttab.is-active { color: var(--english-violet); border-bottom-color: var(--english-violet); }
+    .ed-ttab-pane { display: none; }
+    .ed-ttab-pane.is-active { display: block; }
+
     /* Text list — every text box on the page, editable in one place. */
     .ed-textlist { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
     .ed-tl-row {
@@ -1391,6 +1423,18 @@ const googleFonts = [
     .ed-tl-input { border: 0; padding: 0; border-radius: 0; }
     .ed-tl-input:focus, .ed-props-text:focus { outline: none; }
     .ed-textlist-empty { font-size: 11px; color: rgba(28,29,34,0.5); margin: 0 0 10px; line-height: 1.5; }
+    /* Upload tiles — hover to reveal a remove button. */
+    .ed-upload-tile { position: relative; }
+    .ed-upload-x {
+      position: absolute; top: 4px; right: 4px; z-index: 2;
+      width: 18px; height: 18px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: rgba(28,29,34,0.72); color: #fff;
+      font-size: 13px; line-height: 1; cursor: pointer;
+      opacity: 0; transition: opacity 0.2s, background 0.2s;
+    }
+    .ed-upload-tile:hover .ed-upload-x { opacity: 1; }
+    .ed-upload-x:hover { background: #b3261e; }
     .ed-brand-empty {
       padding: 24px;
       background: rgba(var(--violet-rgb),0.06);
@@ -3602,6 +3646,63 @@ const googleFonts = [
       const { data } = supabase.storage.from('calendar-assets').getPublicUrl(key);
       return (data && data.publicUrl) || dataUrl;
     }
+    // ---- Member upload library ------------------------------------------
+    // A member's uploads used to live only in memory, so they vanished on
+    // reload and had to be re-uploaded. Persist them in the same public
+    // `calendar-assets` bucket under `<uid>/uploads/…` — the bucket already has
+    // public read + per-user write/delete policies keyed on that first folder,
+    // so no new table or migration is needed. editor.js calls these hooks; they
+    // no-op when signed out (uploads then behave as before, in-memory only).
+    const UPLOAD_DIR = 'uploads';
+    function _uploadKey(uid, dataUrl, mime) {
+      let h = 5381;
+      for (let i = 0; i < dataUrl.length; i++) h = ((h * 33) ^ dataUrl.charCodeAt(i)) >>> 0;
+      const ext = ((mime.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '')) || 'png';
+      return uid + '/' + UPLOAD_DIR + '/' + h.toString(36) + '-' + dataUrl.length.toString(36) + '.' + ext;
+    }
+    window.__TMKE_UPLOAD_SAVE__ = async (dataUrl) => {
+      try {
+        const uid = await _externGetUid();
+        if (!uid) return null;
+        const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+        if (!m) return null;
+        const mime = m[1], b64 = m[2];
+        const key = _uploadKey(uid, dataUrl, mime);
+        const bin = atob(b64), bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const { error } = await supabase.storage.from('calendar-assets')
+          .upload(key, new Blob([bytes], { type: mime }), { cacheControl: '31536000', upsert: true, contentType: mime });
+        if (error && !/exists|duplicate/i.test(error.message || '')) return null;
+        const { data } = supabase.storage.from('calendar-assets').getPublicUrl(key);
+        return (data && data.publicUrl) || null;
+      } catch (_) { return null; }
+    };
+    window.__TMKE_UPLOADS_LIST__ = async () => {
+      try {
+        const uid = await _externGetUid();
+        if (!uid) return [];
+        const { data, error } = await supabase.storage.from('calendar-assets')
+          .list(uid + '/' + UPLOAD_DIR, { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
+        if (error || !data) return [];
+        return data.filter((f) => f && f.name && !f.name.startsWith('.')).map((f) => {
+          const { data: pub } = supabase.storage.from('calendar-assets').getPublicUrl(uid + '/' + UPLOAD_DIR + '/' + f.name);
+          return pub && pub.publicUrl;
+        }).filter(Boolean);
+      } catch (_) { return []; }
+    };
+    window.__TMKE_UPLOAD_DELETE__ = async (url) => {
+      try {
+        const uid = await _externGetUid();
+        if (!uid || typeof url !== 'string') return false;
+        const marker = '/' + uid + '/' + UPLOAD_DIR + '/';
+        const i = url.indexOf(marker);
+        if (i < 0) return false;   // not one of this member's library files
+        const key = decodeURIComponent(url.slice(i + 1).split('?')[0]);
+        const { error } = await supabase.storage.from('calendar-assets').remove([key]);
+        return !error;
+      } catch (_) { return false; }
+    };
+
     async function externUrl(v) {
       if (typeof v !== 'string' || !v.startsWith('data:')) return v;
       if (_imgUrlCache.has(v)) return _imgUrlCache.get(v);
