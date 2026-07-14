@@ -649,14 +649,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .stk-pgrid .egh-tile--next .egh-tile-name { color: var(--paper); }
 
     /* Dots — slide between packs within the one frame. */
-    .stk-dots { flex: none; display: flex; justify-content: center; align-items: center; gap: 9px; height: 14px; }
+    .stk-dots { flex: none; display: flex; justify-content: center; align-items: center; gap: 2px; height: 26px; }
+    /* The button is a proper 26px hit target; the dot itself is drawn small via
+       ::before. (It used to BE the 7px dot — near-impossible to click.) */
     .stk-dot-btn {
-      width: 7px; height: 7px; padding: 0; border-radius: 50%; cursor: pointer;
+      width: 26px; height: 26px; padding: 0; border: 0; background: none;
+      cursor: pointer; display: grid; place-items: center;
+    }
+    .stk-dot-btn::before {
+      content: ""; width: 7px; height: 7px; border-radius: 50%;
       border: 1px solid var(--english-violet); background: transparent;
       transition: background 0.25s ease, transform 0.25s ease;
     }
-    .stk-dot-btn:hover { transform: scale(1.25); }
-    .stk-dot-btn.is-on { background: var(--english-violet); }
+    .stk-dot-btn:hover::before { transform: scale(1.3); }
+    .stk-dot-btn.is-on::before { background: var(--english-violet); }
     /* Panel 2 — the wine quote. */
     .stk-body--wine {
       background: var(--english-violet); color: var(--paper);
