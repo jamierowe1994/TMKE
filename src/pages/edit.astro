@@ -69,6 +69,52 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </div>
   </section>
 
+  <!-- EXPERIMENTAL stacked-panel layout (?layout=stack) — four full-screen
+       panels. Collapsed panels sit as bars (above/below), the active one expands
+       to fill the screen, and scrolling slides the next panel up. Hidden unless
+       ?layout=stack, so the normal page is untouched. -->
+  <div class="stk-wrap" id="edit-stack" hidden>
+    <div class="stk" id="stk">
+      <section class="stk-p is-open" data-i="0">
+        <button type="button" class="stk-bar">
+          <span class="stk-dot"></span><span class="stk-name">The Edit</span>
+          <span class="stk-meta">Template Shop</span><span class="stk-tag">Packs, Templates</span>
+          <span class="stk-chev" aria-hidden="true">&#9662;</span>
+        </button>
+        <div class="stk-body stk-body--pad" id="stk-body-0"></div>
+      </section>
+      <section class="stk-p" data-i="1">
+        <button type="button" class="stk-bar">
+          <span class="stk-dot"></span><span class="stk-name">Why The Edit</span>
+          <span class="stk-meta">Our Template Shop</span><span class="stk-tag">The Idea</span>
+          <span class="stk-chev" aria-hidden="true">&#9662;</span>
+        </button>
+        <div class="stk-body stk-body--wine">
+          <div class="stk-quote-wrap">
+            <span class="stk-quote-eyebrow">The Edit &middot; Our template shop</span>
+            <p class="stk-quote">Great marketing shouldn&rsquo;t need a design degree. Every pack in The Edit is built by our studio and ready to go &mdash; open it, make it yours, post it. Looking the part in minutes, not hours.</p>
+          </div>
+        </div>
+      </section>
+      <section class="stk-p" data-i="2">
+        <button type="button" class="stk-bar">
+          <span class="stk-dot"></span><span class="stk-name">Shop the Packs</span>
+          <span class="stk-meta">Every Pack</span><span class="stk-tag">Browse, Buy</span>
+          <span class="stk-chev" aria-hidden="true">&#9662;</span>
+        </button>
+        <div class="stk-body stk-body--pad" id="stk-body-2"></div>
+      </section>
+      <section class="stk-p" data-i="3">
+        <button type="button" class="stk-bar">
+          <span class="stk-dot"></span><span class="stk-name">The Studio</span>
+          <span class="stk-meta">Design Studio</span><span class="stk-tag">What You Can Do</span>
+          <span class="stk-chev" aria-hidden="true">&#9662;</span>
+        </button>
+        <div class="stk-body"><div class="stk-feat" id="stk-feat"></div></div>
+      </section>
+    </div>
+  </div>
+
   <section class="edit-wrap" id="edit-catalogue" aria-busy="true">
     <div class="edit-loading" id="edit-loading">Loading the catalogue…</div>
     <div class="edit-empty" id="edit-empty" hidden>
@@ -489,6 +535,89 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       .egh-inner { padding-top: clamp(96px, 14vh, 130px); padding-bottom: 48px; }
     }
     @media (prefers-reduced-motion: reduce) { .egh-tile-img { transition: opacity 0.2s ease; } }
+    /* ====== EXPERIMENTAL stacked-panel layout (?layout=stack) ==============
+       Four panels inside a sticky 100svh viewport. Collapsed panels are just
+       their bar; the active one flex-grows to fill. A tall runway above drives
+       which one is open, so the page scrolls normally (no scroll hijacking). */
+    body.stk-on #edit-hero2,
+    body.stk-on #edit-hero-grid,
+    body.stk-on #edit-catalogue { display: none; }
+    .stk-wrap { position: relative; }
+    .stk-wrap[hidden] { display: none; }
+    /* Invisible markers down the runway — one per panel (see setupStack). */
+    .stk-sents { position: absolute; inset: 0; pointer-events: none; }
+    .stk-sent { position: absolute; left: 0; width: 1px; height: 100svh; }
+    .stk {
+      --bar: 46px;
+      --hairline: rgba(28,29,34,0.16);
+      position: sticky; top: 0; height: 100svh; overflow: hidden;
+      display: flex; flex-direction: column;
+      background: var(--paper); color: var(--ink); font-family: var(--sans);
+    }
+    /* Collapsed = exactly the bar height (basis), body clipped. Open = grows to
+       fill. Animating flex-grow gives the slide. */
+    .stk-p {
+      display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+      flex: 0 1 var(--bar);
+      transition: flex-grow 0.7s cubic-bezier(.2,.8,.2,1);
+    }
+    .stk-p.is-open { flex-grow: 1; }
+    .stk-bar {
+      flex: none; height: var(--bar); box-sizing: border-box;
+      display: grid; grid-template-columns: 30px 1.1fr 1.1fr 1.6fr 24px;
+      align-items: center; gap: 12px; padding: 0 clamp(14px, 2vw, 26px);
+      background: var(--paper); color: var(--ink);
+      border: 0; border-top: 1px solid var(--hairline);
+      cursor: pointer; text-align: left;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      transition: background 0.25s ease;
+    }
+    .stk-bar:hover { background: #fff; }
+    .stk-dot { width: 7px; height: 7px; background: var(--ink); display: inline-block; }
+    .stk-tag { color: rgba(28,29,34,0.55); }
+    .stk-chev { justify-self: end; font-size: 10px; color: rgba(28,29,34,0.5); transition: transform 0.4s ease; }
+    .stk-p.is-open .stk-chev { transform: rotate(180deg); }
+    .stk-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    .stk-body--pad { overflow-y: auto; padding: clamp(14px, 1.8vw, 26px); }
+    /* Panel 2 — the wine quote. */
+    .stk-body--wine {
+      background: var(--english-violet); color: var(--paper);
+      display: grid; place-items: center; padding: clamp(24px, 5vw, 80px);
+    }
+    .stk-quote-wrap { max-width: 900px; display: flex; flex-direction: column; gap: 16px; }
+    .stk-quote-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; color: rgba(244,242,241,0.7);
+    }
+    .stk-quote {
+      margin: 0; font-family: var(--sans); font-style: normal; font-weight: 400;
+      font-size: clamp(18px, 2.1vw, 30px); line-height: 1.4; color: var(--paper);
+    }
+    /* Panel 4 — Studio features: text tiles that reveal an image on hover. */
+    .stk-feat {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      height: 100%; box-sizing: border-box; padding: clamp(14px, 1.6vw, 24px);
+    }
+    @media (max-width: 900px) { .stk-feat { grid-template-columns: repeat(2, 1fr); } }
+    .stk-feat-tile {
+      position: relative; overflow: hidden; border-radius: 2px;
+      border: 1px solid var(--hairline); background: var(--paper);
+      display: flex; align-items: flex-end; padding: 16px;
+    }
+    .stk-feat-img {
+      position: absolute; inset: 0; opacity: 0;
+      background-size: cover; background-position: center;
+      transition: opacity 0.5s ease;
+    }
+    .stk-feat-tile:hover .stk-feat-img { opacity: 1; }
+    .stk-feat-name {
+      position: relative; z-index: 2;
+      font-family: var(--sans); font-weight: 600; font-size: clamp(14px, 1.1vw, 19px);
+      line-height: 1.14; color: var(--english-violet);
+      transition: opacity 0.35s ease;
+    }
+    .stk-feat-tile:hover .stk-feat-name { opacity: 0; }
     /* ====== STRIPPED — studio demo moved to the homepage Chapter 5 ====== */
 
     /* Global so the JS-injected catalogue cards inherit the styles —
@@ -1672,8 +1801,97 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
       // Rotate the hero one pack at a time (copy + that pack's flashing grid).
       setupHero(packs);
-      setupGridHero(packs);   // experimental alternative — only if ?hero=grid
+      setupGridHero(packs);   // the grid hero (default; ?hero=classic → reel)
+      setupStack(packs);      // experimental stacked panels — only if ?layout=stack
     })();
+
+    // ===== EXPERIMENTAL stacked-panel layout (?layout=stack) =================
+    // Four full-screen panels. Collapsed panels show only their bar; the active
+    // one expands. A runway (N x 100svh) above a sticky viewport drives which is
+    // open, so scrolling stays native. Reuses the already-rendered grid and
+    // catalogue by moving them into their panels.
+    function setupStack(packs) {
+      const params = new URLSearchParams(location.search);
+      if (params.get('layout') !== 'stack') return;
+      const wrap = document.getElementById('edit-stack');
+      const stk = document.getElementById('stk');
+      if (!wrap || !stk) return;
+
+      document.body.classList.add('stk-on');
+      document.body.classList.remove('edit-page');
+      wrap.hidden = false;
+
+      // Panel 1 — the grid hero's grid + its dot pager.
+      const body0 = document.getElementById('stk-body-0');
+      const gridScroll = document.querySelector('#edit-hero-grid .egh-scroll');
+      const gridDots = document.getElementById('egh-dots');
+      if (body0 && gridScroll) body0.appendChild(gridScroll);
+      if (body0 && gridDots) body0.appendChild(gridDots);
+
+      // Panel 3 — the rendered catalogue cards.
+      const body2 = document.getElementById('stk-body-2');
+      const cat = document.getElementById('edit-grid');
+      if (body2 && cat) body2.appendChild(cat);
+
+      // Panel 4 — what you can do in the Studio: text tiles, image on hover.
+      // (Images are pack designs for now — swap for real feature shots//video.)
+      const FEATURES = [
+        'Build your brand kit', 'Plan your content', 'Pick a template', 'Make it yours',
+        'Design in the Studio', 'Save your designs', 'Download your design', 'Post it',
+      ];
+      const pool = [];
+      (packs || []).forEach((p) => (Array.isArray(p.templates) ? p.templates : []).forEach((u) => {
+        if (typeof u === 'string' && u.trim()) pool.push(u);
+      }));
+      const feat = document.getElementById('stk-feat');
+      if (feat) {
+        feat.innerHTML = FEATURES.map((f, i) => {
+          const img = pool.length ? pool[(i * 3) % pool.length] : '';
+          return `<div class="stk-feat-tile">`
+            + `<span class="stk-feat-img" style="background-image:url('${img}')"></span>`
+            + `<span class="stk-feat-name">${escapeHtml(f)}</span></div>`;
+        }).join('');
+      }
+
+      // Scroll → which panel is open.
+      const panels = Array.from(stk.querySelectorAll('.stk-p'));
+      const N = panels.length;
+      wrap.style.height = (N * 100) + 'svh';
+      let open = -1;
+      function setOpen(i) {
+        if (i === open) return;
+        open = i;
+        panels.forEach((p, n) => p.classList.toggle('is-open', n === i));
+      }
+      // One sentinel per panel down the runway; whichever crosses the viewport's
+      // centre line is the open panel. NB: the site runs Lenis smooth-scroll, so
+      // native scroll events never fire — an IntersectionObserver is driven by
+      // layout instead, and needs no scroll/rAF plumbing.
+      const sents = document.createElement('div');
+      sents.className = 'stk-sents';
+      sents.setAttribute('aria-hidden', 'true');
+      for (let i = 0; i < N; i++) {
+        const s = document.createElement('span');
+        s.className = 'stk-sent';
+        s.dataset.i = String(i);
+        s.style.top = (i * 100) + 'svh';
+        sents.appendChild(s);
+      }
+      wrap.appendChild(sents);
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) setOpen(+e.target.dataset.i); });
+      }, { rootMargin: '-50% 0px -50% 0px', threshold: 0 });
+      sents.querySelectorAll('.stk-sent').forEach((s) => io.observe(s));
+      setOpen(0);
+
+      // Clicking a bar scrolls to that panel.
+      panels.forEach((p, i) => {
+        const bar = p.querySelector('.stk-bar');
+        if (bar) bar.addEventListener('click', () => {
+          window.scrollTo({ top: wrap.offsetTop + i * window.innerHeight, behavior: 'smooth' });
+        });
+      });
+    }
 
     // ============== Modal helpers ==============
     function showStep(step) {
