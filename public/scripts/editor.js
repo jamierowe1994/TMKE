@@ -6427,17 +6427,25 @@
 
   // Open the Text panel focused on a text element's font (from the toolbar).
   // Keeps the element selected so the context bar + canvas highlight stay put.
+  // Text pane tabs — On this page / Add text / Brand kit / Fonts. Keeps the
+  // pane short instead of stacking every section into one long scroll.
+  function setTextTab(name) {
+    document.querySelectorAll(".ed-ttab").forEach((t) => t.classList.toggle("is-active", t.dataset.ttab === name));
+    document.querySelectorAll(".ed-ttab-pane").forEach((p) => p.classList.toggle("is-active", p.dataset.ttabPane === name));
+    if (name === "page") renderTextList();
+    if (name === "fonts") renderFontBrowser();
+  }
+  document.querySelectorAll(".ed-ttab").forEach((t) => {
+    t.addEventListener("click", () => setTextTab(t.dataset.ttab));
+  });
+
   function openFontPanel(el) {
     _fontTargetId = el ? el.id : null;
     activeToolPane = "text";
     document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "text"));
     showPane("text");
-    renderFontBrowser();
-    // Bring the Fonts section to the top of the panel so it reads like a page
-    // that scrolls to fonts (not a dropdown buried below the add-text buttons).
-    const m = document.getElementById("ed-font-browser");
-    const anchor = (m && m.previousElementSibling) || m;
-    if (anchor && anchor.scrollIntoView) anchor.scrollIntoView({ block: "start" });
+    // The browser lives behind the Fonts tab now — no scrolling-to-it needed.
+    setTextTab("fonts");
   }
 
   // ---------- Shapes / text / bg / swatches bindings ----------
