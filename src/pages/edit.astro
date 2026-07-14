@@ -629,16 +629,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       background-size: cover; background-position: center;
       background-color: rgba(28,29,34,0.06);
     }
-    /* Next tile (bottom-left of each pack) — "Next Pack" over the pack it goes to. */
+    /* Box 1's subheading — the pillar, a notch smaller, on one line. */
+    .stk-pgrid .egh-tile-sub {
+      font-family: var(--sans); font-size: 11px; font-weight: 500; line-height: 1.2;
+      letter-spacing: 0; text-transform: none; color: rgba(55,30,40,0.6);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* Box 8 — Next pack. Wine, but the text sits left + bottom like every other
+       box so the row reads as one family. */
     .stk-pgrid .egh-tile--next {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 7px; padding: 12px;
+      display: block; position: relative; padding: 0; text-align: left;
+      letter-spacing: normal; text-transform: none;
     }
-    .stk-pgrid .egh-next-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.72; }
-    .stk-pgrid .egh-next-name {
-      font-family: var(--sans); font-size: clamp(13px, 0.9vw, 16px); font-weight: 500;
-      letter-spacing: 0; text-transform: none; line-height: 1.2; text-wrap: balance;
-    }
+    .stk-pgrid .egh-tile--next .egh-tile-num { color: rgba(244,242,241,0.72); }
+    .stk-pgrid .egh-tile--next .egh-tile-name { color: var(--paper); }
 
     /* Dots — slide between packs within the one frame. */
     .stk-dots { flex: none; display: flex; justify-content: center; align-items: center; gap: 9px; height: 14px; }
@@ -1898,62 +1902,51 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         return window.innerWidth <= 900 ? 4 : 8;
       }
 
-      // A pack's grid: its three white boxes (Pack N + title / type / shop)
-      // spread through that pack's designs, never landing on the Next cell.
-      function boxCells(total, n, skip) {
-        const avail = [];
-        for (let i = 0; i < total; i++) if (i !== skip) avail.push(i);
-        const step = Math.max(1, Math.floor(avail.length / 3));
-        const out = [];
-        for (let k = 0; k < 3; k++) out.push(avail[(k * step + n) % avail.length]);
-        return [...new Set(out)];
-      }
-      function packGrid(p, n, cols) {
+      // Fixed running order, 8 boxes:
+      //   1 pack (Pack N / title / pillar)  2-5 designs  6 shop  7 design
+      //   8 next pack (name)
+      // Hovering a white box clears its text and flashes up a design that ISN'T
+      // already on show in the row (as on the Insights archive).
+      function packGrid(p, n) {
         const designs = designsOf(p);
-        const total = ROWS * cols;
-        // Wine Next tile sits at the LEFT end of the row; it names the pack it
-        // takes you to. Boxes never land on it.
-        const nextAt = 0;
-        const cells = boxCells(total, n, nextAt).sort((a, b) => a - b);
-        const nextPack = list[(n + 1) % list.length];
-        const nextName = (nextPack && nextPack.title) || 'The next pack';
+        const pick = (i) => designs.length ? designs[i % designs.length] : '';
+        const SHOWN = 5;                                  // designs visible in the row
+        const hover = designs.length > SHOWN ? designs[SHOWN % designs.length] : (designs[designs.length - 1] || heroOf(p));
         const pillar = p.category ? p.category + ' Template Pack' : 'Template Pack';
-        const mains = [p.title || '', pillar, 'Shop the Pack'];
         const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
         const numTxt = 'Pack ' + (WORDS[n] || String(n + 1));
-        let html = '', gi = 0;
-        for (let c = 0; c < total; c++) {
-          if (c === nextAt) {
-            html += `<button type="button" class="egh-tile egh-tile--next" data-nextpack>`
-              + `<span class="egh-next-lbl">Next Pack</span>`
-              + `<span class="egh-next-name">${escapeHtml(nextName)}</span></button>`;
-            continue;
-          }
-          const bi = cells.indexOf(c);
-          if (bi > -1) {
-            html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
-              + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
-              + `<span class="egh-tile-cap"><span class="egh-tile-num">${numTxt}</span>`
-              + `<span class="egh-tile-name">${escapeHtml(mains[bi])}</span></span></a>`;
-          } else {
-            const img = designs.length ? designs[gi++ % designs.length] : '';
-            html += `<div class="egh-tile egh-tile--image"><span class="egh-img" style="background-image:url('${img}')"></span></div>`;
-          }
-        }
-        return html;
+        const nextPack = list[(n + 1) % list.length];
+        const nextName = (nextPack && nextPack.title) || 'The next pack';
+
+        const box = (num, main, sub) =>
+          `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
+          + `<span class="egh-tile-img" style="background-image:url('${hover}')"></span>`
+          + `<span class="egh-tile-cap"><span class="egh-tile-num">${escapeHtml(num)}</span>`
+          + `<span class="egh-tile-name">${escapeHtml(main)}</span>`
+          + (sub ? `<span class="egh-tile-sub">${escapeHtml(sub)}</span>` : '')
+          + `</span></a>`;
+        const design = (i) => `<div class="egh-tile egh-tile--image"><span class="egh-img" style="background-image:url('${pick(i)}')"></span></div>`;
+
+        return box(numTxt, p.title || '', pillar)         // 1
+          + design(0) + design(1) + design(2) + design(3) // 2-5
+          + box(numTxt, 'Shop the Pack', '')              // 6
+          + design(4)                                     // 7
+          + `<button type="button" class="egh-tile egh-tile--next" data-nextpack>`
+          +   `<span class="egh-tile-cap"><span class="egh-tile-num">Next Pack</span>`
+          +   `<span class="egh-tile-name">${escapeHtml(nextName)}</span></span></button>`; // 8
       }
 
       // ONE packs panel — every pack in a single frame, dots slide between them.
       // (Was one band per pack, which squeezed the open panel on laptops.)
       let cols = colsForViewport();
-      const slidesHtml = (c) => list.map((p, n) =>
-        `<div class="stk-slide"><div class="stk-pgrid">${packGrid(p, n, c)}</div></div>`).join('');
+      const slidesHtml = () => list.map((p, n) =>
+        `<div class="stk-slide"><div class="stk-pgrid">${packGrid(p, n)}</div></div>`).join('');
       let html = '';
       // No bar on the packs panel — it sat under the site nav. It's the panel
       // you land on, so it needs no handle; collapsed it takes no height.
       html += `<section class="stk-p stk-p--nobar" data-i="0">`
         + `<div class="stk-body stk-body--pack"><div class="stk-slider">`
-        + `<div class="stk-track" id="stk-track">${slidesHtml(cols)}</div>`
+        + `<div class="stk-track" id="stk-track">${slidesHtml()}</div>`
         + `<div class="stk-dots" id="stk-dots">`
         + list.map((p, n) => `<button type="button" class="stk-dot-btn${n === 0 ? ' is-on' : ''}" data-s="${n}" aria-label="${escapeHtml(p.title || ('Pack ' + (n + 1)))}"></button>`).join('')
         + `</div></div></div></section>`;
@@ -1998,11 +1991,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         clearTimeout(rt);
         rt = setTimeout(() => {
           const next = colsForViewport();
-          if (next === cols || !track) return;
-          cols = next;
+          if (next === cols) return;
+          cols = next;                       // 8 across, or 4 (two rows) on phones
           stk.style.setProperty('--cols', String(cols));
-          track.innerHTML = slidesHtml(cols);
-          goTo(slide);
         }, 180);
       });
 
