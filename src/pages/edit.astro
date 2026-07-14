@@ -576,15 +576,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        colW and rounding gives the grid width below, so the LEFT/RIGHT margins
        fall out of it — centred, three packs, equally spaced. */
     .stk-body--pad {
-      overflow-y: auto; display: flex; align-items: center; justify-content: center;
+      overflow-y: auto; display: flex;
       padding: clamp(24px, 4vh, 44px) clamp(24px, 4vw, 64px);
     }
+    /* `margin:auto` (not align-items:center) centres the grid but still lets it
+       scroll from the top once there are more packs than fit — flex centring
+       would clip the first row. Scroll-within-scroll, ready for more packs. */
     .stk-body--pad .edit-shows {
-      width: 100%; margin: 0 auto; padding-top: 0;
-      max-width: clamp(560px, calc(2.2 * (100svh - 390px) + 92px), 1180px);
+      width: 100%; margin: auto; padding-top: 0;
+      max-width: clamp(560px, calc(2.2 * (100svh - 350px) + 92px), 1280px);
     }
     /* The cards' scroll-reveal never fires inside the sticky panel — show them. */
     .stk-body--pad .pcard { opacity: 1; transform: none; }
+    /* Tighter title→subheading, and Pack Size + Discover kept on ONE row with
+       slimmer buttons — that reclaimed height goes to the images, which are the
+       focus. */
+    .stk-body--pad .pcard-title { line-height: 0.95; }
+    .stk-body--pad .pcard-actions { flex-wrap: nowrap; margin-top: 14px; }
+    .stk-body--pad .pcard-size { padding: 8px 14px; white-space: nowrap; }
+    .stk-body--pad .pcard-cta { padding: 9px 20px; white-space: nowrap; }
     /* Pack panel — ONE frame holding every pack; slide between them with the
        dots. Full-bleed (no max-width, hair of gutter) and the tiles keep a true
        3:4 so the designs are never skewed. The column count is worked out in JS
