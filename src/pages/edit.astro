@@ -509,6 +509,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     body.stk-on #edit-hero2,
     body.stk-on #edit-hero-grid,
     body.stk-on #edit-catalogue { display: none; }
+    /* The nav is permanent wine on the stack page — same at the top and once
+       scrolled (no state flip) — and a touch shorter. */
+    body.stk-on .nav,
+    body.stk-on .nav.scrolled {
+      background: var(--english-violet);
+      color: var(--paper);
+      border-bottom: 1px solid rgba(244,242,241,0.14);
+      backdrop-filter: none; -webkit-backdrop-filter: none;
+      padding-top: 6px; padding-bottom: 6px;
+    }
+    body.stk-on .nav-cta { color: var(--paper); border-color: rgba(244,242,241,0.5); }
+    body.stk-on .nav-cta:hover { background: var(--paper); }
+    body.stk-on .nav-cta:hover span { color: var(--english-violet); }
     .stk-wrap { position: relative; }
     .stk-wrap[hidden] { display: none; }
     /* Default layout: reveal the stack from first paint (body.stk-on is set by
@@ -524,8 +537,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       display: flex; flex-direction: column;
       background: var(--paper); color: var(--ink); font-family: var(--sans);
       /* Clear the fixed site nav — otherwise the top panel (grid or bar) runs
-         underneath it. */
-      box-sizing: border-box; padding-top: 68px;
+         underneath it. Matches the shorter wine nav above. */
+      box-sizing: border-box; padding-top: 56px;
     }
     /* Collapsed = exactly the bar height (basis), body clipped. Open = grows to
        fill. Animating flex-grow gives the slide. */
@@ -555,17 +568,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .stk-p--nobar { flex-basis: 0; }
     .stk-p.is-open .stk-chev { transform: rotate(180deg); }
     .stk-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-    /* Shop panel — the catalogue cards, sized down and centred with air top,
-       bottom, left and right so the cover AND the title/type/buttons underneath
-       all sit inside the panel. */
+    /* Shop panel — the catalogue exactly as it looks on the normal page, just
+       scrolling inside this panel (same 3-up grid, same gutters). */
     .stk-body--pad {
-      overflow-y: auto; display: flex; align-items: center; justify-content: center;
-      padding: clamp(18px, 3vh, 40px) clamp(20px, 3vw, 56px);
+      overflow-y: auto;
+      padding: clamp(20px, 3vh, 40px) clamp(24px, 5vw, 76px) clamp(24px, 4vh, 48px);
     }
-    .stk-body--pad .edit-shows {
-      width: 100%; max-width: 1000px; margin: 0 auto;
-      padding-top: 0; gap: clamp(18px, 2.2vw, 36px);
-    }
+    .stk-body--pad .edit-shows { padding-top: 0; }
     /* The cards' scroll-reveal never fires inside the sticky panel — show them. */
     .stk-body--pad .pcard { opacity: 1; transform: none; }
     /* Pack panel — ONE frame holding every pack; slide between them with the
