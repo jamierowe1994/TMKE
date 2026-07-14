@@ -596,8 +596,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       display: grid; grid-template-columns: repeat(var(--cols, 8), 1fr);
       grid-auto-rows: auto; gap: 6px; align-content: center; justify-content: center;
     }
-    /* True 3:4 — the design ratio. Height follows the column width. */
-    .stk-pgrid .egh-tile { aspect-ratio: 3 / 4; min-height: 0; }
+    /* /join style: the CELL is the box; the 3:4 design sits smaller inside it
+       with air around. All cells share the row height, so the white pack boxes
+       and Next line up with the designs. */
+    .stk-pgrid .egh-tile { aspect-ratio: auto; min-height: 0; }
+    .stk-pgrid .egh-tile--image {
+      background: none; display: flex; align-items: center; justify-content: center;
+      padding: clamp(8px, 0.9vw, 16px); box-sizing: border-box;
+    }
+    .stk-pgrid .egh-img {
+      display: block; width: 100%; aspect-ratio: 3 / 4;
+      background-size: cover; background-position: center;
+      background-color: rgba(28,29,34,0.06);
+    }
     /* Next tile (bottom-left of each pack) — "Next Pack" over the pack it goes to. */
     .stk-pgrid .egh-tile--next {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1859,12 +1870,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         + `<span class="stk-tag">${escapeHtml(tag)}</span>`
         + `<span class="stk-chev" aria-hidden="true">&#9662;</span></button>`;
 
-      // Two rows of TRUE 3:4 tiles. Seven columns on desktop — bigger designs,
-      // even if that runs a touch past one screen height (that's fine; the panel
-      // centres them). Phones drop to three.
-      const ROWS = 2;
+      // ONE row, /join style: each cell is a BOX and the 3:4 design sits smaller
+      // inside it with air around. Eight across = 3 white boxes + Next + 4
+      // designs; the row is centred in the panel with space above and below.
+      const ROWS = 1;
       function colsForViewport() {
-        return window.innerWidth <= 900 ? 3 : 7;
+        return window.innerWidth <= 900 ? 4 : 8;
       }
 
       // A pack's grid: its three white boxes (Pack N + title / type / shop)
@@ -1880,9 +1891,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       function packGrid(p, n, cols) {
         const designs = designsOf(p);
         const total = ROWS * cols;
-        // Wine Next tile sits BOTTOM-LEFT (first cell of the last row); it names
-        // the pack it takes you to. Boxes never land on it.
-        const nextAt = cols;
+        // Wine Next tile sits at the LEFT end of the row; it names the pack it
+        // takes you to. Boxes never land on it.
+        const nextAt = 0;
         const cells = boxCells(total, n, nextAt).sort((a, b) => a - b);
         const nextPack = list[(n + 1) % list.length];
         const nextName = (nextPack && nextPack.title) || 'The next pack';
@@ -1906,7 +1917,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               + `<span class="egh-tile-name">${escapeHtml(mains[bi])}</span></span></a>`;
           } else {
             const img = designs.length ? designs[gi++ % designs.length] : '';
-            html += `<div class="egh-tile egh-tile--image" style="background-image:url('${img}')"></div>`;
+            html += `<div class="egh-tile egh-tile--image"><span class="egh-img" style="background-image:url('${img}')"></span></div>`;
           }
         }
         return html;
