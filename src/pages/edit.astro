@@ -607,7 +607,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       display: flex; min-height: 0;
       padding: clamp(8px, 0.9vw, 14px);
     }
-    .stk-slider { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+    /* overflow:hidden here (not on .stk-body, which sits outside the padding)
+       so a slide clips at the slider's own edge — otherwise the body's 14px
+       padding gutter reveals the next pack's first card peeking in. */
+    .stk-slider { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
     .stk-track {
       flex: 1 1 auto; min-height: 0; display: flex;
       transition: transform 0.6s cubic-bezier(.2,.8,.2,1);
@@ -633,6 +636,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       background-size: cover; background-position: center;
       background-color: rgba(28,29,34,0.06);
     }
+    /* The Studio row mirrors the pack row: same grid, same box size. It has no
+       design tiles to set the row height, so its boxes carry the 3:4 themselves. */
+    #stk-feat .egh-tile { aspect-ratio: 3 / 4; }
+
     /* Box 1's subheading — the pillar, a notch smaller, on one line. */
     .stk-pgrid .egh-tile-sub {
       font-family: var(--sans); font-size: 11px; font-weight: 500; line-height: 1.2;
@@ -1939,7 +1946,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
         return box(numTxt, p.title || '', pillar)         // 1
           + design(0) + design(1) + design(2) + design(3) // 2-5
-          + box(numTxt, 'Shop the Pack', '')              // 6
+          + box(numTxt, 'Shop the Pack', pillar)          // 6
           + design(4)                                     // 7
           + `<button type="button" class="egh-tile egh-tile--next" data-nextpack>`
           +   `<span class="egh-tile-cap"><span class="egh-tile-num">Next Pack</span>`
@@ -1956,7 +1963,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       // you land on, so it needs no handle; collapsed it takes no height.
       html += `<section class="stk-p stk-p--nobar" data-i="0">`
         + `<div class="stk-body stk-body--pack"><div class="stk-slider">`
-        + `<div class="stk-track" id="stk-track">${slidesHtml()}</div>`
+        + `<div class="stk-track" id="stk-track">${slidesHtml()}${slidesHtml()}</div>`
         + `<div class="stk-dots" id="stk-dots">`
         + list.map((p, n) => `<button type="button" class="stk-dot-btn${n === 0 ? ' is-on' : ''}" data-s="${n}" aria-label="${escapeHtml(p.title || ('Pack ' + (n + 1)))}"></button>`).join('')
         + `</div></div></div></section>`;
@@ -1971,28 +1978,57 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         + `<div class="stk-body stk-body--pad" id="stk-body-shop"></div></section>`;
       html += `<section class="stk-p" data-i="3">`
         + bar('The Studio', 'Design Studio', 'What You Can Do')
-        + `<div class="stk-body"><div class="stk-feat" id="stk-feat"></div></div></section>`;
+        + `<div class="stk-body stk-body--pack"><div class="stk-pgrid" id="stk-feat"></div></div></section>`;
       stk.innerHTML = html;
       stk.style.setProperty('--cols', String(cols));
 
-      // Dots slide the track between packs, inside the one frame.
+      // ---- Conveyor: the packs cycle endlessly in ONE direction ----------------
+      // The track holds the packs TWICE. Advancing past the last one glides on
+      // into the copy, then silently snaps back a set with the transition off —
+      // so it always travels forwards and never rewinds.
       const track = document.getElementById('stk-track');
       const dots = document.getElementById('stk-dots');
-      let slide = 0;
-      function goTo(i) {
-        slide = Math.max(0, Math.min(list.length - 1, i));
-        if (track) track.style.transform = `translateX(-${slide * 100}%)`;
-        if (dots) dots.querySelectorAll('.stk-dot-btn').forEach((d, n) => d.classList.toggle('is-on', n === slide));
+      const NPACKS = list.length;
+      const SLIDE_MS = 600, AUTO_MS = 5000;
+      let pos = 0;                 // physical slide, 0 .. 2N-1
+      let auto = 0, snap = 0;
+
+      function paint(animate) {
+        if (!track) return;
+        track.style.transition = animate ? `transform ${SLIDE_MS}ms cubic-bezier(.2,.8,.2,1)` : 'none';
+        track.style.transform = `translateX(-${pos * 100}%)`;
+        if (dots) dots.querySelectorAll('.stk-dot-btn').forEach((d, n) => d.classList.toggle('is-on', n === (pos % NPACKS)));
       }
+      function forward() {
+        clearTimeout(snap);
+        pos += 1;
+        paint(true);
+        if (pos >= NPACKS) {           // landed in the copy — rewind a set, unseen
+          snap = setTimeout(() => { pos -= NPACKS; paint(false); }, SLIDE_MS + 40);
+        }
+      }
+      function goTo(i) {          // a dot → that pack, always travelling forwards
+        clearTimeout(snap);
+        const target = ((i % NPACKS) + NPACKS) % NPACKS;
+        const cur = pos % NPACKS;
+        if (target === cur) return;
+        pos = target > cur ? target : target + NPACKS;   // wrap through the copy
+        paint(true);
+        if (pos >= NPACKS) snap = setTimeout(() => { pos -= NPACKS; paint(false); }, SLIDE_MS + 40);
+      }
+      function restartAuto() { clearInterval(auto); auto = setInterval(forward, AUTO_MS); }
+
       dots?.addEventListener('click', (e) => {
         const b = e.target.closest('.stk-dot-btn');
-        if (b) goTo(+b.getAttribute('data-s'));
+        if (b) { goTo(+b.getAttribute('data-s')); restartAuto(); }
       });
-      // The wine Next tile in each pack's last cell → on to the next pack.
+      // The wine Next tile in each pack → on to the next pack, same direction.
       track?.addEventListener('click', (e) => {
         if (!e.target.closest('[data-nextpack]')) return;
-        goTo(slide + 1 >= list.length ? 0 : slide + 1);
+        forward(); restartAuto();
       });
+      paint(false);
+      restartAuto();
 
       // Re-flow the tiles when the viewport changes shape (the column count is
       // derived from the height left over).
@@ -2020,13 +2056,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       ];
       const pool = [];
       list.forEach((p) => designsOf(p).forEach((u) => pool.push(u)));
+      // Mirrors the pack row exactly: eight boxes in the same grid and size, all
+      // white — hovering one clears the text and reveals a design.
       const feat = document.getElementById('stk-feat');
       if (feat) {
         feat.innerHTML = FEATURES.map((f, i) => {
           const img = pool.length ? pool[(i * 3) % pool.length] : '';
-          return `<div class="stk-feat-tile">`
-            + `<span class="stk-feat-img" style="background-image:url('${img}')"></span>`
-            + `<span class="stk-feat-name">${escapeHtml(f)}</span></div>`;
+          return `<div class="egh-tile egh-tile--pack">`
+            + `<span class="egh-tile-img" style="background-image:url('${img}')"></span>`
+            + `<span class="egh-tile-cap"><span class="egh-tile-name">${escapeHtml(f)}</span></span></div>`;
         }).join('');
       }
 
