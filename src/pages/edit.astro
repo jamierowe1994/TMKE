@@ -568,13 +568,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .stk-p--nobar { flex-basis: 0; }
     .stk-p.is-open .stk-chev { transform: rotate(180deg); }
     .stk-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-    /* Shop panel — the catalogue exactly as it looks on the normal page, just
-       scrolling inside this panel (same 3-up grid, same gutters). */
+    /* Shop panel — the ORIGINAL catalogue cards (3-up, unchanged styling), just
+       scaled to fit between the bars: cover + details + button all visible, with
+       a margin top and bottom.
+         Height available = 100svh - 56 (nav) - 114 (the three bars).
+       A card = 3:4 cover (colW × 4/3) + ~130px of details/button. Solving for
+       colW and rounding gives the grid width below, so the LEFT/RIGHT margins
+       fall out of it — centred, three packs, equally spaced. */
     .stk-body--pad {
-      overflow-y: auto;
-      padding: clamp(20px, 3vh, 40px) clamp(24px, 5vw, 76px) clamp(24px, 4vh, 48px);
+      overflow-y: auto; display: flex; align-items: center; justify-content: center;
+      padding: clamp(24px, 4vh, 44px) clamp(24px, 4vw, 64px);
     }
-    .stk-body--pad .edit-shows { padding-top: 0; }
+    .stk-body--pad .edit-shows {
+      width: 100%; margin: 0 auto; padding-top: 0;
+      max-width: clamp(560px, calc(2.2 * (100svh - 390px) + 92px), 1180px);
+    }
     /* The cards' scroll-reveal never fires inside the sticky panel — show them. */
     .stk-body--pad .pcard { opacity: 1; transform: none; }
     /* Pack panel — ONE frame holding every pack; slide between them with the
