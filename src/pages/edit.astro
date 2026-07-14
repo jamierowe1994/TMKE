@@ -58,14 +58,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <section class="egh" id="edit-hero-grid" aria-label="The Edit — template packs" hidden>
     <div class="egh-inner">
       <span class="egh-label">Shop the Edit</span>
-      <div class="egh-intro">
-        <span class="egh-intro-eyebrow">The Edit &middot; Our template shop</span>
-        <p class="egh-intro-copy">Scroll-stopping content for every moment &mdash; ready-made, editable templates you open in the Studio and make your own in minutes.</p>
-      </div>
       <div class="egh-scroll">
         <div class="egh-grid" id="egh-grid"></div>
       </div>
       <div class="egh-dots" id="egh-dots" role="tablist" aria-label="Choose a set"></div>
+      <div class="egh-intro">
+        <span class="egh-intro-eyebrow">The Edit &middot; Our template shop</span>
+        <p class="egh-intro-copy">Scroll-stopping content for every moment &mdash; ready-made, editable templates you open in the Studio and make your own in minutes.</p>
+      </div>
     </div>
   </section>
 
@@ -454,8 +454,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
       min-height: calc(1.12em * 2);   /* every title reserves two lines — even grid */
     }
-    .egh-tile-type { font-family: var(--sans); font-size: 10px; letter-spacing: 0.04em; color: rgba(28,29,34,0.55); }
-    .egh-tile-shop { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); margin-top: 2px; }
     /* Image tiles — static high-res design from the pack. */
     .egh-tile--image { background-size: cover; background-position: center; background-color: rgba(28,29,34,0.06); }
     /* Next tile (bottom-right) — slides the grid to the next set; heading style.
@@ -1447,61 +1445,68 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       list.forEach((p) => designsOf(p).forEach((u) => pool.push(u)));
       if (!pool.length) list.forEach((p) => { const h = heroOf(p); if (h) pool.push(h); });
 
-      const COLS = 6;
-      // Pack-tile positions vary per set → a different-looking grid each time you
-      // advance (one scatter per set). Each set is deterministic from its index,
-      // so the dot pager can jump straight to a set.
-      const SCATTERS = [
-        [[0, 3], [2, 5], [1, 4]],
-        [[1, 4], [0, 4], [2, 3]],
-        [[2, 5], [1, 3], [0, 5]],
+      // A "set" is a page of packs. Each pack gets THREE white boxes — all
+      // labelled "Pack One", with a different second line: the title, the type
+      // ("On the Market Template Pack"), and "Shop the Pack".
+      const CELLS = 24, PACKS_PER_SET = 3;
+      const WORDS = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
+      // Hand-scattered layouts — which of the 24 cells hold the white boxes.
+      // Deliberately irregular (not a shift-by-one) so each set reads differently.
+      // Cell 23 (bottom-right) is reserved for the Next tile.
+      const LAYOUTS = [
+        [0, 4, 7, 9, 11, 13, 16, 18, 21],
+        [2, 3, 6, 10, 12, 15, 17, 20, 22],
+        [1, 5, 8, 10, 14, 17, 19, 22, 3],
       ];
-      const SETS = SCATTERS.length;
+      const SETS = Math.max(1, Math.ceil(list.length / PACKS_PER_SET));
       const dotsEl = document.getElementById('egh-dots');
       const norm = (i) => ((i % SETS) + SETS) % SETS;
       let setIdx = 0, imgCount = 0;
 
-      // Build the grid for the current set: one PACK tile per pack (Pack N,
-      // 2-line title, type + pillar, Shop now; hover clears the text to show the
-      // high-res design), scattered among design tiles, Next in the last cell.
+      // Build the grid for the current set: this page's packs as three white
+      // boxes each (hover clears the text to show the high-res design), scattered
+      // among design tiles, with Next in the bottom-right cell.
       function build() {
         const s = norm(setIdx);
-        const scatter = SCATTERS[s];
-        const imgOffset = imgCount ? (s * imgCount) % (pool.length || 1) : 0;
-        const cells = [];
-        let pi = 0;
-        for (let r = 0; pi < list.length; r++) {
-          const cols = scatter[r % scatter.length];
-          for (let c = 0; c < COLS; c++) {
-            if (cols.includes(c) && pi < list.length) { cells.push({ type: 'pack', pack: list[pi], num: pi + 1 }); pi++; }
-            else cells.push({ type: 'image' });
-          }
-        }
-        while (cells.length % COLS !== 0 || cells.length < list.length + 1) cells.push({ type: 'image' });
-        cells[cells.length - 1] = { type: 'next' };
+        const layout = LAYOUTS[s % LAYOUTS.length];
+        const setPacks = list.slice(s * PACKS_PER_SET, s * PACKS_PER_SET + PACKS_PER_SET);
 
+        const boxes = [];
+        setPacks.forEach((p, n) => {
+          const idx = s * PACKS_PER_SET + n;
+          const num = 'Pack ' + (WORDS[idx] || String(idx + 1));
+          const pillar = p.category ? p.category + ' Template Pack' : 'Template Pack';
+          boxes.push({ pack: p, num, main: p.title || '' });
+          boxes.push({ pack: p, num, main: pillar });
+          boxes.push({ pack: p, num, main: 'Shop the Pack' });
+        });
+        const boxAt = new Map();
+        boxes.forEach((b, i) => { if (layout[i] != null) boxAt.set(layout[i], b); });
+
+        const hasNext = SETS > 1;
+        const imgOffset = imgCount ? (s * imgCount) % (pool.length || 1) : 0;
         let html = '', gi = 0, count = 0;
-        cells.forEach((cell) => {
-          if (cell.type === 'pack') {
-            const p = cell.pack;
+        for (let c = 0; c < CELLS; c++) {
+          if (hasNext && c === CELLS - 1) {
+            html += `<button type="button" class="egh-tile egh-tile--next">Scroll Next Set</button>`;
+            continue;
+          }
+          const b = boxAt.get(c);
+          if (b) {
+            const p = b.pack;
             const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
-            const pillar = p.category || 'Template Pack';
             html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
               + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
               + `<span class="egh-tile-cap">`
-              + `<span class="egh-tile-num">Pack ${cell.num}</span>`
-              + `<span class="egh-tile-name">${escapeHtml(p.title || '')}</span>`
-              + `<span class="egh-tile-type">${escapeHtml(pillar)} &middot; Template Pack</span>`
-              + `<span class="egh-tile-shop">Shop now &rarr;</span>`
+              + `<span class="egh-tile-num">${escapeHtml(b.num)}</span>`
+              + `<span class="egh-tile-name">${escapeHtml(b.main)}</span>`
               + `</span></a>`;
-          } else if (cell.type === 'next') {
-            html += `<button type="button" class="egh-tile egh-tile--next">Scroll Next Set</button>`;
           } else {
             const img = pool.length ? pool[(imgOffset + gi) % pool.length] : '';
             gi++; count++;
             html += `<div class="egh-tile egh-tile--image" style="background-image:url('${img}')"></div>`;
           }
-        });
+        }
         gridEl.innerHTML = html;
         imgCount = count;
       }
@@ -1511,11 +1516,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         Array.from(dotsEl.children).forEach((d, i) => d.classList.toggle('is-active', i === norm(setIdx)));
       }
 
-      // Dot pager — one dot per set, an alternative to the Next tile.
+      // Dot pager — one dot per set of packs, an alternative to the Next tile.
+      // Only meaningful when there's more than one set.
       if (dotsEl) {
-        dotsEl.innerHTML = Array.from({ length: SETS }, (_, i) =>
-          `<button type="button" class="egh-dot${i === 0 ? ' is-active' : ''}" data-set="${i}" aria-label="Set ${i + 1}"></button>`).join('');
-        dotsEl.addEventListener('click', (e) => { const b = e.target.closest('.egh-dot'); if (b) goToSet(+b.dataset.set); });
+        if (SETS <= 1) dotsEl.hidden = true;
+        else {
+          dotsEl.innerHTML = Array.from({ length: SETS }, (_, i) =>
+            `<button type="button" class="egh-dot${i === 0 ? ' is-active' : ''}" data-set="${i}" aria-label="Set ${i + 1}"></button>`).join('');
+          dotsEl.addEventListener('click', (e) => { const b = e.target.closest('.egh-dot'); if (b) goToSet(+b.dataset.set); });
+        }
       }
 
       // Slide the whole grid out to the left, rebuild the target set (new pack
@@ -1580,6 +1589,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         description: 'Be the agent your area already trusts. Local-favourite features, recommendations and community-led posts that put you at the heart of the neighbourhood long before anyone is ready to move.',
         cover_image_url: TPL(10), preview_images: [TPL(10), TPL(6), TPL(3), TPL(12), TPL(7), TPL(9)],
         contents: [], templates: rot(TPL_ALL, 9),
+      },
+      // Extra samples so local dev exercises more than one "set" (live has ~8 packs).
+      {
+        id: 'sample-sold', slug: 'sold-and-celebrated', category: 'On the Market',
+        title: 'Sold and Celebrated', price_pence: 0, packSize: 20,
+        description: 'Make every completion count. Just-sold, under-offer and celebration layouts that turn results into proof.',
+        cover_image_url: TPL(4), preview_images: [], contents: [], templates: rot(TPL_ALL, 2),
+      },
+      {
+        id: 'sample-valuation', slug: 'valuation-season', category: 'Service and Standards',
+        title: 'Valuation Season', price_pence: 0, packSize: 18,
+        description: 'Fill the diary. Valuation prompts, market-appraisal offers and the posts that turn browsers into bookings.',
+        cover_image_url: TPL(7), preview_images: [], contents: [], templates: rot(TPL_ALL, 11),
+      },
+      {
+        id: 'sample-lettings', slug: 'lettings-edit', category: 'Local Life',
+        title: 'The Lettings Edit', price_pence: 0, packSize: 22,
+        description: 'For landlords and tenants alike. Availability, compliance and community posts built for the lettings side of the business.',
+        cover_image_url: TPL(12), preview_images: [], contents: [], templates: rot(TPL_ALL, 4),
       },
     ];
 
