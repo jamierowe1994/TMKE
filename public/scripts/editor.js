@@ -1973,6 +1973,7 @@
     renderLayers();
     renderContextBar();
     renderProps();
+    renderTextList();   // keep the Text pane's list in step (skips while typing)
     renderTemplateGrid();
     renderPageStrip();
     renderMargins();
@@ -2229,6 +2230,56 @@
     return runs;
   }
   // Read the edited DOM back onto the element, collapsing to plain when uniform.
+  // ---- Panel text editing -------------------------------------------------
+  // Change a text element's wording from the left panel (Text pane list, or the
+  // Selection pane's Content box). Deliberately does NOT call fullRender():
+  // that rebuilds the panel — stealing focus mid-keystroke — and, when
+  // something is selected, flips the panel to the Selection pane.
+  let _textHistT = 0;
+  function liveSetText(el, value) {
+    if (!el) return;
+    el.text = value;
+    el.runs = null;   // typing over it drops any mixed run formatting
+    const node = canvasEl.querySelector('[data-id="' + el.id + '"]');
+    const inner = node && node.querySelector(".ed-text-inner");
+    if (inner) setTextInnerContent(inner, el);
+    autosizeTextElements();
+    renderHandles();
+    clearTimeout(_textHistT);
+    _textHistT = setTimeout(function () { pushHistory(); }, 700);
+  }
+
+  // Every text box on the page, editable in one place (Text pane) — overwrite
+  // the wording without touching the design.
+  function renderTextList() {
+    const wrap = document.getElementById("ed-textlist");
+    if (!wrap) return;
+    if (wrap.contains(document.activeElement)) return;   // never rebuild mid-type
+    const texts = state.elements.filter((e) => e.type === "text");
+    if (!texts.length) {
+      wrap.innerHTML = '<p class="ed-textlist-empty">No text on this page yet — add one below.</p>';
+      return;
+    }
+    wrap.innerHTML = texts.map((el, i) =>
+      '<div class="ed-tl-row" data-id="' + el.id + '">' +
+        '<div class="ed-tl-head"><span class="ed-tl-num">Text ' + (i + 1) + '</span>' +
+        '<button type="button" class="ed-tl-find" data-find="' + el.id + '">Select</button></div>' +
+        '<textarea class="ed-tl-input" rows="2" spellcheck="false"></textarea>' +
+      "</div>").join("");
+    texts.forEach((el) => {
+      const ta = wrap.querySelector('.ed-tl-row[data-id="' + el.id + '"] .ed-tl-input');
+      if (!ta) return;
+      ta.value = el.text || "";                     // set as value (no escaping games)
+      ta.addEventListener("input", () => liveSetText(getEl(el.id), ta.value));
+    });
+    wrap.querySelectorAll("[data-find]").forEach((b) => {
+      b.addEventListener("click", () => {
+        state.selectedIds = [b.dataset.find];
+        fullRender();
+      });
+    });
+  }
+
   function commitTextFromDom(inner, el) {
     const runs = domToRuns(inner);
     const newText = runsToText(runs).replace(/\n$/, "");
@@ -4907,6 +4958,19 @@
       );
     }
 
+    // Content — the quick, safe way to change wording: type over it. Selecting a
+    // text box used to open this pane on "Arrange" (styling having moved to the
+    // top bar), which did nothing useful. Value is set in the wiring below so we
+    // don't have to escape it into markup.
+    if (el.type === "text") {
+      html.push(
+        '<div class="ed-props-section"><h4>Content</h4>' +
+          '<textarea class="ed-props-text" id="ed-sel-text" rows="3" spellcheck="false"></textarea>' +
+          '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Type to replace the wording — the design updates as you go.</p>' +
+        '</div>'
+      );
+    }
+
     // Effects now lives in a top-bar popover (see renderContextBar). Admins
     // still get the merge-tag picker rendered here as its own section so
     // it doesn't disappear into the popover.
@@ -5022,6 +5086,13 @@
         function () { return el.imgScale || 1; },
         function (v) { el.imgScale = v; },
         function () { partialRenderElement(el); }));
+    }
+
+    // Content box (text only) — overwrite the wording straight from the panel.
+    const selText = body.querySelector("#ed-sel-text");
+    if (selText) {
+      selText.value = el.text || "";
+      selText.addEventListener("input", () => liveSetText(getEl(el.id), selText.value));
     }
 
     body.querySelectorAll("[data-arrange]").forEach((btn) => {
@@ -6158,7 +6229,7 @@
       const tool = btn.dataset.tool;
       activeToolPane = tool;
       showPane(tool);
-      if (tool === "text") renderFontBrowser();
+      if (tool === "text") { renderTextList(); renderFontBrowser(); }
     });
   });
 
