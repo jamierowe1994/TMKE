@@ -459,12 +459,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     /* Hover a pack tile → clear the text so only the (high-res) design shows. */
     .egh-tile-cap { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 2; display: flex; flex-direction: column; gap: 4px; transition: opacity 0.35s ease; }
     .egh-tile--pack:hover .egh-tile-cap { opacity: 0; }
-    .egh-tile-num { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+    /* Box text follows the /join tile styling: a chapter-style eyebrow over a
+       clean, lighter sans name (no tight tracking) — reads sharper than the old
+       heavy 600 + negative letter-spacing. */
+    .egh-tile-num { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
     .egh-tile-name {
-      font-family: var(--sans); font-weight: 600; font-size: clamp(15px, 1.1vw, 19px);
-      line-height: 1.12; letter-spacing: -0.005em; color: var(--english-violet);
+      font-family: var(--sans); font-weight: 500; font-size: clamp(14px, 0.95vw, 17px);
+      line-height: 1.2; letter-spacing: 0; color: var(--english-violet);
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-      min-height: calc(1.12em * 2);   /* every title reserves two lines — even grid */
+      min-height: calc(1.2em * 2);   /* every title reserves two lines — even grid */
     }
     /* Image tiles — static high-res design from the pack. */
     .egh-tile--image { background-size: cover; background-position: center; background-color: rgba(28,29,34,0.06); }
@@ -529,21 +532,24 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       transition: flex-grow 0.7s cubic-bezier(.2,.8,.2,1);
     }
     .stk-p.is-open { flex-grow: 1; }
+    /* Wine bands with light text. */
     .stk-bar {
       flex: none; height: var(--bar); box-sizing: border-box;
       display: grid; grid-template-columns: 30px 1.1fr 1.1fr 1.6fr 24px;
       align-items: center; gap: 12px; padding: 0 clamp(14px, 2vw, 26px);
-      background: var(--paper); color: var(--ink);
-      border: 0; border-top: 1px solid var(--hairline);
+      background: var(--english-violet); color: var(--paper);
+      border: 0; border-top: 1px solid rgba(244,242,241,0.16);
       cursor: pointer; text-align: left;
       font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.14em; text-transform: uppercase;
       transition: background 0.25s ease;
     }
-    .stk-bar:hover { background: #fff; }
-    .stk-dot { width: 7px; height: 7px; background: var(--ink); display: inline-block; }
-    .stk-tag { color: rgba(28,29,34,0.55); }
-    .stk-chev { justify-self: end; font-size: 10px; color: rgba(28,29,34,0.5); transition: transform 0.4s ease; }
+    .stk-bar:hover { background: #4a2836; }
+    .stk-dot { width: 7px; height: 7px; background: var(--paper); display: inline-block; }
+    .stk-tag { color: rgba(244,242,241,0.62); }
+    .stk-chev { justify-self: end; font-size: 10px; color: rgba(244,242,241,0.62); transition: transform 0.4s ease; }
+    /* The packs panel has no bar (it sat under the nav) — take no height when collapsed. */
+    .stk-p--nobar { flex-basis: 0; }
     .stk-p.is-open .stk-chev { transform: rotate(180deg); }
     .stk-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
     .stk-body--pad { overflow-y: auto; padding: clamp(14px, 1.8vw, 26px); }
@@ -1818,20 +1824,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         + `<span class="stk-tag">${escapeHtml(tag)}</span>`
         + `<span class="stk-chev" aria-hidden="true">&#9662;</span></button>`;
 
-      // Two rows of 3:4 tiles that fit the open panel. Work the column count out
-      // from the height left once the four bars are accounted for, so the tiles
-      // keep a true 3:4 (never skewed) and both rows always fit on one screen.
-      const ROWS = 2, GAP = 6, PANELS = 4, BAR = 38;
+      // Two rows of TRUE 3:4 tiles. Seven columns on desktop — bigger designs,
+      // even if that runs a touch past one screen height (that's fine; the panel
+      // centres them). Phones drop to three.
+      const ROWS = 2;
       function colsForViewport() {
-        const pad = 2 * 14 + 22;                     // body padding + dots strip
-        const availH = window.innerHeight - PANELS * BAR - pad;
-        const availW = window.innerWidth - 2 * 14;
-        const tileH = (availH - GAP * (ROWS - 1)) / ROWS;
-        const tileW = tileH * 0.75;                  // 3:4
-        // Round UP: the columns then come out a shade narrower than the ideal
-        // tile, so two 3:4 rows always fit the height rather than overflowing.
-        const cols = Math.ceil((availW + GAP) / (tileW + GAP));
-        return Math.max(4, Math.min(14, cols || 6));
+        return window.innerWidth <= 900 ? 3 : 7;
       }
 
       // A pack's grid: its three white boxes (Pack N + title / type / shop)
@@ -1843,13 +1841,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       function packGrid(p, n, cols) {
         const designs = designsOf(p);
         const total = ROWS * cols;
-        const cells = boxCells(total, cols, n).sort((a, b) => a - b);
+        // The last cell is always the wine Next tile → boxes avoid it.
+        const cells = boxCells(total - 1, cols, n).sort((a, b) => a - b);
         const pillar = p.category ? p.category + ' Template Pack' : 'Template Pack';
         const mains = [p.title || '', pillar, 'Shop the Pack'];
         const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
         const numTxt = 'Pack ' + (WORDS[n] || String(n + 1));
         let html = '', gi = 0;
         for (let c = 0; c < total; c++) {
+          if (c === total - 1) {
+            html += `<button type="button" class="egh-tile egh-tile--next" data-nextpack>Next Pack</button>`;
+            continue;
+          }
           const bi = cells.indexOf(c);
           if (bi > -1) {
             html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
@@ -1870,8 +1873,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const slidesHtml = (c) => list.map((p, n) =>
         `<div class="stk-slide"><div class="stk-pgrid">${packGrid(p, n, c)}</div></div>`).join('');
       let html = '';
-      html += `<section class="stk-p" data-i="0">`
-        + bar('Template Packs', 'The Edit', 'Shop the packs')
+      // No bar on the packs panel — it sat under the site nav. It's the panel
+      // you land on, so it needs no handle; collapsed it takes no height.
+      html += `<section class="stk-p stk-p--nobar" data-i="0">`
         + `<div class="stk-body stk-body--pack"><div class="stk-slider">`
         + `<div class="stk-track" id="stk-track">${slidesHtml(cols)}</div>`
         + `<div class="stk-dots" id="stk-dots">`
@@ -1904,6 +1908,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       dots?.addEventListener('click', (e) => {
         const b = e.target.closest('.stk-dot-btn');
         if (b) goTo(+b.getAttribute('data-s'));
+      });
+      // The wine Next tile in each pack's last cell → on to the next pack.
+      track?.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-nextpack]')) return;
+        goTo(slide + 1 >= list.length ? 0 : slide + 1);
       });
 
       // Re-flow the tiles when the viewport changes shape (the column count is
