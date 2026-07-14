@@ -10,12 +10,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        left and the pack covers as a clickable reel on the right. No autoplay;
        click a cover (or a dot) to feature it. JS fills every slot (setupHero). -->
   <script is:inline>
-    // The grid hero is the default. ?hero=classic restores the original cover-reel
-    // hero (which needs the light-on-dark nav treatment). Setting the class here
-    // (before paint) pre-hides the other hero so there's no flash on load.
+    // The stacked-panel layout is the DEFAULT. ?layout=classic drops back to the
+    // previous page (grid hero + catalogue below); within that, ?hero=classic
+    // restores the original cover-reel hero (which needs the light-on-dark nav).
+    // Classes are set here — before paint — so the unused layout never flashes.
     (function () {
-      var classic = new URLSearchParams(location.search).get("hero") === "classic";
-      document.body.classList.add(classic ? "edit-page" : "egh-default");
+      var q = new URLSearchParams(location.search);
+      if (q.get("layout") !== "classic") { document.body.classList.add("stk-on"); return; }
+      document.body.classList.add(q.get("hero") === "classic" ? "edit-page" : "egh-default");
     })();
   </script>
   <style is:global>
@@ -506,6 +508,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     body.stk-on #edit-catalogue { display: none; }
     .stk-wrap { position: relative; }
     .stk-wrap[hidden] { display: none; }
+    /* Default layout: reveal the stack from first paint (body.stk-on is set by
+       the inline script) so there's no blank/flash while the panels build. */
+    body.stk-on .stk-wrap { display: block; }
     /* Invisible markers down the runway — one per panel (see setupStack). */
     .stk-sents { position: absolute; inset: 0; pointer-events: none; }
     .stk-sent { position: absolute; left: 0; width: 1px; height: 100svh; }
@@ -1771,7 +1776,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     // catalogue by moving them into their panels.
     function setupStack(packs) {
       const params = new URLSearchParams(location.search);
-      if (params.get('layout') !== 'stack') return;
+      if (params.get('layout') === 'classic') return;   // opt back to the old page
       const wrap = document.getElementById('edit-stack');
       const stk = document.getElementById('stk');
       if (!wrap || !stk) return;
@@ -1779,7 +1784,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const designsOf = (p) => (Array.isArray(p.templates) ? p.templates : []).filter((u) => typeof u === 'string' && u.trim());
       const heroOf = (p) => designsOf(p)[0] || p.cover_image_url || '';
       const list = (packs || []).filter((p) => p && heroOf(p));
-      if (!list.length) return;
+      if (!list.length) {
+        // No pack data — drop back to the normal page (whichever hero
+        // setupGridHero settled on) rather than showing an empty stack.
+        document.body.classList.remove('stk-on');
+        wrap.hidden = true;
+        return;
+      }
 
       document.body.classList.add('stk-on');
       document.body.classList.remove('edit-page');
