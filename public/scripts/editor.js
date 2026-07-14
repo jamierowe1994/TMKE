@@ -6712,29 +6712,79 @@
     handleFiles(e.dataTransfer.files);
   });
 
+  // One tile in the uploads grid. `b.dataset.src` is the live source: it starts
+  // as the data URL and is swapped to the stored URL once the upload lands, so
+  // click/drag always use whatever is current.
+  function addUploadTile(src) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ed-upload-tile";
+    b.dataset.src = src;
+    const img = document.createElement("img");
+    img.src = src;
+    b.appendChild(img);
+    b.addEventListener("click", () => addImage(b.dataset.src));
+    // Make uploaded photos draggable too so they can be dropped on frames
+    b.draggable = true;
+    b.addEventListener("dragstart", (e) => {
+      if (!e.dataTransfer) return;
+      e.dataTransfer.setData("text/uri-list", b.dataset.src);
+      e.dataTransfer.setData("text/plain", b.dataset.src);
+      e.dataTransfer.effectAllowed = "copy";
+    });
+    // Remove from the library (storage + grid). Designs already using the image
+    // keep working — they reference the URL directly.
+    const x = document.createElement("span");
+    x.className = "ed-upload-x";
+    x.title = "Remove from your uploads";
+    x.setAttribute("aria-hidden", "true");
+    x.textContent = "×";
+    x.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const url = b.dataset.src;
+      b.remove();
+      state.uploads = state.uploads.filter((u) => u !== url);
+      if (typeof window.__TMKE_UPLOAD_DELETE__ === "function") {
+        try { await window.__TMKE_UPLOAD_DELETE__(url); } catch (_) {}
+      }
+    });
+    b.appendChild(x);
+    uploadGridEl.appendChild(b);
+    return b;
+  }
+
   function handleFiles(files) {
     Array.from(files || []).forEach((f) => {
       if (!f.type.startsWith("image/")) return;
-      fileToWebImage(f).then((src) => {
+      fileToWebImage(f).then(async (src) => {
         if (!src) return;
         state.uploads.push(src);
-        const b = document.createElement("button");
-        const img = document.createElement("img");
-        img.src = src;
-        b.appendChild(img);
-        b.addEventListener("click", () => addImage(src));
-        // Make uploaded photos draggable too so they can be dropped on frames
-        b.draggable = true;
-        b.addEventListener("dragstart", (e) => {
-          if (!e.dataTransfer) return;
-          e.dataTransfer.setData("text/uri-list", src);
-          e.dataTransfer.setData("text/plain", src);
-          e.dataTransfer.effectAllowed = "copy";
-        });
-        uploadGridEl.appendChild(b);
+        const tile = addUploadTile(src);
+        // Persist it so it's still here next time (signed-in members only).
+        if (typeof window.__TMKE_UPLOAD_SAVE__ !== "function") return;
+        let url = null;
+        try { url = await window.__TMKE_UPLOAD_SAVE__(src); } catch (_) {}
+        if (!url) return;   // signed out / upload failed → stays in-memory
+        tile.dataset.src = url;
+        const i = state.uploads.indexOf(src);
+        if (i > -1) state.uploads[i] = url;
       });
     });
   }
+
+  // Rehydrate the member's saved uploads on open, so they don't have to keep
+  // re-uploading the same logos and imagery.
+  (async function loadUploadLibrary() {
+    if (typeof window.__TMKE_UPLOADS_LIST__ !== "function") return;
+    let urls = [];
+    try { urls = await window.__TMKE_UPLOADS_LIST__(); } catch (_) {}
+    urls.forEach((u) => {
+      if (state.uploads.includes(u)) return;
+      state.uploads.push(u);
+      addUploadTile(u);
+    });
+  })();
 
   // ---------- Drop a photo/upload anywhere on the canvas ----------
   // Frames have their own drop handlers (they stopPropagation), so a drop that
