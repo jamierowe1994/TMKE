@@ -853,6 +853,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); margin: 20px 0 0;
     }
     .pcard-type { font-family: var(--sans); font-size: 13px; line-height: 1.4; color: rgba(28,29,34,0.55); margin: 6px 0 0; }
+    /* Phone-only — the desktop card carries Pack Size + Discover instead, and is
+       staying exactly as it is. Shown by the mobile block further down. */
+    .pcard-price {
+      display: none; font-family: var(--sans); font-weight: 700; font-size: 14px;
+      line-height: 1.2; letter-spacing: -0.01em; color: var(--ink); margin: 6px 0 0;
+    }
+    .pcard-price small { font-size: 10px; font-weight: 400; color: rgba(28,29,34,0.5); }
     .pcard-actions { display: flex; align-items: center; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
     .pcard-size {
       font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
@@ -881,17 +888,30 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        this only wins on order. More than four packs will still scroll; that's a
        shop behaving like a shop. */
     @media (max-width: 760px) {
-      .stk-body--pad { padding: 14px; }
+      .stk-body--pad { padding: 12px; }
       .stk-body--pad .edit-shows {
         grid-template-columns: repeat(2, 1fr);
         gap: 14px 10px; max-width: none; width: 100%; justify-items: center;
       }
-      .stk-body--pad .pcard { width: min(100%, calc(((100svh - 212px) / 2 - 96px) * 0.75)); }
-      .stk-body--pad .pcard-title { font-size: 15px; line-height: 1.1; margin-top: 9px; }
+      /* Pared back to title / subheading / price. Pack Size and Discover both go:
+         the size is on the pack's own page, and the cover is ALREADY a link to that
+         page, so a Discover button only repeated the tap. The frame and the preview
+         dots go too — just the first image, so the row reads as one clean set.
+         Fixed chrome = 56 nav + 3x38 bars + 24 padding + 14 row gap = 208px; 88px is
+         what the three lines of text need, and everything else is cover. */
+      .stk-body--pad .pcard { width: min(100%, calc(((100svh - 208px) / 2 - 88px) * 0.75)); }
+      .stk-body--pad .pcard-media { outline: none; }
+      .stk-body--pad .pcard-dots,
+      .stk-body--pad .pcard-actions { display: none; }
+      .stk-body--pad .pcard-price { display: block; }
+      /* Every title gets two lines' worth of space whether it needs it or not, so
+         the subheadings and prices sit on the same line across the row. One line
+         won't do it: at this width the longest pack names can't fit on one without
+         dropping the type size far enough to look like a different card. */
+      .stk-body--pad .pcard-title {
+        font-size: 15px; line-height: 1.1; margin-top: 9px; min-height: 2.2em;
+      }
       .stk-body--pad .pcard-type { font-size: 11px; margin-top: 3px; }
-      .stk-body--pad .pcard-actions { margin-top: 9px; gap: 6px; }
-      .stk-body--pad .pcard-size { font-size: 9px; padding: 6px 8px; letter-spacing: 0.08em; }
-      .stk-body--pad .pcard-cta { font-size: 9px; padding: 7px 10px; letter-spacing: 0.1em; }
     }
 
     .show { position: relative; }
@@ -1541,6 +1561,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </div>
           <h3 class="pcard-title">${escapeHtml(p.title)}</h3>
           <p class="pcard-type">${type}</p>
+          <p class="pcard-price">${escapeHtml(gbpFromPence(p.price_pence))} <small>+VAT</small></p>
           <div class="pcard-actions">
             <span class="pcard-size">Pack Size: ${n}</span>
             <a class="pcard-cta" href="${href}">Discover</a>
@@ -1882,21 +1903,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     const SAMPLE_PACKS = [
       {
         id: 'sample-proof', slug: 'the-proof-is-in-the-posts', category: 'Service and Standards',
-        title: 'The Proof Is in the Posts', price_pence: 0, packSize: 30,
+        title: 'The Proof Is in the Posts', price_pence: 29900, packSize: 30,
         description: "Being a great agent means nothing if the people looking for one can't see it. This pack gives you the content to change that. Client testimonials, results, milestones, and service-led posts that build trust, communicate your value, and position you as the agent worth choosing. No guesswork, no generic captions. Just proof.",
         cover_image_url: TPL(8), preview_images: [TPL(1), TPL(2), TPL(3), TPL(4), TPL(5), TPL(6)],
         contents: [], templates: TPL_ALL,
       },
       {
         id: 'sample-portfolio', slug: 'property-portfolio', category: 'On the Market',
-        title: 'Property Portfolio', price_pence: 0, packSize: 25,
+        title: 'Property Portfolio', price_pence: 29900, packSize: 25,
         description: 'Show the homes, not just the headlines. A polished set of listing layouts — new instructions, open houses, price changes and just-sold — that make every property on your books look the part across the feed.',
         cover_image_url: TPL(13), preview_images: [TPL(13), TPL(1), TPL(5), TPL(8), TPL(2), TPL(10)],
         contents: [], templates: rot(TPL_ALL, 5),
       },
       {
         id: 'sample-become', slug: 'become-the-name', category: 'Local Life',
-        title: 'Become the Name They Already Know', price_pence: 0, packSize: 25,
+        title: 'Become the Name They Already Know', price_pence: 24900, packSize: 25,
         description: 'Be the agent your area already trusts. Local-favourite features, recommendations and community-led posts that put you at the heart of the neighbourhood long before anyone is ready to move.',
         cover_image_url: TPL(10), preview_images: [TPL(10), TPL(6), TPL(3), TPL(12), TPL(7), TPL(9)],
         contents: [], templates: rot(TPL_ALL, 9),
