@@ -18,7 +18,7 @@ export async function getStaticPaths() {
     }));
     const pack = {
       id: "sample", slug: "property-portfolio", status: "active", category: "On the Market",
-      title: "Property Portfolio", price_pence: 29900, preview_reveal_count: 3,
+      title: "Property Portfolio", price_pence: 29900, preview_reveal_count: 6,
       description: "Show the homes, not just the headlines. A polished set of listing layouts that make every property on your books look the part across the feed.",
       contents: ["New instruction & coming-soon layouts", "Open-house and viewing announcements", "Price change & just-sold posts"],
       cover_image_url: TPL(13), preview_images: [TPL(13), TPL(1), TPL(5), TPL(8), TPL(2)],
@@ -61,12 +61,15 @@ export async function getStaticPaths() {
 }
 
 const { pack, templates } = Astro.props;
-const reveal = Math.max(0, Math.min(24, pack.preview_reveal_count ?? 3));
+// Six open previews, then just two locked teasers, then the unlock CTA — enough to
+// show what you're buying without scrolling a wall of blurred tiles.
+// NB the six is only a DEFAULT: a pack with its own preview_reveal_count set in
+// admin still wins. If a live pack shows three, that's its setting, not this line.
+const reveal = Math.max(0, Math.min(24, pack.preview_reveal_count ?? 6));
 const previewTpls = templates.slice(0, reveal);
 const lockedAll = templates.slice(reveal);
-// Show at most one extra row of locked teasers (6 across) — the count hint
-// still reports the true number that unlock on purchase.
-const lockedTpls = lockedAll.slice(0, 6);
+// The count hint still reports the TRUE number that unlock on purchase.
+const lockedTpls = lockedAll.slice(0, 2);
 const lockedCount = lockedAll.length;
 const contents = Array.isArray(pack.contents) ? pack.contents : [];
 // The big cover: an explicit cover image if set, otherwise fall back to the
@@ -246,7 +249,10 @@ function gbp(pence) {
       padding: 0 36px;
     }
 
-    .pack-hero { padding-top: 140px; padding-bottom: 64px; }
+    /* 140px cleared the nav twice over and pushed the cover + thumbs off the first
+       screen. 92px clears it once, with air — so the images land whole and the copy
+       is what you scroll to. */
+    .pack-hero { padding-top: 92px; padding-bottom: 48px; }
     .pack-back {
       display: inline-block;
       font-family: var(--sans); font-size: 12px;
@@ -372,17 +378,18 @@ function gbp(pence) {
     }
     .pack-contents li::before {
       content: "→";
-      font-family: var(--serif); font-style: italic;
+      font-family: var(--sans); font-style: normal;
       color: var(--english-violet);
       position: absolute; left: 0;
     }
 
     /* PREVIEWS */
-    .pack-previews { padding: 56px 36px 200px; }
+    /* 200px of dead space sat under the templates before the footer. */
+    .pack-previews { padding: 40px 36px 72px; }
     .pack-previews-head {
       display: flex; justify-content: space-between; align-items: end;
       gap: 24px; flex-wrap: wrap;
-      padding-top: 32px;
+      padding-top: 24px;
       border-top: 1px solid rgba(28,29,34,0.1);
       margin-bottom: 36px;
     }
@@ -522,7 +529,7 @@ function gbp(pence) {
     }
     .pack-tpl--locked .pack-tpl-name {
       color: rgba(28,29,34,0.5);
-      font-style: italic;
+      font-style: normal;
     }
 
     .pack-unlock-cta {
@@ -539,15 +546,21 @@ function gbp(pence) {
     @media (max-width: 720px) {
       .pack-unlock-cta { grid-template-columns: 1fr; align-items: start; padding: 24px; }
     }
+    /* Was italic The Seasons for both lines, which read as a different site. Brand
+       type: Helios for the heading, upright Darker Grotesque for the copy.
+       Helios spelled out rather than var(--serif): global.css rebinds --serif to
+       --subhead ON h3/h4, so var(--serif) inside an h3 quietly resolves back to
+       The Seasons — the exact thing we're moving away from. */
     .pack-unlock-cta h3 {
-      font-family: var(--subhead); font-style: italic; font-weight: 400;
+      font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-style: normal; font-weight: 400;
       font-size: clamp(24px, 2.6vw, 32px);
-      letter-spacing: -0.01em;
+      letter-spacing: -0.018em;
       color: var(--paper); margin: 0 0 6px;
     }
     .pack-unlock-cta p {
-      font-family: var(--subhead); font-style: italic;
-      font-size: 17px; line-height: 1.4; color: rgba(240,238,235,0.72);
+      font-family: var(--sans); font-style: normal;
+      font-size: 15px; line-height: 1.5; color: rgba(240,238,235,0.72);
       margin: 0;
     }
     .pack-unlock-cta .btn {
