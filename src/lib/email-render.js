@@ -303,6 +303,9 @@ export function effectiveBlock(block, device) {
   const out = { ...block };
   ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness', 'iconSize', 'iconGap'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
   if (m.pad) out.pad = { ...(block.pad || {}), ...m.pad };
+  // Margin is per-device too — a mobile override merges over the desktop values,
+  // so setting just the top on mobile leaves the other three inherited.
+  if (m.margin) out.margin = { ...(block.margin || {}), ...m.margin };
   return out;
 }
 
@@ -379,14 +382,26 @@ function blockResponsiveCss(block) {
     return parts.join('\n    ');
   }
   if (!block.mobile) return '';
-  switch (block.type) {
-    case 'heading': case 'text': { const d = responsiveDecls(block); return d.length ? `.eb-b-${block.id}{${d.join(';')};}` : ''; }
-    case 'button': return buttonResponsiveCss(block);
-    case 'image': return imageResponsiveCss(block);
-    case 'divider': return dividerResponsiveCss(block);
-    case 'social': return socialResponsiveCss(block);
-    default: return '';
+  const parts = [];
+  // Margin sits on the outer wrapper and is type-agnostic, so handle it here
+  // rather than in the per-type switch below (which drops unknown types).
+  // Built from the MERGED margin so a partial override (e.g. only top) keeps
+  // the desktop values for the other sides instead of zeroing them.
+  if (block.mobile.margin) {
+    const mm = resolveMargin(effectiveBlock(block, 'mobile'));
+    parts.push(`.eb-mw-${block.id}{padding:${mm.t}px ${mm.r}px ${mm.b}px ${mm.l}px !important;}`);
   }
+  let typeCss = '';
+  switch (block.type) {
+    case 'heading': case 'text': { const d = responsiveDecls(block); typeCss = d.length ? `.eb-b-${block.id}{${d.join(';')};}` : ''; break; }
+    case 'button': typeCss = buttonResponsiveCss(block); break;
+    case 'image': typeCss = imageResponsiveCss(block); break;
+    case 'divider': typeCss = dividerResponsiveCss(block); break;
+    case 'social': typeCss = socialResponsiveCss(block); break;
+    default: typeCss = ''; break;
+  }
+  if (typeCss) parts.push(typeCss);
+  return parts.join('\n    ');
 }
 function blockHasMobile(block) { return blockResponsiveCss(block) !== ''; }
 
@@ -961,6 +976,9 @@ function wrapOuter(html, block) {
   const m = resolveMargin(block);
   let style = `padding:${m.t}px ${m.r}px ${m.b}px ${m.l}px;`;
   const classes = [];
+  // Margin is expressed as padding on this wrapper, so a per-block class gives
+  // the mobile margin override something to target (see blockResponsiveCss).
+  if (block && block.id && block.mobile && block.mobile.margin) classes.push(`eb-mw-${block.id}`);
   if (hideMobile) classes.push('eb-hide-mobile');
   if (hideDesktop) { classes.push('eb-mobile-only'); style += 'display:none;max-height:0;overflow:hidden;mso-hide:all;'; }
   const clsAttr = classes.length ? ` class="${classes.join(' ')}"` : '';
