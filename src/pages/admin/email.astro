@@ -13,6 +13,7 @@ import "../../styles/admin.css";
         <button type="button" class="enquiry-chip" data-filter="draft">Drafts</button>
         <button type="button" class="enquiry-chip" data-filter="archived">Archived</button>
       </div>
+      <select id="em-folder" class="admin-search em-folder-sel" aria-label="Filter by folder"><option value="all">All folders</option></select>
       <input type="search" id="em-search" class="admin-search" placeholder="Search name, subject, trigger…" />
       <span class="admin-bar-count" id="em-count">…</span>
       <a href="/admin/email/automated" class="admin-btn admin-btn-ghost">Automated emails →</a>
@@ -85,6 +86,15 @@ import "../../styles/admin.css";
       font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    /* Folder chip on a filed template + the folder filter. */
+    .em-folder-tag {
+      display: inline-block; margin-right: 7px;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      color: #7e6765; background: rgba(126,103,101,0.14);
+      padding: 2px 7px; border-radius: 999px;
+    }
+    .em-folder-sel { min-width: 150px; cursor: pointer; }
+    .em-folder-sel[hidden] { display: none; }
     .em-trigger {
       font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px;
       color: var(--english-violet); background: rgba(55,30,40,0.07);
@@ -139,6 +149,8 @@ import "../../styles/admin.css";
     let all = [];
     let activeFilter = "all";
     let activeSearch = "";
+    let activeFolder = "all";   // "all" | "__none" (unfiled) | a folder name
+    let foldersReady = true;    // false if email_template_folders.sql hasn't been run
 
     function escapeHtml(s) {
       return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -157,12 +169,34 @@ import "../../styles/admin.css";
       return `<span class="em-status-pill em-status-${label}">${txt}</span>`;
     }
 
+    // Folders — a folder exists purely because a template names it, so the list
+    // is always derived from the data (nothing to create or clean up).
+    function folderList() {
+      return Array.from(new Set(all.map((t) => (t.folder || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }
+    function renderFolderFilter() {
+      const sel = document.getElementById("em-folder");
+      if (!sel) return;
+      if (!foldersReady) { sel.hidden = true; return; }   // migration not run yet
+      const cur = activeFolder;
+      const unfiled = all.filter((t) => !(t.folder || "").trim()).length;
+      sel.innerHTML = `<option value="all">All folders</option>`
+        + folderList().map((f) => `<option value="${escapeHtml(f)}">${escapeHtml(f)} (${all.filter((t) => (t.folder || "").trim() === f).length})</option>`).join("")
+        + (unfiled ? `<option value="__none">Unfiled (${unfiled})</option>` : "");
+      sel.value = cur;
+      if (sel.value !== cur) { activeFolder = "all"; sel.value = "all"; }   // folder vanished
+    }
+
     function render() {
       const q = activeSearch.trim().toLowerCase();
+      renderFolderFilter();
       const filtered = all.filter((t) => {
         if (activeFilter !== "all" && t.status !== activeFilter) return false;
+        const f = (t.folder || "").trim();
+        if (activeFolder === "__none" && f) return false;
+        if (activeFolder !== "all" && activeFolder !== "__none" && f !== activeFolder) return false;
         if (q) {
-          const hay = [t.name, t.subject, t.trigger_key].map((x) => String(x || "").toLowerCase()).join(" ");
+          const hay = [t.name, t.subject, t.trigger_key, t.folder].map((x) => String(x || "").toLowerCase()).join(" ");
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -181,18 +215,45 @@ import "../../styles/admin.css";
           <div class="em-row" data-id="${t.id}" role="row">
             <div class="em-row-info">
               <a href="${editUrl}" class="em-row-title">${escapeHtml(t.name || "(untitled)")}</a>
-              <span class="em-row-sub">${escapeHtml(t.subject || "No subject yet")}</span>
+              <span class="em-row-sub">${(t.folder || "").trim() ? `<span class="em-folder-tag">${escapeHtml(t.folder.trim())}</span>` : ""}${escapeHtml(t.subject || "No subject yet")}</span>
             </div>
             ${trig}
             ${statusPill(t.status)}
             <span class="em-row-date">${fmtDate(t.updated_at)}</span>
             <div class="em-row-actions">
               <a href="${editUrl}" class="em-row-action">Edit</a>
+              <button type="button" class="em-row-action" data-folder="${t.id}">Folder</button>
               <button type="button" class="em-row-action" data-dupe="${t.id}">Duplicate</button>
               <button type="button" class="em-row-action danger" data-delete="${t.id}">Delete</button>
             </div>
           </div>`;
       }).join("");
+
+      // Move a template into a folder. Typing a new name creates it — a folder
+      // is just a name templates share, so there's nothing else to set up.
+      $table.querySelectorAll("[data-folder]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-folder");
+          const row = all.find((t) => t.id === id);
+          if (!row) return;
+          const existing = folderList();
+          const hint = existing.length ? `\n\nExisting folders: ${existing.join(", ")}` : "";
+          const next = prompt(`Folder for "${row.name}"?\n\nType a name to file it (a new name creates that folder). Leave blank to unfile it.${hint}`, (row.folder || "").trim());
+          if (next === null) return;   // cancelled
+          const folder = next.trim() || null;
+          btn.setAttribute("disabled", "true");
+          const { error } = await supabase.from("email_templates").update({ folder }).eq("id", id);
+          btn.removeAttribute("disabled");
+          if (error) {
+            alert(/column .*folder/i.test(error.message || "")
+              ? "Folders need a quick database step: run supabase/email_template_folders.sql in the Supabase SQL editor."
+              : `Couldn't move it: ${error.message}`);
+            return;
+          }
+          row.folder = folder;
+          render();
+        });
+      });
 
       $table.querySelectorAll("[data-delete]").forEach((btn) => {
         btn.addEventListener("click", async () => {
@@ -241,6 +302,7 @@ import "../../styles/admin.css";
       render();
     }));
     $search.addEventListener("input", () => { activeSearch = $search.value || ""; render(); });
+    document.getElementById("em-folder")?.addEventListener("change", (e) => { activeFolder = e.target.value; render(); });
 
     (async () => {
       // In local dev the page renders without a login so the UI is previewable;
@@ -250,10 +312,17 @@ import "../../styles/admin.css";
         const session = await requireAdmin("/admin/login");
         if (!session) return;
       }
-      const { data, error } = await supabase
+      const COLS = "id, name, subject, preheader, trigger_key, mode, blocks, custom_html, branding, status, updated_at";
+      let { data, error } = await supabase
         .from("email_templates")
-        .select("id, name, subject, preheader, trigger_key, mode, blocks, custom_html, branding, status, updated_at")
+        .select(COLS + ", folder")
         .order("updated_at", { ascending: false });
+      // Folders are a newer column — if email_template_folders.sql hasn't been
+      // run yet, fall back so the Studio still works (just without folders).
+      if (error && /column .*folder/i.test(error.message || "")) {
+        foldersReady = false;
+        ({ data, error } = await supabase.from("email_templates").select(COLS).order("updated_at", { ascending: false }));
+      }
       if (error) {
         if (DEV) { all = []; render(); return; } // dev preview without DB — show empty chrome
         $loading.hidden = true;
