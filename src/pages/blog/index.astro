@@ -244,11 +244,14 @@ const featMeta = featured
       align-self: flex-start; margin-top: var(--arc-inset);
       height: calc(100% - var(--arc-inset) - var(--arc-bottom));   /* bottom comes down to the home text margin */
       display: flex; flex-direction: column; gap: 14px;
-      padding: 0 10px 0 6px;   /* left pad = the 6px card gap (gap to the featured) */
+      /* Left pad IS the gap between the featured article and the first cards. It
+         matched the 6px card gap, which read as cramped against a full-height
+         featured column. */
+      padding: 0 10px 0 20px;
     }
-    /* "Article Archive" label — fades in as you drag the grid across (set in JS),
-       so it isn't shown cut-off in the peek at rest. */
-    .arc-title { flex: 0 0 auto; opacity: 0; transition: opacity 0.3s ease; }
+    /* "Article Archive" label — on from the start, sitting above the first cards
+       like every other label on the page. */
+    .arc-title { flex: 0 0 auto; opacity: 1; }
     .arc-scroll {
       flex: 1 1 auto; min-height: 0;
       overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
@@ -425,7 +428,6 @@ const featMeta = featured
       const ins = document.querySelector(".ins");
       const rail = document.getElementById("ins-rail");
       const archive = document.getElementById("arc-scroll");   // the grid's vertical scroll container
-      const arcTitle = document.querySelector(".arc-title");
       const backBtn = document.getElementById("arc-back");
       const desktop = window.matchMedia("(min-width: 1001px)");
       const DRAG = 1100;                  // wheel px to drag fully across
@@ -446,7 +448,9 @@ const featMeta = featured
           backBtn.style.opacity = on ? "1" : "0";
           backBtn.style.pointerEvents = on ? "auto" : "none";
         }
-        if (arcTitle) arcTitle.style.opacity = String(Math.max(0, Math.min(1, (prog - 0.5) * 2)));
+        // The "Article Archive" label used to fade in from prog 0.5, so it was
+        // invisible until you'd dragged half way across — it now just sits above
+        // the first cards from the start, so nothing drives its opacity.
       }
       (function raf() {
         prog += (progTarget - prog) * (reduce ? 1 : 0.3);   // tight follow = drag feel
