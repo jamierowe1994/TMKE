@@ -5,7 +5,7 @@ import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
 ---
 
-<BaseLayout title="Social Media — TMKE" description="Your managed social media service, plan and monthly performance." dashboard hideNav hideFooter>
+<BaseLayout title="Your SMM · TMKE" description="Your social media management, your plan and your monthly performance." dashboard hideNav hideFooter>
   <WorkspaceHeader active="social" />
   <div class="dash-shell dash-shell--top">
     <main class="app-main dash-main">
@@ -15,7 +15,7 @@ import "../../styles/account-sections.css";
             <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
             <h1 class="welcome-h">Your <em>SMM</em></h1>
           </div>
-          <p class="welcome-sub">Your social media management — your plan and how your accounts are performing, month by month.</p>
+          <p class="welcome-sub">Your social media management. Your plan, and how your accounts are performing, month by month.</p>
         </div>
         <figure class="dash-hero-media">
           <img src="/assets/sitting%20chair.jpg" alt="" loading="eager" />
@@ -28,7 +28,7 @@ import "../../styles/account-sections.css";
       <section id="soc-noclient" hidden>
         <div class="soc-card soc-empty">
           <h2 class="soc-empty-h">You're not on a managed social plan yet</h2>
-          <p class="soc-empty-p">TMKE can run your social media end to end — content, scheduling and clear monthly reporting. Take a look at what's included, or drop us a line.</p>
+          <p class="soc-empty-p">TMKE can run your social media end to end: content, scheduling and clear monthly reporting. Take a look at what's included, or drop us a line.</p>
           <div class="soc-actions">
             <a class="soc-btn soc-btn--primary" href="/account/services">See the plans</a>
             <a class="soc-btn" href="/account/contact">Get in touch</a>
@@ -52,7 +52,7 @@ import "../../styles/account-sections.css";
         <div class="soc-card soc-contact">
           <div>
             <h3 class="soc-contact-h">Questions about your social?</h3>
-            <p class="soc-contact-p">Your TMKE social team is here to help — from content ideas to the numbers below.</p>
+            <p class="soc-contact-p">Your TMKE social team is here to help, from content ideas to the numbers below.</p>
           </div>
           <a class="soc-btn soc-btn--primary" href="/account/contact">Contact your team</a>
         </div>
@@ -148,7 +148,7 @@ import "../../styles/account-sections.css";
 
     // How the shared report renderers are tailored for the client's view. Admin passes
     // no opts and keeps the full breakdown — this only trims what the member sees.
-    const MEMBER_OPTS = { compactCards: true, topN: 5, rankTop: true };
+    const MEMBER_OPTS = { compactCards: true, topN: 5, rankTop: true, hideHashtags: true };
 
     function renderPlan(c) {
       const platforms = Array.isArray(c.platforms) && c.platforms.length ? c.platforms.map((p) => `<span class="soc-chip">${esc(p)}</span>`).join("") : "—";
@@ -214,20 +214,24 @@ import "../../styles/account-sections.css";
       };
       const shows = (t) => !!HAS_DATA[t]() && hasBody(t);
       // Three tabs, in the order a client reads them:
-      //   Overview — the numbers, with the month-on-month trend folded in rather
-      //              than sat in a tab of its own.
-      //   Content  — how the posts themselves did.
-      //   Summary  — what we make of it all, in words, and the key takeaways. Last:
-      //              you read the evidence, then the conclusion drawn from it.
-      // Audience isn't listed and doesn't need to be: its fields are off in the
-      // client view, so the filter above already drops it. Turn them on and it
-      // reappears on its own.
+      //   Overview: the numbers, with the month-on-month trend graph folded in rather
+      //             than sat in a tab of its own.
+      //   Content:  how the posts themselves did.
+      //   Summary:  what we make of it all, in words, and the key takeaways. Last,
+      //             so you read the evidence and then the conclusion drawn from it.
+      // Audience is NOT a client tab, by rule, not by config — see §2 of
+      // docs/smm-report-rules.md. It's background context for whoever writes the
+      // report; a client doesn't need to know what time we post. Anything from it
+      // that IS worth their while (their audience is local, the age profile suits
+      // buyers) reaches them as a line in Key takeaways, written by a human.
+      // Deliberately not driven off the visibility flags: switching an audience
+      // field on in Settings must not put the tab back.
       const hasSummary = !!(vis.summary && d.summary);
       const hasActions = (vis.priorities || vis.comingSoon) && shows("actions");
       const showTrends = !!vis.trends && reports.length > 1;
       const TABS = [];
       if (shows("overview") || showTrends) TABS.push(["overview", "Overview"]);
-      [["content", "Content"], ["audience", "Audience"]].forEach((t) => { if (shows(t[0])) TABS.push(t); });
+      if (shows("content")) TABS.push(["content", "Content"]);
       // Summary sits at the END: you read the numbers, then what we make of them.
       if (hasSummary || hasActions) TABS.push(["summary", "Summary"]);
       // Fall back to the first tab that EXISTS, not a hard-coded "overview" — with
@@ -242,7 +246,7 @@ import "../../styles/account-sections.css";
         ? `<div class="ri-sec">How you're tracking, month on month</div>${renderTrends(reports.slice().reverse())}`
         : "";
       const body = !TABS.length
-        ? `<p class="smm-soon">There's nothing to show for this month yet — your team is still putting the numbers together.</p>`
+        ? `<p class="smm-soon">There's nothing to show for this month yet. Your team is still putting the numbers together.</p>`
         : tab === "summary" ? summaryHtml + keyTakeaways(d, vis)
         : tab === "overview" ? renderTab("overview", cur.data, cur, vis) + trendsHtml
         : renderTab(tab, cur.data, cur, vis, MEMBER_OPTS);

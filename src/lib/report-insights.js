@@ -116,7 +116,10 @@ export function renderContent(d, vis, opts) {
   if (show("paidContent") && hasAds) secs.push(`<div class="ri-sec">Paid advertising</div>${mkCard("Ads", ads, "#b9826a", true)}`);
   if (show("organicPaidInteractions") && hasAds) secs.push(`<div class="ri-sec">Organic vs paid</div>${splitHtml}`);
   if (show("topContent") && tc.length) secs.push(`<div class="ri-sec">Top performing content</div>${tcRows}`);
-  if (show("hashtags") && hts.length) secs.push(`<div class="ri-sec">Hashtag performance</div>${htRows}`);
+  // Hashtags are an admin tool. Per §2 of docs/smm-report-rules.md they're supporting
+  // context for explaining reach — not a standalone topic in the client's report, who
+  // has no use for a bar chart of their own hashtags.
+  if (show("hashtags") && hts.length && !o.hideHashtags) secs.push(`<div class="ri-sec">Hashtag performance</div>${htRows}`);
   // First visible section loses its top margin so the tab body sits flush.
   return secs.join("").replace(/^<div class="ri-sec"/, '<div class="ri-sec" style="margin-top:0;"');
 }
