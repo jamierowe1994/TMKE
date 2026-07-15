@@ -527,9 +527,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     /* Default layout: reveal the stack from first paint (body.stk-on is set by
        the inline script) so there's no blank/flash while the panels build. */
     body.stk-on .stk-wrap { display: block; }
-    /* Invisible markers down the runway — one per panel (see setupStack). */
-    .stk-sents { position: absolute; inset: 0; pointer-events: none; }
-    .stk-sent { position: absolute; left: 0; width: 1px; height: 100svh; }
     .stk {
       --bar: 38px;
       --hairline: rgba(28,29,34,0.16);
@@ -2078,6 +2075,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       window.addEventListener('resize', () => {
         clearTimeout(rt);
         rt = setTimeout(() => {
+          measure();                         // runway moved/resized — re-cache
           const next = colsForViewport();
           if (next === cols) return;
           cols = next;                       // 8 across, or 4 (two rows) on phones
@@ -2124,35 +2122,33 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       // itself paces the section change, so no hold is needed.
       const STEP = 170;                                   // svh per panel
       const TAIL = 70;                                    // svh held on the last
-      const stepPx = () => window.innerHeight * STEP / 100;
-      wrap.style.height = (N * STEP + TAIL) + 'svh';      // TAIL keeps the last
-                                                          // panel up before the
-                                                          // footer arrives
+      // Runway = the last panel's parking spot + its own screen + the tail. (Any
+      // longer and you'd scroll a dead screen on the Studio before the footer.)
+      wrap.style.height = ((N - 1) * STEP + 100 + TAIL) + 'svh';
       let open = -1;
       function setOpen(i) {
         if (i === open) return;
         open = i;
         panels.forEach((p, n) => p.classList.toggle('is-open', n === i));
       }
-      // One sentinel per panel down the runway; whichever crosses the viewport's
-      // centre line is the open panel. NB: the site runs Lenis smooth-scroll, so
-      // native scroll events never fire — an IntersectionObserver is driven by
-      // layout instead, and needs no scroll/rAF plumbing.
-      const sents = document.createElement('div');
-      sents.className = 'stk-sents';
-      sents.setAttribute('aria-hidden', 'true');
-      for (let i = 0; i < N; i++) {
-        const s = document.createElement('span');
-        s.className = 'stk-sent';
-        s.dataset.i = String(i);
-        s.style.top = (i * STEP) + 'svh';
-        sents.appendChild(s);
+      // Which panel is open is worked out straight from the scroll offset: the
+      // nearest parking spot wins, so it changes exactly half-way between two and
+      // every gap is an even STEP. (Sentinels + an IntersectionObserver did this
+      // before, but the marker had to fire when it crossed the screen's middle —
+      // i.e. half a screen early — which made the FIRST step 1.2 screens and the
+      // rest 1.7, since panel 0 sits at scroll 0 and can't fire early. Nudging the
+      // markers to fix that put them exactly on a boundary, where a zero-height
+      // detection band stops firing at all.)
+      // Measured ONCE (and on resize), never per scroll tick: reading offsetTop
+      // inside the scroll callback forces a layout recalc every frame while the
+      // panels are mid-transition, which thrashes layout and stalls the renderer.
+      let wrapTop = 0, stepCache = 0;
+      function measure() { wrapTop = wrap.offsetTop; stepCache = window.innerHeight * STEP / 100; }
+      measure();
+      function updateOpen() {
+        const p = (window.scrollY - wrapTop) / stepCache;
+        setOpen(Math.max(0, Math.min(N - 1, Math.round(p))));
       }
-      wrap.appendChild(sents);
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach((e) => { if (e.isIntersecting) setOpen(+e.target.dataset.i); });
-      }, { rootMargin: '-50% 0px -50% 0px', threshold: 0 });
-      sents.querySelectorAll('.stk-sent').forEach((s) => io.observe(s));
       setOpen(0);
 
       // Clicking a bar scrolls to that panel.
@@ -2172,7 +2168,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       let snapT = 0, snapGuard = 0, snapping = false;
 
       function goToPanel(i) {
-        const dest = wrap.offsetTop + i * stepPx();
+        const dest = wrapTop + i * stepCache;
         snapping = true;
         const done = () => { snapping = false; };
         // A snap that gets interrupted (you scroll mid-glide) never fires Lenis's
@@ -2189,25 +2185,26 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
       function doSnap() {
         const y = window.scrollY;
-        const p = (y - wrap.offsetTop) / stepPx();
+        const p = (y - wrapTop) / stepCache;
         if (p < -0.5 || p > N - 0.5) return;          // not on the runway
         const base = Math.floor(p), frac = p - base;
         const i = Math.max(0, Math.min(N - 1, frac >= 0.75 ? base + 1 : base));
-        const dest = wrap.offsetTop + i * stepPx();
-        if (Math.abs(dest - y) < 4) return;           // already parked
+        if (Math.abs((wrapTop + i * stepCache) - y) < 4) return;   // already parked
         goToPanel(i);
       }
-      function scheduleSnap() {
+      function onScroll() {
+        updateOpen();                                 // which panel is showing
         if (snapping || reduced) return;
         clearTimeout(snapT);
         snapT = setTimeout(doSnap, 140);              // fires once scrolling stops
       }
       // Lenis emits NO native scroll events, so hook its own callback. Poll for
-      // it — app.js loads Lenis from a CDN and may not have run yet.
+      // it — app.js loads Lenis from a CDN and may not have run yet. The native
+      // listener is only a fallback for if Lenis never turns up.
       (function hookLenis(tries) {
         const L = window.__lenis;
-        if (L && typeof L.on === 'function') { L.on('scroll', scheduleSnap); return; }
-        if ((tries || 0) > 40) { window.addEventListener('scroll', scheduleSnap, { passive: true }); return; }
+        if (L && typeof L.on === 'function') { L.on('scroll', onScroll); return; }
+        if ((tries || 0) > 40) { window.addEventListener('scroll', onScroll, { passive: true }); return; }
         setTimeout(() => hookLenis((tries || 0) + 1), 100);
       })();
     }
