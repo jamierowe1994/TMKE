@@ -95,6 +95,30 @@ import "../../styles/account-sections.css";
     .ri-kpi-sub { font-size: 10px; margin-top: 4px; }
     .ri-panel { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 15px 17px; margin-bottom: 14px; }
     .ri-sec { font-family: var(--sans, sans-serif); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8a8796; margin: 20px 0 9px; }
+
+    /* "What we're doing next" — the one part of the report a client should not be
+       able to miss, so it's a wine panel rather than another white card in the row. */
+    /* rgb(--violet-rgb), not var(--english-violet): in the hub theme that token
+       resolves to the BROWN #7e6765, not the wine. The page already declares
+       --violet-rgb: 55,30,40 up top — that's the wine, so use it. */
+    .soc-act { background: rgb(var(--violet-rgb, 55,30,40)); color: var(--paper, #f4f2f1); border-radius: 14px; padding: 20px 22px; margin-top: 20px; }
+    .soc-act-head { margin-bottom: 14px; }
+    /* Helios spelled out — global.css rebinds --serif to --subhead ON h3/h4, so
+       var(--serif) in here silently resolves to The Seasons. */
+    .soc-act-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 19px; font-style: normal; color: var(--paper, #f4f2f1); margin: 0 0 5px; }
+    .soc-act-sub { font-family: var(--sans, sans-serif); font-size: 13.5px; line-height: 1.55; color: rgba(244,242,241,0.72); margin: 0; max-width: 58ch; }
+    .soc-act-list { list-style: none; margin: 0; padding: 0; }
+    .soc-act-item { display: flex; align-items: flex-start; gap: 11px; padding: 11px 0; border-bottom: 1px solid rgba(244,242,241,0.14); font-family: var(--sans, sans-serif); font-size: 14.5px; line-height: 1.55; color: var(--paper, #f4f2f1); }
+    .soc-act-item:last-child { border-bottom: 0; }
+    /* The admin triage colours carry over so a glance still reads urgency, but the
+       Do-more/Improve/Fix-now legend stays behind — that's our shorthand, not theirs. */
+    .soc-act-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 7px; background: rgba(244,242,241,0.5); }
+    .soc-act-dot--go { background: #6fbf8b; }
+    .soc-act-dot--caution { background: #d8a83c; }
+    .soc-act-dot--action { background: #d98b6a; }
+    .soc-act-coming { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(244,242,241,0.14); }
+    .soc-act-coming-h { font-family: var(--sans, sans-serif); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(244,242,241,0.6); margin: 0 0 8px; }
+    .soc-act-coming-list { margin: 0; padding-left: 18px; font-family: var(--sans, sans-serif); font-size: 13.5px; line-height: 1.7; color: rgba(244,242,241,0.85); }
   </style>
 
   <script>
@@ -120,6 +144,28 @@ import "../../styles/account-sections.css";
           <div><dt>Platforms</dt><dd class="soc-chips">${platforms}</dd></div>
           ${since ? `<div><dt>Managed since</dt><dd>${esc(since)}</dd></div>` : ""}
         </dl>`;
+    }
+
+    // "Our actions" — the internal priorities, turned round to face the client.
+    // Admin reads them as a triage list (Do more / Improve / Fix now); a client
+    // shouldn't be handed a to-do list and left to wonder who's doing it. Same items,
+    // framed as what YOUR TEAM is doing next, which is what they're paying for.
+    function ourActions(d, vis) {
+      const prios = (d.priorities || []).filter((p) => p && p.text);
+      const coming = (d.comingSoon || []).filter(Boolean);
+      const showP = vis.priorities !== false && prios.length;
+      const showC = vis.comingSoon !== false && coming.length;
+      if (!showP && !showC) return "";
+      const items = showP ? prios.map((p) => `<li class="soc-act-item"><span class="soc-act-dot soc-act-dot--${esc(p.type || "action")}"></span><span>${esc(p.text)}</span></li>`).join("") : "";
+      return `
+        <section class="soc-act">
+          <div class="soc-act-head">
+            <h3 class="soc-act-h">What we're doing next</h3>
+            <p class="soc-act-sub">Your TMKE team sets these from this month's numbers — it's the plan for your accounts over the coming weeks.</p>
+          </div>
+          ${showP ? `<ul class="soc-act-list">${items}</ul>` : ""}
+          ${showC ? `<div class="soc-act-coming"><h4 class="soc-act-coming-h">Content coming up</h4><ul class="soc-act-coming-list">${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></div>` : ""}
+        </section>`;
     }
 
     function renderInsights() {
@@ -148,9 +194,13 @@ import "../../styles/account-sections.css";
         try { return renderTab(t, cur.data, cur, vis).trim() !== ""; } catch (_) { return false; }
       };
       const shows = (t) => !!HAS_DATA[t]() && hasBody(t);
-      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"]]
-        .filter(([t]) => shows(t));
-      if ((vis.priorities || vis.comingSoon) && shows("actions")) TABS.push(["actions", "Recommendations"]);
+      // Overview leads and carries the actions with it. "Recommendations" is no longer
+      // a tab of its own: it's the part a client most needs to see, and behind a tab
+      // is where things go to not be read. Overview shows if it has stats OR actions.
+      const overviewShows = shows("overview") || ((vis.priorities || vis.comingSoon) && shows("actions"));
+      const TABS = [];
+      if (overviewShows) TABS.push(["overview", "Overview"]);
+      [["content", "Content"], ["audience", "Audience"]].forEach((t) => { if (shows(t[0])) TABS.push(t); });
       // Trends plots month against month — with one month there's no trend to draw.
       if (vis.trends && reports.length > 1) TABS.push(["trends", "Trends"]);
       // Fall back to the first tab that EXISTS, not a hard-coded "overview" — with
@@ -159,9 +209,12 @@ import "../../styles/account-sections.css";
       if (!TABS.some(([t]) => t === tab)) tab = TABS.length ? TABS[0][0] : "";
       const tabs = TABS.map(([t, label]) => `<button type="button" class="ri-subtab ${tab === t ? "is-active" : ""}" data-tab="${t}">${label}</button>`).join("");
       const summary = (vis.summary && cur.data && cur.data.summary) ? `<div class="soc-summary">${esc(cur.data.summary)}</div>` : "";
+      // Overview = the month's round-up, then what we're doing about it.
       const body = !TABS.length
         ? `<p class="smm-soon">There's nothing to show for this month yet — your team is still putting the numbers together.</p>`
-        : tab === "trends" ? renderTrends(reports.slice().reverse()) : renderTab(tab, cur.data, cur, vis);
+        : tab === "trends" ? renderTrends(reports.slice().reverse())
+        : tab === "overview" ? renderTab("overview", cur.data, cur, vis) + ourActions(cur.data || {}, vis)
+        : renderTab(tab, cur.data, cur, vis);
       wrap.innerHTML = `<div class="ri-months">${months}</div>${summary}<div class="ri-subtabs">${tabs}</div><div>${body}</div>`;
       wrap.querySelectorAll("[data-mi]").forEach((b) => b.addEventListener("click", () => { curIdx = +b.getAttribute("data-mi"); renderInsights(); }));
       wrap.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.getAttribute("data-tab"); renderInsights(); }));
