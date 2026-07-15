@@ -60,6 +60,13 @@ import "../../../styles/admin.css";
     .auto-card-meta strong { color: var(--english-violet); font-weight: 700; }
     .auto-card-foot { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
     .auto-rowbtn { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid rgba(28,29,34,0.2); background: transparent; color: var(--english-violet); border-radius: 5px; padding: 6px 10px; cursor: pointer; }
+    /* Who's currently in this funnel — proof it's actually running. */
+    .auto-who { align-self: flex-start; margin: 2px 0 0; }
+    .auto-enrolled { margin: 8px 0 0; border-top: 1px solid rgba(28,29,34,0.1); padding-top: 8px; display: flex; flex-direction: column; gap: 5px; }
+    .auto-enrolled[hidden] { display: none; }
+    .auto-enrolled-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+    .auto-enrolled-name { font-family: var(--sans); font-size: 12.5px; color: var(--ink); }
+    .auto-enrolled-when { font-family: var(--sans); font-size: 10.5px; color: rgba(28,29,34,0.5); white-space: nowrap; }
     .auto-rowbtn.del { color: #a05a3c; border-color: #a05a3c; }
     .auto-rowbtn:hover { background: rgba(28,29,34,0.05); }
   </style>
@@ -73,6 +80,7 @@ import "../../../styles/admin.css";
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
+    const fmtDateTime = (d) => { try { return new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (_) { return ""; } };
 
     let ALL = [];
     let filter = "all";
@@ -81,7 +89,9 @@ import "../../../styles/admin.css";
       const rows = filter === "all" ? ALL : ALL.filter((a) => a.status === filter);
       $("auto-count").textContent = `${ALL.filter((a) => a.status === "active").length} active · ${ALL.length} total`;
       $("auto-empty").hidden = ALL.length !== 0;
-      $("auto-grid").innerHTML = rows.map((a) => `
+      $("auto-grid").innerHTML = rows.map((a) => {
+        const live = LIVE.get(a.id) || [];
+        return `
         <a class="auto-card" href="/admin/automations/edit?id=${esc(a.id)}">
           <div class="auto-card-top">
             <span class="auto-card-name">${esc(a.name)}</span>
@@ -89,13 +99,53 @@ import "../../../styles/admin.css";
           </div>
           <div class="auto-card-meta">
             Trigger: <strong>${esc(TRIGGER_LABELS[a.trigger_type] || "Not set")}</strong><br>
-            ${a.enrolled_count || 0} enrolled · updated ${esc(fmtDate(a.updated_at))}
+            <strong>${live.length}</strong> in the funnel now · edited ${esc(fmtDate(a.updated_at))}
           </div>
+          ${live.length ? `
+          <button type="button" class="auto-rowbtn auto-who" data-who="${esc(a.id)}">See who &darr;</button>
+          <div class="auto-enrolled" data-enrolled="${esc(a.id)}" hidden>
+            ${live.map((e) => `
+              <div class="auto-enrolled-row">
+                <span class="auto-enrolled-name">${esc(e.name)}</span>
+                <span class="auto-enrolled-when">${e.next_run_at ? "next " + esc(fmtDateTime(e.next_run_at)) : esc(e.status)}</span>
+              </div>`).join("")}
+          </div>` : ""}
           <div class="auto-card-foot">
             <button type="button" class="auto-rowbtn" data-dup="${esc(a.id)}">Duplicate</button>
             <button type="button" class="auto-rowbtn del" data-del="${esc(a.id)}">Delete</button>
           </div>
-        </a>`).join("");
+        </a>`;
+      }).join("");
+    }
+
+    // Live enrolments per automation. NB automations.enrolled_count is a stale
+    // column that nothing ever increments — it always reads 0 — so count the
+    // real enrolment rows instead. LIVE = the ones actually in the funnel now.
+    let LIVE = new Map();     // automation_id -> [{ contact_id, status, next_run_at, name, email }]
+    async function loadEnrollments() {
+      const { data: enr } = await supabase
+        .from("automation_enrollments")
+        .select("automation_id, contact_id, status, current_node_id, next_run_at")
+        .in("status", ["active", "waiting"])
+        .order("next_run_at", { ascending: true });
+      const rows = enr || [];
+      const ids = Array.from(new Set(rows.map((r) => r.contact_id))).filter(Boolean);
+      let byId = new Map();
+      if (ids.length) {
+        const { data: cs } = await supabase.from("contacts").select("id, first_name, last_name, email").in("id", ids);
+        (cs || []).forEach((c) => byId.set(c.id, c));
+      }
+      LIVE = new Map();
+      rows.forEach((r) => {
+        const c = byId.get(r.contact_id) || {};
+        const list = LIVE.get(r.automation_id) || [];
+        list.push({
+          ...r,
+          name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || "Someone",
+          email: c.email || "",
+        });
+        LIVE.set(r.automation_id, list);
+      });
     }
 
     async function load() {
@@ -103,6 +153,7 @@ import "../../../styles/admin.css";
       $("auto-loading").hidden = true;
       if (error) { $("auto-loading").hidden = false; $("auto-loading").textContent = "Couldn't load automations: " + error.message; return; }
       ALL = data || [];
+      try { await loadEnrollments(); } catch (_) {}
       render();
     }
 
@@ -137,6 +188,14 @@ import "../../../styles/admin.css";
     $("auto-grid")?.addEventListener("click", async (e) => {
       const t = e.target;
       if (!(t instanceof HTMLElement)) return;
+      // "See who" — reveal the contacts currently in this funnel.
+      const who = t.getAttribute("data-who");
+      if (who) {
+        e.preventDefault();
+        const box = document.querySelector(`[data-enrolled="${who}"]`);
+        if (box) { box.hidden = !box.hidden; t.innerHTML = box.hidden ? "See who &darr;" : "Hide &uarr;"; }
+        return;
+      }
       const dup = t.getAttribute("data-dup");
       const del = t.getAttribute("data-del");
       if (!dup && !del) return;
