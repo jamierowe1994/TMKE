@@ -214,9 +214,14 @@ section { position: relative; }
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  /* Logo keeps its left inset; the Login + Menu cluster sits tight in the
-     top-right corner. */
-  padding: 9px 28px 9px 76px;
+  /* The logo starts on the SAME line as every page's content; the Login + Menu
+     cluster sits tight in the top-right corner.
+     That left value is .wrap's maths (max-width 1360, centred, 76px pad) written out:
+     a flat 76px only agreed with the content while the window was under 1360px — past
+     that .wrap starts centring and the content walks right while the logo stayed put
+     (68px adrift at 1512). max() keeps the 76px floor for narrower screens, where
+     .wrap is full-bleed. The 980/560 overrides below already match .wrap's own. */
+  padding: 9px 28px 9px max(76px, calc((100% - 1360px) / 2 + 76px));
   transition: background 0.35s, padding 0.35s, color 0.35s;
   color: var(--ink);
 }
