@@ -1342,9 +1342,11 @@ async function autoExecAction(env, node, contact) {
   const c = node.config || {};
   try {
     if (node.type === "send_email") {
-      if (contact.dnd || contact.dnd_email || !c.template_id) return;
+      if (contact.dnd || contact.dnd_email) return { outcome: "skipped", detail: "contact is do-not-contact" };
+      if (!c.template_id) return { outcome: "skipped", detail: "no template chosen on this step" };
       const tRows = await sbGet(env, "email_templates", `id=eq.${c.template_id}&select=*`);
-      const t = tRows && tRows[0]; if (!t) return;
+      const t = tRows && tRows[0];
+      if (!t) return { outcome: "error", detail: "that email template no longer exists" };
       const brand = { ...defaultBrand(), ...(t.branding || {}), ...(await brandMasterSocials(env)) };
       const recipient = { name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email, first_name: contact.first_name || "", email: contact.email, company: contact.company || "" };
       // Hydrate the videography funnel tokens ({{bookingLink}}, {{code}}, …) when
@@ -1354,7 +1356,12 @@ async function autoExecAction(env, node, contact) {
         { subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
         { brand, mergeCtx: mergeContextFor(recipient, brand) }
       );
-      await sendEmail(env, { to: contact.email, subject, html });
+      // Record what actually went out (and whether it did) — this is what the
+      // funnel audit shows, and the only way to answer "did they get it?".
+      const sent = await sendEmail(env, { to: contact.email, subject, html });
+      return (sent && sent.ok)
+        ? { outcome: "ok", detail: `“${subject}” → ${contact.email}` }
+        : { outcome: "error", detail: `“${subject}” → ${contact.email} — ${String((sent && sent.error) || "send failed").slice(0, 200)}` };
     } else if (node.type === "add_tag" && c.tag) {
       const tags = Array.from(new Set([...(contact.tags || []), c.tag])); contact.tags = tags;
       await sbPatch(env, "contacts", `id=eq.${contact.id}`, { tags });
@@ -1424,9 +1431,20 @@ async function advanceEnrollment(env, enr) {
       });
     }
     let branch = "next";
-    if (node.type === "if_else") branch = (await autoEvalCondition(env, node.config || {}, contact)) ? "yes" : "no";
-    else await autoExecAction(env, node, contact);
-    await sbPost(env, "automation_runs", { enrollment_id: enr.id, automation_id: auto.id, contact_id: contact.id, node_id: cur, node_type: node.type, outcome: "ok" });
+    let acted = null;
+    if (node.type === "if_else") {
+      const yes = await autoEvalCondition(env, node.config || {}, contact);
+      branch = yes ? "yes" : "no";
+      acted = { outcome: "ok", detail: yes ? "condition met → yes" : "condition not met → no" };
+    } else {
+      acted = await autoExecAction(env, node, contact);
+    }
+    await sbPost(env, "automation_runs", {
+      enrollment_id: enr.id, automation_id: auto.id, contact_id: contact.id,
+      node_id: cur, node_type: node.type,
+      outcome: (acted && acted.outcome) || "ok",
+      detail: (acted && acted.detail) || null,
+    });
     const next = autoEdgeTo(graph, cur, branch);
     if (!next) return stop("completed", { current_node_id: cur });
     cur = next;

@@ -1,0 +1,160 @@
+---
+import AdminShell from "../../../components/admin/AdminShell.astro";
+import "../../../styles/admin.css";
+---
+
+<!--
+  Funnel audit — /admin/automations/audit?id=<automation_id>
+  Every person enrolled (and when), and every step that ran for them, including
+  the exact email sent and whether it actually went out. Built from
+  automation_enrollments (who + when) + automation_runs (what happened).
+-->
+<AdminShell active="automations" title="Funnel audit">
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-top">
+        <div>
+          <a class="aud-back" href="/admin/automations">&larr; Automations</a>
+          <h1 class="aud-title" id="aud-name">Funnel audit</h1>
+          <p class="aud-sub" id="aud-sub">Loading…</p>
+        </div>
+        <div class="admin-bar-tools">
+          <select class="auto-filter" id="aud-filter" aria-label="Filter">
+            <option value="all">Everything</option>
+            <option value="send_email">Emails only</option>
+            <option value="problems">Problems only</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <p class="aud-loading" id="aud-loading">Loading the audit…</p>
+    <p class="aud-empty" id="aud-empty" hidden>Nobody has entered this funnel yet.</p>
+    <div class="aud-list" id="aud-list"></div>
+  </div>
+
+  <style is:global>
+    .aud-back { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); text-decoration: none; }
+    .aud-back:hover { color: var(--english-violet); }
+    .aud-title { font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--ink); margin: 8px 0 2px; }
+    .aud-sub { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 0; }
+    .aud-loading, .aud-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); padding: 24px 0; }
+    .aud-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 60px; }
+    .aud-person { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 14px 16px; }
+    .aud-person-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .aud-person-name { font-family: var(--sans); font-weight: 700; font-size: 14px; color: var(--ink); }
+    .aud-person-meta { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.5); }
+    .aud-badge { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 999px; padding: 3px 9px; }
+    .aud-badge.active, .aud-badge.waiting { background: rgba(55,30,40,0.1); color: var(--english-violet); }
+    .aud-badge.completed { background: rgba(47,122,63,0.12); color: #2f7a3f; }
+    .aud-badge.stopped, .aud-badge.error { background: rgba(179,38,30,0.1); color: #b3261e; }
+    .aud-steps { margin: 12px 0 0; border-top: 1px solid rgba(28,29,34,0.08); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .aud-step { display: grid; grid-template-columns: 120px 1fr auto; gap: 12px; align-items: baseline; }
+    @media (max-width: 700px) { .aud-step { grid-template-columns: 1fr; gap: 2px; } }
+    .aud-step-type { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .aud-step-detail { font-family: var(--sans); font-size: 12.5px; color: var(--ink); line-height: 1.45; }
+    .aud-step-when { font-family: var(--sans); font-size: 10.5px; color: rgba(28,29,34,0.45); white-space: nowrap; }
+    .aud-step.is-error .aud-step-detail { color: #b3261e; }
+    .aud-step.is-skipped .aud-step-detail { color: rgba(28,29,34,0.5); }
+    .aud-none { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.45); }
+  </style>
+
+  <script>
+    import { supabase } from "../../../lib/supabase.js";
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const dt = (d) => { try { return new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return ""; } };
+    const TYPE_LABEL = {
+      send_email: "Email", wait: "Wait", if_else: "Condition", add_tag: "Tag added",
+      remove_tag: "Tag removed", add_note: "Note", create_task: "Task", set_dnd: "Do-not-contact",
+      set_field: "Field set", notify_team: "Team notified", goal: "Goal",
+    };
+
+    const id = new URLSearchParams(location.search).get("id");
+    let PEOPLE = [];
+    let filter = "all";
+
+    function render() {
+      const rows = PEOPLE.map((p) => {
+        let steps = p.steps;
+        if (filter === "send_email") steps = steps.filter((s) => s.node_type === "send_email");
+        else if (filter === "problems") steps = steps.filter((s) => s.outcome === "error" || s.outcome === "skipped");
+        return { ...p, steps };
+      }).filter((p) => filter === "all" || p.steps.length);
+
+      $("aud-empty").hidden = PEOPLE.length !== 0;
+      $("aud-list").innerHTML = rows.map((p) => `
+        <div class="aud-person">
+          <div class="aud-person-top">
+            <div>
+              <div class="aud-person-name">${esc(p.name)}</div>
+              <div class="aud-person-meta">${esc(p.email)} · entered ${esc(dt(p.created_at))}${p.next_run_at && (p.status === "active" || p.status === "waiting") ? " · next step " + esc(dt(p.next_run_at)) : ""}</div>
+            </div>
+            <span class="aud-badge ${esc(p.status)}">${esc(p.status)}</span>
+          </div>
+          <div class="aud-steps">
+            ${p.steps.length ? p.steps.map((s) => `
+              <div class="aud-step ${s.outcome === "error" ? "is-error" : s.outcome === "skipped" ? "is-skipped" : ""}">
+                <span class="aud-step-type">${esc(TYPE_LABEL[s.node_type] || s.node_type)}</span>
+                <span class="aud-step-detail">${esc(s.detail || (s.outcome === "ok" ? "ran" : s.outcome))}${s.outcome === "error" ? " ✗" : s.outcome === "ok" && s.node_type === "send_email" ? " ✓" : ""}</span>
+                <span class="aud-step-when">${esc(dt(s.created_at))}</span>
+              </div>`).join("") : '<div class="aud-none">Nothing has run for them yet.</div>'}
+          </div>
+        </div>`).join("");
+    }
+
+    async function load() {
+      if (!id) { $("aud-loading").textContent = "No automation id in the link."; return; }
+      const { data: auto } = await supabase.from("automations").select("name, status").eq("id", id).maybeSingle();
+      if (auto) { $("aud-name").textContent = auto.name; }
+
+      const { data: enr, error } = await supabase
+        .from("automation_enrollments")
+        .select("id, contact_id, status, next_run_at, created_at")
+        .eq("automation_id", id)
+        .order("created_at", { ascending: false });
+      if (error) { $("aud-loading").textContent = "Couldn't load the audit: " + error.message; return; }
+      const rows = enr || [];
+
+      // Contacts (names) + every step that ran, in one round-trip each.
+      const cids = Array.from(new Set(rows.map((r) => r.contact_id))).filter(Boolean);
+      const byContact = new Map();
+      if (cids.length) {
+        const { data: cs } = await supabase.from("contacts").select("id, first_name, last_name, email").in("id", cids);
+        (cs || []).forEach((c) => byContact.set(c.id, c));
+      }
+      const runsBy = new Map();
+      if (rows.length) {
+        const { data: runs } = await supabase
+          .from("automation_runs")
+          .select("enrollment_id, node_type, outcome, detail, created_at")
+          .eq("automation_id", id)
+          .order("created_at", { ascending: true });
+        (runs || []).forEach((r) => {
+          const list = runsBy.get(r.enrollment_id) || [];
+          list.push(r);
+          runsBy.set(r.enrollment_id, list);
+        });
+      }
+
+      PEOPLE = rows.map((r) => {
+        const c = byContact.get(r.contact_id) || {};
+        return {
+          ...r,
+          name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || "Someone",
+          email: c.email || "",
+          steps: runsBy.get(r.id) || [],
+        };
+      });
+
+      const emails = PEOPLE.reduce((n, p) => n + p.steps.filter((s) => s.node_type === "send_email" && s.outcome === "ok").length, 0);
+      const failed = PEOPLE.reduce((n, p) => n + p.steps.filter((s) => s.outcome === "error").length, 0);
+      $("aud-sub").textContent = `${PEOPLE.length} ${PEOPLE.length === 1 ? "person has" : "people have"} entered · ${emails} email${emails === 1 ? "" : "s"} sent${failed ? ` · ${failed} problem${failed === 1 ? "" : "s"}` : ""}`;
+      $("aud-loading").hidden = true;
+      render();
+    }
+
+    $("aud-filter")?.addEventListener("change", (e) => { filter = e.target.value; render(); });
+    load();
+  </script>
+</AdminShell>
