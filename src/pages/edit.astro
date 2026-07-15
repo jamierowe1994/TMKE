@@ -2021,7 +2021,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       document.body.classList.remove('edit-page');
       wrap.hidden = false;
 
-      const WORDS = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
       const bar = (name, meta, tag) =>
         `<button type="button" class="stk-bar"><span class="stk-dot"></span>`
         + `<span class="stk-name">${escapeHtml(name)}</span>`
@@ -2047,24 +2046,32 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const pick = (i) => designs.length ? designs[i % designs.length] : '';
         const SHOWN = 5;                                  // designs visible in the row
         const hover = designs.length > SHOWN ? designs[SHOWN % designs.length] : (designs[designs.length - 1] || heroOf(p));
-        const pillar = p.category ? p.category + ' Template Pack' : 'Template Pack';
+        // The subheading is the pack's pillar on its own — no "Template Pack" tail
+        // (the whole row is template packs) and the long category shortened, so it
+        // stays one line in a box this size. The DB category is untouched; this is
+        // only what the box says.
+        const SHORT = { 'Service and Standards': 'Service' };
+        const pillar = p.category ? (SHORT[p.category] || p.category) : '';
         const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
-        const numTxt = 'Pack ' + (WORDS[n] || String(n + 1));
         const nextPack = list[(n + 1) % list.length];
         const nextName = (nextPack && nextPack.title) || 'The next pack';
 
+        // num is optional now — the pack boxes drop "Pack One/Two/Three" and lead
+        // with the name. Only box 8 still labels itself ("Next Pack"), because that
+        // word is what tells you the box is a control rather than a pack.
         const box = (num, main, sub) =>
           `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
           + `<span class="egh-tile-img" style="background-image:url('${hover}')"></span>`
-          + `<span class="egh-tile-cap"><span class="egh-tile-num">${escapeHtml(num)}</span>`
+          + `<span class="egh-tile-cap">`
+          + (num ? `<span class="egh-tile-num">${escapeHtml(num)}</span>` : '')
           + `<span class="egh-tile-name">${escapeHtml(main)}</span>`
           + (sub ? `<span class="egh-tile-sub">${escapeHtml(sub)}</span>` : '')
           + `</span></a>`;
         const design = (i) => `<div class="egh-tile egh-tile--image"><span class="egh-img" style="background-image:url('${pick(i)}')"></span></div>`;
 
-        return box(numTxt, p.title || '', pillar)         // 1
+        return box('', p.title || '', pillar)             // 1
           + design(0) + design(1) + design(2) + design(3) // 2-5
-          + box(numTxt, 'Shop the Pack', pillar)          // 6
+          + box('', 'Shop the Pack', pillar)              // 6
           + design(4)                                     // 7
           + `<button type="button" class="egh-tile egh-tile--next" data-nextpack>`
           +   `<span class="egh-tile-cap"><span class="egh-tile-num">Next Pack</span>`
