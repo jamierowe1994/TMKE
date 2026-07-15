@@ -810,16 +810,21 @@ import "../../../styles/admin.css";
       const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="${isM?`mobile.pad.${k}`:`pad.${k}`}" value="${pad[k]!=null?pad[k]:""}" placeholder="${dflt[k]!=null?dflt[k]:0}"/></label>`;
       return `<div class="eb-pad"><span class="eb-f-sub">Padding · inside</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
     }
-    // Margin = OUTSIDE spacing (global). Placeholder shows the default gap.
-    function marginFields(b){
+    // Margin = OUTSIDE spacing. Per-device like padding: on mobile it writes to
+    // b.mobile.margin.* and blank inherits desktop. Placeholder shows what it
+    // would inherit (the desktop value, else the block default).
+    function marginFields(b, device){
+      const isM = device==="mobile";
       const dflt = spacingDefaults(b.type).margin;
-      const mar = b.margin||{};
-      const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="margin.${k}" value="${mar[k]!=null?mar[k]:""}" placeholder="${dflt[k]!=null?dflt[k]:0}"/></label>`;
+      const desk = b.margin||{};
+      const mar = isM ? ((b.mobile&&b.mobile.margin)||{}) : desk;
+      const ph = (k)=> isM ? (desk[k]!=null?desk[k]:(dflt[k]!=null?dflt[k]:0)) : (dflt[k]!=null?dflt[k]:0);
+      const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="${isM?`mobile.margin.${k}`:`margin.${k}`}" value="${mar[k]!=null?mar[k]:""}" placeholder="${ph(k)}"/></label>`;
       return `<div class="eb-pad"><span class="eb-f-sub">Margin · outside</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
     }
     // Padding + margin ALWAYS travel together (padding inside, margin outside),
     // formatted identically on every block that has spacing.
-    function spacingGrids(b, device){ return `${dPad(b, device)}${marginFields(b)}`; }
+    function spacingGrids(b, device){ return `${dPad(b, device)}${marginFields(b, device)}`; }
     // Standalone spacing box for blocks with no other per-device controls (e.g.
     // columns) so their spacing looks the same as everywhere else.
     function spacingBox(b, device){
@@ -827,7 +832,7 @@ import "../../../styles/admin.css";
     }
     function respWrap(device, inner){
       return `<div class="eb-resp"><div class="eb-resp-head"><span class="eb-f-sub">Size &amp; spacing</span>${deviceToggleMini(device)}</div>${inner}
-        <p class="eb-note">${device==="mobile"?"Size &amp; padding are per-device (blank = inherit desktop). Margin is the same on all devices.":"Size &amp; padding are per-device (tap 📱 for mobile). Margin is the same on all devices."}</p></div>`;
+        <p class="eb-note">${device==="mobile"?"Size, padding &amp; margin are per-device — blank = inherit the desktop value.":"Size, padding &amp; margin are per-device (tap 📱 to set mobile separately)."}</p></div>`;
     }
     function buttonRespFields(b, device){
       return respWrap(device, `<div class="eb-f2">${dField(b,device,"size","Text size (px)",'type="number" min="8" max="40"',14)}${dField(b,device,"letterSpacing","Letter spacing",'type="number" min="-3" max="14" step="0.5"',0)}</div>${dAlign(b,device)}${spacingGrids(b,device)}`);
