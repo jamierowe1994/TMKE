@@ -191,6 +191,8 @@ import "../../styles/admin.css";
     .ct-life { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
     .ct-life.customer, .ct-life.member { color: #2c7a4b; background: rgba(44,122,75,0.12); }
     .ct-life.lead { color: var(--english-violet); background: rgba(var(--violet-rgb),0.1); }
+    /* TEG — came in via The Experts Group; sits between Lead and Member. */
+    .ct-life.teg { color: #7e6765; background: rgba(126,103,101,0.14); }
     .ct-life.dnd { color: #a05a3c; background: rgba(160,90,60,0.12); }
     .ct-tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.7); margin: 0 4px 2px 0; }
 
@@ -300,12 +302,22 @@ import "../../styles/admin.css";
     const fullName = (c) => [c.first_name, c.last_name].filter(Boolean).join(" ") || "(no name)";
     const gbp = (p) => (p == null ? "—" : "£" + (p / 100).toLocaleString("en-GB", { minimumFractionDigits: p % 100 ? 2 : 0, maximumFractionDigits: 2 }));
     const humanizeSource = (s) => { if (!s) return "—"; return String(s).replace(/_/g, " ").replace(/\bsmm\b/gi, "SMM").replace(/\btmke\b/gi, "TMKE").replace(/^./, (ch) => ch.toUpperCase()); };
-    // Single lifecycle label from attributes: Customer (paid/booked) > Member
-    // (has account) > Lead (contact only); 'past' is a manual override.
+    // Single lifecycle label from attributes, most-progressed first:
+    // Customer (paid/booked) > Member (has account) > TEG (came in via The
+    // Experts Group) > Lead (contact only). 'past' is a manual override.
+    // So a TEG starter shows as TEG rather than Lead, and is promoted to
+    // Member/Customer the moment they create an account or book something.
+    // The lifecycle ladder, least → most progressed. "TEG" is written out (not
+    // title-cased from the value) because it's an acronym.
+    const LIFECYCLES = [["lead", "Lead"], ["teg", "TEG"], ["member", "Member"], ["customer", "Customer"], ["past", "Past"]];
+    const lifecycleLabel = (v) => (LIFECYCLES.find(([x]) => x === v) || [v, v])[1];
+    const isTeg = (c) => (c.tags || []).some((t) => /^Videography-New-Starter:/i.test(t))
+      || c.source === "agent_sheet_sync" || c.lifecycle === "teg";
     function deriveLifecycle(c) {
       if (c.lifecycle === "past") return "past";
       if (isPurchaser(c) || isSession(c)) return "customer";
       if (c.user_id) return "member";
+      if (isTeg(c)) return "teg";
       return "lead";
     }
     // Framework tags (the manual "add tag" dropdown) — shared catalogue, no free-text.
@@ -388,7 +400,7 @@ import "../../styles/admin.css";
           <td class="ct-check-cell"><input type="checkbox" class="ct-row-check" data-check="${esc(c.id)}" ${selectedIds.has(c.id) ? "checked" : ""} aria-label="Select ${esc(fullName(c))}" /></td>
           <td>${esc(fullName(c))}${c.needs_review ? ' <span class="ct-flag" title="Possible duplicate — needs review">⚠</span>' : ""}</td>
           <td>${esc(c.email)}</td>
-          <td><span class="ct-life ${c.dnd ? "dnd" : esc(deriveLifecycle(c))}">${c.dnd ? "DND" : esc(deriveLifecycle(c))}</span></td>
+          <td><span class="ct-life ${c.dnd ? "dnd" : esc(deriveLifecycle(c))}">${c.dnd ? "DND" : esc(lifecycleLabel(deriveLifecycle(c)))}</span></td>
           <td>${(c.tags || []).slice(0, 4).map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") || "—"}</td>
           <td>${esc(fmtDate(c.last_seen_at))}</td>
         </tr>`).join("");
@@ -628,7 +640,7 @@ import "../../styles/admin.css";
               <div><dt>Marketing opt-in</dt><dd>${c.marketing_opt_in ? "Yes" : "No"}</dd></div>
             </dl>
             <div class="ct-row" style="margin-top:14px">
-              <select id="ct-life-sel">${["lead","customer","member","past"].map((l) => `<option value="${l}" ${c.lifecycle === l ? "selected" : ""}>${l.charAt(0).toUpperCase() + l.slice(1)}</option>`).join("")}</select>
+              <select id="ct-life-sel">${LIFECYCLES.map(([v, label]) => `<option value="${v}" ${c.lifecycle === v ? "selected" : ""}>${label}</option>`).join("")}</select>
               <label class="ct-toggle"><input type="checkbox" id="ct-dnd" ${c.dnd ? "checked" : ""}/> Do-not-contact</label>
             </div>
           </div>
@@ -912,7 +924,7 @@ import "../../styles/admin.css";
       rows.forEach((c) => {
         const row = [
           c.first_name || "", c.last_name || "", c.email || "", c.phone || "", c.company || "",
-          deriveLifecycle(c), c.user_id ? "Yes" : "No", c.marketing_opt_in ? "Yes" : "No", c.dnd ? "Yes" : "No",
+          lifecycleLabel(deriveLifecycle(c)), c.user_id ? "Yes" : "No", c.marketing_opt_in ? "Yes" : "No", c.dnd ? "Yes" : "No",
           humanizeSource(c.source), iso(c.created_at), iso(c.last_seen_at),
         ];
         allTags.forEach((t) => row.push((c.tags || []).includes(t) ? "Yes" : ""));

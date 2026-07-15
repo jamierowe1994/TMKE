@@ -468,6 +468,10 @@ async function syncAgentSheet(env) {
     const brand = cell(idx.brand) || null;
     const isCancelled = /^(y|yes|true|1|cancelled)$/i.test(cell(idx.cancelled));
     try {
+      // NB don't pass p_lifecycle here: upsert_contact does
+      // `lifecycle = coalesce(p_lifecycle, existing)`, so forcing "teg" every
+      // 15-minute re-sync would clobber a manual "Past" (and any later state).
+      // The CRM derives TEG from the new-starter tag + source instead.
       const cid = await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: first, p_last_name: last, p_phone: cell(idx.phone) || null, p_company: brand, p_source: "agent_sheet_sync", p_tags: crmTags(email, [], {}) });
       const contactId = Array.isArray(cid) ? cid[0] : cid;
       if (!contactId) { skipped++; continue; }
