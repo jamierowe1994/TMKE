@@ -1307,6 +1307,24 @@ const EM_P = 'font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;';
 const EM_QUOTE = 'background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;color:#40353a;white-space:pre-wrap;margin:0 0 14px;';
 const EM_BTN = 'display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:700;padding:13px 26px;border-radius:8px;';
 
+// Sample renders of the automated emails, so the admin Automated-emails page can
+// show what one actually looks like — and send that exact render as a test.
+// Shared by GET /email/preview and POST /email/preview/send so the preview and
+// the test email can never drift apart. Returns { subject, html } or null.
+function emailPreviewSample(id) {
+  const SAMPLES = {
+    post_reminder: () => ({ subject: "Your Instagram post is planned for today", html: reminderHtml({ title: "Spring launch teaser", asset_url: "https://assets.tmke.co.uk/white-1.webp" }, "Instagram", "New season, new listings ✨\n\nSwipe to see what's just come to market — book a viewing before they're gone.") }),
+    setup_reminder: () => ({ subject: "Set your password to unlock your TMKE pack", html: setupReminderHtml({ name: "Alex Morgan", pack: "The Spring Collection", link: "https://tmke.co.uk/set-password?token=sample" }) }),
+    waitlist_register: () => ({ subject: "You're on the cancellation list — The Studio", html: waitlistHtml({ name: "Alex Morgan", service: "The Studio", pkg: "Half day", date: "2026-08-25", time: "10:00" }) }),
+    vid_booking_client: () => ({ subject: "Booking confirmed — Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
+    vid_booking_team: () => ({ subject: "New booking — Property Videography — Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
+    invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
+    invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 — Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
+  };
+  const fn = SAMPLES[id];
+  return fn ? fn() : null;
+}
+
 async function wrapInBrandedBase(env, contentHtml) {
   try {
     const rows = await sbGet(env, "email_templates", "name=ilike.*base*&status=eq.active&select=branding,blocks&order=updated_at.desc&limit=1");
@@ -3266,27 +3284,36 @@ export default {
       // Powers the admin email-template builder's "Send test", and is the relay
       // ---- Admin: preview an automated email (renders the REAL builder with
       // sample data — read-only, changes nothing that sends). ------------------
+      // Preview an automated email with sample data — and (POST) send that exact
+      // preview to yourself as a test, so what you check is what goes out.
+      if (path.endsWith("/email/preview/send") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.id) || "");
+        const to = String((b && b.to) || "").trim();
+        if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return json({ ok: false, error: "Enter a valid email address." }, 200, request, env);
+        const built = emailPreviewSample(id);
+        if (!built) return json({ ok: false, error: "There's no preview for that email yet." }, 200, request, env);
+        let html = built.html;
+        if (b && b.branded) html = await wrapInBrandedBase(env, html);
+        const sent = await sendEmail(env, { to, subject: `[Test] ${built.subject}`, html });
+        return sent && sent.ok
+          ? json({ ok: true, to }, 200, request, env)
+          : json({ ok: false, error: (sent && sent.error) || "Couldn't send it." }, 200, request, env);
+      }
+
       if (path.endsWith("/email/preview") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const id = url.searchParams.get("id") || "";
-        const SAMPLES = {
-          post_reminder: () => ({ subject: "Your Instagram post is planned for today", html: reminderHtml({ title: "Spring launch teaser", asset_url: "https://assets.tmke.co.uk/white-1.webp" }, "Instagram", "New season, new listings ✨\n\nSwipe to see what's just come to market — book a viewing before they're gone.") }),
-          setup_reminder: () => ({ subject: "Set your password to unlock your TMKE pack", html: setupReminderHtml({ name: "Alex Morgan", pack: "The Spring Collection", link: "https://tmke.co.uk/set-password?token=sample" }) }),
-          waitlist_register: () => ({ subject: "You're on the cancellation list — The Studio", html: waitlistHtml({ name: "Alex Morgan", service: "The Studio", pkg: "Half day", date: "2026-08-25", time: "10:00" }) }),
-          vid_booking_client: () => ({ subject: "Booking confirmed — Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
-          vid_booking_team: () => ({ subject: "New booking — Property Videography — Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
-          invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
-          invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 — Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
-        };
-        const fn = SAMPLES[id];
-        if (!fn) return json({ ok: true, supported: false }, 200, request, env);
+        const built = emailPreviewSample(id);
+        if (!built) return json({ ok: true, supported: false }, 200, request, env);
         try {
-          const out = fn();
-          let html = out.html;
+          let html = built.html;
           // ?branded=1 → wrap the email in the active "Branded base" template.
           if (url.searchParams.get("branded") === "1") html = await wrapInBrandedBase(env, html);
-          return json({ ok: true, supported: true, subject: out.subject, html }, 200, request, env);
+          return json({ ok: true, supported: true, subject: built.subject, html }, 200, request, env);
         } catch (e) { return json({ ok: false, error: String((e && e.message) || e) }, 200, request, env); }
       }
 

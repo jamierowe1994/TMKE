@@ -89,7 +89,15 @@ const PREVIEWABLE = new Set(["post_reminder", "setup_reminder", "waitlist_regist
         <button type="button" class="ae-modal-x" id="ae-modal-x" aria-label="Close">&times;</button>
       </div>
       <div class="ae-modal-body"><p class="ae-modal-loading" id="ae-modal-loading">Rendering…</p><iframe id="ae-modal-frame" title="Email preview" hidden></iframe></div>
-      <div class="ae-modal-foot">Rendered with sample data — this is exactly what the system builds and sends.</div>
+      <div class="ae-modal-foot">
+        <span>Rendered with sample data — this is exactly what the system builds and sends.</span>
+        <!-- Send this exact render to yourself, so what you check is what goes out. -->
+        <form class="ae-test" id="ae-test-form">
+          <input type="email" id="ae-test-to" placeholder="you@tmke.co.uk" autocomplete="email" required />
+          <button type="submit" class="ae-test-btn" id="ae-test-btn">Send test</button>
+          <span class="ae-test-msg" id="ae-test-msg" hidden></span>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -155,7 +163,15 @@ const PREVIEWABLE = new Set(["post_reminder", "setup_reminder", "waitlist_regist
     .ae-modal-body { flex: 1; min-height: 0; overflow: auto; background: #f4f2f1; padding: 18px; }
     .ae-modal-loading { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); text-align: center; padding: 40px 0; }
     #ae-modal-frame { width: 100%; height: 60vh; border: 0; background: #fff; border-radius: 8px; box-shadow: 0 1px 6px rgba(20,18,26,0.12); }
-    .ae-modal-foot { padding: 11px 20px; border-top: 1px solid rgba(28,29,34,0.08); font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.5); }
+    .ae-modal-foot { padding: 11px 20px; border-top: 1px solid rgba(28,29,34,0.08); font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.5); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    /* Send this exact preview to yourself as a test. */
+    .ae-test { display: flex; align-items: center; gap: 7px; }
+    .ae-test input { font-family: var(--sans); font-size: 12px; padding: 6px 9px; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: #fff; color: var(--ink); min-width: 180px; }
+    .ae-test-btn { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; border: 0; background: var(--english-violet); color: var(--paper); border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+    .ae-test-btn:disabled { opacity: 0.55; cursor: default; }
+    .ae-test-msg { font-size: 11px; }
+    .ae-test-msg.ok { color: #2f7a3f; }
+    .ae-test-msg.err { color: #b3261e; }
   </style>
 
   <script>
@@ -235,8 +251,42 @@ const PREVIEWABLE = new Set(["post_reminder", "setup_reminder", "waitlist_regist
     togCurrent.addEventListener("click", () => { if (branded) { branded = false; loadPreview(); } });
     togBranded.addEventListener("click", () => { if (!branded) { branded = true; loadPreview(); } });
 
+    // Send the preview you're looking at (same id + Current/Branded state) to
+    // yourself — the worker re-renders from the same sample builder, so the test
+    // can't drift from the preview.
+    const testForm = document.getElementById("ae-test-form");
+    const testTo = document.getElementById("ae-test-to");
+    const testBtn = document.getElementById("ae-test-btn");
+    const testMsg = document.getElementById("ae-test-msg");
+    function setTestMsg(text, kind) {
+      testMsg.hidden = !text; testMsg.textContent = text || "";
+      testMsg.className = "ae-test-msg" + (kind ? " " + kind : "");
+    }
+    testForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const to = (testTo.value || "").trim();
+      if (!to || !curId) return;
+      testBtn.disabled = true; setTestMsg("Sending…", "");
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        const res = await fetch(`${WORKER}/email/preview/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ id: curId, branded, to }),
+        });
+        const j = await res.json().catch(() => ({}));
+        setTestMsg(j.ok ? `Sent to ${j.to}` : (j.error || "Couldn't send it."), j.ok ? "ok" : "err");
+        if (j.ok) try { localStorage.setItem("tmke.testEmail", to); } catch (_) {}
+      } catch (_) { setTestMsg("Couldn't send it.", "err"); }
+      testBtn.disabled = false;
+    });
+
     document.querySelectorAll("[data-preview]").forEach((btn) => btn.addEventListener("click", () => {
       curId = btn.getAttribute("data-preview"); curName = btn.getAttribute("data-name") || "Preview"; branded = false;
+      // Fresh test row per open: clear the last result, keep the address.
+      setTestMsg("", "");
+      try { if (!testTo.value) testTo.value = localStorage.getItem("tmke.testEmail") || ""; } catch (_) {}
       mTitle.textContent = curName; mSubj.textContent = "";
       modal.hidden = false;
       loadPreview();
