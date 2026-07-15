@@ -640,6 +640,29 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        design tiles to set the row height, so its boxes carry the 3:4 themselves. */
     #stk-feat .egh-tile { aspect-ratio: 3 / 4; }
 
+    /* Click anywhere in the Studio and the boxes part from the middle — the left
+       four slide left, the right four slide right — revealing the copy behind.
+       --push clears half the text column (+ a margin) so nothing overlaps it. */
+    .stk-studio { position: relative; cursor: pointer; --push: calc(min(680px, 62vw) / 2 + 26px); }
+    .stk-studio .stk-pgrid { position: relative; z-index: 1; }
+    .stk-studio .egh-tile { transition: transform 0.75s cubic-bezier(.2,.8,.2,1); }
+    .stk-studio.is-open .egh-tile:nth-child(-n+4) { transform: translateX(calc(-1 * var(--push))); }
+    .stk-studio.is-open .egh-tile:nth-child(n+5)  { transform: translateX(var(--push)); }
+    /* Sits behind the boxes; fades up just after they start parting. Clicks pass
+       straight through, so clicking anywhere closes it again. */
+    .stk-reveal {
+      position: absolute; inset: 0; z-index: 0; display: grid; place-items: center;
+      padding: clamp(16px, 3vh, 40px); pointer-events: none;
+      opacity: 0; transition: opacity 0.45s ease 0.18s;
+    }
+    .stk-studio.is-open .stk-reveal { opacity: 1; }
+    .stk-reveal-inner { max-width: 680px; display: flex; flex-direction: column; gap: 13px; }
+    .stk-reveal p {
+      margin: 0; font-family: var(--sans); font-size: clamp(12.5px, 0.95vw, 15px);
+      line-height: 1.6; color: rgba(28,29,34,0.78);
+    }
+    @media (prefers-reduced-motion: reduce) { .stk-studio .egh-tile { transition: none; } }
+
     /* Box 1's subheading — the pillar, a notch smaller, on one line. */
     .stk-pgrid .egh-tile-sub {
       font-family: var(--sans); font-size: 11px; font-weight: 500; line-height: 1.2;
@@ -1985,9 +2008,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       html += `<section class="stk-p" data-i="2">`
         + bar('Shop the Packs', 'Every Pack', 'Browse, Buy')
         + `<div class="stk-body stk-body--pad" id="stk-body-shop"></div></section>`;
+      const STUDIO_COPY = [
+        'Every pack you purchase lives permanently in your members area. Ready to open, edit, and use whenever you need it. No chasing download links, no losing files. Your templates are always there, waiting for you.',
+        'Inside the members area, you&rsquo;ll find the TMKE Design Studio. A built-in editing platform designed specifically with estate agents in mind. There&rsquo;s no Canva experience needed and no design skills required. Most of the hard work is already done. You&rsquo;re simply swapping in your own property details, your photos, and your branding. It&rsquo;s been built to be as straightforward as possible, because your time is better spent on your business than wrestling with a design tool.',
+        'Your membership also gives you access to a growing library of resources, guidance, and content planning tools to help you get the most out of every template you own. And because your account is yours for life, every pack you add along the way sits in the same place, building into a complete content library that moves with your business. Purchase once, use it forever.',
+      ];
       html += `<section class="stk-p" data-i="3">`
         + bar('The Studio', 'Design Studio', 'What You Can Do')
-        + `<div class="stk-body stk-body--pack"><div class="stk-pgrid" id="stk-feat"></div></div></section>`;
+        + `<div class="stk-body stk-body--pack stk-studio" id="stk-studio">`
+        +   `<div class="stk-reveal"><div class="stk-reveal-inner">`
+        +     STUDIO_COPY.map((t) => `<p>${t}</p>`).join('')
+        +   `</div></div>`
+        +   `<div class="stk-pgrid" id="stk-feat"></div>`
+        + `</div></section>`;
       stk.innerHTML = html;
       stk.style.setProperty('--cols', String(cols));
 
@@ -2065,6 +2098,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       ];
       const pool = [];
       list.forEach((p) => designsOf(p).forEach((u) => pool.push(u)));
+      // Click anywhere in the Studio to part the boxes and reveal the copy;
+      // click again (anywhere) to close them back in.
+      const studio = document.getElementById('stk-studio');
+      studio?.addEventListener('click', () => studio.classList.toggle('is-open'));
+
       // Mirrors the pack row exactly: eight boxes in the same grid and size, all
       // white — hovering one clears the text and reveals a design.
       const feat = document.getElementById('stk-feat');
