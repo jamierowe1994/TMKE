@@ -1298,6 +1298,15 @@ async function brandMasterSocials(env) {
 // base's own sample message/CTA blocks are swapped for `contentHtml`; its logo,
 // divider, footer + branding are kept. Falls back to the raw content if there's
 // no base template (never breaks a send).
+// Copy styles for emails that go through the branded base. The base supplies
+// all the chrome (card, logo, divider, footer with contact + socials), so the
+// content passed in is JUST the words — no wrapper div, no max-width, and no
+// hand-rolled "Sent by TMKE" footer (the base already has one).
+const EM_H1 = 'font-family:Georgia,serif;font-size:24px;color:#371e28;margin:0 0 14px;';
+const EM_P = 'font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;';
+const EM_QUOTE = 'background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;color:#40353a;white-space:pre-wrap;margin:0 0 14px;';
+const EM_BTN = 'display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:700;padding:13px 26px;border-radius:8px;';
+
 async function wrapInBrandedBase(env, contentHtml) {
   try {
     const rows = await sbGet(env, "email_templates", "name=ilike.*base*&status=eq.active&select=branding,blocks&order=updated_at.desc&limit=1");
@@ -2470,11 +2479,10 @@ export default {
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
           to: email, subject: `Thanks for your enquiry — ${service || "TMKE"}`,
-          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:22px;margin:0 0 6px">Thanks — we'll be in touch</h1>
-            <p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(name)}, thanks for your interest in ${esc(service || "our videography")}. Jack will be in touch shortly to talk through what you need and put a quote together.</p>
-            ${message ? `<div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(message)}</div>` : ""}
-            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p></div>`,
+          html: await wrapInBrandedBase(env, `
+            <h1 style="${EM_H1}">Thanks — we'll be in touch</h1>
+            <p style="${EM_P}">Hi ${esc(name)}, thanks for your interest in ${esc(service || "our videography")}. Jack will be in touch shortly to talk through what you need and put a quote together.</p>
+            ${message ? `<div style="${EM_QUOTE}">${esc(message)}</div>` : ""}`),
         });
         await sendEmail(env, {
           to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New enquiry — ${service || "Videography"} — ${name}`,
@@ -2559,12 +2567,11 @@ export default {
         // Auto-acknowledgement to the sender — ALWAYS (per brief).
         await sendEmail(env, {
           to: email, subject: "Thanks — we've got your message",
-          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:22px;margin:0 0 6px">Thanks, ${esc(first_name)} — message received</h1>
-            <p style="color:#555;font-size:14px;margin:0 0 18px">We've received your enquiry and a member of the TMKE team will be in touch within one working day.</p>
-            ${message ? `<div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(message)}</div>` : ""}
-            ${accountCreated ? `<p style="color:#555;font-size:14px;margin:18px 0 0">We've also created your TMKE account — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
-            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
+          html: await wrapInBrandedBase(env, `
+            <h1 style="${EM_H1}">Thanks, ${esc(first_name)} — message received</h1>
+            <p style="${EM_P}">We've received your enquiry and a member of the TMKE team will be in touch within one working day.</p>
+            ${message ? `<div style="${EM_QUOTE}">${esc(message)}</div>` : ""}
+            ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
         });
         await logBookingMessage(env, {
           booking_id: smmEnquiryId, booking_source: "smm",
@@ -2650,12 +2657,11 @@ export default {
         // Email the brochure (a link — works the moment the PDF is uploaded).
         await sendEmail(env, {
           to: email, subject: "Your TMKE social media brochure",
-          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:22px;margin:0 0 6px">Here's your brochure, ${esc(firstName)}</h1>
-            <p style="color:#555;font-size:14px;margin:0 0 22px">Thanks for your interest in TMKE social media management. Everything's in the brochure below — what's included, how it works, and what it costs.</p>
-            <p style="margin:0 0 22px"><a href="${esc(brochureUrl)}" style="display:inline-block;background:#1c1d22;color:#fff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:14px 26px;border-radius:6px">Download the brochure &rarr;</a></p>
-            ${accountCreated ? `<p style="color:#555;font-size:14px;margin:0 0 6px">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
-            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
+          html: await wrapInBrandedBase(env, `
+            <h1 style="${EM_H1}">Here's your brochure, ${esc(firstName)}</h1>
+            <p style="${EM_P}">Thanks for your interest in TMKE social media management. Everything's in the brochure below — what's included, how it works, and what it costs.</p>
+            <p style="margin:0 0 22px"><a href="${esc(brochureUrl)}" style="${EM_BTN}">Download the brochure &rarr;</a></p>
+            ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
         });
         await logBookingMessage(env, {
           booking_id: smmBrochureId, booking_source: "smm",
@@ -2796,12 +2802,11 @@ export default {
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
           to: email, subject: `Your call is booked — ${dateNice}`,
-          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:22px;margin:0 0 6px">Your call is booked</h1>
-            <p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(first_name)}, your call with the TMKE team is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
-            ${accountCreated ? `<p style="color:#555;font-size:14px;margin:0 0 8px">We've created your TMKE account so your call details, documents, and future bookings live in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
-            <p style="font-size:13px;color:#555;margin:0 0 8px">Need to change it? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28">hello@tmke.co.uk</a>.</p>
-            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/services" style="color:#371e28">tmke.co.uk</a></p></div>`,
+          html: await wrapInBrandedBase(env, `
+            <h1 style="${EM_H1}">Your call is booked</h1>
+            <p style="${EM_P}">Hi ${esc(first_name)}, your call with the TMKE team is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
+            ${accountCreated ? `<p style="${EM_P}">We've created your TMKE account so your call details, documents, and future bookings live in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
+            <p style="${EM_P}">Need to change it? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28">hello@tmke.co.uk</a>.</p>`),
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await logBookingMessage(env, {
@@ -2904,12 +2909,11 @@ export default {
         // Email the brochure (a link — works the moment the PDF is uploaded).
         await sendEmail(env, {
           to: email, subject: "Your TMKE videography brochure",
-          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:22px;margin:0 0 6px">Here's your brochure, ${esc(firstName)}</h1>
-            <p style="color:#555;font-size:14px;margin:0 0 22px">Thanks for your interest in TMKE videography. Everything's in the brochure below — what's included, how it works, and what it costs.</p>
-            <p style="margin:0 0 22px"><a href="${esc(brochureUrl)}" style="display:inline-block;background:#1c1d22;color:#fff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:14px 26px;border-radius:6px">Download the brochure &rarr;</a></p>
-            ${accountCreated ? `<p style="color:#555;font-size:14px;margin:0 0 6px">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
-            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p></div>`,
+          html: await wrapInBrandedBase(env, `
+            <h1 style="${EM_H1}">Here's your brochure, ${esc(firstName)}</h1>
+            <p style="${EM_P}">Thanks for your interest in TMKE videography. Everything's in the brochure below — what's included, how it works, and what it costs.</p>
+            <p style="margin:0 0 22px"><a href="${esc(brochureUrl)}" style="${EM_BTN}">Download the brochure &rarr;</a></p>
+            ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
         });
 
         // CRM + automations: upsert the contact + fire any "form submitted" flow.
@@ -3051,11 +3055,10 @@ export default {
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
           to: email, subject: `Your discovery call is booked — ${dateNice}`,
-          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:22px;margin:0 0 6px">Your call is booked</h1>
-            <p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(name)}, your discovery call with Jack is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
-            <p style="font-size:13px;color:#555;margin:0 0 8px">Need to change it? <a href="${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(token)}" style="color:#371e28">Reschedule or cancel your call</a>.</p>
-            <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p></div>`,
+          html: await wrapInBrandedBase(env, `
+            <h1 style="${EM_H1}">Your call is booked</h1>
+            <p style="${EM_P}">Hi ${esc(name)}, your discovery call with Jack is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
+            <p style="${EM_P}">Need to change it? <a href="${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(token)}" style="color:#371e28">Reschedule or cancel your call</a>.</p>`),
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await logBookingMessage(env, {
@@ -3119,7 +3122,9 @@ export default {
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
           to: bk.client_email, subject: `Booking cancelled — ${bk.service || "TMKE"}`,
-          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><h1 style="font-size:22px;margin:0 0 6px">Your booking is cancelled</h1><p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(bk.client_name || "")}, we've cancelled your ${esc(bk.service || "booking")}. If this was a mistake or you'd like to rebook, just head back to <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk/videography</a>.</p></div>`,
+          html: await wrapInBrandedBase(env, `
+            <h1 style="${EM_H1}">Your booking is cancelled</h1>
+            <p style="${EM_P}">Hi ${esc(bk.client_name || "")}, we've cancelled your ${esc(bk.service || "booking")}. If this was a mistake or you'd like to rebook, just head back to <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk/videography</a>.</p>`),
         });
         await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Cancelled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} cancelled their ${esc(bk.service || "booking")} (was ${esc(bk.shoot_date || "")}).</p></div>` });
         await logBookingMessage(env, {
@@ -3172,7 +3177,9 @@ export default {
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
           to: bk.client_email, subject: `Booking rescheduled — ${dateNice}`,
-          html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><h1 style="font-size:22px;margin:0 0 6px">Your booking has moved</h1><p style="color:#555;font-size:14px;margin:0 0 18px">Hi ${esc(bk.client_name || "")}, your ${esc(bk.service || "booking")} is now <strong>${esc(dateNice)} at ${esc(start)}</strong>. An updated calendar invite is attached.</p></div>`,
+          html: await wrapInBrandedBase(env, `
+            <h1 style="${EM_H1}">Your booking has moved</h1>
+            <p style="${EM_P}">Hi ${esc(bk.client_name || "")}, your ${esc(bk.service || "booking")} is now <strong>${esc(dateNice)} at ${esc(start)}</strong>. An updated calendar invite is attached.</p>`),
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Rescheduled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} moved their ${esc(bk.service || "booking")} to ${esc(dateNice)} at ${esc(start)}.</p></div>` });
@@ -3446,7 +3453,11 @@ export default {
           try {
             await sendEmail(env, {
               to: bk.email, subject: b.subject || `A message about your ${bk.service || "booking"}`,
-              html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:14px;margin:0 0 12px">Hi ${esc(bk.name || "")},</p><div style="font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(bodyText)}</div>${attachments ? `<p style="color:#888;font-size:12px;margin:14px 0 0">📎 A document is attached to this email.</p>` : ""}<p style="color:#888;font-size:12px;margin:18px 0 0">You can view this and manage your booking in your TMKE workspace.</p></div>`,
+              html: await wrapInBrandedBase(env, `
+                <p style="${EM_P}">Hi ${esc(bk.name || "")},</p>
+                <div style="font-size:15px;line-height:1.6;color:#40353a;white-space:pre-wrap;margin:0 0 14px;">${esc(bodyText)}</div>
+                ${attachments ? `<p style="font-size:13px;line-height:1.6;color:#8a8796;margin:0 0 8px;">📎 A document is attached to this email.</p>` : ""}
+                <p style="font-size:13px;line-height:1.6;color:#8a8796;margin:0;">You can view this and manage your booking in your TMKE workspace.</p>`),
               attachments,
               from: smmFrom || undefined, fromName: smmFrom ? smmFromName : undefined,
             });
