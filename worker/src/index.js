@@ -444,9 +444,20 @@ async function syncAgentSheet(env) {
   try { rows = await googleSheetRows(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!A2:Z`); }
   catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
   if (!rows || !rows.length) return { ok: true, rows: 0, processed: 0, enrolled: 0, cancelled: 0, skipped: 0 };
+  // Columns are found by HEADER NAME, never by letter — inserting a column in
+  // the sheet shifts nothing here. colAny() takes the likely wordings so a
+  // header tweak doesn't silently drop a field.
   const headers = (rows[0] || []).map((h) => String(h || "").trim().toLowerCase());
   const col = (name) => headers.indexOf(name.toLowerCase());
-  const idx = { name: col("Agent Name"), brand: col("Brand"), phone: col("Phone Number"), email: col("Email"), postcode: col("Post Code"), package: col("Package"), induction: col("Induction Date"), month: col("Preferred Shoot Month"), cancelled: col("Cancelled") };
+  const colAny = (...names) => { for (const n of names) { const i = col(n); if (i >= 0) return i; } return -1; };
+  const idx = {
+    name: col("Agent Name"), brand: col("Brand"), phone: col("Phone Number"), email: col("Email"),
+    // Personal address, so the onboarding funnel reaches a new starter who
+    // can't read their work inbox until day one.
+    email2: colAny("Second Email", "Secondary Email", "Personal Email", "2nd Email", "Second email address"),
+    postcode: col("Post Code"), package: col("Package"), induction: col("Induction Date"),
+    month: col("Preferred Shoot Month"), cancelled: col("Cancelled"),
+  };
   let processed = 0, enrolled = 0, cancelled = 0, skipped = 0;
   // Per-row trace so "added to the sheet but never enrolled" is diagnosable —
   // it's returned by POST /agent/sync (admin only). Enrolment needs a promo
@@ -475,6 +486,13 @@ async function syncAgentSheet(env) {
       const cid = await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: first, p_last_name: last, p_phone: cell(idx.phone) || null, p_company: brand, p_source: "agent_sheet_sync", p_tags: crmTags(email, [], {}) });
       const contactId = Array.isArray(cid) ? cid[0] : cid;
       if (!contactId) { skipped++; continue; }
+      // Secondary (personal) email — a delivery address only; identity stays the
+      // work email. Only written when the sheet has one, so it never wipes an
+      // address added by hand on the contact card.
+      const sec = cell(idx.email2).toLowerCase();
+      if (sec && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sec) && sec !== email) {
+        try { await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contactId)}`, { secondary_email: sec }); } catch (_) {}
+      }
       if (isCancelled) {
         const acted = await cancelAgentStarter(env, contactId);
         if (acted) cancelled++; else skipped++;
@@ -1360,12 +1378,16 @@ async function autoExecAction(env, node, contact) {
         { subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
         { brand, mergeCtx: mergeContextFor(recipient, brand) }
       );
+      // Deliver to the secondary address too when there is one — a TEG new
+      // starter is on file under a work email they often can't read until their
+      // first day. Funnel/automation email only: marketing keeps to `email`.
+      const to = [contact.email, String(contact.secondary_email || "").trim()].filter(Boolean);
       // Record what actually went out (and whether it did) — this is what the
       // funnel audit shows, and the only way to answer "did they get it?".
-      const sent = await sendEmail(env, { to: contact.email, subject, html });
+      const sent = await sendEmail(env, { to, subject, html });
       return (sent && sent.ok)
-        ? { outcome: "ok", detail: `“${subject}” → ${contact.email}` }
-        : { outcome: "error", detail: `“${subject}” → ${contact.email} — ${String((sent && sent.error) || "send failed").slice(0, 200)}` };
+        ? { outcome: "ok", detail: `“${subject}” → ${to.join(", ")}` }
+        : { outcome: "error", detail: `“${subject}” → ${to.join(", ")} — ${String((sent && sent.error) || "send failed").slice(0, 200)}` };
     } else if (node.type === "add_tag" && c.tag) {
       const tags = Array.from(new Set([...(contact.tags || []), c.tag])); contact.tags = tags;
       await sbPatch(env, "contacts", `id=eq.${contact.id}`, { tags });
