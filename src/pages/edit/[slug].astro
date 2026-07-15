@@ -61,15 +61,19 @@ export async function getStaticPaths() {
 }
 
 const { pack, templates } = Astro.props;
-// Six open previews, then just two locked teasers, then the unlock CTA — enough to
-// show what you're buying without scrolling a wall of blurred tiles.
+// Open previews, then locked teasers, then the unlock CTA.
 // NB the six is only a DEFAULT: a pack with its own preview_reveal_count set in
 // admin still wins. If a live pack shows three, that's its setting, not this line.
 const reveal = Math.max(0, Math.min(24, pack.preview_reveal_count ?? 6));
 const previewTpls = templates.slice(0, reveal);
 const lockedAll = templates.slice(reveal);
-// The count hint still reports the TRUE number that unlock on purchase.
-const lockedTpls = lockedAll.slice(0, 2);
+// SIX locked teasers on desktop (one full row of the 6-across grid); a phone shows
+// only the first TWO, because three-across turns six into two rows of blurred tiles
+// you have to scroll past to reach the CTA. The page is static, so all six render
+// and CSS drops the extras below 720px — the count hint still reports the TRUE
+// number that unlock on purchase either way.
+const lockedTpls = lockedAll.slice(0, 6);
+const LOCKED_ON_MOBILE = 2;
 const lockedCount = lockedAll.length;
 const contents = Array.isArray(pack.contents) ? pack.contents : [];
 // The big cover: an explicit cover image if set, otherwise fall back to the
@@ -190,8 +194,11 @@ function gbp(pence) {
           </figure>
         ))}
 
-        {lockedTpls.map((t) => (
-          <figure class="pack-tpl pack-tpl--locked" aria-label="Locked — buy the pack to unlock">
+        {lockedTpls.map((t, i) => (
+          <figure
+            class:list={["pack-tpl", "pack-tpl--locked", i >= LOCKED_ON_MOBILE && "pack-tpl--locked-xtra"]}
+            aria-label="Locked — buy the pack to unlock"
+          >
             {(t.thumb_url || t.render_url)
               ? <img src={t.thumb_url || t.render_url} alt="" loading="lazy" />
               : <div class="pack-tpl-empty"></div>}
@@ -415,7 +422,12 @@ function gbp(pence) {
       gap: 14px;
     }
     @media (max-width: 1100px) { .pack-tpl-grid { grid-template-columns: repeat(4, 1fr); } }
-    @media (max-width: 720px)  { .pack-tpl-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 720px)  {
+      .pack-tpl-grid { grid-template-columns: repeat(3, 1fr); }
+      /* Six locked teasers is one tidy row at 6-across, but two rows of blurred tiles
+         at 3-across — so a phone keeps only the first two and goes to the CTA. */
+      .pack-tpl--locked-xtra { display: none; }
+    }
     @media (max-width: 460px)  { .pack-tpl-grid { grid-template-columns: repeat(2, 1fr); } }
     .pack-tpl {
       position: relative;
