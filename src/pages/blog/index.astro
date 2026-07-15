@@ -199,7 +199,19 @@ const featMeta = featured
       line-height: 0.94; letter-spacing: 0.02em; color: var(--ink); margin: 0;
     }
 
-    .ins-feature { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .ins-feature { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    /* Full-height rule 20px to the left of the featured column, sectioning it off
+       from the title. It runs the whole screen, not just the column: the top offset
+       cancels .ins-home's padding-top (so it starts at the screen edge) and 100vh
+       carries it to the bottom — .ins clips, so it can't spill. Same hairline as the
+       rule under the featured article and the archive. */
+    .ins-feature::before {
+      content: ""; position: absolute; z-index: 0; pointer-events: none;
+      left: -20px; width: 1px;
+      top: calc(-1 * clamp(68px, 9vh, 100px));
+      height: 100vh;
+      background: var(--hairline);
+    }
     .ins-feature-card {
       flex: 1; min-height: 0; -webkit-appearance: none; appearance: none; border: 0; background: none;
       padding: 0; margin: 0; text-align: left; cursor: pointer; color: var(--ink);
@@ -386,6 +398,9 @@ const featMeta = featured
     /* ============ Responsive — mobile stacks, no drag ============ */
     @media (max-width: 1000px) {
       .ins { height: auto; overflow: visible; }
+      /* One column here, so there's no title to the left to section off — and .ins
+         stops clipping, so a 100vh rule would hang off the stack. */
+      .ins-feature::before { display: none; }
       .ins-rail { flex-direction: column; transform: none !important; height: auto; }
       .ins-home { flex: none; width: 100%; height: auto; min-height: 90vh; grid-template-columns: 1fr; gap: 40px; padding: 90px 24px 48px; }
       .ins-bigtitle { font-size: clamp(56px, 16vw, 110px); }
