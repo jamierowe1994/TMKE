@@ -888,18 +888,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        this only wins on order. More than four packs will still scroll; that's a
        shop behaving like a shop. */
     @media (max-width: 760px) {
-      .stk-body--pad { padding: 12px; }
+      /* An even 12px frame all round, and the section scrolls inside itself.
+         It used to size each card off the height left between the bars so three
+         packs always landed on one screen — but that only ever held for three or
+         four packs, and the moment there are five it scrolls regardless. So let the
+         card take its column, and let the panel scroll: one rule instead of a magic
+         number that quietly stops being true.
+         align-items keeps the grid at the TOP — .stk-body--pad is a flex row, so the
+         default stretch (or the desktop's margin:auto centring) would either fill the
+         height or float the grid mid-panel, and the top margin would stop matching
+         the sides. */
+      .stk-body--pad { padding: 12px; align-items: flex-start; }
       .stk-body--pad .edit-shows {
         grid-template-columns: repeat(2, 1fr);
-        gap: 14px 10px; max-width: none; width: 100%; justify-items: center;
+        gap: 14px 10px; max-width: none; width: 100%; margin: 0;
       }
       /* Pared back to title / subheading / price. Pack Size and Discover both go:
          the size is on the pack's own page, and the cover is ALREADY a link to that
          page, so a Discover button only repeated the tap. The frame and the preview
-         dots go too — just the first image, so the row reads as one clean set.
-         Fixed chrome = 56 nav + 3x38 bars + 24 padding + 14 row gap = 208px; 88px is
-         what the three lines of text need, and everything else is cover. */
-      .stk-body--pad .pcard { width: min(100%, calc(((100svh - 208px) / 2 - 88px) * 0.75)); }
+         dots go too — just the first image, so the row reads as one clean set. */
       .stk-body--pad .pcard-media { outline: none; }
       .stk-body--pad .pcard-dots,
       .stk-body--pad .pcard-actions { display: none; }
