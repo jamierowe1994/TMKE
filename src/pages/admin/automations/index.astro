@@ -111,6 +111,7 @@ import "../../../styles/admin.css";
               </div>`).join("")}
           </div>` : ""}
           <div class="auto-card-foot">
+            <button type="button" class="auto-rowbtn" data-audit="${esc(a.id)}">Audit</button>
             <button type="button" class="auto-rowbtn" data-dup="${esc(a.id)}">Duplicate</button>
             <button type="button" class="auto-rowbtn del" data-del="${esc(a.id)}">Delete</button>
           </div>
@@ -196,6 +197,8 @@ import "../../../styles/admin.css";
         if (box) { box.hidden = !box.hidden; t.innerHTML = box.hidden ? "See who &darr;" : "Hide &uarr;"; }
         return;
       }
+      const audit = t.getAttribute("data-audit");
+      if (audit) { e.preventDefault(); location.href = "/admin/automations/audit?id=" + encodeURIComponent(audit); return; }
       const dup = t.getAttribute("data-dup");
       const del = t.getAttribute("data-del");
       if (!dup && !del) return;
