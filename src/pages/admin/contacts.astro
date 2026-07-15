@@ -643,6 +643,10 @@ import "../../styles/admin.css";
               <select id="ct-life-sel">${LIFECYCLES.map(([v, label]) => `<option value="${v}" ${c.lifecycle === v ? "selected" : ""}>${label}</option>`).join("")}</select>
               <label class="ct-toggle"><input type="checkbox" id="ct-dnd" ${c.dnd ? "checked" : ""}/> Do-not-contact</label>
             </div>
+            <div class="ct-row" style="margin-top:10px">
+              <input id="ct-sec-email" type="email" placeholder="Secondary email (optional)" value="${esc(c.secondary_email || "")}" />
+            </div>
+            <p class="ct-meta" style="margin:6px 0 0">Funnel emails go to this as well as ${esc(c.email)} — handy for a new starter who can't read their work inbox yet. Not used for marketing, and they stay on file under their work address.</p>
           </div>
           <div class="ct-sec">
             <h3>Tags</h3>
@@ -794,6 +798,17 @@ import "../../styles/admin.css";
         c.lifecycle = e.target.value;
         await supabase.from("contacts").update({ lifecycle: c.lifecycle }).eq("id", c.id);
         fire("contact_changed", c, { field: "lifecycle", value: c.lifecycle }); render();
+      });
+      // Secondary email — a delivery address for funnel email, not an identity.
+      $("ct-sec-email")?.addEventListener("change", async (e) => {
+        const v = (e.target.value || "").trim().toLowerCase();
+        if (v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { e.target.setCustomValidity("That doesn't look like an email address."); e.target.reportValidity(); return; }
+        e.target.setCustomValidity("");
+        c.secondary_email = v || null;
+        const { error } = await supabase.from("contacts").update({ secondary_email: c.secondary_email }).eq("id", c.id);
+        if (error) alert(/column .*secondary_email/i.test(error.message || "")
+          ? "This needs a quick database step: run supabase/contact_secondary_email.sql in the Supabase SQL editor."
+          : "Couldn't save that: " + error.message);
       });
       $("ct-dnd").addEventListener("change", async (e) => {
         c.dnd = e.target.checked;
