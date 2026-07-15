@@ -634,8 +634,10 @@ import "../../styles/admin.css";
           <div class="ct-sec">
             <h3>Details</h3>
             <dl class="ct-dl">
+              <div><dt>Email</dt><dd>${esc(c.email || "—")}</dd></div>
               <div><dt>Company</dt><dd>${esc(c.company || "—")}</dd></div>
               <div><dt>Phone</dt><dd>${esc(c.phone || "—")}</dd></div>
+              ${c.agentProfile && c.agentProfile.postcode ? `<div><dt>Postcode</dt><dd>${esc(c.agentProfile.postcode)}</dd></div>` : ""}
               <div><dt>Source</dt><dd>${esc(humanizeSource(c.source))}</dd></div>
               <div><dt>Marketing opt-in</dt><dd>${c.marketing_opt_in ? "Yes" : "No"}</dd></div>
             </dl>
@@ -643,10 +645,11 @@ import "../../styles/admin.css";
               <select id="ct-life-sel">${LIFECYCLES.map(([v, label]) => `<option value="${v}" ${c.lifecycle === v ? "selected" : ""}>${label}</option>`).join("")}</select>
               <label class="ct-toggle"><input type="checkbox" id="ct-dnd" ${c.dnd ? "checked" : ""}/> Do-not-contact</label>
             </div>
-            <div class="ct-row" style="margin-top:10px">
-              <input id="ct-sec-email" type="email" placeholder="Secondary email (optional)" value="${esc(c.secondary_email || "")}" />
+            <div class="ct-row" style="margin-top:12px; align-items:center">
+              <label class="ct-meta" for="ct-sec-email" style="flex:0 0 auto; margin:0">Secondary email</label>
+              <input id="ct-sec-email" type="email" placeholder="e.g. personal address (optional)" value="${esc(c.secondary_email || "")}" />
             </div>
-            <p class="ct-meta" style="margin:6px 0 0">Funnel emails go to this as well as ${esc(c.email)} — handy for a new starter who can't read their work inbox yet. Not used for marketing, and they stay on file under their work address.</p>
+            <p class="ct-meta" style="margin:6px 0 0">Extra delivery address for funnel emails only — they also go to ${esc(c.email || "their email above")}. Handy for a new starter who can't read their work inbox yet. Never used for marketing: that always uses the email above.</p>
           </div>
           <div class="ct-sec">
             <h3>Tags</h3>
