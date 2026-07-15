@@ -1,117 +1,330 @@
-# SMM report — rules for turning the admin report into the client's report
+# SMM Report Rules: Admin to Client
 
-The admin report is an internal working document: raw SocialPilot numbers plus our own
-triage. The member's report at `/account/social` is a **client deliverable**. This file
-is the set of rules for getting from one to the other. It is the source of truth for the
-AI prompt, and it is meant to be argued with and edited — if a rule here is wrong, change
-it here and the generator changes with it.
+This document defines the rules for turning the admin report into the client-facing report
+published to the member's hub.
+
+The admin report is an internal working document: raw SocialPilot numbers plus the social
+media manager's triage notes. The client report at /account/social is a client deliverable.
+This file is the source of truth for the AI prompt and is meant to be argued with and
+edited. If a rule here is wrong, change it here and the generator changes with it.
 
 Nothing in the client report is invented. Every sentence must be derived from a number or
 a note that exists in the admin report.
 
 ---
 
-## 1. Who is reading
+## §1. Who Is Reading
 
 An estate agent or business owner. They are not a marketer. They did not ask for social
-media metrics — they asked for TMKE to run their social media. They are skimming, once a
-month, and the question in their head is **"is this working, and what are you doing?"**
+media metrics, they asked for TMKE to run their social media. They are skimming, once a
+month, and the question in their head is: "Is this working, and what are you doing?"
 
 Consequences:
 
-- **Never make them do the interpretation.** "Interaction rate 12%" is data. "More people
-  are engaging with your posts than we'd typically expect" is the report.
-- **No jargon without a plain-English gloss.** Reach, impressions, interaction rate,
-  non-follower reach — assume none of it is known.
-- **Never imply homework.** They are not going to go and fix anything. We are.
+- Never make them do the interpretation. "Interaction rate 12%" is data. "More people are
+  engaging with your posts than we would typically expect" is the report.
+- No jargon without a plain-English explanation. Reach, impressions, interaction rate,
+  non-follower reach: assume none of it is understood.
+- Never imply homework. They are not going to go and fix anything. We are.
 
-## 2. Tone
+---
 
-- **Conversational, not corporate.** Write as their account manager would speak in a
-  catch-up call. Contractions are fine.
-- **Confident, not hedgy.** "We're changing the reel format" — not "we may look at
-  potentially trialling".
-- **Positive, but not dishonest.** See §4 — this is the rule most likely to go wrong.
-- British English. TMKE house style: no italics for emphasis, no exclamation marks.
+## §2. Report Architecture
 
-## 3. The written summary
+### The Five Input Sources
 
-Currently one line. It should be **3–5 sentences, one paragraph**, and read as prose
-rather than a list of stats. The shape that works:
+The generator reads five input sources from the admin report. Each has a defined role.
+Read all five before generating any output.
 
-1. **The headline** — how the month went overall, in a sentence a human would say.
-2. **The evidence** — the one or two numbers that actually moved, in plain English, with
-   the "so what" attached.
-3. **The context** — why that happened, if we know (a format, a campaign, a seasonal
-   thing). If we don't know, say nothing; don't invent a cause.
-4. **The forward look** — one line pointing at what it means for next month, which sets
-   up the takeaways below it.
+**Overview**
+Account-level statistics for the reporting period. Reach, impressions, follower count,
+interaction rate, link taps, non-follower reach, and any other platform metrics captured.
+This is the only source of numbers. Every figure cited anywhere in the client report must
+come from this tab. Do not reference a metric that does not appear here.
 
-Do **not** restate every KPI — the numbers are on the Overview tab. The summary's job is
-to say what they *mean*.
+**Content**
+The top-performing posts, reels, or stories for the period with their individual metrics.
+Used to support points already being made from the overview data. Do not list every piece
+of content. Reference only what illustrates something worth saying.
 
-## 4. Positive framing — and its limit
+**Hashtags**
+Hashtag performance data for the period. Used as supporting context when explaining reach
+or content performance. Does not surface in the client report as a standalone topic unless
+the admin notes specifically flag it as significant.
 
-Every takeaway lands as **something we're acting on**, never as a mark against the
-account. The pattern:
+**Audience**
+Follower activity, gender split, and location data. This tab is not visible to the client
+and must not be referenced directly in any client-facing output. It exists as background
+context only. The generator may use it to inform interpretation of the overview data but
+must not cite it, quote it, or refer to it explicitly in anything the client sees.
 
-> [what the numbers show, neutrally] → [what we're doing about it]
+**Actions**
+The social media manager's internal action log for the period, written with the team in
+mind. This is the primary source for the What's Happening Next section, but the language
+must be translated before it reaches the client. An action written as "reel format
+underperforming, test carousel" becomes "We're trialling a new content format to keep
+things varied and see what gets the most engagement." The meaning is the same. The voice
+is different. See §6 for full translation rules.
+
+**Trends**
+Only present when more than two months of data exists. When present, it provides
+pattern-level insights across the reporting period. When absent, the Trends component of
+the output is not generated.
+
+### What Each Input Feeds
+
+| Output section         | Primary input     | Supporting inputs                                      |
+|------------------------|-------------------|--------------------------------------------------------|
+| Overview (reproduced)  | Overview tab      | None                                                   |
+| Content (reproduced)   | Content tab       | None                                                   |
+| Written summary        | Overview, Actions | Content for examples; Hashtags if flagged; Audience as silent context only |
+| Trends (conditional)   | Trends tab        | Overview for numbers; Content for examples             |
+| What's Happening Next  | Actions           | Overview to confirm the numbers behind each action     |
+
+The Overview and Content sections are not generated by the AI. They are reproduced
+directly from the input data. The AI produces the Summary tab only, which contains the
+written summary, the Trends section where applicable, and What's Happening Next.
+
+### The Generator's Job Is Synthesis, Not Transcription
+
+The client should not feel like they are reading three separate data sources stitched
+together. The output is one coherent account of the month, written as though a single
+person who has read everything is now talking them through it.
+
+The order of operations:
+
+1. Read all five input sources in full before generating any text
+2. Identify the two or three things that actually matter this month, the movements
+   significant enough to say something about
+3. Build the summary around those, using the Overview for numbers, the Content tab for
+   examples, and the admin notes for context and actions
+4. Let the Trends and What's Happening Next sections add depth rather than repeat what
+   the summary already covers
+
+Do not produce a section-by-section summary of each input tab. That is a data dump,
+not a report.
+
+---
+
+## §3. Output Structure
+
+The Summary tab contains three components. The first is always present. The second is
+conditional. The third is always present.
+
+### Component 1: The Written Summary
+
+One paragraph, 3 to 5 sentences, written as the account manager's account of the month.
+See §4 for the shape and rules. This is the human voice of the report. It should read
+like something the account manager would say in a monthly catch-up call, not something
+generated from a data set.
+
+The summary draws on all relevant input sources but does not reference the tabs by name.
+The client does not need to know where the information came from. They need to know what
+it means.
+
+### Component 2: Trends (Conditional)
+
+Only generated when more than two months of data is present in the Trends input. If this
+is the first or second report for a client, this section does not appear.
+
+When it does appear, it covers three things in short, readable form: not headers, not a
+table, just a few clear points written in plain English.
+
+- What is working and should continue. Reference the content or format driving it if the
+  Content tab supports it.
+- What has been working and is continuing to work. This is pattern confirmation, evidence
+  that something established is holding.
+- What is not working as well as it was, and what we are doing about it. Follows the
+  positive framing rules from §5: the dip is named honestly and the action is immediate.
+
+Each point is one to two sentences. The section as a whole should be readable in under
+a minute. It is a pattern summary, not a performance review.
+
+### Component 3: What's Happening Next
+
+Three to five bullet points. Each names a specific action the TMKE team is taking into
+the next period. Always written as "we are," never as a recommendation to the client,
+never as a question, never as a possibility.
+
+Each bullet is one sentence. No sub-points.
+
+No traffic lights, no RAG status, and no verbal equivalents of either. Do not describe
+anything as a red flag, a concern, or urgent. Do not use the words "needs attention,"
+"underperforming," or "declining." The admin type (go, caution, action) informs our
+internal prioritisation only and must not surface in the client report in any form.
+
+A bullet that only restates a number without naming an action is not a bullet. Cut it.
+
+The actions come from the admin notes. If an action is not recorded in the admin notes,
+it does not appear here. Do not generate actions the team has not confirmed.
+
+This section is a forward plan, not a problem list. The client reading it should feel
+informed and confident.
+
+---
+
+## §4. The Written Summary
+
+The summary is one paragraph of 3 to 5 sentences. It should read as prose, not a list
+of stats. The shape that works:
+
+1. The headline. How the month went overall, in a sentence a human would say.
+2. The evidence. The one or two numbers that actually moved, in plain English, with the
+   "so what" attached.
+3. The context. Why that happened, if it is recorded in the admin notes. If it is not
+   recorded, say nothing. Do not invent a cause.
+4. The forward look. One line pointing at what it means for next month, which sets up the
+   What's Happening Next section below.
+
+Do not restate every KPI. The numbers are on the Overview tab. The summary's job is to
+say what they mean.
+
+---
+
+## §5. Positive Framing and Its Limit
+
+Every takeaway lands as something we are acting on, never as a mark against the account.
+The pattern is:
+
+What the numbers show, neutrally, then what we are doing about it.
 
 Worked examples:
 
-| Admin note (internal) | Client report |
-|---|---|
-| `Reel interactions down 18%` | "The current reel format isn't landing as well as it was, so we're researching new formats and changing them up next month." |
-| `Link taps 0 — needs attention` | "We're adding a clearer call to action to the bio and Stories to turn that reach into clicks through to you." |
-| `Post interaction rate declining` | "Posts are getting seen but not talked about, so we're moving to more question-led captions to get conversations going." |
-| `Continue reel-first strategy — 65% of reach` | "Reels are doing the heavy lifting for your reach, so we're keeping them front and centre." |
+| Admin note (internal)                          | Client report                                                                                                   |
+|------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| Reel interactions down 18%                     | The current reel format isn't landing as well as it was, so we're researching new formats and changing them up next month. |
+| Link taps 0, needs attention                   | We're adding a clearer call to action to the bio and Stories to turn that reach into clicks through to you.     |
+| Post interaction rate declining                | Posts are getting seen but not talked about, so we're moving to more question-led captions to get conversations going. |
+| Continue reel-first strategy, 65% of reach    | Reels are doing the heavy lifting for your reach, so we're keeping them front and centre.                       |
 
-**The limit, and it matters:** positive framing means *never blaming the client and always
-pairing a dip with our response*. It does **not** mean hiding a decline or dressing a bad
-month as a good one. If reach halved, the report says reach is down and what we're doing —
-it does not lead with a flattering side-metric and hope they don't notice. A client who
-later works out the numbers were spun stops trusting every report we've ever sent, and
-the reporting is the product.
+The limit, and it matters: positive framing means never blaming the client and always
+pairing a dip with our response. It does not mean hiding a decline or dressing a bad
+month as a good one. If reach halved, the report says reach is down and what we are doing
+about it. It does not lead with a flattering side-metric and hope they do not notice. A
+client who later works out the numbers were misrepresented stops trusting every report
+ever sent, and the reporting is the product.
 
-So: **no red flags, no spin either.** Honest facts, constructive response.
+No red flags, no spin. Honest facts, constructive response.
 
-## 5. Key takeaways
+The client is never the subject of a problem. In the admin report, the account has issues.
+In the client report, we are working on opportunities. The subject of any negative
+sentence is always "we" and always paired with an action.
 
-- **3–5 items.** More than five and it's a backlog, not takeaways.
-- Each is **one sentence**, and each names **an action we are taking**.
-- Written in **"we"** — the team's plan, not the client's to-do list.
-- **No traffic lights.** The admin `type` (`go` / `caution` / `action`) drives our
-  prioritisation and must not reach the client view as colour. It's fine as an input to
-  the ordering: lead with what's working, then what we're changing.
-- If a takeaway is only a restatement of a number, it isn't a takeaway — cut it.
+Wrong: "Your engagement rate dropped this month."
+Right: "Engagement was lower this month, so we're changing up the caption approach to get
+more conversations going."
 
-## 6. Hard rules for the generator
+Wrong: "Follower growth has stalled."
+Right: "Follower growth was flat this month, and we're reviewing the content mix to
+change that."
 
-1. **Never invent a number.** Only cite figures present in the report data.
-2. **Never invent a cause.** No "this is likely because…" unless it's in the admin notes.
-3. **Never promise a result.** "We're changing X" is a commitment we control. "This will
+The numbers stay accurate. The difference is who owns the response, and that is always us.
+
+---
+
+## §6. Language Translation: Admin to Client
+
+The admin report and the client report describe the same data in two different languages.
+The admin report diagnoses. The client report informs and reassures. The generator must
+translate, not copy.
+
+### Metric Labels Become Plain English
+
+The admin report uses platform terminology. The client report does not assume any of it
+is understood.
+
+| Admin language              | Client language                                                                                     |
+|-----------------------------|-----------------------------------------------------------------------------------------------------|
+| Interaction rate: 4.2%      | More than 4 in every 100 people who saw your posts engaged with them                               |
+| Non-follower reach up 34%   | A growing number of people who don't yet follow you are seeing your content                         |
+| Impressions vs reach        | Reach is the number of people who saw your content. Impressions count every time it appeared, including to the same person more than once |
+| Link taps: 0                | No one clicked through to your website from social this month                                       |
+| Stories exits high          | People are leaving your Stories before the end                                                      |
+
+Only include a plain-English explanation if that metric appears in the report. Do not
+explain metrics that are not referenced.
+
+### Internal Assessment Language Does Not Appear in Client Output
+
+The admin report may contain phrases used for internal triage. None of the following
+should appear in the client report in any form, direct or paraphrased.
+
+- "needs attention"
+- "underperforming"
+- "declining" (use "lower than last month" or "down from" with a number instead)
+- "poor performance"
+- "not working"
+- Any percentage described as a drop without an accompanying action
+
+### Purpose Language Is Different in Each Report
+
+The admin report is written to inform a decision. The client report is written to confirm
+that a decision is being made. The same fact reads differently depending on which job it
+is doing.
+
+| Admin purpose                                         | Client purpose                                                                                                       |
+|-------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| Reels driving 65% of reach, continue reel-first       | Reels are doing the heavy lifting for your reach, so we're keeping them front and centre                            |
+| Engagement down 18%, review caption format            | Posts are getting seen but not talked about, so we're moving to more question-led captions to get conversations going |
+| Follower growth flat, assess content mix              | Follower numbers held steady this month, and we're looking at the content mix to push that forward                  |
+
+---
+
+## §7. Hard Rules
+
+1. Never invent a number. Only cite figures present in the input data.
+2. Never invent a cause. No "this is likely because..." unless it is recorded in the
+   admin notes.
+3. Never promise a result. "We're changing X" is a commitment we control. "This will
    double your reach" is not.
-4. **Never compare to other clients**, named or implied.
-5. **If a field is missing, say nothing about it** — don't fill the gap with filler.
-6. **If a month has too little data to say anything true, say that** rather than
-   generating three sentences of nothing.
-7. Respect `report_settings` visibility: if a field is hidden from clients, it must not be
-   referenced in the prose either. Hiding a metric and then discussing it is worse than
-   showing it.
+4. Never compare to other clients, named or implied.
+5. If a field is missing, say nothing about it. Do not fill the gap with filler copy.
+6. If a month has too little data to say anything true, say that rather than generating
+   sentences of nothing. For a client's first or second month, do not reference growth or
+   decline. Describe the baseline being established and what will be measured going
+   forward.
+7. Respect audience tab visibility. The audience data is not visible to the client and
+   must not be referenced in the prose either. Using it as silent context to inform
+   interpretation is permitted. Citing it is not.
+8. If the admin notes reference an external factor as the cause of a performance change,
+   such as a platform algorithm update, a Meta policy restriction, or a seasonal market
+   shift, that context may be included in the summary. Do not infer external causes that
+   are not recorded in the notes.
 
-## 7. Where this runs (recommendation, not yet built)
+---
 
-Generate **in admin, at publish time** — not live on the member's page:
+## §8. Tone and Style
 
-- A human at TMKE can read and edit it **before a client ever sees it**. This is copy
-  making claims about someone's business; it should not go out unread.
-- It's stable — the same month reads the same way every time it's opened.
-- One generation per report, not one per page view.
+- Conversational, not corporate. Write as the account manager would speak in a monthly
+  catch-up call. Contractions are fine.
+- Confident, not hedging. "We're changing the reel format," not "we may look at
+  potentially trialling."
+- Positive, but not dishonest. See §5.
+- British English throughout.
+- No em dashes anywhere.
+- No italics anywhere.
+- No exclamation marks.
+- No bold used for emphasis within prose. Bold is for headers and labels only.
+- Short paragraphs. Nothing included that does not add value.
 
-Shape: a **"Generate client summary"** button on the report in admin → Worker → Anthropic
-(infra already exists: `ANTHROPIC_API_KEY`, `claude-sonnet-4-6`) → returns
-`{ summary, takeaways[] }` → saved onto the report, editable, then published. The member
-page renders what's stored, exactly as it does today.
+---
 
-**Open:** does an unedited AI summary publish automatically, or does a report stay
-unpublished until someone has read the copy? Recommend the latter.
+## §9. Human Review and Publication
+
+The generator produces a draft. It does not produce a final document.
+
+Every client report must be read and approved by a TMKE team member before it is
+published to the client's hub. This step is not optional. The report is making claims
+about a client's business in TMKE's voice. It must not go live unread.
+
+The recommended workflow is:
+
+1. A TMKE team member triggers generation from the admin report
+2. The generator returns a draft summary, trends section where applicable, and
+   What's Happening Next bullets
+3. The team member reads, edits where needed, and approves
+4. The approved version is published to the client's hub
+5. The same version is stored on the report and does not regenerate on each page view
+
+A report stays unpublished until it has been reviewed. An unreviewed draft must not be
+visible to the client.
