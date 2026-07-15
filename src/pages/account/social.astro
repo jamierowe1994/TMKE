@@ -207,28 +207,39 @@ import "../../styles/account-sections.css";
         try { return renderTab(t, cur.data, cur, vis).trim() !== ""; } catch (_) { return false; }
       };
       const shows = (t) => !!HAS_DATA[t]() && hasBody(t);
-      // Overview leads and carries the actions with it. "Recommendations" is no longer
-      // a tab of its own: it's the part a client most needs to see, and behind a tab
-      // is where things go to not be read. Overview shows if it has stats OR actions.
-      const overviewShows = shows("overview") || ((vis.priorities || vis.comingSoon) && shows("actions"));
+      // Three tabs, in the order a client reads them:
+      //   Summary  — what happened, in words, and what we're doing about it. Leads,
+      //              because it's the answer; the rest is the working.
+      //   Overview — the numbers, with the month-on-month trend folded in rather
+      //              than sat in a tab of its own.
+      //   Content  — how the posts themselves did.
+      // Audience isn't listed and doesn't need to be: its fields are off in the
+      // client view, so the filter above already drops it. Turn them on and it
+      // reappears on its own.
+      const hasSummary = !!(vis.summary && d.summary);
+      const hasActions = (vis.priorities || vis.comingSoon) && shows("actions");
+      const showTrends = !!vis.trends && reports.length > 1;
       const TABS = [];
-      if (overviewShows) TABS.push(["overview", "Overview"]);
+      if (hasSummary || hasActions) TABS.push(["summary", "Summary"]);
+      if (shows("overview") || showTrends) TABS.push(["overview", "Overview"]);
       [["content", "Content"], ["audience", "Audience"]].forEach((t) => { if (shows(t[0])) TABS.push(t); });
-      // Trends plots month against month — with one month there's no trend to draw.
-      if (vis.trends && reports.length > 1) TABS.push(["trends", "Trends"]);
       // Fall back to the first tab that EXISTS, not a hard-coded "overview" — with
       // the filtering above, overview may not be one of them. Switching month keeps
       // your current tab only if that month has it.
       if (!TABS.some(([t]) => t === tab)) tab = TABS.length ? TABS[0][0] : "";
       const tabs = TABS.map(([t, label]) => `<button type="button" class="ri-subtab ${tab === t ? "is-active" : ""}" data-tab="${t}">${label}</button>`).join("");
-      const summary = (vis.summary && cur.data && cur.data.summary) ? `<div class="soc-summary">${esc(cur.data.summary)}</div>` : "";
-      // Overview = the month's round-up, then what we're doing about it.
+      // The written round-up used to sit above the tabs on every one of them. It's
+      // the Summary tab's whole point now, so it lives there with the actions.
+      const summaryHtml = hasSummary ? `<div class="soc-summary">${esc(d.summary)}</div>` : "";
+      const trendsHtml = showTrends
+        ? `<div class="ri-sec">How you're tracking, month on month</div>${renderTrends(reports.slice().reverse())}`
+        : "";
       const body = !TABS.length
         ? `<p class="smm-soon">There's nothing to show for this month yet — your team is still putting the numbers together.</p>`
-        : tab === "trends" ? renderTrends(reports.slice().reverse())
-        : tab === "overview" ? renderTab("overview", cur.data, cur, vis) + ourActions(cur.data || {}, vis)
+        : tab === "summary" ? summaryHtml + ourActions(d, vis)
+        : tab === "overview" ? renderTab("overview", cur.data, cur, vis) + trendsHtml
         : renderTab(tab, cur.data, cur, vis);
-      wrap.innerHTML = `<div class="ri-months">${months}</div>${summary}<div class="ri-subtabs">${tabs}</div><div>${body}</div>`;
+      wrap.innerHTML = `<div class="ri-months">${months}</div><div class="ri-subtabs">${tabs}</div><div>${body}</div>`;
       wrap.querySelectorAll("[data-mi]").forEach((b) => b.addEventListener("click", () => { curIdx = +b.getAttribute("data-mi"); renderInsights(); }));
       wrap.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.getAttribute("data-tab"); renderInsights(); }));
     }
