@@ -685,6 +685,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       text-align: justify; hyphens: auto;
     }
     @media (prefers-reduced-motion: reduce) { .stk-studio .egh-tile { transition: none; } }
+    /* Phones: the boxes leave the screen entirely rather than parting. --push only
+       clears HALF a text column (+ a margin), which is the point on a desktop — but
+       a phone has no room either side, so the boxes just shuffled sideways and sat
+       on top of the copy. .stk-body clips, so a whole viewport of push costs nothing
+       and reads as them being swept off.
+       MUST sit after the .stk-studio rule above: same specificity, so a media query
+       alone doesn't win — only the later declaration does. */
+    @media (max-width: 760px) { .stk-studio { --push: 105vw; } }
 
     /* Box 1's subheading — the pillar, a notch smaller, on one line. */
     .stk-pgrid .egh-tile-sub {
@@ -859,6 +867,32 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
     .pcard-cta:hover { background: var(--english-violet); transform: translateY(-1px); }
     @media (prefers-reduced-motion: reduce) { .pcard { opacity: 1; transform: none; } }
+
+    /* ---- Phones: the shop is two side by side, on ONE screen ----------------
+       One card per row meant scrolling to see the packs, which reads nothing like
+       a shop. Two across, and the card is sized from the HEIGHT that's left rather
+       than the column width — width-first would make a 3:4 cover far too tall to
+       fit two rows. Fixed chrome = 56 nav + 3×38 bars + 28 padding + 14 row gap
+       = 212px, so each of two rows gets (100svh - 212px)/2; take off the ~96px the
+       title/type/buttons need and the rest is the cover, ×0.75 for its 3:4 width.
+       The whole card adopts that width so cover, title and Discover stay flush,
+       and it sits centred in its column with air either side (the /join look).
+       NB: must sit AFTER the .stk-body--pad rules above — same specificity, so
+       this only wins on order. More than four packs will still scroll; that's a
+       shop behaving like a shop. */
+    @media (max-width: 760px) {
+      .stk-body--pad { padding: 14px; }
+      .stk-body--pad .edit-shows {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px 10px; max-width: none; width: 100%; justify-items: center;
+      }
+      .stk-body--pad .pcard { width: min(100%, calc(((100svh - 212px) / 2 - 96px) * 0.75)); }
+      .stk-body--pad .pcard-title { font-size: 15px; line-height: 1.1; margin-top: 9px; }
+      .stk-body--pad .pcard-type { font-size: 11px; margin-top: 3px; }
+      .stk-body--pad .pcard-actions { margin-top: 9px; gap: 6px; }
+      .stk-body--pad .pcard-size { font-size: 9px; padding: 6px 8px; letter-spacing: 0.08em; }
+      .stk-body--pad .pcard-cta { font-size: 9px; padding: 7px 10px; letter-spacing: 0.1em; }
+    }
 
     .show { position: relative; }
     .show-inner {
