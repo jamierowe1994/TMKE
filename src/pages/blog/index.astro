@@ -177,12 +177,14 @@ const featMeta = featured
       flex: 0 0 calc(100vw - var(--peek)); height: 100%; box-sizing: border-box;
       display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
       grid-template-rows: minmax(0, 1fr); gap: clamp(28px, 3.4vw, 60px);
-      /* right padding 0 so the featured sits flush to the archive edge — the only
-         gap to the peeking cards is the archive's 6px left pad (= the card gap). */
+      /* Right padding 21px = the second rule's 20px of air + its own 1px, so the
+         featured pulls left just enough for the line to sit between it and the
+         archive with 20px either side (the archive's own 20px left pad is the
+         other half). */
       /* left edge tracks the About/SMM 1360 content wrap (so the intro starts at
          the same x as the other pages); bigger bottom pad lifts the title + shrinks
          the featured image a touch. */
-      padding: clamp(68px, 9vh, 100px) 0 clamp(36px, 5.5vh, 80px) max(76px, calc((100vw - 1360px) / 2));
+      padding: clamp(68px, 9vh, 100px) 21px clamp(36px, 5.5vh, 80px) max(76px, calc((100vw - 1360px) / 2));
     }
     .ins-intro { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
     .ins-intro-foot { display: flex; flex-direction: column; gap: clamp(16px, 2vh, 26px); }
@@ -200,18 +202,24 @@ const featMeta = featured
     }
 
     .ins-feature { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-    /* Full-height rule 20px to the left of the featured column, sectioning it off
-       from the title. It runs the whole screen, not just the column: the top offset
-       cancels .ins-home's padding-top (so it starts at the screen edge) and 100vh
-       carries it to the bottom — .ins clips, so it can't spill. Same hairline as the
-       rule under the featured article and the archive. */
-    .ins-feature::before {
+    /* The featured column is bracketed by two full-height rules: one sectioning it
+       off from the title, one from the archive. Each runs the whole screen, not just
+       the column — the top offset cancels .ins-home's padding-top (so they start at
+       the screen edge) and 100vh carries them to the bottom; .ins clips, so they
+       can't spill. Same hairline as the rule under the featured article and the
+       archive, so all four read as one set. */
+    .ins-feature::before,
+    .ins-feature::after {
       content: ""; position: absolute; z-index: 0; pointer-events: none;
-      left: -20px; width: 1px;
+      width: 1px;
       top: calc(-1 * clamp(68px, 9vh, 100px));
       height: 100vh;
       background: var(--hairline);
     }
+    .ins-feature::before { left: -20px; }
+    /* 20px of air on the featured's side; the archive's own 20px left pad is the
+       other side, so the line sits centred in a 41px channel. */
+    .ins-feature::after { left: calc(100% + 20px); }
     .ins-feature-card {
       flex: 1; min-height: 0; -webkit-appearance: none; appearance: none; border: 0; background: none;
       padding: 0; margin: 0; text-align: left; cursor: pointer; color: var(--ink);
@@ -398,9 +406,9 @@ const featMeta = featured
     /* ============ Responsive — mobile stacks, no drag ============ */
     @media (max-width: 1000px) {
       .ins { height: auto; overflow: visible; }
-      /* One column here, so there's no title to the left to section off — and .ins
+      /* One column here, so there's nothing either side to section off — and .ins
          stops clipping, so a 100vh rule would hang off the stack. */
-      .ins-feature::before { display: none; }
+      .ins-feature::before, .ins-feature::after { display: none; }
       .ins-rail { flex-direction: column; transform: none !important; height: auto; }
       .ins-home { flex: none; width: 100%; height: auto; min-height: 90vh; grid-template-columns: 1fr; gap: 40px; padding: 90px 24px 48px; }
       .ins-bigtitle { font-size: clamp(56px, 16vw, 110px); }
