@@ -564,6 +564,29 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     /* The packs panel has no bar (it sat under the nav) — take no height when collapsed. */
     .stk-p--nobar { flex-basis: 0; }
     .stk-p.is-open .stk-chev { transform: rotate(180deg); }
+
+    /* ---- Phones: tap a bar, don't scroll a runway --------------------------
+       Four columns of 11px caps won't sit on a phone, so the bar drops to the
+       name + ONE piece of meta. The tag ("The idea", "Browse, buy") goes, and
+       the category takes the tag's place on the right, next to the chevron —
+       same dim treatment, so the bar keeps its two-ends shape.
+       The stack itself becomes an accordion: JS clears the runway height, so
+       .stk (still sticky) has nothing to slide against and simply sits as one
+       100svh screen. Tapping a bar pushes that section up; tapping it again
+       drops back to the packs (the packs panel has no bar of its own, so this
+       is the only way home). */
+    @media (max-width: 760px) {
+      .stk-bar {
+        grid-template-columns: 18px 1fr auto 14px;
+        gap: 10px; font-size: 10px; letter-spacing: 0.1em;
+      }
+      .stk-tag { display: none; }
+      .stk-meta {
+        justify-self: end; text-align: right; color: rgba(244,242,241,0.62);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .stk-dot { width: 6px; height: 6px; }
+    }
     .stk-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
     /* Shop panel — the ORIGINAL catalogue cards (3-up, unchanged styling), just
        scaled to fit between the bars: cover + details + button all visible, with
@@ -2126,9 +2149,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       // itself paces the section change, so no hold is needed.
       const STEP = 170;                                   // svh per panel
       const TAIL = 70;                                    // svh held on the last
-      // Runway = the last panel's parking spot + its own screen + the tail. (Any
-      // longer and you'd scroll a dead screen on the Studio before the footer.)
-      wrap.style.height = ((N - 1) * STEP + 100 + TAIL) + 'svh';
+      // Phones drive the stack by TAP, not by scroll: a scroll runway means a
+      // phone user has to flick through ~6 screens of nothing to see four
+      // sections, and Lenis's floaty inertia is worse on a touch surface.
+      // Clearing the runway leaves .stk (sticky, 100svh) with nothing to slide
+      // against, so it just sits as one screen and the bars do the work.
+      const MOBILE = window.matchMedia('(max-width: 760px)');
+      const isMobile = () => MOBILE.matches;
+      function applyRunway() {
+        // Runway = the last panel's parking spot + its own screen + the tail. (Any
+        // longer and you'd scroll a dead screen on the Studio before the footer.)
+        wrap.style.height = isMobile() ? '' : ((N - 1) * STEP + 100 + TAIL) + 'svh';
+      }
+      applyRunway();
       let open = -1;
       function setOpen(i) {
         if (i === open) return;
@@ -2155,12 +2188,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
       setOpen(0);
 
-      // Clicking a bar scrolls to that panel.
+      // Desktop: clicking a bar scrolls to that panel (the scroll drives it).
+      // Phone: clicking a bar IS the mechanism — open it, or tap it again to
+      // drop back to the packs (panel 0 has no bar, so nothing else gets there).
       panels.forEach((p, i) => {
         const bar = p.querySelector('.stk-bar');
         if (bar) bar.addEventListener('click', () => {
-          goToPanel(i);
+          if (isMobile()) setOpen(open === i ? 0 : i);
+          else goToPanel(i);
         });
+      });
+
+      // Re-measure and re-run the runway when crossing the breakpoint, so a
+      // rotate/resize doesn't leave a phone with a desktop runway (or a desktop
+      // with none, which would strand it on whichever panel was last tapped).
+      MOBILE.addEventListener('change', () => {
+        applyRunway();
+        measure();
+        if (isMobile()) setOpen(0);
+        else updateOpen();
       });
 
       // ---- Settle into place: 3/4 carries you on ----------------------------
@@ -2197,6 +2243,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         goToPanel(i);
       }
       function onScroll() {
+        // On a phone the bars own which panel is open — there's no runway to
+        // read, so letting scroll drive it would slam it back to panel 0 the
+        // moment you scrolled the page.
+        if (isMobile()) return;
         updateOpen();                                 // which panel is showing
         if (snapping || reduced) return;
         clearTimeout(snapT);
