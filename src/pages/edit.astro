@@ -772,21 +772,27 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     /* The bottom vignette is gone — it dulled the designs. It only existed so the
        white dots would read, and the dots now carry their own contrast (below). */
     .pcard-dots {
-      position: absolute; left: 0; right: 0; bottom: 12px; z-index: 2;
-      display: flex; justify-content: center; align-items: center; gap: 7px;
+      position: absolute; left: 0; right: 0; bottom: 8px; z-index: 2;
+      display: flex; justify-content: center; align-items: center; gap: 0;
     }
     /* Every dot is the same two-tone — a paper fill ringed in wine — so it reads
        on ANY template: the ring carries light covers, the fill carries dark ones.
        Active is signalled by SIZE + opacity, not colour, because any colour that
        pops on a dark cover disappears on a light one (and vice versa). */
+    /* The button is a 22px hit target; the dot is drawn small inside it via
+       ::before. Negative margins keep the dots visually 14px apart, exactly as
+       before. (They used to BE the 7px dot — near-impossible to hit.) */
     .pcard-dot {
-      width: 7px; height: 7px; border-radius: 50%; padding: 0; cursor: pointer;
-      border: 1px solid var(--english-violet); background: rgba(244,242,241,0.94);
-      box-shadow: none; opacity: 0.5;
-      transition: opacity 0.3s, transform 0.3s;
+      width: 22px; height: 22px; margin: 0 -4px; padding: 0; cursor: pointer;
+      border: 0; background: none; display: grid; place-items: center;
     }
-    .pcard-dot:hover { opacity: 0.85; transform: scale(1.15); }
-    .pcard-dot.is-active { opacity: 1; transform: scale(1.35); }
+    .pcard-dot::before {
+      content: ""; width: 7px; height: 7px; border-radius: 50%;
+      border: 1px solid var(--english-violet); background: rgba(244,242,241,0.94);
+      opacity: 0.5; transition: opacity 0.3s, transform 0.3s;
+    }
+    .pcard-dot:hover::before { opacity: 0.85; transform: scale(1.15); }
+    .pcard-dot.is-active::before { opacity: 1; transform: scale(1.35); }
     .pcard-title {
       font-family: var(--sans); font-weight: 700; font-size: clamp(16px, 1.25vw, 21px);
       line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); margin: 20px 0 0;
@@ -2106,9 +2112,60 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       panels.forEach((p, i) => {
         const bar = p.querySelector('.stk-bar');
         if (bar) bar.addEventListener('click', () => {
-          window.scrollTo({ top: wrap.offsetTop + i * window.innerHeight, behavior: 'smooth' });
+          goToPanel(i);
         });
       });
+
+      // ---- Settle into place: 3/4 carries you on, then a 1s beat -------------
+      // After scrolling stops we glide to the nearest panel rather than leaving
+      // it parked half-way. Pass three-quarters of a panel and it carries you to
+      // the next one. Once parked, a 1s hold stops it snapping again straight
+      // away, so each section gets a beat before you can be moved on.
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const vh = () => window.innerHeight;
+      let snapT = 0, snapGuard = 0, holdUntil = 0, snapping = false;
+
+      function goToPanel(i) {
+        const dest = wrap.offsetTop + i * vh();
+        snapping = true;
+        const done = () => { snapping = false; holdUntil = performance.now() + 1000; };
+        // A snap that gets interrupted (you scroll mid-glide) never fires Lenis's
+        // onComplete — so ALWAYS release on a timer too. Without this, `snapping`
+        // sticks on and snapping dies silently for the rest of the session.
+        clearTimeout(snapGuard);
+        snapGuard = setTimeout(done, 900);
+        const L = window.__lenis;
+        if (L && typeof L.scrollTo === 'function') {
+          L.scrollTo(dest, { duration: 0.7, onComplete: () => { clearTimeout(snapGuard); done(); } });
+        } else {
+          window.scrollTo({ top: dest, behavior: 'smooth' });
+        }
+      }
+      function doSnap() {
+        const wait = holdUntil - performance.now();
+        if (wait > 0) { snapT = setTimeout(doSnap, wait + 20); return; }   // still holding
+        const y = window.scrollY;
+        const p = (y - wrap.offsetTop) / vh();
+        if (p < -0.5 || p > N - 0.5) return;          // not on the runway
+        const base = Math.floor(p), frac = p - base;
+        const i = Math.max(0, Math.min(N - 1, frac >= 0.75 ? base + 1 : base));
+        const dest = wrap.offsetTop + i * vh();
+        if (Math.abs(dest - y) < 4) return;           // already parked
+        goToPanel(i);
+      }
+      function scheduleSnap() {
+        if (snapping || reduced) return;
+        clearTimeout(snapT);
+        snapT = setTimeout(doSnap, 140);              // fires once scrolling stops
+      }
+      // Lenis emits NO native scroll events, so hook its own callback. Poll for
+      // it — app.js loads Lenis from a CDN and may not have run yet.
+      (function hookLenis(tries) {
+        const L = window.__lenis;
+        if (L && typeof L.on === 'function') { L.on('scroll', scheduleSnap); return; }
+        if ((tries || 0) > 40) { window.addEventListener('scroll', scheduleSnap, { passive: true }); return; }
+        setTimeout(() => hookLenis((tries || 0) + 1), 100);
+      })();
     }
 
     // ============== Modal helpers ==============
