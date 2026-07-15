@@ -123,12 +123,11 @@ import "../../styles/account-sections.css";
     .soc-act-list { list-style: none; margin: 0; padding: 0; }
     .soc-act-item { display: flex; align-items: flex-start; gap: 11px; padding: 11px 0; border-bottom: 1px solid rgba(244,242,241,0.14); font-family: var(--sans, sans-serif); font-size: 14.5px; line-height: 1.55; color: var(--paper, #f4f2f1); }
     .soc-act-item:last-child { border-bottom: 0; }
-    /* The admin triage colours carry over so a glance still reads urgency, but the
-       Do-more/Improve/Fix-now legend stays behind — that's our shorthand, not theirs. */
-    .soc-act-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 7px; background: rgba(244,242,241,0.5); }
-    .soc-act-dot--go { background: #6fbf8b; }
-    .soc-act-dot--caution { background: #d8a83c; }
-    .soc-act-dot--action { background: #d98b6a; }
+    /* One neutral mark, not a traffic light. The admin triage colours (green/amber/
+       red) are ours for deciding what to work on; on a client's report an amber dot
+       announces "this bit's going badly" before they've read the line. Every takeaway
+       gets the same mark and the tone lives in the words. */
+    .soc-act-mark { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 8px; background: rgba(244,242,241,0.55); }
     .soc-act-coming { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(244,242,241,0.14); }
     .soc-act-coming-h { font-family: var(--sans, sans-serif); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(244,242,241,0.6); margin: 0 0 8px; }
     .soc-act-coming-list { margin: 0; padding-left: 18px; font-family: var(--sans, sans-serif); font-size: 13.5px; line-height: 1.7; color: rgba(244,242,241,0.85); }
@@ -159,22 +158,25 @@ import "../../styles/account-sections.css";
         </dl>`;
     }
 
-    // "Our actions" — the internal priorities, turned round to face the client.
-    // Admin reads them as a triage list (Do more / Improve / Fix now); a client
-    // shouldn't be handed a to-do list and left to wonder who's doing it. Same items,
-    // framed as what YOUR TEAM is doing next, which is what they're paying for.
-    function ourActions(d, vis) {
+    // Key takeaways — the internal priorities, turned round to face the client.
+    // NO traffic lights here. Admin triages these as Do more / Improve / Fix now,
+    // which is the right tool for us and the wrong one for a client: an amber or a
+    // red dot flags "we're not doing this well" before they've read a word of it.
+    // The colour is dropped and the tone carried by the text instead (see the
+    // writing rules in docs/smm-report-rules.md) — every line lands as something
+    // we're acting on, not a mark against the account.
+    function keyTakeaways(d, vis) {
       const prios = (d.priorities || []).filter((p) => p && p.text);
       const coming = (d.comingSoon || []).filter(Boolean);
       const showP = vis.priorities !== false && prios.length;
       const showC = vis.comingSoon !== false && coming.length;
       if (!showP && !showC) return "";
-      const items = showP ? prios.map((p) => `<li class="soc-act-item"><span class="soc-act-dot soc-act-dot--${esc(p.type || "action")}"></span><span>${esc(p.text)}</span></li>`).join("") : "";
+      const items = showP ? prios.map((p) => `<li class="soc-act-item"><span class="soc-act-mark" aria-hidden="true"></span><span>${esc(p.text)}</span></li>`).join("") : "";
       return `
         <section class="soc-act">
           <div class="soc-act-head">
-            <h3 class="soc-act-h">What we're doing next</h3>
-            <p class="soc-act-sub">Your TMKE team sets these from this month's numbers — it's the plan for your accounts over the coming weeks.</p>
+            <h3 class="soc-act-h">Key takeaways</h3>
+            <p class="soc-act-sub">Taking into account how your accounts have performed recently, here's what we're bringing into the next few weeks.</p>
           </div>
           ${showP ? `<ul class="soc-act-list">${items}</ul>` : ""}
           ${showC ? `<div class="soc-act-coming"><h4 class="soc-act-coming-h">Content coming up</h4><ul class="soc-act-coming-list">${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></div>` : ""}
@@ -208,11 +210,11 @@ import "../../styles/account-sections.css";
       };
       const shows = (t) => !!HAS_DATA[t]() && hasBody(t);
       // Three tabs, in the order a client reads them:
-      //   Summary  — what happened, in words, and what we're doing about it. Leads,
-      //              because it's the answer; the rest is the working.
       //   Overview — the numbers, with the month-on-month trend folded in rather
       //              than sat in a tab of its own.
       //   Content  — how the posts themselves did.
+      //   Summary  — what we make of it all, in words, and the key takeaways. Last:
+      //              you read the evidence, then the conclusion drawn from it.
       // Audience isn't listed and doesn't need to be: its fields are off in the
       // client view, so the filter above already drops it. Turn them on and it
       // reappears on its own.
@@ -220,9 +222,10 @@ import "../../styles/account-sections.css";
       const hasActions = (vis.priorities || vis.comingSoon) && shows("actions");
       const showTrends = !!vis.trends && reports.length > 1;
       const TABS = [];
-      if (hasSummary || hasActions) TABS.push(["summary", "Summary"]);
       if (shows("overview") || showTrends) TABS.push(["overview", "Overview"]);
       [["content", "Content"], ["audience", "Audience"]].forEach((t) => { if (shows(t[0])) TABS.push(t); });
+      // Summary sits at the END: you read the numbers, then what we make of them.
+      if (hasSummary || hasActions) TABS.push(["summary", "Summary"]);
       // Fall back to the first tab that EXISTS, not a hard-coded "overview" — with
       // the filtering above, overview may not be one of them. Switching month keeps
       // your current tab only if that month has it.
@@ -236,7 +239,7 @@ import "../../styles/account-sections.css";
         : "";
       const body = !TABS.length
         ? `<p class="smm-soon">There's nothing to show for this month yet — your team is still putting the numbers together.</p>`
-        : tab === "summary" ? summaryHtml + ourActions(d, vis)
+        : tab === "summary" ? summaryHtml + keyTakeaways(d, vis)
         : tab === "overview" ? renderTab("overview", cur.data, cur, vis) + trendsHtml
         : renderTab(tab, cur.data, cur, vis);
       wrap.innerHTML = `<div class="ri-months">${months}</div><div class="ri-subtabs">${tabs}</div><div>${body}</div>`;
