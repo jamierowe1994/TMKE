@@ -13,9 +13,9 @@ import "../../styles/account-sections.css";
         <div class="dash-hero-copy">
           <div class="dash-hero-top">
             <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
-            <h1 class="welcome-h">Your <em>Socials</em></h1>
+            <h1 class="welcome-h">Your <em>SMM</em></h1>
           </div>
-          <p class="welcome-sub">Your managed social service — your plan and your monthly performance, all in one place.</p>
+          <p class="welcome-sub">Your social media management — your plan and how your accounts are performing, month by month.</p>
         </div>
         <figure class="dash-hero-media">
           <img src="/assets/sitting%20chair.jpg" alt="" loading="eager" />
@@ -127,14 +127,41 @@ import "../../styles/account-sections.css";
       if (!reports.length) { wrap.innerHTML = `<p class="smm-soon">Your first monthly report will appear here once we've published it.</p>`; return; }
       const cur = reports[curIdx];
       const months = reports.map((r, i) => `<button type="button" class="ri-month ${i === curIdx ? "is-active" : ""}" data-mi="${i}">${MONTHS[r.month]} ${r.year}</button>`).join("");
-      // Tabs the super-admin has chosen to evidence to clients.
-      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"]];
-      if (vis.priorities || vis.comingSoon) TABS.push(["actions", "Recommendations"]);
-      if (vis.trends) TABS.push(["trends", "Trends"]);
-      if (!TABS.some(([t]) => t === tab)) tab = "overview";
+      // A tab only exists if it has something to say for THIS month. Two different
+      // things can empty it, so it takes two checks:
+      //  1. the admin switched all its fields off — the render fns return "" for that;
+      //  2. the month has no data for it — the render fns DON'T return "" there, they
+      //     emit headings and "—" placeholders, so the data has to be checked directly.
+      // Checking only the rendered output looks like it works and silently does
+      // nothing for case 2.
+      const filled = (o) => !!o && Object.values(o).some((v) => v != null && v !== "" && !(Array.isArray(v) && !v.length));
+      const len = (a) => (Array.isArray(a) ? a.length : 0);
+      const d = cur.data || {}, pt = d.peakTimes || {}, dem = d.demographics || {};
+      const HAS_DATA = {
+        overview: () => filled(d.profile) || filled(d.reach),
+        content: () => filled(d.reels) || filled(d.posts) || filled(d.ads) || len(d.topContent) || len(d.hashtags),
+        audience: () => (len(pt.grid) && len(pt.slots)) || d.bestDays || d.morningWindow || d.eveningWindow
+          || len(dem.gender) || len(dem.topCities) || len(dem.topCountries),
+        actions: () => len(d.priorities) || len(d.comingSoon),
+      };
+      const hasBody = (t) => {
+        try { return renderTab(t, cur.data, cur, vis).trim() !== ""; } catch (_) { return false; }
+      };
+      const shows = (t) => !!HAS_DATA[t]() && hasBody(t);
+      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"]]
+        .filter(([t]) => shows(t));
+      if ((vis.priorities || vis.comingSoon) && shows("actions")) TABS.push(["actions", "Recommendations"]);
+      // Trends plots month against month — with one month there's no trend to draw.
+      if (vis.trends && reports.length > 1) TABS.push(["trends", "Trends"]);
+      // Fall back to the first tab that EXISTS, not a hard-coded "overview" — with
+      // the filtering above, overview may not be one of them. Switching month keeps
+      // your current tab only if that month has it.
+      if (!TABS.some(([t]) => t === tab)) tab = TABS.length ? TABS[0][0] : "";
       const tabs = TABS.map(([t, label]) => `<button type="button" class="ri-subtab ${tab === t ? "is-active" : ""}" data-tab="${t}">${label}</button>`).join("");
       const summary = (vis.summary && cur.data && cur.data.summary) ? `<div class="soc-summary">${esc(cur.data.summary)}</div>` : "";
-      const body = tab === "trends" ? renderTrends(reports.slice().reverse()) : renderTab(tab, cur.data, cur, vis);
+      const body = !TABS.length
+        ? `<p class="smm-soon">There's nothing to show for this month yet — your team is still putting the numbers together.</p>`
+        : tab === "trends" ? renderTrends(reports.slice().reverse()) : renderTab(tab, cur.data, cur, vis);
       wrap.innerHTML = `<div class="ri-months">${months}</div>${summary}<div class="ri-subtabs">${tabs}</div><div>${body}</div>`;
       wrap.querySelectorAll("[data-mi]").forEach((b) => b.addEventListener("click", () => { curIdx = +b.getAttribute("data-mi"); renderInsights(); }));
       wrap.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.getAttribute("data-tab"); renderInsights(); }));
