@@ -146,6 +146,10 @@ import "../../styles/account-sections.css";
 
     let reports = [], curIdx = 0, tab = "overview", vis = resolveVisibility(null);
 
+    // How the shared report renderers are tailored for the client's view. Admin passes
+    // no opts and keeps the full breakdown — this only trims what the member sees.
+    const MEMBER_OPTS = { compactCards: true, topN: 5, rankTop: true };
+
     function renderPlan(c) {
       const platforms = Array.isArray(c.platforms) && c.platforms.length ? c.platforms.map((p) => `<span class="soc-chip">${esc(p)}</span>`).join("") : "—";
       const since = c.start_date ? (() => { try { return new Date(c.start_date + "T12:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" }); } catch (_) { return null; } })() : null;
@@ -241,7 +245,7 @@ import "../../styles/account-sections.css";
         ? `<p class="smm-soon">There's nothing to show for this month yet — your team is still putting the numbers together.</p>`
         : tab === "summary" ? summaryHtml + keyTakeaways(d, vis)
         : tab === "overview" ? renderTab("overview", cur.data, cur, vis) + trendsHtml
-        : renderTab(tab, cur.data, cur, vis);
+        : renderTab(tab, cur.data, cur, vis, MEMBER_OPTS);
       wrap.innerHTML = `<div class="ri-months">${months}</div><div class="ri-subtabs">${tabs}</div><div>${body}</div>`;
       wrap.querySelectorAll("[data-mi]").forEach((b) => b.addEventListener("click", () => { curIdx = +b.getAttribute("data-mi"); renderInsights(); }));
       wrap.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.getAttribute("data-tab"); renderInsights(); }));
