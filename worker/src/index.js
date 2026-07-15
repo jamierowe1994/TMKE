@@ -359,12 +359,27 @@ const AGENT_SHEET_ID = "1_LiFsbrPiaNIuOdvIkn8Teo_D8_8sCDACU5ZHgXazb0";
 const AGENT_SHEET_TAB = "New Starters";
 
 // "August 2026" / "Aug-26" / "2026-08" / "12/08/2026" → "2026-08" (or null).
+// Whoever fills the TEG sheet types this by hand (there's no date picker), so be
+// generous: "July 2026", "July, 2026", "Jul 26", "2026-07", "01/07/2026" and a
+// bare "July" all resolve. A bare month has no year, so we take the next one
+// coming up (this month counts). Returns "YYYY-MM" or null.
 function parseShootMonth(s) {
-  s = String(s || "").trim(); if (!s) return null;
+  s = String(s || "").trim().replace(/,/g, " ").replace(/\s+/g, " ");
+  if (!s) return null;
   let m = s.match(/^(\d{4})[-/](\d{1,2})/); if (m) return `${m[1]}-${String(m[2]).padStart(2, "0")}`;
   const mn = s.match(/([A-Za-z]{3,})[\s\-/]*(\d{2,4})/);
   if (mn) { const mi = MONTHS_FULL.findIndex((x) => x.toLowerCase().startsWith(mn[1].slice(0, 3).toLowerCase())); if (mi >= 0) { let y = mn[2]; if (y.length === 2) y = "20" + y; return `${y}-${String(mi + 1).padStart(2, "0")}`; } }
   const d = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/); if (d) { let y = d[3]; if (y.length === 2) y = "20" + y; return `${y}-${String(d[2]).padStart(2, "0")}`; }
+  // Bare month name, no year ("July") → the next occurrence, current month included.
+  const bare = s.match(/^([A-Za-z]{3,})$/);
+  if (bare) {
+    const mi = MONTHS_FULL.findIndex((x) => x.toLowerCase().startsWith(bare[1].slice(0, 3).toLowerCase()));
+    if (mi >= 0) {
+      const now = new Date();
+      const y = now.getUTCFullYear() + (mi < now.getUTCMonth() ? 1 : 0);
+      return `${y}-${String(mi + 1).padStart(2, "0")}`;
+    }
+  }
   return null;
 }
 // "2026-08-12" / "12/08/2026" (UK DD/MM/YYYY) → "2026-08-12" (or null).
@@ -433,12 +448,21 @@ async function syncAgentSheet(env) {
   const col = (name) => headers.indexOf(name.toLowerCase());
   const idx = { name: col("Agent Name"), brand: col("Brand"), phone: col("Phone Number"), email: col("Email"), postcode: col("Post Code"), package: col("Package"), induction: col("Induction Date"), month: col("Preferred Shoot Month"), cancelled: col("Cancelled") };
   let processed = 0, enrolled = 0, cancelled = 0, skipped = 0;
+  // Per-row trace so "added to the sheet but never enrolled" is diagnosable —
+  // it's returned by POST /agent/sync (admin only). Enrolment needs a promo
+  // code, which needs a parseable Preferred Shoot Month, so that's the usual
+  // culprit and now it's visible rather than silent.
+  const details = [];
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i] || [];
     const cell = (c) => (c >= 0 ? String(r[c] || "").trim() : "");
     const email = cell(idx.email).toLowerCase();
     const pkg = cell(idx.package).toLowerCase();
-    if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email) || !["pro", "academy"].includes(pkg)) { skipped++; continue; }
+    if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email) || !["pro", "academy"].includes(pkg)) {
+      skipped++;
+      details.push({ row: i + 2, email: email || null, skipped: !email ? "no email" : (!/^[^@]+@[^@]+\.[^@]+$/.test(email) ? "bad email" : "package not pro/academy") });
+      continue;
+    }
     const parts = cell(idx.name).split(/\s+/).filter(Boolean);
     const first = parts.shift() || null, last = parts.join(" ") || null;
     const brand = cell(idx.brand) || null;
@@ -452,14 +476,26 @@ async function syncAgentSheet(env) {
         if (acted) cancelled++; else skipped++;
         continue;
       }
+      const monthRaw = cell(idx.month);
+      const month = parseShootMonth(monthRaw);
       const res = await ensureAgentProfile(env, contactId, { first_name: first, last_name: last, email }, {
         brand, date_joined: parseISODate(cell(idx.induction)), postcode: cell(idx.postcode) || null,
-        is_new_starter: true, induction_month: parseShootMonth(cell(idx.month)), package: pkg,
+        is_new_starter: true, induction_month: month, package: pkg,
       });
       processed++; if (res._enrolled) enrolled++;
-    } catch (_) { skipped++; }
+      details.push({
+        row: i + 2, email, package: pkg,
+        month_raw: monthRaw || null, month, code: res.promo_code || null, enrolled: !!res._enrolled,
+        note: res._enrolled ? null : (!month
+          ? ('couldn\'t read Preferred Shoot Month: "' + (monthRaw || "") + '" — no code, so no funnel')
+          : "no promo code"),
+      });
+    } catch (e) {
+      skipped++;
+      details.push({ row: i + 2, email, skipped: String((e && e.message) || e).slice(0, 120) });
+    }
   }
-  return { ok: true, rows: rows.length - 1, processed, enrolled, cancelled, skipped };
+  return { ok: true, rows: rows.length - 1, processed, enrolled, cancelled, skipped, details };
 }
 
 // Admin gate for staff-only endpoints (e.g. sending email). Mirrors the client
