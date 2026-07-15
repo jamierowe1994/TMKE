@@ -2080,7 +2080,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       // Scroll → which panel is open.
       const panels = Array.from(stk.querySelectorAll('.stk-p'));
       const N = panels.length;
-      wrap.style.height = (N * 100) + 'svh';
+      // Runway per panel. At 100svh a single flick (Lenis is deliberately floaty)
+      // carried you past TWO sentinels, so two panels animated at once and it
+      // felt like a scramble. More runway = one gesture, one panel: the scroll
+      // itself paces the section change, so no hold is needed.
+      const STEP = 170;                                   // svh per panel
+      const TAIL = 70;                                    // svh held on the last
+      const stepPx = () => window.innerHeight * STEP / 100;
+      wrap.style.height = (N * STEP + TAIL) + 'svh';      // TAIL keeps the last
+                                                          // panel up before the
+                                                          // footer arrives
       let open = -1;
       function setOpen(i) {
         if (i === open) return;
@@ -2098,7 +2107,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const s = document.createElement('span');
         s.className = 'stk-sent';
         s.dataset.i = String(i);
-        s.style.top = (i * 100) + 'svh';
+        s.style.top = (i * STEP) + 'svh';
         sents.appendChild(s);
       }
       wrap.appendChild(sents);
@@ -2116,40 +2125,37 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         });
       });
 
-      // ---- Settle into place: 3/4 carries you on, then a 1s beat -------------
-      // After scrolling stops we glide to the nearest panel rather than leaving
-      // it parked half-way. Pass three-quarters of a panel and it carries you to
-      // the next one. Once parked, a 1s hold stops it snapping again straight
-      // away, so each section gets a beat before you can be moved on.
+      // ---- Settle into place: 3/4 carries you on ----------------------------
+      // Once scrolling stops we glide to the nearest panel rather than leaving it
+      // parked half-way; pass three-quarters and it carries you to the next.
+      // NO hold — the runway above paces the sections, and a hold only made it
+      // feel stop-start. The glide is unhurried so it reads as one movement.
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const vh = () => window.innerHeight;
-      let snapT = 0, snapGuard = 0, holdUntil = 0, snapping = false;
+      let snapT = 0, snapGuard = 0, snapping = false;
 
       function goToPanel(i) {
-        const dest = wrap.offsetTop + i * vh();
+        const dest = wrap.offsetTop + i * stepPx();
         snapping = true;
-        const done = () => { snapping = false; holdUntil = performance.now() + 1000; };
+        const done = () => { snapping = false; };
         // A snap that gets interrupted (you scroll mid-glide) never fires Lenis's
         // onComplete — so ALWAYS release on a timer too. Without this, `snapping`
         // sticks on and snapping dies silently for the rest of the session.
         clearTimeout(snapGuard);
-        snapGuard = setTimeout(done, 900);
+        snapGuard = setTimeout(done, 1400);
         const L = window.__lenis;
         if (L && typeof L.scrollTo === 'function') {
-          L.scrollTo(dest, { duration: 0.7, onComplete: () => { clearTimeout(snapGuard); done(); } });
+          L.scrollTo(dest, { duration: 1.1, onComplete: () => { clearTimeout(snapGuard); done(); } });
         } else {
           window.scrollTo({ top: dest, behavior: 'smooth' });
         }
       }
       function doSnap() {
-        const wait = holdUntil - performance.now();
-        if (wait > 0) { snapT = setTimeout(doSnap, wait + 20); return; }   // still holding
         const y = window.scrollY;
-        const p = (y - wrap.offsetTop) / vh();
+        const p = (y - wrap.offsetTop) / stepPx();
         if (p < -0.5 || p > N - 0.5) return;          // not on the runway
         const base = Math.floor(p), frac = p - base;
         const i = Math.max(0, Math.min(N - 1, frac >= 0.75 ? base + 1 : base));
-        const dest = wrap.offsetTop + i * vh();
+        const dest = wrap.offsetTop + i * stepPx();
         if (Math.abs(dest - y) < 4) return;           // already parked
         goToPanel(i);
       }
