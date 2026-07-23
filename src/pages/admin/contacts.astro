@@ -586,6 +586,14 @@ import "../../styles/admin.css";
           const j = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(j.error || "Couldn't save agent details.");
           c.agentProfile = j.profile || null;
+          // Flag them TEG on the main list too. The list derives lifecycle from
+          // the contact's OWN tags (agent_profiles isn't loaded there), so mark
+          // "internal agent" with the Network: TEG tag the derivation recognises.
+          if (document.getElementById("teg-is-agent")?.checked && !(c.tags || []).includes("Network: TEG")) {
+            c.tags = normalizeTags([...(c.tags || []), "Network: TEG"]);
+            try { await supabase.from("contacts").update({ tags: c.tags }).eq("id", c.id); } catch (_) {}
+            render();
+          }
           document.getElementById("ct-teg-panel").innerHTML = tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) });
           wireTeg();
           tegMsg(c.agentProfile && c.agentProfile.promo_code ? `Saved. Their free code is ${c.agentProfile.promo_code}.` : "Saved.", true);
