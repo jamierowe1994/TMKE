@@ -315,18 +315,22 @@ async function ensureAgentProfile(env, contactId, contact, input) {
   }
 
   const coalesce = (a, b) => (a != null && a !== "" ? a : (b != null ? b : null));
+  const brand = coalesce(input.brand, existing && existing.brand);
+  const tr = trainerForBrand(brand);
   const row = {
     contact_id: contactId,
-    brand: coalesce(input.brand, existing && existing.brand),
+    brand,
     date_joined: coalesce(input.date_joined, existing && existing.date_joined),
     postcode: coalesce(input.postcode, existing && existing.postcode),
-    is_new_starter: isNewStarter,
-    induction_month: inductionMonth,
-    package: pkg,
+    // Don't demote an existing new-starter when re-touched by a non-new-starter
+    // path (e.g. an internal-agent import of someone already flagged).
+    is_new_starter: isNewStarter || !!(existing && existing.is_new_starter),
+    induction_month: inductionMonth || (existing && existing.induction_month) || null,
+    package: pkg || (existing && existing.package) || null,
     promo_code: promoCode,
     promo_code_id: promoCodeId,
-    trainer_name: coalesce(input.trainer_name, (existing && existing.trainer_name)) || "Kelly Bailey",
-    trainer_email: coalesce(input.trainer_email, (existing && existing.trainer_email)) || "kelly@theexpertsgroup.co.uk",
+    trainer_name: coalesce(input.trainer_name, (existing && existing.trainer_name)) || tr.name,
+    trainer_email: coalesce(input.trainer_email, (existing && existing.trainer_email)) || tr.email,
   };
   await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?on_conflict=contact_id`, {
     method: "POST",
@@ -820,6 +824,23 @@ function networkTag(email) {
   if (dom.endsWith("experts.co.uk")) return "Network: TEG";
   if (dom === "fineandcountry.com") return "Network: Fine-and-Country";
   return "Network: External";
+}
+// Is this company one of The Experts Group brands? Used to auto-flag imported
+// internal agents even when they're on a personal email (brand in a column).
+function isTegBrand(company) {
+  const c = String(company || "").toLowerCase();
+  if (!c) return false;
+  return /\b(property|lettings|recruitment|marketing|mortgage)\s+experts\b/.test(c)
+    || /prestige\s+property\s+experts/.test(c)
+    || /fine\s*(?:&|and)\s*country/.test(c);
+}
+// The videography trainer only applies to The Property Experts family — other TEG
+// brands (Lettings/Recruitment/etc.) don't get the same training, so their
+// trainer is N/A rather than a misleading "Kelly".
+function trainerForBrand(brand) {
+  return /property\s+experts/i.test(String(brand || ""))
+    ? { name: "Kelly Bailey", email: "kelly@theexpertsgroup.co.uk" }
+    : { name: "N/A", email: "N/A" };
 }
 function videographyProductTag(serviceType) {
   const map = { content: "Content-Studio", "content-studio": "Content-Studio", property: "Property-Videography", agent: "Agent-Videography" };
@@ -4679,31 +4700,53 @@ export default {
         const rows = Array.isArray(b.rows) ? b.rows : [];
         const batchTags = Array.isArray(b.batch_tags) ? b.batch_tags : [];
         const optIn = b.marketing_opt_in === true;
+        // "These are internal (Experts Group) agents" — forces them TEG + marketing
+        // YES, and fills the TEG tab (brand/postcode/date-joined) from the columns.
+        const internal = b.internal === true;
         const source = (typeof b.source === "string" && b.source.trim()) ? b.source.trim() : "import";
         if (!rows.length) return json({ error: "No rows." }, 400, request, env);
         if (rows.length > 500) return json({ error: "Send at most 500 rows per request." }, 400, request, env);
-        let imported = 0, skipped = 0;
+        let imported = 0, skipped = 0, teg = 0;
         for (const r of rows) {
           const email = String((r && r.email) || "").trim().toLowerCase();
           if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { skipped++; continue; }
+          const company = r.company || null;
+          // A row is TEG if flagged internal, or its email/brand says so.
+          const isTeg = internal || networkTag(email) === "Network: TEG" || isTegBrand(company);
+          const rowOptIn = optIn || isTeg;   // TEG is always marketing YES
           const rowTags = Array.isArray(r.tags) ? r.tags : (r.tags ? String(r.tags).split(/[;,]/).map((s) => s.trim()) : []);
-          const tags = Array.from(new Set([...rowTags, ...batchTags, optIn ? "Newsletter-Subscriber" : null, networkTag(email)].filter(Boolean)));
+          const netTag = isTeg ? "Network: TEG" : networkTag(email);
+          const tags = Array.from(new Set([...rowTags, ...batchTags, rowOptIn ? "Newsletter-Subscriber" : null, netTag].filter(Boolean)));
           try {
-            await sbRpc(env, "upsert_contact", {
+            const cid = await sbRpc(env, "upsert_contact", {
               p_email: email,
               p_first_name: r.first_name || null,
               p_last_name: r.last_name || null,
               p_phone: r.phone || null,
-              p_company: r.company || null,
+              p_company: company,
               p_source: source,
-              p_lifecycle: "lead",
-              p_marketing_opt_in: optIn ? true : null,
+              // Don't touch lifecycle on import — it's derived from the Network:TEG
+              // tag, and forcing a value would clobber a manual "Past". (null →
+              // new contacts still default to 'lead' inside upsert_contact.)
+              p_lifecycle: null,
+              p_marketing_opt_in: rowOptIn ? true : null,
               p_tags: tags,
             });
             imported++;
+            // TEG contact → register as an internal agent (fills the TEG tab).
+            // NOT a videography new-starter, so no code/funnel — those need a package.
+            const contactId = Array.isArray(cid) ? cid[0] : cid;
+            if (contactId && isTeg) {
+              try {
+                await ensureAgentProfile(env, contactId, { first_name: r.first_name, last_name: r.last_name, email }, {
+                  brand: company, postcode: r.postcode || null, date_joined: parseISODate(r.date_joined) || (r.date_joined || null), is_new_starter: false,
+                });
+                teg++;
+              } catch (_) {}
+            }
           } catch (_) { skipped++; }
         }
-        return json({ ok: true, imported, skipped }, 200, request, env);
+        return json({ ok: true, imported, skipped, teg }, 200, request, env);
       }
 
       return json({ error: "Not found" }, 404, request, env);
