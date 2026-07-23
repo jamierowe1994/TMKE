@@ -97,6 +97,8 @@ import "../../styles/admin.css";
         <div class="ct-import-opts">
           <label class="ct-import-opt">Apply a tag to everyone in this file<select id="ct-import-tag"></select></label>
           <label class="ct-toggle"><input type="checkbox" id="ct-import-optin" /> These contacts have opted into marketing</label>
+          <label class="ct-toggle"><input type="checkbox" id="ct-import-internal" /> These are internal (Experts Group) agents</label>
+          <p class="ct-meta" id="ct-import-internal-note" style="margin:0" hidden>Marks each as an internal agent (TEG) &mdash; fills the TEG tab from the Company/Brand, Postcode and Date-joined columns, and sets marketing opt-in to Yes.</p>
         </div>
         <p class="ct-import-preview ct-meta" id="ct-import-preview"></p>
         <button type="button" class="admin-btn admin-btn-primary" id="ct-import-go">Import</button>
@@ -311,7 +313,7 @@ import "../../styles/admin.css";
     // title-cased from the value) because it's an acronym.
     const LIFECYCLES = [["lead", "Lead"], ["teg", "TEG"], ["member", "Member"], ["customer", "Customer"], ["past", "Past"]];
     const lifecycleLabel = (v) => (LIFECYCLES.find(([x]) => x === v) || [v, v])[1];
-    const isTeg = (c) => (c.tags || []).some((t) => /^Videography-New-Starter:/i.test(t))
+    const isTeg = (c) => (c.tags || []).some((t) => /^Videography-New-Starter:/i.test(t) || t === "Network: TEG")
       || c.source === "agent_sheet_sync" || c.lifecycle === "teg";
     function deriveLifecycle(c) {
       if (c.lifecycle === "past") return "past";
@@ -639,11 +641,13 @@ import "../../styles/admin.css";
               <div><dt>Phone</dt><dd>${esc(c.phone || "—")}</dd></div>
               ${c.agentProfile && c.agentProfile.postcode ? `<div><dt>Postcode</dt><dd>${esc(c.agentProfile.postcode)}</dd></div>` : ""}
               <div><dt>Source</dt><dd>${esc(humanizeSource(c.source))}</dd></div>
-              <div><dt>Marketing opt-in</dt><dd>${c.marketing_opt_in ? "Yes" : "No"}</dd></div>
             </dl>
             <div class="ct-row" style="margin-top:14px">
               <select id="ct-life-sel">${LIFECYCLES.map(([v, label]) => `<option value="${v}" ${c.lifecycle === v ? "selected" : ""}>${label}</option>`).join("")}</select>
               <label class="ct-toggle"><input type="checkbox" id="ct-dnd" ${c.dnd ? "checked" : ""}/> Do-not-contact</label>
+            </div>
+            <div class="ct-row" style="margin-top:10px">
+              <label class="ct-toggle"><input type="checkbox" id="ct-mkt" ${c.marketing_opt_in ? "checked" : ""}/> Marketing opt-in</label>
             </div>
             <div class="ct-row" style="margin-top:12px; align-items:center">
               <label class="ct-meta" for="ct-sec-email" style="flex:0 0 auto; margin:0">Secondary email</label>
@@ -818,6 +822,15 @@ import "../../styles/admin.css";
         await supabase.from("contacts").update({ dnd: c.dnd }).eq("id", c.id);
         if (c.dnd) fire("dnd_set", c, {}); render();
       });
+      // Marketing opt-in — editable here (e.g. flip a TEG agent to Yes). Keeps the
+      // consent tags in step: Yes → Newsletter-Subscriber, No → Marketing-Not-Opted-In.
+      $("ct-mkt").addEventListener("change", async (e) => {
+        c.marketing_opt_in = e.target.checked;
+        const base = (c.tags || []).filter((t) => t !== "Newsletter-Subscriber" && t !== "Marketing-Not-Opted-In");
+        c.tags = normalizeTags([...base, c.marketing_opt_in ? "Newsletter-Subscriber" : "Marketing-Not-Opted-In"]);
+        await supabase.from("contacts").update({ marketing_opt_in: c.marketing_opt_in, tags: c.tags }).eq("id", c.id);
+        fire("contact_changed", c, { field: "marketing_opt_in", value: c.marketing_opt_in }); render();
+      });
       $("ct-tag-add").addEventListener("click", async () => {
         const v = ($("ct-tag-input").value || "").trim(); if (!v) return;
         c.tags = normalizeTags([...(c.tags || []), v]);
@@ -963,7 +976,9 @@ import "../../styles/admin.css";
       { key: "last_name", label: "Last name", match: ["last name", "lastname", "last", "surname"] },
       { key: "name", label: "Full name (if not split)", match: ["name", "full name", "contact name"] },
       { key: "phone", label: "Phone", match: ["phone", "mobile", "telephone", "tel"] },
-      { key: "company", label: "Company", match: ["company", "business", "organisation", "organization", "agency"] },
+      { key: "company", label: "Company / Brand", match: ["company", "business", "brand", "organisation", "organization", "agency"] },
+      { key: "postcode", label: "Postcode", match: ["postcode", "post code", "postal code", "zip"] },
+      { key: "date_joined", label: "Date joined", match: ["date joined", "join date", "joined", "start date", "induction date", "date_joined"] },
       { key: "tags", label: "Tags (; or , separated)", match: ["tags", "tag"] },
     ];
     let importHeaders = [], importData = [];
@@ -1036,34 +1051,35 @@ import "../../styles/admin.css";
       const map = {};
       $("ct-map-rows").querySelectorAll("[data-field]").forEach((s) => { if (s.value !== "") map[s.getAttribute("data-field")] = parseInt(s.value, 10); });
       if (map.email == null) { setImportStatus("Please map the Email column first.", false); return; }
-      const tag = $("ct-import-tag").value, optin = $("ct-import-optin").checked;
+      const tag = $("ct-import-tag").value, optin = $("ct-import-optin").checked, internal = $("ct-import-internal").checked;
       const rows = importData.map((r) => {
         const val = (k) => (map[k] != null ? String(r[map[k]] || "").trim() : "");
         let fn = val("first_name"), ln = val("last_name");
         if (!fn && !ln && map.name != null) { const p = val("name").split(/\s+/); fn = p.shift() || ""; ln = p.join(" "); }
-        return { email: val("email"), first_name: fn || null, last_name: ln || null, phone: val("phone") || null, company: val("company") || null, tags: val("tags") };
+        return { email: val("email"), first_name: fn || null, last_name: ln || null, phone: val("phone") || null, company: val("company") || null, postcode: val("postcode") || null, date_joined: val("date_joined") || null, tags: val("tags") };
       }).filter((r) => r.email);
       if (!rows.length) { setImportStatus("No rows had an email address.", false); return; }
       if (!WORKER) { setImportStatus("Import backend isn't connected.", false); return; }
       const btn = $("ct-import-go"); btn.disabled = true;
       const { data: { session } } = await supabase.auth.getSession();
       const token = session && session.access_token;
-      let imported = 0, skipped = 0;
+      let imported = 0, skipped = 0, teg = 0;
       const CHUNK = 200;
       for (let i = 0; i < rows.length; i += CHUNK) {
         btn.textContent = `Importing… ${Math.min(i + CHUNK, rows.length)}/${rows.length}`;
         try {
-          const res = await fetch(`${WORKER}/contacts/import`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" }, body: JSON.stringify({ rows: rows.slice(i, i + CHUNK), batch_tags: tag ? [tag] : [], marketing_opt_in: optin }) });
+          const res = await fetch(`${WORKER}/contacts/import`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" }, body: JSON.stringify({ rows: rows.slice(i, i + CHUNK), batch_tags: tag ? [tag] : [], marketing_opt_in: optin, internal }) });
           const d = await res.json().catch(() => ({}));
           if (!res.ok) { setImportStatus(d.error || "Import failed.", false); btn.disabled = false; btn.textContent = "Import"; return; }
-          imported += d.imported || 0; skipped += d.skipped || 0;
+          imported += d.imported || 0; skipped += d.skipped || 0; teg += d.teg || 0;
         } catch (_) { setImportStatus("Network error during import.", false); btn.disabled = false; btn.textContent = "Import"; return; }
       }
       btn.disabled = false; btn.textContent = "Import";
-      setImportStatus(`Imported ${imported} contact${imported === 1 ? "" : "s"}${skipped ? `, skipped ${skipped} (no/invalid email)` : ""}.`, true);
+      setImportStatus(`Imported ${imported} contact${imported === 1 ? "" : "s"}${teg ? `, ${teg} flagged as internal agents (TEG)` : ""}${skipped ? `, skipped ${skipped} (no/invalid email)` : ""}.`, true);
       load();
     }
     $("ct-import-go").addEventListener("click", doImport);
+    $("ct-import-internal")?.addEventListener("change", (e) => { $("ct-import-internal-note").hidden = !e.target.checked; });
 
     async function load() {
       const [cRes, oRes, vRes, sRes] = await Promise.all([
