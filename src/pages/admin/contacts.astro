@@ -95,7 +95,11 @@ import "../../styles/admin.css";
         <h3 class="ct-sec-h">Map your columns</h3>
         <div id="ct-map-rows" class="ct-map-rows"></div>
         <div class="ct-import-opts">
-          <label class="ct-import-opt">Apply a tag to everyone in this file<select id="ct-import-tag"></select></label>
+          <div class="ct-import-opt" style="flex-direction:column; align-items:stretch; gap:8px">
+            <span>Apply tags to everyone in this file</span>
+            <div class="ct-chips" id="ct-import-tags"></div>
+            <select id="ct-import-tag" aria-label="Add a batch tag"></select>
+          </div>
           <label class="ct-toggle"><input type="checkbox" id="ct-import-optin" /> These contacts have opted into marketing</label>
           <label class="ct-toggle"><input type="checkbox" id="ct-import-internal" /> These are internal (Experts Group) agents</label>
           <p class="ct-meta" id="ct-import-internal-note" style="margin:0" hidden>Marks each as an internal agent (TEG) &mdash; fills the TEG tab from the Company/Brand, Postcode and Date-joined columns, and sets marketing opt-in to Yes.</p>
@@ -979,6 +983,7 @@ import "../../styles/admin.css";
       { key: "company", label: "Company / Brand", match: ["company", "business", "brand", "organisation", "organization", "agency"] },
       { key: "postcode", label: "Postcode", match: ["postcode", "post code", "postal code", "zip"] },
       { key: "date_joined", label: "Date joined", match: ["date joined", "join date", "joined", "start date", "induction date", "date_joined"] },
+      { key: "type", label: "Type (→ a tag, e.g. Estate Agent)", match: ["tag type", "tag-type", "tagtype", "type", "role", "category"] },
       { key: "tags", label: "Tags (; or , separated)", match: ["tags", "tag"] },
     ];
     let importHeaders = [], importData = [];
@@ -996,7 +1001,23 @@ import "../../styles/admin.css";
       if (field !== "" || row.length) { row.push(field); rows.push(row); }
       return rows.filter((r) => r.some((c) => String(c).trim() !== ""));
     }
-    $("ct-import-tag").innerHTML = `<option value="">— none —</option>` + TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("");
+    $("ct-import-tag").innerHTML = `<option value="">Add a tag…</option>` + TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("");
+    // Batch tags — pick as many as you like; each becomes a removable chip.
+    let importBatchTags = [];
+    function renderImportTags() {
+      const box = $("ct-import-tags");
+      box.innerHTML = importBatchTags.length
+        ? importBatchTags.map((t) => `<span class="ct-chip">${esc(t)}<button data-untag="${esc(t)}" title="Remove">&times;</button></span>`).join("")
+        : '<span class="ct-meta">No tags yet — add as many as you like.</span>';
+      box.querySelectorAll("[data-untag]").forEach((b) => b.addEventListener("click", () => {
+        importBatchTags = importBatchTags.filter((t) => t !== b.getAttribute("data-untag")); renderImportTags();
+      }));
+    }
+    $("ct-import-tag").addEventListener("change", (e) => {
+      const v = e.target.value; e.target.value = "";
+      if (v && !importBatchTags.includes(v)) { importBatchTags.push(v); renderImportTags(); }
+    });
+    renderImportTags();
     // ---- Add a single contact (reuses the /contacts/import path) ----
     function closeAdd() { $("ct-add").hidden = true; }
     function addMsg(t, ok) { const m = $("ct-add-msg"); m.textContent = t; m.className = "ct-teg-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
@@ -1051,12 +1072,14 @@ import "../../styles/admin.css";
       const map = {};
       $("ct-map-rows").querySelectorAll("[data-field]").forEach((s) => { if (s.value !== "") map[s.getAttribute("data-field")] = parseInt(s.value, 10); });
       if (map.email == null) { setImportStatus("Please map the Email column first.", false); return; }
-      const tag = $("ct-import-tag").value, optin = $("ct-import-optin").checked, internal = $("ct-import-internal").checked;
+      const optin = $("ct-import-optin").checked, internal = $("ct-import-internal").checked;
       const rows = importData.map((r) => {
         const val = (k) => (map[k] != null ? String(r[map[k]] || "").trim() : "");
         let fn = val("first_name"), ln = val("last_name");
         if (!fn && !ln && map.name != null) { const p = val("name").split(/\s+/); fn = p.shift() || ""; ln = p.join(" "); }
-        return { email: val("email"), first_name: fn || null, last_name: ln || null, phone: val("phone") || null, company: val("company") || null, postcode: val("postcode") || null, date_joined: val("date_joined") || null, tags: val("tags") };
+        // The Type column value rides along as a per-row tag (e.g. "Estate Agent").
+        const rowTags = [val("tags"), val("type")].filter(Boolean).join(";");
+        return { email: val("email"), first_name: fn || null, last_name: ln || null, phone: val("phone") || null, company: val("company") || null, postcode: val("postcode") || null, date_joined: val("date_joined") || null, tags: rowTags };
       }).filter((r) => r.email);
       if (!rows.length) { setImportStatus("No rows had an email address.", false); return; }
       if (!WORKER) { setImportStatus("Import backend isn't connected.", false); return; }
@@ -1068,7 +1091,7 @@ import "../../styles/admin.css";
       for (let i = 0; i < rows.length; i += CHUNK) {
         btn.textContent = `Importing… ${Math.min(i + CHUNK, rows.length)}/${rows.length}`;
         try {
-          const res = await fetch(`${WORKER}/contacts/import`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" }, body: JSON.stringify({ rows: rows.slice(i, i + CHUNK), batch_tags: tag ? [tag] : [], marketing_opt_in: optin, internal }) });
+          const res = await fetch(`${WORKER}/contacts/import`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" }, body: JSON.stringify({ rows: rows.slice(i, i + CHUNK), batch_tags: importBatchTags, marketing_opt_in: optin, internal }) });
           const d = await res.json().catch(() => ({}));
           if (!res.ok) { setImportStatus(d.error || "Import failed.", false); btn.disabled = false; btn.textContent = "Import"; return; }
           imported += d.imported || 0; skipped += d.skipped || 0; teg += d.teg || 0;
