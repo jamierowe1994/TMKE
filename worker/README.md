@@ -37,6 +37,42 @@ validating the caller's Supabase session token.
 
 That's it — the admin Deliver tab will start uploading straight to R2.
 
+## Deploying (from 27 Jul 2026: automatic)
+
+The Worker is connected to GitHub via **Cloudflare Workers Builds**, so pushing
+to `main` deploys it — the same way Railway rebuilds the website. Nobody needs
+to run wrangler by hand any more.
+
+Settings, in case it ever needs rebuilding (Cloudflare dashboard → Workers &
+Pages → `tmke-deliverables-api` → Settings → Build):
+
+| Field | Value | Why |
+|---|---|---|
+| Repository | `jamierowe1994/TMKE` | |
+| Production branch | `main` | |
+| **Root directory** | **`worker`** | The Worker is in a subfolder; there's no `wrangler.toml` at the repo root, so a build from the root finds nothing |
+| Build command | *(empty)* | There is no `build` script in package.json — the dashboard's default `npm run build` fails with "Missing script: build" |
+| Deploy command | `npx wrangler deploy` | |
+
+Two things worth knowing:
+
+- **The website and the Worker deploy separately.** Railway builds the Astro
+  site; Cloudflare builds this. A change to `worker/` will not appear just
+  because the site redeployed, and vice versa.
+- **Connecting the repo does not deploy what's already committed** — it deploys
+  on the *next* push. To ship an existing commit, push something or trigger a
+  build from the dashboard.
+
+Manual deploy is still available if the Git connection is ever unavailable:
+
+```
+cd worker
+npx wrangler login        # browser sign-in; you must already be logged in to
+                          # dash.cloudflare.com in that same browser, or the
+                          # callback fails with "No CSRF value in session cookie"
+npx wrangler deploy
+```
+
 ## Bucket CORS
 
 The browser uploads parts through this Worker (not directly to the bucket), so
