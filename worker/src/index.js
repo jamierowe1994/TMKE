@@ -1408,11 +1408,112 @@ async function agentFunnelContext(env, contact) {
   } catch (_) { return {}; }
 }
 
+// ---- Email consent gate ----------------------------------------------------
+// Every send should pass through here, so there is ONE place that decides who
+// may be emailed. See docs/email-suppression-plan.md.
+//
+// Consecutive soft bounces before an address is suppressed. Reset by any
+// successful delivery.
+const SOFT_BOUNCE_LIMIT = 3;
+
+// Record what happened to an email. Best-effort: logging must never be the
+// reason a send fails, so every path swallows its errors.
+async function logEmailEvent(env, {
+  contact = null, email = null, event, provider = "resend",
+  messageId = null, subject = null, url = null, detail = null,
+  raw = null, occurredAt = null,
+} = {}) {
+  try {
+    const addr = String(email || (contact && contact.email) || "").toLowerCase();
+    if (!addr) return;
+    await sbPost(env, "email_events", {
+      contact_id: (contact && contact.id) || null,
+      email: addr,
+      event, provider,
+      message_id: messageId, subject, url, detail, raw,
+      occurred_at: occurredAt || new Date().toISOString(),
+    });
+  } catch (_) { /* never blocks a send */ }
+}
+
+// May we send this contact this kind of mail?
+//
+//   "transactional" — they did something and this is the reply (booking
+//                     confirmation, receipt, password reset). A marketing
+//                     opt-out must NEVER stop one of these.
+//   "marketing"     — we chose to send it. Needs opt-in, and is stopped by an
+//                     unsubscribe.
+//
+// Both are stopped by suppression, because a hard-bounced address is simply
+// undeliverable — there is no point trying either way.
+function mayEmail(contact, kind = "marketing") {
+  if (!contact || !contact.email) return { ok: false, reason: "no email address" };
+  if (contact.suppressed_at) {
+    return { ok: false, reason: `suppressed: ${contact.suppression_reason || "unknown"}` };
+  }
+  // do-not-contact has always stopped automation email, transactional included.
+  // Kept that way deliberately — an unsubscribe sets dnd_email, so this is what
+  // makes an unsubscribe bite immediately.
+  if (contact.dnd || contact.dnd_email) return { ok: false, reason: "do-not-contact" };
+  if (kind === "transactional") return { ok: true };
+  if (contact.unsubscribed_at) return { ok: false, reason: "unsubscribed from marketing" };
+  if (!contact.marketing_opt_in) return { ok: false, reason: "no marketing opt-in" };
+  return { ok: true };
+}
+
+// mayEmail + an audit trail, so "why did this campaign only reach 340 people?"
+// has an answer instead of a shrug.
+async function gateEmail(env, contact, kind, subject) {
+  const verdict = mayEmail(contact, kind);
+  if (!verdict.ok) {
+    await logEmailEvent(env, {
+      contact, email: contact && contact.email, event: "blocked",
+      provider: "internal", subject, detail: verdict.reason,
+    });
+  }
+  return verdict;
+}
+
+// Mark an address undeliverable. Leaves any unsubscribe choice untouched —
+// the two are separate states and clearing one must not clear the other.
+async function suppressContact(env, contact, reason, detail) {
+  if (!contact || !contact.id) return;
+  try {
+    await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contact.id)}`, {
+      suppressed_at: new Date().toISOString(),
+      suppression_reason: reason,
+      last_email_event: { event: "suppressed", reason, detail: detail || null, at: new Date().toISOString() },
+    });
+  } catch (_) { /* best-effort */ }
+}
+
+// Record that someone asked to stop receiving marketing. Also sets dnd_email,
+// per the brief: an unsubscribe is both an unsubscribe and a do-not-contact.
+async function unsubscribeContact(env, contact, source) {
+  if (!contact || !contact.id) return;
+  try {
+    await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contact.id)}`, {
+      unsubscribed_at: new Date().toISOString(),
+      unsubscribe_source: source || "footer_link",
+      dnd_email: true,
+      marketing_opt_in: false,
+    });
+  } catch (_) { /* best-effort */ }
+}
+
 async function autoExecAction(env, node, contact) {
   const c = node.config || {};
   try {
     if (node.type === "send_email") {
-      if (contact.dnd || contact.dnd_email) return { outcome: "skipped", detail: "contact is do-not-contact" };
+      // Marketing vs transactional is set per STEP, not per template — the same
+      // template can legitimately be used both ways, so the intent belongs to
+      // the sending. Steps built before this existed have no setting and default
+      // to "transactional", which preserves exactly how they behaved before:
+      // defaulting them to marketing would have started demanding opt-in for
+      // booking confirmations overnight.
+      const sendKind = c.send_kind === "marketing" ? "marketing" : "transactional";
+      const gate = await gateEmail(env, contact, sendKind, null);
+      if (!gate.ok) return { outcome: "skipped", detail: gate.reason };
       if (!c.template_id) return { outcome: "skipped", detail: "no template chosen on this step" };
       const tRows = await sbGet(env, "email_templates", `id=eq.${c.template_id}&select=*`);
       const t = tRows && tRows[0];

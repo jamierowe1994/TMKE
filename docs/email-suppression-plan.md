@@ -118,10 +118,22 @@ email builder. Each "send email" step in an automation gets a **Marketing** or
 The automation step is the right home because the same template can legitimately
 be used both ways — the intent belongs to the sending, not the design.
 
-Steps built before this change default to **Marketing**, as the safer of the two:
-wrongly treating a transactional mail as marketing means it might not send;
-wrongly treating a marketing mail as transactional means we email someone who
-opted out, which is the one that causes real trouble.
+**Existing steps default to Transactional** — reversed from this plan's first
+draft, which said Marketing. The original reasoning was that failing to send is
+safer than emailing someone who opted out. In practice that default would have
+been a live regression: Dani's read is that nearly every existing automation is
+transactional, so defaulting them all to Marketing would have started demanding
+a marketing opt-in before a booking confirmation could go out. Anyone who never
+ticked the newsletter box would silently stop receiving their own confirmations.
+
+So the default preserves exactly today's behaviour, and Marketing has to be set
+deliberately on a step. The unsubscribe path is not weakened by this, because an
+unsubscribe also sets `dnd_email`, and do-not-contact stops *both* kinds — so an
+unsubscribe still bites immediately, whatever a step is labelled.
+
+The trade-off to keep in mind: a genuinely-marketing step that nobody remembers
+to relabel will keep sending to people without opt-in. That's why identifying
+the marketing automations (decision 2 below) matters.
 
 ---
 
