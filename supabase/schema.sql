@@ -40,7 +40,13 @@ create trigger packs_set_updated_at
   for each row execute function public.set_updated_at();
 
 -- ============================================================
--- RLS — public can read live packs; only authenticated users mutate
+-- RLS — public can read live packs; only ADMINS mutate
+--
+-- Writes are gated on public.is_admin() (supabase/admins.sql), not merely on
+-- being signed in: the admin and member portals share one anon key and one
+-- `authenticated` role, so "authenticated" would include every member. See
+-- supabase/packs_admin_rls.sql for the full reasoning and the migration that
+-- applies this to an existing database.
 -- ============================================================
 alter table public.packs enable row level security;
 
@@ -55,21 +61,27 @@ create policy "packs read all when authed"
   to authenticated
   using (true);
 
-drop policy if exists "packs write authed" on public.packs;
-create policy "packs write authed"
+-- Superseded permissive policies — dropped by name so a re-run of this file
+-- can never leave the old "any authenticated user may write" grant in place.
+drop policy if exists "packs write authed"  on public.packs;
+drop policy if exists "packs update authed" on public.packs;
+drop policy if exists "packs delete authed" on public.packs;
+
+drop policy if exists "packs write admin" on public.packs;
+create policy "packs write admin"
   on public.packs for insert
   to authenticated
-  with check (true);
+  with check (public.is_admin());
 
-drop policy if exists "packs update authed" on public.packs;
-create policy "packs update authed"
+drop policy if exists "packs update admin" on public.packs;
+create policy "packs update admin"
   on public.packs for update
   to authenticated
-  using (true)
-  with check (true);
+  using (public.is_admin())
+  with check (public.is_admin());
 
-drop policy if exists "packs delete authed" on public.packs;
-create policy "packs delete authed"
+drop policy if exists "packs delete admin" on public.packs;
+create policy "packs delete admin"
   on public.packs for delete
   to authenticated
-  using (true);
+  using (public.is_admin());

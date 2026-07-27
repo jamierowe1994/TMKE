@@ -48,35 +48,22 @@ create trigger email_templates_set_updated_at
 -- ============================================================
 alter table public.email_templates enable row level security;
 
--- Reads: any signed-in admin. We use the authenticated role to match the rest
--- of the backstage today; tighten to public.is_admin() once the admins-table
--- RLS rollout lands (see supabase/admins.sql + the pending note in memory).
-drop policy if exists "email_templates read authed" on public.email_templates;
-create policy "email_templates read authed"
-  on public.email_templates for select
-  to authenticated
-  using (true);
+-- Read + write: admins only, via public.is_admin(). NOT merely `authenticated` —
+-- the admin area and the member hub share one anon key and one `authenticated`
+-- role, so "signed in" would include every member.
+-- PREREQUISITE: public.admins must be populated (supabase/admins.sql).
+-- See supabase/admin_tables_rls.sql for the migration and the full reasoning.
 
+-- Superseded permissive policies — dropped by name so a re-run of this file
+-- can never leave the old "any signed-in user" grant sitting beside the lock.
+drop policy if exists "email_templates read authed"   on public.email_templates;
 drop policy if exists "email_templates insert authed" on public.email_templates;
-create policy "email_templates insert authed"
-  on public.email_templates for insert
-  to authenticated
-  with check (true);
-
 drop policy if exists "email_templates update authed" on public.email_templates;
-create policy "email_templates update authed"
-  on public.email_templates for update
-  to authenticated
-  using (true)
-  with check (true);
-
 drop policy if exists "email_templates delete authed" on public.email_templates;
-create policy "email_templates delete authed"
-  on public.email_templates for delete
-  to authenticated
-  using (true);
 
--- To tighten later (recommended once admins-table RLS is live), replace the
--- using(true)/with check(true) above with public.is_admin(), e.g.:
---   create policy "email_templates write admin" on public.email_templates
---     for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "email_templates admin" on public.email_templates;
+create policy "email_templates admin"
+  on public.email_templates for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());

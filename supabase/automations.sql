@@ -198,7 +198,11 @@ begin
 end; $$;
 
 -- ---- RLS — admin-only (Worker uses the service role, which bypasses RLS) -----
--- Tighten `authenticated` to public.is_admin() once the admins-table RLS lands.
+-- Gated on public.is_admin(), NOT merely on being signed in: the admin area and
+-- the member hub share one anon key and one `authenticated` role, so "signed in"
+-- would include every member. See supabase/admin_tables_rls.sql.
+-- PREREQUISITE: public.admins must be populated (supabase/admins.sql) or staff
+-- lose access to the backstage.
 do $$
 declare t text;
 begin
@@ -208,6 +212,8 @@ begin
   ] loop
     execute format('alter table public.%I enable row level security;', t);
     execute format('drop policy if exists "%s admin" on public.%I;', t, t);
-    execute format('create policy "%s admin" on public.%I for all to authenticated using (true) with check (true);', t, t);
+    execute format(
+      'create policy "%s admin" on public.%I for all to authenticated '
+      'using (public.is_admin()) with check (public.is_admin());', t, t);
   end loop;
 end $$;
