@@ -1031,29 +1031,36 @@ function unsubPage({ email, state, resubToken }) {
 <meta name="robots" content="noindex">
 <title>${title} — TMKE</title>
 <style>
-  :root { --ink:#1c1d22; --muted:#6b6c75; --paper:#f7f6f3; --accent:#5a4e7c; }
+  /* Brand colours, kept in step with src/styles/global.css:
+     --english-violet #371e28 (the wine) · --accent #B9826A · --paper #f4f2f1
+     Deliberately NOT theme-aware. Every other page follows the reader's
+     light/dark setting, but this one is a single branded moment that arrives
+     from an email — so it should look the same to everyone, rather than
+     changing depending on how their phone happens to be set. A fixed dark
+     background also can't be inverted into something unreadable. */
+  :root { --wine:#371e28; --wine-lift:#50303d; --paper:#f4f2f1;
+          --ink:#1c1d22; --muted:#6b6c75; --accent:#B9826A; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px;
-         background:var(--paper); color:var(--ink);
-         font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
-  .u-card { width:100%; max-width:520px; background:#fff; border-radius:18px; padding:40px 36px;
-            box-shadow:0 1px 2px rgba(28,29,34,.04), 0 12px 40px rgba(28,29,34,.08); }
+         background:var(--wine); color:var(--ink);
+         font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         -webkit-font-smoothing:antialiased; }
+  .u-card { width:100%; max-width:520px; background:var(--paper); border-radius:18px;
+            padding:40px 36px; box-shadow:0 18px 50px rgba(0,0,0,.28); }
+  /* The tan accent (#B9826A) only reaches 2.9:1 on paper — too low for 13px
+     text — so the mark uses the wine instead. The accent stays as the rule
+     beneath it, where it's decoration rather than something to be read. */
   .u-mark { font-size:13px; letter-spacing:.14em; text-transform:uppercase; font-weight:700;
-            color:var(--accent); margin:0 0 18px; }
-  h1 { font-size:27px; line-height:1.2; margin:0 0 14px; letter-spacing:-.01em; }
+            color:var(--wine); margin:0 0 16px; padding-bottom:14px;
+            border-bottom:2px solid var(--accent); display:inline-block; }
+  h1 { font-size:27px; line-height:1.2; margin:0 0 14px; letter-spacing:-.01em; color:var(--wine); }
   .u-lede { font-size:16px; line-height:1.6; margin:0 0 14px; }
   .u-note { font-size:14px; line-height:1.6; color:var(--muted); margin:0; }
   .u-btn { margin-top:26px; width:100%; padding:13px 18px; font:inherit; font-size:14px; font-weight:600;
-           color:var(--ink); background:transparent; border:1px solid rgba(28,29,34,.18);
+           color:var(--paper); background:var(--wine); border:1px solid var(--wine);
            border-radius:11px; cursor:pointer; }
-  .u-btn:hover { background:rgba(28,29,34,.04); }
-  a { color:var(--accent); }
-  @media (prefers-color-scheme: dark) {
-    :root { --ink:#f0eeeb; --muted:#a2a3ad; --paper:#141419; --accent:#b3a5dd; }
-    .u-card { background:#1c1d22; box-shadow:none; border:1px solid rgba(255,255,255,.08); }
-    .u-btn { color:var(--ink); border-color:rgba(255,255,255,.16); }
-    .u-btn:hover { background:rgba(255,255,255,.06); }
-  }
+  .u-btn:hover { background:var(--wine-lift); border-color:var(--wine-lift); }
+  a { color:var(--wine); }
 </style></head><body>
   <main class="u-card">
     <p class="u-mark">TMKE</p>
