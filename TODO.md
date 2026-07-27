@@ -184,6 +184,17 @@ Not complete. Needs scoping — what's missing, and what "complete" looks like.
   tables were readable *and* writable. All now gated on the staff list
   (`public.admins`). Applied to production and verified.
   (`supabase/packs_admin_rls.sql`, `supabase/admin_tables_rls.sql`)
+- ⬜ **Every booking is readable by any signed-in member.** All six videography
+  tables (`videography_bookings`, availability, booking flow, deliveries,
+  deliverables, promo codes) are still `using (true)` — the same hole we closed
+  on packs and contacts. `/account/bookings` filters to "my bookings" **in the
+  browser**, so the database isn't enforcing it: drop the filter and you get
+  every client's name, email, phone, shoot postcode, amount and signature.
+  Fix is different from the others — it's not admin-only, it's *admin **or** the
+  member the booking belongs to* (`account_user_id = auth.uid()` or a matching
+  `client_email`), with writes left to admins and the Worker. Needs testing
+  against `/account/bookings` afterwards. NB the invoicing tables were done
+  properly already.
 - ⬜ **Website inline editor: two security-adjacent items.** Edited wording is
   stored as HTML and re-injected **without sanitising**, and the read policy
   **exposes unpublished drafts to anonymous readers**.
