@@ -1040,7 +1040,7 @@ function unsubPage({ email, state, resubToken }) {
      --english-violet #371e28 (the wine) · --accent #B9826A · --paper #f4f2f1
      Deliberately NOT theme-aware. Every other page follows the reader's
      light/dark setting, but this one is a single branded moment that arrives
-     from an email — so it should look the same to everyone, rather than
+     from an email - so it should look the same to everyone, rather than
      changing depending on how their phone happens to be set. A fixed dark
      background also can't be inverted into something unreadable. */
   :root { --wine:#371e28; --wine-lift:#50303d; --paper:#f4f2f1;
@@ -1052,8 +1052,8 @@ function unsubPage({ email, state, resubToken }) {
          -webkit-font-smoothing:antialiased; }
   .u-card { width:100%; max-width:520px; background:var(--paper); border-radius:18px;
             padding:44px 40px; box-shadow:0 18px 50px rgba(0,0,0,.28); }
-  /* The tan accent (#B9826A) only reaches 2.9:1 on paper — too low for 13px
-     text — so the mark uses the wine instead. The accent stays as the rule
+  /* The tan accent (#B9826A) only reaches 2.9:1 on paper - too low for 13px
+     text - so the mark uses the wine instead. The accent stays as the rule
      beneath it, where it's decoration rather than something to be read. */
   .u-mark { font-size:13px; letter-spacing:.14em; text-transform:uppercase; font-weight:700;
             color:var(--wine); margin:0 0 16px; padding-bottom:14px;
