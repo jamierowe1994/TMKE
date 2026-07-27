@@ -1000,9 +1000,12 @@ async function unsubVerify(env, token) {
 function unsubBase(env) {
   const explicit = env.UNSUB_BASE_URL || env.WORKER_PUBLIC_URL;
   if (explicit) return String(explicit).replace(/\/+$/, "");
-  // tmke.co.uk is a Cloudflare zone and wrangler.toml routes /unsubscribe* here,
-  // so the link can sit on the real domain rather than a *.workers.dev address.
-  return "https://tmke.co.uk";
+  // Back on the workers.dev address: the tmke.co.uk/unsubscribe route had to be
+  // removed because declaring it disabled this Worker's workers.dev subdomain,
+  // which the whole site depends on. See the note in wrangler.toml.
+  // Moving the link onto tmke.co.uk is still wanted - a *.workers.dev
+  // unsubscribe link reads as phishing - but it needs the subdomain sorted first.
+  return "https://tmke-deliverables-api.tmke.workers.dev";
 }
 
 async function unsubUrlFor(env, email) {

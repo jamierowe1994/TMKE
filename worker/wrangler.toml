@@ -109,18 +109,22 @@ crons = ["0 7 * * *", "0 8 * * *", "*/5 * * * *"]
 # path on tmke.co.uk still goes to Railway as before. Takes effect on the next
 # `npx wrangler deploy`.
 # ---------------------------------------------------------------------------
-# MUST stay true. Declaring any [[routes]] flips the workers.dev subdomain OFF
-# by default, and the whole site talks to this Worker at
-# https://tmke-deliverables-api.tmke.workers.dev via PUBLIC_R2_WORKER_URL.
-# Losing it took bookings, availability and every other endpoint down on
-# 27 Jul 2026 - the site could no longer reach the Worker at all ("Failed to
-# fetch", "couldn't load the times"). Both addresses are needed: workers.dev
-# for the site's API calls, the route below for the public unsubscribe page.
-workers_dev = true
-
-[[routes]]
-pattern = "tmke.co.uk/unsubscribe*"
-zone_name = "tmke.co.uk"
+# DO NOT add a [[routes]] block here without also proving the workers.dev
+# subdomain survives it.
+#
+# On 27 Jul 2026 a route for tmke.co.uk/unsubscribe* was added. Declaring any
+# route flips workers_dev OFF by default, and the entire site reaches this
+# Worker at https://tmke-deliverables-api.tmke.workers.dev (PUBLIC_R2_WORKER_URL).
+# The subdomain vanished, and with it every API the site depends on: bookings
+# and enquiries failed with "Failed to fetch", the availability picker showed
+# "couldn't load the times". Setting workers_dev = true did not bring it back
+# within several minutes, so the route was removed to restore service.
+#
+# The unsubscribe page is served on the workers.dev URL instead - see
+# unsubBase() in src/index.js. Putting it on tmke.co.uk is still worth doing
+# (a *.workers.dev unsubscribe link looks like phishing), but it needs the
+# subdomain re-enabled in the dashboard FIRST, and testing outside business
+# hours.
 
 # Secrets to set (not stored here):
 #   wrangler secret put MS_CLIENT_SECRET       # Entra app client secret
