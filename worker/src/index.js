@@ -1241,6 +1241,53 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
 // real inbox, and a copy sits in Sent Items. Reuses the same app-only token as
 // the calendar integration (needs the `Mail.Send` application permission).
 // Best-effort: never throws — the caller's record is already saved.
+// Marketing email goes out via Resend, not Microsoft 365 — Resend reports
+// bounces and complaints back to us, and Microsoft doesn't. See
+// docs/email-suppression-plan.md.
+//
+// Carries the two headers Gmail, Outlook and Yahoo look for on bulk mail. They
+// render their own unsubscribe control next to the sender name, which is both
+// expected of bulk senders now and a good deal safer for us than someone
+// reaching for the spam button instead.
+//
+//   List-Unsubscribe:      <https://tmke.co.uk/unsubscribe?t=…>
+//   List-Unsubscribe-Post: List-Unsubscribe=One-Click
+//
+// The POST target must unsubscribe with no further interaction (RFC 8058) —
+// that's why the page has no "are you sure?" step.
+async function sendMarketingEmail(env, { to, subject, html, unsubUrl, replyTo }) {
+  if (!env.RESEND_API_KEY) return { ok: false, error: "Resend isn't configured on the Worker (RESEND_API_KEY)." };
+  if (!to) return { ok: false, error: "No recipient." };
+  const headers = {};
+  if (unsubUrl) {
+    headers["List-Unsubscribe"] = `<${unsubUrl}>`;
+    headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+  }
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        // Marketing comes from an address a human reads, not the posts@ mailbox
+        // used for the scheduled-post reminders.
+        from: env.MARKETING_MAIL_FROM || "TMKE <hello@tmke.co.uk>",
+        reply_to: replyTo || env.MAIL_REPLY_TO || "hello@tmke.co.uk",
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html,
+        headers: Object.keys(headers).length ? headers : undefined,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: body.message || `Resend returned ${res.status}` };
+    // Resend's id ties this send to the bounce/open/click events that come back
+    // on the webhook, so it has to be kept.
+    return { ok: true, id: body.id || null };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message || e).slice(0, 200) };
+  }
+}
+
 async function sendEmail(env, { to, cc, subject, html, attachments, from, fromName }) {
   if (!to) return { ok: false, error: "No recipient." };
   const sender = from || env.MAIL_SENDER || env.JACK_UPN;
@@ -1662,6 +1709,12 @@ async function autoExecAction(env, node, contact) {
       // Hydrate the videography funnel tokens ({{bookingLink}}, {{code}}, …) when
       // this contact is a new starter with a generated code.
       Object.assign(recipient, await agentFunnelContext(env, contact));
+      // Marketing gets a real, per-recipient unsubscribe link. Without this the
+      // {{unsubscribe}} token in a template falls back to a mailto:, which
+      // nobody actions. Transactional mail deliberately gets none — an
+      // unsubscribe footer on a booking confirmation is just confusing.
+      const unsubUrl = sendKind === "marketing" ? await unsubUrlFor(env, contact.email) : null;
+      if (unsubUrl) { recipient.unsubscribeUrl = unsubUrl; recipient.unsubscribe_url = unsubUrl; }
       const { subject, html } = renderTemplate(
         { subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
         { brand, mergeCtx: mergeContextFor(recipient, brand) }
@@ -1669,10 +1722,25 @@ async function autoExecAction(env, node, contact) {
       // Deliver to the secondary address too when there is one — a TEG new
       // starter is on file under a work email they often can't read until their
       // first day. Funnel/automation email only: marketing keeps to `email`.
-      const to = [contact.email, String(contact.secondary_email || "").trim()].filter(Boolean);
+      // Marketing goes to the one address they consented at. The secondary
+      // address exists for TEG new starters who can't read their work email
+      // until day one — a funnel/transactional concern, not a marketing one.
+      const to = sendKind === "marketing"
+        ? [contact.email]
+        : [contact.email, String(contact.secondary_email || "").trim()].filter(Boolean);
       // Record what actually went out (and whether it did) — this is what the
       // funnel audit shows, and the only way to answer "did they get it?".
-      const sent = await sendEmail(env, { to, subject, html });
+      const sent = sendKind === "marketing"
+        ? await sendMarketingEmail(env, { to, subject, html, unsubUrl })
+        : await sendEmail(env, { to, subject, html });
+      await logEmailEvent(env, {
+        contact, email: contact.email,
+        event: (sent && sent.ok) ? "sent" : "blocked",
+        provider: sendKind === "marketing" ? "resend" : "m365",
+        messageId: (sent && sent.id) || null,
+        subject,
+        detail: (sent && sent.ok) ? null : String((sent && sent.error) || "send failed").slice(0, 200),
+      });
       return (sent && sent.ok)
         ? { outcome: "ok", detail: `“${subject}” → ${to.join(", ")}` }
         : { outcome: "error", detail: `“${subject}” → ${to.join(", ")} — ${String((sent && sent.error) || "send failed").slice(0, 200)}` };
