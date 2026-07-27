@@ -297,9 +297,20 @@ challenges why they're being emailed, there's nothing to show them.
 exists (`send_kind` on the automation step); the control in the admin does not,
 so every step currently uses the default.
 
-**6. Review existing automations** and confirm which are genuinely marketing.
-They all default to transactional, which preserves today's behaviour but means a
-real marketing funnel would keep sending to people without opt-in.
+**6. Review existing automations** — ✅ **done (28 Jul).** Dani confirms every
+existing automated email is service or admin related, and none is marketing.
+
+So the transactional default is correct for all of them and nothing needs
+relabelling. It also vindicates reversing this plan's original "default to
+Marketing" position: had that stood, every one of these would have started
+demanding a marketing opt-in before it could send.
+
+Consequence worth knowing: **nothing currently uses the marketing path.** The
+Resend routing, the per-recipient unsubscribe links and the List-Unsubscribe
+headers are all built and deployed, but no automation is flagged Marketing, so
+none of it is exercised yet. The first thing to use it will be the first real
+marketing funnel — which makes that funnel the moment to test the whole chain
+end to end, unsubscribe link included, rather than assuming it works.
 
 **7. Show unsubscribes and bounces on a contact.** The data is now recorded;
 nothing surfaces it on the contact card, and there's no filter for it.
