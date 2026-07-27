@@ -143,6 +143,60 @@ Not complete. Needs scoping — what's missing, and what "complete" looks like.
 - ⬜ **`README.md` is completely stale** — describes a plain HTML site with
   `index.html`. It's Astro, ~86 pages, a Cloudflare Worker and Supabase.
 
+## 7a. Deleting things, with permissions ⬜
+
+Added 28 Jul. Two places, two different rules.
+
+**Enquiries** (`/admin/enquiries`) currently offer only Mark spam, Close, Mark
+replied and Reply via email.
+- ⬜ Add **Delete**, visible **only to James and Danielle**. Nobody else on the
+  team should see the button at all.
+
+**Videography cards** (`/admin/videography`) can only be moved back a stage;
+there is no delete.
+- ⬜ Add **Delete**, and here the button **is** visible to everyone.
+- ⬜ For anyone other than James or Danielle it becomes a **request to delete**:
+  they press Delete, give a reason, and it goes to James or Danielle to approve.
+  Jack is the obvious example.
+- ⬜ **Needs clarifying:** Dani said "that will go through to me or James,
+  because James doesn't need to know to approve the deletion" - unclear whether
+  approval needs *either* of them or *both*. Assume either until confirmed.
+
+Worth noting both need a real permission check server-side, not just a hidden
+button - the admin gate is client-side (see §9), so hiding a button doesn't stop
+anyone who knows the API. Same lesson as the packs lockdown.
+
+## 7b. Brochure downloads ⬜
+
+Checked 28 Jul:
+
+- ✅ **Videography brochure is fine.** The PDF is live at
+  `assets.tmke.co.uk/TMKE - Videography Services.pdf` (15.9 MB, returns 200).
+  So if a request email didn't arrive, the fault is in the *email*, not the
+  file - worth testing the request form end to end.
+- ⬜ **The SMM brochure is broken.** Contrary to expectation the whole flow
+  exists - a request form, the `POST /smm/brochure` endpoint, and a "Your TMKE
+  social media brochure" email template - but the PDF it links to
+  (`assets.tmke.co.uk/tmke-smm-brochure.pdf`, set in `src/lib/smm-config.js:136`
+  and `worker/wrangler.toml:67`) **returns 404**. It was never uploaded.
+  Anyone requesting it gets an email with a dead download link.
+  Fix: upload the PDF to that exact filename in R2. No code change needed.
+
+## 7c. Tag structure ⬜
+
+There are far too many tags on contacts, and they've grown without a scheme.
+
+This blocks the newsletter work: the plan for sending to a group
+(docs/email-suppression-plan.md, outstanding item 1) is to select people **by
+tag, lifecycle and company**. If the tags are a mess, the segments will be too,
+and the first newsletter goes to the wrong people.
+
+- ⬜ Audit what tags exist and how many contacts carry each.
+- ⬜ Agree a naming scheme, and which tags are for segmentation versus which are
+  just history.
+- ⬜ Merge and retire the duplicates. NB `contact_tag_rules.sql` and the
+  normalisation in the Worker already exist, so there's machinery to build on.
+
 ## 7. Admin centre ⬜
 
 - ⬜ **Contacts import doesn't retro-fill people already in the system** — the
