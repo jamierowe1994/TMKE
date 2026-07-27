@@ -941,6 +941,112 @@ async function stripeVerify(rawBody, sigHeader, secret) {
   for (let i = 0; i < hex.length; i++) diff |= hex.charCodeAt(i) ^ v1.charCodeAt(i);
   return diff === 0;
 }
+// ---- Unsubscribe links -----------------------------------------------------
+// A marketing email carries a link with a signed token, so one click can
+// unsubscribe that exact person without them signing in — and nobody can
+// unsubscribe a colleague by editing the address in the URL.
+//
+// Format: <base64url(email)>.<hmac>. Deliberately stateless and with no expiry:
+// an email can sit in an inbox for a year and its unsubscribe link must still
+// work on the day they finally get fed up.
+//
+// Uses UNSUBSCRIBE_SECRET when set. Falls back to the service-role key so this
+// works without another secret having to be added in Cloudflare — but a
+// dedicated UNSUBSCRIBE_SECRET is better, so that leaking one isn't leaking both.
+function unsubSecret(env) {
+  return env.UNSUBSCRIBE_SECRET || env.SUPABASE_SERVICE_ROLE || "";
+}
+
+async function unsubSign(env, email) {
+  const secret = unsubSecret(env);
+  const addr = String(email || "").trim().toLowerCase();
+  if (!secret || !addr) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`unsub:${addr}`));
+  return `${_b64urlStr(addr)}.${_b64url(mac)}`;
+}
+
+// Returns the address a token vouches for, or null if it's been tampered with.
+async function unsubVerify(env, token) {
+  try {
+    const raw = String(token || "");
+    const dot = raw.indexOf(".");
+    if (dot < 1) return null;
+    const addr = atob(raw.slice(0, dot).replace(/-/g, "+").replace(/_/g, "/"));
+    const expect = await unsubSign(env, addr);
+    if (!expect) return null;
+    // Constant-time compare, same as stripeVerify above.
+    if (raw.length !== expect.length) return null;
+    let diff = 0;
+    for (let i = 0; i < raw.length; i++) diff |= raw.charCodeAt(i) ^ expect.charCodeAt(i);
+    return diff === 0 ? addr : null;
+  } catch (_) { return null; }
+}
+
+// The public unsubscribe URL for a given address.
+async function unsubUrlFor(env, email) {
+  const token = await unsubSign(env, email);
+  if (!token) return null;
+  const base = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  return `${base}/unsubscribe?t=${encodeURIComponent(token)}`;
+}
+
+// The confirmation page. Branded rather than plain, but the unsubscribe has
+// ALREADY happened by the time this renders — see the route for why.
+function unsubPage({ email, state, resubToken }) {
+  const gone = state === "done";
+  const title = gone ? "Sorry to see you go" : state === "resubscribed" ? "Welcome back" : "Something went wrong";
+  const body = gone
+    ? `<p class="u-lede">You won't receive any more marketing emails from us${email ? ` at <strong>${email}</strong>` : ""}.</p>
+       <p class="u-note">You'll still get anything you've actually asked us for — booking confirmations, receipts and the like. Those aren't marketing, and we won't stop them.</p>`
+    : state === "resubscribed"
+      ? `<p class="u-lede">You're back on the list${email ? ` at <strong>${email}</strong>` : ""}. Good to have you.</p>`
+      : `<p class="u-lede">That link doesn't look right — it may have been cut in half by your email app.</p>
+         <p class="u-note">Email <a href="mailto:hello@tmke.co.uk">hello@tmke.co.uk</a> and we'll take care of it by hand.</p>`;
+  const undo = gone && resubToken
+    ? `<form method="POST" action="/unsubscribe/resubscribe?t=${encodeURIComponent(resubToken)}">
+         <button type="submit" class="u-btn">Actually, that was a mistake — resubscribe me</button>
+       </form>`
+    : "";
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>${title} — TMKE</title>
+<style>
+  :root { --ink:#1c1d22; --muted:#6b6c75; --paper:#f7f6f3; --accent:#5a4e7c; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px;
+         background:var(--paper); color:var(--ink);
+         font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .u-card { width:100%; max-width:520px; background:#fff; border-radius:18px; padding:40px 36px;
+            box-shadow:0 1px 2px rgba(28,29,34,.04), 0 12px 40px rgba(28,29,34,.08); }
+  .u-mark { font-size:13px; letter-spacing:.14em; text-transform:uppercase; font-weight:700;
+            color:var(--accent); margin:0 0 18px; }
+  h1 { font-size:27px; line-height:1.2; margin:0 0 14px; letter-spacing:-.01em; }
+  .u-lede { font-size:16px; line-height:1.6; margin:0 0 14px; }
+  .u-note { font-size:14px; line-height:1.6; color:var(--muted); margin:0; }
+  .u-btn { margin-top:26px; width:100%; padding:13px 18px; font:inherit; font-size:14px; font-weight:600;
+           color:var(--ink); background:transparent; border:1px solid rgba(28,29,34,.18);
+           border-radius:11px; cursor:pointer; }
+  .u-btn:hover { background:rgba(28,29,34,.04); }
+  a { color:var(--accent); }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink:#f0eeeb; --muted:#a2a3ad; --paper:#141419; --accent:#b3a5dd; }
+    .u-card { background:#1c1d22; box-shadow:none; border:1px solid rgba(255,255,255,.08); }
+    .u-btn { color:var(--ink); border-color:rgba(255,255,255,.16); }
+    .u-btn:hover { background:rgba(255,255,255,.06); }
+  }
+</style></head><body>
+  <main class="u-card">
+    <p class="u-mark">TMKE</p>
+    <h1>${title}</h1>
+    ${body}
+    ${undo}
+  </main>
+</body></html>`;
+}
+
 function bufToBase64(buf) {
   let binary = "";
   const bytes = new Uint8Array(buf);
@@ -1188,6 +1294,10 @@ async function sendPostEmail(env, { email, item, subject }) {
       headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>",
+        // MAIL_FROM is posts@tmke.co.uk, which sends fine (the domain is
+        // verified) but isn't a mailbox anyone reads. Point replies at a real
+        // one so "please stop emailing me" reaches a human.
+        reply_to: env.MAIL_REPLY_TO || "hello@tmke.co.uk",
         to: email,
         subject: subject || `Your ${platform} post`,
         html: reminderHtml(item, platform, item.caption || ""),
@@ -1898,6 +2008,61 @@ export default {
       // ---- Stripe: webhook (the source of truth that marks an order paid) -----
       // Stripe POSTs here after checkout. We verify the signature against the raw
       // body, then flip the matching order to `paid` with the PaymentIntent id.
+      // ---- Unsubscribe --------------------------------------------------------
+      // Three entry points, all keyed on the same signed token:
+      //   GET  /unsubscribe?t=…              the link in the email footer
+      //   POST /unsubscribe?t=…              Gmail/Outlook's own button (RFC 8058)
+      //   POST /unsubscribe/resubscribe?t=…  the "that was a mistake" undo
+      //
+      // The GET unsubscribes IMMEDIATELY and then says so, rather than asking
+      // "are you sure?" first. Deliberate: an extra step loses people who then
+      // press the spam button instead, and one spam complaint does far more
+      // damage to whether the rest of our email arrives than one unsubscribe.
+      // They get a one-click undo on the page, which covers the misclick.
+      if (path.endsWith("/unsubscribe/resubscribe") && request.method === "POST") {
+        const addr = await unsubVerify(env, url.searchParams.get("t"));
+        if (!addr) return new Response(unsubPage({ state: "error" }), { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } });
+        const rows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=*`);
+        const contact = rows && rows[0];
+        if (contact) {
+          await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contact.id)}`, {
+            unsubscribed_at: null, unsubscribe_source: null, dnd_email: false, marketing_opt_in: true,
+          });
+          await logEmailEvent(env, { contact, email: addr, event: "unsubscribed", provider: "internal", detail: "resubscribed by the recipient" });
+        }
+        return new Response(unsubPage({ email: addr, state: "resubscribed" }), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+      }
+
+      if (path.endsWith("/unsubscribe") && (request.method === "GET" || request.method === "POST")) {
+        const token = url.searchParams.get("t");
+        const addr = await unsubVerify(env, token);
+        const oneClick = request.method === "POST";   // the mailbox provider's button
+
+        if (!addr) {
+          // A provider POSTing gets a plain response; a person gets the page.
+          if (oneClick) return new Response("invalid token", { status: 400 });
+          return new Response(unsubPage({ state: "error" }), { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } });
+        }
+
+        const rows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=*`);
+        const contact = rows && rows[0];
+        if (contact) {
+          await unsubscribeContact(env, contact, oneClick ? "list_unsubscribe" : "footer_link");
+          await logEmailEvent(env, {
+            contact, email: addr, event: "unsubscribed", provider: "internal",
+            detail: oneClick ? "one-click via the mailbox provider" : "footer link",
+          });
+        }
+        // Unknown address: still report success. Confirming whether an address is
+        // on the list would leak it, and there's nothing for them to fix anyway.
+
+        // RFC 8058 wants a bare 200 for the one-click POST — no page, no redirect.
+        if (oneClick) return new Response("unsubscribed", { status: 200 });
+        return new Response(unsubPage({ email: addr, state: "done", resubToken: token }), {
+          status: 200, headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+      }
+
       if (path.endsWith("/stripe/webhook") && request.method === "POST") {
         const raw = await request.text();
         const ok = await stripeVerify(raw, request.headers.get("Stripe-Signature") || "", env.STRIPE_WEBHOOK_SECRET);
@@ -3357,6 +3522,10 @@ export default {
               headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
               body: JSON.stringify({
                 from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>",
+        // MAIL_FROM is posts@tmke.co.uk, which sends fine (the domain is
+        // verified) but isn't a mailbox anyone reads. Point replies at a real
+        // one so "please stop emailing me" reaches a human.
+        reply_to: env.MAIL_REPLY_TO || "hello@tmke.co.uk",
                 to: email,
                 subject: `You're on the cancellation list — ${service || section || "The Studio"}`,
                 html: waitlistHtml({ name, service: service || section || "The Studio", pkg, date, time }),
