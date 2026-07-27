@@ -97,6 +97,22 @@ AI_MODEL = "claude-sonnet-4-6"
 [triggers]
 crons = ["0 7 * * *", "0 8 * * *", "*/5 * * * *"]
 
+# ---------------------------------------------------------------------------
+# Route: put the unsubscribe page on the real domain.
+#
+# /unsubscribe is served by this Worker, not by the Astro site on Railway, so
+# without this route tmke.co.uk/unsubscribe would 404 and the only working link
+# would be the *.workers.dev one — which reads as phishing to recipients and to
+# spam filters, exactly the wrong signal on marketing mail.
+#
+# Narrow on purpose: it claims /unsubscribe and nothing else, so every other
+# path on tmke.co.uk still goes to Railway as before. Takes effect on the next
+# `npx wrangler deploy`.
+# ---------------------------------------------------------------------------
+[[routes]]
+pattern = "tmke.co.uk/unsubscribe*"
+zone_name = "tmke.co.uk"
+
 # Secrets to set (not stored here):
 #   wrangler secret put MS_CLIENT_SECRET       # Entra app client secret
 #   wrangler secret put SUPABASE_SERVICE_ROLE  # Supabase service_role key

@@ -1000,7 +1000,9 @@ async function unsubVerify(env, token) {
 function unsubBase(env) {
   const explicit = env.UNSUB_BASE_URL || env.WORKER_PUBLIC_URL;
   if (explicit) return String(explicit).replace(/\/+$/, "");
-  return "https://tmke-deliverables-api.tmke.workers.dev";
+  // tmke.co.uk is a Cloudflare zone and wrangler.toml routes /unsubscribe* here,
+  // so the link can sit on the real domain rather than a *.workers.dev address.
+  return "https://tmke.co.uk";
 }
 
 async function unsubUrlFor(env, email) {
@@ -1014,22 +1016,25 @@ async function unsubUrlFor(env, email) {
 function unsubPage({ email, state, resubToken }) {
   const gone = state === "done";
   const title = gone ? "Sorry to see you go" : state === "resubscribed" ? "Welcome back" : "Something went wrong";
+  // `email` is the RECIPIENT's own address, not ours. The wording keeps it that
+  // way round: "...emails from us at <address>" read as though the mail came
+  // FROM that address, which is the opposite of what it means.
   const body = gone
-    ? `<p class="u-lede">You won't receive any more marketing emails from us${email ? ` at <strong>${email}</strong>` : ""}.</p>
-       <p class="u-note">You'll still get anything you've actually asked us for — booking confirmations, receipts and the like. Those aren't marketing, and we won't stop them.</p>`
+    ? `<p class="u-lede">We've taken <strong>${email || "your address"}</strong> off our marketing list.</p>
+       <p class="u-note">You'll still get anything you've actually asked us for - booking confirmations, receipts and the like. Those aren't marketing, and we won't stop them.</p>`
     : state === "resubscribed"
-      ? `<p class="u-lede">You're back on the list${email ? ` at <strong>${email}</strong>` : ""}. Good to have you.</p>`
-      : `<p class="u-lede">That link doesn't look right — it may have been cut in half by your email app.</p>
+      ? `<p class="u-lede"><strong>${email || "Your address"}</strong> is back on the list. Good to have you.</p>`
+      : `<p class="u-lede">That link doesn't look right - it may have been cut in half by your email app.</p>
          <p class="u-note">Email <a href="mailto:hello@tmke.co.uk">hello@tmke.co.uk</a> and we'll take care of it by hand.</p>`;
   const undo = gone && resubToken
     ? `<form method="POST" action="/unsubscribe/resubscribe?t=${encodeURIComponent(resubToken)}">
-         <button type="submit" class="u-btn">Actually, that was a mistake — resubscribe me</button>
+         <button type="submit" class="u-btn">Actually, that was a mistake - resubscribe me</button>
        </form>`
     : "";
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
-<title>${title} — TMKE</title>
+<title>${title} - TMKE</title>
 <style>
   /* Brand colours, kept in step with src/styles/global.css:
      --english-violet #371e28 (the wine) · --accent #B9826A · --paper #f4f2f1
@@ -1046,7 +1051,7 @@ function unsubPage({ email, state, resubToken }) {
          font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
          -webkit-font-smoothing:antialiased; }
   .u-card { width:100%; max-width:520px; background:var(--paper); border-radius:18px;
-            padding:40px 36px; box-shadow:0 18px 50px rgba(0,0,0,.28); }
+            padding:44px 40px; box-shadow:0 18px 50px rgba(0,0,0,.28); }
   /* The tan accent (#B9826A) only reaches 2.9:1 on paper — too low for 13px
      text — so the mark uses the wine instead. The accent stays as the rule
      beneath it, where it's decoration rather than something to be read. */
@@ -1054,7 +1059,7 @@ function unsubPage({ email, state, resubToken }) {
             color:var(--wine); margin:0 0 16px; padding-bottom:14px;
             border-bottom:2px solid var(--accent); display:inline-block; }
   h1 { font-size:27px; line-height:1.2; margin:0 0 14px; letter-spacing:-.01em; color:var(--wine); }
-  .u-lede { font-size:16px; line-height:1.6; margin:0 0 14px; }
+  .u-lede { font-size:15px; line-height:1.6; margin:0 0 14px; }
   .u-note { font-size:14px; line-height:1.6; color:var(--muted); margin:0; }
   .u-btn { margin-top:26px; width:100%; padding:13px 18px; font:inherit; font-size:14px; font-weight:600;
            color:var(--paper); background:var(--wine); border:1px solid var(--wine);
