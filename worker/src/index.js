@@ -985,11 +985,28 @@ async function unsubVerify(env, token) {
 }
 
 // The public unsubscribe URL for a given address.
+//
+// IMPORTANT: this must point at wherever the WORKER is reachable, not at the
+// website. /unsubscribe is served by this Worker; the Astro site knows nothing
+// about it, so https://tmke.co.uk/unsubscribe would 404 unless a Cloudflare
+// route maps that path to the Worker.
+//
+// Preferred: add a route so the link sits on tmke.co.uk — an unsubscribe link
+// pointing at a *.workers.dev address looks like phishing to both recipients
+// and spam filters, which is the opposite of what we want on marketing mail.
+// Set UNSUB_BASE_URL once that route exists.
+//
+// Until then it falls back to the Worker's own origin, which at least works.
+function unsubBase(env) {
+  const explicit = env.UNSUB_BASE_URL || env.WORKER_PUBLIC_URL;
+  if (explicit) return String(explicit).replace(/\/+$/, "");
+  return "https://tmke-deliverables-api.tmke.workers.dev";
+}
+
 async function unsubUrlFor(env, email) {
   const token = await unsubSign(env, email);
   if (!token) return null;
-  const base = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
-  return `${base}/unsubscribe?t=${encodeURIComponent(token)}`;
+  return `${unsubBase(env)}/unsubscribe?t=${encodeURIComponent(token)}`;
 }
 
 // The confirmation page. Branded rather than plain, but the unsubscribe has
