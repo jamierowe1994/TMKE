@@ -264,6 +264,52 @@ who isn't flagged do-not-contact will still receive automation emails.
 
 ---
 
+## Also outstanding (added 27 Jul, after reviewing Dani's list)
+
+Written plainly, matching the wording on Dani's own to-do list.
+
+**1. Send to a group, not just one person.** Automations only start when
+something happens to a single contact. A newsletter is the opposite — you pick a
+group and send. Needs a second kind of starting point: "everyone matching these
+criteria", drawing on the tags, lifecycles and companies already in the CRM.
+Nothing like it exists; this is the largest remaining piece, and without it
+there is no newsletter.
+
+**2. Fix Microsoft 365 email authentication.** Checked on 27 Jul: the domain's
+SPF record is `v=spf1 include:secureserver.net -all` (GoDaddy) with a hard fail,
+Microsoft is not included, and no DKIM key was found on the usual selector.
+DMARC is `p=quarantine`. So mail sent via Microsoft 365 from @tmke.co.uk can be
+junked — which is the route carrying booking confirmations and receipts. Needs
+`include:spf.protection.outlook.com` in SPF and M365 DKIM enabled. **Resend is
+correctly configured** (`send.tmke.co.uk` SPF via amazonses.com, DKIM at
+`resend._domainkey`, aligns under the relaxed DMARC policy) — this is only the
+Microsoft side. One for whoever manages the domain.
+
+**3. Send DMARC reports somewhere we can read them.** `rua` currently points at
+`dmarc_rua@onsecureserver.net`, a GoDaddy address nobody at TMKE sees. Pointing
+it at a real mailbox would have surfaced item 2 long ago.
+
+**4. Record when and how someone agreed to marketing.** `marketing_opt_in` is a
+bare boolean everywhere it appears. No date, no source. If a recipient ever
+challenges why they're being emailed, there's nothing to show them.
+
+**5. Choose marketing or transactional per email step.** The send-side logic
+exists (`send_kind` on the automation step); the control in the admin does not,
+so every step currently uses the default.
+
+**6. Review existing automations** and confirm which are genuinely marketing.
+They all default to transactional, which preserves today's behaviour but means a
+real marketing funnel would keep sending to people without opt-in.
+
+**7. Show unsubscribes and bounces on a contact.** The data is now recorded;
+nothing surfaces it on the contact card, and there's no filter for it.
+
+**8. Marketing to come from a real address.** `hello@tmke.co.uk` rather than
+`posts@tmke.co.uk`. A reply-to is already in place as a stopgap.
+
+**9. Build up sending volume gradually.** A domain that has never sent bulk mail
+suddenly sending thousands is a classic spam signal. Stagger the first sends.
+
 ## Decisions needed before building
 
 1. **Soft-bounce threshold** — how many before suppressing? (Suggested: 5.)
