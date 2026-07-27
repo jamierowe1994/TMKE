@@ -130,13 +130,19 @@ export const PRODUCTS = [
       "On the portals, that impression comes down entirely to the quality of the media. Listings with professional photography and video consistently outperform those without, generating more clicks, more enquiries, and more viewings.",
       "Professional media doesn't just help a listing perform — it protects it. A property that looks its best from day one generates momentum, and momentum matters.",
     ],
+    // The Gold package — the entry tier, matching the "from £550" headline below.
+    // Fine & Country agents receive Platinum (premium floor plan, three reels,
+    // up to 60 photos); the difference is called out in pricingProse.
+    // Source of truth for both tiers: packagesByTier in lib/videography-config.js.
+    includedHeading: "What's Included — Gold Package",
     included: [
-      "Presenter-led video tour",
+      "Presenter-led video tour (landscape)",
       "Drone videography and photography",
-      "360 virtual tour and floor plan",
-      "Professional photography — up to 50 portal-ready images",
-      "Three 60-second reels",
-      "10 × 5:4 and 10 × 16:9 formatted images",
+      "360 virtual tour",
+      "Floor plan",
+      "Two 60-second reels (portrait)",
+      "Professional photography — up to 25 photos",
+      "10 × 5:4 photos (grid/newsfeed) & 10 × 16:9 photos (story/reels)",
       "YouTube thumbnail",
     ],
     extrasHeading: "Optional Extras",
@@ -149,11 +155,13 @@ export const PRODUCTS = [
     pricingMode: "prose",
     pricingHeading: "Bookings and Pricing",
     pricingProse: [
-      "Property packages start from £395 +VAT. Your rate is calculated automatically based on your membership or network — just click below for a personalised quote.",
+      "Property packages start from £550 +VAT for the Gold package. Fine & Country agents receive the Platinum package — a premium floor plan, three 60-second reels and photography up to 60 images — from £625 +VAT. Your rate is calculated automatically based on your membership or network, so just click below for a personalised quote.",
       "Jack covers a 40-mile radius of NN14, Kettering. Outside of that area? No problem — travel expenses apply for anything beyond the 40 miles, and we'll factor that into your quote automatically.",
     ],
     priceTiers: [
-      { label: "Property package", sub: "Full media package", minutes: 240, prices: { direct: 39500 } },
+      // Gold (TEG brands) is the headline "from" rate; Fine & Country agents get
+      // the Platinum package — see propertyTierForBrand in lib/videography-config.js.
+      { label: "Property package", sub: "Full media package", minutes: 240, prices: { direct: 55000, "fine-and-country": 62500 } },
     ],
     bookCtaLabel: "Check Availability",
     aboutHeading: "About",

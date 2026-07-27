@@ -35,10 +35,13 @@ export function audienceForEmail(email) {
   return { audience: "non-member", brand: null, label: "Non-member", domain };
 }
 
-// Property package tier from member brand: TPE/Prestige → Gold, F&C → Platinum.
+// Property package tier from member brand: Fine & Country → Platinum, every
+// other TEG brand → Gold. Listed explicitly rather than leaning on the caller's
+// `|| "gold"` fallback, so adding a brand to MEMBER_DOMAINS without deciding its
+// tier shows up as null here instead of silently becoming Gold.
 export function propertyTierForBrand(brand) {
   if (brand === "fc") return "platinum";
-  if (brand === "tpe" || brand === "prestige") return "gold";
+  if (["tpe", "prestige", "tle", "tme", "tre", "tmke"].includes(brand)) return "gold";
   return null;
 }
 
@@ -74,7 +77,7 @@ export const SERVICES = {
     requiresPropertyAddress: true,
     packagesByTier: {
       gold: {
-        key: "gold", name: "Gold Package", from_pence: 39500,
+        key: "gold", name: "Gold Package", from_pence: 55000,
         inclusions: [
           "Presenter-led video tour (landscape)",
           "Drone videography and photography",
@@ -86,7 +89,7 @@ export const SERVICES = {
         ],
       },
       platinum: {
-        key: "platinum", name: "Platinum Package", from_pence: 59500,
+        key: "platinum", name: "Platinum Package", from_pence: 62500,
         inclusions: [
           "Presenter-led video tour (landscape)",
           "Drone videography and photography",
@@ -98,7 +101,13 @@ export const SERVICES = {
         ],
       },
     },
-    nonMemberFrom_pence: 49500,  // indicative only, shown on enquiry confirmation
+    // Non-members can't self-book — they're routed to the enquiry form — so this
+    // is an indicative "from" only. NB: not currently rendered anywhere; kept
+    // accurate so it can't mislead if it is ever wired up.
+    // External rate card (2026), ex-VAT:
+    //   Standard agency   — Gold £680, Platinum £770
+    //   Scaleable agency  — Gold £805, Platinum £910
+    nonMemberFrom_pence: 68000,
     addOns: [
       { key: "local-area",      name: "Local Area Tour",            price_pence: 10000, note: "Filmed local area tour added to the shoot." },
       { key: "twilight-winter", name: "Twilight Shoot (Oct–Mar)",   price_pence: 10000, note: "Twilight exterior, winter rate." },
@@ -118,7 +127,9 @@ export const SERVICES = {
       { key: "launch", name: "Launch Package",              price_pence: 29500, desc: "Landscape + portrait elevator pitch video, 5 professional headshots, and 10 lifestyle photographs." },
       { key: "broll",  name: "10 × 60-second B-roll scenes", price_pence: 15500, desc: "10 × 60-second short-form clips, filmed and edited." },
     ],
-    nonMemberFrom_pence: 29500,  // indicative only
+    // Indicative only — non-members are routed to the enquiry form, not a booking.
+    // External rate card (2026), ex-VAT: Standard agency £325, Scaleable £385.
+    nonMemberFrom_pence: 32500,
   },
 
   "discovery": {
