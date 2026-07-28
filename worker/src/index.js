@@ -3447,6 +3447,58 @@ export default {
         return json({ ok: true, processed: n }, 200, request, env);
       }
 
+      // ---- Automations: AI insights summary ---------------------------------
+      // A plain-English read on how a funnel is performing, plus anything that
+      // needs doing before the next email goes out. Regenerated on each request
+      // from the live numbers, so it keeps up as sends happen.
+      if (path.endsWith("/automations/insights") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        if (!b.automation_id) return json({ error: "No automation id." }, 400, request, env);
+        const aid = encodeURIComponent(b.automation_id);
+        const [aRows, enr, events] = await Promise.all([
+          sbGet(env, "automations", `id=eq.${aid}&select=name,status,trigger_type,trigger_config,graph`),
+          sbGet(env, "automation_enrollments", `automation_id=eq.${aid}&select=status,next_run_at`),
+          sbGet(env, "email_events", `automation_id=eq.${aid}&select=event,detail,subject,occurred_at&order=occurred_at.desc&limit=2000`),
+        ]);
+        const auto = aRows && aRows[0];
+        if (!auto) return json({ error: "Automation not found." }, 404, request, env);
+        const ev = events || [], en = enr || [];
+        const n = (e) => ev.filter((x) => x.event === e).length;
+        const byStatus = {}; en.forEach((x) => { byStatus[x.status] = (byStatus[x.status] || 0) + 1; });
+        const nextRun = en.filter((x) => x.status === "active" && x.next_run_at).map((x) => x.next_run_at).sort()[0] || null;
+        const problems = ev.filter((x) => x.event === "bounced" || x.event === "complained" || x.event === "blocked").slice(0, 12)
+          .map((x) => `${x.event}${x.detail ? ` (${String(x.detail).slice(0, 80)})` : ""}`);
+        const sendSteps = (((auto.graph || {}).nodes) || []).filter((x) => x.type === "send_email");
+        const facts = {
+          funnel: auto.name, status: auto.status,
+          kind: ((auto.graph || {}).meta || {}).kind || "service",
+          trigger: auto.trigger_type, chosen_tags: (auto.trigger_config || {}).tags || (auto.trigger_config || {}).tag || null,
+          emails_in_funnel: sendSteps.length,
+          scheduled_dates: sendSteps.map((x) => (x.config || {}).send_on).filter(Boolean),
+          enrolments: byStatus, next_step_due: nextRun,
+          sent: n("sent"), delivered: n("delivered"), opened_events: n("opened"), clicked_events: n("clicked"),
+          bounced: n("bounced"), spam_complaints: n("complained"), not_sent_blocked: n("blocked"),
+          recent_problems: problems,
+          now: new Date().toISOString(),
+        };
+        const prompt = `You are the email-marketing analyst for TMKE, a UK marketing agency. Below are the live numbers for one email funnel. Write a short plain-English summary for a non-technical marketer: first ONE paragraph (3-5 sentences, British English, no jargon, no bullet lists in this paragraph) on how the funnel is performing - be honest, specific and use the actual numbers, mention open/click rates only if delivery numbers exist, and don't invent anything not in the data. Then a line "Actions:" followed by either "none needed." or 1-3 short bullet points of things to do BEFORE the next email goes out (e.g. bounces to investigate, spam complaints, many contacts blocked for missing opt-in, nothing scheduled). If very little has happened yet, say so simply. Total under 160 words.\n\nDATA:\n${JSON.stringify(facts, null, 2)}`;
+        let text = "";
+        try {
+          const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content: prompt }] }),
+          });
+          const j = await aiRes.json().catch(() => ({}));
+          if (!aiRes.ok) return json({ error: (j.error && j.error.message) || "AI request failed." }, 502, request, env);
+          text = ((j.content || []).find((p) => p.type === "text") || {}).text || "";
+        } catch (_) { return json({ error: "AI request failed." }, 502, request, env); }
+        return json({ ok: true, summary: text.trim() }, 200, request, env);
+      }
+
       // ---- Resend webhook: delivery events feed the CRM ---------------------
       // Resend calls this when an email is delivered / opened / clicked /
       // bounces / is reported as spam. Signature-verified (Svix scheme): without

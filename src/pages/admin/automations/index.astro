@@ -9,8 +9,14 @@ import "../../../styles/admin.css";
       <div class="admin-bar-top">
         <span class="admin-bar-count" id="auto-count">…</span>
         <div class="admin-bar-tools">
+          <input class="auto-search" id="auto-search" type="search" placeholder="Search automations…" aria-label="Search automations" />
+          <div class="auto-seg" id="auto-kind" role="group" aria-label="Marketing or system">
+            <button type="button" data-kind="all" class="is-on">All</button>
+            <button type="button" data-kind="marketing">Marketing</button>
+            <button type="button" data-kind="system">System</button>
+          </div>
           <select class="auto-filter" id="auto-filter" aria-label="Filter automations">
-            <option value="all">All</option>
+            <option value="all">Any status</option>
             <option value="active">Active</option>
             <option value="draft">Draft</option>
             <option value="paused">Paused</option>
@@ -28,7 +34,7 @@ import "../../../styles/admin.css";
         <p><strong>No automations yet.</strong></p>
         <p>Build your first customer journey — e.g. a welcome series when someone signs up, or a purchase confirmation when they buy a pack.</p>
       </div>
-      <div class="auto-grid" id="auto-grid"></div>
+      <div id="auto-sections"></div>
     </section>
   </div>
 
@@ -69,6 +75,20 @@ import "../../../styles/admin.css";
     .auto-enrolled-when { font-family: var(--sans); font-size: 10.5px; color: rgba(28,29,34,0.5); white-space: nowrap; }
     .auto-rowbtn.del { color: #a05a3c; border-color: #a05a3c; }
     .auto-rowbtn:hover { background: rgba(28,29,34,0.05); }
+    .auto-search { font-family: var(--sans); font-size: 12.5px; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 9px 14px; min-width: 170px; background: #fff; color: var(--ink); }
+    .auto-seg { display: inline-flex; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; overflow: hidden; background: #fff; }
+    .auto-seg button { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; border: 0; background: none; color: rgba(28,29,34,0.6); padding: 9px 14px; cursor: pointer; }
+    .auto-seg button.is-on { background: var(--english-violet); color: #fff; }
+    .auto-sec-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 26px 0 12px; }
+    .auto-sec-h:first-child { margin-top: 0; }
+    .auto-kindbadge { flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; color: rgba(28,29,34,0.55); background: rgba(28,29,34,0.07); }
+    .auto-kindbadge.marketing { color: var(--english-violet); background: rgba(55,30,40,0.1); }
+    .auto-collapsed { border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; background: rgba(255,255,255,0.6); margin-top: 26px; }
+    .auto-collapsed summary { cursor: pointer; list-style: none; padding: 14px 18px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .auto-collapsed summary::-webkit-details-marker { display: none; }
+    .auto-collapsed summary::after { content: " ▾"; }
+    .auto-collapsed[open] summary::after { content: " ▴"; }
+    .auto-collapsed .auto-grid { padding: 0 18px 18px; }
   </style>
 
   <script>
@@ -84,18 +104,30 @@ import "../../../styles/admin.css";
 
     let ALL = [];
     let filter = "all";
+    let kindFilter = "all";
+    let q = "";
 
-    function render() {
-      const rows = filter === "all" ? ALL : ALL.filter((a) => a.status === filter);
-      $("auto-count").textContent = `${ALL.filter((a) => a.status === "active").length} active · ${ALL.length} total`;
-      $("auto-empty").hidden = ALL.length !== 0;
-      $("auto-grid").innerHTML = rows.map((a) => {
-        const live = LIVE.get(a.id) || [];
-        return `
+    // Marketing vs system: the funnel-level answer from the builder, falling
+    // back to "any send step flagged marketing" for funnels saved before the
+    // setup questions existed.
+    function kindOf(a) {
+      const meta = a.graph && a.graph.meta;
+      if (meta && meta.kind === "marketing") return "marketing";
+      const nodes = (a.graph && a.graph.nodes) || [];
+      return nodes.some((n) => n.type === "send_email" && n.config && n.config.send_kind === "marketing") ? "marketing" : "system";
+    }
+
+    function card(a) {
+      const live = LIVE.get(a.id) || [];
+      const kind = kindOf(a);
+      return `
         <a class="auto-card" href="/admin/automations/edit?id=${esc(a.id)}">
           <div class="auto-card-top">
             <span class="auto-card-name">${esc(a.name)}</span>
-            <span class="auto-badge ${esc(a.status)}">${esc(a.status)}</span>
+            <span style="display:flex; gap:6px; flex:none">
+              <span class="auto-kindbadge ${kind}">${kind === "marketing" ? "Marketing" : "System"}</span>
+              <span class="auto-badge ${esc(a.status)}">${esc(a.status)}</span>
+            </span>
           </div>
           <div class="auto-card-meta">
             Trigger: <strong>${esc(TRIGGER_LABELS[a.trigger_type] || "Not set")}</strong><br>
@@ -116,7 +148,26 @@ import "../../../styles/admin.css";
             <button type="button" class="auto-rowbtn del" data-del="${esc(a.id)}">Delete</button>
           </div>
         </a>`;
-      }).join("");
+    }
+
+    function render() {
+      const rows = ALL
+        .filter((a) => filter === "all" || a.status === filter)
+        .filter((a) => kindFilter === "all" || kindOf(a) === kindFilter)
+        .filter((a) => !q || (a.name || "").toLowerCase().includes(q) || (TRIGGER_LABELS[a.trigger_type] || "").toLowerCase().includes(q));
+      $("auto-count").textContent = `${ALL.filter((a) => a.status === "active").length} active · ${ALL.length} total`;
+      $("auto-empty").hidden = ALL.length !== 0;
+      // Running funnels first, then the ones being built, with archived tucked
+      // into a collapsed drawer so a long history never buries the live work.
+      const running = rows.filter((a) => a.status === "active");
+      const building = rows.filter((a) => a.status === "draft" || a.status === "paused");
+      const archived = rows.filter((a) => a.status === "archived");
+      const section = (title, items) => items.length ? `<div class="auto-sec-h">${title} (${items.length})</div><div class="auto-grid">${items.map(card).join("")}</div>` : "";
+      $("auto-sections").innerHTML =
+        section("Running", running)
+        + section("Drafts & paused", building)
+        + (archived.length ? `<details class="auto-collapsed"><summary>Archived (${archived.length})</summary><div class="auto-grid">${archived.map(card).join("")}</div></details>` : "")
+        + (!rows.length && ALL.length ? '<p class="auto-loading">Nothing matches that filter.</p>' : "");
     }
 
     // Live enrolments per automation. NB automations.enrolled_count is a stale
@@ -159,6 +210,13 @@ import "../../../styles/admin.css";
     }
 
     $("auto-filter")?.addEventListener("change", (e) => { filter = e.target.value; render(); });
+    $("auto-search")?.addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); render(); });
+    $("auto-kind")?.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-kind]"); if (!b) return;
+      kindFilter = b.getAttribute("data-kind");
+      $("auto-kind").querySelectorAll("button").forEach((x) => x.classList.toggle("is-on", x === b));
+      render();
+    });
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     $("auto-sync")?.addEventListener("click", async () => {
@@ -186,7 +244,7 @@ import "../../../styles/admin.css";
     });
 
     // Duplicate / delete live inside the card link, so stop the navigation.
-    $("auto-grid")?.addEventListener("click", async (e) => {
+    $("auto-sections")?.addEventListener("click", async (e) => {
       const t = e.target;
       if (!(t instanceof HTMLElement)) return;
       // "See who" — reveal the contacts currently in this funnel.

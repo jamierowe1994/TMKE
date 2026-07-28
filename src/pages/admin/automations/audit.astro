@@ -31,6 +31,8 @@ import "../../../styles/admin.css";
     <!-- Insights — what happened to this funnel's emails, fed by the Resend
          webhook. Hidden until there are events to show. -->
     <div class="aud-stats" id="aud-stats" hidden></div>
+    <!-- AI read on the numbers + anything to do before the next send. -->
+    <div class="aud-ai" id="aud-ai" hidden></div>
 
     <p class="aud-loading" id="aud-loading">Loading the audit…</p>
     <p class="aud-empty" id="aud-empty" hidden>Nobody has entered this funnel yet.</p>
@@ -49,6 +51,9 @@ import "../../../styles/admin.css";
     .aud-stat span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
     .aud-stat small { display: block; font-family: var(--sans); font-size: 10.5px; color: rgba(28,29,34,0.45); margin-top: 2px; }
     .aud-stat.is-bad b { color: #b3261e; }
+    .aud-ai { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 14px 18px; margin: 10px 0 4px; font-family: var(--sans); font-size: 13px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
+    .aud-ai.is-loading { color: rgba(28,29,34,0.5); }
+    .aud-ai-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 6px; white-space: normal; }
     .aud-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 60px; }
     .aud-person { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 14px 16px; }
     .aud-person-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -134,7 +139,31 @@ import "../../../styles/admin.css";
           stat("Bounced", bounced, "", true) + stat("Spam reports", complained, "", true) +
           stat("Not sent", blocked, "<small>opt-out / suppressed</small>");
         $("aud-stats").hidden = false;
+        loadAiSummary();   // only worth asking the AI once something has happened
       } catch (_) { /* stats are a bonus, never break the audit */ }
+    }
+
+    // The AI's read on the funnel — only asked for once there are events, and
+    // failures just leave the box hidden; the numbers above stand on their own.
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    async function loadAiSummary() {
+      if (!WORKER) return;
+      const box = $("aud-ai");
+      try {
+        box.className = "aud-ai is-loading"; box.hidden = false;
+        box.innerHTML = '<span class="aud-ai-label">Funnel summary</span>Reading the numbers…';
+        const { data: { session } } = await supabase.auth.getSession();
+        const r = await fetch(`${WORKER}/automations/insights`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: session ? "Bearer " + session.access_token : "" },
+          body: JSON.stringify({ automation_id: id }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.summary) { box.hidden = true; return; }
+        box.className = "aud-ai";
+        box.innerHTML = '<span class="aud-ai-label">Funnel summary</span>';
+        box.appendChild(document.createTextNode(d.summary));
+      } catch (_) { box.hidden = true; }
     }
 
     async function load() {
