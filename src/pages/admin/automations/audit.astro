@@ -28,6 +28,10 @@ import "../../../styles/admin.css";
       </div>
     </section>
 
+    <!-- Insights — what happened to this funnel's emails, fed by the Resend
+         webhook. Hidden until there are events to show. -->
+    <div class="aud-stats" id="aud-stats" hidden></div>
+
     <p class="aud-loading" id="aud-loading">Loading the audit…</p>
     <p class="aud-empty" id="aud-empty" hidden>Nobody has entered this funnel yet.</p>
     <div class="aud-list" id="aud-list"></div>
@@ -39,6 +43,12 @@ import "../../../styles/admin.css";
     .aud-title { font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--ink); margin: 8px 0 2px; }
     .aud-sub { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 0; }
     .aud-loading, .aud-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); padding: 24px 0; }
+    .aud-stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 4px; }
+    .aud-stat { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 10px 16px; min-width: 92px; }
+    .aud-stat b { display: block; font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.1; }
+    .aud-stat span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .aud-stat small { display: block; font-family: var(--sans); font-size: 10.5px; color: rgba(28,29,34,0.45); margin-top: 2px; }
+    .aud-stat.is-bad b { color: #b3261e; }
     .aud-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 60px; }
     .aud-person { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 14px 16px; }
     .aud-person-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -103,10 +113,35 @@ import "../../../styles/admin.css";
         </div>`).join("");
     }
 
+    // Insights: counts per event for this automation, from email_events (fed by
+    // our send log + the Resend webhook). Unique contacts for opens/clicks so
+    // one person opening six times counts once. Fails silently if the
+    // email_events_automation.sql migration hasn't run yet.
+    async function loadStats() {
+      try {
+        const { data: ev, error } = await supabase.from("email_events").select("event, contact_id").eq("automation_id", id).limit(10000);
+        if (error || !ev || !ev.length) return;
+        const count = (e) => ev.filter((x) => x.event === e).length;
+        const unique = (e) => new Set(ev.filter((x) => x.event === e).map((x) => x.contact_id || Math.random())).size;
+        const sent = count("sent"), delivered = count("delivered");
+        const opened = unique("opened"), clicked = unique("clicked");
+        const bounced = count("bounced"), complained = count("complained"), blocked = count("blocked");
+        const pct = (n, of) => (of ? ` <small>${Math.round((n / of) * 100)}%</small>` : "");
+        const stat = (label, n, extra = "", bad = false) => (n || label === "Sent" ? `<div class="aud-stat${bad && n ? " is-bad" : ""}"><b>${n}</b><span>${label}</span>${extra}</div>` : "");
+        $("aud-stats").innerHTML =
+          stat("Sent", sent) + stat("Delivered", delivered, pct(delivered, sent)) +
+          stat("Opened", opened, pct(opened, delivered || sent)) + stat("Clicked", clicked, pct(clicked, delivered || sent)) +
+          stat("Bounced", bounced, "", true) + stat("Spam reports", complained, "", true) +
+          stat("Not sent", blocked, "<small>opt-out / suppressed</small>");
+        $("aud-stats").hidden = false;
+      } catch (_) { /* stats are a bonus, never break the audit */ }
+    }
+
     async function load() {
       if (!id) { $("aud-loading").textContent = "No automation id in the link."; return; }
       const { data: auto } = await supabase.from("automations").select("name, status").eq("id", id).maybeSingle();
       if (auto) { $("aud-name").textContent = auto.name; }
+      loadStats();
 
       const { data: enr, error } = await supabase
         .from("automation_enrollments")

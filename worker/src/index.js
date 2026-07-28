@@ -1652,18 +1652,27 @@ const SOFT_BOUNCE_LIMIT = 3;
 async function logEmailEvent(env, {
   contact = null, email = null, event, provider = "resend",
   messageId = null, subject = null, url = null, detail = null,
-  raw = null, occurredAt = null,
+  raw = null, occurredAt = null, automationId = null, enrollmentId = null,
 } = {}) {
   try {
     const addr = String(email || (contact && contact.email) || "").toLowerCase();
     if (!addr) return;
-    await sbPost(env, "email_events", {
+    const row = {
       contact_id: (contact && contact.id) || null,
       email: addr,
       event, provider,
       message_id: messageId, subject, url, detail, raw,
       occurred_at: occurredAt || new Date().toISOString(),
-    });
+    };
+    if (automationId) row.automation_id = automationId;
+    if (enrollmentId) row.enrollment_id = enrollmentId;
+    const res = await sbPost(env, "email_events", row);
+    // If the automation columns don't exist yet (migration not run), don't
+    // lose the event — record it without the attribution.
+    if (res && !res.ok && res.status !== 409 && (row.automation_id || row.enrollment_id)) {
+      delete row.automation_id; delete row.enrollment_id;
+      await sbPost(env, "email_events", row);
+    }
   } catch (_) { /* never blocks a send */ }
 }
 
@@ -1694,12 +1703,13 @@ function mayEmail(contact, kind = "marketing") {
 
 // mayEmail + an audit trail, so "why did this campaign only reach 340 people?"
 // has an answer instead of a shrug.
-async function gateEmail(env, contact, kind, subject) {
+async function gateEmail(env, contact, kind, subject, ctx) {
   const verdict = mayEmail(contact, kind);
   if (!verdict.ok) {
     await logEmailEvent(env, {
       contact, email: contact && contact.email, event: "blocked",
       provider: "internal", subject, detail: verdict.reason,
+      automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId,
     });
   }
   return verdict;
@@ -1732,7 +1742,7 @@ async function unsubscribeContact(env, contact, source) {
   } catch (_) { /* best-effort */ }
 }
 
-async function autoExecAction(env, node, contact) {
+async function autoExecAction(env, node, contact, ctx) {
   const c = node.config || {};
   try {
     if (node.type === "send_email") {
@@ -1743,7 +1753,7 @@ async function autoExecAction(env, node, contact) {
       // defaulting them to marketing would have started demanding opt-in for
       // booking confirmations overnight.
       const sendKind = c.send_kind === "marketing" ? "marketing" : "transactional";
-      const gate = await gateEmail(env, contact, sendKind, null);
+      const gate = await gateEmail(env, contact, sendKind, null, ctx);
       if (!gate.ok) return { outcome: "skipped", detail: gate.reason };
       if (!c.template_id) return { outcome: "skipped", detail: "no template chosen on this step" };
       const tRows = await sbGet(env, "email_templates", `id=eq.${c.template_id}&select=*`);
@@ -1787,6 +1797,7 @@ async function autoExecAction(env, node, contact) {
         messageId: (sent && sent.id) || null,
         subject,
         detail: (sent && sent.ok) ? null : String((sent && sent.error) || "send failed").slice(0, 200),
+        automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId,
       });
       return (sent && sent.ok)
         ? { outcome: "ok", detail: `“${subject}” → ${to.join(", ")}` }
@@ -1877,7 +1888,7 @@ async function advanceEnrollment(env, enr) {
       branch = yes ? "yes" : "no";
       acted = { outcome: "ok", detail: yes ? "condition met → yes" : "condition not met → no" };
     } else {
-      acted = await autoExecAction(env, node, contact);
+      acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: enr.id });
     }
     await sbPost(env, "automation_runs", {
       enrollment_id: enr.id, automation_id: auto.id, contact_id: contact.id,
@@ -3434,6 +3445,87 @@ export default {
         if (!user || !isAdminEmail(user)) return json({ error: "Unauthorised" }, 401, request, env);
         const n = await runAutomationsTick(env);
         return json({ ok: true, processed: n }, 200, request, env);
+      }
+
+      // ---- Resend webhook: delivery events feed the CRM ---------------------
+      // Resend calls this when an email is delivered / opened / clicked /
+      // bounces / is reported as spam. Signature-verified (Svix scheme): without
+      // the check, anyone who knew the URL could suppress the whole contact list.
+      // Setup: Resend dashboard → Webhooks → add <worker>/resend/webhook, then
+      // wrangler secret put RESEND_WEBHOOK_SECRET (the whsec_… signing secret).
+      if (path.endsWith("/resend/webhook") && request.method === "POST") {
+        if (!env.RESEND_WEBHOOK_SECRET) return json({ error: "Webhook secret not configured." }, 503, request, env);
+        const bodyText = await request.text();
+        const svixId = request.headers.get("svix-id"), svixTs = request.headers.get("svix-timestamp"), svixSig = request.headers.get("svix-signature");
+        const fresh = svixTs && Math.abs(Date.now() / 1000 - Number(svixTs)) < 300;
+        let verified = false;
+        if (svixId && fresh && svixSig) {
+          try {
+            const keyBytes = Uint8Array.from(atob(env.RESEND_WEBHOOK_SECRET.replace(/^whsec_/, "")), (ch) => ch.charCodeAt(0));
+            const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+            const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${svixId}.${svixTs}.${bodyText}`));
+            const expected = btoa(String.fromCharCode(...new Uint8Array(mac)));
+            verified = svixSig.split(" ").some((s) => s.split(",")[1] === expected);
+          } catch (_) { verified = false; }
+        }
+        if (!verified) return json({ error: "Bad signature." }, 401, request, env);
+
+        let evt = {}; try { evt = JSON.parse(bodyText); } catch (_) {}
+        const map = {
+          "email.sent": "sent", "email.delivered": "delivered", "email.delivery_delayed": "delivery_delayed",
+          "email.opened": "opened", "email.clicked": "clicked", "email.bounced": "bounced",
+          "email.complained": "complained", "email.suppressed": "suppressed",
+        };
+        const event = map[String(evt.type || "")];
+        if (!event) return json({ ok: true, ignored: evt.type || "unknown" }, 200, request, env);
+        const d = evt.data || {};
+        const msgId = d.email_id || null;
+        // Our own "sent" row carries the automation attribution — inherit it so
+        // opens/bounces count against the right funnel in the insights.
+        let sentRow = null;
+        if (msgId) {
+          const rows = await sbGet(env, "email_events", `message_id=eq.${encodeURIComponent(msgId)}&event=eq.sent&select=automation_id,enrollment_id,subject,email&limit=1`);
+          sentRow = rows && rows[0];
+        }
+        const addr = String((Array.isArray(d.to) ? d.to[0] : d.to) || (sentRow && sentRow.email) || "").toLowerCase();
+        let contact = null;
+        if (addr) {
+          const cs = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=*&limit=1`);
+          contact = cs && cs[0];
+        }
+        await logEmailEvent(env, {
+          contact, email: addr, event, provider: "resend",
+          messageId: msgId, subject: (sentRow && sentRow.subject) || d.subject || null,
+          url: (d.click && d.click.link) || null,
+          detail: (d.bounce && (d.bounce.message || d.bounce.subType || d.bounce.type)) || null,
+          raw: evt, occurredAt: evt.created_at || null,
+          automationId: (sentRow && sentRow.automation_id) || null,
+          enrollmentId: (sentRow && sentRow.enrollment_id) || null,
+        });
+        // CRM actions, per the suppression plan.
+        if (contact) {
+          const stamp = { event, subject: (sentRow && sentRow.subject) || null, at: new Date().toISOString() };
+          if (event === "delivered") {
+            await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contact.id)}`, { soft_bounce_count: 0, last_email_event: stamp });
+          } else if (event === "bounced") {
+            const kind = String((d.bounce && d.bounce.type) || "").toLowerCase();
+            if (kind === "transient") {
+              const n = (Number(contact.soft_bounce_count) || 0) + 1;
+              if (n >= SOFT_BOUNCE_LIMIT) await suppressContact(env, contact, "repeated_soft_bounce", `${n} consecutive soft bounces`);
+              else await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contact.id)}`, { soft_bounce_count: n, last_email_event: stamp });
+            } else {
+              await suppressContact(env, contact, "hard_bounce", (d.bounce && d.bounce.message) || null);
+            }
+          } else if (event === "complained") {
+            await suppressContact(env, contact, "spam_complaint", null);
+            await unsubscribeContact(env, contact, "spam_complaint");
+          } else if (event === "suppressed") {
+            await suppressContact(env, contact, "resend_suppressed", null);
+          } else if (event === "opened" || event === "clicked") {
+            await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contact.id)}`, { last_email_event: stamp });
+          }
+        }
+        return json({ ok: true }, 200, request, env);
       }
 
       // ---- Automations: enrol an audience (send-to-a-group) ------------------

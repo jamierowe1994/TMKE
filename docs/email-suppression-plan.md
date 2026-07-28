@@ -253,7 +253,17 @@ Each step is useful on its own and safe to stop after.
    somewhere to point.
 5. **List-Unsubscribe headers** — small, but needs step 4 in place first, since
    the header points at that page.
-6. **The Resend webhook** (Part 5) — endpoint, signature check, event handling.
+6. **The Resend webhook** (Part 5) — ✅ **built (28 Jul)**: `/resend/webhook` on
+   the Worker, signature-verified, with per-automation insights on the funnel
+   audit page. Needs two one-time manual steps to go live:
+   - **Resend dashboard → Webhooks → Add endpoint**: URL is the Worker URL +
+     `/resend/webhook`; tick all the `email.*` events. Copy the signing secret
+     (starts `whsec_`) and add it in Cloudflare as a Secret named
+     `RESEND_WEBHOOK_SECRET` (same steps as Part 1).
+   - **Resend dashboard → Domains → tmke.co.uk**: turn on open + click
+     tracking, or the insights can never show opens/clicks.
+   Also run `supabase/email_events_automation.sql` once, so events tie back to
+   the automation that sent them.
 7. **Marketing/Transactional switch** on automation steps (Part 2), and moving
    the marketing funnels across to Resend.
 8. **Admin visibility** — showing suppression status and reason on the contact
