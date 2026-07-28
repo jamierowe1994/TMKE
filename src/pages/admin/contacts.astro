@@ -34,6 +34,7 @@ import "../../styles/admin.css";
         <button type="button" class="ct-chip-f" data-seg="purchasers">Customers <b data-n="purchasers">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="booked">Booked <b data-n="booked">0</b></button>
         <button type="button" class="ct-chip-f ct-chip-review" data-seg="review">Review <b data-n="review">0</b></button>
+        <button type="button" class="ct-chip-f ct-chip-issues" data-seg="issues">Email issues <b data-n="issues">0</b></button>
         <!-- Tag filter — multi-select dropdown, narrows by one or more tags. -->
         <div class="ct-tagfilter" id="ct-tagfilter">
           <button type="button" class="ct-chip-f ct-tagfilter-btn" id="ct-tagfilter-btn" aria-expanded="false" aria-haspopup="true">
@@ -165,6 +166,10 @@ import "../../styles/admin.css";
     .ct-badges { display: flex; flex-wrap: wrap; gap: 8px; }
     .ct-badge { font-family: var(--sans); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.6); }
     .ct-badge.is-on { background: rgba(44,122,75,0.12); color: #2c7a4b; }
+    .ct-badge.is-bad { background: rgba(179,38,30,0.1); color: #b3261e; }
+    .ct-badge.is-warn { background: rgba(183,138,46,0.14); color: #b78a2e; }
+    .ct-emailhealth { margin-top: 10px; border-left: 3px solid rgba(179,38,30,0.35); padding: 2px 0 2px 12px; }
+    .ct-emailhealth p { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.75); margin: 4px 0; line-height: 1.5; }
     .ct-timeline { display: flex; flex-direction: column; }
     .ct-tl-item { display: flex; gap: 12px; padding: 8px 0; position: relative; }
     .ct-tl-item:not(:last-child)::before { content: ""; position: absolute; left: 4px; top: 18px; bottom: -8px; width: 1px; background: rgba(28,29,34,0.12); }
@@ -379,6 +384,9 @@ import "../../styles/admin.css";
       // Just a contact: no account, no marketing consent, and not a customer.
       contact: (c) => !c.user_id && c.marketing_opt_in !== true && !isPurchaser(c) && !isBooked(c),
       review: (c) => !!c.needs_review,
+      // Unsubscribed, suppressed (dead address) or currently soft-bouncing —
+      // the people a campaign can't or mustn't reach.
+      issues: (c) => !!c.unsubscribed_at || !!c.suppressed_at || (Number(c.soft_bounce_count) || 0) > 0,
     };
 
     // Fire a contact-action trigger into the automations engine (admin authed).
@@ -658,6 +666,18 @@ import "../../styles/admin.css";
 
     function drawNote(notes, tasks, orders, bookings, activity) {
       const c = current;
+      // Email health — unsubscribes and bounces, written by the unsubscribe
+      // page and the Resend webhook. Shown only when something is wrong.
+      const UNSUB_SRC = { footer_link: "via the unsubscribe link", list_unsubscribe: "via the Gmail/Outlook unsubscribe button", spam_complaint: "via a spam report", admin: "by an admin", import: "on import" };
+      const SUPP_REASON = { hard_bounce: "address bounced permanently", spam_complaint: "reported an email as spam", resend_suppressed: "blocked by the email provider", repeated_soft_bounce: "kept soft-bouncing", admin: "by an admin" };
+      const softBounces = Number(c.soft_bounce_count) || 0;
+      const lastEv = c.last_email_event && c.last_email_event.event ? c.last_email_event : null;
+      const emailHealth = [
+        c.unsubscribed_at ? `Unsubscribed ${fmtDate(c.unsubscribed_at)} ${UNSUB_SRC[c.unsubscribe_source] || ""}`.trim() : null,
+        c.suppressed_at ? `Suppressed ${fmtDate(c.suppressed_at)} — ${SUPP_REASON[c.suppression_reason] || c.suppression_reason || "undeliverable"}. No email will be sent to this address.` : null,
+        !c.suppressed_at && softBounces ? `${softBounces} recent soft bounce${softBounces === 1 ? "" : "s"} — clears itself on the next successful delivery.` : null,
+        lastEv ? `Last email event: ${lastEv.event}${lastEv.subject ? ` — “${lastEv.subject}”` : ""}${lastEv.at ? ` · ${fmtDate(lastEv.at)}` : ""}` : null,
+      ].filter(Boolean);
       $("ct-drawer-body").innerHTML = `
         <div class="ct-tabpanel" data-panel="info"${activeTab !== "info" ? " hidden" : ""}>
           ${dupPanelHtml(c)}
@@ -666,7 +686,11 @@ import "../../styles/admin.css";
             <div class="ct-badges">
               <span class="ct-badge ${c.user_id ? "is-on" : ""}">${c.user_id ? "Member — Has account" : "No account"}</span>
               <span class="ct-badge ${c.marketing_opt_in ? "is-on" : ""}">Marketing: ${c.marketing_opt_in ? "Yes" : "No"}</span>
+              ${c.unsubscribed_at ? '<span class="ct-badge is-bad">Unsubscribed</span>' : ""}
+              ${c.suppressed_at ? '<span class="ct-badge is-bad">Suppressed</span>' : ""}
+              ${!c.suppressed_at && softBounces ? '<span class="ct-badge is-warn">Bouncing</span>' : ""}
             </div>
+            ${emailHealth.length ? `<div class="ct-emailhealth">${emailHealth.map((l) => `<p>${esc(l)}</p>`).join("")}</div>` : ""}
             ${c.user_id ? "" : `
             <div class="ct-acct" id="ct-acct">
               <p class="ct-meta" style="margin:12px 0 8px">Not linked to a member account yet.</p>

@@ -3693,6 +3693,21 @@ export default {
           } else if (event === "complained") {
             await suppressContact(env, contact, "spam_complaint", null);
             await unsubscribeContact(env, contact, "spam_complaint");
+            // A spam complaint deserves a human, not just a database row.
+            try {
+              const who = [contact.first_name, contact.last_name].filter(Boolean).join(" ") || addr;
+              const subj = (sentRow && sentRow.subject) || null;
+              await sendEmail(env, {
+                to: ["danielle@themarketingexperts.co.uk", "hello@tmke.co.uk"],
+                subject: `Spam complaint from ${who}`,
+                html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22;line-height:1.5">
+                  <p><strong>${String(who).replace(/</g, "&lt;")}</strong> (${String(addr).replace(/</g, "&lt;")}) reported ${subj ? `“${String(subj).replace(/</g, "&lt;")}”` : "one of our emails"} as spam.</p>
+                  <p>Handled automatically: they've been unsubscribed from marketing and their address suppressed, so nothing further will be sent to them.</p>
+                  <p>Worth a moment's thought on why — repeated complaints damage tmke.co.uk's sending reputation. Their history is on their contact card in the admin.</p>
+                  <p style="color:#888;font-size:12px">Sent automatically by the email webhook.</p>
+                </div>`,
+              });
+            } catch (_) { /* the alert is a bonus — the suppression already happened */ }
           } else if (event === "suppressed") {
             await suppressContact(env, contact, "resend_suppressed", null);
           } else if (event === "opened" || event === "clicked") {
