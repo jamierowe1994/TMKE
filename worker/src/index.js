@@ -1453,6 +1453,19 @@ function msUntilSendWindow(hhmm) {
   if (diff > -20 * 60e3) return 0;        // inside the grace window
   return diff + 24 * 3600e3;              // same time tomorrow
 }
+// "Send on" (a date, optionally with a time) — ms until that moment, UK time.
+// A date without a time means 9am that day. A date in the past sends now
+// (funnels built in advance shouldn't wedge if activated late). No date falls
+// back to the daily time window above.
+function msUntilSendMoment(sendOn, hhmm) {
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(sendOn || "").trim());
+  if (!d) return msUntilSendWindow(hhmm);
+  const t = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(hhmm || "").trim());
+  const lonNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/London" }));
+  const target = new Date(Number(d[1]), Number(d[2]) - 1, Number(d[3]), t ? Number(t[1]) : 9, t ? Number(t[2]) : 0, 0, 0);
+  const diff = target - lonNow;
+  return diff > 0 ? diff : 0;
+}
 
 async function fireTrigger(env, triggerType, contactInput, payload) {
   if (!triggerType || !contactInput || !contactInput.email || !env.SUPABASE_SERVICE_ROLE) return { ok: false };
@@ -1849,8 +1862,8 @@ async function advanceEnrollment(env, enr) {
     // A send step with a "deliver at" time holds here until the next occurrence
     // of that time (UK) — the wait steps got the contact to the right day, this
     // gets them to the right hour.
-    if (node.type === "send_email" && node.config && node.config.send_at) {
-      const hold = msUntilSendWindow(node.config.send_at);
+    if (node.type === "send_email" && node.config && (node.config.send_at || node.config.send_on)) {
+      const hold = msUntilSendMoment(node.config.send_on, node.config.send_at);
       if (hold > 0) {
         return sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, {
           current_node_id: cur, next_run_at: new Date(Date.now() + hold).toISOString(),

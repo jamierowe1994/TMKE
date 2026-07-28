@@ -274,7 +274,11 @@ import "../../../styles/admin.css";
         if ((t.key === "tag_added" || t.key === "tag_removed") && triggerConfig.tag) return `${t.label}: ${triggerConfig.tag}`;
         return t.label;
       }
-      if (n.type === "send_email") { const tpl = templates.find((t) => t.id === c.template_id); return (tpl ? tpl.name : "Pick an email") + (c.send_at ? ` · ${c.send_at}` : "") + (kindVal() === "marketing" ? " · Marketing" : ""); }
+      if (n.type === "send_email") {
+        const tpl = templates.find((t) => t.id === c.template_id);
+        const onDate = c.send_on ? ` · ${new Date(c.send_on + "T00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "";
+        return (tpl ? tpl.name : "Pick an email") + onDate + (c.send_at ? ` · ${c.send_at}` : "") + (kindVal() === "marketing" ? " · Marketing" : "");
+      }
       if (n.type === "wait") return c.amount ? `${c.amount} ${c.unit || "days"}` : "Set a delay";
       if (n.type === "add_tag" || n.type === "remove_tag") return c.tag || "Set a tag";
       if (n.type === "add_note") return c.body ? String(c.body).slice(0, 40) : "Write a note";
@@ -438,11 +442,17 @@ import "../../../styles/admin.css";
       if (n.type === "trigger") {
         body = `<p class="af-hint">Set what enrols a contact using the <strong>Trigger</strong> dropdown at the top. Then build the journey below it.</p>`;
       } else if (n.type === "send_email") {
+        // Time slots in 30-minute steps — plus the saved value if it was set
+        // before this dropdown existed (e.g. an old 09:15), so nothing is lost.
+        const slots = [];
+        for (let h = 0; h < 24; h++) for (const mm of ["00", "30"]) slots.push(`${String(h).padStart(2, "0")}:${mm}`);
+        if (c.send_at && !slots.includes(c.send_at)) slots.push(c.send_at);
         body = field("Email (from Email Studio)",
           `<select data-c="template_id">${templates.length ? "" : '<option value="">No active templates — create one in Email Studio</option>'}<option value="">Choose a template…</option>${templates.map((t) => `<option value="${t.id}" ${c.template_id === t.id ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select>`)
           + field("Subject (optional)", `<input data-c="subject" value="${esc(c.subject || "")}" placeholder="Uses the template's subject if blank" />`)
-          + field("Deliver at (optional, UK time)", `<input type="time" data-c="send_at" value="${esc(c.send_at || "")}" />`)
-          + `<p class="af-hint">Templates come from <a href="/admin/email" target="_blank">Email Studio</a>; merge fields fill in automatically. <strong>Deliver at</strong> holds the email until the next time the clock hits that time — so "wait 3 days" then "deliver at 09:30" lands on the right morning.</p>`
+          + field("Send on (optional date)", `<input type="date" data-c="send_on" value="${esc(c.send_on || "")}" />`)
+          + field("At (optional, UK time)", `<select data-c="send_at"><option value="">— any time</option>${slots.map((s) => `<option value="${s}" ${c.send_at === s ? "selected" : ""}>${s}</option>`).join("")}</select>`)
+          + `<p class="af-hint">Templates come from <a href="/admin/email" target="_blank">Email Studio</a>; merge fields fill in automatically. <strong>Send on</strong> holds this email until that date (great for funnels built in advance) — with no time chosen it goes at 09:00. A time on its own means "the next time the clock hits it", so "wait 3 days" then "at 09:30" lands on the right morning.</p>`
           + (kindVal() === "marketing"
             ? `<p class="af-hint">This is a <strong>marketing</strong> funnel — this email sends from hello@tmke.co.uk with an unsubscribe link, to opted-in contacts only (skips are logged in the audit).</p>`
             : `<p class="af-hint">This is a <strong>service</strong> funnel — this email sends from the TMKE mailbox with no unsubscribe footer. Switch the funnel to Marketing in the bar above if it's promotional.</p>`);
@@ -497,6 +507,8 @@ import "../../../styles/admin.css";
       }
       $("af-panel-body").innerHTML = body;
       $("af-panel-body").querySelectorAll("[data-c]").forEach((inp) => {
+        // Foolproof date entry: clicking anywhere on the field opens the calendar.
+        if (inp.type === "date") inp.addEventListener("click", () => { try { inp.showPicker(); } catch (_) { /* needs a user gesture; typing still works */ } });
         inp.addEventListener("input", () => { n.config[inp.getAttribute("data-c")] = inp.type === "number" ? Number(inp.value) : inp.value; render(); });
         inp.addEventListener("change", () => {
           n.config[inp.getAttribute("data-c")] = inp.type === "number" ? Number(inp.value) : inp.value;
