@@ -521,7 +521,53 @@ async function syncAgentSheet(env) {
       details.push({ row: i + 2, email, skipped: String((e && e.message) || e).slice(0, 120) });
     }
   }
-  return { ok: true, rows: rows.length - 1, processed, enrolled, cancelled, skipped, details };
+
+  // Starters whose row was DELETED from the sheet rather than marked Cancelled.
+  // Deleting is the intuitive-but-wrong action: it leaves them enrolled in the
+  // funnel with a live code, and the sync can't see a row that isn't there. No
+  // auto-cancel — a fat-fingered deletion must never DND anyone — instead flag
+  // it to a human, once per person (deduped via the note on their card).
+  let missing = 0;
+  try {
+    const seen = new Set();
+    for (let i = 1; i < rows.length; i++) {
+      const e = idx.email >= 0 ? String((rows[i] || [])[idx.email] || "").trim().toLowerCase() : "";
+      if (e) seen.add(e);
+    }
+    const profs = (await sbGet(env, "agent_profiles", `is_new_starter=eq.true&select=contact_id,status,promo_code`)) || [];
+    const live = profs.filter((p) => p.status !== "cancelled");
+    const vanished = [];
+    if (live.length) {
+      const cs = (await sbGet(env, "contacts", `id=in.(${live.map((p) => p.contact_id).join(",")})&select=id,email,first_name,last_name,source`)) || [];
+      for (const c of cs) {
+        if (c.source !== "agent_sheet_sync") continue;               // only sheet-managed starters
+        if (seen.has(String(c.email || "").toLowerCase())) continue; // still on the sheet
+        const already = (await sbGet(env, "contact_notes", `contact_id=eq.${encodeURIComponent(c.id)}&author=eq.Sheet%20sync&body=ilike.*vanished%20from%20the%20TEG%20sheet*&select=id&limit=1`)) || [];
+        if (already.length) continue;                                // flagged before
+        await sbPost(env, "contact_notes", { contact_id: c.id, body: "Vanished from the TEG sheet without being marked Cancelled — flagged to Danielle. Their funnel and free-videography code are still live until someone decides.", author: "Sheet sync" });
+        const prof = live.find((p) => p.contact_id === c.id) || {};
+        vanished.push({ name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email, email: c.email, code: prof.promo_code || null });
+      }
+    }
+    if (vanished.length) {
+      missing = vanished.length;
+      const escH = (s) => String(s || "").replace(/</g, "&lt;");
+      const items = vanished.map((v) => `<li style="margin:4px 0"><strong>${escH(v.name)}</strong> (${escH(v.email)})${v.code ? ` — free-videography code <code>${escH(v.code)}</code> still live` : ""}</li>`).join("");
+      await sendEmail(env, {
+        to: "danielle@themarketingexperts.co.uk",
+        subject: `TEG sheet: ${vanished.length} new starter${vanished.length === 1 ? " has" : "s have"} vanished without being cancelled`,
+        html: `<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1d22;line-height:1.5">
+          <p>These new starters are still active in the system, but their row has disappeared from the Agent Videography New Starters sheet — usually someone deleting the row instead of marking the <strong>Cancelled</strong> column:</p>
+          <ul>${items}</ul>
+          <p><strong>Nothing has been stopped automatically</strong> — they're still in the onboarding funnel and their code still works, in case the deletion was an accident.</p>
+          <p>If they're genuinely not joining: re-add their row to the sheet with <strong>Cancelled = yes</strong> and the next sync will void the code, stop the emails and note their card. (Or tick Do-not-contact on their contact card to stop emails immediately.)</p>
+          <p style="color:#888;font-size:12px">Sent automatically by the sheet sync. You'll only be told once per person.</p>
+        </div>`,
+      });
+    }
+  } catch (_) { /* the flag is a bonus — never break the sync */ }
+
+  return { ok: true, rows: rows.length - 1, processed, enrolled, cancelled, skipped, missing, details };
 }
 
 // Admin gate for staff-only endpoints (e.g. sending email). Mirrors the client
