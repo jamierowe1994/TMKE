@@ -127,7 +127,7 @@ import "../../../styles/admin.css";
     function nodeSub(n) {
       const c = n.config || {};
       if (n.type === "trigger") { const t = TRIGGERS.find((x) => x.key === $("af-trigger").value); return t ? t.label : "Set the trigger above"; }
-      if (n.type === "send_email") { const tpl = templates.find((t) => t.id === c.template_id); return tpl ? tpl.name : "Pick an email"; }
+      if (n.type === "send_email") { const tpl = templates.find((t) => t.id === c.template_id); return (tpl ? tpl.name : "Pick an email") + (c.send_kind === "marketing" ? " · Marketing" : ""); }
       if (n.type === "wait") return c.amount ? `${c.amount} ${c.unit || "days"}` : "Set a delay";
       if (n.type === "add_tag" || n.type === "remove_tag") return c.tag || "Set a tag";
       if (n.type === "add_note") return c.body ? String(c.body).slice(0, 40) : "Write a note";
@@ -291,9 +291,16 @@ import "../../../styles/admin.css";
       if (n.type === "trigger") {
         body = `<p class="af-hint">Set what enrols a contact using the <strong>Trigger</strong> dropdown at the top. Then build the journey below it.</p>`;
       } else if (n.type === "send_email") {
+        const kind = c.send_kind === "marketing" ? "marketing" : "transactional";
         body = field("Email (from Email Studio)",
           `<select data-c="template_id">${templates.length ? "" : '<option value="">No active templates — create one in Email Studio</option>'}<option value="">Choose a template…</option>${templates.map((t) => `<option value="${t.id}" ${c.template_id === t.id ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select>`)
-          + `<p class="af-hint">Saved templates from <a href="/admin/email" target="_blank">Email Studio</a> (active ones). Merge fields like the recipient's name fill in automatically.</p>`;
+          + `<p class="af-hint">Saved templates from <a href="/admin/email" target="_blank">Email Studio</a> (active ones). Merge fields like the recipient's name fill in automatically.</p>`
+          + field("Send as", `<select data-c="send_kind" data-rerender="1"><option value="transactional"${kind === "transactional" ? " selected" : ""}>Transactional — a response to something they did</option><option value="marketing"${kind === "marketing" ? " selected" : ""}>Marketing — we chose to send it</option></select>`);
+        if (kind === "marketing") {
+          body += `<p class="af-hint"><strong>Marketing</strong> sends via Resend with an unsubscribe link and the one-click unsubscribe headers. It only goes to contacts with <strong>marketing opt-in</strong> who haven't unsubscribed — others are skipped (logged in the audit).</p>`;
+        } else {
+          body += `<p class="af-hint"><strong>Transactional</strong> sends from the TMKE mailbox with no unsubscribe footer — for confirmations and service emails the contact expects. A marketing opt-out does <em>not</em> block it. Choose <strong>Marketing</strong> for funnels, newsletters and anything promotional.</p>`;
+        }
       } else if (n.type === "wait") {
         body = field("Wait", `<input type="number" min="1" data-c="amount" value="${esc(c.amount || 1)}" />`)
           + field("Unit", `<select data-c="unit">${["minutes","hours","days","weeks"].map((u) => `<option value="${u}" ${c.unit === u ? "selected" : ""}>${u}</option>`).join("")}</select>`);

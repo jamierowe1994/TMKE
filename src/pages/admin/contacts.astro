@@ -247,6 +247,10 @@ import "../../styles/admin.css";
 
     /* Tag filter dropdown */
     .ct-tagfilter { position: relative; }
+    /* The bar and the contact list are sibling stacking contexts (both z 2), so
+       the later-in-DOM list painted OVER the open menu — the menu's own z-index
+       can't escape its parent context. Lift the bar while the menu is open. */
+    .admin-bar:has(#ct-tagfilter-menu:not([hidden])) { z-index: 30; }
     .ct-tagfilter-btn { gap: 6px; }
     .ct-tagfilter-btn.is-on { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     .ct-tagfilter-btn.is-on b { background: rgba(255,255,255,0.22); color: #fff; }
@@ -673,11 +677,20 @@ import "../../styles/admin.css";
             <h3>Details</h3>
             <dl class="ct-dl">
               <div><dt>Email</dt><dd>${esc(c.email || "—")}</dd></div>
-              <div><dt>Company</dt><dd>${esc(c.company || "—")}</dd></div>
-              <div><dt>Phone</dt><dd>${esc(c.phone || "—")}</dd></div>
               ${c.agentProfile && c.agentProfile.postcode ? `<div><dt>Postcode</dt><dd>${esc(c.agentProfile.postcode)}</dd></div>` : ""}
               <div><dt>Source</dt><dd>${esc(humanizeSource(c.source))}</dd></div>
             </dl>
+            <!-- Editable details — some contacts arrive email-only (e.g. the
+                 newsletter form), so anything learned later is filled in here.
+                 Each field saves itself when you click/tab away. -->
+            <div class="ct-add-grid" style="margin-top:12px">
+              <div class="ct-field"><label>First name</label><input id="ct-d-first" value="${esc(c.first_name || "")}" placeholder="—" /></div>
+              <div class="ct-field"><label>Last name</label><input id="ct-d-last" value="${esc(c.last_name || "")}" placeholder="—" /></div>
+            </div>
+            <div class="ct-add-grid">
+              <div class="ct-field"><label>Phone</label><input id="ct-d-phone" type="tel" value="${esc(c.phone || "")}" placeholder="—" /></div>
+              <div class="ct-field"><label>Company</label><input id="ct-d-company" value="${esc(c.company || "")}" placeholder="—" /></div>
+            </div>
             <div class="ct-row" style="margin-top:14px">
               <select id="ct-life-sel">${LIFECYCLES.map(([v, label]) => `<option value="${v}" ${c.lifecycle === v ? "selected" : ""}>${label}</option>`).join("")}</select>
               <label class="ct-toggle"><input type="checkbox" id="ct-dnd" ${c.dnd ? "checked" : ""}/> Do-not-contact</label>
@@ -841,6 +854,18 @@ import "../../styles/admin.css";
         c.lifecycle = e.target.value;
         await supabase.from("contacts").update({ lifecycle: c.lifecycle }).eq("id", c.id);
         fire("contact_changed", c, { field: "lifecycle", value: c.lifecycle }); render();
+      });
+      // Editable details — save on change, refresh the header + board so a
+      // newly named contact stops showing as "—" everywhere.
+      [["ct-d-first", "first_name"], ["ct-d-last", "last_name"], ["ct-d-phone", "phone"], ["ct-d-company", "company"]].forEach(([id, col]) => {
+        $(id)?.addEventListener("change", async (e) => {
+          const v = e.target.value.trim() || null;
+          c[col] = v;
+          const { error } = await supabase.from("contacts").update({ [col]: v }).eq("id", c.id);
+          if (error) { alert("Couldn't save that: " + error.message); return; }
+          $("ct-d-name").textContent = fullName(c);
+          render();
+        });
       });
       // Secondary email — a delivery address for funnel email, not an identity.
       $("ct-sec-email")?.addEventListener("change", async (e) => {
