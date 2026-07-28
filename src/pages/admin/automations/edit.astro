@@ -9,10 +9,6 @@ import "../../../styles/admin.css";
       <a href="/admin/automations" class="admin-btn admin-btn-ghost">&larr; Automations</a>
       <input id="af-name" class="af-name" placeholder="Automation name" />
       <div class="af-bar-right">
-        <label class="af-trigger-wrap">
-          <span>Trigger</span>
-          <select id="af-trigger" class="af-select"></select>
-        </label>
         <select id="af-status" class="af-select af-status">
           <option value="draft">Draft</option>
           <option value="active">Active</option>
@@ -21,6 +17,29 @@ import "../../../styles/admin.css";
         </select>
         <button type="button" class="admin-btn admin-btn-primary" id="af-save">Save</button>
       </div>
+    </section>
+
+    <!-- Mailchimp-style setup: answer the questions, then build the journey. -->
+    <section class="af-setup">
+      <label class="af-setup-q">
+        <span>Who enters this funnel?</span>
+        <select id="af-trigger" class="af-select"></select>
+      </label>
+      <div class="af-setup-q" id="af-tagpick-wrap" hidden>
+        <span id="af-tagpick-label">Which tags?</span>
+        <div class="af-tagpick" id="af-tagpick">
+          <button type="button" class="af-select af-tagpick-btn" id="af-tagpick-btn">Choose tags…</button>
+          <div class="af-tags af-tagpick-menu" id="af-trigger-tags" hidden></div>
+        </div>
+      </div>
+      <label class="af-setup-q">
+        <span>What kind of emails?</span>
+        <select id="af-kind" class="af-select">
+          <option value="service">Service — replies to something they did</option>
+          <option value="marketing">Marketing — promotional, needs opt-in</option>
+        </select>
+      </label>
+      <p class="af-setup-note" id="af-setup-note"></p>
     </section>
 
     <div class="af-stage">
@@ -47,7 +66,15 @@ import "../../../styles/admin.css";
     .af-name:hover { background: rgba(28,29,34,0.04); }
     .af-name:focus { outline: none; background: #fff; border-color: var(--english-violet); }
     .af-bar-right { display: flex; align-items: center; gap: 10px; }
-    .af-trigger-wrap { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); font-weight: 700; }
+    .af-setup { display: flex; align-items: flex-end; gap: 18px; padding: 12px 22px 14px; border-bottom: 1px solid rgba(28,29,34,0.1); background: #fff; flex-wrap: wrap; }
+    .af-setup-q { display: flex; flex-direction: column; gap: 6px; }
+    .af-setup-q[hidden] { display: none; }
+    .af-setup-q > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .af-setup-note { flex: 1 1 240px; font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: 0 0 4px; min-width: 220px; }
+    .af-tagpick { position: relative; }
+    .af-tagpick-btn { text-align: left; min-width: 180px; }
+    .af-tagpick-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; width: 300px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.35); }
+    .af-tagpick-menu[hidden] { display: none; }
     .af-select { appearance: none; -webkit-appearance: none; background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 10px center; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; padding: 9px 30px 9px 12px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
     .af-stage { flex: 1; display: flex; min-height: 0; position: relative; }
     .af-canvas { flex: 1; position: relative; overflow: auto; background:
@@ -106,16 +133,73 @@ import "../../../styles/admin.css";
     const uid = () => "n" + Math.abs(Math.floor((performance.now() % 1) * 1e9)).toString(36) + (graph.nodes.length);
 
     const params = new URLSearchParams(location.search);
-    const automationId = params.get("id");
+    let automationId = params.get("id");   // set on first save of a new automation
 
     let graph = emptyGraph();
     let templates = [];      // active Email Studio templates
     let selectedId = null;
     let pendingAdd = null;    // { parentId, branch } when adding a node
+    let triggerConfig = {};   // { tags: [...] } for audience, { tag } for tag added/removed
+
+    const WORKER = import.meta.env.PUBLIC_R2_WORKER_URL || "";
+    const ALL_TAGS_GROUPED = TAG_GROUPS;
+    const kindVal = () => ($("af-kind") ? $("af-kind").value : "service");
 
     // ---- trigger dropdown ----
-    $("af-trigger").innerHTML = '<option value="">Choose a trigger…</option>' +
+    $("af-trigger").innerHTML = '<option value="">Choose who…</option>' +
       TRIGGERS.map((t) => `<option value="${t.key}">${esc(t.label)}</option>`).join("");
+
+    // ---- setup questions (audience tags + funnel kind) ----
+    function tagpickSummary() {
+      const tags = triggerConfig.tags || [];
+      $("af-tagpick-btn").textContent = tags.length ? `${tags.length} tag${tags.length === 1 ? "" : "s"}: ${tags.join(", ").slice(0, 40)}${tags.join(", ").length > 40 ? "…" : ""}` : "Choose tags…";
+    }
+    function renderTriggerExtras() {
+      const trig = $("af-trigger").value;
+      const isAudience = trig === "audience";
+      const isTagEvent = trig === "tag_added" || trig === "tag_removed";
+      $("af-tagpick-wrap").hidden = !(isAudience || isTagEvent);
+      if (isAudience || isTagEvent) {
+        $("af-tagpick-label").textContent = isAudience ? "Which tags? (anyone with any of them)" : "Which tag? (blank = any)";
+        const selected = new Set(isAudience ? (triggerConfig.tags || []) : (triggerConfig.tag ? [triggerConfig.tag] : []));
+        $("af-trigger-tags").innerHTML = ALL_TAGS_GROUPED.map(([g, tags]) =>
+          `<div class="af-tags-group">${esc(g)}</div>` + tags.map((t) =>
+            `<label class="af-tag"><input type="${isAudience ? "checkbox" : "radio"}" name="af-trig-tag" data-trigtag="${esc(t)}" ${selected.has(t) ? "checked" : ""}/> <span>${esc(t)}</span></label>`).join("")).join("");
+        $("af-trigger-tags").querySelectorAll("[data-trigtag]").forEach((cb) => cb.addEventListener("change", () => {
+          if (isAudience) {
+            const sel = new Set(triggerConfig.tags || []);
+            if (cb.checked) sel.add(cb.dataset.trigtag); else sel.delete(cb.dataset.trigtag);
+            triggerConfig = { tags: [...sel] };
+          } else {
+            triggerConfig = { tag: cb.dataset.trigtag };
+          }
+          tagpickSummary(); updateSetupNote(); render();
+        }));
+        tagpickSummary();
+      }
+      updateSetupNote();
+    }
+    async function audienceCount() {
+      const tags = triggerConfig.tags || [];
+      if (!tags.length) return null;
+      try {
+        const { count, error } = await supabase.from("contacts").select("id", { count: "exact", head: true }).overlaps("tags", tags);
+        return error ? null : count;
+      } catch (_) { return null; }
+    }
+    async function updateSetupNote() {
+      const bits = [];
+      if (kindVal() === "marketing") bits.push("Marketing: sends from hello@tmke.co.uk with an unsubscribe link — only contacts with marketing opt-in receive it, everyone else is skipped and logged.");
+      else bits.push("Service: sends from the TMKE mailbox with no unsubscribe footer — for emails the contact expects. Not blocked by a marketing opt-out.");
+      if ($("af-trigger").value === "audience") {
+        const n = await audienceCount();
+        bits.push(n == null ? "Everyone with any chosen tag is enrolled when you save as Active — plus anyone who gains one later." : `${n} ${n === 1 ? "person" : "people"} currently match — they're enrolled when you save as Active, plus anyone who gains a tag later.`);
+      }
+      $("af-setup-note").textContent = bits.join(" ");
+    }
+    $("af-kind").addEventListener("change", () => { updateSetupNote(); render(); if (selectedId) selectNode(selectedId); });
+    $("af-tagpick-btn").addEventListener("click", () => { const m = $("af-trigger-tags"); m.hidden = !m.hidden; });
+    document.addEventListener("click", (e) => { if (!e.target.closest(".af-tagpick")) $("af-trigger-tags").hidden = true; });
 
     // ---------- Canvas render ----------
     const canvas = $("af-canvas"), nodesEl = $("af-nodes"), edgesEl = $("af-edges");
@@ -126,8 +210,14 @@ import "../../../styles/admin.css";
     }
     function nodeSub(n) {
       const c = n.config || {};
-      if (n.type === "trigger") { const t = TRIGGERS.find((x) => x.key === $("af-trigger").value); return t ? t.label : "Set the trigger above"; }
-      if (n.type === "send_email") { const tpl = templates.find((t) => t.id === c.template_id); return (tpl ? tpl.name : "Pick an email") + (c.send_kind === "marketing" ? " · Marketing" : ""); }
+      if (n.type === "trigger") {
+        const t = TRIGGERS.find((x) => x.key === $("af-trigger").value);
+        if (!t) return "Answer the questions above";
+        if (t.key === "audience" && (triggerConfig.tags || []).length) return `Everyone tagged: ${triggerConfig.tags.join(", ")}`.slice(0, 60);
+        if ((t.key === "tag_added" || t.key === "tag_removed") && triggerConfig.tag) return `${t.label}: ${triggerConfig.tag}`;
+        return t.label;
+      }
+      if (n.type === "send_email") { const tpl = templates.find((t) => t.id === c.template_id); return (tpl ? tpl.name : "Pick an email") + (c.send_at ? ` · ${c.send_at}` : "") + (kindVal() === "marketing" ? " · Marketing" : ""); }
       if (n.type === "wait") return c.amount ? `${c.amount} ${c.unit || "days"}` : "Set a delay";
       if (n.type === "add_tag" || n.type === "remove_tag") return c.tag || "Set a tag";
       if (n.type === "add_note") return c.body ? String(c.body).slice(0, 40) : "Write a note";
@@ -291,16 +381,14 @@ import "../../../styles/admin.css";
       if (n.type === "trigger") {
         body = `<p class="af-hint">Set what enrols a contact using the <strong>Trigger</strong> dropdown at the top. Then build the journey below it.</p>`;
       } else if (n.type === "send_email") {
-        const kind = c.send_kind === "marketing" ? "marketing" : "transactional";
         body = field("Email (from Email Studio)",
           `<select data-c="template_id">${templates.length ? "" : '<option value="">No active templates — create one in Email Studio</option>'}<option value="">Choose a template…</option>${templates.map((t) => `<option value="${t.id}" ${c.template_id === t.id ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select>`)
-          + `<p class="af-hint">Saved templates from <a href="/admin/email" target="_blank">Email Studio</a> (active ones). Merge fields like the recipient's name fill in automatically.</p>`
-          + field("Send as", `<select data-c="send_kind" data-rerender="1"><option value="transactional"${kind === "transactional" ? " selected" : ""}>Transactional — a response to something they did</option><option value="marketing"${kind === "marketing" ? " selected" : ""}>Marketing — we chose to send it</option></select>`);
-        if (kind === "marketing") {
-          body += `<p class="af-hint"><strong>Marketing</strong> sends via Resend with an unsubscribe link and the one-click unsubscribe headers. It only goes to contacts with <strong>marketing opt-in</strong> who haven't unsubscribed — others are skipped (logged in the audit).</p>`;
-        } else {
-          body += `<p class="af-hint"><strong>Transactional</strong> sends from the TMKE mailbox with no unsubscribe footer — for confirmations and service emails the contact expects. A marketing opt-out does <em>not</em> block it. Choose <strong>Marketing</strong> for funnels, newsletters and anything promotional.</p>`;
-        }
+          + field("Subject (optional)", `<input data-c="subject" value="${esc(c.subject || "")}" placeholder="Uses the template's subject if blank" />`)
+          + field("Deliver at (optional, UK time)", `<input type="time" data-c="send_at" value="${esc(c.send_at || "")}" />`)
+          + `<p class="af-hint">Templates come from <a href="/admin/email" target="_blank">Email Studio</a>; merge fields fill in automatically. <strong>Deliver at</strong> holds the email until the next time the clock hits that time — so "wait 3 days" then "deliver at 09:30" lands on the right morning.</p>`
+          + (kindVal() === "marketing"
+            ? `<p class="af-hint">This is a <strong>marketing</strong> funnel — this email sends from hello@tmke.co.uk with an unsubscribe link, to opted-in contacts only (skips are logged in the audit).</p>`
+            : `<p class="af-hint">This is a <strong>service</strong> funnel — this email sends from the TMKE mailbox with no unsubscribe footer. Switch the funnel to Marketing in the bar above if it's promotional.</p>`);
       } else if (n.type === "wait") {
         body = field("Wait", `<input type="number" min="1" data-c="amount" value="${esc(c.amount || 1)}" />`)
           + field("Unit", `<select data-c="unit">${["minutes","hours","days","weeks"].map((u) => `<option value="${u}" ${c.unit === u ? "selected" : ""}>${u}</option>`).join("")}</select>`);
@@ -378,38 +466,65 @@ import "../../../styles/admin.css";
       render();
     }
 
-    // trigger dropdown drives the trigger node subtitle
-    $("af-trigger").addEventListener("change", render);
+    // trigger dropdown drives the trigger node subtitle + which setup extras show
+    $("af-trigger").addEventListener("change", () => { triggerConfig = {}; renderTriggerExtras(); render(); });
 
     // ---------- load + save ----------
     async function load() {
       // active email templates for the send-email picker
       const { data: tpls } = await supabase.from("email_templates").select("id, name").eq("status", "active").order("name");
       templates = tpls || [];
-      if (!automationId) { render(); return; }
+      if (!automationId) { renderTriggerExtras(); render(); return; }
       const { data, error } = await supabase.from("automations").select("*").eq("id", automationId).single();
       if (error || !data) { alert("Couldn't load this automation."); location.href = "/admin/automations"; return; }
       $("af-name").value = data.name || "";
       $("af-trigger").value = data.trigger_type || "";
       $("af-status").value = data.status || "draft";
+      triggerConfig = data.trigger_config || {};
       graph = (data.graph && data.graph.nodes && data.graph.nodes.length) ? data.graph : emptyGraph();
+      $("af-kind").value = (graph.meta && graph.meta.kind) === "marketing" ? "marketing" : "service";
+      renderTriggerExtras();
       render();
     }
 
     $("af-save").addEventListener("click", async () => {
       const btn = $("af-save"); btn.disabled = true; btn.textContent = "Saving…";
+      // The funnel-level answer is what the engine reads per step: stamp every
+      // send step with the kind, so the whole funnel behaves as declared.
+      graph.meta = { ...(graph.meta || {}), kind: kindVal() };
+      graph.nodes.forEach((n) => { if (n.type === "send_email") (n.config = n.config || {}).send_kind = kindVal() === "marketing" ? "marketing" : "transactional"; });
       const patch = {
         name: $("af-name").value.trim() || "Untitled automation",
         trigger_type: $("af-trigger").value || null,
+        trigger_config: triggerConfig,
         status: $("af-status").value,
         graph,
       };
-      const { error } = automationId
-        ? await supabase.from("automations").update(patch).eq("id", automationId)
-        : await supabase.from("automations").insert(patch);
+      let saveErr = null, savedId = automationId;
+      if (automationId) {
+        ({ error: saveErr } = await supabase.from("automations").update(patch).eq("id", automationId));
+      } else {
+        const { data, error } = await supabase.from("automations").insert(patch).select("id").single();
+        saveErr = error; if (data) { savedId = data.id; automationId = data.id; history.replaceState(null, "", `?id=${data.id}`); }
+      }
       btn.disabled = false; btn.textContent = "Save";
-      if (error) { alert("Couldn't save: " + error.message); return; }
+      if (saveErr) { alert("Couldn't save: " + saveErr.message); return; }
       btn.textContent = "Saved ✓"; setTimeout(() => (btn.textContent = "Save"), 1500);
+      // Audience funnel saved as Active → enrol everyone currently matching.
+      // Idempotent on the worker side: people already in the funnel are skipped.
+      if (patch.trigger_type === "audience" && patch.status === "active" && WORKER && savedId) {
+        try {
+          const { data: sess } = await supabase.auth.getSession();
+          const token = sess?.session?.access_token;
+          const r = await fetch(`${WORKER}/automations/enroll-audience`, {
+            method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" },
+            body: JSON.stringify({ automation_id: savedId }),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) alert(d.error || "Saved, but couldn't enrol the group.");
+          else alert(`${d.matched} ${d.matched === 1 ? "person" : "people"} match the chosen tags — ${d.enrolled} enrolled now${d.already ? `, ${d.already} already in the funnel` : ""}.`);
+        } catch (_) { alert("Saved, but couldn't reach the server to enrol the group."); }
+      }
     });
 
     (async () => {

@@ -1440,6 +1440,19 @@ function autoWaitMs(cfg) {
   const mult = unit === "minutes" ? 60e3 : unit === "hours" ? 3600e3 : unit === "weeks" ? 7 * 864e5 : 864e5;
   return amt * mult;
 }
+// "Deliver at" on a send step — ms until the next occurrence of HH:MM UK time
+// (0 = inside the window, send now). The 20-min grace after the target means a
+// 5-min cron tick can never straddle the slot and push the send to tomorrow.
+function msUntilSendWindow(hhmm) {
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(hhmm || "").trim());
+  if (!m) return 0;
+  const lonNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/London" }));
+  const target = new Date(lonNow); target.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  const diff = target - lonNow;
+  if (diff > 0) return diff;              // later today
+  if (diff > -20 * 60e3) return 0;        // inside the grace window
+  return diff + 24 * 3600e3;              // same time tomorrow
+}
 
 async function fireTrigger(env, triggerType, contactInput, payload) {
   if (!triggerType || !contactInput || !contactInput.email || !env.SUPABASE_SERVICE_ROLE) return { ok: false };
@@ -1458,7 +1471,13 @@ async function fireTrigger(env, triggerType, contactInput, payload) {
   const contactId = Array.isArray(cid) ? cid[0] : cid;   // scalar uuid from the RPC
   if (!contactId) return { ok: false };
 
-  const autos = (await sbGet(env, "automations", `status=eq.active&trigger_type=eq.${encodeURIComponent(triggerType)}&select=id,graph,trigger_config`)) || [];
+  let autos = (await sbGet(env, "automations", `status=eq.active&trigger_type=eq.${encodeURIComponent(triggerType)}&select=id,graph,trigger_config`)) || [];
+  // A tag landing also feeds "audience" funnels (everyone with these tags) —
+  // someone who gains a qualifying tag after activation joins the group late.
+  if (triggerType === "tag_added" && payload && payload.tag) {
+    const aud = (await sbGet(env, "automations", `status=eq.active&trigger_type=eq.audience&select=id,graph,trigger_config`)) || [];
+    autos = autos.concat(aud.filter((a) => Array.isArray((a.trigger_config || {}).tags) && a.trigger_config.tags.includes(payload.tag)));
+  }
   let enrolled = 0;
   for (const a of autos) {
     const tc = a.trigger_config || {};
@@ -1729,7 +1748,9 @@ async function autoExecAction(env, node, contact) {
       const unsubUrl = sendKind === "marketing" ? await unsubUrlFor(env, contact.email) : null;
       if (unsubUrl) { recipient.unsubscribeUrl = unsubUrl; recipient.unsubscribe_url = unsubUrl; }
       const { subject, html } = renderTemplate(
-        { subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
+        // The step can override the template's subject — one template, four
+        // sends with different subject lines, no duplicate templates.
+        { subject: (c.subject && String(c.subject).trim()) || t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
         { brand, mergeCtx: mergeContextFor(recipient, brand) }
       );
       // Deliver to the secondary address too when there is one — a TEG new
@@ -1824,6 +1845,17 @@ async function advanceEnrollment(env, enr) {
         current_node_id: next, next_run_at: new Date(Date.now() + autoWaitMs(node.config || {})).toISOString(),
         status: next ? "active" : "completed",
       });
+    }
+    // A send step with a "deliver at" time holds here until the next occurrence
+    // of that time (UK) — the wait steps got the contact to the right day, this
+    // gets them to the right hour.
+    if (node.type === "send_email" && node.config && node.config.send_at) {
+      const hold = msUntilSendWindow(node.config.send_at);
+      if (hold > 0) {
+        return sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, {
+          current_node_id: cur, next_run_at: new Date(Date.now() + hold).toISOString(),
+        });
+      }
     }
     let branch = "next";
     let acted = null;
@@ -3389,6 +3421,37 @@ export default {
         if (!user || !isAdminEmail(user)) return json({ error: "Unauthorised" }, 401, request, env);
         const n = await runAutomationsTick(env);
         return json({ ok: true, processed: n }, 200, request, env);
+      }
+
+      // ---- Automations: enrol an audience (send-to-a-group) ------------------
+      // For "audience" automations: enrols every contact currently carrying any
+      // of the chosen tags. Late joiners (tag added afterwards) are picked up by
+      // fireTrigger's tag_added path. The unique index makes this idempotent —
+      // re-running only enrols people not already live in the funnel.
+      if (path.endsWith("/automations/enroll-audience") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const aRows = b.automation_id ? await sbGet(env, "automations", `id=eq.${encodeURIComponent(b.automation_id)}&select=id,status,graph,trigger_type,trigger_config`) : null;
+        const auto = aRows && aRows[0];
+        if (!auto) return json({ error: "Automation not found." }, 404, request, env);
+        if (auto.trigger_type !== "audience") return json({ error: "This automation doesn't start from a group of tags." }, 400, request, env);
+        if (auto.status !== "active") return json({ error: "Set the automation to Active first — a draft can't enrol anyone." }, 400, request, env);
+        const tags = Array.isArray((auto.trigger_config || {}).tags) ? auto.trigger_config.tags.filter(Boolean) : [];
+        if (!tags.length) return json({ error: "Choose at least one tag first." }, 400, request, env);
+        const firstId = autoEdgeTo(auto.graph, "trigger", "next");
+        if (!firstId) return json({ error: "Add a first step to the funnel before enrolling anyone." }, 400, request, env);
+        const list = `{${tags.map((t) => `"${String(t).replace(/"/g, "")}"`).join(",")}}`;
+        const matched = (await sbGet(env, "contacts", `tags=ov.${encodeURIComponent(list)}&select=id`)) || [];
+        let enrolled = 0;
+        for (const ct of matched) {
+          const res = await sbPost(env, "automation_enrollments", {
+            automation_id: auto.id, contact_id: ct.id, status: "active",
+            current_node_id: firstId, next_run_at: nowISO(), context: { audience: tags },
+          });
+          if (res && res.ok) enrolled++;
+        }
+        return json({ ok: true, matched: matched.length, enrolled, already: matched.length - enrolled }, 200, request, env);
       }
 
       // ---- Automations: inbound email webhook -------------------------------

@@ -6,6 +6,10 @@
 
 // What can ENROL a contact into an automation. `group` is just for the picker.
 export const TRIGGERS = [
+  // Audience — the send-to-a-group starting point: everyone already carrying
+  // any of the chosen tags is enrolled on activation (Worker
+  // /automations/enroll-audience), and anyone gaining one later joins too.
+  { key: "audience", label: "A group — everyone with chosen tags", group: "Audience" },
   // Contact lifecycle
   { key: "contact_created", label: "Contact created", group: "Contact" },
   { key: "account_created", label: "Account created", group: "Contact" },
