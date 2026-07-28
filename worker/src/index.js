@@ -861,8 +861,18 @@ function crmTags(email, service, { optIn, member } = {}) {
 // Reconcile a contact's tags to the rules (mirrors normalize_contact_tags in
 // SQL — keep the two in sync). Consent is one state; SMM-Status is one value;
 // becoming a client supersedes that service's Interest / Discovery-call tags.
+// Legacy names (CSV imports pass Tags/Type column values through verbatim)
+// heal to their framework equivalents first.
+const TAG_ALIASES = {
+  "TEG": "Network: TEG",
+  "Estate Agent": "Type: Estate-Agent",
+  "Lettings": "Type: Lettings",
+  "Financial Services": "Type: Financial-Services",
+  "Fine & Country": "Network: Fine-and-Country",
+  "Fine and Country": "Network: Fine-and-Country",
+};
 function normalizeTags(tags) {
-  let t = Array.from(new Set((tags || []).map((x) => String(x || "").trim()).filter(Boolean)));
+  let t = Array.from(new Set((tags || []).map((x) => String(x || "").trim()).filter(Boolean).map((x) => TAG_ALIASES[x] || x)));
   const has = (x) => t.includes(x);
   const dropAll = (...xs) => { t = t.filter((v) => !xs.includes(v)); };
 

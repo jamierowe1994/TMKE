@@ -330,8 +330,16 @@ import "../../styles/admin.css";
 
     // Reconcile a contact's tags to the CRM rules (mirrors the Worker's
     // normalizeTags + normalize_contact_tags in SQL — keep the three in sync).
+    const TAG_ALIASES = {
+      "TEG": "Network: TEG",
+      "Estate Agent": "Type: Estate-Agent",
+      "Lettings": "Type: Lettings",
+      "Financial Services": "Type: Financial-Services",
+      "Fine & Country": "Network: Fine-and-Country",
+      "Fine and Country": "Network: Fine-and-Country",
+    };
     function normalizeTags(tags) {
-      let t = Array.from(new Set((tags || []).map((x) => String(x || "").trim()).filter(Boolean)));
+      let t = Array.from(new Set((tags || []).map((x) => String(x || "").trim()).filter(Boolean).map((x) => TAG_ALIASES[x] || x)));
       const has = (x) => t.includes(x);
       const dropAll = (...xs) => { t = t.filter((v) => !xs.includes(v)); };
       if (has("Unsubscribed")) dropAll("Newsletter-Subscriber", "Marketing-Not-Opted-In");
@@ -392,6 +400,22 @@ import "../../styles/admin.css";
     function updateCounts() {
       Object.keys(SEGMENTS).forEach((k) => { const el = document.querySelector(`[data-n="${k}"]`); if (el) el.textContent = ALL.filter(SEGMENTS[k]).length; });
     }
+    // The board shows a curated summary, not every tag: network, consent, and
+    // the high-level services (packs / videography / SMM). Everything else
+    // lives in the drawer; "+N" hints at how much more is on the card.
+    function summaryTags(c) {
+      const t = c.tags || [];
+      const picked = [
+        t.find((x) => x.startsWith("Network:")),
+        t.includes("Unsubscribed") ? "Unsubscribed"
+          : t.includes("Newsletter-Subscriber") ? "Newsletter-Subscriber"
+          : t.includes("Marketing-Not-Opted-In") ? "Marketing-Not-Opted-In" : null,
+        t.includes("Pack-Purchased") ? "Pack-Purchased" : null,
+        t.includes("Videography-Client") ? "Videography-Client" : null,
+        t.find((x) => x.startsWith("SMM-Status:")),
+      ].filter(Boolean);
+      return { picked, more: t.length - picked.length };
+    }
     function render() {
       updateCounts();
       const list = getFiltered();
@@ -407,7 +431,7 @@ import "../../styles/admin.css";
           <td>${esc(fullName(c))}${c.needs_review ? ' <span class="ct-flag" title="Possible duplicate — needs review">⚠</span>' : ""}</td>
           <td>${esc(c.email)}</td>
           <td><span class="ct-life ${c.dnd ? "dnd" : esc(deriveLifecycle(c))}">${c.dnd ? "DND" : esc(lifecycleLabel(deriveLifecycle(c)))}</span></td>
-          <td>${(c.tags || []).slice(0, 4).map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") || "—"}</td>
+          <td>${(() => { const s = summaryTags(c); return s.picked.map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") + (s.more > 0 ? `<span class="ct-tag ct-tag-more" title="${s.more} more tag${s.more === 1 ? "" : "s"} on the card">+${s.more}</span>` : "") || "—"; })()}</td>
           <td>${esc(fmtDate(c.last_seen_at))}</td>
         </tr>`).join("");
       $("ct-rows").querySelectorAll("[data-id]").forEach((tr) => tr.addEventListener("click", (e) => {

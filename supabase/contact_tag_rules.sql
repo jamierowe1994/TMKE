@@ -16,12 +16,23 @@
 -- 3. Becoming a client supersedes that service's lead tags:
 --      any SMM-Status  -> drop Interest: SMM / Discovery-Call-Booked: SMM
 --      Videography-Client -> drop Interest: Videography / Discovery-Call-Booked: Videography
+-- 4. Legacy names heal to their framework equivalents (CSV imports pass
+--    Tags/Type column values through verbatim, e.g. "TEG", "Estate Agent").
 create or replace function public.normalize_contact_tags(p_tags text[])
 returns text[] language plpgsql immutable as $$
 declare t text[];
 begin
-  -- de-dupe, drop nulls/blanks
-  t := array(select distinct x from unnest(coalesce(p_tags, '{}')) x where x is not null and btrim(x) <> '');
+  -- de-dupe, drop nulls/blanks, map legacy aliases onto framework tags
+  t := array(select distinct case btrim(x)
+               when 'TEG' then 'Network: TEG'
+               when 'Estate Agent' then 'Type: Estate-Agent'
+               when 'Lettings' then 'Type: Lettings'
+               when 'Financial Services' then 'Type: Financial-Services'
+               when 'Fine & Country' then 'Network: Fine-and-Country'
+               when 'Fine and Country' then 'Network: Fine-and-Country'
+               else btrim(x) end
+             from unnest(coalesce(p_tags, '{}')) x
+             where x is not null and btrim(x) <> '');
 
   -- Consent — a single state.
   if 'Unsubscribed' = any(t) then
@@ -98,5 +109,9 @@ from public.smm_leads l
 where lower(l.email) = lower(c.email)
   and l.client_status in ('active', 'paused', 'ended');
 
--- 2) Reconcile every contact against the rules.
+-- 2) Drop the leftover test-purchase tag (one-off data fix, idempotent).
+update public.contacts set tags = array_remove(tags, 'Pack Name: pack test')
+where 'Pack Name: pack test' = any(tags);
+
+-- 3) Reconcile every contact against the rules (also folds legacy aliases).
 update public.contacts set tags = public.normalize_contact_tags(tags);
