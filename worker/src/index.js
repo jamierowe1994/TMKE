@@ -1742,6 +1742,38 @@ async function unsubscribeContact(env, contact, source) {
   } catch (_) { /* best-effort */ }
 }
 
+// ---- First-party open/click tracking (for Microsoft-sent funnel email) -----
+// Resend reports opens/clicks for its own sends; Microsoft 365 reports
+// nothing. So transactional funnel email carries our own: an invisible pixel
+// (open) and links routed through the Worker (click). Both are HMAC-signed so
+// events can't be forged and the click redirect can't be abused as an open
+// relay. p = b64url JSON {e,a,n,m}; the click sig also covers the raw URL.
+async function trackSig(env, data) {
+  const secret = unsubSecret(env);
+  if (!secret) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`track:${data}`));
+  return _b64url(mac);
+}
+async function injectTracking(env, html, meta) {
+  const base = unsubBase(env);
+  if (!base) return html;
+  const p = _b64urlStr(JSON.stringify({ e: meta.email, a: meta.automationId || null, n: meta.enrollmentId || null, m: meta.messageId || null }));
+  const openSig = await trackSig(env, p);
+  if (!openSig) return html;
+  let out = html;
+  const hrefs = [...new Set(out.match(/href="https?:\/\/[^"]+"/g) || [])];
+  for (const h of hrefs) {
+    const target = h.slice(6, -1).replace(/&amp;/g, "&");
+    if (target.startsWith(base)) continue;   // never wrap our own endpoints (unsubscribe, galleries…)
+    const s = await trackSig(env, `${p}|${target}`);
+    out = out.split(h).join(`href="${base}/t/c?p=${p}&amp;s=${s}&amp;u=${encodeURIComponent(target)}"`);
+  }
+  const pixel = `<img src="${base}/t/o?p=${p}&amp;s=${openSig}" width="1" height="1" style="display:none" alt="" />`;
+  return out.includes("</body>") ? out.replace("</body>", pixel + "</body>") : out + pixel;
+}
+
 async function autoExecAction(env, node, contact, ctx) {
   const c = node.config || {};
   try {
@@ -1785,16 +1817,27 @@ async function autoExecAction(env, node, contact, ctx) {
       const to = sendKind === "marketing"
         ? [contact.email]
         : [contact.email, String(contact.secondary_email || "").trim()].filter(Boolean);
+      // Microsoft reports nothing back, so transactional funnel email carries
+      // our own open pixel + click-through links. (Resend sends are tracked by
+      // Resend — wrapping them too would double-count.) The generated message
+      // id ties the pixel/click events back to this send in the insights.
+      let htmlOut = html, m365Id = null;
+      if (sendKind !== "marketing") {
+        m365Id = "m365-" + crypto.randomUUID();
+        try {
+          htmlOut = await injectTracking(env, html, { email: contact.email, automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId, messageId: m365Id });
+        } catch (_) { htmlOut = html; }
+      }
       // Record what actually went out (and whether it did) — this is what the
       // funnel audit shows, and the only way to answer "did they get it?".
       const sent = sendKind === "marketing"
         ? await sendMarketingEmail(env, { to, subject, html, unsubUrl })
-        : await sendEmail(env, { to, subject, html });
+        : await sendEmail(env, { to, subject, html: htmlOut });
       await logEmailEvent(env, {
         contact, email: contact.email,
         event: (sent && sent.ok) ? "sent" : "blocked",
         provider: sendKind === "marketing" ? "resend" : "m365",
-        messageId: (sent && sent.id) || null,
+        messageId: (sent && sent.id) || m365Id,
         subject,
         detail: (sent && sent.ok) ? null : String((sent && sent.error) || "send failed").slice(0, 200),
         automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId,
@@ -3445,6 +3488,39 @@ export default {
         if (!user || !isAdminEmail(user)) return json({ error: "Unauthorised" }, 401, request, env);
         const n = await runAutomationsTick(env);
         return json({ ok: true, processed: n }, 200, request, env);
+      }
+
+      // ---- First-party tracking: open pixel + click-through -----------------
+      // Unauthenticated by nature (recipients hit these), but every request
+      // must carry a valid HMAC from injectTracking or it records nothing —
+      // and the click redirect only forwards to a URL the signature vouches
+      // for, so it can't be used as an open redirect.
+      if (path.endsWith("/t/o") && request.method === "GET") {
+        const p = url.searchParams.get("p") || "", s = url.searchParams.get("s") || "";
+        if (p && s && s === await trackSig(env, p)) {
+          try {
+            const meta = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")));
+            const addr = String(meta.e || "").toLowerCase();
+            const cs = addr ? await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=id,email&limit=1`) : null;
+            await logEmailEvent(env, { contact: cs && cs[0], email: addr, event: "opened", provider: "m365", messageId: meta.m || null, automationId: meta.a || null, enrollmentId: meta.n || null });
+          } catch (_) {}
+        }
+        const gif = Uint8Array.from(atob("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), (ch) => ch.charCodeAt(0));
+        return new Response(gif, { headers: { "Content-Type": "image/gif", "Cache-Control": "no-store, private" } });
+      }
+      if (path.endsWith("/t/c") && request.method === "GET") {
+        const p = url.searchParams.get("p") || "", s = url.searchParams.get("s") || "", u = url.searchParams.get("u") || "";
+        let dest = "https://tmke.co.uk";
+        if (p && s && u && s === await trackSig(env, `${p}|${u}`)) {
+          dest = u;
+          try {
+            const meta = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")));
+            const addr = String(meta.e || "").toLowerCase();
+            const cs = addr ? await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=id,email&limit=1`) : null;
+            await logEmailEvent(env, { contact: cs && cs[0], email: addr, event: "clicked", provider: "m365", messageId: meta.m || null, url: u, automationId: meta.a || null, enrollmentId: meta.n || null });
+          } catch (_) {}
+        }
+        return Response.redirect(dest, 302);
       }
 
       // ---- Automations: AI insights summary ---------------------------------
