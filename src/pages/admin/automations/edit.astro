@@ -9,22 +9,32 @@ import "../../../styles/admin.css";
       <a href="/admin/automations" class="admin-btn admin-btn-ghost">&larr; Automations</a>
       <input id="af-name" class="af-name" placeholder="Automation name" />
       <div class="af-bar-right">
-        <select id="af-status" class="af-select af-status">
-          <option value="draft">Draft</option>
-          <option value="active">Active</option>
-          <option value="paused">Paused</option>
-          <option value="archived">Archived</option>
-        </select>
+        <div class="af-dd">
+          <select id="af-status" hidden>
+            <option value="draft">Draft</option>
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="archived">Archived</option>
+          </select>
+          <button type="button" class="af-select af-dd-btn" data-dd="af-status"></button>
+          <div class="af-dd-menu" hidden></div>
+        </div>
         <button type="button" class="admin-btn admin-btn-primary" id="af-save">Save</button>
       </div>
     </section>
 
-    <!-- Mailchimp-style setup: answer the questions, then build the journey. -->
+    <!-- Mailchimp-style setup: answer the questions, then build the journey.
+         All dropdowns are custom (open below, solid white) — the native OS
+         menus looked translucent-grey and opened wherever they liked. -->
     <section class="af-setup">
-      <label class="af-setup-q">
+      <div class="af-setup-q">
         <span>Who enters this funnel?</span>
-        <select id="af-trigger" class="af-select"></select>
-      </label>
+        <div class="af-dd">
+          <select id="af-trigger" hidden></select>
+          <button type="button" class="af-select af-dd-btn" data-dd="af-trigger"></button>
+          <div class="af-dd-menu" hidden></div>
+        </div>
+      </div>
       <div class="af-setup-q" id="af-tagpick-wrap" hidden>
         <span id="af-tagpick-label">Which tags?</span>
         <div class="af-tagpick" id="af-tagpick">
@@ -32,13 +42,17 @@ import "../../../styles/admin.css";
           <div class="af-tags af-tagpick-menu" id="af-trigger-tags" hidden></div>
         </div>
       </div>
-      <label class="af-setup-q">
+      <div class="af-setup-q">
         <span>What kind of emails?</span>
-        <select id="af-kind" class="af-select">
-          <option value="service">Service — replies to something they did</option>
-          <option value="marketing">Marketing — promotional, needs opt-in</option>
-        </select>
-      </label>
+        <div class="af-dd">
+          <select id="af-kind" hidden>
+            <option value="service">Service — replies to something they did</option>
+            <option value="marketing">Marketing — promotional, needs opt-in</option>
+          </select>
+          <button type="button" class="af-select af-dd-btn" data-dd="af-kind"></button>
+          <div class="af-dd-menu" hidden></div>
+        </div>
+      </div>
       <p class="af-setup-note" id="af-setup-note"></p>
     </section>
 
@@ -66,9 +80,20 @@ import "../../../styles/admin.css";
     .af-name:hover { background: rgba(28,29,34,0.04); }
     .af-name:focus { outline: none; background: #fff; border-color: var(--english-violet); }
     .af-bar-right { display: flex; align-items: center; gap: 10px; }
-    .af-setup { display: flex; align-items: flex-end; gap: 18px; padding: 12px 22px 14px; border-bottom: 1px solid rgba(28,29,34,0.1); background: #fff; flex-wrap: wrap; }
+    /* The bar + setup rows must out-stack the canvas below (its nodes are
+       z-indexed in a later sibling section), or open menus paint behind it. */
+    .af-bar { position: relative; z-index: 45; background: #fff; }
+    .af-setup { display: flex; align-items: flex-end; gap: 18px; padding: 20px 22px; border-bottom: 1px solid rgba(28,29,34,0.1); background: #fff; flex-wrap: wrap; position: relative; z-index: 44; }
     .af-setup-q { display: flex; flex-direction: column; gap: 6px; }
     .af-setup-q[hidden] { display: none; }
+    /* Custom dropdowns — solid white, always open directly below the control. */
+    .af-dd { position: relative; }
+    .af-dd-btn { text-align: left; min-width: 170px; }
+    .af-dd-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; min-width: 100%; width: max-content; max-width: 340px; max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 10px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.35); padding: 6px; }
+    .af-dd-menu[hidden] { display: none; }
+    .af-dd-item { display: block; width: 100%; text-align: left; border: 0; background: none; border-radius: 6px; padding: 8px 10px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
+    .af-dd-item:hover { background: rgba(55,30,40,0.05); }
+    .af-dd-item.is-on { background: rgba(55,30,40,0.08); font-weight: 600; }
     .af-setup-q > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
     .af-setup-note { flex: 1 1 240px; font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: 0 0 4px; min-width: 220px; }
     .af-tagpick { position: relative; }
@@ -142,12 +167,44 @@ import "../../../styles/admin.css";
     let triggerConfig = {};   // { tags: [...] } for audience, { tag } for tag added/removed
 
     const WORKER = import.meta.env.PUBLIC_R2_WORKER_URL || "";
-    const ALL_TAGS_GROUPED = TAG_GROUPS;
+    let extraTags = [];   // tags in live use that aren't in the framework list (e.g. "Pack Name: …")
+    const tagGroupsAll = () => (extraTags.length ? [...TAG_GROUPS, ["Also in use", extraTags]] : TAG_GROUPS);
     const kindVal = () => ($("af-kind") ? $("af-kind").value : "service");
 
-    // ---- trigger dropdown ----
-    $("af-trigger").innerHTML = '<option value="">Choose who…</option>' +
-      TRIGGERS.map((t) => `<option value="${t.key}">${esc(t.label)}</option>`).join("");
+    // ---- trigger dropdown (grouped like the TRIGGERS catalogue) ----
+    {
+      const groups = [...new Set(TRIGGERS.map((t) => t.group))];
+      $("af-trigger").innerHTML = '<option value="">Choose who…</option>' +
+        groups.map((g) => `<optgroup label="${esc(g)}">${TRIGGERS.filter((t) => t.group === g).map((t) => `<option value="${t.key}">${esc(t.label)}</option>`).join("")}</optgroup>`).join("");
+    }
+
+    // ---- custom dropdowns: solid white, always open below the control ----
+    const DDS = [];
+    function initDD(id) {
+      const sel = $(id);
+      const wrap = sel.closest(".af-dd");
+      const btn = wrap.querySelector(".af-dd-btn"), menu = wrap.querySelector(".af-dd-menu");
+      const sync = () => { const o = sel.options[sel.selectedIndex]; btn.textContent = o ? o.text : "Choose…"; };
+      const build = () => {
+        const item = (o) => `<button type="button" class="af-dd-item${o.value === sel.value ? " is-on" : ""}" data-v="${esc(o.value)}">${esc(o.text)}</button>`;
+        menu.innerHTML = [...sel.children].map((ch) => ch.tagName === "OPTGROUP"
+          ? `<div class="af-tags-group">${esc(ch.label)}</div>` + [...ch.children].map(item).join("")
+          : item(ch)).join("");
+        menu.querySelectorAll(".af-dd-item").forEach((b) => b.addEventListener("click", () => {
+          sel.value = b.dataset.v; menu.hidden = true;
+          sel.dispatchEvent(new Event("change")); sync();
+        }));
+      };
+      btn.addEventListener("click", () => { const open = menu.hidden; closeMenus(); if (open) { build(); menu.hidden = false; } });
+      sel.addEventListener("change", sync);
+      sync();
+      DDS.push({ sync });
+    }
+    function closeMenus() {
+      document.querySelectorAll(".af-dd-menu, .af-tagpick-menu").forEach((m) => { m.hidden = true; });
+    }
+    const syncDDs = () => DDS.forEach((d) => d.sync());
+    initDD("af-trigger"); initDD("af-kind"); initDD("af-status");
 
     // ---- setup questions (audience tags + funnel kind) ----
     function tagpickSummary() {
@@ -162,7 +219,7 @@ import "../../../styles/admin.css";
       if (isAudience || isTagEvent) {
         $("af-tagpick-label").textContent = isAudience ? "Which tags? (anyone with any of them)" : "Which tag? (blank = any)";
         const selected = new Set(isAudience ? (triggerConfig.tags || []) : (triggerConfig.tag ? [triggerConfig.tag] : []));
-        $("af-trigger-tags").innerHTML = ALL_TAGS_GROUPED.map(([g, tags]) =>
+        $("af-trigger-tags").innerHTML = tagGroupsAll().map(([g, tags]) =>
           `<div class="af-tags-group">${esc(g)}</div>` + tags.map((t) =>
             `<label class="af-tag"><input type="${isAudience ? "checkbox" : "radio"}" name="af-trig-tag" data-trigtag="${esc(t)}" ${selected.has(t) ? "checked" : ""}/> <span>${esc(t)}</span></label>`).join("")).join("");
         $("af-trigger-tags").querySelectorAll("[data-trigtag]").forEach((cb) => cb.addEventListener("change", () => {
@@ -198,8 +255,8 @@ import "../../../styles/admin.css";
       $("af-setup-note").textContent = bits.join(" ");
     }
     $("af-kind").addEventListener("change", () => { updateSetupNote(); render(); if (selectedId) selectNode(selectedId); });
-    $("af-tagpick-btn").addEventListener("click", () => { const m = $("af-trigger-tags"); m.hidden = !m.hidden; });
-    document.addEventListener("click", (e) => { if (!e.target.closest(".af-tagpick")) $("af-trigger-tags").hidden = true; });
+    $("af-tagpick-btn").addEventListener("click", () => { const m = $("af-trigger-tags"); const open = m.hidden; closeMenus(); m.hidden = !open; });
+    document.addEventListener("click", (e) => { if (!e.target.closest(".af-tagpick, .af-dd")) closeMenus(); });
 
     // ---------- Canvas render ----------
     const canvas = $("af-canvas"), nodesEl = $("af-nodes"), edgesEl = $("af-edges");
@@ -474,7 +531,14 @@ import "../../../styles/admin.css";
       // active email templates for the send-email picker
       const { data: tpls } = await supabase.from("email_templates").select("id, name").eq("status", "active").order("name");
       templates = tpls || [];
-      if (!automationId) { renderTriggerExtras(); render(); return; }
+      // Tags actually in use that the framework list doesn't know (e.g. the
+      // automatic "Pack Name: …" purchase tags) — the audience picker needs them.
+      try {
+        const { data: rows } = await supabase.from("contacts").select("tags").limit(2000);
+        const fw = new Set(TAG_GROUPS.flatMap(([, t]) => t));
+        extraTags = [...new Set((rows || []).flatMap((r) => r.tags || []))].filter((t) => !fw.has(t)).sort();
+      } catch (_) { extraTags = []; }
+      if (!automationId) { renderTriggerExtras(); render(); syncDDs(); return; }
       const { data, error } = await supabase.from("automations").select("*").eq("id", automationId).single();
       if (error || !data) { alert("Couldn't load this automation."); location.href = "/admin/automations"; return; }
       $("af-name").value = data.name || "";
@@ -485,6 +549,7 @@ import "../../../styles/admin.css";
       $("af-kind").value = (graph.meta && graph.meta.kind) === "marketing" ? "marketing" : "service";
       renderTriggerExtras();
       render();
+      syncDDs();
     }
 
     $("af-save").addEventListener("click", async () => {
