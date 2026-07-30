@@ -722,7 +722,10 @@ async function sbPost(env, table, row, prefer) {
 }
 
 // Call a Postgres function (RPC) with the service role; returns the JSON result.
-async function sbRpc(env, fn, args) {
+// `onError` is optional and receives (status, bodyText) when the call fails.
+// Without it a failed RPC is indistinguishable from one that legitimately
+// returned null, which is exactly how a broken contact write stayed invisible.
+async function sbRpc(env, fn, args, onError) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
     headers: {
@@ -732,7 +735,14 @@ async function sbRpc(env, fn, args) {
     },
     body: JSON.stringify(args || {}),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    if (onError) {
+      const body = await res.text().catch(() => "");
+      console.error(`sbRpc ${fn} failed`, res.status, body);
+      try { onError(res.status, body); } catch (_) {}
+    }
+    return null;
+  }
   try { return await res.json(); } catch (_) { return null; }
 }
 const hmToMin = (hm) => { const [h, m] = String(hm).split(":").map(Number); return h * 60 + m; };
@@ -1517,9 +1527,11 @@ function msUntilSendMoment(sendOn, hhmm) {
 // where contactInput.source / payload.form aren't specific enough to be honest
 // about it (the newsletter endpoint serves both the footer box and signup).
 async function fireTrigger(env, triggerType, contactInput, payload, consentSource) {
-  if (!triggerType || !contactInput || !contactInput.email || !env.SUPABASE_SERVICE_ROLE) return { ok: false };
+  if (!triggerType || !contactInput || !contactInput.email) return { ok: false, error: "missing trigger or email" };
+  if (!env.SUPABASE_SERVICE_ROLE) return { ok: false, error: "SUPABASE_SERVICE_ROLE not set" };
   // Checked before the upsert, because the upsert is what changes it.
   const priorOptIn = contactInput.marketing_opt_in === true ? await wasOptedIn(env, contactInput.email) : null;
+  let rpcError = null;
   const cid = await sbRpc(env, "upsert_contact", {
     p_email: contactInput.email,
     p_first_name: contactInput.first_name || null,
@@ -1531,9 +1543,9 @@ async function fireTrigger(env, triggerType, contactInput, payload, consentSourc
     p_marketing_opt_in: typeof contactInput.marketing_opt_in === "boolean" ? contactInput.marketing_opt_in : null,
     p_tags: contactInput.tags || null,
     p_user_id: contactInput.user_id || null,
-  });
+  }, (status, body) => { rpcError = `upsert_contact ${status}: ${String(body || "").slice(0, 300)}`; });
   const contactId = Array.isArray(cid) ? cid[0] : cid;   // scalar uuid from the RPC
-  if (!contactId) return { ok: false };
+  if (!contactId) return { ok: false, error: rpcError || "upsert_contact returned no id" };
 
   // A genuine act of consent: they ticked a box or subscribed. Logged only on
   // the transition, so a second form doesn't produce a second "opted in".
@@ -4199,7 +4211,7 @@ export default {
           ok: true,
           contact_id: (crm && crm.contact_id) || null,
           enrolled: (crm && crm.enrolled) || 0,
-          errors: { crm: crmError, ack: ackError, notify: notifyError },
+          errors: { crm: crmError || (crm && crm.error) || null, ack: ackError, notify: notifyError },
         }, 200, request, env);
       }
     } catch (err) {
