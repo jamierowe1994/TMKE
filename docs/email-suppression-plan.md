@@ -289,7 +289,34 @@ the automation builder with a live audience count
 `/automations/enroll-audience`). Still gated on the tag tidy-up (§7c of
 TODO.md) — the mechanism works, but the segments are only as good as the tags.
 
-**2. Fix Microsoft 365 email authentication.** Checked on 27 Jul: the domain's
+**2. Fix Microsoft 365 email authentication.** 🔶 **SPF done, DKIM published and
+waiting on Microsoft (30 Jul).**
+
+- ✅ **SPF** — now `v=spf1 include:spf.protection.outlook.com
+  include:secureserver.net -all`. Microsoft is authorised; GoDaddy's include is
+  kept until the DMARC digests show whether anything still sends through it.
+  3 of the permitted 10 lookups.
+- 🔶 **DKIM** — both CNAMEs are published in Cloudflare and verified resolving
+  through to real keys (`v=DKIM1; k=rsa; …`) on public resolvers. Microsoft's
+  portal still reports `CnameMissing`; its own error says sync takes "a few
+  minutes to as many as 4 days". **Nothing further to do in DNS — just retry
+  the Enable toggle** at security.microsoft.com → Email authentication
+  settings → DKIM.
+
+Two things learned that are worth keeping:
+
+- **The tenant is GoDaddy-federated.** Sign-in for @tmke.co.uk routes through
+  `sso.godaddy.com`, and the initial domain is `NETORGFT20795242.onmicrosoft.com`.
+  That is why SPF named `secureserver.net`, why DMARC reported to a GoDaddy
+  address, and why the tenant has limited self-service. James's own
+  @therecruitmentexperts.co.uk login is a **different tenant**
+  (`9f6c0962-…` vs TMKE's `bd9416b6-…`) and cannot administer this one.
+- **Microsoft has changed the DKIM CNAME target format.** It is now
+  `selector1-tmke-co-uk._domainkey.NETORGFT20795242.k-v1.dkim.mail.microsoft`,
+  not the older `….onmicrosoft.com`. The `.microsoft` TLD is real. Guides
+  online still show the old form and it silently fails validation.
+
+Original finding, 27 Jul: the domain's
 SPF record is `v=spf1 include:secureserver.net -all` (GoDaddy) with a hard fail,
 Microsoft is not included, and no DKIM key was found on the usual selector.
 DMARC is `p=quarantine`. So mail sent via Microsoft 365 from @tmke.co.uk can be
