@@ -3,7 +3,10 @@
 A plan for splitting TMKE's outgoing email properly and handling unsubscribes,
 bounces and spam complaints the way mailbox providers now expect.
 
-Written 27 July 2026. Nothing here is built yet.
+Written 27 July 2026. **Status as of 30 July 2026: most of this is built.**
+Parts 1–8 have shipped; what remains is DNS work, two decisions, and warming up
+sending volume. The per-item marks below are current — trust those over the
+prose, which was written before any of it existed.
 
 ---
 
@@ -278,12 +281,13 @@ who isn't flagged do-not-contact will still receive automation emails.
 
 Written plainly, matching the wording on Dani's own to-do list.
 
-**1. Send to a group, not just one person.** Automations only start when
-something happens to a single contact. A newsletter is the opposite — you pick a
-group and send. Needs a second kind of starting point: "everyone matching these
-criteria", drawing on the tags, lifecycles and companies already in the CRM.
-Nothing like it exists; this is the largest remaining piece, and without it
-there is no newsletter.
+**1. Send to a group, not just one person.** ✅ **done (28 Jul).** The `audience`
+trigger enrols everyone already carrying any of the chosen tags when the funnel
+is activated, and anyone who gains a qualifying tag later joins too. Built in
+the automation builder with a live audience count
+(`src/pages/admin/automations/edit.astro`, Worker
+`/automations/enroll-audience`). Still gated on the tag tidy-up (§7c of
+TODO.md) — the mechanism works, but the segments are only as good as the tags.
 
 **2. Fix Microsoft 365 email authentication.** Checked on 27 Jul: the domain's
 SPF record is `v=spf1 include:secureserver.net -all` (GoDaddy) with a hard fail,
@@ -299,13 +303,28 @@ Microsoft side. One for whoever manages the domain.
 `dmarc_rua@onsecureserver.net`, a GoDaddy address nobody at TMKE sees. Pointing
 it at a real mailbox would have surfaced item 2 long ago.
 
-**4. Record when and how someone agreed to marketing.** `marketing_opt_in` is a
-bare boolean everywhere it appears. No date, no source. If a recipient ever
-challenges why they're being emailed, there's nothing to show them.
+**4. Record when and how someone agreed to marketing.** ✅ **done (30 Jul).**
+`contact_consent_events` is an append-only log of every consent change, with
+`basis` (consent / legitimate_interest / withdrawn / unknown) kept deliberately
+apart from `source`, and it surfaces on the contact card's Activity tab. Written
+at every point consent changes: the public forms via `fireTrigger`, CSV import
+including the TEG auto-opt-in, unsubscribe, resubscribe and the admin toggle.
+The backfill split the existing list honestly — 113 TEG agents as legitimate
+interest, the rest as "recorded before the audit trail existed".
+(`supabase/contact_consent_events.sql`.)
 
-**5. Choose marketing or transactional per email step.** The send-side logic
-exists (`send_kind` on the automation step); the control in the admin does not,
-so every step currently uses the default.
+Consequence worth knowing: **99% of the mailable list is TEG**, opted in because
+they're in the group rather than by any act of consent. Defensible for B2B, but
+it shapes the first newsletter — it should read as "from your group", not as
+cold marketing, and the unsubscribe must be easy to find.
+
+Not covered: merging two contacts can flip the survivor to opted-in without
+logging it. Deferred deliberately as rare (TODO.md §9).
+
+**5. Choose marketing or transactional per email step.** ✅ **done (28 Jul).**
+The control is on the send step in the builder
+(`src/pages/admin/automations/edit.astro:572`), and the funnel list labels each
+automation marketing or system.
 
 **6. Review existing automations** — ✅ **done (28 Jul).** Dani confirms every
 existing automated email is service or admin related, and none is marketing.
@@ -322,26 +341,32 @@ none of it is exercised yet. The first thing to use it will be the first real
 marketing funnel — which makes that funnel the moment to test the whole chain
 end to end, unsubscribe link included, rather than assuming it works.
 
-**7. Show unsubscribes and bounces on a contact.** The data is now recorded;
-nothing surfaces it on the contact card, and there's no filter for it.
+**7. Show unsubscribes and bounces on a contact.** ✅ **done (29 Jul).**
+Unsubscribed / Suppressed / Bouncing badges on the contact card with
+plain-English detail, and an "Email issues" filter on the contacts board showing
+everyone a campaign can't reach.
 
-**8. Marketing to come from a real address.** `hello@tmke.co.uk` rather than
-`posts@tmke.co.uk`. A reply-to is already in place as a stopgap.
+**8. Marketing to come from a real address.** ✅ **done.** Marketing sends from
+`MARKETING_MAIL_FROM`, which defaults to `TMKE <hello@tmke.co.uk>`
+(`worker/src/index.js:1332`). Transactional still goes from `posts@` with a
+reply-to on `hello@`.
 
 **9. Build up sending volume gradually.** A domain that has never sent bulk mail
 suddenly sending thousands is a classic spam signal. Stagger the first sends.
 
 ## Decisions needed before building
 
-1. **Soft-bounce threshold** — how many before suppressing? (Suggested: 5.)
-2. **Which existing automations are marketing?** They'll all default to
-   Marketing, so any that are really transactional need identifying, or booking
-   confirmations could start carrying an unsubscribe footer.
-3. **Should an unsubscribe also set do-not-contact for phone/SMS**, or email
-   only? The plan assumes email only (`dnd_email`), leaving the broader `dnd`
-   flag alone.
-4. **Who gets told** when someone complains about spam? A complaint is worth a
-   human knowing about, not just a database row.
+1. ⬜ **Soft-bounce threshold** — how many before suppressing? Built as **3**
+   (`SOFT_BOUNCE_LIMIT`, `worker/src/index.js:1694`); this plan suggested 5.
+   Still James's call, and a one-line change either way.
+2. ✅ **Which existing automations are marketing?** Answered by item 6 above —
+   none of them are. Superseded; nothing to decide.
+3. ⬜ **Should an unsubscribe also set do-not-contact for phone/SMS**, or email
+   only? Built as email only (`dnd_email`), leaving the broader `dnd` flag
+   alone. Confirm that's wanted.
+4. ✅ **Who gets told** when someone complains about spam? Done (29 Jul) — a
+   spam complaint emails both James and hello@, naming who complained and which
+   email, and confirming they were unsubscribed and suppressed automatically.
 
 ---
 
