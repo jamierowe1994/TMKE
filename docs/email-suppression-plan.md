@@ -356,9 +356,9 @@ suddenly sending thousands is a classic spam signal. Stagger the first sends.
 
 ## Decisions needed before building
 
-1. ⬜ **Soft-bounce threshold** — how many before suppressing? Built as **3**
-   (`SOFT_BOUNCE_LIMIT`, `worker/src/index.js:1694`); this plan suggested 5.
-   Still James's call, and a one-line change either way.
+1. ✅ **Soft-bounce threshold** — settled at **3**, which is what James asked
+   for; this plan's suggestion of 5 is superseded. Built and live
+   (`SOFT_BOUNCE_LIMIT`, `worker/src/index.js:1694`). No change needed.
 2. ✅ **Which existing automations are marketing?** Answered by item 6 above —
    none of them are. Superseded; nothing to decide.
 3. ⬜ **Should an unsubscribe also set do-not-contact for phone/SMS**, or email
