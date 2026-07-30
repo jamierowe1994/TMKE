@@ -4116,6 +4116,11 @@ export default {
         const email = String((b && b.email) || "").trim().toLowerCase();
         if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
         const consent = b.marketing_consent === true;
+        // RFC 2606 reserved domains cannot receive mail, so there is nothing to
+        // send and nobody to disturb. Skipping them lets this endpoint be
+        // exercised end to end — CRM write included — without emailing a real
+        // person or the team, which is what it took to find the fault below.
+        const reserved = /@(example\.(com|net|org)|[^@]*\.(test|invalid|example|localhost))$/i.test(email);
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const firstName = String(b.first_name || "").trim();
         const fullName = [b.first_name, b.last_name].map((s) => String(s || "").trim()).filter(Boolean).join(" ") || email;
@@ -4153,7 +4158,7 @@ export default {
         //    the marketing box. Same shape as the videography auto-ack.
         let ackError = null;
         try {
-          await sendEmail(env, {
+          if (!reserved) await sendEmail(env, {
             to: email,
             subject: "Thanks for getting in touch — TMKE",
             html: await wrapInBrandedBase(env, `
@@ -4168,7 +4173,7 @@ export default {
         //    Worker rather than an automation, same as Jack's booking alert.
         let notifyError = null;
         try {
-          await sendEmail(env, {
+          if (!reserved) await sendEmail(env, {
             to: env.ENQUIRY_NOTIFY || env.SMM_MANAGER_UPN || "hello@tmke.co.uk",
             subject: `New contact enquiry — ${fullName}`,
             html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
