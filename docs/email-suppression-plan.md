@@ -297,11 +297,31 @@ junked — which is the route carrying booking confirmations and receipts. Needs
 `include:spf.protection.outlook.com` in SPF and M365 DKIM enabled. **Resend is
 correctly configured** (`send.tmke.co.uk` SPF via amazonses.com, DKIM at
 `resend._domainkey`, aligns under the relaxed DMARC policy) — this is only the
-Microsoft side. One for whoever manages the domain.
+Microsoft side.
 
-**3. Send DMARC reports somewhere we can read them.** `rua` currently points at
-`dmarc_rua@onsecureserver.net`, a GoDaddy address nobody at TMKE sees. Pointing
-it at a real mailbox would have surfaced item 2 long ago.
+**DNS is on Cloudflare, not GoDaddy** (nameservers `aiden`/`melissa.ns.
+cloudflare.com`, confirmed 30 Jul). The `secureserver.net` in the SPF record and
+the old `onsecureserver.net` DMARC address are stale *values* carried across
+when the domain moved — which is very likely why nobody noticed the reports
+were going nowhere. Both DKIM selectors (`selector1`/`selector2._domainkey`)
+were still empty as of 30 Jul, so M365 mail satisfies neither SPF nor DKIM
+alignment and, under `p=quarantine`, is delivering on sender reputation alone.
+That holds until volume changes — and the first marketing funnel is exactly
+that change. Wait for a fortnight of DMARC digests, then fix SPF and DKIM
+together in the Cloudflare dashboard.
+
+**3. Send DMARC reports somewhere we can read them.** ✅ **done (30 Jul).**
+`rua` now points at Postmark's free DMARC Digests
+(`re+ohejkwmmwsu@dmarc.postmarkapp.com`), which parses the raw XML and emails a
+readable weekly summary to hello@. Only the `rua` changed — `p=quarantine` and
+the relaxed alignment are exactly as they were. Verified live on Cloudflare's
+nameservers and 1.1.1.1.
+
+First digest within a week, and only if reports arrive. **Expect it to look
+bad**: it should show a large share of mail failing authentication, which is
+item 2 below finally becoming visible rather than anything new breaking. That
+report is the input to fixing it — it names which senders fail and how often,
+so the SPF/DKIM work is evidence-led rather than guesswork.
 
 **4. Record when and how someone agreed to marketing.** ✅ **done (30 Jul).**
 `contact_consent_events` is an append-only log of every consent change, with
