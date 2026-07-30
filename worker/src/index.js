@@ -4093,6 +4093,52 @@ export default {
         } catch (_) {}
         return json({ ok: true }, 200, request, env);
       }
+
+      // ---- Public: contact-form enquirer into the CRM (NO auth) -------------
+      // /contact wrote the enquiry straight to Supabase from the browser and
+      // stopped there, so an enquirer never became a contact at all and the
+      // marketing tickbox was stored on the enquiry row and read by nothing —
+      // ticking it opted nobody in. This adds the missing half.
+      //
+      // Deliberately does NOT call fireTrigger: this creates the contact and
+      // records consent, but enrols them in no automation, so switching it on
+      // can't start emailing enquirers as a side effect. Swap to fireTrigger if
+      // an enquiry funnel is ever wanted.
+      //
+      // The form still does its own enquiries insert, which is left untouched —
+      // this is called afterwards, and failing here must never cost the enquiry.
+      if (path.endsWith("/contact/enquirer") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        if (b && b.hp) return json({ ok: true }, 200, request, env); // honeypot
+        const email = String((b && b.email) || "").trim().toLowerCase();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
+        const consent = b.marketing_consent === true;
+        try {
+          const prior = consent ? await wasOptedIn(env, email) : null;
+          const cid = await sbRpc(env, "upsert_contact", {
+            p_email: email,
+            p_first_name: b.first_name || null,
+            p_last_name: b.last_name || null,
+            p_phone: b.phone || null,
+            p_company: b.business_name || null,
+            p_source: "contact_form",
+            p_lifecycle: "lead",
+            // null, not false: an enquiry from someone who already opted in
+            // elsewhere must not quietly withdraw their consent.
+            p_marketing_opt_in: consent ? true : null,
+            p_tags: crmTags(email, [], { optIn: consent }),
+          });
+          if (consent && prior === false) {
+            await logConsent(env, {
+              contactId: Array.isArray(cid) ? cid[0] : cid, email,
+              action: "opted_in", basis: "consent", source: "contact_form",
+              detail: "Ticked the marketing opt-in on the contact form.",
+              raw: { industry: b.industry || null },
+            });
+          }
+        } catch (_) { /* the enquiry itself is already saved */ }
+        return json({ ok: true }, 200, request, env);
+      }
     } catch (err) {
       return json({ error: String(err && err.message ? err.message : err) }, 500, request, env);
     }

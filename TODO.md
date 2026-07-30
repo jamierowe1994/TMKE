@@ -249,6 +249,12 @@ and the first newsletter goes to the wrong people.
   `client_email`), with writes left to admins and the Worker. Needs testing
   against `/account/bookings` afterwards. NB the invoicing tables were done
   properly already.
+- ⬜ **Every contact-form enquiry is readable by any signed-in member** — same
+  hole, found 30 Jul. `supabase/enquiries.sql:63-67` is `for select to
+  authenticated using (true)`, so any member can read every enquirer's name,
+  email, phone and message. Update at `:69-73` is the same. Should be
+  admin-only (`public.is_admin()`), like contacts — nothing member-facing reads
+  this table. Worth doing in the same pass as the videography tables above.
 - ⬜ **Website inline editor: two security-adjacent items.** Edited wording is
   stored as HTML and re-injected **without sanitising**, and the read policy
   **exposes unpublished drafts to anonymous readers**.
@@ -257,7 +263,17 @@ and the first newsletter goes to the wrong people.
   before applying**.
 - ⬜ **Confirm five migrations were actually run in production** — each fails
   silently if it wasn't: `member_brand_kits`, `email_template_folders`,
-  `contact_secondary_email`, `contact_dedup_review`, `brand_social`.
+  `contact_secondary_email`, `contact_dedup_review`, `brand_social`. Plus
+  `email_events_automation.sql`, or funnel events don't tie back to the
+  automation that sent them.
+- ⬜ **Merging two contacts isn't recorded in the consent audit trail.**
+  `merge_contacts()` ORs the two opt-in flags
+  (`supabase/contact_dedup_review.sql:170`), so merging a non-consenting contact
+  into a consenting one silently flips the survivor to opted-in with nothing in
+  `contact_consent_events` to say why. Every other path that changes consent now
+  logs (30 Jul). Fix belongs inside the SQL function rather than the Worker,
+  which is why it was left. Rare enough not to be urgent — do it next time
+  anyone is in that file.
 - ⬜ A stub payment path still exists on `/edit`: if Stripe isn't configured,
   checkout fakes a delay and records an unpaid order.
   (`src/pages/edit.astro:2516-2546`)

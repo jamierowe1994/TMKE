@@ -109,6 +109,8 @@ const industries = [
 <script>
   import { supabase } from "../lib/supabase.js";
 
+  const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+
   const form = document.getElementById("tmke-contact-form");
   if (form) {
     const card = document.getElementById("gt-card");
@@ -162,6 +164,28 @@ const industries = [
           errorEl.hidden = false;
         }
         return;
+      }
+
+      // 2b. The enquiry is safely saved. Now put the enquirer into the CRM and,
+      //     if they ticked the box, actually opt them in — the tickbox used to
+      //     be stored on the enquiry row and read by nothing, so ticking it
+      //     opted nobody in. Deliberately not awaited into the success path:
+      //     the person has sent their message either way, and a CRM hiccup
+      //     must never show them an error.
+      if (WORKER) {
+        fetch(`${WORKER}/contact/enquirer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: payload.email,
+            first_name: payload.first_name,
+            last_name: payload.last_name,
+            phone: payload.phone,
+            business_name: payload.business_name,
+            industry: payload.industry,
+            marketing_consent: payload.marketing_consent,
+          }),
+        }).catch(() => {});
       }
 
       // 3. Fade the button out, then reveal the tick + message in the middle.
