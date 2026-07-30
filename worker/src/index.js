@@ -4100,10 +4100,13 @@ export default {
       // marketing tickbox was stored on the enquiry row and read by nothing —
       // ticking it opted nobody in. This adds the missing half.
       //
-      // Deliberately does NOT call fireTrigger: this creates the contact and
-      // records consent, but enrols them in no automation, so switching it on
-      // can't start emailing enquirers as a side effect. Swap to fireTrigger if
-      // an enquiry funnel is ever wanted.
+      // Fires its own `contact_form_submitted` trigger rather than sharing
+      // `form_submitted`. Automations are both the funnel builder and the
+      // register of every automated email the site sends, so an acknowledgement
+      // belongs there and not hard-coded here — but on a dedicated trigger, so
+      // building one reaches contact-form enquirers only and can't widen an
+      // existing funnel by accident. Nothing listens to it yet, so today this
+      // creates the contact and records consent and sends nobody anything.
       //
       // The form still does its own enquiries insert, which is left untouched —
       // this is called afterwards, and failing here must never cost the enquiry.
@@ -4114,28 +4117,19 @@ export default {
         if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
         const consent = b.marketing_consent === true;
         try {
-          const prior = consent ? await wasOptedIn(env, email) : null;
-          const cid = await sbRpc(env, "upsert_contact", {
-            p_email: email,
-            p_first_name: b.first_name || null,
-            p_last_name: b.last_name || null,
-            p_phone: b.phone || null,
-            p_company: b.business_name || null,
-            p_source: "contact_form",
-            p_lifecycle: "lead",
+          await fireTrigger(env, "contact_form_submitted", {
+            email,
+            first_name: b.first_name || null,
+            last_name: b.last_name || null,
+            phone: b.phone || null,
+            company: b.business_name || null,
+            source: "contact_form",
+            lifecycle: "lead",
             // null, not false: an enquiry from someone who already opted in
             // elsewhere must not quietly withdraw their consent.
-            p_marketing_opt_in: consent ? true : null,
-            p_tags: crmTags(email, [], { optIn: consent }),
-          });
-          if (consent && prior === false) {
-            await logConsent(env, {
-              contactId: Array.isArray(cid) ? cid[0] : cid, email,
-              action: "opted_in", basis: "consent", source: "contact_form",
-              detail: "Ticked the marketing opt-in on the contact form.",
-              raw: { industry: b.industry || null },
-            });
-          }
+            marketing_opt_in: consent ? true : null,
+            tags: crmTags(email, [], { optIn: consent }),
+          }, { form: "contact_form", industry: b.industry || null }, "contact_form");
         } catch (_) { /* the enquiry itself is already saved */ }
         return json({ ok: true }, 200, request, env);
       }

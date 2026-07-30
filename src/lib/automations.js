@@ -22,6 +22,10 @@ export const TRIGGERS = [
   { key: "custom_date",     label: "Custom date reminder", group: "Contact" },
   // Engagement / events
   { key: "form_submitted",  label: "Form submitted", group: "Engagement" },
+  // The public /contact form has its own trigger rather than sharing
+  // form_submitted, so an acknowledgement built here reaches contact-form
+  // enquirers only and can't widen an existing funnel by accident.
+  { key: "contact_form_submitted", label: "Contact form submitted", group: "Engagement" },
   { key: "link_clicked",    label: "Trigger link clicked", group: "Engagement" },
   { key: "page_visited",    label: "Visited a page", group: "Engagement" },
   { key: "inbound_email",   label: "Inbound email received", group: "Engagement" },
