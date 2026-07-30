@@ -4,7 +4,8 @@
 // public /newsletter path.
 import { supabase } from "./supabase.js";
 
-const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+// .trim(): the deployed value carries a leading space.
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export async function signUpMember({ fullName, email, password, marketing }) {

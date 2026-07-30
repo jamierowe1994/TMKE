@@ -4116,6 +4116,48 @@ export default {
         const email = String((b && b.email) || "").trim().toLowerCase();
         if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
         const consent = b.marketing_consent === true;
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const firstName = String(b.first_name || "").trim();
+        const fullName = [b.first_name, b.last_name].map((s) => String(s || "").trim()).filter(Boolean).join(" ") || email;
+        const message = String(b.message || "").trim();
+        const company = String(b.business_name || "").trim();
+
+        // 1. Acknowledgement to the enquirer. Transactional — a reply to
+        //    something they did — so it reaches them whether or not they ticked
+        //    the marketing box. Same shape as the videography auto-ack.
+        try {
+          await sendEmail(env, {
+            to: email,
+            subject: "Thanks for getting in touch — TMKE",
+            html: await wrapInBrandedBase(env, `
+              <h1 style="${EM_H1}">Thanks — we've got your message</h1>
+              <p style="${EM_P}">Hi ${esc(firstName || "there")}, thanks for getting in touch with TMKE. Your message has reached the team and someone will come back to you shortly.</p>
+              ${message ? `<p style="${EM_P}">Here's what you sent us, for your records:</p><div style="${EM_QUOTE}">${esc(message)}</div>` : ""}
+              <p style="${EM_P}">If anything's changed in the meantime, just reply to this email and it'll come straight to us.</p>`),
+          });
+        } catch (_) { /* the enquiry is saved either way */ }
+
+        // 2. Alert to the team. An internal admin email, so it goes via the
+        //    Worker rather than an automation, same as Jack's booking alert.
+        try {
+          await sendEmail(env, {
+            to: env.ENQUIRY_NOTIFY || env.SMM_MANAGER_UPN || "hello@tmke.co.uk",
+            subject: `New contact enquiry — ${fullName}`,
+            html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+              <h1 style="font-size:20px;margin:0 0 6px">New contact enquiry</h1>
+              <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+                <div><span style="color:#888">Name:</span> ${esc(fullName)}</div>
+                ${company ? `<div><span style="color:#888">Business:</span> ${esc(company)}</div>` : ""}
+                <div><span style="color:#888">Email:</span> ${esc(email)}</div>
+                ${b.phone ? `<div><span style="color:#888">Phone:</span> ${esc(b.phone)}</div>` : ""}
+                ${b.industry ? `<div><span style="color:#888">Industry:</span> ${esc(b.industry)}</div>` : ""}
+                ${message ? `<div><span style="color:#888">Message:</span> ${esc(message)}</div>` : ""}
+                <div><span style="color:#888">Marketing opt-in:</span> ${consent ? "Yes" : "No"}</div>
+              </div>
+              <p style="font-size:12px;color:#999;margin:18px 0 0">Saved to the Enquiries inbox (/admin/enquiries). They've had an automatic acknowledgement.</p></div>`,
+          });
+        } catch (_) { /* never blocks the CRM write below */ }
+
         try {
           await fireTrigger(env, "contact_form_submitted", {
             email,

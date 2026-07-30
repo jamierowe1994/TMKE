@@ -109,7 +109,9 @@ const industries = [
 <script>
   import { supabase } from "../lib/supabase.js";
 
-  const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+  // .trim() matters: the deployed value carries a leading space, which the URL
+  // parser happens to tolerate but nothing should rely on.
+  const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
 
   const form = document.getElementById("tmke-contact-form");
   if (form) {
@@ -183,6 +185,7 @@ const industries = [
             phone: payload.phone,
             business_name: payload.business_name,
             industry: payload.industry,
+            message: payload.message,
             marketing_consent: payload.marketing_consent,
           }),
         }).catch(() => {});
