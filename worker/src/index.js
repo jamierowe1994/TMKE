@@ -4122,9 +4122,36 @@ export default {
         const message = String(b.message || "").trim();
         const company = String(b.business_name || "").trim();
 
-        // 1. Acknowledgement to the enquirer. Transactional — a reply to
+        // 1. The CRM write goes FIRST. It ran last to begin with, behind two
+        //    sendEmail calls, which meant anything slow or broken in the mail
+        //    path — a Graph token, a subrequest ceiling, a hang rather than a
+        //    throw — cost the contact entirely. The record matters more than
+        //    the courtesy email, so it is no longer downstream of it.
+        let crm = null, crmError = null;
+        try {
+          crm = await fireTrigger(env, "contact_form_submitted", {
+            email,
+            first_name: b.first_name || null,
+            last_name: b.last_name || null,
+            phone: b.phone || null,
+            company: b.business_name || null,
+            source: "contact_form",
+            lifecycle: "lead",
+            // null, not false: an enquiry from someone who already opted in
+            // elsewhere must not quietly withdraw their consent.
+            marketing_opt_in: consent ? true : null,
+            tags: crmTags(email, [], { optIn: consent }),
+          }, { form: "contact_form", industry: b.industry || null }, "contact_form");
+        } catch (e) {
+          crmError = String((e && e.message) || e);
+        }
+        // Swallowing this silently is what made the first failure undiagnosable.
+        if (crmError || !crm || !crm.ok) console.error("contact enquirer CRM write failed", crmError, JSON.stringify(crm));
+
+        // 2. Acknowledgement to the enquirer. Transactional — a reply to
         //    something they did — so it reaches them whether or not they ticked
         //    the marketing box. Same shape as the videography auto-ack.
+        let ackError = null;
         try {
           await sendEmail(env, {
             to: email,
@@ -4135,10 +4162,11 @@ export default {
               ${message ? `<p style="${EM_P}">Here's what you sent us, for your records:</p><div style="${EM_QUOTE}">${esc(message)}</div>` : ""}
               <p style="${EM_P}">If anything's changed in the meantime, just reply to this email and it'll come straight to us.</p>`),
           });
-        } catch (_) { /* the enquiry is saved either way */ }
+        } catch (e) { ackError = String((e && e.message) || e); console.error("contact enquirer ack email failed", ackError); }
 
-        // 2. Alert to the team. An internal admin email, so it goes via the
+        // 3. Alert to the team. An internal admin email, so it goes via the
         //    Worker rather than an automation, same as Jack's booking alert.
+        let notifyError = null;
         try {
           await sendEmail(env, {
             to: env.ENQUIRY_NOTIFY || env.SMM_MANAGER_UPN || "hello@tmke.co.uk",
@@ -4156,24 +4184,18 @@ export default {
               </div>
               <p style="font-size:12px;color:#999;margin:18px 0 0">Saved to the Enquiries inbox (/admin/enquiries). They've had an automatic acknowledgement.</p></div>`,
           });
-        } catch (_) { /* never blocks the CRM write below */ }
+        } catch (e) { notifyError = String((e && e.message) || e); console.error("contact enquirer team alert failed", notifyError); }
 
-        try {
-          await fireTrigger(env, "contact_form_submitted", {
-            email,
-            first_name: b.first_name || null,
-            last_name: b.last_name || null,
-            phone: b.phone || null,
-            company: b.business_name || null,
-            source: "contact_form",
-            lifecycle: "lead",
-            // null, not false: an enquiry from someone who already opted in
-            // elsewhere must not quietly withdraw their consent.
-            marketing_opt_in: consent ? true : null,
-            tags: crmTags(email, [], { optIn: consent }),
-          }, { form: "contact_form", industry: b.industry || null }, "contact_form");
-        } catch (_) { /* the enquiry itself is already saved */ }
-        return json({ ok: true }, 200, request, env);
+        // Reports what actually happened. The browser ignores it — the enquiry
+        // is already saved and the sender must never see an error for something
+        // that worked — but it makes the endpoint testable from outside, which
+        // the first version was not.
+        return json({
+          ok: true,
+          contact_id: (crm && crm.contact_id) || null,
+          enrolled: (crm && crm.enrolled) || 0,
+          errors: { crm: crmError, ack: ackError, notify: notifyError },
+        }, 200, request, env);
       }
     } catch (err) {
       return json({ error: String(err && err.message ? err.message : err) }, 500, request, env);
