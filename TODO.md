@@ -216,6 +216,44 @@ and the first newsletter goes to the wrong people.
 - ⬜ `ADMIN_SETUP.md` and `AUTH_SETUP.md` are both stale — they list things as
   unbuilt (Orders, Subscribers, Enquiries, Stripe) that now exist.
 
+## 7d. Email builder — mobile spacing ⬜
+
+Found 30 Jul while amending the branded base. The canvas half is fixed; the
+renderer half is not. **Do this before the videography work.**
+
+- ✅ **Canvas: mobile margin never applied, for any block.** `blockCard` passed
+  the raw block to `resolveMargin` instead of `effectiveBlock(b, canvasDevice)`
+  — every other property went through it, margin was missed. Same fix applied to
+  the social block's padding, which had it too.
+  (`src/pages/admin/email/editor.astro:625,582`)
+- ⬜ **"Blank = inherit desktop" is broken in the sent email.** Clearing a number
+  field stores `undefined` (`editor.astro:1193` via `setPath` `:1076`), and the
+  spread in `effectiveBlock` (`src/lib/email-render.js:300-310`) lets that
+  `undefined` overwrite the desktop value — which then falls back to the *type
+  default*, not desktop. Desktop `margin.b:40` + mobile `margin.t:10` renders as
+  `10/0/16/0` and the 40 vanishes. Contradicts the UI's own placeholder and note
+  (`editor.astro:821,835`). Fix: `delete` the key rather than assigning
+  `undefined`, and/or strip undefined before the spread.
+- ⬜ **Mobile padding of 0 is silently dropped.** The `if (t||r||b||l)` guards at
+  `email-render.js:292,316` skip an all-zero rule, so "set mobile padding to 0"
+  leaves the desktop padding in place.
+- ⬜ **Mobile padding isn't merged with desktop** — `responsiveDecls:290-293` and
+  `mobPad:313-317` read `m.pad.*` raw with a `0` fallback, so setting only Top
+  wipes the other three sides. Margin *does* merge, so the two controls behave
+  inconsistently for no reason a user could guess.
+- ⬜ **Columns blocks discard their own mobile spacing.** `blockResponsiveCss`
+  (`email-render.js:378-383`) recurses into children and returns before the
+  margin block at `:390`, though `wrapOuter:981` still stamps the `eb-mw-<id>`
+  class on it. Social blocks ignore `mobile.pad` too
+  (`socialResponsiveCss:352-374` only handles `iconSize`/`iconGap`).
+- ⬜ **Mobile padding placeholder shows the type default, not the desktop value**
+  (`dPad`, `editor.astro:806-812`), so the UI mis-signals what blank means.
+  `marginFields:821` does it correctly — copy that.
+
+NB `src/lib/email-render.js` is the single renderer for every email actually
+sent (the Worker imports it at `worker/src/index.js:20`), so changes there need
+the rendered output checking, not just a build.
+
 ## 8. Member hub — other ⬜
 
 - ⬜ **The invite-to-join flow is broken at the last step.** Invites link to
