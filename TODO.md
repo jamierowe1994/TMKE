@@ -261,11 +261,34 @@ and the first newsletter goes to the wrong people.
   (`docs/website-editor-setup.md:107-118`)
 - ⬜ Same file: published edits are fetched client-side, so heavy edits **flash
   before applying**.
-- ⬜ **Confirm five migrations were actually run in production** — each fails
-  silently if it wasn't: `member_brand_kits`, `email_template_folders`,
-  `contact_secondary_email`, `contact_dedup_review`, `brand_social`. Plus
-  `email_events_automation.sql`, or funnel events don't tie back to the
-  automation that sent them.
+- ✅ **(30 Jul) `contact_dedup_review` was NOT applied — and it was breaking
+  every form on the site.** Found while debugging why the contact form created
+  no contact. The migration does two things: drops the one-contact-per-email
+  rule (`:20-44`) and replaces `upsert_contact` with a version that doesn't
+  need it. In production the first half had happened and the second hadn't —
+  most likely `contact_tag_rules.sql` was re-run afterwards and redefined the
+  function back, which is exactly the ordering its own header warns about. So
+  the live function still said "insert, on conflict update" against a
+  constraint that no longer existed, and Postgres rejected **every** call:
+  `42P10, there is no unique or exclusion constraint matching the ON CONFLICT
+  specification`. Newsletter, member signup, videography enquiry/brochure/
+  discovery/booking, SMM enquiry/brochure/discovery and the contact form all
+  route through that one function, so **nobody had entered the CRM through any
+  form** for as long as it had been in that state. Re-running the migration
+  fixed it. Two things hid it: the Worker discarded the error, and every form
+  reports success to the visitor regardless. Both now addressed —
+  `sbRpc` reports failures and `/contact/enquirer` returns what happened.
+- ⬜ **Confirm the other migrations were actually run in production** — the same
+  class of problem, and one of the five has now proved real rather than
+  theoretical: `member_brand_kits`, `email_template_folders`,
+  `contact_secondary_email`, `brand_social`. Plus `email_events_automation.sql`,
+  or funnel events don't tie back to the automation that sent them. Worth
+  checking deliberately rather than waiting for the next silent breakage.
+- ⬜ **No record of which migrations have been applied.** `supabase/` is a flat
+  folder of hand-run scripts with no ordering and no applied-state tracking, so
+  "has this been run?" is unanswerable and re-running an older file can silently
+  revert a newer one — which is what happened above. Worth a `schema_migrations`
+  table, or numbered filenames at minimum.
 - ⬜ **Merging two contacts isn't recorded in the consent audit trail.**
   `merge_contacts()` ORs the two opt-in flags
   (`supabase/contact_dedup_review.sql:170`), so merging a non-consenting contact
