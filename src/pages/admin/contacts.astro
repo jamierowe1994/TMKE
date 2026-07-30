@@ -481,16 +481,19 @@ import "../../styles/admin.css";
       $("ct-drawer-body").innerHTML = `<p class="ct-meta">Loading…</p>`;
       const email = current.email;
       // Purchases, bookings + activity are derived live by email, always accurate.
-      const [{ data: notes }, { data: tasks }, ord, vidb, smmb, agentProfile] = await Promise.all([
+      const [{ data: notes }, { data: tasks }, ord, vidb, smmb, agentProfile, consent] = await Promise.all([
         supabase.from("contact_notes").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("contact_tasks").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("orders").select("pack_title, amount_pence, status, created_at").ilike("buyer_email", email).order("created_at", { ascending: false }),
         supabase.from("videography_bookings").select("service, service_type, kind, shoot_date, stage, created_at").ilike("client_email", email).order("created_at", { ascending: false }),
         supabase.from("smm_leads").select("kind, call_at, stage, created_at").ilike("email", email).order("created_at", { ascending: false }),
         fetchAgentProfile(id),
+        supabase.from("contact_consent_events").select("action, basis, source, occurred_at").eq("contact_id", id).order("occurred_at", { ascending: false }),
       ]);
       current.agentProfile = agentProfile;
       const orders = (ord && ord.data) || [], vrows = (vidb && vidb.data) || [], srows = (smmb && smmb.data) || [];
+      // Empty until supabase/contact_consent_events.sql has been run.
+      const crows = (consent && consent.data) || [];
       // Booked = actual sessions + discovery calls (not enquiries/brochures).
       const bookings = [
         ...vrows.filter((b) => b.kind === "booking").map((b) => ({ label: b.service || b.service_type || "Videography session", when: b.shoot_date, stage: b.stage })),
@@ -500,10 +503,33 @@ import "../../styles/admin.css";
       // Activity = every dated action, newest first.
       const VID_ACT = { booking: "Booked a videography session", discovery: "Booked a videography discovery call", brochure: "Downloaded the videography brochure", enquiry: "Made a videography enquiry", register_interest: "Registered interest in the Content Studio" };
       const SMM_ACT = { discovery: "Booked a social media discovery call", brochure: "Downloaded the social media brochure", enquiry: "Made a social media enquiry" };
+      // Where a marketing opt-in came from, in plain English.
+      const CONSENT_SRC = {
+        newsletter_footer: "the newsletter box", join_signup: "the member signup form", contact_form: "the contact form",
+        videography: "a videography enquiry", videography_brochure: "the videography brochure form",
+        videography_discovery: "a videography discovery call",
+        videography_register_interest: "the Content Studio interest form",
+        smm_enquiry: "a social media enquiry", smm_brochure: "the social media brochure form",
+        smm_discovery: "a social media discovery call",
+        csv_import: "a contact import", admin_toggle: "an admin, by hand", merge: "a contact merge",
+        footer_link: "the unsubscribe link", list_unsubscribe: "the Gmail/Outlook unsubscribe button",
+        spam_complaint: "a spam complaint", resubscribe: "the resubscribe link",
+      };
+      // A TEG agent was opted in by us, not by an act of consent. The timeline
+      // says which, because that difference is the whole point of the record.
+      const consentLabel = (e) => {
+        const via = CONSENT_SRC[e.source] || e.source;
+        if (e.action === "opted_out") return `Unsubscribed from marketing — via ${via}`;
+        if (e.source === "teg_auto") return "Opted in to marketing — automatically, as a TEG network member (not an act of consent)";
+        if (e.source === "admin_toggle") return "Opted in to marketing — set by an admin by hand (not an act of consent)";
+        if (e.source === "backfill") return "Opted in to marketing — recorded before the audit trail existed, original route unknown";
+        return `Opted in to marketing — via ${via}`;
+      };
       const activity = [
         ...orders.map((o) => ({ when: o.created_at, label: `Purchased ${o.pack_title || "a pack"}` })),
         ...vrows.map((b) => ({ when: b.created_at || b.shoot_date, label: VID_ACT[b.kind] || "Videography activity" })),
         ...srows.map((b) => ({ when: b.created_at || b.call_at, label: SMM_ACT[b.kind] || "Social media activity" })),
+        ...crows.map((e) => ({ when: e.occurred_at, label: consentLabel(e) })),
       ].filter((a) => a.when).sort((a, b) => new Date(b.when) - new Date(a.when));
       drawNote(notes || [], tasks || [], orders, bookings, activity);
     }
@@ -914,6 +940,21 @@ import "../../styles/admin.css";
         const base = (c.tags || []).filter((t) => t !== "Newsletter-Subscriber" && t !== "Marketing-Not-Opted-In");
         c.tags = normalizeTags([...base, c.marketing_opt_in ? "Newsletter-Subscriber" : "Marketing-Not-Opted-In"]);
         await supabase.from("contacts").update({ marketing_opt_in: c.marketing_opt_in, tags: c.tags }).eq("id", c.id);
+        // The only place a human sets consent by hand, so the trail records who.
+        // Best-effort: never block the toggle on the audit write.
+        try {
+          const who = (await supabase.auth.getUser())?.data?.user?.email || "Admin";
+          await supabase.from("contact_consent_events").insert({
+            contact_id: c.id, email: (c.email || "").toLowerCase(),
+            action: c.marketing_opt_in ? "opted_in" : "opted_out",
+            basis: c.marketing_opt_in ? "legitimate_interest" : "withdrawn",
+            source: "admin_toggle",
+            detail: c.marketing_opt_in
+              ? "Set to Yes by an admin in the contact card, not by an act of consent by the contact."
+              : "Set to No by an admin in the contact card.",
+            actor: who,
+          });
+        } catch (_) {}
         fire("contact_changed", c, { field: "marketing_opt_in", value: c.marketing_opt_in }); render();
       });
       $("ct-tag-add").addEventListener("click", async () => {

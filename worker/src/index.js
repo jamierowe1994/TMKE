@@ -1513,8 +1513,13 @@ function msUntilSendMoment(sendOn, hhmm) {
   return diff > 0 ? diff : 0;
 }
 
-async function fireTrigger(env, triggerType, contactInput, payload) {
+// `consentSource` names the form for the consent audit trail, for the cases
+// where contactInput.source / payload.form aren't specific enough to be honest
+// about it (the newsletter endpoint serves both the footer box and signup).
+async function fireTrigger(env, triggerType, contactInput, payload, consentSource) {
   if (!triggerType || !contactInput || !contactInput.email || !env.SUPABASE_SERVICE_ROLE) return { ok: false };
+  // Checked before the upsert, because the upsert is what changes it.
+  const priorOptIn = contactInput.marketing_opt_in === true ? await wasOptedIn(env, contactInput.email) : null;
   const cid = await sbRpc(env, "upsert_contact", {
     p_email: contactInput.email,
     p_first_name: contactInput.first_name || null,
@@ -1529,6 +1534,17 @@ async function fireTrigger(env, triggerType, contactInput, payload) {
   });
   const contactId = Array.isArray(cid) ? cid[0] : cid;   // scalar uuid from the RPC
   if (!contactId) return { ok: false };
+
+  // A genuine act of consent: they ticked a box or subscribed. Logged only on
+  // the transition, so a second form doesn't produce a second "opted in".
+  if (contactInput.marketing_opt_in === true && priorOptIn === false) {
+    await logConsent(env, {
+      contactId, email: contactInput.email, action: "opted_in", basis: "consent",
+      source: consentSource || contactInput.source || (payload && payload.form) || triggerType,
+      detail: "Opted in on a form on the website.",
+      raw: payload || null,
+    });
+  }
 
   let autos = (await sbGet(env, "automations", `status=eq.active&trigger_type=eq.${encodeURIComponent(triggerType)}&select=id,graph,trigger_config`)) || [];
   // A tag landing also feeds "audience" funnels (everyone with these tags) —
@@ -1722,6 +1738,46 @@ async function logEmailEvent(env, {
   } catch (_) { /* never blocks a send */ }
 }
 
+// Record a change of marketing consent — when, how, and on what footing.
+//
+// `basis` is deliberately kept apart from `source`:
+//   consent             — they did something that constitutes agreement
+//   legitimate_interest — we decided for them (TEG network members)
+//   withdrawn           — they asked us to stop
+//
+// Recording the second as the first would make the log worthless as evidence,
+// which is the only reason it exists. See supabase/contact_consent_events.sql.
+//
+// Best-effort, exactly like logEmailEvent: an audit write must never be the
+// reason someone's signup fails.
+async function logConsent(env, {
+  contact = null, contactId = null, email = null,
+  action, basis = "consent", source, detail = null, actor = "System", raw = null,
+} = {}) {
+  try {
+    const addr = String(email || (contact && contact.email) || "").trim().toLowerCase();
+    const cid = contactId || (contact && contact.id) || null;
+    if (!addr || !action || !source) return;
+    await sbPost(env, "contact_consent_events", {
+      contact_id: cid, email: addr, action, basis, source, detail, actor, raw,
+      occurred_at: new Date().toISOString(),
+    });
+  } catch (_) { /* never blocks a signup */ }
+}
+
+// Was this address already opted in? upsert_contact only ever turns the flag ON
+// (it ORs it), so without checking first the audit trail would gain a duplicate
+// "opted in" row every time someone filled in a second form. Only the
+// transition is worth recording.
+async function wasOptedIn(env, email) {
+  try {
+    const addr = String(email || "").trim().toLowerCase();
+    if (!addr) return null;
+    const rows = await sbGet(env, "contacts", `email=ilike.${encodeURIComponent(addr)}&select=marketing_opt_in&limit=1`);
+    return !!(rows && rows[0] && rows[0].marketing_opt_in);
+  } catch (_) { return null; }
+}
+
 // May we send this contact this kind of mail?
 //
 //   "transactional" — they did something and this is the reply (booking
@@ -1784,6 +1840,10 @@ async function unsubscribeContact(env, contact, source) {
       unsubscribe_source: source || "footer_link",
       dnd_email: true,
       marketing_opt_in: false,
+    });
+    await logConsent(env, {
+      contact, action: "opted_out", basis: "withdrawn", source: source || "footer_link",
+      detail: "Asked to stop receiving marketing.",
     });
   } catch (_) { /* best-effort */ }
 }
@@ -2284,6 +2344,10 @@ export default {
             unsubscribed_at: null, unsubscribe_source: null, dnd_email: false, marketing_opt_in: true,
           });
           await logEmailEvent(env, { contact, email: addr, event: "unsubscribed", provider: "internal", detail: "resubscribed by the recipient" });
+          await logConsent(env, {
+            contact, email: addr, action: "opted_in", basis: "consent", source: "resubscribe",
+            detail: "Changed their mind and resubscribed from the unsubscribe page.",
+          });
         }
         return new Response(unsubPage({ email: addr, state: "resubscribed" }), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
@@ -4014,11 +4078,18 @@ export default {
         const name = String((b && b.name) || "").trim();
         const parts = name.split(/\s+/).filter(Boolean);
         try {
+          // This endpoint serves two different acts of consent: the footer
+          // subscribe box, and ticking "marketing" during member signup
+          // (member-signup.js posts source:"signup"). The contact's own source
+          // stays "newsletter" as it always has — only the audit trail draws
+          // the distinction, because "they subscribed" and "they ticked a box
+          // while joining" are not the same evidence.
+          const joined = String((b && b.source) || "").trim() === "signup";
           await fireTrigger(env, "form_submitted", {
             email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
             source: "newsletter", lifecycle: "lead", marketing_opt_in: true,
             tags: crmTags(email, [], { optIn: true }),
-          }, { form: "newsletter" });
+          }, { form: "newsletter" }, joined ? "join_signup" : "newsletter_footer");
         } catch (_) {}
         return json({ ok: true }, 200, request, env);
       }
@@ -5454,6 +5525,10 @@ export default {
           const rowTags = Array.isArray(r.tags) ? r.tags : (r.tags ? String(r.tags).split(/[;,]/).map((s) => s.trim()) : []);
           const netTag = isTeg ? "Network: TEG" : networkTag(email);
           const tags = Array.from(new Set([...rowTags, ...batchTags, rowOptIn ? "Newsletter-Subscriber" : null, netTag].filter(Boolean)));
+          // Checked before the upsert, so a re-import doesn't log everyone a
+          // second time. One indexed lookup per opted-in row: imports are an
+          // occasional admin action, not a hot path.
+          const rowPrior = rowOptIn ? await wasOptedIn(env, email) : null;
           try {
             const cid = await sbRpc(env, "upsert_contact", {
               p_email: email,
@@ -5470,6 +5545,25 @@ export default {
               p_tags: tags,
             });
             imported++;
+            // Record HOW they came to be opted in, and be honest about it. A
+            // TEG agent is opted in because `rowOptIn = optIn || isTeg` decided
+            // it, not because they agreed — that's legitimate interest, and
+            // logging it as consent would make this trail useless as evidence
+            // the day someone asks.
+            if (rowOptIn && rowPrior === false) {
+              const byTeg = isTeg && !optIn;
+              await logConsent(env, {
+                contactId: Array.isArray(cid) ? cid[0] : cid, email,
+                action: "opted_in",
+                basis: byTeg ? "legitimate_interest" : "consent",
+                source: byTeg ? "teg_auto" : "csv_import",
+                detail: byTeg
+                  ? "TEG network member — opted in automatically on import as part of The Experts Group, not by an act of consent."
+                  : "Imported with the marketing opt-in box ticked.",
+                actor: "Import",
+                raw: { source, internal },
+              });
+            }
             // TEG contact → register as an internal agent (fills the TEG tab).
             // NOT a videography new-starter, so no code/funnel — those need a package.
             const contactId = Array.isArray(cid) ? cid[0] : cid;
