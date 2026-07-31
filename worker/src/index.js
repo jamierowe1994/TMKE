@@ -68,7 +68,7 @@ function invoiceEmailHtml(settings, inv, customBodyText) {
   const footer = settings.email_footer_image_url
     ? `<div style="margin-top:26px"><img src="${esc(settings.email_footer_image_url)}" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0" /></div>`
     : "";
-  return `<div style="max-width:600px"><div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:12px;line-height:1.6">${br(bodyText)}</div>${footer}</div>`;
+  return `<div style="max-width:600px"><div style="${EM_WRAP}">${br(bodyText)}</div>${footer}</div>`;
 }
 
 // ---- Direct Debit "ghost" invoices --------------------------------------
@@ -89,7 +89,7 @@ function parsePricePence(s) {
 // The accounts reminder body for a DD ghost invoice.
 function ddReminderHtml(client, monthLabel, inv) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return `<div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:12px;line-height:1.6;max-width:560px">
+  return `<div style="${EM_WRAP}">
     <p style="margin:0 0 14px">This is an automated reminder for the books - <strong>no action needed with the client</strong> (they pay by Direct Debit through QuickBooks).</p>
     <table style="border-collapse:collapse;margin:0 0 14px;font-size:12px">
       <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(client)}</strong></td></tr>
@@ -557,7 +557,7 @@ async function syncAgentSheet(env) {
       await sendEmail(env, {
         to: "danielle@themarketingexperts.co.uk",
         subject: `TEG sheet: ${vanished.length} new starter${vanished.length === 1 ? " has" : "s have"} vanished without being cancelled`,
-        html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22;line-height:1.5">
+        html: `<div style="${EM_WRAP}">
           <p>These new starters are still active in the system, but their row has disappeared from the Agent Videography New Starters sheet - usually someone deleting the row instead of marking the <strong>Cancelled</strong> column:</p>
           <ul>${items}</ul>
           <p><strong>Nothing has been stopped automatically</strong> - they're still in the onboarding funnel and their code still works, in case the deletion was an accident.</p>
@@ -1159,7 +1159,7 @@ function reminderHtml(item, platform, caption) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const cap = esc(caption);
   const asset = item && item.asset_url ? esc(item.asset_url) : "";
-  return `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+  return `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">Your post is ready to go out</h1>
     <p style="${EM_P}">Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` &mdash; &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below &mdash; copy your caption and you're set.</p>
     ${cap ? `<div style="background:#f2efe9;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:12px;line-height:1.6;white-space:pre-wrap">${cap}</div>` : `<p style="${EM_P}">No caption saved for this post.</p>`}
@@ -1171,7 +1171,7 @@ function waitlistHtml({ name, service, pkg, date, time }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   let niceDate = esc(date);
   try { niceDate = new Date(date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) {}
-  return `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+  return `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">You're on the cancellation list</h1>
     <p style="${EM_P}">Hi ${esc(name)}, thanks for registering your interest in <strong>${esc(service)}</strong>. We're fully booked right now, but you're on the list &mdash; we'll message you the moment a slot opens that matches what you're after.</p>
     <div style="${EM_QUOTE}">
@@ -1283,7 +1283,7 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
       ${prepHtml}
       <div style="padding:22px 32px 0;font-size:10px;line-height:1.6;color:#8a8690;">${policy}</div>
       <div style="margin-top:28px;padding:24px 32px;border-top:1px solid #ece9e4;">
-        <div style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#371e28;">TMKE</div>
+        <div style="${EM_WRAP}">TMKE</div>
         <div style="margin-top:6px;font-size:10px;line-height:1.6;color:#9a9aa0;">Questions? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28;text-decoration:none;">hello@tmke.co.uk</a>.<br><a href="https://tmke.co.uk/videography" style="color:#9a9aa0;">tmke.co.uk</a></div>
       </div>
     </div>
@@ -1292,7 +1292,7 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
 function jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns, postcode, distanceMiles, surchargePence, dateNice, time, totalPence, signedName, marketingOptIn }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const row = (k, v) => v ? `<div><span style="color:#888">${k}:</span> ${esc(v)}</div>` : "";
-  return `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+  return `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">New booking - ${esc(service)}</h1>
     <div style="${EM_QUOTE}">
       ${row("Client", name)}${row("Company", company)}${row("Email", email)}${row("Phone", phone)}
@@ -1653,7 +1653,7 @@ async function brandMasterSocials(env) {
 // happening at the same moment.
 const EM_STR = emailStyleStrings(EMAIL_STYLE_DEFAULTS);
 const EM_FONT = EM_STR.font, EM_DARK = EM_STR.dark, EM_LIGHT = EM_STR.light;
-const EM_H1 = EM_STR.h1, EM_P = EM_STR.p, EM_QUOTE = EM_STR.quote, EM_BTN = EM_STR.btn, EM_SMALL = EM_STR.small;
+const EM_H1 = EM_STR.h1, EM_P = EM_STR.p, EM_QUOTE = EM_STR.quote, EM_BTN = EM_STR.btn, EM_SMALL = EM_STR.small, EM_WRAP = EM_STR.wrap, EM_QUOTE_TEXT = EM_STR.quoteText;
 
 // The admin's saved settings, cached across requests in the same isolate. A
 // minute is short enough that a change shows up almost at once, long enough
@@ -2085,7 +2085,7 @@ async function autoExecAction(env, node, contact, ctx) {
         );
         await sendEmail(env, { to, subject, html });
       } else {
-        await sendEmail(env, { to, subject: `Automation - ${c.note || "update"}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="${EM_SMALL}">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
+        await sendEmail(env, { to, subject: `Automation - ${c.note || "update"}`, html: `<div style="${EM_WRAP}"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="${EM_SMALL}">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
       }
     }
   } catch (_) { /* one failed action shouldn't wedge the tick */ }
@@ -2165,7 +2165,7 @@ async function runAutomationsTick(env) {
 function setupReminderHtml({ name, pack, link }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
-  return `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+  return `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">Your pack is waiting${pack ? ` &mdash; ${esc(pack)}` : ""}</h1>
     <p style="${EM_P}">Hi ${first}, thanks for your purchase! You haven't set a password yet, so your library is still locked. Set one now and your pack unlocks straight away.</p>
     <p style="margin:0 0 26px"><a href="${esc(link)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:12px;font-weight:700;padding:13px 22px;border-radius:6px">Set my password &amp; open my library &rarr;</a></p>
@@ -3143,7 +3143,7 @@ export default {
         // 7) Confirmation email to the starter + heads-up to Jack (best-effort).
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
         const first = String(name || "there").trim().split(/\s+/)[0];
-        const cHtml = `<div style="font-family:Verdana,Geneva,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;">
+        const cHtml = `<div style="${EM_WRAP}">
           <div style="font-size:24px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
           <p style="${EM_P}">Hi ${first},</p>
           <p style="${EM_P}">Your <strong>Studio Day</strong> is booked. Here are the details:</p>
@@ -3203,11 +3203,11 @@ export default {
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Thanks - we'll be in touch</h1>
             <p style="${EM_P}">Hi ${esc(name)}, thanks for your interest in ${esc(service || "our videography")}. Jack will be in touch shortly to talk through what you need and put a quote together.</p>
-            ${message ? `<div style="${EM_QUOTE}">${esc(message)}</div>` : ""}`),
+            ${message ? `<div style="${EM_QUOTE_TEXT}">${esc(message)}</div>` : ""}`),
         });
         await sendEmail(env, {
           to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New enquiry - ${service || "Videography"} - ${name}`,
-          html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+          html: `<div style="${EM_WRAP}">
             <h1 style="${EM_H1}">New enquiry - ${esc(service || "Videography")}</h1>
             <div style="${EM_QUOTE}">
               <div><span style="color:#888">Client:</span> ${esc(name)}</div>
@@ -3291,7 +3291,7 @@ export default {
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Thanks, ${esc(first_name)} - message received</h1>
             <p style="${EM_P}">We've received your enquiry and a member of the TMKE team will be in touch within one working day.</p>
-            ${message ? `<div style="${EM_QUOTE}">${esc(message)}</div>` : ""}
+            ${message ? `<div style="${EM_QUOTE_TEXT}">${esc(message)}</div>` : ""}
             ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account - sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
         });
         await logBookingMessage(env, {
@@ -3304,7 +3304,7 @@ export default {
         // Notify the SMM team.
         await sendEmail(env, {
           to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New enquiry - Social Media - ${fullName}`,
-          html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+          html: `<div style="${EM_WRAP}">
             <h1 style="${EM_H1}">New Social Media enquiry</h1>
             <div style="${EM_QUOTE}">
               <div><span style="color:#888">Name:</span> ${esc(fullName)}</div>
@@ -3538,7 +3538,7 @@ export default {
         });
         await sendEmail(env, {
           to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New discovery call - Social Media - ${fullName} - ${dateNice} ${start}`,
-          html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+          html: `<div style="${EM_WRAP}">
             <h1 style="${EM_H1}">Discovery call booked (Social Media)</h1>
             <div style="${EM_QUOTE}">
               <div><span style="color:#888">Client:</span> ${esc(fullName)}</div>
@@ -3861,7 +3861,7 @@ export default {
               await sendEmail(env, {
                 to: ["danielle@themarketingexperts.co.uk", "hello@tmke.co.uk"],
                 subject: `Spam complaint from ${who}`,
-                html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22;line-height:1.5">
+                html: `<div style="${EM_WRAP}">
                   <p><strong>${String(who).replace(/</g, "&lt;")}</strong> (${String(addr).replace(/</g, "&lt;")}) reported ${subj ? `“${String(subj).replace(/</g, "&lt;")}”` : "one of our emails"} as spam.</p>
                   <p>Handled automatically: they've been unsubscribed from marketing and their address suppressed, so nothing further will be sent to them.</p>
                   <p>Worth a moment's thought on why - repeated complaints damage tmke.co.uk's sending reputation. Their history is on their contact card in the admin.</p>
@@ -4002,7 +4002,7 @@ export default {
         });
         await sendEmail(env, {
           to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New discovery call - ${name} - ${dateNice} ${start}`,
-          html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+          html: `<div style="${EM_WRAP}">
             <h1 style="${EM_H1}">Discovery call booked</h1>
             <div style="${EM_QUOTE}">
               <div><span style="color:#888">Client:</span> ${esc(name)}</div>
@@ -4059,7 +4059,7 @@ export default {
             <h1 style="${EM_H1}">Your booking is cancelled</h1>
             <p style="${EM_P}">Hi ${esc(bk.client_name || "")}, we've cancelled your ${esc(bk.service || "booking")}. If this was a mistake or you'd like to rebook, just head back to <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk/videography</a>.</p>`),
         });
-        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Cancelled - ${bk.service || "Booking"} - ${bk.client_name || ""}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} cancelled their ${esc(bk.service || "booking")} (was ${esc(bk.shoot_date || "")}).</p></div>` });
+        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Cancelled - ${bk.service || "Booking"} - ${bk.client_name || ""}`, html: `<div style="${EM_WRAP}"><p>${esc(bk.client_name || "")} cancelled their ${esc(bk.service || "booking")} (was ${esc(bk.shoot_date || "")}).</p></div>` });
         await logBookingMessage(env, {
           booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
           kind: "cancellation", subject: `Booking cancelled - ${bk.service || "TMKE"}`,
@@ -4115,7 +4115,7 @@ export default {
             <p style="${EM_P}">Hi ${esc(bk.client_name || "")}, your ${esc(bk.service || "booking")} is now <strong>${esc(dateNice)} at ${esc(start)}</strong>. An updated calendar invite is attached.</p>`),
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
-        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Rescheduled - ${bk.service || "Booking"} - ${bk.client_name || ""}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} moved their ${esc(bk.service || "booking")} to ${esc(dateNice)} at ${esc(start)}.</p></div>` });
+        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Rescheduled - ${bk.service || "Booking"} - ${bk.client_name || ""}`, html: `<div style="${EM_WRAP}"><p>${esc(bk.client_name || "")} moved their ${esc(bk.service || "booking")} to ${esc(dateNice)} at ${esc(start)}.</p></div>` });
         await logBookingMessage(env, {
           booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
           kind: "reschedule", subject: `Booking rescheduled - ${dateNice}`,
@@ -4261,7 +4261,7 @@ export default {
             html: await wrapInBrandedBase(env, `
               <h1 style="${EM_H1}">Thanks - we've got your message</h1>
               <p style="${EM_P}">Hi ${esc(firstName || "there")}, thanks for getting in touch with TMKE. Your message has reached the team and someone will come back to you shortly.</p>
-              ${message ? `<p style="${EM_P}">Here's what you sent us, for your records:</p><div style="${EM_QUOTE}">${esc(message)}</div>` : ""}
+              ${message ? `<p style="${EM_P}">Here's what you sent us, for your records:</p><div style="${EM_QUOTE_TEXT}">${esc(message)}</div>` : ""}
               <p style="${EM_P}">If anything's changed in the meantime, just reply to this email and it'll come straight to us.</p>`),
           });
         } catch (e) { ackError = String((e && e.message) || e); console.error("contact enquirer ack email failed", ackError); }
@@ -4273,7 +4273,7 @@ export default {
           if (!reserved) await sendEmail(env, {
             to: env.ENQUIRY_NOTIFY || env.SMM_MANAGER_UPN || "hello@tmke.co.uk",
             subject: `New contact enquiry - ${fullName}`,
-            html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
+            html: `<div style="${EM_WRAP}">
               <h1 style="${EM_H1}">New contact enquiry</h1>
               <div style="${EM_QUOTE}">
                 <div><span style="color:#888">Name:</span> ${esc(fullName)}</div>
@@ -4632,7 +4632,7 @@ export default {
              <p style="margin:0 0 18px;"><span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;letter-spacing:0.04em;background:#f4f2f1;border:1px solid #e4ded9;border-radius:8px;padding:9px 14px;color:#371e28;">${tempPassword}</span></p>
              <p style="${EM_P}">Please change it once you're in (Forgot password on the sign-in screen).</p>`
           : `<p style="${EM_P}">Sign in with your existing email and password.</p>`;
-        const html = `<div style="font-family:Verdana,Geneva,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;">
+        const html = `<div style="${EM_WRAP}">
           <div style="font-size:24px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
           <p style="${EM_P}">Hi ${who},</p>
           <p style="${EM_P}">You've been given access to the <strong>TMKE admin centre</strong>.</p>
@@ -4698,7 +4698,7 @@ export default {
         try { const p = await sbGet(env, "admin_profiles", `user_id=eq.${encodeURIComponent(userId)}&select=full_name`); fullName = (p && p[0] && p[0].full_name) || ""; } catch (_) {}
         const who = fullName ? fullName.split(" ")[0] : "there";
         const loginUrl = "https://tmke.co.uk/admin/login";
-        const html = `<div style="font-family:Verdana,Geneva,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;">
+        const html = `<div style="${EM_WRAP}">
           <div style="font-size:24px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
           <p style="${EM_P}">Hi ${who},</p>
           <p style="${EM_P}">Your <strong>TMKE admin</strong> password has been reset. Your previous password no longer works.</p>
@@ -5044,7 +5044,7 @@ export default {
         if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
         const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
         const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const html = `<div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:12px;line-height:1.6;max-width:560px">
+        const html = `<div style="${EM_WRAP}">
           <p style="margin:0 0 14px"><strong>Invoice ${esc(inv.number)} has been voided</strong> and removed from the system - please disregard it.</p>
           <table style="border-collapse:collapse;margin:0 0 14px;font-size:12px">
             <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(inv.bill_to_name || "")}</strong></td></tr>
@@ -5175,7 +5175,7 @@ export default {
             const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             await sendEmail(env, {
               to: lead.email, subject: `Your meeting with TMKE - ${dateNice}`,
-              html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="${EM_P}">Hi ${esc(lead.first_name || "")},</p><p style="${EM_P}">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`,
+              html: `<div style="${EM_WRAP}"><p style="${EM_P}">Hi ${esc(lead.first_name || "")},</p><p style="${EM_P}">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`,
               attachments: [{ filename: "meeting.ics", content: icsB64, contentType: "text/calendar" }],
               from: env.SMM_MAIL_SENDER || undefined, fromName: env.SMM_MAIL_SENDER ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : undefined,
             });

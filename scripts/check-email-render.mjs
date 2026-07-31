@@ -123,6 +123,14 @@ console.log('\n11. Automated-email house style rewrites correctly');
   check('quote background responds', /background:#ff0000/.test(styleEmailContent(q, { ...D, quoteBg: '#ff0000' })), true);
   check('quote line height is independent of body', /line-height:1\.2/.test(styleEmailContent(q, { ...D, quoteLine: 1.2 })), true);
   check('...and body line height does not move it', !/line-height:2/.test(styleEmailContent(q, { ...D, bodyLine: 2 })), true);
+  const w = `<div style="${emailStyleStrings(D).wrap}">x</div>`;
+  check('content width responds', /max-width:700px/.test(styleEmailContent(w, { ...D, contentWidth: 700 })), true);
+  check('content side padding responds', /padding:0 32px/.test(styleEmailContent(w, { ...D, contentPadX: 32 })), true);
+  check('quote side margin goes negative for full-bleed', /margin:0 -24px 14px -24px/.test(styleEmailContent(q, { ...D, quoteMarginX: -24 })), true);
+  // The tripled spacing James saw: pre-wrap on a details panel renders the
+  // source indentation between rows as blank lines, which no line-height fixes.
+  check('details panel has no pre-wrap', !/pre-wrap/.test(emailStyleStrings(D).quote), true);
+  check('quoted message keeps pre-wrap', /pre-wrap/.test(emailStyleStrings(D).quoteText), true);
   const sm = `<p style="${emailStyleStrings(D).small}">s</p>`;
   check('small print colour responds', /color:#123456/.test(styleEmailContent(sm, { ...D, smallColor: '#123456' })), true);
   // The font stack in the HTML has no spaces; a spaced default matched nothing.

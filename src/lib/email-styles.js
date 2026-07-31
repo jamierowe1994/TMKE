@@ -31,6 +31,12 @@ export const EMAIL_STYLE_DEFAULTS = {
   buttonBg: '#371e28', buttonColor: '#f4f2f1',
   quoteEnabled: true, quoteBg: '#f4f2f1', quoteBorderColor: '#371e28',
   quoteBorderWidth: 3, quoteRadius: 10, quotePadY: 14, quotePadX: 16, quoteLine: 1.6,
+  // Negative pulls the quote box wider than the column it sits in, up to
+  // full-bleed against the branded base's own inset.
+  quoteMarginX: 0,
+  // The email's content column. padX is inside the branded base's padding, so
+  // it insets further rather than replacing it.
+  contentWidth: 560, contentPadX: 0,
 };
 
 /** The font choices offered in the editor. Email-safe stacks only — a webfont
@@ -56,11 +62,17 @@ export function emailStyleStrings(input) {
   // Quote box off = a plain paragraph, so switching it off doesn't leave an
   // empty bordered container behind.
   const quote = s.quoteEnabled === false
-    ? `font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.quoteLine};color:${s.dark};white-space:pre-wrap;margin:0 0 ${s.bodyGap}px;`
-    : `background:${s.quoteBg};border-left:${s.quoteBorderWidth}px solid ${s.quoteBorderColor};border-radius:${s.quoteRadius}px;padding:${s.quotePadY}px ${s.quotePadX}px;font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.quoteLine};color:${s.dark};white-space:pre-wrap;margin:0 0 ${s.bodyGap}px;`;
+    ? `font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.quoteLine};color:${s.dark};margin:0 ${s.quoteMarginX}px ${s.bodyGap}px ${s.quoteMarginX}px;`
+    : `background:${s.quoteBg};border-left:${s.quoteBorderWidth}px solid ${s.quoteBorderColor};border-radius:${s.quoteRadius}px;padding:${s.quotePadY}px ${s.quotePadX}px;font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.quoteLine};color:${s.dark};margin:0 ${s.quoteMarginX}px ${s.bodyGap}px ${s.quoteMarginX}px;`;
   const btn = `display:inline-block;background:${s.buttonBg};color:${s.buttonColor};text-decoration:none;font-family:${s.font};font-size:${s.buttonSize}px;line-height:${s.bodyLine};font-weight:${s.buttonWeight};padding:${s.buttonPadY}px ${s.buttonPadX}px;border-radius:${s.buttonRadius}px;`;
+  // Same panel, but preserving the line breaks someone typed. Only for quoting
+  // a person's own message back to them — on a details panel it would render
+  // the source indentation between rows as blank lines, which reads as wildly
+  // loose leading that no line-height setting can fix.
+  const quoteText = quote + 'white-space:pre-wrap;';
+  const wrap = `font-family:${s.font};max-width:${s.contentWidth}px;margin:0 auto;padding:0 ${s.contentPadX}px;color:${s.dark};`;
   const small = `font-family:${s.font};font-size:${s.smallSize}px;line-height:${s.bodyLine};color:${s.smallColor};margin:${s.smallGap}px 0 0;`;
-  return { h1, p, quote, btn, small, font: s.font, dark: s.dark, light: s.light };
+  return { h1, p, quote, quoteText, btn, small, wrap, font: s.font, dark: s.dark, light: s.light };
 }
 
 /** Rewrite already-built email HTML from the canonical defaults to the chosen
@@ -78,7 +90,7 @@ export function styleEmailContent(html, input) {
     // below would catch. Doing it this way means the Worker can build every
     // email against the defaults and never hold mutable style state — so an
     // admin previewing unsaved changes cannot bleed into a live send.
-    [ds.h1, ss.h1], [ds.p, ss.p], [ds.quote, ss.quote], [ds.btn, ss.btn], [ds.small, ss.small],
+    [ds.h1, ss.h1], [ds.p, ss.p], [ds.quote, ss.quote], [ds.btn, ss.btn], [ds.small, ss.small], [ds.wrap, ss.wrap], [ds.quoteText, ss.quoteText],
     [`font-family:${d.font}`, `font-family:${s.font}`],
     [`font-size:${d.headingSize}px`, `font-size:${s.headingSize}px`],
     [`font-size:${d.bodySize}px`, `font-size:${s.bodySize}px`],
