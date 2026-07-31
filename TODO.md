@@ -171,9 +171,11 @@ this is almost certainly "never told Google it exists" rather than a fault:
   all carry no robots tag.
 - ✅ The sitemap is live and healthy — `/sitemap-index.xml` → `/sitemap-0.xml`,
   **70 URLs**.
-- ⬜ **Google Search Console is not verified.** No verification meta tag and no
-  verification file. So nobody has submitted the sitemap, and there is no way
-  to see what Google thinks of the site. **This is the first thing to do.**
+- ✅ **(31 Jul) Google Search Console verified**, by DNS TXT record on
+  tmke.co.uk. Next: submit `https://tmke.co.uk/sitemap-index.xml` in Search
+  Console if it wasn't done during setup, then give it days rather than weeks
+  before judging. Coverage and Performance in Search Console are now the place
+  to look, not a Google search.
 - ⬜ **`robots.txt` does not point at the sitemap.** Since Cloudflare generates
   it, adding `Sitemap: https://tmke.co.uk/sitemap-index.xml` means either
   putting a real `robots.txt` in `public/` (which overrides Cloudflare's, so
