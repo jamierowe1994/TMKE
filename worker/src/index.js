@@ -1224,7 +1224,6 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
   const isCall = kind === "call";
 
   const heading = ({ studio: "Your Content Studio session is booked.", property: "Your property shoot is booked.", agent: "Your shoot is booked.", call: "Your call with Jack is booked.", generic: "Your booking is confirmed." })[kind];
-  const eyebrow = isCall ? "You're booked in" : "Booking confirmed";
   const intro = isCall
     ? `Hi ${esc(name || "there")}, looking forward to chatting. Here's when &mdash; we've attached a calendar invite so it's in your diary.`
     : `Hi ${esc(name || "there")}, you're all set &mdash; here are the details. We've attached a calendar invite so you can drop it straight into your diary.`;
@@ -1241,9 +1240,9 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
         ["Time", esc(time)],
         surchargePence ? ["Travel", gbpW(surchargePence) + " + VAT"] : null,
       ];
-  const rowsHtml = rowsArr.filter(Boolean).map(([k, v]) => `<tr><td style="padding:5px 0;color:#8a8690;width:36%;">${k}</td><td style="padding:5px 0;font-weight:bold;color:#1c1d22;">${v}</td></tr>`).join("");
+  const rowsHtml = rowsArr.filter(Boolean).map(([k, v]) => `<div><strong>${k}:</strong> ${v}</div>`).join("");
   const totalHtml = (!isCall && totalPence != null)
-    ? `<tr><td style="padding:13px 0 0;color:#8a8690;border-top:1px solid #e7e3dc;">Total</td><td style="padding:13px 0 0;border-top:1px solid #e7e3dc;font-weight:bold;font-size:12px;color:#1c1d22;">${gbpW(totalPence)} <span style="font-weight:normal;color:#8a8690;font-size:10px;">inc. VAT</span></td></tr>`
+    ? `<div><strong>Total:</strong> ${gbpW(totalPence)} inc. VAT</div>`
     : "";
 
   const prepByKind = {
@@ -1256,7 +1255,7 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
   const prep = prepByKind[kind] || [];
   const prepTitle = isCall ? "What to expect" : ("Before your " + (kind === "studio" ? "session" : "shoot"));
   const prepHtml = prep.length
-    ? `<div style="padding:28px 32px 0;"><div style="font-size:10px;font-weight:bold;letter-spacing:0.18em;color:#371e28;text-transform:uppercase;margin-bottom:13px;">${prepTitle}</div>${prep.map(([h, t], i) => `<div style="font-size:12px;line-height:1.55;color:#55565b;${i < prep.length - 1 ? "margin-bottom:11px;" : ""}"><strong style="color:#1c1d22;">${h}</strong> ${t}</div>`).join("")}</div>`
+    ? `<p style="${EM_P}"><strong>${prepTitle}</strong></p>${prep.map(([h, t]) => `<p style="${EM_P}"><strong>${h}</strong> ${t}</p>`).join("")}`
     : "";
 
   const policy = isCall
@@ -1265,28 +1264,18 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
     ? "Travel is included in your total, calculated from the postcode above; if the location changes we'll re-quote before the shoot. Reschedule with 2 days' notice or cancel with 3 days' notice from your account."
     : "Need to change something? Reschedule with 2 days' notice or cancel with 3 days' notice from your account. Cancellations inside 72 hours are chargeable in full.";
 
-  return `<div style="font-family:Verdana,Geneva,sans-serif;background:#f1efec;margin:0;padding:24px 0;">
-    <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">
-      <div style="background:#371e28;padding:20px 32px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-          <td style="font-family:Verdana,Geneva,sans-serif;font-size:24px;letter-spacing:0.05em;color:#ffffff;">TMKE</td>
-          <td align="right" style="font-size:10px;letter-spacing:0.22em;color:rgba(255,255,255,0.62);">VIDEOGRAPHY</td>
-        </tr></table>
-      </div>
-      <div style="padding:34px 32px 0;">
-        <div style="font-size:10px;font-weight:bold;letter-spacing:0.2em;color:#b9826a;text-transform:uppercase;margin-bottom:12px;">${eyebrow}</div>
-        <h1 style="${EM_H1}">${heading}</h1>
-      </div>
-      <div style="padding:16px 32px 0;font-size:12px;line-height:1.6;color:#55565b;">${intro}</div>
-      <div style="padding:22px 32px 0;"><div style="background:#f6f4f1;border-radius:10px;padding:18px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;">${rowsHtml}${totalHtml}</table></div></div>
-      ${manageUrl ? `<div style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#371e28;border-radius:8px;"><a href="${esc(manageUrl)}" style="${EM_BTN_BARE}">${cta} &rarr;</a></td></tr></table></div>` : ""}
-      ${prepHtml}
-      <div style="padding:22px 32px 0;font-size:10px;line-height:1.6;color:#8a8690;">${policy}</div>
-      <div style="margin-top:28px;padding:24px 32px;border-top:1px solid #ece9e4;">
-        <div style="${EM_WRAP}">TMKE</div>
-        <div style="margin-top:6px;font-size:10px;line-height:1.6;color:#9a9aa0;">Questions? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28;text-decoration:none;">hello@tmke.co.uk</a>.<br><a href="https://tmke.co.uk/videography" style="color:#9a9aa0;">tmke.co.uk</a></div>
-      </div>
-    </div>
+  // A plain content block, like every other client email, so the branded base
+  // supplies the card, header and footer. It used to carry its own complete
+  // chrome - band, card, wordmark lockup, footer - because it was sent WITHOUT
+  // the base, which is why it looked like a different product to everything
+  // else and why the style controls had so little purchase on it.
+  return `<div style="${EM_WRAP}">
+    <h1 style="${EM_H1}">${heading}</h1>
+    <p style="${EM_P}">${intro}</p>
+    <div style="${EM_QUOTE}">${rowsHtml}${totalHtml}</div>
+    ${manageUrl ? `<p style="${EM_P}"><a href="${esc(manageUrl)}" style="${EM_BTN}">${cta} &rarr;</a></p>` : ""}
+    ${prepHtml}
+    <p style="${EM_SMALL}">${policy}</p>
   </div>`;
 }
 function jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns, postcode, distanceMiles, surchargePence, dateNice, time, totalPence, signedName, marketingOptIn }) {
@@ -2982,7 +2971,7 @@ export default {
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         await sendEmail(env, {
           to: email, subject: `Booking confirmed - ${service || "TMKE"}`,
-          html: bookingConfirmHtml({ name, service, serviceType: service_type, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}` }),
+          html: await wrapInBrandedBase(env, bookingConfirmHtml({ name, service, serviceType: service_type, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}` })),
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, {
