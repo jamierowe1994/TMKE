@@ -19,6 +19,12 @@ export const MEMBER_DOMAINS = {
   "thelettingsexperts.co.uk":       { brand: "tle",      label: "The Lettings Experts" },
   "themortgageexperts.co.uk":       { brand: "tme",      label: "The Mortgage Experts" },
   "therecruitmentexperts.co.uk":    { brand: "tre",      label: "The Recruitment Experts" },
+  // .com is the live domain (confirmed 31 Jul). .co.uk is kept as a safety net
+  // — it was the only one listed here, so every real F&C agent resolved as a
+  // NON-MEMBER with no property tier, which is the wrong price and the wrong
+  // agreement. The CRM had .com all along; the two had simply never been
+  // checked against each other.
+  "fineandcountry.com":             { brand: "fc",       label: "Fine & Country" },
   "fineandcountry.co.uk":           { brand: "fc",       label: "Fine & Country" },
   // TMKE staff — treated as members so the team can test every booking flow
   // end-to-end (Content Studio, Property, Agent). Remove or restrict before
