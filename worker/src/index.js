@@ -67,7 +67,7 @@ function invoiceEmailHtml(settings, inv, customBodyText) {
   const footer = settings.email_footer_image_url
     ? `<div style="margin-top:26px"><img src="${esc(settings.email_footer_image_url)}" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0" /></div>`
     : "";
-  return `<div style="max-width:600px"><div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6">${br(bodyText)}</div>${footer}</div>`;
+  return `<div style="max-width:600px"><div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:12px;line-height:1.6">${br(bodyText)}</div>${footer}</div>`;
 }
 
 // ---- Direct Debit "ghost" invoices --------------------------------------
@@ -88,9 +88,9 @@ function parsePricePence(s) {
 // The accounts reminder body for a DD ghost invoice.
 function ddReminderHtml(client, monthLabel, inv) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return `<div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6;max-width:560px">
+  return `<div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:12px;line-height:1.6;max-width:560px">
     <p style="margin:0 0 14px">This is an automated reminder for the books — <strong>no action needed with the client</strong> (they pay by Direct Debit through QuickBooks).</p>
-    <table style="border-collapse:collapse;margin:0 0 14px;font-size:15px">
+    <table style="border-collapse:collapse;margin:0 0 14px;font-size:12px">
       <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(client)}</strong></td></tr>
       <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Period</td><td style="padding:2px 0">${esc(monthLabel)}</td></tr>
       <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Amount</td><td style="padding:2px 0"><strong>${money(inv.total_pence)}</strong></td></tr>
@@ -561,7 +561,7 @@ async function syncAgentSheet(env) {
           <ul>${items}</ul>
           <p><strong>Nothing has been stopped automatically</strong> — they're still in the onboarding funnel and their code still works, in case the deletion was an accident.</p>
           <p>If they're genuinely not joining: re-add their row to the sheet with <strong>Cancelled = yes</strong> and the next sync will void the code, stop the emails and note their card. (Or tick Do-not-contact on their contact card to stop emails immediately.)</p>
-          <p style="color:#888;font-size:12px">Sent automatically by the sheet sync. You'll only be told once per person.</p>
+          <p style="color:#888;font-size:10px">Sent automatically by the sheet sync. You'll only be told once per person.</p>
         </div>`,
       });
     }
@@ -1159,11 +1159,11 @@ function reminderHtml(item, platform, caption) {
   const cap = esc(caption);
   const asset = item && item.asset_url ? esc(item.asset_url) : "";
   return `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-    <h1 style="font-size:22px;margin:0 0 6px">Your post is ready to go out</h1>
-    <p style="color:#555;font-size:14px;margin:0 0 20px">Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` &mdash; &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below &mdash; copy your caption and you're set.</p>
-    ${cap ? `<div style="background:#f2efe9;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;white-space:pre-wrap">${cap}</div>` : `<p style="color:#888;font-size:13px">No caption saved for this post.</p>`}
-    ${asset ? `<p style="margin:20px 0 0"><a href="${asset}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 22px;border-radius:6px">Download the image &darr;</a></p><p style="font-size:12px;color:#999;margin:8px 0 0">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : `<p style="font-size:13px;color:#555;margin:18px 0 0">&#128206; Your post image is attached to this email.</p>`}
-    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#371e28">View your calendar</a></p>
+    <h1 style="font-size:24px;margin:0 0 6px">Your post is ready to go out</h1>
+    <p style="color:#555;font-size:12px;margin:0 0 20px">Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` &mdash; &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below &mdash; copy your caption and you're set.</p>
+    ${cap ? `<div style="background:#f2efe9;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:12px;line-height:1.6;white-space:pre-wrap">${cap}</div>` : `<p style="color:#888;font-size:12px">No caption saved for this post.</p>`}
+    ${asset ? `<p style="margin:20px 0 0"><a href="${asset}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:12px;font-weight:700;padding:12px 22px;border-radius:6px">Download the image &darr;</a></p><p style="font-size:10px;color:#999;margin:8px 0 0">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : `<p style="font-size:12px;color:#555;margin:18px 0 0">&#128206; Your post image is attached to this email.</p>`}
+    <p style="font-size:10px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#371e28">View your calendar</a></p>
   </div>`;
 }
 function waitlistHtml({ name, service, pkg, date, time }) {
@@ -1171,15 +1171,15 @@ function waitlistHtml({ name, service, pkg, date, time }) {
   let niceDate = esc(date);
   try { niceDate = new Date(date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) {}
   return `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-    <h1 style="font-size:22px;margin:0 0 6px">You're on the cancellation list</h1>
-    <p style="color:#555;font-size:14px;margin:0 0 20px">Hi ${esc(name)}, thanks for registering your interest in <strong>${esc(service)}</strong>. We're fully booked right now, but you're on the list &mdash; we'll message you the moment a slot opens that matches what you're after.</p>
-    <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.7">
+    <h1 style="font-size:24px;margin:0 0 6px">You're on the cancellation list</h1>
+    <p style="color:#555;font-size:12px;margin:0 0 20px">Hi ${esc(name)}, thanks for registering your interest in <strong>${esc(service)}</strong>. We're fully booked right now, but you're on the list &mdash; we'll message you the moment a slot opens that matches what you're after.</p>
+    <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:12px;line-height:1.7">
       ${pkg ? `<div><strong>Package:</strong> ${esc(pkg)}</div>` : ""}
       <div><strong>Preferred date:</strong> ${niceDate}</div>
       <div><strong>Preferred time:</strong> ${esc(time)}</div>
     </div>
-    <p style="font-size:13px;color:#555;margin:18px 0 0">No need to do anything &mdash; we'll be in touch. If your plans change, just reply to this email.</p>
-    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p>
+    <p style="font-size:12px;color:#555;margin:18px 0 0">No need to do anything &mdash; we'll be in touch. If your plans change, just reply to this email.</p>
+    <p style="font-size:10px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p>
   </div>`;
 }
 // ---- Videography booking confirmation (account + ICS + emails) -------------
@@ -1242,7 +1242,7 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
       ];
   const rowsHtml = rowsArr.filter(Boolean).map(([k, v]) => `<tr><td style="padding:5px 0;color:#8a8690;width:36%;">${k}</td><td style="padding:5px 0;font-weight:bold;color:#1c1d22;">${v}</td></tr>`).join("");
   const totalHtml = (!isCall && totalPence != null)
-    ? `<tr><td style="padding:13px 0 0;color:#8a8690;border-top:1px solid #e7e3dc;">Total</td><td style="padding:13px 0 0;border-top:1px solid #e7e3dc;font-weight:bold;font-size:17px;color:#1c1d22;">${gbpW(totalPence)} <span style="font-weight:normal;color:#8a8690;font-size:12px;">inc. VAT</span></td></tr>`
+    ? `<tr><td style="padding:13px 0 0;color:#8a8690;border-top:1px solid #e7e3dc;">Total</td><td style="padding:13px 0 0;border-top:1px solid #e7e3dc;font-weight:bold;font-size:12px;color:#1c1d22;">${gbpW(totalPence)} <span style="font-weight:normal;color:#8a8690;font-size:10px;">inc. VAT</span></td></tr>`
     : "";
 
   const prepByKind = {
@@ -1255,7 +1255,7 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
   const prep = prepByKind[kind] || [];
   const prepTitle = isCall ? "What to expect" : ("Before your " + (kind === "studio" ? "session" : "shoot"));
   const prepHtml = prep.length
-    ? `<div style="padding:28px 32px 0;"><div style="font-size:11px;font-weight:bold;letter-spacing:0.18em;color:#371e28;text-transform:uppercase;margin-bottom:13px;">${prepTitle}</div>${prep.map(([h, t], i) => `<div style="font-size:14px;line-height:1.55;color:#55565b;${i < prep.length - 1 ? "margin-bottom:11px;" : ""}"><strong style="color:#1c1d22;">${h}</strong> ${t}</div>`).join("")}</div>`
+    ? `<div style="padding:28px 32px 0;"><div style="font-size:10px;font-weight:bold;letter-spacing:0.18em;color:#371e28;text-transform:uppercase;margin-bottom:13px;">${prepTitle}</div>${prep.map(([h, t], i) => `<div style="font-size:12px;line-height:1.55;color:#55565b;${i < prep.length - 1 ? "margin-bottom:11px;" : ""}"><strong style="color:#1c1d22;">${h}</strong> ${t}</div>`).join("")}</div>`
     : "";
 
   const policy = isCall
@@ -1268,22 +1268,22 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
     <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">
       <div style="background:#371e28;padding:20px 32px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-          <td style="font-family:Verdana,Geneva,sans-serif;font-size:21px;letter-spacing:0.05em;color:#ffffff;">TMKE</td>
-          <td align="right" style="font-size:11px;letter-spacing:0.22em;color:rgba(255,255,255,0.62);">VIDEOGRAPHY</td>
+          <td style="font-family:Verdana,Geneva,sans-serif;font-size:24px;letter-spacing:0.05em;color:#ffffff;">TMKE</td>
+          <td align="right" style="font-size:10px;letter-spacing:0.22em;color:rgba(255,255,255,0.62);">VIDEOGRAPHY</td>
         </tr></table>
       </div>
       <div style="padding:34px 32px 0;">
-        <div style="font-size:11px;font-weight:bold;letter-spacing:0.2em;color:#b9826a;text-transform:uppercase;margin-bottom:12px;">${eyebrow}</div>
-        <h1 style="margin:0;font-family:Verdana,Geneva,sans-serif;font-weight:normal;font-size:29px;line-height:1.18;color:#1c1d22;">${heading}</h1>
+        <div style="font-size:10px;font-weight:bold;letter-spacing:0.2em;color:#b9826a;text-transform:uppercase;margin-bottom:12px;">${eyebrow}</div>
+        <h1 style="margin:0;font-family:Verdana,Geneva,sans-serif;font-weight:normal;font-size:24px;line-height:1.18;color:#1c1d22;">${heading}</h1>
       </div>
-      <div style="padding:16px 32px 0;font-size:15px;line-height:1.6;color:#55565b;">${intro}</div>
-      <div style="padding:22px 32px 0;"><div style="background:#f6f4f1;border-radius:10px;padding:18px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">${rowsHtml}${totalHtml}</table></div></div>
-      ${manageUrl ? `<div style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#371e28;border-radius:8px;"><a href="${esc(manageUrl)}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;">${cta} &rarr;</a></td></tr></table></div>` : ""}
+      <div style="padding:16px 32px 0;font-size:12px;line-height:1.6;color:#55565b;">${intro}</div>
+      <div style="padding:22px 32px 0;"><div style="background:#f6f4f1;border-radius:10px;padding:18px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;">${rowsHtml}${totalHtml}</table></div></div>
+      ${manageUrl ? `<div style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#371e28;border-radius:8px;"><a href="${esc(manageUrl)}" style="display:inline-block;padding:13px 28px;font-size:12px;font-weight:bold;color:#ffffff;text-decoration:none;">${cta} &rarr;</a></td></tr></table></div>` : ""}
       ${prepHtml}
-      <div style="padding:22px 32px 0;font-size:12.5px;line-height:1.6;color:#8a8690;">${policy}</div>
+      <div style="padding:22px 32px 0;font-size:10px;line-height:1.6;color:#8a8690;">${policy}</div>
       <div style="margin-top:28px;padding:24px 32px;border-top:1px solid #ece9e4;">
-        <div style="font-family:Verdana,Geneva,sans-serif;font-size:16px;color:#371e28;">TMKE</div>
-        <div style="margin-top:6px;font-size:12px;line-height:1.6;color:#9a9aa0;">Questions? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28;text-decoration:none;">hello@tmke.co.uk</a>.<br><a href="https://tmke.co.uk/videography" style="color:#9a9aa0;">tmke.co.uk</a></div>
+        <div style="font-family:Verdana,Geneva,sans-serif;font-size:12px;color:#371e28;">TMKE</div>
+        <div style="margin-top:6px;font-size:10px;line-height:1.6;color:#9a9aa0;">Questions? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28;text-decoration:none;">hello@tmke.co.uk</a>.<br><a href="https://tmke.co.uk/videography" style="color:#9a9aa0;">tmke.co.uk</a></div>
       </div>
     </div>
   </div>`;
@@ -1292,8 +1292,8 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const row = (k, v) => v ? `<div><span style="color:#888">${k}:</span> ${esc(v)}</div>` : "";
   return `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-    <h1 style="font-size:20px;margin:0 0 6px">New booking — ${esc(service)}</h1>
-    <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+    <h1 style="font-size:24px;margin:0 0 6px">New booking — ${esc(service)}</h1>
+    <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
       ${row("Client", name)}${row("Company", company)}${row("Email", email)}${row("Phone", phone)}
       ${row("Package", packageLabel)}${addOns && addOns.length ? row("Add-ons", addOns.map((a) => a.name).join(", ")) : ""}
       ${row("Location", postcode)}${distanceMiles != null ? row("Distance", Math.round(distanceMiles) + " mi") : ""}
@@ -1302,7 +1302,7 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
       ${totalPence != null ? row("Total", gbpW(totalPence) + " inc. VAT") : ""}
       ${row("Signed", signedName)}${row("Marketing opt-in", marketingOptIn ? "Yes" : "No")}
     </div>
-    <p style="font-size:12px;color:#999;margin:18px 0 0">It's in your calendar and the CRM pipeline (stage: booked).</p>
+    <p style="font-size:10px;color:#999;margin:18px 0 0">It's in your calendar and the CRM pipeline (stage: booked).</p>
   </div>`;
 }
 // Transactional email via Microsoft 365 (Graph `sendMail`), sent from the TMKE
@@ -1644,9 +1644,9 @@ const EM_FONT = 'Verdana, Geneva, sans-serif';
 const EM_DARK = '#371e28';
 const EM_LIGHT = '#f4f2f1';
 const EM_H1 = `font-family:${EM_FONT};font-size:24px;line-height:1.6;color:${EM_DARK};margin:0 0 14px;`;
-const EM_P = `font-family:${EM_FONT};font-size:11px;line-height:1.6;color:${EM_DARK};margin:0 0 14px;`;
-const EM_QUOTE = `background:${EM_LIGHT};border-left:3px solid ${EM_DARK};border-radius:10px;padding:14px 16px;font-family:${EM_FONT};font-size:11px;line-height:1.6;color:${EM_DARK};white-space:pre-wrap;margin:0 0 14px;`;
-const EM_BTN = `display:inline-block;background:${EM_DARK};color:${EM_LIGHT};text-decoration:none;font-family:${EM_FONT};font-size:11px;line-height:1.6;font-weight:700;padding:13px 26px;border-radius:8px;`;
+const EM_P = `font-family:${EM_FONT};font-size:12px;line-height:1.6;color:${EM_DARK};margin:0 0 14px;`;
+const EM_QUOTE = `background:${EM_LIGHT};border-left:3px solid ${EM_DARK};border-radius:10px;padding:14px 16px;font-family:${EM_FONT};font-size:12px;line-height:1.6;color:${EM_DARK};white-space:pre-wrap;margin:0 0 14px;`;
+const EM_BTN = `display:inline-block;background:${EM_DARK};color:${EM_LIGHT};text-decoration:none;font-family:${EM_FONT};font-size:12px;line-height:1.6;font-weight:700;padding:13px 26px;border-radius:8px;`;
 
 // Sample renders of the automated emails, so the admin Automated-emails page can
 // show what one actually looks like — and send that exact render as a test.
@@ -2061,7 +2061,7 @@ async function autoExecAction(env, node, contact, ctx) {
         );
         await sendEmail(env, { to, subject, html });
       } else {
-        await sendEmail(env, { to, subject: `Automation — ${c.note || "update"}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="color:#888;font-size:12px">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
+        await sendEmail(env, { to, subject: `Automation — ${c.note || "update"}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="color:#888;font-size:10px">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
       }
     }
   } catch (_) { /* one failed action shouldn't wedge the tick */ }
@@ -2142,11 +2142,11 @@ function setupReminderHtml({ name, pack, link }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
   return `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-    <h1 style="font-size:22px;margin:0 0 6px">Your pack is waiting${pack ? ` &mdash; ${esc(pack)}` : ""}</h1>
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 20px">Hi ${first}, thanks for your purchase! You haven't set a password yet, so your library is still locked. Set one now and your pack unlocks straight away.</p>
-    <p style="margin:0 0 26px"><a href="${esc(link)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:13px 22px;border-radius:6px">Set my password &amp; open my library &rarr;</a></p>
-    <p style="font-size:12px;color:#999;line-height:1.6;margin:0">If the button doesn't work, paste this into your browser:<br><span style="color:#777">${esc(link)}</span></p>
-    <p style="font-size:12px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk" style="color:#371e28">tmke.co.uk</a></p>
+    <h1 style="font-size:24px;margin:0 0 6px">Your pack is waiting${pack ? ` &mdash; ${esc(pack)}` : ""}</h1>
+    <p style="color:#555;font-size:12px;line-height:1.6;margin:0 0 20px">Hi ${first}, thanks for your purchase! You haven't set a password yet, so your library is still locked. Set one now and your pack unlocks straight away.</p>
+    <p style="margin:0 0 26px"><a href="${esc(link)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:12px;font-weight:700;padding:13px 22px;border-radius:6px">Set my password &amp; open my library &rarr;</a></p>
+    <p style="font-size:10px;color:#999;line-height:1.6;margin:0">If the button doesn't work, paste this into your browser:<br><span style="color:#777">${esc(link)}</span></p>
+    <p style="font-size:10px;color:#999;margin:24px 0 0">Sent by TMKE &middot; <a href="https://tmke.co.uk" style="color:#371e28">tmke.co.uk</a></p>
   </div>`;
 }
 
@@ -3116,13 +3116,13 @@ export default {
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
         const first = String(name || "there").trim().split(/\s+/)[0];
         const cHtml = `<div style="font-family:Verdana,Geneva,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;">
-          <div style="font-size:20px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
-          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Hi ${first},</p>
-          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Your <strong>Studio Day</strong> is booked. Here are the details:</p>
-          <p style="margin:0 0 6px;font-size:15px;color:#1c1d22;"><strong>${dateNice}</strong> at <strong>${start}</strong> (about 3 hours)</p>
-          <p style="margin:0 0 18px;font-size:15px;color:#1c1d22;">at the <strong>TMKE Content Studio</strong>. We'll confirm the full address and how to prepare in a reminder before the day.</p>
-          <p style="margin:0 0 18px;font-size:14px;color:#6b6b70;">There's nothing for you to pay — your session is part of your induction package.</p>
-          <p style="margin:0;font-size:12.5px;color:#9a9aa0;">Need to change it? Just reply to this email.</p>
+          <div style="font-size:24px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
+          <p style="margin:0 0 14px;font-size:12px;color:#1c1d22;">Hi ${first},</p>
+          <p style="margin:0 0 14px;font-size:12px;color:#1c1d22;">Your <strong>Studio Day</strong> is booked. Here are the details:</p>
+          <p style="margin:0 0 6px;font-size:12px;color:#1c1d22;"><strong>${dateNice}</strong> at <strong>${start}</strong> (about 3 hours)</p>
+          <p style="margin:0 0 18px;font-size:12px;color:#1c1d22;">at the <strong>TMKE Content Studio</strong>. We'll confirm the full address and how to prepare in a reminder before the day.</p>
+          <p style="margin:0 0 18px;font-size:12px;color:#6b6b70;">There's nothing for you to pay — your session is part of your induction package.</p>
+          <p style="margin:0;font-size:10px;color:#9a9aa0;">Need to change it? Just reply to this email.</p>
         </div>`;
         try { await sendEmail(env, { to: em, subject: "Your Studio Day is booked — TMKE", html: cHtml }); } catch (_) {}
         try { await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New Studio Day booking — ${name}`, html: `<p>New-starter Studio Day booked.</p><p><strong>${name}</strong> — ${dateNice} at ${start} (3 hrs), TMKE Content Studio.</p><p>${em}${phone ? " · " + phone : ""}</p><p>Bill to <strong>TPE</strong> — £295 + VAT.</p>` }); } catch (_) {}
@@ -3180,8 +3180,8 @@ export default {
         await sendEmail(env, {
           to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New enquiry — ${service || "Videography"} — ${name}`,
           html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:20px;margin:0 0 6px">New enquiry — ${esc(service || "Videography")}</h1>
-            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+            <h1 style="font-size:24px;margin:0 0 6px">New enquiry — ${esc(service || "Videography")}</h1>
+            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
               <div><span style="color:#888">Client:</span> ${esc(name)}</div>
               ${company ? `<div><span style="color:#888">Company:</span> ${esc(company)}</div>` : ""}
               <div><span style="color:#888">Email:</span> ${esc(email)}</div>
@@ -3189,7 +3189,7 @@ export default {
               ${postcode ? `<div><span style="color:#888">Location:</span> ${esc(postcode)}</div>` : ""}
               ${message ? `<div><span style="color:#888">Message:</span> ${esc(message)}</div>` : ""}
             </div>
-            <p style="font-size:12px;color:#999;margin:18px 0 0">Saved to the Enquiries inbox (/admin/enquiries).</p></div>`,
+            <p style="font-size:10px;color:#999;margin:18px 0 0">Saved to the Enquiries inbox (/admin/enquiries).</p></div>`,
         });
         // CRM + automations: this is a form submission — upsert the lead and fire
         // any "form submitted" automation.
@@ -3277,8 +3277,8 @@ export default {
         await sendEmail(env, {
           to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New enquiry — Social Media — ${fullName}`,
           html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:20px;margin:0 0 6px">New Social Media enquiry</h1>
-            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+            <h1 style="font-size:24px;margin:0 0 6px">New Social Media enquiry</h1>
+            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
               <div><span style="color:#888">Name:</span> ${esc(fullName)}</div>
               <div><span style="color:#888">Business:</span> ${esc(business)}</div>
               <div><span style="color:#888">Email:</span> ${esc(email)}</div>
@@ -3287,7 +3287,7 @@ export default {
               <div><span style="color:#888">Marketing:</span> ${marketing_opt_in ? "Opted in" : "No"}</div>
               <div><span style="color:#888">Account:</span> ${accountCreated ? "Created" : (accountUserId ? "Existing" : "None")}</div>
             </div>
-            <p style="font-size:12px;color:#999;margin:18px 0 0">In the SMM pipeline as a lead (general_enquiry).</p></div>`,
+            <p style="font-size:10px;color:#999;margin:18px 0 0">In the SMM pipeline as a lead (general_enquiry).</p></div>`,
         });
 
         // CRM + automations: upsert the contact + fire any "form submitted" flow.
@@ -3511,8 +3511,8 @@ export default {
         await sendEmail(env, {
           to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New discovery call — Social Media — ${fullName} — ${dateNice} ${start}`,
           html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:20px;margin:0 0 6px">Discovery call booked (Social Media)</h1>
-            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+            <h1 style="font-size:24px;margin:0 0 6px">Discovery call booked (Social Media)</h1>
+            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
               <div><span style="color:#888">Client:</span> ${esc(fullName)}</div>
               <div><span style="color:#888">Business:</span> ${esc(business)}</div>
               <div><span style="color:#888">Email:</span> ${esc(email)}</div>
@@ -3837,7 +3837,7 @@ export default {
                   <p><strong>${String(who).replace(/</g, "&lt;")}</strong> (${String(addr).replace(/</g, "&lt;")}) reported ${subj ? `“${String(subj).replace(/</g, "&lt;")}”` : "one of our emails"} as spam.</p>
                   <p>Handled automatically: they've been unsubscribed from marketing and their address suppressed, so nothing further will be sent to them.</p>
                   <p>Worth a moment's thought on why — repeated complaints damage tmke.co.uk's sending reputation. Their history is on their contact card in the admin.</p>
-                  <p style="color:#888;font-size:12px">Sent automatically by the email webhook.</p>
+                  <p style="color:#888;font-size:10px">Sent automatically by the email webhook.</p>
                 </div>`,
               });
             } catch (_) { /* the alert is a bonus — the suppression already happened */ }
@@ -3975,8 +3975,8 @@ export default {
         await sendEmail(env, {
           to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New discovery call — ${name} — ${dateNice} ${start}`,
           html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:20px;margin:0 0 6px">Discovery call booked</h1>
-            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+            <h1 style="font-size:24px;margin:0 0 6px">Discovery call booked</h1>
+            <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
               <div><span style="color:#888">Client:</span> ${esc(name)}</div>
               ${company ? `<div><span style="color:#888">Company:</span> ${esc(company)}</div>` : ""}
               <div><span style="color:#888">Email:</span> ${esc(email)}</div>
@@ -4246,8 +4246,8 @@ export default {
             to: env.ENQUIRY_NOTIFY || env.SMM_MANAGER_UPN || "hello@tmke.co.uk",
             subject: `New contact enquiry — ${fullName}`,
             html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-              <h1 style="font-size:20px;margin:0 0 6px">New contact enquiry</h1>
-              <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:14px;line-height:1.9">
+              <h1 style="font-size:24px;margin:0 0 6px">New contact enquiry</h1>
+              <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
                 <div><span style="color:#888">Name:</span> ${esc(fullName)}</div>
                 ${company ? `<div><span style="color:#888">Business:</span> ${esc(company)}</div>` : ""}
                 <div><span style="color:#888">Email:</span> ${esc(email)}</div>
@@ -4256,7 +4256,7 @@ export default {
                 ${message ? `<div><span style="color:#888">Message:</span> ${esc(message)}</div>` : ""}
                 <div><span style="color:#888">Marketing opt-in:</span> ${consent ? "Yes" : "No"}</div>
               </div>
-              <p style="font-size:12px;color:#999;margin:18px 0 0">Saved to the Enquiries inbox (/admin/enquiries). They've had an automatic acknowledgement.</p></div>`,
+              <p style="font-size:10px;color:#999;margin:18px 0 0">Saved to the Enquiries inbox (/admin/enquiries). They've had an automatic acknowledgement.</p></div>`,
           });
         } catch (e) { notifyError = String((e && e.message) || e); console.error("contact enquirer team alert failed", notifyError); }
 
@@ -4489,9 +4489,9 @@ export default {
               to: bk.email, subject: b.subject || `A message about your ${bk.service || "booking"}`,
               html: await wrapInBrandedBase(env, `
                 <p style="${EM_P}">Hi ${esc(bk.name || "")},</p>
-                <div style="font-size:15px;line-height:1.6;color:#40353a;white-space:pre-wrap;margin:0 0 14px;">${esc(bodyText)}</div>
-                ${attachments ? `<p style="font-size:13px;line-height:1.6;color:#8a8796;margin:0 0 8px;">📎 A document is attached to this email.</p>` : ""}
-                <p style="font-size:13px;line-height:1.6;color:#8a8796;margin:0;">You can view this and manage your booking in your TMKE workspace.</p>`),
+                <div style="font-size:12px;line-height:1.6;color:#40353a;white-space:pre-wrap;margin:0 0 14px;">${esc(bodyText)}</div>
+                ${attachments ? `<p style="font-size:12px;line-height:1.6;color:#8a8796;margin:0 0 8px;">📎 A document is attached to this email.</p>` : ""}
+                <p style="font-size:12px;line-height:1.6;color:#8a8796;margin:0;">You can view this and manage your booking in your TMKE workspace.</p>`),
               attachments,
               from: smmFrom || undefined, fromName: smmFrom ? smmFromName : undefined,
             });
@@ -4595,17 +4595,17 @@ export default {
         const loginUrl = "https://tmke.co.uk/admin/login";
         const who = fullName ? fullName.split(" ")[0] : "there";
         const credLine = tempPassword
-          ? `<p style="margin:0 0 6px;font-size:15px;color:#1c1d22;">Sign in with your email and this temporary password:</p>
-             <p style="margin:0 0 18px;"><span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:16px;font-weight:700;letter-spacing:0.04em;background:#f4f2f1;border:1px solid #e4ded9;border-radius:8px;padding:9px 14px;color:#371e28;">${tempPassword}</span></p>
-             <p style="margin:0 0 18px;font-size:13.5px;color:#6b6b70;">Please change it once you're in (Forgot password on the sign-in screen).</p>`
-          : `<p style="margin:0 0 18px;font-size:15px;color:#1c1d22;">Sign in with your existing email and password.</p>`;
+          ? `<p style="margin:0 0 6px;font-size:12px;color:#1c1d22;">Sign in with your email and this temporary password:</p>
+             <p style="margin:0 0 18px;"><span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;letter-spacing:0.04em;background:#f4f2f1;border:1px solid #e4ded9;border-radius:8px;padding:9px 14px;color:#371e28;">${tempPassword}</span></p>
+             <p style="margin:0 0 18px;font-size:12px;color:#6b6b70;">Please change it once you're in (Forgot password on the sign-in screen).</p>`
+          : `<p style="margin:0 0 18px;font-size:12px;color:#1c1d22;">Sign in with your existing email and password.</p>`;
         const html = `<div style="font-family:Verdana,Geneva,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;">
-          <div style="font-size:20px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
-          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Hi ${who},</p>
-          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">You've been given access to the <strong>TMKE admin centre</strong>.</p>
+          <div style="font-size:24px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
+          <p style="margin:0 0 14px;font-size:12px;color:#1c1d22;">Hi ${who},</p>
+          <p style="margin:0 0 14px;font-size:12px;color:#1c1d22;">You've been given access to the <strong>TMKE admin centre</strong>.</p>
           ${credLine}
-          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:9px;padding:12px 22px;">Open the admin centre</a></p>
-          <p style="margin:0;font-size:12.5px;color:#9a9aa0;">If you weren't expecting this, you can ignore this email.</p>
+          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:12px;font-weight:700;border-radius:9px;padding:12px 22px;">Open the admin centre</a></p>
+          <p style="margin:0;font-size:10px;color:#9a9aa0;">If you weren't expecting this, you can ignore this email.</p>
         </div>`;
         try { await sendEmail(env, { to: email, subject: "Your TMKE admin access", html }); } catch (_) {}
 
@@ -4666,14 +4666,14 @@ export default {
         const who = fullName ? fullName.split(" ")[0] : "there";
         const loginUrl = "https://tmke.co.uk/admin/login";
         const html = `<div style="font-family:Verdana,Geneva,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;">
-          <div style="font-size:20px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
-          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Hi ${who},</p>
-          <p style="margin:0 0 14px;font-size:15px;color:#1c1d22;">Your <strong>TMKE admin</strong> password has been reset. Your previous password no longer works.</p>
-          <p style="margin:0 0 6px;font-size:15px;color:#1c1d22;">Sign in with your email and this temporary password:</p>
-          <p style="margin:0 0 18px;"><span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:16px;font-weight:700;letter-spacing:0.04em;background:#f4f2f1;border:1px solid #e4ded9;border-radius:8px;padding:9px 14px;color:#371e28;">${tempPassword}</span></p>
-          <p style="margin:0 0 18px;font-size:13.5px;color:#6b6b70;">Please change it once you're in (Forgot password on the sign-in screen).</p>
-          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:9px;padding:12px 22px;">Open the admin centre</a></p>
-          <p style="margin:0;font-size:12.5px;color:#9a9aa0;">If you didn't expect this, contact hello@tmke.co.uk.</p>
+          <div style="font-size:24px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
+          <p style="margin:0 0 14px;font-size:12px;color:#1c1d22;">Hi ${who},</p>
+          <p style="margin:0 0 14px;font-size:12px;color:#1c1d22;">Your <strong>TMKE admin</strong> password has been reset. Your previous password no longer works.</p>
+          <p style="margin:0 0 6px;font-size:12px;color:#1c1d22;">Sign in with your email and this temporary password:</p>
+          <p style="margin:0 0 18px;"><span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;letter-spacing:0.04em;background:#f4f2f1;border:1px solid #e4ded9;border-radius:8px;padding:9px 14px;color:#371e28;">${tempPassword}</span></p>
+          <p style="margin:0 0 18px;font-size:12px;color:#6b6b70;">Please change it once you're in (Forgot password on the sign-in screen).</p>
+          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:12px;font-weight:700;border-radius:9px;padding:12px 22px;">Open the admin centre</a></p>
+          <p style="margin:0;font-size:10px;color:#9a9aa0;">If you didn't expect this, contact hello@tmke.co.uk.</p>
         </div>`;
         try { await sendEmail(env, { to: email, subject: "Your TMKE admin password has been reset", html }); } catch (_) {}
 
@@ -5011,9 +5011,9 @@ export default {
         if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
         const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
         const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const html = `<div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:15px;line-height:1.6;max-width:560px">
+        const html = `<div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:12px;line-height:1.6;max-width:560px">
           <p style="margin:0 0 14px"><strong>Invoice ${esc(inv.number)} has been voided</strong> and removed from the system — please disregard it.</p>
-          <table style="border-collapse:collapse;margin:0 0 14px;font-size:15px">
+          <table style="border-collapse:collapse;margin:0 0 14px;font-size:12px">
             <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(inv.bill_to_name || "")}</strong></td></tr>
             <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Amount</td><td style="padding:2px 0">${money(inv.total_pence)}</td></tr>
             ${inv.billing_month ? `<tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Period</td><td style="padding:2px 0">${esc(inv.billing_month)}</td></tr>` : ""}
@@ -5142,7 +5142,7 @@ export default {
             const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             await sendEmail(env, {
               to: lead.email, subject: `Your meeting with TMKE — ${dateNice}`,
-              html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:14px;margin:0 0 12px">Hi ${esc(lead.first_name || "")},</p><p style="font-size:15px;line-height:1.6">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`,
+              html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:12px;margin:0 0 12px">Hi ${esc(lead.first_name || "")},</p><p style="font-size:12px;line-height:1.6">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`,
               attachments: [{ filename: "meeting.ics", content: icsB64, contentType: "text/calendar" }],
               from: env.SMM_MAIL_SENDER || undefined, fromName: env.SMM_MAIL_SENDER ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : undefined,
             });
@@ -5270,11 +5270,11 @@ export default {
         } catch (_) {}
         const content = `
           <h1 style="font-family:Verdana,Geneva,sans-serif;font-size:24px;color:#371e28;margin:0 0 14px;">Welcome to your TMKE member hub</h1>
-          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;">Hi ${esc(first)},</p>
-          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;">As one of our social media management clients, you can manage and oversee your account through our member hub — your plan, your monthly performance reports and everything in one place.</p>
-          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 22px;">Click below to set your password and open your account.</p>
-          <p style="margin:0 0 24px;"><a href="${esc(actionLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:14px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
-          <p style="font-size:13px;line-height:1.6;color:#8a8796;margin:0;">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(actionLink)}</span></p>`;
+          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">Hi ${esc(first)},</p>
+          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">As one of our social media management clients, you can manage and oversee your account through our member hub — your plan, your monthly performance reports and everything in one place.</p>
+          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 22px;">Click below to set your password and open your account.</p>
+          <p style="margin:0 0 24px;"><a href="${esc(actionLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:12px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
+          <p style="font-size:12px;line-height:1.6;color:#8a8796;margin:0;">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(actionLink)}</span></p>`;
         const html = await wrapInBrandedBase(env, content);
         const sent = await sendEmail(env, { to: email, subject: "Create your TMKE member hub account", html });
         if (!sent.ok) return json({ ok: false, linked: true, emailFailed: true, error: sent.error || "The account is linked, but the invite email didn't send." }, 200, request, env);
@@ -5666,11 +5666,11 @@ export default {
         const joinLink = `${site}/join?email=${encodeURIComponent(email)}${fullName ? `&name=${encodeURIComponent(fullName)}` : ""}`;
         const content = `
           <h1 style="font-family:Verdana,Geneva,sans-serif;font-size:24px;color:#371e28;margin:0 0 14px;">Create your TMKE account</h1>
-          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;">Hi ${esc(first)},</p>
-          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;">We'd love to set you up with a TMKE member account — your own space to design content, plan your marketing, browse The Edit, book shoots and keep everything in one place.</p>
-          <p style="font-size:15px;line-height:1.6;color:#40353a;margin:0 0 22px;">It only takes a minute. Click below to get started.</p>
-          <p style="margin:0 0 24px;"><a href="${esc(joinLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:14px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
-          <p style="font-size:13px;line-height:1.6;color:#8a8796;margin:0;">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(joinLink)}</span></p>`;
+          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">Hi ${esc(first)},</p>
+          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">We'd love to set you up with a TMKE member account — your own space to design content, plan your marketing, browse The Edit, book shoots and keep everything in one place.</p>
+          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 22px;">It only takes a minute. Click below to get started.</p>
+          <p style="margin:0 0 24px;"><a href="${esc(joinLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:12px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
+          <p style="font-size:12px;line-height:1.6;color:#8a8796;margin:0;">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(joinLink)}</span></p>`;
         const html = await wrapInBrandedBase(env, content);
         const sent = await sendEmail(env, { to: email, subject: "Create your TMKE account", html });
         if (!sent.ok) return json({ ok: false, emailFailed: true, error: sent.error || "The invite email didn't send." }, 200, request, env);
