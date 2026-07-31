@@ -137,6 +137,54 @@ it is never offered for install.
   to the edge and a circular mask would clip them. Fine on desktop; revisit
   with padded variants if members start installing on Android.
 
+## 4b. Insights — website + member hub ⬜
+
+Added 31 Jul. **Nothing surfaces any of it today.** There is no analytics
+product on the site (no GA, no Plausible or similar), and no dashboard reading
+what we already collect.
+
+Worth knowing before anyone reaches for a third party: **`site_events` already
+exists** (`supabase/site_events.sql`, written by `src/lib/track.js`) and is
+already recording. It is keyed by `session_id` / `user_id`, so it can answer
+hub questions — which pages members use, where they drop out — that Google
+Analytics cannot, because it knows who is signed in.
+
+- ⬜ Decide the split: a third party for anonymous marketing traffic, our own
+  data for signed-in hub behaviour. They answer different questions and one
+  won't do both well.
+- ⬜ Audit what `site_events` records now, and what's missing.
+- ⬜ An admin insights page. The funnel-audit page is the nearest existing
+  pattern.
+
+## 4c. SEO and Google indexing ⬜
+
+Added 31 Jul, after James searched "TMKE" and the site didn't appear despite
+being live for weeks. Checked the same day — **nothing is blocking Google**, so
+this is almost certainly "never told Google it exists" rather than a fault:
+
+- ✅ Not a robots problem. `robots.txt` is Cloudflare-generated (there is none
+  in `public/`) and allows all search crawlers: `User-agent: * / Allow: /`. It
+  blocks AI training bots (GPTBot, CCBot, ClaudeBot, Google-Extended and
+  others) — which is a content decision, not an indexing one. `Google-Extended`
+  is Gemini training, **not** Google Search.
+- ✅ Not a noindex problem. Home, About, Services, Videography, Contact and Blog
+  all carry no robots tag.
+- ✅ The sitemap is live and healthy — `/sitemap-index.xml` → `/sitemap-0.xml`,
+  **70 URLs**.
+- ⬜ **Google Search Console is not verified.** No verification meta tag and no
+  verification file. So nobody has submitted the sitemap, and there is no way
+  to see what Google thinks of the site. **This is the first thing to do.**
+- ⬜ **`robots.txt` does not point at the sitemap.** Since Cloudflare generates
+  it, adding `Sitemap: https://tmke.co.uk/sitemap-index.xml` means either
+  putting a real `robots.txt` in `public/` (which overrides Cloudflare's, so
+  the AI-bot rules would need copying across) or adding it in the Cloudflare
+  dashboard.
+- ⬜ Then the ordinary SEO pass: titles, meta descriptions, headings, internal
+  linking, and whether the pages say what people actually search for.
+
+A new domain not appearing for its own brand name after a few weeks is normal
+when it has never been submitted. It is not evidence of a penalty.
+
 ## 5. Social media portfolio ⬜
 
 Not complete. Needs scoping — what's missing, and what "complete" looks like.
