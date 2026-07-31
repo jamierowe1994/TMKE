@@ -1628,10 +1628,25 @@ async function brandMasterSocials(env) {
 // all the chrome (card, logo, divider, footer with contact + socials), so the
 // content passed in is JUST the words — no wrapper div, no max-width, and no
 // hand-rolled "Sent by TMKE" footer (the base already has one).
-const EM_H1 = 'font-family:Georgia,serif;font-size:24px;color:#371e28;margin:0 0 14px;';
-const EM_P = 'font-size:15px;line-height:1.6;color:#40353a;margin:0 0 14px;';
-const EM_QUOTE = 'background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:14px;line-height:1.6;color:#40353a;white-space:pre-wrap;margin:0 0 14px;';
-const EM_BTN = 'display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:700;padding:13px 26px;border-radius:8px;';
+// House style for every automated email's body copy, to James's spec (31 Jul):
+// Verdana throughout, body/button/quote 11px, headings 24px, line-height 1.6,
+// dark #371e28 on light #f4f2f1, 10px radius on the quote box.
+//
+// Previously headings were Georgia and buttons Arial — two typefaces, neither
+// of them the brand's, in the same email. That mismatch is what made these look
+// subtly wrong without being nameable.
+//
+// These are fixed rather than read from the branded base on purpose: the base
+// styles its OWN blocks, while this copy arrives as pre-built HTML, so the two
+// have to be kept in step by hand. If that drifts, the fix is to make the base
+// drive these (see the note on the content slot below).
+const EM_FONT = 'Verdana, Geneva, sans-serif';
+const EM_DARK = '#371e28';
+const EM_LIGHT = '#f4f2f1';
+const EM_H1 = `font-family:${EM_FONT};font-size:24px;line-height:1.6;color:${EM_DARK};margin:0 0 14px;`;
+const EM_P = `font-family:${EM_FONT};font-size:11px;line-height:1.6;color:${EM_DARK};margin:0 0 14px;`;
+const EM_QUOTE = `background:${EM_LIGHT};border-left:3px solid ${EM_DARK};border-radius:10px;padding:14px 16px;font-family:${EM_FONT};font-size:11px;line-height:1.6;color:${EM_DARK};white-space:pre-wrap;margin:0 0 14px;`;
+const EM_BTN = `display:inline-block;background:${EM_DARK};color:${EM_LIGHT};text-decoration:none;font-family:${EM_FONT};font-size:11px;line-height:1.6;font-weight:700;padding:13px 26px;border-radius:8px;`;
 
 // Sample renders of the automated emails, so the admin Automated-emails page can
 // show what one actually looks like — and send that exact render as a test.
@@ -1656,9 +1671,13 @@ function emailPreviewSample(id) {
 // padding (horizontal inset) rather than losing tuned spacing.
 function baseContentSlot(blk, contentHtml) {
   const p = (blk && blk.pad) || {};
-  const inner = (p.t || p.r || p.b || p.l)
-    ? `<div style="padding:${p.t || 0}px ${p.r || 0}px ${p.b || 0}px ${p.l || 0}px;">${contentHtml}</div>`
-    : contentHtml;
+  const wrap = [];
+  if (p.t || p.r || p.b || p.l) wrap.push(`padding:${p.t || 0}px ${p.r || 0}px ${p.b || 0}px ${p.l || 0}px`);
+  // Alignment DOES come from the base. The slot used to carry only padding and
+  // margin, so a centred base still produced left-aligned content — the body
+  // copy sets no text-align of its own, and had nothing to inherit from.
+  if (['left', 'center', 'right'].includes(blk && blk.align)) wrap.push(`text-align:${blk.align}`);
+  const inner = wrap.length ? `<div style="${wrap.join(';')};">${contentHtml}</div>` : contentHtml;
   const slot = { type: "code", id: "txc", html: inner };
   if (blk && blk.margin) slot.margin = blk.margin;
   return slot;
