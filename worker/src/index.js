@@ -1274,6 +1274,7 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
     <p style="${EM_P}">${intro}</p>
     <div style="${EM_QUOTE}">${rowsHtml}${totalHtml}</div>
     ${manageUrl ? `<p style="${EM_P}"><a href="${esc(manageUrl)}" style="${EM_BTN}">${cta} &rarr;</a></p>` : ""}
+    ${prepHtml ? `<hr style="${EM_RULE}" />` : ""}
     ${prepHtml}
     <p style="${EM_SMALL}">${policy}</p>
   </div>`;
@@ -1642,7 +1643,7 @@ async function brandMasterSocials(env) {
 // happening at the same moment.
 const EM_STR = emailStyleStrings(EMAIL_STYLE_DEFAULTS);
 const EM_FONT = EM_STR.font, EM_DARK = EM_STR.dark, EM_LIGHT = EM_STR.light;
-const EM_H1 = EM_STR.h1, EM_P = EM_STR.p, EM_QUOTE = EM_STR.quote, EM_BTN = EM_STR.btn, EM_SMALL = EM_STR.small, EM_WRAP = EM_STR.wrap, EM_QUOTE_TEXT = EM_STR.quoteText, EM_BTN_BARE = EM_STR.btnBare;
+const EM_H1 = EM_STR.h1, EM_P = EM_STR.p, EM_QUOTE = EM_STR.quote, EM_BTN = EM_STR.btn, EM_SMALL = EM_STR.small, EM_WRAP = EM_STR.wrap, EM_QUOTE_TEXT = EM_STR.quoteText, EM_BTN_BARE = EM_STR.btnBare, EM_RULE = EM_STR.rule;
 
 // The admin's saved settings, cached across requests in the same isolate. A
 // minute is short enough that a change shows up almost at once, long enough

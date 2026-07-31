@@ -138,6 +138,11 @@ console.log('\n11. Automated-email house style rewrites correctly');
   const bb = `<a style="${emailStyleStrings(D).btnBare}">Go</a>`;
   check('bulletproof button stays transparent', !/background:/.test(bb), true);
   check('...but still takes the size', /font-size:18px/.test(styleEmailContent(bb, { ...D, buttonSize: 18 })), true);
+  const r = `<hr style="${emailStyleStrings(D).rule}" />`;
+  check('divider is 20px clear either side by default', /margin:20px 0/.test(r), true);
+  check('divider takes the dark colour', /solid #371e28/.test(r), true);
+  check('divider gap responds', /margin:40px 0/.test(styleEmailContent(r, { ...D, ruleGap: 40 })), true);
+  check('divider follows a colour change', /solid #001122/.test(styleEmailContent(r, { ...D, dark: '#001122' })), true);
   const sm = `<p style="${emailStyleStrings(D).small}">s</p>`;
   check('small print colour responds', /color:#123456/.test(styleEmailContent(sm, { ...D, smallColor: '#123456' })), true);
   // The font stack in the HTML has no spaces; a spaced default matched nothing.
