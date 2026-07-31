@@ -100,8 +100,11 @@
 @media (max-width: 560px) { .dc-field-row { grid-template-columns: 1fr; } }
 .dc-field { display: flex; flex-direction: column; gap: 7px; }
 .dc-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); }
-.dc-field input, .dc-field textarea { font-family: var(--sans); font-size: 15px; padding: 13px 15px; border: 1px solid rgba(var(--violet-rgb),0.28); border-radius: 8px; background: #fff; color: var(--ink); transition: border-color 0.25s, box-shadow 0.25s; resize: vertical; }
-.dc-field input:focus, .dc-field textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+.dc-field input, .dc-field textarea, .dc-field select { font-family: var(--sans); font-size: 15px; padding: 13px 15px; border: 1px solid rgba(var(--violet-rgb),0.28); border-radius: 8px; background: #fff; color: var(--ink); transition: border-color 0.25s, box-shadow 0.25s; resize: vertical; }
+.dc-field input:focus, .dc-field textarea:focus, .dc-field select:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+/* Native selects ignore most styling; a custom chevron plus appearance:none is
+   the only way to get one that matches the inputs beside it. */
+.dc-field select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 40px; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px; }
 .dc-form-summary { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.7); margin: 0 0 22px; padding: 14px 16px; background: rgba(var(--violet-rgb),0.07); border-left: 3px solid var(--english-violet); border-radius: 0 6px 6px 0; }
 .dc-form-summary:empty { display: none; }
 .dc-gate-error { font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: #8a3b2f; background: rgba(185,90,70,0.10); border: 1px solid rgba(185,90,70,0.32); border-radius: 8px; padding: 12px 14px; margin: 2px 0 0; }
@@ -127,6 +130,24 @@
    from the clauses because it is the line that differs between the three
    property agreements. */
 .dc-terms-intro { font-weight: 600; color: rgba(28,29,34,0.8) !important; margin: 0 0 6px !important; }
+/* ---- Payment route (Fine & Country property) -------------------------------
+   Each option is a card: the choice on its own line, the explanation beneath
+   it. Run together on one line they read as a single paragraph and the two
+   options are hard to tell apart. */
+.dc-pay-opts { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.dc-pay-opt { display: flex; align-items: flex-start; gap: 13px; padding: 16px 18px; border: 1px solid rgba(var(--violet-rgb),0.28); border-radius: 10px; background: #fff; cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; }
+.dc-pay-opt:hover { border-color: var(--english-violet); }
+.dc-pay-opt input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--english-violet); flex: none; }
+.dc-pay-opt > span { display: block; }
+.dc-pay-opt strong { display: block; font-family: var(--sans); font-size: 15px; font-weight: 700; color: var(--ink); }
+.dc-pay-opt em { display: block; margin-top: 5px; font-family: var(--sans); font-style: normal; font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.62); }
+/* :has keeps the selected state in CSS rather than needing a class toggled in JS. */
+.dc-pay-opt:has(input:checked) { border-color: var(--english-violet); background: rgba(var(--violet-rgb),0.04); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.10); }
+
+/* The office question only appears once the marketing fee is chosen, so it
+   needs its own breathing room from the options above it. */
+#vb-pay-fee { margin-top: 26px; }
+
 .dc-agree-row { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0 6px; font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.85); cursor: pointer; }
 .dc-agree-row input { margin-top: 2px; width: 18px; height: 18px; accent-color: var(--english-violet); }
 .dc-agree-row input:disabled { cursor: not-allowed; }
