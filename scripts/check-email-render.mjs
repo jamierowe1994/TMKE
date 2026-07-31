@@ -121,6 +121,8 @@ console.log('\n11. Automated-email house style rewrites correctly');
   check('body line height responds', /line-height:2/.test(styleEmailContent(par, { ...D, bodyLine: 2 })), true);
   const q = `<div style="${emailStyleStrings(D).quote}">Q</div>`;
   check('quote background responds', /background:#ff0000/.test(styleEmailContent(q, { ...D, quoteBg: '#ff0000' })), true);
+  check('quote line height is independent of body', /line-height:1\.2/.test(styleEmailContent(q, { ...D, quoteLine: 1.2 })), true);
+  check('...and body line height does not move it', !/line-height:2/.test(styleEmailContent(q, { ...D, bodyLine: 2 })), true);
   const sm = `<p style="${emailStyleStrings(D).small}">s</p>`;
   check('small print colour responds', /color:#123456/.test(styleEmailContent(sm, { ...D, smallColor: '#123456' })), true);
   // The font stack in the HTML has no spaces; a spaced default matched nothing.

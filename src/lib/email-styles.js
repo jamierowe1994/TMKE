@@ -30,7 +30,7 @@ export const EMAIL_STYLE_DEFAULTS = {
   buttonSize: 12, buttonWeight: 700, buttonRadius: 8, buttonPadY: 13, buttonPadX: 26,
   buttonBg: '#371e28', buttonColor: '#f4f2f1',
   quoteEnabled: true, quoteBg: '#f4f2f1', quoteBorderColor: '#371e28',
-  quoteBorderWidth: 3, quoteRadius: 10, quotePadY: 14, quotePadX: 16,
+  quoteBorderWidth: 3, quoteRadius: 10, quotePadY: 14, quotePadX: 16, quoteLine: 1.6,
 };
 
 /** The font choices offered in the editor. Email-safe stacks only — a webfont
@@ -56,8 +56,8 @@ export function emailStyleStrings(input) {
   // Quote box off = a plain paragraph, so switching it off doesn't leave an
   // empty bordered container behind.
   const quote = s.quoteEnabled === false
-    ? `font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.bodyLine};color:${s.dark};white-space:pre-wrap;margin:0 0 ${s.bodyGap}px;`
-    : `background:${s.quoteBg};border-left:${s.quoteBorderWidth}px solid ${s.quoteBorderColor};border-radius:${s.quoteRadius}px;padding:${s.quotePadY}px ${s.quotePadX}px;font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.bodyLine};color:${s.dark};white-space:pre-wrap;margin:0 0 ${s.bodyGap}px;`;
+    ? `font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.quoteLine};color:${s.dark};white-space:pre-wrap;margin:0 0 ${s.bodyGap}px;`
+    : `background:${s.quoteBg};border-left:${s.quoteBorderWidth}px solid ${s.quoteBorderColor};border-radius:${s.quoteRadius}px;padding:${s.quotePadY}px ${s.quotePadX}px;font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.quoteLine};color:${s.dark};white-space:pre-wrap;margin:0 0 ${s.bodyGap}px;`;
   const btn = `display:inline-block;background:${s.buttonBg};color:${s.buttonColor};text-decoration:none;font-family:${s.font};font-size:${s.buttonSize}px;line-height:${s.bodyLine};font-weight:${s.buttonWeight};padding:${s.buttonPadY}px ${s.buttonPadX}px;border-radius:${s.buttonRadius}px;`;
   const small = `font-family:${s.font};font-size:${s.smallSize}px;line-height:${s.bodyLine};color:${s.smallColor};margin:${s.smallGap}px 0 0;`;
   return { h1, p, quote, btn, small, font: s.font, dark: s.dark, light: s.light };
