@@ -205,6 +205,22 @@ const SPACING_DEFAULTS = {
 };
 export function spacingDefaults(type) { return SPACING_DEFAULTS[type] || SPACING_DEFAULTS._default; }
 function _pick(v, d) { return (v != null && v !== '') ? pxNum(v, d) : d; }
+
+/** Does this override object actually carry a value? Distinguishes "the user
+ *  set 0" from "the user set nothing", which a truthiness check like
+ *  `if (t || r || b || l)` cannot — that is why setting mobile padding to zero
+ *  used to produce no rule at all and leave the desktop padding in place. */
+function hasAnyValue(o) { return !!o && Object.keys(o).some((k) => o[k] != null && o[k] !== ''); }
+
+/** Merge an override over a base, ignoring keys that carry no value.
+ *  A plain spread lets an `undefined` from a cleared field overwrite the
+ *  desktop value, which then falls through to the TYPE DEFAULT rather than
+ *  inheriting — so "blank = inherit desktop" quietly meant the opposite. */
+function mergeDefined(base, over) {
+  const out = { ...(base || {}) };
+  Object.keys(over || {}).forEach((k) => { if (over[k] != null && over[k] !== '') out[k] = over[k]; });
+  return out;
+}
 export function resolvePad(block) { const d = spacingDefaults(block.type).pad, p = block.pad || {}; return { t: _pick(p.t, d.t), r: _pick(p.r, d.r), b: _pick(p.b, d.b), l: _pick(p.l, d.l) }; }
 export function resolveMargin(block) { const d = spacingDefaults(block.type).margin, m = block.margin || {}; return { t: _pick(m.t, d.t), r: _pick(m.r, d.r), b: _pick(m.b, d.b), l: _pick(m.l, d.l) }; }
 function padStyleResolved(block) { const p = resolvePad(block); return (p.t || p.r || p.b || p.l) ? `padding:${p.t}px ${p.r}px ${p.b}px ${p.l}px;` : ''; }
@@ -287,9 +303,13 @@ function responsiveDecls(block) {
   if (m.lineHeight != null && m.lineHeight !== '') d.push(`line-height:${Number(m.lineHeight)} !important`);
   if (m.letterSpacing != null && m.letterSpacing !== '') d.push(`letter-spacing:${Number(m.letterSpacing)}px !important`);
   if (['left', 'center', 'right'].includes(m.align)) d.push(`text-align:${m.align} !important`);
-  if (m.pad) {
-    const t = pxNum(m.pad.t, 0), r = pxNum(m.pad.r, 0), b = pxNum(m.pad.b, 0), l = pxNum(m.pad.l, 0);
-    if (t || r || b || l) d.push(`padding:${t}px ${r}px ${b}px ${l}px !important`);
+  // Built from the MERGED padding, so a partial override keeps the desktop
+  // values for the sides it doesn't mention. Emitted whenever any mobile side
+  // carries a value, including 0 — "set mobile padding to nothing" is a real
+  // instruction and used to be silently discarded.
+  if (hasAnyValue(m.pad)) {
+    const p = resolvePad(effectiveBlock(block, 'mobile'));
+    d.push(`padding:${p.t}px ${p.r}px ${p.b}px ${p.l}px !important`);
   }
   return d;
 }
@@ -302,18 +322,23 @@ export function effectiveBlock(block, device) {
   const m = block.mobile;
   const out = { ...block };
   ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness', 'iconSize', 'iconGap'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
-  if (m.pad) out.pad = { ...(block.pad || {}), ...m.pad };
-  // Margin is per-device too — a mobile override merges over the desktop values,
-  // so setting just the top on mobile leaves the other three inherited.
-  if (m.margin) out.margin = { ...(block.margin || {}), ...m.margin };
+  // Padding and margin are per-device: a mobile override merges OVER the
+  // desktop values, so setting just the top on mobile leaves the other three
+  // inherited rather than zeroed. mergeDefined (not a spread) is what makes
+  // "blank = inherit desktop" actually true.
+  if (hasAnyValue(m.pad)) out.pad = mergeDefined(block.pad, m.pad);
+  if (hasAnyValue(m.margin)) out.margin = mergeDefined(block.margin, m.margin);
   return out;
 }
 
-// Padding decl helper for a mobile override (returns '' or 'padding:… !important').
-function mobPad(pad) {
-  if (!pad) return '';
-  const t = pxNum(pad.t, 0), r = pxNum(pad.r, 0), b = pxNum(pad.b, 0), l = pxNum(pad.l, 0);
-  return (t || r || b || l) ? `padding:${t}px ${r}px ${b}px ${l}px !important` : '';
+// Padding decl for a block's mobile override (returns '' or 'padding:… !important').
+// Takes the whole block, not just the pad object, because the value has to be
+// merged over the desktop padding — otherwise setting one side wipes the rest.
+function mobPad(block) {
+  const m = (block && block.mobile) || {};
+  if (!hasAnyValue(m.pad)) return '';
+  const p = resolvePad(effectiveBlock(block, 'mobile'));
+  return `padding:${p.t}px ${p.r}px ${p.b}px ${p.l}px !important`;
 }
 
 // Per-type mobile CSS. Buttons/images/dividers split across a wrapper class
@@ -323,7 +348,7 @@ function buttonResponsiveCss(block) {
   const m = block.mobile || {}, rules = [], inner = [];
   if (m.size != null && m.size !== '') inner.push(`font-size:${pxNum(m.size, 14)}px !important`);
   if (m.letterSpacing != null && m.letterSpacing !== '') inner.push(`letter-spacing:${Number(m.letterSpacing)}px !important`);
-  const ip = mobPad(m.pad); if (ip) inner.push(ip);
+  const ip = mobPad(block); if (ip) inner.push(ip);
   if (inner.length) rules.push(`.eb-b-${block.id}{${inner.join(';')};}`);
   if (['left', 'center', 'right'].includes(m.align)) rules.push(`.eb-bw-${block.id}{text-align:${m.align} !important;}`);
   return rules.join('\n    ');
@@ -334,14 +359,14 @@ function imageResponsiveCss(block) {
   if (m.height != null && m.height !== '') inner.push(`height:${pxNum(m.height, 0)}px !important`);
   if (inner.length) rules.push(`.eb-b-${block.id}{${inner.join(';')};}`);
   if (['left', 'center', 'right'].includes(m.align)) wrap.push(`text-align:${m.align} !important`);
-  const wp = mobPad(m.pad); if (wp) wrap.push(wp);
+  const wp = mobPad(block); if (wp) wrap.push(wp);
   if (wrap.length) rules.push(`.eb-bw-${block.id}{${wrap.join(';')};}`);
   return rules.join('\n    ');
 }
 function dividerResponsiveCss(block) {
   const m = block.mobile || {}, rules = [], wrap = [];
   if (['left', 'center', 'right'].includes(m.align)) wrap.push(`text-align:${m.align} !important`);
-  const wp = mobPad(m.pad); if (wp) wrap.push(wp);
+  const wp = mobPad(block); if (wp) wrap.push(wp);
   if (wrap.length) rules.push(`.eb-bw-${block.id}{${wrap.join(';')};}`);
   if (m.width != null && m.width !== '') rules.push(`.eb-b-${block.id}{width:${Math.max(1, Math.min(100, Number(m.width)))}% !important;}`);
   return rules.join('\n    ');
@@ -368,26 +393,32 @@ function socialResponsiveCss(block) {
     if (Number.isFinite(gap) && gap >= 0) aDecls.push(`margin:0 ${Math.min(60, gap) / 2}px !important`);
   }
   const rules = [];
+  // Desktop padding sits on this same container (see renderSocial), so the
+  // mobile override belongs here too. It was the only block type whose padding
+  // control did nothing on mobile.
+  const sp = mobPad(block);
+  if (sp) rules.push(`${sel}{${sp};}`);
   if (aDecls.length) rules.push(`${sel} a{${aDecls.join(';')};}`);
   if (svgDecls.length) rules.push(`${sel} svg{${svgDecls.join(';')};}`);
   return rules.join('\n    ');
 }
 function blockResponsiveCss(block) {
   if (!block) return '';
-  // Columns: gather each child's mobile rules (children carry their own classes).
+  const parts = [];
+  // Columns: gather each child's mobile rules (children carry their own
+  // classes), then carry on — this used to RETURN here, so a columns block's
+  // own mobile margin was silently discarded even though wrapOuter had already
+  // stamped the .eb-mw-<id> class on it for exactly that purpose.
   if (block.type === 'columns') {
     const cols = Array.isArray(block.cols) ? block.cols : [];
-    const parts = [];
     cols.forEach((col) => (col || []).forEach((cb) => { const c = blockResponsiveCss(cb); if (c) parts.push(c); }));
-    return parts.join('\n    ');
   }
-  if (!block.mobile) return '';
-  const parts = [];
+  if (!block.mobile) return parts.join('\n    ');
   // Margin sits on the outer wrapper and is type-agnostic, so handle it here
   // rather than in the per-type switch below (which drops unknown types).
   // Built from the MERGED margin so a partial override (e.g. only top) keeps
   // the desktop values for the other sides instead of zeroing them.
-  if (block.mobile.margin) {
+  if (hasAnyValue(block.mobile.margin)) {
     const mm = resolveMargin(effectiveBlock(block, 'mobile'));
     parts.push(`.eb-mw-${block.id}{padding:${mm.t}px ${mm.r}px ${mm.b}px ${mm.l}px !important;}`);
   }

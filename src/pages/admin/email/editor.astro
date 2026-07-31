@@ -806,8 +806,13 @@ import "../../../styles/admin.css";
     function dPad(b, device){
       const isM = device==="mobile";
       const dflt = spacingDefaults(b.type).pad;
-      const pad = isM ? ((b.mobile&&b.mobile.pad)||{}) : (b.pad||{});
-      const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="${isM?`mobile.pad.${k}`:`pad.${k}`}" value="${pad[k]!=null?pad[k]:""}" placeholder="${dflt[k]!=null?dflt[k]:0}"/></label>`;
+      const desk = b.pad||{};
+      const pad = isM ? ((b.mobile&&b.mobile.pad)||{}) : desk;
+      // On mobile the placeholder must show what blank INHERITS — the desktop
+      // value, falling back to the type default. Showing the type default (as
+      // this did) mis-signals what leaving it empty will do. Matches marginFields.
+      const ph = (k)=> isM ? (desk[k]!=null&&desk[k]!==""?desk[k]:(dflt[k]!=null?dflt[k]:0)) : (dflt[k]!=null?dflt[k]:0);
+      const cell = (k,l)=>`<label class="eb-pad-cell"><span>${l}</span><input type="number" min="0" max="120" data-field="${isM?`mobile.pad.${k}`:`pad.${k}`}" value="${pad[k]!=null?pad[k]:""}" placeholder="${ph(k)}"/></label>`;
       return `<div class="eb-pad"><span class="eb-f-sub">Padding · inside</span><div class="eb-pad-row">${cell("t","T")}${cell("r","R")}${cell("b","B")}${cell("l","L")}</div></div>`;
     }
     // Margin = OUTSIDE spacing. Per-device like padding: on mobile it writes to
@@ -1073,7 +1078,11 @@ import "../../../styles/admin.css";
         default: return "";
       }
     }
-    function setPath(o,p,v){ const ks=p.split("."); let c=o; for(let i=0;i<ks.length-1;i++){ if(typeof c[ks[i]]!=="object"||c[ks[i]]==null) c[ks[i]]={}; c=c[ks[i]]; } c[ks[ks.length-1]]=v; }
+    // Clearing a field DELETES the key rather than setting it to undefined. An
+    // undefined key still takes part in a merge and overwrites the desktop
+    // value it was supposed to inherit, which is how "blank = inherit desktop"
+    // came to mean "blank = fall back to the type default".
+    function setPath(o,p,v){ const ks=p.split("."); let c=o; for(let i=0;i<ks.length-1;i++){ if(typeof c[ks[i]]!=="object"||c[ks[i]]==null) c[ks[i]]={}; c=c[ks[i]]; } const last=ks[ks.length-1]; if(v===undefined) delete c[last]; else c[last]=v; }
     // Shared "Visible on" control appended to EVERY block's inspector — sets
     // b.hide.{desktop,mobile}. Uses the Outlook-safe hide technique in the renderer.
     function visibilityControl(b){

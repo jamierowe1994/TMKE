@@ -113,16 +113,29 @@ Related, found in the audit:
   publishes it immediately — there's no draft/published column on
   `smm_reports`, and the member read returns every row.
 
-## 4. Member hub as an installable app ⬜
+## 4. Member hub as an installable app ✅ (31 Jul)
 
-Install it from Chrome and have it on the desktop, so members reach the Studio
-without going through the website. Not a native app — a PWA.
+Two apps, not one: the admin centre and the member hub are used by different
+people and each installs separately. The marketing site links no manifest, so
+it is never offered for install.
 
-- ⬜ Nothing exists yet: there's no web manifest anywhere in the repo.
-- Needs: a manifest, icons, a service worker, and a decision on what the app
-  opens into (the dashboard rather than the marketing site).
-- NB: the same thing was done on the TEG paid-ads platform, so there's a
-  working reference to crib from.
+- ✅ **TMKE Admin** — scope `/admin/`, opens on `/admin/`.
+- ✅ **TMKE Studio** — scope `/account/`, opens on `/account/`. Named to match
+  the icon James supplied, which reads STUDIO.
+- ✅ Prerequisite: the hub moved to a single address prefix under `/account/`
+  (see the migration commit) — an app is scoped to a path, not a list of pages.
+- ✅ Wired in `BaseLayout.astro`; `AdminShell` wraps it too, so one path check
+  covers both areas.
+- **No service worker, on purpose.** Chrome dropped that requirement for
+  installation (112 desktop / 108 mobile), and a worker caching signed-in admin
+  pages risks serving one user another's stale data. Offline support stays a
+  separate, deliberate decision.
+- NB the old note here claimed the TEG paid-ads platform had a working PWA to
+  crib from. It does not — it has PWA-shaped icons and no manifest or service
+  worker. Built from scratch.
+- ⬜ Icons are declared `purpose: "any"`, not maskable: both wordmarks run close
+  to the edge and a circular mask would clip them. Fine on desktop; revisit
+  with padded variants if members start installing on Android.
 
 ## 5. Social media portfolio ⬜
 
@@ -216,17 +229,19 @@ and the first newsletter goes to the wrong people.
 - ⬜ `ADMIN_SETUP.md` and `AUTH_SETUP.md` are both stale — they list things as
   unbuilt (Orders, Subscribers, Enquiries, Stripe) that now exist.
 
-## 7d. Email builder — mobile spacing ⬜
+## 7d. Email builder — mobile spacing ✅
 
-Found 30 Jul while amending the branded base. The canvas half is fixed; the
-renderer half is not. **Do this before the videography work.**
+Found 30 Jul while amending the branded base, finished 31 Jul. Canvas and
+renderer both fixed; verified against the real renderer by
+`npm run test:email` (`scripts/check-email-spacing.mjs`, 11 assertions
+including a no-regression check).
 
 - ✅ **Canvas: mobile margin never applied, for any block.** `blockCard` passed
   the raw block to `resolveMargin` instead of `effectiveBlock(b, canvasDevice)`
   — every other property went through it, margin was missed. Same fix applied to
   the social block's padding, which had it too.
   (`src/pages/admin/email/editor.astro:625,582`)
-- ⬜ **"Blank = inherit desktop" is broken in the sent email.** Clearing a number
+- ✅ **"Blank = inherit desktop" is broken in the sent email.** Clearing a number
   field stores `undefined` (`editor.astro:1193` via `setPath` `:1076`), and the
   spread in `effectiveBlock` (`src/lib/email-render.js:300-310`) lets that
   `undefined` overwrite the desktop value — which then falls back to the *type
@@ -234,19 +249,19 @@ renderer half is not. **Do this before the videography work.**
   `10/0/16/0` and the 40 vanishes. Contradicts the UI's own placeholder and note
   (`editor.astro:821,835`). Fix: `delete` the key rather than assigning
   `undefined`, and/or strip undefined before the spread.
-- ⬜ **Mobile padding of 0 is silently dropped.** The `if (t||r||b||l)` guards at
+- ✅ **Mobile padding of 0 is silently dropped.** The `if (t||r||b||l)` guards at
   `email-render.js:292,316` skip an all-zero rule, so "set mobile padding to 0"
   leaves the desktop padding in place.
-- ⬜ **Mobile padding isn't merged with desktop** — `responsiveDecls:290-293` and
+- ✅ **Mobile padding isn't merged with desktop** — `responsiveDecls:290-293` and
   `mobPad:313-317` read `m.pad.*` raw with a `0` fallback, so setting only Top
   wipes the other three sides. Margin *does* merge, so the two controls behave
   inconsistently for no reason a user could guess.
-- ⬜ **Columns blocks discard their own mobile spacing.** `blockResponsiveCss`
+- ✅ **Columns blocks discard their own mobile spacing.** `blockResponsiveCss`
   (`email-render.js:378-383`) recurses into children and returns before the
   margin block at `:390`, though `wrapOuter:981` still stamps the `eb-mw-<id>`
   class on it. Social blocks ignore `mobile.pad` too
   (`socialResponsiveCss:352-374` only handles `iconSize`/`iconGap`).
-- ⬜ **Mobile padding placeholder shows the type default, not the desktop value**
+- ✅ **Mobile padding placeholder shows the type default, not the desktop value**
   (`dPad`, `editor.astro:806-812`), so the UI mis-signals what blank means.
   `marginFields:821` does it correctly — copy that.
 
