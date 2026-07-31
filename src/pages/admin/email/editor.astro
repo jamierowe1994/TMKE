@@ -45,7 +45,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
         </div>
         <div class="eb-rail-sec">
           <h4 class="eb-rail-h">Saved blocks</h4>
-          <p class="eb-note" style="margin:0 0 6px;">Click one to drop a copy in below the selected block.</p>
+          <p class="eb-note" style="margin:0 0 6px;">Click one to drop a copy in below the selected block. Saving can take a whole header or footer, not just one block.</p>
           <div id="eb-snips"><p class="eb-note">Nothing saved yet. Use ⊞ on any block to save it for reuse.</p></div>
         </div>
         <div class="eb-rail-sec">
@@ -284,6 +284,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     .eb-snip-cat { font-family:var(--sans); font-size:9px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:rgba(28,29,34,0.4); margin:8px 0 4px; }
     .eb-snip-cat:first-child { margin-top:0; }
     .eb-snip { display:flex; align-items:stretch; gap:4px; margin:0 0 4px; }
+    .eb-snip-n { float:right; font-size:10px; color:rgba(28,29,34,0.4); }
     .eb-snip-plus { display:inline-block; width:14px; color:var(--english-violet); font-weight:700; }
     .eb-snip-add { flex:1; text-align:left; font-family:var(--sans); font-size:12px; padding:7px 9px; border:1px solid rgba(28,29,34,0.14); border-radius:6px; background:#fff; cursor:pointer; }
     .eb-snip-add:hover { border-color:var(--english-violet); background:rgba(55,30,40,0.04); }
@@ -1396,22 +1397,37 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
         <div class="eb-snip-cat">${esc(cat)}</div>
         ${snippets.filter(s => (s.category || "other") === cat).map(s => `
           <div class="eb-snip">
-            <button type="button" class="eb-snip-add" data-snip-add="${esc(s.id)}" title="Insert a copy of this block"><span class="eb-snip-plus">+</span>${esc(s.name)}</button>
+            <button type="button" class="eb-snip-add" data-snip-add="${esc(s.id)}" title="Insert a copy of this block"><span class="eb-snip-plus">+</span>${esc(s.name)}${(s.blocks || []).length > 1 ? `<span class="eb-snip-n">${s.blocks.length}</span>` : ""}</button>
             <button type="button" class="eb-snip-del" data-snip-del="${esc(s.id)}" title="Delete this saved block">✕</button>
           </div>`).join("")}`).join("");
       el.querySelectorAll("[data-snip-add]").forEach(b => b.addEventListener("click", () => insertSnippet(b.dataset.snipAdd)));
       el.querySelectorAll("[data-snip-del]").forEach(b => b.addEventListener("click", () => deleteSnippet(b.dataset.snipDel)));
     }
 
+    // A footer is four or five blocks, not one, so saving has to cover a RUN of
+    // them. Headers sit at the top and footers at the bottom, so "this block and
+    // everything above/below" covers both without needing a multi-select mode.
     async function saveSnippet(bid) {
       const loc = findLoc(bid); if (!loc) return;
-      const b = loc.list[loc.index];
-      const name = prompt("Name this block (e.g. \"Standard footer\")", b.type === "logo" ? "Header" : "");
+      const list = loc.list, i = loc.index;
+      const label = (b) => (BLOCK_TYPES.find((d) => d.type === b.type) || {}).label || b.type;
+      const choice = (prompt(
+        `Save which blocks?\n\n` +
+        `1 = just this one (${label(list[i])})\n` +
+        `2 = this one and the ${list.length - i - 1} below it — a footer\n` +
+        `3 = this one and the ${i} above it — a header`, "1") || "").trim();
+      if (!["1", "2", "3"].includes(choice)) return;
+      const picked = choice === "2" ? list.slice(i) : choice === "3" ? list.slice(0, i + 1) : [list[i]];
+      if (!picked.length) return;
+
+      const guess = choice === "2" ? "footer" : choice === "3" ? "header" : "other";
+      const name = prompt(`Name these ${picked.length} block${picked.length > 1 ? "s" : ""} (e.g. "Standard footer")`,
+        guess === "other" ? "" : "Standard " + guess);
       if (name == null || !name.trim()) return;
-      let cat = (prompt("Category — header, footer or other", "other") || "other").trim().toLowerCase();
+      let cat = (prompt("Category — header, footer or other", guess) || guess).trim().toLowerCase();
       if (!SNIP_CATS.includes(cat)) cat = "other";
       const { error } = await supabase.from("email_snippets")
-        .insert({ name: name.trim(), category: cat, blocks: [clone(b)], created_by: (session && session.user && session.user.email) || null });
+        .insert({ name: name.trim(), category: cat, blocks: clone(picked), created_by: (session && session.user && session.user.email) || null });
       if (error) { alert("Couldn't save that: " + error.message); return; }
       await loadSnippets();
     }
