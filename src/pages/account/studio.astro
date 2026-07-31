@@ -1,0 +1,438 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { templates } from "../../data/library.js";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import CaptionGenerator from "../../components/CaptionGenerator.astro";
+
+// ---------------------------------------------------------------------------
+// Studio launcher — the page you land on from the "Studio" tab. Top nav only
+// (no left rail). A hero with a mock of the editor + entry CTAs, then: pick a
+// pack -> your designs -> design tools -> inspiration. Picks open the real
+// editor at /editor; pack browsing/buying lives in The Edit (/edit).
+// ---------------------------------------------------------------------------
+
+// "Pick from your packs" — the packs this account can draw on. Imagery comes
+// from real template stills; counts are illustrative until packs are wired.
+const packLabels = [
+  { name: "Real Estate", count: 42 },
+  { name: "Market Updates", count: 35 },
+  { name: "Open House", count: 28 },
+  { name: "Testimonials", count: 18 },
+  { name: "Tips & Advice", count: 34 },
+  { name: "Behind the Scenes", count: 22 },
+];
+const packs = packLabels.map((p, i) => ({
+  ...p,
+  thumb: templates[i % templates.length]?.thumb,
+}));
+
+// "Your designs" falls back to starter templates so it's never blank; JS swaps
+// in the user's real saved drafts when present.
+const starters = templates.slice(0, 4);
+
+// A real design still for the hero mock canvas.
+const heroPhoto = templates[0]?.thumb;
+
+const tools = [
+  { name: "Caption Generator", desc: "Write on-brand captions & hashtags with AI.", action: "caption", ic: "caption" },
+  { name: "Background Remover", desc: "Remove backgrounds in one click.", href: "/account/editor", ic: "scissors" },
+  { name: "Brand Kit", desc: "Apply your brand colours and fonts instantly.", href: "/account/profile", ic: "brand" },
+  { name: "Templates", desc: "Browse beautiful on-brand templates.", href: "/edit", ic: "grid" },
+];
+
+const inspo = [
+  { name: "See what's working", desc: "Check out top performing content right now.", thumb: templates[1]?.thumb, href: "/account/guides" },
+  { name: "Seasonal Moments", desc: "Relevant for what's happening now.", thumb: templates[2]?.thumb, href: "/edit" },
+  { name: "Content Ideas", desc: "Never run out of ideas again.", thumb: templates[3]?.thumb, href: "/account/guides" },
+  { name: "Brand Inspo", desc: "Designs that match your brand perfectly.", thumb: templates[4]?.thumb, href: "/edit" },
+];
+---
+<BaseLayout
+  dashboard
+  hideNav
+  hideFooter
+  title="Studio — TMKE"
+  description="Bring ideas to life. Start from your packs, pick up a design in progress, or open the Studio with a blank canvas."
+>
+  <div class="ws">
+    <WorkspaceHeader active="studio" />
+
+    <main class="st-main">
+      <!-- ============ HERO ============ -->
+      <section class="st-hero ws-rise" style="--i:0">
+        <div class="st-hero-copy">
+          <div class="st-hero-top">
+            <p class="st-eyebrow"><a href="/account" class="st-back">&larr; Workspace</a></p>
+            <h1 class="st-h1">Your <em>Design Studio.</em></h1>
+          </div>
+          <div class="st-hero-bottom">
+            <p class="st-sub">Welcome to your creative space — edit your templates, build new assets, and create content that's ready to post.</p>
+            <div class="st-cta">
+              <a class="ws-btn ws-btn--primary" href="/account/editor">Create new design
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              </a>
+              <a class="ws-btn ws-btn--ghost" href="/account/editor?import=1">Import design
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3M5 6l3-3 3 3M3 11v1.5A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+        <figure class="st-hero-media">
+          <img src="/assets/home%20kitchen.jpg" alt="" loading="eager" />
+        </figure>
+      </section>
+
+      <!-- ============ PICK FROM YOUR PACKS ============ -->
+      <section class="st-sec ws-rise" style="--i:1" aria-labelledby="packs-h">
+        <header class="st-sec-head">
+          <h2 class="st-sec-h" id="packs-h">Pick From Your Packs</h2>
+          <a class="ws-textlink" href="/edit">View all templates <span aria-hidden="true">→</span></a>
+        </header>
+        <div class="st-rail" data-rail>
+          <!-- SSR sample packs; the wirePacks script below swaps in the member's
+               actually-purchased packs (or a "Shop packs" card if they own none). -->
+          <div class="st-row st-row--packs" data-packs>
+            {packs.map((p) => (
+              <a class="st-pack" href="/edit">
+                <span class="st-pack-img" style={`background-image:url('${p.thumb}')`}><span class="st-pack-label">{p.name}</span></span>
+                <span class="st-pack-name">{p.name}</span>
+                <span class="st-pack-count">{p.count} templates</span>
+              </a>
+            ))}
+            <a class="st-pack st-pack--shop" href="/edit">
+              <span class="st-pack-img"><span class="st-pack-shop-ic">+</span></span>
+              <span class="st-pack-name">Shop more packs</span>
+              <span class="st-pack-count">Visit The Edit &rarr;</span>
+            </a>
+          </div>
+          <button type="button" class="st-arrow" data-rail-next aria-label="Scroll packs">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============ YOUR DESIGNS ============ -->
+      <section class="st-sec ws-rise" style="--i:2" aria-labelledby="designs-h">
+        <header class="st-sec-head">
+          <h2 class="st-sec-h" id="designs-h">Your Designs</h2>
+          <a class="ws-textlink" href="/account/editor" data-seeall hidden>See all designs <span aria-hidden="true">→</span></a>
+        </header>
+        <div class="st-row st-row--designs" data-designs>
+          {starters.slice(0, 4).map((t, i) => (
+            <a class="st-design" href={`/account/editor?template=${encodeURIComponent(t.id)}`}>
+              <span class="st-design-img" style={`background-image:url('${t.thumb}')`}>
+                <span class="st-design-tag">{i === 0 ? "In progress" : "Template"}</span>
+              </span>
+              <span class="st-design-name">{t.name}</span>
+              <span class="st-design-type">Instagram Post</span>
+            </a>
+          ))}
+          <a class="st-design st-design--new" href="/account/editor">
+            <span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span>
+          </a>
+        </div>
+      </section>
+
+      <!-- ============ DESIGN TOOLS ============ -->
+      <section class="st-sec ws-rise" style="--i:3" aria-labelledby="tools-h">
+        <header class="st-sec-head">
+          <h2 class="st-sec-h" id="tools-h">Design Tools</h2>
+        </header>
+        <div class="st-row st-row--tools">
+          {tools.map((t) => (
+            t.action ? (
+              <button type="button" class="st-tool" data-tool={t.action}>
+                <div class="st-tool-tx">
+                  <strong>{t.name}</strong>
+                  <span>{t.desc}</span>
+                </div>
+                <span class={`st-tool-art st-tool-art--${t.ic}`}><span class="st-tool-aa">Aa</span></span>
+              </button>
+            ) : (
+              <a class="st-tool" href={t.href}>
+                <div class="st-tool-tx">
+                  <strong>{t.name}</strong>
+                  <span>{t.desc}</span>
+                </div>
+                <span class={`st-tool-art st-tool-art--${t.ic}`}><span class="st-tool-aa">Aa</span></span>
+              </a>
+            )
+          ))}
+          <button type="button" class="st-arrow st-arrow--tools" aria-label="More tools">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============ NEED INSPIRATION ============ -->
+      <section class="st-sec ws-rise" style="--i:4" aria-labelledby="inspo-h">
+        <header class="st-sec-head">
+          <h2 class="st-sec-h" id="inspo-h">Need Inspiration?</h2>
+          <a class="ws-textlink" href="/account/guides">Explore more <span aria-hidden="true">→</span></a>
+        </header>
+        <div class="st-row st-row--inspo">
+          {inspo.map((c) => (
+            <a class="st-insp" href={c.href} style={`background-image:url('${c.thumb}')`}>
+              <span class="st-insp-tx"><strong>{c.name}</strong><span>{c.desc}</span></span>
+            </a>
+          ))}
+          <button type="button" class="st-arrow st-arrow--inspo" aria-label="More inspiration">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <CaptionGenerator />
+
+  <style is:global>
+    /* ===== Shared workspace shell (matches /dashboard) ===== */
+    body[data-dashboard] { background: #ffffff; }
+    .ws {
+      --ws-bg: #ffffff; --ws-card: #ffffff; --ws-ink: #1c1d22;
+      --ws-tx: rgba(28, 29, 34, 0.64); --ws-faint: rgba(28, 29, 34, 0.46);
+      --ws-line: rgba(28, 29, 34, 0.13);
+      --ws-accent: var(--english-violet, #5b4a55);
+      --ws-r-lg: 16px; --ws-r: 16px; --ws-r-sm: 12px;
+      --ws-ease: cubic-bezier(.2, .8, .2, 1);
+      min-height: 100vh; color: var(--ws-ink); font-family: var(--sans); background: #ffffff;
+    }
+
+    /* ---- Buttons / links ---- */
+    .ws-btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 13px; font-family: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform 0.22s var(--ws-ease), box-shadow 0.22s, background 0.2s; }
+    .ws-btn svg { width: 15px; height: 15px; }
+    .ws-btn--primary { background: var(--ws-accent); color: #fff; box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--ws-accent) 80%, transparent); }
+    .ws-btn--primary:hover { transform: translateY(-2px); box-shadow: 0 18px 32px -12px color-mix(in srgb, var(--ws-accent) 75%, transparent); }
+    .ws-btn--ghost { background: #fff; border-color: var(--ws-line); color: var(--ws-ink); }
+    .ws-btn--ghost:hover { transform: translateY(-2px); border-color: rgba(28,29,34,0.28); }
+    .ws-textlink { font-size: 13px; font-weight: 600; color: var(--ws-tx); background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; text-decoration: none; transition: color 0.2s; white-space: nowrap; }
+    .ws-textlink:hover { color: var(--ws-ink); }
+
+    /* ---- Entrance ---- */
+    .ws-rise { opacity: 0; transform: translateY(14px); animation: wsRise 0.7s var(--ws-ease) forwards; animation-delay: calc(var(--i, 0) * 0.06s + 0.04s); }
+    @keyframes wsRise { to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .ws-rise { animation: none; opacity: 1; transform: none; } }
+
+    /* ===== Studio layout ===== */
+    .st-main { max-width: 1320px; margin: 0 auto; padding: clamp(18px, 2vh, 32px) clamp(22px, 3vw, 56px) 120px; display: flex; flex-direction: column; gap: clamp(40px, 5vh, 68px); }
+
+    /* ---- HERO ---- */
+    /* Hero mirrors the shared .dash-hero: title top, copy + buttons at the image base, portrait image right. */
+    .st-hero { display: grid; grid-template-columns: 1fr auto; gap: clamp(28px, 5vw, 72px); align-items: stretch; margin-top: clamp(14px, 2vh, 22px); padding-top: clamp(8px, 2vh, 28px); }
+    .st-hero-copy { max-width: 540px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+    .st-hero-top { display: flex; flex-direction: column; gap: 6px; }
+    /* Eyebrow "← Workspace" back-link — mirrors the Planner/Orders/Bookings hero. */
+    .st-eyebrow { margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ws-tx); }
+    .st-back { color: var(--ws-tx); text-decoration: none; font-weight: 700; letter-spacing: 0.28em; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s, transform 0.2s; }
+    .st-back:hover { color: var(--ws-ink); transform: translateX(-2px); }
+    .st-hero-media { margin: 0; justify-self: end; }
+    .st-hero-media img { display: block; height: clamp(260px, 34vh, 360px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 4px; }
+    /* Match the Planner/Orders/Bookings heading: serif, same size, whole title
+       in the brand dark red (no two-tone highlight). */
+    .st-h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 5vw, 72px); line-height: 1.02; letter-spacing: -0.02em; color: var(--english-violet); margin: 0; white-space: nowrap; }
+    .st-h1 em { font-style: normal; color: var(--english-violet); }
+    .st-sub { font-size: clamp(15px, 1.2vw, 17px); color: var(--ws-tx); margin: 0 0 20px; max-width: none; line-height: 1.6; }
+    .st-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+    .st-packopts { display: flex; gap: 22px; margin-top: 24px; flex-wrap: wrap; }
+    .st-packopt { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 600; color: var(--ws-tx); text-decoration: none; transition: color 0.2s; }
+    .st-packopt:hover { color: var(--ws-ink); }
+    .st-packopt svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ---- Hero Studio mock ---- */
+    .st-mock { position: relative; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: clamp(18px, 1.6vw, 26px); border-radius: 22px; background: linear-gradient(160deg, rgba(183,155,120,0.10), rgba(28,29,34,0.03)); }
+    .st-mock-rail { display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; background: #fff; border: 1px solid var(--ws-line); border-radius: 14px; }
+    .st-mr { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 52px; padding: 8px 4px; border-radius: 9px; color: var(--ws-faint); }
+    .st-mr.is-active { background: color-mix(in srgb, var(--ws-accent) 10%, #fff); color: var(--ws-accent); }
+    .st-mr svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .st-mr i { font-style: normal; font-size: 8px; font-weight: 600; letter-spacing: 0.02em; }
+
+    .st-mock-canvas { position: relative; display: grid; grid-template-columns: 1fr 1fr; aspect-ratio: 4 / 5; border-radius: 8px; overflow: hidden; background: #efece6; box-shadow: 0 30px 60px -30px rgba(28,29,34,0.4); }
+    .st-md-text { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: clamp(12px, 1.4vw, 22px); }
+    .st-md-eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ws-faint); }
+    .st-md-h { font-family: var(--subhead); font-weight: 500; font-size: clamp(20px, 2.2vw, 34px); line-height: 1.0; color: var(--ws-ink); margin: 4px 0; }
+    .st-md-meta { font-size: 9px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-tx); }
+    .st-md-brand { margin-top: 14px; font-size: 8px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ws-faint); }
+    .st-md-photo { background-size: cover; background-position: center; background-color: #cdbfa9; }
+
+    .st-mock-panel { display: flex; flex-direction: column; gap: 12px; width: 132px; padding: 12px; background: #fff; border: 1px solid var(--ws-line); border-radius: 14px; }
+    .st-mp-sec { display: flex; flex-direction: column; gap: 7px; }
+    .st-mp-sec b { font-size: 9px; font-weight: 600; color: var(--ws-tx); }
+    .st-mp-row { display: flex; gap: 5px; align-items: center; }
+    .st-mp-aa { width: 26px; height: 22px; border-radius: 5px; border: 1px solid var(--ws-line); display: inline-flex; align-items: center; justify-content: center; font-family: var(--subhead); font-size: 12px; color: var(--ws-ink); }
+    .st-mp-sw { width: 22px; height: 22px; border-radius: 5px; flex: 0 0 auto; }
+    .st-mp-bg { width: 26px; height: 26px; border-radius: 6px; flex: 0 0 auto; background-size: cover; }
+    .st-mp-bg--check { background-image: linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%); background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0; background-color: #fff; }
+    .st-mp-size { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--ws-line); flex: 0 0 auto; }
+    .st-mp-size--more { display: inline-flex; align-items: center; justify-content: center; color: var(--ws-faint); font-size: 14px; line-height: 1; border: 0; }
+
+    /* ---- Sections ---- */
+    .st-sec { display: flex; flex-direction: column; gap: 18px; }
+    /* A little more breathing room between the hero and the first section. */
+    .st-hero + .st-sec { margin-top: 20px; }
+    .st-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; }
+    .st-sec-h { font-family: var(--serif); font-weight: 600; font-size: clamp(19px, 1.6vw, 24px); letter-spacing: -0.03em; color: var(--ws-ink); margin: 0; }
+    .st-rail { position: relative; }
+
+    .st-row { display: grid; grid-auto-flow: column; gap: clamp(14px, 1.4vw, 20px); overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; scrollbar-width: thin; }
+    .st-row::-webkit-scrollbar { height: 6px; }
+    .st-row::-webkit-scrollbar-thumb { background: var(--ws-line); border-radius: 99px; }
+    .st-row--packs { grid-auto-columns: minmax(184px, 1fr); }
+    .st-row--designs { grid-auto-columns: minmax(184px, 1fr); }
+    .st-row--tools { grid-auto-columns: minmax(230px, 1fr); }
+    .st-row--inspo { grid-auto-columns: minmax(230px, 1fr); }
+    @media (min-width: 1100px) {
+      .st-row--packs { grid-template-columns: repeat(5, 1fr); grid-auto-flow: row; overflow: visible; }
+      .st-row--designs { grid-template-columns: repeat(5, 1fr); grid-auto-flow: row; overflow: visible; }
+      .st-row--tools, .st-row--inspo { grid-template-columns: repeat(4, 1fr); grid-auto-flow: row; overflow: visible; }
+    }
+    .st-row > * { scroll-snap-align: start; }
+
+    /* Pack cards */
+    .st-pack { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ws-ink); }
+    .st-pack-img { position: relative; aspect-ratio: 4 / 5; border-radius: var(--ws-r-sm); background-size: cover; background-position: center; background-color: #e9e6e2; display: flex; align-items: flex-end; padding: 14px; overflow: hidden; transition: transform 0.28s var(--ws-ease), box-shadow 0.28s; }
+    .st-pack:hover .st-pack-img { transform: translateY(-4px); box-shadow: 0 24px 40px -22px rgba(28,29,34,0.5); }
+    .st-pack-img::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(28,25,22,0.55)); }
+    .st-pack-label { position: relative; z-index: 1; font-family: var(--subhead); font-size: 17px; font-weight: 500; color: #fff; line-height: 1.05; }
+    .st-pack-name { font-size: 13.5px; font-weight: 600; }
+    .st-pack-count { font-size: 12px; color: var(--ws-faint); margin-top: -4px; }
+    /* Empty state — no packs owned yet → nudge to the shop */
+    .st-pack--shop .st-pack-img { align-items: center; justify-content: center; padding: 0; background: transparent; box-shadow: inset 0 0 0 1.5px var(--ws-line); }
+    .st-pack--shop .st-pack-img::after { display: none; }
+    .st-pack--shop:hover .st-pack-img { box-shadow: inset 0 0 0 1.5px var(--ws-accent); }
+    .st-pack-shop-ic { font-size: 34px; font-weight: 200; line-height: 1; color: var(--ws-faint); transition: color 0.2s; }
+    .st-pack--shop:hover .st-pack-shop-ic { color: var(--ws-accent); }
+
+    /* Design cards */
+    .st-design { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ws-ink); }
+    .st-design-img { position: relative; aspect-ratio: 4 / 5; border-radius: var(--ws-r-sm); background-size: cover; background-position: center; background-color: #e9e6e2; transition: transform 0.28s var(--ws-ease), box-shadow 0.28s; }
+    .st-design:hover .st-design-img { transform: translateY(-4px); box-shadow: 0 24px 40px -22px rgba(28,29,34,0.5); }
+    .st-design-tag { position: absolute; left: 12px; bottom: 12px; font-size: 10.5px; font-weight: 600; color: #fff; background: rgba(28,25,22,0.62); padding: 4px 10px; border-radius: 999px; backdrop-filter: blur(4px); }
+    .st-design-name { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
+    .st-design-type { font-size: 12px; color: var(--ws-faint); margin-top: -4px; }
+    .st-design--new { justify-content: stretch; }
+    .st-design-new { aspect-ratio: 4 / 5; border: 1px dashed var(--ws-line); border-radius: var(--ws-r-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--ws-faint); font-size: 13px; font-weight: 600; transition: border-color 0.2s, color 0.2s; }
+    .st-design--new:hover .st-design-new { border-color: var(--ws-accent); color: var(--ws-accent); }
+    .st-plus { font-size: 26px; font-weight: 200; line-height: 1; }
+
+    /* Tool cards */
+    .st-tool { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; min-height: 158px; padding: 20px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; text-decoration: none; color: var(--ws-ink); overflow: hidden; transition: transform 0.26s var(--ws-ease), border-color 0.26s, box-shadow 0.26s; }
+    .st-tool:hover { transform: translateY(-4px); border-color: rgba(28,29,34,0.2); box-shadow: 0 24px 44px -26px rgba(28,29,34,0.4); }
+    .st-tool-tx { display: flex; flex-direction: column; gap: 6px; max-width: 64%; }
+    .st-tool-tx strong { font-size: 15px; font-weight: 600; }
+    .st-tool-tx span { font-size: 12.5px; color: var(--ws-tx); line-height: 1.4; }
+    .st-tool-art { position: absolute; right: -14px; bottom: -14px; width: 96px; height: 96px; border-radius: 16px; background: linear-gradient(150deg, #efece6, #d8c8b2); display: flex; align-items: center; justify-content: center; }
+    .st-tool-aa { font-family: var(--subhead); font-size: 30px; color: var(--ws-ink); opacity: 0; }
+    .st-tool-art--brand .st-tool-aa { opacity: 1; }
+    .st-tool-art--resize { background: linear-gradient(150deg, #e7ddcf, #b79b78); }
+    button.st-tool { appearance: none; font: inherit; text-align: left; cursor: pointer; width: 100%; }
+    .st-tool-art--caption { background: linear-gradient(150deg, #ece0e2, #9c7080); }
+    .st-tool-art--caption::after { content: "✨"; font-size: 30px; }
+    .st-tool-art--scissors { background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
+    .st-tool-art--grid { background: linear-gradient(150deg, #efe7da, #cdbfa9); }
+
+    /* Inspiration cards */
+    .st-insp { position: relative; display: flex; align-items: flex-end; min-height: 180px; padding: 20px; border-radius: var(--ws-r); background-size: cover; background-position: center; background-color: #cdbfa9; text-decoration: none; overflow: hidden; transition: transform 0.26s var(--ws-ease), box-shadow 0.26s; }
+    .st-insp:hover { transform: translateY(-4px); box-shadow: 0 26px 46px -26px rgba(28,29,34,0.5); }
+    .st-insp::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(28,25,22,0.05) 30%, rgba(28,25,22,0.72)); }
+    .st-insp-tx { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 5px; color: #fff; }
+    .st-insp-tx strong { font-family: var(--subhead); font-weight: 500; font-size: 20px; letter-spacing: -0.01em; }
+    .st-insp-tx span { font-size: 12.5px; color: rgba(255,255,255,0.84); max-width: 26ch; line-height: 1.4; }
+
+    /* Scroll arrows */
+    .st-arrow { position: absolute; top: 50%; right: -6px; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--ws-line); background: #fff; color: var(--ws-ink); cursor: pointer; display: none; align-items: center; justify-content: center; box-shadow: 0 12px 26px -14px rgba(28,29,34,0.4); transition: transform 0.2s, background 0.2s; z-index: 3; }
+    .st-arrow svg { width: 18px; height: 18px; }
+    .st-arrow:hover { background: var(--ws-accent); color: #fff; }
+    .st-row .st-arrow, .st-rail .st-arrow { display: flex; }
+    .st-arrow--tools, .st-arrow--inspo { right: -6px; }
+    @media (min-width: 1100px) { .st-arrow { display: none !important; } }
+
+    @media (max-width: 880px) {
+      .st-hero { grid-template-columns: 1fr; }
+      .st-h1 { white-space: normal; }
+      .st-hero-media { justify-self: stretch; order: -1; }
+      .st-hero-media img { width: 100%; height: auto; aspect-ratio: 16 / 10; }
+    }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+
+    // Mobile row arrows — nudge the scroller along.
+    document.querySelectorAll('[data-rail-next]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const row = btn.closest('[data-rail]')?.querySelector('.st-row');
+        if (row) row.scrollBy({ left: row.clientWidth * 0.8, behavior: 'smooth' });
+      });
+    });
+
+    // Caption Generator tool → open the standalone generator (copy output).
+    document.querySelector('[data-tool="caption"]')?.addEventListener('click', () => {
+      window.tmkeCaption?.open({ output: 'copy' });
+    });
+
+    // "Your designs": the member's own saved copies (user_designs), newest first.
+    (async function wireDesigns() {
+      const row = document.querySelector('[data-designs]');
+      if (!row) return;
+      const seeall = document.querySelector('[data-seeall]');
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const newCard = `<a class="st-design st-design--new" href="/account/editor"><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return; // signed out (preview) → keep the SSR starter samples
+        // Fetch 5: enough to show the 4 most recent AND detect a 5th (→ "See all").
+        const { data, error } = await supabase
+          .from('user_designs')
+          .select('id, name, thumb_url, updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(5);
+        if (error) return;
+        const designs = data || [];
+        if (seeall) seeall.hidden = designs.length <= 4;   // only show "See all" when they have more than four
+        if (!designs.length) { row.innerHTML = newCard; return; } // signed in, none yet → just "New design"
+        row.innerHTML = designs.slice(0, 4).map((d) => `
+          <a class="st-design" href="/account/editor?design=${encodeURIComponent(d.id)}">
+            <span class="st-design-img"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>
+            <span class="st-design-name">${esc(d.name || 'Untitled design')}</span>
+            <span class="st-design-type">Your design</span>
+          </a>`).join('') + newCard;
+      } catch (_) { /* keep the SSR sample designs on any error */ }
+    })();
+  </script>
+
+  <!-- "Pick from your packs" → the member's actually-purchased packs. -->
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    (async function wirePacks() {
+      const row = document.querySelector('[data-packs]');
+      if (!row) return;
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const shopTile = `
+        <a class="st-pack st-pack--shop" href="/edit">
+          <span class="st-pack-img"><span class="st-pack-shop-ic">+</span></span>
+          <span class="st-pack-name">Shop more packs</span>
+          <span class="st-pack-count">Visit The Edit &rarr;</span>
+        </a>`;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return; // signed out (preview) → keep the SSR sample packs
+        const email = session.user.email || '';
+        const [packsRes, ordersRes] = await Promise.all([
+          supabase.from('packs').select('id, slug, title, cover_image_url').eq('status', 'active').order('sort_order', { ascending: true }),
+          supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`),
+        ]);
+        const allPacks = packsRes.data || [];
+        const ownedIds = new Set((ordersRes.data || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
+        const owned = allPacks.filter((p) => ownedIds.has(p.id));
+        if (!owned.length) { row.innerHTML = shopTile; return; } // no packs → just the shop tile
+        row.innerHTML = owned.map((p) => `
+          <a class="st-pack" href="/account/editor?pack=${encodeURIComponent(p.id)}">
+            <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}><span class="st-pack-label">${esc(p.title)}</span></span>
+            <span class="st-pack-name">${esc(p.title)}</span>
+            <span class="st-pack-count">Open pack &rarr;</span>
+          </a>`).join('') + shopTile;   // + a "Shop more packs" tile at the end
+      } catch (_) { /* keep the SSR sample packs on any error */ }
+    })();
+  </script>
+</BaseLayout>

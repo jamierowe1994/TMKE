@@ -1,0 +1,1063 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import "../../styles/workspace.css";
+import "../../styles/account-sections.css";
+---
+
+<BaseLayout
+  dashboard
+  title="Brand kit — TMKE"
+  description="Set up your brand colours, fonts and logos so the editor opens with your kit ready to go."
+  hideNav
+  hideFooter
+>
+  <WorkspaceHeader active="brand" />
+  <div class="dash-shell dash-shell--top">
+    <main class="app-main dash-main">
+      <section class="dash-hero">
+        <div class="dash-hero-copy">
+          <div class="dash-hero-top">
+            <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
+            <h1 class="welcome-h">Your <em>Brand Kit.</em></h1>
+          </div>
+          <p class="welcome-sub">Your colours, fonts and logos &mdash; saved automatically, ready on every design.
+            <span class="brand-save" id="brand-save" data-state="idle">
+              <span class="brand-save-dot" aria-hidden="true"></span>
+              <span class="brand-save-text">All changes saved</span>
+            </span>
+          </p>
+        </div>
+        <figure class="dash-hero-media">
+          <img src="/assets/home%20kitchen.jpg" alt="" loading="eager" />
+        </figure>
+      </section>
+
+      <form id="brand-form" class="profile-wrap">
+    <p class="profile-firstrun" id="profile-firstrun" hidden>
+      First time in? Take a minute to load your brand. Everything saves as you go &mdash; no need to hit a button.
+    </p>
+
+    <div class="brand-grid">
+      <!-- LEFT: company + logos -->
+      <div class="brand-col">
+        <!-- Company -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">01</div>
+              <h2>Company</h2>
+            </div>
+            <p>Used on internal exports and inside the editor.</p>
+          </header>
+          <div class="profile-row">
+            <label class="profile-field profile-field--full">
+              <span>Company name</span>
+              <div class="field-wrap">
+                <input type="text" name="company" placeholder="The Agency Co." autocomplete="organization" />
+                <span class="field-ok" id="company-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <!-- Logos -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">02</div>
+              <h2>Logos</h2>
+            </div>
+            <p>Drop your wordmark, monogram and variants. PNGs with transparent backgrounds work best.</p>
+          </header>
+
+          <label class="logo-drop" id="logo-drop">
+            <input type="file" id="logo-input" accept="image/*" multiple hidden />
+            <strong>Click to upload</strong>
+            <span>or drag your logo files here</span>
+          </label>
+
+          <div class="logo-grid" id="logo-grid"></div>
+
+          <!-- Headshot (optional) — a photo of the user for their dashboard/profile. -->
+          <div class="headshot-block">
+            <h3 class="headshot-h">Headshot <span>· optional</span></h3>
+            <div class="headshot-row">
+              <label class="headshot-drop" id="headshot-drop">
+                <input type="file" id="headshot-input" accept="image/*" hidden />
+                <div class="headshot-circle" id="headshot-circle"><span class="headshot-plus" aria-hidden="true">+</span></div>
+              </label>
+              <div class="headshot-text">
+                <p>Add a photo of yourself if you like &mdash; it can show on your dashboard and review requests.</p>
+                <button type="button" class="headshot-remove" id="headshot-remove" hidden>Remove photo</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT: colours + typography -->
+      <div class="brand-col">
+        <!-- Colours -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">03</div>
+              <h2>Brand Colours</h2>
+            </div>
+            <p>Pick up to six. These appear as quick-swatches inside the editor.</p>
+          </header>
+
+          <div class="colour-grid" id="colour-grid">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div class="colour-slot" data-i={i}>
+                <label class="colour-tile">
+                  <input type="color" data-colour-picker={i} value={["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF"][i]} />
+                  <span class="colour-tile-fill" data-colour-fill={i} style={`background:${["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF"][i]}`}></span>
+                </label>
+                <input type="text" class="colour-hex" data-colour-hex={i} maxlength="7" value={["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF"][i]} />
+                <input type="text" class="colour-name" data-colour-name={i} placeholder={`Colour 0${i+1}`} />
+                <button type="button" class="colour-clear" data-colour-clear={i} title="Clear">&times;</button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <!-- Typography -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">04</div>
+              <h2>Typography</h2>
+            </div>
+            <p>Search the full Google Fonts library. Set a heading and a body face &mdash; pinned to the top of the editor's font menu.</p>
+          </header>
+
+          <div class="profile-row">
+            <label class="profile-field">
+              <span>Heading font</span>
+              <div class="font-picker" data-role="heading">
+                <input type="hidden" name="headingFont" value="Cormorant Garamond" />
+                <button type="button" class="font-picker-btn" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="font-picker-current">Cormorant Garamond</span>
+                  <span class="font-picker-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="font-picker-pop" hidden>
+                  <input type="text" class="font-picker-search" placeholder="Search fonts…" autocomplete="off" />
+                  <ul class="font-picker-list" role="listbox"></ul>
+                </div>
+              </div>
+            </label>
+            <label class="profile-field">
+              <span>Body font</span>
+              <div class="font-picker" data-role="body">
+                <input type="hidden" name="bodyFont" value="Darker Grotesque" />
+                <button type="button" class="font-picker-btn" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="font-picker-current">Darker Grotesque</span>
+                  <span class="font-picker-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="font-picker-pop" hidden>
+                  <input type="text" class="font-picker-search" placeholder="Search fonts…" autocomplete="off" />
+                  <ul class="font-picker-list" role="listbox"></ul>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="type-preview" id="type-preview">
+            <div class="type-preview-h">Headline goes here.</div>
+            <div class="type-preview-b">A short paragraph in your body face — used for captions, CTAs and the readable bits.</div>
+          </div>
+        </section>
+
+        <!-- Tone of voice -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">05</div>
+              <h2>Tone of voice</h2>
+            </div>
+            <p>How your brand sounds. The AI caption generator blends this with our house rules, so captions come out in your voice.</p>
+          </header>
+          <label class="profile-field profile-field--full">
+            <span>Describe your tone <span class="profile-opt">· optional</span></span>
+            <textarea name="tone" class="profile-textarea" rows="5" placeholder="e.g. Friendly and approachable, professional but never stuffy. We speak plainly, avoid jargon, and sound warm and local. Confident, never pushy or salesy. We like a bit of personality."></textarea>
+          </label>
+        </section>
+      </div>
+    </div>
+
+    <!-- Actions — everything autosaves; this just returns you to the workspace -->
+    <div class="profile-actions">
+      <button type="button" class="profile-skip" id="profile-skip">Back to workspace</button>
+      <button type="submit" class="btn btn--solid">Done <span class="btn-arrow">&rarr;</span></button>
+    </div>
+      </form>
+    </main>
+  </div>
+
+  <style>
+    /* Nudge the page title down a touch from the top of the view. */
+    .welcome { padding-top: 20px; }
+    .profile-wrap {
+      /* Side margins come from the shared shell (.app-main) so the form lines up
+         with the hero and every other hub page; no extra horizontal padding here. */
+      max-width: none;
+      margin: 0;
+      padding: 0 0 140px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    /* Full-width two-column layout: company + logos (left), colours +
+       typography (right). Stacks on narrow screens. */
+    .brand-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(32px, 4vw, 72px);
+      align-items: start;
+    }
+    .brand-col { display: flex; flex-direction: column; gap: clamp(22px, 2.4vw, 36px); }
+    @media (max-width: 1080px) { .brand-grid { grid-template-columns: 1fr; gap: 48px; } }
+
+    /* Autosave status pill in the header */
+    .brand-save {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 14px;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(28,29,34,0.45);
+      transition: color 0.25s;
+    }
+    .brand-save-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(28,29,34,0.3); transition: background 0.25s; }
+    .brand-save[data-state="saving"] { color: var(--english-violet); }
+    .brand-save[data-state="saving"] .brand-save-dot { background: var(--english-violet); animation: brandPulse 0.9s ease-in-out infinite; }
+    .brand-save[data-state="saved"] { color: #2e7d52; }
+    .brand-save[data-state="saved"] .brand-save-dot { background: #2e7d52; }
+    @keyframes brandPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .profile-firstrun {
+      background: rgba(var(--violet-rgb), 0.06);
+      border: 1px solid rgba(var(--violet-rgb), 0.18);
+      color: var(--english-violet);
+      padding: 13px 16px;
+      border-radius: 6px;
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.5;
+      margin: 0;
+    }
+    /* Flat white outline cards — matches the bookings/orders hub styling
+       (hairline border, near-square corners, no shadow). */
+    .profile-section {
+      display: flex; flex-direction: column; gap: 22px;
+      padding: 26px clamp(22px, 3vw, 32px) 30px;
+      background: #fff;
+      border: 1px solid rgba(28, 29, 34, 0.13);
+      border-radius: 6px;
+      box-shadow: none;
+    }
+    .profile-section-head {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(28, 29, 34, 0.09);
+    }
+    .profile-section-head .eyebrow {
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: rgba(28,29,34,0.38); margin-bottom: 4px;
+    }
+    .profile-section-head h2 {
+      font-family: var(--subhead);
+      font-weight: 500;
+      font-size: 23px;
+      line-height: 1.15;
+      letter-spacing: 0;
+      margin: 0;
+    }
+    .profile-section-head p {
+      font-family: var(--sans);
+      font-style: normal;
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: rgba(28,29,34,0.58);
+      margin: 2px 0 0;
+      max-width: 52ch;
+    }
+
+    .profile-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+    .profile-field { display: flex; flex-direction: column; gap: 8px; }
+    .profile-field--full { grid-column: 1 / -1; }
+    .profile-field > span {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.55);
+    }
+    .profile-field input, .profile-field select {
+      padding: 12px 14px;
+      font-family: var(--sans);
+      font-size: 15px;
+      border: 1px solid rgba(28,29,34,0.16);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .profile-field input:focus, .profile-field select:focus {
+      outline: none;
+      border-color: var(--english-violet);
+      box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.12);
+    }
+    .profile-textarea {
+      width: 100%;
+      padding: 12px 14px;
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.55;
+      border: 1px solid rgba(28,29,34,0.16);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      resize: vertical;
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .profile-textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.12); }
+    .profile-opt { font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); }
+
+    /* Headings + labels use the dark brand ink on the white cards. */
+    .profile-section-head h2 { color: var(--ink); }
+    .profile-section-head p { color: rgba(28,29,34,0.6); }
+    .profile-section .eyebrow { color: var(--english-violet); }
+    .profile-field > span { color: rgba(28,29,34,0.55); }
+
+    /* Company field "Saved ✓" inline feedback */
+    .field-wrap { position: relative; }
+    .field-wrap input { width: 100%; box-sizing: border-box; padding-right: 92px; }
+    .field-ok {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #2e7d52;
+      opacity: 0; transition: opacity 0.25s; pointer-events: none;
+    }
+    .field-ok[hidden] { display: none; }
+    .field-ok.is-show { opacity: 1; }
+    .field-ok-tick {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #2e7d52; color: #fff; font-size: 10px; line-height: 1;
+    }
+
+    /* Searchable font picker */
+    .font-picker { position: relative; }
+    .font-picker-btn {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 12px 14px; background: #fff; cursor: pointer; text-align: left;
+      border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .font-picker-btn:hover { border-color: rgba(28,29,34,0.4); }
+    .font-picker.is-open .font-picker-btn { border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+    .font-picker-current { font-size: 20px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .font-picker-caret { font-size: 11px; color: rgba(28,29,34,0.5); transition: transform 0.2s; }
+    .font-picker.is-open .font-picker-caret { transform: rotate(180deg); }
+    .font-picker-pop {
+      position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0;
+      background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px;
+      box-shadow: 0 18px 44px -18px rgba(28,29,34,0.35); overflow: hidden;
+      display: flex; flex-direction: column; max-height: 340px;
+    }
+    .font-picker-pop[hidden] { display: none; }
+    .font-picker-search {
+      margin: 10px; padding: 10px 12px; font-family: var(--sans); font-size: 14px;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: var(--paper);
+    }
+    .font-picker-search:focus { outline: none; border-color: var(--english-violet); }
+    .font-picker-list { list-style: none; margin: 0; padding: 0 6px 8px; overflow-y: auto; }
+    .font-picker-opt {
+      padding: 9px 12px; font-size: 19px; line-height: 1.15; color: var(--ink);
+      border-radius: 6px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .font-picker-opt:hover, .font-picker-opt.is-active { background: rgba(var(--violet-rgb),0.09); }
+    .font-picker-opt.is-current { color: var(--english-violet); }
+    .font-picker-empty { padding: 18px 12px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); }
+
+    /* Colour grid */
+    .colour-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 16px;
+    }
+    .colour-slot {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.1);
+      border-radius: 6px;
+    }
+    .colour-slot.is-empty { opacity: 0.5; }
+    .colour-tile {
+      position: relative;
+      display: block;
+      aspect-ratio: 5/3;
+      border-radius: 2px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .colour-tile input[type="color"] {
+      position: absolute; inset: 0;
+      opacity: 0; width: 100%; height: 100%; cursor: pointer;
+    }
+    .colour-tile-fill {
+      position: absolute; inset: 0;
+      display: block;
+      box-shadow: inset 0 0 0 1px rgba(28,29,34,0.08);
+    }
+    .colour-hex {
+      padding: 8px 10px;
+      font-family: var(--sans);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      border: 1px solid rgba(28,29,34,0.12);
+      border-radius: 5px;
+      background: rgba(28,29,34,0.03);
+      color: var(--ink);
+    }
+    .colour-name {
+      padding: 6px 10px;
+      font-family: var(--sans);
+      font-size: 12px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: transparent;
+      color: rgba(28,29,34,0.6);
+    }
+    .colour-name:focus, .colour-hex:focus {
+      outline: none;
+      border-color: var(--english-violet);
+      background: #fff;
+    }
+    .colour-clear {
+      position: absolute; top: 8px; right: 8px;
+      width: 22px; height: 22px;
+      border: none;
+      background: rgba(28,29,34,0.55);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 18px; line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s, background 0.2s;
+    }
+    .colour-slot:hover .colour-clear { opacity: 1; }
+    .colour-clear:hover { background: var(--ink); }
+
+    /* Typography preview */
+    .type-preview {
+      padding: 32px;
+      background: var(--paper, #f6f4f2);
+      border: 1px solid rgba(28,29,34,0.1);
+      border-radius: 6px;
+    }
+    .type-preview-h {
+      font-family: "Cormorant Garamond", serif;
+      font-size: clamp(36px, 4vw, 56px);
+      line-height: 1.05;
+      letter-spacing: -0.015em;
+      margin-bottom: 14px;
+      color: var(--ink);
+    }
+    .type-preview-b {
+      font-family: "Darker Grotesque", sans-serif;
+      font-size: 16px;
+      color: rgba(28,29,34,0.65);
+      max-width: 50ch;
+    }
+
+    /* Logos */
+    .logo-drop {
+      display: flex;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px;
+      padding: 40px;
+      border: 1.5px dashed rgba(var(--violet-rgb),0.3);
+      border-radius: 8px;
+      background: rgba(var(--violet-rgb),0.035);
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .logo-drop:hover, .logo-drop.is-drag {
+      background: rgba(var(--violet-rgb),0.1);
+      border-color: var(--english-violet);
+    }
+    .logo-drop strong { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--english-violet); }
+    .logo-drop span { font-size: 13px; color: rgba(28,29,34,0.55); }
+
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 14px;
+    }
+    /* Logo tile display rules live in the is:global block below (the tiles
+       are created in JS, so Astro's scoped CSS would not reach them). */
+
+    /* Headshot (optional) */
+    .headshot-block { margin-top: 30px; padding-top: 22px; border-top: 1px solid rgba(28,29,34,0.08); }
+    .headshot-h { font-family: var(--subhead); font-weight: 500; font-size: 18px; color: var(--ink); margin: 0; }
+    .headshot-h span { font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.45); letter-spacing: 0.02em; }
+    .headshot-row { display: flex; align-items: center; gap: 18px; margin-top: 14px; }
+    .headshot-drop { flex: 0 0 auto; cursor: pointer; }
+    .headshot-circle {
+      width: 84px; height: 84px; border-radius: 50%;
+      border: 2px dashed rgba(var(--violet-rgb),0.4);
+      display: flex; align-items: center; justify-content: center;
+      background-size: cover; background-position: center; background-color: var(--paper);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .headshot-drop:hover .headshot-circle { border-color: var(--english-violet); transform: scale(1.03); }
+    .headshot-circle.has-img { border-style: solid; border-color: rgba(var(--violet-rgb),0.25); }
+    .headshot-plus { font-family: var(--sans); font-size: 30px; font-weight: 300; color: var(--english-violet); line-height: 1; }
+    .headshot-circle.has-img .headshot-plus { display: none; }
+    .headshot-text { min-width: 0; }
+    .headshot-text p { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 0; max-width: 32ch; }
+    .headshot-remove { margin-top: 8px; background: none; border: none; padding: 0; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; color: #a05a3c; }
+    .headshot-remove[hidden] { display: none; }
+    .headshot-remove:hover { text-decoration: underline; }
+
+    .profile-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 24px;
+      border-top: 1px solid rgba(28,29,34,0.1);
+    }
+    .profile-skip {
+      background: transparent; border: none; cursor: pointer;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+      padding: 14px 0;
+    }
+    .profile-skip:hover { color: var(--ink); }
+
+    @media (max-width: 760px) {
+      .profile-section-head { grid-template-columns: 1fr; gap: 12px; }
+      .profile-section-head p { justify-self: start; text-align: left; }
+      .colour-grid { grid-template-columns: repeat(2, 1fr); }
+      .profile-row { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <!-- Logo tiles are built in JS, so their styles must be global (Astro's
+       scoped CSS only rewrites selectors for elements present at build time). -->
+  <style is:global>
+    .logo-tile {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      background: #fff;
+      border: 1px solid rgba(28,29,34,0.1);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .logo-tile.is-primary { border-color: var(--english-violet); box-shadow: 0 0 0 2px rgba(var(--violet-rgb),0.18); }
+    .logo-tile-img {
+      width: 100%;
+      height: 100%;
+      background-color: #fff;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    /* "Main" badge shown on the primary logo (always visible) */
+    .logo-tile-badge {
+      position: absolute;
+      top: 8px; left: 8px;
+      z-index: 2;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--english-violet);
+      color: #fff;
+      font-family: var(--sans);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    /* hover controls */
+    .logo-tile-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: rgba(28,29,34,0.42);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .logo-tile:hover .logo-tile-overlay,
+    .logo-tile:focus-within .logo-tile-overlay { opacity: 1; }
+    .logo-tile-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      background: rgba(255,255,255,0.94);
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      line-height: 1;
+      transition: background 0.2s, color 0.2s, transform 0.15s;
+    }
+    .logo-tile-btn:hover { transform: scale(1.08); }
+    .logo-tile-btn--star.is-on { background: var(--english-violet); color: #fff; }
+    .logo-tile-btn--del:hover { background: #c0392b; color: #fff; }
+  </style>
+
+  <script>
+    import { GOOGLE_FONTS, loadGoogleFont } from "../../data/google-fonts.js";
+
+    (function () {
+      const form = document.getElementById("brand-form");
+      const firstrun = document.getElementById("profile-firstrun");
+      const grid = document.getElementById("colour-grid");
+      const logoInput = document.getElementById("logo-input");
+      const logoDrop = document.getElementById("logo-drop");
+      const logoGrid = document.getElementById("logo-grid");
+      const preview = document.getElementById("type-preview");
+      const previewH = preview.querySelector(".type-preview-h");
+      const previewB = preview.querySelector(".type-preview-b");
+      const companyInput = form.elements["company"];
+      const toneInput = form.elements["tone"];
+      const companyOk = document.getElementById("company-ok");
+      const saveEl = document.getElementById("brand-save");
+      const saveText = saveEl.querySelector(".brand-save-text");
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        }[c]));
+      }
+
+      // ---- Load existing brand or seed defaults ----
+      const DEFAULT_COLOURS = [
+        { hex: "#1c1d22", name: "Ink" },
+        { hex: "var(--english-violet)", name: "Violet" },
+        { hex: "#B9826A", name: "Accent" },
+        { hex: "#DFDCDE", name: "Platinum" },
+        { hex: "#f4f2f1", name: "Paper" },
+        { hex: "#FFFFFF", name: "White" },
+      ];
+      let brand = null;
+      try { brand = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+      if (!brand) firstrun.hidden = false;
+
+      const initialColours = (brand && brand.colors && brand.colors.length)
+        ? brand.colors.concat(Array(Math.max(0, 6 - brand.colors.length)).fill(null)).slice(0, 6)
+        : DEFAULT_COLOURS.slice(0, 6);
+
+      const initialHeading = (brand && brand.fonts && brand.fonts.heading) || "Cormorant Garamond";
+      const initialBody = (brand && brand.fonts && brand.fonts.body) || "Darker Grotesque";
+      if (brand) companyInput.value = brand.company || "";
+      if (brand && toneInput) toneInput.value = brand.tone || "";
+
+      // ---- Autosave ----
+      let saveTimer = null, okTimer = null, ready = false;
+      function setStatus(state) {
+        saveEl.dataset.state = state;
+        saveText.textContent = state === "saving" ? "Saving…" : "All changes saved";
+      }
+      function doSave(flashCompany) {
+        const kit = collect();
+        try { localStorage.setItem("tmke.brand", JSON.stringify(kit)); } catch (_) {}
+        // Persist to the member's account too (server sync module listens for
+        // this), so the kit follows their login into the Studio on any device.
+        try { window.dispatchEvent(new CustomEvent("tmke:brand-changed", { detail: kit })); } catch (_) {}
+        firstrun.hidden = true;
+        setStatus("saved");
+        if (flashCompany && companyInput.value.trim()) {
+          companyOk.hidden = false;
+          requestAnimationFrame(() => companyOk.classList.add("is-show"));
+          clearTimeout(okTimer);
+          okTimer = setTimeout(() => {
+            companyOk.classList.remove("is-show");
+            setTimeout(() => { companyOk.hidden = true; }, 260);
+          }, 2200);
+        }
+      }
+      function scheduleSave(opts) {
+        if (!ready) return;
+        const flashCompany = !!(opts && opts.company);
+        setStatus("saving");
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => doSave(flashCompany), 450);
+      }
+
+      // ---- Searchable Google-Fonts picker ----
+      function setupFontPicker(role, initial, onPick) {
+        const root = form.querySelector('.font-picker[data-role="' + role + '"]');
+        const hidden = root.querySelector('input[type="hidden"]');
+        const btn = root.querySelector(".font-picker-btn");
+        const current = root.querySelector(".font-picker-current");
+        const pop = root.querySelector(".font-picker-pop");
+        const search = root.querySelector(".font-picker-search");
+        const list = root.querySelector(".font-picker-list");
+        let value = initial;
+
+        const io = ("IntersectionObserver" in window)
+          ? new IntersectionObserver((ents) => {
+              ents.forEach((e) => {
+                if (e.isIntersecting) { loadGoogleFont(e.target.dataset.font); io.unobserve(e.target); }
+              });
+            }, { root: list, rootMargin: "120px" })
+          : null;
+
+        function apply(f) {
+          value = f;
+          hidden.value = f;
+          current.textContent = f;
+          current.style.fontFamily = '"' + f + '", sans-serif';
+          loadGoogleFont(f);
+        }
+        function choose(f) { apply(f); onPick && onPick(f); close(); }
+
+        function render(filter) {
+          const q = (filter || "").trim().toLowerCase();
+          const matches = GOOGLE_FONTS.filter((f) => !q || f.toLowerCase().includes(q));
+          list.innerHTML = "";
+          if (!matches.length) {
+            list.innerHTML = '<li class="font-picker-empty">No fonts match &ldquo;' + escapeHtml(filter) + '&rdquo;.</li>';
+            return;
+          }
+          matches.slice(0, 400).forEach((f) => {
+            const li = document.createElement("li");
+            li.className = "font-picker-opt" + (f === value ? " is-current" : "");
+            li.setAttribute("role", "option");
+            li.dataset.font = f;
+            li.textContent = f;
+            li.style.fontFamily = '"' + f + '", sans-serif';
+            li.addEventListener("click", () => choose(f));
+            list.appendChild(li);
+            if (io) io.observe(li); else loadGoogleFont(f);
+          });
+        }
+        function open() {
+          root.classList.add("is-open");
+          btn.setAttribute("aria-expanded", "true");
+          pop.hidden = false;
+          search.value = "";
+          render("");
+          search.focus();
+        }
+        function close() {
+          root.classList.remove("is-open");
+          btn.setAttribute("aria-expanded", "false");
+          pop.hidden = true;
+        }
+
+        btn.addEventListener("click", (e) => { e.stopPropagation(); pop.hidden ? open() : close(); });
+        search.addEventListener("input", () => render(search.value));
+        search.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); const first = list.querySelector(".font-picker-opt"); if (first) choose(first.dataset.font); }
+          else if (e.key === "Escape") { close(); btn.focus(); }
+        });
+        document.addEventListener("click", (e) => { if (!root.contains(e.target)) close(); });
+
+        apply(initial); // initialise label + load font, no autosave
+        return { value: () => value };
+      }
+
+      const headingPicker = setupFontPicker("heading", initialHeading, (f) => {
+        previewH.style.fontFamily = '"' + f + '", serif';
+        scheduleSave();
+      });
+      const bodyPicker = setupFontPicker("body", initialBody, (f) => {
+        previewB.style.fontFamily = '"' + f + '", sans-serif';
+        scheduleSave();
+      });
+      previewH.style.fontFamily = '"' + initialHeading + '", serif';
+      previewB.style.fontFamily = '"' + initialBody + '", sans-serif';
+
+      // Hydrate colour slots
+      initialColours.forEach(function (c, i) {
+        const slot = grid.querySelector('.colour-slot[data-i="' + i + '"]');
+        const picker = slot.querySelector('[data-colour-picker]');
+        const fill = slot.querySelector('[data-colour-fill]');
+        const hex = slot.querySelector('[data-colour-hex]');
+        const name = slot.querySelector('[data-colour-name]');
+        if (c) {
+          picker.value = c.hex || "#1c1d22";
+          fill.style.background = c.hex || "transparent";
+          hex.value = c.hex || "";
+          name.value = c.name || "";
+          slot.classList.remove("is-empty");
+        } else {
+          fill.style.background = "transparent";
+          hex.value = "";
+          name.value = "";
+          slot.classList.add("is-empty");
+        }
+      });
+
+      // Colour picker → updates hex + tile (and autosaves)
+      grid.addEventListener("input", function (e) {
+        const t = e.target;
+        const slot = t.closest(".colour-slot");
+        if (!slot) return;
+        const fill = slot.querySelector('[data-colour-fill]');
+        const hex = slot.querySelector('[data-colour-hex]');
+        if (t.matches('[data-colour-picker]')) {
+          fill.style.background = t.value;
+          hex.value = t.value.toUpperCase();
+          slot.classList.remove("is-empty");
+        } else if (t.matches('[data-colour-hex]')) {
+          const val = t.value.trim();
+          if (/^#?[0-9a-f]{6}$/i.test(val)) {
+            const norm = (val.startsWith("#") ? val : "#" + val).toUpperCase();
+            slot.querySelector('[data-colour-picker]').value = norm;
+            fill.style.background = norm;
+            slot.classList.remove("is-empty");
+          }
+        }
+        scheduleSave();
+      });
+
+      // Clear a colour slot
+      grid.addEventListener("click", function (e) {
+        if (!e.target.matches('[data-colour-clear]')) return;
+        const slot = e.target.closest(".colour-slot");
+        slot.querySelector('[data-colour-hex]').value = "";
+        slot.querySelector('[data-colour-name]').value = "";
+        slot.querySelector('[data-colour-fill]').style.background = "transparent";
+        slot.classList.add("is-empty");
+        scheduleSave();
+      });
+
+      // ---- Company ----
+      companyInput.addEventListener("input", function () { scheduleSave({ company: true }); });
+      if (toneInput) toneInput.addEventListener("input", function () { scheduleSave(); });
+
+      // ---- Logos ----
+      let logos = (brand && Array.isArray(brand.logos)) ? brand.logos.slice() : [];
+      function renderLogos() {
+        logoGrid.innerHTML = "";
+        logos.forEach(function (lg, i) {
+          const tile = document.createElement("div");
+          tile.className = "logo-tile" + (lg.primary ? " is-primary" : "");
+          tile.innerHTML =
+            (lg.primary ? '<span class="logo-tile-badge">Main</span>' : '') +
+            '<div class="logo-tile-img"></div>' +
+            '<div class="logo-tile-overlay">' +
+              '<button type="button" class="logo-tile-btn logo-tile-btn--star ' + (lg.primary ? "is-on" : "") + '" data-primary="' + i + '" title="' + (lg.primary ? "Main logo" : "Set as main logo") + '" aria-label="Set as main logo">&#9733;</button>' +
+              '<button type="button" class="logo-tile-btn logo-tile-btn--del" data-remove="' + i + '" title="Remove" aria-label="Remove logo">&times;</button>' +
+            '</div>';
+          // Set the image via DOM (data URLs contain quotes that break inline style attrs).
+          tile.querySelector(".logo-tile-img").style.backgroundImage = "url(" + JSON.stringify(lg.src) + ")";
+          logoGrid.appendChild(tile);
+        });
+      }
+      renderLogos();
+
+      logoGrid.addEventListener("click", function (e) {
+        const primaryBtn = e.target.closest("[data-primary]");
+        const removeBtn = e.target.closest("[data-remove]");
+        if (primaryBtn) {
+          const p = parseInt(primaryBtn.getAttribute("data-primary"), 10);
+          logos = logos.map(function (lg, idx) { return Object.assign({}, lg, { primary: idx === p }); });
+          renderLogos();
+          scheduleSave();
+        } else if (removeBtn) {
+          const r = parseInt(removeBtn.getAttribute("data-remove"), 10);
+          const wasPrimary = logos[r] && logos[r].primary;
+          logos.splice(r, 1);
+          // If we removed the primary, promote the first remaining logo.
+          if (wasPrimary && logos.length && !logos.some(function (lg) { return lg.primary; })) {
+            logos[0].primary = true;
+          }
+          renderLogos();
+          scheduleSave();
+        }
+      });
+
+      function handleLogoFiles(files) {
+        Array.from(files || []).forEach(function (f) {
+          if (!f.type.startsWith("image/")) return;
+          const reader = new FileReader();
+          reader.onload = function () {
+            logos.push({
+              name: f.name.replace(/\.[a-z0-9]+$/i, ""),
+              src: reader.result,
+              primary: logos.length === 0,
+            });
+            renderLogos();
+            scheduleSave();
+          };
+          reader.readAsDataURL(f);
+        });
+      }
+      logoInput.addEventListener("change", function () { handleLogoFiles(logoInput.files); logoInput.value = ""; });
+      logoDrop.addEventListener("dragover", function (e) { e.preventDefault(); logoDrop.classList.add("is-drag"); });
+      logoDrop.addEventListener("dragleave", function () { logoDrop.classList.remove("is-drag"); });
+      logoDrop.addEventListener("drop", function (e) {
+        e.preventDefault();
+        logoDrop.classList.remove("is-drag");
+        handleLogoFiles(e.dataTransfer.files);
+      });
+
+      // ---- Headshot (optional, single image) ----
+      const headshotInput = document.getElementById("headshot-input");
+      const headshotCircle = document.getElementById("headshot-circle");
+      const headshotRemove = document.getElementById("headshot-remove");
+      const headshotDrop = document.getElementById("headshot-drop");
+      let headshot = (brand && typeof brand.headshot === "string") ? brand.headshot : null;
+      function renderHeadshot() {
+        if (!headshotCircle) return;
+        if (headshot) {
+          headshotCircle.style.backgroundImage = "url(" + JSON.stringify(headshot) + ")";
+          headshotCircle.classList.add("has-img");
+          if (headshotRemove) headshotRemove.hidden = false;
+        } else {
+          headshotCircle.style.backgroundImage = "";
+          headshotCircle.classList.remove("has-img");
+          if (headshotRemove) headshotRemove.hidden = true;
+        }
+      }
+      renderHeadshot();
+      function setHeadshotFile(f) {
+        if (!f || !f.type.startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = function () { headshot = reader.result; renderHeadshot(); scheduleSave(); };
+        reader.readAsDataURL(f);
+      }
+      if (headshotInput) headshotInput.addEventListener("change", function () { setHeadshotFile(headshotInput.files[0]); headshotInput.value = ""; });
+      if (headshotDrop) {
+        headshotDrop.addEventListener("dragover", function (e) { e.preventDefault(); });
+        headshotDrop.addEventListener("drop", function (e) { e.preventDefault(); setHeadshotFile(e.dataTransfer.files[0]); });
+      }
+      if (headshotRemove) headshotRemove.addEventListener("click", function (e) { e.preventDefault(); headshot = null; renderHeadshot(); scheduleSave(); });
+
+      // ---- Collect / submit ----
+      function collect() {
+        const colours = [];
+        for (let i = 0; i < 6; i++) {
+          const slot = grid.querySelector('.colour-slot[data-i="' + i + '"]');
+          if (!slot || slot.classList.contains("is-empty")) continue;
+          const hex = slot.querySelector('[data-colour-hex]').value.trim();
+          if (!/^#?[0-9a-f]{6}$/i.test(hex)) continue;
+          colours.push({
+            hex: (hex.startsWith("#") ? hex : "#" + hex).toUpperCase(),
+            name: slot.querySelector('[data-colour-name]').value.trim() || ("Colour " + (i + 1)),
+          });
+        }
+        return {
+          company: companyInput.value.trim(),
+          tone: toneInput ? toneInput.value.trim() : "",
+          colors: colours,
+          fonts: { heading: headingPicker.value(), body: bodyPicker.value() },
+          logos: logos,
+          headshot: headshot,
+          updatedAt: Date.now(),
+        };
+      }
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        clearTimeout(saveTimer);
+        doSave(false);
+        const next = new URLSearchParams(location.search).get("next") || "/account";
+        location.href = next;
+      });
+
+      document.getElementById("profile-skip").addEventListener("click", function () {
+        try { localStorage.setItem("tmke.brand.skipped", "1"); } catch (_) {}
+        location.href = "/account";
+      });
+
+      // Everything is wired — allow autosave to fire from here on.
+      ready = true;
+    })();
+  </script>
+
+  <!-- Sign-out wiring for the sidebar button (separate module so we
+       can import the supabase client). -->
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    document.getElementById('app-signout')?.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      location.replace('/login');
+    });
+  </script>
+
+  <!-- Brand-kit server sync — saves the kit to the member's account (so it
+       follows their login into the Studio on any device) and, on load, adopts
+       a newer server copy if they edited it on another device. -->
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    (async () => {
+      let uid = null;
+      try { const { data } = await supabase.auth.getSession(); uid = data?.session?.user?.id || null; } catch (_) {}
+      if (!uid) return;   // signed out — localStorage-only, nothing to sync
+
+      // Push local edits up to the member's row (debounced), on change.
+      let t = null;
+      window.addEventListener("tmke:brand-changed", (e) => {
+        const kit = e.detail;
+        if (!kit) return;
+        clearTimeout(t);
+        t = setTimeout(async () => {
+          try {
+            await supabase.from("member_brand_kits").upsert(
+              { user_id: uid, kit, updated_at: new Date().toISOString() },
+              { onConflict: "user_id" }
+            );
+          } catch (_) { /* keep working from localStorage if the sync fails */ }
+        }, 700);
+      });
+
+      // On load, adopt a newer server kit (edited on another device). Reload
+      // once so the form re-initialises from the fresh cache — guarded against
+      // any loop. If local is same-or-newer, the local copy stands.
+      try {
+        const { data: bk } = await supabase
+          .from("member_brand_kits").select("kit").eq("user_id", uid).maybeSingle();
+        if (bk && bk.kit && typeof bk.kit === "object" && Object.keys(bk.kit).length) {
+          let local = null;
+          try { local = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+          const serverT = Number(bk.kit.updatedAt || 0), localT = Number((local && local.updatedAt) || 0);
+          if ((!local || serverT > localT) && !sessionStorage.getItem("tmke.brand.synced")) {
+            try { localStorage.setItem("tmke.brand", JSON.stringify(bk.kit)); } catch (_) {}
+            sessionStorage.setItem("tmke.brand.synced", "1");
+            location.reload();
+          }
+        }
+      } catch (_) { /* server kit is optional */ }
+    })();
+  </script>
+
+  <!-- First-time login tour — resumes here (the final leg) only if in progress. -->
+  <script>
+    import { initTour } from "../../lib/tour.js";
+    initTour();
+  </script>
+</BaseLayout>
