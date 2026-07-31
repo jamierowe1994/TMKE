@@ -24,6 +24,20 @@ interface Props {
   pageTransition?: boolean;
 }
 
+// Installable apps. The admin centre and the member hub are each their own
+// desktop app — separate icons, separate windows, used by different people.
+// The marketing site deliberately links no manifest, so it is never offered
+// for install; the manifest link is what decides where the browser offers it,
+// and `scope` is what keeps navigation inside the app window once installed.
+// Both live under a single address prefix, which is why the hub moved to
+// /account (30 Jul 2026) — an app is scoped to a path, not to a list of pages.
+const _p = Astro.url.pathname;
+const pwa = _p.startsWith("/admin")
+  ? { manifest: "/admin/manifest.webmanifest", icon: "/icons/admin-192.png" }
+  : _p.startsWith("/account")
+  ? { manifest: "/account/manifest.webmanifest", icon: "/icons/hub-192.png" }
+  : null;
+
 const {
   title = "TMKE — The Marketing Experts",
   description = "A specialist social media and marketing agency for the UK property sector. Premium templates, fully managed channels, structured content.",
@@ -61,6 +75,10 @@ const enableTransition = !isBackend && !isEditing && (pageTransition ?? !hideNav
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex,nofollow" />}
     <link rel="canonical" href={canonical} />
+
+    {pwa && <link rel="manifest" href={pwa.manifest} />}
+    {pwa && <meta name="theme-color" content="#371e28" />}
+    {pwa && <link rel="apple-touch-icon" href={pwa.icon} />}
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
