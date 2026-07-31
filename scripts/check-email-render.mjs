@@ -110,6 +110,21 @@ console.log('\n11. Automated-email house style rewrites correctly');
 
   const off = styleEmailContent(`<div style="${emailStyleStrings(D).quote}">Q</div>`, { ...D, quoteEnabled: false });
   check('quote box off drops the panel', !/border-left/.test(off) && !/background:/.test(off), true);
+
+  // The bugs James found: these all rode on the four shared strings, so they
+  // did nothing on the ~66 declarations that were hand-written instead.
+  const h = `<h1 style="${emailStyleStrings(D).h1}">T</h1>`;
+  check('heading weight responds', /font-weight:700/.test(styleEmailContent(h, { ...D, headingWeight: 700 })), true);
+  check('gap under heading responds', /margin:0 0 40px/.test(styleEmailContent(h, { ...D, headingGap: 40 })), true);
+  const par = `<p style="${emailStyleStrings(D).p}">B</p>`;
+  check('gap under paragraph responds', /margin:0 0 30px/.test(styleEmailContent(par, { ...D, bodyGap: 30 })), true);
+  check('body line height responds', /line-height:2/.test(styleEmailContent(par, { ...D, bodyLine: 2 })), true);
+  const q = `<div style="${emailStyleStrings(D).quote}">Q</div>`;
+  check('quote background responds', /background:#ff0000/.test(styleEmailContent(q, { ...D, quoteBg: '#ff0000' })), true);
+  const sm = `<p style="${emailStyleStrings(D).small}">s</p>`;
+  check('small print colour responds', /color:#123456/.test(styleEmailContent(sm, { ...D, smallColor: '#123456' })), true);
+  // The font stack in the HTML has no spaces; a spaced default matched nothing.
+  check('font stack matches the HTML byte for byte', D.font === 'Verdana,Geneva,sans-serif', true);
 }
 
 console.log(`\n${fail === 0 ? '✅' : '❌'} ${pass} passed, ${fail} failed\n`);

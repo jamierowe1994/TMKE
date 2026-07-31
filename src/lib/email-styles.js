@@ -21,12 +21,12 @@
  */
 
 export const EMAIL_STYLE_DEFAULTS = {
-  font: 'Verdana, Geneva, sans-serif',
+  font: 'Verdana,Geneva,sans-serif',
   dark: '#371e28',
   light: '#f4f2f1',
   headingSize: 24, headingWeight: 400, headingTracking: 0, headingLine: 1.6, headingGap: 14,
   bodySize: 12, bodyLine: 1.6, bodyGap: 14,
-  smallSize: 10,
+  smallSize: 10, smallColor: '#8a8796', smallGap: 18,
   buttonSize: 12, buttonWeight: 700, buttonRadius: 8, buttonPadY: 13, buttonPadX: 26,
   buttonBg: '#371e28', buttonColor: '#f4f2f1',
   quoteEnabled: true, quoteBg: '#f4f2f1', quoteBorderColor: '#371e28',
@@ -36,13 +36,14 @@ export const EMAIL_STYLE_DEFAULTS = {
 /** The font choices offered in the editor. Email-safe stacks only — a webfont
  *  can't be relied on in Outlook, so this stays a short list of system faces. */
 export const EMAIL_FONT_STACKS = [
-  { key: 'Verdana, Geneva, sans-serif', label: 'Verdana' },
-  { key: 'Arial, Helvetica, sans-serif', label: 'Arial' },
-  { key: 'Tahoma, Segoe, sans-serif', label: 'Tahoma' },
-  { key: "'Trebuchet MS', Helvetica, sans-serif", label: 'Trebuchet MS' },
-  { key: 'Georgia, "Times New Roman", serif', label: 'Georgia' },
-  { key: "'Times New Roman', Times, serif", label: 'Times New Roman' },
-  { key: 'Courier New, Courier, monospace', label: 'Courier New' },
+  // No spaces after the commas: these must match the stacks written into the
+  // email HTML byte for byte, or the rewrite silently matches nothing.
+  { key: 'Verdana,Geneva,sans-serif', label: 'Verdana' },
+  { key: 'Arial,Helvetica,sans-serif', label: 'Arial' },
+  { key: 'Tahoma,Segoe,sans-serif', label: 'Tahoma' },
+  { key: 'Trebuchet MS,Helvetica,sans-serif', label: 'Trebuchet MS' },
+  { key: 'Georgia,Times New Roman,serif', label: 'Georgia' },
+  { key: 'Times New Roman,Times,serif', label: 'Times New Roman' },
 ];
 
 export function mergeEmailStyles(s) { return { ...EMAIL_STYLE_DEFAULTS, ...(s || {}) }; }
@@ -58,7 +59,8 @@ export function emailStyleStrings(input) {
     ? `font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.bodyLine};color:${s.dark};white-space:pre-wrap;margin:0 0 ${s.bodyGap}px;`
     : `background:${s.quoteBg};border-left:${s.quoteBorderWidth}px solid ${s.quoteBorderColor};border-radius:${s.quoteRadius}px;padding:${s.quotePadY}px ${s.quotePadX}px;font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.bodyLine};color:${s.dark};white-space:pre-wrap;margin:0 0 ${s.bodyGap}px;`;
   const btn = `display:inline-block;background:${s.buttonBg};color:${s.buttonColor};text-decoration:none;font-family:${s.font};font-size:${s.buttonSize}px;line-height:${s.bodyLine};font-weight:${s.buttonWeight};padding:${s.buttonPadY}px ${s.buttonPadX}px;border-radius:${s.buttonRadius}px;`;
-  return { h1, p, quote, btn, font: s.font, dark: s.dark, light: s.light };
+  const small = `font-family:${s.font};font-size:${s.smallSize}px;line-height:${s.bodyLine};color:${s.smallColor};margin:${s.smallGap}px 0 0;`;
+  return { h1, p, quote, btn, small, font: s.font, dark: s.dark, light: s.light };
 }
 
 /** Rewrite already-built email HTML from the canonical defaults to the chosen
@@ -76,7 +78,7 @@ export function styleEmailContent(html, input) {
     // below would catch. Doing it this way means the Worker can build every
     // email against the defaults and never hold mutable style state — so an
     // admin previewing unsaved changes cannot bleed into a live send.
-    [ds.h1, ss.h1], [ds.p, ss.p], [ds.quote, ss.quote], [ds.btn, ss.btn],
+    [ds.h1, ss.h1], [ds.p, ss.p], [ds.quote, ss.quote], [ds.btn, ss.btn], [ds.small, ss.small],
     [`font-family:${d.font}`, `font-family:${s.font}`],
     [`font-size:${d.headingSize}px`, `font-size:${s.headingSize}px`],
     [`font-size:${d.bodySize}px`, `font-size:${s.bodySize}px`],
