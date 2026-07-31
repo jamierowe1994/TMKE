@@ -212,6 +212,31 @@ and the first newsletter goes to the wrong people.
 
 ## 7. Admin centre ⬜
 
+- ⬜ **Draft invoices can't be edited.** A draft is an invoice that hasn't been
+  sent, so the obvious thing to want is a change before sending — but the only
+  actions are Send, Mark paid, Void and Delete
+  (`src/pages/admin/invoicing.astro:640`). Today the workaround is delete and
+  re-key it.
+
+  Not the ten-minute job it looks. The pieces and the traps, from a look on
+  31 Jul:
+  · The create form already exists (`invoicing.astro:77`, `#inv-form`) and can
+    be reused — it needs a mode, and to PATCH rather than POST.
+  · **The API can't do it yet.** `PATCH /invoicing/invoices` only accepts a
+    `status` — it reads `b.status`, rejects anything else, and writes nothing
+    but status and paid_date. Field edits need a new endpoint or a widened one.
+  · **Guard it to drafts.** Editing a sent invoice would change what the client
+    was already emailed, and a voided one is meant to be immutable.
+  · **The stored PDF must be regenerated.** A PDF is rendered and put in R2 at
+    creation (`invoices/<number>.pdf`); editing without re-rendering leaves the
+    record and the document disagreeing — and the client's hub serves the PDF.
+    The mark-paid path already re-renders, so there's a pattern to copy.
+  · Numbering stays as issued — editing must not re-allocate an invoice number.
+
+  Call it an hour done properly. It's money, so it wants the drafts-only guard
+  and the PDF re-render, not just the form.
+
+
 - ⬜ **Contacts import doesn't retro-fill people already in the system** — the
   ~30 Lettings agents and Daniel Turnbull won't have the TEG tab, agent profile,
   postcode or marketing opt-in until the import is re-run with the new toggle,
