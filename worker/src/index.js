@@ -55,7 +55,7 @@ function defaultInvoiceEmailText(settings, inv) {
     `Amount due: ${money(inv.total_pence)}`,
   ];
   if (due) lines.push(`Due date: ${due}`);
-  lines.push("", `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+  lines.push("", `Payment is due${due ? ` by ${due}` : ""} by bank transfer - the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
   return lines.join("\n");
 }
 // The invoice covering email: a body (the sender's edited text if provided, else
@@ -89,7 +89,7 @@ function parsePricePence(s) {
 function ddReminderHtml(client, monthLabel, inv) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return `<div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:12px;line-height:1.6;max-width:560px">
-    <p style="margin:0 0 14px">This is an automated reminder for the books — <strong>no action needed with the client</strong> (they pay by Direct Debit through QuickBooks).</p>
+    <p style="margin:0 0 14px">This is an automated reminder for the books - <strong>no action needed with the client</strong> (they pay by Direct Debit through QuickBooks).</p>
     <table style="border-collapse:collapse;margin:0 0 14px;font-size:12px">
       <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(client)}</strong></td></tr>
       <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Period</td><td style="padding:2px 0">${esc(monthLabel)}</td></tr>
@@ -137,7 +137,7 @@ async function ensureDdInvoice(env, lead, ym) {
     await env.BUCKET.put(`invoices/${inv.number || inv.id}.pdf`, pdf, { httpMetadata: { contentType: "application/pdf" } });
     await sendEmail(env, {
       to: invoiceMailTo(recipient, null).to,
-      subject: `Direct Debit invoice ${inv.number} — ${billName} (${monthLabel})`,
+      subject: `Direct Debit invoice ${inv.number} - ${billName} (${monthLabel})`,
       html: ddReminderHtml(billName, monthLabel, inv),
       attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
     });
@@ -309,7 +309,7 @@ async function ensureAgentProfile(env, contactId, contact, input) {
   let promoCode = (existing && existing.promo_code) || null;
   let promoCodeId = (existing && existing.promo_code_id) || null;
   if (isNewStarter && pkg && inductionMonth && !promoCode) {
-    const label = `New-starter free videography — ${[contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email}`;
+    const label = `New-starter free videography - ${[contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email}`;
     const gen = await generateAgentCode(env, { pkg, firstName: contact.first_name, lastName: contact.last_name, inductionMonth, label });
     if (gen) { promoCode = gen.code; promoCodeId = gen.id; }
   }
@@ -406,7 +406,7 @@ async function cancelAgentStarter(env, contactId) {
     try { await sbPatch(env, "videography_promo_codes", filter, { active: false }); } catch (_) {}
   }
   try { await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contactId)}`, { dnd: true }); } catch (_) {}
-  try { await sbPost(env, "contact_notes", { contact_id: contactId, body: "Induction cancelled (TEG sheet) — free-videography code voided and marked do-not-contact.", author: "Sheet sync" }); } catch (_) {}
+  try { await sbPost(env, "contact_notes", { contact_id: contactId, body: "Induction cancelled (TEG sheet) - free-videography code voided and marked do-not-contact.", author: "Sheet sync" }); } catch (_) {}
   try {
     const funnels = await sbGet(env, "automations", `trigger_type=eq.new_starter_videography&select=id`);
     const fids = (funnels || []).map((a) => a.id);
@@ -513,7 +513,7 @@ async function syncAgentSheet(env) {
         row: i + 2, email, package: pkg,
         month_raw: monthRaw || null, month, code: res.promo_code || null, enrolled: !!res._enrolled,
         note: res._enrolled ? null : (!month
-          ? ('couldn\'t read Preferred Shoot Month: "' + (monthRaw || "") + '" — no code, so no funnel')
+          ? ('couldn\'t read Preferred Shoot Month: "' + (monthRaw || "") + '" - no code, so no funnel')
           : "no promo code"),
       });
     } catch (e) {
@@ -544,7 +544,7 @@ async function syncAgentSheet(env) {
         if (seen.has(String(c.email || "").toLowerCase())) continue; // still on the sheet
         const already = (await sbGet(env, "contact_notes", `contact_id=eq.${encodeURIComponent(c.id)}&author=eq.Sheet%20sync&body=ilike.*vanished%20from%20the%20TEG%20sheet*&select=id&limit=1`)) || [];
         if (already.length) continue;                                // flagged before
-        await sbPost(env, "contact_notes", { contact_id: c.id, body: "Vanished from the TEG sheet without being marked Cancelled — flagged to Danielle. Their funnel and free-videography code are still live until someone decides.", author: "Sheet sync" });
+        await sbPost(env, "contact_notes", { contact_id: c.id, body: "Vanished from the TEG sheet without being marked Cancelled - flagged to Danielle. Their funnel and free-videography code are still live until someone decides.", author: "Sheet sync" });
         const prof = live.find((p) => p.contact_id === c.id) || {};
         vanished.push({ name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email, email: c.email, code: prof.promo_code || null });
       }
@@ -552,20 +552,20 @@ async function syncAgentSheet(env) {
     if (vanished.length) {
       missing = vanished.length;
       const escH = (s) => String(s || "").replace(/</g, "&lt;");
-      const items = vanished.map((v) => `<li style="margin:4px 0"><strong>${escH(v.name)}</strong> (${escH(v.email)})${v.code ? ` — free-videography code <code>${escH(v.code)}</code> still live` : ""}</li>`).join("");
+      const items = vanished.map((v) => `<li style="margin:4px 0"><strong>${escH(v.name)}</strong> (${escH(v.email)})${v.code ? ` - free-videography code <code>${escH(v.code)}</code> still live` : ""}</li>`).join("");
       await sendEmail(env, {
         to: "danielle@themarketingexperts.co.uk",
         subject: `TEG sheet: ${vanished.length} new starter${vanished.length === 1 ? " has" : "s have"} vanished without being cancelled`,
         html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22;line-height:1.5">
-          <p>These new starters are still active in the system, but their row has disappeared from the Agent Videography New Starters sheet — usually someone deleting the row instead of marking the <strong>Cancelled</strong> column:</p>
+          <p>These new starters are still active in the system, but their row has disappeared from the Agent Videography New Starters sheet - usually someone deleting the row instead of marking the <strong>Cancelled</strong> column:</p>
           <ul>${items}</ul>
-          <p><strong>Nothing has been stopped automatically</strong> — they're still in the onboarding funnel and their code still works, in case the deletion was an accident.</p>
+          <p><strong>Nothing has been stopped automatically</strong> - they're still in the onboarding funnel and their code still works, in case the deletion was an accident.</p>
           <p>If they're genuinely not joining: re-add their row to the sheet with <strong>Cancelled = yes</strong> and the next sync will void the code, stop the emails and note their card. (Or tick Do-not-contact on their contact card to stop emails immediately.)</p>
           <p style="color:#888;font-size:10px">Sent automatically by the sheet sync. You'll only be told once per person.</p>
         </div>`,
       });
     }
-  } catch (_) { /* the flag is a bonus — never break the sync */ }
+  } catch (_) { /* the flag is a bonus - never break the sync */ }
 
   return { ok: true, rows: rows.length - 1, processed, enrolled, cancelled, skipped, missing, details };
 }
@@ -1292,7 +1292,7 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const row = (k, v) => v ? `<div><span style="color:#888">${k}:</span> ${esc(v)}</div>` : "";
   return `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-    <h1 style="font-size:24px;margin:0 0 6px">New booking — ${esc(service)}</h1>
+    <h1 style="font-size:24px;margin:0 0 6px">New booking - ${esc(service)}</h1>
     <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
       ${row("Client", name)}${row("Company", company)}${row("Email", email)}${row("Phone", phone)}
       ${row("Package", packageLabel)}${addOns && addOns.length ? row("Add-ons", addOns.map((a) => a.name).join(", ")) : ""}
@@ -1643,7 +1643,7 @@ async function brandMasterSocials(env) {
 const EM_FONT = 'Verdana, Geneva, sans-serif';
 const EM_DARK = '#371e28';
 const EM_LIGHT = '#f4f2f1';
-const EM_H1 = `font-family:${EM_FONT};font-size:24px;line-height:1.6;color:${EM_DARK};margin:0 0 14px;`;
+const EM_H1 = `font-family:${EM_FONT};font-size:24px;line-height:1.6;letter-spacing:0;font-weight:400;color:${EM_DARK};margin:0 0 14px;`;
 const EM_P = `font-family:${EM_FONT};font-size:12px;line-height:1.6;color:${EM_DARK};margin:0 0 14px;`;
 const EM_QUOTE = `background:${EM_LIGHT};border-left:3px solid ${EM_DARK};border-radius:10px;padding:14px 16px;font-family:${EM_FONT};font-size:12px;line-height:1.6;color:${EM_DARK};white-space:pre-wrap;margin:0 0 14px;`;
 const EM_BTN = `display:inline-block;background:${EM_DARK};color:${EM_LIGHT};text-decoration:none;font-family:${EM_FONT};font-size:12px;line-height:1.6;font-weight:700;padding:13px 26px;border-radius:8px;`;
@@ -1654,13 +1654,13 @@ const EM_BTN = `display:inline-block;background:${EM_DARK};color:${EM_LIGHT};tex
 // the test email can never drift apart. Returns { subject, html } or null.
 function emailPreviewSample(id) {
   const SAMPLES = {
-    post_reminder: () => ({ subject: "Your Instagram post is planned for today", html: reminderHtml({ title: "Spring launch teaser", asset_url: "https://assets.tmke.co.uk/white-1.webp" }, "Instagram", "New season, new listings ✨\n\nSwipe to see what's just come to market — book a viewing before they're gone.") }),
+    post_reminder: () => ({ subject: "Your Instagram post is planned for today", html: reminderHtml({ title: "Spring launch teaser", asset_url: "https://assets.tmke.co.uk/white-1.webp" }, "Instagram", "New season, new listings ✨\n\nSwipe to see what's just come to market - book a viewing before they're gone.") }),
     setup_reminder: () => ({ subject: "Set your password to unlock your TMKE pack", html: setupReminderHtml({ name: "Alex Morgan", pack: "The Spring Collection", link: "https://tmke.co.uk/set-password?token=sample" }) }),
-    waitlist_register: () => ({ subject: "You're on the cancellation list — The Studio", html: waitlistHtml({ name: "Alex Morgan", service: "The Studio", pkg: "Half day", date: "2026-08-25", time: "10:00" }) }),
-    vid_booking_client: () => ({ subject: "Booking confirmed — Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
-    vid_booking_team: () => ({ subject: "New booking — Property Videography — Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
+    waitlist_register: () => ({ subject: "You're on the cancellation list - The Studio", html: waitlistHtml({ name: "Alex Morgan", service: "The Studio", pkg: "Half day", date: "2026-08-25", time: "10:00" }) }),
+    vid_booking_client: () => ({ subject: "Booking confirmed - Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
+    vid_booking_team: () => ({ subject: "New booking - Property Videography - Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
     invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
-    invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 — Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
+    invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 - Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
   };
   const fn = SAMPLES[id];
   return fn ? fn() : null;
@@ -1695,7 +1695,7 @@ async function wrapInBrandedBase(env, contentHtml) {
     if (!base || !Array.isArray(base.blocks) || !base.blocks.length) {
       // Silence here meant automated email went out completely unbranded with
       // nothing to show for it. Say so.
-      console.error("branded base missing or empty — sending unbranded", rows ? rows.length : 0);
+      console.error("branded base missing or empty - sending unbranded", rows ? rows.length : 0);
       return contentHtml;
     }
     if (rows.length > 1) {
@@ -1735,7 +1735,7 @@ async function wrapInBrandedBase(env, contentHtml) {
     const { html } = renderTemplate({ mode: "blocks", blocks: out, branding: base.branding }, { brand });
     return html || contentHtml;
   } catch (e) {
-    console.error("wrapInBrandedBase failed — sending unbranded", String((e && e.message) || e));
+    console.error("wrapInBrandedBase failed - sending unbranded", String((e && e.message) || e));
     return contentHtml;
   }
 }
@@ -2019,7 +2019,7 @@ async function autoExecAction(env, node, contact, ctx) {
       });
       return (sent && sent.ok)
         ? { outcome: "ok", detail: `“${subject}” → ${to.join(", ")}` }
-        : { outcome: "error", detail: `“${subject}” → ${to.join(", ")} — ${String((sent && sent.error) || "send failed").slice(0, 200)}` };
+        : { outcome: "error", detail: `“${subject}” → ${to.join(", ")} - ${String((sent && sent.error) || "send failed").slice(0, 200)}` };
     } else if (node.type === "add_tag" && c.tag) {
       const tags = Array.from(new Set([...(contact.tags || []), c.tag])); contact.tags = tags;
       await sbPatch(env, "contacts", `id=eq.${contact.id}`, { tags });
@@ -2061,7 +2061,7 @@ async function autoExecAction(env, node, contact, ctx) {
         );
         await sendEmail(env, { to, subject, html });
       } else {
-        await sendEmail(env, { to, subject: `Automation — ${c.note || "update"}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="color:#888;font-size:10px">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
+        await sendEmail(env, { to, subject: `Automation - ${c.note || "update"}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="color:#888;font-size:10px">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
       }
     }
   } catch (_) { /* one failed action shouldn't wedge the tick */ }
@@ -2269,13 +2269,13 @@ export default {
         if (!user) return json({ ok: false, error: "Sign in to publish." }, 401, request, env);
         if (!isAdminEmail(user)) return json({ ok: false, error: "Not authorised." }, 403, request, env);
         if (!env.RAILWAY_API_TOKEN || !env.RAILWAY_SERVICE_ID || !env.RAILWAY_ENVIRONMENT_ID) {
-          return json({ ok: false, error: "Auto-deploy isn't configured — set RAILWAY_API_TOKEN (secret), plus RAILWAY_SERVICE_ID and RAILWAY_ENVIRONMENT_ID, on the Worker." }, 503, request, env);
+          return json({ ok: false, error: "Auto-deploy isn't configured - set RAILWAY_API_TOKEN (secret), plus RAILWAY_SERVICE_ID and RAILWAY_ENVIRONMENT_ID, on the Worker." }, 503, request, env);
         }
         const now = Date.now();
         // A rebuild already in flight picks up the latest content, so coalesce
         // bursts (e.g. publish then a quick edit) into one deploy.
         if (now - _lastDeployAt < 45000) {
-          return json({ ok: true, queued: false, message: "A site update is already in progress — your changes will be included." }, 200, request, env);
+          return json({ ok: true, queued: false, message: "A site update is already in progress - your changes will be included." }, 200, request, env);
         }
         _lastDeployAt = now;
         try {
@@ -2297,7 +2297,7 @@ export default {
           _lastDeployAt = 0;
           return json({ ok: false, error: "Couldn't reach the Railway API." }, 502, request, env);
         }
-        return json({ ok: true, queued: true, message: "Site is updating — your post will be live in a minute or two." }, 200, request, env);
+        return json({ ok: true, queued: true, message: "Site is updating - your post will be live in a minute or two." }, 200, request, env);
       }
 
       // ---- Admin image upload → R2 (assets.tmke.co.uk), returns the URL -------
@@ -2322,7 +2322,7 @@ export default {
         try {
           await env.ASSETS.put(key, buf, { httpMetadata: { contentType: type, cacheControl: "public, max-age=31536000" } });
         } catch (e) {
-          return json({ error: "Upload failed — try again." }, 502, request, env);
+          return json({ error: "Upload failed - try again." }, 502, request, env);
         }
         const fileUrl = "https://assets.tmke.co.uk/" + key.split("/").map(encodeURIComponent).join("/");
         return json({ ok: true, url: fileUrl }, 200, request, env);
@@ -2333,7 +2333,7 @@ export default {
       // from Supabase (never trust the client), create a `pending` order with the
       // service role, then hand back Stripe's hosted payment URL to redirect to.
       if (path.endsWith("/stripe/checkout") && request.method === "POST") {
-        if (!env.STRIPE_SECRET_KEY) return json({ error: "Payments aren't set up yet — add the STRIPE_SECRET_KEY secret to the Worker." }, 503, request, env);
+        if (!env.STRIPE_SECRET_KEY) return json({ error: "Payments aren't set up yet - add the STRIPE_SECRET_KEY secret to the Worker." }, 503, request, env);
         let body;
         try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
         const name = String(body.name || "").trim();
@@ -2481,7 +2481,7 @@ export default {
       // guidelines can be dropped in later without touching the wiring.
       if (path.endsWith("/ai/caption") && request.method === "POST") {
         if (!cheapValid(request)) return json({ error: "Sign in to use AI." }, 401, request, env);
-        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured - set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
         let body; try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
         const mode = body.mode === "property" ? "property" : "general";
         const clean = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n || 200);
@@ -2489,8 +2489,8 @@ export default {
         // Universal caption rules for estate-agent social media (client-supplied).
         // Edit this list to tune the house style; nothing else needs to change.
         const CAPTION_RULES = [
-          "You are writing a social-media caption (Instagram/Facebook) AS a knowledgeable LOCAL UK estate agent — not a marketer, not an AI. The reader should feel they're hearing from a real agent with genuine experience and knowledge of their area. Build familiarity, trust and engagement.",
-          "LENGTH: aim for 80 to 180 words. Go longer only for educational or advice content where extra explanation genuinely adds value; keep announcements, property launches and market updates shorter. Never pad to hit a word count — every sentence must earn its place.",
+          "You are writing a social-media caption (Instagram/Facebook) AS a knowledgeable LOCAL UK estate agent - not a marketer, not an AI. The reader should feel they're hearing from a real agent with genuine experience and knowledge of their area. Build familiarity, trust and engagement.",
+          "LENGTH: aim for 80 to 180 words. Go longer only for educational or advice content where extra explanation genuinely adds value; keep announcements, property launches and market updates shorter. Never pad to hit a word count - every sentence must earn its place.",
           "STRUCTURE (natural, never formulaic): a natural attention-catching opening, then the main message or story, then supporting context or value, then ONE clear call to action. Do not open every caption with a question or reuse the same opening style.",
           "TONE: write as if speaking directly to a client, in everyday language, confident but not promotional or corporate. Service-led content (property marketing, valuations, market updates, business announcements) should be more confident and informative, focused on expertise, process and value. Personal or community content (lifestyle, behind-the-scenes, community features, local recommendations) should be more relaxed and conversational, focused on personality, local knowledge and relationships.",
           "PUNCTUATION: do NOT use em dashes anywhere; use commas or full stops instead. Limit exclamation marks. Avoid excessive ellipses.",
@@ -2504,7 +2504,7 @@ export default {
           "LOCAL RELEVANCE: reference the local area naturally only where it fits (schools, parks, businesses, landmarks, community events). NEVER invent local information, prices, names or any detail you were not given; only use facts provided.",
           "GRAMMAR: British English. Use contractions naturally (you're, we're, it's, don't). Keep spelling, grammar and punctuation accurate. Write numbers naturally within sentences.",
           "READABILITY: clear, conversational and easy to read. Prefer straightforward language. Vary sentence length for a natural rhythm; do not make every sentence the same length.",
-          "VARIETY: write the caption as its own original piece — vary the opening, sentence structure and closing rather than following a template.",
+          "VARIETY: write the caption as its own original piece - vary the opening, sentence structure and closing rather than following a template.",
           "FINAL CHECK before answering: does this sound like a real local estate agent rather than AI? Is every sentence adding value? Is the tone right for the content type? Is there exactly one clear CTA? Are the paragraphs naturally formatted? Have clichés and AI language been avoided? Would someone enjoy reading this on Facebook or Instagram? If any answer is no, rewrite it until it feels natural, authentic and human.",
         ].join("\n- ");
 
@@ -2538,7 +2538,7 @@ export default {
         // priority on tone/personality, but the house rules above still hold —
         // especially the emoji limit.
         const tone = clean(body.tone, 800);
-        const toneBlock = tone ? `\n\nThis client's own brand voice — match it closely for tone and personality (while still following every rule above, especially the one-emoji limit):\n${tone}` : "";
+        const toneBlock = tone ? `\n\nThis client's own brand voice - match it closely for tone and personality (while still following every rule above, especially the one-emoji limit):\n${tone}` : "";
         const prompt = `- ${CAPTION_RULES}${toneBlock}\n\n${brief}${tagsLine}\n\nReturn ONLY minified JSON, no markdown fences, exactly: {"caption": "caption text with line breaks as \\n", "hashtags": ["#tag1", "#tag2"]}.`;
         let aiRes;
         try {
@@ -2555,7 +2555,7 @@ export default {
         try { const s = text.indexOf("{"), e = text.lastIndexOf("}"); out = JSON.parse(text.slice(s, e + 1)); } catch (_) { out = { caption: text, hashtags: [] }; }
         const caption = String(out.caption || "").trim();
         let hashtags = (wantTags && Array.isArray(out.hashtags)) ? out.hashtags.map((h) => String(h).trim()).filter(Boolean).map((h) => (h[0] === "#" ? h : "#" + h.replace(/^#+/, ""))).slice(0, 4) : [];
-        if (!caption) return json({ error: "Couldn't generate a caption — please try again." }, 502, request, env);
+        if (!caption) return json({ error: "Couldn't generate a caption - please try again." }, 502, request, env);
         return json({ ok: true, caption, hashtags }, 200, request, env);
       }
 
@@ -2564,7 +2564,7 @@ export default {
       // Anthropic key as a Worker secret so it never reaches the browser.
       if (path.endsWith("/ai/parse") && request.method === "POST") {
         if (!cheapValid(request)) return json({ error: "Sign in to use AI." }, 401, request, env);
-        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker (wrangler secret put ANTHROPIC_API_KEY)." }, 503, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured - set the ANTHROPIC_API_KEY secret on the Worker (wrangler secret put ANTHROPIC_API_KEY)." }, 503, request, env);
         let body;
         try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
         const W = Math.max(1, Math.round(body.width || 1080));
@@ -2586,7 +2586,7 @@ export default {
           '"align": "left"|"center"|"right"}. ' +
           "All coordinates are in the " + W + "x" + H + " pixel space of the image. " +
           "Group words that share a line/paragraph and style into one block. " +
-          "Only include real text — ignore logos drawn as images, photographic content, and decorative graphics. " +
+          "Only include real text - ignore logos drawn as images, photographic content, and decorative graphics. " +
           "If there is no text, return [].";
         let aiRes;
         try {
@@ -2638,8 +2638,8 @@ export default {
         const b = await request.json().catch(() => ({}));
         const item = { asset_url: String((b && b.asset_url) || ""), caption: (b && b.caption) || "", title: (b && b.title) || "", platform_hint: (b && b.platform) || "instagram" };
         if (!item.asset_url) return json({ error: "Nothing to send." }, 400, request, env);
-        const ok = await sendPostEmail(env, { email: user.email, item, subject: `Your ${item.platform_hint} post — ready to go` });
-        if (!ok) return json({ error: "Couldn't send the email — try again." }, 502, request, env);
+        const ok = await sendPostEmail(env, { email: user.email, item, subject: `Your ${item.platform_hint} post - ready to go` });
+        if (!ok) return json({ error: "Couldn't send the email - try again." }, 502, request, env);
         return json({ ok: true, to: user.email }, 200, request, env);
       }
 
@@ -2833,9 +2833,9 @@ export default {
           availabilityViewInterval: Math.max(15, dur),
         });
         const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
-        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken — please choose another." }, 409, request, env);
+        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken - please choose another." }, 409, request, env);
         const ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
-          subject: `${service || "Shoot"} — ${name}`,
+          subject: `${service || "Shoot"} - ${name}`,
           body: { contentType: "text", content: [notes && `Notes: ${notes}`, phone && `Phone: ${phone}`, email && `Email: ${email}`].filter(Boolean).join("\n") },
           start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
           end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
@@ -2876,7 +2876,7 @@ export default {
           availabilityViewInterval: Math.max(15, dur),
         });
         const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
-        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken — please choose another." }, 409, request, env);
+        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken - please choose another." }, 409, request, env);
 
         // 2) Create or link the Supabase account (never overwrite an existing one).
         let accountUserId = null, accountCreated = false;
@@ -2913,7 +2913,7 @@ export default {
 
         // 3) Book Jack's 365 calendar.
         const ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
-          subject: `${service || "Shoot"} — ${name}`,
+          subject: `${service || "Shoot"} - ${name}`,
           body: { contentType: "text", content: [notes && `Notes: ${notes}`, phone && `Phone: ${phone}`, email && `Email: ${email}`, postcode && `Postcode: ${postcode}`].filter(Boolean).join("\n") },
           start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
           end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
@@ -2953,12 +2953,12 @@ export default {
         });
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         await sendEmail(env, {
-          to: email, subject: `Booking confirmed — ${service || "TMKE"}`,
+          to: email, subject: `Booking confirmed - ${service || "TMKE"}`,
           html: bookingConfirmHtml({ name, service, serviceType: service_type, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}` }),
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, {
-          to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New booking — ${service || "Shoot"} — ${name}`,
+          to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New booking - ${service || "Shoot"} - ${name}`,
           html: jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns: add_ons, postcode, distanceMiles: distance_miles, surchargePence: surcharge_pence, dateNice, time: start, totalPence: total_pence, signedName: signed_name, marketingOptIn: marketing_opt_in }),
         });
 
@@ -2966,7 +2966,7 @@ export default {
         await logBookingMessage(env, {
           booking_id: newBookingId, booking_source: "videography",
           account_user_id: accountUserId, client_email: email,
-          kind: "confirmation", subject: `Booking confirmed — ${service || "TMKE"}`,
+          kind: "confirmation", subject: `Booking confirmed - ${service || "TMKE"}`,
           body: `Your ${service || "booking"} is confirmed for ${dateNice} at ${start}.`
             + (postcode ? ` Location: ${postcode}.` : "")
             + (total_pence != null ? ` Total ${gbpW(total_pence)} inc. VAT, invoiced on delivery.` : "")
@@ -3003,7 +3003,7 @@ export default {
 
         // 0) The single-use code must exist and still be live. It's voided when an
         // induction is cancelled, so this blocks a cancelled starter from booking.
-        if (!code) return json({ error: "A booking code is required — please use the personalised link from your email." }, 400, request, env);
+        if (!code) return json({ error: "A booking code is required - please use the personalised link from your email." }, 400, request, env);
         {
           const pcRows = await sbGet(env, "videography_promo_codes", `code=ilike.${encodeURIComponent(String(code))}&select=active,redemptions,max_redemptions`);
           const pc = pcRows && pcRows[0];
@@ -3021,7 +3021,7 @@ export default {
             availabilityViewInterval: 30,
           });
           const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
-          if (view && /[^0]/.test(view)) return json({ error: "That slot was just taken — please choose another." }, 409, request, env);
+          if (view && /[^0]/.test(view)) return json({ error: "That slot was just taken - please choose another." }, 409, request, env);
         } catch (_) {}
 
         // 2) Account: existing → verify their password and link; new → create.
@@ -3036,7 +3036,7 @@ export default {
             });
             ok = tr.ok;
           } catch (_) {}
-          if (!ok) return json({ error: "That email already has a TMKE account — the password didn't match. Use your existing password, or reset it on the sign-in page." }, 401, request, env);
+          if (!ok) return json({ error: "That email already has a TMKE account - the password didn't match. Use your existing password, or reset it on the sign-in page." }, 401, request, env);
           accountUserId = existing.id;
         } else {
           try {
@@ -3063,7 +3063,7 @@ export default {
         let ev = {};
         try {
           ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
-            subject: `Studio Day (new starter) — ${name}`,
+            subject: `Studio Day (new starter) - ${name}`,
             body: { contentType: "text", content: [`New-starter Studio Day.`, phone && `Phone: ${phone}`, `Email: ${em}`, notes && `Notes: ${notes}`].filter(Boolean).join("\n") },
             start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
             end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
@@ -3121,11 +3121,11 @@ export default {
           <p style="margin:0 0 14px;font-size:12px;color:#1c1d22;">Your <strong>Studio Day</strong> is booked. Here are the details:</p>
           <p style="margin:0 0 6px;font-size:12px;color:#1c1d22;"><strong>${dateNice}</strong> at <strong>${start}</strong> (about 3 hours)</p>
           <p style="margin:0 0 18px;font-size:12px;color:#1c1d22;">at the <strong>TMKE Content Studio</strong>. We'll confirm the full address and how to prepare in a reminder before the day.</p>
-          <p style="margin:0 0 18px;font-size:12px;color:#6b6b70;">There's nothing for you to pay — your session is part of your induction package.</p>
+          <p style="margin:0 0 18px;font-size:12px;color:#6b6b70;">There's nothing for you to pay - your session is part of your induction package.</p>
           <p style="margin:0;font-size:10px;color:#9a9aa0;">Need to change it? Just reply to this email.</p>
         </div>`;
-        try { await sendEmail(env, { to: em, subject: "Your Studio Day is booked — TMKE", html: cHtml }); } catch (_) {}
-        try { await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New Studio Day booking — ${name}`, html: `<p>New-starter Studio Day booked.</p><p><strong>${name}</strong> — ${dateNice} at ${start} (3 hrs), TMKE Content Studio.</p><p>${em}${phone ? " · " + phone : ""}</p><p>Bill to <strong>TPE</strong> — £295 + VAT.</p>` }); } catch (_) {}
+        try { await sendEmail(env, { to: em, subject: "Your Studio Day is booked - TMKE", html: cHtml }); } catch (_) {}
+        try { await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New Studio Day booking - ${name}`, html: `<p>New-starter Studio Day booked.</p><p><strong>${name}</strong> - ${dateNice} at ${start} (3 hrs), TMKE Content Studio.</p><p>${em}${phone ? " · " + phone : ""}</p><p>Bill to <strong>TPE</strong> - £295 + VAT.</p>` }); } catch (_) {}
 
         await logBookingMessage(env, {
           booking_id: newBookingId, booking_source: "videography", account_user_id: accountUserId, client_email: em,
@@ -3150,7 +3150,7 @@ export default {
         // Split the full name — the enquiries table needs a non-empty last name.
         const nameParts = String(name).trim().split(/\s+/);
         const firstName = nameParts.shift() || name;
-        const lastName = nameParts.join(" ") || "—";
+        const lastName = nameParts.join(" ") || "-";
         // Fold the fields the enquiries table has no column for into the message.
         const fullMessage = [
           message || "",
@@ -3167,20 +3167,20 @@ export default {
         if (!saved.ok) {
           const detail = await saved.text().catch(() => "");
           console.error("videography enquiry insert failed", saved.status, detail);
-          return json({ error: "We couldn't save your enquiry just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
+          return json({ error: "We couldn't save your enquiry just then - please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
-          to: email, subject: `Thanks for your enquiry — ${service || "TMKE"}`,
+          to: email, subject: `Thanks for your enquiry - ${service || "TMKE"}`,
           html: await wrapInBrandedBase(env, `
-            <h1 style="${EM_H1}">Thanks — we'll be in touch</h1>
+            <h1 style="${EM_H1}">Thanks - we'll be in touch</h1>
             <p style="${EM_P}">Hi ${esc(name)}, thanks for your interest in ${esc(service || "our videography")}. Jack will be in touch shortly to talk through what you need and put a quote together.</p>
             ${message ? `<div style="${EM_QUOTE}">${esc(message)}</div>` : ""}`),
         });
         await sendEmail(env, {
-          to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New enquiry — ${service || "Videography"} — ${name}`,
+          to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New enquiry - ${service || "Videography"} - ${name}`,
           html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
-            <h1 style="font-size:24px;margin:0 0 6px">New enquiry — ${esc(service || "Videography")}</h1>
+            <h1 style="font-size:24px;margin:0 0 6px">New enquiry - ${esc(service || "Videography")}</h1>
             <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
               <div><span style="color:#888">Client:</span> ${esc(name)}</div>
               ${company ? `<div><span style="color:#888">Company:</span> ${esc(company)}</div>` : ""}
@@ -3195,7 +3195,7 @@ export default {
         // any "form submitted" automation.
         try {
           await fireTrigger(env, "form_submitted", {
-            email, first_name: firstName, last_name: lastName === "—" ? null : lastName,
+            email, first_name: firstName, last_name: lastName === "-" ? null : lastName,
             phone: phone || null, company: company || null, source: "videography_enquiry",
             lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
             tags: crmTags(email, "Interest: Videography", { optIn: !!marketing_opt_in }),
@@ -3213,7 +3213,7 @@ export default {
         if (hp) return json({ ok: true }, 200, request, env);
         // Spam protection (no-ops until TURNSTILE_SECRET_KEY is set).
         const ip = request.headers.get("CF-Connecting-IP") || "";
-        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed — please try again." }, 400, request, env);
+        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed - please try again." }, 400, request, env);
         if (!first_name || !last_name || !business || !email || !message)
           return json({ error: "Please complete all required fields." }, 400, request, env);
         const fullName = `${first_name} ${last_name}`.trim();
@@ -3250,7 +3250,7 @@ export default {
         });
         if (!up.id) {
           console.error("smm enquiry upsert failed", up.error || "");
-          return json({ error: "We couldn't save your message just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
+          return json({ error: "We couldn't save your message just then - please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
         const smmEnquiryId = up.id;
         await logBookingMessage(env, { booking_id: smmEnquiryId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", body: `Submitted a general enquiry${message ? `: ${message}` : "."}` });
@@ -3259,23 +3259,23 @@ export default {
 
         // Auto-acknowledgement to the sender — ALWAYS (per brief).
         await sendEmail(env, {
-          to: email, subject: "Thanks — we've got your message",
+          to: email, subject: "Thanks - we've got your message",
           html: await wrapInBrandedBase(env, `
-            <h1 style="${EM_H1}">Thanks, ${esc(first_name)} — message received</h1>
+            <h1 style="${EM_H1}">Thanks, ${esc(first_name)} - message received</h1>
             <p style="${EM_P}">We've received your enquiry and a member of the TMKE team will be in touch within one working day.</p>
             ${message ? `<div style="${EM_QUOTE}">${esc(message)}</div>` : ""}
-            ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
+            ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account - sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
         });
         await logBookingMessage(env, {
           booking_id: smmEnquiryId, booking_source: "smm",
           account_user_id: accountUserId, client_email: email,
-          kind: "confirmation", subject: "Thanks — we've got your message",
+          kind: "confirmation", subject: "Thanks - we've got your message",
           body: `Auto-acknowledgement sent: we've received ${first_name}'s enquiry and will be in touch within one working day.`,
         });
 
         // Notify the SMM team.
         await sendEmail(env, {
-          to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New enquiry — Social Media — ${fullName}`,
+          to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New enquiry - Social Media - ${fullName}`,
           html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
             <h1 style="font-size:24px;margin:0 0 6px">New Social Media enquiry</h1>
             <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
@@ -3310,7 +3310,7 @@ export default {
         const { full_name, email, password, marketing_opt_in, turnstile_token, hp } = b || {};
         if (hp) return json({ ok: true }, 200, request, env);
         const ip = request.headers.get("CF-Connecting-IP") || "";
-        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed — please try again." }, 400, request, env);
+        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed - please try again." }, 400, request, env);
         if (!full_name || !email) return json({ error: "Please add your name and email." }, 400, request, env);
 
         // Optional account creation (password is optional on this form).
@@ -3338,7 +3338,7 @@ export default {
         });
         if (!up.id) {
           console.error("smm brochure upsert failed", up.error || "");
-          return json({ error: "We couldn't process that just then — please try again, or email hello@tmke.co.uk." }, 502, request, env);
+          return json({ error: "We couldn't process that just then - please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
         const smmBrochureId = up.id;
         await logBookingMessage(env, { booking_id: smmBrochureId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", body: "Downloaded the social media brochure." });
@@ -3352,9 +3352,9 @@ export default {
           to: email, subject: "Your TMKE social media brochure",
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Here's your brochure, ${esc(firstName)}</h1>
-            <p style="${EM_P}">Thanks for your interest in TMKE social media management. Everything's in the brochure below — what's included, how it works, and what it costs.</p>
+            <p style="${EM_P}">Thanks for your interest in TMKE social media management. Everything's in the brochure below - what's included, how it works, and what it costs.</p>
             <p style="margin:0 0 22px"><a href="${esc(brochureUrl)}" style="${EM_BTN}">Download the brochure &rarr;</a></p>
-            ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
+            ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account so you can manage your downloads and bookings in one place - sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
         });
         await logBookingMessage(env, {
           booking_id: smmBrochureId, booking_source: "smm",
@@ -3421,12 +3421,12 @@ export default {
       //      email with an ICS. ------------------------------------------------
       if (path.endsWith("/smm/discovery") && request.method === "POST") {
         const cal = env.SMM_MANAGER_UPN;
-        if (!cal) return json({ error: "Discovery call booking is being set up — please check back shortly." }, 503, request, env);
+        if (!cal) return json({ error: "Discovery call booking is being set up - please check back shortly." }, 503, request, env);
         const b = await request.json().catch(() => ({}));
         const { first_name, last_name, business, email, phone, password, marketing_opt_in, date, start, duration, turnstile_token, hp } = b || {};
         if (hp) return json({ ok: true }, 200, request, env);
         const ip = request.headers.get("CF-Connecting-IP") || "";
-        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed — please try again." }, 400, request, env);
+        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed - please try again." }, 400, request, env);
         if (!first_name || !last_name || !business || !email || !date || !start) return json({ error: "Please complete all required fields and pick a time." }, 400, request, env);
         // Signed-in members are identified by their session token and book
         // straight onto their existing account; everyone else must set a
@@ -3445,7 +3445,7 @@ export default {
           availabilityViewInterval: Math.max(15, dur),
         });
         const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
-        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken — please choose another." }, 409, request, env);
+        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken - please choose another." }, 409, request, env);
 
         // Account creation is mandatory at this step (signed-in members already
         // have one — their verified id is used directly).
@@ -3464,7 +3464,7 @@ export default {
         } catch (_) { /* account is best-effort; the booking still proceeds */ }
 
         const ev = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, {
-          subject: `Discovery Call — ${fullName}`,
+          subject: `Discovery Call - ${fullName}`,
           body: { contentType: "text", content: [business && `Business: ${business}`, phone && `Phone: ${phone}`].filter(Boolean).join("\n") },
           start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
           end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
@@ -3487,29 +3487,29 @@ export default {
           marketing_opt_in: !!marketing_opt_in, account_user_id: accountUserId, account_created: accountCreated,
         });
         const smmDiscoveryId = up.id;
-        if (!smmDiscoveryId) console.error("smm discovery upsert failed", up.error || "");  // calendar event still created — don't fake failure
+        if (!smmDiscoveryId) console.error("smm discovery upsert failed", up.error || "");  // calendar event still created - don't fake failure
 
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
-        const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call — TMKE Social Media", description: "A call with TMKE to talk through your social media.", location: "Online / phone", organizer: cal, attendeeEmail: email, attendeeName: fullName });
+        const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call - TMKE Social Media", description: "A call with TMKE to talk through your social media.", location: "Online / phone", organizer: cal, attendeeEmail: email, attendeeName: fullName });
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
-          to: email, subject: `Your call is booked — ${dateNice}`,
+          to: email, subject: `Your call is booked - ${dateNice}`,
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Your call is booked</h1>
             <p style="${EM_P}">Hi ${esc(first_name)}, your call with the TMKE team is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
-            ${accountCreated ? `<p style="${EM_P}">We've created your TMKE account so your call details, documents, and future bookings live in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
+            ${accountCreated ? `<p style="${EM_P}">We've created your TMKE account so your call details, documents, and future bookings live in one place - sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
             <p style="${EM_P}">Need to change it? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28">hello@tmke.co.uk</a>.</p>`),
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await logBookingMessage(env, {
           booking_id: smmDiscoveryId, booking_source: "smm",
           account_user_id: accountUserId, client_email: email,
-          kind: "confirmation", subject: `Your call is booked — ${dateNice}`,
-          body: `Your social media discovery call is booked for ${dateNice} at ${start}. It's an online/phone call — no prep needed, just bring your questions.`,
+          kind: "confirmation", subject: `Your call is booked - ${dateNice}`,
+          body: `Your social media discovery call is booked for ${dateNice} at ${start}. It's an online/phone call - no prep needed, just bring your questions.`,
         });
         await sendEmail(env, {
-          to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New discovery call — Social Media — ${fullName} — ${dateNice} ${start}`,
+          to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New discovery call - Social Media - ${fullName} - ${dateNice} ${start}`,
           html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
             <h1 style="font-size:24px;margin:0 0 6px">Discovery call booked (Social Media)</h1>
             <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
@@ -3604,9 +3604,9 @@ export default {
           to: email, subject: "Your TMKE videography brochure",
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Here's your brochure, ${esc(firstName)}</h1>
-            <p style="${EM_P}">Thanks for your interest in TMKE videography. Everything's in the brochure below — what's included, how it works, and what it costs.</p>
+            <p style="${EM_P}">Thanks for your interest in TMKE videography. Everything's in the brochure below - what's included, how it works, and what it costs.</p>
             <p style="margin:0 0 22px"><a href="${esc(brochureUrl)}" style="${EM_BTN}">Download the brochure &rarr;</a></p>
-            ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account so you can manage your downloads and bookings in one place — sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
+            ${accountCreated ? `<p style="${EM_P}">We've also created your TMKE account so you can manage your downloads and bookings in one place - sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}`),
         });
 
         // CRM + automations: upsert the contact + fire any "form submitted" flow.
@@ -3709,7 +3709,7 @@ export default {
       if (path.endsWith("/automations/insights") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured - set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
         const b = await request.json().catch(() => ({}));
         if (!b.automation_id) return json({ error: "No automation id." }, 400, request, env);
         const aid = encodeURIComponent(b.automation_id);
@@ -3836,11 +3836,11 @@ export default {
                 html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22;line-height:1.5">
                   <p><strong>${String(who).replace(/</g, "&lt;")}</strong> (${String(addr).replace(/</g, "&lt;")}) reported ${subj ? `“${String(subj).replace(/</g, "&lt;")}”` : "one of our emails"} as spam.</p>
                   <p>Handled automatically: they've been unsubscribed from marketing and their address suppressed, so nothing further will be sent to them.</p>
-                  <p>Worth a moment's thought on why — repeated complaints damage tmke.co.uk's sending reputation. Their history is on their contact card in the admin.</p>
+                  <p>Worth a moment's thought on why - repeated complaints damage tmke.co.uk's sending reputation. Their history is on their contact card in the admin.</p>
                   <p style="color:#888;font-size:10px">Sent automatically by the email webhook.</p>
                 </div>`,
               });
-            } catch (_) { /* the alert is a bonus — the suppression already happened */ }
+            } catch (_) { /* the alert is a bonus - the suppression already happened */ }
           } else if (event === "suppressed") {
             await suppressContact(env, contact, "resend_suppressed", null);
           } else if (event === "opened" || event === "clicked") {
@@ -3863,7 +3863,7 @@ export default {
         const auto = aRows && aRows[0];
         if (!auto) return json({ error: "Automation not found." }, 404, request, env);
         if (auto.trigger_type !== "audience") return json({ error: "This automation doesn't start from a group of tags." }, 400, request, env);
-        if (auto.status !== "active") return json({ error: "Set the automation to Active first — a draft can't enrol anyone." }, 400, request, env);
+        if (auto.status !== "active") return json({ error: "Set the automation to Active first - a draft can't enrol anyone." }, 400, request, env);
         const tags = Array.isArray((auto.trigger_config || {}).tags) ? auto.trigger_config.tags.filter(Boolean) : [];
         if (!tags.length) return json({ error: "Choose at least one tag first." }, 400, request, env);
         const firstId = autoEdgeTo(auto.graph, "trigger", "next");
@@ -3931,10 +3931,10 @@ export default {
           availabilityViewInterval: Math.max(15, dur),
         });
         const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
-        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken — please choose another." }, 409, request, env);
+        if (view && /[^0]/.test(view)) return json({ error: "That time was just taken - please choose another." }, 409, request, env);
         const interestList = Array.isArray(interests) ? interests : [];
         const ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
-          subject: `Discovery Call — ${name}`,
+          subject: `Discovery Call - ${name}`,
           body: { contentType: "text", content: [interestList.length && `Interested in: ${interestList.join(", ")}`, message && `Notes: ${message}`, phone && `Phone: ${phone}`, company && `Company: ${company}`].filter(Boolean).join("\n") },
           start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
           end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
@@ -3955,11 +3955,11 @@ export default {
           discoveryId = Array.isArray(arr) && arr[0] ? arr[0].id : null;
         } catch (_) {}
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
-        const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call — TMKE", description: ["A quick call with Jack to talk through your videography.", interestList.length && `Interested in: ${interestList.join(", ")}`].filter(Boolean).join("\n"), location: "Online / phone", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name });
+        const ics = buildICS({ uid: `${ev.id || token}@tmke.co.uk`, date, start, endHm, summary: "Discovery Call - TMKE", description: ["A quick call with Jack to talk through your videography.", interestList.length && `Interested in: ${interestList.join(", ")}`].filter(Boolean).join("\n"), location: "Online / phone", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name });
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
-          to: email, subject: `Your discovery call is booked — ${dateNice}`,
+          to: email, subject: `Your discovery call is booked - ${dateNice}`,
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Your call is booked</h1>
             <p style="${EM_P}">Hi ${esc(name)}, your discovery call with Jack is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
@@ -3969,11 +3969,11 @@ export default {
         await logBookingMessage(env, {
           booking_id: discoveryId, booking_source: "videography",
           account_user_id: accountUserId, client_email: email,
-          kind: "confirmation", subject: `Your discovery call is booked — ${dateNice}`,
-          body: `Your discovery call with Jack is confirmed for ${dateNice} at ${start}. It's an online/phone call — no prep needed, just bring your questions.`,
+          kind: "confirmation", subject: `Your discovery call is booked - ${dateNice}`,
+          body: `Your discovery call with Jack is confirmed for ${dateNice} at ${start}. It's an online/phone call - no prep needed, just bring your questions.`,
         });
         await sendEmail(env, {
-          to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New discovery call — ${name} — ${dateNice} ${start}`,
+          to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New discovery call - ${name} - ${dateNice} ${start}`,
           html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
             <h1 style="font-size:24px;margin:0 0 6px">Discovery call booked</h1>
             <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
@@ -4021,20 +4021,20 @@ export default {
         if (!bk) return json({ error: "Booking not found" }, 404, request, env);
         if (bk.stage === "cancelled") return json({ ok: true, already: true }, 200, request, env);
         const days = bk.shoot_date ? (new Date(bk.shoot_date) - new Date()) / 86400000 : 0;
-        if (days < 3) return json({ error: "Cancellations within 3 days can't be made online — please email jack@tmke.co.uk. Note: cancellations within 48 hours are chargeable in full." }, 422, request, env);
+        if (days < 3) return json({ error: "Cancellations within 3 days can't be made online - please email jack@tmke.co.uk. Note: cancellations within 48 hours are chargeable in full." }, 422, request, env);
         if (bk.ms_event_id) { try { await graph(env, "DELETE", `/users/${encodeURIComponent(env.JACK_UPN)}/events/${bk.ms_event_id}`); } catch (_) {} }
         await sbPatch(env, "videography_bookings", `id=eq.${bk.id}`, { stage: "cancelled" });
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
-          to: bk.client_email, subject: `Booking cancelled — ${bk.service || "TMKE"}`,
+          to: bk.client_email, subject: `Booking cancelled - ${bk.service || "TMKE"}`,
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Your booking is cancelled</h1>
             <p style="${EM_P}">Hi ${esc(bk.client_name || "")}, we've cancelled your ${esc(bk.service || "booking")}. If this was a mistake or you'd like to rebook, just head back to <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk/videography</a>.</p>`),
         });
-        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Cancelled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} cancelled their ${esc(bk.service || "booking")} (was ${esc(bk.shoot_date || "")}).</p></div>` });
+        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Cancelled - ${bk.service || "Booking"} - ${bk.client_name || ""}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} cancelled their ${esc(bk.service || "booking")} (was ${esc(bk.shoot_date || "")}).</p></div>` });
         await logBookingMessage(env, {
           booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
-          kind: "cancellation", subject: `Booking cancelled — ${bk.service || "TMKE"}`,
+          kind: "cancellation", subject: `Booking cancelled - ${bk.service || "TMKE"}`,
           body: `Your ${bk.service || "booking"} has been cancelled. If this was a mistake or you'd like to rebook, head to tmke.co.uk/videography.`,
         });
         return json({ ok: true }, 200, request, env);
@@ -4049,7 +4049,7 @@ export default {
         if (!bk) return json({ error: "Booking not found" }, 404, request, env);
         if (bk.stage === "cancelled") return json({ error: "This booking was cancelled." }, 422, request, env);
         const days = bk.shoot_date ? (new Date(bk.shoot_date) - new Date()) / 86400000 : 0;
-        if (days < 2) return json({ error: "Rescheduling within 2 days can't be done online — please email jack@tmke.co.uk." }, 422, request, env);
+        if (days < 2) return json({ error: "Rescheduling within 2 days can't be done online - please email jack@tmke.co.uk." }, 422, request, env);
         // Slot length: the stored duration, else read the existing 365 event, else 60.
         let dur = bk.duration_min || 0;
         if (!dur && bk.ms_event_id) {
@@ -4068,7 +4068,7 @@ export default {
           availabilityViewInterval: Math.max(15, dur),
         });
         const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
-        if (view && /[^0]/.test(view)) return json({ error: "That time isn't free — please pick another." }, 409, request, env);
+        if (view && /[^0]/.test(view)) return json({ error: "That time isn't free - please pick another." }, 409, request, env);
         if (bk.ms_event_id) {
           await graph(env, "PATCH", `/users/${encodeURIComponent(env.JACK_UPN)}/events/${bk.ms_event_id}`, {
             start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
@@ -4081,16 +4081,16 @@ export default {
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
-          to: bk.client_email, subject: `Booking rescheduled — ${dateNice}`,
+          to: bk.client_email, subject: `Booking rescheduled - ${dateNice}`,
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Your booking has moved</h1>
             <p style="${EM_P}">Hi ${esc(bk.client_name || "")}, your ${esc(bk.service || "booking")} is now <strong>${esc(dateNice)} at ${esc(start)}</strong>. An updated calendar invite is attached.</p>`),
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
-        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Rescheduled — ${bk.service || "Booking"} — ${bk.client_name || ""}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} moved their ${esc(bk.service || "booking")} to ${esc(dateNice)} at ${esc(start)}.</p></div>` });
+        await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Rescheduled - ${bk.service || "Booking"} - ${bk.client_name || ""}`, html: `<div style="font-family:Verdana,Geneva,sans-serif;color:#1c1d22"><p>${esc(bk.client_name || "")} moved their ${esc(bk.service || "booking")} to ${esc(dateNice)} at ${esc(start)}.</p></div>` });
         await logBookingMessage(env, {
           booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
-          kind: "reschedule", subject: `Booking rescheduled — ${dateNice}`,
+          kind: "reschedule", subject: `Booking rescheduled - ${dateNice}`,
           body: `Your ${bk.service || "booking"} has moved to ${dateNice} at ${start}. An updated calendar invite is on its way.`,
         });
         return json({ ok: true }, 200, request, env);
@@ -4127,7 +4127,7 @@ export default {
         // one so "please stop emailing me" reaches a human.
         reply_to: env.MAIL_REPLY_TO || "hello@tmke.co.uk",
                 to: email,
-                subject: `You're on the cancellation list — ${service || section || "The Studio"}`,
+                subject: `You're on the cancellation list - ${service || section || "The Studio"}`,
                 html: waitlistHtml({ name, service: service || section || "The Studio", pkg, date, time }),
               }),
             });
@@ -4229,9 +4229,9 @@ export default {
         try {
           if (!reserved) await sendEmail(env, {
             to: email,
-            subject: "Thanks for getting in touch — TMKE",
+            subject: "Thanks for getting in touch - TMKE",
             html: await wrapInBrandedBase(env, `
-              <h1 style="${EM_H1}">Thanks — we've got your message</h1>
+              <h1 style="${EM_H1}">Thanks - we've got your message</h1>
               <p style="${EM_P}">Hi ${esc(firstName || "there")}, thanks for getting in touch with TMKE. Your message has reached the team and someone will come back to you shortly.</p>
               ${message ? `<p style="${EM_P}">Here's what you sent us, for your records:</p><div style="${EM_QUOTE}">${esc(message)}</div>` : ""}
               <p style="${EM_P}">If anything's changed in the meantime, just reply to this email and it'll come straight to us.</p>`),
@@ -4244,7 +4244,7 @@ export default {
         try {
           if (!reserved) await sendEmail(env, {
             to: env.ENQUIRY_NOTIFY || env.SMM_MANAGER_UPN || "hello@tmke.co.uk",
-            subject: `New contact enquiry — ${fullName}`,
+            subject: `New contact enquiry - ${fullName}`,
             html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22">
               <h1 style="font-size:24px;margin:0 0 6px">New contact enquiry</h1>
               <div style="background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px;padding:16px 18px;font-size:12px;line-height:1.9">
@@ -4571,7 +4571,7 @@ export default {
           else {
             u = await findUserByEmail(env, email);
             if (!u) { const t = await cr.text().catch(() => ""); return json({ error: "Couldn't create that login. " + t.slice(0, 160) }, 502, request, env); }
-            tempPassword = null; // it existed after all — don't claim a new password
+            tempPassword = null; // it existed after all - don't claim a new password
           }
         }
         if (!u || !u.id) return json({ error: "Couldn't resolve that account." }, 502, request, env);
@@ -4846,7 +4846,7 @@ export default {
         const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`);
         const inv = rows && rows[0];
         if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
-        if (!inv.bill_to_email) return json({ error: "This invoice has no recipient email — add one first." }, 400, request, env);
+        if (!inv.bill_to_email) return json({ error: "This invoice has no recipient email - add one first." }, 400, request, env);
         const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
         // The person raising the invoice can pick the style; fall back to the saved default.
         const stForPdf = { ...st, template: inv.template || st.template };
@@ -5012,7 +5012,7 @@ export default {
         const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
         const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const html = `<div style="font-family:Verdana,Geneva,sans-serif;color:#2a1b22;font-size:12px;line-height:1.6;max-width:560px">
-          <p style="margin:0 0 14px"><strong>Invoice ${esc(inv.number)} has been voided</strong> and removed from the system — please disregard it.</p>
+          <p style="margin:0 0 14px"><strong>Invoice ${esc(inv.number)} has been voided</strong> and removed from the system - please disregard it.</p>
           <table style="border-collapse:collapse;margin:0 0 14px;font-size:12px">
             <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(inv.bill_to_name || "")}</strong></td></tr>
             <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Amount</td><td style="padding:2px 0">${money(inv.total_pence)}</td></tr>
@@ -5020,13 +5020,13 @@ export default {
             <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Voided by</td><td style="padding:2px 0">${esc(user.email || "an admin")}</td></tr>
           </table>
           <p style="margin:0 0 6px;color:#7a6b70">Reason</p>
-          <p style="margin:0;padding:11px 14px;background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px">${esc(reason || "—")}</p>
+          <p style="margin:0;padding:11px 14px;background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px">${esc(reason || "-")}</p>
         </div>`;
         const voidMail = invoiceMailTo(st.accounts_cc_email || DD_DEFAULT_RECIPIENT, user.email || null);
         await sendEmail(env, {
           to: voidMail.to,
           cc: voidMail.cc,
-          subject: `Invoice ${inv.number} voided — ${inv.bill_to_name || ""}`,
+          subject: `Invoice ${inv.number} voided - ${inv.bill_to_name || ""}`,
           html,
         });
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
@@ -5127,7 +5127,7 @@ export default {
         if (b.send_invite && cal && lead.email) {
           try {
             await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, {
-              subject: `TMKE Social Media — Meeting with ${lead.full_name || lead.email}`,
+              subject: `TMKE Social Media - Meeting with ${lead.full_name || lead.email}`,
               start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
               end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
               attendees: [
@@ -5137,11 +5137,11 @@ export default {
               ],
               isOnlineMeeting: true,
             });
-            const ics = buildICS({ uid: `smm-${leadId}-${date}-${start}@tmke.co.uk`, date, start, endHm, summary: "TMKE Social Media — Meeting", description: "A meeting with the TMKE social media team.", location: "Online / phone", organizer: cal, attendeeEmail: lead.email, attendeeName: lead.full_name || "" });
+            const ics = buildICS({ uid: `smm-${leadId}-${date}-${start}@tmke.co.uk`, date, start, endHm, summary: "TMKE Social Media - Meeting", description: "A meeting with the TMKE social media team.", location: "Online / phone", organizer: cal, attendeeEmail: lead.email, attendeeName: lead.full_name || "" });
             const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
             const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             await sendEmail(env, {
-              to: lead.email, subject: `Your meeting with TMKE — ${dateNice}`,
+              to: lead.email, subject: `Your meeting with TMKE - ${dateNice}`,
               html: `<div style="font-family:Verdana,Geneva,sans-serif;max-width:560px;margin:0 auto;color:#1c1d22"><p style="color:#555;font-size:12px;margin:0 0 12px">Hi ${esc(lead.first_name || "")},</p><p style="font-size:12px;line-height:1.6">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`,
               attachments: [{ filename: "meeting.ics", content: icsB64, contentType: "text/calendar" }],
               from: env.SMM_MAIL_SENDER || undefined, fromName: env.SMM_MAIL_SENDER ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : undefined,
@@ -5197,7 +5197,7 @@ export default {
         const lead = rows && rows[0];
         if (!lead) return json({ error: "That card no longer exists." }, 404, request, env);
         const targetEmail = String((b && b.email) || lead.email || "").trim();
-        if (!targetEmail) return json({ error: "This card has no email — add one first, then link." }, 400, request, env);
+        if (!targetEmail) return json({ error: "This card has no email - add one first, then link." }, 400, request, env);
         const u = await findUserByEmail(env, targetEmail);
         if (!u) return json({ ok: false, noAccount: true, email: targetEmail }, 200, request, env);
         // Identity check — does the account's name share a name with the card?
@@ -5235,7 +5235,7 @@ export default {
         const lead = rows && rows[0];
         if (!lead) return json({ error: "That card no longer exists." }, 404, request, env);
         const email = String(lead.email || "").trim();
-        if (!email) return json({ error: "This card has no email — add one first." }, 400, request, env);
+        if (!email) return json({ error: "This card has no email - add one first." }, 400, request, env);
         const fullName = String(lead.full_name || `${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "").trim();
         const first = String(lead.first_name || fullName.split(/\s+/)[0] || "there").trim();
         // If they already have an account, just link it — no duplicate.
@@ -5271,7 +5271,7 @@ export default {
         const content = `
           <h1 style="font-family:Verdana,Geneva,sans-serif;font-size:24px;color:#371e28;margin:0 0 14px;">Welcome to your TMKE member hub</h1>
           <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">Hi ${esc(first)},</p>
-          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">As one of our social media management clients, you can manage and oversee your account through our member hub — your plan, your monthly performance reports and everything in one place.</p>
+          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">As one of our social media management clients, you can manage and oversee your account through our member hub - your plan, your monthly performance reports and everything in one place.</p>
           <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 22px;">Click below to set your password and open your account.</p>
           <p style="margin:0 0 24px;"><a href="${esc(actionLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:12px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
           <p style="font-size:12px;line-height:1.6;color:#8a8796;margin:0;">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(actionLink)}</span></p>`;
@@ -5324,14 +5324,14 @@ export default {
       if (path.endsWith("/smm/report/parse") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured - set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
         const b = await request.json().catch(() => ({}));
         const raw = String((b && b.pdf) || "");
         const mm = /^data:application\/pdf;base64,(.+)$/i.exec(raw);
         const b64 = mm ? mm[1] : raw;
         if (!b64) return json({ error: "Missing PDF." }, 400, request, env);
         const prompt =
-          "The attached PDF is a SocialPilot monthly social-media analytics report. Its charts are images — read the values visually. " +
+          "The attached PDF is a SocialPilot monthly social-media analytics report. Its charts are images - read the values visually. " +
           "Extract the figures into ONE JSON object with this exact shape, and reply with ONLY that JSON (no prose, no markdown fences):\n" +
           '{ "summary": string (1-2 sentence plain-English summary), ' +
           '"profile": { "followers": number, "newFollowers": number, "reach": number, "reachChange": number (percent vs prior month), "views": number, "interactions": number, "interactionRate": number (percent), "linkTaps": number, "ukFollowers": number (optional) }, ' +
@@ -5344,7 +5344,7 @@ export default {
           '"peakTimes": { "slots": ["8am","10am","12pm","2pm","4pm","6pm","8pm"], "grid": seven rows (Mon..Sun), each a row of N cells matching slots, each cell 0-3 (0 low, 1 moderate, 2 good, 3 peak) }, ' +
           '"timing": string, "bestDays": string, "morningWindow": string, "eveningWindow": string, ' +
           '"demographics": { "gender": [ { "label": "Women"|"Men", "pct": number, "count": number } ], "topCities": [ { "city": string, "count": number } ], "topCountries": [ { "country": string, "count": number } ] }, ' +
-          '"priorities": [ { "type": "go"|"caution"|"action", "text": string } ] (go = do more, caution = improve, action = fix now — infer 2-4 sensible ones from the data), ' +
+          '"priorities": [ { "type": "go"|"caution"|"action", "text": string } ] (go = do more, caution = improve, action = fix now - infer 2-4 sensible ones from the data), ' +
           '"comingSoon": [ string ] (optional; omit if unknown) }\n' +
           "Only include fields you can determine; omit anything not present (especially the ads object when there were no paid ads). Numbers must be plain (no commas or units) except cpc/spend which are numeric GBP amounts. Reply with ONLY the JSON object.";
         let aiRes;
@@ -5367,7 +5367,7 @@ export default {
         const text = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
         let parsed;
         try { const s = text.indexOf("{"), e = text.lastIndexOf("}"); parsed = JSON.parse(text.slice(s, e + 1)); }
-        catch (_) { return json({ error: "Couldn't read the AI output — try again, or paste the JSON manually.", raw: text.slice(0, 200) }, 502, request, env); }
+        catch (_) { return json({ error: "Couldn't read the AI output - try again, or paste the JSON manually.", raw: text.slice(0, 200) }, 502, request, env); }
         const out = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed;
         return json({ ok: true, data: out, usage: dataRes.usage || null }, 200, request, env);
       }
@@ -5386,7 +5386,7 @@ export default {
       if (path.endsWith("/smm/report/ask") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured — set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured - set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
         const b = await request.json().catch(() => ({}));
         const leadId = b && b.lead_id;
         const question = String((b && b.question) || "").trim().slice(0, 500);
@@ -5394,7 +5394,7 @@ export default {
         const leadRows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=full_name,business`);
         const lead = (leadRows && leadRows[0]) || {};
         const reps = (await sbGet(env, "smm_reports", `lead_id=eq.${encodeURIComponent(leadId)}&select=platform,month,year,data&order=year.asc,month.asc`)) || [];
-        if (!reps.length) return json({ error: "No reports for this account yet — upload one first." }, 400, request, env);
+        if (!reps.length) return json({ error: "No reports for this account yet - upload one first." }, 400, request, env);
         const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const accName = lead.business || lead.full_name || "this account";
         const platform = reps[reps.length - 1].platform || "Instagram";
@@ -5405,7 +5405,7 @@ export default {
           dataText += `Followers: ${p.followers ?? "?"} | New followers: ${p.newFollowers ?? "?"} | Reach: ${p.reach ?? "?"} | Views: ${p.views ?? "?"}\n`;
           dataText += `Interactions: ${p.interactions ?? "?"} | Engagement rate: ${p.interactionRate ?? "?"}% | Link taps: ${p.linkTaps ?? "?"}\n`;
           if (rc.organicReach != null || rc.paidReach != null) dataText += `Organic reach: ${rc.organicReach ?? "?"} | Paid reach: ${rc.paidReach ?? "?"}\n`;
-          if (d.ads) dataText += `Paid ads — reach: ${d.ads.reach ?? "?"} | interactions: ${d.ads.interactions ?? "?"} | spend: £${d.ads.spend ?? "?"} | clicks: ${d.ads.clicks ?? "?"} | CPC: £${d.ads.cpc ?? "?"}\n`;
+          if (d.ads) dataText += `Paid ads - reach: ${d.ads.reach ?? "?"} | interactions: ${d.ads.interactions ?? "?"} | spend: £${d.ads.spend ?? "?"} | clicks: ${d.ads.clicks ?? "?"} | CPC: £${d.ads.cpc ?? "?"}\n`;
           if (d.bestDays) dataText += `Best days: ${d.bestDays} | Morning window: ${d.morningWindow || "?"} | Evening window: ${d.eveningWindow || "?"}\n`;
           if (d.hashtags && d.hashtags.length) dataText += `Hashtags: ${d.hashtags.map((h) => `${h.name} (reach:${h.reach}, inter:${h.interactions})`).join(", ")}\n`;
           if (d.topContent && d.topContent.length) dataText += `Top content: ${d.topContent.map((t) => `${t.title} [${t.type}]`).join("; ")}\n`;
@@ -5616,7 +5616,7 @@ export default {
         const contact = rows && rows[0];
         if (!contact) return json({ error: "That contact no longer exists." }, 404, request, env);
         const email = String(contact.email || "").trim();
-        if (!email) return json({ error: "This contact has no email — add one first." }, 400, request, env);
+        if (!email) return json({ error: "This contact has no email - add one first." }, 400, request, env);
         const u = await findUserByEmail(env, email);
         if (!u) return json({ ok: false, noAccount: true, email }, 200, request, env);
         // Identity check — does the account's name share a name with the card?
@@ -5656,7 +5656,7 @@ export default {
         const contact = rows && rows[0];
         if (!contact) return json({ error: "That contact no longer exists." }, 404, request, env);
         const email = String(contact.email || "").trim();
-        if (!email) return json({ error: "This contact has no email — add one first." }, 400, request, env);
+        if (!email) return json({ error: "This contact has no email - add one first." }, 400, request, env);
         // Guard: never invite someone who already has an account.
         const existing = await findUserByEmail(env, email);
         if (existing) return json({ ok: false, alreadyHasAccount: true, email }, 200, request, env);
@@ -5667,7 +5667,7 @@ export default {
         const content = `
           <h1 style="font-family:Verdana,Geneva,sans-serif;font-size:24px;color:#371e28;margin:0 0 14px;">Create your TMKE account</h1>
           <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">Hi ${esc(first)},</p>
-          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">We'd love to set you up with a TMKE member account — your own space to design content, plan your marketing, browse The Edit, book shoots and keep everything in one place.</p>
+          <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 14px;">We'd love to set you up with a TMKE member account - your own space to design content, plan your marketing, browse The Edit, book shoots and keep everything in one place.</p>
           <p style="font-size:12px;line-height:1.6;color:#40353a;margin:0 0 22px;">It only takes a minute. Click below to get started.</p>
           <p style="margin:0 0 24px;"><a href="${esc(joinLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:12px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
           <p style="font-size:12px;line-height:1.6;color:#8a8796;margin:0;">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(joinLink)}</span></p>`;
@@ -5736,7 +5736,7 @@ export default {
                 basis: byTeg ? "legitimate_interest" : "consent",
                 source: byTeg ? "teg_auto" : "csv_import",
                 detail: byTeg
-                  ? "TEG network member — opted in automatically on import as part of The Experts Group, not by an act of consent."
+                  ? "TEG network member - opted in automatically on import as part of The Experts Group, not by an act of consent."
                   : "Imported with the marketing opt-in box ticked.",
                 actor: "Import",
                 raw: { source, internal },
