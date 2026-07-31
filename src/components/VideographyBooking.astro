@@ -312,7 +312,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
 <script>
   import {
-    SERVICES, audienceForEmail, propertyTierForBrand,
+    SERVICES, audienceForEmail, propertyTierForBrand, termsFor,
     gbp, vatOf, withVat, surchargePence, SURCHARGE_DEFAULTS,
     termsForService, TERMS_NOTE,
   } from "../lib/videography-config.js";
@@ -333,6 +333,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     // ---- state ----
     let svc = null;            // SERVICES entry
     let audience = null;       // { audience, brand, label, domain }
+    let paymentRoute = null;   // "agent_card" | "brand_invoice" — F&C property only
     let gateEmail = "";        // the validated work email from the gate
     let chosen = null;         // single selection (content-studio session / property package)
     let selectedAddOns = [];   // property add-ons
@@ -394,7 +395,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     // ---- open / close ----
     function open(serviceKey) {
-      audience = null; chosen = null; selectedAddOns = []; selectedPackages = [];
+      audience = null; chosen = null; selectedAddOns = []; selectedPackages = []; paymentRoute = null;
       postcode = ""; distanceMiles = null; surchargeP = 0; selectedInterests = []; flow = "booking";
       promo = null; existingAccount = false;
       duration = 90; selectedDate = null; selectedSlot = null; history = []; activeStep = null;
@@ -460,12 +461,21 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     // on-the-day clause carries a second drone paragraph).
     function renderTerms() {
       const box = $("vb-terms"); if (!box) return;
-      const t = termsForService(svc && svc.key);
+      // Fine & Country get a different agreement, and a different one again
+      // depending on who is paying. paymentRoute is null until the agent has
+      // answered the payment question, which only F&C property bookings ask.
+      const t = termsFor({
+        service: svc && svc.key,
+        tier: propertyTierForBrand(audience && audience.brand),
+        route: paymentRoute,
+      });
       const clauses = t.clauses.map((c, i) => {
         const paras = Array.isArray(c.p) ? c.p : [c.p];
         return `<h5>${i + 1}. ${c.h}</h5>` + paras.map((p) => `<p>${p}</p>`).join("");
       }).join("");
-      box.innerHTML = `<h4>${t.title}</h4><p class="dc-terms-note">${TERMS_NOTE}</p>${clauses}`;
+      box.innerHTML = `<h4>${t.title}</h4>`
+        + (t.intro ? `<p class="dc-terms-intro">${t.intro}</p>` : "")
+        + `<p class="dc-terms-note">${TERMS_NOTE}</p>${clauses}`;
       box.scrollTop = 0;
       const agree = $("vb-agree");
       if (agree) {

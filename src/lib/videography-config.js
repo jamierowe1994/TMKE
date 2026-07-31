@@ -173,10 +173,45 @@ export const TERMS_NOTE = "A plain-English summary of how we work together, writ
 
 // Clauses shared verbatim across every agreement, so the wording never drifts.
 const CLAUSE_BOOKING = { h: "Booking & confirmation", p: "Your booking is confirmed once you have signed this agreement and received our email confirmation. Your slot is held in the diary on a first-come, first-served basis and is not reserved until confirmed." };
-const CLAUSE_PAYMENT = { h: "Payment", p: "Payment is due in full upon delivery of your edited content. You will receive a payment request alongside a preview of your shoot; full access to your files is released automatically once payment has cleared. Payment must be made within <strong>7 days</strong> of the payment request being issued. Content not paid for within this window may be subject to a late payment fee or further action to recover the outstanding amount." };
+const CLAUSE_PAYMENT = { h: "Payment", p: "Payment is due in full following delivery of the preview. You will receive a payment request alongside a preview of your shoot; full access to your files is released automatically once payment has cleared. Payment must be made within <strong>7 days</strong> of the payment request being issued. Content not paid for within this window may be subject to a late payment fee or further action to recover the outstanding amount." };
 const CLAUSE_CANCELLATIONS = { h: "Cancellations", p: "Please give at least <strong>three (3) days'</strong> notice to cancel. Cancellations made within <strong>72 hours</strong> of the shoot, and no-shows, are <strong>chargeable in full</strong>. All cancellations must be made in writing to jack@tmke.co.uk or through your account." };
 const CLAUSE_RESCHEDULING = { h: "Rescheduling", p: "You may rearrange your booking with at least <strong>two (2) days'</strong> notice, subject to availability, at no extra charge. Requests inside this window are treated as a cancellation and rebooking." };
-const CLAUSE_LICENCE = { h: "Use of content & licence", p: "On full payment you receive a licence to use the delivered content for your own marketing. TMKE retains the right to use the content as showcase and portfolio material across our website, social media and marketing, and retains ownership of all raw footage and project files." };
+// Licence + footage retention. Two variants because the trigger differs: paid
+// bookings license on payment, the free Studio Day licenses on delivery. Same
+// retention paragraph either way.
+const _RETENTION = "Original footage and project files are retained for <strong>up to three months</strong> from the filming date. After this period, TMKE may permanently delete these files and cannot guarantee that further amendments, re-edits or copies of the original footage will be available.";
+const _LICENCE_BODY = " you receive a licence to use the delivered content for your own marketing. TMKE retains the right to use the content as showcase and portfolio material across our website, social media and marketing, and retains ownership of all raw footage and project files.";
+const CLAUSE_LICENCE = { h: "Use of content, licence &amp; footage retention", p: ["On full payment" + _LICENCE_BODY, _RETENTION] };
+const CLAUSE_LICENCE_FREE = { h: "Use of content, licence &amp; footage retention", p: ["On delivery" + _LICENCE_BODY, _RETENTION] };
+
+// Delivery and Amends are separate clauses: what we produce and when, versus
+// what you can change afterwards. They were one clause, which made the
+// amendment terms easy to miss.
+const CLAUSE_DELIVERY = { h: "Delivery", p: "Edited content will be prepared within <strong>72 hours</strong> of the shoot unless otherwise agreed. Where payment applies, final files will be released once payment has cleared, unless TMKE agrees otherwise. Any delay in release caused by outstanding payment will not be treated as late delivery." };
+const CLAUSE_AMENDS = { h: "Amends", p: [
+  "One round of amendments is included with your booking and may be requested after the edited content has been released. Where amendments are requested by both the agent and seller, all requested changes must be submitted together as <strong>one consolidated set</strong>.",
+  "Any further amendments, substantial re-edits or the need to return to the filming location to capture additional footage may be quoted separately. Amendments are subject to the availability of the original footage and project files in accordance with TMKE's footage-retention terms.",
+] };
+
+// Studio Day cancels differently: the session is free, so there is nothing to
+// charge — it is forfeited instead.
+const CLAUSE_CANCELLATIONS_STUDIO = { h: "Cancellations", p: "Please give at least <strong>three (3) days'</strong> notice to cancel. Cancellations made within <strong>72 hours</strong> of the session, and no-shows, may result in the session being <strong>forfeited</strong>. TMKE is not obliged to provide a replacement session, and any replacement will be subject to availability and may be charged separately. All cancellations must be made in writing to jack@tmke.co.uk or through your account." };
+
+// Property size — Fine & Country only. TPE and the other brands are unlikely to
+// list a property of this size, so it would be noise on their agreement.
+const CLAUSE_PROPERTY_SIZE = { h: "Property size", p: "Package pricing is based on properties up to <strong>5,000 sq. ft.</strong> Properties exceeding 5,000 sq. ft. may incur an additional charge to reflect the additional filming and editing time required. Where an additional charge applies, this will be confirmed before the shoot takes place." };
+
+// The two Fine & Country payment clauses. Which one applies is decided by the
+// agent's answer at booking, and drives payment_route on the booking row.
+const CLAUSE_PAYMENT_FC_AGENT = { h: "Payment - agent payment", p: [
+  "The agent making the booking is responsible for payment in full. Following delivery of a preview of the edited content, a payment request will be issued to the agent. Full access to the final files will be released automatically once payment has cleared.",
+  "Payment must be made within <strong>seven (7) days</strong> of the payment request being issued. Content not paid for within this period may be subject to a late payment fee or further action to recover the outstanding amount.",
+  "The agent's responsibility for payment is <strong>not affected</strong> by any separate agreement or payment arrangement between the agent and the seller.",
+] };
+const CLAUSE_PAYMENT_FC_INVOICE = { h: "Payment - Fine &amp; Country invoiced", p: [
+  "The Fine &amp; Country office identified in the booking is responsible for payment because that office is holding the seller's marketing fee for the property. By selecting this payment option and making the booking, the agent confirms that the identified office is holding the seller's marketing fee, that they have authority to commit the office to the booking, and that they will provide accurate office and invoicing details. <strong>No preview will be provided under this payment option.</strong>",
+  "If, despite that confirmation, the Fine &amp; Country office does not hold sufficient funds or fails or is unable to pay for any reason, <strong>the agent making the booking becomes personally responsible</strong> for the full outstanding amount and must pay it on demand.",
+] };
 const CLAUSE_LIABILITY = { h: "Liability & circumstances beyond our control", p: "TMKE is not liable for delays, rescheduling or cancellation caused by circumstances beyond our reasonable control (including weather, illness, or equipment failure); in such cases we will reschedule at the earliest mutually convenient opportunity. Our total liability is limited to the fees paid for the affected booking." };
 const CLAUSE_DATA = { h: "Data & governing law", p: "We handle your details in line with our privacy policy and only to deliver and support your booking. This agreement is governed by the laws of <strong>England &amp; Wales</strong>." };
 const CLAUSE_STUDIO_ON_THE_DAY = { h: "On the day", p: "Please arrive on time and prepared for your session. This includes any outfits, props, scripts, or materials you plan to use on the day. Late arrivals may result in reduced filming time and your session will still end at the scheduled time. TMKE is not responsible for content that cannot be captured due to insufficient preparation or late arrival." };
@@ -193,7 +228,8 @@ export const TERMS_BY_SERVICE = {
       CLAUSE_RESCHEDULING,
       { h: "Pre-shoot preparation", p: "At least <strong>three (3) days</strong> before your shoot, TMKE will send you a prompt pack containing conversational prompts and guidance tailored to your session, audience, and area. This is designed to help you make the most of your time in the studio. We ask that you review this before your shoot day so you arrive prepared and ready to film." },
       CLAUSE_STUDIO_ON_THE_DAY,
-      { h: "Delivery", p: "Edited content is typically delivered within a few working days of the shoot unless otherwise agreed. Reasonable revision requests are welcome; substantial re-edits may be quoted separately." },
+      CLAUSE_DELIVERY,
+      CLAUSE_AMENDS,
       CLAUSE_LICENCE,
       CLAUSE_LIABILITY,
       CLAUSE_DATA,
@@ -212,7 +248,8 @@ export const TERMS_BY_SERVICE = {
         "Where drone footage is included in your package, Jack holds a valid CAA licence for commercial drone operations. The ability to capture drone footage on the day is subject to weather conditions and local airspace restrictions, which may be outside of our control. In the event that drone footage cannot be captured, TMKE will discuss the options available to you at the time.",
       ] },
       { h: "Post-shoot add-ons", p: "The faux twilight effect is available as a post-shoot add-on at <strong>£25 +VAT per image</strong>. As the number of images requiring this effect may not be known until after the shoot, this will not always form part of your initial booking total. Where faux twilight is requested, Jack will confirm the number of images and provide a revised quote for your approval before any additional charge is applied." },
-      { h: "Delivery", p: "Edited content is typically delivered within a few working days of the shoot unless otherwise agreed. Reasonable revision requests are welcome. Substantial re-edits or the need to return to a property for additional footage may be quoted separately." },
+      CLAUSE_DELIVERY,
+      CLAUSE_AMENDS,
       CLAUSE_LICENCE,
       CLAUSE_LIABILITY,
       CLAUSE_DATA,
@@ -227,7 +264,8 @@ export const TERMS_BY_SERVICE = {
       CLAUSE_RESCHEDULING,
       { h: "Travel costs", p: "Any travel costs applicable to your booking have been calculated based on the shoot location postcode provided at the time of booking and are included in your confirmed total. Travel is charged at <strong>55p per mile</strong> for any distance beyond <strong>40 miles</strong> from our base in Kettering. If the shoot location changes after your booking is confirmed, your travel cost may need to be recalculated and an updated total will be provided before the shoot takes place." },
       { h: "On the day", p: "Please ensure you are ready and available at the agreed location and time, and that you have permission to film at the chosen location and the consent of any other people who may appear in the content. Delays caused by access or readiness may shorten the time available for your shoot." },
-      { h: "Delivery", p: "Edited content is typically delivered within a few working days of the shoot unless otherwise agreed. Reasonable revision requests are welcome; substantial re-edits or re-shoots may be quoted separately." },
+      CLAUSE_DELIVERY,
+      CLAUSE_AMENDS,
       CLAUSE_LICENCE,
       CLAUSE_LIABILITY,
       CLAUSE_DATA,
@@ -235,9 +273,59 @@ export const TERMS_BY_SERVICE = {
   },
 };
 
-// Resolve the agreement for a service key (falls back to the property terms).
+// ---- Fine & Country property agreements -------------------------------------
+// F&C sit a tier above the other TEG brands (Platinum, not Gold) and, more
+// importantly, often charge the seller a marketing fee that the F&C OFFICE
+// holds. So there are two F&C agreements, chosen by the agent's answer to the
+// payment question at booking, on top of the all-brands one.
+//
+// Everything except the payment clause and the property-size clause is shared
+// verbatim with the standard property agreement, so wording can't drift.
+const _FC_PROPERTY_CLAUSES = (paymentClause) => [
+  CLAUSE_BOOKING,
+  paymentClause,
+  CLAUSE_CANCELLATIONS,
+  CLAUSE_RESCHEDULING,
+  TERMS_BY_SERVICE.property.clauses.find((c) => c.h === "Travel costs"),
+  CLAUSE_PROPERTY_SIZE,
+  TERMS_BY_SERVICE.property.clauses.find((c) => c.h === "On the day"),
+  TERMS_BY_SERVICE.property.clauses.find((c) => c.h === "Post-shoot add-ons"),
+  CLAUSE_DELIVERY,
+  CLAUSE_AMENDS,
+  CLAUSE_LICENCE,
+  CLAUSE_LIABILITY,
+  CLAUSE_DATA,
+];
+
+export const TERMS_FC_AGENT = {
+  title: "TMKE — Fine & Country Property Videography Booking Agreement",
+  intro: "Property package — Platinum (Fine & Country). Payment is made directly by the booking agent.",
+  clauses: _FC_PROPERTY_CLAUSES(CLAUSE_PAYMENT_FC_AGENT),
+};
+
+export const TERMS_FC_INVOICE = {
+  title: "TMKE — Fine & Country Property Videography Booking Agreement",
+  // The source document said "invoiced before the shoot", which contradicts the
+  // agreed process: nobody pays before the shoot, and F&C are not invoiced
+  // until it is done. What happens beforehand is a CHECK — right branch, holds
+  // the money, is the marketing fee. Reworded to match; awaiting James's final line.
+  intro: "Property package — Platinum (Fine & Country). The relevant Fine & Country office is invoiced after the shoot.",
+  clauses: _FC_PROPERTY_CLAUSES(CLAUSE_PAYMENT_FC_INVOICE),
+};
+
+// Resolve the agreement. Keyed by service, and for F&C property also by the
+// package tier and who is paying — one service can have more than one
+// agreement, which the old service-only lookup couldn't express.
+export function termsFor({ service, tier, route } = {}) {
+  if (service === "property" && tier === "platinum") {
+    return route === "brand_invoice" ? TERMS_FC_INVOICE : TERMS_FC_AGENT;
+  }
+  return TERMS_BY_SERVICE[service] || TERMS_BY_SERVICE.property;
+}
+
+// Back-compatible wrapper for callers that only know the service.
 export function termsForService(serviceKey) {
-  return TERMS_BY_SERVICE[serviceKey] || TERMS_BY_SERVICE.property;
+  return termsFor({ service: serviceKey });
 }
 
 // TEG new-starter "Studio Day" terms — a trimmed set of the Content Studio
@@ -248,9 +336,9 @@ export const NEW_STARTER_TERMS = {
   intro: "This videography session is provided as part of your induction package with The Experts Group. There is nothing for you to pay.",
   clauses: [
     CLAUSE_BOOKING,
-    CLAUSE_CANCELLATIONS,
+    CLAUSE_CANCELLATIONS_STUDIO,
     CLAUSE_STUDIO_ON_THE_DAY,
-    CLAUSE_LICENCE,
+    CLAUSE_LICENCE_FREE,
     CLAUSE_LIABILITY,
     CLAUSE_DATA,
   ],
