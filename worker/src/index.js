@@ -68,7 +68,7 @@ function invoiceEmailHtml(settings, inv, customBodyText) {
   const footer = settings.email_footer_image_url
     ? `<div style="margin-top:26px"><img src="${esc(settings.email_footer_image_url)}" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0" /></div>`
     : "";
-  return `<div style="max-width:600px"><div style="${EM_WRAP}">${br(bodyText)}</div>${footer}</div>`;
+  return `<div style="${EM_WRAP}"><p style="${EM_P}">${br(bodyText)}</p>${footer}</div>`;
 }
 
 // ---- Direct Debit "ghost" invoices --------------------------------------

@@ -78,7 +78,10 @@ export function emailStyleStrings(input) {
   // the source indentation between rows as blank lines, which reads as wildly
   // loose leading that no line-height setting can fix.
   const quoteText = quote + 'white-space:pre-wrap;';
-  const wrap = `font-family:${s.font};max-width:${s.contentWidth}px;margin:0 auto;padding:0 ${s.contentPadX}px;color:${s.dark};`;
+  // Carries the body size and leading too, so any text dropped straight into an
+  // email without a <p> around it still matches. Without it such text inherits
+  // the mail client's default - usually 16px - and reads as a different email.
+  const wrap = `font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.bodyLine};max-width:${s.contentWidth}px;margin:0 auto;padding:0 ${s.contentPadX}px;color:${s.dark};`;
   const small = `font-family:${s.font};font-size:${s.smallSize}px;line-height:${s.bodyLine};color:${s.smallColor};margin:${s.smallGap}px 0 0;`;
   return { h1, p, quote, quoteText, btn, btnBare, small, wrap, rule, font: s.font, dark: s.dark, light: s.light };
 }

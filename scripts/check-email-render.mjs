@@ -143,6 +143,8 @@ console.log('\n11. Automated-email house style rewrites correctly');
   check('divider takes the dark colour', /solid #371e28/.test(r), true);
   check('divider gap responds', /margin:40px 0/.test(styleEmailContent(r, { ...D, ruleGap: 40 })), true);
   check('divider follows a colour change', /solid #001122/.test(styleEmailContent(r, { ...D, dark: '#001122' })), true);
+  check('wrapper carries the body size, so loose text matches', /font-size:12px/.test(emailStyleStrings(D).wrap), true);
+  check('...and follows a body size change', /font-size:17px/.test(styleEmailContent(w, { ...D, bodySize: 17 })), true);
   const sm = `<p style="${emailStyleStrings(D).small}">s</p>`;
   check('small print colour responds', /color:#123456/.test(styleEmailContent(sm, { ...D, smallColor: '#123456' })), true);
   // The font stack in the HTML has no spaces; a spaced default matched nothing.
