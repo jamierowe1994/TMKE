@@ -139,7 +139,7 @@ async function ensureDdInvoice(env, lead, ym) {
     await sendEmail(env, {
       to: invoiceMailTo(recipient, null).to,
       subject: `Direct Debit invoice ${inv.number} - ${billName} (${monthLabel})`,
-      html: ddReminderHtml(billName, monthLabel, inv),
+      html: await wrapInBrandedBase(env, ddReminderHtml(billName, monthLabel, inv)),
       attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
     });
     await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${inv.id}`, {
@@ -1161,8 +1161,8 @@ function reminderHtml(item, platform, caption) {
   const asset = item && item.asset_url ? esc(item.asset_url) : "";
   return `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">Your post is ready to go out</h1>
-    <p style="${EM_P}">Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` &mdash; &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below &mdash; copy your caption and you're set.</p>
-    ${cap ? `<div style="background:#f2efe9;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:12px;line-height:1.6;white-space:pre-wrap">${cap}</div>` : `<p style="${EM_P}">No caption saved for this post.</p>`}
+    <p style="${EM_P}">Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` - &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below - copy your caption and you're set.</p>
+    ${cap ? `<div style="${EM_QUOTE_TEXT}">${cap}</div>` : `<p style="${EM_P}">No caption saved for this post.</p>`}
     ${asset ? `<p style="margin:20px 0 0"><a href="${asset}" style="${EM_BTN}">Download the image &darr;</a></p><p style="${EM_SMALL}">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : `<p style="${EM_P}">&#128206; Your post image is attached to this email.</p>`}
     <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#371e28">View your calendar</a></p>
   </div>`;
@@ -1173,13 +1173,13 @@ function waitlistHtml({ name, service, pkg, date, time }) {
   try { niceDate = new Date(date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) {}
   return `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">You're on the cancellation list</h1>
-    <p style="${EM_P}">Hi ${esc(name)}, thanks for registering your interest in <strong>${esc(service)}</strong>. We're fully booked right now, but you're on the list &mdash; we'll message you the moment a slot opens that matches what you're after.</p>
+    <p style="${EM_P}">Hi ${esc(name)}, thanks for registering your interest in <strong>${esc(service)}</strong>. We're fully booked right now, but you're on the list - we'll message you the moment a slot opens that matches what you're after.</p>
     <div style="${EM_QUOTE}">
       ${pkg ? `<div><strong>Package:</strong> ${esc(pkg)}</div>` : ""}
       <div><strong>Preferred date:</strong> ${niceDate}</div>
       <div><strong>Preferred time:</strong> ${esc(time)}</div>
     </div>
-    <p style="${EM_P}">No need to do anything &mdash; we'll be in touch. If your plans change, just reply to this email.</p>
+    <p style="${EM_P}">No need to do anything - we'll be in touch. If your plans change, just reply to this email.</p>
     <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk</a></p>
   </div>`;
 }
@@ -1225,8 +1225,8 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
 
   const heading = ({ studio: "Your Content Studio session is booked.", property: "Your property shoot is booked.", agent: "Your shoot is booked.", call: "Your call with Jack is booked.", generic: "Your booking is confirmed." })[kind];
   const intro = isCall
-    ? `Hi ${esc(name || "there")}, looking forward to chatting. Here's when &mdash; we've attached a calendar invite so it's in your diary.`
-    : `Hi ${esc(name || "there")}, you're all set &mdash; here are the details. We've attached a calendar invite so you can drop it straight into your diary.`;
+    ? `Hi ${esc(name || "there")}, looking forward to chatting. Here's when - we've attached a calendar invite so it's in your diary.`
+    : `Hi ${esc(name || "there")}, you're all set - here are the details. We've attached a calendar invite so you can drop it straight into your diary.`;
   const cta = isCall ? "Reschedule the call" : "Manage your booking";
 
   const rowsArr = isCall
@@ -2075,7 +2075,7 @@ async function autoExecAction(env, node, contact, ctx) {
         );
         await sendEmail(env, { to, subject, html });
       } else {
-        await sendEmail(env, { to, subject: `Automation - ${c.note || "update"}`, html: `<div style="${EM_WRAP}"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="${EM_SMALL}">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>` });
+        await sendEmail(env, { to, subject: `Automation - ${c.note || "update"}`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p>${String(c.note || "An automation step fired").replace(/</g, "&lt;")}</p><p style="${EM_SMALL}">Contact: ${String(contact.email).replace(/</g, "&lt;")}</p></div>`) });
       }
     }
   } catch (_) { /* one failed action shouldn't wedge the tick */ }
@@ -2156,7 +2156,7 @@ function setupReminderHtml({ name, pack, link }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
   return `<div style="${EM_WRAP}">
-    <h1 style="${EM_H1}">Your pack is waiting${pack ? ` &mdash; ${esc(pack)}` : ""}</h1>
+    <h1 style="${EM_H1}">Your pack is waiting${pack ? ` - ${esc(pack)}` : ""}</h1>
     <p style="${EM_P}">Hi ${first}, thanks for your purchase! You haven't set a password yet, so your library is still locked. Set one now and your pack unlocks straight away.</p>
     <p style="margin:0 0 26px"><a href="${esc(link)}" style="${EM_BTN}">Set my password &amp; open my library &rarr;</a></p>
     <p style="${EM_SMALL}">If the button doesn't work, paste this into your browser:<br><span style="color:#777">${esc(link)}</span></p>
@@ -2189,7 +2189,7 @@ async function runSetupReminders(env) {
       await sendEmail(env, {
         to: o.buyer_email,
         subject: "Set your password to unlock your TMKE pack",
-        html: setupReminderHtml({ name: o.buyer_name, pack: o.pack_title, link }),
+        html: await wrapInBrandedBase(env, setupReminderHtml({ name: o.buyer_name, pack: o.pack_title, link })),
       });
     }
   } catch (_) { /* best-effort; the next tick retries any newly-eligible orders */ }
@@ -3142,7 +3142,7 @@ export default {
           <p style="${EM_P}">There's nothing for you to pay - your session is part of your induction package.</p>
           <p style="${EM_SMALL}">Need to change it? Just reply to this email.</p>
         </div>`;
-        try { await sendEmail(env, { to: em, subject: "Your Studio Day is booked - TMKE", html: cHtml }); } catch (_) {}
+        try { await sendEmail(env, { to: em, subject: "Your Studio Day is booked - TMKE", html: await wrapInBrandedBase(env, cHtml) }); } catch (_) {}
         try { await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New Studio Day booking - ${name}`, html: `<p>New-starter Studio Day booked.</p><p><strong>${name}</strong> - ${dateNice} at ${start} (3 hrs), TMKE Content Studio.</p><p>${em}${phone ? " · " + phone : ""}</p><p>Bill to <strong>TPE</strong> - £295 + VAT.</p>` }); } catch (_) {}
 
         await logBookingMessage(env, {
@@ -3515,7 +3515,7 @@ export default {
           to: email, subject: `Your call is booked - ${dateNice}`,
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Your call is booked</h1>
-            <p style="${EM_P}">Hi ${esc(first_name)}, your call with the TMKE team is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
+            <p style="${EM_P}">Hi ${esc(first_name)}, your call with the TMKE team is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite - no prep needed, just bring your questions.</p>
             ${accountCreated ? `<p style="${EM_P}">We've created your TMKE account so your call details, documents, and future bookings live in one place - sign in any time at <a href="https://tmke.co.uk/login" style="color:#371e28">tmke.co.uk/login</a>.</p>` : ""}
             <p style="${EM_P}">Need to change it? Just reply to this email or contact <a href="mailto:hello@tmke.co.uk" style="color:#371e28">hello@tmke.co.uk</a>.</p>`),
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
@@ -3980,7 +3980,7 @@ export default {
           to: email, subject: `Your discovery call is booked - ${dateNice}`,
           html: await wrapInBrandedBase(env, `
             <h1 style="${EM_H1}">Your call is booked</h1>
-            <p style="${EM_P}">Hi ${esc(name)}, your discovery call with Jack is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite &mdash; no prep needed, just bring your questions.</p>
+            <p style="${EM_P}">Hi ${esc(name)}, your discovery call with Jack is confirmed for <strong>${esc(dateNice)} at ${esc(start)}</strong>. We've attached a calendar invite - no prep needed, just bring your questions.</p>
             <p style="${EM_P}">Need to change it? <a href="${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(token)}" style="color:#371e28">Reschedule or cancel your call</a>.</p>`),
           attachments: [{ filename: "discovery-call.ics", content: icsB64, contentType: "text/calendar" }],
         });
@@ -4630,7 +4630,7 @@ export default {
           <p style="margin:0 0 22px;"><a href="${loginUrl}" style="${EM_BTN}">Open the admin centre</a></p>
           <p style="${EM_SMALL}">If you weren't expecting this, you can ignore this email.</p>
         </div>`;
-        try { await sendEmail(env, { to: email, subject: "Your TMKE admin access", html }); } catch (_) {}
+        try { await sendEmail(env, { to: email, subject: "Your TMKE admin access", html: await wrapInBrandedBase(env, html) }); } catch (_) {}
 
         return json({ ok: true, created, temp_password: tempPassword, admin: { user_id: u.id, email, full_name: fullName || null, role } }, 200, request, env);
       }
@@ -4698,7 +4698,7 @@ export default {
           <p style="margin:0 0 22px;"><a href="${loginUrl}" style="${EM_BTN}">Open the admin centre</a></p>
           <p style="${EM_SMALL}">If you didn't expect this, contact hello@tmke.co.uk.</p>
         </div>`;
-        try { await sendEmail(env, { to: email, subject: "Your TMKE admin password has been reset", html }); } catch (_) {}
+        try { await sendEmail(env, { to: email, subject: "Your TMKE admin password has been reset", html: await wrapInBrandedBase(env, html) }); } catch (_) {}
 
         return json({ ok: true, temp_password: tempPassword, email }, 200, request, env);
       }
@@ -4894,7 +4894,7 @@ export default {
           to: mail.to,
           cc: mail.cc,
           subject,
-          html: invoiceEmailHtml(st, inv, b && b.email_body),
+          html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body)),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
         });
         if (!emailed.ok) return json({ error: "The invoice was saved but the email didn't send: " + (emailed.error || "unknown error") + " (recipient: " + inv.bill_to_email + (cc ? ", cc: " + cc : "") + ")" }, 502, request, env);
@@ -5050,7 +5050,7 @@ export default {
           to: voidMail.to,
           cc: voidMail.cc,
           subject: `Invoice ${inv.number} voided - ${inv.bill_to_name || ""}`,
-          html,
+          html: await wrapInBrandedBase(env, html),
         });
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
           method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
@@ -5165,7 +5165,7 @@ export default {
             const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             await sendEmail(env, {
               to: lead.email, subject: `Your meeting with TMKE - ${dateNice}`,
-              html: `<div style="${EM_WRAP}"><p style="${EM_P}">Hi ${esc(lead.first_name || "")},</p><p style="${EM_P}">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`,
+              html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Hi ${esc(lead.first_name || "")},</p><p style="${EM_P}">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`),
               attachments: [{ filename: "meeting.ics", content: icsB64, contentType: "text/calendar" }],
               from: env.SMM_MAIL_SENDER || undefined, fromName: env.SMM_MAIL_SENDER ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : undefined,
             });
