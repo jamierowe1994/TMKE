@@ -28,7 +28,7 @@ pricing, is never asked the payment question, and signs the existing agreement.
 |---|---|---|---|---|
 | A | All TEG brands | Gold £550 | The client, after preview | Yes |
 | B | Fine & Country | Platinum £625 | The **agent**, after preview | Yes |
-| C | Fine & Country | Platinum £625 | The **F&C office**, invoiced **before the shoot** | **No** |
+| C | Fine & Country | Platinum £625 | The **F&C office**, invoiced **after the shoot** | **No** |
 
 Agreement C carries two clauses the others don't:
 
@@ -136,39 +136,44 @@ originally claimed. That matters given the fallback-liability clause.
 
 ---
 
-## Open questions — needed before building
+## Answers from James, 31 Jul
 
-1. **Which F&C domain?** The booking config lists **`fineandcountry.co.uk`**;
-   the CRM's network tagging uses **`fineandcountry.com`**. They disagree, and
-   this single check decides the price, the question and the agreement. If
-   agents use `.com`, F&C agents are currently being priced as non-members by
-   the booking flow. **Needs confirming against a real agent address.**
+1. **Domain: `fineandcountry.com`.** ✅ Fixed. It was a live bug — the booking
+   config listed only `.co.uk`, so every real F&C agent resolved as a
+   **non-member with no property tier**: wrong price, and no route to the F&C
+   agreement. Nothing would have surfaced it, because a non-member booking is a
+   legitimate outcome rather than an error. Both domains now map to `fc`.
 
-2. **Who picks the F&C office?** The new wording says the agent confirms "the
-   office **specified below**", implying the agent supplies it at booking. The
-   existing migration assumed the opposite — `invoice_recipient_id` is
-   "left empty until Jack picks it at send time". Both can't be right. Options:
-   the agent picks from a list of known offices; the agent types office name +
-   invoice email; or the agent picks and Jack confirms. This decides whether we
-   need an F&C office address book up front.
+2. **The agent picks their office.** We don't hold branch data, so the agent
+   must choose. Expected to be **F&C Midlands** or **F&C Stratford**, but the
+   list is still being settled with Paula in accounts — so build it as data
+   (a small table or config list), not two hard-coded options.
 
-3. **Invoice before the shoot — does the shoot wait for payment?** Agreement C
-   says the office is invoiced *before* the shoot. The migration assumed the
-   confirmation gates the *preview/payment email*, not the shoot. If the invoice
-   now goes out before the shoot, does an unpaid invoice stop the shoot going
-   ahead, or does Jack shoot anyway and withhold the files?
+3. **Nobody pays before the shoot.** ⚠️ **This contradicts the agreement
+   wording.** Agreement C's subtitle reads *"The relevant Fine & Country office
+   is invoiced before the shoot"*, but the process is: shoot first, invoice
+   after. The rest of agreement C is already consistent with invoicing
+   afterwards — no preview, files released once payment clears — so only the
+   subtitle needs rewording. **Needs James's replacement line.**
 
-4. **Property size clause — F&C only, deliberate?** It appears in B and C but
-   not A. A 5,000 sq ft property is the same amount of work whichever brand
-   sells it, so this may be an omission rather than a decision.
+   What happens *before* the shoot is a **check**, not an invoice: Jack confirms
+   with F&C that it's the right branch, that the branch holds the money, and
+   that it is the marketing fee. That is what `brand_fee_confirmed` records.
+   Since it no longer gates a payment, decide what it does gate — presumably it
+   must be true before the invoice is raised after the shoot.
 
-5. **Has `videography_payment_route.sql` been run in production?** Unverified.
+4. **Property size clause stays F&C-only.** Confirmed deliberate: TPE are
+   unlikely to list a property of that size.
 
-6. **What does Jack's confirmation look like?** `brand_fee_confirmed` exists but
-   nothing sets it. Presumably a control on the admin booking card — worth
-   deciding whether it also triggers raising the invoice.
+5. **Has `videography_payment_route.sql` been run in production?** Still open.
+   In plain terms: that file adds the new columns to the bookings table, and
+   someone has to paste it into the Supabase SQL editor once. If it hasn't been
+   run, the columns don't exist and saving a payment route will fail. Worth
+   checking rather than assuming — on 30 Jul a migration that had only been
+   half-applied was silently breaking every form on the site.
 
----
+6. **What Jack's confirmation looks like** — still open. A control on the admin
+   booking card, presumably, that records the three checks in #3.
 
 ## Suggested build order
 
