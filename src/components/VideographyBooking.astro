@@ -163,6 +163,36 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       </section>
 
       <!-- 7. Terms -->
+      <!-- 6b. Payment route — Fine & Country property only. F&C agents often
+           charge the seller a marketing fee that the OFFICE holds, so the
+           booking is invoiced to the office rather than paid by the agent.
+           That is a different commercial relationship, and a different
+           agreement, so this is asked before the terms are shown. -->
+      <section class="dc-step" id="vb-step-payment" hidden>
+        <h2 class="dc-step-title">How will this booking be paid for?</h2>
+        <p class="dc-step-sub">Fine &amp; Country bookings can be settled by the agent, or from a seller&rsquo;s marketing fee held by the office.</p>
+        <div class="dc-pay-opts">
+          <label class="dc-pay-opt">
+            <input type="radio" name="vb-pay" value="brand_invoice" />
+            <span><strong>Seller&rsquo;s Marketing Fee</strong><em>The seller has paid a marketing fee which is currently being held by the Fine &amp; Country office and will be used to pay for this booking.</em></span>
+          </label>
+          <label class="dc-pay-opt">
+            <input type="radio" name="vb-pay" value="agent_card" />
+            <span><strong>Agent Payment</strong><em>I will pay for the videography booking directly.</em></span>
+          </label>
+        </div>
+        <div id="vb-pay-fee" hidden>
+          <label class="dc-field"><span>Which Fine &amp; Country office is holding the fee?</span>
+            <select id="vb-fc-office"><option value="">Please choose…</option></select>
+          </label>
+          <label class="dc-agree-row">
+            <input type="checkbox" id="vb-fee-confirm" />
+            <span>I confirm that the Fine &amp; Country office selected above is currently holding the seller&rsquo;s marketing fee, that the fee is available to pay for this booking, and that I have authority to commit the office to payment.</span>
+          </label>
+        </div>
+        <div class="dc-step-actions"><button type="button" class="dc-next" id="vb-pay-cta" disabled>Continue</button></div>
+      </section>
+
       <section class="dc-step" id="vb-step-terms" hidden>
         <h2 class="dc-step-title">The agreement</h2>
         <p class="dc-step-sub">Please read the terms, then sign to confirm your booking.</p>
@@ -312,7 +342,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
 <script>
   import {
-    SERVICES, audienceForEmail, propertyTierForBrand, termsFor,
+    SERVICES, audienceForEmail, propertyTierForBrand, termsFor, FC_OFFICES,
     gbp, vatOf, withVat, surchargePence, SURCHARGE_DEFAULTS,
     termsForService, TERMS_NOTE,
   } from "../lib/videography-config.js";
@@ -334,6 +364,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let svc = null;            // SERVICES entry
     let audience = null;       // { audience, brand, label, domain }
     let paymentRoute = null;   // "agent_card" | "brand_invoice" — F&C property only
+    let fcOffice = null;       // which F&C office the agent says holds the fee
+    const isFcProperty = () => (svc && svc.key) === "property"
+      && propertyTierForBrand(audience && audience.brand) === "platinum";
     let gateEmail = "";        // the validated work email from the gate
     let chosen = null;         // single selection (content-studio session / property package)
     let selectedAddOns = [];   // property add-ons
@@ -395,7 +428,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     // ---- open / close ----
     function open(serviceKey) {
-      audience = null; chosen = null; selectedAddOns = []; selectedPackages = []; paymentRoute = null;
+      audience = null; chosen = null; selectedAddOns = []; selectedPackages = []; paymentRoute = null; fcOffice = null;
       postcode = ""; distanceMiles = null; surchargeP = 0; selectedInterests = []; flow = "booking";
       promo = null; existingAccount = false;
       duration = 90; selectedDate = null; selectedSlot = null; history = []; activeStep = null;
@@ -967,8 +1000,34 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     $("vb-summary-next")?.addEventListener("click", () => {
       const sd = $("vb-sign-date"); if (sd && !sd.value) sd.value = localISO(new Date());
-      goTo("terms");  // renderTerms() (in showStepRaw) populates + sets the agree state
+      // F&C property is asked who pays first, because the answer decides which
+      // agreement is shown. Everyone else has only one.
+      goTo(isFcProperty() ? "payment" : "terms");
     });
+
+    // ---- 6b. payment route (F&C property only) ----
+    function refreshPayCta() {
+      const fee = paymentRoute === "brand_invoice";
+      $("vb-pay-fee").hidden = !fee;
+      const ok = paymentRoute === "agent_card"
+        || (fee && fcOffice && $("vb-fee-confirm")?.checked);
+      $("vb-pay-cta").disabled = !ok;
+    }
+    (function initPayStep() {
+      const sel = $("vb-fc-office");
+      if (sel) sel.innerHTML = `<option value="">Please choose…</option>`
+        + FC_OFFICES.map((o) => `<option value="${o.key}">${o.label}</option>`).join("");
+      document.querySelectorAll('input[name="vb-pay"]').forEach((r) => r.addEventListener("change", () => {
+        paymentRoute = r.value;
+        // Clear the office if they switch away, so a stale choice can't be
+        // submitted alongside "the agent pays".
+        if (paymentRoute !== "brand_invoice") { fcOffice = null; if (sel) sel.value = ""; const c = $("vb-fee-confirm"); if (c) c.checked = false; }
+        refreshPayCta();
+      }));
+      sel?.addEventListener("change", () => { fcOffice = sel.value || null; refreshPayCta(); });
+      $("vb-fee-confirm")?.addEventListener("change", refreshPayCta);
+      $("vb-pay-cta")?.addEventListener("click", () => goTo("terms"));
+    })();
 
     // ---- 7. terms ----
     const terms = $("vb-terms"), agree = $("vb-agree"), signName = $("vb-sign-name"), signDate = $("vb-sign-date"), termsCta = $("vb-terms-cta");
@@ -1048,6 +1107,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
             date: localISO(selectedDate), start: selectedSlot, duration,
             service: svc.name, service_type: svc.key,
             audience: audience && audience.audience, brand: (audience && audience.brand) || null,
+            // Who settles this booking. Only F&C property is asked; everyone
+            // else defaults to the agent paying, which is how it has always
+            // worked. marketing_fee_claimed stays null when the question was
+            // never put, so "said no" and "never asked" stay distinguishable.
+            payment_route: paymentRoute || "agent_card",
+            marketing_fee_claimed: isFcProperty() ? (paymentRoute === "brand_invoice") : null,
+            fc_office: paymentRoute === "brand_invoice" ? fcOffice : null,
             package: (chosen && chosen.key) || null,
             package_label: bookingLabel(),
             add_ons: selectedAddOns.map((a) => ({ key: a.key, name: a.name, price_pence: a.price_pence })),

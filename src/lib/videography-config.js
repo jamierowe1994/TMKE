@@ -273,6 +273,21 @@ export const TERMS_BY_SERVICE = {
   },
 };
 
+// ---- Fine & Country offices -------------------------------------------------
+// The agent picks their own office: we don't hold branch data, and the agent is
+// the only one who knows which office holds the seller's marketing fee.
+//
+// Data rather than hard-coded options because the list is still being settled
+// with accounts — adding one is a line here, not a code change in the flow.
+// `key` is what's stored on the booking; `label` is what the agent sees.
+export const FC_OFFICES = [
+  { key: "fc_midlands",  label: "Fine & Country Midlands" },
+  { key: "fc_stratford", label: "Fine & Country Stratford" },
+];
+export function fcOfficeLabel(key) {
+  return (FC_OFFICES.find((o) => o.key === key) || {}).label || key || "";
+}
+
 // ---- Fine & Country property agreements -------------------------------------
 // F&C sit a tier above the other TEG brands (Platinum, not Gold) and, more
 // importantly, often charge the seller a marketing fee that the F&C OFFICE

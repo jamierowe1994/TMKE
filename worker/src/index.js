@@ -2944,6 +2944,11 @@ export default {
         const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${Math.abs(hmToMin(start))}-${ev.id || ""}`;
         let newBookingId = null;
         try {
+          // The invoice route belongs to Fine & Country property bookings only.
+          // Decided here from the address, not taken from the request: the
+          // browser could claim anything, and this one decides who gets billed.
+          const fcProperty = service_type === "property"
+            && String(email || "").toLowerCase().split("@")[1] === "fineandcountry.com";
           const insRes = await sbPost(env, "videography_bookings", {
             kind: "booking", service_type: service_type || null, audience: audience || null, brand: brand || null,
             package: pkg || null, add_ons: Array.isArray(add_ons) ? add_ons : [], postcode: postcode || null,
@@ -2954,6 +2959,10 @@ export default {
             promo_code: promo_code || null, discount_pence: discount_pence || 0,
             account_user_id: accountUserId, reschedule_token: rescheduleToken, total_pence: total_pence ?? null,
             ms_event_id: ev.id || null, duration_min: dur,
+            // Who settles this booking. Validated rather than trusted.
+            payment_route: fcProperty && b.payment_route === "brand_invoice" ? "brand_invoice" : "agent_card",
+            marketing_fee_claimed: fcProperty ? (b.marketing_fee_claimed === true) : null,
+            fc_office: fcProperty && b.payment_route === "brand_invoice" ? (b.fc_office || null) : null,
           }, "return=representation");
           const arr = await insRes.json();
           newBookingId = Array.isArray(arr) && arr[0] ? arr[0].id : null;
