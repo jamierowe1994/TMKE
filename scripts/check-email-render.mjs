@@ -131,6 +131,13 @@ console.log('\n11. Automated-email house style rewrites correctly');
   // source indentation between rows as blank lines, which no line-height fixes.
   check('details panel has no pre-wrap', !/pre-wrap/.test(emailStyleStrings(D).quote), true);
   check('quoted message keeps pre-wrap', /pre-wrap/.test(emailStyleStrings(D).quoteText), true);
+  const b = `<a style="${emailStyleStrings(D).btn}">Go</a>`;
+  check('button size responds', /font-size:18px/.test(styleEmailContent(b, { ...D, buttonSize: 18 })), true);
+  check('button weight responds', /font-weight:400/.test(styleEmailContent(b, { ...D, buttonWeight: 400 })), true);
+  check('button padding responds', /padding:20px 40px/.test(styleEmailContent(b, { ...D, buttonPadY: 20, buttonPadX: 40 })), true);
+  const bb = `<a style="${emailStyleStrings(D).btnBare}">Go</a>`;
+  check('bulletproof button stays transparent', !/background:/.test(bb), true);
+  check('...but still takes the size', /font-size:18px/.test(styleEmailContent(bb, { ...D, buttonSize: 18 })), true);
   const sm = `<p style="${emailStyleStrings(D).small}">s</p>`;
   check('small print colour responds', /color:#123456/.test(styleEmailContent(sm, { ...D, smallColor: '#123456' })), true);
   // The font stack in the HTML has no spaces; a spaced default matched nothing.

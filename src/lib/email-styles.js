@@ -65,6 +65,10 @@ export function emailStyleStrings(input) {
     ? `font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.quoteLine};color:${s.dark};margin:0 ${s.quoteMarginX}px ${s.bodyGap}px ${s.quoteMarginX}px;`
     : `background:${s.quoteBg};border-left:${s.quoteBorderWidth}px solid ${s.quoteBorderColor};border-radius:${s.quoteRadius}px;padding:${s.quotePadY}px ${s.quotePadX}px;font-family:${s.font};font-size:${s.bodySize}px;line-height:${s.quoteLine};color:${s.dark};margin:0 ${s.quoteMarginX}px ${s.bodyGap}px ${s.quoteMarginX}px;`;
   const btn = `display:inline-block;background:${s.buttonBg};color:${s.buttonColor};text-decoration:none;font-family:${s.font};font-size:${s.buttonSize}px;line-height:${s.bodyLine};font-weight:${s.buttonWeight};padding:${s.buttonPadY}px ${s.buttonPadX}px;border-radius:${s.buttonRadius}px;`;
+  // Outlook-safe buttons put the background on a <td> and leave the <a>
+  // transparent. Same button in every other respect, so size, weight, padding
+  // and radius still follow the settings.
+  const btnBare = btn.replace(`background:${s.buttonBg};`, '');
   // Same panel, but preserving the line breaks someone typed. Only for quoting
   // a person's own message back to them — on a details panel it would render
   // the source indentation between rows as blank lines, which reads as wildly
@@ -72,7 +76,7 @@ export function emailStyleStrings(input) {
   const quoteText = quote + 'white-space:pre-wrap;';
   const wrap = `font-family:${s.font};max-width:${s.contentWidth}px;margin:0 auto;padding:0 ${s.contentPadX}px;color:${s.dark};`;
   const small = `font-family:${s.font};font-size:${s.smallSize}px;line-height:${s.bodyLine};color:${s.smallColor};margin:${s.smallGap}px 0 0;`;
-  return { h1, p, quote, quoteText, btn, small, wrap, font: s.font, dark: s.dark, light: s.light };
+  return { h1, p, quote, quoteText, btn, btnBare, small, wrap, font: s.font, dark: s.dark, light: s.light };
 }
 
 /** Rewrite already-built email HTML from the canonical defaults to the chosen
@@ -90,7 +94,7 @@ export function styleEmailContent(html, input) {
     // below would catch. Doing it this way means the Worker can build every
     // email against the defaults and never hold mutable style state — so an
     // admin previewing unsaved changes cannot bleed into a live send.
-    [ds.h1, ss.h1], [ds.p, ss.p], [ds.quote, ss.quote], [ds.btn, ss.btn], [ds.small, ss.small], [ds.wrap, ss.wrap], [ds.quoteText, ss.quoteText],
+    [ds.h1, ss.h1], [ds.p, ss.p], [ds.quote, ss.quote], [ds.btn, ss.btn], [ds.small, ss.small], [ds.wrap, ss.wrap], [ds.quoteText, ss.quoteText], [ds.btnBare, ss.btnBare],
     [`font-family:${d.font}`, `font-family:${s.font}`],
     [`font-size:${d.headingSize}px`, `font-size:${s.headingSize}px`],
     [`font-size:${d.bodySize}px`, `font-size:${s.bodySize}px`],

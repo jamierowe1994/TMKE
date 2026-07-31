@@ -1163,7 +1163,7 @@ function reminderHtml(item, platform, caption) {
     <h1 style="${EM_H1}">Your post is ready to go out</h1>
     <p style="${EM_P}">Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` &mdash; &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below &mdash; copy your caption and you're set.</p>
     ${cap ? `<div style="background:#f2efe9;border-left:3px solid #371e28;border-radius:4px;padding:14px 16px;font-size:12px;line-height:1.6;white-space:pre-wrap">${cap}</div>` : `<p style="${EM_P}">No caption saved for this post.</p>`}
-    ${asset ? `<p style="margin:20px 0 0"><a href="${asset}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:12px;font-weight:700;padding:12px 22px;border-radius:6px">Download the image &darr;</a></p><p style="${EM_SMALL}">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : `<p style="${EM_P}">&#128206; Your post image is attached to this email.</p>`}
+    ${asset ? `<p style="margin:20px 0 0"><a href="${asset}" style="${EM_BTN}">Download the image &darr;</a></p><p style="${EM_SMALL}">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : `<p style="${EM_P}">&#128206; Your post image is attached to this email.</p>`}
     <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#371e28">View your calendar</a></p>
   </div>`;
 }
@@ -1279,7 +1279,7 @@ function bookingConfirmHtml({ name, service, serviceType, packageLabel, dateNice
       </div>
       <div style="padding:16px 32px 0;font-size:12px;line-height:1.6;color:#55565b;">${intro}</div>
       <div style="padding:22px 32px 0;"><div style="background:#f6f4f1;border-radius:10px;padding:18px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;">${rowsHtml}${totalHtml}</table></div></div>
-      ${manageUrl ? `<div style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#371e28;border-radius:8px;"><a href="${esc(manageUrl)}" style="display:inline-block;padding:13px 28px;font-size:12px;font-weight:bold;color:#ffffff;text-decoration:none;">${cta} &rarr;</a></td></tr></table></div>` : ""}
+      ${manageUrl ? `<div style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#371e28;border-radius:8px;"><a href="${esc(manageUrl)}" style="${EM_BTN_BARE}">${cta} &rarr;</a></td></tr></table></div>` : ""}
       ${prepHtml}
       <div style="padding:22px 32px 0;font-size:10px;line-height:1.6;color:#8a8690;">${policy}</div>
       <div style="margin-top:28px;padding:24px 32px;border-top:1px solid #ece9e4;">
@@ -1653,7 +1653,7 @@ async function brandMasterSocials(env) {
 // happening at the same moment.
 const EM_STR = emailStyleStrings(EMAIL_STYLE_DEFAULTS);
 const EM_FONT = EM_STR.font, EM_DARK = EM_STR.dark, EM_LIGHT = EM_STR.light;
-const EM_H1 = EM_STR.h1, EM_P = EM_STR.p, EM_QUOTE = EM_STR.quote, EM_BTN = EM_STR.btn, EM_SMALL = EM_STR.small, EM_WRAP = EM_STR.wrap, EM_QUOTE_TEXT = EM_STR.quoteText;
+const EM_H1 = EM_STR.h1, EM_P = EM_STR.p, EM_QUOTE = EM_STR.quote, EM_BTN = EM_STR.btn, EM_SMALL = EM_STR.small, EM_WRAP = EM_STR.wrap, EM_QUOTE_TEXT = EM_STR.quoteText, EM_BTN_BARE = EM_STR.btnBare;
 
 // The admin's saved settings, cached across requests in the same isolate. A
 // minute is short enough that a change shows up almost at once, long enough
@@ -2168,7 +2168,7 @@ function setupReminderHtml({ name, pack, link }) {
   return `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">Your pack is waiting${pack ? ` &mdash; ${esc(pack)}` : ""}</h1>
     <p style="${EM_P}">Hi ${first}, thanks for your purchase! You haven't set a password yet, so your library is still locked. Set one now and your pack unlocks straight away.</p>
-    <p style="margin:0 0 26px"><a href="${esc(link)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:12px;font-weight:700;padding:13px 22px;border-radius:6px">Set my password &amp; open my library &rarr;</a></p>
+    <p style="margin:0 0 26px"><a href="${esc(link)}" style="${EM_BTN}">Set my password &amp; open my library &rarr;</a></p>
     <p style="${EM_SMALL}">If the button doesn't work, paste this into your browser:<br><span style="color:#777">${esc(link)}</span></p>
     <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk" style="color:#371e28">tmke.co.uk</a></p>
   </div>`;
@@ -4637,7 +4637,7 @@ export default {
           <p style="${EM_P}">Hi ${who},</p>
           <p style="${EM_P}">You've been given access to the <strong>TMKE admin centre</strong>.</p>
           ${credLine}
-          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:12px;font-weight:700;border-radius:9px;padding:12px 22px;">Open the admin centre</a></p>
+          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="${EM_BTN}">Open the admin centre</a></p>
           <p style="${EM_SMALL}">If you weren't expecting this, you can ignore this email.</p>
         </div>`;
         try { await sendEmail(env, { to: email, subject: "Your TMKE admin access", html }); } catch (_) {}
@@ -4705,7 +4705,7 @@ export default {
           <p style="${EM_P}">Sign in with your email and this temporary password:</p>
           <p style="margin:0 0 18px;"><span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;letter-spacing:0.04em;background:#f4f2f1;border:1px solid #e4ded9;border-radius:8px;padding:9px 14px;color:#371e28;">${tempPassword}</span></p>
           <p style="${EM_P}">Please change it once you're in (Forgot password on the sign-in screen).</p>
-          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-size:12px;font-weight:700;border-radius:9px;padding:12px 22px;">Open the admin centre</a></p>
+          <p style="margin:0 0 22px;"><a href="${loginUrl}" style="${EM_BTN}">Open the admin centre</a></p>
           <p style="${EM_SMALL}">If you didn't expect this, contact hello@tmke.co.uk.</p>
         </div>`;
         try { await sendEmail(env, { to: email, subject: "Your TMKE admin password has been reset", html }); } catch (_) {}
@@ -5306,7 +5306,7 @@ export default {
           <p style="${EM_P}">Hi ${esc(first)},</p>
           <p style="${EM_P}">As one of our social media management clients, you can manage and oversee your account through our member hub - your plan, your monthly performance reports and everything in one place.</p>
           <p style="${EM_P}">Click below to set your password and open your account.</p>
-          <p style="margin:0 0 24px;"><a href="${esc(actionLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:12px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
+          <p style="margin:0 0 24px;"><a href="${esc(actionLink)}" style="${EM_BTN}">Create your account</a></p>
           <p style="${EM_P}">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(actionLink)}</span></p>`;
         const html = await wrapInBrandedBase(env, content);
         const sent = await sendEmail(env, { to: email, subject: "Create your TMKE member hub account", html });
@@ -5702,7 +5702,7 @@ export default {
           <p style="${EM_P}">Hi ${esc(first)},</p>
           <p style="${EM_P}">We'd love to set you up with a TMKE member account - your own space to design content, plan your marketing, browse The Edit, book shoots and keep everything in one place.</p>
           <p style="${EM_P}">It only takes a minute. Click below to get started.</p>
-          <p style="margin:0 0 24px;"><a href="${esc(joinLink)}" style="display:inline-block;background:#371e28;color:#fff;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:12px;font-weight:700;padding:13px 26px;border-radius:8px;">Create your account</a></p>
+          <p style="margin:0 0 24px;"><a href="${esc(joinLink)}" style="${EM_BTN}">Create your account</a></p>
           <p style="${EM_P}">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;">${esc(joinLink)}</span></p>`;
         const html = await wrapInBrandedBase(env, content);
         const sent = await sendEmail(env, { to: email, subject: "Create your TMKE account", html });
