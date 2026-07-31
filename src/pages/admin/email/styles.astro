@@ -110,9 +110,13 @@ const D = EMAIL_STYLE_DEFAULTS;
   </div>
 </AdminShell>
 
-<script define:vars={{ DEFAULTS: EMAIL_STYLE_DEFAULTS }}>
+<script>
+  // NOT define:vars — that forces the script inline, which stops Astro bundling
+  // it and ships these imports as unresolvable relative paths. The defaults are
+  // imported from the shared module instead, which is where they belong anyway.
   import { supabase } from "../../../lib/supabase.js";
   import { requireAdmin } from "../../../lib/admin-gate.js";
+  import { EMAIL_STYLE_DEFAULTS as DEFAULTS } from "../../../lib/email-styles.js";
 
   const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
   const $ = (s) => document.querySelector(s);
