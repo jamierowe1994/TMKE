@@ -1651,28 +1651,63 @@ function emailPreviewSample(id) {
   return fn ? fn() : null;
 }
 
+// Where the email's own content is injected into the base. Carries that
+// block's spacing so the message keeps the base's margins (vertical) and
+// padding (horizontal inset) rather than losing tuned spacing.
+function baseContentSlot(blk, contentHtml) {
+  const p = (blk && blk.pad) || {};
+  const inner = (p.t || p.r || p.b || p.l)
+    ? `<div style="padding:${p.t || 0}px ${p.r || 0}px ${p.b || 0}px ${p.l || 0}px;">${contentHtml}</div>`
+    : contentHtml;
+  const slot = { type: "code", id: "txc", html: inner };
+  if (blk && blk.margin) slot.margin = blk.margin;
+  return slot;
+}
+const BASE_SLOT_TOKEN = /\{\{\s*content\s*\}\}/i;
+const isBaseSlot = (b) => BASE_SLOT_TOKEN.test(String((b && (b.html || b.text)) || ""));
+
 async function wrapInBrandedBase(env, contentHtml) {
   try {
-    const rows = await sbGet(env, "email_templates", "name=ilike.*base*&status=eq.active&select=branding,blocks&order=updated_at.desc&limit=1");
+    // Named, not flagged: the base is whichever ACTIVE template has "base" in
+    // its name, most recently updated. Fetch a few so a second one can be
+    // warned about rather than silently winning.
+    const rows = await sbGet(env, "email_templates", "name=ilike.*base*&status=eq.active&select=name,branding,blocks&order=updated_at.desc&limit=5");
     const base = rows && rows[0];
-    if (!base || !Array.isArray(base.blocks) || !base.blocks.length) return contentHtml;
+    if (!base || !Array.isArray(base.blocks) || !base.blocks.length) {
+      // Silence here meant automated email went out completely unbranded with
+      // nothing to show for it. Say so.
+      console.error("branded base missing or empty — sending unbranded", rows ? rows.length : 0);
+      return contentHtml;
+    }
+    if (rows.length > 1) {
+      console.warn(`${rows.length} active templates match "base"; using "${base.name}"`, rows.map((r) => r.name).join(" | "));
+    }
+
+    // Two ways to say where the content goes.
+    //
+    // Preferred: a block containing {{content}} marks the slot, and EVERYTHING
+    // else in the base survives — so the base can carry a tagline, a footer
+    // with real wording, a CTA, whatever.
+    //
+    // Legacy: with no marker, the first text/button block is the slot and all
+    // other text/button blocks are treated as sample copy and dropped. That
+    // silently binned any wording in a base's header or footer, which is why
+    // the marker exists — but it stays the fallback so an unmarked base
+    // behaves exactly as it did before.
+    const marked = base.blocks.some(isBaseSlot);
     const out = []; let injected = false;
     for (const blk of base.blocks) {
-      if (blk.type === "text" || blk.type === "button") {
-        // Inject the email content where the base's sample message sits, and
-        // carry that block's own spacing so the message keeps the base's margins
-        // (vertical) + padding (horizontal inset) — otherwise tuned spacing is lost.
-        if (!injected) {
-          const p = blk.pad || {};
-          const inner = (p.t || p.r || p.b || p.l)
-            ? `<div style="padding:${p.t || 0}px ${p.r || 0}px ${p.b || 0}px ${p.l || 0}px;">${contentHtml}</div>`
-            : contentHtml;
-          const slot = { type: "code", id: "txc", html: inner };
-          if (blk.margin) slot.margin = blk.margin;
-          out.push(slot);
-          injected = true;
+      if (marked) {
+        if (isBaseSlot(blk)) {
+          if (!injected) { out.push(baseContentSlot(blk, contentHtml)); injected = true; }
+          continue;  // a second marker is ignored rather than duplicating the email
         }
-        continue; // drop the base's sample message + CTA
+        out.push(blk);
+        continue;
+      }
+      if (blk.type === "text" || blk.type === "button") {
+        if (!injected) { out.push(baseContentSlot(blk, contentHtml)); injected = true; }
+        continue;
       }
       out.push(blk);
     }
@@ -1680,7 +1715,10 @@ async function wrapInBrandedBase(env, contentHtml) {
     const brand = { ...defaultBrand(), ...(base.branding || {}), ...(await brandMasterSocials(env)) };
     const { html } = renderTemplate({ mode: "blocks", blocks: out, branding: base.branding }, { brand });
     return html || contentHtml;
-  } catch (_) { return contentHtml; }
+  } catch (e) {
+    console.error("wrapInBrandedBase failed — sending unbranded", String((e && e.message) || e));
+    return contentHtml;
+  }
 }
 
 const MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
