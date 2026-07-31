@@ -1,5 +1,6 @@
 // Verifies the mobile-spacing fixes against the real renderer.
-import { renderTemplate, effectiveBlock, resolveMargin, resolvePad } from '../src/lib/email-render.js';
+import { renderTemplate, effectiveBlock, resolveMargin, resolvePad,
+         headingInlineStyle, textInlineStyle, buttonInlineStyle } from '../src/lib/email-render.js';
 
 let pass = 0, fail = 0;
 const check = (name, got, want) => {
@@ -61,6 +62,30 @@ console.log('\n7. No mobile overrides → no mobile CSS (no regression)');
 {
   const html = css([{ type: 'text', id: 'n1', html: 'hi', pad: { t: 10 } }]);
   check('no .eb-b-n1 rule emitted', /\.eb-b-n1\{/.test(html), false);
+}
+
+console.log('\n8. Typography cascades from the base — block wins over base wins over built-in');
+{
+  const brand = { headingSize: 34, headingColor: '#aa0000', bodySize: 18, bodyColor: '#333333', buttonSize: 20, buttonRadius: 24 };
+  check('base heading size used when block is silent', /font-size:34px/.test(headingInlineStyle({}, brand)), true);
+  check('block heading size still wins', /font-size:22px/.test(headingInlineStyle({ size: 22 }, brand)), true);
+  check('base heading colour used', /color:#aa0000/.test(headingInlineStyle({}, brand)), true);
+  check('block colour still wins', /color:#00ff00/.test(headingInlineStyle({ color: '#00ff00' }, brand)), true);
+  check('base body size used', /font-size:18px/.test(textInlineStyle({}, brand)), true);
+  check('base button size + radius used', /font-size:20px/.test(buttonInlineStyle({}, brand)) && /border-radius:24px/.test(buttonInlineStyle({}, brand)), true);
+}
+
+console.log('\n9. No base typography → the built-in defaults (existing templates must not shift)');
+{
+  check('heading stays 28px', /font-size:28px/.test(headingInlineStyle({}, {})), true);
+  check('body stays 15px', /font-size:15px/.test(textInlineStyle({}, {})), true);
+  check('button stays 14px', /font-size:14px/.test(buttonInlineStyle({}, {})), true);
+}
+
+console.log('\n10. A blank size must fall back, not render 0px');
+{
+  check('empty string size falls back to base', /font-size:34px/.test(headingInlineStyle({ size: '' }, { headingSize: 34 })), true);
+  check('empty string with no base falls back to built-in', /font-size:28px/.test(headingInlineStyle({ size: '' }, {})), true);
 }
 
 console.log(`\n${fail === 0 ? '✅' : '❌'} ${pass} passed, ${fail} failed\n`);

@@ -121,6 +121,13 @@ export function defaultBrand() {
     signatureName: 'The TMKE Team',
     showHeader: true,    // the auto logo header at the top of the card
     showSignoff: true,   // the auto "— The TMKE Team" sign-off at the bottom
+    // Typography for the whole email. A block that sets its own value ALWAYS
+    // wins — these only fill the gap where a block says nothing. So changing a
+    // size here restyles everything that was left alone, and touches nothing
+    // anyone deliberately set. An empty font means "the default stack".
+    headingFont: '', headingSize: 28, headingColor: '#1c1d22',
+    bodyFont: '', bodySize: 15, bodyColor: '#1F2937',
+    buttonFont: '', buttonSize: 14, buttonRadius: 8,
     contentPad: 24,      // inset around the email content (0 = blocks go edge-to-edge)
     outerPad: 24,        // grey margin around the white card
     bgColor: '#f4f2f1',
@@ -188,6 +195,10 @@ export const FONT_STACKS = [
 ];
 function fontStack(key) { const f = FONT_STACKS.find((x) => x.key === key); return f ? f.stack : FONT_STACKS[0].stack; }
 function pxNum(v, fallback) { const n = Number(v); return isFinite(n) ? Math.round(n) : fallback; }
+/** pxNum, but treats null/undefined/'' as "not set" rather than as zero.
+ *  Number('') is 0 and passes isFinite, so a blank field would otherwise mean
+ *  0px instead of falling back — which matters now that sizes cascade. */
+function sizeOr(v, fallback) { return (v == null || v === '') ? fallback : pxNum(v, fallback); }
 function padStyle(pad) {
   if (!pad) return '';
   const t = pxNum(pad.t, 0), r = pxNum(pad.r, 0), b = pxNum(pad.b, 0), l = pxNum(pad.l, 0);
@@ -227,14 +238,15 @@ function padStyleResolved(block) { const p = resolvePad(block); return (p.t || p
 
 /** Inline style for a heading block — shared by the renderer AND the editor's
  *  canvas so what you see is what sends. */
-export function headingInlineStyle(block = {}) {
+export function headingInlineStyle(block = {}, brand = {}) {
   const align = ['left', 'center', 'right', 'justify'].includes(block.align) ? block.align : 'left';
-  const size = pxNum(block.size, 28);
+  const size = sizeOr(block.size, sizeOr(brand.headingSize, 28));
   const lh = Number(block.lineHeight) || 1.15;
   const weight = block.bold === false ? 400 : 800;
   const parts = [
-    'margin:0', `font-family:${fontStack(block.font)}`, `font-size:${size}px`,
-    `line-height:${lh}`, `font-weight:${weight}`, `color:${escapeHtml(block.color || '#1c1d22')}`,
+    'margin:0', `font-family:${fontStack(block.font || brand.headingFont)}`, `font-size:${size}px`,
+    `line-height:${lh}`, `font-weight:${weight}`,
+    `color:${escapeHtml(block.color || brand.headingColor || '#1c1d22')}`,
     `text-align:${align}`,
   ];
   if (block.letterSpacing != null && block.letterSpacing !== '') parts.push(`letter-spacing:${Number(block.letterSpacing)}px`);
@@ -246,13 +258,13 @@ export function headingInlineStyle(block = {}) {
 
 /** Inline style for a text block's wrapper (font/size/spacing/colour/align/
  *  padding + optional background tint). Shared by renderer + canvas. */
-export function textInlineStyle(block = {}) {
+export function textInlineStyle(block = {}, brand = {}) {
   const align = ['left', 'center', 'right', 'justify'].includes(block.align) ? block.align : 'left';
-  const size = pxNum(block.size, 15);
+  const size = sizeOr(block.size, sizeOr(brand.bodySize, 15));
   const lh = Number(block.lineHeight) || 1.6;
   const parts = [
-    `font-family:${fontStack(block.font)}`, `font-size:${size}px`, `line-height:${lh}`,
-    `color:${escapeHtml(block.color || '#1F2937')}`, `text-align:${align}`,
+    `font-family:${fontStack(block.font || brand.bodyFont)}`, `font-size:${size}px`, `line-height:${lh}`,
+    `color:${escapeHtml(block.color || brand.bodyColor || '#1F2937')}`, `text-align:${align}`,
   ];
   if (block.letterSpacing != null && block.letterSpacing !== '') parts.push(`letter-spacing:${Number(block.letterSpacing)}px`);
   if (block.bold) parts.push('font-weight:700');
@@ -273,8 +285,8 @@ export function textInlineStyle(block = {}) {
 export function buttonInlineStyle(block = {}, brand = {}) {
   const bg = block.color || brand.accentColor || ACCENT_DEFAULT;
   const txt = block.textColor || '#ffffff';
-  const size = pxNum(block.size, 14);
-  const br = pxNum(block.borderRadius, 8);
+  const size = sizeOr(block.size, sizeOr(brand.buttonSize, 14));
+  const br = sizeOr(block.borderRadius, sizeOr(brand.buttonRadius, 8));
   const bw = pxNum(block.borderWidth, 0);
   const bc = block.borderColor || bg;
   const p = resolvePad(block);
@@ -285,7 +297,7 @@ export function buttonInlineStyle(block = {}, brand = {}) {
     `padding:${pad}`, `background:${escapeHtml(bg)}`, `color:${escapeHtml(txt)}`,
     block.underline ? 'text-decoration:underline' : 'text-decoration:none',
     `border-radius:${br}px`, `font-weight:${block.bold ? 700 : 400}`,
-    `font-size:${size}px`, `font-family:${fontStack(block.font)}`,
+    `font-size:${size}px`, `font-family:${fontStack(block.font || brand.buttonFont)}`,
   ];
   if (block.italic) parts.push('font-style:italic');
   if (block.letterSpacing != null && block.letterSpacing !== '') parts.push(`letter-spacing:${Number(block.letterSpacing)}px`);
@@ -523,14 +535,14 @@ function plainToHtml(text, gap = 12) {
 
 /* ───────────────────────── per-block renderers ───────────────────────── */
 
-function renderHeading(block, ctx) {
+function renderHeading(block, ctx, brand) {
   const text = renderTokens(block.text || '', ctx);
   if (!text) return '';
   const cls = hasMobileOverrides(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
-  return `<h1${cls} style="${headingInlineStyle(block)}">${escapeHtml(text)}</h1>`;
+  return `<h1${cls} style="${headingInlineStyle(block, brand)}">${escapeHtml(text)}</h1>`;
 }
 
-function renderText(block, ctx) {
+function renderText(block, ctx, brand) {
   // block.html holds rich content (bold/italic/underline/bullets from the inline
   // toolbar); plain text falls back to auto-paragraphing.
   const gap = resolveParaGap(block);
@@ -541,7 +553,7 @@ function renderText(block, ctx) {
   // no hidden margin below (spacing is the block's own Margin control).
   inner = inner.replace(/margin:0 0 \d+px(?![\s\S]*margin:0 0 \d+px)/, 'margin:0');
   const cls = hasMobileOverrides(block) ? ` class="eb-b-${escapeHtml(block.id)}"` : '';
-  return `<div${cls} style="${textInlineStyle(block)}">${inner}</div>`;
+  return `<div${cls} style="${textInlineStyle(block, brand)}">${inner}</div>`;
 }
 
 /**
@@ -928,8 +940,8 @@ function renderColumns(block, brand, ctx) {
 
 export function renderBlock(block, brand, ctx) {
   switch (block.type) {
-    case 'heading': return renderHeading(block, ctx);
-    case 'text': return renderText(block, ctx);
+    case 'heading': return renderHeading(block, ctx, brand);
+    case 'text': return renderText(block, ctx, brand);
     case 'image': return renderImage(block);
     case 'button': return renderButton(block, brand, ctx);
     case 'divider': return renderDivider(block);
