@@ -1,4 +1,5 @@
 // Verifies the mobile-spacing fixes against the real renderer.
+import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from '../src/lib/email-styles.js';
 import { renderTemplate, effectiveBlock, resolveMargin, resolvePad,
          headingInlineStyle, textInlineStyle, buttonInlineStyle } from '../src/lib/email-render.js';
 
@@ -86,6 +87,29 @@ console.log('\n10. A blank size must fall back, not render 0px');
 {
   check('empty string size falls back to base', /font-size:34px/.test(headingInlineStyle({ size: '' }, { headingSize: 34 })), true);
   check('empty string with no base falls back to built-in', /font-size:28px/.test(headingInlineStyle({ size: '' }, {})), true);
+}
+
+console.log('\n11. Automated-email house style rewrites correctly');
+{
+  const D = EMAIL_STYLE_DEFAULTS;
+  const canonical = `<h1 style="${emailStyleStrings(D).h1}">Hi</h1>`
+    + `<p style="${emailStyleStrings(D).p}">Body</p>`
+    + `<a style="${emailStyleStrings(D).btn}">Go</a>`
+    + `<p style="font-family:${D.font};font-size:${D.smallSize}px;color:${D.dark}">Small print</p>`;
+
+  check('defaults in = byte-identical out', styleEmailContent(canonical, D) === canonical, true);
+
+  const out = styleEmailContent(canonical, { ...D, font: 'Arial, Helvetica, sans-serif', headingSize: 30, bodySize: 16, smallSize: 11, dark: '#111111', headingWeight: 700, buttonRadius: 20 });
+  check('font swapped everywhere', !/Verdana/.test(out), true);
+  check('heading size applied', /font-size:30px/.test(out), true);
+  check('body size applied', /font-size:16px/.test(out), true);
+  check('small print size applied', /font-size:11px/.test(out), true);
+  check('dark colour applied', !/#371e28/.test(out), true);
+  check('heading weight applied (whole-string swap)', /font-weight:700/.test(out), true);
+  check('button radius applied (whole-string swap)', /border-radius:20px/.test(out), true);
+
+  const off = styleEmailContent(`<div style="${emailStyleStrings(D).quote}">Q</div>`, { ...D, quoteEnabled: false });
+  check('quote box off drops the panel', !/border-left/.test(off) && !/background:/.test(off), true);
 }
 
 console.log(`\n${fail === 0 ? '✅' : '❌'} ${pass} passed, ${fail} failed\n`);

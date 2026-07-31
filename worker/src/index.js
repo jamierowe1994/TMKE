@@ -18,6 +18,7 @@
 // automation emails look identical to Email Studio previews. (No deps — safe to
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
+import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from "../../src/lib/email-styles.js";
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
@@ -1640,13 +1641,33 @@ async function brandMasterSocials(env) {
 // styles its OWN blocks, while this copy arrives as pre-built HTML, so the two
 // have to be kept in step by hand. If that drifts, the fix is to make the base
 // drive these (see the note on the content slot below).
-const EM_FONT = 'Verdana, Geneva, sans-serif';
-const EM_DARK = '#371e28';
-const EM_LIGHT = '#f4f2f1';
-const EM_H1 = `font-family:${EM_FONT};font-size:24px;line-height:1.6;letter-spacing:0;font-weight:400;color:${EM_DARK};margin:0 0 14px;`;
-const EM_P = `font-family:${EM_FONT};font-size:12px;line-height:1.6;color:${EM_DARK};margin:0 0 14px;`;
-const EM_QUOTE = `background:${EM_LIGHT};border-left:3px solid ${EM_DARK};border-radius:10px;padding:14px 16px;font-family:${EM_FONT};font-size:12px;line-height:1.6;color:${EM_DARK};white-space:pre-wrap;margin:0 0 14px;`;
-const EM_BTN = `display:inline-block;background:${EM_DARK};color:${EM_LIGHT};text-decoration:none;font-family:${EM_FONT};font-size:12px;line-height:1.6;font-weight:700;padding:13px 26px;border-radius:8px;`;
+// ---- The editable house style -------------------------------------------
+//
+// Defaults, the four shared style strings and the rewrite pass all live in
+// src/lib/email-styles.js, so the Worker (which sends) and the admin editor
+// (which previews) cannot drift apart.
+//
+// Every email is BUILT against the defaults and restyled once, on the way out,
+// by styleEmailContent(). Nothing here is mutable: an admin previewing unsaved
+// settings passes them in per call, so a preview can never bleed into a send
+// happening at the same moment.
+const EM_STR = emailStyleStrings(EMAIL_STYLE_DEFAULTS);
+const EM_FONT = EM_STR.font, EM_DARK = EM_STR.dark, EM_LIGHT = EM_STR.light;
+const EM_H1 = EM_STR.h1, EM_P = EM_STR.p, EM_QUOTE = EM_STR.quote, EM_BTN = EM_STR.btn;
+
+// The admin's saved settings, cached across requests in the same isolate. A
+// minute is short enough that a change shows up almost at once, long enough
+// that a busy send isn't querying per email.
+let EMS = { ...EMAIL_STYLE_DEFAULTS };
+let _emsAt = 0;
+async function loadEmailStyles(env) {
+  try {
+    if (Date.now() - _emsAt < 60000) return;
+    const rows = await sbGet(env, "email_styles", "id=eq.1&select=styles");
+    EMS = { ...EMAIL_STYLE_DEFAULTS, ...((rows && rows[0] && rows[0].styles) || {}) };
+    _emsAt = Date.now();
+  } catch (_) { /* keep whatever we have; never block a send */ }
+}
 
 // Sample renders of the automated emails, so the admin Automated-emails page can
 // show what one actually looks like — and send that exact render as a test.
@@ -1685,8 +1706,11 @@ function baseContentSlot(blk, contentHtml) {
 const BASE_SLOT_TOKEN = /\{\{\s*content\s*\}\}/i;
 const isBaseSlot = (b) => BASE_SLOT_TOKEN.test(String((b && (b.html || b.text)) || ""));
 
-async function wrapInBrandedBase(env, contentHtml) {
+async function wrapInBrandedBase(env, contentHtml, stylesOverride) {
   try {
+    // stylesOverride lets the style editor preview unsaved settings through the
+    // real send pipeline, without touching what a concurrent send uses.
+    contentHtml = styleEmailContent(contentHtml, stylesOverride || EMS);
     // Named, not flagged: the base is whichever ACTIVE template has "base" in
     // its name, most recently updated. Fetch a few so a second one can be
     // warned about rather than silently winning.
@@ -2253,6 +2277,10 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders(request, env) });
     }
+
+    // Refresh the house style before anything can build an email. Cached for a
+    // minute, so this is a no-op on all but the first request in that window.
+    await loadEmailStyles(env);
 
     try {
       // ---- Trigger a site rebuild (publish/edit a blog -> push live) ----------
@@ -4310,16 +4338,21 @@ export default {
           : json({ ok: false, error: (sent && sent.error) || "Couldn't send it." }, 200, request, env);
       }
 
-      if (path.endsWith("/email/preview") && request.method === "GET") {
+      if (path.endsWith("/email/preview") && (request.method === "GET" || request.method === "POST")) {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        const id = url.searchParams.get("id") || "";
+        // POST carries unsaved style settings from the style editor, so it can
+        // preview a change through the real pipeline before committing to it.
+        const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+        const id = body.id || url.searchParams.get("id") || "";
+        const branded = body.branded === true || url.searchParams.get("branded") === "1";
+        const override = body.styles && typeof body.styles === "object" ? body.styles : null;
         const built = emailPreviewSample(id);
         if (!built) return json({ ok: true, supported: false }, 200, request, env);
         try {
           let html = built.html;
-          // ?branded=1 → wrap the email in the active "Branded base" template.
-          if (url.searchParams.get("branded") === "1") html = await wrapInBrandedBase(env, html);
+          if (branded) html = await wrapInBrandedBase(env, html, override);
+          else html = styleEmailContent(html, override || EMS);
           return json({ ok: true, supported: true, subject: built.subject, html }, 200, request, env);
         } catch (e) { return json({ ok: false, error: String((e && e.message) || e) }, 200, request, env); }
       }
