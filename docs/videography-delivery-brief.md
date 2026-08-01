@@ -30,6 +30,52 @@ then decide whether to ask F&C to look at it.
 
 ---
 
+## 1b. Three ways a booking gets paid for
+
+Clarified by James, 1 Aug. Invoicing a business is **not** F&C-only — but the
+two cases are different things and must not be collapsed.
+
+| | Who pays | Whose money | Who decides |
+|---|---|---|---|
+| **Agent card** | The booking agent | Theirs | Default |
+| **F&C office invoiced** | The Fine & Country office | **The seller's** — a marketing fee the office is holding | **The agent**, at booking |
+| **TEG brand invoiced** | TPE, Prestige, etc. | **The brand's own** | **Us**, in advance |
+
+**Why the last two aren't the same thing.**
+
+Fine & Country is the agent spending money that already belongs to their seller.
+The agent declares it at booking, confirms the office holds it, and is
+personally liable if that turns out to be wrong. That's why it's a question in
+the booking flow and why it has its own agreement.
+
+A TEG brand paying is the brand choosing to foot the bill for one of its agents
+— content studio covered by a joining fee, or an ad-hoc "yes, we'll pay for
+that". No seller, no marketing fee, no personal liability.
+
+### What that means for the build
+
+**TEG brand invoicing must not be a question in the booking flow.** If agents
+can tick "my brand is paying", they all will. It is a pre-arrangement between
+TMKE and the brand, so it should be **set by us** — either known in advance from
+the agent's record, or switched on the booking in the admin.
+
+**It needs its own agreement**, or rather it needs the F&C one *without* the
+marketing-fee confirmation and the personal-liability clause, neither of which
+applies.
+
+Data model: keep `payment_route` as `agent_card` / `brand_invoice`, and add a
+reason — `fc_marketing_fee` or `teg_brand_covers`. Same mechanic, different
+justification, different agreement, different evidence.
+
+- ❓ Are there TEG brands other than TPE that would ever cover a booking?
+- ❓ Is "TPE covers this agent" a standing arrangement we could hold on their
+  record, or is it decided booking by booking?
+- ⓘ Note: the new-starter **Studio Day** already runs as its own free flow, so
+  the "content studio covered by the joining fee" case may already be handled.
+  Worth confirming rather than building twice.
+
+---
+
 ## 2. The process, start to finish
 
 ### Stage 1 — Booking *(built)*
@@ -188,8 +234,8 @@ prompt to leave a review.
 
 **For Paula / accounts**
 - Is the F&C office list settled — Midlands and Stratford, or more?
-- **Does TPE ever get invoiced rather than paying by card?** This one changes
-  the data model, so it's worth answering first.
+- ✅ Answered: yes, but for a different reason to F&C - see section 1b.
+- Which brands besides TPE would ever cover a booking?
 
 **For James**
 - What does "mark them a videography client" mean in the CRM — a tag, a
