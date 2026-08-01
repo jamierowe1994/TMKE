@@ -177,6 +177,35 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       });
     }
 
+    // ?demo=1 renders sample data without a token or a database row, so the
+    // gallery can be reviewed and redesigned before any real delivery exists.
+    // Nothing here touches the Worker; the shape matches /g/meta exactly so
+    // what you see is what a real delivery renders.
+    if (new URLSearchParams(location.search).get("demo")) {
+      const pic = (n, cat, unlocked) => ({ key: "demo/" + n, name: n, kind: "image", size: 4200000, category: cat, unlocked });
+      render({
+        clientName: "Alex Morgan",
+        message: "Here's your shoot at 14 Rectory Gardens. The first three are yours to look at now.",
+        status: "draft", paid: false, teaserCount: 3,
+        basePence: 55000, extras: [{ label: "Faux twilight x2", pence: 5000 }], totalPence: 60000,
+        files: [
+          pic("exterior-front.jpg", "Exterior", true),
+          pic("exterior-garden.jpg", "Exterior", true),
+          pic("kitchen-wide.jpg", "Interior", true),
+          pic("kitchen-detail.jpg", "Interior", false),
+          pic("living-room.jpg", "Interior", false),
+          pic("principal-bedroom.jpg", "Interior", false),
+          pic("bedroom-two.jpg", "Interior", false),
+          pic("bathroom.jpg", "Interior", false),
+          pic("twilight-front.jpg", "Twilight", false),
+          pic("twilight-rear.jpg", "Twilight", false),
+          { key: "demo/walkthrough.mp4", name: "walkthrough.mp4", kind: "video", size: 184000000, category: "Video", unlocked: false },
+          { key: "demo/drone.mp4", name: "drone-orbit.mp4", kind: "video", size: 96000000, category: "Video", unlocked: false },
+        ],
+      });
+      return;
+    }
+
     (async () => {
       if (!token) { stage.innerHTML = `<p class="dlv-msg">This delivery link is missing its code. Please use the full link we sent you.</p>`; return; }
       if (!WORKER) { stage.innerHTML = `<p class="dlv-msg">Gallery is being set up — please try again shortly.</p>`; return; }
