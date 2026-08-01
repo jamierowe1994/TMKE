@@ -165,7 +165,8 @@ originally claimed. That matters given the fallback-liability clause.
 4. **Property size clause stays F&C-only.** Confirmed deliberate: TPE are
    unlikely to list a property of that size.
 
-5. **Has `videography_payment_route.sql` been run in production?** Still open.
+5. ✅ **Migrations run (31 Jul / 1 Aug):** `videography_payment_route.sql`,
+   `videography_fc_office.sql` and `videography_cancelled_stage.sql`.
    In plain terms: that file adds the new columns to the bookings table, and
    someone has to paste it into the Supabase SQL editor once. If it hasn't been
    run, the columns don't exist and saving a payment route will fail. Worth
