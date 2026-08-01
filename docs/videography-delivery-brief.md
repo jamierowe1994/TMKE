@@ -76,6 +76,39 @@ justification, different agreement, different evidence.
 
 ---
 
+## 1c. New starters — the case that's already live
+
+Flagged by James, 1 Aug. Academy and Pro new starters get the Content Studio
+agent pack as part of their induction price. **The front end is fully built** —
+a promo code, a dedicated booking page, its own Studio Day agreement, a free
+booking, a confirmation email, and the agent's TEG record flipped to "booked".
+
+The booking is even marked correctly: `bill_to = "TPE"` with
+`total_pence = 35400` (£354). The intent is written into the code.
+
+### The gap
+
+**Nothing raises an invoice from a booking. Ever.** Bookings and invoicing are
+two unconnected systems — there is no code path anywhere that turns a
+videography booking into an invoice.
+
+So every new starter who books a Studio Day is recorded as £354 owed by TPE,
+and **that invoice has never been raised by the system**. If it's being billed
+at all, it's being done by hand, from memory.
+
+This is the same "TEG brand invoiced" route as section 1b, and it is **already
+running in production** — which makes it the most urgent of the three payment
+routes rather than the most theoretical.
+
+- ❓ Is TPE currently being invoiced for these by hand? If so, how is the list
+  compiled?
+- ❓ One invoice per new starter, or a monthly consolidated one? Monthly is
+  usually easier for both sides and is the natural fit for a steady trickle.
+- ❓ Is £354 still the right figure?
+- ❓ Does the same arrangement apply to the Agent pack, or only Content Studio?
+
+---
+
 ## 2. The process, start to finish
 
 ### Stage 1 — Booking *(built)*
@@ -127,7 +160,7 @@ justification, different agreement, different evidence.
 
 | Step | State |
 |---|---|
-| Invoice raised the day after the shoot, 7-day terms | ⬜ not built |
+| Invoice raised the day after the shoot, 7-day terms | ⬜ not built — **no booking has ever raised an invoice**, see 1c |
 | Files delivered via Pixieset, link + password to agent and seller | manual, stays manual |
 | Payment marked off against the booking | ⬜ not built |
 
