@@ -38,43 +38,65 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .dlv-note { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(28,29,34,0.7); max-width: 60ch; margin: 0; }
 
     .dlv-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+    /* Filter tabs — sized and coloured as brand furniture, not default buttons. */
     .dlv-chip {
-      appearance: none; cursor: pointer;
-      font-family: var(--sans); font-size: 13px; font-weight: 600;
-      padding: 8px 14px; border-radius: 999px;
-      border: 1px solid rgba(28,29,34,0.18); background: #fff; color: var(--ink);
-      transition: border-color 0.2s, background 0.2s, color 0.2s;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; padding: 11px 18px; border-radius: 999px; cursor: pointer;
+      border: 1px solid rgba(var(--violet-rgb),0.22); background: transparent; color: var(--english-violet);
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
-    .dlv-chip span { opacity: 0.5; margin-left: 4px; font-weight: 700; }
-    .dlv-chip:hover { border-color: var(--english-violet); }
+    .dlv-chip span { opacity: 0.55; margin-left: 6px; }
+    .dlv-chip:hover { border-color: var(--english-violet); background: rgba(var(--violet-rgb),0.06); }
     .dlv-chip.is-on { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
     .dlv-chip.is-on span { opacity: 0.75; }
-
     .dlv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
-    .dlv-tile { position: relative; aspect-ratio: 4/3; border-radius: 6px; overflow: hidden; background: rgba(28,29,34,0.06); border: 1px solid rgba(28,29,34,0.1); }
-    .dlv-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .dlv-tile-locked { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; height: 100%; color: rgba(28,29,34,0.5); }
-    .dlv-tile-locked .dlv-blur { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(var(--violet-rgb),0.06), rgba(var(--violet-rgb),0.06) 12px, rgba(var(--violet-rgb),0.12) 12px, rgba(var(--violet-rgb),0.12) 24px); }
-    .dlv-lock-ico { position: relative; z-index: 2; }
-    .dlv-lock-txt { position: relative; z-index: 2; font-family: var(--sans); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; }
-    .dlv-tile-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; background: linear-gradient(0deg, rgba(12,11,10,0.75), transparent); }
-    .dlv-tile-name { font-family: var(--sans); font-size: 11px; color: var(--paper); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dlv-dl { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--paper); background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.5); border-radius: 999px; padding: 5px 11px; text-decoration: none; white-space: nowrap; }
-    .dlv-dl:hover { background: var(--paper); color: var(--ink); }
-    .dlv-vid { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; color: rgba(28,29,34,0.6); }
+    .dlv-tile { position: relative; aspect-ratio: 4/3; border-radius: 8px; overflow: hidden; background: rgba(28,29,34,0.06); }
+    .dlv-tile img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s ease; }
+    .dlv-tile:not(.is-locked):hover img { transform: scale(1.03); }
+    .dlv-tile:not(.is-locked):not(.is-file) { cursor: zoom-in; }
 
-    .dlv-pay { position: sticky; bottom: 0; z-index: 10; margin-top: 36px; }
-    .dlv-pay-inner {
-      display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
-      background: var(--ink); color: var(--paper); border-radius: 8px; padding: 22px 28px;
-      box-shadow: 0 20px 50px rgba(20,18,26,0.3);
+    /* Locked: the image is still visible, heavily knocked back, under a wine
+       veil with a lock. The client can see what they are buying. */
+    .dlv-tile.is-locked img { filter: grayscale(1) contrast(0.85) blur(1.5px); opacity: 0.45; }
+    .dlv-veil { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(55,30,40,0.34); }
+    .dlv-veil .dlv-lock-ico { color: var(--paper); opacity: 0.92; width: 30px; height: 30px; }
+
+    /* Watermark on anything unlocked — visible, not obstructive. */
+    .dlv-wm {
+      position: absolute; top: 12px; right: 14px; z-index: 3;
+      font-family: var(--serif); font-size: 15px; letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.72); text-shadow: 0 1px 6px rgba(0,0,0,0.35); pointer-events: none;
     }
-    .dlv-pay-text { font-family: var(--sans); font-size: 14px; line-height: 1.5; }
-    .dlv-pay-text strong { font-family: var(--serif); font-size: 24px; font-weight: 500; display: block; }
-    .dlv-pay-break { font-size: 12px; color: rgba(240,238,235,0.7); margin-top: 4px; }
-    .dlv-pay-btn { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; background: var(--paper); color: var(--ink); border: none; border-radius: 999px; padding: 14px 26px; cursor: pointer; transition: background 0.2s, color 0.2s; }
-    .dlv-pay-btn:hover { background: var(--english-violet); color: var(--paper); }
-
+    .dlv-vid { position: absolute; inset: 0; display: grid; place-items: center; color: var(--english-violet); background: rgba(var(--violet-rgb),0.07); }
+    .dlv-tile-foot {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      padding: 9px 12px; background: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0));
+    }
+    .dlv-tile-name { font-family: var(--sans); font-size: 11px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dlv-dl { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #fff; text-decoration: none; white-space: nowrap; }
+    .dlv-dl:hover { text-decoration: underline; }
+    /* The unlock card. Sticky so it is reachable from anywhere in a long
+       gallery, and shaped as a card rather than a bar so the invoice link and
+       the pay action sit together as one decision. */
+    .dlv-pay { position: sticky; bottom: 20px; z-index: 10; margin-top: 44px; }
+    .dlv-pay-inner {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px;
+      background: var(--english-violet); color: var(--paper);
+      border-radius: 14px; padding: 24px 28px; box-shadow: 0 18px 44px rgba(28,29,34,0.28);
+    }
+    .dlv-pay-text strong { font-family: var(--serif); font-size: clamp(20px, 2.4vw, 26px); font-weight: 500; display: block; }
+    .dlv-pay-break { font-family: var(--sans); font-size: 12.5px; color: rgba(240,238,235,0.72); margin-top: 6px; }
+    .dlv-pay-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .dlv-pay-total { font-family: var(--serif); font-size: 30px; }
+    .dlv-pay-inv { font-family: var(--sans); font-size: 12.5px; color: rgba(240,238,235,0.8); text-decoration: underline; text-underline-offset: 3px; }
+    .dlv-pay-inv:hover { color: var(--paper); }
+    .dlv-pay-btn {
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      background: var(--paper); color: var(--english-violet); border: 0; border-radius: 999px;
+      padding: 15px 26px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .dlv-pay-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,0,0,0.22); }
     .dlv-paid-banner { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 999px; background: rgba(44,122,75,0.12); color: #2c7a4b; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 28px; }
 
     @media (max-width: 720px) { .dlv-stage { padding: 36px 20px 140px; } .dlv-head { padding: 18px 20px; } }
@@ -88,26 +110,39 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     const token = new URLSearchParams(location.search).get("d") || "";
 
     function esc(s) { return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-    function fileUrl(key, dl) { return `${WORKER}/g/file?token=${encodeURIComponent(token)}&key=${encodeURIComponent(key)}${dl ? "&dl=1" : ""}`; }
+    function fileUrl(key, dl) {
+      if (String(key).startsWith("/assets/")) return key;   // demo mode
+return `${WORKER}/g/file?token=${encodeURIComponent(token)}&key=${encodeURIComponent(key)}${dl ? "&dl=1" : ""}`; }
     const LOCK_SVG = '<svg class="dlv-lock-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 
     function tile(f) {
       const cat = esc(f.category || "Other");
-      if (!f.unlocked) {
-        return `<figure class="dlv-tile" data-cat="${cat}"><div class="dlv-blur"></div><div class="dlv-tile-locked">${LOCK_SVG}<span class="dlv-lock-txt">Locked</span></div></figure>`;
-      }
+      const locked = !f.unlocked;
       if (f.kind === "image") {
-        return `<figure class="dlv-tile" data-cat="${cat}">
+        // A locked image is still SHOWN - desaturated, dimmed and veiled, with a
+        // lock over it. Hiding it behind a placeholder tells the client nothing
+        // about what they're buying, which is the whole point of a preview.
+        return `<figure class="dlv-tile${locked ? " is-locked" : ""}" data-cat="${cat}">
           <img src="${fileUrl(f.key)}" alt="${esc(f.name)}" loading="lazy" />
-          <figcaption class="dlv-tile-foot"><span class="dlv-tile-name">${esc(f.name)}</span><a class="dlv-dl" href="${fileUrl(f.key, true)}">Save</a></figcaption>
+          ${locked
+            ? `<div class="dlv-veil">${LOCK_SVG}</div>`
+            : `<span class="dlv-wm">TMKE</span>`}
+          <figcaption class="dlv-tile-foot">
+            <span class="dlv-tile-name">${esc(f.name)}</span>
+            ${locked ? "" : `<a class="dlv-dl" href="${fileUrl(f.key, true)}">Download</a>`}
+          </figcaption>
         </figure>`;
       }
-      // video / other
-      return `<figure class="dlv-tile" data-cat="${cat}"><div class="dlv-vid">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <span class="dlv-lock-txt">${esc(f.kind || "file")}</span></div>
-        <figcaption class="dlv-tile-foot"><span class="dlv-tile-name">${esc(f.name)}</span>
-        <span><a class="dlv-dl" href="${fileUrl(f.key)}" target="_blank" rel="noopener">View</a> <a class="dlv-dl" href="${fileUrl(f.key, true)}">Save</a></span></figcaption>
+      // Video and anything else: same treatment, with a play mark instead.
+      return `<figure class="dlv-tile is-file${locked ? " is-locked" : ""}" data-cat="${cat}">
+        <div class="dlv-vid">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        ${locked ? `<div class="dlv-veil">${LOCK_SVG}</div>` : ""}
+        <figcaption class="dlv-tile-foot">
+          <span class="dlv-tile-name">${esc(f.name)}</span>
+          ${locked ? "" : `<a class="dlv-dl" href="${fileUrl(f.key, true)}">Download</a>`}
+        </figcaption>
       </figure>`;
     }
 
@@ -135,11 +170,14 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         <div class="dlv-pay">
           <div class="dlv-pay-inner">
             <div class="dlv-pay-text">
-              Unlock the full gallery &amp; downloads
-              <strong>${gbpFromPence(d.totalPence)}</strong>
-              <div class="dlv-pay-break">Shoot ${gbpFromPence(d.basePence)}${extrasLine ? " · " + extrasLine : ""}</div>
+              <strong>Unlock the full gallery and download now</strong>
+              <div class="dlv-pay-break">${locked} image${locked === 1 ? "" : "s"} locked &middot; Shoot ${gbpFromPence(d.basePence)}${extrasLine ? " &middot; " + extrasLine : ""}</div>
             </div>
-            <button class="dlv-pay-btn" id="dlv-pay">Pay &amp; unlock</button>
+            <div class="dlv-pay-actions">
+              <span class="dlv-pay-total">${gbpFromPence(d.totalPence)}</span>
+              <a class="dlv-pay-inv" id="dlv-invoice" href="#">View your invoice</a>
+              <button class="dlv-pay-btn" id="dlv-pay">Pay to unlock</button>
+            </div>
           </div>
         </div>`;
 
@@ -182,25 +220,26 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     // Nothing here touches the Worker; the shape matches /g/meta exactly so
     // what you see is what a real delivery renders.
     if (new URLSearchParams(location.search).get("demo")) {
-      const pic = (n, cat, unlocked) => ({ key: "demo/" + n, name: n, kind: "image", size: 4200000, category: cat, unlocked });
+      // Real photographs, so the demo shows what a gallery actually looks like
+      // rather than empty boxes. fileUrl() is bypassed for these.
+      const pic = (src, name, cat, unlocked) => ({ key: src, name, kind: "image", size: 4200000, category: cat, unlocked, demoSrc: src });
       render({
         clientName: "Alex Morgan",
-        message: "Here's your shoot at 14 Rectory Gardens. The first three are yours to look at now.",
+        message: "Here's your shoot at 14 Rectory Gardens. The first three are yours to look at now - unlock the set to download everything.",
         status: "draft", paid: false, teaserCount: 3,
-        basePence: 55000, extras: [{ label: "Faux twilight x2", pence: 5000 }], totalPence: 60000,
+        basePence: 55000, extras: [{ label: "Faux twilight x2", amount_pence: 5000 }], totalPence: 60000,
         files: [
-          pic("exterior-front.jpg", "Exterior", true),
-          pic("exterior-garden.jpg", "Exterior", true),
-          pic("kitchen-wide.jpg", "Interior", true),
-          pic("kitchen-detail.jpg", "Interior", false),
-          pic("living-room.jpg", "Interior", false),
-          pic("principal-bedroom.jpg", "Interior", false),
-          pic("bedroom-two.jpg", "Interior", false),
-          pic("bathroom.jpg", "Interior", false),
-          pic("twilight-front.jpg", "Twilight", false),
-          pic("twilight-rear.jpg", "Twilight", false),
-          { key: "demo/walkthrough.mp4", name: "walkthrough.mp4", kind: "video", size: 184000000, category: "Video", unlocked: false },
-          { key: "demo/drone.mp4", name: "drone-orbit.mp4", kind: "video", size: 96000000, category: "Video", unlocked: false },
+          pic("/assets/Home-window.jpg", "exterior-front.jpg", "Exteriors", true),
+          pic("/assets/cosy home.jpg", "living-room.jpg", "Interiors", true),
+          pic("/assets/home kitchen.jpg", "kitchen-wide.jpg", "Interiors", true),
+          pic("/assets/home chair.jpg", "sitting-room.jpg", "Interiors", false),
+          pic("/assets/home deer.jpg", "snug.jpg", "Interiors", false),
+          pic("/assets/Doors.jpg", "hallway.jpg", "Interiors", false),
+          pic("/assets/covert.jpg", "grounds.jpg", "Exteriors", false),
+          pic("/assets/image.webp", "rear-elevation.jpg", "Exteriors", false),
+          pic("/assets/parade-flythrough-poster.jpg", "twilight-front.jpg", "Twilight", false),
+          { key: "walkthrough.mp4", name: "walkthrough.mp4", kind: "video", size: 184000000, category: "Video", unlocked: false },
+          { key: "drone-orbit.mp4", name: "drone-orbit.mp4", kind: "video", size: 96000000, category: "Drone", unlocked: false },
         ],
       });
     } else (async () => {
