@@ -816,9 +816,14 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (!WORKER) { grid.innerHTML = `<p class="dc-slots-empty">Booking is being set up — please check back shortly.</p>`; return; }
       grid.innerHTML = `<p class="dc-slots-empty">Finding times…</p>`;
       try {
-        const res = await fetch(`${WORKER}/ms/availability?date=${localISO(selectedDate)}&duration=${duration}`);
+        const res = await fetch(`${WORKER}/ms/availability?date=${localISO(selectedDate)}&duration=${duration}&service=${encodeURIComponent((svc && svc.key) || "")}`);
         const data = await res.json(); if (!res.ok) throw new Error(data.error || "error");
-        if (!data.slots || !data.slots.length) { grid.innerHTML = `<p class="dc-slots-empty">No times available that day — go back and try another.</p>`; return; }
+        if (!data.slots || !data.slots.length) {
+          grid.innerHTML = data.reason === "off_location_taken"
+            ? `<p class="dc-slots-empty">Jack is already out on a shoot that day. On-location shoots are one a day so there's time to travel — please pick another date.</p>`
+            : `<p class="dc-slots-empty">No times available that day — go back and try another date.</p>`;
+          return;
+        }
         grid.innerHTML = data.slots.map((s) => `<button type="button" class="dc-slot" data-slot="${s}">${s}</button>`).join("");
       } catch (_) { grid.innerHTML = `<p class="dc-slots-empty">Couldn't load times. Please try again.</p>`; }
     }

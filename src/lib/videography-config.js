@@ -273,6 +273,17 @@ export const TERMS_BY_SERVICE = {
   },
 };
 
+// ---- Off-location services --------------------------------------------------
+// Property and Agent shoots happen at the client's location, so Jack has to
+// travel to and from them. Two in a day doesn't work however the hours fall —
+// a morning shoot in one town and an afternoon one in another is not a
+// scheduling problem, it's a physics problem.
+//
+// Content Studio is deliberately NOT here: those run back to back at our own
+// studio, and we want them to.
+export const OFF_LOCATION_SERVICES = ["property", "agent"];
+export const isOffLocation = (serviceKey) => OFF_LOCATION_SERVICES.includes(serviceKey);
+
 // ---- Fine & Country offices -------------------------------------------------
 // The agent picks their own office: we don't hold branch data, and the agent is
 // the only one who knows which office holds the seller's marketing fee.

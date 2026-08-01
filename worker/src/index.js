@@ -19,6 +19,7 @@
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
 import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from "../../src/lib/email-styles.js";
+import { OFF_LOCATION_SERVICES } from "../../src/lib/videography-config.js";
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
@@ -2805,7 +2806,22 @@ export default {
       if (path.endsWith("/ms/availability") && request.method === "GET") {
         const date = url.searchParams.get("date"); // YYYY-MM-DD
         const duration = parseInt(url.searchParams.get("duration") || "60", 10);
+        const service = url.searchParams.get("service") || "";
         if (!date) return json({ error: "Missing date" }, 400, request, env);
+
+        // One off-location shoot a day. Property and Agent shoots are at the
+        // client's location, so a morning one in one town and an afternoon one
+        // in another isn't a scheduling problem, it's a travel one. Content
+        // Studio is exempt on purpose: those run back to back at our studio.
+        //
+        // Checked here rather than trusting the calendar, because Jack's diary
+        // can't tell an off-location shoot from anything else in it.
+        if (OFF_LOCATION_SERVICES.includes(service)) {
+          const sameDay = (await sbGet(env, "videography_bookings",
+            `shoot_date=gte.${date}T00:00:00&shoot_date=lte.${date}T23:59:59&select=service_type,stage`)) || [];
+          const taken = sameDay.some((r) => OFF_LOCATION_SERVICES.includes(r.service_type) && r.stage !== "cancelled");
+          if (taken) return json({ slots: [], duration, reason: "off_location_taken" }, 200, request, env);
+        }
         const wd = new Date(date + "T12:00:00Z").getUTCDay(); // 0=Sun..6=Sat
         const rows = (await sbGet(env, "videography_availability", `weekday=eq.${wd}&select=*`)) || [];
         const hours = rowHours(rows[0]);
@@ -4050,7 +4066,15 @@ export default {
         const days = bk.shoot_date ? (new Date(bk.shoot_date) - new Date()) / 86400000 : 0;
         if (days < 3) return json({ error: "Cancellations within 3 days can't be made online - please email jack@tmke.co.uk. Note: cancellations within 48 hours are chargeable in full." }, 422, request, env);
         if (bk.ms_event_id) { try { await graph(env, "DELETE", `/users/${encodeURIComponent(env.JACK_UPN)}/events/${bk.ms_event_id}`); } catch (_) {} }
-        await sbPatch(env, "videography_bookings", `id=eq.${bk.id}`, { stage: "cancelled" });
+        // Checked, because it used to fail silently: 'cancelled' was missing from
+        // the stage constraint, so the write was rejected while the client was
+        // told it had worked and the booking stayed live in the pipeline.
+        const cancelRes = await sbPatch(env, "videography_bookings", `id=eq.${bk.id}`, { stage: "cancelled" });
+        if (cancelRes && !cancelRes.ok) {
+          const detail = await cancelRes.text().catch(() => "");
+          console.error("cancel failed to save", cancelRes.status, detail);
+          return json({ error: "We couldn't cancel that just then - please email jack@tmke.co.uk." }, 502, request, env);
+        }
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
           to: bk.client_email, subject: `Booking cancelled - ${bk.service || "TMKE"}`,
