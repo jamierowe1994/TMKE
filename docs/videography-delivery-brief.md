@@ -67,12 +67,22 @@ Data model: keep `payment_route` as `agent_card` / `brand_invoice`, and add a
 reason — `fc_marketing_fee` or `teg_brand_covers`. Same mechanic, different
 justification, different agreement, different evidence.
 
-- ❓ Are there TEG brands other than TPE that would ever cover a booking?
-- ❓ Is "TPE covers this agent" a standing arrangement we could hold on their
-  record, or is it decided booking by booking?
-- ⓘ Note: the new-starter **Studio Day** already runs as its own free flow, so
-  the "content studio covered by the joining fee" case may already be handled.
-  Worth confirming rather than building twice.
+### Answered 1 Aug — and it makes this much smaller
+
+**Ad-hoc brand-paid bookings don't go through the public flow at all.** Jack
+books those himself and adds them to the system manually. So there is **nothing
+to build in the booking wizard** for this route — no third option, no question,
+no risk of agents helping themselves.
+
+That leaves only two places it has to work:
+
+1. **The new-starter induction flow** — already built and running (see 1c)
+2. **The admin booking form** — Jack's manual entry
+
+The admin form already exists (*+ New booking*) and captures name, email,
+phone, company, brand, service, date, location, amount and notes. It has **no
+payment fields at all** — no route, no bill-to, no invoice recipient. That is
+the gap, and it's a small one: three fields on a form that already exists.
 
 ---
 
@@ -100,8 +110,8 @@ This is the same "TEG brand invoiced" route as section 1b, and it is **already
 running in production** — which makes it the most urgent of the three payment
 routes rather than the most theoretical.
 
-- ❓ Is TPE currently being invoiced for these by hand? If so, how is the list
-  compiled?
+- ✅ Answered: yes, but only because **Jack tells accounts**. There is no list
+  and no record - it runs on his memory. That is the thing this replaces.
 - ❓ One invoice per new starter, or a monthly consolidated one? Monthly is
   usually easier for both sides and is the natural fit for a steady trickle.
 - ❓ Is £354 still the right figure?
