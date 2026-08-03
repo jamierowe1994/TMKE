@@ -1249,6 +1249,10 @@ import "../../styles/admin.css";
     (async () => {
       if (!DEV) { const s = await requireAdmin(); if (!s) return; }
       await load();
+      // ?contact=<id> opens that card straight away, so anything that creates a
+      // contact elsewhere can hand the user to it ready to finish filling in.
+      const want = new URLSearchParams(location.search).get("contact");
+      if (want && ALL.some((c) => String(c.id) === want)) openDrawer(want);
     })();
   </script>
 </AdminShell>

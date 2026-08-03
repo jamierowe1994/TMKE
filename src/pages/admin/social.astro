@@ -167,6 +167,11 @@ import "../../styles/admin.css";
     .smm-cd-input:hover { border-bottom-color: rgba(28,29,34,0.15); }
     .smm-cd-input:focus { outline: none; border-bottom-color: var(--english-violet); }
     .smm-cd-input::placeholder { color: rgba(28,29,34,0.3); font-weight: 500; }
+    /* CRM link row under the contact details. */
+    .smm-crm-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 0; }
+    .smm-crm-note { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
+    .smm-btn--ghost { background: transparent; border: 1px solid rgba(var(--violet-rgb),0.3); color: var(--english-violet); text-decoration: none; }
+    .smm-btn--ghost:hover { background: rgba(var(--violet-rgb),0.07); }
     .smm-cd-status { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 8px 0 0; min-height: 14px; }
     .smm-copy { background: none; border: 0; padding: 6px; border-radius: 7px; color: rgba(28,29,34,0.38); cursor: pointer; display: inline-flex; flex: none; transition: background .15s, color .15s; }
     .smm-copy:hover { background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
@@ -588,6 +593,9 @@ import "../../styles/admin.css";
                 ${cdEdit(BIZ_SVG, "Business", "business", r.business)}
               </div>
               <p class="smm-cd-status" id="smm-cd-status"></p>
+              <!-- A social client added here doesn't land in the CRM on its own -
+                   only website enquiries do that. This closes the gap. -->
+              <div class="smm-crm-row" id="smm-crm-row"></div>
               <div class="smm-linkrow" style="display:flex;align-items:center;gap:10px;margin:6px 0 2px;font-family:var(--sans);font-size:12.5px;flex-wrap:wrap;">
                 <span style="color:rgba(28,29,34,0.5);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:10.5px;">Member hub</span>
                 ${r.account_user_id
@@ -721,6 +729,7 @@ import "../../styles/admin.css";
       // Payments — Direct Debit toggle + date
       body.querySelectorAll("#dd-toggle [data-dd]").forEach((b) => b.addEventListener("click", () => setDirectDebit(r, b.getAttribute("data-dd") === "yes")));
       body.querySelectorAll("#ibi-toggle [data-ibi]").forEach((b) => b.addEventListener("click", () => setInterBrand(r, b.getAttribute("data-ibi") === "yes")));
+      renderCrmRow(r);
       body.querySelector("#dd-date")?.addEventListener("change", (e) => saveDdDay(r, Number(e.target.value)));
       // Tabs
       body.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
@@ -830,6 +839,56 @@ import "../../styles/admin.css";
     }
     // Inter-brand invoice: this client's work is billed to another TEG brand
     // rather than to them. Same shape as the direct-debit toggle.
+    // Is this social client in the CRM? Only website enquiries create a contact;
+    // anyone added here by hand does not exist in contacts at all, which is how
+    // James ended up with clients missing from the CRM.
+    async function renderCrmRow(r) {
+      const row = $("smm-crm-row"); if (!row) return;
+      const email = (r.email || "").trim().toLowerCase();
+      if (!email) { row.innerHTML = `<span class="smm-crm-note">Add an email to link this client to the CRM.</span>`; return; }
+      row.innerHTML = `<span class="smm-crm-note">Checking the CRM…</span>`;
+      let existing = null;
+      try {
+        const { data } = await supabase.from("contacts").select("id").ilike("email", email).limit(1);
+        existing = data && data[0];
+      } catch (_) { /* fall through to offering the button */ }
+      row.innerHTML = existing
+        ? `<a class="smm-btn smm-btn--sm smm-btn--ghost" href="/admin/contacts?contact=${encodeURIComponent(existing.id)}">Open in contacts →</a>
+           <span class="smm-crm-note">Already in the CRM.</span>`
+        : `<button type="button" class="smm-btn smm-btn--sm" id="smm-mkcontact">Create contact</button>
+           <span class="smm-crm-note">Not in the CRM yet.</span>`;
+      $("smm-mkcontact")?.addEventListener("click", () => createContact(r));
+    }
+
+    async function createContact(r) {
+      const btn = $("smm-mkcontact"); if (btn) { btn.disabled = true; btn.textContent = "Creating…"; }
+      const email = (r.email || "").trim().toLowerCase();
+      try {
+        // upsert_contact rather than a plain insert: it is the same path every
+        // other route uses, so tag normalisation and the duplicate-name review
+        // behave identically however a contact arrives.
+        const { data, error } = await supabase.rpc("upsert_contact", {
+          p_email: email,
+          p_first_name: r.first_name || (nameOf(r) !== "—" ? String(nameOf(r)).split(" ")[0] : null) || null,
+          p_last_name: r.last_name || (nameOf(r) !== "—" ? String(nameOf(r)).split(" ").slice(1).join(" ") : null) || null,
+          p_phone: r.phone || null,
+          p_company: r.business || null,
+          p_source: "smm_admin",
+          p_lifecycle: null,
+          p_marketing_opt_in: null,   // null, not false - nobody has agreed to anything here
+          p_tags: ["Interest: SMM"],
+        });
+        if (error) throw error;
+        const id = Array.isArray(data) ? data[0] : data;
+        if (!id) throw new Error("No contact was created.");
+        // Hand them straight to the card so the rest can be filled in now.
+        location.href = `/admin/contacts?contact=${encodeURIComponent(id)}`;
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = "Create contact"; }
+        alert("Couldn't create that contact: " + (e.message || e));
+      }
+    }
+
     async function setInterBrand(r, on) {
       r.inter_brand_invoice = on;
       document.querySelectorAll("#ibi-toggle [data-ibi]").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-ibi") === "yes") === on));
