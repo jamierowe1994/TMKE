@@ -839,6 +839,13 @@ import "../../styles/admin.css";
     }
     // Inter-brand invoice: this client's work is billed to another TEG brand
     // rather than to them. Same shape as the direct-debit toggle.
+    // Which SMM tag belongs on this person's contact. The tag framework treats
+    // a client status as superseding the lead tags (normalize_contact_tags drops
+    // "Interest: SMM" once any "SMM-Status:" is present), so a client gets their
+    // status and only a not-yet-client gets the interest tag.
+    const SMM_STATUS_TAG = { active: "SMM-Status: Active", paused: "SMM-Status: Paused", ended: "SMM-Status: Ended" };
+    const smmTagFor = (r) => SMM_STATUS_TAG[r.client_status] || "Interest: SMM";
+
     // Is this social client in the CRM? Only website enquiries create a contact;
     // anyone added here by hand does not exist in contacts at all, which is how
     // James ended up with clients missing from the CRM.
@@ -854,10 +861,16 @@ import "../../styles/admin.css";
       } catch (_) { /* fall through to offering the button */ }
       row.innerHTML = existing
         ? `<a class="smm-btn smm-btn--sm smm-btn--ghost" href="/admin/contacts?contact=${encodeURIComponent(existing.id)}">Open in contacts →</a>
-           <span class="smm-crm-note">Already in the CRM.</span>`
+           ${r.client_status ? `<button type="button" class="smm-btn smm-btn--sm smm-btn--ghost" id="smm-synccontact">Update tags</button>` : ""}
+           <span class="smm-crm-note">In the CRM${r.client_status ? ` — should be tagged ${smmTagFor(r)}` : ""}.</span>`
         : `<button type="button" class="smm-btn smm-btn--sm" id="smm-mkcontact">Create contact</button>
            <span class="smm-crm-note">Not in the CRM yet.</span>`;
       $("smm-mkcontact")?.addEventListener("click", () => createContact(r));
+      $("smm-synccontact")?.addEventListener("click", async (e) => {
+        const b = e.currentTarget; b.disabled = true; b.textContent = "Updating…";
+        try { await pushClientStatus(r, r.client_status); b.textContent = "Updated"; }
+        catch (_) { b.disabled = false; b.textContent = "Update tags"; alert("Couldn't update that contact."); }
+      });
     }
 
     async function createContact(r) {
@@ -876,11 +889,14 @@ import "../../styles/admin.css";
           p_source: "smm_admin",
           p_lifecycle: null,
           p_marketing_opt_in: null,   // null, not false - nobody has agreed to anything here
-          p_tags: ["Interest: SMM"],
+          p_tags: [smmTagFor(r)],
         });
         if (error) throw error;
         const id = Array.isArray(data) ? data[0] : data;
         if (!id) throw new Error("No contact was created.");
+        // Reuse the existing status sync rather than duplicating its rules: it
+        // also sets lifecycle to customer for an active client.
+        if (r.client_status) { try { await pushClientStatus(r, r.client_status); } catch (_) {} }
         // Hand them straight to the card so the rest can be filled in now.
         location.href = `/admin/contacts?contact=${encodeURIComponent(id)}`;
       } catch (e) {
