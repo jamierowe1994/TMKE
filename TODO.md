@@ -187,6 +187,21 @@ this is almost certainly "never told Google it exists" rather than a fault:
 A new domain not appearing for its own brand name after a few weeks is normal
 when it has never been submitted. It is not evidence of a penalty.
 
+## 4d. App icons are cached for four hours ⓘ
+
+Files in `public/` keep the same URL forever, and the CDN serves them with
+`cache-control: max-age=14400`. So replacing an app icon deploys the new file
+but browsers and the CDN keep serving the old one for up to four hours — which
+is exactly what happened on 2 Aug when a new member icon appeared not to take.
+
+**When you change an app icon, bump the version in its manifest**, e.g.
+`/icons/hub-192.png?v=2` → `?v=3`. The cache is keyed on the full URL, so a new
+query string is a fresh fetch. A `.webmanifest` is JSON and can't carry a
+comment, hence this note.
+
+Same trap as the editor script, which solves it with a build stamp
+(`src/pages/account/editor.astro`).
+
 ## 5. Social media portfolio ⬜
 
 Not complete. Needs scoping — what's missing, and what "complete" looks like.
