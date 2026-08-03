@@ -197,6 +197,7 @@ const DELIVER_CATEGORIES = [
           cannot self-book. All prices exclude VAT.
         </p>
         <div class="vid-rate-wrap"><table class="vid-rate" id="vid-rate-table"></table></div>
+        <p class="vid-rate-foot" id="vid-rate-foot"></p>
   </section>
 
   <!-- ===================== CONNECTIONS (integrations) ===================== -->
@@ -516,6 +517,17 @@ const DELIVER_CATEGORIES = [
     .vid-rate tr.is-group td { border-top: 1px solid rgba(var(--violet-rgb), 0.16); }
     .vid-rate tr:last-child td { border-bottom: 0; }
     .vid-rate th span { display: block; font-weight: 400; letter-spacing: 0.06em; text-transform: none; color: rgba(28,29,34,0.38); font-size: 9.5px; margin-top: 2px; }
+    /* Service and Package get room now that Travel is a footnote instead of a
+       column of near-identical text. */
+    .vid-rate-svc { width: 190px; min-width: 190px; vertical-align: top; background: rgba(var(--violet-rgb), 0.03); }
+    .vid-rate-pkg { width: 210px; min-width: 210px; }
+    .vid-rate tr.is-group td { border-top: 1px solid rgba(var(--violet-rgb), 0.22); }
+    .vid-rate-tag {
+      display: inline-block; margin-right: 7px; padding: 2px 7px; border-radius: 4px;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      background: rgba(var(--violet-rgb), 0.1); color: var(--english-violet); vertical-align: 1px;
+    }
+    .vid-rate-foot { font-family: var(--sans); font-size: 12.5px; line-height: 1.6; color: rgba(28,29,34,0.6); max-width: 820px; margin: 12px 0 0; }
     .vid-rate-price { white-space: nowrap; font-weight: 700; color: var(--english-violet); }
     .vid-rate-na { font-weight: 400; color: rgba(28,29,34,0.35); font-style: italic; }
     .vid-rate-note { display: block; margin-top: 5px; font-size: 11px; line-height: 1.45; font-weight: 400; color: rgba(28,29,34,0.5); }
@@ -1911,85 +1923,97 @@ const DELIVER_CATEGORIES = [
     function renderRateCard() {
       const t = document.getElementById("vid-rate-table");
       if (!t) return;
-      const radius = vidSettings.free_radius_miles ?? SURCHARGE_DEFAULTS.free_radius_miles;
-      const rate = vidSettings.surcharge_pence_per_mile ?? SURCHARGE_DEFAULTS.pence_per_mile;
-      const travel = `${radius} miles free, then ${rate}p/mile`;
-      const rows = [];
+
+      // Grouped, so the service name spans its rows rather than repeating.
+      const groups = [];
 
       const cs = SERVICES["content-studio"];
-      cs.sessions.forEach((x, i) => {
-        const r = RATE_CARD["content-studio"][x.key] || {};
-        rows.push({
-          service: i === 0 ? cs.name : "", item: x.name,
-          includes: `${x.output} — ${x.desc}`,
-          member: x.price_pence, std: r.ext_standard_pence, scl: r.ext_scaleable_pence,
-          slot: mins(RATE_SLOT[x.key]), labour: labour(r),
-          travel: i === 0 ? "None — at our studio" : "",
-          note: i === 0 ? "Members book online. Non-members are routed to Register Interest, so the external prices are quoted by hand." : "",
-          extra: r.studio_hire_pence != null ? `Studio hire ${gbpFromPence(r.studio_hire_pence)}, ${r.max_per_day}/day` : "",
-        });
+      groups.push({
+        name: cs.name,
+        note: "Members book online. Non-members are routed to Register Interest, so the external prices are quoted by hand.",
+        rows: cs.sessions.map((x) => {
+          const r = RATE_CARD["content-studio"][x.key] || {};
+          return {
+            item: x.name,
+            sub: r.studio_hire_pence != null ? `Studio hire ${gbpFromPence(r.studio_hire_pence)} · max ${r.max_per_day}/day` : "",
+            includes: `${x.output} — ${x.desc}`,
+            member: x.price_pence, std: r.ext_standard_pence, scl: r.ext_scaleable_pence,
+            slot: mins(RATE_SLOT[x.key]), labour: labour(r),
+          };
+        }),
       });
 
+      // Property carries the add-ons, since that is what they attach to.
       const pr = SERVICES.property;
-      Object.values(pr.packagesByTier).forEach((pk, i) => {
+      const propRows = Object.values(pr.packagesByTier).map((pk) => {
         const r = RATE_CARD.property[pk.key] || {};
-        rows.push({
-          service: i === 0 ? pr.name : "", item: `${pk.name} — ${pk.key === "platinum" ? "Fine & Country" : "all other TEG brands"}`,
+        return {
+          item: pk.name, sub: pk.key === "platinum" ? "Fine & Country" : "All other TEG brands",
           includes: pk.inclusions.join(" · "),
           member: pk.from_pence, std: r.ext_standard_pence, scl: r.ext_scaleable_pence,
           slot: mins(RATE_SLOT.property), labour: labour(r),
-          travel: i === 0 ? travel : "",
-          note: i === 0 ? "Members book online. Non-members go to the enquiry form." : "", extra: "",
-        });
+        };
       });
-
-      const ag = SERVICES.agent;
-      ag.packages.forEach((pk, i) => {
-        const r = RATE_CARD.agent[pk.key] || {};
-        rows.push({
-          service: i === 0 ? ag.name : "", item: pk.name, includes: pk.desc,
-          member: pk.price_pence, std: r.ext_standard_pence, scl: r.ext_scaleable_pence,
-          slot: mins(RATE_SLOT.agent), labour: labour(r),
-          travel: i === 0 ? travel : "",
-          note: i === 0 ? "Members may combine packages. Non-members go to the enquiry form." : "", extra: "",
-        });
-      });
-
-      // Add-ons are one price for everyone, so they span the price columns.
-      pr.addOns.forEach((a, i) => rows.push({
-        service: i === 0 ? "Add-ons" : "", item: a.name, includes: a.note,
+      pr.addOns.forEach((a) => propRows.push({
+        item: a.name, tag: "Add-on", includes: a.note,
         same: gbpFromPence(a.price_pence) + (a.perImage ? " per image" : ""),
         slot: "Within the shoot", labour: "",
-        travel: "", note: i === 0 ? "Same price for members and non-members." : "", extra: "",
       }));
+      groups.push({ name: pr.name, note: "Members book online. Non-members go to the enquiry form. Add-ons are the same price for everyone.", rows: propRows });
 
-      rows.push({
-        service: SERVICES.discovery.name, item: "Discovery call",
-        includes: "A chat about which service fits. No obligation.",
-        same: "Free", slot: mins(RATE_SLOT.discovery), labour: "",
-        travel: "None — over Teams", note: "Open to anyone.", extra: "",
+      const ag = SERVICES.agent;
+      groups.push({
+        name: ag.name,
+        note: "Members may combine packages. Non-members go to the enquiry form.",
+        rows: ag.packages.map((pk) => {
+          const r = RATE_CARD.agent[pk.key] || {};
+          return {
+            item: pk.name, includes: pk.desc,
+            member: pk.price_pence, std: r.ext_standard_pence, scl: r.ext_scaleable_pence,
+            slot: mins(RATE_SLOT.agent), labour: labour(r),
+          };
+        }),
       });
+
+      groups.push({
+        name: SERVICES.discovery.name, note: "Open to anyone.",
+        rows: [{ item: "Discovery call", includes: "A chat about which service fits. No obligation.",
+                 same: "Free", slot: mins(RATE_SLOT.discovery), labour: "" }],
+      });
+
+      const body = groups.map((g) => g.rows.map((r, n) => {
+        const first = n === 0
+          ? `<td class="vid-rate-svc" rowspan="${g.rows.length}"><strong>${escapeHtml(g.name)}</strong>${g.note ? `<span class="vid-rate-note">${escapeHtml(g.note)}</span>` : ""}</td>`
+          : "";
+        const prices = r.same
+          ? `<td class="vid-rate-price" colspan="3">${escapeHtml(r.same)}<span class="vid-rate-note">Same for everyone</span></td>`
+          : `<td class="vid-rate-price">${money(r.member)}</td>
+             <td class="vid-rate-price">${money(r.std)}</td>
+             <td class="vid-rate-price">${money(r.scl)}</td>`;
+        return `<tr${n === 0 ? ' class="is-group"' : ""}>${first}
+          <td class="vid-rate-pkg">${r.tag ? `<span class="vid-rate-tag">${escapeHtml(r.tag)}</span>` : ""}${escapeHtml(r.item)}${r.sub ? `<span class="vid-rate-note">${escapeHtml(r.sub)}</span>` : ""}</td>
+          <td class="vid-rate-inc">${escapeHtml(r.includes)}</td>
+          ${prices}
+          <td>${escapeHtml(r.slot)}</td><td>${escapeHtml(r.labour)}</td>
+        </tr>`;
+      }).join("")).join("");
 
       t.innerHTML = `<thead><tr>
           <th>Service</th><th>Package</th><th>What's included</th>
           <th>TEG brand<br><span>member</span></th>
           <th>External<br><span>standard agency</span></th>
           <th>External<br><span>scaleable agency</span></th>
-          <th>Diary slot</th><th>Labour hours</th><th>Travel</th>
-        </tr></thead><tbody>${rows.map((r) => {
-          const prices = r.same
-            ? `<td class="vid-rate-price" colspan="3">${escapeHtml(r.same)}</td>`
-            : `<td class="vid-rate-price">${money(r.member)}</td>
-               <td class="vid-rate-price">${money(r.std)}</td>
-               <td class="vid-rate-price">${money(r.scl)}</td>`;
-          return `<tr${r.service ? ' class="is-group"' : ""}>
-            <td><strong>${escapeHtml(r.service)}</strong>${r.note ? `<span class="vid-rate-note">${escapeHtml(r.note)}</span>` : ""}</td>
-            <td>${escapeHtml(r.item)}${r.extra ? `<span class="vid-rate-note">${escapeHtml(r.extra)}</span>` : ""}</td>
-            <td class="vid-rate-inc">${escapeHtml(r.includes)}</td>
-            ${prices}
-            <td>${escapeHtml(r.slot)}</td><td>${escapeHtml(r.labour)}</td><td>${escapeHtml(r.travel)}</td>
-          </tr>`;
-        }).join("")}</tbody>`;
+          <th>Diary slot</th><th>Labour hours</th>
+        </tr></thead><tbody>${body}</tbody>`;
+
+      // Travel was a column of near-identical text. It reads better as one line.
+      const foot = document.getElementById("vid-rate-foot");
+      if (foot) {
+        const radius = vidSettings.free_radius_miles ?? SURCHARGE_DEFAULTS.free_radius_miles;
+        const rate = vidSettings.surcharge_pence_per_mile ?? SURCHARGE_DEFAULTS.pence_per_mile;
+        const pc = vidSettings.base_postcode || SURCHARGE_DEFAULTS.base_postcode;
+        foot.textContent = `Travel: on-location shoots (property and agent) are free within ${radius} miles of ${pc}, then ${rate}p per mile. Content Studio sessions and discovery calls carry no travel charge — the studio is ours and calls are over Teams.`;
+      }
     }
 
     /* ---------- Settings (Jack's base postcode + travel surcharge) ---------- */
