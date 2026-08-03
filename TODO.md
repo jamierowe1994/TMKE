@@ -231,6 +231,42 @@ booking UI has copy for both. Previously every case read "No times available
 that day", which would have looked like being fully booked and nobody would
 have thought to widen the open hours.
 
+## 4h. SMM invoices can't be paid - no Stripe link ⬜ NEXT
+
+Raised by James 4 Aug: "I need to get social media management invoices out, and
+at the minute Stripe isn't linked to the SMM invoicing option."
+
+Where it stands after a look round:
+
+- The invoicing engine is real and shared. `POST /invoicing/invoices` creates a
+  numbered draft with VAT applied server-side, `/invoicing/invoices/send` mails
+  it, and the SMM client card drives it via `renderInvoicing` in
+  `src/pages/admin/social.astro` (~line 1079), linked by `booking_id`.
+- Stripe is also real, but only on one path: `POST /stripe/checkout` in the
+  Worker creates a Checkout session against a row in `orders`, with a webhook
+  verifying the signature and marking it paid. Only `src/pages/edit.astro`
+  calls it.
+- Nothing joins the two. An SMM invoice can be raised, numbered and emailed,
+  but it carries no pay link, and nothing marks it paid.
+
+So the work is a bridge, not a new integration: give an invoice a Checkout
+session, put the link in the email, and have the webhook write back to the
+invoice rather than only to `orders`.
+
+Two things to settle before writing any of it:
+
+- **What the webhook updates.** It currently assumes `orders`. Invoices live
+  elsewhere, so it needs to tell the two apart - most likely via Stripe
+  metadata carrying the invoice id.
+- **Whether direct debit clients should get a pay link at all.** The SMM cards
+  already carry a direct debit date and an inter-brand invoice flag. A client on
+  DD, or one invoiced to another TEG brand, probably should not be offered
+  card payment. That decision shapes the UI more than the plumbing does.
+
+Worth confirming `STRIPE_SECRET_KEY` and the webhook secret are set on the
+Worker before starting - `/stripe/checkout` returns a 503 without the key, and
+that would look like a code fault.
+
 ## 4g. Loose ends from the pricing workbook ⬜
 
 Three gaps the workbook exposed, all recorded honestly in config rather than

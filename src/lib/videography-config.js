@@ -193,9 +193,10 @@ export const RATE_CARD = {
   },
   agent: {
     launch: { ext_standard_pence: 32500, ext_scaleable_pence: 38500, film: 4, edit: 3 },
-    // Not on the supplied workbook. Left null rather than guessed - an invented
-    // external price is worse than a visible gap, because someone would quote it.
-    broll:  { ext_standard_pence: null, ext_scaleable_pence: null },
+    // Not on the supplied workbook. James's call (4 Aug): treat it as the same
+    // price for members and non-members until there is a real external rate.
+    // An assumption, not a quoted figure - revisit when the workbook covers it.
+    broll:  { ext_standard_pence: 15500, ext_scaleable_pence: 15500 },
   },
 };
 
