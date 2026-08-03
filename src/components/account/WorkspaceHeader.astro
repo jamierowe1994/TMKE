@@ -29,6 +29,8 @@ const cur = (k: string) => (active === k ? "page" : undefined);
 
   <!-- RIGHT: notifications, log out, you -->
   <div class="ws-nav-right">
+    <!-- Hidden until the browser reports the hub is installable. -->
+    <button type="button" class="ws-install" id="ws-install" hidden>Install app</button>
     <div class="ws-menu ws-notif" data-menu>
       <button type="button" class="ws-navic" data-menu-btn aria-expanded="false" aria-haspopup="true" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="ws-dot" data-notif-dot></span></button>
       <div class="ws-dropdown ws-dropdown--right ws-dropdown--notif" role="menu">
@@ -107,6 +109,19 @@ const cur = (k: string) => (active === k ? "page" : undefined);
 </div>
 
 <style is:global>
+  /* Install-this-app. Hidden until the browser reports the hub is
+     installable, so it is never a dead control. */
+  .ws-install {
+    font-family: var(--sans, system-ui); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap;
+    padding: 9px 15px; cursor: pointer; border-radius: 999px;
+    border: 1px solid rgba(28,29,34,0.2); background: transparent; color: inherit;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .ws-install:hover { background: rgba(28,29,34,0.06); border-color: rgba(28,29,34,0.4); }
+  .ws-install[hidden] { display: none; }
+  @media (max-width: 700px) { .ws-install { display: none; } }
+
   /* Top header — matches /dashboard. Scoped vars so it stands alone on the
      account pages (which don't load the dashboard's inline styles). */
   .ws-nav {
@@ -222,6 +237,9 @@ const cur = (k: string) => (active === k ? "page" : undefined);
 <script>
   import { supabase } from "../../lib/supabase.js";
   import { initNotifications } from "../../lib/notifications.js";
+  import { wireInstallButton } from "../../lib/pwa-install.js";
+
+  wireInstallButton("ws-install");
 
   // Off-canvas drawer (hamburger → everything that isn't a tab)
   const drawer = document.querySelector("[data-drawer]") as HTMLElement | null;
