@@ -202,6 +202,27 @@ comment, hence this note.
 Same trap as the editor script, which solves it with a build stamp
 (`src/pages/account/editor.astro`).
 
+## 4e. Videography prices aren't editable ⬜
+
+Noticed 2 Aug. The admin panel is called **Pricing & travel settings** but only
+travel is real: base postcode, free radius, per-mile rate and VAT save to
+`videography_settings` and are read by the Worker when quoting. Verified
+end to end — that half works.
+
+**No price is editable.** Every package and add-on rate lives in
+`src/lib/videography-config.js`: Single Session £165, Half Day £325, Full Day
+£785, Property Gold £550, Platinum £625, the twilight add-ons, all of it. The
+admin page never mentions them. Changing a price is a code change and a deploy
+— which is exactly what happened for the 2026 rate card on 27 Jul.
+
+Not a tweak. Those prices are read by the booking flow, the website copy, the
+quote calculation and the agreements, so making them editable means serving
+them from one place at runtime and making sure a mid-flight booking can't see
+one price and be charged another. Worth scoping properly.
+
+Meanwhile the panel's title promises more than it delivers, which is how this
+was spotted.
+
 ## 5. Social media portfolio ⬜
 
 Not complete. Needs scoping — what's missing, and what "complete" looks like.
