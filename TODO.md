@@ -202,6 +202,50 @@ comment, hence this note.
 Same trap as the editor script, which solves it with a build stamp
 (`src/pages/account/editor.astro`).
 
+## 4f. Diary slots are shorter than the work takes ⬜
+
+Surfaced 4 Aug, when James supplied the pricing workbook and the labour hours
+went into `RATE_CARD` for the first time. The booking flow reserves a calendar
+slot per service; the workbook says how long the work actually takes. They do
+not agree, and the gap is not small:
+
+| Service | Diary slot | Filming hours in the workbook |
+|---|---|---|
+| Property (Gold and Platinum) | 4 hrs | **8** |
+| Agent / Location — Launch | 2 hrs | **4** |
+| Content Studio — all three | 1.5 / 3 / 8 hrs | 1.5 / 3 / 8 ✅ |
+
+Content Studio lines up. Property and agent shoots are booked at **half** the
+filming time the workbook allows for, before any editing, amends or design.
+
+This matters because the one-shoot-a-day rule and the two-day editing buffer
+were both built on the diary slot, not on the real hours. If the slot is half
+the truth, availability is being offered that Jack cannot actually service.
+
+Not changed yet — I don't know which number is right. The workbook hours may
+include travel and set-up, or the slot may simply be wrong. **Needs Jack.**
+
+Related: the workbook's editing/amends/design hours are recorded in
+`RATE_CARD` but nothing reads them yet.
+
+## 4g. Loose ends from the pricing workbook ⬜
+
+Three gaps the workbook exposed, all recorded honestly in config rather than
+guessed at:
+
+- **Content Studio has external prices but cannot be sold externally.**
+  `SERVICES["content-studio"].membersOnly` is `true`, so non-members get
+  Register Interest — yet the workbook prices all three sessions for both
+  external tiers (£255/£510/£1,265 standard, £300/£605/£1,495 scaleable).
+  Either the gate is wrong or those prices are quote-only. Currently quote-only.
+- **B-roll has no external price.** `10 × 60-second B-roll scenes` is £155 to
+  members and absent from the workbook. Left `null` and shown as "Not set" — an
+  invented figure would be worse, because someone would quote it.
+- **Studio hire sits outside the package price.** The workbook lists it
+  separately (£45/£90/£240) and labels the member cost "no Studio Hire".
+  Whether it is rebilled to the client is unsettled; `STUDIO_HIRE_IS_REBILLED`
+  is `false` and nothing charges it.
+
 ## 4e. Videography prices aren't editable ⬜
 
 Noticed 2 Aug. The admin panel is called **Pricing & travel settings** but only

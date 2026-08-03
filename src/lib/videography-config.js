@@ -152,6 +152,57 @@ export const SERVICES = {
   },
 };
 
+/* ---------------------------------------------------------------------------
+   Rate card - the commercial and production figures behind each package.
+
+   Keyed off the same package keys as SERVICES above. Member prices are NOT
+   repeated here: they live in SERVICES and are read from there, so the two can
+   never disagree. What this adds is the external pricing and the production
+   effort, which previously existed only as code comments that nothing read and
+   nothing could validate.
+
+   Source: James's pricing workbook (Studio Videography / Property Videography /
+   Location Shoots tabs), supplied 2026-08-04. All prices in pence.
+
+   `film`/`edit`/`brief`/`amends`/`design` are LABOUR hours - what a package
+   actually costs Jack to produce. They are not the same as the calendar slot
+   the booking flow reserves, and for property and agent shoots they are
+   materially longer. See TODO section 4f.
+
+   Add-ons are deliberately absent: they are the same price for members and
+   non-members alike, so they carry no external rate. They live in
+   SERVICES.property.addOns.
+--------------------------------------------------------------------------- */
+export const RATE_CARD = {
+  "content-studio": {
+    // The studio sessions ARE sold externally, at roughly 1.5x the member rate.
+    // Note SERVICES["content-studio"].membersOnly is true, so the website does
+    // not currently offer these - non-members are routed to Register Interest.
+    single: { ext_standard_pence: 25500, ext_scaleable_pence: 30000, studio_hire_pence: 4500,
+              film: 1.5, edit: 1.5, brief: 1.5, max_per_day: 5 },
+    half:   { ext_standard_pence: 51000, ext_scaleable_pence: 60500, studio_hire_pence: 9000,
+              film: 3, edit: 3, brief: 3, max_per_day: 2 },
+    full:   { ext_standard_pence: 126500, ext_scaleable_pence: 149500, studio_hire_pence: 24000,
+              film: 8, edit: 8, brief: 5, max_per_day: 1 },
+  },
+  property: {
+    gold:     { ext_standard_pence: 68000, ext_scaleable_pence: 80500,
+                film: 8, edit: 6, amends: 1, design: 1 },
+    platinum: { ext_standard_pence: 77000, ext_scaleable_pence: 91000,
+                film: 8, edit: 8, amends: 3, design: 1 },
+  },
+  agent: {
+    launch: { ext_standard_pence: 32500, ext_scaleable_pence: 38500, film: 4, edit: 3 },
+    // Not on the supplied workbook. Left null rather than guessed - an invented
+    // external price is worse than a visible gap, because someone would quote it.
+    broll:  { ext_standard_pence: null, ext_scaleable_pence: null },
+  },
+};
+
+// The member package prices exclude studio hire; the workbook lists it
+// separately. Whether it is rebilled to the client is not yet settled.
+export const STUDIO_HIRE_IS_REBILLED = false;
+
 // Pipeline statuses, incl. the lead statuses leads land at (Section 7.4).
 export const PIPELINE_STATUS = {
   BOOKED: "booked",
