@@ -624,7 +624,7 @@ import "../../styles/admin.css";
                     <button type="button" class="pay-opt ${!r.direct_debit ? "is-active" : ""}" data-dd="no">No</button>
                   </div>
                 </div>
-                <label class="smm-eng-row" id="dd-date-row" ${r.direct_debit ? "" : "hidden"}><span>Direct debit date</span><select id="dd-date">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${Number(r.direct_debit_day) === i + 1 ? " selected" : ""}>${i + 1}${ordinal(i + 1)}</option>`).join("")}</select></label>
+                <label class="smm-eng-row" id="dd-date-row"><span>Direct debit date</span><select id="dd-date"><option value=""${!r.direct_debit_day ? " selected" : ""}>N/A</option>${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${Number(r.direct_debit_day) === i + 1 ? " selected" : ""}>${i + 1}${["st","nd","rd"][((i) % 10)] && i < 3 ? ["st","nd","rd"][i] : (i + 1) % 10 === 1 && i + 1 !== 11 ? "st" : (i + 1) % 10 === 2 && i + 1 !== 12 ? "nd" : (i + 1) % 10 === 3 && i + 1 !== 13 ? "rd" : "th"}</option>`).join("")}</select></label>
                 <label class="smm-eng-row smm-eng-row--full"><span>Business address</span><textarea data-ef="business_address" rows="2" placeholder="For invoicing">${esc(r.business_address || "")}</textarea></label>
               </div>
               <div class="smm-platforms" data-platforms>
@@ -846,16 +846,16 @@ import "../../styles/admin.css";
     async function setDirectDebit(r, on) {
       r.direct_debit = on;
       document.querySelectorAll("#dd-toggle [data-dd]").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-dd") === "yes") === on));
-      const row = $("dd-date-row"); if (row) row.hidden = !on;
       const st = $("smm-eng-status"); if (st) st.textContent = "Saving…";
-      if (!r.direct_debit_day) r.direct_debit_day = Number($("dd-date")?.value) || 1;
       // Re-render the Invoicing panel so it switches to/from the DD view immediately.
       const pInv = $("smm-panel-invoices"); if (pInv) renderInvoicing(r, pInv, r._lastDocs || [], false, r._lastWarn || null);
       if (isDemo(r)) { if (st) st.textContent = "Saved (demo)."; return; }
-      try { await supabase.from("smm_leads").update({ direct_debit: on, direct_debit_day: r.direct_debit_day }).eq("id", r.id); if (st) st.textContent = "Saved."; }
+      try { await supabase.from("smm_leads").update({ direct_debit: on, direct_debit_day: r.direct_debit_day || null }).eq("id", r.id); if (st) st.textContent = "Saved."; }
       catch (_) { if (st) st.textContent = "Couldn't save."; }
     }
     async function saveDdDay(r, day) {
+      // "" is the N/A option — stored as null, not as a day.
+      day = day ? Number(day) : null;
       r.direct_debit_day = day;
       const st = $("smm-eng-status"); if (st) st.textContent = "Saving…";
       if (isDemo(r)) { if (st) st.textContent = "Saved (demo)."; return; }
@@ -1441,6 +1441,7 @@ import "../../styles/admin.css";
       renderThread(r, { messages: [], documents: [] }, null, true);
       let data = { messages: [], documents: [] };
       try { const token = await authToken(); const res = await fetch(`${WORKER}/booking/thread?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) data = await res.json(); } catch (_) {}
+      r._thread = data;
       renderThread(r, data);
     }
     // Build a chronological audit feed from the thread (notes, emails in/out,

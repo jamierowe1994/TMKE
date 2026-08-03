@@ -4606,7 +4606,11 @@ export default {
         if (res && !res.ok) {
           const detail = await res.text().catch(() => "");
           console.error("note edit failed", res.status, detail);
-          return json({ error: "Couldn't save that edit." }, 502, request, env);
+          // The edited_at column not existing is much the likeliest cause, and
+          // the raw Postgres message doesn't say what to do about it.
+          return json({ error: /edited_at/i.test(detail)
+            ? "Needs a one-off database step: run supabase/smm_manager_and_interbrand.sql."
+            : "Couldn't save that edit." }, 502, request, env);
         }
         return json({ ok: true }, 200, request, env);
       }
