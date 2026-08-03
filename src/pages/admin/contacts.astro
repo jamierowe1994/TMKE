@@ -33,6 +33,7 @@ import "../../styles/admin.css";
         <button type="button" class="ct-chip-f" data-seg="email">Marketing opt-in <b data-n="email">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="purchasers">Customers <b data-n="purchasers">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="booked">Booked <b data-n="booked">0</b></button>
+        <button type="button" class="ct-chip-f" data-seg="smm">SMM clients <b data-n="smm">0</b></button>
         <button type="button" class="ct-chip-f ct-chip-review" data-seg="review">Review <b data-n="review">0</b></button>
         <button type="button" class="ct-chip-f ct-chip-issues" data-seg="issues">Email issues <b data-n="issues">0</b></button>
         <!-- Tag filter — multi-select dropdown, narrows by one or more tags. -->
@@ -381,6 +382,10 @@ import "../../styles/admin.css";
       email: (c) => c.marketing_opt_in === true,
       purchasers: isPurchaser,
       booked: isBooked,
+      // Live social media management clients. Paused and Ended are deliberately
+      // excluded: this is "who are we running social for right now", which is
+      // the question anyone actually asks of this list.
+      smm: (c) => (c.tags || []).includes("SMM-Status: Active"),
       // Just a contact: no account, no marketing consent, and not a customer.
       contact: (c) => !c.user_id && c.marketing_opt_in !== true && !isPurchaser(c) && !isBooked(c),
       review: (c) => !!c.needs_review,
