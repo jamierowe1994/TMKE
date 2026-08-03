@@ -654,13 +654,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         if (svc.key === "property") {
           const tier = propertyTierForBrand(audience && audience.brand) || "gold";
           chosen = svc.packagesByTier[tier];
-          duration = 240; // property shoot block (interim — refined in scheduling phase)
+          duration = 480; // 8 hrs on site, per the pricing workbook
           incl = chosen.inclusions.map((x) => "· " + x).join("<br>");
           addOnList = svc.addOns;
           priceLabel = `from ${gbp(chosen.from_pence)} +VAT`;
         } else {
           chosen = svc.packages.find((p) => p.key === "launch") || svc.packages[0];
-          duration = 120;
+          duration = 240; // 4 hrs on site, per the pricing workbook
           incl = "· " + chosen.desc;
           addOnList = svc.packages.filter((p) => p.key !== chosen.key);
           priceLabel = `${gbp(chosen.price_pence)} +VAT`;
@@ -706,7 +706,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     // straight to day from its session card above.) The Launch Package is always
     // included for Agent, so there's no minimum-selection gate any more.
     $("vb-options-next")?.addEventListener("click", () => {
-      if (svc.key === "agent") duration = 120 + selectedAddOns.length * 30;
+      if (svc.key === "agent") duration = 240 + selectedAddOns.length * 30;
       $("vb-surcharge-note").hidden = true;
       // Per-service copy for the postcode step.
       const pcTitle = $("vb-postcode-title"), pcSub = $("vb-postcode-sub");
@@ -822,6 +822,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
           const REASONS = {
             off_location_taken: "Jack is already out on a shoot that day. On-location shoots are one a day so there's time to travel — please pick another date.",
             off_location_buffer: "There's a shoot just before this date, and Jack keeps the two days after one clear for editing — please pick a slightly later date.",
+            day_too_short: "This shoot needs a longer run of time than that day allows — please pick another date.",
+            no_gap_long_enough: "There's no unbroken run of time long enough on that date — please pick another day.",
           };
           grid.innerHTML = `<p class="dc-slots-empty">${REASONS[data.reason] || "No times available that day — go back and try another date."}</p>`;
           return;

@@ -202,31 +202,34 @@ comment, hence this note.
 Same trap as the editor script, which solves it with a build stamp
 (`src/pages/account/editor.astro`).
 
-## 4f. Diary slots are shorter than the work takes ⬜
+## 4f. Diary slots now match the workbook ✅ (4 Aug)
 
-Surfaced 4 Aug, when James supplied the pricing workbook and the labour hours
-went into `RATE_CARD` for the first time. The booking flow reserves a calendar
-slot per service; the workbook says how long the work actually takes. They do
-not agree, and the gap is not small:
+The booking flow was reserving half the filming time the pricing workbook
+allows. James confirmed: go with the workbook.
 
-| Service | Diary slot | Filming hours in the workbook |
+| Service | Was | Now |
 |---|---|---|
-| Property (Gold and Platinum) | 4 hrs | **8** |
-| Agent / Location — Launch | 2 hrs | **4** |
-| Content Studio — all three | 1.5 / 3 / 8 hrs | 1.5 / 3 / 8 ✅ |
+| Property (Gold and Platinum) | 4 hrs | **8 hrs** |
+| Agent / Location — Launch | 2 hrs | **4 hrs** (+30 min per add-on, unchanged) |
+| Content Studio | 1.5 / 3 / 8 hrs | unchanged — already correct |
 
-Content Studio lines up. Property and agent shoots are booked at **half** the
-filming time the workbook allows for, before any editing, amends or design.
+Changed in `VideographyBooking.astro` (the value sent to `/ms/availability` and
+written to the calendar event), `src/data/videography.js`, and the admin rate
+card. Content Studio was already right.
 
-This matters because the one-shoot-a-day rule and the two-day editing buffer
-were both built on the diary slot, not on the real hours. If the slot is half
-the truth, availability is being offered that Jack cannot actually service.
+**Watch this.** Availability comes from the hours Jack ticks in
+`videography_availability`, and a property shoot now needs an unbroken 8-hour
+run. On a day with 9–5 open hours that is the entire day: a single 30-minute
+meeting anywhere in it drops property availability to zero. That is consistent
+with one on-location shoot a day, which James confirmed is the intent, but it
+does mean Jack's calendar hygiene now directly gates bookability.
 
-Not changed yet — I don't know which number is right. The workbook hours may
-include travel and set-up, or the slot may simply be wrong. **Needs Jack.**
-
-Related: the workbook's editing/amends/design hours are recorded in
-`RATE_CARD` but nothing reads them yet.
+So `/ms/availability` no longer returns a bare empty list. It distinguishes
+`day_too_short` (the open hours cannot hold the shoot at all) from
+`no_gap_long_enough` (they could, but the calendar is broken up), and the
+booking UI has copy for both. Previously every case read "No times available
+that day", which would have looked like being fully booked and nobody would
+have thought to widen the open hours.
 
 ## 4g. Loose ends from the pricing workbook ⬜
 

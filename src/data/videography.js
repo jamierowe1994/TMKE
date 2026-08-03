@@ -161,7 +161,7 @@ export const PRODUCTS = [
     priceTiers: [
       // Gold (TEG brands) is the headline "from" rate; Fine & Country agents get
       // the Platinum package — see propertyTierForBrand in lib/videography-config.js.
-      { label: "Property package", sub: "Full media package", minutes: 240, prices: { direct: 55000, "fine-and-country": 62500 } },
+      { label: "Property package", sub: "Full media package", minutes: 480, prices: { direct: 55000, "fine-and-country": 62500 } },
     ],
     bookCtaLabel: "Check Availability",
     aboutHeading: "About",
@@ -217,7 +217,7 @@ export const PRODUCTS = [
       "Jack covers a 40-mile radius of NN14, Kettering. Outside of that area? No problem — travel expenses apply for anything beyond the 40 miles, and we'll factor that into your quote automatically.",
     ],
     priceTiers: [
-      { label: "Agent Edit", sub: "Video & photography", minutes: 120, prices: { direct: 29500 } },
+      { label: "Agent Edit", sub: "Video & photography", minutes: 240, prices: { direct: 29500 } },
     ],
     bookCtaLabel: "Check Availability",
     aboutHeading: "About",
