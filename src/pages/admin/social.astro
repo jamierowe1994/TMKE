@@ -310,6 +310,8 @@ import "../../styles/admin.css";
     .smm-act-text { font-family: var(--sans); font-size: 13px; color: var(--ink); }
     .smm-act-meta { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
     .smm-note-body { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
+    .smm-note-edit { width: 100%; font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ink); padding: 9px 11px; border: 1px solid rgba(var(--violet-rgb),0.3); border-radius: 6px; background: #fff; resize: vertical; }
+    .smm-note-edit:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
     .smm-note-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
     .smm-note-meta { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); display: inline-flex; align-items: center; gap: 6px; }
     .smm-pin-badge { color: var(--english-violet); font-weight: 700; }
@@ -431,6 +433,7 @@ import "../../styles/admin.css";
       } catch (_) { return ""; }
     }
 
+    let ME = "";            // the signed-in admin's email — a note belongs to whoever wrote it
     let all = [], kindFilter = "all", q = "", showLost = false, current = null, activeTab = "notes";
 
     // ---------- Board ----------
@@ -608,6 +611,13 @@ import "../../styles/admin.css";
                 <label class="smm-eng-row"><span>Pricing</span><input type="text" data-ef="price" value="${esc(r.price || "")}" placeholder="e.g. £750 / month"></label>
                 <label class="smm-eng-row"><span>Start date</span><input type="date" data-ef="start_date" value="${esc(r.start_date || "")}"></label>
                 <label class="smm-eng-row"><span>End date</span><input type="date" data-ef="end_date" value="${esc(r.end_date || "")}"></label>
+                <div class="smm-eng-row"><span>Inter-brand invoice</span>
+                  <div class="pay-toggle" id="ibi-toggle">
+                    <button type="button" class="pay-opt ${r.inter_brand_invoice ? "is-active" : ""}" data-ibi="yes">Yes</button>
+                    <button type="button" class="pay-opt ${!r.inter_brand_invoice ? "is-active" : ""}" data-ibi="no">No</button>
+                  </div>
+                </div>
+                <label class="smm-eng-row"><span>Social media manager</span><input type="text" data-ef="social_media_manager" value="${esc(r.social_media_manager || "")}" placeholder="Who runs this account"></label>
                 <div class="smm-eng-row"><span>Direct debit customer?</span>
                   <div class="pay-toggle" id="dd-toggle">
                     <button type="button" class="pay-opt ${r.direct_debit ? "is-active" : ""}" data-dd="yes">Yes</button>
@@ -710,6 +720,7 @@ import "../../styles/admin.css";
       body.querySelectorAll("[data-plat]").forEach((el) => el.addEventListener("change", () => savePlatforms(r)));
       // Payments — Direct Debit toggle + date
       body.querySelectorAll("#dd-toggle [data-dd]").forEach((b) => b.addEventListener("click", () => setDirectDebit(r, b.getAttribute("data-dd") === "yes")));
+      body.querySelectorAll("#ibi-toggle [data-ibi]").forEach((b) => b.addEventListener("click", () => setInterBrand(r, b.getAttribute("data-ibi") === "yes")));
       body.querySelector("#dd-date")?.addEventListener("change", (e) => saveDdDay(r, Number(e.target.value)));
       // Tabs
       body.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
@@ -817,6 +828,21 @@ import "../../styles/admin.css";
       try { await supabase.from("smm_leads").update({ [field]: v || null }).eq("id", r.id); if (s) s.textContent = "Saved."; }
       catch (_) { if (s) s.textContent = "Couldn't save."; }
     }
+    // Inter-brand invoice: this client's work is billed to another TEG brand
+    // rather than to them. Same shape as the direct-debit toggle.
+    async function setInterBrand(r, on) {
+      r.inter_brand_invoice = on;
+      document.querySelectorAll("#ibi-toggle [data-ibi]").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-ibi") === "yes") === on));
+      const st = $("smm-eng-status"); if (st) st.textContent = "Saving…";
+      if (isDemo(r)) { if (st) st.textContent = "Saved (demo)."; return; }
+      try { await supabase.from("smm_leads").update({ inter_brand_invoice: on }).eq("id", r.id); if (st) st.textContent = "Saved."; }
+      catch (e) {
+        // Almost always the column not existing yet, and the raw Postgres
+        // message doesn't say what to do about it.
+        if (st) st.textContent = /inter_brand_invoice/i.test(e.message || "") ? "Needs supabase/smm_manager_and_interbrand.sql" : "Couldn't save.";
+      }
+    }
+
     async function setDirectDebit(r, on) {
       r.direct_debit = on;
       document.querySelectorAll("#dd-toggle [data-dd]").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-dd") === "yes") === on));
@@ -1455,13 +1481,18 @@ import "../../styles/admin.css";
       // NOTES
       const noteHtml = loading ? '<p class="smm-soon">Loading…</p>' : (notes.map((m) => {
         const who = m.created_by && m.created_by !== "system" ? m.created_by : "You";
-        return `<div class="smm-note ${m.is_pinned ? "is-pinned" : ""}">
+        // A note belongs to whoever wrote it. Everyone can read the thread;
+        // only the author gets Edit and Delete. The Worker enforces this too -
+        // hiding a button is a courtesy, not a control.
+        const mine = String(m.created_by || "").toLowerCase() === String(ME || "").toLowerCase();
+        return `<div class="smm-note ${m.is_pinned ? "is-pinned" : ""}" data-note="${esc(m.id)}">
           <div class="smm-note-body">${esc(m.body || "").replace(/\n/g, "<br>")}</div>
           <div class="smm-note-foot">
-            <span class="smm-note-meta">${m.is_pinned ? '<span class="smm-pin-badge">Pinned</span> · ' : ""}${esc(who)} · ${esc(fmtWhen(m.created_at))}</span>
+            <span class="smm-note-meta">${m.is_pinned ? '<span class="smm-pin-badge">Pinned</span> · ' : ""}${esc(who)} · ${esc(fmtWhen(m.created_at))}${m.edited_at ? " · edited" : ""}</span>
             <span class="smm-note-tools">
               <button type="button" class="smm-mini" data-pin="${esc(m.id)}" data-pinned="${m.is_pinned ? 1 : 0}">${m.is_pinned ? "Unpin" : "Pin"}</button>
-              <button type="button" class="smm-mini is-danger" data-delnote="${esc(m.id)}">Delete</button>
+              ${mine ? `<button type="button" class="smm-mini" data-editnote="${esc(m.id)}">Edit</button>
+              <button type="button" class="smm-mini is-danger" data-delnote="${esc(m.id)}">Delete</button>` : ""}
             </span>
           </div>
         </div>`;
@@ -1529,6 +1560,7 @@ import "../../styles/admin.css";
       $("smm-file-add")?.addEventListener("click", () => openAddFile(r));
       pNotes.querySelectorAll("[data-pin]").forEach((b) => b.addEventListener("click", () => pinNote(r, b.getAttribute("data-pin"), b.getAttribute("data-pinned") !== "1")));
       pNotes.querySelectorAll("[data-delnote]").forEach((b) => b.addEventListener("click", () => delNote(r, b.getAttribute("data-delnote"))));
+      pNotes.querySelectorAll("[data-editnote]").forEach((b) => b.addEventListener("click", () => editNote(r, b.getAttribute("data-editnote"))));
       pFiles.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
       pFiles.querySelectorAll("[data-docdel]").forEach((b) => b.addEventListener("click", () => deleteDoc(r, b.getAttribute("data-docdel"))));
     }
@@ -1544,6 +1576,42 @@ import "../../styles/admin.css";
       if (isDemo(r)) { const m = r._thread.messages.find((x) => x.id === id); if (m) m.is_pinned = pinned; renderThread(r, r._thread); return; }
       try { const token = await authToken(); await fetch(`${WORKER}/booking/message/pin`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id, pinned }) }); loadThread(r); } catch (_) {}
     }
+    // Edit in place: the note becomes a textarea where it sits, so you keep the
+    // thread around it. Cancel restores the original wording rather than
+    // re-fetching, so a mis-click costs nothing.
+    async function editNote(r, id) {
+      const wrap = document.querySelector(`[data-note="${CSS.escape(id)}"]`); if (!wrap) return;
+      const bodyEl = wrap.querySelector(".smm-note-body");
+      const note = ((r._thread && r._thread.messages) || []).find((m) => String(m.id) === String(id));
+      if (!bodyEl || !note || wrap.querySelector(".smm-note-edit")) return;
+      const original = note.body || "";
+      bodyEl.innerHTML = `<textarea class="smm-note-edit" rows="3">${esc(original)}</textarea>
+        <div class="smm-add-row" style="margin-top:8px"><span></span>
+          <button type="button" class="smm-btn smm-btn--sm" data-savenote>Save</button>
+          <button type="button" class="smm-mini" data-cancelnote>Cancel</button>
+        </div>`;
+      const ta = bodyEl.querySelector("textarea"); ta.focus(); ta.setSelectionRange(original.length, original.length);
+      const restore = (text) => { bodyEl.innerHTML = esc(text).replace(/\n/g, "<br>"); };
+      bodyEl.querySelector("[data-cancelnote]").addEventListener("click", () => restore(original));
+      bodyEl.querySelector("[data-savenote]").addEventListener("click", async () => {
+        const text = ta.value.trim();
+        if (!text) { alert("A note can't be empty."); return; }
+        if (isDemo(r)) { note.body = text; note.edited_at = new Date().toISOString(); renderThread(r, r._thread); return; }
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER}/booking/message?id=${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ body: text }),
+          });
+          const out = await res.json().catch(() => ({}));
+          if (!res.ok) { alert(out.error || "Couldn't save that edit."); restore(original); return; }
+          note.body = text; note.edited_at = new Date().toISOString();
+          renderThread(r, r._thread);
+        } catch (_) { alert("Couldn't save that edit."); restore(original); }
+      });
+    }
+
     async function delNote(r, id) {
       if (!confirm("Delete this note?")) return;
       if (isDemo(r)) { r._thread.messages = r._thread.messages.filter((x) => x.id !== id); renderThread(r, r._thread); return; }
@@ -1626,6 +1694,8 @@ import "../../styles/admin.css";
       let session;
       if (import.meta.env.DEV) session = (await supabase.auth.getSession()).data.session || { user: { email: "dev@tmke.co.uk", id: "dev" } };
       else { session = await requireAdmin(); if (!session) return; }
+      // Who I am, for note ownership. A note's created_by is the author's email.
+      ME = (session && session.user && session.user.email) || "";
 
       let rows = [];
       try { const { data } = await supabase.from("smm_leads").select("*").order("created_at", { ascending: false }); rows = data || []; } catch (_) {}

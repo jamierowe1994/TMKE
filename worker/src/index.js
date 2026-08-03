@@ -4572,14 +4572,42 @@ export default {
       }
 
       // ---- Admin: delete a thread note / message ----
-      if (path.endsWith("/booking/message") && request.method === "DELETE") {
+      // A note belongs to whoever wrote it. Being an admin gets you into the
+      // thread; it does not entitle you to rewrite or remove a colleague's note.
+      // Checked here rather than by hiding buttons - the endpoint is the lock,
+      // the UI is only the sign on the door.
+      if (path.endsWith("/booking/message") && (request.method === "DELETE" || request.method === "PATCH")) {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        const id = (url.searchParams.get("id") || "").trim();
+        const body = request.method === "PATCH" ? await request.json().catch(() => ({})) : {};
+        const id = (url.searchParams.get("id") || body.id || "").trim();
         if (!id) return json({ error: "Missing id" }, 400, request, env);
-        await fetch(`${env.SUPABASE_URL}/rest/v1/booking_messages?id=eq.${encodeURIComponent(id)}`, {
-          method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
-        });
+
+        const rows = await sbGet(env, "booking_messages", `id=eq.${encodeURIComponent(id)}&select=id,created_by,channel`);
+        const msg = rows && rows[0];
+        if (!msg) return json({ error: "Not found." }, 404, request, env);
+
+        const mine = String(msg.created_by || "").toLowerCase() === String(user.email || "").toLowerCase();
+        if (!mine) return json({ error: "You can only edit or delete your own notes." }, 403, request, env);
+        // Only notes. An emailed message is a record of something that was
+        // actually sent, and editing it would make the thread a lie.
+        if (msg.channel !== "note") return json({ error: "Only notes can be edited or deleted." }, 422, request, env);
+
+        if (request.method === "DELETE") {
+          await fetch(`${env.SUPABASE_URL}/rest/v1/booking_messages?id=eq.${encodeURIComponent(id)}`, {
+            method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+          });
+          return json({ ok: true }, 200, request, env);
+        }
+
+        const text = String(body.body || "").trim();
+        if (!text) return json({ error: "A note can't be empty." }, 400, request, env);
+        const res = await sbPatch(env, "booking_messages", `id=eq.${encodeURIComponent(id)}`, { body: text, edited_at: new Date().toISOString() });
+        if (res && !res.ok) {
+          const detail = await res.text().catch(() => "");
+          console.error("note edit failed", res.status, detail);
+          return json({ error: "Couldn't save that edit." }, 502, request, env);
+        }
         return json({ ok: true }, 200, request, env);
       }
 
