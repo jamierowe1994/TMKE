@@ -187,6 +187,22 @@ const DELIVER_CATEGORIES = [
       <button type="button" class="admin-btn admin-btn-primary" id="vid-set-save">Save settings</button>
       <span class="vid-set-status" id="vid-set-status"></span>
     </div>
+
+    <!-- Everything bookable, in one place. Built from the same config the
+         booking flow uses, so it cannot drift from what a client is quoted. -->
+    <h3 class="ash-section-h" style="margin-top:40px">Everything we sell</h3>
+    <p class="vid-panel-sub" style="margin:-8px 0 18px">
+      Generated from the live booking configuration — if it says it here, that is
+      what the booking flow charges. Prices exclude VAT.
+    </p>
+    <div class="vid-rate-wrap"><table class="vid-rate" id="vid-rate-table"></table></div>
+
+    <h3 class="ash-section-h" style="margin-top:36px">Not bookable online</h3>
+    <p class="vid-panel-sub" style="margin:-8px 0 18px">
+      Non-TEG agents can't self-book — they're routed to an enquiry or a discovery
+      call and quoted by hand. These are the 2026 external rates, ex-VAT.
+    </p>
+    <div class="vid-rate-wrap"><table class="vid-rate" id="vid-rate-external"></table></div>
   </section>
 
   <!-- ===================== CONNECTIONS (integrations) ===================== -->
@@ -483,6 +499,20 @@ const DELIVER_CATEGORIES = [
     .vid-thread-status { font-size: 12.5px; margin-top: 10px; }
 
     /* ---- Settings ---- */
+    /* The rate card. Scrolls horizontally on its own rather than pushing the
+       page sideways — there are seven columns and one of them is long prose. */
+    .vid-rate-wrap { overflow-x: auto; border: 1px solid rgba(var(--violet-rgb), 0.14); border-radius: 10px; background: #fff; }
+    .vid-rate { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; min-width: 900px; }
+    .vid-rate th {
+      text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(28,29,34,0.45);
+      padding: 12px 14px; border-bottom: 1px solid rgba(var(--violet-rgb), 0.16); white-space: nowrap;
+    }
+    .vid-rate td { padding: 11px 14px; border-bottom: 1px solid rgba(28,29,34,0.06); vertical-align: top; }
+    .vid-rate tr.is-group td { border-top: 1px solid rgba(var(--violet-rgb), 0.16); }
+    .vid-rate tr:last-child td { border-bottom: 0; }
+    .vid-rate-price { white-space: nowrap; font-weight: 700; color: var(--english-violet); }
+    .vid-rate-inc { min-width: 320px; color: rgba(28,29,34,0.72); line-height: 1.5; }
     .vid-settings { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
     .vid-settings .vid-field input { width: 100%; }
     .vid-set-status { font-family: var(--sans); font-size: 13px; color: #2c7a4b; margin-left: 12px; }
@@ -752,7 +782,7 @@ const DELIVER_CATEGORIES = [
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
-    import { bookingLocation } from "../../lib/videography-config.js";
+    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -1832,6 +1862,77 @@ const DELIVER_CATEGORIES = [
       }
     }
 
+    /* ---------- The rate card, built from the live booking config ----------
+       Deliberately generated rather than typed out: a hand-written table would
+       drift from what the booking flow actually charges, and a wrong number
+       here is worse than no table because someone would quote from it. */
+    const RATE_MINUTES = { single: 90, half: 180, full: 480, property: 240, agent: 120, discovery: 30 };
+    const mins = (m) => m >= 60 ? `${m / 60} hr${m === 60 ? "" : "s"}` : `${m} min`;
+
+    function renderRateCard() {
+      const t = document.getElementById("vid-rate-table"); if (!t) return;
+      const surcharge = `${vidSettings.free_radius_miles ?? SURCHARGE_DEFAULTS.free_radius_miles} miles free, then ${vidSettings.surcharge_pence_per_mile ?? SURCHARGE_DEFAULTS.pence_per_mile}p/mile`;
+      const rows = [];
+
+      const cs = SERVICES["content-studio"];
+      cs.sessions.forEach((x, i) => rows.push({
+        service: i === 0 ? cs.name : "", who: i === 0 ? "Members only" : "",
+        item: x.name, price: gbpFromPence(x.price_pence),
+        includes: `${x.output} — ${x.desc}`,
+        time: mins(RATE_MINUTES[x.key]), travel: i === 0 ? "None — at our studio" : "",
+      }));
+
+      const pr = SERVICES.property;
+      Object.values(pr.packagesByTier).forEach((pk, i) => rows.push({
+        service: i === 0 ? pr.name : "",
+        who: pk.key === "platinum" ? "Fine & Country" : "All other TEG brands",
+        item: pk.name, price: `from ${gbpFromPence(pk.from_pence)}`,
+        includes: pk.inclusions.join(" · "),
+        time: mins(RATE_MINUTES.property), travel: i === 0 ? surcharge : "",
+      }));
+      pr.addOns.forEach((a) => rows.push({
+        service: "", who: "Add-on", item: a.name,
+        price: gbpFromPence(a.price_pence) + (a.perImage ? " per image" : ""),
+        includes: a.note, time: "—", travel: "",
+      }));
+
+      const ag = SERVICES.agent;
+      ag.packages.forEach((pk, i) => rows.push({
+        service: i === 0 ? ag.name : "", who: i === 0 ? "Members — can combine packages" : "",
+        item: pk.name, price: gbpFromPence(pk.price_pence),
+        includes: pk.desc, time: mins(RATE_MINUTES.agent), travel: i === 0 ? surcharge : "",
+      }));
+
+      rows.push({
+        service: SERVICES.discovery.name, who: "Anyone", item: "Discovery call", price: "Free",
+        includes: "A chat about which service fits. No obligation.",
+        time: mins(RATE_MINUTES.discovery), travel: "None — over Teams",
+      });
+
+      t.innerHTML = `<thead><tr>
+          <th>Service</th><th>Who</th><th>What they book</th><th>Price</th>
+          <th>What's included</th><th>In the diary</th><th>Travel</th>
+        </tr></thead><tbody>${rows.map((r) => `<tr${r.service ? ' class="is-group"' : ""}>
+          <td><strong>${esc(r.service)}</strong></td><td>${esc(r.who)}</td>
+          <td>${esc(r.item)}</td><td class="vid-rate-price">${esc(r.price)}</td>
+          <td class="vid-rate-inc">${esc(r.includes)}</td><td>${esc(r.time)}</td><td>${esc(r.travel)}</td>
+        </tr>`).join("")}</tbody>`;
+
+      const ext = document.getElementById("vid-rate-external"); if (!ext) return;
+      const EXTERNAL = [
+        ["Property Videography", "Standard agency", "Gold Package", "£680"],
+        ["", "Standard agency", "Platinum Package", "£770"],
+        ["", "Scaleable agency", "Gold Package", "£805"],
+        ["", "Scaleable agency", "Platinum Package", "£910"],
+        ["Agent / Location", "Standard agency", "Launch Package", "£325"],
+        ["", "Scaleable agency", "Launch Package", "£385"],
+      ];
+      ext.innerHTML = `<thead><tr><th>Service</th><th>Tier</th><th>Package</th><th>Price</th></tr></thead>
+        <tbody>${EXTERNAL.map(([s2, tier, pkg, price]) => `<tr${s2 ? ' class="is-group"' : ""}>
+          <td><strong>${esc(s2)}</strong></td><td>${esc(tier)}</td><td>${esc(pkg)}</td>
+          <td class="vid-rate-price">${esc(price)}</td></tr>`).join("")}</tbody>`;
+    }
+
     /* ---------- Settings (Jack's base postcode + travel surcharge) ---------- */
     async function initSettings() {
       const { data } = await supabase.from("videography_settings").select("*").eq("id", 1).maybeSingle();
@@ -1842,6 +1943,7 @@ const DELIVER_CATEGORIES = [
       set("vid-set-rate", vidSettings.surcharge_pence_per_mile ?? 55);
       set("vid-set-vat", Math.round((vidSettings.vat_rate ?? 0.2) * 100));
       document.getElementById("vid-set-save")?.addEventListener("click", saveSettings);
+      renderRateCard();
     }
     async function saveSettings() {
       const num = (id, d) => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? d : v; };
