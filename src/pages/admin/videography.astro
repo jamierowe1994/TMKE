@@ -349,6 +349,15 @@ const DELIVER_CATEGORIES = [
     .vid-loading { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); padding: 40px 0; }
 
     /* ---- Settings cog ---- */
+    /* global.css sets `main, section { position: relative; z-index: 2 }`, so the
+       toolbar and every .vid-panel are sibling stacking contexts at the same
+       level. The panels come later in the DOM, so they paint OVER the whole
+       toolbar subtree - and a z-index inside the toolbar cannot escape its own
+       context, however high. Lift the toolbar while the menu is open. This is
+       the companion to the menu's position:fixed below: fixed escapes the
+       shell's overflow clipping, this escapes the sibling stacking order.
+       Both are needed, which is what the contacts tag filter does. */
+    .admin-bar:has(#vid-cog-menu:not([hidden])) { z-index: 30; }
     .vid-cog-wrap { position: relative; }
     .vid-cog {
       display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px;
