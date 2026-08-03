@@ -2018,6 +2018,10 @@ const DELIVER_CATEGORIES = [
       // other admin pages); production stays gated by requireAdmin.
       if (!import.meta.env.DEV) { const session = await requireAdmin(); if (!session) return; }
       initNav();
+      // The promo codes page is a separate route, so its cog links back here
+      // with ?panel=... Honour it so returning lands where you clicked.
+      const wanted = new URLSearchParams(location.search).get("panel");
+      if (wanted && document.querySelector(`[data-panel="${wanted}"]`)) showPanel(wanted);
       // Draw the rate card straight away. It comes entirely from static config,
       // so it has no business sitting behind the bookings fetch below - if that
       // call is slow or fails, the tables would just stay blank with no error.

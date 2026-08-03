@@ -5,17 +5,33 @@ import "../../styles/admin.css";
 
 <AdminShell active="videography" title="Promo codes">
   <div class="ash-panel ash-page">
+    <!-- Same toolbar as the videography panels. This is a separate route, so
+         the cog items link back with ?panel= rather than switching in place -
+         but it looks and sits identically, instead of the page jumping up. -->
     <section class="admin-bar">
-      <div class="admin-bar-top">
+      <div class="admin-bar-actions">
+        <a href="/admin/videography" class="admin-btn admin-btn-primary">+ New booking</a>
+        <div class="vid-cog-wrap">
+          <button type="button" class="vid-cog" id="vid-cog" aria-label="Studio settings" aria-expanded="false">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Settings</span>
+          </button>
+          <div class="vid-cog-menu" id="vid-cog-menu" hidden>
+            <a class="vid-cog-link" href="/admin/videography?panel=clients">Clients</a>
+            <a class="vid-cog-link" href="/admin/videography?panel=diary">Diary &amp; availability</a>
+            <a class="vid-cog-link" href="/admin/videography?panel=deliver">Deliver work</a>
+            <a class="vid-cog-link" href="/admin/videography?panel=settings">Pricing &amp; travel settings</a>
+            <a class="vid-cog-link" href="/admin/videography?panel=connections">Connections</a>
+            <a class="vid-cog-link is-current" aria-current="page" href="/admin/videography-promos">Promo codes</a>
+          </div>
+        </div>
         <span class="admin-bar-count" id="promo-count">…</span>
-        <a href="/admin/videography" class="admin-btn admin-btn-ghost">&larr; Videography</a>
       </div>
     </section>
 
     <section class="promo-wrap">
       <!-- Create -->
       <form class="promo-new" id="promo-new">
-        <h3 class="promo-h">New code</h3>
         <div class="promo-grid">
           <label class="promo-field"><span>Code</span><input name="code" required placeholder="e.g. SUMMER10" /></label>
           <label class="promo-field"><span>Label (internal)</span><input name="label" placeholder="Summer 2026 launch" /></label>
@@ -80,6 +96,37 @@ import "../../styles/admin.css";
     .promo-rowbtn { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid rgba(28,29,34,0.2); background: transparent; color: var(--english-violet); border-radius: 5px; padding: 6px 10px; cursor: pointer; margin-left: 6px; }
     .promo-rowbtn.del { color: #a05a3c; border-color: #a05a3c; }
     .promo-rowbtn:hover { background: rgba(28,29,34,0.05); }
+
+    /* ---- Settings cog (mirrors /admin/videography) ----
+       Duplicated because Astro scopes styles per page. Worth extracting into a
+       shared component if a third page needs this toolbar. Both stacking fixes
+       are required: global.css puts every <section> at z-index 2, so the bar
+       must outrank its siblings while open, and the shell clips overflow, so
+       the menu must be fixed rather than absolute. */
+    .admin-bar:has(#vid-cog-menu:not([hidden])) { z-index: 30; }
+    .admin-bar-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .admin-bar-count { margin-left: auto; }
+    .vid-cog-wrap { position: relative; }
+    .vid-cog {
+      display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px;
+      background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.3); border-radius: 999px;
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      font-weight: 700; color: var(--english-violet); cursor: pointer; transition: background 0.2s;
+    }
+    .vid-cog:hover { background: rgba(var(--violet-rgb), 0.06); }
+    .vid-cog-menu {
+      position: fixed; z-index: 400;
+      background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.2); border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(20, 18, 26, 0.22); padding: 6px; width: 240px;
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .vid-cog-menu[hidden] { display: none; }
+    .vid-cog-menu .vid-cog-link {
+      text-align: left; border-radius: 6px; font-family: var(--sans); font-size: 13px;
+      color: var(--ink); padding: 11px 12px; text-decoration: none; display: block;
+    }
+    .vid-cog-menu .vid-cog-link:hover { background: rgba(var(--violet-rgb), 0.07); color: var(--english-violet); }
+    .vid-cog-menu .vid-cog-link.is-current { font-weight: 700; color: var(--english-violet); background: rgba(var(--violet-rgb), 0.06); }
   </style>
 
   <script>
@@ -178,6 +225,34 @@ import "../../styles/admin.css";
     (async () => {
       if (!DEV) { const s = await requireAdmin(); if (!s) return; }
       await load();
+    })();
+
+    /* ---- Settings cog ---- */
+    (function initCog() {
+      const cog = document.getElementById("vid-cog");
+      const menu = document.getElementById("vid-cog-menu");
+      if (!cog || !menu) return;
+      function place() {
+        const r = cog.getBoundingClientRect();
+        const vh = window.innerHeight || 800, vw = window.innerWidth || 1280;
+        const w = menu.offsetWidth || 240;
+        menu.style.left = Math.round(Math.min(Math.max(8, r.right - w), vw - w - 8)) + "px";
+        menu.style.top = Math.round(r.bottom + 8) + "px";
+        menu.style.maxHeight = Math.min(420, Math.max(180, vh - r.bottom - 24)) + "px";
+      }
+      cog.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const willOpen = menu.hidden;
+        menu.hidden = !willOpen;
+        if (willOpen) place();
+        cog.setAttribute("aria-expanded", String(willOpen));
+      });
+      document.addEventListener("click", () => {
+        if (!menu.hidden) { menu.hidden = true; cog.setAttribute("aria-expanded", "false"); }
+      });
+      const reposition = () => { if (!menu.hidden) place(); };
+      window.addEventListener("resize", reposition);
+      document.querySelector(".ash-content")?.addEventListener("scroll", reposition, { passive: true });
     })();
   </script>
 </AdminShell>
