@@ -282,6 +282,14 @@ export const TERMS_BY_SERVICE = {
 // Content Studio is deliberately NOT here: those run back to back at our own
 // studio, and we want them to.
 export const OFF_LOCATION_SERVICES = ["property", "agent"];
+
+// Clear days Jack needs after an on-location shoot before the next one: about
+// 1.5 days editing plus half a day for amendments (his figure, 2 Aug). So a
+// shoot on the 5th also takes the 6th and 7th out of the diary.
+//
+// Content Studio is exempt for the same reason it is exempt from the one-a-day
+// rule: those are at our own studio and are meant to run back to back.
+export const OFF_LOCATION_BUFFER_DAYS = 2;
 export const isOffLocation = (serviceKey) => OFF_LOCATION_SERVICES.includes(serviceKey);
 
 // ---- Fine & Country offices -------------------------------------------------

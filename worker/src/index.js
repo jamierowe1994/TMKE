@@ -19,7 +19,7 @@
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
 import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from "../../src/lib/email-styles.js";
-import { OFF_LOCATION_SERVICES } from "../../src/lib/videography-config.js";
+import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS } from "../../src/lib/videography-config.js";
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
@@ -2817,10 +2817,18 @@ export default {
         // Checked here rather than trusting the calendar, because Jack's diary
         // can't tell an off-location shoot from anything else in it.
         if (OFF_LOCATION_SERVICES.includes(service)) {
-          const sameDay = (await sbGet(env, "videography_bookings",
-            `shoot_date=gte.${date}T00:00:00&shoot_date=lte.${date}T23:59:59&select=service_type,stage`)) || [];
-          const taken = sameDay.some((r) => OFF_LOCATION_SERVICES.includes(r.service_type) && r.stage !== "cancelled");
-          if (taken) return json({ slots: [], duration, reason: "off_location_taken" }, 200, request, env);
+          // Look back over the buffer as well as the day itself: an on-location
+          // shoot needs clear days after it for editing and amendments, so one
+          // on the 5th takes the 6th and 7th too.
+          const from = new Date(`${date}T00:00:00Z`);
+          from.setUTCDate(from.getUTCDate() - OFF_LOCATION_BUFFER_DAYS);
+          const window = (await sbGet(env, "videography_bookings",
+            `shoot_date=gte.${from.toISOString().slice(0, 10)}T00:00:00&shoot_date=lte.${date}T23:59:59&select=shoot_date,service_type,stage`)) || [];
+          const clash = window.find((r) => OFF_LOCATION_SERVICES.includes(r.service_type) && r.stage !== "cancelled");
+          if (clash) {
+            const sameDay = String(clash.shoot_date || "").slice(0, 10) === date;
+            return json({ slots: [], duration, reason: sameDay ? "off_location_taken" : "off_location_buffer" }, 200, request, env);
+          }
         }
         const wd = new Date(date + "T12:00:00Z").getUTCDay(); // 0=Sun..6=Sat
         const rows = (await sbGet(env, "videography_availability", `weekday=eq.${wd}&select=*`)) || [];
