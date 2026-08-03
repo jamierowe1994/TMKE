@@ -4608,9 +4608,11 @@ export default {
           console.error("note edit failed", res.status, detail);
           // The edited_at column not existing is much the likeliest cause, and
           // the raw Postgres message doesn't say what to do about it.
+          // Admin-only endpoint, so the real reason is safe to show - and a
+          // bare "couldn't save" leaves nothing to act on.
           return json({ error: /edited_at/i.test(detail)
             ? "Needs a one-off database step: run supabase/smm_manager_and_interbrand.sql."
-            : "Couldn't save that edit." }, 502, request, env);
+            : `Couldn't save that edit (${res.status}). ${String(detail).slice(0, 200)}` }, 502, request, env);
         }
         return json({ ok: true }, 200, request, env);
       }
