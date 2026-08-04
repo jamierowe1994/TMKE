@@ -75,7 +75,16 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   if (isDD) {
     payInner.push(`<div class="pl">To be collected by Direct Debit${inv.due_date ? ` on <strong>${fmtDate(inv.due_date)}</strong>` : ""} — nothing to pay.</div>`);
   } else if (showBankBlock) {
-    payInner.push(`<div class="pl">By bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>`);
+    // A card option is offered per invoice, so it is listed first when it
+    // applies. The PDF carries no link of its own - the signed pay URL lives in
+    // the covering email and cannot be reproduced safely here - so it points
+    // back at the email rather than pretending to be clickable.
+    if (inv.pay_by_card) {
+      payInner.push(`<div class="pl">By card, using the payment button in your invoice email.</div>`);
+      payInner.push(`<div class="pl">Or by bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>`);
+    } else {
+      payInner.push(`<div class="pl">By bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>`);
+    }
     payInner.push(`<div class="bank">${[s.account_name && `Account: ${esc(s.account_name)}`, s.sort_code && `Sort code: ${esc(s.sort_code)}`, s.account_number && `Account no: ${esc(s.account_number)}`].filter(Boolean).join("<br>")}</div>`);
   }
   if (inv.notes) payInner.push(`<div class="paynote-rule"></div><div class="paynote">${nl2br(inv.notes)}</div>`);

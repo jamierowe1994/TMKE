@@ -550,6 +550,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         notes: $("ci-notes").value.trim() || null,
         line_items: ciItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
         subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
+        pay_by_card: ciPayByCard,   // drives the "How to pay" wording in the preview
       };
     }
     const ciSettings = () => ({ ...currentSettings, template: ciTemplate });
@@ -575,7 +576,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       ciRefresh();
     }
     $("ci-tpl").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciTemplate = b.getAttribute("data-tpl"); syncCiTpl(); ciPreview(); });
-    $("ci-pay").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciPayByCard = b.getAttribute("data-pay") === "yes"; syncCiPay(); });
+    $("ci-pay").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciPayByCard = b.getAttribute("data-pay") === "yes"; syncCiPay(); ciPreview(); });
     syncCiPay();
     $("ci-items").addEventListener("input", (e) => { const i = +e.target.getAttribute("data-i"); if (e.target.classList.contains("ci-desc")) ciItems[i].description = e.target.value; else if (e.target.classList.contains("ci-amt")) ciItems[i].amount = e.target.value; ciRenderTotals(); ciPreview(); });
     $("ci-items").addEventListener("click", (e) => { const b = e.target.closest(".ci-del"); if (!b) return; ciItems.splice(+b.getAttribute("data-i"), 1); if (!ciItems.length) ciItems.push({ description: "", amount: "" }); ciRefresh(); });
@@ -617,7 +618,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       const due = dLong(inv.due_date);
       const lines = [`Dear ${inv.bill_to_name || "Sir or Madam"},`, "", `Please find attached invoice ${inv.number} from ${company}.`, "", `Amount due: ${gbp(inv.total_pence || 0)}`];
       if (due) lines.push(`Due date: ${due}`);
-      lines.push("", `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+      // When the invoice carries a pay link, say so - telling someone to pay by
+  // bank transfer while a card button sits above it just reads as contradictory.
+  lines.push("", inv.pay_by_card ? `Payment is due${due ? ` by ${due}` : ""}. You can pay by card using the button in this email, or by bank transfer using the account details on the invoice, quoting ${inv.number} as the reference. If you have any questions, just reply to this email.`
+    : `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
       return lines.join("\n");
     }
     function openEmailModal(inv, resetOnSend) {

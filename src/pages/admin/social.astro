@@ -1116,6 +1116,7 @@ import "../../styles/admin.css";
         notes: ($("siv-notes")?.value || "").trim() || null,
         line_items: sivItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
         subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
+        pay_by_card: sivPayByCard,   // drives the "How to pay" wording in the PDF preview
       };
     }
     function sivRenderItems() {
@@ -1264,7 +1265,10 @@ import "../../styles/admin.css";
       const due = inv.due_date ? new Date(inv.due_date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
       const lines = [`Dear ${inv.bill_to_name || "Sir or Madam"},`, "", `Please find attached invoice ${inv.number} from ${company}.`, "", `Amount due: ${gbp(inv.total_pence || 0)}`];
       if (due) lines.push(`Due date: ${due}`);
-      lines.push("", `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+      // When the invoice carries a pay link, say so - telling someone to pay by
+  // bank transfer while a card button sits above it just reads as contradictory.
+  lines.push("", inv.pay_by_card ? `Payment is due${due ? ` by ${due}` : ""}. You can pay by card using the button in this email, or by bank transfer using the account details on the invoice, quoting ${inv.number} as the reference. If you have any questions, just reply to this email.`
+    : `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
       return lines.join("\n");
     }
     // QuickBooks-style edit-before-send review modal.

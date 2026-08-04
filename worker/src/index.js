@@ -57,7 +57,10 @@ function defaultInvoiceEmailText(settings, inv) {
     `Amount due: ${money(inv.total_pence)}`,
   ];
   if (due) lines.push(`Due date: ${due}`);
-  lines.push("", `Payment is due${due ? ` by ${due}` : ""} by bank transfer - the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+  // When the invoice carries a pay link, say so - telling someone to pay by
+  // bank transfer while a card button sits above it just reads as contradictory.
+  lines.push("", inv.pay_by_card ? `Payment is due${due ? ` by ${due}` : ""}. You can pay by card using the button in this email, or by bank transfer using the account details on the invoice, quoting ${inv.number} as the reference. If you have any questions, just reply to this email.`
+    : `Payment is due${due ? ` by ${due}` : ""} by bank transfer - the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
   return lines.join("\n");
 }
 // The invoice covering email: a body (the sender's edited text if provided, else
