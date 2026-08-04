@@ -5154,7 +5154,13 @@ export default {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const extra = url.searchParams.get("booking_id") ? `&booking_id=eq.${encodeURIComponent(url.searchParams.get("booking_id"))}` : "";
-        const rows = (await sbGet(env, "invoices", `select=id,number,bill_to_name,bill_to_email,cc_email,total_pence,status,issued_date,due_date,paid_date,payment_method,billing_month,created_at${extra}&order=created_at.desc&limit=300`)) || [];
+        const tail = `${extra}&order=created_at.desc&limit=300`;
+        const BASE = "id,number,bill_to_name,bill_to_email,cc_email,total_pence,status,issued_date,due_date,paid_date,payment_method,billing_month,created_at";
+        // PostgREST rejects the whole query for one unknown column, so if
+        // supabase/invoicing_stripe.sql hasn't run yet, asking for pay_by_card
+        // would blank the entire invoice list rather than just omitting a badge.
+        let rows = await sbGet(env, "invoices", `select=${BASE},payment_ref,pay_by_card${tail}`);
+        if (!rows) rows = (await sbGet(env, "invoices", `select=${BASE}${tail}`)) || [];
         return json({ ok: true, invoices: rows }, 200, request, env);
       }
       // Ensure a Direct Debit client's ghost invoice exists for the current month

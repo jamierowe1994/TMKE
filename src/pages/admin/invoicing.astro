@@ -26,6 +26,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
                 <button type="button" class="ci-tpl-opt" data-tpl="banded">Banded</button>
               </div>
             </div>
+            <div class="ci-tpl">
+              <span class="ci-tpl-lbl">Card payment</span>
+              <div class="ci-tpl-opts" id="ci-pay">
+                <button type="button" class="ci-tpl-opt" data-pay="no">Off</button>
+                <button type="button" class="ci-tpl-opt" data-pay="yes">On</button>
+              </div>
+              <span class="ci-pay-hint">Adds a &ldquo;Pay by card&rdquo; button to the email. Bank details stay on the invoice either way.</span>
+            </div>
             <h3 class="inv-h">Bill to</h3>
             <label class="inv-field"><span>From the address book</span><select id="ci-recip"><option value="">— Choose a partner, or type below —</option></select></label>
             <label class="inv-field"><span>Name *</span><input id="ci-name" placeholder="e.g. Fine &amp; Country — Rugby" /></label>
@@ -193,6 +201,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         <label class="cim-f"><span>CC</span><input id="cim-cc" placeholder="Comma-separated" /></label>
         <label class="cim-f"><span>Subject</span><input id="cim-subject" /></label>
         <label class="cim-f"><span>Message</span><textarea id="cim-body" rows="11"></textarea></label>
+        <p class="cim-pay" id="cim-pay"></p>
         <p class="inv-msg" id="cim-msg" hidden></p>
         <div class="cim-actions">
           <button type="button" class="inv-ghost" id="cim-cancel">Cancel</button>
@@ -275,6 +284,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .ci-tpl-opts { display: inline-flex; gap: 4px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 9px; }
     .ci-tpl-opt { appearance: none; cursor: pointer; background: none; border: 0; border-radius: 7px; padding: 7px 16px; font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: rgba(28,29,34,0.55); transition: background 0.15s, color 0.15s; }
     .ci-tpl-opt.is-active { background: var(--english-violet); color: #fff; }
+    .cim-pay { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: 0 0 12px; padding: 9px 12px; border-radius: 7px; background: rgba(28,29,34,0.05); }
+    .cim-pay.is-on { color: var(--english-violet); background: rgba(var(--violet-rgb), 0.09); font-weight: 700; }
+    .ci-pay-hint { font-family: var(--sans); font-size: 11.5px; line-height: 1.45; color: rgba(28,29,34,0.5); }
     .ci-item { display: grid; grid-template-columns: 1fr 130px 34px; gap: 8px; align-items: center; margin-bottom: 8px; }
     .ci-item input { font-family: var(--sans); font-size: 14px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; background: #fff; color: var(--ink); }
     .ci-item input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
@@ -518,6 +530,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     let ciRecipients = [];
     let ciItems = [{ description: "", amount: "" }];
     let ciTemplate = "minimal";
+    // Off by default - a pay link should be a deliberate choice per invoice,
+    // not something that quietly appears on every one.
+    let ciPayByCard = false;
     const gbp = (p) => "£" + ((p || 0) / 100).toFixed(2);
     const isoToday = () => new Date().toISOString().slice(0, 10);
     function ciTotals() {
@@ -539,6 +554,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     }
     const ciSettings = () => ({ ...currentSettings, template: ciTemplate });
     function syncCiTpl() { document.querySelectorAll("#ci-tpl .ci-tpl-opt").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-tpl") === ciTemplate)); }
+    function syncCiPay() { document.querySelectorAll("#ci-pay .ci-tpl-opt").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-pay") === "yes") === ciPayByCard)); }
     function ciRenderItems() {
       $("ci-items").innerHTML = ciItems.map((it, i) => `<div class="ci-item"><input class="ci-desc" data-i="${i}" placeholder="Description of the service" value="${esc(it.description)}"/><input class="ci-amt" data-i="${i}" type="number" step="0.01" placeholder="0.00" value="${esc(it.amount)}"/><button type="button" class="ci-del" data-i="${i}" title="Remove">&times;</button></div>`).join("");
     }
@@ -559,6 +575,8 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       ciRefresh();
     }
     $("ci-tpl").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciTemplate = b.getAttribute("data-tpl"); syncCiTpl(); ciPreview(); });
+    $("ci-pay").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciPayByCard = b.getAttribute("data-pay") === "yes"; syncCiPay(); });
+    syncCiPay();
     $("ci-items").addEventListener("input", (e) => { const i = +e.target.getAttribute("data-i"); if (e.target.classList.contains("ci-desc")) ciItems[i].description = e.target.value; else if (e.target.classList.contains("ci-amt")) ciItems[i].amount = e.target.value; ciRenderTotals(); ciPreview(); });
     $("ci-items").addEventListener("click", (e) => { const b = e.target.closest(".ci-del"); if (!b) return; ciItems.splice(+b.getAttribute("data-i"), 1); if (!ciItems.length) ciItems.push({ description: "", amount: "" }); ciRefresh(); });
     $("ci-add-item").addEventListener("click", () => { ciItems.push({ description: "", amount: "" }); ciRefresh(); });
@@ -571,7 +589,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!inv.bill_to_name) { msg("ci-msg", "Enter a recipient name.", false); return null; }
       if (requireEmail && !inv.bill_to_email) { msg("ci-msg", "Enter a recipient email to send to.", false); return null; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return null; }
-      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, line_items: inv.line_items }) });
+      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, line_items: inv.line_items }) });
       currentSettings.next_number = (currentSettings.next_number || 1001) + 1;
       return invoice;
     }
@@ -607,6 +625,15 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       $("cim-num").textContent = inv.number || "";
       $("cim-to").value = inv.bill_to_email || "";
       $("cim-cc").value = inv.cc_email || "";
+      // Say plainly what is about to go out - you cannot tell from the subject
+      // and body alone whether this carries a payment link.
+      const payEl = $("cim-pay");
+      if (payEl) {
+        payEl.textContent = inv.pay_by_card
+          ? "This email includes a Pay by card button (Stripe)."
+          : "No payment link - bank transfer only, using the details on the invoice.";
+        payEl.className = "cim-pay" + (inv.pay_by_card ? " is-on" : "");
+      }
       $("cim-subject").value = defaultEmailSubject(inv);
       $("cim-body").value = defaultEmailBody(inv);
       $("cim-msg").hidden = true;
