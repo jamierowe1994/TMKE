@@ -81,9 +81,18 @@ function invoiceEmailHtml(settings, inv, customBodyText, payUrl) {
 // ---- Direct Debit "ghost" invoices --------------------------------------
 const DD_DEFAULT_RECIPIENT = "danielle@tmke.co.uk";
 // TESTING SWITCH: while true, EVERY invoice email (client send, DD ghost, void)
-// is redirected to Danielle only — no real clients, no Paula. Set to false to
-// go fully live.
-const INVOICE_TEST_MODE = true;
+// is redirected to Danielle only — no real clients, no Paula.
+//
+// LIVE since 5 Aug 2026, on James's say-so, so that SMM invoices can actually
+// go out. Three sends are affected, but only one of them reaches a client:
+//   - /invoicing/invoices/send  → the client's bill_to_email, plus the CC
+//   - the DD ghost invoice      → dd_invoice_email or Danielle (internal)
+//   - the void notice           → the accounts address (internal)
+//
+// The machinery is kept rather than deleted: flip this back to true and every
+// invoice email lands on Danielle again, which is the fastest way to test a
+// change to invoice mail without involving a client.
+const INVOICE_TEST_MODE = false;
 const INVOICE_TEST_RECIPIENT = "danielle@tmke.co.uk";
 function invoiceMailTo(to, cc) {
   return INVOICE_TEST_MODE ? { to: INVOICE_TEST_RECIPIENT, cc: null } : { to, cc };
