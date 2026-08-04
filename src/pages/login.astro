@@ -191,9 +191,20 @@ const TILES = [
     }
 
     // Already signed in? Skip straight through.
+    //
+    // Two guards here, both from the same bug: signing out could land you back
+    // inside the hub immediately.
+    //
+    // 1. If we've just signed out, don't route at all. Nothing to check.
+    // 2. getSession() reads localStorage ONLY - it makes no network call - so a
+    //    revoked or expired session still looks perfectly valid to it. Confirm
+    //    with getUser(), which asks the server, before sending anyone through.
     (async () => {
+      if (new URLSearchParams(location.search).get("signedout")) return;
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) routeAfterSignIn();
+      if (!session) return;
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (user && !error) routeAfterSignIn();
     })();
 
     function openDrawer() {

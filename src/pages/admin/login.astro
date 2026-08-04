@@ -117,7 +117,12 @@ import AdminBack from "../../components/AdminBack.astro";
     // Only forward an EXISTING session if it actually belongs to an admin — a
     // signed-in customer must not be bounced into /admin.
     supabase.auth.getSession().then(async ({ data }) => {
+      if (params.get('signedout')) return;       // just signed out - stay put
       if (!data.session) return;
+      // getSession() is localStorage only. Confirm the session is still real
+      // before forwarding, or a revoked one bounces you back into /admin.
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (!user || error) return;
       if (await isAdminUser(data.session.user)) {
         location.replace(params.get('next') || '/admin');
       } else {

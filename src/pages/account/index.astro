@@ -729,7 +729,7 @@ const heroFirst = heroTemplates[0];
   <!-- Stage A migration: wire the real signed-in identity. Falls back to the
        mock preview when signed out (the hard login-gate lands at go-live). -->
   <script>
-    import { supabase } from '../../lib/supabase.js';
+    import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { initNotifications } from '../../lib/notifications.js';
     import { bookingLocation } from '../../lib/videography-config.js';
 
@@ -742,8 +742,7 @@ const heroFirst = heroTemplates[0];
     // Log out (top-bar icon + drawer): clear the Supabase session, then /login.
     document.querySelectorAll('[data-logout]').forEach((el) => el.addEventListener('click', async (e) => {
       e.preventDefault();
-      try { await supabase.auth.signOut(); } catch (_) {}
-      location.href = '/login';
+      await signOutEverywhere();
     }));
 
     // ---- Bookings widget (right-column carousel of active bookings) ----

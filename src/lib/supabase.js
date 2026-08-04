@@ -81,6 +81,44 @@ export const supabase = isConfigured
     })
   : makeStubClient();
 
+// The one key our session lives under. Exported so sign-out can purge it
+// directly rather than trusting the client to have done so.
+export const AUTH_STORAGE_KEY = 'tmke-admin-auth';
+
+/**
+ * Sign out properly, and stay signed out.
+ *
+ * The hub used to call supabase.auth.signOut() directly and then redirect. That
+ * has a failure mode people actually hit: signOut() makes a network call to
+ * revoke the session, and when that call fails - offline, or the access token
+ * has already expired so the API answers 401 - the library can leave the LOCAL
+ * session sitting in localStorage. The login page then reads it, sees a
+ * session, and sends you straight back in. Which looks exactly like "I signed
+ * out and it signed me back in".
+ *
+ * So: try the server revoke first, because that is what actually protects a
+ * shared computer; fall back to a local sign-out; then remove the stored
+ * session by hand whatever happened. Redirect regardless - a failed sign-out
+ * must never leave someone stuck on a signed-in page.
+ */
+export async function signOutEverywhere(redirectTo = '/login') {
+  try {
+    await supabase.auth.signOut();                      // revokes server-side
+  } catch (_) {
+    try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
+  }
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    // Any stray default-keyed sessions from an older build.
+    Object.keys(localStorage).filter((k) => k.startsWith('sb-')).forEach((k) => localStorage.removeItem(k));
+    sessionStorage.clear();
+  } catch (_) {}
+  if (redirectTo) {
+    // The flag tells the login page not to bounce us back in.
+    location.replace(redirectTo + (redirectTo.includes('?') ? '&' : '?') + 'signedout=1');
+  }
+}
+
 export function gbpFromPence(pence) {
   if (pence == null) return '';
   return new Intl.NumberFormat('en-GB', {

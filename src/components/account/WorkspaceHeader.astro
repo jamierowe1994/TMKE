@@ -235,7 +235,7 @@ const cur = (k: string) => (active === k ? "page" : undefined);
 </style>
 
 <script>
-  import { supabase } from "../../lib/supabase.js";
+  import { supabase, signOutEverywhere} from "../../lib/supabase.js";
   import { initNotifications } from "../../lib/notifications.js";
   import { wireInstallButton } from "../../lib/pwa-install.js";
 
@@ -268,7 +268,7 @@ const cur = (k: string) => (active === k ? "page" : undefined);
 
   // Log out (icon + dropdown) — clear the session, then /login
   document.querySelectorAll("[data-logout]").forEach((el) => {
-    el.addEventListener("click", async (e) => { e.preventDefault(); try { await supabase.auth.signOut(); } catch (_) {} location.href = "/login"; });
+    el.addEventListener("click", async (e) => { e.preventDefault(); await signOutEverywhere(); });
   });
 
   // Identity — avatar initials + account dropdown head

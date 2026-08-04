@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabase, signOutEverywhere} from './supabase.js';
 
 /**
  * Admin authorisation for the /admin/* area and the studio's ?mode=admin chrome.
@@ -65,7 +65,9 @@ export async function requireAdmin(loginPath = '/admin/login') {
   return session;
 }
 
+// Same story as the hub: a failed server revoke used to leave the local session
+// in place, and the login page would wave you straight back through. See
+// signOutEverywhere in lib/supabase.js for the detail.
 export async function signOut(redirectTo = '/admin/login') {
-  await supabase.auth.signOut();
-  location.replace(redirectTo);
+  await signOutEverywhere(redirectTo);
 }
