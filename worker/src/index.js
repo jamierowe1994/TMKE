@@ -2542,6 +2542,65 @@ export default {
         });
       }
 
+      // ---- Public: pay an invoice by card ---------------------------------
+      // The client clicks this from their invoice email. No auth: the HMAC in
+      // the token is the credential. Mints a fresh Checkout Session per click,
+      // because Stripe sessions expire in 24 hours and invoices do not.
+      if (path.endsWith("/invoicing/pay") && request.method === "GET") {
+        const htmlPage = (title, msg, status) => new Response(invoicePayPage(title, msg), {
+          status: status || 200, headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+        const invId = await invoicePayVerify(env, url.searchParams.get("t"));
+        if (!invId) return htmlPage("That payment link isn't valid", "Please use the link in your most recent invoice email, or reply to that email and we'll sort it out.", 400);
+
+        const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(invId)}&select=*`);
+        const inv = rows && rows[0];
+        if (!inv) return htmlPage("We couldn't find that invoice", "Please reply to your invoice email and we'll look into it.", 404);
+        if (inv.status === "paid") return htmlPage("This invoice is already paid", `Invoice ${inv.number} has been settled - there's nothing more to do. Thank you.`);
+        if (inv.status === "void") return htmlPage("This invoice has been cancelled", `Invoice ${inv.number} was voided, so there's nothing to pay.`);
+        if (!env.STRIPE_SECRET_KEY) return htmlPage("Card payment isn't available yet", "Please pay by bank transfer using the details on your invoice, or reply to the email and we'll help.", 503);
+        const amount = Math.round(Number(inv.total_pence) || 0);
+        if (amount <= 0) return htmlPage("There's nothing to pay on this invoice", "Please reply to your invoice email if you think that's wrong.");
+
+        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+        try {
+          const session = await stripeApi(env, "checkout/sessions", {
+            mode: "payment",
+            "payment_method_types[0]": "card",
+            success_url: `${unsubBase(env)}/invoicing/paid?t=${encodeURIComponent(url.searchParams.get("t") || "")}`,
+            cancel_url: await invoicePayUrl(env, inv.id),
+            customer_email: inv.bill_to_email || undefined,
+            client_reference_id: inv.id,
+            "metadata[invoice_id]": inv.id,
+            "metadata[invoice_number]": inv.number || "",
+            "line_items[0][quantity]": 1,
+            "line_items[0][price_data][currency]": "gbp",
+            "line_items[0][price_data][unit_amount]": amount,
+            "line_items[0][price_data][product_data][name]": `Invoice ${inv.number}${st.company_name ? " - " + st.company_name : ""}`,
+          });
+          // Stored for tracing a payment back, not for reuse - it expires.
+          await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { stripe_session_id: session.id });
+          return Response.redirect(session.url, 302);
+        } catch (e) {
+          return htmlPage("We couldn't open the payment page", "Please try again in a moment, or reply to your invoice email and we'll take payment another way.", 502);
+        }
+      }
+
+      // Where Stripe sends the client back. The webhook is what actually marks
+      // the invoice paid; this page only reports, and says so honestly if the
+      // webhook hasn't landed yet rather than claiming success it can't see.
+      if (path.endsWith("/invoicing/paid") && request.method === "GET") {
+        const invId = await invoicePayVerify(env, url.searchParams.get("t"));
+        const inv = invId ? ((await sbGet(env, "invoices", `id=eq.${encodeURIComponent(invId)}&select=number,status`)) || [])[0] : null;
+        const paid = inv && inv.status === "paid";
+        return new Response(invoicePayPage(
+          "Thank you - your payment went through",
+          paid
+            ? `Invoice ${inv.number} is now marked as paid. A receipt is on its way from Stripe.`
+            : "Your receipt is on its way from Stripe. Our records can take a moment to catch up, so the invoice may still show as unpaid for a minute or two.",
+        ), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+      }
+
       if (path.endsWith("/stripe/webhook") && request.method === "POST") {
         const raw = await request.text();
         const ok = await stripeVerify(raw, request.headers.get("Stripe-Signature") || "", env.STRIPE_WEBHOOK_SECRET);
@@ -5037,65 +5096,6 @@ export default {
       }
 
       // ---- Admin: send an invoice (render PDF → email + CC accounts → sent) ---
-      // ---- Public: pay an invoice by card ---------------------------------
-      // The client clicks this from their invoice email. No auth: the HMAC in
-      // the token is the credential. Mints a fresh Checkout Session per click,
-      // because Stripe sessions expire in 24 hours and invoices do not.
-      if (path.endsWith("/invoicing/pay") && request.method === "GET") {
-        const htmlPage = (title, msg, status) => new Response(invoicePayPage(title, msg), {
-          status: status || 200, headers: { "Content-Type": "text/html; charset=utf-8" },
-        });
-        const invId = await invoicePayVerify(env, url.searchParams.get("t"));
-        if (!invId) return htmlPage("That payment link isn't valid", "Please use the link in your most recent invoice email, or reply to that email and we'll sort it out.", 400);
-
-        const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(invId)}&select=*`);
-        const inv = rows && rows[0];
-        if (!inv) return htmlPage("We couldn't find that invoice", "Please reply to your invoice email and we'll look into it.", 404);
-        if (inv.status === "paid") return htmlPage("This invoice is already paid", `Invoice ${inv.number} has been settled - there's nothing more to do. Thank you.`);
-        if (inv.status === "void") return htmlPage("This invoice has been cancelled", `Invoice ${inv.number} was voided, so there's nothing to pay.`);
-        if (!env.STRIPE_SECRET_KEY) return htmlPage("Card payment isn't available yet", "Please pay by bank transfer using the details on your invoice, or reply to the email and we'll help.", 503);
-        const amount = Math.round(Number(inv.total_pence) || 0);
-        if (amount <= 0) return htmlPage("There's nothing to pay on this invoice", "Please reply to your invoice email if you think that's wrong.");
-
-        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
-        try {
-          const session = await stripeApi(env, "checkout/sessions", {
-            mode: "payment",
-            "payment_method_types[0]": "card",
-            success_url: `${unsubBase(env)}/invoicing/paid?t=${encodeURIComponent(url.searchParams.get("t") || "")}`,
-            cancel_url: await invoicePayUrl(env, inv.id),
-            customer_email: inv.bill_to_email || undefined,
-            client_reference_id: inv.id,
-            "metadata[invoice_id]": inv.id,
-            "metadata[invoice_number]": inv.number || "",
-            "line_items[0][quantity]": 1,
-            "line_items[0][price_data][currency]": "gbp",
-            "line_items[0][price_data][unit_amount]": amount,
-            "line_items[0][price_data][product_data][name]": `Invoice ${inv.number}${st.company_name ? " - " + st.company_name : ""}`,
-          });
-          // Stored for tracing a payment back, not for reuse - it expires.
-          await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { stripe_session_id: session.id });
-          return Response.redirect(session.url, 302);
-        } catch (e) {
-          return htmlPage("We couldn't open the payment page", "Please try again in a moment, or reply to your invoice email and we'll take payment another way.", 502);
-        }
-      }
-
-      // Where Stripe sends the client back. The webhook is what actually marks
-      // the invoice paid; this page only reports, and says so honestly if the
-      // webhook hasn't landed yet rather than claiming success it can't see.
-      if (path.endsWith("/invoicing/paid") && request.method === "GET") {
-        const invId = await invoicePayVerify(env, url.searchParams.get("t"));
-        const inv = invId ? ((await sbGet(env, "invoices", `id=eq.${encodeURIComponent(invId)}&select=number,status`)) || [])[0] : null;
-        const paid = inv && inv.status === "paid";
-        return new Response(invoicePayPage(
-          "Thank you - your payment went through",
-          paid
-            ? `Invoice ${inv.number} is now marked as paid. A receipt is on its way from Stripe.`
-            : "Your receipt is on its way from Stripe. Our records can take a moment to catch up, so the invoice may still show as unpaid for a minute or two.",
-        ), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
-      }
-
       if (path.endsWith("/invoicing/invoices/send") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
