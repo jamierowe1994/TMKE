@@ -242,6 +242,7 @@ import "../../styles/admin.css";
     .siv-tpl-opts { display: inline-flex; gap: 4px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 8px; }
     .siv-tpl-opt { appearance: none; cursor: pointer; background: none; border: 0; border-radius: 6px; padding: 6px 14px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.55); transition: background .15s, color .15s; }
     .siv-tpl-opt.is-active { background: var(--english-violet); color: #fff; }
+    .siv-pay-hint { font-family: var(--sans); font-size: 11px; line-height: 1.45; color: rgba(28,29,34,0.5); }
     .pay-toggle { display: inline-flex; gap: 4px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 9px; }
     .pay-opt { appearance: none; cursor: pointer; background: none; border: 0; border-radius: 7px; padding: 8px 22px; font-family: var(--sans); font-size: 13.5px; font-weight: 700; color: rgba(28,29,34,0.55); transition: background .15s, color .15s; }
     .pay-opt.is-active { background: var(--english-violet); color: #fff; }
@@ -1081,11 +1082,16 @@ import "../../styles/admin.css";
     let sivItems = [];       // [{ description, amount }] for the client being viewed
     let sivInvoices = [];    // the raised-invoice list (for the send modal lookup)
     let sivTemplate = "minimal"; // which style this invoice uses
+    // Off by default. Only some clients pay by card - the rest are bank
+    // transfer or inter-brand - so this is a deliberate choice per invoice
+    // rather than something that quietly appears on every one.
+    let sivPayByCard = false;
     let invSettings = null;  // cached company/VAT settings for preview + totals
     const gbp = (p) => "£" + ((p || 0) / 100).toFixed(2);
     const ordinal = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; };
     const sivSettings = () => ({ ...invSettings, template: sivTemplate });
     function syncSivTpl() { document.querySelectorAll("#siv-tpl .siv-tpl-opt").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-tpl") === sivTemplate)); }
+    function syncSivPay() { document.querySelectorAll("#siv-pay .siv-tpl-opt").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-pay") === "yes") === sivPayByCard)); }
     const parseMoney = (s) => { const m = String(s || "").match(/[\d,]+(\.\d+)?/); return m ? Math.round(parseFloat(m[0].replace(/,/g, "")) * 100) : 0; };
     async function ensureInvSettings() {
       if (invSettings) return invSettings;
@@ -1152,6 +1158,14 @@ import "../../styles/admin.css";
               <button type="button" class="siv-tpl-opt" data-tpl="banded">Banded</button>
             </div>
           </div>
+          <div class="siv-tpl">
+            <span class="siv-tpl-lbl">Card payment</span>
+            <div class="siv-tpl-opts" id="siv-pay">
+              <button type="button" class="siv-tpl-opt" data-pay="no">Off</button>
+              <button type="button" class="siv-tpl-opt" data-pay="yes">On</button>
+            </div>
+            <span class="siv-pay-hint">Adds a &ldquo;Pay by card&rdquo; button to the email. Bank details stay on the invoice either way.</span>
+          </div>
           <div class="siv-grid2">
             <label class="siv-f"><span>Bill to</span><input id="siv-name" value="${esc(billName)}"></label>
             <label class="siv-f"><span>Email</span><input id="siv-email" type="email" value="${esc(r.email || "")}"></label>
@@ -1183,6 +1197,8 @@ import "../../styles/admin.css";
       } else {
         sivRefreshItems(); syncSivTpl();
         $("siv-tpl").addEventListener("click", (e) => { const b = e.target.closest(".siv-tpl-opt"); if (!b) return; sivTemplate = b.getAttribute("data-tpl"); syncSivTpl(); });
+        $("siv-pay")?.addEventListener("click", (e) => { const b = e.target.closest(".siv-tpl-opt"); if (!b) return; sivPayByCard = b.getAttribute("data-pay") === "yes"; syncSivPay(); });
+        syncSivPay();
         $("siv-add").addEventListener("click", () => { sivItems.push({ description: "", amount: "" }); sivRefreshItems(); });
         $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: sivSettings(), invoice: sivBuildInvoice(r) })); w.document.close(); });
         $("siv-create").addEventListener("click", () => createSmmInvoice(r, false));
@@ -1296,7 +1312,7 @@ import "../../styles/admin.css";
       if (isDemo(r)) { r._invoices = r._invoices || []; const demoInv = { id: "iv" + Date.now(), number: inv.number, due_date: inv.due_date, total_pence: inv.total_pence, status: "draft", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email, cc_email: ccVal }; r._invoices.unshift(demoInv); loadSmmInvoices(r); btn.disabled = false; btn.textContent = label; if (send) openSmmEmailModal(demoInv, r); else show(`Invoice ${inv.number} saved as a draft.`, true); return; }
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: ccVal, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: sivTemplate, line_items: inv.line_items }) });
+        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: ccVal, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: sivTemplate, pay_by_card: sivPayByCard, line_items: inv.line_items }) });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.invoice) throw new Error(j.error || "Couldn't create the invoice.");
         invSettings.next_number = (invSettings.next_number || 1001) + 1;

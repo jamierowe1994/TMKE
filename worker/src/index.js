@@ -62,14 +62,20 @@ function defaultInvoiceEmailText(settings, inv) {
 }
 // The invoice covering email: a body (the sender's edited text if provided, else
 // the default) followed by the optional footer image. PDF attached separately.
-function invoiceEmailHtml(settings, inv, customBodyText) {
+function invoiceEmailHtml(settings, inv, customBodyText, payUrl) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const br = (s) => esc(s).replace(/\n/g, "<br>");
   const bodyText = (customBodyText != null && String(customBodyText).trim()) ? customBodyText : defaultInvoiceEmailText(settings, inv);
   const footer = settings.email_footer_image_url
     ? `<div style="margin-top:26px"><img src="${esc(settings.email_footer_image_url)}" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0" /></div>`
     : "";
-  return `<div style="${EM_WRAP}"><p style="${EM_P}">${br(bodyText)}</p>${footer}</div>`;
+  // Only when the sender ticked card payment. Bank details stay on the PDF
+  // either way, so this adds an option rather than replacing one.
+  const pay = payUrl
+    ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay ${gbpW(inv.total_pence || 0)} by card</a></p>
+       <p style="${EM_SMALL}">Card payments are handled by Stripe - we never see your card details. You can still pay by bank transfer using the details on the invoice.</p>`
+    : "";
+  return `<div style="${EM_WRAP}"><p style="${EM_P}">${br(bodyText)}</p>${pay}${footer}</div>`;
 }
 
 // ---- Direct Debit "ghost" invoices --------------------------------------
@@ -1050,6 +1056,63 @@ async function unsubVerify(env, token) {
     for (let i = 0; i < raw.length; i++) diff |= raw.charCodeAt(i) ^ expect.charCodeAt(i);
     return diff === 0 ? addr : null;
   } catch (_) { return null; }
+}
+
+// ---- Invoice pay links ---------------------------------------------------
+//
+// The link we email points HERE, not at Stripe. A Stripe Checkout Session
+// expires after 24 hours, which is no use on an invoice with 30-day terms, so
+// the client's click mints a fresh session each time.
+//
+// The token is an HMAC over the invoice id, so the URL cannot be guessed or
+// edited to point at somebody else's invoice.
+async function invoicePaySign(env, invoiceId) {
+  const secret = unsubSecret(env);
+  const id = String(invoiceId || "").trim();
+  if (!secret || !id) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`invoicepay:${id}`));
+  return `${_b64urlStr(id)}.${_b64url(mac)}`;
+}
+
+// Returns the invoice id a token vouches for, or null if it has been tampered with.
+async function invoicePayVerify(env, token) {
+  try {
+    const raw = String(token || "");
+    const dot = raw.indexOf(".");
+    if (dot < 1) return null;
+    const id = atob(raw.slice(0, dot).replace(/-/g, "+").replace(/_/g, "/"));
+    const expect = await invoicePaySign(env, id);
+    if (!expect) return null;
+    if (raw.length !== expect.length) return null;   // constant-time compare
+    let diff = 0;
+    for (let i = 0; i < raw.length; i++) diff |= raw.charCodeAt(i) ^ expect.charCodeAt(i);
+    return diff === 0 ? id : null;
+  } catch (_) { return null; }
+}
+
+// Same base as the unsubscribe link, and the same caveat: this must point at
+// the Worker, not the website. A *.workers.dev payment link reads as phishing,
+// which matters more here than anywhere else on the site - we are asking
+// someone to type card details. Worth a real route before this goes to clients.
+async function invoicePayUrl(env, invoiceId) {
+  const t = await invoicePaySign(env, invoiceId);
+  return t ? `${unsubBase(env)}/invoicing/pay?t=${encodeURIComponent(t)}` : null;
+}
+
+// A plain page for the states where there is nothing to pay. Deliberately not
+// a JSON error - the person reading this is a client, not a developer.
+function invoicePayPage(title, message) {
+  return `<!doctype html><html><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${title}</title></head>
+    <body style="margin:0;background:#f4f2f1;font-family:Verdana,Geneva,sans-serif;color:#371e28">
+      <div style="max-width:520px;margin:14vh auto;padding:0 24px;text-align:center">
+        <h1 style="font-size:24px;font-weight:400;line-height:1.6;margin:0 0 14px">${title}</h1>
+        <p style="font-size:12px;line-height:1.6;margin:0">${message}</p>
+      </div>
+    </body></html>`;
 }
 
 // The public unsubscribe URL for a given address.
@@ -2478,8 +2541,38 @@ export default {
         try { event = JSON.parse(raw); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
         if (event.type === "checkout.session.completed") {
           const s = event.data && event.data.object;
-          const orderId = (s && s.metadata && s.metadata.order_id) || (s && s.client_reference_id);
           const pi = s && (typeof s.payment_intent === "string" ? s.payment_intent : (s.payment_intent && s.payment_intent.id));
+
+          // Invoices and orders both come through here, so tell them apart by
+          // which metadata key is set rather than assuming everything is an
+          // order. client_reference_id is NOT a safe fallback any more - both
+          // paths set it.
+          const invoiceId = s && s.metadata && s.metadata.invoice_id;
+          if (invoiceId) {
+            // status=neq.paid keeps this idempotent across Stripe's retries.
+            const sel = `id=eq.${encodeURIComponent(invoiceId)}&status=neq.paid`;
+            const paidAt = new Date().toISOString().slice(0, 10);
+            let pr = await sbPatch(env, "invoices", sel, {
+              status: "paid", paid_date: paidAt, payment_method: "card", payment_ref: pi || null,
+            });
+            // payment_ref only exists once supabase/invoicing_stripe.sql has run,
+            // and PostgREST rejects the WHOLE patch for one unknown column. The
+            // money has already left the client's account at this point, so fall
+            // back to the columns that certainly exist rather than leaving the
+            // invoice silently unpaid.
+            if (!pr.ok) {
+              pr = await sbPatch(env, "invoices", sel, { status: "paid", paid_date: paidAt, payment_method: "card" });
+              if (!pr.ok) pr = await sbPatch(env, "invoices", sel, { status: "paid" });
+              if (!pr.ok) {
+                console.error("PAID BUT NOT RECORDED - invoice", invoiceId, "payment", pi,
+                  "- run supabase/invoicing_stripe.sql and mark it paid by hand:",
+                  await pr.text().catch(() => ""));
+              }
+            }
+            return json({ received: true }, 200, request, env);
+          }
+
+          const orderId = (s && s.metadata && s.metadata.order_id) || (s && s.client_reference_id);
           if (orderId) {
             // Only existing columns here, so this can't fail if orders_stripe.sql
             // hasn't run yet. status=neq.paid keeps it idempotent on Stripe retries.
@@ -4935,6 +5028,65 @@ export default {
       }
 
       // ---- Admin: send an invoice (render PDF → email + CC accounts → sent) ---
+      // ---- Public: pay an invoice by card ---------------------------------
+      // The client clicks this from their invoice email. No auth: the HMAC in
+      // the token is the credential. Mints a fresh Checkout Session per click,
+      // because Stripe sessions expire in 24 hours and invoices do not.
+      if (path.endsWith("/invoicing/pay") && request.method === "GET") {
+        const htmlPage = (title, msg, status) => new Response(invoicePayPage(title, msg), {
+          status: status || 200, headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+        const invId = await invoicePayVerify(env, url.searchParams.get("t"));
+        if (!invId) return htmlPage("That payment link isn't valid", "Please use the link in your most recent invoice email, or reply to that email and we'll sort it out.", 400);
+
+        const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(invId)}&select=*`);
+        const inv = rows && rows[0];
+        if (!inv) return htmlPage("We couldn't find that invoice", "Please reply to your invoice email and we'll look into it.", 404);
+        if (inv.status === "paid") return htmlPage("This invoice is already paid", `Invoice ${inv.number} has been settled - there's nothing more to do. Thank you.`);
+        if (inv.status === "void") return htmlPage("This invoice has been cancelled", `Invoice ${inv.number} was voided, so there's nothing to pay.`);
+        if (!env.STRIPE_SECRET_KEY) return htmlPage("Card payment isn't available yet", "Please pay by bank transfer using the details on your invoice, or reply to the email and we'll help.", 503);
+        const amount = Math.round(Number(inv.total_pence) || 0);
+        if (amount <= 0) return htmlPage("There's nothing to pay on this invoice", "Please reply to your invoice email if you think that's wrong.");
+
+        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+        try {
+          const session = await stripeApi(env, "checkout/sessions", {
+            mode: "payment",
+            "payment_method_types[0]": "card",
+            success_url: `${unsubBase(env)}/invoicing/paid?t=${encodeURIComponent(url.searchParams.get("t") || "")}`,
+            cancel_url: await invoicePayUrl(env, inv.id),
+            customer_email: inv.bill_to_email || undefined,
+            client_reference_id: inv.id,
+            "metadata[invoice_id]": inv.id,
+            "metadata[invoice_number]": inv.number || "",
+            "line_items[0][quantity]": 1,
+            "line_items[0][price_data][currency]": "gbp",
+            "line_items[0][price_data][unit_amount]": amount,
+            "line_items[0][price_data][product_data][name]": `Invoice ${inv.number}${st.company_name ? " - " + st.company_name : ""}`,
+          });
+          // Stored for tracing a payment back, not for reuse - it expires.
+          await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { stripe_session_id: session.id });
+          return Response.redirect(session.url, 302);
+        } catch (e) {
+          return htmlPage("We couldn't open the payment page", "Please try again in a moment, or reply to your invoice email and we'll take payment another way.", 502);
+        }
+      }
+
+      // Where Stripe sends the client back. The webhook is what actually marks
+      // the invoice paid; this page only reports, and says so honestly if the
+      // webhook hasn't landed yet rather than claiming success it can't see.
+      if (path.endsWith("/invoicing/paid") && request.method === "GET") {
+        const invId = await invoicePayVerify(env, url.searchParams.get("t"));
+        const inv = invId ? ((await sbGet(env, "invoices", `id=eq.${encodeURIComponent(invId)}&select=number,status`)) || [])[0] : null;
+        const paid = inv && inv.status === "paid";
+        return new Response(invoicePayPage(
+          "Thank you - your payment went through",
+          paid
+            ? `Invoice ${inv.number} is now marked as paid. A receipt is on its way from Stripe.`
+            : "Your receipt is on its way from Stripe. Our records can take a moment to catch up, so the invoice may still show as unpaid for a minute or two.",
+        ), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+      }
+
       if (path.endsWith("/invoicing/invoices/send") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
@@ -4964,12 +5116,17 @@ export default {
 
         // Covering email with the PDF attached; accounts dept CC'd. If the email
         // doesn't actually go, don't mark it sent — tell the caller so they retry.
+        // A pay link only if this invoice opted in AND Stripe is actually
+        // configured - emailing a button that 503s would be worse than no button.
+        const wantsCard = !!inv.pay_by_card && inv.status !== "paid";
+        const payUrl = (wantsCard && env.STRIPE_SECRET_KEY) ? await invoicePayUrl(env, inv.id) : null;
+
         const mail = invoiceMailTo(inv.bill_to_email, cc);
         const emailed = await sendEmail(env, {
           to: mail.to,
           cc: mail.cc,
           subject,
-          html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body)),
+          html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body, payUrl)),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
         });
         if (!emailed.ok) return json({ error: "The invoice was saved but the email didn't send: " + (emailed.error || "unknown error") + " (recipient: " + inv.bill_to_email + (cc ? ", cc: " + cc : "") + ")" }, 502, request, env);
@@ -5032,6 +5189,7 @@ export default {
           line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
           status: "draft", issued_date: (b && b.issued_date) || null, due_date: (b && b.due_date) || null,
           notes: (b && b.notes) || null, template,
+          pay_by_card: !!(b && b.pay_by_card),
           // Per-invoice CC — the builder pre-fills the accounts default but the
           // sender can edit/clear it. Only fall back to the default if the field
           // wasn't sent at all (so a deliberate clear = no CC).
@@ -5046,6 +5204,12 @@ export default {
           if (/template/.test(errText) && row.template != null) {
             const { template: _t, ...rowNoTpl } = row;
             res = await sbPost(env, "invoices", rowNoTpl, "return=representation");
+          }
+          // Same tolerance for the card-payment column
+          // (supabase/invoicing_stripe.sql). Save the invoice rather than lose it.
+          if (!res.ok && /pay_by_card/.test(errText)) {
+            const { pay_by_card: _p, ...rowNoPay } = row;
+            res = await sbPost(env, "invoices", rowNoPay, "return=representation");
           }
           if (!res.ok) return json({ error: "Couldn't save the invoice." + (errText ? " " + errText.slice(0, 180) : "") }, 502, request, env);
         }
