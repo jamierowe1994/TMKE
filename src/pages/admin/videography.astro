@@ -279,7 +279,7 @@ const DELIVER_CATEGORIES = [
         </div>
         <div class="vid-field-row">
           <div class="vid-field"><label>Service</label><input type="text" data-f="service" placeholder="Property video, podcast…" /></div>
-          <div class="vid-field"><label>Shoot date</label><input type="datetime-local" data-f="shoot_date" /></div>
+          <div class="vid-field"><label>Shoot date</label><input type="datetime-local" data-f="shoot_date" step="900" /></div>
         </div>
         <div class="vid-field-row">
           <div class="vid-field"><label>Location</label><input type="text" data-f="location" /></div>
@@ -326,14 +326,18 @@ const DELIVER_CATEGORIES = [
         <div id="vid-card-block">
           <p class="vid-hint" id="vid-pay-status"></p>
         </div>
-        <label class="vid-check">
-          <input type="checkbox" id="vid-paid" />
-          <span>Payment received</span>
-        </label>
-        <p class="vid-hint">The PIN is released on this. Nothing goes to the client until it is ticked.</p>
+        <div id="vid-paid-block">
+          <label class="vid-check">
+            <input type="checkbox" id="vid-paid" />
+            <span>Payment received</span>
+          </label>
+          <p class="vid-hint">The PIN is released on this. Nothing goes to the client until it is ticked.</p>
+        </div>
 
         <!-- Delivery. Filled in after the shoot, once the Pixieset gallery
-             exists and the archive copy is up. -->
+             exists and the archive copy is up. Hidden while creating a booking:
+             none of it can be known yet, and it buries the fields that can. -->
+        <div id="vid-delivery-block">
         <div class="vid-deliver-head">
           <h3>Delivery</h3>
           <span>Fill in once the gallery is live</span>
@@ -372,6 +376,7 @@ const DELIVER_CATEGORIES = [
           <span>Archive copy uploaded to our own storage</span>
         </label>
         <p class="vid-hint">Pixieset only keeps a gallery for about three months. The archive is what the team uses afterwards.</p>
+        </div>
       </div>
       <footer class="modal-foot">
         <button type="button" class="admin-btn admin-btn-danger" id="vid-delete" hidden>Delete</button>
@@ -517,11 +522,34 @@ const DELIVER_CATEGORIES = [
       color: var(--english-violet); padding: 0; margin-bottom: 28px;
     }
     .vid-cand-back:hover { color: var(--ink); }
-    .vid-cand {
-      max-width: 820px; margin: 0 auto; text-align: left;
+    /* Three cards rather than one. Documents and messages used to sit inside
+       the booking card, which buried the stage - the thing you came here to
+       act on. Tighter padding too; the old spacing was doing no work. */
+    .vid-cand { max-width: 820px; margin: 0 auto; text-align: left; display: flex; flex-direction: column; gap: 18px; }
+    .vid-cand-card {
       background: var(--paper); border: 1px solid rgba(var(--violet-rgb), 0.16); border-radius: 14px;
-      padding: clamp(26px, 3.5vw, 44px) clamp(24px, 3.5vw, 44px) clamp(28px, 3.5vw, 40px);
+      padding: clamp(22px, 2.6vw, 32px) clamp(20px, 2.6vw, 32px);
     }
+    .vid-cand-card h4 {
+      margin: 0 0 14px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet);
+    }
+
+    /* The Fine & Country check, shown only on brand-invoiced bookings at Booked. */
+    .vid-gate {
+      margin-top: 22px; padding: 16px 18px; border-radius: 10px;
+      background: rgba(184, 124, 60, 0.08); border: 1px solid rgba(184, 124, 60, 0.28);
+    }
+    .vid-gate.is-done { background: rgba(var(--violet-rgb), 0.06); border-color: rgba(var(--violet-rgb), 0.22); }
+    .vid-gate-h {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: #8a5a2b; margin-bottom: 12px;
+    }
+    .vid-gate.is-done .vid-gate-h { color: var(--english-violet); }
+    .vid-gate-list { margin: 0 0 12px; display: grid; gap: 7px; }
+    .vid-gate-list > div { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+    .vid-gate-list dt { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.55); min-width: 190px; }
+    .vid-gate-list dd { margin: 0; font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink); }
     .vid-cand-who { font-family: var(--sans); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: rgba(28, 29, 34, 0.5); }
     .vid-cand-co { font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.55); margin-top: 4px; }
     .vid-cand-big {
@@ -1225,6 +1253,7 @@ const DELIVER_CATEGORIES = [
       const whenStr = b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
       const loc = bookingLocation({ service_type: b.service_type, source: "videography", postcode: b.location || b.postcode });
       el.innerHTML = `
+        <div class="vid-cand-card">
         <div class="vid-cand-who">${escapeHtml(b.client_name)}</div>
         ${b.client_company ? `<div class="vid-cand-co">${escapeHtml(b.client_company)}</div>` : ""}
         <div class="vid-cand-big">${escapeHtml(f.big(b))}</div>
@@ -1245,12 +1274,54 @@ const DELIVER_CATEGORIES = [
           ${b.stage !== "booked" ? `<button type="button" class="admin-btn admin-btn-ghost" data-act="back">Move back a step</button>` : ""}
         </div>
         ${renderTimeline(b)}
+        ${renderBrandGate(b)}
         <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
-        <div class="vid-cand-thread" id="vid-cand-thread"></div>`;
+        </div>
+        <div class="vid-cand-card" id="vid-cand-docs"></div>
+        <div class="vid-cand-card" id="vid-cand-thread"></div>`;
+      el.querySelector("#vid-gate-confirm")?.addEventListener("change", (e) => saveBrandConfirm(b, e.target.checked));
       if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => advanceStage(f.advance.to));
       el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
       if (!isStudio) showDistance(b);
       loadThread(b);
+    }
+
+    /* Fine & Country bookings get an extra step before the invoice goes out:
+       the office named at booking has to be confirmed as actually holding the
+       seller's marketing fee. Everyone else never sees this. */
+    function isBrandInvoiced(b) { return b && b.payment_route === "brand_invoice"; }
+
+    function renderBrandGate(b) {
+      if (!isBrandInvoiced(b) || b.stage !== "booked") return "";
+      const officeName = (FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "";
+      const done = !!b.brand_fee_confirmed;
+      const claimed = b.marketing_fee_claimed == null ? "not asked" : (b.marketing_fee_claimed ? "yes" : "no");
+      return `<div class="vid-gate ${done ? "is-done" : ""}">
+        <div class="vid-gate-h">Before the invoice goes out</div>
+        <dl class="vid-gate-list">
+          <div><dt>Invoiced to</dt><dd>${escapeHtml(officeName || "No office selected — set it on the booking")}</dd></div>
+          <div><dt>Agent said a fee was charged</dt><dd>${escapeHtml(claimed)}</dd></div>
+        </dl>
+        <label class="vid-check">
+          <input type="checkbox" id="vid-gate-confirm" ${done ? "checked" : ""} ${officeName ? "" : "disabled"} />
+          <span>The office has confirmed the marketing fee has been received</span>
+        </label>
+        ${done && b.brand_fee_confirmed_at
+          ? `<p class="vid-hint">Confirmed ${escapeHtml(new Date(b.brand_fee_confirmed_at).toLocaleDateString("en-GB"))}${b.brand_fee_confirmed_by ? " by " + escapeHtml(b.brand_fee_confirmed_by) : ""}.</p>`
+          : `<p class="vid-hint">We don't invoice against a fee nobody has verified is held.</p>`}
+      </div>`;
+    }
+
+    async function saveBrandConfirm(b, checked) {
+      const patch = {
+        brand_fee_confirmed: checked,
+        brand_fee_confirmed_at: checked ? (b.brand_fee_confirmed_at || new Date().toISOString()) : null,
+        brand_fee_confirmed_by: checked ? (b.brand_fee_confirmed_by || adminEmail || null) : null,
+      };
+      Object.assign(b, patch);
+      const { error } = await supabase.from("videography_bookings").update(patch).eq("id", b.id);
+      if (error) { alert("Couldn't save that confirmation: " + error.message); return; }
+      renderCandidate();
     }
 
     // ---- Client correspondence + documents (booking_messages / booking_documents) ----
@@ -1258,8 +1329,8 @@ const DELIVER_CATEGORIES = [
     async function loadThread(b) {
       const host = document.getElementById("vid-cand-thread");
       if (!host || !b) return;
-      if (!WORKER_URL) { host.innerHTML = `<h4>Messages &amp; documents</h4><p class="vid-loading">Connect the Worker (PUBLIC_R2_WORKER_URL) to manage correspondence.</p>`; return; }
-      host.innerHTML = `<h4>Messages &amp; documents</h4><p class="vid-loading">Loading…</p>`;
+      if (!WORKER_URL) { host.innerHTML = `<h4>Messages</h4><p class="vid-loading">Connect the Worker (PUBLIC_R2_WORKER_URL) to manage correspondence.</p>`; return; }
+      host.innerHTML = `<h4>Messages</h4><p class="vid-loading">Loading…</p>`;
       let data = { messages: [], documents: [] };
       try {
         const token = await authToken();
@@ -1276,29 +1347,33 @@ const DELIVER_CATEGORIES = [
         return `<div class="vid-msg ${m.is_automated ? "is-auto" : ""}"><div class="vid-msg-meta"><strong>${escapeHtml(who)}</strong><span>${escapeHtml(fmtWhen(m.created_at) || "")}</span></div>${m.subject ? `<div class="vid-msg-subj">${escapeHtml(m.subject)}</div>` : ""}<div class="vid-msg-body">${escapeHtml(m.body || "").replace(/\n/g, "<br>")}</div></div>`;
       }).join("") || `<p class="vid-loading">No messages yet.</p>`;
       const docs = (data.documents || []).map((d) => `<div class="vid-doc"><span class="vid-doc-name">${escapeHtml(d.title || d.file_name)}</span><span class="vid-doc-cat">${escapeHtml((BK_CATS.find((c) => c[0] === d.category) || [, "Other"])[1])}</span><button type="button" class="vid-doc-x" data-doc-del="${escapeHtml(d.id)}" title="Remove">&times;</button></div>`).join("") || `<p class="vid-loading">No documents attached.</p>`;
+      // Two separate cards. They used to sit inside the booking card, which
+      // buried the stage - the thing you actually came here to act on.
+      const docsHost = document.getElementById("vid-cand-docs");
+      if (docsHost) {
+        docsHost.innerHTML = `
+          <h4>Internal documents</h4>
+          <div class="vid-docs">${docs}</div>
+          <div class="vid-doc-upload">
+            <select id="vid-doc-cat">${BK_CATS.map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select>
+            <input type="file" id="vid-doc-file" class="vid-file" />
+            <button type="button" class="admin-btn admin-btn-primary" id="vid-doc-up">Attach document</button>
+          </div>`;
+      }
       host.innerHTML = `
-        <h4>Internal Documents</h4>
-        <div class="vid-docs">${docs}</div>
-        <div class="vid-doc-upload">
-          <select id="vid-doc-cat">${BK_CATS.map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select>
-          <input type="file" id="vid-doc-file" class="vid-file" />
-          <button type="button" class="admin-btn admin-btn-primary" id="vid-doc-up">Attach document</button>
-        </div>
-        <div class="vid-msg-sec">
-          <h4>Messages</h4>
-          <div class="vid-thread">${msgs}</div>
-          <div class="vid-compose">
-            <input type="text" id="vid-msg-subj" placeholder="Subject (optional)" />
-            <textarea id="vid-msg-body" rows="3" placeholder="Write a message to the client…"></textarea>
-            <label class="vid-compose-file"><span>Attach a file (optional)</span><input type="file" id="vid-msg-file" class="vid-file" /></label>
-            <label class="vid-compose-notify"><input type="checkbox" id="vid-msg-notify" checked /> Email the client too (any attachment rides along)</label>
-            <button type="button" class="admin-btn admin-btn-primary" id="vid-msg-send">Send message</button>
-          </div>
+        <h4>Messages</h4>
+        <div class="vid-thread">${msgs}</div>
+        <div class="vid-compose">
+          <input type="text" id="vid-msg-subj" placeholder="Subject (optional)" />
+          <textarea id="vid-msg-body" rows="3" placeholder="Write a message to the client…"></textarea>
+          <label class="vid-compose-file"><span>Attach a file (optional)</span><input type="file" id="vid-msg-file" class="vid-file" /></label>
+          <label class="vid-compose-notify"><input type="checkbox" id="vid-msg-notify" checked /> Email the client too (any attachment rides along)</label>
+          <button type="button" class="admin-btn admin-btn-primary" id="vid-msg-send">Send message</button>
         </div>
         <p class="vid-thread-status" id="vid-thread-status" hidden></p>`;
       document.getElementById("vid-msg-send")?.addEventListener("click", () => sendMsg(b));
       document.getElementById("vid-doc-up")?.addEventListener("click", () => uploadDoc(b));
-      host.querySelectorAll("[data-doc-del]").forEach((btn) => btn.addEventListener("click", () => deleteDoc(b, btn.getAttribute("data-doc-del"))));
+      document.getElementById("vid-cand-docs")?.querySelectorAll("[data-doc-del]").forEach((btn) => btn.addEventListener("click", () => deleteDoc(b, btn.getAttribute("data-doc-del"))));
     }
     function threadStatus(msg, ok) {
       const el = document.getElementById("vid-thread-status"); if (!el) return;
@@ -1356,6 +1431,13 @@ const DELIVER_CATEGORIES = [
     async function advanceStage(to) {
       const b = bookings.find((x) => x.id === candId);
       if (!b) return;
+      // The one hard stop in the pipeline. Raising an invoice against an
+      // unverified marketing fee is the mistake this whole step exists for, so
+      // here it blocks rather than warns.
+      if (to === "invoiced" && isBrandInvoiced(b) && !b.brand_fee_confirmed) {
+        alert("Before you raise an invoice:\n\nFine & Country haven't confirmed the marketing fee is held. Tick the confirmation above once the office has confirmed it.");
+        return;
+      }
       const prev = b.stage; b.stage = to; renderCandidate();
       const { error } = await supabase.from("videography_bookings").update({ stage: to }).eq("id", b.id);
       if (error) { b.stage = prev; renderCandidate(); alert("Couldn't update stage: " + error.message); return; }
@@ -1596,6 +1678,12 @@ const DELIVER_CATEGORIES = [
       }
       syncPaymentRoute();
       checkGalleryEmail();
+      // Nobody knows the gallery or the payment state at the point of booking.
+      const creating = !b;
+      const payBlock = document.getElementById("vid-paid-block");
+      const delBlock = document.getElementById("vid-delivery-block");
+      if (payBlock) payBlock.hidden = creating;
+      if (delBlock) delBlock.hidden = creating;
       document.getElementById("vid-modal-title").textContent = b ? "Edit booking" : "New booking";
       document.getElementById("vid-delete").hidden = !b;
       document.getElementById("vid-modal").hidden = false;
