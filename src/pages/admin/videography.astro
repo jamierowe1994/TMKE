@@ -282,7 +282,10 @@ const DELIVER_CATEGORIES = [
           <div class="vid-field"><label>Shoot date</label><input type="datetime-local" data-f="shoot_date" step="900" /></div>
         </div>
         <div class="vid-field-row">
-          <div class="vid-field"><label>Location</label><input type="text" data-f="location" /></div>
+          <div class="vid-field">
+            <label>Shoot location</label>
+            <input type="text" data-f="location" placeholder="Where Jack is going — this is what his calendar says" />
+          </div>
           <div class="vid-field"><label>Quote (£)</label><input type="number" data-f="amount_gbp" min="0" step="0.01" /></div>
         </div>
         <div class="vid-field">
@@ -1004,7 +1007,7 @@ const DELIVER_CATEGORIES = [
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
-    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES } from "../../lib/videography-config.js";
+    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, STUDIO_LOCATION } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -1330,7 +1333,7 @@ const DELIVER_CATEGORIES = [
           ${b.service ? `<span>Service&nbsp; <strong>${escapeHtml(b.service)}</strong></span>` : ""}
           ${whenStr ? `<span>When&nbsp; <strong>${escapeHtml(whenStr)}</strong></span>` : ""}
           <span>Quote&nbsp; <strong>${amount}</strong></span>
-          ${loc ? `<span>Location&nbsp; <strong>${escapeHtml(loc)}</strong></span>` : ""}
+          ${loc ? `<span>Shoot location&nbsp; <strong>${escapeHtml(loc)}</strong></span>` : ""}
           ${!isStudio ? `<span data-distance>Distance&nbsp; <strong>…</strong></span>` : ""}
         </div>
         <div class="vid-cand-actions">
@@ -2129,6 +2132,7 @@ const DELIVER_CATEGORIES = [
       }
       syncPaymentRoute();
       checkGalleryEmail();
+      prefillStudioLocation();
       // Nobody knows the gallery or the payment state at the point of booking.
       const creating = !b;
       const payBlock = document.getElementById("vid-paid-block");
@@ -2146,6 +2150,16 @@ const DELIVER_CATEGORIES = [
        the PIN somewhere else they simply cannot download, and we would never
        find out - the failure happens inside Pixieset, not here. A mismatch is
        sometimes deliberate, so this warns rather than blocks. */
+    /* A Content Studio shoot is at our studio, every time. Fill it in rather
+       than leaving Jack to type the same address - but only when the field is
+       empty, so a deliberate change is never overwritten. */
+    function prefillStudioLocation() {
+      const locEl = document.querySelector('[data-f="location"]');
+      const svcEl = document.querySelector('[data-f="service"]');
+      if (!locEl || !svcEl || locEl.value.trim()) return;
+      if (/content|studio/i.test(svcEl.value)) locEl.value = STUDIO_LOCATION;
+    }
+
     function checkGalleryEmail() {
       const warn = document.getElementById("vid-email-warn");
       if (!warn) return;
@@ -2896,6 +2910,7 @@ const DELIVER_CATEGORIES = [
       document.querySelector('[data-f="gallery_email"]')?.addEventListener("input", checkGalleryEmail);
       document.querySelector('[data-f="client_email"]')?.addEventListener("input", checkGalleryEmail);
       document.querySelector('[data-f="gallery_url"]')?.addEventListener("blur", defaultGalleryExpiry);
+      document.querySelector('[data-f="service"]')?.addEventListener("blur", prefillStudioLocation);
       document.getElementById("vid-route")?.addEventListener("change", syncPaymentRoute);
       document.getElementById("vid-fc-office")?.addEventListener("change", syncPaymentRoute);
       document.getElementById("vid-fee-confirmed")?.addEventListener("change", syncPaymentRoute);
