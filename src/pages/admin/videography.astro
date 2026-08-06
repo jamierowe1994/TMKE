@@ -286,6 +286,47 @@ const DELIVER_CATEGORIES = [
           <div class="vid-field"><label>Quote (£)</label><input type="number" data-f="amount_gbp" min="0" step="0.01" /></div>
         </div>
         <div class="vid-field"><label>Notes</label><textarea data-f="notes" rows="3"></textarea></div>
+
+        <!-- Delivery. Filled in after the shoot, once the Pixieset gallery
+             exists and the archive copy is up. -->
+        <div class="vid-deliver-head">
+          <h3>Delivery</h3>
+          <span>Fill in once the gallery is live</span>
+        </div>
+        <div class="vid-field">
+          <label>Gallery link</label>
+          <input type="url" data-f="gallery_url" placeholder="https://gallery.tmke.co.uk/…" />
+        </div>
+        <div class="vid-field-row">
+          <div class="vid-field">
+            <label>Gallery email <span class="vid-lbl-note">what the client types to download</span></label>
+            <input type="email" data-f="gallery_email" />
+            <p class="vid-warn" id="vid-email-warn" hidden></p>
+          </div>
+          <div class="vid-field">
+            <label>PIN <span class="vid-lbl-note">never shown to the client until paid</span></label>
+            <input type="text" data-f="gallery_pin" autocomplete="off" />
+          </div>
+        </div>
+        <div class="vid-field-row">
+          <div class="vid-field"><label>Store link</label><input type="url" data-f="store_url" placeholder="Buying extra downloads" /></div>
+          <div class="vid-field"><label>Floor plan link</label><input type="url" data-f="floorplan_url" placeholder="Pixieset can't hold these" /></div>
+        </div>
+        <div class="vid-field-row">
+          <div class="vid-field">
+            <label>Download cap <span class="vid-lbl-note">blank = uncapped</span></label>
+            <input type="number" data-f="download_cap" min="0" step="1" />
+          </div>
+          <div class="vid-field">
+            <label>Gallery expires <span class="vid-lbl-note">Pixieset holds ~3 months</span></label>
+            <input type="date" data-f="gallery_expires_on" />
+          </div>
+        </div>
+        <label class="vid-check">
+          <input type="checkbox" id="vid-archived" />
+          <span>Archive copy uploaded to our own storage</span>
+        </label>
+        <p class="vid-hint">Pixieset only keeps a gallery for about three months. The archive is what the team uses afterwards.</p>
       </div>
       <footer class="modal-foot">
         <button type="button" class="admin-btn admin-btn-danger" id="vid-delete" hidden>Delete</button>
@@ -342,6 +383,27 @@ const DELIVER_CATEGORIES = [
     .vid-panel-title { font-family: var(--serif); font-size: 30px; font-weight: 500; color: var(--ink); margin: 0; }
     .vid-panel-sub { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.6); margin: 4px 0 0; }
     .vid-loading { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); padding: 40px 0; }
+
+    /* ---- Delivery block in the booking modal ---- */
+    .vid-deliver-head {
+      display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+      margin: 26px 0 2px; padding-top: 18px;
+      border-top: 1px solid rgba(var(--violet-rgb), 0.16);
+    }
+    .vid-deliver-head h3 {
+      margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet);
+    }
+    .vid-deliver-head span { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); }
+    .vid-lbl-note { font-weight: 400; text-transform: none; letter-spacing: 0; color: rgba(28,29,34,0.45); font-size: 11px; }
+    .vid-warn {
+      margin: 6px 0 0; font-family: var(--sans); font-size: 11.5px; line-height: 1.45;
+      color: #8a5a2b; background: rgba(184, 124, 60, 0.1);
+      padding: 7px 10px; border-radius: 6px;
+    }
+    .vid-check { display: flex; align-items: center; gap: 9px; margin-top: 14px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
+    .vid-check input { width: 16px; height: 16px; accent-color: var(--english-violet); cursor: pointer; }
+    .vid-hint { margin: 6px 0 0; font-family: var(--sans); font-size: 11.5px; line-height: 1.5; color: rgba(28,29,34,0.5); }
 
     /* ---- Settings cog ---- */
     /* global.css sets `main, section { position: relative; z-index: 2 }`, so the
@@ -1446,11 +1508,50 @@ const DELIVER_CATEGORIES = [
       set("location", b?.location);
       set("amount_gbp", b?.amount_pence != null ? (b.amount_pence / 100).toString() : "");
       set("notes", b?.notes);
+      set("gallery_url", b?.gallery_url);
+      set("gallery_email", b?.gallery_email);
+      set("gallery_pin", b?.gallery_pin);
+      set("store_url", b?.store_url);
+      set("floorplan_url", b?.floorplan_url);
+      set("download_cap", b?.download_cap != null ? String(b.download_cap) : "");
+      set("gallery_expires_on", b?.gallery_expires_on ? String(b.gallery_expires_on).slice(0, 10) : "");
+      const arch = document.getElementById("vid-archived");
+      if (arch) arch.checked = !!b?.archived_at;
+      checkGalleryEmail();
       document.getElementById("vid-modal-title").textContent = b ? "Edit booking" : "New booking";
       document.getElementById("vid-delete").hidden = !b;
       document.getElementById("vid-modal").hidden = false;
     }
     function closeModal() { document.getElementById("vid-modal").hidden = true; editingId = null; }
+
+    /* The client downloads from Pixieset with their email address and the PIN,
+       so the gallery email has to be the one they will actually type. If we mail
+       the PIN somewhere else they simply cannot download, and we would never
+       find out - the failure happens inside Pixieset, not here. A mismatch is
+       sometimes deliberate, so this warns rather than blocks. */
+    function checkGalleryEmail() {
+      const warn = document.getElementById("vid-email-warn");
+      if (!warn) return;
+      const g = (document.querySelector('[data-f="gallery_email"]')?.value || "").trim().toLowerCase();
+      const c = (document.querySelector('[data-f="client_email"]')?.value || "").trim().toLowerCase();
+      const clash = g && c && g !== c;
+      warn.hidden = !clash;
+      if (clash) warn.textContent = `Different to the booking email (${c}). The PIN goes to this address, so make sure it's the one the gallery was set up with.`;
+    }
+
+    /* Pixieset holds a gallery about three months. Defaulting the date means one
+       less thing to remember; a wrong one means the expiry warning either never
+       fires or fires too early. Jack can still overwrite it. */
+    function defaultGalleryExpiry() {
+      const el = document.querySelector('[data-f="gallery_expires_on"]');
+      const url = (document.querySelector('[data-f="gallery_url"]')?.value || "").trim();
+      if (!el || el.value || !url) return;
+      const shoot = document.querySelector('[data-f="shoot_date"]')?.value;
+      const from = shoot ? new Date(shoot) : new Date();
+      if (isNaN(from)) return;
+      from.setMonth(from.getMonth() + 3);
+      el.value = from.toISOString().slice(0, 10);
+    }
 
     async function saveBooking() {
       const get = (f) => { const el = document.querySelector(`[data-f="${f}"]`); return el ? el.value.trim() : ""; };
@@ -1468,6 +1569,17 @@ const DELIVER_CATEGORIES = [
         location: get("location") || null,
         amount_pence: gbp ? Math.round(parseFloat(gbp) * 100) : null,
         notes: get("notes") || null,
+        gallery_url: get("gallery_url") || null,
+        gallery_email: get("gallery_email") || null,
+        gallery_pin: get("gallery_pin") || null,
+        store_url: get("store_url") || null,
+        floorplan_url: get("floorplan_url") || null,
+        download_cap: get("download_cap") === "" ? null : Math.max(0, Math.round(Number(get("download_cap")))),
+        gallery_expires_on: get("gallery_expires_on") || null,
+        // A tick records WHEN the archive went up; unticking clears it again.
+        archived_at: document.getElementById("vid-archived")?.checked
+          ? (bookings.find((x) => x.id === editingId)?.archived_at || new Date().toISOString())
+          : null,
       };
       const btn = document.getElementById("vid-save");
       if (btn) btn.textContent = "Saving…";
@@ -2105,6 +2217,9 @@ const DELIVER_CATEGORIES = [
 
       document.getElementById("vid-new-booking")?.addEventListener("click", () => openModal(null));
       document.getElementById("vid-save")?.addEventListener("click", saveBooking);
+      document.querySelector('[data-f="gallery_email"]')?.addEventListener("input", checkGalleryEmail);
+      document.querySelector('[data-f="client_email"]')?.addEventListener("input", checkGalleryEmail);
+      document.querySelector('[data-f="gallery_url"]')?.addEventListener("blur", defaultGalleryExpiry);
       document.getElementById("vid-delete")?.addEventListener("click", deleteBooking);
       document.getElementById("vid-cancel")?.addEventListener("click", closeModal);
       document.getElementById("vid-modal-close")?.addEventListener("click", closeModal);

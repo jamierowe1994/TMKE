@@ -19,6 +19,25 @@ Jack uploads **twice**: once to Pixieset for the client, once to our archive. Th
 second one is not optional — Pixieset expires, and the team needs this content
 for promotional use long afterwards.
 
+### How a client actually downloads
+
+Pixieset asks for **their email address and the PIN**. The email is whatever was
+entered when the gallery was created, so only that person can download.
+
+That restriction exists to protect the download allowance. A cap counts every
+download regardless of who made it — so if someone from our team or the group
+marketing team pulls ten photos, they have spent the client's allowance, not
+ours.
+
+**This makes `gallery_email` a correctness constraint, not a note.** The PIN
+must be emailed to the same address the gallery was created with. Send it
+anywhere else and the client cannot download — and we would never find out,
+because the failure happens inside Pixieset. So:
+
+- the PIN email goes to `gallery_email`, not to whatever else is on the booking
+- if `gallery_email` differs from the booking's client email, the admin says so
+  before saving. Sometimes it is deliberate; it should never be accidental.
+
 ---
 
 ## The money, and the PIN
@@ -59,7 +78,7 @@ Then add a **Delivery** section to the booking modal:
 
 - Pixieset gallery URL
 - Gallery PIN
-- Client email the gallery is gated to
+- Client email the gallery was created with (what they will type to download)
 - Store URL
 - Floor plan link
 - Download cap (blank = uncapped)
