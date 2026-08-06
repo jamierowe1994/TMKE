@@ -2097,7 +2097,8 @@ const DELIVER_CATEGORIES = [
       set("property_address", b?.property_address);
       set("gallery_url", b?.gallery_url);
       set("gallery_email", b?.gallery_email);
-      set("gallery_pin", b?.gallery_pin);
+      set("gallery_pin", b?._pin || "");
+      loadGalleryPin(b);
       set("store_url", b?.store_url);
       set("floorplan_url", b?.floorplan_url);
       set("download_cap", b?.download_cap != null ? String(b.download_cap) : "");
@@ -2158,6 +2159,30 @@ const DELIVER_CATEGORIES = [
       const svcEl = document.querySelector('[data-f="service"]');
       if (!locEl || !svcEl || locEl.value.trim()) return;
       if (/content|studio/i.test(svcEl.value)) locEl.value = STUDIO_LOCATION;
+    }
+
+    /* The PIN lives in videography_gallery_pins, not on the booking. RLS is
+       row-level, so a member reading their own booking row would have been able
+       to read their own PIN before paying - which is the one thing the whole
+       delivery design rests on. A separate admin-only table is the only way to
+       say "your row, but not that field". See supabase/videography_rls.sql. */
+    async function loadGalleryPin(b) {
+      const el = document.querySelector('[data-f="gallery_pin"]');
+      if (!el || !b) return;
+      const { data } = await supabase.from("videography_gallery_pins").select("pin").eq("booking_id", b.id).maybeSingle();
+      el.value = (data && data.pin) || "";
+      b._pin = el.value;
+    }
+
+    async function saveGalleryPin(bookingId, pin) {
+      if (!bookingId) return;
+      const value = (pin || "").trim();
+      const { error } = value
+        ? await supabase.from("videography_gallery_pins").upsert({ booking_id: bookingId, pin: value, updated_at: new Date().toISOString() })
+        : await supabase.from("videography_gallery_pins").delete().eq("booking_id", bookingId);
+      if (error) alert("The booking saved, but the PIN didn't: " + error.message);
+      const b = bookings.find((x) => x.id === bookingId);
+      if (b) b._pin = value;
     }
 
     function checkGalleryEmail() {
@@ -2241,7 +2266,7 @@ const DELIVER_CATEGORIES = [
           : null,
         gallery_url: get("gallery_url") || null,
         gallery_email: get("gallery_email") || null,
-        gallery_pin: get("gallery_pin") || null,
+
         store_url: get("store_url") || null,
         floorplan_url: get("floorplan_url") || null,
         download_cap: get("download_cap") === "" ? null : Math.max(0, Math.round(Number(get("download_cap")))),
@@ -2251,6 +2276,8 @@ const DELIVER_CATEGORIES = [
           ? (bookings.find((x) => x.id === editingId)?.archived_at || new Date().toISOString())
           : null,
       };
+      const pinValue = get("gallery_pin");
+      let savedId = editingId;
       const btn = document.getElementById("vid-save");
       if (btn) btn.textContent = "Saving…";
       if (editingId) {
@@ -2276,7 +2303,11 @@ const DELIVER_CATEGORIES = [
         const { data, error } = await supabase.from("videography_bookings").insert(payload).select().single();
         if (error) { alert("Save failed: " + error.message); if (btn) btn.textContent = "Save booking"; return; }
         bookings.unshift(data);
+        savedId = data && data.id;
       }
+      // Only ever the booking we just saved. Falling back to "the first one in
+      // the list" could have deleted a different booking's PIN.
+      if (savedId) await saveGalleryPin(savedId, pinValue);
       if (btn) btn.textContent = "Save booking";
       closeModal();
       renderClients(document.getElementById("vid-client-search")?.value || "");

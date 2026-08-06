@@ -485,7 +485,15 @@ the rendered output checking, not just a build.
   tables were readable *and* writable. All now gated on the staff list
   (`public.admins`). Applied to production and verified.
   (`supabase/packs_admin_rls.sql`, `supabase/admin_tables_rls.sql`)
-- ⬜ **Every booking is readable by any signed-in member.** All six videography
+- ✅ **Every booking is readable by any signed-in member.** Fixed 6 Aug
+  (`supabase/videography_rls.sql`). Bookings are now admin, or the member the
+  booking belongs to; the other five videography tables are admin-only. The
+  gallery PIN moved to its own admin-only table, because RLS is row-level and a
+  member legitimately reads their own row — leaving the PIN on it would have
+  let them read it before paying, which is the one thing the delivery design
+  rests on. Original description below.
+
+- ⬜ ~~**Every booking is readable by any signed-in member.**~~ All six videography
   tables (`videography_bookings`, availability, booking flow, deliveries,
   deliverables, promo codes) are still `using (true)` — the same hole we closed
   on packs and contacts. `/account/bookings` filters to "my bookings" **in the
