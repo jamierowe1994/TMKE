@@ -2644,6 +2644,18 @@ export default {
                   await pr.text().catch(() => ""));
               }
             }
+            // Invoices raised from a booking carry booking_id. Mark the shoot
+            // paid too, so PIN release keys off something that actually
+            // happened rather than someone remembering to tick a box.
+            try {
+              const irows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(invoiceId)}&select=booking_id,booking_source`);
+              const iv = irows && irows[0];
+              if (iv && iv.booking_id && iv.booking_source === "videography") {
+                await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(iv.booking_id)}&paid_at=is.null`, {
+                  paid_at: new Date().toISOString(),
+                });
+              }
+            } catch (_) { /* the invoice is paid either way; don't fail the webhook */ }
             return json({ received: true }, 200, request, env);
           }
 

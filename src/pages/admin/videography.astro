@@ -539,6 +539,33 @@ const DELIVER_CATEGORIES = [
       letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet);
     }
 
+    /* Invoice card on the booking. */
+    .vid-inv-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .vid-inv-toggle { display: inline-flex; gap: 4px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 8px; }
+    .vid-inv-toggle button {
+      appearance: none; border: 0; background: none; cursor: pointer; border-radius: 6px; padding: 6px 14px;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.55);
+    }
+    .vid-inv-toggle button.is-active { background: var(--english-violet); color: #fff; }
+    .vid-inv-item { display: grid; grid-template-columns: 1fr 120px 32px; gap: 8px; margin-bottom: 8px; }
+    .vid-inv-item input {
+      padding: 8px 10px; border-radius: 7px; border: 1px solid rgba(var(--violet-rgb), 0.25);
+      font-family: var(--sans); font-size: 13px; background: var(--paper); color: var(--ink);
+    }
+    .vid-inv-x { appearance: none; border: 0; background: none; cursor: pointer; color: rgba(28,29,34,0.4); font-size: 18px; border-radius: 6px; }
+    .vid-inv-x:hover { background: rgba(28,29,34,0.06); color: #8a3b2f; }
+    .vid-inv-totals { display: flex; gap: 18px; flex-wrap: wrap; justify-content: flex-end; margin: 10px 0 4px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); }
+    .vid-inv-totals strong { color: var(--english-violet); font-size: 14px; }
+    .vid-inv-list-h {
+      margin: 22px 0 10px; padding-top: 16px; border-top: 1px solid rgba(var(--violet-rgb), 0.14);
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(28,29,34,0.45);
+    }
+    .vid-inv-row-item { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 0; border-bottom: 1px solid rgba(28,29,34,0.06); font-family: var(--sans); font-size: 13px; }
+    .vid-inv-num { font-weight: 700; color: var(--english-violet); min-width: 92px; }
+    .vid-inv-status { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.55); }
+    .vid-inv-status.is-paid { background: rgba(var(--violet-rgb), 0.12); color: var(--english-violet); }
+
     /* Notes: internal record + audit trail. */
     .vid-notes { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
     .vid-note { padding: 11px 13px; border-radius: 9px; background: rgba(28,29,34,0.035); border: 1px solid rgba(28,29,34,0.07); }
@@ -965,6 +992,7 @@ const DELIVER_CATEGORIES = [
 
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
+    import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
     import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES } from "../../lib/videography-config.js";
 
@@ -1171,7 +1199,7 @@ const DELIVER_CATEGORIES = [
     /* ---------- Clients list + candidate file (CRM) ---------- */
     let adminEmail = null;   // who is signed in, for stamping confirmations
     const STAGE_FLOW = {
-      booked:        { sub: "Booked in",     big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Confirm the details, then raise the invoice two days before the shoot.", advance: { to: "invoiced",      label: "Invoice raised" } },
+      booked:        { sub: "Booked in",     big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Confirm the details, then raise the invoice two days before the shoot.", advance: { to: "invoiced",      label: "Raise invoice" } },
       invoiced:      { sub: "Invoiced",      big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Invoice is out. This moves to Shoot day on its own when the day arrives.", advance: { to: "shoot_day",     label: "Start shoot day" } },
       shoot_day:     { sub: "Shoot day",     big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Today",           next: "Shoot the job, then move it into editing.",                              advance: { to: "editing",       label: "Shot — move to editing" } },
       editing:       { sub: "In editing",    big: () => "Editing",                                                next: "Edit the footage, then build the gallery and upload the archive copy.",   advance: { to: "gallery_ready", label: "Gallery built" } },
@@ -1306,13 +1334,28 @@ const DELIVER_CATEGORIES = [
         ${renderBrandGate(b)}
         <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
         </div>
+        <div class="vid-cand-card" id="vid-cand-invoice"></div>
         <div class="vid-cand-card" id="vid-cand-notes"></div>
         <div class="vid-cand-card" id="vid-cand-docs"></div>
         <div class="vid-cand-card" id="vid-cand-thread"></div>`;
       el.querySelector("#vid-gate-confirm")?.addEventListener("change", (e) => saveBrandConfirm(b, e.target.checked));
-      if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => advanceStage(f.advance.to));
+      if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => {
+        // From Booked the button means "go and raise it", not "pretend it is
+        // raised" - the stage moves when the invoice actually sends.
+        if (f.advance.to === "invoiced") {
+          if (isBrandInvoiced(b) && !b.brand_fee_confirmed) {
+            alert("Before you raise an invoice:\n\nFine & Country haven't confirmed the marketing fee is held. Tick the confirmation above once the office has confirmed it.");
+            return;
+          }
+          document.getElementById("vid-cand-invoice")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          document.getElementById("viv-name")?.focus({ preventScroll: true });
+          return;
+        }
+        advanceStage(f.advance.to);
+      });
       el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
       if (!isStudio) showDistance(b);
+      renderInvoiceCard(b);
       loadThread(b);
     }
 
@@ -1416,6 +1459,247 @@ const DELIVER_CATEGORIES = [
       document.getElementById("vid-doc-up")?.addEventListener("click", () => uploadDoc(b));
       document.getElementById("vid-cand-docs")?.querySelectorAll("[data-doc-del]").forEach((btn) => btn.addEventListener("click", () => deleteDoc(b, btn.getAttribute("data-doc-del"))));
     }
+    /* ---- Invoicing, on the booking ----
+       Same Worker endpoints as the standalone Invoicing page and the SMM client
+       card. Raising it here rather than there matters for one reason beyond
+       convenience: it sets booking_id, so the invoice and the shoot are linked.
+       Without that, payment lands on the invoice and the booking never hears
+       about it. */
+    let invSettings = null;
+    let vivItems = [];
+    let vivPayByCard = true;   // shoots are usually card; still per-invoice
+    let vivDraft = null;       // the created invoice awaiting send
+
+    async function ensureInvSettings() {
+      if (invSettings || !WORKER_URL) return invSettings;
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/invoicing/settings`, { headers: { Authorization: "Bearer " + token } });
+        if (res.ok) invSettings = (await res.json()).settings || {};
+      } catch (_) { invSettings = {}; }
+      return invSettings || (invSettings = {});
+    }
+
+    const vivMoney = (p) => "£" + ((p || 0) / 100).toFixed(2);
+
+    // Seed the invoice from what was actually booked, travel included as its
+    // own line so the client can see what they are paying for.
+    function vivSeedItems(b) {
+      const items = [];
+      const base = (b.total_pence != null ? b.total_pence : b.amount_pence) || 0;
+      const surcharge = b.surcharge_pence || 0;
+      const label = [b.service || "Videography", b.package ? `(${b.package})` : ""].filter(Boolean).join(" ");
+      items.push({ description: label, amount: base > surcharge ? ((base - surcharge) / 100).toFixed(2) : (base / 100).toFixed(2) });
+      if (surcharge) items.push({ description: `Travel — ${b.distance_miles ? Math.round(b.distance_miles) + " miles" : "mileage"}`, amount: (surcharge / 100).toFixed(2) });
+      return items;
+    }
+
+    function vivTotals() {
+      const rate = invSettings && invSettings.vat_rate != null ? Number(invSettings.vat_rate) : 20;
+      const subtotal = vivItems.reduce((sum, it) => sum + Math.round((parseFloat(it.amount) || 0) * 100), 0);
+      const vat = Math.round(subtotal * rate / 100);
+      return { subtotal, vat, total: subtotal + vat, rate };
+    }
+
+    function vivBuildInvoice(b) {
+      const t = vivTotals();
+      return {
+        number: (invSettings.invoice_prefix || "TMKE") + (invSettings.next_number || 1001),
+        issued_date: document.getElementById("viv-issued")?.value || null,
+        due_date: document.getElementById("viv-due")?.value || null,
+        bill_to_name: document.getElementById("viv-name")?.value.trim() || "",
+        bill_to_email: document.getElementById("viv-email")?.value.trim() || "",
+        bill_to_address: document.getElementById("viv-address")?.value.trim() || "",
+        notes: document.getElementById("viv-notes")?.value.trim() || null,
+        line_items: vivItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
+        subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
+        pay_by_card: vivPayByCard,
+        release_on_payment: true,   // always a shoot here
+        terms_days: Number(document.getElementById("viv-terms")?.value) || 10,
+      };
+    }
+
+    async function renderInvoiceCard(b) {
+      const host = document.getElementById("vid-cand-invoice");
+      if (!host) return;
+      if (!WORKER_URL) { host.innerHTML = `<h4>Invoice</h4><p class="vid-loading">Connect the Worker to raise invoices.</p>`; return; }
+      await ensureInvSettings();
+      vivItems = vivSeedItems(b);
+      vivDraft = null;
+      const today = new Date().toISOString().slice(0, 10);
+      const due = new Date(); due.setDate(due.getDate() + 10);
+      const brand = isBrandInvoiced(b);
+
+      host.innerHTML = `
+        <h4>Invoice</h4>
+        <p class="vid-hint" style="margin-bottom:14px">
+          ${brand ? "Billed to the brand out of the seller's marketing fee." : "Billed to the client."}
+          Ten days to pay, and the content terms are included automatically.
+        </p>
+        <div class="vid-inv-row">
+          <label class="vid-field"><span>Bill to</span><input id="viv-name" value="${escapeHtml(b.client_company || b.client_name || "")}" /></label>
+          <label class="vid-field"><span>Email</span><input id="viv-email" type="email" value="${escapeHtml(b.client_email || "")}" /></label>
+        </div>
+        <div class="vid-inv-row">
+          <label class="vid-field"><span>Issued</span><input id="viv-issued" type="date" value="${today}" /></label>
+          <label class="vid-field"><span>Due</span><input id="viv-due" type="date" value="${due.toISOString().slice(0, 10)}" /></label>
+          <label class="vid-field"><span>Terms (days)</span><input id="viv-terms" type="number" min="0" value="10" /></label>
+        </div>
+        <label class="vid-field"><span>Billing address</span><textarea id="viv-address" rows="2" placeholder="Optional"></textarea></label>
+        <div class="vid-field"><span>Card payment</span>
+          <div class="vid-inv-toggle" id="viv-pay">
+            <button type="button" data-pay="no">Off</button><button type="button" data-pay="yes">On</button>
+          </div>
+        </div>
+        <div class="vid-field"><span>Line items</span><div id="viv-items"></div>
+          <button type="button" class="admin-btn admin-btn-ghost" id="viv-add">Add line</button></div>
+        <div class="vid-inv-totals" id="viv-totals"></div>
+        <label class="vid-field"><span>Notes (optional)</span><textarea id="viv-notes" rows="2">Thank you for your business - TMKE</textarea></label>
+        <p class="vid-warn" id="viv-msg" hidden></p>
+        <div class="vid-cand-actions">
+          <button type="button" class="admin-btn admin-btn-ghost" id="viv-preview">Preview</button>
+          <button type="button" class="admin-btn admin-btn-ghost" id="viv-draft">Save draft</button>
+          <button type="button" class="admin-btn admin-btn-primary" id="viv-send">Create &amp; send</button>
+        </div>
+        <div class="vid-inv-list-h">Raised for this shoot</div>
+        <div id="viv-list"><p class="vid-loading">Loading…</p></div>`;
+
+      vivRenderItems();
+      document.getElementById("viv-add").addEventListener("click", () => { vivItems.push({ description: "", amount: "" }); vivRenderItems(); });
+      document.getElementById("viv-pay").addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-pay]"); if (!btn) return;
+        vivPayByCard = btn.getAttribute("data-pay") === "yes"; vivSyncPay();
+      });
+      vivSyncPay();
+      document.getElementById("viv-preview").addEventListener("click", () => {
+        const w = window.open("", "_blank"); if (!w) return;
+        w.document.open(); w.document.write(renderInvoiceHtml({ settings: { ...invSettings }, invoice: vivBuildInvoice(b) })); w.document.close();
+      });
+      document.getElementById("viv-draft").addEventListener("click", () => createInvoice(b, false));
+      document.getElementById("viv-send").addEventListener("click", () => createInvoice(b, true));
+      loadInvoices(b);
+    }
+
+    function vivSyncPay() {
+      document.querySelectorAll("#viv-pay [data-pay]").forEach((btn) =>
+        btn.classList.toggle("is-active", (btn.getAttribute("data-pay") === "yes") === vivPayByCard));
+    }
+
+    function vivRenderItems() {
+      const host = document.getElementById("viv-items");
+      if (!host) return;
+      host.innerHTML = vivItems.map((it, i) => `
+        <div class="vid-inv-item">
+          <input type="text" data-vi="${i}" data-k="description" value="${escapeHtml(it.description)}" placeholder="Description" />
+          <input type="number" step="0.01" data-vi="${i}" data-k="amount" value="${escapeHtml(it.amount)}" placeholder="0.00" />
+          <button type="button" class="vid-inv-x" data-vrm="${i}" title="Remove">&times;</button>
+        </div>`).join("");
+      host.querySelectorAll("[data-vi]").forEach((el) => el.addEventListener("input", () => {
+        vivItems[Number(el.getAttribute("data-vi"))][el.getAttribute("data-k")] = el.value;
+        vivRenderTotals();
+      }));
+      host.querySelectorAll("[data-vrm]").forEach((btn) => btn.addEventListener("click", () => {
+        vivItems.splice(Number(btn.getAttribute("data-vrm")), 1); vivRenderItems();
+      }));
+      vivRenderTotals();
+    }
+
+    function vivRenderTotals() {
+      const el = document.getElementById("viv-totals");
+      if (!el) return;
+      const t = vivTotals();
+      el.innerHTML = `<span>Subtotal ${vivMoney(t.subtotal)}</span><span>VAT (${t.rate}%) ${vivMoney(t.vat)}</span><strong>Total ${vivMoney(t.total)}</strong>`;
+    }
+
+    function vivStatus(msg, bad) {
+      const el = document.getElementById("viv-msg");
+      if (!el) return;
+      el.hidden = !msg; el.textContent = msg || "";
+      el.style.color = bad ? "#8a5a2b" : "var(--english-violet)";
+    }
+
+    async function createInvoice(b, send) {
+      const inv = vivBuildInvoice(b);
+      if (!inv.bill_to_name) { vivStatus("Who is this billed to?", true); return; }
+      if (send && !inv.bill_to_email) { vivStatus("An email address is needed to send it.", true); return; }
+      if (!inv.line_items.length) { vivStatus("Add at least one line.", true); return; }
+      const btn = document.getElementById(send ? "viv-send" : "viv-draft");
+      const label = btn.textContent; btn.disabled = true; btn.textContent = send ? "Sending…" : "Saving…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/invoicing/invoices`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            // The link that was missing: this invoice belongs to this shoot.
+            booking_id: b.id, booking_source: "videography",
+            bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null,
+            bill_to_address: inv.bill_to_address || null,
+            issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes,
+            pay_by_card: inv.pay_by_card, release_on_payment: true, terms_days: inv.terms_days,
+            line_items: inv.line_items,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { vivStatus(data.error || "Couldn't save the invoice.", true); return; }
+        vivDraft = data.invoice;
+        if (!send) { vivStatus(`Invoice ${data.invoice.number} saved as a draft.`); loadInvoices(b); return; }
+
+        const sres = await fetch(`${WORKER_URL}/invoicing/invoices/send`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ id: data.invoice.id }),
+        });
+        const sdata = await sres.json().catch(() => ({}));
+        if (!sres.ok) { vivStatus(sdata.error || "Saved, but the email didn't send.", true); loadInvoices(b); return; }
+        vivStatus(`Invoice ${data.invoice.number} sent to ${inv.bill_to_email}.`);
+        // The stage follows the invoice actually going out.
+        if (b.stage === "booked") await advanceStage("invoiced");
+        loadInvoices(b);
+      } catch (err) {
+        vivStatus("Couldn't reach the Worker: " + err.message, true);
+      } finally { btn.disabled = false; btn.textContent = label; }
+    }
+
+    async function loadInvoices(b) {
+      const host = document.getElementById("viv-list");
+      if (!host) return;
+      let list = [];
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/invoicing/invoices?booking_id=${encodeURIComponent(b.id)}`, { headers: { Authorization: "Bearer " + token } });
+        if (res.ok) list = (await res.json()).invoices || [];
+      } catch (_) {}
+      if (!list.length) { host.innerHTML = `<p class="vid-loading">Nothing raised yet.</p>`; return; }
+      host.innerHTML = list.map((iv) => `
+        <div class="vid-inv-row-item">
+          <span class="vid-inv-num">${escapeHtml(iv.number || "—")}</span>
+          <span>${escapeHtml(gbpFromPence(iv.total_pence))}</span>
+          <span class="vid-inv-status is-${escapeHtml(iv.status)}">${escapeHtml(iv.status)}</span>
+          ${iv.status !== "paid" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vpaid="${escapeHtml(iv.id)}">Mark paid</button>` : ""}
+        </div>`).join("");
+      host.querySelectorAll("[data-vpaid]").forEach((btn) => btn.addEventListener("click", () => markInvoicePaid(b, btn.getAttribute("data-vpaid"))));
+    }
+
+    async function markInvoicePaid(b, id) {
+      try {
+        const token = await authToken();
+        await fetch(`${WORKER_URL}/invoicing/invoices`, {
+          method: "PATCH",
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ id, status: "paid" }),
+        });
+        // Marking the invoice paid is what "paid" means for the shoot too, so
+        // the booking follows rather than needing a second tick somewhere else.
+        if (!b.paid_at) {
+          b.paid_at = new Date().toISOString();
+          await supabase.from("videography_bookings").update({ paid_at: b.paid_at }).eq("id", b.id);
+          await addNote(b, "Payment received — invoice marked paid.", "audit");
+        }
+        loadInvoices(b);
+      } catch (err) { vivStatus("Couldn't mark it paid: " + err.message, true); }
+    }
+
     /* ---- Notes: the internal record, and the audit trail ----
        Notes live in booking_messages on channel 'note' (typed by a person) or
        'system' (written by an action, e.g. confirming the F&C fee). Neither
