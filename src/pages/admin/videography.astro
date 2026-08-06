@@ -285,6 +285,10 @@ const DELIVER_CATEGORIES = [
           <div class="vid-field"><label>Location</label><input type="text" data-f="location" /></div>
           <div class="vid-field"><label>Quote (£)</label><input type="number" data-f="amount_gbp" min="0" step="0.01" /></div>
         </div>
+        <div class="vid-field">
+          <label>Property address <span class="vid-lbl-note">shown on a Fine &amp; Country invoice</span></label>
+          <textarea data-f="property_address" rows="2" placeholder="Full address including postcode"></textarea>
+        </div>
         <div class="vid-field"><label>Notes</label><textarea data-f="notes" rows="3"></textarea></div>
 
         <!-- Who settles this booking. The data model has carried this since the
@@ -541,6 +545,12 @@ const DELIVER_CATEGORIES = [
 
     /* Invoice card on the booking. */
     .vid-inv-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    /* The booking modal's inputs are sized for a modal. In this card they came
+       out larger than the card heading, which read as a mistake. */
+    #vid-cand-invoice input,
+    #vid-cand-invoice textarea,
+    #vid-cand-invoice select { font-size: 13px; padding: 9px 11px; }
+    #vid-cand-invoice .vid-field > span { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
     .vid-inv-toggle { display: inline-flex; gap: 4px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 8px; }
     .vid-inv-toggle button {
       appearance: none; border: 0; background: none; cursor: pointer; border-radius: 6px; padding: 6px 14px;
@@ -1488,7 +1498,10 @@ const DELIVER_CATEGORIES = [
       const items = [];
       const base = (b.total_pence != null ? b.total_pence : b.amount_pence) || 0;
       const surcharge = b.surcharge_pence || 0;
-      const label = [b.service || "Videography", b.package ? `(${b.package})` : ""].filter(Boolean).join(" ");
+      // A brand invoice is billed to the office, not the agent, so the line has
+      // to say who the shoot was actually for or the office cannot place it.
+      const forWhom = isBrandInvoiced(b) && b.client_name ? ` — ${b.client_name}` : "";
+      const label = [b.service || "Videography", b.package ? `(${b.package})` : ""].filter(Boolean).join(" ") + forWhom;
       items.push({ description: label, amount: base > surcharge ? ((base - surcharge) / 100).toFixed(2) : (base / 100).toFixed(2) });
       if (surcharge) items.push({ description: `Travel — ${b.distance_miles ? Math.round(b.distance_miles) + " miles" : "mileage"}`, amount: (surcharge / 100).toFixed(2) });
       return items;
@@ -1529,6 +1542,19 @@ const DELIVER_CATEGORIES = [
       const today = new Date().toISOString().slice(0, 10);
       const due = new Date(); due.setDate(due.getDate() + 10);
       const brand = isBrandInvoiced(b);
+      // Billed to the office that holds the marketing fee, not to the agent.
+      const officeName = (FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "";
+      const billTo = brand ? (officeName || b.client_company || b.client_name || "") : (b.client_company || b.client_name || "");
+      const shootDate = b.shoot_date
+        ? new Date(b.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+        : "";
+      // The office needs to know which job this is: whose shoot, which property,
+      // which day. Editable - this is a starting point, not a fixed string.
+      const defaultNotes = brand
+        ? [`Invoice raised for ${b.client_name || "the agent"}.`,
+           b.property_address || b.location || "",
+           shootDate ? `Shoot date: ${shootDate}` : ""].filter(Boolean).join("\n")
+        : "Thank you for your business - TMKE";
 
       host.innerHTML = `
         <h4>Invoice</h4>
@@ -1537,8 +1563,8 @@ const DELIVER_CATEGORIES = [
           Ten days to pay, and the content terms are included automatically.
         </p>
         <div class="vid-inv-row">
-          <label class="vid-field"><span>Bill to</span><input id="viv-name" value="${escapeHtml(b.client_company || b.client_name || "")}" /></label>
-          <label class="vid-field"><span>Email</span><input id="viv-email" type="email" value="${escapeHtml(b.client_email || "")}" /></label>
+          <label class="vid-field"><span>Bill to</span><input id="viv-name" value="${escapeHtml(billTo)}" /></label>
+          <label class="vid-field"><span>Email</span><input id="viv-email" type="email" value="${escapeHtml(brand ? "" : (b.client_email || ""))}" placeholder="${brand ? "The office's accounts address" : ""}" /></label>
         </div>
         <div class="vid-inv-row">
           <label class="vid-field"><span>Issued</span><input id="viv-issued" type="date" value="${today}" /></label>
@@ -1554,7 +1580,7 @@ const DELIVER_CATEGORIES = [
         <div class="vid-field"><span>Line items</span><div id="viv-items"></div>
           <button type="button" class="admin-btn admin-btn-ghost" id="viv-add">Add line</button></div>
         <div class="vid-inv-totals" id="viv-totals"></div>
-        <label class="vid-field"><span>Notes (optional)</span><textarea id="viv-notes" rows="2">Thank you for your business - TMKE</textarea></label>
+        <label class="vid-field"><span>Notes (optional)</span><textarea id="viv-notes" rows="${brand ? 3 : 2}">${escapeHtml(defaultNotes)}</textarea></label>
         <p class="vid-warn" id="viv-msg" hidden></p>
         <div class="vid-cand-actions">
           <button type="button" class="admin-btn admin-btn-ghost" id="viv-preview">Preview</button>
@@ -2055,6 +2081,7 @@ const DELIVER_CATEGORIES = [
       set("location", b?.location);
       set("amount_gbp", b?.amount_pence != null ? (b.amount_pence / 100).toString() : "");
       set("notes", b?.notes);
+      set("property_address", b?.property_address);
       set("gallery_url", b?.gallery_url);
       set("gallery_email", b?.gallery_email);
       set("gallery_pin", b?.gallery_pin);
@@ -2173,6 +2200,7 @@ const DELIVER_CATEGORIES = [
         location: get("location") || null,
         amount_pence: gbp ? Math.round(parseFloat(gbp) * 100) : null,
         notes: get("notes") || null,
+        property_address: get("property_address") || null,
         payment_route: get("payment_route") || "agent_card",
         fc_office: get("fc_office") || null,
         marketing_fee_claimed: get("marketing_fee_claimed") === "" ? null : get("marketing_fee_claimed") === "yes",

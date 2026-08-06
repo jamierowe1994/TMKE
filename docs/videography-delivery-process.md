@@ -184,6 +184,22 @@ that warning goes out once rather than every time the check runs.
 
 ---
 
+## The property address
+
+Added 6 Aug. Nothing held the address of the property being shot: the booking
+flow asks for a **postcode**, and it asks for it to work out travel, not to
+record where the shoot is. `location` is a free-text admin field.
+
+A Fine & Country invoice is billed to the office rather than the agent, so it
+has to say on its face which property the work was for — hence
+`property_address` on the booking (`supabase/videography_property_address.sql`).
+
+**The public booking flow still does not collect it**, so a client-made booking
+arrives with it empty and someone has to fill it in before invoicing F&C. Worth
+adding to that flow for property shoots.
+
+---
+
 ## Open questions
 
 1. **Payment terms are a single global setting.** `payment_terms_days` in
