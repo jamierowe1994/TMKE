@@ -4694,9 +4694,30 @@ export default {
         await logBookingMessage(env, {
           booking_id: bookingId, booking_source: source,
           account_user_id: bk.account_user_id, client_email: bk.email,
-          channel: b.notify ? "email" : "note", kind: "manual", subject: b.subject || null,
-          body: bodyText, is_automated: false, created_by: user.email || "admin",
+          channel: b.notify ? "email" : "note",
+          kind: b.kind === "audit" ? "audit" : "manual",
+          subject: b.subject || null,
+          body: bodyText, is_automated: b.kind === "audit", created_by: user.email || "admin",
         });
+
+        // Anyone @-tagged in an internal note gets told, or the tag is decoration.
+        if (!b.notify && Array.isArray(b.mentions) && b.mentions.length) {
+          const escapeHtmlW = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          const known = new Set(((await sbGet(env, "admins", "select=email")) || []).map((r) => String(r.email || "").toLowerCase()));
+          const to = [...new Set(b.mentions.map((m) => String(m || "").toLowerCase()))]
+            .filter((m) => known.has(m) && m !== String(user.email || "").toLowerCase());
+          for (const addr of to) {
+            await sendEmail(env, {
+              to: addr,
+              subject: `${user.email || "Someone"} tagged you on ${bk.client_name || "a booking"}`,
+              html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+                <p style="${EM_P}">${escapeHtmlW(user.email || "A colleague")} tagged you in a note on <strong>${escapeHtmlW(bk.client_name || "a booking")}</strong>.</p>
+                <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">${escapeHtmlW(bodyText)}</span></p>
+                <p style="${EM_SMALL}">Open the booking in the admin centre to reply.</p>
+              </div>`),
+            });
+          }
+        }
         if (b.notify && bk.email) {
           const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
           // Attach a booking document to the email when one was sent with the message.
@@ -5782,6 +5803,17 @@ export default {
       }
 
       // ---- Admin: list a booking's messages + documents ----
+      // Admin directory, for tagging colleagues in a note. Emails only - the
+      // admins table's own RLS deliberately lets a user read just their own
+      // row, so the list has to come from here, where the service role runs.
+      if (path.endsWith("/admins/list") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const rows = (await sbGet(env, "admins", "select=email&order=email.asc")) || [];
+        const emails = rows.map((r) => r.email).filter(Boolean);
+        return json({ admins: emails }, 200, request, env);
+      }
+
       if (path.endsWith("/booking/thread") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
