@@ -11,7 +11,7 @@ Last updated 5 August 2026.
 
 | | Where it lives | Who sees it | How long |
 |---|---|---|---|
-| Client's photos and video | **Pixieset** | The client | ~3 months |
+| Client's photos and video | **Pixieset** — `gallery.tmke.co.uk/<gallery-name>` | The client | ~3 months |
 | Our copy of everything | **Our own storage** | The team | Indefinitely |
 | Floor plans | **Separate — Pixieset can't hold them** | The client, by link | Indefinitely |
 
@@ -30,15 +30,20 @@ Payment and delivery are joined by one rule:
 The gallery is visible but watermarked and locked. Paying releases the PIN.
 
 - **Invoice goes out two days before the shoot.**
-- **Payment is due within seven days of the invoice date.**
+- **Payment is due within ten calendar days of the invoice date.**
 - **Payment is not required until the shoot has taken place.** This must be
-  stated on the invoice, or a client reading "due in 7 days" will think they
+  stated on the invoice, or a client reading "due in 10 days" will think they
   are paying for something they have not had.
 - **A day after the shoot, if unpaid, a reminder goes out** with the invoice
   attached.
 
-Note the reminder lands on roughly day three of a seven-day term, so it is a
-nudge, not a chase. It should read that way.
+Ten days rather than seven for a practical reason: the invoice goes out two
+days before the shoot, and Jack may not finish editing until around day six.
+Seven days would ask people to pay before they have seen anything. Ten leaves
+room for previews to land first.
+
+The reminder lands on day three of ten, so it is a nudge, not a chase. It
+should read that way.
 
 Two payment routes, one signal. Agents pay by card at booking; brands (F&C,
 TPE) are invoiced. Either way what matters downstream is a single `paid_at`
@@ -86,7 +91,7 @@ The invoice must say, plainly:
 
 - payment is not required until the shoot has taken place
 - content cannot be downloaded until payment is received
-- seven days from the invoice date
+- ten calendar days from the invoice date
 
 **Done when:** a client can read the invoice and predict exactly what happens.
 
@@ -112,21 +117,38 @@ PIN.
 
 ---
 
+## Gallery expiry
+
+Galleries live at `gallery.tmke.co.uk/<gallery-name>`. Jack creates the gallery
+in Pixieset, then pastes that link into the booking so it can be shared.
+
+A week before expiry:
+
+- an automated email from TMKE tells the client their gallery is about to go
+- a notice appears in their members hub
+
+After that it is gone, as far as the client is concerned. We still hold the
+archive, and if someone asks urgently we can help — but that is not advertised,
+and nothing in the client-facing copy should hint at it.
+
+`expiry_warned_at` (see `supabase/videography_gallery_expiry.sql`) makes sure
+that warning goes out once rather than every time the check runs.
+
+---
+
 ## Open questions
 
-1. **Which email does Pixieset gate downloads to?** Currently believed to be
-   `info@themarketingexperts.co.uk`. If that is the gate on client galleries
-   rather than the account address, then every client downloads as us — and
-   both the per-client cap and the "stop someone else using their downloads"
-   goal stop working. Worth confirming on a live gallery before Phase 1 fields
-   are trusted.
-2. **What happens at three months?** Client access disappears when the Pixieset
-   gallery expires. We will still hold the archive, but there is no
-   client-facing route back to it. Do we warn them beforehand, re-share on
-   request, or is expiry simply the end of it?
-3. **Where do floor plans actually live?** They need somewhere durable with a
+1. **Payment terms are a single global setting.** `payment_terms_days` in
+   invoice settings is shared by every invoice we raise, so moving it to ten
+   days moves social media management invoices too. Either that is fine, or
+   terms need to become per-service. Worth deciding before it is changed.
+2. **Where do floor plans actually live?** They need somewhere durable with a
    shareable link. Our existing storage is the obvious candidate, since it is
    already wired up and already holds the archive.
-4. **Who sets the download cap?** It varies by package, and property has none.
+3. **Who sets the download cap?** It varies by package, and property has none.
    Either Jack sets it per booking, or it is derived from the package
    automatically. Deriving it is less to remember and harder to get wrong.
+4. **Who sets the expiry date?** Jack can enter it, or we can default it to
+   three months from the shoot date and let him correct it. Defaulting means
+   one less thing to forget, and a wrong date here means either a warning that
+   never fires or one that fires too early.
