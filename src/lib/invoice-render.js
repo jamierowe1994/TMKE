@@ -79,13 +79,22 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
     // applies. The PDF carries no link of its own - the signed pay URL lives in
     // the covering email and cannot be reproduced safely here - so it points
     // back at the email rather than pretending to be clickable.
+    // terms_days is a per-invoice override; null falls back to the global.
+    const days = inv.terms_days ?? s.payment_terms_days ?? 7;
+    const quoting = inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : "";
     if (inv.pay_by_card) {
       payInner.push(`<div class="pl">By card, using the payment button in your invoice email.</div>`);
-      payInner.push(`<div class="pl">Or by bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>`);
+      payInner.push(`<div class="pl">Or by bank transfer within <strong>${esc(days)} days</strong>${quoting}.</div>`);
     } else {
-      payInner.push(`<div class="pl">By bank transfer within <strong>${esc(s.payment_terms_days ?? 7)} days</strong>${inv.number ? `, quoting <strong>${esc(inv.number)}</strong>` : ""}.</div>`);
+      payInner.push(`<div class="pl">By bank transfer within <strong>${esc(days)} days</strong>${quoting}.</div>`);
     }
     payInner.push(`<div class="bank">${[s.account_name && `Account: ${esc(s.account_name)}`, s.sort_code && `Sort code: ${esc(s.sort_code)}`, s.account_number && `Account no: ${esc(s.account_number)}`].filter(Boolean).join("<br>")}</div>`);
+  }
+  // Shoots only. Both statements matter to the client: one tells them they are
+  // not paying for something they have not had, the other tells them why paying
+  // promptly is in their interest.
+  if (inv.release_on_payment) {
+    payInner.push(`<div class="paynote-rule"></div><div class="paynote"><strong>Payment is not required until your shoot has taken place.</strong><br>Your content is watermarked and locked until payment has been received. Once it clears we email your PIN, which unlocks downloading from your gallery.</div>`);
   }
   if (inv.notes) payInner.push(`<div class="paynote-rule"></div><div class="paynote">${nl2br(inv.notes)}</div>`);
   const bank = payInner.length ? `

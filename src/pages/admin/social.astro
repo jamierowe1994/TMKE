@@ -1269,6 +1269,10 @@ import "../../styles/admin.css";
   // bank transfer while a card button sits above it just reads as contradictory.
   lines.push("", inv.pay_by_card ? `Payment is due${due ? ` by ${due}` : ""}. You can pay by card using the button in this email, or by bank transfer using the account details on the invoice, quoting ${inv.number} as the reference. If you have any questions, just reply to this email.`
     : `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+      // Shoots only. An SMM invoice must not promise anything about content.
+      if (inv.release_on_payment) {
+        lines.splice(lines.length - 2, 0, "", "Payment isn't required until your shoot has taken place. Your content stays watermarked and locked until payment reaches us — once it does we'll email your PIN, which unlocks downloading from your gallery.");
+      }
       return lines.join("\n");
     }
     // QuickBooks-style edit-before-send review modal.

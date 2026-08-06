@@ -123,15 +123,25 @@ nobody has verified is precisely what it exists to prevent.
 
 ---
 
-## Phase 3 — invoice wording
+## Phase 3 — invoice wording ✅
 
-The invoice must say, plainly:
+A shoot invoice now carries, in the "How to pay" block and in the covering
+email:
 
-- payment is not required until the shoot has taken place
-- content cannot be downloaded until payment is received
-- ten calendar days from the invoice date
+- **Payment is not required until your shoot has taken place.**
+- Content stays watermarked and locked until payment is received; the PIN
+  follows payment and unlocks downloading.
+- Ten days rather than the usual seven.
 
-**Done when:** a client can read the invoice and predict exactly what happens.
+Switched on per invoice with **Shoot invoice: Yes** on the Invoicing page,
+which also sets terms to ten days and moves the due date to match. Off by
+default, so a general invoice never promises anything about content.
+
+Payment terms are now **per invoice** (`terms_days`) rather than the single
+global. Videography gets ten days without moving social media management
+invoices, which was the reason this had been left undecided.
+
+Run `supabase/invoicing_terms.sql`.
 
 ---
 

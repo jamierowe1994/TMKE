@@ -61,6 +61,10 @@ function defaultInvoiceEmailText(settings, inv) {
   // bank transfer while a card button sits above it just reads as contradictory.
   lines.push("", inv.pay_by_card ? `Payment is due${due ? ` by ${due}` : ""}. You can pay by card using the button in this email, or by bank transfer using the account details on the invoice, quoting ${inv.number} as the reference. If you have any questions, just reply to this email.`
     : `Payment is due${due ? ` by ${due}` : ""} by bank transfer - the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+  // Shoots only. An SMM invoice must not promise anything about content.
+  if (inv.release_on_payment) {
+    lines.splice(lines.length - 2, 0, "", "Payment isn't required until your shoot has taken place. Your content stays watermarked and locked until payment reaches us - once it does we'll email your PIN, which unlocks downloading from your gallery.");
+  }
   return lines.join("\n");
 }
 // The invoice covering email: a body (the sender's edited text if provided, else
@@ -5162,7 +5166,7 @@ export default {
         // PostgREST rejects the whole query for one unknown column, so if
         // supabase/invoicing_stripe.sql hasn't run yet, asking for pay_by_card
         // would blank the entire invoice list rather than just omitting a badge.
-        let rows = await sbGet(env, "invoices", `select=${BASE},payment_ref,pay_by_card${tail}`);
+        let rows = await sbGet(env, "invoices", `select=${BASE},payment_ref,pay_by_card,terms_days,release_on_payment${tail}`);
         if (!rows) rows = (await sbGet(env, "invoices", `select=${BASE}${tail}`)) || [];
         return json({ ok: true, invoices: rows }, 200, request, env);
       }
@@ -5208,6 +5212,9 @@ export default {
           status: "draft", issued_date: (b && b.issued_date) || null, due_date: (b && b.due_date) || null,
           notes: (b && b.notes) || null, template,
           pay_by_card: !!(b && b.pay_by_card),
+          // Per-invoice override; null means fall back to the global setting.
+          terms_days: (b && b.terms_days != null && b.terms_days !== "") ? Math.max(0, Math.round(Number(b.terms_days))) : null,
+          release_on_payment: !!(b && b.release_on_payment),
           // Per-invoice CC — the builder pre-fills the accounts default but the
           // sender can edit/clear it. Only fall back to the default if the field
           // wasn't sent at all (so a deliberate clear = no CC).
@@ -5228,6 +5235,11 @@ export default {
           if (!res.ok && /pay_by_card/.test(errText)) {
             const { pay_by_card: _p, ...rowNoPay } = row;
             res = await sbPost(env, "invoices", rowNoPay, "return=representation");
+          }
+          // Same tolerance for supabase/invoicing_terms.sql.
+          if (!res.ok && /terms_days|release_on_payment/.test(errText)) {
+            const { terms_days: _t2, release_on_payment: _r, ...rowNoTerms } = row;
+            res = await sbPost(env, "invoices", rowNoTerms, "return=representation");
           }
           if (!res.ok) return json({ error: "Couldn't save the invoice." + (errText ? " " + errText.slice(0, 180) : "") }, 502, request, env);
         }

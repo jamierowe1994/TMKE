@@ -34,6 +34,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
               </div>
               <span class="ci-pay-hint">Adds a &ldquo;Pay by card&rdquo; button to the email. Bank details stay on the invoice either way.</span>
             </div>
+            <div class="ci-tpl">
+              <span class="ci-tpl-lbl">Shoot invoice</span>
+              <div class="ci-tpl-opts" id="ci-release">
+                <button type="button" class="ci-tpl-opt" data-rel="no">No</button>
+                <button type="button" class="ci-tpl-opt" data-rel="yes">Yes</button>
+              </div>
+              <span class="ci-pay-hint">Adds the content-release terms: payment isn&rsquo;t due until the shoot has happened, and the PIN follows payment.</span>
+            </div>
             <h3 class="inv-h">Bill to</h3>
             <label class="inv-field"><span>From the address book</span><select id="ci-recip"><option value="">— Choose a partner, or type below —</option></select></label>
             <label class="inv-field"><span>Name *</span><input id="ci-name" placeholder="e.g. Fine &amp; Country — Rugby" /></label>
@@ -46,6 +54,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             <div class="inv-row2b">
               <label class="inv-field"><span>Issued</span><input id="ci-issued" type="date" /></label>
               <label class="inv-field"><span>Due</span><input id="ci-due" type="date" /></label>
+              <label class="inv-field"><span>Terms (days)</span><input id="ci-terms" type="number" min="0" step="1" placeholder="Default" /></label>
             </div>
             <h3 class="inv-h">Line items</h3>
             <div id="ci-items"></div>
@@ -533,6 +542,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     // Off by default - a pay link should be a deliberate choice per invoice,
     // not something that quietly appears on every one.
     let ciPayByCard = false;
+    // Shoot invoices carry extra terms and a longer window. Off by default so a
+    // general invoice never promises anything about content.
+    let ciRelease = false;
     const gbp = (p) => "£" + ((p || 0) / 100).toFixed(2);
     const isoToday = () => new Date().toISOString().slice(0, 10);
     function ciTotals() {
@@ -551,11 +563,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         line_items: ciItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
         subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
         pay_by_card: ciPayByCard,   // drives the "How to pay" wording in the preview
+        release_on_payment: ciRelease,
+        terms_days: $("ci-terms").value === "" ? null : Math.max(0, Math.round(Number($("ci-terms").value))),
       };
     }
     const ciSettings = () => ({ ...currentSettings, template: ciTemplate });
     function syncCiTpl() { document.querySelectorAll("#ci-tpl .ci-tpl-opt").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-tpl") === ciTemplate)); }
     function syncCiPay() { document.querySelectorAll("#ci-pay .ci-tpl-opt").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-pay") === "yes") === ciPayByCard)); }
+    function syncCiRelease() { document.querySelectorAll("#ci-release .ci-tpl-opt").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-rel") === "yes") === ciRelease)); }
     function ciRenderItems() {
       $("ci-items").innerHTML = ciItems.map((it, i) => `<div class="ci-item"><input class="ci-desc" data-i="${i}" placeholder="Description of the service" value="${esc(it.description)}"/><input class="ci-amt" data-i="${i}" type="number" step="0.01" placeholder="0.00" value="${esc(it.amount)}"/><button type="button" class="ci-del" data-i="${i}" title="Remove">&times;</button></div>`).join("");
     }
@@ -573,10 +588,30 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!$("ci-due").value) { const d = new Date(); d.setDate(d.getDate() + Number(currentSettings.payment_terms_days || 7)); $("ci-due").value = d.toISOString().slice(0, 10); }
       if (!$("ci-notes").value) $("ci-notes").value = NOTES_DEFAULT;
       if (!$("ci-cc").value) $("ci-cc").value = currentSettings.accounts_cc_email || "";
+      syncCiRelease();
       ciRefresh();
     }
     $("ci-tpl").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciTemplate = b.getAttribute("data-tpl"); syncCiTpl(); ciPreview(); });
     $("ci-pay").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciPayByCard = b.getAttribute("data-pay") === "yes"; syncCiPay(); ciPreview(); });
+    $("ci-release").addEventListener("click", (e) => {
+      const b = e.target.closest(".ci-tpl-opt"); if (!b) return;
+      ciRelease = b.getAttribute("data-rel") === "yes";
+      // A shoot invoice runs to ten days: it goes out two days before the
+      // shoot, and editing may not finish until around day six.
+      if (ciRelease && !$("ci-terms").value) { $("ci-terms").value = "10"; ciApplyTerms(); }
+      syncCiRelease(); ciPreview();
+    });
+    $("ci-terms").addEventListener("input", () => { ciApplyTerms(); ciPreview(); });
+
+    // Keep the due date honest: it is what the client actually reads.
+    function ciApplyTerms() {
+      const n = Number($("ci-terms").value);
+      if (!$("ci-terms").value || isNaN(n)) return;
+      const from = $("ci-issued").value ? new Date($("ci-issued").value) : new Date();
+      if (isNaN(from)) return;
+      from.setDate(from.getDate() + n);
+      $("ci-due").value = from.toISOString().slice(0, 10);
+    }
     syncCiPay();
     $("ci-items").addEventListener("input", (e) => { const i = +e.target.getAttribute("data-i"); if (e.target.classList.contains("ci-desc")) ciItems[i].description = e.target.value; else if (e.target.classList.contains("ci-amt")) ciItems[i].amount = e.target.value; ciRenderTotals(); ciPreview(); });
     $("ci-items").addEventListener("click", (e) => { const b = e.target.closest(".ci-del"); if (!b) return; ciItems.splice(+b.getAttribute("data-i"), 1); if (!ciItems.length) ciItems.push({ description: "", amount: "" }); ciRefresh(); });
@@ -590,7 +625,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!inv.bill_to_name) { msg("ci-msg", "Enter a recipient name.", false); return null; }
       if (requireEmail && !inv.bill_to_email) { msg("ci-msg", "Enter a recipient email to send to.", false); return null; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return null; }
-      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, line_items: inv.line_items }) });
+      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, release_on_payment: ciRelease, terms_days: inv.terms_days, line_items: inv.line_items }) });
       currentSettings.next_number = (currentSettings.next_number || 1001) + 1;
       return invoice;
     }
@@ -622,6 +657,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
   // bank transfer while a card button sits above it just reads as contradictory.
   lines.push("", inv.pay_by_card ? `Payment is due${due ? ` by ${due}` : ""}. You can pay by card using the button in this email, or by bank transfer using the account details on the invoice, quoting ${inv.number} as the reference. If you have any questions, just reply to this email.`
     : `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+      // Shoots only. An SMM invoice must not promise anything about content.
+      if (inv.release_on_payment) {
+        lines.splice(lines.length - 2, 0, "", "Payment isn't required until your shoot has taken place. Your content stays watermarked and locked until payment reaches us — once it does we'll email your PIN, which unlocks downloading from your gallery.");
+      }
       return lines.join("\n");
     }
     function openEmailModal(inv, resetOnSend) {
