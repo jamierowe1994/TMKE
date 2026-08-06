@@ -496,6 +496,15 @@ the rendered output checking, not just a build.
   `client_email`), with writes left to admins and the Worker. Needs testing
   against `/account/bookings` afterwards. NB the invoicing tables were done
   properly already.
+
+  **This got worse on 5 Aug.** `videography_bookings` now stores Pixieset
+  gallery PINs (`gallery_pin`), and the whole delivery design rests on "no PIN
+  until paid". With `using (true)` that guarantee does not hold: any signed-in
+  member can read every PIN on every booking, paid or not, along with the
+  gallery URL and the client email the gallery is gated to — which is the exact
+  pair Pixieset asks for at download. Agreed with James to fix at a natural
+  break; it should land **before** the automated PIN release goes live, or we
+  are protecting a secret that is already readable.
 - ⬜ **Every contact-form enquiry is readable by any signed-in member** — same
   hole, found 30 Jul. `supabase/enquiries.sql:63-67` is `for select to
   authenticated using (true)`, so any member can read every enquirer's name,
