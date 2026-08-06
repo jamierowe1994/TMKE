@@ -48,31 +48,41 @@ function invoiceDueNice(inv) {
 // The default covering-email text (plain, with line breaks). Mirrored on the
 // client so the sender can edit it before sending; kept here as the fallback.
 // Keys off the invoice's actual due date rather than a fixed "within N days".
-function defaultInvoiceEmailText(settings, inv) {
+function defaultInvoiceEmailText(settings, inv, bk) {
   const company = settings.company_name || "The Marketing Experts (Nationwide) Ltd";
   const due = invoiceDueNice(inv);
+  // A Fine & Country invoice goes to an office that is settling somebody
+  // else's shoot, so the agent's name rides along with the invoice number
+  // everywhere it appears - otherwise the office cannot tell one from another.
+  const brand = bk && bk.payment_route === "brand_invoice";
+  const agent = (bk && bk.client_name) || "";
+  const ref = brand && agent ? `${inv.number} - ${agent}` : inv.number;
   const lines = [
     `Dear ${inv.bill_to_name || "Sir or Madam"},`, "",
-    `Please find attached invoice ${inv.number} from ${company}.`, "",
+    `Please find attached invoice ${ref} from ${company}.`, "",
     `Amount due: ${money(inv.total_pence)}`,
   ];
   if (due) lines.push(`Due date: ${due}`);
+  if (brand) {
+    const where = (bk.property_address || bk.location || "").replace(/\s*\n\s*/g, ", ").trim();
+    lines.push("", `This invoice is in relation to the ${(bk.service || "property videography").toLowerCase()} shoot with ${agent || "the agent"}${where ? ` at ${where}` : ""}. You are receiving it because we have been informed you are holding the client's marketing fee.`);
+  }
   // When the invoice carries a pay link, say so - telling someone to pay by
   // bank transfer while a card button sits above it just reads as contradictory.
   lines.push("", inv.pay_by_card ? `Payment is due${due ? ` by ${due}` : ""}. You can pay by card using the button in this email, or by bank transfer using the account details on the invoice, quoting ${inv.number} as the reference. If you have any questions, just reply to this email.`
     : `Payment is due${due ? ` by ${due}` : ""} by bank transfer - the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
   // Shoots only. An SMM invoice must not promise anything about content.
-  if (inv.release_on_payment) {
-    lines.splice(lines.length - 2, 0, "", "Payment isn't required until your shoot has taken place. Your content stays watermarked and locked until payment reaches us - once it does we'll email your PIN, which unlocks downloading from your gallery.");
+  if (inv.release_on_payment && !brand) {
+    lines.splice(lines.length - 2, 0, "Payment isn't required until your shoot has taken place. Your content stays watermarked and locked until payment reaches us - once it does we'll email your PIN, which unlocks downloading from your gallery.", "");
   }
   return lines.join("\n");
 }
 // The invoice covering email: a body (the sender's edited text if provided, else
 // the default) followed by the optional footer image. PDF attached separately.
-function invoiceEmailHtml(settings, inv, customBodyText, payUrl) {
+function invoiceEmailHtml(settings, inv, customBodyText, payUrl, bk) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const br = (s) => esc(s).replace(/\n/g, "<br>");
-  const bodyText = (customBodyText != null && String(customBodyText).trim()) ? customBodyText : defaultInvoiceEmailText(settings, inv);
+  const bodyText = (customBodyText != null && String(customBodyText).trim()) ? customBodyText : defaultInvoiceEmailText(settings, inv, bk);
   const footer = settings.email_footer_image_url
     ? `<div style="margin-top:26px"><img src="${esc(settings.email_footer_image_url)}" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0" /></div>`
     : "";
@@ -5171,6 +5181,18 @@ export default {
         // The person raising the invoice can pick the style; fall back to the saved default.
         const stForPdf = { ...st, template: inv.template || st.template };
 
+        // Videography invoices carry booking_id, so the covering email can say
+        // whose shoot it was and where - which a Fine & Country office needs,
+        // because it is settling somebody else's bill.
+        let bk = null;
+        if (inv.booking_id && (inv.booking_source || "videography") === "videography") {
+          const brows = await sbGet(env, "videography_bookings",
+            `id=eq.${encodeURIComponent(inv.booking_id)}&select=client_name,service,payment_route,property_address,location`);
+          bk = (brows && brows[0]) || null;
+        }
+        const forBrand = bk && bk.payment_route === "brand_invoice";
+        const agentName = (bk && bk.client_name) || "";
+
         let pdf;
         try { pdf = await renderInvoicePdf(env, stForPdf, inv); }
         catch (err) { return json({ error: "Couldn't render the PDF: " + (err && err.message ? err.message : err) }, 502, request, env); }
@@ -5181,7 +5203,13 @@ export default {
 
         // The sender can edit the subject, body and CC on the review step before
         // sending; fall back to the invoice's stored values / defaults otherwise.
-        const subject = (b && typeof b.email_subject === "string" && b.email_subject.trim()) ? b.email_subject.trim() : `Invoice ${inv.number} from ${st.company_name || "The Marketing Experts (Nationwide) Ltd"}`;
+        const coName = st.company_name || "The Marketing Experts (Nationwide) Ltd";
+        // "Property videography invoice TMKE1022 - Jane Smith from ..." so the
+        // office can tell at a glance which shoot it is being billed for.
+        const autoSubject = forBrand
+          ? `${bk.service || "Videography"} invoice ${inv.number}${agentName ? ` - ${agentName}` : ""} from ${coName}`
+          : `Invoice ${inv.number} from ${coName}`;
+        const subject = (b && typeof b.email_subject === "string" && b.email_subject.trim()) ? b.email_subject.trim() : autoSubject;
         const cc = (b && b.cc !== undefined) ? (String(b.cc || "").trim() || null) : (inv.cc_email || null);
 
         // Covering email with the PDF attached; accounts dept CC'd. If the email
@@ -5196,7 +5224,7 @@ export default {
           to: mail.to,
           cc: mail.cc,
           subject,
-          html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body, payUrl)),
+          html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body, payUrl, bk)),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
         });
         if (!emailed.ok) return json({ error: "The invoice was saved but the email didn't send: " + (emailed.error || "unknown error") + " (recipient: " + inv.bill_to_email + (cc ? ", cc: " + cc : "") + ")" }, 502, request, env);
