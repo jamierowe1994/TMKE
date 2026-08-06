@@ -4,10 +4,14 @@
 // Handles the admin auth gate, loads the signed-in admin's profile (name +
 // headshot from `admin_profiles`), the collapse toggle, and sign-out.
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import "../../styles/hub-tokens.css";
 import "../../styles/admin-shell.css";
 
 interface Props { active?: string; title?: string; }
-const { active = "dashboard", title = "Dashboard" } = Astro.props;
+// `skin="hub"` opts a page into the My Marketing Hub styling. Opt-in rather
+// than global so pages can be moved across one at a time instead of all
+// twenty changing at once.
+const { active = "dashboard", title = "Dashboard", skin = "" } = Astro.props;
 
 // Icons are small inline line-SVGs (stroke = currentColor).
 const I = {
@@ -107,7 +111,7 @@ const NAV = [
           <input type="search" placeholder="Search…" aria-label="Search" />
         </label>
       </header>
-      <main class="ash-content"><slot /></main>
+      <main class={`ash-content${skin === "hub" ? " hub-skin" : ""}`}><slot /></main>
     </div>
   </div>
 

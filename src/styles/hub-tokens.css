@@ -1,0 +1,190 @@
+/* ---------------------------------------------------------------------------
+   Hub design tokens
+   ---------------------------------------------------------------------------
+   Ported from the My Marketing Hub app (jamierowe1994/TMKE-Dashboard,
+   app/globals.css) so the admin centre and the Hub read as one product.
+
+   Typography needed nothing: both already use Helios for display and Darker
+   Grotesque for copy. What the Hub has and the admin centre didn't is a proper
+   surface/border/shadow scale and a semantic colour set - which is why the Hub
+   looks composed and the admin centre looked assembled out of one-off
+   `rgba(...)` literals.
+
+   These are ADDITIVE. Nothing here renames or removes an existing variable, so
+   any page not yet reskinned carries on exactly as before and this file can be
+   dropped to revert.
+--------------------------------------------------------------------------- */
+
+:root {
+  /* Brand. --primary is the same plum as --english-violet; kept under the
+     Hub's name so ported CSS can be pasted without translation. */
+  --primary: #371e28;
+  --primary-light: #f3eeef;
+  --primary-hover: #2a1620;
+  --accent: #7e6765;
+  --accent-light: #c9bcb7;
+
+  /* Surfaces. The admin centre had one paper colour and improvised the rest. */
+  --hub-bg: #f4f2f1;
+  --surface: #ffffff;
+  --surface-2: #faf8f7;
+  --border: #eae5e1;
+  --border-subtle: #f0edeb;
+  --hub-text: #2b2226;
+  --muted: #887d77;
+
+  /* Semantic pairs. Each has a light companion for backgrounds, which is what
+     makes badges and status pills legible without hand-mixed opacity. */
+  --red: #7a3535;   --red-light: #f8f0f0;
+  --amber: #7a6230; --amber-light: #f7f2e6;
+  --green: #2d5a3d; --green-light: #eaf3ee;
+  --blue: #2d3a5a;  --blue-light: #eaecf3;
+
+  /* Elevation. Every shadow carries a hairline ring, which is what stops cards
+     needing a heavy border to read as separate from the page. */
+  --shadow-xs: 0 1px 2px rgba(43, 34, 38, 0.05);
+  --shadow-sm: 0 1px 4px rgba(43, 34, 38, 0.06), 0 0 0 1px rgba(43, 34, 38, 0.03);
+  --shadow-md: 0 4px 16px rgba(43, 34, 38, 0.09), 0 0 0 1px rgba(43, 34, 38, 0.04);
+  --shadow-lg: 0 12px 32px rgba(43, 34, 38, 0.12), 0 0 0 1px rgba(43, 34, 38, 0.05);
+
+  /* The Hub's corners are much tighter than the admin centre's 14px. */
+  --radius: 5px;
+  --radius-sm: 3px;
+}
+
+/* ---- Components, straight from the Hub -----------------------------------
+   Named exactly as they are there, so markup can move between the two without
+   a translation step. Scoped under .hub-skin so they only apply where a page
+   has opted in - a global .card or .btn would collide with the public site. */
+
+.hub-skin .card {
+  background: var(--surface); border-radius: var(--radius); padding: 24px;
+  border: 1px solid var(--border); box-shadow: var(--shadow-xs);
+}
+.hub-skin .card + .card { margin-top: 16px; }
+
+.hub-skin .btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+  border-radius: 4px; border: none; cursor: pointer; font-size: 12px; font-weight: 700;
+  transition: all 0.18s; font-family: inherit; line-height: 1;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.hub-skin .btn-primary { background: var(--primary); color: #fff; }
+.hub-skin .btn-primary:hover { background: var(--primary-hover); }
+.hub-skin .btn-outline { background: var(--surface); color: var(--primary); border: 1.5px solid var(--primary); }
+.hub-skin .btn-outline:hover { background: var(--primary-light); }
+.hub-skin .btn-ghost { background: none; border: 1px solid var(--border); color: var(--muted); }
+.hub-skin .btn-ghost:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+.hub-skin .btn-danger { background: var(--surface); color: var(--red); border: 1px solid var(--border); }
+.hub-skin .btn-danger:hover { background: var(--red-light); border-color: var(--red); }
+.hub-skin .btn-sm { padding: 5px 12px; font-size: 11px; border-radius: var(--radius-sm); }
+.hub-skin .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.hub-skin .badge {
+  display: inline-block; padding: 2px 7px; border-radius: var(--radius-sm);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.hub-skin .b-green  { background: var(--green-light);   color: var(--green); }
+.hub-skin .b-amber  { background: var(--amber-light);   color: var(--amber); }
+.hub-skin .b-red    { background: var(--red-light);     color: var(--red); }
+.hub-skin .b-blue   { background: var(--blue-light);    color: var(--blue); }
+.hub-skin .b-purple { background: var(--primary-light); color: var(--primary); }
+.hub-skin .b-mauve  { background: var(--accent-light);  color: var(--accent); }
+.hub-skin .b-gray   { background: #eeecea;              color: #5c5860; }
+
+/* The Hub's dark page header. Gives a page a title block that matches the
+   sidebar rather than floating on the background. */
+.hub-skin .page-header {
+  background: var(--primary); border-radius: var(--radius);
+  padding: 20px 28px 16px; margin: 0 0 28px; box-shadow: 0 2px 8px rgba(43, 34, 38, 0.18);
+}
+.hub-skin .page-header-title {
+  font-family: var(--sans); font-size: 17px; font-weight: 800; color: #fff;
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.hub-skin .page-header-sub {
+  font-family: var(--sans); font-size: 12px; color: rgba(255, 255, 255, 0.6);
+  margin-top: 3px; font-weight: 400;
+}
+
+/* Forms. Deliberately scoped to .hub-skin rather than bare element selectors -
+   the Hub can style `input` globally because it is one app; here that would
+   reach the public site. */
+.hub-skin label {
+  font-size: 10.5px; font-weight: 700; color: var(--muted); display: block;
+  margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em;
+}
+/* NB no width here. The Hub can stretch every input because its forms are all
+   full-width blocks; the admin centre has inline controls - search boxes,
+   toolbar selects - that a blanket 100% turns into full-width bars. */
+.hub-skin input, .hub-skin select, .hub-skin textarea {
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: 4px;
+  font-size: 13px; font-family: inherit; background: var(--surface); color: var(--hub-text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.hub-skin input:focus, .hub-skin select:focus, .hub-skin textarea:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(55, 30, 40, 0.08);
+}
+.hub-skin textarea { min-height: 80px; resize: vertical; line-height: 1.6; width: 100%; }
+.hub-skin .vid-field input, .hub-skin .vid-field select, .hub-skin .vid-field textarea { width: 100%; }
+.hub-skin input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+
+/* ---- Bridging the admin centre's existing classes -------------------------
+   The admin pages already have their own panel/button/card vocabulary. Rather
+   than rewrite every page's markup, these map the existing classes onto the
+   Hub's look. A page opts in with skin="hub" on AdminShell.
+--------------------------------------------------------------------------- */
+
+/* The Hub's page background is flatter and slightly warmer. */
+.hub-skin { background: var(--hub-bg); }
+
+/* Panels become Hub cards: 5px corners, hairline border, whisper of shadow -
+   instead of a 14px-radius slab with heavy padding. */
+.hub-skin .ash-panel,
+.hub-skin .ash-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+}
+.hub-skin .ash-page { padding: 22px 24px; }
+
+/* Buttons: uppercase, tighter, and the same three weights the Hub uses. */
+.hub-skin .admin-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 1;
+  letter-spacing: 0.04em; text-transform: uppercase; transition: all 0.18s;
+}
+.hub-skin .admin-btn-primary { background: var(--primary); color: #fff; }
+.hub-skin .admin-btn-primary:hover { background: var(--primary-hover); }
+.hub-skin .admin-btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+.hub-skin .admin-btn-ghost:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+.hub-skin .admin-btn-danger { background: var(--surface); color: var(--red); border: 1px solid var(--border); }
+.hub-skin .admin-btn-danger:hover { background: var(--red-light); border-color: var(--red); }
+
+/* Section headings pick up the Hub's small-caps treatment. */
+.hub-skin .ash-section-h {
+  font-family: var(--sans); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+}
+
+/* Inputs, matching the Hub's focus ring. */
+.hub-skin .admin-search,
+.hub-skin .vid-field input,
+.hub-skin .vid-field select,
+.hub-skin .vid-field textarea {
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); color: var(--hub-text); font-size: 13px;
+}
+.hub-skin .admin-search:focus,
+.hub-skin .vid-field input:focus,
+.hub-skin .vid-field select:focus,
+.hub-skin .vid-field textarea:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(55, 30, 40, 0.08);
+}
+
+/* Pipeline columns and client cards. */
+.hub-skin .vid-col { background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius); }
+.hub-skin .vid-cand-card { border-radius: var(--radius); border-color: var(--border); box-shadow: var(--shadow-xs); }
+.hub-skin .vid-rate-wrap { border-radius: var(--radius); border-color: var(--border); }
