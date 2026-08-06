@@ -9,6 +9,13 @@
 --
 --   create table if not exists videography_bookings_stage_backup_2026_08 as
 --     select id, stage from public.videography_bookings;
+--   alter table public.videography_bookings_stage_backup_2026_08
+--     enable row level security;
+--
+-- The RLS line is not optional. A new table in `public` with RLS off is
+-- readable by anyone holding the anon or authenticated key - i.e. every signed
+-- in member. Enabling it with NO policies denies everyone except the service
+-- role, which is exactly right for a backup nothing should be reading.
 --
 -- Safe to re-run.
 -- ============================================================
