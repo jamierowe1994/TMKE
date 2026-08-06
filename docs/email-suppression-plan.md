@@ -311,6 +311,18 @@ Two things learned that are worth keeping:
   address, and why the tenant has limited self-service. James's own
   @therecruitmentexperts.co.uk login is a **different tenant**
   (`9f6c0962-…` vs TMKE's `bd9416b6-…`) and cannot administer this one.
+- **Mailbox display names come from GoDaddy, not Microsoft.** Found 6 Aug after
+  clients and colleagues saw "The Recruitment Experts" against @tmke.co.uk
+  addresses. The tenant was provisioned through the TRE GoDaddy account, so the
+  organisation name on the directory is the TRE one, and Microsoft falls back to
+  it when labelling mailboxes. It is NOT in this codebase: recipients are sent
+  as bare addresses with no display name, and only the From carries
+  MAIL_FROM_NAME. admin.microsoft.com shows the field read-only because GoDaddy
+  owns it; the fix is GoDaddy → Email & Office → the mailbox. Signing in as the
+  affected user does not help - changing a display name is an admin action, and
+  the "contact your IT or HR department" message means exactly that. Corrected
+  for hello@, danielle@ and jack@. Jack's was the one that mattered: his mailbox
+  sends booking confirmations and calendar invites, so clients saw it.
 - **Microsoft has changed the DKIM CNAME target format.** It is now
   `selector1-tmke-co-uk._domainkey.NETORGFT20795242.k-v1.dkim.mail.microsoft`,
   not the older `….onmicrosoft.com`. The `.microsoft` TLD is real. Guides
