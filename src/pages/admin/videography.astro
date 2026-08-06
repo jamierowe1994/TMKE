@@ -575,9 +575,13 @@ const DELIVER_CATEGORIES = [
       text-transform: uppercase; color: rgba(28,29,34,0.45);
     }
     .vid-inv-row-item { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 0; border-bottom: 1px solid rgba(28,29,34,0.06); font-family: var(--sans); font-size: 13px; }
+    /* Status and actions sit right, so the eye runs number → amount → what to do. */
+    .vid-inv-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .vid-inv-actions .admin-btn { padding: 5px 11px; font-size: 11px; }
     .vid-inv-num { font-weight: 700; color: var(--english-violet); min-width: 92px; }
     .vid-inv-status { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.55); }
     .vid-inv-status.is-paid { background: rgba(var(--violet-rgb), 0.12); color: var(--english-violet); }
+    .vid-inv-status.is-void { background: rgba(28,29,34,0.06); color: rgba(28,29,34,0.4); text-decoration: line-through; }
 
     /* Notes: internal record + audit trail. */
     .vid-notes { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
@@ -1492,6 +1496,7 @@ const DELIVER_CATEGORIES = [
     let vivItems = [];
     let vivPayByCard = true;   // shoots are usually card; still per-invoice
     let vivDraft = null;       // the created invoice awaiting send
+    let vivReissueOf = null;   // { id, number } when reissuing a sent invoice
 
     async function ensureInvSettings() {
       if (invSettings || !WORKER_URL) return invSettings;
@@ -1552,6 +1557,7 @@ const DELIVER_CATEGORIES = [
       await ensureInvSettings();
       vivItems = vivSeedItems(b);
       vivDraft = null;
+      vivReissueOf = null;
       const today = new Date().toISOString().slice(0, 10);
       const due = new Date(); due.setDate(due.getDate() + 10);
       const brand = isBrandInvoiced(b);
@@ -1615,6 +1621,7 @@ const DELIVER_CATEGORIES = [
         const w = window.open("", "_blank"); if (!w) return;
         w.document.open(); w.document.write(renderInvoiceHtml({ settings: { ...invSettings }, invoice: vivBuildInvoice(b) })); w.document.close();
       });
+      document.getElementById("viv-terms").addEventListener("input", ciApplyVivTerms);
       document.getElementById("viv-draft").addEventListener("click", () => createInvoice(b, false));
       document.getElementById("viv-send").addEventListener("click", () => createInvoice(b, true));
       loadInvoices(b);
@@ -1684,7 +1691,19 @@ const DELIVER_CATEGORIES = [
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { vivStatus(data.error || "Couldn't save the invoice.", true); return; }
         vivDraft = data.invoice;
-        if (!send) { vivStatus(`Invoice ${data.invoice.number} saved as a draft.`); loadInvoices(b); return; }
+        // Only void the original once its replacement is safely saved. The
+        // other order risks voiding an invoice and having nothing to show for it.
+        let voided = "";
+        if (vivReissueOf) {
+          await fetch(`${WORKER_URL}/invoicing/invoices`, {
+            method: "PATCH",
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ id: vivReissueOf.id, status: "void" }),
+          });
+          voided = ` ${vivReissueOf.number} voided.`;
+          vivReissueOf = null;
+        }
+        if (!send) { vivStatus(`Invoice ${data.invoice.number} saved as a draft.${voided}`); loadInvoices(b); return; }
 
         const sres = await fetch(`${WORKER_URL}/invoicing/invoices/send`, {
           method: "POST",
@@ -1693,7 +1712,7 @@ const DELIVER_CATEGORIES = [
         });
         const sdata = await sres.json().catch(() => ({}));
         if (!sres.ok) { vivStatus(sdata.error || "Saved, but the email didn't send.", true); loadInvoices(b); return; }
-        vivStatus(`Invoice ${data.invoice.number} sent to ${inv.bill_to_email}.`);
+        vivStatus(`Invoice ${data.invoice.number} sent to ${inv.bill_to_email}.${voided}`);
         // The stage follows the invoice actually going out.
         if (b.stage === "booked") await advanceStage("invoiced");
         loadInvoices(b);
@@ -1716,10 +1735,75 @@ const DELIVER_CATEGORIES = [
         <div class="vid-inv-row-item">
           <span class="vid-inv-num">${escapeHtml(iv.number || "—")}</span>
           <span>${escapeHtml(gbpFromPence(iv.total_pence))}</span>
-          <span class="vid-inv-status is-${escapeHtml(iv.status)}">${escapeHtml(iv.status)}</span>
-          ${iv.status !== "paid" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vpaid="${escapeHtml(iv.id)}">Mark paid</button>` : ""}
+          <span class="vid-inv-actions">
+            <span class="vid-inv-status is-${escapeHtml(iv.status)}">${escapeHtml(iv.status)}</span>
+            ${iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vedit="${escapeHtml(iv.id)}">Edit</button>` : ""}
+            ${iv.status === "sent" || iv.status === "paid" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vresend="${escapeHtml(iv.id)}">Resend</button>` : ""}
+            ${iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vpaid="${escapeHtml(iv.id)}">Mark paid</button>` : ""}
+          </span>
         </div>`).join("");
       host.querySelectorAll("[data-vpaid]").forEach((btn) => btn.addEventListener("click", () => markInvoicePaid(b, btn.getAttribute("data-vpaid"))));
+      host.querySelectorAll("[data-vresend]").forEach((btn) => btn.addEventListener("click", () => resendInvoice(b, btn.getAttribute("data-vresend"), btn)));
+      host.querySelectorAll("[data-vedit]").forEach((btn) => btn.addEventListener("click", () => editInvoice(b, btn.getAttribute("data-vedit"))));
+    }
+
+    async function resendInvoice(b, id, btn) {
+      if (!confirm("Send this invoice again to the same address?")) return;
+      const label = btn.textContent; btn.disabled = true; btn.textContent = "Sending…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/invoicing/invoices/send`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        const d = await res.json().catch(() => ({}));
+        vivStatus(res.ok ? `Sent again to ${d.sent_to || "the client"}.` : (d.error || "Couldn't resend."), !res.ok);
+      } catch (err) { vivStatus("Couldn't resend: " + err.message, true); }
+      finally { btn.disabled = false; btn.textContent = label; loadInvoices(b); }
+    }
+
+    /* A sent invoice is not edited in place - it has gone to the client and it
+       has a number. Editing loads it back into the builder and reissues it as a
+       new invoice, voiding the original. That is what "we need to change it"
+       actually means once something has left the building. */
+    async function editInvoice(b, id) {
+      const { data, error } = await supabase.from("invoices").select("*").eq("id", id).maybeSingle();
+      if (error || !data) { vivStatus("Couldn't load that invoice.", true); return; }
+      const set = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v ?? ""; };
+      set("viv-name", data.bill_to_name);
+      set("viv-email", data.bill_to_email);
+      set("viv-address", data.bill_to_address);
+      set("viv-cc", data.cc_email);
+      set("viv-issued", new Date().toISOString().slice(0, 10));
+      set("viv-terms", data.terms_days ?? 10);
+      set("viv-notes", data.notes);
+      vivPayByCard = !!data.pay_by_card; vivSyncPay();
+      vivItems = (data.line_items || []).map((it) => ({
+        description: it.description || "",
+        amount: (((it.unit_pence || 0) * (it.qty || 1)) / 100).toFixed(2),
+      }));
+      vivRenderItems();
+      ciApplyVivTerms();
+      vivReissueOf = { id: data.id, number: data.number };
+      const sendBtn = document.getElementById("viv-send");
+      if (sendBtn) sendBtn.textContent = "Reissue & send";
+      const draftBtn = document.getElementById("viv-draft");
+      if (draftBtn) draftBtn.textContent = "Reissue as draft";
+      vivStatus(`Editing ${data.number}. Saving raises a new invoice and voids ${data.number}.`);
+      document.getElementById("vid-cand-invoice")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    // Keep the due date honest when terms change.
+    function ciApplyVivTerms() {
+      const n = Number(document.getElementById("viv-terms")?.value);
+      const issued = document.getElementById("viv-issued")?.value;
+      const dueEl = document.getElementById("viv-due");
+      if (!dueEl || !n || isNaN(n)) return;
+      const from = issued ? new Date(issued) : new Date();
+      if (isNaN(from)) return;
+      from.setDate(from.getDate() + n);
+      dueEl.value = from.toISOString().slice(0, 10);
     }
 
     async function markInvoicePaid(b, id) {
