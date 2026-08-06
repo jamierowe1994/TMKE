@@ -252,8 +252,8 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     }
     function fmtBytes(n) { if (!n) return ''; const u = ['B', 'KB', 'MB', 'GB']; let i = 0, v = n; while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; } return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${u[i]}`; }
     const STAGE_LABEL = {
-      booked: 'Booked', shoot_day: 'Shoot day', editing: 'In edit', final_draft: 'Final draft',
-      invoice_out: 'Invoice sent', complete: 'Complete', cancelled: 'Cancelled',
+      booked: 'Booked', invoiced: 'Invoice sent', shoot_day: 'Shoot day', editing: 'In edit',
+      gallery_ready: 'Ready — awaiting payment', delivered: 'Delivered', cancelled: 'Cancelled',
       discovery_call_booked: 'Call booked', enquiry_non_member: 'Enquiry sent',
     };
     const CAT_LABEL = { agreement: 'Service Agreement', prep: 'Prep Document', invoice: 'Invoice', delivery: 'Delivered Files', other: 'Document' };
@@ -347,7 +347,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const up = [], past = [];
       for (const r of rows) {
         const ts = r.when ? new Date(r.when).getTime() : null;
-        const isPast = r.stage === 'cancelled' || r.stage === 'complete' || (ts != null && ts < now);
+        const isPast = r.stage === 'cancelled' || r.stage === 'delivered' || (ts != null && ts < now);
         (isPast ? past : up).push(r);
       }
       up.sort((a, b) => new Date(a.when || 0) - new Date(b.when || 0));
@@ -367,7 +367,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
     function cardHtml(r) {
       const cancelled = r.stage === 'cancelled';
-      const complete = r.stage === 'complete';
+      const complete = r.stage === 'delivered';
       const when = fmtWhen(r.when);
       const pillCls = cancelled ? 'is-cancelled' : complete ? 'is-complete' : '';
       const label = STAGE_LABEL[r.stage] || r.stage || '—';
@@ -396,7 +396,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const now = Date.now();
       const ts = r.when ? new Date(r.when).getTime() : null;
       const cancelled = r.stage === 'cancelled';
-      const complete = r.stage === 'complete';
+      const complete = r.stage === 'delivered';
       const future = ts != null && ts > now;
       const days = ts != null ? (ts - now) / 86400000 : null;
 
@@ -667,7 +667,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       rows = [
         { source: 'videography', id: 'demo-1', kind: 'booking', service: 'Property shoot — full package', when: soon.toISOString(), duration_min: 120, stage: 'booked', location: 'NN14 1AA', total_pence: 54000, surcharge_pence: 4000, add_ons: [{ name: 'Drone footage' }], package: 'Full property package', service_type: 'property', reschedule_token: 'demo-tok-1', client_name: 'Danielle Adams', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 30 * 86400000).toISOString(), canManageOnline: true },
         { source: 'smm', id: 'demo-2', kind: 'discovery', service: 'Social media discovery call', when: call.toISOString(), duration_min: 30, stage: 'discovery_call_booked', location: 'Teams call', total_pence: null, service_type: 'discovery', client_name: 'Danielle Adams', canManageOnline: false },
-        { source: 'videography', id: 'demo-3', kind: 'booking', service: 'Content Studio session', when: pastShoot.toISOString(), duration_min: 90, stage: 'complete', location: 'TMKE Content Studio', total_pence: 36000, surcharge_pence: 0, package: 'Studio half-day', service_type: 'content', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 40 * 86400000).toISOString(), canManageOnline: true },
+        { source: 'videography', id: 'demo-3', kind: 'booking', service: 'Content Studio session', when: pastShoot.toISOString(), duration_min: 90, stage: 'delivered', location: 'TMKE Content Studio', total_pence: 36000, surcharge_pence: 0, package: 'Studio half-day', service_type: 'content', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 40 * 86400000).toISOString(), canManageOnline: true },
       ];
       msgsByKey.set('videography:demo-1', [
         { direction: 'outbound', is_automated: true, kind: 'confirmation', subject: 'Your property shoot is confirmed', body: "Thanks Danielle — your shoot is booked in for the morning. Jack will confirm the running order the day before. Anything to add? Just reply here.", created_at: new Date(Date.now() - 30 * 86400000).toISOString(), created_by: 'system' },

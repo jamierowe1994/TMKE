@@ -287,6 +287,51 @@ const DELIVER_CATEGORIES = [
         </div>
         <div class="vid-field"><label>Notes</label><textarea data-f="notes" rows="3"></textarea></div>
 
+        <!-- Who settles this booking. The data model has carried this since the
+             Fine & Country work; nothing surfaced it until now. -->
+        <div class="vid-deliver-head">
+          <h3>Payment</h3>
+          <span>Who settles this booking</span>
+        </div>
+        <div class="vid-field">
+          <label>Route</label>
+          <select data-f="payment_route" id="vid-route">
+            <option value="agent_card">Customer pays by card</option>
+            <option value="brand_invoice">Invoice the brand (internal)</option>
+          </select>
+        </div>
+
+        <!-- Only for brand-invoiced jobs. Jack must confirm with Fine & Country
+             that the office named at booking is actually holding the seller's
+             marketing fee, before we invoice against it. -->
+        <div id="vid-brand-block" hidden>
+          <div class="vid-field-row">
+            <div class="vid-field">
+              <label>Office holding the fee</label>
+              <select data-f="fc_office" id="vid-fc-office"><option value="">— Select —</option></select>
+            </div>
+            <div class="vid-field">
+              <label>Agent said a fee was charged</label>
+              <input type="text" id="vid-fee-claimed" readonly />
+            </div>
+          </div>
+          <label class="vid-check">
+            <input type="checkbox" id="vid-fee-confirmed" />
+            <span>Confirmed with Fine &amp; Country that the fee is held</span>
+          </label>
+          <p class="vid-hint" id="vid-fee-meta"></p>
+          <p class="vid-warn" id="vid-fee-warn" hidden></p>
+        </div>
+
+        <div id="vid-card-block">
+          <p class="vid-hint" id="vid-pay-status"></p>
+        </div>
+        <label class="vid-check">
+          <input type="checkbox" id="vid-paid" />
+          <span>Payment received</span>
+        </label>
+        <p class="vid-hint">The PIN is released on this. Nothing goes to the client until it is ticked.</p>
+
         <!-- Delivery. Filled in after the shoot, once the Pixieset gallery
              exists and the archive copy is up. -->
         <div class="vid-deliver-head">
@@ -864,19 +909,23 @@ const DELIVER_CATEGORIES = [
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
-    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD } from "../../lib/videography-config.js";
+    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const PART_SIZE = 50 * 1024 * 1024; // 50 MB parts
 
+    /* Invoicing happens two days BEFORE the shoot, so `invoiced` sits early.
+       Payment is not a stage - it arrives at different points depending on the
+       route - so it stays a flag on the booking. See
+       supabase/videography_stages_v2.sql. */
     const STAGES = [
-      { key: "booked",      label: "Booked" },
-      { key: "shoot_day",   label: "Shoot day" },
-      { key: "editing",     label: "Editing" },
-      { key: "final_draft", label: "Final draft" },
-      { key: "invoice_out", label: "Invoice out" },
-      { key: "complete",    label: "Complete" },
+      { key: "booked",        label: "Booked" },
+      { key: "invoiced",      label: "Invoiced" },
+      { key: "shoot_day",     label: "Shoot day" },
+      { key: "editing",       label: "Editing" },
+      { key: "gallery_ready", label: "Gallery ready" },
+      { key: "delivered",     label: "Delivered" },
     ];
     const DAYS = [
       { d: 1, name: "Monday" }, { d: 2, name: "Tuesday" }, { d: 3, name: "Wednesday" },
@@ -1063,13 +1112,14 @@ const DELIVER_CATEGORIES = [
     }
 
     /* ---------- Clients list + candidate file (CRM) ---------- */
+    let adminEmail = null;   // who is signed in, for stamping confirmations
     const STAGE_FLOW = {
-      booked:      { sub: "Booked in",   big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Confirm the details and prep the kit. This moves to Shoot day on its own when the day arrives.", advance: { to: "shoot_day",   label: "Start shoot day" } },
-      shoot_day:   { sub: "Shoot day",   big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Today",          next: "Shoot the job, then move it into editing.",                                                  advance: { to: "editing",     label: "Shot — move to editing" } },
-      editing:     { sub: "In editing",  big: () => "Editing",                                                next: "Edit the footage, then prepare the final draft.",                                            advance: { to: "final_draft", label: "Editing done — final draft" } },
-      final_draft: { sub: "Final draft", big: () => "Final draft",                                            next: "Send the draft for approval, then raise the invoice.",                                        advance: { to: "invoice_out", label: "Approved — raise invoice" } },
-      invoice_out: { sub: "Invoice out", big: () => "Awaiting payment",                                       next: "Invoice is out. This completes on its own once the client pays.",                             advance: { to: "complete",    label: "Mark paid — complete" } },
-      complete:    { sub: "Complete",    big: () => "Complete",                                               next: "All wrapped up — nothing left to do here.",                                                  advance: null },
+      booked:        { sub: "Booked in",     big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Confirm the details, then raise the invoice two days before the shoot.", advance: { to: "invoiced",      label: "Invoice raised" } },
+      invoiced:      { sub: "Invoiced",      big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Invoice is out. This moves to Shoot day on its own when the day arrives.", advance: { to: "shoot_day",     label: "Start shoot day" } },
+      shoot_day:     { sub: "Shoot day",     big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Today",           next: "Shoot the job, then move it into editing.",                              advance: { to: "editing",       label: "Shot — move to editing" } },
+      editing:       { sub: "In editing",    big: () => "Editing",                                                next: "Edit the footage, then build the gallery and upload the archive copy.",   advance: { to: "gallery_ready", label: "Gallery built" } },
+      gallery_ready: { sub: "Gallery ready", big: () => "Awaiting payment",                                       next: "Gallery is live and the PIN is held back. Releasing it delivers the job.", advance: { to: "delivered",     label: "Paid — release the PIN" } },
+      delivered:     { sub: "Delivered",     big: () => "Delivered",                                              next: "The client has their PIN and their content — nothing left to do.",        advance: null },
     };
     function fmtBig(iso) {
       return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
@@ -1077,12 +1127,14 @@ const DELIVER_CATEGORIES = [
     // Progress timeline. DB stages in order; each display step maps to the stage
     // index it is "reached" at. Content Studio has a Prepped step (prompt pack);
     // Property / Agent don't (no prep element).
-    const STAGE_ORDER = ["booked", "shoot_day", "editing", "final_draft", "invoice_out", "complete"];
+    const STAGE_ORDER = ["booked", "invoiced", "shoot_day", "editing", "gallery_ready", "delivered"];
     function renderTimeline(b) {
       const isStudio = /content|studio/i.test((b.service_type || "") + " " + (b.service || ""));
+      // Numbers are indices into STAGE_ORDER, so they had to move when the
+      // stages were reordered - 'Shoot day' is no longer index 1.
       const steps = isStudio
-        ? [["Booked", 0], ["Prepped", 0.5], ["Shoot day", 1], ["Edited", 2], ["Preview sent", 3], ["Paid", 5]]
-        : [["Booked", 0], ["Shoot day", 1], ["Edited", 2], ["Preview sent", 3], ["Paid", 5]];
+        ? [["Booked", 0], ["Prepped", 0.5], ["Invoiced", 1], ["Shoot day", 2], ["Edited", 3], ["Gallery ready", 4], ["Delivered", 5]]
+        : [["Booked", 0], ["Invoiced", 1], ["Shoot day", 2], ["Edited", 3], ["Gallery ready", 4], ["Delivered", 5]];
       const cancelled = b.stage === "cancelled";
       const cur = STAGE_ORDER.indexOf(b.stage);
       const curIdx = cur < 0 ? 0 : cur;
@@ -1106,7 +1158,7 @@ const DELIVER_CATEGORIES = [
     }
     function clientSort(a, b) {
       const order = STAGES.map((s) => s.key);
-      const ac = a.stage === "complete", bc = b.stage === "complete";
+      const ac = a.stage === "delivered", bc = b.stage === "delivered";
       if (ac !== bc) return ac ? 1 : -1;
       const ad = a.shoot_date ? new Date(a.shoot_date).getTime() : Infinity;
       const bd = b.shoot_date ? new Date(b.shoot_date).getTime() : Infinity;
@@ -1401,7 +1453,7 @@ const DELIVER_CATEGORIES = [
     function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); }
     async function autoAdvance() {
       const today = startOfDay(Date.now());
-      const due = bookings.filter((b) => b.stage === "booked" && b.shoot_date && startOfDay(b.shoot_date) <= today);
+      const due = bookings.filter((b) => (b.stage === "booked" || b.stage === "invoiced") && b.shoot_date && startOfDay(b.shoot_date) <= today);
       for (const b of due) {
         b.stage = "shoot_day";
         await supabase.from("videography_bookings").update({ stage: "shoot_day" }).eq("id", b.id);
@@ -1517,6 +1569,32 @@ const DELIVER_CATEGORIES = [
       set("gallery_expires_on", b?.gallery_expires_on ? String(b.gallery_expires_on).slice(0, 10) : "");
       const arch = document.getElementById("vid-archived");
       if (arch) arch.checked = !!b?.archived_at;
+
+      const office = document.getElementById("vid-fc-office");
+      if (office && office.options.length <= 1) {
+        FC_OFFICES.forEach((o) => office.add(new Option(o.label, o.key)));
+      }
+      set("payment_route", b?.payment_route || "agent_card");
+      set("fc_office", b?.fc_office);
+      const claimed = document.getElementById("vid-fee-claimed");
+      if (claimed) claimed.value = b?.marketing_fee_claimed == null ? "Not asked" : (b.marketing_fee_claimed ? "Yes" : "No");
+      const conf = document.getElementById("vid-fee-confirmed");
+      if (conf) conf.checked = !!b?.brand_fee_confirmed;
+      const meta = document.getElementById("vid-fee-meta");
+      if (meta) {
+        meta.textContent = b?.brand_fee_confirmed && b?.brand_fee_confirmed_at
+          ? `Confirmed ${new Date(b.brand_fee_confirmed_at).toLocaleDateString("en-GB")}${b.brand_fee_confirmed_by ? " by " + b.brand_fee_confirmed_by : ""}.`
+          : "";
+      }
+      const paid = document.getElementById("vid-paid");
+      if (paid) paid.checked = !!b?.paid_at;
+      const payStatus = document.getElementById("vid-pay-status");
+      if (payStatus) {
+        payStatus.textContent = b?.paid_at
+          ? `Paid ${new Date(b.paid_at).toLocaleDateString("en-GB")}.`
+          : "Not paid yet. Raise the invoice from Invoicing with card payment switched on, so the client gets a pay link.";
+      }
+      syncPaymentRoute();
       checkGalleryEmail();
       document.getElementById("vid-modal-title").textContent = b ? "Edit booking" : "New booking";
       document.getElementById("vid-delete").hidden = !b;
@@ -1553,6 +1631,30 @@ const DELIVER_CATEGORIES = [
       el.value = from.toISOString().slice(0, 10);
     }
 
+    /* Brand-invoiced jobs need the Fine & Country office confirmed before we
+       invoice against a fee we have not verified is being held. It gates the
+       money, not the shoot - so this warns rather than blocks. */
+    function syncPaymentRoute() {
+      const route = document.querySelector('[data-f="payment_route"]')?.value || "agent_card";
+      const brand = route === "brand_invoice";
+      const bBlock = document.getElementById("vid-brand-block");
+      const cBlock = document.getElementById("vid-card-block");
+      if (bBlock) bBlock.hidden = !brand;
+      if (cBlock) cBlock.hidden = brand;
+      const warn = document.getElementById("vid-fee-warn");
+      if (warn) {
+        const office = document.querySelector('[data-f="fc_office"]')?.value;
+        const confirmed = document.getElementById("vid-fee-confirmed")?.checked;
+        const missing = brand && (!office || !confirmed);
+        warn.hidden = !missing;
+        if (missing) {
+          warn.textContent = !office
+            ? "Name the office holding the fee before invoicing."
+            : "Not yet confirmed with Fine & Country. Invoicing against an unverified fee is the thing this check exists to stop.";
+        }
+      }
+    }
+
     async function saveBooking() {
       const get = (f) => { const el = document.querySelector(`[data-f="${f}"]`); return el ? el.value.trim() : ""; };
       const name = get("client_name");
@@ -1569,6 +1671,19 @@ const DELIVER_CATEGORIES = [
         location: get("location") || null,
         amount_pence: gbp ? Math.round(parseFloat(gbp) * 100) : null,
         notes: get("notes") || null,
+        payment_route: get("payment_route") || "agent_card",
+        fc_office: get("fc_office") || null,
+        brand_fee_confirmed: !!document.getElementById("vid-fee-confirmed")?.checked,
+        // Stamp who confirmed and when, the first time it is ticked.
+        brand_fee_confirmed_at: document.getElementById("vid-fee-confirmed")?.checked
+          ? (bookings.find((x) => x.id === editingId)?.brand_fee_confirmed_at || new Date().toISOString())
+          : null,
+        brand_fee_confirmed_by: document.getElementById("vid-fee-confirmed")?.checked
+          ? (bookings.find((x) => x.id === editingId)?.brand_fee_confirmed_by || adminEmail || null)
+          : null,
+        paid_at: document.getElementById("vid-paid")?.checked
+          ? (bookings.find((x) => x.id === editingId)?.paid_at || new Date().toISOString())
+          : null,
         gallery_url: get("gallery_url") || null,
         gallery_email: get("gallery_email") || null,
         gallery_pin: get("gallery_pin") || null,
@@ -1975,9 +2090,9 @@ const DELIVER_CATEGORIES = [
       // Paid → the job completes itself.
       if (status === "paid") {
         const b = bookings.find((x) => x.id === currentDelivery.booking_id);
-        if (b && b.stage !== "complete") {
-          b.stage = "complete";
-          await supabase.from("videography_bookings").update({ stage: "complete" }).eq("id", b.id);
+        if (b && b.stage !== "delivered") {
+          b.stage = "delivered";
+          await supabase.from("videography_bookings").update({ stage: "delivered" }).eq("id", b.id);
           renderClients(document.getElementById("vid-client-search")?.value || "");
           if (candId === b.id) renderCandidate();
         }
@@ -2182,7 +2297,13 @@ const DELIVER_CATEGORIES = [
     (async () => {
       // In local dev the admin area is previewable without a login (matches the
       // other admin pages); production stays gated by requireAdmin.
-      if (!import.meta.env.DEV) { const session = await requireAdmin(); if (!session) return; }
+      if (!import.meta.env.DEV) {
+        const session = await requireAdmin();
+        if (!session) return;
+        // Recorded against the Fine & Country fee confirmation, so there is a
+        // name attached to "yes, I checked".
+        adminEmail = session.user?.email || null;
+      }
       initNav();
       // The promo codes page is a separate route, so its cog links back here
       // with ?panel=... Honour it so returning lands where you clicked.
@@ -2220,6 +2341,9 @@ const DELIVER_CATEGORIES = [
       document.querySelector('[data-f="gallery_email"]')?.addEventListener("input", checkGalleryEmail);
       document.querySelector('[data-f="client_email"]')?.addEventListener("input", checkGalleryEmail);
       document.querySelector('[data-f="gallery_url"]')?.addEventListener("blur", defaultGalleryExpiry);
+      document.getElementById("vid-route")?.addEventListener("change", syncPaymentRoute);
+      document.getElementById("vid-fc-office")?.addEventListener("change", syncPaymentRoute);
+      document.getElementById("vid-fee-confirmed")?.addEventListener("change", syncPaymentRoute);
       document.getElementById("vid-delete")?.addEventListener("click", deleteBooking);
       document.getElementById("vid-cancel")?.addEventListener("click", closeModal);
       document.getElementById("vid-modal-close")?.addEventListener("click", closeModal);

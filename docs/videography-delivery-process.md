@@ -89,18 +89,37 @@ PIN is stored but shown nowhere client-facing.
 
 ---
 
-## Phase 2 — the pipeline stages are wrong
-
-Today: `booked → shoot_day → editing → final_draft → invoice_out → complete`.
-
-`invoice_out` sits after editing, but invoicing now happens **before** the
-shoot. Left alone, every job will misreport. Needs reordering to roughly:
+## Phase 2 — pipeline stages ✅
 
 `booked → invoiced → shoot_day → editing → gallery_ready → delivered`
+(plus `cancelled`).
 
-Payment is **not** a stage — it can land at several points. It stays a flag.
+`invoiced` sits early because the invoice goes out two days before the shoot.
+`gallery_ready` means the gallery exists but the PIN is held; `delivered` means
+the client has it.
 
-**Done when:** the board reflects what is actually true of a job.
+Payment is **not** a stage — it arrives at different points by different routes
+— so it stays a flag (`paid_at`) that any stage can carry.
+
+Run `supabase/videography_stages_v2.sql`. **This one rewrites existing rows**,
+unlike the other videography migrations: `final_draft → editing`,
+`invoice_out → gallery_ready`, `complete → delivered`. The file has a snapshot
+query at the top if you want to be able to look back.
+
+### Who settles the booking
+
+The booking now shows the payment route, which the database has carried since
+the Fine & Country work but nothing ever displayed:
+
+- **Customer pays by card** — raise the invoice from Invoicing with card
+  payment switched on, so the client gets a pay link.
+- **Invoice the brand (internal)** — for Fine & Country, this opens the extra
+  step: name the office holding the seller's marketing fee, and confirm with
+  F&C that it is actually held. Until both are done the booking warns.
+
+That confirmation is stamped with who ticked it and when. It gates the money,
+not the shoot, so it warns rather than blocks — but invoicing against a fee
+nobody has verified is precisely what it exists to prevent.
 
 ---
 
