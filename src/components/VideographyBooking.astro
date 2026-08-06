@@ -259,6 +259,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
             <label class="dc-field"><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" required /></label>
           </div>
           <label class="dc-field"><span>Company / Brand *</span><input name="company" required /></label>
+          <!-- Property shoots only. The postcode step earlier is for working out
+               travel; this is the address of the property being filmed, which is
+               what ends up on the invoice and in the gallery. -->
+          <label class="dc-field" id="vb-property-address" hidden>
+            <span>Full property address *</span>
+            <textarea name="property_address" rows="2" placeholder="House name or number, street, town, postcode"></textarea>
+          </label>
           <label class="dc-field"><span>Anything we should know?</span><textarea name="notes" rows="2"></textarea></label>
           <!-- New account: create a password. Existing account (detected at the
                email gate): sign in instead — toggled by the script. -->
@@ -1057,6 +1064,19 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (signin) signin.hidden = !existingAccount || signedIn;
       if (note) note.hidden = !existingAccount || signedIn;
       if (inNote) inNote.hidden = !signedIn;
+      // Property shoots need the address of the property itself. The postcode
+      // we took earlier was for travel, and a postcode alone doesn't identify a
+      // house - the invoice and the gallery both need the full thing.
+      const addrField = $("vb-property-address");
+      if (addrField) {
+        const wantsAddress = !!(svc && svc.requiresPropertyAddress);
+        addrField.hidden = !wantsAddress;
+        const ta = addrField.querySelector("textarea");
+        if (ta) {
+          ta.required = wantsAddress;
+          if (wantsAddress && !ta.value && postcode) ta.value = "\n" + postcode;   // seed the bit we know
+        }
+      }
       const dcta = $("vb-details-cta"); if (dcta) resetCta(dcta, (existingAccount && !signedIn) ? "Sign in & confirm" : "Confirm booking");
       goTo("details");
     });
@@ -1095,6 +1115,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const notes = [
         summaryLine,
         selectedAddOns.length ? `Add-ons: ${selectedAddOns.map((a) => a.name).join(", ")}` : "",
+        fd.get("property_address") ? `Property: ${String(fd.get("property_address")).replace(/\s*\n\s*/g, ", ").trim()}` : "",
         postcode ? `Shoot postcode: ${postcode}` : "",
         svc.surcharge ? `Travel: ${distanceMiles != null ? Math.round(distanceMiles) + " mi, " : ""}${surchargeP > 0 ? gbp(surchargeP) + " +VAT" : "no charge"}` : "",
         fd.get("company") ? `Company: ${fd.get("company")}` : "",
@@ -1129,6 +1150,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
             postcode: postcode || null, distance_miles: distanceMiles, surcharge_pence: surchargeP || 0,
             promo_code: promo ? promo.code : null, discount_pence: discountPence() || 0,
             name: fd.get("name"), email: bookEmail, phone: fd.get("phone"), company: fd.get("company"), notes,
+            property_address: (String(fd.get("property_address") || "").trim() || null),
             signed_name: signName.value.trim(), signed_at: signDate.value ? `${signDate.value}T12:00:00` : null,
             marketing_opt_in: !!fd.get("optin"),
             // Existing members sign in client-side above (or are already signed

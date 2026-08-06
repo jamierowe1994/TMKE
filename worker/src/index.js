@@ -3078,7 +3078,7 @@ export default {
         const b = await request.json().catch(() => ({}));
         const {
           date, start, duration, service, service_type, audience, brand,
-          add_ons, postcode, distance_miles, surcharge_pence,
+          add_ons, postcode, distance_miles, surcharge_pence, property_address,
           name, email, phone, company, notes, signed_name, signed_at,
           marketing_opt_in, password, total_pence, account_exists, promo_code, discount_pence,
         } = b || {};
@@ -3153,9 +3153,12 @@ export default {
           // browser could claim anything, and this one decides who gets billed.
           const fcProperty = service_type === "property"
             && String(email || "").toLowerCase().split("@")[1] === "fineandcountry.com";
-          const insRes = await sbPost(env, "videography_bookings", {
+          const bookingRow = {
             kind: "booking", service_type: service_type || null, audience: audience || null, brand: brand || null,
             package: pkg || null, add_ons: Array.isArray(add_ons) ? add_ons : [], postcode: postcode || null,
+            // The address of the property itself, as opposed to the postcode we
+            // took to work out travel. Property shoots only.
+            property_address: property_address || null,
             distance_miles: distance_miles ?? null, surcharge_pence: surcharge_pence || 0,
             client_name: name, client_email: email, client_phone: phone || null, company: company || null,
             service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
@@ -3167,10 +3170,25 @@ export default {
             payment_route: fcProperty && b.payment_route === "brand_invoice" ? "brand_invoice" : "agent_card",
             marketing_fee_claimed: fcProperty ? (b.marketing_fee_claimed === true) : null,
             fc_office: fcProperty && b.payment_route === "brand_invoice" ? (b.fc_office || null) : null,
-          }, "return=representation");
+          };
+          let insRes = await sbPost(env, "videography_bookings", bookingRow, "return=representation");
+          // PostgREST rejects the whole insert for one unknown column, and this
+          // block sits inside a swallowing catch - so a booking made against a
+          // database missing a column used to vanish silently while the client
+          // still got their confirmation. Retry without it rather than lose it.
+          if (!insRes.ok) {
+            const errText = await insRes.clone().text().catch(() => "");
+            if (/property_address/.test(errText)) {
+              const { property_address: _pa, ...rowNoAddr } = bookingRow;
+              insRes = await sbPost(env, "videography_bookings", rowNoAddr, "return=representation");
+            }
+            if (!insRes.ok) console.error("BOOKING NOT SAVED - calendar and emails went out anyway:", errText.slice(0, 400));
+          }
           const arr = await insRes.json();
           newBookingId = Array.isArray(arr) && arr[0] ? arr[0].id : null;
-        } catch (_) {}
+        } catch (err) {
+          console.error("BOOKING NOT SAVED - calendar and emails went out anyway:", err && err.message);
+        }
 
         // 5) Confirmation emails (best-effort, never block the booking).
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
