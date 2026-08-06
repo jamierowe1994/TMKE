@@ -3139,7 +3139,10 @@ export default {
           body: { contentType: "text", content: [notes && `Notes: ${notes}`, phone && `Phone: ${phone}`, email && `Email: ${email}`, postcode && `Postcode: ${postcode}`].filter(Boolean).join("\n") },
           start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
           end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
-          location: postcode ? { displayName: postcode } : undefined,
+          // A postcode is enough to find a town, not a house. Property shoots
+          // now collect the full address, so put that on the event Jack reads
+          // on the morning rather than throwing it away.
+          location: (property_address || postcode) ? { displayName: (property_address || postcode).replace(/\s*\n\s*/g, ", ") } : undefined,
           attendees: [{ emailAddress: { address: email, name }, type: "required" }],
         });
 
@@ -5842,6 +5845,33 @@ export default {
         const rows = (await sbGet(env, "admins", "select=email&order=email.asc")) || [];
         const emails = rows.map((r) => r.email).filter(Boolean);
         return json({ admins: emails }, 200, request, env);
+      }
+
+      // Update the calendar event's location after the booking was made. For
+      // agent shoots the meeting point is agreed with the client afterwards -
+      // a coffee shop, a studio, somewhere that isn't their office - and it is
+      // no use to Jack sitting in the admin centre if his diary still says a
+      // postcode.
+      if (path.endsWith("/booking/location") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+        const rows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}&select=ms_event_id,location,property_address,postcode`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Booking not found." }, 404, request, env);
+        if (!bk.ms_event_id) return json({ ok: true, updated: false, reason: "no calendar event" }, 200, request, env);
+        const where = (bk.property_address || bk.location || bk.postcode || "").replace(/\s*\n\s*/g, ", ").trim();
+        if (!where) return json({ ok: true, updated: false, reason: "nothing to set" }, 200, request, env);
+        try {
+          await graph(env, "PATCH", `/users/${encodeURIComponent(env.JACK_UPN)}/events/${bk.ms_event_id}`, {
+            location: { displayName: where },
+          });
+        } catch (err) {
+          return json({ error: "Couldn't update the calendar: " + (err && err.message ? err.message : err) }, 502, request, env);
+        }
+        return json({ ok: true, updated: true, location: where }, 200, request, env);
       }
 
       if (path.endsWith("/booking/thread") && request.method === "GET") {

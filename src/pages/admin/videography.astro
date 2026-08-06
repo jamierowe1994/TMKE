@@ -1353,6 +1353,16 @@ const DELIVER_CATEGORIES = [
         // From Booked the button means "go and raise it", not "pretend it is
         // raised" - the stage moves when the invoice actually sends.
         if (f.advance.to === "invoiced") {
+          // Agent shoots are filmed wherever the client wants - their office, a
+          // studio, a coffee shop - and that gets agreed after booking. This is
+          // the last checkpoint before the shoot, so it is the moment to ask.
+          if (b.service_type === "agent") {
+            const where = (b.location || "").trim();
+            const ok = confirm(where
+              ? `Shoot location is recorded as:\n\n${where}\n\nIs that where Jack is going? It's what his calendar will say.`
+              : "No shoot location recorded yet.\n\nAgent shoots aren't always at the client's office. Add the agreed location to the booking so it reaches Jack's calendar.\n\nCarry on anyway?");
+            if (!ok) { openModal(b.id); return; }
+          }
           if (isBrandInvoiced(b) && !b.brand_fee_confirmed) {
             alert("Before you raise an invoice:\n\nFine & Country haven't confirmed the marketing fee is held. Tick the confirmation above once the office has confirmed it.");
             return;
@@ -2230,9 +2240,23 @@ const DELIVER_CATEGORIES = [
       const btn = document.getElementById("vid-save");
       if (btn) btn.textContent = "Saving…";
       if (editingId) {
+        const before = bookings.find((x) => x.id === editingId) || {};
+        const movedLocation = (before.location || "") !== (payload.location || "")
+          || (before.property_address || "") !== (payload.property_address || "");
         const { error } = await supabase.from("videography_bookings").update(payload).eq("id", editingId);
         if (error) { alert("Save failed: " + error.message); if (btn) btn.textContent = "Save booking"; return; }
         Object.assign(bookings.find((x) => x.id === editingId), payload);
+        // A location Jack can't see on the day is no use to him.
+        if (movedLocation && WORKER_URL) {
+          try {
+            const token = await authToken();
+            await fetch(`${WORKER_URL}/booking/location`, {
+              method: "POST",
+              headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+              body: JSON.stringify({ booking_id: editingId }),
+            });
+          } catch (_) { /* the booking saved; the diary can be nudged again */ }
+        }
       } else {
         payload.stage = "booked";
         const { data, error } = await supabase.from("videography_bookings").insert(payload).select().single();
