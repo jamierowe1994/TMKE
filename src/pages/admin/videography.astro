@@ -78,6 +78,7 @@ const DELIVER_CATEGORIES = [
 
   <!-- ===================== DIARY (weekly availability) ===================== -->
   <section class="vid-panel wrap" data-panel="diary">
+    <button type="button" class="vid-cand-back" data-backto="clients">&larr; All clients</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Diary &amp; availability</h2>
@@ -100,6 +101,7 @@ const DELIVER_CATEGORIES = [
 
   <!-- ===================== DELIVER (uploads → client) ===================== -->
   <section class="vid-panel wrap" data-panel="deliver">
+    <button type="button" class="vid-cand-back" data-backto="clients">&larr; All clients</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Deliver work</h2>
@@ -181,6 +183,7 @@ const DELIVER_CATEGORIES = [
 
   <!-- ===================== SETTINGS (pricing & travel) ===================== -->
   <section class="vid-panel wrap" data-panel="settings">
+    <button type="button" class="vid-cand-back" data-backto="clients">&larr; All clients</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Pricing &amp; travel settings</h2>
@@ -220,6 +223,7 @@ const DELIVER_CATEGORIES = [
 
   <!-- ===================== CONNECTIONS (integrations) ===================== -->
   <section class="vid-panel wrap" data-panel="connections">
+    <button type="button" class="vid-cand-back" data-backto="clients">&larr; All clients</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Connections</h2>
@@ -771,6 +775,11 @@ const DELIVER_CATEGORIES = [
     #vid-scrolltop-inner { height: 1px; }
     /* macOS hides overlay scrollbars until you scroll, so on a trackpad Mac the
        board looked like it had no more columns. Forced visible. */
+    /* `hidden` sets display:none in the UA sheet, which ANY author class beats -
+       so .vid-board's display:grid quietly kept the board visible behind the
+       calendar. Needed on every element that both carries a display and gets
+       hidden. */
+    .vid-board[hidden], .vid-cal[hidden], .vid-chips[hidden] { display: none !important; }
     .vid-board {
       display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 1fr);
       gap: 14px; align-items: start; overflow-x: auto; padding: 6px 0 120px;
@@ -1159,6 +1168,8 @@ const DELIVER_CATEGORIES = [
         if (go === "deliver") populateDeliverBookings();
         if (go === "clients") renderClients(document.getElementById("vid-client-search")?.value || "");
       });
+      document.querySelectorAll("[data-backto]").forEach((btn) =>
+        btn.addEventListener("click", () => showPanel(btn.getAttribute("data-backto"))));
       document.getElementById("vid-cand-back")?.addEventListener("click", () => {
         showPanel("clients");
         renderClients(document.getElementById("vid-client-search")?.value || "");
@@ -1475,6 +1486,7 @@ const DELIVER_CATEGORIES = [
         </div>
         ${renderTimeline(b)}
         ${renderBrandGate(b)}
+        ${renderCloseGate(b)}
         <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
         </div>
         <div class="vid-cand-card" id="vid-cand-invoice"></div>
@@ -1482,6 +1494,7 @@ const DELIVER_CATEGORIES = [
         <div class="vid-cand-card" id="vid-cand-docs"></div>
         <div class="vid-cand-card" id="vid-cand-thread"></div>`;
       el.querySelector("#vid-gate-confirm")?.addEventListener("change", (e) => saveBrandConfirm(b, e.target.checked));
+      el.querySelector("#vid-edits-done")?.addEventListener("change", (e) => saveEditsSettled(b, e.target.checked));
       if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => {
         // From Booked the button means "go and raise it", not "pretend it is
         // raised" - the stage moves when the invoice actually sends.
@@ -1536,6 +1549,39 @@ const DELIVER_CATEGORIES = [
           ? `<p class="vid-hint">Confirmed ${escapeHtml(new Date(b.brand_fee_confirmed_at).toLocaleDateString("en-GB"))}${b.brand_fee_confirmed_by ? " by " + escapeHtml(b.brand_fee_confirmed_by) : ""}.</p>`
           : `<p class="vid-hint">We don't invoice against a fee nobody has verified is held.</p>`}
       </div>`;
+    }
+
+    /* What has to be true before a job closes. Shown from the point it starts
+       to matter, so neither condition is a surprise at the last step. */
+    function renderCloseGate(b) {
+      if (!["gallery_ready", "delivered"].includes(b.stage)) return "";
+      const paid = !!b.paid_at, edits = !!b.edits_settled_at;
+      const done = paid && edits;
+      return `<div class="vid-gate ${done ? "is-done" : ""}">
+        <div class="vid-gate-h">Before this can be delivered</div>
+        <dl class="vid-gate-list">
+          <div><dt>Invoice paid</dt><dd>${paid ? escapeHtml(new Date(b.paid_at).toLocaleDateString("en-GB")) : "Not yet"}</dd></div>
+        </dl>
+        <label class="vid-check">
+          <input type="checkbox" id="vid-edits-done" ${edits ? "checked" : ""} />
+          <span>The client's round of edits has been settled</span>
+        </label>
+        ${edits && b.edits_settled_at
+          ? `<p class="vid-hint">Settled ${escapeHtml(new Date(b.edits_settled_at).toLocaleDateString("en-GB"))}${b.edits_settled_by ? " by " + escapeHtml(b.edits_settled_by) : ""}.</p>`
+          : `<p class="vid-hint">Their agreement includes a round of edits. Tick this once they are done, or once the client has confirmed they don't want any.</p>`}
+      </div>`;
+    }
+
+    async function saveEditsSettled(b, checked) {
+      const patch = {
+        edits_settled_at: checked ? (b.edits_settled_at || new Date().toISOString()) : null,
+        edits_settled_by: checked ? (b.edits_settled_by || adminEmail || null) : null,
+      };
+      Object.assign(b, patch);
+      const { error } = await supabase.from("videography_bookings").update(patch).eq("id", b.id);
+      if (error) { alert("Couldn't save that: " + error.message); return; }
+      await addNote(b, checked ? "Edits settled." : "Edits reopened.", "audit");
+      renderCandidate();
     }
 
     async function saveBrandConfirm(b, checked) {
@@ -1623,6 +1669,7 @@ const DELIVER_CATEGORIES = [
     let vivPayByCard = true;   // shoots are usually card; still per-invoice
     let vivDraft = null;       // the created invoice awaiting send
     let vivReissueOf = null;   // { id, number } when reissuing a sent invoice
+    let vivForceOpen = false;  // "Raise another invoice" on a shoot past invoicing
 
     async function ensureInvSettings() {
       if (invSettings || !WORKER_URL) return invSettings;
@@ -1681,9 +1728,25 @@ const DELIVER_CATEGORIES = [
       if (!host) return;
       if (!WORKER_URL) { host.innerHTML = `<h4>Invoice</h4><p class="vid-loading">Connect the Worker to raise invoices.</p>`; return; }
       await ensureInvSettings();
+
+      // Once the shoot has moved past invoicing there is nothing left to raise,
+      // so the builder folds away and only the raised invoices remain - with
+      // Edit, Resend and Mark paid, which are the things still worth doing.
+      const raisingDone = !["booked", "invoiced"].includes(b.stage) && !vivForceOpen;
+      if (raisingDone) {
+        host.innerHTML = `<h4>Invoice</h4>
+          <div class="vid-inv-list-h" style="margin-top:0;padding-top:0;border:0">Raised for this shoot</div>
+          <div id="viv-list"><p class="vid-loading">Loading…</p></div>
+          <p class="vid-warn" id="viv-msg" hidden></p>
+          <button type="button" class="admin-btn admin-btn-ghost" id="viv-reopen" style="margin-top:12px">Raise another invoice</button>`;
+        document.getElementById("viv-reopen").addEventListener("click", () => { vivForceOpen = true; renderInvoiceCard(b); });
+        loadInvoices(b);
+        return;
+      }
       vivItems = vivSeedItems(b);
       vivDraft = null;
       vivReissueOf = null;
+      vivForceOpen = false;
       const today = new Date().toISOString().slice(0, 10);
       const due = new Date(); due.setDate(due.getDate() + 10);
       const brand = isBrandInvoiced(b);
@@ -2098,6 +2161,18 @@ const DELIVER_CATEGORIES = [
       // The one hard stop in the pipeline. Raising an invoice against an
       // unverified marketing fee is the mistake this whole step exists for, so
       // here it blocks rather than warns.
+      // Delivered means finished, not "we sent it". A job with an unpaid
+      // invoice or an outstanding amend is neither, so it cannot close.
+      if (to === "delivered") {
+        const missing = [];
+        if (!b.paid_at) missing.push("• The invoice hasn't been marked paid.");
+        if (!b.edits_settled_at) missing.push("• The client's round of edits hasn't been settled.");
+        if (missing.length) {
+          alert("This shoot can't be closed yet:\n\n" + missing.join("\n") +
+            "\n\nTick both on the client file, then mark it delivered.");
+          return;
+        }
+      }
       if (to === "invoiced" && isBrandInvoiced(b) && !b.brand_fee_confirmed) {
         alert("Before you raise an invoice:\n\nFine & Country haven't confirmed the marketing fee is held. Tick the confirmation above once the office has confirmed it.");
         return;
