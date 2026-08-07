@@ -78,7 +78,7 @@ const DELIVER_CATEGORIES = [
 
   <!-- ===================== DIARY (weekly availability) ===================== -->
   <section class="vid-panel wrap" data-panel="diary">
-    <button type="button" class="vid-cand-back" data-backto="clients">&larr; All clients</button>
+    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; All clients</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Diary &amp; availability</h2>
@@ -101,7 +101,7 @@ const DELIVER_CATEGORIES = [
 
   <!-- ===================== DELIVER (uploads → client) ===================== -->
   <section class="vid-panel wrap" data-panel="deliver">
-    <button type="button" class="vid-cand-back" data-backto="clients">&larr; All clients</button>
+    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; All clients</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Deliver work</h2>
@@ -177,36 +177,12 @@ const DELIVER_CATEGORIES = [
         <div class="vid-files-list" id="vid-files-list"></div>
       </div>
 
-      <div class="vid-delivery" id="vid-delivery" hidden>
-        <div class="vid-delivery-head">
-          <h3 class="vid-files-head" style="margin:0">Client delivery</h3>
-          <span class="enquiry-status-pill is-pending" id="vid-dlv-status">Draft</span>
-        </div>
-        <p class="vid-panel-sub" style="margin:0 0 18px">Set the price and how many photos are free, create the link, then send it to the client. They preview the teasers and pay to unlock the full set.</p>
-        <div class="vid-dlv-grid">
-          <div class="vid-field"><label>Free teaser images</label><input type="number" id="vid-dlv-teaser" min="0" value="3" /></div>
-          <div class="vid-field"><label>Shoot price (£)</label><input type="number" id="vid-dlv-base" min="0" step="0.01" /></div>
-        </div>
-        <div class="vid-dlv-extras">
-          <span class="vid-field-label">Extras (travel, additional edits…)</span>
-          <div id="vid-dlv-extra-rows"></div>
-          <button type="button" class="admin-btn admin-btn-ghost" id="vid-dlv-add-extra">+ Add extra</button>
-        </div>
-        <div class="vid-dlv-total">Total <strong id="vid-dlv-total">£0</strong></div>
-        <div class="vid-dlv-actions">
-          <button type="button" class="admin-btn admin-btn-primary" id="vid-dlv-save">Save &amp; create link</button>
-          <button type="button" class="admin-btn admin-btn-ghost" id="vid-dlv-copy" hidden>Copy client link</button>
-          <button type="button" class="admin-btn admin-btn-ghost" id="vid-dlv-sent" hidden>Mark sent</button>
-          <button type="button" class="admin-btn admin-btn-ghost" id="vid-dlv-paid" hidden>Mark paid (manual)</button>
-        </div>
-        <p class="vid-dlv-link" id="vid-dlv-link" hidden></p>
-      </div>
     </div>
   </section>
 
   <!-- ===================== SETTINGS (pricing & travel) ===================== -->
   <section class="vid-panel wrap" data-panel="settings">
-    <button type="button" class="vid-cand-back" data-backto="clients">&larr; All clients</button>
+    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; All clients</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Pricing &amp; travel settings</h2>
@@ -246,7 +222,7 @@ const DELIVER_CATEGORIES = [
 
   <!-- ===================== CONNECTIONS (integrations) ===================== -->
   <section class="vid-panel wrap" data-panel="connections">
-    <button type="button" class="vid-cand-back" data-backto="clients">&larr; All clients</button>
+    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; All clients</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Connections</h2>
@@ -1204,7 +1180,19 @@ const DELIVER_CATEGORIES = [
         if (go === "clients") renderClients(document.getElementById("vid-client-search")?.value || "");
       });
       document.querySelectorAll("[data-backto]").forEach((btn) =>
-        btn.addEventListener("click", () => showPanel(btn.getAttribute("data-backto"))));
+        btn.addEventListener("click", () => {
+          // If you opened this from a client's file, go back to that file -
+          // "all clients" is only the right answer when that is where you came
+          // from.
+          if (btn.hasAttribute("data-smart-back") && panelFrom.candId) {
+            candId = panelFrom.candId;
+            panelFrom.candId = null;
+            showPanel("candidate");
+            renderCandidate();
+            return;
+          }
+          showPanel(btn.getAttribute("data-backto"));
+        }));
       document.getElementById("vid-cand-back")?.addEventListener("click", () => {
         showPanel("clients");
         renderClients(document.getElementById("vid-client-search")?.value || "");
@@ -1384,6 +1372,7 @@ const DELIVER_CATEGORIES = [
 
     /* ---------- Clients list + candidate file (CRM) ---------- */
     let adminEmail = null;   // who is signed in, for stamping confirmations
+    const panelFrom = { candId: null };   // which client file a panel was opened from
     const STAGE_FLOW = {
       booked:        { sub: "Booked in",     big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Confirm the details, then raise the invoice two days before the shoot.", advance: { to: "invoiced",      label: "Raise invoice" } },
       invoiced:      { sub: "Invoiced",      big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Invoice is out. This moves to Shoot day on its own when the day arrives.", advance: { to: "shoot_day",     label: "Start shoot day" } },
@@ -1783,7 +1772,12 @@ const DELIVER_CATEGORIES = [
             <button type="button" class="admin-btn admin-btn-ghost" id="vd-goupload">Open Deliver work</button>
           </div>`;
         document.getElementById("vd-archived").addEventListener("change", (e) => saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
-        document.getElementById("vd-goupload").addEventListener("click", () => showPanel("deliver"));
+        document.getElementById("vd-goupload").addEventListener("click", () => {
+        panelFrom.candId = b.id;
+        const sel = document.getElementById("vid-deliver-booking");
+        if (sel) { sel.value = b.id; sel.dispatchEvent(new Event("change")); }
+        showPanel("deliver");
+      });
         return;
       }
 
