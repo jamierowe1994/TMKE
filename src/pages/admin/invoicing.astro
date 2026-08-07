@@ -194,6 +194,39 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     </section>
 
     <!-- Email review (QuickBooks-style edit-before-send) -->
+    <div class="cim-scrim" id="inv-edit-modal" hidden>
+      <div class="cim cim--wide" role="dialog" aria-modal="true" aria-label="Edit invoice">
+        <h3>Edit invoice <span id="ie-num"></span></h3>
+        <p class="cim-sub" id="ie-sub"></p>
+        <div class="ie-row2">
+          <label class="cim-f"><span>Bill to *</span><input id="ie-name" /></label>
+          <label class="cim-f"><span>Email</span><input id="ie-email" type="email" /></label>
+        </div>
+        <div class="ie-row2">
+          <label class="cim-f"><span>Address</span><input id="ie-address" /></label>
+          <label class="cim-f"><span>CC</span><input id="ie-cc" placeholder="Comma-separated" /></label>
+        </div>
+        <div class="ie-row3">
+          <label class="cim-f"><span>Issued</span><input id="ie-issued" type="date" /></label>
+          <label class="cim-f"><span>Due</span><input id="ie-due" type="date" /></label>
+          <label class="cim-f"><span>Terms (days)</span><input id="ie-terms" type="number" min="0" /></label>
+        </div>
+        <div class="cim-f">
+          <span>Line items</span>
+          <div id="ie-items"></div>
+          <button type="button" class="inv-ghost" id="ie-add">Add line</button>
+        </div>
+        <div class="ie-totals" id="ie-totals"></div>
+        <label class="cim-f"><span>Notes</span><textarea id="ie-notes" rows="2"></textarea></label>
+        <label class="ie-check"><input type="checkbox" id="ie-card" /> <span>Include a pay-by-card button</span></label>
+        <p class="inv-msg" id="ie-msg" hidden></p>
+        <div class="cim-actions">
+          <button type="button" class="inv-ghost" id="ie-cancel">Cancel</button>
+          <button type="button" class="inv-save" id="ie-save">Save changes</button>
+        </div>
+      </div>
+    </div>
+
     <div class="cim-scrim" id="ci-email-modal" hidden>
       <div class="cim" role="dialog" aria-modal="true" aria-label="Send invoice">
         <h3>Send invoice <span id="cim-num"></span></h3>
@@ -237,7 +270,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-ghost { appearance: none; cursor: pointer; background: #fff; color: var(--english-violet); border: 1px solid rgba(55,30,40,0.25); border-radius: 9px; padding: 12px 20px; font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; transition: background 0.15s; }
     .inv-ghost:hover { background: rgba(55,30,40,0.05); }
     .inv-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
-    .invrow-tools button { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 6px; font-size: 11.5px; white-space: nowrap; }
+    /* Fixed box. The word inside does not decide the size - Send and Resend are
+       the same button with different text in it. */
+    .invrow-tools > button { width: 84px; display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0; font-size: 12px; white-space: nowrap; }
     .invrow .invsend { appearance: none; cursor: pointer; border: 1px solid var(--english-violet); background: var(--english-violet); color: #fff; border-radius: 8px; padding: 6px 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; }
     .invrow .invsend:hover { opacity: 0.9; }
     .invrow .invsend:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -277,7 +312,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     /* True-size A4 iframe (794x1123 @96dpi) scaled uniformly to fit the column,
        so the on-screen proportions exactly match a printed A4 sheet. */
     .inv-preview-box { width: 100%; overflow: hidden; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px; background: #cfccc8; }
-    #inv-preview, #ci-preview { width: 794px; height: 1123px; border: 0; display: block; transform-origin: top left; }
+    /* pointer-events:none because it is a picture of the invoice, not a thing
+       to interact with. An iframe overlapping the form - which happens whenever
+       ciScaleFit hasn't run, e.g. it was sized while the panel was hidden -
+       silently swallows clicks and keystrokes, and focus lands inside the
+       iframe's document where nothing you type reaches the form.
+       overflow:hidden on the box stops it escaping in the first place. */
+    #inv-preview, #ci-preview { width: 794px; height: 1123px; border: 0; display: block; transform-origin: top left; pointer-events: none; }
+    .inv-preview-box { overflow: hidden; }
     .inv-panel[data-panel="create"] { max-width: 1180px; }
     .inv-row2b { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 640px) { .inv-row2b { grid-template-columns: 1fr; } }
@@ -298,6 +340,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .ci-totals .r { display: flex; justify-content: space-between; font-size: 13.5px; padding: 3px 0; color: rgba(28,29,34,0.7); }
     .ci-totals .r.grand { font-size: 16px; font-weight: 800; color: var(--ink); margin-top: 4px; }
     .inv-list { display: flex; flex-direction: column; gap: 8px; }
+    /* No cap on this panel: the row needs the width, and capping it was what
+       forced the name column and the buttons to compete for the same pixels. */
+    .inv-panel[data-panel="invoices"] { max-width: none; }
+    .invrow .num, .invrow .amt { white-space: nowrap; }
     /* The paid date has its own column and the tools column is reserved at a
        fixed width. Before, the date sat inside the tools cluster, so a paid row
        held different content to an unpaid one and every column shifted with it -
@@ -306,18 +352,18 @@ import AdminShell from "../../components/admin/AdminShell.astro";
        width, so when the row overflows, the name column stops shrinking and
        every column after it moves by however wide THAT row's client name
        happens to be - which is why rows drifted a couple of pixels apart. */
-    .invrow { display: grid; grid-template-columns: 96px minmax(0, 1fr) 92px 74px auto; gap: 12px; align-items: center; padding: 12px 16px; background: var(--paper); border: 1px solid rgba(28,29,34,0.09); border-radius: 10px; font-family: var(--sans); font-size: 13.5px; }
+    .invrow { display: grid; grid-template-columns: 88px minmax(160px, 1fr) 86px 70px auto; gap: 12px; align-items: center; padding: 12px 16px; background: var(--paper); border: 1px solid rgba(28,29,34,0.09); border-radius: 10px; font-family: var(--sans); font-size: 13.5px; }
     /* Five fixed action slots. A row keeps every slot whether or not it has a
        button in it, so Edit sits under Edit and Delete under Delete all the way
        down - and Send and Resend are the same width despite different words. */
     /* Fixed width, not auto. Each row is its own grid, so an `auto` tools
        column is measured per row - which let rows drift a couple of pixels
        apart depending on their own contents. Pinned, they cannot. */
-    .invrow-tools { display: grid; grid-template-columns: repeat(5, 72px); gap: 6px; width: 384px; align-items: center; justify-self: end; }
+    .invrow-tools { display: grid; grid-template-columns: repeat(5, 84px); gap: 8px; width: 452px; align-items: center; justify-self: end; }
     .invrow-tools > button { width: 100%; justify-content: center; }
     /* The paid date takes the first slot, so it starts where the first button
        would have. */
-    .invrow .paidon { grid-column: 1 / span 2; font-size: 11.5px; color: rgba(28,29,34,0.45); white-space: nowrap; }
+    .invrow .paidon { grid-column: 1; justify-self: start; font-size: 11.5px; color: rgba(28,29,34,0.45); white-space: nowrap; }
     @media (max-width: 1100px) { .invrow { grid-template-columns: 100px 1fr 100px 92px; } .invrow .invrow-tools { grid-column: 1 / -1; justify-self: start; } }
     .invrow .num { font-weight: 700; color: var(--ink); }
     .invrow .amt { text-align: right; font-weight: 700; }
@@ -353,6 +399,17 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .cim-f textarea { line-height: 1.55; resize: vertical; }
     .cim-note { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 0 0 16px; }
     .cim-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .cim--wide { max-width: 760px; }
+    .ie-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .ie-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    @media (max-width: 620px) { .ie-row2, .ie-row3 { grid-template-columns: 1fr; } }
+    .ie-item { display: grid; grid-template-columns: 1fr 120px 32px; gap: 8px; margin-bottom: 8px; }
+    .ie-item input { padding: 9px 11px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; }
+    .ie-del { appearance: none; border: 0; background: none; cursor: pointer; color: rgba(28,29,34,0.4); font-size: 18px; border-radius: 6px; }
+    .ie-del:hover { background: rgba(28,29,34,0.06); color: #a3372b; }
+    .ie-totals { display: flex; gap: 16px; justify-content: flex-end; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); margin: 4px 0 14px; }
+    .ie-totals strong { color: var(--english-violet); }
+    .ie-check { display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 13.5px; color: var(--ink); margin-bottom: 14px; cursor: pointer; }
     .inv-logo-row { display: flex; gap: 8px; align-items: stretch; }
     .inv-logo-row input { flex: 1; }
     .inv-upload { display: inline-flex; align-items: center; padding: 0 16px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.14); background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ink); cursor: pointer; white-space: nowrap; transition: background 0.15s; }
@@ -638,45 +695,22 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return null; }
       const payload = { bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, release_on_payment: ciRelease, terms_days: inv.terms_days, line_items: inv.line_items };
 
-      // Editing a draft updates it. Nothing has been sent, so there is no
-      // reason to burn a number or leave a void behind.
-      if (ciEditing && ciEditing.status === "draft") {
-        const { invoice } = await api("/invoicing/invoices", {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: ciEditing.id, ...payload }),
-        });
-        return invoice;
-      }
-
       const { invoice } = await api("/invoicing/invoices", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, recipient_id: $("ci-recip").value || null, template: ciTemplate }),
       });
       currentSettings.next_number = (currentSettings.next_number || 1001) + 1;
 
-      // Reissuing a SENT invoice: void the original, but only now the
-      // replacement exists. The other order risks voiding with nothing to show.
-      if (ciEditing && ciEditing.status !== "draft") {
-        try {
-          await api("/invoicing/invoices", {
-            method: "PATCH", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: ciEditing.id, status: "void" }),
-          });
-        } catch (_) {}
-      }
       return invoice;
     }
-    function ciReset() { ciEditing = null; $("ci-create").textContent = "Save draft"; $("ci-send").textContent = "Create & send"; ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-cc").value = currentSettings.accounts_cc_email || ""; $("ci-recip").value = ""; ciRefresh(); }
+    function ciReset() { ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-cc").value = currentSettings.accounts_cc_email || ""; $("ci-recip").value = ""; ciRefresh(); }
     $("ci-create").addEventListener("click", async () => {
       const btn = $("ci-create"); btn.disabled = true; btn.textContent = "Saving…";
-      const wasEditing = ciEditing;
       try {
         const invoice = await ciCreate(false);
         if (invoice) {
-          msg("ci-msg", wasEditing && wasEditing.status === "draft"
-            ? `Draft ${invoice.number} updated.`
-            : `Draft ${invoice.number} saved — see the Invoices tab.${wasEditing ? ` ${wasEditing.number} voided.` : ""}`, true);
-          ciEditing = null; ciReset(); loadInvoices();
+          msg("ci-msg", `Draft ${invoice.number} saved — see the Invoices tab.`, true);
+          ciReset(); loadInvoices();
         }
       }
       catch (err) { msg("ci-msg", err.message, false); }
@@ -684,7 +718,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     });
     $("ci-send").addEventListener("click", async () => {
       const btn = $("ci-send"); btn.disabled = true; btn.textContent = "Creating…";
-      try { const invoice = await ciCreate(true); if (invoice) { ciEditing = null; openEmailModal(invoice, true); } }
+      try { const invoice = await ciCreate(true); if (invoice) openEmailModal(invoice, true); }
       catch (err) { msg("ci-msg", err.message, false); }
       finally { btn.disabled = false; btn.textContent = "Create & send"; }
     });
@@ -752,54 +786,128 @@ import AdminShell from "../../components/admin/AdminShell.astro";
        client holds a numbered document, and quietly changing ours would leave
        two different papers claiming to be TMKE1022. The Worker enforces the
        same rule, so this cannot be bypassed from the page. */
-    let ciEditing = null;     // { id, number, status } while editing
+
+    /* Editing has its own dialog rather than borrowing the Create tab. Reusing
+       Create meant the page had to pretend to be two things at once - and left
+       you looking at a form whose buttons said one thing and whose behaviour
+       was another. */
+    let ieInv = null, ieItems = [];
 
     async function editInvoice(id) {
-      // Deliberately does NOT require the row to be in invList first. It used
-      // to, and a stale list meant this returned without a word - which looks
-      // exactly like a form that refuses to be edited.
-      if (!id) { ciMsg("That invoice has no id — reload the page and try again.", true); return; }
-      document.querySelector('[data-tab="create"]')?.click();
-      ciMsg("Loading…");
-      // Through the Worker rather than straight from the table: the list select
-      // carries no line items, and a direct read depends on the admin's own RLS
-      // row, which is one more thing that can quietly return nothing.
+      if (!id) return;
+      const scrim = $("inv-edit-modal");
+      $("ie-msg").hidden = true;
+      $("ie-num").textContent = "";
+      $("ie-sub").textContent = "Loading…";
+      scrim.hidden = false;
       let full;
-      try {
-        full = (await api(`/invoicing/invoice?id=${encodeURIComponent(id)}`)).invoice;
-      } catch (err) {
-        ciMsg("Couldn't load that invoice: " + err.message, true);
-        return;
-      }
-      if (!full) { ciMsg("Couldn't load that invoice — the Worker returned nothing.", true); return; }
-      if (!Array.isArray(full.line_items)) full.line_items = [];
+      try { full = (await api(`/invoicing/invoice?id=${encodeURIComponent(id)}`)).invoice; }
+      catch (err) { ieMsg("Couldn't load that invoice: " + err.message, false); $("ie-sub").textContent = ""; return; }
+      if (!full) { ieMsg("Couldn't load that invoice.", false); return; }
 
-      ciItems = (full.line_items || []).map((it) => ({
+      ieInv = full;
+      ieItems = (full.line_items || []).map((it) => ({
         description: it.description || "",
         amount: (((it.unit_pence || 0) * (it.qty || 1)) / 100).toFixed(2),
       }));
-      if (!ciItems.length) ciItems = [{ description: "", amount: "" }];
-      $("ci-name").value = full.bill_to_name || "";
-      $("ci-email").value = full.bill_to_email || "";
-      $("ci-address").value = full.bill_to_address || "";
-      $("ci-cc").value = full.cc_email || "";
-      $("ci-issued").value = (full.issued_date || "").slice(0, 10) || isoToday();
-      $("ci-due").value = (full.due_date || "").slice(0, 10) || "";
-      $("ci-notes").value = full.notes || "";
-      $("ci-terms").value = full.terms_days ?? "";
-      ciPayByCard = !!full.pay_by_card; syncCiPay();
-      ciRelease = !!full.release_on_payment; syncCiRelease();
-      ciEditing = { id: full.id, number: full.number, status: full.status };
+      if (!ieItems.length) ieItems = [{ description: "", amount: "" }];
+
+      $("ie-num").textContent = full.number || "";
+      $("ie-name").value = full.bill_to_name || "";
+      $("ie-email").value = full.bill_to_email || "";
+      $("ie-address").value = full.bill_to_address || "";
+      $("ie-cc").value = full.cc_email || "";
+      $("ie-issued").value = (full.issued_date || "").slice(0, 10);
+      $("ie-due").value = (full.due_date || "").slice(0, 10);
+      $("ie-terms").value = full.terms_days ?? "";
+      $("ie-notes").value = full.notes || "";
+      $("ie-card").checked = !!full.pay_by_card;
 
       const draft = full.status === "draft";
-      $("ci-create").textContent = draft ? "Save changes" : "Reissue as draft";
-      $("ci-send").textContent = draft ? "Save & send" : "Reissue & send";
-      ciMsg(draft
-        ? `Editing draft ${full.number}.`
-        : `${full.number} has been sent, so saving raises a NEW invoice and voids ${full.number}.`);
-      ciRefresh();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      $("ie-save").textContent = draft ? "Save changes" : "Reissue invoice";
+      $("ie-sub").textContent = draft
+        ? "This is still a draft, so changes save straight to it."
+        : `${full.number} has already been sent. Saving raises a new invoice and voids this one — a sent invoice can't be quietly rewritten.`;
+      ieRenderItems();
     }
+
+    function ieMsg(text, ok) { const m = $("ie-msg"); m.textContent = text; m.className = "inv-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
+    function ieClose() { $("inv-edit-modal").hidden = true; ieInv = null; }
+
+    function ieTotals() {
+      const rate = Number(currentSettings.vat_rate ?? 20);
+      const subtotal = ieItems.reduce((n, it) => n + Math.round((parseFloat(it.amount) || 0) * 100), 0);
+      const vat = Math.round(subtotal * rate / 100);
+      return { subtotal, vat, total: subtotal + vat, rate };
+    }
+
+    function ieRenderItems() {
+      $("ie-items").innerHTML = ieItems.map((it, i) => `<div class="ie-item">
+        <input class="ie-desc" data-i="${i}" placeholder="Description" value="${esc(it.description)}" />
+        <input class="ie-amt" data-i="${i}" type="number" step="0.01" placeholder="0.00" value="${esc(it.amount)}" />
+        <button type="button" class="ie-del" data-i="${i}" title="Remove">&times;</button></div>`).join("");
+      const t = ieTotals();
+      $("ie-totals").innerHTML = `<span>Sub-total ${gbp(t.subtotal)}</span><span>VAT (${t.rate}%) ${gbp(t.vat)}</span><strong>Total ${gbp(t.total)}</strong>`;
+    }
+
+    $("ie-items").addEventListener("input", (e) => {
+      const i = +e.target.getAttribute("data-i");
+      if (e.target.classList.contains("ie-desc")) ieItems[i].description = e.target.value;
+      else if (e.target.classList.contains("ie-amt")) ieItems[i].amount = e.target.value;
+      const t = ieTotals();
+      $("ie-totals").innerHTML = `<span>Sub-total ${gbp(t.subtotal)}</span><span>VAT (${t.rate}%) ${gbp(t.vat)}</span><strong>Total ${gbp(t.total)}</strong>`;
+    });
+    $("ie-items").addEventListener("click", (e) => {
+      const del = e.target.closest(".ie-del"); if (!del) return;
+      ieItems.splice(+del.getAttribute("data-i"), 1);
+      if (!ieItems.length) ieItems = [{ description: "", amount: "" }];
+      ieRenderItems();
+    });
+    $("ie-add").addEventListener("click", () => { ieItems.push({ description: "", amount: "" }); ieRenderItems(); });
+    $("ie-cancel").addEventListener("click", ieClose);
+    $("inv-edit-modal").addEventListener("click", (e) => { if (e.target === $("inv-edit-modal")) ieClose(); });
+
+    $("ie-save").addEventListener("click", async () => {
+      if (!ieInv) return;
+      const items = ieItems
+        .filter((it) => it.description || it.amount)
+        .map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) }));
+      if (!$("ie-name").value.trim()) { ieMsg("Enter who this is billed to.", false); return; }
+      if (!items.length) { ieMsg("Add at least one line item.", false); return; }
+
+      const payload = {
+        bill_to_name: $("ie-name").value.trim(),
+        bill_to_email: $("ie-email").value.trim() || null,
+        bill_to_address: $("ie-address").value.trim() || null,
+        cc_email: $("ie-cc").value.trim() || null,
+        issued_date: $("ie-issued").value || null,
+        due_date: $("ie-due").value || null,
+        terms_days: $("ie-terms").value === "" ? null : Number($("ie-terms").value),
+        notes: $("ie-notes").value.trim() || null,
+        pay_by_card: $("ie-card").checked,
+        // Kept from the original: a shoot invoice must not lose its
+        // content-release terms just because it was edited here.
+        release_on_payment: !!ieInv.release_on_payment,
+        line_items: items,
+      };
+
+      const btn = $("ie-save"); const label = btn.textContent;
+      btn.disabled = true; btn.textContent = "Saving…";
+      try {
+        if (ieInv.status === "draft") {
+          await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: ieInv.id, ...payload }) });
+          ieMsg(`${ieInv.number} updated.`, true);
+        } else {
+          const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, booking_id: ieInv.booking_id || null, booking_source: ieInv.booking_source || null }) });
+          // Void the original only once its replacement exists.
+          await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: ieInv.id, status: "void" }) });
+          ieMsg(`${invoice.number} raised. ${ieInv.number} voided.`, true);
+        }
+        loadInvoices();
+        setTimeout(ieClose, 900);
+      } catch (err) { ieMsg(err.message, false); }
+      finally { btn.disabled = false; btn.textContent = label; }
+    });
 
     function ciMsg(text, bad) {
       const el = $("ci-msg");
@@ -818,7 +926,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         const d = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
         wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="invrow-tools">
             ${v.paid_date
-              ? `<span class="paidon">Paid ${d(v.paid_date)}</span>`
+              ? `<span class="paidon">Paid ${d(v.paid_date)}</span><span></span>`
               : `${v.status !== "void" && v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : "<span></span>"}
                  ${v.status !== "void" ? `<button type="button" class="markpaid" data-id="${esc(v.id)}">Paid</button>` : "<span></span>"}`}
             ${v.status !== "void" ? `<button type="button" class="invedit" data-editid="${esc(v.id)}">Edit</button>` : "<span></span>"}
