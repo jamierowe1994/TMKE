@@ -754,8 +754,12 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     let ciEditing = null;     // { id, number, status } while editing
 
     async function editInvoice(id) {
-      const inv = invList.find((x) => x.id === id);
-      if (!inv) return;
+      // Deliberately does NOT require the row to be in invList first. It used
+      // to, and a stale list meant this returned without a word - which looks
+      // exactly like a form that refuses to be edited.
+      if (!id) { ciMsg("That invoice has no id — reload the page and try again.", true); return; }
+      document.querySelector('[data-tab="create"]')?.click();
+      ciMsg("Loading…");
       // Through the Worker rather than straight from the table: the list select
       // carries no line items, and a direct read depends on the admin's own RLS
       // row, which is one more thing that can quietly return nothing.
@@ -764,10 +768,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         full = (await api(`/invoicing/invoice?id=${encodeURIComponent(id)}`)).invoice;
       } catch (err) {
         ciMsg("Couldn't load that invoice: " + err.message, true);
-        document.querySelector('[data-tab="create"]')?.click();
         return;
       }
-      if (!full) { ciMsg("Couldn't load that invoice.", true); return; }
+      if (!full) { ciMsg("Couldn't load that invoice — the Worker returned nothing.", true); return; }
+      if (!Array.isArray(full.line_items)) full.line_items = [];
 
       ciItems = (full.line_items || []).map((it) => ({
         description: it.description || "",
@@ -792,7 +796,6 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       ciMsg(draft
         ? `Editing draft ${full.number}.`
         : `${full.number} has been sent, so saving raises a NEW invoice and voids ${full.number}.`);
-      document.querySelector('[data-tab="create"]')?.click();
       ciRefresh();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
