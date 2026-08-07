@@ -5339,6 +5339,50 @@ export default {
         const b = await request.json().catch(() => ({}));
         const id = String((b && b.id) || "").trim();
         const status = ["draft", "sent", "paid", "void"].includes(b && b.status) ? b.status : null;
+
+        // Editing the CONTENT of an invoice, as opposed to its status. Only
+        // allowed while it is still a draft: once an invoice has been sent the
+        // client holds a numbered document, and quietly changing ours would
+        // leave two different papers claiming to be the same invoice. A sent
+        // invoice is reissued instead.
+        if (!status && b && Array.isArray(b.line_items)) {
+          const cur = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=status`))?.[0];
+          if (!cur) return json({ error: "Invoice not found." }, 404, request, env);
+          if (cur.status !== "draft") return json({ error: "Only a draft can be edited. Reissue a sent invoice instead." }, 409, request, env);
+
+          const items = b.line_items
+            .map((it) => ({ description: String((it && it.description) || "").trim(), qty: it && it.qty != null ? Number(it.qty) : 1, unit_pence: Math.round(Number((it && it.unit_pence) || 0)) }))
+            .filter((it) => it.description || it.unit_pence);
+          if (!items.length) return json({ error: "Add at least one line item." }, 400, request, env);
+
+          const st2 = (await sbGet(env, "invoice_settings", "id=eq.1&select=vat_rate"))?.[0] || {};
+          const vatRate2 = st2.vat_rate != null ? Number(st2.vat_rate) : 20;
+          const subtotal2 = items.reduce((sum, it) => sum + it.unit_pence * (it.qty || 1), 0);
+          const vat2 = Math.round(subtotal2 * vatRate2 / 100);
+          const patch2 = {
+            line_items: items, subtotal_pence: subtotal2, vat_pence: vat2, total_pence: subtotal2 + vat2,
+            bill_to_name: (b.bill_to_name || "").trim() || null,
+            bill_to_email: b.bill_to_email || null,
+            bill_to_address: b.bill_to_address || null,
+            cc_email: b.cc_email !== undefined ? (String(b.cc_email || "").trim() || null) : undefined,
+            issued_date: b.issued_date || null, due_date: b.due_date || null,
+            notes: b.notes || null,
+            pay_by_card: !!b.pay_by_card,
+            release_on_payment: !!b.release_on_payment,
+            terms_days: (b.terms_days != null && b.terms_days !== "") ? Math.max(0, Math.round(Number(b.terms_days))) : null,
+          };
+          Object.keys(patch2).forEach((k) => patch2[k] === undefined && delete patch2[k]);
+          let pr2 = await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(id)}`, patch2);
+          if (!pr2.ok) {
+            // The optional columns again - save the edit rather than lose it.
+            const { terms_days: _t, release_on_payment: _r, pay_by_card: _p, ...lean } = patch2;
+            pr2 = await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(id)}`, lean);
+            if (!pr2.ok) return json({ error: "Couldn't save the changes." }, 502, request, env);
+          }
+          const updated = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`))?.[0] || null;
+          return json({ ok: true, invoice: updated }, 200, request, env);
+        }
+
         if (!id || !status) return json({ error: "Missing id or status." }, 400, request, env);
         const patch = { status };
         if (status === "paid") patch.paid_date = (b && b.paid_date) || new Date().toISOString().slice(0, 10);

@@ -625,20 +625,55 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!inv.bill_to_name) { msg("ci-msg", "Enter a recipient name.", false); return null; }
       if (requireEmail && !inv.bill_to_email) { msg("ci-msg", "Enter a recipient email to send to.", false); return null; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return null; }
-      const { invoice } = await api("/invoicing/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, release_on_payment: ciRelease, terms_days: inv.terms_days, line_items: inv.line_items }) });
+      const payload = { bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, release_on_payment: ciRelease, terms_days: inv.terms_days, line_items: inv.line_items };
+
+      // Editing a draft updates it. Nothing has been sent, so there is no
+      // reason to burn a number or leave a void behind.
+      if (ciEditing && ciEditing.status === "draft") {
+        const { invoice } = await api("/invoicing/invoices", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: ciEditing.id, ...payload }),
+        });
+        return invoice;
+      }
+
+      const { invoice } = await api("/invoicing/invoices", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, recipient_id: $("ci-recip").value || null, template: ciTemplate }),
+      });
       currentSettings.next_number = (currentSettings.next_number || 1001) + 1;
+
+      // Reissuing a SENT invoice: void the original, but only now the
+      // replacement exists. The other order risks voiding with nothing to show.
+      if (ciEditing && ciEditing.status !== "draft") {
+        try {
+          await api("/invoicing/invoices", {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: ciEditing.id, status: "void" }),
+          });
+        } catch (_) {}
+      }
       return invoice;
     }
-    function ciReset() { ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-cc").value = currentSettings.accounts_cc_email || ""; $("ci-recip").value = ""; ciRefresh(); }
+    function ciReset() { ciEditing = null; $("ci-create").textContent = "Save draft"; $("ci-send").textContent = "Create & send"; ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-cc").value = currentSettings.accounts_cc_email || ""; $("ci-recip").value = ""; ciRefresh(); }
     $("ci-create").addEventListener("click", async () => {
       const btn = $("ci-create"); btn.disabled = true; btn.textContent = "Saving…";
-      try { const invoice = await ciCreate(false); if (invoice) { msg("ci-msg", `Draft ${invoice.number} saved — see the Invoices tab.`, true); ciReset(); } }
+      const wasEditing = ciEditing;
+      try {
+        const invoice = await ciCreate(false);
+        if (invoice) {
+          msg("ci-msg", wasEditing && wasEditing.status === "draft"
+            ? `Draft ${invoice.number} updated.`
+            : `Draft ${invoice.number} saved — see the Invoices tab.${wasEditing ? ` ${wasEditing.number} voided.` : ""}`, true);
+          ciEditing = null; ciReset(); loadInvoices();
+        }
+      }
       catch (err) { msg("ci-msg", err.message, false); }
       finally { btn.disabled = false; btn.textContent = "Save draft"; }
     });
     $("ci-send").addEventListener("click", async () => {
       const btn = $("ci-send"); btn.disabled = true; btn.textContent = "Creating…";
-      try { const invoice = await ciCreate(true); if (invoice) openEmailModal(invoice, true); }
+      try { const invoice = await ciCreate(true); if (invoice) { ciEditing = null; openEmailModal(invoice, true); } }
       catch (err) { msg("ci-msg", err.message, false); }
       finally { btn.disabled = false; btn.textContent = "Create & send"; }
     });
@@ -699,6 +734,60 @@ import AdminShell from "../../components/admin/AdminShell.astro";
 
     // ---- Invoices list ----
     let invList = [];
+    /* Editing an invoice.
+
+       A draft is edited in place - nothing has left the building, so there is
+       no reason to burn a number. A SENT invoice is reissued instead: the
+       client holds a numbered document, and quietly changing ours would leave
+       two different papers claiming to be TMKE1022. The Worker enforces the
+       same rule, so this cannot be bypassed from the page. */
+    let ciEditing = null;     // { id, number, status } while editing
+
+    async function editInvoice(id) {
+      const inv = invList.find((x) => x.id === id);
+      if (!inv) return;
+      // The list select is lean and carries no line items, so read the whole
+      // row. Admins can, by the invoices table's own RLS.
+      let full = inv;
+      const { data, error } = await supabase.from("invoices").select("*").eq("id", id).maybeSingle();
+      if (error || !data) { ciMsg("Couldn't load that invoice.", true); return; }
+      full = data;
+
+      ciItems = (full.line_items || []).map((it) => ({
+        description: it.description || "",
+        amount: (((it.unit_pence || 0) * (it.qty || 1)) / 100).toFixed(2),
+      }));
+      if (!ciItems.length) ciItems = [{ description: "", amount: "" }];
+      $("ci-name").value = full.bill_to_name || "";
+      $("ci-email").value = full.bill_to_email || "";
+      $("ci-address").value = full.bill_to_address || "";
+      $("ci-cc").value = full.cc_email || "";
+      $("ci-issued").value = (full.issued_date || "").slice(0, 10) || isoToday();
+      $("ci-due").value = (full.due_date || "").slice(0, 10) || "";
+      $("ci-notes").value = full.notes || "";
+      $("ci-terms").value = full.terms_days ?? "";
+      ciPayByCard = !!full.pay_by_card; syncCiPay();
+      ciRelease = !!full.release_on_payment; syncCiRelease();
+      ciEditing = { id: full.id, number: full.number, status: full.status };
+
+      const draft = full.status === "draft";
+      $("ci-create").textContent = draft ? "Save changes" : "Reissue as draft";
+      $("ci-send").textContent = draft ? "Save & send" : "Reissue & send";
+      ciMsg(draft
+        ? `Editing draft ${full.number}.`
+        : `${full.number} has been sent, so saving raises a NEW invoice and voids ${full.number}.`);
+      document.querySelector('[data-tab="create"]')?.click();
+      ciRefresh();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function ciMsg(text, bad) {
+      const el = $("ci-msg");
+      if (!el) return;
+      el.hidden = !text; el.textContent = text || "";
+      el.style.color = bad ? "#8a3b2f" : "var(--english-violet)";
+    }
+
     async function loadInvoices() {
       const wrap = $("inv-list");
       if (!WORKER) { wrap.innerHTML = '<p class="inv-empty">Connect the Worker to view invoices.</p>'; return; }
@@ -707,12 +796,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         invList = invoices || [];
         if (!invoices.length) { wrap.innerHTML = '<p class="inv-empty">No invoices yet — create one.</p>'; return; }
         const d = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
-        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="invrow-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="markpaid" data-id="${esc(v.id)}">Mark paid</button>` : `<span style="font-size:11.5px;color:rgba(28,29,34,0.45)">${v.paid_date ? "Paid " + d(v.paid_date) : ""}</span>`}<button type="button" class="invvoid" data-voidid="${esc(v.id)}">Void</button><button type="button" class="invdel" data-delid="${esc(v.id)}">Delete</button></span></div>`).join("");
+        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="invrow-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="markpaid" data-id="${esc(v.id)}">Mark paid</button>` : `<span style="font-size:11.5px;color:rgba(28,29,34,0.45)">${v.paid_date ? "Paid " + d(v.paid_date) : ""}</span>`}${v.status !== "void" ? `<button type="button" class="invedit" data-editid="${esc(v.id)}">Edit</button>` : ""}<button type="button" class="invvoid" data-voidid="${esc(v.id)}">Void</button><button type="button" class="invdel" data-delid="${esc(v.id)}">Delete</button></span></div>`).join("");
       } catch (err) { wrap.innerHTML = `<p class="inv-empty">${esc(err.message)}</p>`; }
     }
     $("inv-list").addEventListener("click", async (e) => {
       const paid = e.target.closest(".markpaid");
       if (paid) { paid.disabled = true; try { await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: paid.getAttribute("data-id"), status: "paid" }) }); loadInvoices(); } catch (err) { alert(err.message); paid.disabled = false; } return; }
+      const ed = e.target.closest(".invedit");
+      if (ed) { editInvoice(ed.getAttribute("data-editid")); return; }
       const send = e.target.closest(".invsend");
       if (send) { const inv = invList.find((x) => x.id === send.getAttribute("data-sendid")); if (inv) openEmailModal(inv, false); return; }
       const del = e.target.closest(".invdel");
