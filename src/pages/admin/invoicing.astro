@@ -3,6 +3,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
 ---
 
 <AdminShell active="invoicing" title="Invoicing">
+  <div class="ash-panel ash-page">
   <div class="inv-wrap">
     <nav class="inv-tabs" id="inv-tabs">
       <button type="button" class="inv-tab is-active" data-tab="create">Create invoice</button>
@@ -194,8 +195,8 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     </section>
 
     <!-- Email review (QuickBooks-style edit-before-send) -->
-    <div class="cim-scrim" id="inv-edit-modal" hidden>
-      <div class="cim cim--wide" role="dialog" aria-modal="true" aria-label="Edit invoice">
+    <dialog class="ie-dialog" id="inv-edit-modal" aria-label="Edit invoice">
+      <div class="cim cim--wide">
         <h3>Edit invoice <span id="ie-num"></span></h3>
         <p class="cim-sub" id="ie-sub"></p>
         <div class="ie-row2">
@@ -225,7 +226,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           <button type="button" class="inv-save" id="ie-save">Save changes</button>
         </div>
       </div>
-    </div>
+    </dialog>
 
     <div class="cim-scrim" id="ci-email-modal" hidden>
       <div class="cim" role="dialog" aria-modal="true" aria-label="Send invoice">
@@ -244,9 +245,15 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       </div>
     </div>
   </div>
+  </div>
 
   <style is:global>
-    .inv-wrap { max-width: 900px; }
+    /* Was 900px, which made this the only admin page on a different width and
+       left the invoice rows wider than the card they sat on. The page card now
+       sets the width, as it does everywhere else; the forms keep their own
+       comfortable measure below. */
+    .inv-wrap { max-width: none; }
+    .inv-panel[data-panel="settings"], .inv-panel[data-panel="book"] { max-width: 900px; }
     .inv-tabs { display: flex; gap: 4px; margin-bottom: 18px; }
     .inv-tab { appearance: none; cursor: pointer; background: none; border: 0; border-radius: 9px; padding: 9px 16px; font-family: var(--sans); font-size: 13.5px; font-weight: 700; color: rgba(28,29,34,0.55); transition: background 0.15s, color 0.15s; }
     .inv-tab:hover { background: rgba(28,29,34,0.05); color: var(--ink); }
@@ -339,7 +346,8 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .ci-totals { margin-top: 14px; border-top: 1px solid rgba(28,29,34,0.1); padding-top: 12px; font-family: var(--sans); }
     .ci-totals .r { display: flex; justify-content: space-between; font-size: 13.5px; padding: 3px 0; color: rgba(28,29,34,0.7); }
     .ci-totals .r.grand { font-size: 16px; font-weight: 800; color: var(--ink); margin-top: 4px; }
-    .inv-list { display: flex; flex-direction: column; gap: 8px; }
+    .inv-list { display: flex; flex-direction: column; gap: 8px; overflow-x: auto; }
+    .invrow { min-width: 860px; }
     /* No cap on this panel: the row needs the width, and capping it was what
        forced the name column and the buttons to compete for the same pixels. */
     .inv-panel[data-panel="invoices"] { max-width: none; }
@@ -400,6 +408,11 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .cim-note { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 0 0 16px; }
     .cim-actions { display: flex; justify-content: flex-end; gap: 10px; }
     .cim--wide { max-width: 760px; }
+    /* A native dialog sits in the browser's top layer, so nothing on the page -
+       no iframe, no overlay, no stacking context - can cover it or take its
+       keystrokes. That is the point of using one here. */
+    .ie-dialog { border: 0; padding: 0; background: none; max-width: 780px; width: calc(100% - 32px); }
+    .ie-dialog::backdrop { background: rgba(20,18,26,0.5); }
     .ie-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .ie-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
     @media (max-width: 620px) { .ie-row2, .ie-row3 { grid-template-columns: 1fr; } }
@@ -795,11 +808,11 @@ import AdminShell from "../../components/admin/AdminShell.astro";
 
     async function editInvoice(id) {
       if (!id) return;
-      const scrim = $("inv-edit-modal");
+      const dlg = $("inv-edit-modal");
       $("ie-msg").hidden = true;
       $("ie-num").textContent = "";
       $("ie-sub").textContent = "Loading…";
-      scrim.hidden = false;
+      if (!dlg.open) dlg.showModal();
       let full;
       try { full = (await api(`/invoicing/invoice?id=${encodeURIComponent(id)}`)).invoice; }
       catch (err) { ieMsg("Couldn't load that invoice: " + err.message, false); $("ie-sub").textContent = ""; return; }
@@ -832,7 +845,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     }
 
     function ieMsg(text, ok) { const m = $("ie-msg"); m.textContent = text; m.className = "inv-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
-    function ieClose() { $("inv-edit-modal").hidden = true; ieInv = null; }
+    function ieClose() { const d = $("inv-edit-modal"); if (d.open) d.close(); ieInv = null; }
 
     function ieTotals() {
       const rate = Number(currentSettings.vat_rate ?? 20);
@@ -865,7 +878,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     });
     $("ie-add").addEventListener("click", () => { ieItems.push({ description: "", amount: "" }); ieRenderItems(); });
     $("ie-cancel").addEventListener("click", ieClose);
+    // Clicking the backdrop targets the dialog itself.
     $("inv-edit-modal").addEventListener("click", (e) => { if (e.target === $("inv-edit-modal")) ieClose(); });
+    $("inv-edit-modal").addEventListener("cancel", () => { ieInv = null; });
 
     $("ie-save").addEventListener("click", async () => {
       if (!ieInv) return;
